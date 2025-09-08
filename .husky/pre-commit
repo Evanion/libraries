@@ -1,2 +1,13 @@
-# Run linting for all projects
-npx nx run-many --target=lint --all --parallel=3
+#!/bin/sh
+
+# Run linting only for affected projects
+echo "🔍 Running linting on affected projects..."
+npx nx affected --target=lint --parallel=3
+
+# If no projects are affected, skip linting
+if [ $? -eq 0 ]; then
+  echo "✅ Linting passed for affected projects"
+else
+  echo "❌ Linting failed for affected projects"
+  exit 1
+fi

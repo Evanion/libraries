@@ -142,7 +142,9 @@ describe('Default Components', () => {
   });
 
   it('should handle widget errors gracefully with error boundary', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
     const FailingWidget = () => {
       throw new Error('Widget failed to render');

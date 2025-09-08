@@ -55,9 +55,26 @@ npm run commit
 
 This will guide you through creating a properly formatted commit message.
 
+### Pre-commit Hooks
+
+This project uses Husky pre-commit hooks that run **only on affected projects** using Nx:
+
+- **Linting**: Automatically runs `nx affected --target=lint` on changed projects
+- **Efficiency**: Only lints projects that have been modified, not the entire repository
+- **Parallel**: Runs up to 3 projects in parallel for faster execution
+
 ### Commit Linting
 
 All commit messages are automatically linted using commitlint. If your commit message doesn't follow the convention, the commit will be rejected with helpful error messages.
+
+### Optional: Full Pre-commit with Tests
+
+If you want to run tests on affected projects as well, you can use:
+
+```bash
+# Replace the pre-commit hook temporarily
+cp .husky/pre-commit-with-tests .husky/pre-commit
+```
 
 ### Breaking Changes
 

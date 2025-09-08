@@ -376,7 +376,7 @@ describe('Widget System - Nested Widgets', () => {
       <p data-testid="text">{content}</p>
     );
 
-    const { Widgets, Output } = createWidgets({
+    const { Widgets } = createWidgets({
       components: {
         card: CardWidget,
         text: TextWidget,
@@ -457,7 +457,9 @@ describe('Widget System - Nested Widgets', () => {
   });
 
   it('should log warnings for unknown widget types', () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     const { Widgets } = createWidgets({
       components: {

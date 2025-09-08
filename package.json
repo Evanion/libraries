@@ -5,7 +5,9 @@
   "scripts": {
     "commit": "cz",
     "commit:check": "commitlint --edit",
-    "prepare": "husky"
+    "prepare": "husky",
+    "pre-commit:with-tests": "cp .husky/pre-commit .husky/pre-commit.backup && cp .husky/pre-commit-with-tests .husky/pre-commit",
+    "pre-commit:restore": "cp .husky/pre-commit.backup .husky/pre-commit && rm .husky/pre-commit.backup"
   },
   "private": true,
   "devDependencies": {
