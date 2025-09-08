@@ -1,0 +1,2 @@
+# Run linting for all projects
+npx nx run-many --target=lint --all --parallel=3
