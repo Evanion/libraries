@@ -37,6 +37,10 @@
     "content/**/*.tsx",
     "content/**/*.js",
     "content/**/*.jsx",
+    "components/**/*.js",
+    "components/**/*.jsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "mdx-components.js"

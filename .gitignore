@@ -53,3 +53,6 @@ error.log
 # Next.js
 .next
 out
+
+# Pagefind search index
+_pagefind/

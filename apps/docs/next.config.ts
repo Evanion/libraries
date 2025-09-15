@@ -14,7 +14,11 @@ const nextConfig = {
 
 // Set up Nextra with its configuration
 const withNextra = nextra({
-  // ... Add Nextra-specific options here
+  defaultShowCopyCode: true,
+  latex: true,
+  search: {
+    codeblocks: false,
+  },
 });
 
 const plugins = [
