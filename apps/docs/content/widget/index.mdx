@@ -1,3 +1,107 @@
-# `@evanion/widget`
+# React Widget System
 
-This is a placeholder for the start of the widget documentation
+A powerful and flexible widget system for building dynamic, composable React applications with TypeScript support.
+
+## Overview
+
+The React Widget System allows you to create dynamic, data-driven user interfaces by defining reusable widget components and rendering them from configuration data. Perfect for CMS-driven layouts, dashboards, and any application that needs flexible, composable UI.
+
+## Key Features
+
+- 🎯 **TypeScript First** - Full type safety with generic widget definitions
+- 🧩 **Composable** - Build complex layouts from simple widget components
+- 🎨 **Customizable** - Custom chrome (wrappers) and styling
+- 🚀 **Performance** - Memoized rendering and error boundaries
+- 🔄 **Dynamic** - Render widgets from configuration data
+- 🛡️ **Robust** - Built-in error handling and loading states
+- 🧪 **Tested** - Comprehensive test coverage
+
+## Quick Start
+
+```bash
+npm install @evanion/react-widget
+```
+
+### Try It Live
+
+Edit the code below to see the widget system in action:
+
+<WidgetPlayground
+  initialCode={`const NewsTeaser = ({ title, publishedAt, body }: { title: string; publishedAt: Date; body: string }) => (
+  <article className="border border-gray-300 dark:border-gray-600 p-4 my-2 rounded-lg bg-white dark:bg-gray-800">
+    <h3 className="mb-2 text-gray-900 dark:text-gray-100 font-semibold">{title}</h3>
+    <time className="text-gray-600 dark:text-gray-400 text-sm">
+      {publishedAt.toLocaleDateString()}
+    </time>
+    <p className="mt-2 text-gray-700 dark:text-gray-300">{body}</p>
+  </article>
+);
+
+const UserSidebar = ({ username, avatar, messages }: { username: string; avatar: string; messages: number }) => (
+
+<div className="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg my-2 bg-white dark:bg-gray-800">
+  <img src={avatar} alt={username} className="w-10 h-10 rounded-full mr-3" />
+  <div>
+    <div className="font-bold text-gray-900 dark:text-gray-100">{username}</div>
+    <div className="text-sm text-gray-600 dark:text-gray-400">
+      {messages} messages
+    </div>
+  </div>
+</div>
+);
+
+const { Widgets } = createWidgets({
+components: {
+news: NewsTeaser,
+userInfo: UserSidebar,
+},
+});
+
+const items = [
+{
+id: 'userinfo',
+type: 'userInfo',
+props: {
+username: 'Evanion',
+avatar: 'https://via.placeholder.com/40',
+messages: 5,
+},
+children: [],
+},
+{
+id: 'news1',
+type: 'news',
+props: {
+title: 'Breaking News',
+publishedAt: new Date(),
+body: 'Try editing this text to see the widget update!',
+},
+children: [],
+},
+];
+
+render(<Widgets items={items} />)`} height={450}
+/>
+
+## Use Cases
+
+- **CMS-Driven Layouts** - Render page layouts from CMS data
+- **Dashboards** - Dynamic admin panels with configurable widgets
+- **Blog Sidebars** - Composable sidebar components
+- **E-commerce** - Product showcases and promotional layouts
+- **Content Management** - Flexible content editing interfaces
+
+## Documentation Sections
+
+- **[Getting Started](/widget/getting-started)** - Installation and basic concepts
+- **[API Reference](/widget/api)** - Complete API documentation
+- **[Examples](/widget/examples)** - Real-world usage patterns
+- **[Advanced Patterns](/widget/advanced)** - Custom chrome and nested widgets
+- **[Migration Guide](/widget/migration)** - Upgrading between versions
+
+## Community
+
+- 💬 [Discord Community](https://discord.gg/your-discord)
+- 🐛 [Report Issues](https://github.com/evanion/open-source/issues)
+- 💡 [Request Features](https://github.com/evanion/open-source/discussions)
+- 📖 [Contributing Guide](/contributing)
