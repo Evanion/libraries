@@ -1,0 +1,97 @@
+# Version History
+
+Track the evolution of the React Widget library across different versions.
+
+## Current Version: v2.0.0
+
+### Latest Features
+- Enhanced TypeScript support
+- Improved accessibility
+- New variant options
+- Better performance
+
+### Breaking Changes
+- `onToggle` prop renamed to `onStateChange`
+- `variant` prop now requires explicit type
+
+## Version 1.5.0
+
+### New Features
+- Added `loading` state support
+- New `success` and `warning` variants
+- Improved mobile responsiveness
+
+### Bug Fixes
+- Fixed click event propagation
+- Resolved memory leaks in long-running components
+
+## Version 1.0.0
+
+### Initial Release
+- Core Widget component
+- Basic variants (primary, secondary, error)
+- Size options (small, medium, large)
+- Click handling
+- TypeScript definitions
+
+## Migration Guide
+
+### From v1.x to v2.0
+
+#### 1. Update prop names
+
+```tsx
+// Before (v1.x)
+<Widget onToggle={(open) => console.log(open)} />
+
+// After (v2.0)
+<Widget onStateChange={(open) => console.log(open)} />
+```
+
+#### 2. Explicit variant types
+
+```tsx
+// Before (v1.x) - worked but not type-safe
+<Widget variant="custom-variant" />
+
+// After (v2.0) - explicit typing required
+<Widget variant="primary" /> // or other valid variants
+```
+
+#### 3. New loading prop
+
+```tsx
+// New in v2.0
+<Widget loading={true} title="Loading Widget" />
+```
+
+## Version Selection
+
+You can install specific versions:
+
+```bash
+# Install latest version
+npm install @evanion/react-widget@latest
+
+# Install specific version
+npm install @evanion/react-widget@1.5.0
+
+# Install beta version
+npm install @evanion/react-widget@beta
+```
+
+## Support Policy
+
+- **Current Version**: Full support and new features
+- **Previous Major Version**: Bug fixes and security updates only
+- **Older Versions**: Community support only
+
+## Release Schedule
+
+- **Major versions**: Every 6 months
+- **Minor versions**: Monthly
+- **Patch versions**: As needed for bug fixes
+
+## Changelog
+
+For detailed changelog, see our [GitHub Releases](https://github.com/evanion/open-source/releases).

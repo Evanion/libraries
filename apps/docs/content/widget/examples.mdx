@@ -1,0 +1,351 @@
+# Examples
+
+Real-world examples showing how to use the React Widget System effectively.
+
+## Live Demo: E-commerce Showcase
+
+Copy the code below into your React project to see this e-commerce showcase in action:
+
+## Basic Blog Sidebar
+
+A simple sidebar with news and user information.
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// Define widget components
+const NewsTeaser = ({ title, publishedAt, body }) => (
+  <article className="news-teaser">
+    <h3>{title}</h3>
+    <time>{publishedAt.toLocaleDateString()}</time>
+    <p>{body}</p>
+  </article>
+);
+
+const UserSidebar = ({ username, avatar, messages }) => (
+  <div className="user-info">
+    <img src={avatar} alt={username} />
+    <span>{username}</span>
+    <span>{messages} messages</span>
+  </div>
+);
+
+// Create widget system
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+});
+
+// Define layout data
+const sidebarItems = [
+  {
+    id: 'userinfo',
+    type: 'userInfo',
+    props: {
+      username: 'Evanion',
+      avatar: 'https://evanion.com/avatar.jpg',
+      messages: 5,
+    },
+  },
+  {
+    id: 'news1',
+    type: 'news',
+    props: {
+      title: 'Breaking News',
+      publishedAt: new Date('2024-01-15'),
+      body: 'This is a sample news article...',
+    },
+  },
+];
+
+function BlogSidebar() {
+  return <Widgets items={sidebarItems} />;
+}
+```
+
+## E-commerce Product Showcase
+
+Product showcase with custom chrome (wrappers).
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// Widget components
+const ProductCard = ({ name, price, image }) => (
+  <div className="product-card">
+    <img src={image} alt={name} />
+    <h4>{name}</h4>
+    <p>${price}</p>
+  </div>
+);
+
+const Banner = ({ image, title, cta }) => (
+  <div className="banner">
+    <img src={image} alt={title} />
+    <h2>{title}</h2>
+    <button>{cta}</button>
+  </div>
+);
+
+// Create widget system with custom chrome
+const { Widgets } = createWidgets({
+  components: {
+    productCard: ProductCard,
+    banner: Banner,
+  },
+  chrome: {
+    wrapper: ({ children }) => (
+      <div className="product-showcase">
+        <header>Featured Products</header>
+        <div className="products-grid">{children}</div>
+      </div>
+    ),
+  },
+});
+
+// Product showcase data
+const showcaseItems = [
+  {
+    id: 'banner1',
+    type: 'banner',
+    props: {
+      image: '/banner.jpg',
+      title: 'Summer Sale',
+      cta: 'Shop Now',
+    },
+  },
+  {
+    id: 'product1',
+    type: 'productCard',
+    props: {
+      name: 'Wireless Headphones',
+      price: 99.99,
+      image: '/headphones.jpg',
+    },
+  },
+];
+
+function ProductShowcase() {
+  return <Widgets items={showcaseItems} />;
+}
+```
+
+## Dashboard with Statistics
+
+Admin dashboard with stat cards and action buttons.
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// Widget components
+const StatCard = ({ title, value, trend }) => (
+  <div className="stat-card">
+    <h4>{title}</h4>
+    <div className="value">{value}</div>
+    <div className="trend">{trend}</div>
+  </div>
+);
+
+const ActionButton = ({ label, action, variant }) => (
+  <button className={`btn btn-${variant}`} data-action={action}>
+    {label}
+  </button>
+);
+
+// Create dashboard widget system
+const { Widgets } = createWidgets({
+  components: {
+    statCard: StatCard,
+    actionButton: ActionButton,
+  },
+  chrome: {
+    wrapper: ({ children }) => <div className="dashboard-grid">{children}</div>,
+  },
+});
+
+// Dashboard data
+const dashboardItems = [
+  {
+    id: 'stats1',
+    type: 'statCard',
+    props: {
+      title: 'Total Users',
+      value: '1,234',
+      trend: '+12%',
+    },
+  },
+  {
+    id: 'stats2',
+    type: 'statCard',
+    props: {
+      title: 'Revenue',
+      value: '$45,678',
+      trend: '+8%',
+    },
+  },
+  {
+    id: 'action1',
+    type: 'actionButton',
+    props: {
+      label: 'Export Data',
+      action: 'export',
+      variant: 'primary',
+    },
+  },
+];
+
+function AdminDashboard() {
+  return <Widgets items={dashboardItems} />;
+}
+```
+
+## Nested Widgets
+
+Card widget with nested content using the Output component.
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// Widget components
+const CardWidget = ({ title, Output }) => (
+  <div className="card">
+    <h3>{title}</h3>
+    <Output />
+  </div>
+);
+
+const TextWidget = ({ content }) => <p>{content}</p>;
+
+const ImageWidget = ({ src, alt }) => <img src={src} alt={alt} />;
+
+// Create widget system
+const { Widgets } = createWidgets({
+  components: {
+    card: CardWidget,
+    text: TextWidget,
+    image: ImageWidget,
+  },
+});
+
+// Nested widget data
+const nestedItems = [
+  {
+    id: 'card1',
+    type: 'card',
+    props: {
+      title: 'My Card',
+    },
+    children: [
+      {
+        id: 'text1',
+        type: 'text',
+        props: { content: 'Nested text content' },
+      },
+      {
+        id: 'image1',
+        type: 'image',
+        props: {
+          src: '/image.jpg',
+          alt: 'Nested image',
+        },
+      },
+    ],
+  },
+];
+
+function NestedWidgets() {
+  return <Widgets items={nestedItems} />;
+}
+```
+
+## Instance-Specific Overrides
+
+Different components for different contexts.
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// Default news component
+const NewsTeaser = ({ title, publishedAt, body }) => (
+  <article className="news-teaser">
+    <h3>{title}</h3>
+    <time>{publishedAt.toLocaleDateString()}</time>
+    <p>{body}</p>
+  </article>
+);
+
+// Create base widget system
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+});
+
+// Special news component for homepage
+const FeaturedNews = ({ title, publishedAt, body }) => (
+  <div className="featured-news">
+    <h2>Featured: {title}</h2>
+    <p>Special styling for this news item</p>
+  </div>
+);
+
+// News data
+const newsItems = [
+  {
+    id: 'news1',
+    type: 'news',
+    props: {
+      title: 'Regular News',
+      publishedAt: new Date(),
+      body: 'Regular content',
+    },
+  },
+];
+
+// Use different components for different pages
+function HomePage() {
+  return <Widgets items={newsItems} components={{ news: FeaturedNews }} />;
+}
+
+function BlogPage() {
+  return <Widgets items={newsItems} />; // Uses default NewsTeaser
+}
+```
+
+## Error Handling
+
+The system gracefully handles errors and unknown widget types.
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+const ValidWidget = ({ content }) => <div>Valid: {content}</div>;
+
+const { Widgets } = createWidgets({
+  components: {
+    valid: ValidWidget,
+  },
+});
+
+// Mixed valid and invalid widgets
+const mixedItems = [
+  {
+    id: 'unknown1',
+    type: 'unknown-widget', // This will be skipped with a warning
+    props: { content: 'This should not render' },
+  },
+  {
+    id: 'valid1',
+    type: 'valid',
+    props: { content: 'This will render' },
+  },
+];
+
+function ErrorHandlingExample() {
+  return <Widgets items={mixedItems} />;
+  // Only the valid widget will render
+  // Unknown widget will be skipped with console warning
+}
+```

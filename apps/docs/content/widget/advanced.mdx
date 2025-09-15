@@ -1,0 +1,481 @@
+# Advanced Patterns
+
+Advanced usage patterns for the React Widget System including custom chrome, nested widgets, and performance optimization.
+
+## Custom Chrome (Wrappers)
+
+Chrome refers to the wrapper components that provide styling and layout structure around your widgets.
+
+### Custom Wrapper
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+  chrome: {
+    wrapper: ({ children }) => (
+      <aside className="blog-sidebar">
+        <header>Latest Updates</header>
+        <div className="widget-container">{children}</div>
+      </aside>
+    ),
+  },
+});
+```
+
+### Custom Item Wrapper
+
+```tsx
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+  chrome: {
+    item: ({ children, ...props }) => (
+      <div
+        className="widget-item"
+        data-widget-id={props['data-widget-id']}
+        data-widget-type={props['data-widget-type']}
+      >
+        <div className="widget-content">{children}</div>
+      </div>
+    ),
+  },
+});
+```
+
+### Both Wrappers
+
+```tsx
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+  chrome: {
+    wrapper: ({ children }) => (
+      <section className="widget-section">
+        <h2>Widget Section</h2>
+        {children}
+      </section>
+    ),
+    item: ({ children }) => (
+      <article className="widget-article">{children}</article>
+    ),
+  },
+});
+```
+
+## Nested Widgets with Output
+
+The `Output` component allows widgets to render nested widgets within themselves.
+
+### Basic Nested Structure
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+const CardWidget = ({ title, Output }) => (
+  <div className="card">
+    <h3>{title}</h3>
+    <div className="card-content">
+      <Output />
+    </div>
+  </div>
+);
+
+const TextWidget = ({ content }) => <p>{content}</p>;
+
+const ImageWidget = ({ src, alt }) => <img src={src} alt={alt} />;
+
+const { Widgets } = createWidgets({
+  components: {
+    card: CardWidget,
+    text: TextWidget,
+    image: ImageWidget,
+  },
+});
+
+// Nested widget data
+const nestedItems = [
+  {
+    id: 'card1',
+    type: 'card',
+    props: {
+      title: 'My Card',
+    },
+    children: [
+      {
+        id: 'text1',
+        type: 'text',
+        props: { content: 'Nested text content' },
+      },
+      {
+        id: 'image1',
+        type: 'image',
+        props: {
+          src: '/image.jpg',
+          alt: 'Nested image',
+        },
+      },
+    ],
+  },
+];
+```
+
+### Complex Nested Layouts
+
+```tsx
+const LayoutWidget = ({ title, sidebar, main, Output }) => (
+  <div className="layout">
+    <header>{title}</header>
+    <div className="layout-content">
+      <aside className="sidebar">
+        <Output />
+      </aside>
+      <main className="main-content">{main}</main>
+    </div>
+  </div>
+);
+
+const SidebarWidget = ({ items, Output }) => (
+  <nav className="sidebar-nav">
+    {items.map((item) => (
+      <div key={item.id} className="nav-item">
+        <a href={item.href}>{item.label}</a>
+      </div>
+    ))}
+    <Output />
+  </nav>
+);
+
+const { Widgets } = createWidgets({
+  components: {
+    layout: LayoutWidget,
+    sidebar: SidebarWidget,
+    text: TextWidget,
+  },
+});
+
+const complexItems = [
+  {
+    id: 'layout1',
+    type: 'layout',
+    props: {
+      title: 'My App',
+      main: 'Main content here',
+    },
+    children: [
+      {
+        id: 'sidebar1',
+        type: 'sidebar',
+        props: {
+          items: [
+            { id: 'home', label: 'Home', href: '/' },
+            { id: 'about', label: 'About', href: '/about' },
+          ],
+        },
+        children: [
+          {
+            id: 'text1',
+            type: 'text',
+            props: { content: 'Additional sidebar content' },
+          },
+        ],
+      },
+    ],
+  },
+];
+```
+
+## Instance-Specific Overrides
+
+You can override components and chrome for specific instances of the Widgets component.
+
+### Component Overrides
+
+```tsx
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+});
+
+// Default news component
+const NewsTeaser = ({ title, publishedAt, body }) => (
+  <article className="news-teaser">
+    <h3>{title}</h3>
+    <time>{publishedAt.toLocaleDateString()}</time>
+    <p>{body}</p>
+  </article>
+);
+
+// Special featured news component
+const FeaturedNews = ({ title, publishedAt, body }) => (
+  <div className="featured-news">
+    <h2>Featured: {title}</h2>
+    <div className="featured-content">
+      <time>{publishedAt.toLocaleDateString()}</time>
+      <p>{body}</p>
+    </div>
+  </div>
+);
+
+// Use different components for different pages
+function HomePage() {
+  return <Widgets items={newsItems} components={{ news: FeaturedNews }} />;
+}
+
+function BlogPage() {
+  return <Widgets items={newsItems} />; // Uses default NewsTeaser
+}
+```
+
+### Chrome Overrides
+
+```tsx
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+  chrome: {
+    wrapper: ({ children }) => (
+      <div className="default-wrapper">Default: {children}</div>
+    ),
+  },
+});
+
+function SpecialPage() {
+  return (
+    <Widgets
+      items={newsItems}
+      chrome={{
+        wrapper: ({ children }) => (
+          <div className="special-wrapper">Special: {children}</div>
+        ),
+      }}
+    />
+  );
+}
+```
+
+## Performance Optimization
+
+### Memoized Components
+
+```tsx
+import { memo } from 'react';
+
+const ExpensiveWidget = memo(({ data, onUpdate }) => {
+  // Expensive computation
+  const processedData = useMemo(() => {
+    return data.map((item) => ({
+      ...item,
+      processed: expensiveProcessing(item),
+    }));
+  }, [data]);
+
+  return (
+    <div>
+      {processedData.map((item) => (
+        <div key={item.id}>{item.processed}</div>
+      ))}
+    </div>
+  );
+});
+
+const { Widgets } = createWidgets({
+  components: {
+    expensive: ExpensiveWidget,
+  },
+});
+```
+
+### Lazy Loading
+
+```tsx
+import { lazy, Suspense } from 'react';
+
+const LazyWidget = lazy(() => import('./LazyWidget'));
+
+const { Widgets } = createWidgets({
+  components: {
+    lazy: LazyWidget,
+  },
+});
+
+// The DefaultItem wrapper already includes Suspense
+// with a loading fallback
+```
+
+### Context Optimization
+
+```tsx
+import { createContext, useContext } from 'react';
+
+// Create a custom context for better performance
+const CustomContext = createContext();
+
+const { Widgets, WidgetsProvider } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+  context: CustomContext,
+});
+
+// Use the custom context
+const useCustomWidgets = () => useContext(CustomContext);
+```
+
+## Error Boundaries and Error Handling
+
+### Custom Error Boundaries
+
+```tsx
+import { Component } from 'react';
+
+class CustomErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    console.error('Widget Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-fallback">
+          <h3>Something went wrong</h3>
+          <p>This widget failed to render.</p>
+          <button onClick={() => this.setState({ hasError: false })}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+  },
+  chrome: {
+    item: ({ children, ...props }) => (
+      <CustomErrorBoundary>
+        <div className="widget-item" {...props}>
+          {children}
+        </div>
+      </CustomErrorBoundary>
+    ),
+  },
+});
+```
+
+### Error Recovery
+
+```tsx
+const ResilientWidget = ({ data, fallback }) => {
+  try {
+    if (!data) {
+      throw new Error('No data provided');
+    }
+
+    return <div>{data.content}</div>;
+  } catch (error) {
+    return (
+      <div className="error-state">{fallback || 'Failed to load widget'}</div>
+    );
+  }
+};
+```
+
+## TypeScript Advanced Patterns
+
+### Strict Typing
+
+```tsx
+import { createWidgets, WidgetProps } from '@evanion/react-widget';
+
+// Define strict widget types
+type MyWidgets = {
+  news: WidgetProps<
+    'news',
+    {
+      title: string;
+      publishedAt: Date;
+      body: string;
+    }
+  >;
+  userInfo: WidgetProps<
+    'userInfo',
+    {
+      username: string;
+      avatar: string;
+      messages: number;
+    }
+  >;
+  card: WidgetProps<
+    'card',
+    {
+      title: string;
+      Output: React.ComponentType;
+    }
+  >;
+};
+
+// Create typed widget system
+const { Widgets } = createWidgets<MyWidgets>({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+    card: CardWidget,
+  },
+});
+
+// Type-safe widget data
+const typedItems: WidgetProps<string>[] = [
+  {
+    id: 'news1',
+    type: 'news', // TypeScript will enforce this matches MyWidgets
+    props: {
+      title: 'Breaking News',
+      publishedAt: new Date(),
+      body: 'Content here',
+    },
+  },
+];
+```
+
+### Generic Widget Components
+
+```tsx
+interface GenericWidgetProps<T> {
+  data: T;
+  render: (data: T) => React.ReactNode;
+}
+
+const GenericWidget = <T,>({ data, render }: GenericWidgetProps<T>) => {
+  return <div className="generic-widget">{render(data)}</div>;
+};
+
+const { Widgets } = createWidgets({
+  components: {
+    generic: GenericWidget,
+  },
+});
+```

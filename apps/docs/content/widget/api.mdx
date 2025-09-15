@@ -1,0 +1,171 @@
+# API Reference
+
+Complete reference for the React Widget System API.
+
+## Core Functions
+
+### createWidgets
+
+Creates a widget system with defined components and optional chrome (wrappers).
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+```
+
+#### Parameters
+
+| Parameter | Type                   | Description                                     |
+| --------- | ---------------------- | ----------------------------------------------- |
+| `config`  | `WidgetsConfig<Items>` | Configuration object with components and chrome |
+
+#### Returns
+
+| Property          | Type                                                     | Description                                   |
+| ----------------- | -------------------------------------------------------- | --------------------------------------------- |
+| `Widgets`         | `React.ComponentType<WidgetsProps<Items>>`               | Main widget rendering component               |
+| `WidgetsProvider` | `React.ComponentType<{ value: Components }>`             | Context provider for components               |
+| `useWidgets`      | `() => Components`                                       | Hook to access widget components from context |
+| `Output`          | `React.ComponentType<{ items?: WidgetProps<string>[] }>` | Component for rendering nested widgets        |
+
+#### Example
+
+```tsx
+const { Widgets, WidgetsProvider, useWidgets, Output } = createWidgets({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+  chrome: {
+    wrapper: ({ children }) => <aside>{children}</aside>,
+    item: ({ children }) => <div className="widget-item">{children}</div>,
+  },
+});
+```
+
+## Types
+
+### WidgetProps
+
+Defines the structure of a widget item.
+
+```tsx
+interface WidgetProps<Type extends string, Props = object> {
+  id: string; // Unique identifier
+  type: Type; // Widget type (must match component key)
+  props: Props; // Props to pass to the widget component
+  children: WidgetProps<string>[]; // Optional nested widgets
+}
+```
+
+### WidgetComponent
+
+Type for widget component functions.
+
+```tsx
+type WidgetComponent<
+  Items extends Record<string, WidgetProps<string>>,
+  Type extends keyof Items
+> = React.ComponentType<Items[Type]['props']>;
+```
+
+### WidgetsConfig
+
+Configuration object for creating a widget system.
+
+```tsx
+interface WidgetsConfig<Items extends Record<string, WidgetProps<string>>> {
+  components: {
+    [K in keyof Items]: WidgetComponent<Items, K>;
+  };
+  chrome?: {
+    wrapper?: React.ComponentType<PropsWithChildren>;
+    item?: React.ComponentType<PropsWithChildren>;
+  };
+  context?: Context<{
+    [K in keyof Items]: WidgetComponent<Items, K>;
+  }>;
+}
+```
+
+### WidgetsProps
+
+Props for the Widgets component.
+
+```tsx
+interface WidgetsProps<
+  Items extends Record<string, WidgetProps<string>>,
+  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>
+> extends Partial<Config> {
+  items: WidgetProps<string>[];
+}
+```
+
+## Default Components
+
+### DefaultWrapper
+
+Default wrapper component that renders as a `<section>` element.
+
+```tsx
+import { DefaultWrapper } from '@evanion/react-widget';
+
+<DefaultWrapper className="my-widgets">{/* Widget content */}</DefaultWrapper>;
+```
+
+### DefaultItem
+
+Default item wrapper with error boundary and suspense support.
+
+```tsx
+import { DefaultItem } from '@evanion/react-widget';
+
+<DefaultItem data-widget-id="my-widget" data-widget-type="news">
+  {/* Widget content */}
+</DefaultItem>;
+```
+
+## Error Handling
+
+The system includes built-in error handling:
+
+- **Error Boundaries** - Catch widget rendering errors
+- **Unknown Widget Types** - Skip unknown widgets with console warnings
+- **Loading States** - Suspense fallback for lazy-loaded widgets
+
+## Constants
+
+### ERROR_MESSAGES
+
+Predefined error messages for consistent error handling.
+
+```tsx
+import { ERROR_MESSAGES } from '@evanion/react-widget';
+
+ERROR_MESSAGES.UNKNOWN_WIDGET('news', 'widget-1');
+// "Unknown widget type "news" for widget ID "widget-1". Skipping render."
+
+ERROR_MESSAGES.WIDGET_ERROR('news', 'widget-1');
+// "Widget Error: news (ID: widget-1)"
+
+ERROR_MESSAGES.WIDGET_FAILED('news');
+// "Widget failed to render: news"
+
+ERROR_MESSAGES.LOADING;
+// "Loading widget..."
+```
+
+### DEFAULT_STYLES
+
+Default styling for error and loading states.
+
+```tsx
+import { DEFAULT_STYLES } from '@evanion/react-widget';
+
+// Error state styling
+DEFAULT_STYLES.ERROR;
+// { padding: '8px', border: '1px solid #ff6b6b', ... }
+
+// Loading state styling
+DEFAULT_STYLES.LOADING;
+// { padding: '8px', border: '1px solid #ddd', ... }
+```

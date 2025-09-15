@@ -1,0 +1,200 @@
+# Getting Started
+
+Learn how to build dynamic, composable user interfaces with the React Widget System.
+
+## Installation
+
+Install the package using your preferred package manager:
+
+```bash
+npm install @evanion/react-widget
+```
+
+```bash
+yarn add @evanion/react-widget
+```
+
+```bash
+pnpm add @evanion/react-widget
+```
+
+## Core Concepts
+
+The React Widget System is built around three main concepts:
+
+1. **Widget Components** - React components that define how widgets look and behave
+2. **Widget Configuration** - Data that describes which widgets to render and with what props
+3. **Widget System** - The engine that renders widgets from configuration
+
+## Basic Example
+
+Let's create a simple blog sidebar with news and user information:
+
+```tsx
+import { createWidgets } from '@evanion/react-widget';
+
+// 1. Define your widget components
+const NewsTeaser = ({ title, publishedAt, body }) => (
+  <article className="news-teaser">
+    <h3>{title}</h3>
+    <time>{publishedAt.toLocaleDateString()}</time>
+    <p>{body}</p>
+  </article>
+);
+
+const UserSidebar = ({ username, avatar, messages }) => (
+  <div className="user-info">
+    <img src={avatar} alt={username} />
+    <span>{username}</span>
+    <span>{messages} messages</span>
+  </div>
+);
+
+// 2. Create the widget system
+const { Widgets } = createWidgets({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+});
+
+// 3. Define your layout data
+const sidebarItems = [
+  {
+    id: 'userinfo',
+    type: 'userInfo',
+    props: {
+      username: 'Evanion',
+      avatar: 'https://evanion.com/avatar.jpg',
+      messages: 5,
+    },
+  },
+  {
+    id: 'news1',
+    type: 'news',
+    props: {
+      title: 'Breaking News',
+      publishedAt: new Date('2024-01-15'),
+      body: 'This is a sample news article...',
+    },
+  },
+];
+
+// 4. Render your widgets
+function BlogSidebar() {
+  return <Widgets items={sidebarItems} />;
+}
+```
+
+## Live Demo
+
+Try editing the code below to see how the widget system works:
+
+<WidgetPlayground
+  initialCode={`const NewsTeaser = ({ title, publishedAt, body }: { title: string; publishedAt: Date; body: string }) => (
+  <article className="border border-gray-300 dark:border-gray-600 p-4 my-2 rounded-lg bg-white dark:bg-gray-800">
+    <h3 className="mb-2 text-gray-900 dark:text-gray-100 font-semibold">{title}</h3>
+    <time className="text-gray-600 dark:text-gray-400 text-sm">
+      {publishedAt.toLocaleDateString()}
+    </time>
+    <p className="mt-2 text-gray-700 dark:text-gray-300">{body}</p>
+  </article>
+);
+
+const UserSidebar = ({ username, avatar, messages }: { username: string; avatar: string; messages: number }) => (
+
+{' '}
+
+<div className="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg my-2 bg-white dark:bg-gray-800">
+  <img src={avatar} alt={username} className="w-10 h-10 rounded-full mr-3" />
+  <div>
+    <div className="font-bold text-gray-900 dark:text-gray-100">{username}</div>
+    <div className="text-sm text-gray-600 dark:text-gray-400">
+      {messages} messages
+    </div>
+  </div>
+</div>
+);
+
+const { Widgets } = createWidgets({
+components: {
+news: NewsTeaser,
+userInfo: UserSidebar,
+},
+});
+
+const items = [
+{
+id: 'userinfo',
+type: 'userInfo',
+props: {
+username: 'Evanion',
+avatar: 'https://via.placeholder.com/40',
+messages: 5,
+},
+children: [],
+},
+{
+id: 'news1',
+type: 'news',
+props: {
+title: 'Breaking News',
+publishedAt: new Date(),
+body: 'Try editing this text to see the widget update!',
+},
+children: [],
+},
+];
+
+render(<Widgets items={items} />)`} height={400}
+/>
+
+## Widget Data Structure
+
+Each widget item follows this structure:
+
+```tsx
+interface WidgetItem {
+  id: string; // Unique identifier
+  type: string; // Widget type (must match a component key)
+  props: object; // Props to pass to the widget component
+  children?: WidgetItem[]; // Optional nested widgets
+}
+```
+
+## TypeScript Support
+
+The library provides full TypeScript support with generic types:
+
+```tsx
+import { createWidgets, WidgetProps } from '@evanion/react-widget';
+
+// Define your widget types
+type MyWidgets = {
+  news: WidgetProps<'news', { title: string; publishedAt: Date; body: string }>;
+  userInfo: WidgetProps<
+    'userInfo',
+    { username: string; avatar: string; messages: number }
+  >;
+};
+
+// Create typed widget system
+const { Widgets } = createWidgets<MyWidgets>({
+  components: {
+    news: NewsTeaser,
+    userInfo: UserSidebar,
+  },
+});
+```
+
+## Next Steps
+
+- Explore the [API Reference](/widget/api) for complete documentation
+- Check out [Examples](/widget/examples) for real-world usage patterns
+- Learn about [Advanced Patterns](/widget/advanced) for custom chrome and nested widgets
+
+## Need Help?
+
+- Check our [FAQ](/widget/faq) for common questions
+- Join our [Discord community](https://discord.gg/your-discord) for support
+- Report issues on [GitHub](https://github.com/evanion/open-source/issues)
