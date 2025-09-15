@@ -1,0 +1,7 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+The user will manually keep the application under development in a terminal available in context
