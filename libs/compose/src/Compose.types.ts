@@ -1,10 +1,10 @@
 import { ComponentType, PropsWithChildren } from 'react';
 
 // Base provider component type that accepts children
-export type ProviderComponent<T = {}> = ComponentType<PropsWithChildren<T>>;
+export type ProviderComponent<T = Record<string, never>> = ComponentType<PropsWithChildren<T>>;
 
 // Provider can be either a component or a tuple with props
-export type Provider<T = {}> = ProviderComponent<T> | [ProviderComponent<T>, T];
+export type Provider<T = Record<string, never>> = ProviderComponent<T> | [ProviderComponent<T>, T];
 
 // More flexible provider array type - using any for now to avoid complex type issues
 export type ProviderArray = readonly Provider<any>[];
