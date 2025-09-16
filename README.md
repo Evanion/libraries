@@ -1,91 +1,116 @@
-# OpenSource
+# Evanion Open Source Libraries
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A collection of high-quality, production-ready libraries and tools built with modern web technologies. This monorepo contains reusable components, and utilities designed to solve common development challenges.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## 📦 Libraries
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+### [@evanion/react-widget](./libs/widget)
 
-## Finish your CI setup
+A powerful React library for creating dynamic, reusable widget regions from structured data. Perfect for building CMS-driven layouts, dynamic sidebars, dashboards, and any interface that needs to render different components based on configuration data.
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/mQxikus2LY)
+**Key Features:**
 
+- 🎯 **Type-safe**: Full TypeScript support with intelligent type inference
+- 🔧 **Flexible**: Support for custom chrome components and wrappers
+- ⚡ **Lightweight**: Minimal bundle size with zero dependencies
+- 🎨 **Customizable**: Easy theming and styling through wrapper components
+- 🔄 **Context-aware**: Built-in React Context support for component sharing
 
-## Generate a library
+### [@evanion/urn](./libs/urn)
 
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+A URN Library that makes it easier to work with more meaningful identifiers. The API is inspired by, and designed to be as simple as the JSON class.
+
+**Key Features:**
+
+- 📝 **Simple API**: JSON-inspired API for easy adoption
+- 🔍 **URN Parsing**: Parse URN strings into structured components
+- 🏗️ **URN Stringifying**: Create URN strings from components
+- 🎨 **Custom Schemes**: Support for custom URN schemes beyond the standard `urn:`
+- 🏷️ **Namespace Support**: Handle custom namespaces and identifiers
+- 🔧 **Class Inheritance**: Extend the base URN class for domain-specific implementations
+
+## 🛠️ Development
+
+This monorepo is built with [Nx](https://nx.dev) for efficient development and build processes.
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/evanion/libraries.git
+cd open-source
+
+# Install dependencies
+npm install
+
+# Start development
+npm run dev
 ```
 
-## Run tasks
+### Available Commands
 
-To build the library use:
+```bash
+# Build all libraries
+npm run build
 
-```sh
-npx nx build pkg1
+# Run tests
+npm run test
+
+# Lint code
+npm run lint
+
+# Type check
+npm run typecheck
+
+# Start documentation site
+npm run docs:dev
 ```
 
-To run any task with Nx use:
-
-```sh
-npx nx <target> <project-name>
-```
-
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
+### Project Structure
 
 ```
-npx nx release
+├── apps/
+│   └── docs/                 # Documentation site
+├── libs/
+│   ├── widget/              # React Widget library
+│   └── urn/                 # URN library
+├── tools/                   # Build tools and configurations
+└── docs/                    # Documentation content
 ```
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+## 📖 Documentation
 
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Visit our [documentation site](https://docs.evanion.com) for:
 
-## Keep TypeScript project references up to date
+- 📚 **Comprehensive guides** for each library
+- 🎮 **Interactive examples** and playgrounds
+- 📋 **API references** with TypeScript definitions
+- 🚀 **Getting started** tutorials
 
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
+## 🤝 Contributing
 
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:
 
-```sh
-npx nx sync
-```
+- 🐛 **Reporting bugs**
+- 💡 **Suggesting features**
+- 🔧 **Submitting pull requests**
+- 📝 **Improving documentation**
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+## 📄 License
 
-```sh
-npx nx sync:check
-```
+These projects are licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+## 🔗 Links
 
+- 📖 **Documentation**: [docs.evanion.com](https://docs.evanion.com)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/evanion/libraries/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/evanion/libraries/discussions)
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-# Test change
+Built with ❤️ using [Nx](https://nx.dev)
