@@ -53,7 +53,7 @@ export default function WidgetPlayground({
     }
   }, []);
 
-  const handleEditorDidMount = useCallback((editor: unknown, monaco: unknown) => {
+  const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
     // Configure Monaco for TypeScript with JSX support
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -105,10 +105,16 @@ export default function WidgetPlayground({
   }, []);
 
   // Simple mock for the playground
-  const mockCreateWidgets = (config: { components: Record<string, React.ComponentType<unknown>> }) => {
+  const mockCreateWidgets = (config: {
+    components: Record<string, React.ComponentType<unknown>>;
+  }) => {
     const { components } = config;
 
-    const Widgets = ({ items }: { items: Array<{ id: string; type: string; props: unknown }> }) => {
+    const Widgets = ({
+      items,
+    }: {
+      items: Array<{ id: string; type: string; props: unknown }>;
+    }) => {
       return (
         <div>
           {items.map((item) => {
@@ -116,7 +122,7 @@ export default function WidgetPlayground({
             if (!Component) return null;
             return (
               <div key={item.id} style={{ marginBottom: '16px' }}>
-                <Component {...item.props} />
+                <Component {...(item.props as any)} />
               </div>
             );
           })}
