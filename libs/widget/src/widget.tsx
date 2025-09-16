@@ -39,7 +39,7 @@ export function createWidgets<
       <WidgetsProvider value={components}>
         <Wrapper>
           {items.map((item) => {
-            const OutputComponent = createOutputComponent(item.children);
+            const OutputComponent = createOutputComponent(item.children || []);
             return renderWidget(
               item,
               components,

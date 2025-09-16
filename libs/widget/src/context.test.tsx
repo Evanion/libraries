@@ -231,12 +231,12 @@ describe('Widget System - Context Usage', () => {
 
     render(
       <div>
-        <AdminProvider>
+        <AdminProvider value={{ userProfile: UserProfile }}>
           <div data-testid="admin-section">
             <AdminWidgets items={adminItems} />
           </div>
         </AdminProvider>
-        <PublicProvider>
+        <PublicProvider value={{ news: NewsTeaser, weather: WeatherWidget }}>
           <div data-testid="public-section">
             <PublicWidgets items={publicItems} />
           </div>

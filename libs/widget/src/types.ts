@@ -1,28 +1,24 @@
-import { Context, PropsWithChildren } from 'react';
+import { Context } from 'react';
 
 export type WidgetProps<Type extends string, Props = object> = {
   id: string;
   type: Type;
   props: Props;
-  children: WidgetProps<string>[];
+  children?: WidgetProps<string>[];
 };
 
 export type WidgetComponent<
   Items extends Record<string, WidgetProps<string>>,
   Type extends keyof Items
-> = React.ComponentType<Items[Type]['props']>;
+> = React.ComponentType<any>;
 
 export type WidgetsConfig<Items extends Record<string, WidgetProps<string>>> = {
-  components: {
-    [K in keyof Items]: WidgetComponent<Items, K>;
-  };
+  components: Record<string, React.ComponentType<any>>;
   chrome?: {
-    wrapper?: React.ComponentType<PropsWithChildren>;
-    item?: React.ComponentType<PropsWithChildren>;
+    wrapper?: React.ComponentType<any>;
+    item?: React.ComponentType<any>;
   };
-  context?: Context<{
-    [K in keyof Items]: WidgetComponent<Items, K>;
-  }>;
+  context?: Context<any>;
 };
 
 export type WidgetsProps<
