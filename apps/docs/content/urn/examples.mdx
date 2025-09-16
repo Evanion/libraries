@@ -1,0 +1,487 @@
+# URN Examples
+
+Practical examples demonstrating how to use the URN library in real-world scenarios.
+
+## Basic Examples
+
+### Simple URN Creation
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Create a basic URN
+const userUrn = URN.stringify('123', 'user');
+console.log(userUrn); // "urn:user:123"
+
+// Parse it back
+const parsed = URN.parse(userUrn);
+console.log(parsed);
+// {
+//   urn: 'urn',
+//   nid: 'user',
+//   nss: '123'
+// }
+```
+
+### Custom URN Schemes
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Use custom scheme
+const customUrn = URN.stringify('456', 'product', 'myapp');
+console.log(customUrn); // "myapp:product:456"
+
+// Parse custom scheme
+const parsed = URN.parse(customUrn);
+console.log(parsed);
+// {
+//   urn: 'myapp',
+//   nid: 'product',
+//   nss: '456'
+// }
+```
+
+## Domain-Specific Examples
+
+### E-commerce System
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Define domain-specific URN classes
+class EcommerceURN extends URN {
+  static urn = 'ecommerce';
+}
+
+class ProductURN extends EcommerceURN {
+  static nid = 'product';
+}
+
+class OrderURN extends EcommerceURN {
+  static nid = 'order';
+}
+
+class CustomerURN extends EcommerceURN {
+  static nid = 'customer';
+}
+
+// Usage examples
+const productUrn = ProductURN.stringify('laptop-123');
+console.log(productUrn); // "ecommerce:product:laptop-123"
+
+const orderUrn = OrderURN.stringify('456');
+console.log(orderUrn); // "ecommerce:order:456"
+
+const customerUrn = CustomerURN.stringify('789');
+console.log(customerUrn); // "ecommerce:customer:789"
+```
+
+### Microservices Architecture
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Service-specific URN classes
+class ServiceURN extends URN {
+  static urn = 'service';
+}
+
+class UserServiceURN extends ServiceURN {
+  static nid = 'user-service';
+}
+
+class PaymentServiceURN extends ServiceURN {
+  static nid = 'payment-service';
+}
+
+class NotificationServiceURN extends ServiceURN {
+  static nid = 'notification-service';
+}
+
+// Cross-service communication
+function sendUserUpdate(userId: string, service: string) {
+  const userUrn = UserServiceURN.stringify(userId);
+  const targetServiceUrn = ServiceURN.stringify(service, 'service');
+
+  console.log(`Sending user ${userUrn} to ${targetServiceUrn}`);
+  // Implementation...
+}
+
+sendUserUpdate('123', 'payment-service');
+// Output: "Sending user service:user-service:123 to service:service:payment-service"
+```
+
+### Database Entity References
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Database-specific URN classes
+class DatabaseURN extends URN {
+  static urn = 'db';
+  static separator = '.';
+}
+
+class TableURN extends DatabaseURN {
+  static nid = 'table';
+}
+
+class RecordURN extends DatabaseURN {
+  static nid = 'record';
+}
+
+// Reference database entities
+const usersTableUrn = TableURN.stringify('users');
+console.log(usersTableUrn); // "db.table.users"
+
+const userRecordUrn = RecordURN.stringify('123');
+console.log(userRecordUrn); // "db.record.123"
+
+// Parse database references
+function getTableName(tableUrn: string): string {
+  const parsed = TableURN.parse(tableUrn);
+  return parsed.nss;
+}
+
+const tableName = getTableName('db.table.users');
+console.log(tableName); // "users"
+```
+
+## Advanced Examples
+
+### Hierarchical Resource Identification
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Multi-level resource hierarchy
+class ResourceURN extends URN {
+  static urn = 'resource';
+}
+
+class OrganizationURN extends ResourceURN {
+  static nid = 'org';
+}
+
+class ProjectURN extends ResourceURN {
+  static nid = 'project';
+}
+
+class TaskURN extends ResourceURN {
+  static nid = 'task';
+}
+
+// Create hierarchical references
+const orgUrn = OrganizationURN.stringify('acme-corp');
+const projectUrn = ProjectURN.stringify('website-redesign');
+const taskUrn = TaskURN.stringify('task-001');
+
+console.log(orgUrn); // "resource:org:acme-corp"
+console.log(projectUrn); // "resource:project:website-redesign"
+console.log(taskUrn); // "resource:task:task-001"
+
+// Parse and validate hierarchy
+function validateResourceHierarchy(
+  orgId: string,
+  projectId: string,
+  taskId: string
+) {
+  const orgUrn = OrganizationURN.stringify(orgId);
+  const projectUrn = ProjectURN.stringify(projectId);
+  const taskUrn = TaskURN.stringify(taskId);
+
+  return {
+    organization: OrganizationURN.parse(orgUrn),
+    project: ProjectURN.parse(projectUrn),
+    task: TaskURN.parse(taskUrn),
+  };
+}
+```
+
+### API Resource Endpoints
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// API-specific URN classes
+class APIURN extends URN {
+  static urn = 'api';
+}
+
+class EndpointURN extends APIURN {
+  static nid = 'endpoint';
+}
+
+class VersionURN extends APIURN {
+  static nid = 'version';
+}
+
+// Generate API endpoints
+function generateEndpoint(version: string, endpoint: string): string {
+  const versionUrn = VersionURN.stringify(version);
+  const endpointUrn = EndpointURN.stringify(endpoint);
+
+  return `/api/${versionUrn.split(':')[2]}/${endpointUrn.split(':')[2]}`;
+}
+
+const userEndpoint = generateEndpoint('v1', 'users');
+console.log(userEndpoint); // "/api/v1/users"
+
+const productEndpoint = generateEndpoint('v2', 'products');
+console.log(productEndpoint); // "/api/v2/products"
+```
+
+### Content Management System
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// CMS-specific URN classes
+class CMSURN extends URN {
+  static urn = 'cms';
+}
+
+class ContentURN extends CMSURN {
+  static nid = 'content';
+}
+
+class MediaURN extends CMSURN {
+  static nid = 'media';
+}
+
+class TemplateURN extends CMSURN {
+  static nid = 'template';
+}
+
+// Content management functions
+class ContentManager {
+  static createContent(contentId: string, type: string): string {
+    return ContentURN.stringify(`${type}-${contentId}`);
+  }
+
+  static createMedia(mediaId: string, format: string): string {
+    return MediaURN.stringify(`${format}-${mediaId}`);
+  }
+
+  static createTemplate(templateId: string, theme: string): string {
+    return TemplateURN.stringify(`${theme}-${templateId}`);
+  }
+
+  static parseContent(contentUrn: string) {
+    return ContentURN.parse(contentUrn);
+  }
+}
+
+// Usage
+const articleUrn = ContentManager.createContent('123', 'article');
+console.log(articleUrn); // "cms:content:article-123"
+
+const imageUrn = ContentManager.createMedia('456', 'jpg');
+console.log(imageUrn); // "cms:media:jpg-456"
+
+const templateUrn = ContentManager.createTemplate('789', 'dark');
+console.log(templateUrn); // "cms:template:dark-789"
+```
+
+## Error Handling Examples
+
+### Validation and Error Handling
+
+```typescript
+import { URN, InvalidError } from '@evanion/urn';
+
+// Safe URN creation with validation
+function createSafeUrn(nss: string, nid: string = 'default'): string | null {
+  try {
+    return URN.stringify(nss, nid);
+  } catch (error) {
+    if (error instanceof InvalidError) {
+      console.error(`Invalid URN: ${error.message}`);
+      return null;
+    }
+    throw error; // Re-throw unexpected errors
+  }
+}
+
+// Usage with error handling
+const validUrn = createSafeUrn('123', 'user');
+console.log(validUrn); // "urn:user:123"
+
+const invalidUrn = createSafeUrn('user!123', 'user');
+console.log(invalidUrn); // null (with error logged)
+
+// Batch URN creation with error handling
+function createBatchUrns(items: Array<{ id: string; type: string }>): string[] {
+  const results: string[] = [];
+
+  for (const item of items) {
+    try {
+      const urn = URN.stringify(item.id, item.type);
+      results.push(urn);
+    } catch (error) {
+      if (error instanceof InvalidError) {
+        console.warn(`Skipping invalid item: ${item.id}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return results;
+}
+
+const items = [
+  { id: '123', type: 'user' },
+  { id: 'product!456', type: 'product' }, // Invalid character
+  { id: '789', type: 'order' },
+];
+
+const urns = createBatchUrns(items);
+console.log(urns); // ["urn:user:123", "urn:order:789"]
+```
+
+## Integration Examples
+
+### Express.js API Integration
+
+```typescript
+import { URN } from '@evanion/urn';
+import express from 'express';
+
+// URN-based resource routing
+class ResourceRouter {
+  static setupRoutes(app: express.Application) {
+    // Parse URN from URL parameter
+    app.get('/resource/:urn', (req, res) => {
+      try {
+        const parsed = URN.parse(req.params.urn);
+        res.json({
+          urn: req.params.urn,
+          components: parsed,
+          resource: this.getResource(parsed),
+        });
+      } catch (error) {
+        res.status(400).json({ error: 'Invalid URN format' });
+      }
+    });
+
+    // Create resource with URN
+    app.post('/resource', (req, res) => {
+      const { type, id } = req.body;
+      const urn = URN.stringify(id, type);
+
+      res.json({
+        urn,
+        created: true,
+        resource: this.createResource(type, id),
+      });
+    });
+  }
+
+  private static getResource(components: any) {
+    // Implementation to fetch resource based on URN components
+    return { id: components.nss, type: components.nid };
+  }
+
+  private static createResource(type: string, id: string) {
+    // Implementation to create resource
+    return { id, type, createdAt: new Date() };
+  }
+}
+```
+
+### React Component Integration
+
+```typescript
+import React from 'react';
+import { URN } from '@evanion/urn';
+
+// URN-aware React component
+interface ResourceProps {
+  urn: string;
+  onResourceClick?: (urn: string) => void;
+}
+
+const ResourceComponent: React.FC<ResourceProps> = ({
+  urn,
+  onResourceClick,
+}) => {
+  const parsed = URN.parse(urn);
+
+  const handleClick = () => {
+    if (onResourceClick) {
+      onResourceClick(urn);
+    }
+  };
+
+  return (
+    <div onClick={handleClick} className="resource-item">
+      <h3>{parsed.nss}</h3>
+      <p>Type: {parsed.nid}</p>
+      <p>Scheme: {parsed.urn}</p>
+    </div>
+  );
+};
+
+// Usage in parent component
+const ResourceList: React.FC = () => {
+  const resources = ['urn:user:123', 'urn:product:456', 'urn:order:789'];
+
+  const handleResourceClick = (urn: string) => {
+    console.log('Clicked resource:', urn);
+  };
+
+  return (
+    <div>
+      {resources.map((urn) => (
+        <ResourceComponent
+          key={urn}
+          urn={urn}
+          onResourceClick={handleResourceClick}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+## Testing Examples
+
+### Unit Testing with Vitest
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { URN, InvalidError } from '@evanion/urn';
+
+describe('URN Examples', () => {
+  it('should create and parse basic URNs', () => {
+    const urn = URN.stringify('example', 'namespace');
+    expect(urn).toBe('urn:namespace:example');
+
+    const parsed = URN.parse(urn);
+    expect(parsed).toEqual({
+      urn: 'urn',
+      nid: 'namespace',
+      nss: 'example',
+    });
+  });
+
+  it('should handle custom URN classes', () => {
+    class MyURN extends URN {
+      static urn = 'my-scheme';
+    }
+
+    const urn = MyURN.stringify('example', 'namespace');
+    expect(urn).toBe('my-scheme:namespace:example');
+  });
+
+  it('should throw error for invalid characters', () => {
+    expect(() => URN.stringify('invalid!character', 'namespace')).toThrow(
+      InvalidError
+    );
+  });
+});
+```
+
+These examples demonstrate the versatility and power of the URN library across different domains and use cases. The library's flexible design allows it to adapt to various scenarios while maintaining consistency and type safety.

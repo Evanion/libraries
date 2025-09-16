@@ -1,0 +1,455 @@
+# Getting Started with URN
+
+Learn how to get up and running with the URN library in your project.
+
+## Installation
+
+Install the URN library using npm:
+
+```bash
+npm install @evanion/urn
+```
+
+Or with yarn:
+
+```bash
+yarn add @evanion/urn
+```
+
+Or with pnpm:
+
+```bash
+pnpm add @evanion/urn
+```
+
+## Basic Setup
+
+### Import the Library
+
+```typescript
+import { URN } from '@evanion/urn';
+```
+
+### Your First URN
+
+Let's create your first URN:
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Create a simple URN
+const myUrn = URN.stringify('my-resource', 'my-namespace');
+console.log(myUrn); // "urn:my-namespace:my-resource"
+
+// Parse it back
+const parsed = URN.parse(myUrn);
+console.log(parsed);
+// {
+//   urn: 'urn',
+//   nid: 'my-namespace',
+//   nss: 'my-resource'
+// }
+```
+
+## Project Setup Examples
+
+### TypeScript Project
+
+If you're using TypeScript, the library provides full type support:
+
+```typescript
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+```
+
+```typescript
+// src/urn-example.ts
+import { URN, InvalidError } from '@evanion/urn';
+
+// Type-safe URN operations
+function createUserUrn(userId: string): string {
+  return URN.stringify(userId, 'user');
+}
+
+function parseUserUrn(urn: string): { userId: string; type: string } {
+  const parsed = URN.parse(urn);
+  return {
+    userId: parsed.nss,
+    type: parsed.nid
+  };
+}
+
+// Usage
+const userUrn = createUserUrn('user-123');
+const userInfo = parseUserUrn(userUrn);
+console.log(userInfo); // { userId: 'user-123', type: 'user' }
+```
+
+### Node.js Project
+
+For Node.js applications:
+
+```javascript
+// package.json
+{
+  "name": "my-urn-app",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@evanion/urn": "^1.1.0"
+  }
+}
+```
+
+```javascript
+// src/app.js
+import { URN } from '@evanion/urn';
+
+// Create URNs for different resources
+const resources = {
+  users: URN.stringify('user-123', 'user'),
+  products: URN.stringify('product-456', 'product'),
+  orders: URN.stringify('order-789', 'order')
+};
+
+console.log(resources);
+// {
+//   users: 'urn:user:user-123',
+//   products: 'urn:product:product-456',
+//   orders: 'urn:order:order-789'
+// }
+```
+
+### React Project
+
+For React applications:
+
+```bash
+npx create-react-app my-urn-app --template typescript
+cd my-urn-app
+npm install @evanion/urn
+```
+
+```typescript
+// src/components/ResourceList.tsx
+import React from 'react';
+import { URN } from '@evanion/urn';
+
+interface Resource {
+  id: string;
+  type: string;
+}
+
+interface ResourceListProps {
+  resources: Resource[];
+}
+
+const ResourceList: React.FC<ResourceListProps> = ({ resources }) => {
+  return (
+    <ul>
+      {resources.map(resource => {
+        const urn = URN.stringify(resource.id, resource.type);
+        return (
+          <li key={urn}>
+            <strong>{resource.type}:</strong> {resource.id}
+            <br />
+            <small>URN: {urn}</small>
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
+
+export default ResourceList;
+```
+
+```typescript
+// src/App.tsx
+import React from 'react';
+import ResourceList from './components/ResourceList';
+
+const App: React.FC = () => {
+  const resources = [
+    { id: 'user-123', type: 'user' },
+    { id: 'product-456', type: 'product' },
+    { id: 'order-789', type: 'order' }
+  ];
+
+  return (
+    <div className="App">
+      <h1>My URN App</h1>
+      <ResourceList resources={resources} />
+    </div>
+  );
+};
+
+export default App;
+```
+
+### Express.js API
+
+For Express.js APIs:
+
+```bash
+npm init -y
+npm install express @evanion/urn
+npm install -D @types/express typescript ts-node nodemon
+```
+
+```typescript
+// src/server.ts
+import express from 'express';
+import { URN, InvalidError } from '@evanion/urn';
+
+const app = express();
+app.use(express.json());
+
+// URN-based resource endpoints
+app.get('/resource/:urn', (req, res) => {
+  try {
+    const parsed = URN.parse(req.params.urn);
+    res.json({
+      urn: req.params.urn,
+      components: parsed,
+      message: `Resource ${parsed.nss} of type ${parsed.nid}`
+    });
+  } catch (error) {
+    if (error instanceof InvalidError) {
+      res.status(400).json({ error: 'Invalid URN format' });
+    } else {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+app.post('/resource', (req, res) => {
+  const { id, type } = req.body;
+  
+  try {
+    const urn = URN.stringify(id, type);
+    res.json({
+      urn,
+      created: true,
+      message: `Created ${type} resource with ID ${id}`
+    });
+  } catch (error) {
+    if (error instanceof InvalidError) {
+      res.status(400).json({ error: 'Invalid resource data' });
+    } else {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+## Common Patterns
+
+### Resource Factory Pattern
+
+```typescript
+import { URN } from '@evanion/urn';
+
+class ResourceFactory {
+  static createUser(id: string): string {
+    return URN.stringify(id, 'user');
+  }
+  
+  static createProduct(id: string): string {
+    return URN.stringify(id, 'product');
+  }
+  
+  static createOrder(id: string): string {
+    return URN.stringify(id, 'order');
+  }
+  
+  static parseResource(urn: string): { id: string; type: string } {
+    const parsed = URN.parse(urn);
+    return {
+      id: parsed.nss,
+      type: parsed.nid
+    };
+  }
+}
+
+// Usage
+const userUrn = ResourceFactory.createUser('user-123');
+const productUrn = ResourceFactory.createProduct('product-456');
+const orderUrn = ResourceFactory.createOrder('order-789');
+
+console.log(userUrn);   // "urn:user:user-123"
+console.log(productUrn); // "urn:product:product-456"
+console.log(orderUrn);   // "urn:order:order-789"
+```
+
+### Custom URN Classes
+
+```typescript
+import { URN } from '@evanion/urn';
+
+// Base resource URN
+class ResourceURN extends URN {
+  static urn = 'resource';
+}
+
+// Specific resource types
+class UserURN extends ResourceURN {
+  static nid = 'user';
+}
+
+class ProductURN extends ResourceURN {
+  static nid = 'product';
+}
+
+class OrderURN extends ResourceURN {
+  static nid = 'order';
+}
+
+// Usage
+const userUrn = UserURN.stringify('user-123');
+const productUrn = ProductURN.stringify('product-456');
+const orderUrn = OrderURN.stringify('order-789');
+
+console.log(userUrn);   // "resource:user:user-123"
+console.log(productUrn); // "resource:product:product-456"
+console.log(orderUrn);   // "resource:order:order-789"
+```
+
+### Error Handling Pattern
+
+```typescript
+import { URN, InvalidError } from '@evanion/urn';
+
+function safeUrnOperation<T>(
+  operation: () => T,
+  fallback: T
+): T {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof InvalidError) {
+      console.warn(`Invalid URN operation: ${error.message}`);
+      return fallback;
+    }
+    throw error; // Re-throw unexpected errors
+  }
+}
+
+// Usage
+const validUrn = safeUrnOperation(
+  () => URN.stringify('user-123', 'user'),
+  'urn:default:fallback'
+);
+console.log(validUrn); // "urn:user:user-123"
+
+const invalidUrn = safeUrnOperation(
+  () => URN.stringify('user!123', 'user'),
+  'urn:default:fallback'
+);
+console.log(invalidUrn); // "urn:default:fallback"
+```
+
+## Testing Your Setup
+
+Create a simple test to verify everything is working:
+
+```typescript
+// test/urn.test.ts
+import { describe, it, expect } from 'vitest';
+import { URN } from '@evanion/urn';
+
+describe('URN Setup Test', () => {
+  it('should create and parse URNs', () => {
+    const urn = URN.stringify('test-resource', 'test-namespace');
+    expect(urn).toBe('urn:test-namespace:test-resource');
+    
+    const parsed = URN.parse(urn);
+    expect(parsed).toEqual({
+      urn: 'urn',
+      nid: 'test-namespace',
+      nss: 'test-resource'
+    });
+  });
+  
+  it('should handle custom URN classes', () => {
+    class TestURN extends URN {
+      static urn = 'test';
+    }
+    
+    const urn = TestURN.stringify('resource', 'namespace');
+    expect(urn).toBe('test:namespace:resource');
+  });
+});
+```
+
+Run the test:
+
+```bash
+npm test
+```
+
+## Next Steps
+
+Now that you have the URN library set up, you can:
+
+1. **Explore the API**: Check out the [API Reference](/urn/api) for detailed method documentation
+2. **See Examples**: Look at [Examples](/urn/examples) for real-world usage patterns
+3. **Build Your Application**: Start integrating URNs into your application logic
+4. **Create Custom Classes**: Extend the base URN class for your specific domain needs
+
+## Troubleshooting
+
+### Common Issues
+
+**Import Errors**
+```typescript
+// ❌ Wrong
+import URN from '@evanion/urn';
+
+// ✅ Correct
+import { URN } from '@evanion/urn';
+```
+
+**TypeScript Configuration**
+Make sure your `tsconfig.json` includes proper module resolution:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  }
+}
+```
+
+**Node.js ES Modules**
+If using ES modules in Node.js, ensure your `package.json` has:
+
+```json
+{
+  "type": "module"
+}
+```
+
+### Getting Help
+
+- Check the [API Reference](/urn/api) for detailed documentation
+- Look at [Examples](/urn/examples) for usage patterns
+- Review the [GitHub repository](https://github.com/Evanion/libraries) for issues and discussions
+
+You're now ready to start using URNs in your project! 🎉

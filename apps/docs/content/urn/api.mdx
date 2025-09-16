@@ -1,0 +1,286 @@
+# URN API Reference
+
+Complete API reference for the URN library.
+
+[![CircleCI](https://circleci.com/gh/Evanion/urn/tree/main.svg?style=shield)](https://circleci.com/gh/Evanion/urn/tree/main)
+[![codecov](https://codecov.io/gh/Evanion/urn/branch/main/graph/badge.svg?token=S5V045X33K)](https://codecov.io/gh/Evanion/urn)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=bugs)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
+[![Known Vulnerabilities](https://snyk.io/test/github/Evanion/urn/badge.svg)](https://snyk.io/test/github/Evanion/urn)
+![npm (scoped)](https://img.shields.io/npm/v/@evanion/urn)
+
+## Core Classes
+
+### URN
+
+The base URN class providing core functionality for URN parsing and stringifying.
+
+```typescript
+class URN {
+  static urn: string = 'urn';
+  static separator: string = ':';
+  static nid?: string;
+}
+```
+
+## Static Methods
+
+### `stringify(nss, nid?, urn?)`
+
+Creates a URN string from its components.
+
+**Signature:**
+
+```typescript
+static stringify(nss: string, nid?: string, urn?: string): string
+```
+
+**Parameters:**
+
+- `nss` (string): The namespace-specific string
+- `nid` (string, optional): The namespace identifier. Defaults to 'nid'
+- `urn` (string, optional): The URN scheme. Defaults to 'urn'
+
+**Returns:** `string` - The formatted URN string
+
+**Examples:**
+
+```typescript
+// Basic usage
+URN.stringify('example'); // "urn:nid:example"
+URN.stringify('example', 'my-namespace'); // "urn:my-namespace:example"
+URN.stringify('example', 'my-namespace', 'custom'); // "custom:my-namespace:example"
+
+// Handles duplicate nid
+URN.stringify('my-namespace:example', 'my-namespace'); // "urn:my-namespace:example"
+```
+
+**Throws:**
+
+- `InvalidError` - When URN contains invalid characters
+- `InvalidError` - When NID contains invalid characters
+
+### `parse(urnString)`
+
+Parses a URN string into its components.
+
+**Signature:**
+
+```typescript
+static parse(urnString: string): { urn: string; nid: string; nss: string }
+```
+
+**Parameters:**
+
+- `urnString` (string): The URN string to parse
+
+**Returns:** `object` - An object containing:
+
+- `urn` (string): The URN scheme
+- `nid` (string): The namespace identifier
+- `nss` (string): The namespace-specific string
+
+**Examples:**
+
+```typescript
+// Standard URN parsing
+URN.parse('urn:my-namespace:example');
+// Returns: { urn: 'urn', nid: 'my-namespace', nss: 'example' }
+
+// Custom scheme parsing
+URN.parse('custom:my-namespace:example');
+// Returns: { urn: 'custom', nid: 'my-namespace', nss: 'example' }
+
+// Different namespace handling
+URN.parse('urn:other-namespace:example');
+// Returns: { urn: 'urn', nid: 'other-namespace', nss: 'other-namespace:example' }
+```
+
+## Class Properties
+
+### `static urn: string`
+
+The URN scheme for the class. Used when stringifying URNs.
+
+**Default:** `'urn'`
+
+**Example:**
+
+```typescript
+class MyURN extends URN {
+  static urn = 'my-scheme';
+}
+
+MyURN.stringify('example', 'namespace'); // "my-scheme:namespace:example"
+```
+
+### `static separator: string`
+
+The separator used between URN components when stringifying.
+
+**Default:** `':'`
+
+**Example:**
+
+```typescript
+class MyURN extends URN {
+  static separator = '-';
+}
+
+MyURN.stringify('example', 'namespace'); // "urn-namespace-example"
+```
+
+### `static nid: string`
+
+The namespace identifier for the class. When set, this value is used as the default namespace identifier.
+
+**Default:** `undefined`
+
+**Example:**
+
+```typescript
+class MyURN extends URN {
+  static nid = 'my-namespace';
+}
+
+MyURN.stringify('example'); // "urn:my-namespace:example"
+```
+
+## Error Classes
+
+### InvalidError
+
+Thrown when URN operations encounter invalid input.
+
+**Properties:**
+
+- `message` (string): Error description
+
+**Examples:**
+
+```typescript
+import { InvalidError } from '@evanion/urn';
+
+try {
+  URN.stringify('invalid!character', 'namespace');
+} catch (error) {
+  if (error instanceof InvalidError) {
+    console.log(error.message); // "URN contains invalid characters"
+  }
+}
+```
+
+## Type Definitions
+
+### URN Components
+
+```typescript
+interface URNComponents {
+  urn: string; // The URN scheme
+  nid: string; // The namespace identifier
+  nss: string; // The namespace-specific string
+}
+```
+
+### URN Class Constructor
+
+```typescript
+interface URNConstructor {
+  new (): URN;
+  stringify(nss: string, nid?: string, urn?: string): string;
+  parse(urnString: string): URNComponents;
+  urn: string;
+  separator: string;
+  nid?: string;
+}
+```
+
+## Validation Rules
+
+### Valid Characters
+
+The library validates URN components according to RFC 8141:
+
+- **URN Scheme**: Must be valid URI scheme characters
+- **Namespace Identifier (NID)**: Must be valid NID characters (alphanumeric, hyphens)
+- **Namespace-Specific String (NSS)**: Must be valid NSS characters (alphanumeric, hyphens, periods, underscores)
+
+### Invalid Characters
+
+The following characters are considered invalid in URN components:
+
+- Spaces
+- Special characters like `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `+`, `=`, `[`, `]`, `{`, `}`, `|`, `\`, `:`, `;`, `"`, `'`, `<`, `>`, `,`, `.`, `?`, `/`
+
+## Best Practices
+
+### Class Inheritance
+
+```typescript
+// Good: Clear hierarchy with specific purposes
+class ResourceURN extends URN {
+  static urn = 'resource';
+}
+
+class UserURN extends ResourceURN {
+  static nid = 'user';
+}
+
+// Good: Custom separators for specific domains
+class DatabaseURN extends URN {
+  static urn = 'db';
+  static separator = '.';
+}
+```
+
+### Error Handling
+
+```typescript
+// Good: Always handle potential errors
+try {
+  const urn = URN.stringify(userId, 'user');
+  // Use urn...
+} catch (error) {
+  if (error instanceof InvalidError) {
+    // Handle invalid input
+    console.error('Invalid URN:', error.message);
+  } else {
+    // Handle unexpected errors
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+### Type Safety
+
+```typescript
+// Good: Use TypeScript for type safety
+interface User {
+  id: string;
+  urn: string;
+}
+
+function createUser(id: string): User {
+  const urn = URN.stringify(id, 'user');
+  return { id, urn };
+}
+```
+
+## Performance Considerations
+
+- **String Operations**: URN stringifying and parsing are optimized for performance
+- **Memory Usage**: Minimal memory footprint with no internal state
+- **Validation**: Fast character validation using efficient algorithms
+- **Caching**: Consider caching frequently used URN strings in your application
+
+## Browser Support
+
+The URN library supports all modern browsers and Node.js environments:
+
+- **Node.js**: 14+
+- **Browsers**: ES2015+ (Chrome 60+, Firefox 55+, Safari 12+, Edge 79+)
+- **TypeScript**: 4.0+
