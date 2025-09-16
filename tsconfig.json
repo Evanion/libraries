@@ -8,6 +8,9 @@
     },
     {
       "path": "./apps/docs"
+    },
+    {
+      "path": "./libs/urn"
     }
   ]
 }
