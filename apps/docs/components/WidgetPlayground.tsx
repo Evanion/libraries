@@ -53,7 +53,7 @@ export default function WidgetPlayground({
     }
   }, []);
 
-  const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
+  const handleEditorDidMount = useCallback((editor: unknown, monaco: unknown) => {
     // Configure Monaco for TypeScript with JSX support
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -105,10 +105,10 @@ export default function WidgetPlayground({
   }, []);
 
   // Simple mock for the playground
-  const mockCreateWidgets = (config: any) => {
+  const mockCreateWidgets = (config: { components: Record<string, React.ComponentType<unknown>> }) => {
     const { components } = config;
 
-    const Widgets = ({ items }: { items: any[] }) => {
+    const Widgets = ({ items }: { items: Array<{ id: string; type: string; props: unknown }> }) => {
       return (
         <div>
           {items.map((item) => {
@@ -134,7 +134,7 @@ export default function WidgetPlayground({
     useMemo: React.useMemo,
     useCallback: React.useCallback,
     React: React,
-    render: (element: any) => element, // Add render function for noInline mode
+    render: (element: React.ReactElement) => element, // Add render function for noInline mode
   };
 
   return (

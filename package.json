@@ -10,6 +10,16 @@
     "pre-commit:restore": "cp .husky/pre-commit.backup .husky/pre-commit && rm .husky/pre-commit.backup"
   },
   "private": true,
+  "overrides": {
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": {
+      "commitizen": "^4.3.1"
+    },
+    "inquirer": {
+      "external-editor": "^3.1.0"
+    },
+    "external-editor": "^3.1.0"
+  },
   "devDependencies": {
     "@babel/core": "^7.14.5",
     "@babel/preset-react": "^7.14.5",
