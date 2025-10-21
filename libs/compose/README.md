@@ -35,17 +35,45 @@ const App: React.FC = () => {
 
 This package lets you clean this up with **full TypeScript support**:
 
-### Basic Usage
+### Option 1: Using the `provider()` helper (recommended for best IntelliSense)
+
+```tsx
+import { ComposeProvider, provider } from '@evanion/compose';
+
+const providers = [
+  ErrorBoundary,
+  provider(CacheProvider, { value: emotionCache }),
+  provider(ThemeProvider, { theme }),
+  provider(TranslationProvider, { locale, messages }),
+  provider(StateProvider, { state: stateStore }),
+  CoffeeProvider,
+  SanityProvider,
+];
+
+const App: React.FC = () => {
+  return (
+    <ComposeProvider providers={providers}>
+      <Routes />
+    </ComposeProvider>
+  );
+};
+```
+
+✅ **Full IntelliSense autocomplete** while typing props  
+✅ **Type errors** for missing or incorrect props  
+✅ **Lightweight** - just a tiny helper function
+
+### Option 2: Using tuple syntax with `as const`
 
 ```tsx
 import { ComposeProvider } from '@evanion/compose';
 
 const providers = [
   ErrorBoundary,
-  [CacheProvider, { value: emotionCache }],
-  [ThemeProvider, { theme }],
-  [TranslationProvider, { locale, messages }],
-  [StateProvider, { state: stateStore }],
+  [CacheProvider, { value: emotionCache }] as const,
+  [ThemeProvider, { theme }] as const,
+  [TranslationProvider, { locale, messages }] as const,
+  [StateProvider, { state: stateStore }] as const,
   CoffeeProvider,
   SanityProvider,
 ];
@@ -59,65 +87,17 @@ const App: React.FC = () => {
 };
 ```
 
-### Type-Safe Provider Creation
-
-Use the `createProvider` helper for better type inference:
-
-```tsx
-import { ComposeProvider, createProvider } from '@evanion/compose';
-
-const providers = [
-  ErrorBoundary,
-  createProvider(CacheProvider, { value: emotionCache }),
-  createProvider(ThemeProvider, { theme }),
-  createProvider(TranslationProvider, { locale, messages }),
-  createProvider(StateProvider, { state: stateStore }),
-  CoffeeProvider,
-  SanityProvider,
-];
-
-const App: React.FC = () => {
-  return (
-    <ComposeProvider providers={providers}>
-      <Routes />
-    </ComposeProvider>
-  );
-};
-```
-
-### Fluent Builder API
-
-For complex scenarios, use the `ProviderBuilder` for a fluent, type-safe API:
-
-```tsx
-import { ComposeProvider, createProviderBuilder } from '@evanion/compose';
-
-const providers = createProviderBuilder()
-  .add(ErrorBoundary)
-  .add(CacheProvider, { value: emotionCache })
-  .add(ThemeProvider, { theme })
-  .add(TranslationProvider, { locale, messages })
-  .add(StateProvider, { state: stateStore })
-  .add(CoffeeProvider)
-  .add(SanityProvider)
-  .build();
-
-const App: React.FC = () => {
-  return (
-    <ComposeProvider providers={providers}>
-      <Routes />
-    </ComposeProvider>
-  );
-};
-```
+✅ **No helper needed** - just arrays and `as const`  
+✅ **Type errors** for missing or incorrect props  
+❌ **No IntelliSense autocomplete** - you need to know the prop names
 
 ## Key Features
 
 - ✅ **Strong Type Safety**: Full TypeScript support with intelligent prop inference
-- ✅ **Multiple APIs**: Choose between array syntax, helper functions, or builder pattern
+- ✅ **Flexible API**: Choose between `provider()` helper (best IntelliSense) or tuple syntax (simpler)
 - ✅ **Legacy Support**: Backward compatible with existing `components` prop
 - ✅ **Zero Dependencies**: Lightweight with no external dependencies
-- ✅ **Provider Order**: Providers are applied in reverse order (last provider wraps first)
+- ✅ **Natural Reading Order**: Providers are applied in the order you list them (first provider is outermost, matching pyramid-of-doom reading order)
 
 ## Type Safety Benefits
 
@@ -146,59 +126,89 @@ The main component that renders providers in the correct order.
 - `components`: Array of providers (legacy, deprecated)
 - `children`: React children to wrap
 
-### `createProvider(component, props)`
+### `provider(component, props)`
 
-Helper function that creates a type-safe provider tuple.
+Helper function that creates a type-safe provider tuple with full IntelliSense.
 
 **Parameters:**
 
 - `component`: Provider component
-- `props`: Props object (type-checked against component)
+- `props`: Props object (autocompleted based on component type)
 
-**Returns:** `[component, props]` tuple
+**Returns:** Readonly tuple `[component, props]`
 
-### `createProviderBuilder()`
-
-Creates a new `ProviderBuilder` instance for fluent API.
-
-**Returns:** `ProviderBuilder` instance
-
-### `ProviderBuilder`
-
-Fluent API for building provider arrays.
-
-**Methods:**
-
-- `add(component)`: Add a provider without props
-- `add(component, props)`: Add a provider with props
-- `build()`: Build the final provider array
-
-## Migration Guide
-
-### From v1.x
-
-The API is backward compatible. You can continue using the existing syntax:
+**Example:**
 
 ```tsx
-// This still works
+const p = provider(ThemeProvider, {
+  theme: 'dark', // ← IntelliSense suggests available props
+  primaryColor: '#007acc',
+});
+```
+
+### Types
+
+**`Provider`**: A provider component or `[component, props] as const` tuple
+
+**`ProviderArray`**: Readonly array of providers
+
+## TypeScript Usage
+
+### Which Approach to Use?
+
+**Use `provider()` helper when:**
+
+- You want IntelliSense autocomplete for props
+- You're not sure what props a component needs
+- You prefer a more guided typing experience
+
+**Use tuple syntax when:**
+
+- You already know the prop names
+- You want the most minimal syntax
+- You don't mind typing props without autocomplete
+
+### With `provider()` Helper
+
+```tsx
+import { provider } from '@evanion/compose';
+
 const providers = [
-  ErrorBoundary,
-  [CacheProvider, { value: emotionCache }],
-  // ...
+  provider(ThemeProvider, {
+    theme: // ← Cursor here: IntelliSense suggests 'light' | 'dark'
+    primaryColor: // ← IntelliSense suggests string
+  }),
 ];
 ```
 
-### To v2.x (Recommended)
+✅ Full autocomplete as you type  
+✅ Type errors for missing/wrong props  
+✅ Best developer experience
 
-For better type safety, use the new helpers:
+### With Tuple Syntax
 
 ```tsx
-// Recommended approach
 const providers = [
-  ErrorBoundary,
-  createProvider(CacheProvider, { value: emotionCache }),
-  // ...
+  [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
 ];
+```
+
+❌ No autocomplete (you must know prop names)  
+✅ Type errors for missing/wrong props  
+✅ Most concise syntax
+
+### Examples
+
+**Both approaches catch errors:**
+
+```tsx
+// ❌ Missing required props (both approaches error)
+provider(ThemeProvider, { theme: 'dark' }); // Error: missing 'primaryColor'
+[ThemeProvider, { theme: 'dark' }] as const; // Error: missing 'primaryColor'
+
+// ❌ Wrong prop types (both approaches error)
+provider(ThemeProvider, { theme: 'blue', primaryColor: '#007acc' }); // Error
+[ThemeProvider, { theme: 'blue', primaryColor: '#007acc' }] as const; // Error
 ```
 
 ## Contributing
