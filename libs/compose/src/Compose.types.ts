@@ -1,49 +1,60 @@
-import { ComponentType, PropsWithChildren } from 'react';
+import { ComponentType, ComponentProps } from 'react';
 
-// Base provider component type that accepts children
-export type ProviderComponent<T = Record<string, never>> = ComponentType<PropsWithChildren<T>>;
+/**
+ * Extracts props from a React component, excluding the children prop.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PropsWithoutChildren<T extends ComponentType<any>> = Omit<
+  ComponentProps<T>,
+  'children'
+>;
 
-// Provider can be either a component or a tuple with props
-export type Provider<T = Record<string, never>> = ProviderComponent<T> | [ProviderComponent<T>, T];
-
-// More flexible provider array type - using any for now to avoid complex type issues
-export type ProviderArray = readonly Provider<any>[];
-
-// Utility function to create a provider with props (for better type inference)
-export function createProvider<T extends ProviderComponent<any>>(
+/**
+ * Helper to create a strongly-typed provider tuple.
+ * This enables full IntelliSense for provider props.
+ *
+ * @param component - The provider component
+ * @param props - Props for the provider (autocompleted based on component type)
+ *
+ * @example
+ * ```tsx
+ * const p = provider(ThemeProvider, {
+ *   theme: 'dark',           // ← IntelliSense suggests 'theme' and 'primaryColor'
+ *   primaryColor: '#007acc'
+ * });
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function provider<T extends ComponentType<any>>(
   component: T,
-  props: T extends ProviderComponent<infer P> ? P : never
-): [T, T extends ProviderComponent<infer P> ? P : never] {
-  return [component, props];
+  props: PropsWithoutChildren<T>
+): readonly [T, PropsWithoutChildren<T>] {
+  return [component, props] as const;
 }
 
-// Type-safe provider builder
-export class ProviderBuilder {
-  private providers: Provider<any>[] = [];
+/**
+ * A provider can be either:
+ * - A component without props: `ThemeProvider`
+ * - A tuple with component and props: `[ThemeProvider, { theme: 'dark' }]`
+ *
+ * For best IntelliSense, use the `provider()` helper function.
+ *
+ * @example
+ * ```tsx
+ * const providers = [
+ *   SimpleProvider,
+ *   provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
+ * ] as const;
+ * ```
+ */
+export type Provider =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | ComponentType<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | readonly [ComponentType<any>, any];
 
-  add<T extends ProviderComponent<any>>(component: T): ProviderBuilder;
-  add<T extends ProviderComponent<any>>(
-    component: T,
-    props: T extends ProviderComponent<infer P> ? P : never
-  ): ProviderBuilder;
-  add<T extends ProviderComponent<any>>(
-    component: T,
-    props?: T extends ProviderComponent<infer P> ? P : never
-  ): ProviderBuilder {
-    if (props) {
-      this.providers.push([component, props]);
-    } else {
-      this.providers.push(component);
-    }
-    return this;
-  }
-
-  build(): readonly Provider<any>[] {
-    return this.providers;
-  }
-}
-
-// Convenience function to create a provider builder
-export function createProviderBuilder(): ProviderBuilder {
-  return new ProviderBuilder();
-}
+/**
+ * Array of providers to be composed.
+ * Providers are applied in order (first provider is outermost).
+ */
+export type ProviderArray = readonly Provider[];
