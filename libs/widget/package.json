@@ -1,7 +1,33 @@
 {
   "name": "@evanion/react-widget",
   "version": "0.0.1",
+  "description": "Render dynamic, type-safe React widget regions from structured data. Built for CMS-driven layouts, dashboards and configurable sidebars.",
+  "keywords": [
+    "react",
+    "widget",
+    "cms",
+    "dynamic",
+    "layout",
+    "components",
+    "registry",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/widget#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/widget"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,5 +39,24 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
   }
 }

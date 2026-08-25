@@ -1,7 +1,32 @@
 {
   "name": "@evanion/compose",
   "version": "1.0.8",
+  "description": "React component that gets you out of provider hell by flattening nested providers into a single, readable list.",
+  "keywords": [
+    "react",
+    "provider",
+    "context",
+    "compose",
+    "provider-hell",
+    "jsx",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/compose#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/compose"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,5 +38,24 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
   }
 }
