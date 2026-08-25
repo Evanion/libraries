@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import { ComposeProvider, provider } from './index';
-import type { ComposeProviderProps, LegacyComposeProviderProps } from './index';
+import { ComposeProvider, provider } from './index.js';
+import type { ComposeProviderProps, LegacyComposeProviderProps } from './index.js';
 
 /**
  * `ComposeProvider` is now generic and overloaded, so props built dynamically

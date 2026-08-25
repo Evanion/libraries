@@ -1,5 +1,5 @@
 import React, { HTMLProps, Suspense, Component, ReactNode } from 'react';
-import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants';
+import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants.js';
 
 export function DefaultWrapper(props: HTMLProps<HTMLDivElement>) {
   return <section {...props} />;

@@ -93,5 +93,23 @@
         "linter": "eslint"
       }
     }
+  },
+  "release": {
+    "projectsRelationship": "independent",
+    "projects": ["libs/*"],
+    "releaseTag": {
+      "pattern": "{projectName}@{version}"
+    },
+    "version": {
+      "conventionalCommits": true,
+      "fallbackCurrentVersionResolver": "disk",
+      "adjustSemverBumpsForZeroMajorVersion": true
+    },
+    "changelog": {
+      "workspaceChangelog": false,
+      "projectChangelogs": {
+        "createRelease": "github"
+      }
+    }
   }
 }

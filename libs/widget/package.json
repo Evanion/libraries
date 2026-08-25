@@ -1,6 +1,6 @@
 {
   "name": "@evanion/react-widget",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Render dynamic, type-safe React widget regions from structured data. Built for CMS-driven layouts, dashboards and configurable sidebars.",
   "keywords": [
     "react",

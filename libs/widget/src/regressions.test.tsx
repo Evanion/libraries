@@ -3,10 +3,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PropsWithChildren, useState } from 'react';
 
 // Deliberately imported from the public barrel rather than the internal
-// modules. Every other test file imports from './widget' or './widgets'
-// directly, which is exactly why the missing `export * from './widgets'` went
+// modules. Every other test file imports from './widget.js' or './widgets'
+// directly, which is exactly why the missing `export * from './widgets.js'` went
 // unnoticed.
-import { createWidgets, DefaultItem, DefaultWrapper } from './index';
+import { createWidgets, DefaultItem, DefaultWrapper } from './index.js';
 
 type OutputProp = { Output?: React.ComponentType };
 

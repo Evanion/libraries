@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { ProviderArray, ValidateProviders } from './Compose.types';
+import type { ProviderArray, ValidateProviders } from './Compose.types.js';
 
 /**
  * `process` does not exist in a browser unless a bundler injects it, and this

@@ -1,6 +1,6 @@
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createWidgets } from './widget';
+import { createWidgets } from './widget.js';
 
 // Real-world CMS components
 const HeroBanner = ({
