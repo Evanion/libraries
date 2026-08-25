@@ -1,5 +1,5 @@
-import { InvalidError } from './exceptions';
-import { ParsedURN } from './types';
+import { InvalidError } from './exceptions.js';
+import { ParsedURN } from './types.js';
 
 export class URN {
   /**
