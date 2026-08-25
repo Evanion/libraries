@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { InvalidError } from './exceptions';
-import { URN } from './urn';
+import { InvalidError } from './exceptions.js';
+import { URN } from './urn.js';
 
 describe('URN', () => {
   describe('stringify', () => {
@@ -35,26 +35,26 @@ describe('URN', () => {
   describe('class inheritance', () => {
     it('should derive from urn class', () => {
       class TRN extends URN {
-        static urn = 'trn';
+        static override urn = 'trn';
       }
       expect((TRN as typeof URN).stringify('foo', 'bar')).toBe('trn:bar:foo');
     });
 
     it('should derive from urn class and set separator', () => {
       class TRN extends URN {
-        static readonly urn = 'trn';
-        static readonly separator = '-';
+        static override readonly urn = 'trn';
+        static override readonly separator = '-';
       }
       expect((TRN as typeof URN).stringify('foo', 'bar')).toBe('trn-bar-foo');
     });
 
     it('should derive from urn class and set nid', () => {
       class TRN extends URN {
-        static urn = 'trn';
+        static override urn = 'trn';
       }
 
       class BarTRN extends TRN {
-        static readonly nid = 'bar';
+        static override readonly nid = 'bar';
       }
       expect((BarTRN as typeof URN).stringify('foo')).toBe('trn:bar:foo');
     });
@@ -63,8 +63,8 @@ describe('URN', () => {
   describe('parse', () => {
     it('should parse URN and return all parts in object', () => {
       class BarTRN extends URN {
-        static urn = 'trn';
-        static readonly nid = 'bar';
+        static override urn = 'trn';
+        static override readonly nid = 'bar';
       }
 
       expect((BarTRN as typeof URN).parse('trn:bar:foo')).toEqual({
@@ -76,8 +76,8 @@ describe('URN', () => {
 
     it("should parse URN and return all parts in object, but keep nid with nss if it's not the same generator", () => {
       class BarTRN extends URN {
-        static urn = 'trn';
-        static readonly nid = 'bar';
+        static override urn = 'trn';
+        static override readonly nid = 'bar';
       }
 
       expect((BarTRN as typeof URN).parse('trn:baz:foo')).toEqual({

@@ -1,3 +1,3 @@
-export * from './lib/urn';
-export * from './lib/types';
-export * from './lib/exceptions';
+export * from './lib/urn.js';
+export * from './lib/types.js';
+export * from './lib/exceptions.js';
