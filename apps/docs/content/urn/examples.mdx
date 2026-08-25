@@ -185,7 +185,7 @@ console.log(taskUrn); // "resource:task:task-001"
 function validateResourceHierarchy(
   orgId: string,
   projectId: string,
-  taskId: string
+  taskId: string,
 ) {
   const orgUrn = OrganizationURN.stringify(orgId);
   const projectUrn = ProjectURN.stringify(projectId);
@@ -478,7 +478,7 @@ describe('URN Examples', () => {
 
   it('should throw error for invalid characters', () => {
     expect(() => URN.stringify('invalid!character', 'namespace')).toThrow(
-      InvalidError
+      InvalidError,
     );
   });
 });

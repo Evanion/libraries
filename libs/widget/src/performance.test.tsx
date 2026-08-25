@@ -185,7 +185,7 @@ describe('Widget System - Performance', () => {
     };
 
     const { rerender } = render(
-      <Widgets items={items} components={instanceComponents} />
+      <Widgets items={items} components={instanceComponents} />,
     );
 
     // Initial render

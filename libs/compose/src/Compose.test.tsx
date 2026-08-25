@@ -45,7 +45,7 @@ describe('ComposeProvider', () => {
     const { getByText, container } = render(
       <ComposeProvider providers={providers}>
         <div>Test content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Test content')).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('ComposeProvider', () => {
     const { getByText, container } = render(
       <ComposeProvider providers={providers}>
         <div>Test content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Test content')).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe('ComposeProvider', () => {
     const { getByText, container } = render(
       <ComposeProvider providers={providers}>
         <div>Test content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Test content')).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe('ComposeProvider', () => {
     const { getByText, container } = render(
       <ComposeProvider providers={providers}>
         <div>Test content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Test content')).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe('ComposeProvider', () => {
     const { getByText } = render(
       <ComposeProvider components={components}>
         <div>Test content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Test content')).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe('ComposeProvider', () => {
     const { container } = render(
       <ComposeProvider providers={providers}>
         <div>Deep content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     // Verify provider order: first provider should be outermost
@@ -208,7 +208,7 @@ describe('ComposeProvider', () => {
     const { getByText } = render(
       <ComposeProvider providers={providers}>
         <div>Mixed content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Mixed content')).toBeInTheDocument();
@@ -222,12 +222,12 @@ describe('ComposeProvider', () => {
     const { getByText } = render(
       <ComposeProvider providers={[]}>
         <div>No providers</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('No providers')).toBeInTheDocument();
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'ComposeProvider: Empty provider array. No providers will be applied.'
+      'ComposeProvider: Empty provider array. No providers will be applied.',
     );
 
     consoleWarnSpy.mockRestore();
@@ -239,7 +239,7 @@ describe('ComposeProvider', () => {
     const { getByText, container } = render(
       <ComposeProvider providers={providers}>
         <div>Single provider</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(getByText('Single provider')).toBeInTheDocument();
@@ -279,7 +279,7 @@ describe('ComposeProvider', () => {
     const { container } = render(
       <ComposeProvider providers={providers}>
         <div>Content</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     const outer = container.querySelector('[data-level="outer"]');
@@ -304,11 +304,11 @@ describe('ComposeProvider', () => {
     render(
       <ComposeProvider components={components}>
         <div>Legacy</div>
-      </ComposeProvider>
+      </ComposeProvider>,
     );
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.'
+      'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.',
     );
 
     consoleWarnSpy.mockRestore();

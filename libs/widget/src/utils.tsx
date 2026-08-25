@@ -6,7 +6,7 @@ export function renderWidget<Items extends Record<string, WidgetProps<string>>>(
   item: WidgetProps<string>,
   components: { [K in keyof Items]: React.ComponentType<Items[K]['props']> },
   ItemWrapper: any,
-  OutputComponent?: () => React.ReactElement
+  OutputComponent?: () => React.ReactElement,
 ) {
   if (!(item.type in components)) {
     console.warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));

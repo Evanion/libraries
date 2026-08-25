@@ -135,9 +135,7 @@ interface WidgetItem {
 
 ```tsx
 const { Widgets } = createWidgets({
-  components: {
-    /* your components */
-  },
+  components: {/* your components */},
   chrome: {
     wrapper: ({ children }) => (
       <div className="widget-container">
@@ -158,9 +156,7 @@ import { createContext } from 'react';
 const MyWidgetContext = createContext({});
 
 const { Widgets, WidgetsProvider } = createWidgets({
-  components: {
-    /* your components */
-  },
+  components: {/* your components */},
   context: MyWidgetContext,
 });
 
@@ -275,9 +271,7 @@ const CustomItem = ({ children, ...props }) => (
 );
 
 const { Widgets } = createWidgets({
-  components: {
-    /* ... */
-  },
+  components: {/* ... */},
   chrome: { item: CustomItem },
 });
 ```

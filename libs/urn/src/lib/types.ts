@@ -5,7 +5,7 @@ export type IFullURN<
   URN extends string,
   NID extends string,
   NSS extends string,
-  x extends string = ''
+  x extends string = '',
 > = `${URN}:${NID}:${NSS}${x}`;
 
 /**
@@ -14,7 +14,7 @@ export type IFullURN<
 export type IBasicURN<
   URN extends string,
   NID extends string,
-  NSS extends string
+  NSS extends string,
 > = IFullURN<URN, NID, NSS>;
 
 /**
@@ -23,7 +23,7 @@ export type IBasicURN<
 export interface ParsedURN<
   URN extends string,
   NID extends string,
-  NSS extends string
+  NSS extends string,
 > {
   /**
    * The Schema

@@ -159,7 +159,7 @@ describe('Widget System - Basic Usage', () => {
     expect(screen.getByTestId('news-teaser')).toBeInTheDocument();
     expect(screen.getByText('Valid News')).toBeInTheDocument();
     expect(
-      screen.queryByText('This should not render')
+      screen.queryByText('This should not render'),
     ).not.toBeInTheDocument();
   });
 });
@@ -299,14 +299,14 @@ describe('Widget System - Instance Overrides', () => {
     ];
 
     render(
-      <Widgets items={items} components={{ news: specialNewsComponent }} />
+      <Widgets items={items} components={{ news: specialNewsComponent }} />,
     );
 
     // Should use the overridden component
     expect(screen.getByTestId('featured-news')).toBeInTheDocument();
     expect(screen.getByText('Featured: Regular News')).toBeInTheDocument();
     expect(
-      screen.getByText('Special styling for this news item')
+      screen.getByText('Special styling for this news item'),
     ).toBeInTheDocument();
   });
 
@@ -342,7 +342,7 @@ describe('Widget System - Instance Overrides', () => {
             <div data-testid="override-wrapper">Override: {children}</div>
           ),
         }}
-      />
+      />,
     );
 
     // Should use the overridden chrome
@@ -478,7 +478,7 @@ describe('Widget System - Nested Widgets', () => {
     render(<Widgets items={items} />);
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      'Unknown widget type "unknown-widget" for widget ID "unknown1". Skipping render.'
+      'Unknown widget type "unknown-widget" for widget ID "unknown1". Skipping render.',
     );
 
     consoleSpy.mockRestore();
