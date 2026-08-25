@@ -1,4 +1,4 @@
-import { InvalidError } from './exceptions.js';
+import { InvalidError, ValidationError } from './exceptions.js';
 import { ParsedURN } from './types.js';
 
 export class URN {
@@ -19,52 +19,58 @@ export class URN {
   static readonly nid: string = 'nid';
 
   /**
-   * Parses a URN and returns it's constituent parts
-   * @param urnString
+   * Parses a URN and returns it's constituent parts.
+   *
+   * When the parsed NID differs from this class's own `nid`, the NID is kept as
+   * part of the returned `nss` -- so a subclass reading a URN from a foreign
+   * namespace does not silently lose that namespace.
+   *
+   * @param urnString The URN string to parse
    * @returns object that contains the parts of the URN
+   * @throws {ValidationError} if the string is not a well-formed URN
    */
   static parse<INSS extends string, INID extends string, IURN extends string>(
     urnString: string,
   ): ParsedURN<IURN, INID, INSS> {
-    const [urn, nid, ...nss] = urnString.split(this.separator) as [
+    if (!this.isValidFormat(urnString)) {
+      throw new ValidationError(
+        `Invalid URN format: '${urnString}'. Expected at least three non-empty parts separated by '${this.separator}', e.g. '${this.urn}${this.separator}${this.nid}${this.separator}id'.`,
+      );
+    }
+
+    const [urn, nid, ...rest] = urnString.split(this.separator) as [
       IURN,
       INID,
-      ...[INSS],
+      ...INSS[],
     ];
+    const nss = rest.join(this.separator);
 
     if (nid !== this.nid)
       return {
         urn,
         nid,
-        nss: `${nid}:${nss.join(this.separator)}` as `${INID}:${INSS}`,
+        nss: `${nid}${this.separator}${nss}` as `${INID}:${INSS}`,
       };
 
     return {
       urn,
       nid,
-      nss: nss.join(this.separator) as INSS,
+      nss: nss as INSS,
     };
   }
+
   /**
    * Takes a namespace specific string (ie object ID) and returns a URN.
    * @param urn Schema
    * @param nid Namespace ID
    * @param nss Namespace specific string
    * @returns generated URN
+   * @throws {InvalidError} if any component is empty or contains a disallowed character
    */
   static stringify(nss: string, nid = this.nid, urn = this.urn) {
-    if (!this.isValid.test(urn)) {
-      const invalidChar = this.findInvalidChar(urn);
-      throw new InvalidError('URN', urn, invalidChar);
-    }
-    if (!this.isValid.test(nid)) {
-      const invalidChar = this.findInvalidChar(nid);
-      throw new InvalidError('NID', nid, invalidChar);
-    }
-    if (!this.isValid.test(nss)) {
-      const invalidChar = this.findInvalidChar(nss);
-      throw new InvalidError('NSS', nss, invalidChar);
-    }
+    this.assertValidComponent('URN', urn);
+    this.assertValidComponent('NID', nid);
+    this.assertValidComponent('NSS', nss);
 
     if (nss.startsWith(`${nid}${this.separator}`))
       return `${urn}${this.separator}${nss}`;
@@ -73,16 +79,28 @@ export class URN {
   }
 
   /**
-   * Checks that a string contains only RFC-compliant URN characters
-   * Allows: alphanumeric, hyphens, underscores, dots, tildes, and colons
-   * But excludes characters that are not allowed in URN components
+   * Checks that a string contains only RFC-compliant URN characters.
+   * Allows: alphanumeric, hyphens, underscores, dots, tildes, and colons.
+   *
+   * Requires at least one character -- an empty component would otherwise
+   * produce a URN that `isValidFormat` rejects.
    */
-  static readonly isValid = /^[a-z0-9\-._~:]*$/i;
+  static readonly isValid = /^[a-z0-9\-._~:]+$/i;
+
+  /**
+   * Throws a descriptive {@link InvalidError} if a component is not valid.
+   */
+  private static assertValidComponent(property: string, value: string): void {
+    if (!this.isValid.test(value)) {
+      throw new InvalidError(property, value, this.findInvalidChar(value));
+    }
+  }
 
   /**
    * Helper method to find the first invalid character in a string
    * @param str The string to check
-   * @returns The first invalid character or undefined if all characters are valid
+   * @returns The first invalid character, or undefined if there is none
+   *   (which is the case for an empty string)
    */
   private static findInvalidChar(str: string): string | undefined {
     for (const char of str) {
@@ -104,16 +122,34 @@ export class URN {
   }
 
   /**
-   * Extracts just the identifier (NSS) from a URN string
+   * Extracts just the identifier from a URN string: everything after the
+   * scheme and the NID.
+   *
+   * This is deliberately *structural* and differs from `parse(urnString).nss`
+   * on a foreign namespace. `parse` keeps a non-matching NID attached to the
+   * `nss` so the namespace is not silently lost, whereas `extractId` always
+   * drops it:
+   *
+   * ```ts
+   * URN.parse('urn:user:123').nss   // 'user:123' -- base class nid is 'nid'
+   * URN.extractId('urn:user:123')   // '123'
+   * ```
+   *
+   * Reach for `parse` when the namespace matters, and `extractId` when you
+   * only want the trailing identifier.
+   *
    * @param urnString The URN string to extract from
-   * @returns The namespace-specific string (identifier)
+   * @returns The identifier portion
+   * @throws {ValidationError} if the string is not a well-formed URN
    */
   static extractId(urnString: string): string {
-    const parts = urnString.split(this.separator);
-    if (parts.length < 3) {
-      throw new Error('Invalid URN format');
+    if (!this.isValidFormat(urnString)) {
+      throw new ValidationError(
+        `Invalid URN format: '${urnString}'. Expected at least three non-empty parts separated by '${this.separator}'.`,
+      );
     }
-    // Return everything after the first two parts (urn:nid:)
+    const parts = urnString.split(this.separator);
+    // Everything after the scheme and the NID.
     return parts.slice(2).join(this.separator);
   }
 
@@ -137,13 +173,13 @@ export class URN {
    * Checks if a URN belongs to a specific namespace
    * @param urnString The URN string to check
    * @param expectedNid The expected namespace ID
-   * @param expectedUrn The expected URN scheme (optional, defaults to 'urn')
+   * @param expectedUrn The expected URN scheme; defaults to this class's own scheme
    * @returns true if the URN belongs to the specified namespace
    */
   static belongsToNamespace(
     urnString: string,
     expectedNid: string,
-    expectedUrn = 'urn',
+    expectedUrn: string = this.urn,
   ): boolean {
     try {
       const parsed = this.parse(urnString);

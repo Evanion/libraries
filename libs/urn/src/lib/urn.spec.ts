@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { InvalidError } from './exceptions.js';
+import { InvalidError, ValidationError } from './exceptions.js';
 import { URN } from './urn.js';
 
 describe('URN', () => {
@@ -187,6 +187,106 @@ describe('URN', () => {
       expect(() => URN.stringify('user$123', 'namespace')).toThrow(
         InvalidError,
       );
+    });
+  });
+  describe('malformed input', () => {
+    it('should throw instead of leaking the string "undefined:" from parse', () => {
+      // Previously returned { urn: 'foo', nid: undefined, nss: 'undefined:' }
+      expect(() => URN.parse('foo')).toThrow(ValidationError);
+      expect(() => URN.parse('')).toThrow(ValidationError);
+      expect(() => URN.parse('urn:user')).toThrow(ValidationError);
+      expect(() => URN.parse('urn::123')).toThrow(ValidationError);
+    });
+
+    it('should name the offending input in the parse error', () => {
+      expect(() => URN.parse('foo')).toThrow(/Invalid URN format: 'foo'/);
+    });
+
+    it('should throw a ValidationError, not a bare Error, from extractId', () => {
+      expect(() => URN.extractId('urn:user')).toThrow(ValidationError);
+    });
+
+    it('should not report two identical malformed strings as the same namespace', () => {
+      // Both used to parse to nid: undefined and compare equal.
+      expect(URN.sameNamespace('invalid-urn', 'invalid-urn')).toBe(false);
+      expect(URN.sameNamespace('', '')).toBe(false);
+    });
+  });
+
+  describe('empty components', () => {
+    it('should reject an empty NSS rather than emitting an unparseable URN', () => {
+      // URN.stringify('') used to return 'urn:nid:', which isValidFormat rejects.
+      expect(() => URN.stringify('')).toThrow(InvalidError);
+      expect(() => URN.stringify('')).toThrow(/NSS must not be empty/);
+    });
+
+    it('should reject an empty NID and URN scheme', () => {
+      expect(() => URN.stringify('foo', '')).toThrow(/NID must not be empty/);
+      expect(() => URN.stringify('foo', 'nid', '')).toThrow(
+        /URN must not be empty/,
+      );
+    });
+
+    it('should not consider the empty string a valid component', () => {
+      expect(URN.isValid.test('')).toBe(false);
+    });
+  });
+
+  describe('subclass awareness', () => {
+    class TRN extends URN {
+      static override readonly urn = 'trn';
+      static override readonly nid = 'bar';
+    }
+
+    it('should default belongsToNamespace to the subclass scheme', () => {
+      // Used to hardcode 'urn', so this returned false on any subclass.
+      expect(TRN.belongsToNamespace('trn:bar:foo', 'bar')).toBe(true);
+      expect(TRN.belongsToNamespace('urn:bar:foo', 'bar')).toBe(false);
+    });
+
+    it('should still honour an explicit expectedUrn', () => {
+      expect(TRN.belongsToNamespace('urn:bar:foo', 'bar', 'urn')).toBe(true);
+    });
+
+    it('should use the subclass separator when retaining a foreign nid', () => {
+      class DashTRN extends URN {
+        static override readonly urn = 'trn';
+        static override readonly separator = '-';
+        static override readonly nid = 'bar';
+      }
+
+      // The retained nid used to be joined with a hardcoded ':'.
+      expect((DashTRN as typeof URN).parse('trn-baz-foo')).toEqual({
+        urn: 'trn',
+        nid: 'baz',
+        nss: 'baz-foo',
+      });
+    });
+  });
+
+  describe('error hierarchy', () => {
+    it('should expose InvalidError as a ValidationError', () => {
+      const error = new InvalidError('NSS', 'a b', ' ');
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.property).toBe('NSS');
+      expect(error.value).toBe('a b');
+      expect(error.invalidChar).toBe(' ');
+    });
+
+    it('should let a single catch handle both error kinds', () => {
+      const caught: string[] = [];
+      for (const run of [
+        () => URN.stringify('bad char'),
+        () => URN.parse('nope'),
+      ]) {
+        try {
+          run();
+        } catch (error) {
+          if (error instanceof ValidationError) caught.push(error.name);
+        }
+      }
+      expect(caught).toEqual(['InvalidError', 'ValidationError']);
     });
   });
 });
