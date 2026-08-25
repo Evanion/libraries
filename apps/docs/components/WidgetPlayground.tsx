@@ -199,7 +199,8 @@ export default function WidgetPlayground({
                 },
                 // Fix tooltip positioning
                 hover: {
-                  enabled: true,
+                  // monaco 0.56 changed this from boolean to 'on' | 'off' | 'onKeyboardModifier'
+                  enabled: 'on',
                   delay: 300,
                 },
                 suggest: {

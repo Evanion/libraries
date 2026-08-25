@@ -56,3 +56,8 @@ out
 
 # Pagefind search index
 _pagefind/
+.claude/worktrees
+.claude/settings.local.json
+.nx/polygraph
+.nx/self-healing
+.nx/migrate-runs

@@ -1,18 +1,8 @@
-//@ts-check
-
-import { composePlugins, withNx } from '@nx/next';
 import nextra from 'nextra';
 
-/**
- * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
- **/
-const nextConfig = {
-  // Use this to set Nx-specific options
-  // See: https://nx.dev/recipes/next/next-config-setup
-  nx: {},
-};
-
-// Set up Nextra with its configuration
+// `composePlugins`/`withNx` from @nx/next are deprecated and removed in Nx 24.
+// A plain next.config is the recommended pattern now -- Next.js transpiles
+// workspace libraries on its own.
 const withNextra = nextra({
   defaultShowCopyCode: true,
   latex: true,
@@ -21,10 +11,4 @@ const withNextra = nextra({
   },
 });
 
-const plugins = [
-  // Add more Next.js plugins to this list if needed.
-  withNx,
-  withNextra,
-];
-
-export default composePlugins(...plugins)(nextConfig);
+export default withNextra({});

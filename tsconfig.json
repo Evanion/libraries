@@ -15,5 +15,8 @@
     {
       "path": "./libs/compose"
     }
-  ]
+  ],
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0"
+  }
 }
