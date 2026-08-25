@@ -29,34 +29,29 @@ export class URN {
    * @returns object that contains the parts of the URN
    * @throws {ValidationError} if the string is not a well-formed URN
    */
-  static parse<INSS extends string, INID extends string, IURN extends string>(
-    urnString: string,
-  ): ParsedURN<IURN, INID, INSS> {
-    if (!this.isValidFormat(urnString)) {
+  static parse(urnString: string): ParsedURN {
+    const [urn, nid, ...rest] = urnString.split(this.separator);
+
+    // The undefined checks are what narrow urn and nid to string under
+    // noUncheckedIndexedAccess. They are also the real guard: destructuring a
+    // short split is exactly how this method used to produce the literal string
+    // "undefined:".
+    if (
+      urn === undefined ||
+      nid === undefined ||
+      !this.isValidFormat(urnString)
+    ) {
       throw new ValidationError(
         `Invalid URN format: '${urnString}'. Expected at least three non-empty parts separated by '${this.separator}', e.g. '${this.urn}${this.separator}${this.nid}${this.separator}id'.`,
       );
     }
 
-    const [urn, nid, ...rest] = urnString.split(this.separator) as [
-      IURN,
-      INID,
-      ...INSS[],
-    ];
     const nss = rest.join(this.separator);
 
     if (nid !== this.nid)
-      return {
-        urn,
-        nid,
-        nss: `${nid}${this.separator}${nss}` as `${INID}:${INSS}`,
-      };
+      return { urn, nid, nss: `${nid}${this.separator}${nss}` };
 
-    return {
-      urn,
-      nid,
-      nss: nss as INSS,
-    };
+    return { urn, nid, nss };
   }
 
   /**
@@ -66,8 +61,12 @@ export class URN {
    * @param nss Namespace specific string
    * @returns generated URN
    * @throws {InvalidError} if any component is empty or contains a disallowed character
+   *
+   * Returns a plain `string` rather than a template-literal type: `separator`
+   * is a static that subclasses may override, so any `${urn}:${nid}:${nss}`
+   * type would be wrong for them.
    */
-  static stringify(nss: string, nid = this.nid, urn = this.urn) {
+  static stringify(nss: string, nid = this.nid, urn = this.urn): string {
     this.assertValidComponent('URN', urn);
     this.assertValidComponent('NID', nid);
     this.assertValidComponent('NSS', nss);

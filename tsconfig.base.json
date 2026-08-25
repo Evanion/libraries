@@ -5,7 +5,9 @@
     "emitDeclarationOnly": true,
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": ["es2022"],
+    "lib": [
+      "es2022"
+    ],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmitOnError": true,
@@ -16,10 +18,17 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@evanion/source"],
+    "customConditions": [
+      "@evanion/source"
+    ],
     "noUncheckedSideEffectImports": false,
-    "types": ["*"],
+    "types": [
+      "*"
+    ],
     "esModuleInterop": false,
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "6.0",
+    "noUncheckedIndexedAccess": true,
+    "noUnusedParameters": true,
+    "noImplicitThis": true
   }
 }

@@ -177,7 +177,7 @@ describe('Default Components', () => {
   it('should show loading fallback for suspense', () => {
     const LazyWidget = React.lazy(
       () =>
-        new Promise<any>((resolve) =>
+        new Promise<{ default: React.ComponentType }>((resolve) =>
           setTimeout(
             () => resolve({ default: () => <div>Loaded widget</div> }),
             100,

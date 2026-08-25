@@ -9,6 +9,14 @@ export default defineConfig(() => ({
   //  plugins: [ nxViteTsPaths() ],
   // },
   test: {
+    // Without an explicit tsconfig, vitest falls back to the solution-style
+    // tsconfig.json (files: [], include: []), so it typechecks nothing and
+    // every expectTypeOf assertion silently passes.
+    typecheck: {
+      enabled: true,
+      tsconfig: './tsconfig.spec.json',
+      include: ['src/**/*.test-d.{ts,tsx}'],
+    },
     name: '@evanion/urn',
     watch: false,
     globals: true,

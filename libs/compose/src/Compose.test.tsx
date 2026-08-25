@@ -2,11 +2,18 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ComposeProvider, provider } from './index';
-import type {
-  ComposeProviderProps,
-  LegacyComposeProviderProps,
-  AnyComposeProviderProps,
-} from './index';
+import type { ComposeProviderProps, LegacyComposeProviderProps } from './index';
+
+/**
+ * `ComposeProvider` is now generic and overloaded, so props built dynamically
+ * (a union, or an object missing `providers` entirely) no longer resolve
+ * against either overload -- which is the point. These tests exercise the
+ * runtime guards for input a JavaScript consumer can still produce, so they go
+ * through a deliberately loosened alias.
+ */
+const LooseComposeProvider = ComposeProvider as unknown as React.FC<
+  Record<string, unknown>
+>;
 
 // Example provider components with different prop types
 interface ThemeProviderProps {
@@ -357,9 +364,9 @@ describe('ComposeProvider', () => {
       providers: [SimpleProvider],
       components: [ThemeProvider],
       children: <div>Both</div>,
-    } as unknown as AnyComposeProviderProps;
+    };
 
-    render(<ComposeProvider {...bothProps} />);
+    render(<LooseComposeProvider {...bothProps} />);
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       'ComposeProvider: Received both "providers" and "components". "providers" takes precedence and "components" is ignored.',
@@ -376,9 +383,9 @@ describe('ComposeProvider', () => {
     // What a JavaScript consumer (or an `any`-typed call site) can do.
     const noProps = {
       children: <div>Orphan</div>,
-    } as unknown as AnyComposeProviderProps;
+    };
 
-    expect(() => render(<ComposeProvider {...noProps} />)).toThrow(
+    expect(() => render(<LooseComposeProvider {...noProps} />)).toThrow(
       /expected `providers` to be an array, received undefined/,
     );
 
@@ -393,9 +400,9 @@ describe('ComposeProvider', () => {
     const badProps = {
       providers: 'nope',
       children: <div>Orphan</div>,
-    } as unknown as AnyComposeProviderProps;
+    };
 
-    expect(() => render(<ComposeProvider {...badProps} />)).toThrow(
+    expect(() => render(<LooseComposeProvider {...badProps} />)).toThrow(
       /expected `providers` to be an array, received string/,
     );
 

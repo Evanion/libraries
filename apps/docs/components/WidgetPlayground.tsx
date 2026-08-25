@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { LiveProvider, LiveError, LivePreview } from 'react-live';
 import { Editor } from '@monaco-editor/react';
+import type { OnMount } from '@monaco-editor/react';
 
 interface WidgetPlaygroundProps {
   initialCode: string;
@@ -53,7 +54,7 @@ export default function WidgetPlayground({
     }
   }, []);
 
-  const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
+  const handleEditorDidMount = useCallback<OnMount>((editor, monaco) => {
     // Configure Monaco for TypeScript with JSX support
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
@@ -106,14 +107,18 @@ export default function WidgetPlayground({
 
   // Simple mock for the playground
   const mockCreateWidgets = (config: {
-    components: Record<string, React.ComponentType<unknown>>;
+    components: Record<string, React.ComponentType<Record<string, unknown>>>;
   }) => {
     const { components } = config;
 
     const Widgets = ({
       items,
     }: {
-      items: Array<{ id: string; type: string; props: unknown }>;
+      items: Array<{
+        id: string;
+        type: string;
+        props: Record<string, unknown>;
+      }>;
     }) => {
       return (
         <div>
@@ -122,7 +127,7 @@ export default function WidgetPlayground({
             if (!Component) return null;
             return (
               <div key={item.id} style={{ marginBottom: '16px' }}>
-                <Component {...(item.props as any)} />
+                <Component {...item.props} />
               </div>
             );
           })}

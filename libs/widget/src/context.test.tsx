@@ -88,7 +88,7 @@ describe('Widget System - Context Usage', () => {
     const items = [
       {
         id: 'user1',
-        type: 'userProfile',
+        type: 'userProfile' as const,
         props: {
           username: 'ContextUser',
           avatar: '/avatar.jpg',
@@ -143,7 +143,7 @@ describe('Widget System - Context Usage', () => {
     const items = [
       {
         id: 'weather1',
-        type: 'weather',
+        type: 'weather' as const,
         props: {
           location: 'New York',
           temperature: 65,
@@ -209,7 +209,7 @@ describe('Widget System - Context Usage', () => {
     const adminItems = [
       {
         id: 'admin1',
-        type: 'userProfile',
+        type: 'userProfile' as const,
         props: {
           username: 'Admin',
           avatar: '/admin.jpg',
@@ -220,7 +220,7 @@ describe('Widget System - Context Usage', () => {
     const publicItems = [
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Public News',
           publishedAt: new Date(),
@@ -271,7 +271,7 @@ describe('Widget System - Edge Cases and Error Handling', () => {
       // Valid item
       {
         id: 'valid1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Valid News',
           publishedAt: new Date('2024-01-15'),
@@ -301,7 +301,7 @@ describe('Widget System - Edge Cases and Error Handling', () => {
     const items1 = [
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'First News',
           publishedAt: new Date(),
@@ -313,7 +313,7 @@ describe('Widget System - Edge Cases and Error Handling', () => {
     const items2 = [
       {
         id: 'weather1',
-        type: 'weather',
+        type: 'weather' as const,
         props: {
           location: 'Paris',
           temperature: 20,
@@ -346,7 +346,7 @@ describe('Widget System - Edge Cases and Error Handling', () => {
     // Create 1000 news items
     const manyItems = Array.from({ length: 1000 }, (_, i) => ({
       id: `news${i}`,
-      type: 'news',
+      type: 'news' as const,
       props: {
         title: `News Item ${i}`,
         publishedAt: new Date(),

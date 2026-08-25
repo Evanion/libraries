@@ -37,7 +37,7 @@ describe('URN', () => {
       class TRN extends URN {
         static override urn = 'trn';
       }
-      expect((TRN as typeof URN).stringify('foo', 'bar')).toBe('trn:bar:foo');
+      expect(TRN.stringify('foo', 'bar')).toBe('trn:bar:foo');
     });
 
     it('should derive from urn class and set separator', () => {
@@ -45,7 +45,7 @@ describe('URN', () => {
         static override readonly urn = 'trn';
         static override readonly separator = '-';
       }
-      expect((TRN as typeof URN).stringify('foo', 'bar')).toBe('trn-bar-foo');
+      expect(TRN.stringify('foo', 'bar')).toBe('trn-bar-foo');
     });
 
     it('should derive from urn class and set nid', () => {
@@ -56,7 +56,7 @@ describe('URN', () => {
       class BarTRN extends TRN {
         static override readonly nid = 'bar';
       }
-      expect((BarTRN as typeof URN).stringify('foo')).toBe('trn:bar:foo');
+      expect(BarTRN.stringify('foo')).toBe('trn:bar:foo');
     });
   });
 
@@ -67,7 +67,7 @@ describe('URN', () => {
         static override readonly nid = 'bar';
       }
 
-      expect((BarTRN as typeof URN).parse('trn:bar:foo')).toEqual({
+      expect(BarTRN.parse('trn:bar:foo')).toEqual({
         urn: 'trn',
         nid: 'bar',
         nss: 'foo',
@@ -80,7 +80,7 @@ describe('URN', () => {
         static override readonly nid = 'bar';
       }
 
-      expect((BarTRN as typeof URN).parse('trn:baz:foo')).toEqual({
+      expect(BarTRN.parse('trn:baz:foo')).toEqual({
         urn: 'trn',
         nid: 'baz',
         nss: 'baz:foo',
@@ -256,7 +256,7 @@ describe('URN', () => {
       }
 
       // The retained nid used to be joined with a hardcoded ':'.
-      expect((DashTRN as typeof URN).parse('trn-baz-foo')).toEqual({
+      expect(DashTRN.parse('trn-baz-foo')).toEqual({
         urn: 'trn',
         nid: 'baz',
         nss: 'baz-foo',

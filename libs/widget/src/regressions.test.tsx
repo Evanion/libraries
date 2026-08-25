@@ -55,14 +55,16 @@ describe('widget regressions', () => {
           items={[
             {
               id: 'a',
-              type: 'box',
+              type: 'box' as const,
               props: { label: 'a' },
               children: [
                 {
                   id: 'b',
-                  type: 'box',
+                  type: 'box' as const,
                   props: { label: 'b' },
-                  children: [{ id: 'c', type: 'leaf', props: { label: 'c' } }],
+                  children: [
+                    { id: 'c', type: 'leaf' as const, props: { label: 'c' } },
+                  ],
                 },
               ],
             },
@@ -87,20 +89,24 @@ describe('widget regressions', () => {
           items={[
             {
               id: '1',
-              type: 'box',
+              type: 'box' as const,
               props: { label: '1' },
               children: [
                 {
                   id: '2',
-                  type: 'box',
+                  type: 'box' as const,
                   props: { label: '2' },
                   children: [
                     {
                       id: '3',
-                      type: 'box',
+                      type: 'box' as const,
                       props: { label: '3' },
                       children: [
-                        { id: '4', type: 'leaf', props: { label: '4' } },
+                        {
+                          id: '4',
+                          type: 'leaf' as const,
+                          props: { label: '4' },
+                        },
                       ],
                     },
                   ],
@@ -124,15 +130,19 @@ describe('widget regressions', () => {
           items={[
             {
               id: 'p1',
-              type: 'box',
+              type: 'box' as const,
               props: { label: 'p1' },
-              children: [{ id: 'c1', type: 'leaf', props: { label: 'c1' } }],
+              children: [
+                { id: 'c1', type: 'leaf' as const, props: { label: 'c1' } },
+              ],
             },
             {
               id: 'p2',
-              type: 'box',
+              type: 'box' as const,
               props: { label: 'p2' },
-              children: [{ id: 'c2', type: 'leaf', props: { label: 'c2' } }],
+              children: [
+                { id: 'c2', type: 'leaf' as const, props: { label: 'c2' } },
+              ],
             },
           ]}
         />,
@@ -162,7 +172,19 @@ describe('widget regressions', () => {
         // `type in components` walked the prototype chain and handed React
         // Object.prototype.toString, crashing instead of warning and skipping.
         expect(() =>
-          render(<Widgets items={[{ id: 'x', type, props: {} }]} />),
+          render(
+            <Widgets
+              items={[
+                // Untrusted input: an inherited Object.prototype key. Cast
+                // because the point of the test is the runtime guard.
+                { id: 'x', type, props: {} } as unknown as {
+                  id: string;
+                  type: 'leaf';
+                  props: { label: string };
+                },
+              ]}
+            />,
+          ),
         ).not.toThrow();
 
         expect(warn).toHaveBeenCalledWith(
@@ -176,7 +198,7 @@ describe('widget regressions', () => {
       const { Widgets } = createWidgets({ components: { leaf: Leaf } });
       render(
         <Widgets
-          items={[{ id: 'ok', type: 'leaf', props: { label: 'ok' } }]}
+          items={[{ id: 'ok', type: 'leaf' as const, props: { label: 'ok' } }]}
         />,
       );
       expect(screen.getByTestId('leaf-ok')).toBeInTheDocument();
@@ -201,9 +223,11 @@ describe('widget regressions', () => {
           items={[
             {
               id: 'a',
-              type: 'box',
+              type: 'box' as const,
               props: { label: 'a' },
-              children: [{ id: 'b', type: 'leaf', props: { label: 'b' } }],
+              children: [
+                { id: 'b', type: 'leaf' as const, props: { label: 'b' } },
+              ],
             },
           ]}
         />,
@@ -228,7 +252,7 @@ describe('widget regressions', () => {
           id: 'outer',
           type: 'box' as const,
           props: { label: 'outer' },
-          children: [{ id: 'inner', type: 'counter', props: {} }],
+          children: [{ id: 'inner', type: 'counter' as const, props: {} }],
         },
       ];
 
