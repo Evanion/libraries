@@ -102,7 +102,7 @@ describe('Widget System - Context Usage', () => {
           <Widgets items={items} />
           <ContextConsumer />
         </div>
-      </WidgetsProvider>
+      </WidgetsProvider>,
     );
 
     // Verify both context usage and widget rendering work
@@ -157,7 +157,7 @@ describe('Widget System - Context Usage', () => {
           <Widgets items={items} />
           <CustomComponent />
         </div>
-      </WidgetsProvider>
+      </WidgetsProvider>,
     );
 
     // Verify both widget rendering and hook usage work
@@ -241,7 +241,7 @@ describe('Widget System - Context Usage', () => {
             <PublicWidgets items={publicItems} />
           </div>
         </PublicProvider>
-      </div>
+      </div>,
     );
 
     // Verify both contexts work independently

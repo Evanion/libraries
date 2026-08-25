@@ -24,12 +24,12 @@ export class URN {
    * @returns object that contains the parts of the URN
    */
   static parse<INSS extends string, INID extends string, IURN extends string>(
-    urnString: string
+    urnString: string,
   ): ParsedURN<IURN, INID, INSS> {
     const [urn, nid, ...nss] = urnString.split(this.separator) as [
       IURN,
       INID,
-      ...[INSS]
+      ...[INSS],
     ];
 
     if (nid !== this.nid)
@@ -143,7 +143,7 @@ export class URN {
   static belongsToNamespace(
     urnString: string,
     expectedNid: string,
-    expectedUrn = 'urn'
+    expectedUrn = 'urn',
   ): boolean {
     try {
       const parsed = this.parse(urnString);

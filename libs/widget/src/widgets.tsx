@@ -27,7 +27,7 @@ class WidgetErrorBoundary extends Component<
     console.error(
       ERROR_MESSAGES.WIDGET_ERROR(this.props.widgetType, this.props.widgetId),
       error,
-      errorInfo
+      errorInfo,
     );
   }
 
@@ -53,7 +53,7 @@ export function DefaultItem(
   props: HTMLProps<HTMLDivElement> & {
     'data-widget-id'?: string;
     'data-widget-type'?: string;
-  }
+  },
 ) {
   const {
     'data-widget-id': widgetId,

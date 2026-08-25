@@ -43,14 +43,14 @@ export const ComposeProvider: React.FC<
   if (process.env.NODE_ENV !== 'production') {
     if (providerList.length === 0) {
       console.warn(
-        'ComposeProvider: Empty provider array. No providers will be applied.'
+        'ComposeProvider: Empty provider array. No providers will be applied.',
       );
     }
 
     // Warn about deprecated 'components' prop
     if ('components' in props) {
       console.warn(
-        'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.'
+        'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.',
       );
     }
   }

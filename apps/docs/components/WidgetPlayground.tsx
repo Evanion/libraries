@@ -100,7 +100,7 @@ export default function WidgetPlayground({
           }
         }
       }`,
-      'file:///node_modules/@types/react/index.d.ts'
+      'file:///node_modules/@types/react/index.d.ts',
     );
   }, []);
 
@@ -252,9 +252,9 @@ export default function WidgetPlayground({
 
         .tab:hover {
           color: ${isDark ? '#d1d5db' : '#374151'};
-          background: ${isDark
-            ? 'rgba(255, 255, 255, 0.05)'
-            : 'rgba(0, 0, 0, 0.05)'};
+          background: ${
+            isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+          };
         }
 
         .tab.active {
@@ -277,9 +277,11 @@ export default function WidgetPlayground({
           background: ${isDark ? '#1f2937' : 'white'};
           border-radius: 6px;
           padding: 20px;
-          box-shadow: ${isDark
-            ? '0 1px 3px rgba(0, 0, 0, 0.3)'
-            : '0 1px 3px rgba(0, 0, 0, 0.1)'};
+          box-shadow: ${
+            isDark
+              ? '0 1px 3px rgba(0, 0, 0, 0.3)'
+              : '0 1px 3px rgba(0, 0, 0, 0.1)'
+          };
           color: ${isDark ? '#f9fafb' : '#111827'};
         }
 
@@ -295,9 +297,11 @@ export default function WidgetPlayground({
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
           border: 1px solid ${isDark ? '#454545' : '#cccccc'} !important;
           border-radius: 6px !important;
-          box-shadow: ${isDark
-            ? '0 4px 12px rgba(0, 0, 0, 0.3)'
-            : '0 4px 12px rgba(0, 0, 0, 0.1)'} !important;
+          box-shadow: ${
+            isDark
+              ? '0 4px 12px rgba(0, 0, 0, 0.3)'
+              : '0 4px 12px rgba(0, 0, 0, 0.1)'
+          } !important;
         }
 
         :global(.monaco-editor .monaco-hover .hover-row) {
@@ -311,59 +315,55 @@ export default function WidgetPlayground({
         }
 
         :global(
-            .monaco-editor
-              .monaco-hover
-              .hover-row
-              .hover-contents
-              .monaco-editor
-          ) {
+          .monaco-editor .monaco-hover .hover-row .hover-contents .monaco-editor
+        ) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
         }
 
         :global(
+          .monaco-editor
+            .monaco-hover
+            .hover-row
+            .hover-contents
             .monaco-editor
-              .monaco-hover
-              .hover-row
-              .hover-contents
-              .monaco-editor
-              .view-lines
-          ) {
+            .view-lines
+        ) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
         }
 
         :global(
+          .monaco-editor
+            .monaco-hover
+            .hover-row
+            .hover-contents
             .monaco-editor
-              .monaco-hover
-              .hover-row
-              .hover-contents
-              .monaco-editor
-              .view-line
-          ) {
+            .view-line
+        ) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
         }
 
         :global(
+          .monaco-editor
+            .monaco-hover
+            .hover-row
+            .hover-contents
             .monaco-editor
-              .monaco-hover
-              .hover-row
-              .hover-contents
-              .monaco-editor
-              .view-line
-              span
-          ) {
+            .view-line
+            span
+        ) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
           color: ${isDark ? '#cccccc' : '#333333'} !important;
         }
 
         /* Additional tooltip styling for better visibility */
         :global(
+          .monaco-editor
+            .monaco-hover
+            .hover-row
+            .hover-contents
             .monaco-editor
-              .monaco-hover
-              .hover-row
-              .hover-contents
-              .monaco-editor
-              .margin
-          ) {
+            .margin
+        ) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
         }
 
@@ -374,8 +374,9 @@ export default function WidgetPlayground({
           padding: 12px;
           margin-top: 16px;
           color: ${isDark ? '#fca5a5' : '#dc2626'};
-          font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono',
-            Consolas, 'Courier New', monospace;
+          font-family:
+            'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
+            'Courier New', monospace;
           font-size: 13px;
           white-space: pre-wrap;
         }

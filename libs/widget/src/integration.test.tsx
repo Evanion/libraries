@@ -232,7 +232,7 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.getByTestId('hero-banner')).toBeInTheDocument();
     expect(screen.getByText('Welcome to Our Store')).toBeInTheDocument();
     expect(
-      screen.getByText('Discover amazing products at great prices')
+      screen.getByText('Discover amazing products at great prices'),
     ).toBeInTheDocument();
     expect(screen.getByText('Shop Now')).toBeInTheDocument();
 
@@ -246,7 +246,7 @@ describe('Widget System - CMS Integration Example', () => {
     // Verify testimonial
     expect(screen.getByTestId('testimonial')).toBeInTheDocument();
     expect(
-      screen.getByText('"This product changed my life!"')
+      screen.getByText('"This product changed my life!"'),
     ).toBeInTheDocument();
     expect(screen.getByText('Jane Smith')).toBeInTheDocument();
     expect(screen.getByText('Tech Corp')).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.getByTestId('newsletter-signup')).toBeInTheDocument();
     expect(screen.getByText('Stay Updated')).toBeInTheDocument();
     expect(
-      screen.getByText('Get the latest news and exclusive offers')
+      screen.getByText('Get the latest news and exclusive offers'),
     ).toBeInTheDocument();
   });
 
@@ -343,7 +343,7 @@ describe('Widget System - CMS Integration Example', () => {
 
     expect(screen.getByText('Blog Post Title')).toBeInTheDocument();
     expect(
-      screen.getByText('A deep dive into our latest insights')
+      screen.getByText('A deep dive into our latest insights'),
     ).toBeInTheDocument();
 
     // Contact page layout
@@ -450,8 +450,8 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.getByTestId('testimonial')).toBeInTheDocument();
     expect(
       screen.getByText(
-        '"The quality is outstanding and the customer service is excellent!"'
-      )
+        '"The quality is outstanding and the customer service is excellent!"',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Michael Johnson')).toBeInTheDocument();
     expect(screen.getByText('Design Studio Inc.')).toBeInTheDocument();

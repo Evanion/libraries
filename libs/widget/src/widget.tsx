@@ -4,7 +4,7 @@ import { DefaultItem, DefaultWrapper } from './widgets';
 import { renderWidget } from './utils';
 
 export function createWidgets<
-  Items extends Record<string, WidgetProps<string>>
+  Items extends Record<string, WidgetProps<string>>,
 >(config: WidgetsConfig<Items>) {
   const {
     components: defaultComponents,
@@ -26,13 +26,13 @@ export function createWidgets<
     const ItemWrapper = chrome?.item || defaultChrome?.item || DefaultItem;
     const components = useMemo(
       () => ({ ...defaultComponents, ...instanceComponents }),
-      [instanceComponents]
+      [instanceComponents],
     );
 
     // Memoize the Output component creation to prevent unnecessary re-renders
     const createOutputComponent = useCallback(
       (children: WidgetProps<string>[]) => () => <Output items={children} />,
-      []
+      [],
     );
 
     return (
@@ -44,7 +44,7 @@ export function createWidgets<
               item,
               components,
               ItemWrapper as any,
-              OutputComponent
+              OutputComponent,
             );
           })}
         </Wrapper>
@@ -68,7 +68,7 @@ export function createWidgets<
     return (
       <>
         {items.map((item) =>
-          renderWidget(item, components, ItemWrapper as any)
+          renderWidget(item, components, ItemWrapper as any),
         )}
       </>
     );

@@ -12,7 +12,7 @@ describe('Default Components', () => {
     render(
       <DefaultWrapper data-testid="wrapper">
         <div>Test content</div>
-      </DefaultWrapper>
+      </DefaultWrapper>,
     );
 
     const wrapper = screen.getByTestId('wrapper');
@@ -29,7 +29,7 @@ describe('Default Components', () => {
         style={{ backgroundColor: 'red' }}
       >
         <div>Test content</div>
-      </DefaultWrapper>
+      </DefaultWrapper>,
     );
 
     const wrapper = screen.getByTestId('wrapper');
@@ -42,7 +42,7 @@ describe('Default Components', () => {
     render(
       <DefaultItem data-testid="item">
         <span>Test content</span>
-      </DefaultItem>
+      </DefaultItem>,
     );
 
     const item = screen.getByTestId('item');
@@ -59,7 +59,7 @@ describe('Default Components', () => {
         role="listitem"
       >
         <span>Test content</span>
-      </DefaultItem>
+      </DefaultItem>,
     );
 
     const item = screen.getByTestId('item');
@@ -74,7 +74,7 @@ describe('Default Components', () => {
         <div>First child</div>
         <div>Second child</div>
         <div>Third child</div>
-      </DefaultWrapper>
+      </DefaultWrapper>,
     );
 
     const wrapper = screen.getByTestId('wrapper');
@@ -89,7 +89,7 @@ describe('Default Components', () => {
         <span>First span</span>
         <span>Second span</span>
         <button>Button</button>
-      </DefaultItem>
+      </DefaultItem>,
     );
 
     const item = screen.getByTestId('item');
@@ -105,7 +105,7 @@ describe('Default Components', () => {
         {undefined}
         {false}
         {''}
-      </DefaultWrapper>
+      </DefaultWrapper>,
     );
 
     const wrapper = screen.getByTestId('wrapper');
@@ -126,7 +126,7 @@ describe('Default Components', () => {
             <li>Item 2</li>
           </ul>
         </DefaultItem>
-      </DefaultWrapper>
+      </DefaultWrapper>,
     );
 
     const wrapper = screen.getByTestId('wrapper');
@@ -156,19 +156,19 @@ describe('Default Components', () => {
         data-widget-type="failing-widget"
       >
         <FailingWidget />
-      </DefaultItem>
+      </DefaultItem>,
     );
 
     // Should show error fallback UI
     expect(
-      screen.getByText('Widget failed to render: failing-widget')
+      screen.getByText('Widget failed to render: failing-widget'),
     ).toBeInTheDocument();
 
     // Should log error to console
     expect(consoleSpy).toHaveBeenCalledWith(
       'Widget Error: failing-widget (ID: test-widget)',
       expect.any(Error),
-      expect.any(Object)
+      expect.any(Object),
     );
 
     consoleSpy.mockRestore();
@@ -180,15 +180,15 @@ describe('Default Components', () => {
         new Promise<any>((resolve) =>
           setTimeout(
             () => resolve({ default: () => <div>Loaded widget</div> }),
-            100
-          )
-        )
+            100,
+          ),
+        ),
     );
 
     render(
       <DefaultItem data-widget-id="lazy-widget" data-widget-type="lazy-widget">
         <LazyWidget />
-      </DefaultItem>
+      </DefaultItem>,
     );
 
     // Should show loading state initially

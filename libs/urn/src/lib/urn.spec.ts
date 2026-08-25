@@ -20,14 +20,14 @@ describe('URN', () => {
     it('should throw error if URN parameter contains an invalid character', () => {
       expect(() => URN.stringify('foo', 'bar', 'u!n')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'bar', 'u!n')).toThrow(
-        "URN contains invalid character '!' in 'u!n'"
+        "URN contains invalid character '!' in 'u!n'",
       );
     });
 
     it('should throw error if NID parameter contains an invalid character', () => {
       expect(() => URN.stringify('foo', 'b?r')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'b?r')).toThrow(
-        "NID contains invalid character '?' in 'b?r'"
+        "NID contains invalid character '?' in 'b?r'",
       );
     });
   });
@@ -94,7 +94,7 @@ describe('URN', () => {
         expect(URN.isValidFormat('urn:user:123')).toBe(true);
         expect(URN.isValidFormat('custom:product:abc-123')).toBe(true);
         expect(URN.isValidFormat('my-scheme:namespace:id_with-dots')).toBe(
-          true
+          true,
         );
       });
 
@@ -111,7 +111,7 @@ describe('URN', () => {
         expect(URN.extractId('urn:user:123')).toBe('123');
         expect(URN.extractId('custom:product:abc-123')).toBe('abc-123');
         expect(URN.extractId('my-scheme:namespace:id_with-dots')).toBe(
-          'id_with-dots'
+          'id_with-dots',
         );
       });
 
@@ -124,16 +124,16 @@ describe('URN', () => {
       it('should return true for URNs in the same namespace', () => {
         expect(URN.sameNamespace('urn:user:123', 'urn:user:456')).toBe(true);
         expect(
-          URN.sameNamespace('custom:product:abc', 'custom:product:def')
+          URN.sameNamespace('custom:product:abc', 'custom:product:def'),
         ).toBe(true);
       });
 
       it('should return false for URNs in different namespaces', () => {
         expect(URN.sameNamespace('urn:user:123', 'urn:product:123')).toBe(
-          false
+          false,
         );
         expect(URN.sameNamespace('urn:user:123', 'custom:user:123')).toBe(
-          false
+          false,
         );
       });
 
@@ -147,14 +147,14 @@ describe('URN', () => {
       it('should return true when URN belongs to specified namespace', () => {
         expect(URN.belongsToNamespace('urn:user:123', 'user')).toBe(true);
         expect(
-          URN.belongsToNamespace('custom:product:abc', 'product', 'custom')
+          URN.belongsToNamespace('custom:product:abc', 'product', 'custom'),
         ).toBe(true);
       });
 
       it('should return false when URN does not belong to specified namespace', () => {
         expect(URN.belongsToNamespace('urn:user:123', 'product')).toBe(false);
         expect(
-          URN.belongsToNamespace('custom:product:abc', 'product', 'urn')
+          URN.belongsToNamespace('custom:product:abc', 'product', 'urn'),
         ).toBe(false);
       });
 
@@ -173,19 +173,19 @@ describe('URN', () => {
 
     it('should reject invalid characters', () => {
       expect(() => URN.stringify('user#123', 'namespace')).toThrow(
-        InvalidError
+        InvalidError,
       );
       expect(() => URN.stringify('user@123', 'namespace')).toThrow(
-        InvalidError
+        InvalidError,
       );
       expect(() => URN.stringify('user 123', 'namespace')).toThrow(
-        InvalidError
+        InvalidError,
       );
       expect(() => URN.stringify('user!123', 'namespace')).toThrow(
-        InvalidError
+        InvalidError,
       );
       expect(() => URN.stringify('user$123', 'namespace')).toThrow(
-        InvalidError
+        InvalidError,
       );
     });
   });

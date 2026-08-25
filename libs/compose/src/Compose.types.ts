@@ -27,7 +27,7 @@ type PropsWithoutChildren<T extends ComponentType<any>> = Omit<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function provider<T extends ComponentType<any>>(
   component: T,
-  props: PropsWithoutChildren<T>
+  props: PropsWithoutChildren<T>,
 ): readonly [T, PropsWithoutChildren<T>] {
   return [component, props] as const;
 }

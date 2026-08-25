@@ -84,7 +84,7 @@ function parseUserUrn(urn: string): { userId: string; type: string } {
   const parsed = URN.parse(urn);
   return {
     userId: parsed.nss,
-    type: parsed.nid
+    type: parsed.nid,
   };
 }
 
@@ -118,7 +118,7 @@ import { URN } from '@evanion/urn';
 const resources = {
   users: URN.stringify('user-123', 'user'),
   products: URN.stringify('product-456', 'product'),
-  orders: URN.stringify('order-789', 'order')
+  orders: URN.stringify('order-789', 'order'),
 };
 
 console.log(resources);
@@ -221,7 +221,7 @@ app.get('/resource/:urn', (req, res) => {
     res.json({
       urn: req.params.urn,
       components: parsed,
-      message: `Resource ${parsed.nss} of type ${parsed.nid}`
+      message: `Resource ${parsed.nss} of type ${parsed.nid}`,
     });
   } catch (error) {
     if (error instanceof InvalidError) {
@@ -234,13 +234,13 @@ app.get('/resource/:urn', (req, res) => {
 
 app.post('/resource', (req, res) => {
   const { id, type } = req.body;
-  
+
   try {
     const urn = URN.stringify(id, type);
     res.json({
       urn,
       created: true,
-      message: `Created ${type} resource with ID ${id}`
+      message: `Created ${type} resource with ID ${id}`,
     });
   } catch (error) {
     if (error instanceof InvalidError) {
@@ -268,20 +268,20 @@ class ResourceFactory {
   static createUser(id: string): string {
     return URN.stringify(id, 'user');
   }
-  
+
   static createProduct(id: string): string {
     return URN.stringify(id, 'product');
   }
-  
+
   static createOrder(id: string): string {
     return URN.stringify(id, 'order');
   }
-  
+
   static parseResource(urn: string): { id: string; type: string } {
     const parsed = URN.parse(urn);
     return {
       id: parsed.nss,
-      type: parsed.nid
+      type: parsed.nid,
     };
   }
 }
@@ -291,9 +291,9 @@ const userUrn = ResourceFactory.createUser('user-123');
 const productUrn = ResourceFactory.createProduct('product-456');
 const orderUrn = ResourceFactory.createOrder('order-789');
 
-console.log(userUrn);   // "urn:user:user-123"
+console.log(userUrn); // "urn:user:user-123"
 console.log(productUrn); // "urn:product:product-456"
-console.log(orderUrn);   // "urn:order:order-789"
+console.log(orderUrn); // "urn:order:order-789"
 ```
 
 ### Custom URN Classes
@@ -324,9 +324,9 @@ const userUrn = UserURN.stringify('user-123');
 const productUrn = ProductURN.stringify('product-456');
 const orderUrn = OrderURN.stringify('order-789');
 
-console.log(userUrn);   // "resource:user:user-123"
+console.log(userUrn); // "resource:user:user-123"
 console.log(productUrn); // "resource:product:product-456"
-console.log(orderUrn);   // "resource:order:order-789"
+console.log(orderUrn); // "resource:order:order-789"
 ```
 
 ### Error Handling Pattern
@@ -334,10 +334,7 @@ console.log(orderUrn);   // "resource:order:order-789"
 ```typescript
 import { URN, InvalidError } from '@evanion/urn';
 
-function safeUrnOperation<T>(
-  operation: () => T,
-  fallback: T
-): T {
+function safeUrnOperation<T>(operation: () => T, fallback: T): T {
   try {
     return operation();
   } catch (error) {
@@ -352,13 +349,13 @@ function safeUrnOperation<T>(
 // Usage
 const validUrn = safeUrnOperation(
   () => URN.stringify('user-123', 'user'),
-  'urn:default:fallback'
+  'urn:default:fallback',
 );
 console.log(validUrn); // "urn:user:user-123"
 
 const invalidUrn = safeUrnOperation(
   () => URN.stringify('user!123', 'user'),
-  'urn:default:fallback'
+  'urn:default:fallback',
 );
 console.log(invalidUrn); // "urn:default:fallback"
 ```
@@ -376,20 +373,20 @@ describe('URN Setup Test', () => {
   it('should create and parse URNs', () => {
     const urn = URN.stringify('test-resource', 'test-namespace');
     expect(urn).toBe('urn:test-namespace:test-resource');
-    
+
     const parsed = URN.parse(urn);
     expect(parsed).toEqual({
       urn: 'urn',
       nid: 'test-namespace',
-      nss: 'test-resource'
+      nss: 'test-resource',
     });
   });
-  
+
   it('should handle custom URN classes', () => {
     class TestURN extends URN {
       static urn = 'test';
     }
-    
+
     const urn = TestURN.stringify('resource', 'namespace');
     expect(urn).toBe('test:namespace:resource');
   });
@@ -416,6 +413,7 @@ Now that you have the URN library set up, you can:
 ### Common Issues
 
 **Import Errors**
+
 ```typescript
 // ❌ Wrong
 import URN from '@evanion/urn';

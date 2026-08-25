@@ -64,7 +64,7 @@ Type for widget component functions.
 ```tsx
 type WidgetComponent<
   Items extends Record<string, WidgetProps<string>>,
-  Type extends keyof Items
+  Type extends keyof Items,
 > = React.ComponentType<Items[Type]['props']>;
 ```
 
@@ -94,7 +94,7 @@ Props for the Widgets component.
 ```tsx
 interface WidgetsProps<
   Items extends Record<string, WidgetProps<string>>,
-  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>
+  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>,
 > extends Partial<Config> {
   items: WidgetProps<string>[];
 }

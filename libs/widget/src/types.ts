@@ -9,7 +9,7 @@ export type WidgetProps<Type extends string, Props = object> = {
 
 export type WidgetComponent<
   Items extends Record<string, WidgetProps<string>>,
-  Type extends keyof Items
+  Type extends keyof Items,
 > = React.ComponentType<any>;
 
 export type WidgetsConfig<Items extends Record<string, WidgetProps<string>>> = {
@@ -23,7 +23,7 @@ export type WidgetsConfig<Items extends Record<string, WidgetProps<string>>> = {
 
 export type WidgetsProps<
   Items extends Record<string, WidgetProps<string>>,
-  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>
+  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>,
 > = Partial<Config> & {
   items: WidgetProps<string>[];
 };
