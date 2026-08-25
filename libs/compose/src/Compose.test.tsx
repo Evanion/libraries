@@ -2,6 +2,11 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ComposeProvider, provider } from './index';
+import type {
+  ComposeProviderProps,
+  LegacyComposeProviderProps,
+  AnyComposeProviderProps,
+} from './index';
 
 // Example provider components with different prop types
 interface ThemeProviderProps {
@@ -312,5 +317,102 @@ describe('ComposeProvider', () => {
     );
 
     consoleWarnSpy.mockRestore();
+  });
+  it('should warn only once per mount, not on every render', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const providers: never[] = [];
+    const { rerender } = render(
+      <ComposeProvider providers={providers}>
+        <div>Content</div>
+      </ComposeProvider>,
+    );
+
+    const afterFirstRender = consoleWarnSpy.mock.calls.length;
+
+    // Same array identity across re-renders -> the effect must not re-run.
+    rerender(
+      <ComposeProvider providers={providers}>
+        <div>Content</div>
+      </ComposeProvider>,
+    );
+    rerender(
+      <ComposeProvider providers={providers}>
+        <div>Content</div>
+      </ComposeProvider>,
+    );
+
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(afterFirstRender);
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should warn when both providers and components are supplied', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const bothProps = {
+      providers: [SimpleProvider],
+      components: [ThemeProvider],
+      children: <div>Both</div>,
+    } as unknown as AnyComposeProviderProps;
+
+    render(<ComposeProvider {...bothProps} />);
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'ComposeProvider: Received both "providers" and "components". "providers" takes precedence and "components" is ignored.',
+    );
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should throw a named error when no providers prop is supplied', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    // What a JavaScript consumer (or an `any`-typed call site) can do.
+    const noProps = {
+      children: <div>Orphan</div>,
+    } as unknown as AnyComposeProviderProps;
+
+    expect(() => render(<ComposeProvider {...noProps} />)).toThrow(
+      /expected `providers` to be an array, received undefined/,
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should throw a named error when providers is not an array', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const badProps = {
+      providers: 'nope',
+      children: <div>Orphan</div>,
+    } as unknown as AnyComposeProviderProps;
+
+    expect(() => render(<ComposeProvider {...badProps} />)).toThrow(
+      /expected `providers` to be an array, received string/,
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should expose the prop types on the public surface', () => {
+    // Compile-time only: these must be importable by consumers.
+    const withProviders: ComposeProviderProps = {
+      providers: [SimpleProvider],
+      children: null,
+    };
+    const withComponents: LegacyComposeProviderProps = {
+      components: [SimpleProvider],
+      children: null,
+    };
+    expect(withProviders.providers).toHaveLength(1);
+    expect(withComponents.components).toHaveLength(1);
   });
 });
