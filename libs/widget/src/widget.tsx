@@ -1,7 +1,7 @@
-import { createContext, useContext, useMemo, memo, useCallback } from 'react';
+import { createContext, useContext, useMemo, memo } from 'react';
 import type { WidgetProps, WidgetsConfig, WidgetsProps } from './types';
 import { DefaultItem, DefaultWrapper } from './widgets';
-import { renderWidget } from './utils';
+import { renderWidget, NestedWidgetsContext } from './utils';
 
 export function createWidgets<
   Items extends Record<string, WidgetProps<string>>,
@@ -17,6 +17,32 @@ export function createWidgets<
   const WidgetsProvider = WidgetsContext.Provider;
   const useWidgets = () => useContext(WidgetsContext);
 
+  /**
+   * Renders the children of whichever widget is currently rendering.
+   *
+   * Defined once per `createWidgets` call, so its component type is stable for
+   * the lifetime of the factory. Previously a new component was built on every
+   * render, and because React compares element types by identity that
+   * unmounted and remounted every nested subtree on each parent render --
+   * discarding child state, effects and focus.
+   */
+  const Output = memo(function Output() {
+    const { items, ItemWrapper } = useContext(NestedWidgetsContext);
+    const components = useWidgets();
+
+    if (!items || items.length === 0) {
+      return null;
+    }
+
+    return (
+      <>
+        {items.map((item) =>
+          renderWidget(item, components, ItemWrapper, Output),
+        )}
+      </>
+    );
+  });
+
   const Widgets = memo(function Widgets({
     items,
     components: instanceComponents,
@@ -29,48 +55,14 @@ export function createWidgets<
       [instanceComponents],
     );
 
-    // Memoize the Output component creation to prevent unnecessary re-renders
-    const createOutputComponent = useCallback(
-      (children: WidgetProps<string>[]) => () => <Output items={children} />,
-      [],
-    );
-
     return (
       <WidgetsProvider value={components}>
         <Wrapper>
-          {items.map((item) => {
-            const OutputComponent = createOutputComponent(item.children || []);
-            return renderWidget(
-              item,
-              components,
-              ItemWrapper as any,
-              OutputComponent,
-            );
-          })}
+          {items.map((item) =>
+            renderWidget(item, components, ItemWrapper, Output),
+          )}
         </Wrapper>
       </WidgetsProvider>
-    );
-  });
-
-  // Output component that renders nested widgets using context
-  const Output = memo(function Output({
-    items,
-  }: {
-    items?: WidgetProps<string>[];
-  }) {
-    const components = useWidgets();
-    const ItemWrapper = defaultChrome?.item || DefaultItem;
-
-    if (!items || items.length === 0) {
-      return null;
-    }
-
-    return (
-      <>
-        {items.map((item) =>
-          renderWidget(item, components, ItemWrapper as any),
-        )}
-      </>
     );
   });
 
