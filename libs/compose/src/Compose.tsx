@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ProviderArray } from './Compose.types';
+import type { ProviderArray, ValidateProviders } from './Compose.types';
 
 /**
  * `process` does not exist in a browser unless a bundler injects it, and this
@@ -16,9 +16,18 @@ const isDevelopment =
   process.env.NODE_ENV !== 'production';
 
 /** Props for `ComposeProvider`. */
-export interface ComposeProviderProps {
-  /** Providers to compose. The first entry ends up outermost. */
-  providers: ProviderArray;
+export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
+  /**
+   * Providers to compose. The first entry ends up outermost.
+   *
+   * The `T & ValidateProviders<T>` intersection is deliberate. A bare
+   * `ValidateProviders<T>` is a non-homomorphic mapped type, which is not an
+   * inferable position -- TypeScript would give up on inferring `T`, fall back
+   * to the constraint, and accept anything. Keeping `T` in the intersection
+   * gives inference something to latch onto while the mapped half does the
+   * checking.
+   */
+  providers: T & ValidateProviders<T>;
   children: React.ReactNode;
 }
 
@@ -27,15 +36,16 @@ export interface ComposeProviderProps {
  *
  * @deprecated Use {@link ComposeProviderProps} and the `providers` prop instead.
  */
-export interface LegacyComposeProviderProps {
-  components: ProviderArray;
+export interface LegacyComposeProviderProps<
+  T extends ProviderArray = ProviderArray,
+> {
+  components: T & ValidateProviders<T>;
   children: React.ReactNode;
 }
 
 /** Either accepted prop shape for {@link ComposeProvider}. */
 export type AnyComposeProviderProps =
-  | ComposeProviderProps
-  | LegacyComposeProviderProps;
+  ComposeProviderProps | LegacyComposeProviderProps;
 
 /**
  * Composes multiple React providers into a single component to eliminate nesting.
@@ -57,12 +67,22 @@ export type AnyComposeProviderProps =
  * @param props.components - (Deprecated) Legacy alias for providers
  * @param props.children - Child elements to wrap with providers
  */
-export const ComposeProvider: React.FC<AnyComposeProviderProps> = (props) => {
+export function ComposeProvider<const T extends ProviderArray>(
+  props: ComposeProviderProps<T>,
+): React.ReactElement;
+export function ComposeProvider<const T extends ProviderArray>(
+  props: LegacyComposeProviderProps<T>,
+): React.ReactElement;
+export function ComposeProvider(
+  props: AnyComposeProviderProps,
+): React.ReactElement {
   const hasProviders = 'providers' in props;
   const hasComponents = 'components' in props;
-  const providerList = hasProviders
-    ? props.providers
-    : (props as LegacyComposeProviderProps).components;
+  const providerList = (
+    hasProviders
+      ? props.providers
+      : (props as LegacyComposeProviderProps).components
+  ) as ProviderArray;
 
   // Fail with a message that names the problem. Without this, a missing prop
   // surfaces as "Cannot read properties of undefined (reading 'length')", which
@@ -115,4 +135,4 @@ export const ComposeProvider: React.FC<AnyComposeProviderProps> = (props) => {
         }, props.children)}
     </>
   );
-};
+}

@@ -145,12 +145,12 @@ describe('Widget System - CMS Integration Example', () => {
         contactForm: ContactForm,
       },
       chrome: {
-        wrapper: ({ children }: { children: React.ReactNode }) => (
+        wrapper: ({ children }: React.PropsWithChildren) => (
           <main data-testid="homepage" className="homepage">
             {children}
           </main>
         ),
-        item: ({ children }: { children: React.ReactNode }) => (
+        item: ({ children }: React.PropsWithChildren) => (
           <section data-testid="widget-section" className="widget-section">
             {children}
           </section>
@@ -161,7 +161,7 @@ describe('Widget System - CMS Integration Example', () => {
     const homepageItems = [
       {
         id: 'hero1',
-        type: 'heroBanner',
+        type: 'heroBanner' as const,
         props: {
           title: 'Welcome to Our Store',
           subtitle: 'Discover amazing products at great prices',
@@ -172,7 +172,7 @@ describe('Widget System - CMS Integration Example', () => {
       },
       {
         id: 'products1',
-        type: 'productGrid',
+        type: 'productGrid' as const,
         props: {
           products: [
             {
@@ -199,7 +199,7 @@ describe('Widget System - CMS Integration Example', () => {
       },
       {
         id: 'testimonial1',
-        type: 'testimonial',
+        type: 'testimonial' as const,
         props: {
           quote: 'This product changed my life!',
           author: 'Jane Smith',
@@ -209,7 +209,7 @@ describe('Widget System - CMS Integration Example', () => {
       },
       {
         id: 'newsletter1',
-        type: 'newsletterSignup',
+        type: 'newsletterSignup' as const,
         props: {
           title: 'Stay Updated',
           description: 'Get the latest news and exclusive offers',
@@ -272,7 +272,7 @@ describe('Widget System - CMS Integration Example', () => {
     const initialItems = [
       {
         id: 'hero1',
-        type: 'heroBanner',
+        type: 'heroBanner' as const,
         props: {
           title: 'Version A',
           subtitle: 'Original design',
@@ -293,7 +293,7 @@ describe('Widget System - CMS Integration Example', () => {
     const variantItems = [
       {
         id: 'hero1',
-        type: 'heroBanner',
+        type: 'heroBanner' as const,
         props: {
           title: 'Version B',
           subtitle: 'Improved design',
@@ -328,7 +328,7 @@ describe('Widget System - CMS Integration Example', () => {
     const blogItems = [
       {
         id: 'hero1',
-        type: 'heroBanner',
+        type: 'heroBanner' as const,
         props: {
           title: 'Blog Post Title',
           subtitle: 'A deep dive into our latest insights',
@@ -350,20 +350,25 @@ describe('Widget System - CMS Integration Example', () => {
     const contactItems = [
       {
         id: 'contact1',
-        type: 'contactForm',
+        type: 'contactForm' as const,
         props: {
           title: 'Get in Touch',
           fields: [
-            { name: 'name', type: 'text', label: 'Full Name', required: true },
+            {
+              name: 'name',
+              type: 'text' as const,
+              label: 'Full Name',
+              required: true,
+            },
             {
               name: 'email',
-              type: 'email',
+              type: 'email' as const,
               label: 'Email Address',
               required: true,
             },
             {
               name: 'message',
-              type: 'textarea',
+              type: 'textarea' as const,
               label: 'Message',
               required: true,
             },
@@ -393,7 +398,7 @@ describe('Widget System - CMS Integration Example', () => {
     const complexItems = [
       {
         id: 'products1',
-        type: 'productGrid',
+        type: 'productGrid' as const,
         props: {
           products: [
             {
@@ -426,7 +431,7 @@ describe('Widget System - CMS Integration Example', () => {
       },
       {
         id: 'testimonial1',
-        type: 'testimonial',
+        type: 'testimonial' as const,
         props: {
           quote:
             'The quality is outstanding and the customer service is excellent!',

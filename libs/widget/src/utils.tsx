@@ -1,50 +1,54 @@
 import React from 'react';
 import { ERROR_MESSAGES } from './constants';
-import type { WidgetProps } from './types';
-
-/**
- * Chrome component wrapped around every rendered widget.
- */
-export type ItemWrapperComponent = React.ComponentType<
-  React.PropsWithChildren<{
-    'data-widget-id': string;
-    'data-widget-type': string;
-  }>
->;
+import type {
+  AnyWidgetComponent,
+  RenderableWidgetItem,
+  WidgetItemComponent,
+} from './types';
 
 /**
  * Context carrying the current widget's children down to the injected `Output`
- * component, together with the chrome that was resolved for this render.
+ * component, together with the chrome resolved for this render.
  *
  * Passing children through context (rather than closing over them in a
  * freshly-created component) is what keeps `Output` a single stable component
  * type, and what lets nesting recurse to arbitrary depth.
  */
 export interface NestedWidgets {
-  items: WidgetProps<string>[];
-  ItemWrapper: ItemWrapperComponent;
+  items: RenderableWidgetItem[];
+  ItemWrapper: WidgetItemComponent;
 }
+
+const DefaultNestedItemWrapper: WidgetItemComponent = (props) => (
+  <div {...props} />
+);
 
 export const NestedWidgetsContext = React.createContext<NestedWidgets>({
   items: [],
-  ItemWrapper: (props) => <div {...props} />,
+  ItemWrapper: DefaultNestedItemWrapper,
 });
 
-export function renderWidget<Items extends Record<string, WidgetProps<string>>>(
-  item: WidgetProps<string>,
-  components: { [K in keyof Items]: React.ComponentType<Items[K]['props']> },
-  ItemWrapper: ItemWrapperComponent,
+export function renderWidget(
+  item: RenderableWidgetItem,
+  components: Record<string, AnyWidgetComponent>,
+  ItemWrapper: WidgetItemComponent,
   Output: React.ComponentType,
 ) {
   // `in` walks the prototype chain, so a CMS-supplied type of "constructor",
   // "toString" or "__proto__" would pass this guard and hand React something
   // off Object.prototype. Items are explicitly untrusted input.
-  if (!Object.prototype.hasOwnProperty.call(components, item.type)) {
+  //
+  // The truthiness check is not redundant: an own key can still hold undefined,
+  // and noUncheckedIndexedAccess makes that possibility explicit.
+  const Component = Object.prototype.hasOwnProperty.call(components, item.type)
+    ? components[item.type]
+    : undefined;
+
+  if (!Component) {
     console.warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
     return null;
   }
 
-  const Component = components[item.type];
   const children = item.children ?? [];
 
   return (

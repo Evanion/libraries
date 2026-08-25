@@ -1,18 +1,42 @@
 import { createContext, useContext, useMemo, memo } from 'react';
-import type { WidgetProps, WidgetsConfig, WidgetsProps } from './types';
+import type {
+  RenderableWidgetItem,
+  WidgetComponentMap,
+  WidgetItem,
+  WidgetsConfig,
+  WidgetsProps,
+} from './types';
 import { DefaultItem, DefaultWrapper } from './widgets';
 import { renderWidget, NestedWidgetsContext } from './utils';
 
-export function createWidgets<
-  Items extends Record<string, WidgetProps<string>>,
->(config: WidgetsConfig<Items>) {
+/**
+ * Builds a widget set from a component map.
+ *
+ * The map drives inference: each item's `type` must be a key of it, and that
+ * item's `props` must match the corresponding component's props.
+ *
+ * @example
+ * ```tsx
+ * const { Widgets } = createWidgets({
+ *   components: { news: NewsTeaser, profile: UserSidebar },
+ * });
+ *
+ * <Widgets items={[
+ *   { id: '1', type: 'news', props: { title: 'Hello' } },
+ *   { id: '2', type: 'nope', props: {} },  // ← compile error: unknown type
+ * ]} />
+ * ```
+ */
+export function createWidgets<const C extends WidgetComponentMap>(
+  config: WidgetsConfig<C>,
+) {
   const {
     components: defaultComponents,
     chrome: defaultChrome,
     context,
   } = config;
 
-  const WidgetsContext = context || createContext(defaultComponents);
+  const WidgetsContext = context || createContext<C>(defaultComponents);
 
   const WidgetsProvider = WidgetsContext.Provider;
   const useWidgets = () => useContext(WidgetsContext);
@@ -47,7 +71,7 @@ export function createWidgets<
     items,
     components: instanceComponents,
     chrome,
-  }: WidgetsProps<Items>) {
+  }: WidgetsProps<C>) {
     const Wrapper = chrome?.wrapper || defaultChrome?.wrapper || DefaultWrapper;
     const ItemWrapper = chrome?.item || defaultChrome?.item || DefaultItem;
     const components = useMemo(
@@ -58,7 +82,9 @@ export function createWidgets<
     return (
       <WidgetsProvider value={components}>
         <Wrapper>
-          {items.map((item) =>
+          {/* The single, documented widening from the checked WidgetItem<C>
+              union to the renderer's erased view. See RenderableWidgetItem. */}
+          {(items as unknown as RenderableWidgetItem[]).map((item) =>
             renderWidget(item, components, ItemWrapper, Output),
           )}
         </Wrapper>
@@ -66,5 +92,24 @@ export function createWidgets<
     );
   });
 
-  return { Widgets, WidgetsProvider, useWidgets, Output };
+  /**
+   * Identity function that supplies the contextual type for an item array.
+   *
+   * A bare `const items = [{ type: 'news', ... }]` infers `type: string`, which
+   * will not narrow to the component map's keys, so the check is lost. Passing
+   * the array through here gives TypeScript the contextual type it needs:
+   *
+   * ```ts
+   * const items = defineItems([
+   *   { id: '1', type: 'news', props: { title: 'Hello' } },
+   *   { id: '2', type: 'nope', props: {} },  // ← compile error
+   * ]);
+   * ```
+   *
+   * Not needed when the array is written inline in JSX -- that is already
+   * contextually typed. `satisfies WidgetItem<typeof components>[]` works too.
+   */
+  const defineItems = (items: WidgetItem<C>[]): WidgetItem<C>[] => items;
+
+  return { Widgets, WidgetsProvider, useWidgets, Output, defineItems };
 }

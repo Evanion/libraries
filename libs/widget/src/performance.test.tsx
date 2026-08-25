@@ -25,7 +25,7 @@ describe('Widget System - Performance', () => {
     const items = [
       {
         id: 'widget1',
-        type: 'test',
+        type: 'test' as const,
         props: { content: 'Static content' },
       },
     ];
@@ -43,7 +43,7 @@ describe('Widget System - Performance', () => {
     const newItems = [
       {
         id: 'widget1',
-        type: 'test',
+        type: 'test' as const,
         props: { content: 'Different content' },
       },
     ];
@@ -84,12 +84,12 @@ describe('Widget System - Performance', () => {
     const items = [
       {
         id: 'card1',
-        type: 'card',
+        type: 'card' as const,
         props: { title: 'My Card' },
         children: [
           {
             id: 'text1',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Nested content' },
           },
         ],
@@ -109,12 +109,12 @@ describe('Widget System - Performance', () => {
     const newItems = [
       {
         id: 'card1',
-        type: 'card',
+        type: 'card' as const,
         props: { title: 'My Card' },
         children: [
           {
             id: 'text1',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Different nested content' },
           },
         ],
@@ -141,8 +141,8 @@ describe('Widget System - Performance', () => {
     // Create 1000 widgets
     const items = Array.from({ length: 1000 }, (_, i) => ({
       id: `widget-${i}`,
-      type: 'test',
-      props: { id: i },
+      type: 'test' as const,
+      props: { id: String(i) },
     }));
 
     const startTime = performance.now();
@@ -175,7 +175,7 @@ describe('Widget System - Performance', () => {
     const items = [
       {
         id: 'widget1',
-        type: 'test',
+        type: 'test' as const,
         props: { content: 'Content' },
       },
     ];
@@ -216,7 +216,7 @@ describe('Widget System - Performance', () => {
       const items = [
         {
           id: 'counter1',
-          type: 'counter',
+          type: 'counter' as const,
           props: { count },
         },
       ];
@@ -262,7 +262,7 @@ describe('Widget System - Performance', () => {
     const items = [
       {
         id: 'widget1',
-        type: 'test',
+        type: 'test' as const,
         props: { content: 'Content' },
       },
     ];
@@ -280,7 +280,7 @@ describe('Widget System - Performance', () => {
     const newItems = [
       {
         id: 'widget1',
-        type: 'test',
+        type: 'test' as const,
         props: { content: 'Different content' },
       },
     ];
@@ -323,29 +323,29 @@ describe('Widget System - Performance', () => {
     const items = [
       {
         id: 'card1',
-        type: 'card',
+        type: 'card' as const,
         props: { title: 'Card 1' },
         children: [
           {
             id: 'text1',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Text 1' },
           },
           {
             id: 'text2',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Text 2' },
           },
         ],
       },
       {
         id: 'card2',
-        type: 'card',
+        type: 'card' as const,
         props: { title: 'Card 2' },
         children: [
           {
             id: 'text3',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Text 3' },
           },
         ],

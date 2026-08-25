@@ -85,7 +85,7 @@ describe('Widget System - Basic Usage', () => {
     const items = [
       {
         id: 'userinfo',
-        type: 'userInfo',
+        type: 'userInfo' as const,
         props: {
           username: 'Evanion',
           avatar: 'https://evanion.com/avatar.jpg',
@@ -94,7 +94,7 @@ describe('Widget System - Basic Usage', () => {
       },
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Breaking News',
           publishedAt: new Date('2024-01-15'),
@@ -137,14 +137,21 @@ describe('Widget System - Basic Usage', () => {
     });
 
     const items = [
+      // Deliberately not in the component map: this models untrusted CMS data
+      // and is cast wholesale, because rejecting it is exactly what the types
+      // now do. The test asserts the runtime guard still warns and skips.
       {
         id: 'unknown',
         type: 'unknownType',
         props: { title: 'This should not render' },
+      } as unknown as {
+        id: string;
+        type: 'news';
+        props: { title: string; publishedAt: Date; body: string };
       },
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Valid News',
           publishedAt: new Date(),
@@ -189,7 +196,7 @@ describe('Widget System - Custom Chrome', () => {
     const items = [
       {
         id: 'banner1',
-        type: 'banner',
+        type: 'banner' as const,
         props: {
           image: '/banner.jpg',
           title: 'Summer Sale',
@@ -198,7 +205,7 @@ describe('Widget System - Custom Chrome', () => {
       },
       {
         id: 'product1',
-        type: 'productCard',
+        type: 'productCard' as const,
         props: {
           name: 'Wireless Headphones',
           price: 99.99,
@@ -241,7 +248,7 @@ describe('Widget System - Custom Chrome', () => {
     const items = [
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Blog Post',
           publishedAt: new Date(),
@@ -274,7 +281,6 @@ describe('Widget System - Instance Overrides', () => {
 
     const specialNewsComponent = ({
       title,
-      ...props
     }: {
       title: string;
       publishedAt: Date;
@@ -289,7 +295,7 @@ describe('Widget System - Instance Overrides', () => {
     const items = [
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'Regular News',
           publishedAt: new Date(),
@@ -325,7 +331,7 @@ describe('Widget System - Instance Overrides', () => {
     const items = [
       {
         id: 'news1',
-        type: 'news',
+        type: 'news' as const,
         props: {
           title: 'News Item',
           publishedAt: new Date(),
@@ -386,19 +392,19 @@ describe('Widget System - Nested Widgets', () => {
     const items = [
       {
         id: 'card1',
-        type: 'card',
+        type: 'card' as const,
         props: {
           title: 'My Card',
         },
         children: [
           {
             id: 'text1',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Nested text content' },
           },
           {
             id: 'text2',
-            type: 'text',
+            type: 'text' as const,
             props: { content: 'Another nested text' },
           },
         ],
@@ -441,7 +447,7 @@ describe('Widget System - Nested Widgets', () => {
     const items = [
       {
         id: 'card1',
-        type: 'card',
+        type: 'card' as const,
         props: {
           title: 'Empty Card',
         },
@@ -470,7 +476,8 @@ describe('Widget System - Nested Widgets', () => {
     const items = [
       {
         id: 'unknown1',
-        type: 'unknown-widget',
+        // Deliberately not in the component map -- see note above.
+        type: 'unknown-widget' as unknown as 'text',
         props: { content: 'This should not render' },
       },
     ];
@@ -552,7 +559,7 @@ describe('Widget System - Real World Examples', () => {
     const blogItems = [
       {
         id: 'author1',
-        type: 'authorBio',
+        type: 'authorBio' as const,
         props: {
           name: 'John Doe',
           bio: 'Tech writer and developer',
@@ -561,7 +568,7 @@ describe('Widget System - Real World Examples', () => {
       },
       {
         id: 'related1',
-        type: 'relatedPosts',
+        type: 'relatedPosts' as const,
         props: {
           posts: [
             { title: 'Previous Post', url: '/previous' },
@@ -571,7 +578,7 @@ describe('Widget System - Real World Examples', () => {
       },
       {
         id: 'social1',
-        type: 'socialShare',
+        type: 'socialShare' as const,
         props: {
           platforms: ['Twitter', 'Facebook', 'LinkedIn'],
         },
@@ -643,7 +650,7 @@ describe('Widget System - Real World Examples', () => {
     const dashboardItems = [
       {
         id: 'stats1',
-        type: 'statCard',
+        type: 'statCard' as const,
         props: {
           title: 'Total Users',
           value: '1,234',
@@ -652,7 +659,7 @@ describe('Widget System - Real World Examples', () => {
       },
       {
         id: 'stats2',
-        type: 'statCard',
+        type: 'statCard' as const,
         props: {
           title: 'Revenue',
           value: '$45,678',
@@ -661,7 +668,7 @@ describe('Widget System - Real World Examples', () => {
       },
       {
         id: 'action1',
-        type: 'actionButton',
+        type: 'actionButton' as const,
         props: {
           label: 'Export Data',
           action: 'export',
