@@ -1,0 +1,93 @@
+# @evanion/compose
+
+Get out of provider hell. `ComposeProvider` takes a flat array of providers and
+nests them for you, so this:
+
+```tsx
+<ThemeProvider theme="dark" primaryColor="#007acc">
+  <AuthProvider user={user} token={token}>
+    <QueryProvider>
+      <App />
+    </QueryProvider>
+  </AuthProvider>
+</ThemeProvider>
+```
+
+becomes this:
+
+```tsx
+import { ComposeProvider, provider } from '@evanion/compose';
+
+<ComposeProvider
+  providers={[
+    provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
+    provider(AuthProvider, { user, token }),
+    QueryProvider,
+  ]}
+>
+  <App />
+</ComposeProvider>;
+```
+
+The first provider is the outermost, so the array reads in the same order the
+nested version did.
+
+## Installation
+
+```bash
+npm install @evanion/compose
+```
+
+React 18 or 19 is required as a peer dependency.
+
+## Two ways to pass props
+
+`provider()` is checked where you call it, and gives you IntelliSense for the
+component's props:
+
+```tsx
+provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' });
+```
+
+A plain tuple is more concise, and is checked when the array reaches
+`ComposeProvider`:
+
+```tsx
+<ComposeProvider
+  providers={[[ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }]]}
+>
+  <App />
+</ComposeProvider>
+```
+
+Both reject a missing prop, a wrong value, and a prop the component does not
+declare.
+
+> **Where the check happens matters.** A tuple only knows what it should be once
+> it reaches `ComposeProvider`. A bare `[ThemeProvider, { theme: 'dark' }]`
+> assigned to a variable is widened by TypeScript and will not error — use
+> `provider()` for those, or write the array inline.
+
+## API
+
+### `ComposeProvider`
+
+| Prop         | Type            | Notes                                    |
+| ------------ | --------------- | ---------------------------------------- |
+| `providers`  | `ProviderArray` | Providers to compose; first is outermost |
+| `components` | `ProviderArray` | **Deprecated** alias for `providers`     |
+| `children`   | `ReactNode`     | Wrapped by every provider                |
+
+Throws a `TypeError` naming the problem if `providers` is missing or is not an
+array. In development it also warns on an empty array, on the deprecated
+`components` prop, and when both props are supplied.
+
+### `provider(component, props)`
+
+Returns a typed `[component, props]` tuple. Purely a type-level helper — there is
+no runtime cost beyond building the tuple.
+
+### Types
+
+`Provider`, `ProviderArray`, `ComposeProviderProps`, `LegacyComposeProviderProps`,
+`PropsWithoutChildren`.

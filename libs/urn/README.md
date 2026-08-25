@@ -71,7 +71,7 @@ console.log(parsed); // -> {urn:'trn', nid: 'bar', nss: 'foo'}
 - **Namespace Support**: Handle custom namespaces and identifiers
 - **Class Inheritance**: Extend the base URN class for domain-specific implementations
 - **TypeScript Support**: Full TypeScript support with comprehensive type definitions
-- **Validation**: Built-in validation for URN components (a-z, 0-9, case insensitive)
+- **Validation**: Built-in validation for every URN component (`a-z`, `0-9`, `-`, `.`, `_`, `~`, `:`, case insensitive)
 
 ## Why should you use a URN
 
@@ -144,7 +144,9 @@ console.log(parsed); // -> {urn: 'trn', nid: 'order', nss: 'order:42'}
 
 ## Validation & Error Handling
 
-The library validates URN and NID components to only contain valid characters (a-z, 0-9, case insensitive):
+The library validates the URN scheme, the NID **and** the NSS. A component may
+contain `a-z`, `0-9`, `-`, `.`, `_`, `~` and `:` (case insensitive), and must not
+be empty:
 
 ```ts
 import { URN, InvalidError } from '@evanion/urn';
@@ -216,14 +218,58 @@ const userResourceUrn = ServiceURN.stringify('123', 'user-service');
 
 ### Static Methods
 
-- `URN.stringify(nss, nid?, urn?)` - Creates a URN string from components
-- `URN.parse(urnString)` - Parses a URN string into its components
+- `URN.stringify(nss, nid?, urn?)` — Creates a URN string from components.
+  Throws `InvalidError` if any component is empty or contains a disallowed character.
+- `URN.parse(urnString)` — Parses a URN string into `{ urn, nid, nss }`.
+  Throws `ValidationError` if the string is not a well-formed URN.
+- `URN.isValidFormat(urnString)` — `true` if the string has at least three
+  non-empty parts. Never throws, so it is the cheap way to test input first.
+- `URN.extractId(urnString)` — Returns everything after the scheme and the NID.
+  Throws `ValidationError` on malformed input.
+- `URN.sameNamespace(a, b)` — `true` if both URNs share a scheme and NID.
+  Returns `false` for malformed input rather than throwing.
+- `URN.belongsToNamespace(urnString, nid, urn?)` — `true` if the URN is in the
+  given namespace. `urn` defaults to **this class's own scheme**, so it works on
+  subclasses without repeating the scheme.
+
+#### `parse().nss` vs `extractId()`
+
+They differ on a foreign namespace, on purpose. `parse` keeps a non-matching NID
+attached to the `nss` so the namespace is not silently lost; `extractId` always
+drops it:
+
+```ts
+URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
+URN.extractId('urn:user:123'); // '123'
+```
+
+Reach for `parse` when the namespace matters, `extractId` when you only want the
+trailing identifier.
+
+### Errors
+
+- `ValidationError` — base class for everything this library throws. Catch this
+  to handle any validation failure.
+- `InvalidError extends ValidationError` — a component was empty or contained a
+  disallowed character. Carries `property` (`'URN' | 'NID' | 'NSS'`), `value`,
+  and `invalidChar` when one could be identified.
 
 ### Class Properties
 
 - `static urn: string` - The URN scheme (default: 'urn')
 - `static separator: string` - The separator between components (default: ':')
 - `static nid: string` - The namespace identifier (default: 'nid')
+- `static isValid: RegExp` - The character class each component must match
+
+When overriding these in a subclass, TypeScript's `noImplicitOverride` requires
+the `override` keyword:
+
+```ts
+class UserTRN extends URN {
+  static override readonly urn = 'trn';
+  static override readonly nid = 'user';
+}
+```
 
 ## Testing
 
