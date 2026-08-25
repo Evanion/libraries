@@ -16,6 +16,18 @@ A powerful React library for creating dynamic, reusable widget regions from stru
 - 🎨 **Customizable**: Easy theming and styling through wrapper components
 - 🔄 **Context-aware**: Built-in React Context support for component sharing
 
+### [@evanion/compose](./libs/compose)
+
+A React component that gets you out of provider hell by flattening nested providers into a single, readable list — with the props of each provider checked against its component.
+
+**Key Features:**
+
+- 🧩 **Flat**: Replace a pyramid of nested providers with one array
+- 🎯 **Type-safe**: Missing, wrong, or unknown provider props are compile errors
+- 🔤 **Two APIs**: `provider()` for full IntelliSense, or plain tuples for brevity
+- 📖 **Natural order**: The first provider is the outermost, matching how you'd nest them
+- 🪶 **Zero dependencies**
+
 ### [@evanion/urn](./libs/urn)
 
 A URN Library that makes it easier to work with more meaningful identifiers. The API is inspired by, and designed to be as simple as the JSON class.
@@ -35,7 +47,7 @@ This monorepo is built with [Nx](https://nx.dev) for efficient development and b
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+ (CI runs 24; see `.nvmrc`)
 - npm
 
 ### Getting Started
@@ -43,7 +55,7 @@ This monorepo is built with [Nx](https://nx.dev) for efficient development and b
 ```bash
 # Clone the repository
 git clone https://github.com/evanion/libraries.git
-cd open-source
+cd libraries
 
 # Install dependencies
 npm install
@@ -54,33 +66,40 @@ npm run dev
 
 ### Available Commands
 
+Tasks run through Nx rather than root npm scripts:
+
 ```bash
-# Build all libraries
-npm run build
+# Build every library
+npx nx run-many -t build
 
-# Run tests
-npm run test
+# Run tests (unit + type-level)
+npx nx run-many -t test
 
-# Lint code
-npm run lint
+# Lint
+npx nx run-many -t lint
 
 # Type check
-npm run typecheck
+npx nx run-many -t typecheck
 
-# Start documentation site
-npm run docs:dev
+# Everything CI runs
+npx nx run-many -t lint test build typecheck
+
+# Only what your changes affect
+npx nx affected -t lint test build typecheck
+
+# Start the documentation site
+npx nx dev docs
 ```
 
 ### Project Structure
 
 ```
 ├── apps/
-│   └── docs/                 # Documentation site
-├── libs/
-│   ├── widget/              # React Widget library
-│   └── urn/                 # URN library
-├── tools/                   # Build tools and configurations
-└── docs/                    # Documentation content
+│   └── docs/                # Documentation site (Next.js + Nextra)
+└── libs/
+    ├── compose/             # Provider composition
+    ├── urn/                 # URN library
+    └── widget/              # React Widget library
 ```
 
 ## 📖 Documentation

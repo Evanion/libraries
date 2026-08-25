@@ -4,7 +4,8 @@ A powerful React library for creating dynamic, reusable widget regions from stru
 
 ## Features
 
-- 🎯 **Type-safe**: Full TypeScript support with intelligent type inference
+- 🎯 **Type-safe**: `createWidgets` infers from your component map, so an unknown
+  widget `type` or mismatched `props` is a compile error, not a runtime warning
 - 🔧 **Flexible**: Support for custom chrome components and wrappers
 - ⚡ **Lightweight**: Minimal bundle size with zero dependencies
 - 🎨 **Customizable**: Easy theming and styling through wrapper components
@@ -14,17 +15,39 @@ A powerful React library for creating dynamic, reusable widget regions from stru
 ## Installation
 
 ```bash
-npm install @evanion/widget
+npm install @evanion/react-widget
 # or
-yarn add @evanion/widget
+yarn add @evanion/react-widget
 # or
-pnpm add @evanion/widget
+pnpm add @evanion/react-widget
 ```
+
+## Typing your items
+
+`createWidgets` infers the allowed `type` values and each item's `props` from the
+component map you give it.
+
+```tsx
+const { Widgets, defineItems } = createWidgets({
+  components: { news: NewsTeaser, weather: WeatherCard },
+});
+
+const items = defineItems([
+  { id: '1', type: 'news', props: { title: 'Hello' } },
+  { id: '2', type: 'nope', props: {} }, // ✗ 'nope' is not in the component map
+  { id: '3', type: 'weather', props: { celsius: 'warm' } }, // ✗ celsius is a number
+]);
+```
+
+`defineItems` is an identity function that exists purely to supply the contextual
+type. A bare `const items = [{ type: 'news', ... }]` widens `type` to `string`,
+which cannot narrow to the map's keys, and the check is silently lost. Writing
+the array inline in JSX works too — that is already contextually typed.
 
 ## Quick Start
 
 ```tsx
-import { createWidgets } from '@evanion/widget';
+import { createWidgets } from '@evanion/react-widget';
 import { PropsWithChildren } from 'react';
 
 // Define your widget components
@@ -123,9 +146,9 @@ Renders a list of widget items.
 ```tsx
 interface WidgetItem {
   id: string; // Unique identifier
-  type: string; // Widget type (must match component key)
-  props: object; // Props to pass to the component
-  children?: WidgetItem[]; // Nested widgets (future feature)
+  type: string; // Widget type -- must be a key of your component map
+  props: object; // Props for that component, checked against it
+  children?: WidgetItem[]; // Nested widgets, rendered by the injected <Output />
 }
 ```
 

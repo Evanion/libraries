@@ -87,8 +87,8 @@ const App: React.FC = () => {
 };
 ```
 
-✅ **No helper needed** - just arrays and `as const`  
-✅ **Type errors** for missing or incorrect props  
+✅ **No helper needed** - just arrays  
+✅ **Type errors** for missing, wrong, or unknown props  
 ❌ **No IntelliSense autocomplete** - you need to know the prop names
 
 ## Key Features
@@ -188,9 +188,11 @@ const providers = [
 ### With Tuple Syntax
 
 ```tsx
-const providers = [
-  [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
-];
+<ComposeProvider
+  providers={[[ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }]]}
+>
+  <App />
+</ComposeProvider>
 ```
 
 ❌ No autocomplete (you must know prop names)  
@@ -202,14 +204,38 @@ const providers = [
 **Both approaches catch errors:**
 
 ```tsx
-// ❌ Missing required props (both approaches error)
+// ❌ provider() is checked where you call it
 provider(ThemeProvider, { theme: 'dark' }); // Error: missing 'primaryColor'
-[ThemeProvider, { theme: 'dark' }] as const; // Error: missing 'primaryColor'
+provider(ThemeProvider, { theme: 'blue', primaryColor: '#007acc' }); // Error: 'blue'
 
-// ❌ Wrong prop types (both approaches error)
-provider(ThemeProvider, { theme: 'blue', primaryColor: '#007acc' }); // Error
-[ThemeProvider, { theme: 'blue', primaryColor: '#007acc' }] as const; // Error
+// ❌ Tuples are checked where the array is passed to ComposeProvider
+<ComposeProvider providers={[[ThemeProvider, { theme: 'dark' }]]}>
+  <App />
+</ComposeProvider>; // Error: missing 'primaryColor'
+
+<ComposeProvider
+  providers={[[ThemeProvider, { theme: 'blue', primaryColor: '#fff' }]]}
+>
+  <App />
+</ComposeProvider>; // Error: 'blue' is not assignable to 'light' | 'dark'
+
+<ComposeProvider
+  providers={[
+    [ThemeProvider, { theme: 'dark', primaryColor: '#fff', typo: 1 }],
+  ]}
+>
+  <App />
+</ComposeProvider>; // Error: 'typo' is not a prop of ThemeProvider
 ```
+
+> **Where the check happens matters.** A tuple only knows what it should be once
+> it reaches `ComposeProvider`, so a bare `[ThemeProvider, { theme: 'dark' }]`
+> sitting in a variable on its own will not error. Either write the array inline,
+> or use `provider()`, which is checked at the point you call it.
+
+> **Assigning to a variable first?** TypeScript widens the tuple and the check is
+> lost. Use `provider()` for those entries, or annotate the array with
+> `satisfies ProviderArray`.
 
 ## Contributing
 

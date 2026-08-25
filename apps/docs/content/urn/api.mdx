@@ -21,9 +21,10 @@ The base URN class providing core functionality for URN parsing and stringifying
 
 ```typescript
 class URN {
-  static urn: string = 'urn';
-  static separator: string = ':';
-  static nid?: string;
+  static readonly urn: string = 'urn';
+  static readonly separator: string = ':';
+  static readonly nid: string = 'nid';
+  static readonly isValid: RegExp;
 }
 ```
 
@@ -284,3 +285,50 @@ The URN library supports all modern browsers and Node.js environments:
 - **Node.js**: 14+
 - **Browsers**: ES2015+ (Chrome 60+, Firefox 55+, Safari 12+, Edge 79+)
 - **TypeScript**: 4.0+
+
+### `isValidFormat(urnString)`
+
+Returns `true` when the string has at least three non-empty parts. Never throws,
+so use it to test input before parsing.
+
+### `extractId(urnString)`
+
+Returns everything after the scheme and the NID. Throws `ValidationError` on
+malformed input.
+
+This is deliberately structural and differs from `parse(urnString).nss` on a
+foreign namespace — `parse` keeps a non-matching NID attached so the namespace
+is not lost, `extractId` always drops it:
+
+```ts
+URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
+URN.extractId('urn:user:123'); // '123'
+```
+
+### `sameNamespace(a, b)`
+
+`true` when both URNs share a scheme and NID. Returns `false` for malformed
+input rather than throwing.
+
+### `belongsToNamespace(urnString, nid, urn?)`
+
+`true` when the URN is in the given namespace. `urn` defaults to **this class's
+own scheme**, so it works on subclasses without repeating it:
+
+```ts
+class TRN extends URN {
+  static override readonly urn = 'trn';
+  static override readonly nid = 'bar';
+}
+
+TRN.belongsToNamespace('trn:bar:foo', 'bar'); // true
+```
+
+## Errors
+
+- `ValidationError` — base class for everything this library throws.
+- `InvalidError extends ValidationError` — a component was empty or contained a
+  disallowed character. Carries `property`, `value` and `invalidChar`.
+
+`parse` and `extractId` throw `ValidationError` on malformed input; `stringify`
+throws `InvalidError`. Catch `ValidationError` to handle either.

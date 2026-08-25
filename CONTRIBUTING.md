@@ -30,10 +30,15 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) t
 
 ### Scopes
 
-- **widget**: Changes to the widget library
+- **compose**: Changes to the `@evanion/compose` library
+- **urn**: Changes to the `@evanion/urn` library
+- **widget**: Changes to the `@evanion/react-widget` library
 - **docs**: Changes to documentation
 - **nx**: Changes to Nx configuration
 - **deps**: Changes to dependencies
+
+Scopes drive the per-package changelogs, so keep library changes scoped to the
+library they touch.
 
 ### Examples
 
@@ -54,6 +59,13 @@ npm run commit
 ```
 
 This will guide you through creating a properly formatted commit message.
+
+### A note on `typecheck`
+
+`nx run-many -t typecheck` covers the three libraries. The docs app has no
+separate `typecheck` target -- `next build` already runs "Checking validity of
+types", so it is covered by `build`. `@nx/next/plugin` does not support a
+`typecheckTargetName` option, so adding one has no effect.
 
 ### Pre-commit Hooks
 
