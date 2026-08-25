@@ -1,10 +1,10 @@
 import React from 'react';
-import { ERROR_MESSAGES } from './constants';
+import { ERROR_MESSAGES } from './constants.js';
 import type {
   AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetItemComponent,
-} from './types';
+} from './types.js';
 
 /**
  * Context carrying the current widget's children down to the injected `Output`

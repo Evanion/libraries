@@ -1,0 +1,83 @@
+name: Release
+
+# Manual trigger rather than publish-on-push. Releasing is the one thing in this
+# repo that cannot be undone -- npm versions are immutable and tags are public --
+# so it stays a deliberate act.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Compute versions and changelogs without publishing anything'
+        type: boolean
+        default: true
+      first-release:
+        description: 'First release from this repo (no git tags exist yet)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # create tags and GitHub releases
+  id-token: write # required for npm provenance attestation
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # nx release reads the full history to infer versions from
+          # conventional commits, and needs the tags to know where to start.
+          fetch-depth: 0
+          filter: tree:0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # Never publish an unverified tree.
+      - name: Verify
+        run: npx nx run-many -t lint test build typecheck
+
+      # Catches problems that only exist once the package is packed -- notably
+      # emitted .d.ts files that a nodenext consumer cannot resolve. Everything
+      # inside the workspace resolves from source, so nothing above sees these.
+      - name: Verify packaging
+        run: npm run verify:packaging
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Version, changelog and tag
+        # Inputs go through env rather than being interpolated into the script.
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          FIRST_RELEASE: ${{ inputs.first-release }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          args=()
+          [ "$FIRST_RELEASE" = "true" ] && args+=(--first-release)
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--yes); fi
+          echo "Running: nx release ${args[*]}"
+          npx nx release "${args[@]}"
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          FIRST_RELEASE: ${{ inputs.first-release }}
+          # Provenance needs id-token: write, a public repo, and a `repository`
+          # field in each package.json. It does NOT require trusted publishing,
+          # so this works with a token today; the token goes away once trusted
+          # publishing is configured per package on npmjs.com.
+          NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          args=()
+          [ "$FIRST_RELEASE" = "true" ] && args+=(--first-release)
+          npx nx release publish "${args[@]}"

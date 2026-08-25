@@ -1,6 +1,6 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { createWidgets } from './index';
-import type { WidgetItem, WidgetDataProps } from './index';
+import { createWidgets } from './index.js';
+import type { WidgetItem, WidgetDataProps } from './index.js';
 
 const News = ({ title, body }: { title: string; body: string }) => (
   <article>

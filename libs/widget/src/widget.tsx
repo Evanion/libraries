@@ -5,9 +5,9 @@ import type {
   WidgetItem,
   WidgetsConfig,
   WidgetsProps,
-} from './types';
-import { DefaultItem, DefaultWrapper } from './widgets';
-import { renderWidget, NestedWidgetsContext } from './utils';
+} from './types.js';
+import { DefaultItem, DefaultWrapper } from './widgets.js';
+import { renderWidget, NestedWidgetsContext } from './utils.js';
 
 /**
  * Builds a widget set from a component map.

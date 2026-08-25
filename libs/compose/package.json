@@ -1,6 +1,6 @@
 {
   "name": "@evanion/compose",
-  "version": "1.0.8",
+  "version": "2.0.0",
   "description": "React component that gets you out of provider hell by flattening nested providers into a single, readable list.",
   "keywords": [
     "react",

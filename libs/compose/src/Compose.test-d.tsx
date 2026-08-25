@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { describe, it, expectTypeOf } from 'vitest';
-import { ComposeProvider, provider } from './index';
+import { ComposeProvider, provider } from './index.js';
 import type {
   PropsWithoutChildren,
   ProviderArray,
   ValidateProviders,
-} from './index';
+} from './index.js';
 
 const ThemeProvider = ({
   children,
