@@ -55,15 +55,31 @@ manual publish first, from a maintainer's machine with their own 2FA:
 npm login                       # if not already authenticated
 npx nx run-many -t build
 npm run verify:packaging        # same check CI runs before publishing
-cd libs/widget
-npm publish --access public
+cd libs/<name>
+npm publish --access public --no-provenance --otp=<code-from-your-authenticator>
 ```
+
+Both extra flags are needed:
+
+- `--no-provenance` overrides `publishConfig.provenance: true`, which fails
+  locally with _"Automatic provenance generation not supported for provider:
+  null"_ because provenance requires a CI provider. That setting is a deliberate
+  guardrail against accidental local publishing, so a bootstrap has to opt out of
+  it explicitly. The published version will have no attestation — this is the one
+  unavoidable cost of bootstrapping, and every release after it is attested.
+- `--otp` avoids npm's browser auth flow. That flow is worth avoiding here: npm
+  redacts the auth URL to `***` whenever stdout is not a TTY, so it is
+  unrecoverable from any captured output or from npm's own debug log. It only
+  appears in a live terminal. If your 2FA is web-only rather than TOTP, run the
+  publish in a real terminal rather than through a tool that captures output.
 
 Then configure its trusted publisher as above. Every subsequent release goes
 through OIDC.
 
-`@evanion/compose` and `@evanion/urn` already exist on npm, so they need no
-bootstrap — configure their trusted publishers and they are ready.
+`@evanion/compose`, `@evanion/urn` and `@evanion/react-widget` all exist on npm
+now, so no further bootstrapping is needed — configure their trusted publishers
+and they are ready. The steps above are kept for the next new package added to
+this repo.
 
 ## Cutting a release
 
