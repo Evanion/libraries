@@ -111,6 +111,12 @@ Visit our [documentation site](https://docs.evanion.com) for:
 - 📋 **API references** with TypeScript definitions
 - 🚀 **Getting started** tutorials
 
+## 🚀 Releasing
+
+Packages publish from the **Release** workflow using npm trusted publishing over
+OIDC — there is no publish token in this repository. See
+[RELEASING.md](./RELEASING.md) for the setup and the release steps.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:

@@ -17,7 +17,7 @@ on:
 
 permissions:
   contents: write # create tags and GitHub releases
-  id-token: write # required for npm provenance attestation
+  id-token: write # mint the OIDC token npm exchanges for publish rights
 
 jobs:
   release:
@@ -33,8 +33,24 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+          # Deliberately no dependency cache. npm's guidance is that release
+          # builds should not restore one, so what gets published is built from
+          # exactly what the lockfile resolves to.
+
+      # Trusted publishing needs npm >= 11.5.1. Below that the CLI does not
+      # attempt the OIDC exchange at all and fails with an opaque auth error, so
+      # check explicitly rather than letting a runner image change break a
+      # release in a way that is hard to read.
+      - name: Check npm supports trusted publishing
+        run: |
+          required=11.5.1
+          actual=$(npm --version)
+          if [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n1)" != "$required" ]; then
+            echo "npm $actual is too old for trusted publishing (need >= $required)" >&2
+            exit 1
+          fi
+          echo "npm $actual supports trusted publishing"
 
       - run: npm ci
 
@@ -69,14 +85,22 @@ jobs:
       - name: Publish to npm
         if: ${{ !inputs.dry-run }}
         env:
-          DRY_RUN: ${{ inputs.dry-run }}
           FIRST_RELEASE: ${{ inputs.first-release }}
-          # Provenance needs id-token: write, a public repo, and a `repository`
-          # field in each package.json. It does NOT require trusted publishing,
-          # so this works with a token today; the token goes away once trusted
-          # publishing is configured per package on npmjs.com.
-          NPM_CONFIG_PROVENANCE: true
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NODE_AUTH_TOKEN and no NPM_TOKEN, deliberately.
+          #
+          # The npm CLI detects the GitHub Actions OIDC environment and exchanges
+          # the id-token granted above for short-lived publish rights, scoped to
+          # this repository and this workflow filename. There is no long-lived
+          # credential in this repo for anyone to steal, which is the whole point:
+          # npm is retiring bypass-2FA tokens (restricted since 2026-07-31, direct
+          # publish targeted for removal in January 2027), and a token that
+          # *requires* 2FA cannot work unattended by definition.
+          #
+          # Renaming this file breaks publishing until the trusted publisher
+          # config on npmjs.com is updated -- npm matches it by filename.
+          #
+          # Provenance is automatic under trusted publishing, so neither
+          # NPM_CONFIG_PROVENANCE nor --provenance is needed.
         run: |
           args=()
           [ "$FIRST_RELEASE" = "true" ] && args+=(--first-release)

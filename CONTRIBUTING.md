@@ -90,6 +90,10 @@ cp .husky/pre-commit-with-tests .husky/pre-commit
 
 ### Breaking Changes
 
+Version bumps are inferred from these commits, so a breaking change **must**
+carry a `BREAKING CHANGE:` footer — describing it in prose is not enough and
+results in a minor bump for a breaking release. See [RELEASING.md](./RELEASING.md).
+
 If your commit introduces a breaking change, add `BREAKING CHANGE:` to the footer:
 
 ```
