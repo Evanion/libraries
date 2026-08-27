@@ -1,0 +1,46 @@
+{
+  // Deliberately does NOT extend tsconfig.base.json. The base sets
+  // customConditions, which TypeScript only permits with node16/nodenext/bundler
+  // resolution -- and an empty array still counts as "set", so it cannot be
+  // cleared by an override. This build needs node10 resolution so that it emits
+  // require() calls for @nestjs/common, which is exactly what a CommonJS
+  // consumer on NestJS 10/11 needs. NestJS 12 is ESM-only and is served by the
+  // ESM half of this build instead.
+  "compilerOptions": {
+    "outDir": "dist/cjs",
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/cjs/tsconfig.lib.tsbuildinfo",
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "types": ["node"],
+    "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitThis": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "src/**/*.test-d.ts",
+    "vite.config.ts",
+    "eslint.config.mjs",
+    "tools"
+  ]
+}

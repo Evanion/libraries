@@ -19,7 +19,13 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const LIBS = ['compose', 'urn', 'widget'];
+// [directory, package name]
+const LIBS = [
+  ['libs/compose', '@evanion/compose'],
+  ['libs/urn', '@evanion/urn'],
+  ['libs/widget', '@evanion/react-widget'],
+  ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
+];
 
 const run = (cmd, args, cwd) =>
   execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
@@ -32,12 +38,14 @@ try {
   run('npx', ['nx', 'run-many', '-t', 'build'], ROOT);
 
   console.log(`Packing into ${dir}`);
-  for (const lib of LIBS) {
-    run('npm', ['pack', '--pack-destination', dir], join(ROOT, 'libs', lib));
+  for (const [libDir] of LIBS) {
+    run('npm', ['pack', '--pack-destination', dir], join(ROOT, libDir));
   }
   const tarballs = readdirSync(dir).filter((f) => f.endsWith('.tgz'));
   if (tarballs.length !== LIBS.length) {
-    throw new Error(`expected ${LIBS.length} tarballs, found ${tarballs.length}`);
+    throw new Error(
+      `expected ${LIBS.length} tarballs, found ${tarballs.length}`,
+    );
   }
 
   writeFileSync(
@@ -57,6 +65,9 @@ try {
         jsx: 'react-jsx',
         noEmit: true,
         skipLibCheck: true,
+        // nestjs-correlation-id's public types come off decorated classes.
+        experimentalDecorators: true,
+        emitDecoratorMetadata: true,
       },
       include: ['consumer.ts'],
     }),
@@ -70,6 +81,8 @@ import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import type { ParsedURN } from '@evanion/urn';
 import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget';
 import type { WidgetItem } from '@evanion/react-widget';
+import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion/nestjs-correlation-id';
+import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -79,7 +92,9 @@ const { defineItems } = createWidgets({ components: { news: News } });
 const items: WidgetItem<{ news: typeof News }>[] = defineItems([
   { id: '1', type: 'news', props: { title: 'ok' } },
 ]);
-void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWrapper];
+const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: () => 'x' };
+void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWrapper,
+      CorrelationModule, CorrelationService, withCorrelation, correlation];
 `,
   );
 
@@ -94,6 +109,9 @@ void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWr
       ...tarballs.map((t) => `./${t}`),
       'react@19',
       'react-dom@19',
+      'reflect-metadata',
+      '@nestjs/common@11',
+      'rxjs',
       'typescript@6',
       '@types/react@19',
       '@types/react-dom@19',
@@ -103,7 +121,7 @@ void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWr
 
   console.log('Type-checking a consumer…');
   run('npx', ['tsc', '-p', 'tsconfig.json'], dir);
-  console.log('  ✓ all three packages expose their types under nodenext');
+  console.log('  ✓ every package exposes its types under nodenext');
 
   console.log('Importing at runtime…');
   writeFileSync(
@@ -120,7 +138,27 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
 `,
   );
   run('node', ['runtime.mjs'], dir);
-  console.log('  ✓ all three packages import cleanly');
+  console.log('  ✓ every package imports cleanly as ESM');
+
+  // nestjs-correlation-id ships a dual build on purpose: NestJS 12 is ESM-only
+  // but 10 and 11 are CommonJS, so its CJS half is the only way those consumers
+  // can require() it. Assert both halves resolve, or a broken exports map would
+  // go unnoticed until a CJS user hit it.
+  writeFileSync(
+    join(dir, 'runtime.cjs'),
+    `
+require('reflect-metadata');
+const m = require('@evanion/nestjs-correlation-id');
+const need = ['CorrelationModule','CorrelationService','CorrelationIdMiddleware','withCorrelation','CORRELATION_ID_HEADER'];
+const missing = need.filter((k) => m[k] === undefined);
+if (missing.length) { console.error('not exported via require():', missing.join(', ')); process.exit(1); }
+if (!m.CorrelationModule.forRoot().global) { console.error('forRoot() lost its shape under CJS'); process.exit(1); }
+`,
+  );
+  run('node', ['runtime.cjs'], dir);
+  console.log(
+    '  ✓ nestjs-correlation-id also resolves via require() (CJS half)',
+  );
 
   console.log('\nPackaging verified.');
 } catch (error) {
