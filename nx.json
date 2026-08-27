@@ -96,7 +96,7 @@
   },
   "release": {
     "projectsRelationship": "independent",
-    "projects": ["libs/*"],
+    "projects": ["libs/*", "nest/*"],
     "releaseTag": {
       "pattern": "{projectName}@{version}"
     },
