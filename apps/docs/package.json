@@ -7,13 +7,21 @@
     "tags": [
       "scope:docs",
       "type:app"
-    ]
+    ],
+    "targets": {
+      "build": {
+        "outputs": [
+          "{projectRoot}/.next",
+          "{projectRoot}/out"
+        ]
+      }
+    }
   },
   "scripts": {
-    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
+    "postbuild": "pagefind --site out --output-path out/_pagefind"
   },
   "dependencies": {
-    "next": "16.1.7",
+    "next": "16.3.3",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   }
