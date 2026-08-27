@@ -11,4 +11,16 @@ const withNextra = nextra({
   },
 });
 
-export default withNextra({});
+export default withNextra({
+  // The site is published to GitHub Pages, which serves static files only.
+  // Every page here is already prerendered via generateStaticParams, so there
+  // is nothing dynamic to lose.
+  output: 'export',
+
+  // Next's image optimiser needs a server. There is none.
+  images: { unoptimized: true },
+
+  // Emits `about/index.html` rather than `about.html`, which is what GitHub
+  // Pages resolves reliably for a bare `/about` request.
+  trailingSlash: true,
+});

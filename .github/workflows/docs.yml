@@ -1,0 +1,77 @@
+name: Docs
+
+# The docs site is a static export deployed to GitHub Pages at docs.evanion.com.
+on:
+  push:
+    branches: [main]
+    paths:
+      # The site documents the libraries, so their source counts as an input.
+      - 'apps/docs/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write # publish the Pages deployment
+  id-token: write # Pages deployments are OIDC-authenticated
+
+# Let a running deploy finish rather than cancelling it half-published, but
+# collapse queued ones so only the newest commit gets deployed.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: actions/configure-pages@v6
+
+      # `output: 'export'` writes a fully static site to apps/docs/out.
+      - name: Build
+        run: npx nx build docs
+
+      # Pagefind indexes the exported HTML and writes its index alongside it.
+      # This runs as a separate step because nx invokes `next build` directly
+      # rather than `npm run build`, so npm's postbuild lifecycle never fires.
+      - name: Build search index
+        working-directory: apps/docs
+        run: npm run postbuild
+
+      # Guard the two files that silently break the site if they go missing:
+      # without .nojekyll, Pages runs Jekyll and drops the entire _next/
+      # directory because it starts with an underscore; without CNAME, the
+      # custom domain reverts.
+      - name: Check deploy artefacts
+        working-directory: apps/docs/out
+        run: |
+          for f in .nojekyll CNAME index.html _pagefind/pagefind.js; do
+            [ -e "$f" ] || { echo "missing from export: $f" >&2; exit 1; }
+          done
+          [ "$(cat CNAME)" = "docs.evanion.com" ] || { echo "unexpected CNAME: $(cat CNAME)" >&2; exit 1; }
+          echo "export looks deployable ($(find . -type f | wc -l | tr -d ' ') files)"
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/docs/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
