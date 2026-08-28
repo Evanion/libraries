@@ -1,8 +1,13 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { ComposeProvider, provider } from './index.js';
-import type { ComposeProviderProps, LegacyComposeProviderProps } from './index.js';
+// Imported from the module rather than the barrel: it is internal, not public API.
+import { __resetWarningsForTests } from './Compose.js';
+import type {
+  ComposeProviderProps,
+  LegacyComposeProviderProps,
+} from './index.js';
 
 /**
  * `ComposeProvider` is now generic and overloaded, so props built dynamically
@@ -51,6 +56,12 @@ const SimpleProvider: React.FC<React.PropsWithChildren> = ({ children }) => (
 );
 
 describe('ComposeProvider', () => {
+  // Warnings dedupe at module scope so they fire once per process rather than
+  // once per render. Reset between tests or the first one to warn wins.
+  beforeEach(() => {
+    __resetWarningsForTests();
+  });
+
   it('should render children with simple providers', () => {
     const providers = [SimpleProvider];
 
