@@ -15,6 +15,41 @@ const isDevelopment =
   process.env != null &&
   process.env.NODE_ENV !== 'production';
 
+/**
+ * Messages already emitted, so a warning fires once rather than on every render.
+ *
+ * This is deliberately a module-level set rather than a hook. An earlier version
+ * used `useEffect`, which meant the component required hooks -- and under
+ * React's `react-server` condition `useEffect` is `undefined`, so
+ * `ComposeProvider` threw on first render in any React Server Component. A Next.js
+ * root `app/layout.tsx` is exactly that. Keeping the component hook-free is what
+ * lets it be imported from the server graph without a `'use client'` boundary.
+ *
+ * The effect version also did not achieve what it claimed: its dependency was the
+ * caller's array, and a JSX literal is a fresh identity every render, so the
+ * warning re-fired on every render for the most common call style.
+ */
+const warnedMessages = new Set<string>();
+
+function warnOnce(message: string): void {
+  if (!isDevelopment || warnedMessages.has(message)) return;
+  warnedMessages.add(message);
+  console.warn(message);
+}
+
+/**
+ * Clears the warn-once cache.
+ *
+ * Deliberately not re-exported from `index.ts`, so it is not public API -- it
+ * exists because a module-level cache is otherwise impossible to test more than
+ * once per file.
+ *
+ * @internal
+ */
+export function __resetWarningsForTests(): void {
+  warnedMessages.clear();
+}
+
 /** Props for `ComposeProvider`. */
 export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
   /**
@@ -95,29 +130,25 @@ export function ComposeProvider(
     );
   }
 
-  // Warnings live in an effect rather than the render body so they fire once per
-  // mount instead of on every render (and twice per render under StrictMode).
-  React.useEffect(() => {
-    if (!isDevelopment) return;
-
+  if (isDevelopment) {
     if (providerList.length === 0) {
-      console.warn(
+      warnOnce(
         'ComposeProvider: Empty provider array. No providers will be applied.',
       );
     }
 
     if (hasComponents) {
-      console.warn(
+      warnOnce(
         'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.',
       );
     }
 
     if (hasProviders && hasComponents) {
-      console.warn(
+      warnOnce(
         'ComposeProvider: Received both "providers" and "components". "providers" takes precedence and "components" is ignored.',
       );
     }
-  }, [providerList, hasProviders, hasComponents]);
+  }
 
   return (
     <>

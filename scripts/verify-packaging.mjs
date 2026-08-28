@@ -14,7 +14,13 @@
  * Anything that only shows up once the package is packed belongs here.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  readdirSync,
+  readFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -159,6 +165,27 @@ if (!m.CorrelationModule.forRoot().global) { console.error('forRoot() lost its s
   console.log(
     '  ✓ nestjs-correlation-id also resolves via require() (CJS half)',
   );
+
+  // react-widget cannot exist without createContext/useContext, which React does
+  // not expose under its `react-server` condition. Losing the 'use client'
+  // directive breaks it silently: the build still succeeds, every test still
+  // passes, and it only fails once someone imports it from a Server Component.
+  const widgetEntry = join(
+    dir,
+    'node_modules',
+    '@evanion',
+    'react-widget',
+    'dist',
+    'index.js',
+  );
+  const firstLine = readFileSync(widgetEntry, 'utf8').split('\n')[0].trim();
+  if (!/^["']use client["'];?$/.test(firstLine)) {
+    throw new Error(
+      "@evanion/react-widget dist/index.js must begin with a 'use client' directive, found: " +
+        firstLine,
+    );
+  }
+  console.log("  ✓ react-widget ships its 'use client' directive");
 
   console.log('\nPackaging verified.');
 } catch (error) {
