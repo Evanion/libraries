@@ -74,6 +74,15 @@
       "options": {
         "testTargetName": "test"
       }
+    },
+    {
+      "plugin": "./tools/nx-astro/src/index.ts",
+      "options": {
+        "buildTargetName": "build",
+        "devTargetName": "dev",
+        "previewTargetName": "preview",
+        "checkTargetName": "check"
+      }
     }
   ],
   "targetDefaults": {
