@@ -1,0 +1,33 @@
+{
+  "name": "@evanion/astro-widget",
+  "version": "0.0.0",
+  "description": "Render CMS-driven Astro sections from structured block data. Build-time, zero runtime.",
+  "keywords": ["astro", "widget", "cms", "blocks", "sections", "registry", "typescript"],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/astro-widget#readme",
+  "bugs": { "url": "https://github.com/Evanion/libraries/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/astro-widget"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "type": "module",
+  "sideEffects": false,
+  "engines": { "node": ">=20" },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./components/*": "./src/components/*"
+  },
+  "files": ["dist", "src/components"],
+  "peerDependencies": { "astro": ">=5" }
+}
