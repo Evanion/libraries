@@ -28,6 +28,10 @@ node_modules
 /.sass-cache
 /connect.lock
 /coverage
+# Vitest coverage reports. Every project writes to its own
+# <project>/test-output/vitest/coverage, so the anchored /coverage above does
+# not catch them.
+test-output
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
