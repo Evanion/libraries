@@ -12,6 +12,7 @@
   },
   "private": true,
   "overrides": {
+    "dompurify": "^3.4.13",
     "nextra": {
       "zod": "4.3.0"
     },
