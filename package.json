@@ -50,7 +50,7 @@
     "autoprefixer": "^10.5.4",
     "commitizen": "^4.3.2",
     "cz-conventional-changelog": "^3.3.0",
-    "eslint": "^9.8.0",
+    "eslint": "^10.9.1",
     "eslint-config-next": "16.3.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
