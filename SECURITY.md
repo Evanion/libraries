@@ -15,9 +15,7 @@ cannot use it for any reason, email <evanion86@gmail.com> instead.
 
 Please include:
 
-- Which package is affected and its version. The published packages are
-  `@evanion/compose`, `@evanion/urn`, `@evanion/react-widget`,
-  `@evanion/astro-widget` and `@evanion/nestjs-correlation-id`.
+- Which package is affected and its version.
 - What an attacker can do with it — the impact, not just the mechanism.
 - The smallest reproduction you can manage.
 
@@ -35,27 +33,27 @@ not hear back within 14 days, escalating publicly is fair.
 
 ## Supported Versions
 
-Only the latest published version of each package receives security fixes.
-There are no long-term support branches. Fixes land on `main` and go out in the
-next release.
+This policy covers **every `@evanion/*` package published from this
+repository**. It is deliberately not a list: packages get added here over time,
+and a list would quietly go stale and read as if a new package were unsupported.
+The authoritative set is whatever is currently published — the non-private
+`package.json` files under the directories named in `nx.json`'s
+`release.projects`.
 
-| Package                          | Supported           |
-| -------------------------------- | ------------------- |
-| `@evanion/compose`               | Latest release only |
-| `@evanion/urn`                   | Latest release only |
-| `@evanion/react-widget`          | Latest release only |
-| `@evanion/astro-widget`          | Latest release only |
-| `@evanion/nestjs-correlation-id` | Latest release only |
+Only the **latest published version** of each receives security fixes. There
+are no long-term support branches. Fixes land on `main` and go out in the next
+release.
 
 ## Scope
 
-In scope: anything in the published packages — code injection, prototype
+In scope: anything in a published package — code injection, prototype
 pollution, an unsafe default, a dependency vulnerability that is actually
 reachable through this code.
 
-Out of scope: the docs site's content, vulnerabilities in dependencies that no
-code path in these packages can reach, and anything that requires an attacker
-to already control the machine running the code.
+Out of scope: the docs site's content, anything in this repository that is not
+published to npm (demo apps and internal tooling), vulnerabilities in
+dependencies that no published code path can reach, and anything that requires
+an attacker to already control the machine running the code.
 
 ## How This Repository Is Protected
 
