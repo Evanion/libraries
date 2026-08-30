@@ -1,1 +1,8 @@
-{ "extends": "astro/tsconfigs/strict" }
+{
+  "extends": "astro/tsconfigs/strict",
+  "references": [
+    {
+      "path": "../../libs/astro-widget"
+    }
+  ]
+}
