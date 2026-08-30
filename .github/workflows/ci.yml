@@ -35,7 +35,15 @@ jobs:
 
       # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
       # - run: npx nx-cloud record -- echo Hello World
-      - run: npx nx run-many -t lint test build typecheck
+
+      # `check` is separate from `typecheck` on purpose. Nx infers a typecheck
+      # target from tsconfig.json, but disables it (replacing the command with
+      # an echo) whenever the resolved config sets `noEmit: true`, because
+      # `tsc --build` cannot run that way. Astro's shared config sets exactly
+      # that, so astro-widget-demo's typecheck is a no-op -- and `astro build`
+      # does not typecheck either, unlike `next build`. `astro check` is the
+      # only thing that actually typechecks the .astro files.
+      - run: npx nx run-many -t lint test build typecheck check
       # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/ci/features/self-healing-ci
       - run: npx nx fix-ci
         if: always()
