@@ -31,6 +31,7 @@ const LIBS = [
   ['libs/urn', '@evanion/urn'],
   ['libs/widget', '@evanion/react-widget'],
   ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
+  ['libs/astro-widget', '@evanion/astro-widget'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -89,6 +90,8 @@ import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widge
 import type { WidgetItem } from '@evanion/react-widget';
 import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion/nestjs-correlation-id';
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
+import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
+import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widget';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -99,8 +102,12 @@ const items: WidgetItem<{ news: typeof News }>[] = defineItems([
   { id: '1', type: 'news', props: { title: 'ok' } },
 ]);
 const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: () => 'x' };
+const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
+const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
+const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
 void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWrapper,
-      CorrelationModule, CorrelationService, withCorrelation, correlation];
+      CorrelationModule, CorrelationService, withCorrelation, correlation,
+      registry, sections, problems];
 `,
   );
 
@@ -136,9 +143,11 @@ void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWr
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
 import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget';
+import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper,
+  defineBlocks, validateBlocks,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
 `,
