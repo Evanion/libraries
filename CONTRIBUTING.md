@@ -60,12 +60,25 @@ npm run commit
 
 This will guide you through creating a properly formatted commit message.
 
-### A note on `typecheck`
+### A note on `typecheck` and `check`
 
-`nx run-many -t typecheck` covers the three libraries. The docs app has no
-separate `typecheck` target -- `next build` already runs "Checking validity of
-types", so it is covered by `build`. `@nx/next/plugin` does not support a
+`nx run-many -t typecheck` covers the libraries. The docs app has no separate
+`typecheck` target -- `next build` already runs "Checking validity of types",
+so it is covered by `build`. `@nx/next/plugin` does not support a
 `typecheckTargetName` option, so adding one has no effect.
+
+`astro-widget-demo` is the opposite case, and the trap is that it looks fine.
+Nx infers a `typecheck` target from `tsconfig.json`, but **disables** it --
+swapping the command for an `echo` -- whenever the resolved config sets
+`noEmit: true`, because `tsc --build` cannot run that way. Astro's shared
+config (`astro/tsconfigs/base.json`) sets exactly that, so the target passes
+without checking anything, and `astro build` does not typecheck either. Use
+`astro check`, which Nx infers as a `check` target. CI and the release
+verification both run `lint test build typecheck check` for this reason.
+
+Note also that Nx caches parsed tsconfigs on disk. If `node_modules` changes in
+a way that alters how an `extends` chain resolves, that cache can go stale and
+Nx will infer the wrong command until you run `nx reset`.
 
 ### Pre-commit Hooks
 

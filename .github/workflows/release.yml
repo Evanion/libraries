@@ -71,7 +71,11 @@ jobs:
 
       # Never publish an unverified tree.
       - name: Verify
-        run: npx nx run-many -t lint test build typecheck
+        # Same target list as CI, including `check`. astro-widget-demo's
+        # inferred typecheck target is a disabled no-op (Astro's config sets
+        # noEmit), so `astro check` is what actually typechecks it. The release
+        # gate must not be weaker than the pull request gate.
+        run: npx nx run-many -t lint test build typecheck check
 
       # Catches problems that only exist once the package is packed -- notably
       # emitted .d.ts files that a nodenext consumer cannot resolve. Everything
