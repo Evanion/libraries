@@ -14,6 +14,9 @@ interface Props {
   /** Page-level data passed to every block. Astro renders at build time, so
       there is no context provider to do this for us — and none is needed. */
   ctx?: Record<string, unknown>;
+  /** Optional wrapper rendered around every block, e.g. for CMS edit affordances.
+      `chrome.item` MUST render <slot /> — if it doesn't, Astro silently drops
+      the wrapped block and it will not appear on the page. No error is thrown. */
   chrome?: { item?: unknown };
 }
 

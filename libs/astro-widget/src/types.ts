@@ -4,7 +4,10 @@ export interface BlockItem {
   type: string;
   /** Optional stable id, useful as a DOM anchor. */
   id?: string;
-  /** Nested blocks. The renderer recurses; no CMS UI ships for this yet. */
+  /** Nested blocks, forwarded to the component as ordinary prop data.
+      The renderer does NOT recurse — Astro projects child content through
+      <slot />, not through a `children` prop. A block that wants nesting
+      renders <Widgets items={children} registry={registry} /> itself. */
   children?: BlockItem[];
   /** Everything else is passed to the component as props. */
   [key: string]: unknown;
