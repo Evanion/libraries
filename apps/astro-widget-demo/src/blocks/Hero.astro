@@ -1,0 +1,8 @@
+---
+interface Props { rubrik: string; id?: string; ctx?: Record<string, unknown> }
+const { rubrik, id, ctx } = Astro.props;
+---
+<section id={id} data-block="hero">
+  <h1>{rubrik}</h1>
+  <p data-site={String(ctx?.site ?? '')}>{String(ctx?.site ?? '')}</p>
+</section>

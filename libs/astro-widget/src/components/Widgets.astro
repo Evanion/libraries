@@ -1,0 +1,42 @@
+---
+/**
+ * Renders a list of CMS blocks.
+ *
+ * Deliberately defensive: an unknown type is skipped rather than thrown on, so
+ * a gap in build-time validation can never take a page down mid-render.
+ * `validateBlocks` is the loud gate; this is the safety net.
+ */
+import type { BlockItem, BlockRegistry } from '../types';
+
+interface Props {
+  items: BlockItem[];
+  registry: BlockRegistry;
+  /** Page-level data passed to every block. Astro renders at build time, so
+      there is no context provider to do this for us — and none is needed. */
+  ctx?: Record<string, unknown>;
+  /** Optional wrapper rendered around every block, e.g. for CMS edit affordances.
+      `chrome.item` MUST render <slot /> — if it doesn't, Astro silently drops
+      the wrapped block and it will not appear on the page. No error is thrown. */
+  chrome?: { item?: unknown };
+}
+
+const { items, registry, ctx, chrome } = Astro.props;
+const list = Array.isArray(items) ? items : [];
+const Item = chrome?.item as never;
+---
+{
+  list.map((item) => {
+    const Component = registry[item?.type] as never;
+    if (!Component) return null;
+
+    const { type, id, children, ...props } = item;
+
+    return Item ? (
+      <Item type={type} id={id} {...props}>
+        <Component {...props} id={id} ctx={ctx} children={children} />
+      </Item>
+    ) : (
+      <Component {...props} id={id} ctx={ctx} children={children} />
+    );
+  })
+}

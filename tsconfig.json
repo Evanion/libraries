@@ -17,6 +17,12 @@
     },
     {
       "path": "./nest/correlation-id"
+    },
+    {
+      "path": "./libs/astro-widget"
+    },
+    {
+      "path": "./tools/nx-astro"
     }
   ],
   "compilerOptions": {

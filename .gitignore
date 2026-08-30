@@ -61,3 +61,7 @@ _pagefind/
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+.nx/migrate-runs.astro
+apps/astro-widget-demo/.astro/
+apps/astro-widget-demo/dist/
+*.tsbuildinfo

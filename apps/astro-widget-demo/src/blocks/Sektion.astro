@@ -1,0 +1,5 @@
+---
+interface Props { type: string; bakgrund?: string }
+const { type, bakgrund = 'ljus' } = Astro.props;
+---
+<div data-chrome={type} data-bakgrund={bakgrund}><slot /></div>

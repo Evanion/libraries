@@ -1,0 +1,7 @@
+---
+interface Props { rubrik: string; kolumner?: number; id?: string }
+const { rubrik, kolumner = 3, id } = Astro.props;
+---
+<section id={id} data-block="kort" data-kolumner={String(kolumner)}>
+  <h2>{rubrik}</h2>
+</section>
