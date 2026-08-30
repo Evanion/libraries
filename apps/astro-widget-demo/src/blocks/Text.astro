@@ -1,0 +1,5 @@
+---
+interface Props { brodtext: string; id?: string }
+const { brodtext, id } = Astro.props;
+---
+<section id={id} data-block="text"><p>{brodtext}</p></section>

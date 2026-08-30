@@ -1,0 +1,17 @@
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import Sektion from '../blocks/Sektion.astro';
+import { registry } from '../registry';
+import sidan from '../data/sidan.json';
+---
+<html lang="sv">
+  <head><meta charset="utf-8" /><title>astro-widget demo</title></head>
+  <body>
+    <Widgets
+      items={sidan.sektioner}
+      registry={registry}
+      ctx={{ site: 'demo' }}
+      chrome={{ item: Sektion }}
+    />
+  </body>
+</html>
