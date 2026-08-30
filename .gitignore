@@ -63,3 +63,4 @@ _pagefind/
 .nx/migrate-runs.astro
 apps/astro-widget-demo/.astro/
 apps/astro-widget-demo/dist/
+*.tsbuildinfo
