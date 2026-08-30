@@ -4,7 +4,7 @@
  *
  * Deliberately defensive: an unknown type is skipped rather than thrown on, so
  * a gap in build-time validation can never take a page down mid-render.
- * `check-blocks` is the loud gate; this is the safety net.
+ * `validateBlocks` is the loud gate; this is the safety net.
  */
 import type { BlockItem, BlockRegistry } from '../types';
 

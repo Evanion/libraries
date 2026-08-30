@@ -60,6 +60,7 @@ _pagefind/
 .claude/settings.local.json
 .nx/polygraph
 .nx/self-healing
+.nx/migrate-runs
 .nx/migrate-runs.astro
 apps/astro-widget-demo/.astro/
 apps/astro-widget-demo/dist/

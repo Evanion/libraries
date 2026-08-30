@@ -28,6 +28,21 @@
     },
     "./components/*": "./src/components/*"
   },
-  "files": ["dist", "src/components"],
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "peerDependencies": { "astro": ">=5" }
 }
