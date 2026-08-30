@@ -11,7 +11,7 @@ Report it privately through GitHub's private vulnerability reporting:
 **<https://github.com/Evanion/libraries/security/advisories/new>**
 
 That opens a private advisory visible only to you and the maintainer. If you
-cannot use it for any reason, email <evanion86@gmail.com> instead.
+cannot use it for any reason, email <evanion@icloud.com> instead.
 
 Please include:
 
