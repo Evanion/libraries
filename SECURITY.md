@@ -15,8 +15,9 @@ cannot use it for any reason, email <evanion86@gmail.com> instead.
 
 Please include:
 
-- Which package is affected (`@evanion/compose`, `@evanion/urn`, or
-  `@evanion/react-widget`) and the version.
+- Which package is affected and its version. The published packages are
+  `@evanion/compose`, `@evanion/urn`, `@evanion/react-widget`,
+  `@evanion/astro-widget` and `@evanion/nestjs-correlation-id`.
 - What an attacker can do with it — the impact, not just the mechanism.
 - The smallest reproduction you can manage.
 
@@ -38,11 +39,13 @@ Only the latest published version of each package receives security fixes.
 There are no long-term support branches. Fixes land on `main` and go out in the
 next release.
 
-| Package                 | Supported            |
-| ----------------------- | -------------------- |
-| `@evanion/compose`      | Latest release only  |
-| `@evanion/urn`          | Latest release only  |
-| `@evanion/react-widget` | Latest release only  |
+| Package                          | Supported           |
+| -------------------------------- | ------------------- |
+| `@evanion/compose`               | Latest release only |
+| `@evanion/urn`                   | Latest release only |
+| `@evanion/react-widget`          | Latest release only |
+| `@evanion/astro-widget`          | Latest release only |
+| `@evanion/nestjs-correlation-id` | Latest release only |
 
 ## Scope
 
