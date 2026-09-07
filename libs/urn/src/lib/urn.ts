@@ -71,9 +71,6 @@ export class URN {
     this.assertValidComponent('NID', nid);
     this.assertValidComponent('NSS', nss);
 
-    if (nss.startsWith(`${nid}${this.separator}`))
-      return `${urn}${this.separator}${nss}`;
-
     return `${urn}${this.separator}${nid}${this.separator}${nss}`;
   }
 

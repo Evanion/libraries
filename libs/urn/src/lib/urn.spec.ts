@@ -13,8 +13,16 @@ describe('URN', () => {
       expect(URN.stringify('foo', 'bar')).toBe('urn:bar:foo');
     });
 
-    it('should not duplicate nid', () => {
-      expect(URN.stringify('bar:foo', 'bar')).toBe('urn:bar:foo');
+    it('should not truncate an NSS that merely starts with the NID', () => {
+      class UserURN extends URN {
+        static override readonly nid = 'user';
+      }
+      expect(UserURN.stringify('user:42')).toBe('urn:user:user:42');
+      expect(UserURN.parse('urn:user:user:42').nss).toBe('user:42');
+    });
+
+    it('should never skip the NID even when the NSS repeats it', () => {
+      expect(URN.stringify('bar:foo', 'bar')).toBe('urn:bar:bar:foo');
     });
 
     it('should throw error if URN parameter contains an invalid character', () => {
