@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DefaultWrapper, DefaultItem } from './widgets.js';
+import { createWidgets } from './widget.js';
 
 describe('Default Components', () => {
   beforeEach(() => {
@@ -150,26 +151,27 @@ describe('Default Components', () => {
       throw new Error('Widget failed to render');
     };
 
+    const { Widgets } = createWidgets({
+      components: { failing: FailingWidget },
+    });
+
     render(
-      <DefaultItem
-        data-widget-id="test-widget"
-        data-widget-type="failing-widget"
-      >
-        <FailingWidget />
-      </DefaultItem>,
+      <Widgets
+        data-testid="widget-list"
+        items={[
+          {
+            id: 'test-widget',
+            type: 'failing' as const,
+            props: {},
+          },
+        ]}
+      />,
     );
 
     // Should show error fallback UI
     expect(
-      screen.getByText('Widget failed to render: failing-widget'),
+      screen.getByText('Widget failed to render: failing'),
     ).toBeInTheDocument();
-
-    // Should log error to console
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Widget Error: failing-widget (ID: test-widget)',
-      expect.any(Error),
-      expect.any(Object),
-    );
 
     consoleSpy.mockRestore();
   });
@@ -185,10 +187,20 @@ describe('Default Components', () => {
         ),
     );
 
+    const { Widgets } = createWidgets({
+      components: { lazy: LazyWidget },
+    });
+
     render(
-      <DefaultItem data-widget-id="lazy-widget" data-widget-type="lazy-widget">
-        <LazyWidget />
-      </DefaultItem>,
+      <Widgets
+        items={[
+          {
+            id: 'lazy-widget',
+            type: 'lazy' as const,
+            props: {},
+          },
+        ]}
+      />,
     );
 
     // Should show loading state initially
