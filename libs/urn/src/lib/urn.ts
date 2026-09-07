@@ -1,6 +1,10 @@
 import { InvalidError, ValidationError } from './exceptions.js';
 import { ParsedURN } from './types.js';
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class URN {
   /**
    * separator between the different parts of the URN
@@ -78,18 +82,26 @@ export class URN {
   }
 
   /**
-   * Checks that a string contains only RFC-compliant URN characters.
-   * Allows: alphanumeric, hyphens, underscores, dots, tildes, and colons.
-   *
-   * Requires at least one character -- an empty component would otherwise
-   * produce a URN that `isValidFormat` rejects.
+   * Character class each component must match. Excludes the configured
+   * separator so a component cannot break parsing or round-trips.
    */
-  static readonly isValid = /^[a-z0-9\-._~:]+$/i;
+  static get isValid(): RegExp {
+    return new RegExp(
+      `^[a-z0-9\\-._~:${
+        this.separator === ':' ? '' : escapeRegex(this.separator)
+      }]+$`,
+      'i',
+    );
+  }
 
   /**
    * Throws a descriptive {@link InvalidError} if a component is not valid.
    */
   private static assertValidComponent(property: string, value: string): void {
+    const separator = this.separator;
+    if (value.includes(separator)) {
+      throw new InvalidError(property, value, separator);
+    }
     if (!this.isValid.test(value)) {
       throw new InvalidError(property, value, this.findInvalidChar(value));
     }

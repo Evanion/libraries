@@ -13,8 +13,19 @@ describe('URN', () => {
       expect(URN.stringify('foo', 'bar')).toBe('urn:bar:foo');
     });
 
-    it('should not duplicate nid', () => {
-      expect(URN.stringify('bar:foo', 'bar')).toBe('urn:bar:foo');
+    it('should reject components that contain the separator', () => {
+      expect(() => URN.stringify('a:b', 'nid')).toThrow(InvalidError);
+      expect(() => URN.stringify('a:b', 'nid')).toThrow(
+        "NSS contains invalid character ':' in 'a:b'",
+      );
+      expect(() => URN.stringify('foo', 'n:i')).toThrow(InvalidError);
+      expect(() => URN.stringify('foo', 'n:i')).toThrow(
+        "NID contains invalid character ':' in 'n:i'",
+      );
+      expect(() => URN.stringify('foo', 'nid', 'u:n')).toThrow(InvalidError);
+      expect(() => URN.stringify('foo', 'nid', 'u:n')).toThrow(
+        "URN contains invalid character ':' in 'u:n'",
+      );
     });
 
     it('should throw error if URN parameter contains an invalid character', () => {
@@ -46,6 +57,21 @@ describe('URN', () => {
         static override readonly separator = '-';
       }
       expect(TRN.stringify('foo', 'bar')).toBe('trn-bar-foo');
+    });
+
+    it('should reject components that contain a custom separator', () => {
+      class Dash extends URN {
+        static override readonly urn = 'trn';
+        static override readonly separator = '-';
+      }
+      expect(() => Dash.stringify('ab', 'n-id')).toThrow(InvalidError);
+      expect(() => Dash.stringify('ab', 'n-id')).toThrow(
+        "NID contains invalid character '-' in 'n-id'",
+      );
+      expect(() => Dash.stringify('a-b', 'nid')).toThrow(InvalidError);
+      expect(() => Dash.stringify('a-b', 'nid')).toThrow(
+        "NSS contains invalid character '-' in 'a-b'",
+      );
     });
 
     it('should derive from urn class and set nid', () => {
