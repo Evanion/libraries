@@ -86,6 +86,23 @@ describe('URN', () => {
         nss: 'baz:foo',
       });
     });
+
+    it('should retain a foreign URN scheme in the NSS', () => {
+      class UserURN extends URN {
+        static override readonly urn = 'trn';
+        static override readonly nid = 'user';
+      }
+      expect(UserURN.parse('ftp:user:1')).toEqual({
+        urn: 'ftp',
+        nid: 'user',
+        nss: 'trn:user:1',
+      });
+      expect(UserURN.parse('trn:user:1')).toEqual({
+        urn: 'trn',
+        nid: 'user',
+        nss: '1',
+      });
+    });
   });
 
   describe('utility methods', () => {

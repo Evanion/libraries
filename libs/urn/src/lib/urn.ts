@@ -48,6 +48,14 @@ export class URN {
 
     const nss = rest.join(this.separator);
 
+    if (urn !== this.urn) {
+      return {
+        urn,
+        nid,
+        nss: `${this.urn}${this.separator}${nid}${this.separator}${nss}`,
+      };
+    }
+
     if (nid !== this.nid)
       return { urn, nid, nss: `${nid}${this.separator}${nss}` };
 
