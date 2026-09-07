@@ -37,9 +37,12 @@ export type PropsWithoutChildren<T extends AnyComponent> = Omit<
  * });
  * ```
  */
-export function provider<T extends AnyComponent>(
+export function provider<
+  T extends AnyComponent,
+  P extends PropsWithoutChildren<T>,
+>(
   component: T,
-  props: PropsWithoutChildren<T>,
+  props: P & Record<Exclude<keyof P, keyof PropsWithoutChildren<T>>, never>,
 ): readonly [T, PropsWithoutChildren<T>] {
   return [component, props] as const;
 }
@@ -75,23 +78,27 @@ export type ProviderArray = readonly Provider[];
  */
 export type ValidateProvider<T> = T extends readonly [infer C, infer P]
   ? C extends AnyComponent
-    ? [P] extends [PropsWithoutChildren<C>]
-      ? // Assignability alone permits extra properties, so check for keys the
-        // component does not declare -- otherwise a typo in a prop name is
-        // silently accepted. The excess keys are mapped to `never` rather
-        // than simply dropped, because the caller's object would still
-        // satisfy an intersection that merely omitted them.
-        Exclude<keyof P, keyof PropsWithoutChildren<C>> extends never
-        ? T
-        : readonly [
-            C,
-            PropsWithoutChildren<C> &
-              Record<Exclude<keyof P, keyof PropsWithoutChildren<C>>, never>,
-          ]
-      : readonly [C, PropsWithoutChildren<C>]
+    ? P extends AnyComponent
+      ? never
+      : [P] extends [PropsWithoutChildren<C>]
+        ? // Assignability alone permits extra properties, so check for keys the
+          // component does not declare -- otherwise a typo in a prop name is
+          // silently accepted. The excess keys are mapped to `never` rather
+          // than simply dropped, because the caller's object would still
+          // satisfy an intersection that merely omitted them.
+          Exclude<keyof P, keyof PropsWithoutChildren<C>> extends never
+          ? T
+          : readonly [
+              C,
+              PropsWithoutChildren<C> &
+                Record<Exclude<keyof P, keyof PropsWithoutChildren<C>>, never>,
+            ]
+        : readonly [C, PropsWithoutChildren<C>]
     : never
   : T extends AnyComponent
-    ? T
+    ? Record<string, never> extends PropsWithoutChildren<T>
+      ? T
+      : readonly [T, PropsWithoutChildren<T>]
     : never;
 
 /**
