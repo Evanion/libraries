@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, memo } from 'react';
 import type {
+  AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetComponentMap,
   WidgetItem,
@@ -8,6 +9,7 @@ import type {
 } from './types.js';
 import { DefaultItem, DefaultWrapper } from './widgets.js';
 import { renderWidget, NestedWidgetsContext } from './utils.js';
+import { ERROR_MESSAGES } from './constants.js';
 
 /**
  * Builds a widget set from a component map.
@@ -42,6 +44,28 @@ export function createWidgets<const C extends WidgetComponentMap>(
   const useWidgets = () => useContext(WidgetsContext);
 
   /**
+   * Component map resolution order:
+   * 1. Per-instance `components` (strongest, caller intent)
+   * 2. Factory `components` (default library for this factory)
+   * 3. Inherited context from an outer WidgetsProvider (fallback)
+   *
+   * The previous code ignored inherited context, so wrapping a Widgets in a
+   * provider had no effect. Seeding from context preserves the documented
+   * sharing behaviour while keeping instance and factory overrides dominant.
+   */
+  const resolveComponents = (
+    inherited: Partial<C>,
+    instance?: Partial<C>,
+  ): C => {
+    const merged: Record<string, AnyWidgetComponent> = {
+      ...(inherited as Record<string, AnyWidgetComponent>),
+      ...defaultComponents,
+      ...(instance as Record<string, AnyWidgetComponent>),
+    };
+    return merged as C;
+  };
+
+  /**
    * Renders the children of whichever widget is currently rendering.
    *
    * Defined once per `createWidgets` call, so its component type is stable for
@@ -52,7 +76,11 @@ export function createWidgets<const C extends WidgetComponentMap>(
    */
   const Output = memo(function Output() {
     const { items, ItemWrapper } = useContext(NestedWidgetsContext);
-    const components = useWidgets();
+    const inheritedComponents = useWidgets();
+    const components = useMemo(
+      () => resolveComponents(inheritedComponents ?? {}),
+      [inheritedComponents],
+    );
 
     if (!items || items.length === 0) {
       return null;
@@ -60,7 +88,7 @@ export function createWidgets<const C extends WidgetComponentMap>(
 
     return (
       <>
-        {items.map((item) =>
+        {(items as unknown as RenderableWidgetItem[]).map((item) =>
           renderWidget(item, components, ItemWrapper, Output),
         )}
       </>
@@ -74,10 +102,18 @@ export function createWidgets<const C extends WidgetComponentMap>(
   }: WidgetsProps<C>) {
     const Wrapper = chrome?.wrapper || defaultChrome?.wrapper || DefaultWrapper;
     const ItemWrapper = chrome?.item || defaultChrome?.item || DefaultItem;
+    const inheritedComponents = useWidgets();
     const components = useMemo(
-      () => ({ ...defaultComponents, ...instanceComponents }),
-      [instanceComponents],
+      () => resolveComponents(inheritedComponents ?? {}, instanceComponents),
+      [inheritedComponents, instanceComponents],
     );
+
+    if (!Array.isArray(items)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(ERROR_MESSAGES.MALFORMED_ITEMS);
+      }
+      return null;
+    }
 
     return (
       <WidgetsProvider value={components}>

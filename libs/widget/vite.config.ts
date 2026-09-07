@@ -42,6 +42,9 @@ export default defineConfig(() => ({
     },
   },
   test: {
+    env: {
+      NODE_ENV: 'development',
+    },
     // Without an explicit tsconfig, vitest falls back to the solution-style
     // tsconfig.json (files: [], include: []), so it typechecks nothing and
     // every expectTypeOf assertion silently passes.

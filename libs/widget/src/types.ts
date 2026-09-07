@@ -112,7 +112,11 @@ export interface WidgetsConfig<C extends WidgetComponentMap> {
   /** The component map. Its shape drives inference for the whole set. */
   components: C;
   chrome?: WidgetsChrome;
-  /** Supply your own context to share a component map across widget sets. */
+  /**
+   * Supply your own context to share a component map across widget sets.
+   * When provided, its value is merged under the factory `components` and
+   * any instance `components`, so instance overrides always win.
+   */
   context?: Context<C>;
 }
 
