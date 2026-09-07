@@ -55,14 +55,14 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
   /**
    * Providers to compose. The first entry ends up outermost.
    *
-   * The `T & ValidateProviders<T>` intersection is deliberate. A bare
-   * `ValidateProviders<T>` is a non-homomorphic mapped type, which is not an
-   * inferable position -- TypeScript would give up on inferring `T`, fall back
-   * to the constraint, and accept anything. Keeping `T` in the intersection
-   * gives inference something to latch onto while the mapped half does the
-   * checking.
+   * The intersection with {@link ValidateProviders} is only applied when the
+   * caller passes an inline tuple literal. A value already widened to the public
+   * {@link ProviderArray} type cannot be validated element-by-element (its
+   * specific component/props types are already lost), so it is accepted as-is.
    */
-  providers: T & ValidateProviders<T>;
+  providers: T extends readonly [unknown, ...unknown[]]
+    ? T & ValidateProviders<T>
+    : ProviderArray;
   children: React.ReactNode;
 }
 
@@ -74,7 +74,9 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
 export interface LegacyComposeProviderProps<
   T extends ProviderArray = ProviderArray,
 > {
-  components: T & ValidateProviders<T>;
+  components: T extends readonly [unknown, ...unknown[]]
+    ? T & ValidateProviders<T>
+    : ProviderArray;
   children: React.ReactNode;
 }
 

@@ -82,6 +82,21 @@ describe('compose type inference', () => {
     provider(ThemeProvider, { theme: 'dark' });
   });
 
+  it('forwards a ProviderArray-typed value through a wrapper component', () => {
+    function AppProviders({
+      providers,
+      children,
+    }: {
+      providers: ProviderArray;
+      children: React.ReactNode;
+    }) {
+      return (
+        <ComposeProvider providers={providers}>{children}</ComposeProvider>
+      );
+    }
+    expectTypeOf(AppProviders).toBeFunction();
+  });
+
   // Positive JSX cases, to prove the generic overloads still resolve in real use.
   it('compiles a correct ComposeProvider element', () => {
     const el = (
