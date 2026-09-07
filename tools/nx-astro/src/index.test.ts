@@ -27,6 +27,7 @@ describe('createNodesV2', () => {
     expect(Object.keys(targets).sort()).toEqual(['build', 'check', 'dev', 'preview']);
     expect(targets.build!.command).toBe('astro build');
     expect(targets.build!.options).toEqual({ cwd: 'apps/demo' });
+    expect(targets.build!.dependsOn).toEqual(['^build']);
     expect(targets.build!.cache).toBe(true);
     expect(targets.build!.outputs).toEqual(['{projectRoot}/dist']);
     expect(targets.dev!.cache).toBeUndefined();

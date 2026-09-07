@@ -58,6 +58,7 @@ async function createNodesInternal(
 
   const build: TargetConfiguration = {
     command: 'astro build',
+    dependsOn: ['^build'],
     options: { cwd: projectRoot },
     cache: true,
     inputs: [
