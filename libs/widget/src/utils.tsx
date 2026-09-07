@@ -34,6 +34,23 @@ export function renderWidget(
   ItemWrapper: WidgetItemComponent,
   Output: React.ComponentType,
 ) {
+  if (
+    item === null ||
+    typeof item !== 'object' ||
+    typeof item.type !== 'string' ||
+    typeof item.id !== 'string'
+  ) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        ERROR_MESSAGES.INVALID_ITEM(
+          item?.id ?? 'unknown',
+          'item must be an object with string id and type',
+        ),
+      );
+    }
+    return null;
+  }
+
   // `in` walks the prototype chain, so a CMS-supplied type of "constructor",
   // "toString" or "__proto__" would pass this guard and hand React something
   // off Object.prototype. Items are explicitly untrusted input.

@@ -1,5 +1,5 @@
 import { render, screen, cleanup } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createContext, useContext } from 'react';
 import { createWidgets } from './widget.js';
 
@@ -231,12 +231,17 @@ describe('Widget System - Context Usage', () => {
 
     render(
       <div>
-        <AdminProvider value={{ userProfile: UserProfile }}>
+        <AdminProvider value={{ userProfile: () => <div data-testid="wrong">Admin</div> }}>
           <div data-testid="admin-section">
             <AdminWidgets items={adminItems} />
           </div>
         </AdminProvider>
-        <PublicProvider value={{ news: NewsTeaser, weather: WeatherWidget }}>
+        <PublicProvider
+          value={{
+            news: () => <div data-testid="wrong">News</div>,
+            weather: WeatherWidget,
+          }}
+        >
           <div data-testid="public-section">
             <PublicWidgets items={publicItems} />
           </div>
@@ -244,9 +249,11 @@ describe('Widget System - Context Usage', () => {
       </div>,
     );
 
-    // Verify both contexts work independently
+    // Verify both contexts work independently. The factory default wins over
+    // the provider value, so the real components render rather than the mocks.
     expect(screen.getByTestId('admin-section')).toBeInTheDocument();
     expect(screen.getByTestId('user-profile')).toBeInTheDocument();
+    expect(screen.queryByTestId('wrong')).not.toBeInTheDocument();
     expect(screen.getByText('Admin')).toBeInTheDocument();
 
     expect(screen.getByTestId('public-section')).toBeInTheDocument();
@@ -278,12 +285,34 @@ describe('Widget System - Edge Cases and Error Handling', () => {
           body: 'Valid content',
         },
       },
+      // Malformed: missing type should be skipped, not crash the page
+      {
+        id: 'broken1',
+        type: undefined as unknown as 'news',
+        props: {},
+      },
+      // Malformed: null item should be skipped
+      null as unknown as ReturnType<typeof createWidgets>['defineItems'] extends (
+        ..._args: infer R
+      ) => infer R
+        ? R
+        : never,
     ];
+
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     // Should render without errors
     expect(() => {
-      render(<Widgets items={malformedItems} />);
+      render(
+        <Widgets
+          items={malformedItems as Parameters<typeof Widgets>[0]['items']}
+        />,
+      );
     }).not.toThrow();
+
+    warnSpy.mockRestore();
 
     // Valid item should render
     expect(screen.getByTestId('news-teaser')).toBeInTheDocument();
