@@ -1,6 +1,6 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { CORRELATION_CONFIG_TOKEN } from './constants.js';
+import { CORRELATION_CONFIG_TOKEN, DEFAULT_CORRELATION_ID_VALIDATOR } from './constants.js';
 import { CorrelationService } from './correlation.service.js';
 // Must be `import type`: with isolatedModules and emitDecoratorMetadata,
 // a type referenced in a decorated signature cannot be a value import.
@@ -14,10 +14,14 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     private correlationConfig: CorrelationConfig,
   ) {}
   use(req: Request, res: Response, next: () => void) {
-    const { header } = this.correlationConfig;
+    const {
+      header,
+      validate = DEFAULT_CORRELATION_ID_VALIDATOR,
+    } = this.correlationConfig;
     const key = header.toLowerCase();
-    const correlationId =
-      req.get(header) || this.correlationService.getCorrelationId();
+    const incoming = req.get(header);
+    const generated = this.correlationService.getCorrelationId();
+    const correlationId = incoming && validate(incoming) ? incoming : generated;
 
     if (!req.headers[key]) req.headers[key] = correlationId;
     if (!res.get(header)) res.set(header, correlationId);
