@@ -117,7 +117,10 @@ export class URN {
    */
   static isValidFormat(urnString: string): boolean {
     const parts = urnString.split(this.separator);
-    return parts.length >= 3 && parts.every((part) => part.length > 0);
+    return (
+      parts.length >= 3 &&
+      parts.every((part) => part.length > 0 && this.isValid.test(part))
+    );
   }
 
   /**
