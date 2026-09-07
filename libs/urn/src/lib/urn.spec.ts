@@ -103,6 +103,9 @@ describe('URN', () => {
         expect(URN.isValidFormat('user:123')).toBe(false); // Missing URN scheme
         expect(URN.isValidFormat('urn::123')).toBe(false); // Empty NID
         expect(URN.isValidFormat('')).toBe(false); // Empty string
+        expect(URN.isValidFormat('urn:us er:hello world!')).toBe(false);
+        expect(URN.isValidFormat('urn:!!!:@@@')).toBe(false);
+        expect(URN.isValidFormat('http://a:b')).toBe(false);
       });
     });
 
