@@ -6,6 +6,10 @@ export const ERROR_MESSAGES = {
   WIDGET_FAILED: (type: string) => `Widget failed to render: ${type}`,
   LOADING: 'Loading widget...',
   UNKNOWN: 'unknown',
+  MALFORMED_ITEMS:
+    'Malformed `items` prop: expected an array of widget items. Skipping render.',
+  MALFORMED_ITEM: (id: string | undefined, type: unknown) =>
+    `Malformed widget item (id="${id ?? 'unknown'}", type="${typeof type === 'string' ? type : 'unknown'}"). Skipping render.`,
 } as const;
 
 export const DEFAULT_STYLES = {
