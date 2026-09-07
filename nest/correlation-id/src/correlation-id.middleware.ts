@@ -15,10 +15,11 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   ) {}
   use(req: Request, res: Response, next: () => void) {
     const { header } = this.correlationConfig;
+    const key = header.toLowerCase();
     const correlationId =
       req.get(header) || this.correlationService.getCorrelationId();
 
-    if (!req.headers[header]) req.headers[header] = correlationId;
+    if (!req.headers[key]) req.headers[key] = correlationId;
     if (!res.get(header)) res.set(header, correlationId);
 
     this.correlationService.setCorrelationId(correlationId);
