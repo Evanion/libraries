@@ -179,14 +179,15 @@ import { createContext } from 'react';
 const MyWidgetContext = createContext({});
 
 const { Widgets, WidgetsProvider } = createWidgets({
-  components: {/* your components */},
+  components: { /* your components */ },
   context: MyWidgetContext,
 });
 
-// Use the context in your app
+// Use the context in your app. The provider value is merged under the
+// factory components and any instance components you pass to Widgets.
 function App() {
   return (
-    <WidgetsProvider>
+    <WidgetsProvider value={/* optional overrides */}>
       <MyLayout />
     </WidgetsProvider>
   );
@@ -270,10 +271,11 @@ Widgets support React Suspense for loading states:
 
 #### Performance Optimizations
 
-- `React.memo` for preventing unnecessary re-renders
-- `useCallback` for stable function references
-- Optimized dependency arrays for `useMemo`
+- `React.memo` for preventing unnecessary re-renders of the `Widgets` shell.
+- Stable component identities so custom chrome and nested `Output` components
+  do not remount on every parent render.
 - Silent error handling with console warnings for unknown widget types
+  (development only).
 
 #### Unknown Widget Handling
 
@@ -317,8 +319,8 @@ interface UserProps {
 }
 
 const { Widgets } = createWidgets<{
-  news: NewsProps;
-  userInfo: UserProps;
+  news: typeof NewsTeaser;
+  userInfo: typeof UserSidebar;
 }>({
   components: {
     news: NewsTeaser,

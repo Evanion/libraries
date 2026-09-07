@@ -62,7 +62,11 @@ export function DefaultItem(
   } = props;
 
   return (
-    <div {...restProps}>
+    <div
+      {...restProps}
+      data-widget-id={widgetId}
+      data-widget-type={widgetType}
+    >
       <WidgetErrorBoundary
         widgetId={widgetId || ERROR_MESSAGES.UNKNOWN}
         widgetType={widgetType || ERROR_MESSAGES.UNKNOWN}

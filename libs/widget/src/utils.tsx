@@ -6,27 +6,9 @@ import type {
   WidgetItemComponent,
 } from './types.js';
 
-/**
- * Context carrying the current widget's children down to the injected `Output`
- * component, together with the chrome resolved for this render.
- *
- * Passing children through context (rather than closing over them in a
- * freshly-created component) is what keeps `Output` a single stable component
- * type, and what lets nesting recurse to arbitrary depth.
- */
-export interface NestedWidgets {
-  items: RenderableWidgetItem[];
-  ItemWrapper: WidgetItemComponent;
-}
-
 const DefaultNestedItemWrapper: WidgetItemComponent = (props) => (
   <div {...props} />
 );
-
-export const NestedWidgetsContext = React.createContext<NestedWidgets>({
-  items: [],
-  ItemWrapper: DefaultNestedItemWrapper,
-});
 
 export function renderWidget(
   item: RenderableWidgetItem,
@@ -45,7 +27,9 @@ export function renderWidget(
     : undefined;
 
   if (!Component) {
-    console.warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
+    }
     return null;
   }
 
@@ -64,3 +48,21 @@ export function renderWidget(
     </NestedWidgetsContext.Provider>
   );
 }
+
+/**
+ * Context carrying the current widget's children down to the injected `Output`
+ * component, together with the chrome resolved for this render.
+ *
+ * Passing children through context (rather than closing over them in a
+ * freshly-created component) is what keeps `Output` a single stable component
+ * type, and what lets nesting recurse to arbitrary depth.
+ */
+export interface NestedWidgets {
+  items: RenderableWidgetItem[];
+  ItemWrapper: WidgetItemComponent;
+}
+
+export const NestedWidgetsContext = React.createContext<NestedWidgets>({
+  items: [],
+  ItemWrapper: DefaultNestedItemWrapper,
+});
