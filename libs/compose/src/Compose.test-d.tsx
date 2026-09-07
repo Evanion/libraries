@@ -82,6 +82,26 @@ describe('compose type inference', () => {
     provider(ThemeProvider, { theme: 'dark' });
   });
 
+  it('rejects a bare component that requires props', () => {
+    acceptsProviders([
+      // @ts-expect-error ThemeProvider requires props, so a bare component is invalid
+      ThemeProvider,
+    ]);
+  });
+
+  it('rejects a component placed in the props position of a tuple', () => {
+    acceptsProviders([
+      // @ts-expect-error the second tuple entry must be props, not another component
+      [SimpleProvider, ThemeProvider],
+    ]);
+  });
+
+  it('rejects excess props through provider() when passed as a variable', () => {
+    const themeProps = { theme: 'dark', primaryColor: '#fff', typo: 1 };
+    // @ts-expect-error `typo` is not a prop of ThemeProvider
+    provider(ThemeProvider, themeProps);
+  });
+
   // Positive JSX cases, to prove the generic overloads still resolve in real use.
   it('compiles a correct ComposeProvider element', () => {
     const el = (
