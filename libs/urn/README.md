@@ -1,12 +1,4 @@
-[![CircleCI](https://circleci.com/gh/Evanion/urn/tree/main.svg?style=shield)](https://circleci.com/gh/Evanion/urn/tree/main)
-[![codecov](https://codecov.io/gh/Evanion/urn/branch/main/graph/badge.svg?token=S5V045X33K)](https://codecov.io/gh/Evanion/urn)
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=bugs)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Known Vulnerabilities](https://snyk.io/test/github/Evanion/urn/badge.svg)](https://snyk.io/test/github/Evanion/urn)
+![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)
 ![npm (scoped)](https://img.shields.io/npm/v/@evanion/urn)
 
 # URN Library
@@ -51,7 +43,7 @@ import { URN } from '@evanion/urn';
 
 // You can easily extend the base class to create your own base schema
 class TRN extends URN {
-  static readonly urn = 'trn';
+  static override readonly urn = 'trn';
 }
 
 // Then you can generate a URN using the stringify method
@@ -93,7 +85,7 @@ You can easily create a namespace specific class:
 ```ts
 // You can create namespace specific URN classes
 class UserTRN extends TRN {
-  static readonly nid = 'user';
+  static override readonly nid = 'user';
 }
 
 // That will automatically create a URN with the proper namespace
@@ -107,15 +99,15 @@ Create your own URN schemes for different domains:
 ```ts
 // E-commerce system
 class EcommerceURN extends URN {
-  static readonly urn = 'ecommerce';
+  static override readonly urn = 'ecommerce';
 }
 
 class ProductURN extends EcommerceURN {
-  static readonly nid = 'product';
+  static override readonly nid = 'product';
 }
 
 class OrderURN extends EcommerceURN {
-  static readonly nid = 'order';
+  static override readonly nid = 'order';
 }
 
 // Usage
@@ -193,7 +185,7 @@ UserTRN.stringify('order:42', 'order'); // -> 'trn:order:42' (correct!)
 
 ```ts
 class ResourceURN extends URN {
-  static readonly urn = 'resource';
+  static override readonly urn = 'resource';
 }
 
 // Identify different types of resources
@@ -206,7 +198,7 @@ const orderUrn = ResourceURN.stringify('789', 'order');
 
 ```ts
 class ServiceURN extends URN {
-  static readonly urn = 'service';
+  static override readonly urn = 'service';
 }
 
 // Identify services and their resources
