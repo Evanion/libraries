@@ -1,4 +1,4 @@
-import React, { HTMLProps, Suspense, Component, ReactNode } from 'react';
+import React, { HTMLProps, Component, ReactNode } from 'react';
 import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants.js';
 
 export function DefaultWrapper(props: HTMLProps<HTMLDivElement>) {
@@ -44,33 +44,10 @@ class WidgetErrorBoundary extends Component<
   }
 }
 
-// Default loading fallback
-const DefaultLoadingFallback = () => (
-  <div style={DEFAULT_STYLES.LOADING}>{ERROR_MESSAGES.LOADING}</div>
-);
+export { WidgetErrorBoundary };
 
 export function DefaultItem(
-  props: HTMLProps<HTMLDivElement> & {
-    'data-widget-id'?: string;
-    'data-widget-type'?: string;
-  },
+  props: HTMLProps<HTMLDivElement>,
 ) {
-  const {
-    'data-widget-id': widgetId,
-    'data-widget-type': widgetType,
-    ...restProps
-  } = props;
-
-  return (
-    <div {...restProps}>
-      <WidgetErrorBoundary
-        widgetId={widgetId || ERROR_MESSAGES.UNKNOWN}
-        widgetType={widgetType || ERROR_MESSAGES.UNKNOWN}
-      >
-        <Suspense fallback={<DefaultLoadingFallback />}>
-          {props.children}
-        </Suspense>
-      </WidgetErrorBoundary>
-    </div>
-  );
+  return <div {...props} />;
 }

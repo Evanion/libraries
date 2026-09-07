@@ -1,10 +1,15 @@
-import React from 'react';
-import { ERROR_MESSAGES } from './constants.js';
+import React, { Suspense } from 'react';
+import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants.js';
 import type {
   AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetItemComponent,
 } from './types.js';
+import { WidgetErrorBoundary } from './widgets.js';
+
+const DefaultLoadingFallback = () => (
+  <div style={DEFAULT_STYLES.LOADING}>{ERROR_MESSAGES.LOADING}</div>
+);
 
 /**
  * Context carrying the current widget's children down to the injected `Output`
@@ -59,7 +64,14 @@ export function renderWidget(
       value={{ items: children, ItemWrapper }}
     >
       <ItemWrapper data-widget-id={item.id} data-widget-type={item.type}>
-        <Component {...item.props} Output={Output} />
+        <WidgetErrorBoundary
+          widgetId={item.id}
+          widgetType={item.type}
+        >
+          <Suspense fallback={<DefaultLoadingFallback />}>
+            <Component {...item.props} Output={Output} />
+          </Suspense>
+        </WidgetErrorBoundary>
       </ItemWrapper>
     </NestedWidgetsContext.Provider>
   );
