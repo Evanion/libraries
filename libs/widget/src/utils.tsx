@@ -6,6 +6,13 @@ import type {
   WidgetItemComponent,
 } from './types.js';
 
+/** Dev-only warning helper that is stripped in production builds. */
+function warn(message: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(message);
+  }
+}
+
 /**
  * Context carrying the current widget's children down to the injected `Output`
  * component, together with the chrome resolved for this render.
@@ -34,6 +41,11 @@ export function renderWidget(
   ItemWrapper: WidgetItemComponent,
   Output: React.ComponentType,
 ) {
+  if (item == null || typeof item !== 'object' || typeof item.type !== 'string') {
+    warn(ERROR_MESSAGES.MALFORMED_ITEM(item?.id, item?.type));
+    return null;
+  }
+
   // `in` walks the prototype chain, so a CMS-supplied type of "constructor",
   // "toString" or "__proto__" would pass this guard and hand React something
   // off Object.prototype. Items are explicitly untrusted input.
@@ -45,7 +57,7 @@ export function renderWidget(
     : undefined;
 
   if (!Component) {
-    console.warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
+    warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
     return null;
   }
 

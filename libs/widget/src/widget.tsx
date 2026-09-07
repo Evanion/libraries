@@ -8,6 +8,7 @@ import type {
 } from './types.js';
 import { DefaultItem, DefaultWrapper } from './widgets.js';
 import { renderWidget, NestedWidgetsContext } from './utils.js';
+import { ERROR_MESSAGES } from './constants.js';
 
 /**
  * Builds a widget set from a component map.
@@ -78,6 +79,13 @@ export function createWidgets<const C extends WidgetComponentMap>(
       () => ({ ...defaultComponents, ...instanceComponents }),
       [instanceComponents],
     );
+
+    if (!Array.isArray(items)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(ERROR_MESSAGES.MALFORMED_ITEMS);
+      }
+      return null;
+    }
 
     return (
       <WidgetsProvider value={components}>
