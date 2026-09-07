@@ -101,9 +101,28 @@ describe('Widget System - Performance', () => {
     // Initial render
     expect(outputRenderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with same items - should not cause re-render
-    rerender(<Widgets items={items} />);
-    expect(outputRenderSpy).toHaveBeenCalledTimes(1);
+    // Re-render with same items - should not cause re-render. Use a fresh
+    // array with the same contents so memo(Widgets) cannot short-circuit and
+    // Output's memoization is actually exercised.
+    rerender(
+      <Widgets
+        items={[
+          {
+            id: 'card1',
+            type: 'card' as const,
+            props: { title: 'My Card' },
+            children: [
+              {
+                id: 'text1',
+                type: 'text' as const,
+                props: { content: 'Nested content' },
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(outputRenderSpy).toHaveBeenCalledTimes(2);
 
     // Re-render with different children - should cause re-render
     const newItems = [
@@ -121,7 +140,7 @@ describe('Widget System - Performance', () => {
       },
     ];
     rerender(<Widgets items={newItems} />);
-    expect(outputRenderSpy).toHaveBeenCalledTimes(2);
+    expect(outputRenderSpy).toHaveBeenCalledTimes(3);
   });
 
   it('should handle large numbers of widgets efficiently', () => {
