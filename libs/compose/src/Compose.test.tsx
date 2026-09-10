@@ -4,10 +4,7 @@ import { render } from '@testing-library/react';
 import { ComposeProvider, provider } from './index.js';
 // Imported from the module rather than the barrel: it is internal, not public API.
 import { __resetWarningsForTests } from './Compose.js';
-import type {
-  ComposeProviderProps,
-  LegacyComposeProviderProps,
-} from './index.js';
+import type { ComposeProviderProps, ProviderArray } from './index.js';
 
 /**
  * `ComposeProvider` is now generic and overloaded, so props built dynamically
@@ -136,16 +133,21 @@ describe('ComposeProvider', () => {
     expect(authElement).toHaveAttribute('data-token', 'abc123');
   });
 
-  it('should support legacy components prop', () => {
-    const components = [SimpleProvider];
+  it('should throw a rename hint when only the removed components prop is passed', () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
-    const { getByText } = render(
-      <ComposeProvider components={components}>
-        <div>Test content</div>
-      </ComposeProvider>,
+    const legacyProps = {
+      components: [SimpleProvider],
+      children: <div>Test content</div>,
+    };
+
+    expect(() => render(<LooseComposeProvider {...legacyProps} />)).toThrow(
+      /`components` was removed in v2\.0 \u2014 rename it to `providers`/,
     );
 
-    expect(getByText('Test content')).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
   });
 
   it('should handle deep nesting with 5+ providers', () => {
@@ -317,25 +319,6 @@ describe('ComposeProvider', () => {
     expect(inner).toHaveAttribute('data-name', 'inner');
   });
 
-  it('should show deprecation warning for components prop', () => {
-    const consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-
-    const components = [SimpleProvider];
-
-    render(
-      <ComposeProvider components={components}>
-        <div>Legacy</div>
-      </ComposeProvider>,
-    );
-
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.',
-    );
-
-    consoleWarnSpy.mockRestore();
-  });
   it('should warn only once per mount, not on every render', () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
@@ -366,24 +349,24 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should warn when both providers and components are supplied', () => {
-    const consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-
+  it('should let providers win over components when both are supplied', () => {
     const bothProps = {
       providers: [SimpleProvider],
-      components: [ThemeProvider],
+      components: [
+        [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
+      ],
       children: <div>Both</div>,
     };
 
-    render(<LooseComposeProvider {...bothProps} />);
-
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'ComposeProvider: Received both "providers" and "components". "providers" takes precedence and "components" is ignored.',
+    const { container, getByText } = render(
+      <LooseComposeProvider {...bothProps} />,
     );
 
-    consoleWarnSpy.mockRestore();
+    expect(getByText('Both')).toBeInTheDocument();
+    // `providers` rendered ...
+    expect(container.querySelector('.simple')).toBeInTheDocument();
+    // ... and `components` was ignored rather than rendered or merged.
+    expect(container.querySelector('[data-theme]')).toBeNull();
   });
 
   it('should throw a named error when no providers prop is supplied', () => {
@@ -420,17 +403,143 @@ describe('ComposeProvider', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it("should not mutate the caller's provider array", () => {
+    const providers = [
+      [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
+      SimpleProvider,
+    ];
+    const before = [...providers];
+
+    render(
+      <ComposeProvider providers={providers}>
+        <div>Content</div>
+      </ComposeProvider>,
+    );
+
+    expect(providers).toEqual(before);
+    expect(providers[0]).toBe(before[0]);
+    expect(providers[1]).toBe(before[1]);
+  });
+
+  it('should render an inline provider array without warning', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const { getByText, container } = render(
+      <ComposeProvider
+        providers={[
+          SimpleProvider,
+          [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }],
+        ]}
+      >
+        <div>Inline</div>
+      </ComposeProvider>,
+    );
+
+    expect(getByText('Inline')).toBeInTheDocument();
+    expect(container.querySelector('[data-theme]')).toHaveAttribute(
+      'data-theme',
+      'dark',
+    );
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should render inside StrictMode without warning twice', () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const { getByText } = render(
+      <React.StrictMode>
+        <ComposeProvider providers={[]}>
+          <div>Strict</div>
+        </ComposeProvider>
+      </React.StrictMode>,
+    );
+
+    expect(getByText('Strict')).toBeInTheDocument();
+    expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should render through react-dom/server', async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+
+    const html = renderToStaticMarkup(
+      <ComposeProvider
+        providers={[
+          SimpleProvider,
+          [ThemeProvider, { theme: 'light', primaryColor: '#fff' }],
+        ]}
+      >
+        <span>SSR</span>
+      </ComposeProvider>,
+    );
+
+    expect(html).toBe(
+      '<div class="simple"><div data-theme="light" data-color="#fff"><span>SSR</span></div></div>',
+    );
+  });
+
+  it('should accept a widened ProviderArray forwarded through a wrapper', () => {
+    const providers: ProviderArray = [
+      SimpleProvider,
+      [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }],
+    ];
+
+    const AppProviders = ({
+      providers: list,
+      children,
+    }: {
+      providers: ProviderArray;
+      children: React.ReactNode;
+    }) => <ComposeProvider providers={list}>{children}</ComposeProvider>;
+
+    const { getByText } = render(
+      <AppProviders providers={providers}>
+        <div>Wrapped</div>
+      </AppProviders>,
+    );
+
+    expect(getByText('Wrapped')).toBeInTheDocument();
+  });
+
+  it('should stay silent about an empty array in production', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.resetModules();
+
+    try {
+      const { ComposeProvider: ProdComposeProvider } =
+        await import('./Compose.js');
+
+      const { getByText } = render(
+        <ProdComposeProvider providers={[]}>
+          <div>Prod</div>
+        </ProdComposeProvider>,
+      );
+
+      expect(getByText('Prod')).toBeInTheDocument();
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
   it('should expose the prop types on the public surface', () => {
     // Compile-time only: these must be importable by consumers.
     const withProviders: ComposeProviderProps = {
       providers: [SimpleProvider],
       children: null,
     };
-    const withComponents: LegacyComposeProviderProps = {
-      components: [SimpleProvider],
-      children: null,
-    };
     expect(withProviders.providers).toHaveLength(1);
-    expect(withComponents.components).toHaveLength(1);
   });
 });

@@ -63,7 +63,10 @@ console.log(parsed); // -> {urn:'trn', nid: 'bar', nss: 'foo'}
 - **Namespace Support**: Handle custom namespaces and identifiers
 - **Class Inheritance**: Extend the base URN class for domain-specific implementations
 - **TypeScript Support**: Full TypeScript support with comprehensive type definitions
-- **Validation**: Built-in validation for every URN component (`a-z`, `0-9`, `-`, `.`, `_`, `~`, `:`, case insensitive)
+- **RFC 8141 grammar**: A role-scoped grammar for the scheme, the NID and the
+  NSS, rather than one flat character class
+- **Case-folded comparison**: `sameNamespace`, `belongsToNamespace` and
+  `equals` fold the scheme and the NID, per RFC 8141 §3.1
 
 ## Why should you use a URN
 
@@ -134,11 +137,39 @@ const parsed = UserTRN.parse('trn:order:42');
 console.log(parsed); // -> {urn: 'trn', nid: 'order', nss: 'order:42'}
 ```
 
+A foreign **scheme** is retained the same way, verbatim, so a record read from
+another scheme cannot be silently re-labelled as this one:
+
+```ts
+UserTRN.parse('ftp:user:1'); // -> {urn: 'ftp', nid: 'user', nss: 'ftp:user:1'}
+UserTRN.parse('trn:user:1'); // -> {urn: 'trn', nid: 'user', nss: '1'}
+```
+
+The comparisons are case-folded, so `URN:USER:1` is not foreign to a `urn` /
+`user` class. The parts always come back in the case they were written in.
+
 ## Validation & Error Handling
 
-The library validates the URN scheme, the NID **and** the NSS. A component may
-contain `a-z`, `0-9`, `-`, `.`, `_`, `~` and `:` (case insensitive), and must not
-be empty:
+The library validates the URN scheme, the NID **and** the NSS, each against its
+own grammar. There is no single character class: the three roles are different
+in the RFC and are different here.
+
+| Role           | Allowed                                                                                                                                   | Length                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| scheme (`urn`) | a letter, then letters, digits, `+`, `-`, `.`                                                                                             | unbounded                  |
+| NID            | letters and digits, plus `-` in the interior                                                                                              | 2–32 writing, 1–32 reading |
+| NSS            | letters, digits, `-` `.` `_` `~` `!` `$` `&` `'` `(` `)` `*` `+` `,` `;` `=` `:` `@`, percent-triplets, and `/` after the first character | unbounded                  |
+
+Letters are case-insensitive everywhere. Every component must be non-empty.
+
+Read the grammars off the class if you need them — they stay reactive to a
+subclass's `separator`:
+
+```ts
+URN.schemeGrammar; // /^[A-Za-z][A-Za-z0-9+.-]*$/
+URN.nidGrammar; // /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
+URN.nssGrammar; // the RFC 8141 `pchar *(pchar / "/")` set
+```
 
 ```ts
 import { URN, InvalidError } from '@evanion/urn';
@@ -151,7 +182,7 @@ UserTRN.stringify('1337', 'foo', 'b!r'); // -> will throw a URN ValidationError
 
 // Handle errors gracefully
 try {
-  const urn = URN.stringify('invalid!character', 'namespace');
+  const urn = URN.stringify('invalid character', 'namespace');
 } catch (error) {
   if (error instanceof InvalidError) {
     console.log('Invalid URN:', error.message);
@@ -159,24 +190,98 @@ try {
 }
 ```
 
-The library won't add a namespace if it already exists:
+### Read-lenient, write-strict
+
+`stringify` enforces the RFC 8141 NID exactly. `parse` accepts the same
+character set but allows a one-character NID, because RFC 2141 permitted one and
+RFC 8141 Appendix B keeps earlier-valid URNs valid. Nothing else is relaxed on
+read:
 
 ```ts
-UserTRN.stringify('user:1337'); // -> 'trn:user:1337'
+URN.parse('urn:x:1'); // ok
+URN.stringify('1', 'x'); // throws: NID must be at least 2 characters long
 ```
+
+### Percent-encoding
+
+`stringify` does not encode and `parse` does not decode. Both work on the wire
+form, so a value can never be double-encoded by accident. `stringify` rejects an
+NSS that is not already encoded:
+
+```ts
+URN.stringify('a b', 'example'); // throws
+URN.stringify('a%20b', 'example'); // 'urn:example:a%20b'
+URN.parse('urn:example:a%20b').nss; // 'a%20b' -- triplets come back intact
+```
+
+Two helpers cover the conversion explicitly:
+
+```ts
+import { encodeNss, decodeNss } from '@evanion/urn';
+
+encodeNss('café'); // 'caf%C3%A9'
+decodeNss('caf%C3%A9'); // 'café'
+```
+
+### Equivalence
+
+`URN.equals` implements RFC 8141 §3.1: the scheme and the NID are compared
+case-insensitively, the NSS character for character, except that the hex digits
+of a percent-triplet canonicalise to uppercase. A percent-encoded octet is never
+decoded for comparison:
+
+```ts
+URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // true
+URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // false
+URN.equals('urn:example:A123', 'urn:example:a123'); // false
+```
+
+### Custom separators are not RFC 8141
+
+A subclass that overrides `separator` gets a generic character class with the
+separator excluded, for the scheme and the NID, and no RFC length bounds. The
+NSS keeps the RFC grammar under every separator. Such a subclass is **not**
+claimed to be RFC 8141 conformant.
 
 ## Important Caveats
 
-Since classes aren't aware of sibling classes, stringifying a `NSS` that contains another namespace will cause duplication of namespaces:
+`stringify` does not deduplicate. Whatever you pass as the NSS is emitted
+verbatim after the scheme and the NID, so an NSS whose first segment happens to
+equal the NID survives the round trip:
 
 ```ts
-UserTRN.stringify('order:42'); // -> 'trn:user:order:42' (duplicated!)
+UserTRN.stringify('user:42'); // -> 'trn:user:user:42'
+UserTRN.parse('trn:user:user:42').nss; // -> 'user:42'
 ```
 
-**Recommended solution**: Set the namespace to what you expect:
+Earlier versions dropped the repeated segment, which made `user:42` — a
+composite key imported from another system — irrecoverable. If you meant the
+other namespace, name it:
 
 ```ts
-UserTRN.stringify('order:42', 'order'); // -> 'trn:order:42' (correct!)
+UserTRN.stringify('42', 'order'); // -> 'trn:order:42'
+```
+
+`stringify` is also not idempotent, and is not a normaliser:
+
+```ts
+URN.stringify(URN.stringify('foo')); // -> 'urn:nid:urn:nid:foo'
+```
+
+The statics are unbound. Every one of them reads `this`, so unlike
+`JSON.stringify` they cannot be destructured:
+
+```ts
+const { stringify } = URN;
+stringify('a'); // TypeError -- the default parameter `nid = this.nid` needs `this`
+```
+
+The arguments to `stringify` are in the reverse order of `parse`'s return shape,
+so `stringify(...Object.values(parse(x)))` is silently wrong. Pass them by name:
+
+```ts
+const parsed = URN.parse(input);
+URN.stringify(parsed.nss, parsed.nid, parsed.urn);
 ```
 
 ## Common Use Cases
@@ -214,15 +319,25 @@ const userResourceUrn = ServiceURN.stringify('123', 'user-service');
   Throws `InvalidError` if any component is empty or contains a disallowed character.
 - `URN.parse(urnString)` — Parses a URN string into `{ urn, nid, nss }`.
   Throws `ValidationError` if the string is not a well-formed URN.
-- `URN.isValidFormat(urnString)` — `true` if the string has at least three
-  non-empty parts. Never throws, so it is the cheap way to test input first.
+- `URN.isValidFormat(urnString)` — `true` if the string parses. Delegates to
+  `parse`, so the two can never disagree. Never throws, so it is the cheap way
+  to test input first.
 - `URN.extractId(urnString)` — Returns everything after the scheme and the NID.
   Throws `ValidationError` on malformed input.
 - `URN.sameNamespace(a, b)` — `true` if both URNs share a scheme and NID.
   Returns `false` for malformed input rather than throwing.
 - `URN.belongsToNamespace(urnString, nid, urn?)` — `true` if the URN is in the
-  given namespace. `urn` defaults to **this class's own scheme**, so it works on
-  subclasses without repeating the scheme.
+  given namespace, comparing case-insensitively. `urn` defaults to **this
+  class's own scheme**, so it works on subclasses without repeating the scheme.
+- `URN.equals(a, b)` — RFC 8141 §3.1 equivalence. Returns `false` for malformed
+  input rather than throwing.
+
+### Functions
+
+- `encodeNss(raw)` — percent-encodes everything outside RFC 3986's `unreserved`
+  set, producing a valid NSS.
+- `decodeNss(encoded)` — the inverse. Throws `ValidationError` on a malformed or
+  truncated percent sequence.
 
 #### `parse().nss` vs `extractId()`
 
@@ -242,16 +357,24 @@ trailing identifier.
 
 - `ValidationError` — base class for everything this library throws. Catch this
   to handle any validation failure.
-- `InvalidError extends ValidationError` — a component was empty or contained a
-  disallowed character. Carries `property` (`'URN' | 'NID' | 'NSS'`), `value`,
-  and `invalidChar` when one could be identified.
+- `InvalidError extends ValidationError` — a component was empty, contained a
+  disallowed character, or broke a structural rule of its grammar. Carries
+  `property` (`'URN' | 'NID' | 'NSS'`), `value`, `invalidChar` when a single
+  character is at fault, and `reason` when none is — a length bound, a leading
+  hyphen, a truncated percent-triplet.
 
 ### Class Properties
 
 - `static urn: string` - The URN scheme (default: 'urn')
 - `static separator: string` - The separator between components (default: ':')
 - `static nid: string` - The namespace identifier (default: 'nid')
-- `static isValid: RegExp` - The character class each component must match
+- `static schemeGrammar: RegExp` - The grammar the scheme must match
+- `static nidGrammar: RegExp` - The grammar the NID must match when writing
+- `static nssGrammar: RegExp` - The grammar the NSS must match
+
+`isValid` is gone. One flat regex cannot describe three roles across two
+separator regimes; the three getters can, and they stay reactive to a
+subclass's `separator`.
 
 When overriding these in a subclass, TypeScript's `noImplicitOverride` requires
 the `override` keyword:

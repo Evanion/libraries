@@ -20,6 +20,13 @@ monorepo. The library moved here from the standalone `Evanion/compose` repo;
   longer type-checks.
 - **Passing no `providers` now throws a `TypeError`** naming the problem,
   instead of failing with "Cannot read properties of undefined".
+- **The deprecated `components` prop is gone.** It is not in the type surface at
+  all; passing it from JavaScript throws a `TypeError` naming the rename.
+  Keeping it as a second overload is what put an irrelevant
+  "Overload 2 of 2 ... Property 'providers' does not exist" paragraph on every
+  error a `providers` call produced.
+- **`LegacyComposeProviderProps` and `AnyComposeProviderProps` are removed**
+  along with it.
 
 ### 🚀 Features
 
@@ -27,11 +34,16 @@ monorepo. The library moved here from the standalone `Evanion/compose` repo;
   or a prop the component does not declare is a compile error at the
   `ComposeProvider` call site — which is what the README always claimed.
 - `provider()` helper for full IntelliSense on provider props.
-- New exports: `ProviderArray`, `ComposeProviderProps`,
-  `LegacyComposeProviderProps`, `PropsWithoutChildren`, `ValidateProvider`,
-  `ValidateProviders`, `AnyComponent`.
-- Development warnings for an empty provider array, the deprecated `components`
-  prop, and supplying both props at once.
+- New exports: `ProviderArray`, `ComposeProviderProps`, `PropsWithoutChildren`,
+  `ValidateProvider`, `ValidateProviders`, `ValidatedProviders`, `AnyComponent`.
+- A value already typed as `ProviderArray` can be passed to `ComposeProvider`,
+  so the array can be built in one place and forwarded through a wrapper
+  component. Its entries are unchecked at that boundary — the type has already
+  lost the identity of its elements.
+- Failed checks carry their explanation in a property name
+  (`ComposeError: unknown prop 'typo'`), so TypeScript prints it in the first
+  line rather than under a structural walk of `Array.prototype.every`.
+- A development warning for an empty provider array.
 
 ### 🩹 Fixes
 
