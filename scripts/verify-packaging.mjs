@@ -86,8 +86,8 @@ import { ComposeProvider, provider } from '@evanion/compose';
 import type { ProviderArray } from '@evanion/compose';
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import type { ParsedURN } from '@evanion/urn';
-import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget';
-import type { WidgetItem } from '@evanion/react-widget';
+import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
+import type { WidgetItem, WidgetItemProblem } from '@evanion/react-widget';
 import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion/nestjs-correlation-id';
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
@@ -101,11 +101,12 @@ const { defineItems } = createWidgets({ components: { news: News } });
 const items: WidgetItem<{ news: typeof News }>[] = defineItems([
   { id: '1', type: 'news', props: { title: 'ok' } },
 ]);
+const widgetProblems: WidgetItemProblem[] = validateItems(items, ['news']);
 const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: () => 'x' };
 const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
 const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
 const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
-void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWrapper,
+void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems];
 `,
@@ -142,11 +143,11 @@ void [ComposeProvider, provider, parsed, arr, err, items, DefaultItem, DefaultWr
     `
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
-import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget';
+import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
-  createWidgets, DefaultItem, DefaultWrapper,
+  createWidgets, DefaultItem, DefaultWrapper, validateItems,
   defineBlocks, validateBlocks,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
@@ -175,10 +176,15 @@ if (!m.CorrelationModule.forRoot().global) { console.error('forRoot() lost its s
     '  ✓ nestjs-correlation-id also resolves via require() (CJS half)',
   );
 
-  // react-widget cannot exist without createContext/useContext, which React does
-  // not expose under its `react-server` condition. Losing the 'use client'
-  // directive breaks it silently: the build still succeeds, every test still
-  // passes, and it only fails once someone imports it from a Server Component.
+  // react-widget is importable from a React Server Component, which holds only
+  // while it stays off createContext/useContext/Component -- none of which
+  // React exposes under its `react-server` condition. Both halves of that break
+  // silently: the build still succeeds and every test still passes, and it only
+  // fails once someone imports it from a Server Component.
+  //
+  // The directive check alone is not enough. A context reintroduced *without* a
+  // 'use client' directive would pass it and still fail at module evaluation in
+  // an RSC graph, so the bundled entry is grepped as well.
   const widgetEntry = join(
     dir,
     'node_modules',
@@ -187,14 +193,47 @@ if (!m.CorrelationModule.forRoot().global) { console.error('forRoot() lost its s
     'dist',
     'index.js',
   );
-  const firstLine = readFileSync(widgetEntry, 'utf8').split('\n')[0].trim();
-  if (!/^["']use client["'];?$/.test(firstLine)) {
+  const widgetSource = readFileSync(widgetEntry, 'utf8');
+  const firstLine = widgetSource.split('\n')[0].trim();
+  if (/^["']use client["'];?$/.test(firstLine)) {
     throw new Error(
-      "@evanion/react-widget dist/index.js must begin with a 'use client' directive, found: " +
-        firstLine,
+      "@evanion/react-widget dist/index.js must NOT carry a 'use client' " +
+        'directive: the package is meant to be usable from a Server Component.',
     );
   }
-  console.log("  ✓ react-widget ships its 'use client' directive");
+  console.log("  ✓ react-widget ships no 'use client' directive");
+
+  // Grepping for `createContext(` would find nothing: rolldown renames imported
+  // bindings, so a real context compiles to `import { createContext as t }` and
+  // a call to `t(...)`. The imported *specifier* survives, so that is what is
+  // checked -- and it is the stronger check anyway, catching an import whether
+  // or not the call site is recognisable.
+  const reactImport = widgetSource.match(
+    /import\s*\{([^}]*)\}\s*from\s*["']react["']/,
+  );
+  const imported = (reactImport?.[1] ?? '')
+    .split(',')
+    .map((specifier) => specifier.trim().split(/\s+as\s+/)[0].trim())
+    .filter(Boolean);
+  const clientOnly = [
+    'createContext',
+    'useContext',
+    'useState',
+    'useEffect',
+    'useReducer',
+    'useRef',
+    'Component',
+    'PureComponent',
+  ];
+  const found = clientOnly.filter((name) => imported.includes(name));
+  if (found.length) {
+    throw new Error(
+      '@evanion/react-widget dist/index.js imports React APIs that the ' +
+        '`react-server` condition does not provide: ' +
+        found.join(', '),
+    );
+  }
+  console.log('  ✓ react-widget imports no client-only React API');
 
   console.log('\nPackaging verified.');
 } catch (error) {
