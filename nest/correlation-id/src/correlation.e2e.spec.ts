@@ -29,13 +29,14 @@ class Upstream {
   url = '';
 
   async start() {
-    this.server = createServer((req, res) => {
+    const server = createServer((req, res) => {
       this.received.push([...req.rawHeaders]);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end('{"ok":true}');
     });
-    await new Promise<void>((resolve) => this.server!.listen(0, resolve));
-    this.url = `http://127.0.0.1:${(this.server!.address() as AddressInfo).port}/`;
+    this.server = server;
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    this.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
   }
 
   headerOf(index: number, name: string): string | undefined {
