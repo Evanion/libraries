@@ -1,13 +1,15 @@
-import { createContext, useContext, useMemo, memo } from 'react';
+import { memo } from 'react';
 import type {
   RenderableWidgetItem,
   WidgetComponentMap,
   WidgetItem,
+  WidgetItemProblem,
   WidgetsConfig,
   WidgetsProps,
 } from './types.js';
 import { DefaultItem, DefaultWrapper } from './widgets.js';
-import { renderWidget, NestedWidgetsContext } from './utils.js';
+import { renderWidget } from './utils.js';
+import { validateItems } from './validate-items.js';
 import { ERROR_MESSAGES } from './constants.js';
 
 /**
@@ -15,6 +17,10 @@ import { ERROR_MESSAGES } from './constants.js';
  *
  * The map drives inference: each item's `type` must be a key of it, and that
  * item's `props` must match the corresponding component's props.
+ *
+ * Call it once at module scope. There is no provider and no hook, because
+ * React's `react-server` export condition has neither `createContext` nor
+ * `useContext` and this package has to be importable from a Server Component.
  *
  * @example
  * ```tsx
@@ -31,54 +37,24 @@ import { ERROR_MESSAGES } from './constants.js';
 export function createWidgets<const C extends WidgetComponentMap>(
   config: WidgetsConfig<C>,
 ) {
-  const {
-    components: defaultComponents,
-    chrome: defaultChrome,
-    context,
-  } = config;
-
-  const WidgetsContext = context || createContext<C>(defaultComponents);
-
-  const WidgetsProvider = WidgetsContext.Provider;
-  const useWidgets = () => useContext(WidgetsContext);
-
-  /**
-   * Renders the children of whichever widget is currently rendering.
-   *
-   * Defined once per `createWidgets` call, so its component type is stable for
-   * the lifetime of the factory. Previously a new component was built on every
-   * render, and because React compares element types by identity that
-   * unmounted and remounted every nested subtree on each parent render --
-   * discarding child state, effects and focus.
-   */
-  const Output = memo(function Output() {
-    const { items, ItemWrapper } = useContext(NestedWidgetsContext);
-    const components = useWidgets();
-
-    if (!items || items.length === 0) {
-      return null;
-    }
-
-    return (
-      <>
-        {items.map((item) =>
-          renderWidget(item, components, ItemWrapper, Output),
-        )}
-      </>
-    );
-  });
+  const { components: defaultComponents, chrome: defaultChrome } = config;
 
   const Widgets = memo(function Widgets({
     items,
     components: instanceComponents,
     chrome,
+    ctx,
   }: WidgetsProps<C>) {
-    const Wrapper = chrome?.wrapper || defaultChrome?.wrapper || DefaultWrapper;
-    const ItemWrapper = chrome?.item || defaultChrome?.item || DefaultItem;
-    const components = useMemo(
-      () => ({ ...defaultComponents, ...instanceComponents }),
-      [instanceComponents],
-    );
+    const Wrapper = chrome?.wrapper ?? defaultChrome?.wrapper ?? DefaultWrapper;
+    const ItemWrapper = chrome?.item ?? defaultChrome?.item ?? DefaultItem;
+    const suspenseFallback =
+      chrome?.suspenseFallback ?? defaultChrome?.suspenseFallback;
+    // Not memoised. `useMemo` exists under the react-server condition but
+    // calling a hook from a Server Component does not, and merging a handful of
+    // map entries is cheaper than the hazard.
+    const components = instanceComponents
+      ? { ...defaultComponents, ...instanceComponents }
+      : defaultComponents;
 
     if (!Array.isArray(items)) {
       if (process.env.NODE_ENV !== 'production') {
@@ -88,15 +64,13 @@ export function createWidgets<const C extends WidgetComponentMap>(
     }
 
     return (
-      <WidgetsProvider value={components}>
-        <Wrapper>
-          {/* The single, documented widening from the checked WidgetItem<C>
-              union to the renderer's erased view. See RenderableWidgetItem. */}
-          {(items as unknown as RenderableWidgetItem[]).map((item) =>
-            renderWidget(item, components, ItemWrapper, Output),
-          )}
-        </Wrapper>
-      </WidgetsProvider>
+      <Wrapper>
+        {/* The single, documented widening from the checked WidgetItem<C>
+            union to the renderer's erased view. See RenderableWidgetItem. */}
+        {(items as unknown as RenderableWidgetItem[]).map((item) =>
+          renderWidget(item, components, ItemWrapper, ctx, suspenseFallback),
+        )}
+      </Wrapper>
     );
   });
 
@@ -119,5 +93,14 @@ export function createWidgets<const C extends WidgetComponentMap>(
    */
   const defineItems = (items: WidgetItem<C>[]): WidgetItem<C>[] => items;
 
-  return { Widgets, WidgetsProvider, useWidgets, Output, defineItems };
+  /**
+   * `validateItems` bound to this factory's component map, for data that never
+   * met the type checker. `Widgets` does not call it: validation is a loud,
+   * explicit gate run at ingestion or build time, and the renderer is the
+   * safety net underneath it.
+   */
+  const boundValidateItems = (items: unknown): WidgetItemProblem[] =>
+    validateItems(items, defaultComponents);
+
+  return { Widgets, defineItems, validateItems: boundValidateItems };
 }

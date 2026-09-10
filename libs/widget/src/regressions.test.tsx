@@ -8,12 +8,10 @@ import { PropsWithChildren, useState } from 'react';
 // unnoticed.
 import { createWidgets, DefaultItem, DefaultWrapper } from './index.js';
 
-type OutputProp = { Output?: React.ComponentType };
-
-const Box = ({ label, Output }: { label: string } & OutputProp) => (
+const Box = ({ label, children }: PropsWithChildren<{ label: string }>) => (
   <div data-testid={`box-${label}`}>
     <span>{label}</span>
-    {Output ? <Output /> : null}
+    {children}
   </div>
 );
 
@@ -22,14 +20,14 @@ const Leaf = ({ label }: { label: string }) => (
 );
 
 /** A widget holding its own state, to detect remounts. */
-const Counter = ({ Output }: OutputProp) => {
+const Counter = ({ children }: PropsWithChildren) => {
   const [count, setCount] = useState(0);
   return (
     <div>
       <button data-testid="inc" onClick={() => setCount((c) => c + 1)}>
         count:{count}
       </button>
-      {Output ? <Output /> : null}
+      {children}
     </div>
   );
 };
@@ -75,7 +73,8 @@ describe('widget regressions', () => {
       expect(screen.getByTestId('box-a')).toBeInTheDocument();
       expect(screen.getByTestId('box-b')).toBeInTheDocument();
       // This is the level that used to be silently dropped: Output rendered
-      // grandchildren without passing an Output of their own.
+      // grandchildren without passing an Output of their own. Direct recursion
+      // has no equivalent hazard, and this locks that in.
       expect(screen.getByTestId('leaf-c')).toBeInTheDocument();
     });
 
@@ -234,7 +233,8 @@ describe('widget regressions', () => {
       );
 
       // Output used to fall back to the factory-level chrome, so nested items
-      // silently lost the instance override.
+      // silently lost the instance override. renderWidget now threads the
+      // resolved chrome through the recursion instead.
       expect(
         container.querySelectorAll('[data-custom-item="yes"]'),
       ).toHaveLength(2);
@@ -264,7 +264,8 @@ describe('widget regressions', () => {
 
       // A fresh array identity forces Widgets to re-render. The injected Output
       // used to be a brand-new component type each time, so React remounted the
-      // nested subtree and the counter reset to 0.
+      // nested subtree and the counter reset to 0. Nothing mounts a synthetic
+      // component any more, but the property still has to hold.
       rerender(<Widgets items={[...items]} />);
 
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');

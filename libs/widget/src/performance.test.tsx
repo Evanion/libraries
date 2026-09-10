@@ -51,21 +51,18 @@ describe('Widget System - Performance', () => {
     expect(renderSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('should memoize Output components correctly', () => {
+  it('re-renders a nested subtree only when its own data changes', () => {
     const outputRenderSpy = vi.fn();
 
     const CardWidget = ({
       title,
-      Output,
-    }: {
-      title: string;
-      Output: React.ComponentType;
-    }) => {
+      children,
+    }: React.PropsWithChildren<{ title: string }>) => {
       outputRenderSpy();
       return (
         <div data-testid="card">
           <h3>{title}</h3>
-          <Output />
+          {children}
         </div>
       );
     };
@@ -301,16 +298,13 @@ describe('Widget System - Performance', () => {
 
     const CardWidget = ({
       title,
-      Output,
-    }: {
-      title: string;
-      Output: React.ComponentType;
-    }) => {
+      children,
+    }: React.PropsWithChildren<{ title: string }>) => {
       cardRenderSpy();
       return (
         <div data-testid="card">
           <h3>{title}</h3>
-          <Output />
+          {children}
         </div>
       );
     };

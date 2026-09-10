@@ -1,12 +1,4 @@
-import type { ComponentProps, ComponentType, Context, ReactNode } from 'react';
-
-/**
- * The prop every widget component receives so it can render its own children.
- * Injected by the renderer; it is never part of the item data.
- */
-export interface WidgetOutputProps {
-  Output: ComponentType;
-}
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 /**
  * Any widget component, for use in a generic *constraint*.
@@ -33,13 +25,25 @@ export type AnyWidgetComponent = ComponentType<any>;
 export type WidgetComponentMap = Record<string, AnyWidgetComponent>;
 
 /**
- * The props a widget component accepts as *data*, i.e. everything except the
- * injected {@link WidgetOutputProps.Output}.
+ * The props a widget component accepts as *data*, i.e. everything except
+ * `children`, which the renderer supplies from the item's nested items.
  */
 export type WidgetDataProps<C extends AnyWidgetComponent> = Omit<
   ComponentProps<C>,
-  keyof WidgetOutputProps
+  'children'
 >;
+
+/**
+ * Whether a component actually accepts `children`.
+ *
+ * This is what makes nesting checkable. Attaching `children` to every variant
+ * of the union let a CMS editor nest items under a widget that never renders
+ * them, and they vanished with no compile error and no console output (#25.2).
+ */
+export type WidgetChildren<
+  C extends WidgetComponentMap,
+  K extends keyof C,
+> = 'children' extends keyof ComponentProps<C[K]> ? WidgetItem<C>[] : never;
 
 /**
  * A single item in a widget set, discriminated on `type`.
@@ -54,10 +58,22 @@ export type WidgetItem<C extends WidgetComponentMap> = {
     id: string;
     /** Which component to render. Must be a key of the component map. */
     type: K;
-    /** Props for that component, minus the injected `Output`. */
+    /** Props for that component, minus `children`. */
     props: WidgetDataProps<C[K]>;
-    /** Nested items, rendered by the item's injected `Output`. */
-    children?: WidgetItem<C>[];
+    /**
+     * Placement and presentation data for the item chrome: grid column, span,
+     * ordering, CMS edit affordances. Handed to `chrome.item` and never
+     * spread into the widget's own props, because where a widget sits is not
+     * something the widget should know (#71).
+     */
+    meta?: Record<string, unknown>;
+    /**
+     * Nested items, rendered as the component's `children`.
+     *
+     * Typed `never` when the mapped component does not accept `children`, so
+     * nesting under a widget that would drop them is a compile error.
+     */
+    children?: WidgetChildren<C, K>;
   };
 }[keyof C & string];
 
@@ -71,6 +87,7 @@ export interface WidgetProps<Type extends string = string, Props = object> {
   id: string;
   type: Type;
   props: Props;
+  meta?: Record<string, unknown>;
   children?: WidgetProps[];
 }
 
@@ -87,6 +104,7 @@ export interface RenderableWidgetItem {
   id: string;
   type: string;
   props: Record<string, unknown>;
+  meta?: Record<string, unknown>;
   children?: RenderableWidgetItem[];
 }
 
@@ -98,11 +116,21 @@ export type WidgetItemComponent = ComponentType<{
   children?: ReactNode;
   'data-widget-id': string;
   'data-widget-type': string;
+  /** The item's {@link WidgetItem.meta}, if it has any. */
+  meta?: Record<string, unknown>;
 }>;
 
 export interface WidgetsChrome {
   wrapper?: WidgetsWrapperComponent;
   item?: WidgetItemComponent;
+  /**
+   * Rendered while a widget suspends.
+   *
+   * The `<Suspense>` boundary itself lives in the renderer rather than in
+   * `chrome.item`, so replacing the item chrome cannot silently remove it.
+   * Defaults to nothing, which is what React renders for a missing fallback.
+   */
+  suspenseFallback?: ReactNode;
 }
 
 /**
@@ -112,8 +140,6 @@ export interface WidgetsConfig<C extends WidgetComponentMap> {
   /** The component map. Its shape drives inference for the whole set. */
   components: C;
   chrome?: WidgetsChrome;
-  /** Supply your own context to share a component map across widget sets. */
-  context?: Context<C>;
 }
 
 /**
@@ -125,4 +151,24 @@ export interface WidgetsProps<C extends WidgetComponentMap> {
   components?: Partial<C>;
   /** Per-instance chrome overrides. */
   chrome?: WidgetsChrome;
+  /**
+   * Page-level data handed to every widget as a `ctx` prop.
+   *
+   * The counterpart to `@evanion/astro-widget`'s `ctx`. There is no context
+   * provider doing this, deliberately: React's `react-server` condition has no
+   * `createContext`, and this package has to be importable from a Server
+   * Component.
+   */
+  ctx?: Record<string, unknown>;
+}
+
+/** A problem found by `validateItems`. Mirrors astro-widget's `BlockProblem`. */
+export interface WidgetItemProblem {
+  /** Index within the item's own sibling list; -1 when the root is not a list. */
+  index: number;
+  /** The item's `id`, or `-` when it has none usable. */
+  id: string;
+  /** The item's `type`, or `-` when it has none usable. */
+  type: string;
+  message: string;
 }

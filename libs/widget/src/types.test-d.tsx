@@ -1,4 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
+import type { PropsWithChildren } from 'react';
 import { createWidgets } from './index.js';
 import type { WidgetItem, WidgetDataProps } from './index.js';
 
@@ -11,9 +12,10 @@ const News = ({ title, body }: { title: string; body: string }) => (
 
 const Weather = ({ celsius }: { celsius: number }) => <span>{celsius}</span>;
 
-const Nested = ({ Output }: { label: string; Output: React.ComponentType }) => (
+const Nested = ({ label, children }: PropsWithChildren<{ label: string }>) => (
   <div>
-    <Output />
+    {label}
+    {children}
   </div>
 );
 
@@ -38,12 +40,22 @@ describe('widget type inference', () => {
     expectTypeOf<WeatherItem['props']>().toEqualTypeOf<{ celsius: number }>();
   });
 
-  it('excludes the injected Output prop from item data', () => {
+  it('excludes `children` from item props, because it comes from `children`', () => {
     type NestedItem = Extract<WidgetItem<Components>, { type: 'nested' }>;
     expectTypeOf<NestedItem['props']>().toEqualTypeOf<{ label: string }>();
     expectTypeOf<WidgetDataProps<typeof Nested>>().toEqualTypeOf<{
       label: string;
     }>();
+  });
+
+  it('types `children` as never on a component that does not accept them', () => {
+    type WeatherItem = Extract<WidgetItem<Components>, { type: 'weather' }>;
+    expectTypeOf<WeatherItem['children']>().toEqualTypeOf<undefined>();
+
+    type NestedItem = Extract<WidgetItem<Components>, { type: 'nested' }>;
+    expectTypeOf<NestedItem['children']>().toEqualTypeOf<
+      WidgetItem<Components>[] | undefined
+    >();
   });
 
   it('rejects an unknown widget type', () => {
@@ -70,6 +82,21 @@ describe('widget type inference', () => {
     ]);
   });
 
+  it('rejects `children` on a component that does not accept children (#25.2)', () => {
+    const { defineItems } = createWidgets({ components });
+
+    defineItems([
+      {
+        id: '1',
+        type: 'weather',
+        props: { celsius: 21 },
+        // @ts-expect-error the weather component has no `children` prop, so
+        // nesting under it would silently drop the child items
+        children: [{ id: '2', type: 'news', props: { title: 'a', body: 'b' } }],
+      },
+    ]);
+  });
+
   it('checks nested children against the same map', () => {
     const { defineItems } = createWidgets({ components });
 
@@ -84,6 +111,21 @@ describe('widget type inference', () => {
         ],
       },
     ]);
+  });
+
+  it('accepts arbitrary `meta` on any item', () => {
+    const { defineItems } = createWidgets({ components });
+
+    const items = defineItems([
+      {
+        id: '1',
+        type: 'weather',
+        props: { celsius: 21 },
+        meta: { column: 1, columnSpan: 4 },
+      },
+    ]);
+
+    expectTypeOf(items).toEqualTypeOf<WidgetItem<Components>[]>();
   });
 
   it('accepts a well-formed set', () => {

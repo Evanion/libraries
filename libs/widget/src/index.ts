@@ -1,18 +1,18 @@
-'use client';
-
-// This library cannot exist without createContext/useContext/Component, none of
-// which React exposes under its `react-server` condition -- so it must run in the
-// client graph. Without this directive, importing it from a Next.js App Router
-// page (a Server Component by default) fails at module evaluation with an opaque
-// "Named export 'useContext' not found".
+// No 'use client'. This package is deliberately importable from a React Server
+// Component: it uses only exports React provides under its `react-server`
+// condition -- createElement, Suspense, memo -- and no createContext,
+// useContext, Component or stateful hook.
 //
-// Verified that rolldown preserves this directive into dist/index.js, so no
-// build-time banner is needed. scripts/verify-packaging.mjs asserts it is still
-// there in the packed tarball, since losing it breaks the package silently --
-// it would still build and still pass every test.
+// That is easy to lose silently, so two guards exist. `*.server.test.tsx` runs
+// in a vitest project that resolves react under the `react-server` condition,
+// and scripts/verify-packaging.mjs asserts the packed dist/index.js carries
+// neither the directive nor a createContext/useContext call.
+//
+// `./utils.js` is not re-exported: renderWidget and the nesting mechanism are
+// internal, so changing them is not a breaking release.
 
 export * from './widget.js';
 export * from './widgets.js';
 export * from './types.js';
 export * from './constants.js';
-export * from './utils.js';
+export * from './validate-items.js';
