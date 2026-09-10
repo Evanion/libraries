@@ -28,7 +28,7 @@ The middleware is typed against `node:http`'s `IncomingMessage` and
 not a peer dependency.
 
 `@nestjs/axios` is an optional peer dependency, needed only if you use
-[`withCorrelation`](#forward-the-correlation-id-to-outgoing-requests). It is a
+[`withCorrelation`](#how-to-use). It is a
 type-only import, so it is not pulled in at runtime.
 
 This package has no runtime dependencies beyond `tslib`.
@@ -68,7 +68,14 @@ export class AppModule implements NestModule {
 }
 ```
 
-And then just inject the correlation middleware in your HttpService by calling the `registerAsync` method with the `withCorrelation` function.
+`CorrelationIdMiddleware` opens an
+[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html) context for the
+request. Everything downstream of it — guards, interceptors, controllers, and
+anything they await — sees that request's id, and concurrent requests stay
+isolated.
+
+Then forward the id on outgoing HTTP calls by passing `withCorrelation()` to
+`HttpModule.registerAsync`.
 
 ```ts
 import { HttpModule } from '@nestjs/axios';
@@ -82,7 +89,30 @@ import { withCorrelation } from '@evanion/nestjs-correlation-id';
 export class UsersModule {}
 ```
 
-You can now use the `HttpService` as usual in your `UsersService` and `UsersController`
+Use `HttpService` as usual in `UsersService` and `UsersController`. It stays a
+singleton: the correlation header is attached by an axios request interceptor
+that reads the current context when the request is made.
+
+`withCorrelation()` needs `CorrelationModule.forRoot()` to have been called
+somewhere in the application — it is a global module, so once in the root module
+is enough. Without it, Nest fails at boot with
+`Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)`.
+
+### Working outside a request
+
+`CorrelationService` is a singleton, so it is injected like any other provider
+and resolved with `module.get(CorrelationService)`. Outside a correlation
+context `getCorrelationId()` returns `undefined`, and outgoing calls carry no
+correlation header.
+
+For work with no request behind it — queue consumers, cron jobs, scripts — open
+a context yourself:
+
+```ts
+await this.correlationService.run(this.correlationService.generate(), () =>
+  this.processJob(job),
+);
+```
 
 ### Configuration
 
@@ -124,64 +154,56 @@ export class AppModule implements NestModule {
 
 #### Add `correlationId` to logs
 
-In order to add the correlation ID to your logs, you can use the `CorrelationService` service to get the current correlationId.
-
-In the following example, we are using the [@ntegral/nestjs-sentry](https://github.com/ntegral/nestjs-sentry) package, but you can use any package or provider you like.
+Inject `CorrelationService` wherever you build log context and read the current
+id. It is a singleton, so nothing about injecting it changes the scope of the
+provider holding it.
 
 ```ts
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { InjectSentry, SentryService } from '@ntegral/nestjs-sentry';
-import { NextFunction, Request, Response } from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import * as Sentry from '@sentry/node';
 
 @Injectable()
-export class SentryMiddleware implements NestMiddleware {
-  constructor(
-    private readonly correlationService: CorrelationService,
-    @InjectSentry() private readonly sentryService: SentryService,
-  ) {}
+export class SentryTagMiddleware implements NestMiddleware {
+  constructor(private readonly correlationService: CorrelationService) {}
 
-  async use(_req: Request, _res: Response, next: NextFunction) {
-    const correlationId = await this.correlationService.getCorrelationId();
-    this.sentryService.instance().configureScope((scope) => {
-      scope.setTag('correlationId', correlationId);
-    });
+  use(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
+    const correlationId = this.correlationService.getCorrelationId();
+    if (correlationId) Sentry.setTag('correlationId', correlationId);
     next();
   }
 }
 ```
 
-Then add it to your `AppModule`
+`getCorrelationId()` is synchronous — it never returned a promise — and gives
+`undefined` when there is no correlation context, so apply this after
+`CorrelationIdMiddleware`, which is what opens one.
 
 ```ts
-import { Module } from '@nestjs/common';
-import { SentryModule } from '@ntegral/nestjs-sentry';
-import { CorrelationModule } from '@evanion/nestjs-correlation-id';
-import { SentryMiddleware } from './middleware/sentry.middleware';
-
 @Module({
-  imports: [
-    CorrelationModule.forRoot(),
-    SentryModule.forRoot({
-      // ... your config
-    }),
-  ],
+  imports: [CorrelationModule.forRoot()],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-    consumer.apply(SentryMiddleware).forRoutes('*');
+    consumer.apply(SentryTagMiddleware).forRoutes('*');
   }
 }
 ```
 
-If you need to manually set the correlationId anywhere in your application. You can use the `CorrelationService` service to set the correlationId.
+To replace the id of the current context:
 
 ```ts
 this.correlationService.setCorrelationId('some_correlation_id');
 ```
 
-See the [specs](./src) for fully worked examples.
+It throws outside a correlation context, rather than writing somewhere nothing
+will read.
+
+See the [specs on GitHub](https://github.com/Evanion/libraries/tree/main/nest/correlation-id/src)
+for fully worked examples, including an end-to-end one that stands up a real
+Nest application.
 
 ## Change Log
 
