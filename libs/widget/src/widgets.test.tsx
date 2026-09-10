@@ -1,8 +1,6 @@
-import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { DefaultWrapper, DefaultItem } from './widgets.js';
-import { createWidgets } from './widget.js';
 
 describe('Default Components', () => {
   beforeEach(() => {
@@ -140,70 +138,5 @@ describe('Default Components', () => {
     expect(item1).toHaveTextContent('Description');
     expect(item2).toHaveTextContent('Item 1');
     expect(item2).toHaveTextContent('Item 2');
-  });
-
-  it('should handle widget errors gracefully with error boundary', () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-
-    const FailingWidget = () => {
-      throw new Error('Widget failed to render');
-    };
-
-    const { Widgets } = createWidgets({
-      components: { failing: FailingWidget },
-    });
-
-    render(
-      <Widgets
-        data-testid="widget-list"
-        items={[
-          {
-            id: 'test-widget',
-            type: 'failing' as const,
-            props: {},
-          },
-        ]}
-      />,
-    );
-
-    // Should show error fallback UI
-    expect(
-      screen.getByText('Widget failed to render: failing'),
-    ).toBeInTheDocument();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should show loading fallback for suspense', () => {
-    const LazyWidget = React.lazy(
-      () =>
-        new Promise<{ default: React.ComponentType }>((resolve) =>
-          setTimeout(
-            () => resolve({ default: () => <div>Loaded widget</div> }),
-            100,
-          ),
-        ),
-    );
-
-    const { Widgets } = createWidgets({
-      components: { lazy: LazyWidget },
-    });
-
-    render(
-      <Widgets
-        items={[
-          {
-            id: 'lazy-widget',
-            type: 'lazy' as const,
-            props: {},
-          },
-        ]}
-      />,
-    );
-
-    // Should show loading state initially
-    expect(screen.getByText('Loading widget...')).toBeInTheDocument();
   });
 });

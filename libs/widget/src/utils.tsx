@@ -1,15 +1,11 @@
-import React, { Suspense } from 'react';
-import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants.js';
+import { Suspense } from 'react';
+import type { ReactNode } from 'react';
+import { ERROR_MESSAGES } from './constants.js';
 import type {
   AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetItemComponent,
 } from './types.js';
-import { WidgetErrorBoundary } from './widgets.js';
-
-const DefaultLoadingFallback = () => (
-  <div style={DEFAULT_STYLES.LOADING}>{ERROR_MESSAGES.LOADING}</div>
-);
 
 /** Dev-only warning helper that is stripped in production builds. */
 function warn(message: string) {
@@ -19,34 +15,28 @@ function warn(message: string) {
 }
 
 /**
- * Context carrying the current widget's children down to the injected `Output`
- * component, together with the chrome resolved for this render.
+ * Renders one item and, recursively, its nested items as that item's children.
  *
- * Passing children through context (rather than closing over them in a
- * freshly-created component) is what keeps `Output` a single stable component
- * type, and what lets nesting recurse to arbitrary depth.
+ * Internal: not re-exported from the package barrel, so the nesting mechanism
+ * stays free to change without a breaking release.
+ *
+ * The `<Suspense>` boundary lives here rather than in the item chrome. It used
+ * to sit inside `DefaultItem`, which meant any custom `chrome.item` silently
+ * removed it -- the bug 8a1efc0 fixed for the error boundary, applied to the
+ * only boundary that still exists.
  */
-export interface NestedWidgets {
-  items: RenderableWidgetItem[];
-  ItemWrapper: WidgetItemComponent;
-}
-
-const DefaultNestedItemWrapper: WidgetItemComponent = (props) => (
-  <div {...props} />
-);
-
-export const NestedWidgetsContext = React.createContext<NestedWidgets>({
-  items: [],
-  ItemWrapper: DefaultNestedItemWrapper,
-});
-
 export function renderWidget(
   item: RenderableWidgetItem,
   components: Record<string, AnyWidgetComponent>,
   ItemWrapper: WidgetItemComponent,
-  Output: React.ComponentType,
-) {
-  if (item == null || typeof item !== 'object' || typeof item.type !== 'string') {
+  ctx: Record<string, unknown> | undefined,
+  suspenseFallback: ReactNode,
+): ReactNode {
+  if (
+    item == null ||
+    typeof item !== 'object' ||
+    typeof item.type !== 'string'
+  ) {
     warn(ERROR_MESSAGES.MALFORMED_ITEM(item?.id, item?.type));
     return null;
   }
@@ -66,25 +56,29 @@ export function renderWidget(
     return null;
   }
 
-  const children = item.children ?? [];
+  let children: RenderableWidgetItem[] = [];
+  if (item.children !== undefined) {
+    if (Array.isArray(item.children)) {
+      children = item.children;
+    } else {
+      warn(ERROR_MESSAGES.MALFORMED_CHILDREN(item.id));
+    }
+  }
 
   return (
-    // Each widget provides its own children, so a nested `Output` renders that
-    // widget's children rather than its parent's -- at any depth.
-    <NestedWidgetsContext.Provider
+    <ItemWrapper
       key={item.id}
-      value={{ items: children, ItemWrapper }}
+      data-widget-id={item.id}
+      data-widget-type={item.type}
+      meta={item.meta}
     >
-      <ItemWrapper data-widget-id={item.id} data-widget-type={item.type}>
-        <WidgetErrorBoundary
-          widgetId={item.id}
-          widgetType={item.type}
-        >
-          <Suspense fallback={<DefaultLoadingFallback />}>
-            <Component {...item.props} Output={Output} />
-          </Suspense>
-        </WidgetErrorBoundary>
-      </ItemWrapper>
-    </NestedWidgetsContext.Provider>
+      <Suspense fallback={suspenseFallback}>
+        <Component {...item.props} ctx={ctx}>
+          {children.map((child) =>
+            renderWidget(child, components, ItemWrapper, ctx, suspenseFallback),
+          )}
+        </Component>
+      </Suspense>
+    </ItemWrapper>
   );
 }

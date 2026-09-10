@@ -1,3 +1,4 @@
+import type React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createWidgets } from './widget.js';
@@ -88,5 +89,64 @@ describe('malformed items are skipped instead of crashing', () => {
       expect.stringContaining('Malformed widget item'),
     );
     warn.mockRestore();
+  });
+
+  it('warns and renders the parent when children is not an array', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const Box = ({ children }: { children?: React.ReactNode }) => (
+      <div data-testid="box">{children}</div>
+    );
+    const { Widgets } = createWidgets({ components: { box: Box, leaf: Leaf } });
+
+    expect(() =>
+      render(
+        <Widgets
+          items={
+            [
+              { id: 'a', type: 'box', props: {}, children: 'oops' },
+            ] as unknown as Parameters<typeof Widgets>[0]['items']
+          }
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByTestId('box')).toBeInTheDocument();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('Malformed `children`'),
+    );
+    warn.mockRestore();
+  });
+
+  it('renders duplicate sibling ids rather than validating, per the safety-net split', () => {
+    // validateItems is the loud gate; the renderer stays defensive but never
+    // calls it. Two siblings sharing an id is a validateItems problem and must
+    // still render. React's own duplicate-key warning is dev-only and stripped
+    // in production, which is exactly why validateItems checks for it.
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const { Widgets } = createWidgets({ components: { leaf: Leaf } });
+
+    render(
+      <Widgets
+        items={[
+          { id: 'same', type: 'leaf' as const, props: { label: 'a' } },
+          { id: 'same', type: 'leaf' as const, props: { label: 'b' } },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('leaf-a')).toBeInTheDocument();
+    expect(screen.getByTestId('leaf-b')).toBeInTheDocument();
+    expect(
+      errorSpy.mock.calls.some((call) =>
+        call.some(
+          (arg) =>
+            typeof arg === 'string' &&
+            arg.includes('two children with the same key'),
+        ),
+      ),
+    ).toBe(true);
+    errorSpy.mockRestore();
   });
 });

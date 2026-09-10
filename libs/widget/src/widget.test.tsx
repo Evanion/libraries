@@ -1,5 +1,5 @@
 import { render, screen, cleanup } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createWidgets } from './widget.js';
 import { PropsWithChildren } from 'react';
 
@@ -363,18 +363,12 @@ describe('Widget System - Nested Widgets', () => {
     cleanup();
   });
 
-  it('should render nested widgets using Output component', () => {
+  it('should render nested widgets through children', () => {
     // Example: Card with nested content
-    const CardWidget = ({
-      title,
-      Output,
-    }: {
-      title: string;
-      Output: React.ComponentType;
-    }) => (
+    const CardWidget = ({ title, children }: PropsWithChildren<{ title: string }>) => (
       <div data-testid="card" className="card">
         <h3>{title}</h3>
-        <Output />
+        {children}
       </div>
     );
 
@@ -425,16 +419,10 @@ describe('Widget System - Nested Widgets', () => {
   });
 
   it('should handle empty children gracefully', () => {
-    const CardWidget = ({
-      title,
-      Output,
-    }: {
-      title: string;
-      Output: React.ComponentType;
-    }) => (
+    const CardWidget = ({ title, children }: PropsWithChildren<{ title: string }>) => (
       <div data-testid="card" className="card">
         <h3>{title}</h3>
-        <Output />
+        {children}
       </div>
     );
 

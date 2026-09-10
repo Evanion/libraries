@@ -1,30 +1,28 @@
 export const ERROR_MESSAGES = {
   UNKNOWN_WIDGET: (type: string, id: string) =>
     `Unknown widget type "${type}" for widget ID "${id}". Skipping render.`,
-  WIDGET_ERROR: (type: string, id: string) =>
-    `Widget Error: ${type} (ID: ${id})`,
-  WIDGET_FAILED: (type: string) => `Widget failed to render: ${type}`,
-  LOADING: 'Loading widget...',
   UNKNOWN: 'unknown',
   MALFORMED_ITEMS:
     'Malformed `items` prop: expected an array of widget items. Skipping render.',
   MALFORMED_ITEM: (id: string | undefined, type: unknown) =>
     `Malformed widget item (id="${id ?? 'unknown'}", type="${typeof type === 'string' ? type : 'unknown'}"). Skipping render.`,
+  MALFORMED_CHILDREN: (id: string) =>
+    `Malformed \`children\` on widget item (id="${id}"): expected an array. Rendering the widget without them.`,
 } as const;
 
-export const DEFAULT_STYLES = {
-  ERROR: {
-    padding: '8px',
-    border: '1px solid #ff6b6b',
-    borderRadius: '4px',
-    backgroundColor: '#ffe0e0',
-    color: '#d63031',
-  },
-  LOADING: {
-    padding: '8px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    backgroundColor: '#f8f9fa',
-    color: '#666',
-  },
+/**
+ * Messages reported by `validateItems`.
+ *
+ * Exported so a caller can group or translate problems without matching on
+ * prose, and so the tests assert against the same strings the library emits.
+ */
+export const VALIDATION_MESSAGES = {
+  NOT_A_LIST: 'items is not a list',
+  NOT_AN_OBJECT: 'item is not an object',
+  INVALID_ID: 'item id is not a string',
+  INVALID_TYPE: 'item type is not a string',
+  UNKNOWN_TYPE: 'unknown widget type',
+  INVALID_PROPS: 'props is not an object',
+  INVALID_CHILDREN: 'children is not a list',
+  DUPLICATE_ID: 'duplicate sibling id',
 } as const;

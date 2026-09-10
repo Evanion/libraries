@@ -1,53 +1,21 @@
-import React, { HTMLProps, Component, ReactNode } from 'react';
-import { ERROR_MESSAGES, DEFAULT_STYLES } from './constants.js';
+import type { HTMLProps } from 'react';
 
 export function DefaultWrapper(props: HTMLProps<HTMLDivElement>) {
   return <section {...props} />;
 }
 
-// Error boundary for individual widgets
-class WidgetErrorBoundary extends Component<
-  { children: ReactNode; widgetId: string; widgetType: string },
-  { hasError: boolean; error?: Error }
-> {
-  constructor(props: {
-    children: ReactNode;
-    widgetId: string;
-    widgetType: string;
-  }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error(
-      ERROR_MESSAGES.WIDGET_ERROR(this.props.widgetType, this.props.widgetId),
-      error,
-      errorInfo,
-    );
-  }
-
-  override render() {
-    if (this.state.hasError) {
-      return (
-        <div style={DEFAULT_STYLES.ERROR}>
-          {ERROR_MESSAGES.WIDGET_FAILED(this.props.widgetType)}
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-export { WidgetErrorBoundary };
-
-export function DefaultItem(
-  props: HTMLProps<HTMLDivElement>,
-) {
+/**
+ * Default item chrome: a plain `<div>` carrying the `data-widget-*` attributes
+ * that CMS click-to-edit overlays, analytics and E2E selectors key off.
+ *
+ * `meta` is deliberately dropped rather than forwarded: it is arbitrary
+ * consumer data with no meaning to the DOM, and spreading it onto an element
+ * would produce React unknown-attribute warnings. A custom `chrome.item` is
+ * where meta is meant to be read.
+ */
+export function DefaultItem({
+  meta: _meta,
+  ...props
+}: HTMLProps<HTMLDivElement> & { meta?: Record<string, unknown> }) {
   return <div {...props} />;
 }
