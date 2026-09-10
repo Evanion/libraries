@@ -67,7 +67,7 @@ This will guide you through creating a properly formatted commit message.
 so it is covered by `build`. `@nx/next/plugin` does not support a
 `typecheckTargetName` option, so adding one has no effect.
 
-`astro-widget-demo` is the opposite case, and the trap is that it looks fine.
+`storefront` is the opposite case, and the trap is that it looks fine.
 Nx infers a `typecheck` target from `tsconfig.json`, but **disables** it --
 swapping the command for an `echo` -- whenever the resolved config sets
 `noEmit: true`, because `tsc --build` cannot run that way. Astro's shared

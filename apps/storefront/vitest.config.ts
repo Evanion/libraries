@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-// Test-only config: astro-widget-demo is an Astro app with its own
+// Test-only config: storefront is an Astro app with its own
 // astro.config.mjs for building; this file exists solely so @nx/vitest
 // infers a `test` target for the project (Nx infers targets from a
 // project-local vite.config.ts/vitest.config.ts, not from entries in the
@@ -8,9 +8,9 @@ import { defineConfig } from 'vitest/config';
 // runs in `nx run-many -t test` / CI / the release gate.
 export default defineConfig({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/apps/astro-widget-demo',
+  cacheDir: '../../node_modules/.vite/apps/storefront',
   test: {
-    name: '@evanion/astro-widget-demo',
+    name: '@evanion/storefront',
     watch: false,
     globals: true,
     environment: 'node',

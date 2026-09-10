@@ -66,6 +66,6 @@ _pagefind/
 .nx/self-healing
 .nx/migrate-runs
 .nx/migrate-runs.astro
-apps/astro-widget-demo/.astro/
-apps/astro-widget-demo/dist/
+apps/storefront/.astro/
+apps/storefront/dist/
 *.tsbuildinfo
