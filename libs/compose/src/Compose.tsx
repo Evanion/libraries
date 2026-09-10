@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { ProviderArray, ValidateProviders } from './Compose.types.js';
+import type { ProviderArray, ValidatedProviders } from './Compose.types.js';
 
 /**
  * `process` does not exist in a browser unless a bundler injects it, and this
@@ -55,32 +55,12 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
   /**
    * Providers to compose. The first entry ends up outermost.
    *
-   * The `T & ValidateProviders<T>` intersection is deliberate. A bare
-   * `ValidateProviders<T>` is a non-homomorphic mapped type, which is not an
-   * inferable position -- TypeScript would give up on inferring `T`, fall back
-   * to the constraint, and accept anything. Keeping `T` in the intersection
-   * gives inference something to latch onto while the mapped half does the
-   * checking.
+   * See {@link ValidatedProviders} for why the checking is gated on whether
+   * `T` is a literal tuple.
    */
-  providers: T & ValidateProviders<T>;
+  providers: ValidatedProviders<T>;
   children: React.ReactNode;
 }
-
-/**
- * Legacy prop shape.
- *
- * @deprecated Use {@link ComposeProviderProps} and the `providers` prop instead.
- */
-export interface LegacyComposeProviderProps<
-  T extends ProviderArray = ProviderArray,
-> {
-  components: T & ValidateProviders<T>;
-  children: React.ReactNode;
-}
-
-/** Either accepted prop shape for {@link ComposeProvider}. */
-export type AnyComposeProviderProps =
-  ComposeProviderProps | LegacyComposeProviderProps;
 
 /**
  * Composes multiple React providers into a single component to eliminate nesting.
@@ -99,25 +79,21 @@ export type AnyComposeProviderProps =
  * ```
  *
  * @param props.providers - Array of providers to compose
- * @param props.components - (Deprecated) Legacy alias for providers
  * @param props.children - Child elements to wrap with providers
  */
 export function ComposeProvider<const T extends ProviderArray>(
   props: ComposeProviderProps<T>,
-): React.ReactElement;
-export function ComposeProvider<const T extends ProviderArray>(
-  props: LegacyComposeProviderProps<T>,
-): React.ReactElement;
-export function ComposeProvider(
-  props: AnyComposeProviderProps,
 ): React.ReactElement {
-  const hasProviders = 'providers' in props;
-  const hasComponents = 'components' in props;
-  const providerList = (
-    hasProviders
-      ? props.providers
-      : (props as LegacyComposeProviderProps).components
-  ) as ProviderArray;
+  // A JavaScript consumer, or one upgrading from 1.x, can still reach this with
+  // the removed `components` prop. Refusing by name beats silently accepting a
+  // prop the types no longer describe.
+  if (!('providers' in props) && 'components' in props) {
+    throw new TypeError(
+      'ComposeProvider: `components` was removed in v2.0 \u2014 rename it to `providers`.',
+    );
+  }
+
+  const providerList = props.providers as ProviderArray;
 
   // Fail with a message that names the problem. Without this, a missing prop
   // surfaces as "Cannot read properties of undefined (reading 'length')", which
@@ -130,24 +106,10 @@ export function ComposeProvider(
     );
   }
 
-  if (isDevelopment) {
-    if (providerList.length === 0) {
-      warnOnce(
-        'ComposeProvider: Empty provider array. No providers will be applied.',
-      );
-    }
-
-    if (hasComponents) {
-      warnOnce(
-        'ComposeProvider: The "components" prop is deprecated. Please use "providers" instead.',
-      );
-    }
-
-    if (hasProviders && hasComponents) {
-      warnOnce(
-        'ComposeProvider: Received both "providers" and "components". "providers" takes precedence and "components" is ignored.',
-      );
-    }
+  if (isDevelopment && providerList.length === 0) {
+    warnOnce(
+      'ComposeProvider: Empty provider array. No providers will be applied.',
+    );
   }
 
   return (
