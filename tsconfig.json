@@ -26,6 +26,9 @@
     },
     {
       "path": "./tools/repo-checks"
+    },
+    {
+      "path": "./libs/luhn"
     }
   ],
   "compilerOptions": {
