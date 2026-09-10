@@ -22,6 +22,11 @@ One build means one module graph and one `CorrelationService` class object, so
 injecting by class token is always safe. The dual build this package used to
 ship could hand Nest two unrelated copies of the same class.
 
+The middleware is typed against `node:http`'s `IncomingMessage` and
+`ServerResponse` and reads and writes raw headers, so it works under
+`@nestjs/platform-express` and `@nestjs/platform-fastify` alike. `express` is
+not a peer dependency.
+
 `@nestjs/axios` is an optional peer dependency, needed only if you use
 [`withCorrelation`](#forward-the-correlation-id-to-outgoing-requests). It is a
 type-only import, so it is not pulled in at runtime.
