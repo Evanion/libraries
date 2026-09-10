@@ -10,14 +10,17 @@
 
 ### Requirements
 
-|            |              |
-| ---------- | ------------ |
-| **NestJS** | 10, 11 or 12 |
-| **Node**   | 20 or newer  |
+|            |             |
+| ---------- | ----------- |
+| **NestJS** | 12          |
+| **Node**   | 20 or newer |
 
-Ships both ESM and CommonJS. NestJS 12 is ESM-only, while 10 and 11 are
-CommonJS, so both module formats are needed to cover the supported range —
-`import` and `require()` both work.
+Ships ESM only, matching NestJS 12. There is no CommonJS build, so
+`require('@evanion/nestjs-correlation-id')` will not work — use `import`.
+
+One build means one module graph and one `CorrelationService` class object, so
+injecting by class token is always safe. The dual build this package used to
+ship could hand Nest two unrelated copies of the same class.
 
 `@nestjs/axios` is an optional peer dependency, needed only if you use
 [`withCorrelation`](#forward-the-correlation-id-to-outgoing-requests). It is a
