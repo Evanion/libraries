@@ -5,14 +5,11 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/nestjs-correlation-id',
   test: {
-    // Without an explicit tsconfig, vitest falls back to the solution-style
-    // tsconfig.json (files: [], include: []), so it typechecks nothing and
-    // every expectTypeOf assertion silently passes.
-    typecheck: {
-      enabled: true,
-      tsconfig: './tsconfig.spec.json',
-      include: ['src/**/*.test-d.{ts,tsx}'],
-    },
+    // No vitest `typecheck` block: there are no *.test-d.ts files here, and the
+    // glob that used to be configured matched none of them, so the check was
+    // vacuous. `nx typecheck` builds tsconfig.json, which references both
+    // tsconfig.lib.json and tsconfig.spec.json, so sources and specs are both
+    // typechecked there.
     watch: false,
     globals: true,
     environment: 'node',
@@ -21,6 +18,11 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
+      // Without an explicit include, v8 reports only the files a test happened
+      // to load -- so the suite printed 100% while never loading two of the
+      // five source modules.
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/index.ts'],
     },
   },
 }));

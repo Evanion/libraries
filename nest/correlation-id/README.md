@@ -116,9 +116,8 @@ await this.correlationService.run(this.correlationService.generate(), () =>
 
 ### Configuration
 
-`CorrelationModule.forRoot()` accepts a `CorrelationConfig`, which is now
-exported from the package root — previously you could configure the module but
-could not name the type you were configuring it with.
+`CorrelationModule.forRoot()` accepts a `CorrelationConfig`, exported from the
+package root.
 
 ```ts
 import {
