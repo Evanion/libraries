@@ -1,0 +1,11 @@
+---
+/**
+ * Test fixture. Renders every prop it was handed as JSON, so a prop that must
+ * NOT reach a block is visible in the output rather than merely absent from an
+ * assertion.
+ */
+const { children, ...rest } = Astro.props;
+void children;
+---
+
+<probe>{JSON.stringify(rest)}</probe>
