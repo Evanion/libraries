@@ -42,24 +42,55 @@ export default defineConfig(() => ({
     },
   },
   test: {
-    // Without an explicit tsconfig, vitest falls back to the solution-style
-    // tsconfig.json (files: [], include: []), so it typechecks nothing and
-    // every expectTypeOf assertion silently passes.
-    typecheck: {
-      enabled: true,
-      tsconfig: './tsconfig.spec.json',
-      include: ['src/**/*.test-d.{ts,tsx}'],
-    },
-    name: '@evanion/react-widget',
     watch: false,
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test-setup.ts'],
-    include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          // Without an explicit tsconfig, vitest falls back to the
+          // solution-style tsconfig.json (files: [], include: []), so it
+          // typechecks nothing and every expectTypeOf assertion silently
+          // passes.
+          typecheck: {
+            enabled: true,
+            tsconfig: './tsconfig.spec.json',
+            include: ['src/**/*.test-d.{ts,tsx}'],
+          },
+          name: '@evanion/react-widget',
+          globals: true,
+          environment: 'jsdom',
+          setupFiles: ['./src/test-setup.ts'],
+          include: [
+            '{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+          ],
+          exclude: ['**/*.server.{test,spec}.{ts,tsx}'],
+        },
+      },
+      // The whole point of this package no longer carrying 'use client' is that
+      // it can be imported from a React Server Component. React's `react-server`
+      // export condition omits createContext, useContext, Component and every
+      // stateful hook, so a single reintroduced import breaks that silently:
+      // the build succeeds and every jsdom test still passes. This project
+      // resolves react under that condition so the failure surfaces here.
+      {
+        extends: true,
+        resolve: { conditions: ['react-server'] },
+        ssr: { resolve: { conditions: ['react-server'] } },
+        test: {
+          name: '@evanion/react-widget:react-server',
+          globals: true,
+          environment: 'node',
+          include: ['src/**/*.server.{test,spec}.{ts,tsx}'],
+          // react is externalised by default, which would hand it to Node's
+          // resolver and lose the condition set above.
+          server: { deps: { inline: [/^react(\/|$)/] } },
+        },
+      },
+    ],
   },
 }));
