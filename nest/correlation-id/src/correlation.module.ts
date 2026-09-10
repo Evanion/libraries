@@ -1,6 +1,10 @@
 import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { CORRELATION_CONFIG_TOKEN, CORRELATION_ID_HEADER } from './constants.js';
+import {
+  CORRELATION_CONFIG_TOKEN,
+  CORRELATION_ID_HEADER,
+  DEFAULT_CORRELATION_ID_VALIDATOR,
+} from './constants.js';
 import { CorrelationService } from './correlation.service.js';
 // Must be `import type`: with isolatedModules and emitDecoratorMetadata,
 // a type referenced in a decorated signature cannot be a value import.
@@ -15,6 +19,7 @@ export class CorrelationModule {
         ...config,
         header: config?.header || CORRELATION_ID_HEADER,
         generator: config?.generator || randomUUID,
+        validate: config?.validate || DEFAULT_CORRELATION_ID_VALIDATOR,
       },
     };
     return {
