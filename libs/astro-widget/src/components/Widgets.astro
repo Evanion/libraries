@@ -29,10 +29,14 @@ const Item = chrome?.item as never;
     const Component = registry[item?.type] as never;
     if (!Component) return null;
 
-    const { type, id, children, ...props } = item;
+    // `meta` is placement data for the item chrome -- grid column, span,
+    // ordering, CMS edit affordances. It is destructured out here so it never
+    // reaches the block: where a block sits is not something the block should
+    // know, and spreading it in would collide with the block's own props.
+    const { type, id, children, meta, ...props } = item;
 
     return Item ? (
-      <Item type={type} id={id} {...props}>
+      <Item type={type} id={id} meta={meta} {...props}>
         <Component {...props} id={id} ctx={ctx} children={children} />
       </Item>
     ) : (

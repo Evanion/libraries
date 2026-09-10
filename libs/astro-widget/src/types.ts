@@ -9,6 +9,10 @@ export interface BlockItem {
       <slot />, not through a `children` prop. A block that wants nesting
       renders <Widgets items={children} registry={registry} /> itself. */
   children?: BlockItem[];
+  /** Placement and presentation data for `chrome.item`. Handed to the item
+      wrapper and never spread into the block's own props, because where a
+      block sits is not something the block should know. */
+  meta?: Record<string, unknown>;
   /** Everything else is passed to the component as props. */
   [key: string]: unknown;
 }

@@ -1,0 +1,6 @@
+---
+/** Test fixture: item chrome that positions its block from `meta`. */
+const { meta } = Astro.props;
+---
+
+<div data-column={meta?.column}><slot /></div>

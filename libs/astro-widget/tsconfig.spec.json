@@ -6,6 +6,16 @@
     "module": "esnext",
     "moduleResolution": "bundler"
   },
-  "include": ["src/**/*.test.ts", "src/**/*.test-d.ts", "src/**/*.d.ts", "vite.config.ts"],
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test-d.ts",
+    "src/**/*.d.ts",
+    "vite.config.ts"
+  ],
+  // The container tests import .astro modules. tsc has no loader for those and
+  // `astro check` -- which does -- would then type-check Widgets.astro through
+  // this project rather than the library one, where its deliberate `as never`
+  // registry casts are errors. Vitest runs the file; tsc does not read it.
+  "exclude": ["src/**/*.astro.test.ts"],
   "references": [{ "path": "./tsconfig.lib.json" }]
 }
