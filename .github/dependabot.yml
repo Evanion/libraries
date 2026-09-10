@@ -44,3 +44,20 @@ updates:
       # produces a broken workspace.
       - dependency-name: '@nx/*'
       - dependency-name: 'nx'
+      # TypeScript 7 breaks `npm ci` with ERESOLVE: @astrojs/check@0.9.10
+      # (the latest published version) declares peerDependencies of
+      # `^5.0.0 || ^6.0.0`, so it rejects TypeScript 7 outright. `versions`
+      # is scoped to the 7.x line only, so 8.x and later are still proposed
+      # normally. Remove once @astrojs/check publishes a release whose
+      # peerDependencies allow TypeScript 7 (see dependabot PR #40).
+      - dependency-name: 'typescript'
+        versions: ['^7.0.0']
+      # eslint 10 breaks `npm ci` with ERESOLVE: eslint-plugin-import@2.32.0
+      # (the latest published version) declares peerDependencies of
+      # `^2 || ^3 || ^4 || ^5 || ^6 || ^7.2.0 || ^8 || ^9`, so it rejects
+      # eslint 10 outright. `versions` is scoped to the 10.x line only, so
+      # 11.x and later are still proposed normally. Remove once
+      # eslint-plugin-import publishes a release whose peerDependencies
+      # allow eslint 10 (see dependabot PR #43).
+      - dependency-name: 'eslint'
+        versions: ['^10.0.0']
