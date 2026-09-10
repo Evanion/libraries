@@ -64,12 +64,44 @@ describe('CorrelationIdMiddleware', () => {
     expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
   });
 
-  it('prefers an incoming correlation id and does not duplicate the header key', () => {
+  it('prefers a valid incoming correlation id and does not duplicate the header key', () => {
     const { req, res } = mockReqRes('from-caller');
     middleware.use(req as never, res as never, vi.fn());
     expect(service.setCorrelationId).toHaveBeenCalledWith('from-caller');
     expect(res.set).toHaveBeenCalledWith(HEADER, 'from-caller');
     expect(Object.keys(req.headers)).not.toContain(HEADER);
+  });
+
+  it('falls back to a generated id when the incoming value is invalid', () => {
+    const { req, res } = mockReqRes('contains spaces');
+    middleware.use(req as never, res as never, vi.fn());
+    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
+    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+  });
+
+  it('rejects an incoming id that is too long', () => {
+    const { req, res } = mockReqRes('a'.repeat(129));
+    middleware.use(req as never, res as never, vi.fn());
+    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
+    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+  });
+
+  it('rejects comma-joined repeated headers', () => {
+    const { req, res } = mockReqRes('aaa, bbb');
+    middleware.use(req as never, res as never, vi.fn());
+    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
+    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+  });
+
+  it('allows a custom validator to accept values the default rejects', () => {
+    const customMiddleware = new CorrelationIdMiddleware(service, {
+      ...config,
+      validate: () => true,
+    });
+    const { req, res } = mockReqRes('contains spaces');
+    customMiddleware.use(req as never, res as never, vi.fn());
+    expect(service.setCorrelationId).toHaveBeenCalledWith('contains spaces');
+    expect(res.set).toHaveBeenCalledWith(HEADER, 'contains spaces');
   });
 
   it('calls next exactly once', () => {
