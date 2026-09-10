@@ -32,6 +32,7 @@ const LIBS = [
   ['libs/widget', '@evanion/react-widget'],
   ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
+  ['libs/luhn', '@evanion/luhn'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -92,6 +93,9 @@ import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widget';
+// @evanion/luhn exports a ValidationError of its own, unrelated to @evanion/urn's.
+// Aliased here so the collision is explicit rather than a compile error.
+import { Luhn, InvalidDictionaryError, ValidationError as LuhnValidationError } from '@evanion/luhn';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -106,9 +110,11 @@ const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: 
 const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
 const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
 const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
+const checksum: string = Luhn.generate('foo').checksum;
+const luhnErr: LuhnValidationError = new InvalidDictionaryError('abc');
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
-      registry, sections, problems];
+      registry, sections, problems, checksum, luhnErr];
 `,
   );
 
@@ -145,10 +151,11 @@ import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
+import { Luhn, InvalidDictionaryError } from '@evanion/luhn';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
-  defineBlocks, validateBlocks,
+  defineBlocks, validateBlocks, Luhn, InvalidDictionaryError,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
 `,
@@ -244,7 +251,12 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   );
   const imported = (reactImport?.[1] ?? '')
     .split(',')
-    .map((specifier) => specifier.trim().split(/\s+as\s+/)[0].trim())
+    .map((specifier) =>
+      specifier
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .trim(),
+    )
     .filter(Boolean);
   const clientOnly = [
     'createContext',
