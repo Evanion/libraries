@@ -40,7 +40,7 @@ jobs:
       # target from tsconfig.json, but disables it (replacing the command with
       # an echo) whenever the resolved config sets `noEmit: true`, because
       # `tsc --build` cannot run that way. Astro's shared config sets exactly
-      # that, so astro-widget-demo's typecheck is a no-op -- and `astro build`
+      # that, so storefront's typecheck is a no-op -- and `astro build`
       # does not typecheck either, unlike `next build`. `astro check` is the
       # only thing that actually typechecks the .astro files.
       - run: npx nx run-many -t lint test build typecheck check

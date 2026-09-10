@@ -71,7 +71,7 @@ jobs:
 
       # Never publish an unverified tree.
       - name: Verify
-        # Same target list as CI, including `check`. astro-widget-demo's
+        # Same target list as CI, including `check`. storefront's
         # inferred typecheck target is a disabled no-op (Astro's config sets
         # noEmit), so `astro check` is what actually typechecks it. The release
         # gate must not be weaker than the pull request gate.
