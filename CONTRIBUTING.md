@@ -30,12 +30,45 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) t
 
 ### Scopes
 
+A scope for a package must be that package's Nx project name with the
+`@evanion/` prefix stripped -- nothing else. Nx matches commit scopes against
+project names literally, so `widget` does **not** match the project
+`react-widget`; a mismatched scope is attributed to no project at all and the
+commit is silently downgraded to a `patch` bump. Nothing errors, you just get
+the wrong version, and published versions cannot be taken back. Run
+`npx nx show projects` if you are unsure of a name.
+
+Package scopes:
+
 - **compose**: Changes to the `@evanion/compose` library
 - **urn**: Changes to the `@evanion/urn` library
-- **widget**: Changes to the `@evanion/react-widget` library
-- **docs**: Changes to documentation
+- **react-widget**: Changes to the `@evanion/react-widget` library
+- **astro-widget**: Changes to the `@evanion/astro-widget` library
+- **nestjs-correlation-id**: Changes to the `@evanion/nestjs-correlation-id` library
+- **docs**: Changes to the docs app
+- **storefront**: Changes to the storefront demo app
+- **nx-astro**: Changes to the local Nx Astro plugin
+
+Repository scopes (these are not projects and never bump a package on their
+own):
+
+- **deps** / **deps-dev**: Changes to dependencies
 - **nx**: Changes to Nx configuration
-- **deps**: Changes to dependencies
+- **ci**: Changes to CI workflows
+- **repo**: Repository-wide chores
+- **release** / **releasing**: Release tooling and the release runbook
+- **specs**: Changes under `docs/specs`
+- **libs**: Cross-cutting changes to every library
+- **types**: Cross-cutting type changes
+- **packaging**: Package metadata and publishing config
+- **prettier**: Formatting configuration
+- **repo-checks**: Changes to the workspace-invariant tests
+
+The list is enforced. `commitlint.config.js` carries it as the `scope-enum`
+rule, and the commit-msg hook rejects anything outside it. It is a static list
+on purpose -- computing the Nx project graph on every commit would make the
+hook unusably slow -- so a test in `tools/repo-checks` fails the build if a new
+releasable project is added without a matching entry.
 
 Scopes drive the per-package changelogs, so keep library changes scoped to the
 library they touch.
@@ -43,10 +76,10 @@ library they touch.
 ### Examples
 
 ```bash
-feat(widget): add error boundary support
-fix(widget): resolve type issues in renderWidget function
+feat(react-widget): add error boundary support
+fix(react-widget): resolve type issues in renderWidget function
 docs: update README with new API examples
-test(widget): add performance tests for large widget sets
+test(react-widget): add performance tests for large widget sets
 chore: update dependencies to latest versions
 ```
 

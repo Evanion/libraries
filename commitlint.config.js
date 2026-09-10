@@ -18,6 +18,46 @@ module.exports = {
         'revert', // Reverts a previous commit
       ],
     ],
+    // Scopes for packages MUST equal the Nx project name with the `@evanion/`
+    // prefix stripped. Nx resolves conventional-commit scopes against project
+    // names, so a scope that does not match a project (`widget` vs the project
+    // `react-widget`) is attributed to nothing and silently downgraded to a
+    // patch bump instead of erroring.
+    //
+    // This list is deliberately STATIC. Deriving it from the Nx project graph
+    // would run a graph computation inside the commit-msg hook on every single
+    // commit. `tools/repo-checks` has a test that fails the build if a project
+    // under nx.json's `release.projects` globs is missing from this list.
+    'scope-enum': [
+      2,
+      'always',
+      [
+        // Nx projects (bare project names).
+        'astro-widget',
+        'compose',
+        'docs',
+        'nestjs-correlation-id',
+        'nx-astro',
+        'react-widget',
+        'repo-checks',
+        'storefront',
+        'urn',
+        // Repository scopes -- not projects. Taken from the scopes already in
+        // use on main, so existing practice keeps working.
+        'ci',
+        'deps',
+        'deps-dev',
+        'libs',
+        'nx',
+        'packaging',
+        'prettier',
+        'release',
+        'releasing',
+        'repo',
+        'specs',
+        'types',
+      ],
+    ],
     'type-case': [2, 'always', 'lower-case'],
     'type-empty': [2, 'never'],
     'subject-case': [2, 'always', ['sentence-case', 'lower-case']],

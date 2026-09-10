@@ -114,6 +114,37 @@
       "fallbackCurrentVersionResolver": "disk",
       "adjustSemverBumpsForZeroMajorVersion": true
     },
+    "conventionalCommits": {
+      // TEMPORARY -- deliberate, to be reverted in a follow-up PR.
+      //
+      // Nx 22.0.x silently made `useCommitScope: true` the default. With it on,
+      // a conventional-commit scope is matched against Nx PROJECT NAMES
+      // (getCommitsRelevantToProjects in
+      // nx/src/command-line/release/utils/shared.js) with
+      // /(?<![@a-zA-Z0-9-])<scope>(?![@a-zA-Z0-9-])/. The scope this repo
+      // documented for @evanion/react-widget was `widget`, and the hyphen in
+      // `react-widget` makes that regex fail, so every `widget`-scoped commit
+      // was attributed to no project at all. semver.js:29
+      // (`if (config.useCommitScope && !isProjectScopedCommit)`) then downgrades
+      // those commits to `patch`, so `feat(widget)!:` with a BREAKING CHANGE
+      // footer resolved as 0.1.1 instead of 0.2.0. Nothing errors, the version
+      // is just wrong, and published npm versions are immutable.
+      //
+      // Turning it off restores attribution by CHANGED FILES, which is what
+      // Nx's published release guide still describes.
+      //
+      // The tradeoff: with attribution by files, a commit touching a root file
+      // fans out to every project -- `nx show projects --affected
+      // --files=package-lock.json` returns all of them. A `deps` commit bumps
+      // everything rather than nothing: over-bumping, which is recoverable,
+      // instead of under-bumping, which is not.
+      //
+      // Turn this back on once (a) this release's tags reset the changelog
+      // range so no `widget`-scoped commit is in range any more, and (b) the
+      // `scope-enum` rule in commitlint.config.js has been enforcing
+      // project-name scopes long enough that history is clean.
+      "useCommitScope": false
+    },
     "changelog": {
       "workspaceChangelog": false,
       "projectChangelogs": {

@@ -23,6 +23,9 @@
     },
     {
       "path": "./tools/nx-astro"
+    },
+    {
+      "path": "./tools/repo-checks"
     }
   ],
   "compilerOptions": {
