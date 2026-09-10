@@ -1,6 +1,6 @@
 {
   "name": "@evanion/astro-widget",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Render CMS-driven Astro sections from structured block data. Build-time, zero runtime.",
   "keywords": [
     "astro",
