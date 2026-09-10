@@ -7,13 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Compute versions and changelogs without publishing anything'
+        description: 'Dry run'
         type: boolean
         default: true
-      first-release:
-        description: 'First release from this repo (no git tags exist yet)'
-        type: boolean
-        default: false
 
 permissions:
   contents: write # create tags and GitHub releases
@@ -92,11 +88,18 @@ jobs:
         # Inputs go through env rather than being interpolated into the script.
         env:
           DRY_RUN: ${{ inputs.dry-run }}
-          FIRST_RELEASE: ${{ inputs.first-release }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # --skip-publish matters. `nx release` publishes on its own:
+        # release.js:261 is
+        # `shouldPublish = !!args.yes && !args.skipPublish && hasNewVersion`,
+        # so without it this step publishes and the Publish step below then
+        # publishes a second time. On the 2.0.0 release that produced
+        # "409 Cannot publish over previously staged version" for the two
+        # packages npm had not finished promoting yet -- everything landed,
+        # but the run failed and the publish step's own dry-run guard was not
+        # what was gating npm access.
         run: |
-          args=()
-          [ "$FIRST_RELEASE" = "true" ] && args+=(--first-release)
+          args=(--skip-publish)
           if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--yes); fi
           echo "Running: nx release ${args[*]}"
           npx nx release "${args[@]}"
@@ -104,7 +107,6 @@ jobs:
       - name: Publish to npm
         if: ${{ !inputs.dry-run }}
         env:
-          FIRST_RELEASE: ${{ inputs.first-release }}
           # No NODE_AUTH_TOKEN and no NPM_TOKEN, deliberately.
           #
           # The npm CLI detects the GitHub Actions OIDC environment and exchanges
@@ -120,7 +122,4 @@ jobs:
           #
           # Provenance is automatic under trusted publishing, so neither
           # NPM_CONFIG_PROVENANCE nor --provenance is needed.
-        run: |
-          args=()
-          [ "$FIRST_RELEASE" = "true" ] && args+=(--first-release)
-          npx nx release publish "${args[@]}"
+        run: npx nx release publish
