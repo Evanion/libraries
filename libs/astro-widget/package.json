@@ -57,6 +57,6 @@
     "provenance": true
   },
   "peerDependencies": {
-    "astro": ">=5"
+    "astro": "^7.3.1"
   }
 }
