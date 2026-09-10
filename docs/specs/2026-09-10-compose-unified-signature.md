@@ -1,6 +1,6 @@
 # compose: one signature, readable diagnostics
 
-Status: approved, not implemented
+Status: Implemented in #79. Corrected below where the implementation measured the design wrong.
 Package: `@evanion/compose` (repo 2.0.0, npm 1.0.8 — breaking changes are free until 2.0.0 ships)
 Closes: #19, #20, #21.
 
@@ -75,11 +75,11 @@ export type ValidateProvider<T> = T extends readonly [infer C, infer P]
   ? C extends AnyComponent
     ? P extends AnyComponent
       ? ComposeError<'second tuple element must be props, not another component'>
-      : [P] extends [PropsWithoutChildren<C>]
-        ? Exclude<keyof P, keyof PropsWithoutChildren<C>> extends never
+      : Exclude<keyof P, keyof PropsWithoutChildren<C>> extends never
+        ? [P] extends [PropsWithoutChildren<C>]
           ? T
-          : ComposeError<`unknown prop '${Extract<Exclude<keyof P, keyof PropsWithoutChildren<C>>, string>}'`>
-        : readonly [C, PropsWithoutChildren<C>]
+          : readonly [C, PropsWithoutChildren<C>]
+        : ComposeError<`unknown prop '${Extract<Exclude<keyof P, keyof PropsWithoutChildren<C>>, string>}'`>
     : ComposeError<'first tuple element must be a component'>
   : T extends AnyComponent
     ? Record<string, never> extends PropsWithoutChildren<T>
@@ -94,6 +94,13 @@ export type ValidateProviders<T extends ProviderArray> = {
 
 The missing-or-wrong-prop branch deliberately returns the real expected shape
 rather than a carrier, because that diagnostic is already readable.
+
+The excess-key check must run BEFORE the assignability check, not nested inside
+it. An earlier draft of this spec had them the other way round, which #79
+measured as still producing #20's 13-line `every` cascade: a component whose
+props are all optional is a weak type, so `{ b: 1 }` is not assignable to it and
+the case fell through to the repaired-shape branch — the exact comparison this
+design exists to avoid.
 
 Parameterising the failure branch instead of hardcoding `never` is prior art:
 ts-toolbelt's `Any.Try<A1, A2, Catch>`. Naming the message into the key is the

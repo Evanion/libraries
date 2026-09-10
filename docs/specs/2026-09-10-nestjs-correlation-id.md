@@ -1,6 +1,6 @@
 # nestjs-correlation-id: ESM-only, AsyncLocalStorage, platform-neutral
 
-Status: #32 approved. #31, #33, #34 designed but not separately approved.
+Status: implemented in #80.
 Package: `@evanion/nestjs-correlation-id` (repo 2.0.0, npm 1.1.0 — breaking changes are free until 2.0.0 ships)
 Closes: #32. Designs #31, #33, #34.
 
@@ -111,7 +111,7 @@ Remaining #33 cleanups, all independent and low-risk:
 ## #34: tests
 
 No e2e tests exist; only two `.spec.ts` unit files. Needs `@nestjs/testing` plus
-`supertest`, asserting:
+a raw `node:http` client, asserting:
 
 - header casing on the wire, post-#28
 - a genuine request-scope test — the current two-module test does not exercise
@@ -120,6 +120,10 @@ No e2e tests exist; only two `.spec.ts` unit files. Needs `@nestjs/testing` plus
 - that a singleton holding `HttpService` is constructed once across requests,
   the regression guard for #31
 - `onModuleInit` fires, the other #31 symptom
+
+Not `supertest`: its fetch-shaped API lower-cases every header name, so it
+cannot see the raw casing the first item asks to assert. A raw `node:http`
+client can, and it avoids a root lockfile change while other work is in flight.
 
 ## Migration
 
