@@ -1,6 +1,6 @@
 # react-widget: drop context, become RSC-capable
 
-Status: approved, not implemented
+Status: Implemented in #81. Corrected below where the implementation measured the design wrong.
 Package: `@evanion/react-widget` (0.1.0 published; `adjustSemverBumpsForZeroMajorVersion` in `nx.json` makes a breaking change a 0.2.0 bump)
 Closes: #25, #26, #27, #71. Reverts #24 and part of #23's approach.
 
@@ -165,8 +165,14 @@ public English-language library. Fix in the astro pass.
 
 `scripts/verify-packaging.mjs:191` asserts the `'use client'` directive is
 present. Invert it to assert absence, and add a grep of `dist/index.js` for
-`createContext(` and `useContext(` as a permanent regression guard. The directive
-check alone would not catch a context reintroduced without it.
+the imported specifiers on its `react` import as a permanent regression guard.
+The directive check alone would not catch a context reintroduced without it.
+
+Do not grep the bundle for `createContext(`. Rolldown renames imported bindings,
+so a build that genuinely creates and consumes a context emits
+`import { createContext as t } from "react"` and calls `t(...)`. #81 confirmed
+`grep -c "createContext(" dist/index.js` returns 0 on exactly such a build.
+Checking the import specifiers catches it either way, and is stronger.
 
 ## Disposition of existing work
 
@@ -194,7 +200,8 @@ check alone would not catch a context reintroduced without it.
 
 - Renders under the `react-server` condition without throwing. This is the test
   whose absence let the original directive bug through.
-- `dist/index.js` contains no `createContext(` or `useContext(`.
+- `dist/index.js` imports no client-only React API. Assert on the `react`
+  import's specifiers, not on call sites — see the packaging section.
 - Nested subtree state survives a parent re-render, the property
   `regressions.test.tsx:244-272` checks, now without the `Output` identity
   mechanism.
