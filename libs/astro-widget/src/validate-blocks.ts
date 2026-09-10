@@ -13,7 +13,7 @@ export function validateBlocks(
   required: Record<string, string[]> = {}
 ): BlockProblem[] {
   if (!Array.isArray(items)) {
-    return [{ index: -1, type: '-', message: 'sektionslistan är inte en lista' }];
+    return [{ index: -1, type: '-', message: 'blocks is not a list' }];
   }
 
   const problems: BlockProblem[] = [];
@@ -22,7 +22,7 @@ export function validateBlocks(
     const type = typeof item?.type === 'string' ? item.type : '-';
 
     if (!(type in registry)) {
-      problems.push({ index, type, message: 'okänd blocktyp' });
+      problems.push({ index, type, message: 'unknown block type' });
     } else {
       for (const field of required[type] ?? []) {
         const value = item[field];
@@ -31,7 +31,7 @@ export function validateBlocks(
           value === null ||
           (typeof value === 'string' && value.trim() === '');
         if (blank) {
-          problems.push({ index, type, message: `saknar fältet ${field}` });
+          problems.push({ index, type, message: `missing field ${field}` });
         }
       }
     }
