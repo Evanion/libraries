@@ -36,15 +36,20 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     } = this.correlationConfig;
     const key = header.toLowerCase();
     const incoming = singleValue(req.headers[key]);
-    const generated = this.correlationService.getCorrelationId();
-    const correlationId = incoming && validate(incoming) ? incoming : generated;
+    // The generator runs only when nothing usable arrived, so a counter- or
+    // sequence-backed generator is not advanced for an id that gets discarded.
+    const correlationId =
+      incoming && validate(incoming)
+        ? incoming
+        : this.correlationService.generate();
 
     if (!req.headers[key]) req.headers[key] = correlationId;
     // setHeader preserves the casing it is given, so the configured casing is
     // what goes out on the wire.
     if (res.getHeader(header) === undefined) res.setHeader(header, correlationId);
 
-    this.correlationService.setCorrelationId(correlationId);
-    next();
+    // Everything downstream of next() -- guards, interceptors, the controller,
+    // and anything they await -- runs inside this context.
+    this.correlationService.run(correlationId, next);
   }
 }
