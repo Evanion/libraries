@@ -115,7 +115,6 @@
       "adjustSemverBumpsForZeroMajorVersion": true
     },
     "conventionalCommits": {
-      // TEMPORARY -- deliberate, to be reverted in a follow-up PR.
       //
       // Nx 22.0.x silently made `useCommitScope: true` the default. With it on,
       // a conventional-commit scope is matched against Nx PROJECT NAMES
@@ -139,11 +138,11 @@
       // everything rather than nothing: over-bumping, which is recoverable,
       // instead of under-bumping, which is not.
       //
-      // Turn this back on once (a) this release's tags reset the changelog
-      // range so no `widget`-scoped commit is in range any more, and (b) the
-      // `scope-enum` rule in commitlint.config.js has been enforcing
-      // project-name scopes long enough that history is clean.
-      "useCommitScope": false
+      // Back on as of the 2.0.0 release: its tags reset the changelog range,
+      // so no `widget`-scoped commit is in range any more, and `scope-enum` in
+      // commitlint.config.js now rejects a scope that is not a project name.
+      // Kept on so a root-file commit does not fan out to every package.
+      "useCommitScope": true
     },
     "changelog": {
       "workspaceChangelog": false,
