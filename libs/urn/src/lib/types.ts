@@ -13,8 +13,7 @@ export type IFullURN<
   URN extends string,
   NID extends string,
   NSS extends string,
-  x extends string = '',
-> = `${URN}:${NID}:${NSS}${x}`;
+> = `${URN}:${NID}:${NSS}`;
 
 /**
  * The object returned by `URN.parse`.
@@ -32,8 +31,11 @@ export interface ParsedURN {
   /**
    * The namespace specific string.
    *
-   * When the parsed NID differs from the parsing class's own `nid`, the NID is
-   * retained here so the namespace is not silently lost.
+   * Returned in its original case, with percent-triplets intact.
+   *
+   * When the parsed scheme differs from the parsing class's own `urn`, the
+   * whole original identifier is retained here; when only the NID differs, the
+   * NID is retained here. Either way the namespace is not silently lost.
    */
   nss: string;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { URN } from './urn.js';
+import { decodeNss, encodeNss, URN } from './urn.js';
 import { InvalidError, ValidationError } from './exceptions.js';
 import type { IFullURN, ParsedURN } from './types.js';
 
@@ -32,6 +32,23 @@ describe('urn types', () => {
       URN.belongsToNamespace('urn:a:b', 'a'),
     ).toEqualTypeOf<boolean>();
     expectTypeOf(URN.extractId('urn:a:b')).toEqualTypeOf<string>();
+    expectTypeOf(URN.equals('urn:a:b', 'urn:a:b')).toEqualTypeOf<boolean>();
+  });
+
+  it('types the three role-scoped grammars as regexes', () => {
+    expectTypeOf(URN.schemeGrammar).toEqualTypeOf<RegExp>();
+    expectTypeOf(URN.nidGrammar).toEqualTypeOf<RegExp>();
+    expectTypeOf(URN.nssGrammar).toEqualTypeOf<RegExp>();
+  });
+
+  it('no longer exposes a single flat isValid regex', () => {
+    // @ts-expect-error isValid was replaced by the three grammar getters
+    void URN.isValid;
+  });
+
+  it('types the percent-encoding helpers as string to string', () => {
+    expectTypeOf(encodeNss).toEqualTypeOf<(raw: string) => string>();
+    expectTypeOf(decodeNss).toEqualTypeOf<(encoded: string) => string>();
   });
 
   it('keeps InvalidError assignable to ValidationError', () => {
@@ -51,6 +68,10 @@ describe('urn types', () => {
     const ok: IFullURN<'urn', 'user', string> = 'urn:user:123';
     expectTypeOf(ok).toMatchTypeOf<string>();
 
+    // @ts-expect-error IFullURN takes three type parameters, not four
+    const dead: IFullURN<'urn', 'user', string, ''> = 'urn:user:123';
+    void dead;
+
     // @ts-expect-error wrong namespace for this URN type
     const bad: IFullURN<'urn', 'user', string> = 'urn:order:123';
     void bad;
@@ -69,5 +90,6 @@ describe('urn types', () => {
     expectTypeOf(
       TRN.belongsToNamespace('trn:bar:foo', 'bar'),
     ).toEqualTypeOf<boolean>();
+    expectTypeOf(TRN.nidGrammar).toEqualTypeOf<RegExp>();
   });
 });

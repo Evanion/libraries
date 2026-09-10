@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CorrelationIdMiddleware } from './correlation-id.middleware.js';
 import { CorrelationService } from './correlation.service.js';
-import { CorrelationConfig } from './interfaces/correlation-config.interface.js';
+import type { CorrelationConfig } from './interfaces/correlation-config.interface.js';
 
 const HEADER = 'X-Correlation-Id';
 
@@ -10,30 +11,56 @@ const config: CorrelationConfig = {
   generator: () => '12345',
 };
 
-function mockService(existing = 'test123') {
+function mockService(generated = 'test123') {
+  const seen: string[] = [];
   return {
-    getCorrelationId: vi.fn(() => existing),
-    setCorrelationId: vi.fn(),
-  } as unknown as CorrelationService;
+    seen,
+    generate: vi.fn(() => generated),
+    run: vi.fn(<T,>(correlationId: string, callback: () => T): T => {
+      seen.push(correlationId);
+      return callback();
+    }),
+  } as unknown as CorrelationService & { seen: string[] };
 }
 
-function mockReqRes(incoming?: string) {
+/**
+ * Models what node:http actually gives a middleware: `req.headers` keyed by
+ * lower-case name, `res.getHeader`/`res.setHeader` case-insensitive on lookup
+ * but preserving the casing they were given. The old mock returned the same
+ * value for every header name, which made casing untestable by construction.
+ */
+function mockReqRes(incoming?: string | string[]) {
   const req = {
-    get: vi.fn((name: string) =>
-      name.toLowerCase() === HEADER.toLowerCase() ? incoming : undefined,
-    ),
-    headers: {} as Record<string, unknown>,
+    headers: {} as Record<string, string | string[] | undefined>,
   };
+  if (incoming !== undefined) req.headers[HEADER.toLowerCase()] = incoming;
+
+  const sent = new Map<string, { name: string; value: string }>();
   const res = {
-    get: vi.fn(() => undefined),
-    set: vi.fn(),
-    headers: {} as Record<string, unknown>,
+    getHeader: vi.fn(
+      (name: string) => sent.get(name.toLowerCase())?.value as string | undefined,
+    ),
+    setHeader: vi.fn((name: string, value: string) => {
+      sent.set(name.toLowerCase(), { name, value });
+    }),
   };
-  return { req, res };
+  return { req, res, sent };
 }
+
+const run = (
+  middleware: CorrelationIdMiddleware,
+  req: { headers: Record<string, string | string[] | undefined> },
+  res: { getHeader: unknown; setHeader: unknown },
+  next: (err?: unknown) => void = vi.fn(),
+) =>
+  middleware.use(
+    req as unknown as IncomingMessage,
+    res as unknown as ServerResponse,
+    next,
+  );
 
 describe('CorrelationIdMiddleware', () => {
-  let service: CorrelationService;
+  let service: CorrelationService & { seen: string[] };
   let middleware: CorrelationIdMiddleware;
 
   beforeEach(() => {
@@ -45,52 +72,65 @@ describe('CorrelationIdMiddleware', () => {
     expect(middleware).toBeDefined();
   });
 
+  it('reads the incoming id from the raw lower-case header key', () => {
+    const { req, res } = mockReqRes('from-caller');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['from-caller']);
+  });
+
   it('sets the correlation id on the request under the canonical lower-case key', () => {
     const { req, res } = mockReqRes(undefined);
-    middleware.use(req as never, res as never, vi.fn());
+    run(middleware, req, res);
     expect(req.headers['x-correlation-id']).toBe('test123');
     expect(Object.keys(req.headers)).not.toContain(HEADER);
   });
 
-  it('sets the correlation id on the response using the configured header casing', () => {
-    const { req, res } = mockReqRes('test123');
-    middleware.use(req as never, res as never, vi.fn());
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+  it('sets the response header with the configured casing', () => {
+    const { req, res, sent } = mockReqRes('test123');
+    run(middleware, req, res);
+    expect(sent.get('x-correlation-id')).toEqual({
+      name: HEADER,
+      value: 'test123',
+    });
   });
 
-  it('stores the correlation id on the service', () => {
+  it('runs the rest of the request inside a correlation context', () => {
     const { req, res } = mockReqRes('test123');
-    middleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
+    const next = vi.fn();
+    run(middleware, req, res, next);
+    expect(service.run).toHaveBeenCalledTimes(1);
+    expect(service.seen).toEqual(['test123']);
+    expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('prefers a valid incoming correlation id and does not duplicate the header key', () => {
+  it('does not call the generator when a usable id arrives with the request', () => {
     const { req, res } = mockReqRes('from-caller');
-    middleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('from-caller');
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'from-caller');
-    expect(Object.keys(req.headers)).not.toContain(HEADER);
+    run(middleware, req, res);
+    expect(service.generate).not.toHaveBeenCalled();
   });
 
   it('falls back to a generated id when the incoming value is invalid', () => {
     const { req, res } = mockReqRes('contains spaces');
-    middleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
   });
 
   it('rejects an incoming id that is too long', () => {
     const { req, res } = mockReqRes('a'.repeat(129));
-    middleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
   });
 
   it('rejects comma-joined repeated headers', () => {
     const { req, res } = mockReqRes('aaa, bbb');
-    middleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('test123');
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'test123');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
+  });
+
+  it('rejects an array-valued header rather than picking one element', () => {
+    const { req, res } = mockReqRes(['aaa', 'bbb']);
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
   });
 
   it('allows a custom validator to accept values the default rejects', () => {
@@ -99,26 +139,22 @@ describe('CorrelationIdMiddleware', () => {
       validate: () => true,
     });
     const { req, res } = mockReqRes('contains spaces');
-    customMiddleware.use(req as never, res as never, vi.fn());
-    expect(service.setCorrelationId).toHaveBeenCalledWith('contains spaces');
-    expect(res.set).toHaveBeenCalledWith(HEADER, 'contains spaces');
+    run(customMiddleware, req, res);
+    expect(service.seen).toEqual(['contains spaces']);
   });
 
   it('calls next exactly once', () => {
     const { req, res } = mockReqRes('test123');
     const next = vi.fn();
-    middleware.use(req as never, res as never, next);
+    run(middleware, req, res, next);
     expect(next).toHaveBeenCalledTimes(1);
   });
 
   it('does not overwrite a correlation id already on the response', () => {
-    const { req } = mockReqRes('test123');
-    const res = {
-      get: vi.fn(() => 'already-set'),
-      set: vi.fn(),
-      headers: {} as Record<string, unknown>,
-    };
-    middleware.use(req as never, res as never, vi.fn());
-    expect(res.set).not.toHaveBeenCalled();
+    const { req, res } = mockReqRes('test123');
+    res.setHeader(HEADER, 'already-set');
+    res.setHeader.mockClear();
+    run(middleware, req, res);
+    expect(res.setHeader).not.toHaveBeenCalled();
   });
 });

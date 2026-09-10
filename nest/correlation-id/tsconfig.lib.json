@@ -1,12 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist/esm",
+    "outDir": "dist",
     "rootDir": "src",
-    "tsBuildInfoFile": "dist/esm/tsconfig.lib.tsbuildinfo",
+    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
     "emitDeclarationOnly": false,
-    "module": "esnext",
-    "moduleResolution": "bundler",
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -18,7 +16,6 @@
     "src/**/*.test.ts",
     "src/**/*.test-d.ts",
     "vite.config.ts",
-    "eslint.config.mjs",
-    "tools"
+    "eslint.config.mjs"
   ]
 }

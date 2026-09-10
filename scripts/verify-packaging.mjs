@@ -124,7 +124,7 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
       'react@19',
       'react-dom@19',
       'reflect-metadata',
-      '@nestjs/common@11',
+      '@nestjs/common@12',
       'rxjs',
       'typescript@6',
       '@types/react@19',
@@ -156,25 +156,56 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   run('node', ['runtime.mjs'], dir);
   console.log('  ✓ every package imports cleanly as ESM');
 
-  // nestjs-correlation-id ships a dual build on purpose: NestJS 12 is ESM-only
-  // but 10 and 11 are CommonJS, so its CJS half is the only way those consumers
-  // can require() it. Assert both halves resolve, or a broken exports map would
-  // go unnoticed until a CJS user hit it.
-  writeFileSync(
-    join(dir, 'runtime.cjs'),
-    `
-require('reflect-metadata');
-const m = require('@evanion/nestjs-correlation-id');
-const need = ['CorrelationModule','CorrelationService','CorrelationIdMiddleware','withCorrelation','CORRELATION_ID_HEADER'];
-const missing = need.filter((k) => m[k] === undefined);
-if (missing.length) { console.error('not exported via require():', missing.join(', ')); process.exit(1); }
-if (!m.CorrelationModule.forRoot().global) { console.error('forRoot() lost its shape under CJS'); process.exit(1); }
-`,
+  // nestjs-correlation-id used to ship a dual build, which handed Nest two
+  // unrelated CorrelationService class objects whenever one copy was require()d
+  // and the other imported -- and CorrelationService is a DI token. It is now
+  // ESM only. Assert that positively: exactly one build in the tarball, no
+  // `require` condition in the exports map. A reintroduced CJS half would
+  // otherwise go unnoticed until someone hit the dual load.
+  const nestPkg = JSON.parse(
+    readFileSync(
+      join(
+        dir,
+        'node_modules',
+        '@evanion',
+        'nestjs-correlation-id',
+        'package.json',
+      ),
+      'utf8',
+    ),
   );
-  run('node', ['runtime.cjs'], dir);
-  console.log(
-    '  ✓ nestjs-correlation-id also resolves via require() (CJS half)',
+  const conditions = Object.keys(nestPkg.exports['.']);
+  if (conditions.includes('require')) {
+    console.error(
+      'nestjs-correlation-id exports a `require` condition again -- that is the dual-package hazard',
+    );
+    failed = true;
+  }
+  if (nestPkg.type !== 'module') {
+    console.error('nestjs-correlation-id lost "type": "module"');
+    failed = true;
+  }
+  const nestDist = join(
+    dir,
+    'node_modules',
+    '@evanion',
+    'nestjs-correlation-id',
+    'dist',
   );
+  const distDirs = readdirSync(nestDist, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name !== 'interfaces')
+    .map((e) => e.name);
+  if (distDirs.length) {
+    console.error(
+      `nestjs-correlation-id ships more than one build: dist/${distDirs.join(', dist/')}`,
+    );
+    failed = true;
+  }
+  if (!failed) {
+    console.log(
+      '  ✓ nestjs-correlation-id ships one ESM build, no require condition',
+    );
+  }
 
   // react-widget is importable from a React Server Component, which holds only
   // while it stays off createContext/useContext/Component -- none of which
