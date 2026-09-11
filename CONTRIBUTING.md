@@ -74,6 +74,32 @@ releasable project is added without a matching entry.
 Scopes drive the per-package changelogs, so keep library changes scoped to the
 library they touch.
 
+### Version Bumps
+
+Not every type bumps a version. Nx's conventional-commits config
+(`node_modules/nx/dist/src/command-line/release/config/conventional-commits.js`)
+maps each type to a `semverBump`:
+
+- **feat** -- minor
+- **fix** -- patch
+- Everything else (**perf**, **refactor**, **docs**, **build**, **types**,
+  **chore**, **examples**, **test**, **style**, **ci**, **revert**) -- none
+
+Only `feat` and `fix` move a version. A `perf` or `refactor` commit still
+shows up in the changelog; it just bumps nothing.
+
+This compounds with the scope rule above in the worst possible way. A `fix`
+whose scope isn't a project name isn't rejected and isn't ignored -- Nx falls
+back to attributing it by the files it touched, and an infrastructure commit
+almost always touches root files (`package.json`, workflow configs,
+`nx.json`). Root files belong to every package, so the patch bump lands on
+all of them, not none of them. `fix(release): stop the version step
+publishing` is the commit that did this: `release` matches no project, so a
+one-line release-tooling fix now wants to patch-bump four unrelated packages.
+
+Use `ci` or `chore` for workflow, tooling and repo-config changes, never
+`fix`, unless the change is actually scoped to one package.
+
 ### Examples
 
 ```bash
