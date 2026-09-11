@@ -77,7 +77,8 @@
   "workspaces": [
     "libs/*",
     "apps/*",
-    "nest/*"
+    "nest/*",
+    "tools/*"
   ],
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -1,5 +1,5 @@
-import { parseJson, workspaceRoot } from '@nx/devkit';
-import { execFileSync } from 'node:child_process';
+import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
+import { findMatchingProjects } from 'nx/src/devkit-internals';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -58,51 +58,18 @@ function readReleaseProjectPatterns(): string[] {
   return Array.isArray(patterns) ? patterns : [patterns as string];
 }
 
-/**
- * Resolves nx.json's `release.projects` patterns through Nx itself, so the
- * matching semantics here are the ones `nx release` uses.
- *
- * This shells out rather than calling `createProjectGraphAsync()` in-process.
- * Building the graph from inside a running Nx task fails when the daemon is
- * off -- which is exactly how CI runs it:
- *
- *   ProjectGraphError: Failed to process project graph.
- *   ProjectsWithNoNameError: The projects in the following directories have
- *   no name provided: tools/nx-astro, tools/repo-checks
- *
- * Root `package.json` has no `tools/*` workspace entry, so on a nested graph
- * build those two are seen only through their vitest configs and come out
- * unnamed. A fresh `nx` process resolves them correctly.
- */
-function releaseProjectNames(): string[] {
-  const args = ['nx', 'show', 'projects', '--json'];
-  for (const pattern of readReleaseProjectPatterns()) {
-    args.push('--projects', pattern);
-  }
-
-  // Strip the NX_* task variables so the child does not believe it is nested.
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith('NX_')),
-  );
-
-  const stdout = execFileSync('npx', args, {
-    cwd: workspaceRoot,
-    encoding: 'utf-8',
-    env,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-
-  return JSON.parse(stdout) as string[];
-}
-
 /** `@evanion/react-widget` -> `react-widget`. This is what Nx matches a scope against. */
 function bareName(projectName: string): string {
   return projectName.replace(/^@[^/]+\//, '');
 }
 
 describe('commitlint scope-enum', () => {
-  it('covers every project nx.json releases', () => {
-    const releaseProjects = releaseProjectNames();
+  it('covers every project nx.json releases', async () => {
+    const projectGraph = await createProjectGraphAsync({ exitOnError: false });
+    const releaseProjects = findMatchingProjects(
+      readReleaseProjectPatterns(),
+      projectGraph.nodes,
+    );
 
     expect(
       releaseProjects.length,
