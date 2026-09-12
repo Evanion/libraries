@@ -2,7 +2,6 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createWidgets } from './widget.js';
 
-// Real-world CMS components
 const HeroBanner = ({
   title,
   subtitle,
@@ -135,7 +134,6 @@ describe('Widget System - CMS Integration Example', () => {
   });
 
   it('should render a complete e-commerce homepage', () => {
-    // Example: Complete e-commerce homepage with multiple widget types
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -221,14 +219,11 @@ describe('Widget System - CMS Integration Example', () => {
 
     render(<Widgets items={homepageItems} />);
 
-    // Verify homepage structure
     expect(screen.getByTestId('homepage')).toBeInTheDocument();
 
-    // Verify all widget sections are rendered
     const widgetSections = screen.getAllByTestId('widget-section');
     expect(widgetSections).toHaveLength(4);
 
-    // Verify hero banner
     expect(screen.getByTestId('hero-banner')).toBeInTheDocument();
     expect(screen.getByText('Welcome to Our Store')).toBeInTheDocument();
     expect(
@@ -236,14 +231,12 @@ describe('Widget System - CMS Integration Example', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Shop Now')).toBeInTheDocument();
 
-    // Verify product grid
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
     expect(screen.getByText('Wireless Headphones')).toBeInTheDocument();
     expect(screen.getByText('$99.99')).toBeInTheDocument();
     expect(screen.getByText('Smart Watch')).toBeInTheDocument();
     expect(screen.getByText('$199.99')).toBeInTheDocument();
 
-    // Verify testimonial
     expect(screen.getByTestId('testimonial')).toBeInTheDocument();
     expect(
       screen.getByText('"This product changed my life!"'),
@@ -251,7 +244,6 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.getByText('Jane Smith')).toBeInTheDocument();
     expect(screen.getByText('Tech Corp')).toBeInTheDocument();
 
-    // Verify newsletter signup
     expect(screen.getByTestId('newsletter-signup')).toBeInTheDocument();
     expect(screen.getByText('Stay Updated')).toBeInTheDocument();
     expect(
@@ -260,7 +252,6 @@ describe('Widget System - CMS Integration Example', () => {
   });
 
   it('should handle dynamic content updates', () => {
-    // Example: CMS content that changes based on user preferences or A/B testing
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -285,11 +276,9 @@ describe('Widget System - CMS Integration Example', () => {
 
     const { rerender } = render(<Widgets items={initialItems} />);
 
-    // Verify initial content
     expect(screen.getByText('Version A')).toBeInTheDocument();
     expect(screen.getByText('Original design')).toBeInTheDocument();
 
-    // Simulate A/B test variant
     const variantItems = [
       {
         id: 'hero1',
@@ -306,7 +295,6 @@ describe('Widget System - CMS Integration Example', () => {
 
     rerender(<Widgets items={variantItems} />);
 
-    // Verify updated content
     expect(screen.getByText('Version B')).toBeInTheDocument();
     expect(screen.getByText('Improved design')).toBeInTheDocument();
     expect(screen.getByText('Get Started')).toBeInTheDocument();
@@ -314,7 +302,6 @@ describe('Widget System - CMS Integration Example', () => {
   });
 
   it('should handle mixed widget types in different layouts', () => {
-    // Example: Different page layouts using the same widget system
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -324,7 +311,6 @@ describe('Widget System - CMS Integration Example', () => {
       },
     });
 
-    // Blog layout
     const blogItems = [
       {
         id: 'hero1',
@@ -346,7 +332,6 @@ describe('Widget System - CMS Integration Example', () => {
       screen.getByText('A deep dive into our latest insights'),
     ).toBeInTheDocument();
 
-    // Contact page layout
     const contactItems = [
       {
         id: 'contact1',
@@ -387,7 +372,6 @@ describe('Widget System - CMS Integration Example', () => {
   });
 
   it('should handle complex nested data structures', () => {
-    // Example: Complex CMS data with nested objects and arrays
     const { Widgets } = createWidgets({
       components: {
         productGrid: ProductGrid,
@@ -444,14 +428,12 @@ describe('Widget System - CMS Integration Example', () => {
 
     render(<Widgets items={complexItems} />);
 
-    // Verify product grid with complex data
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
     expect(screen.getByText('Premium Headphones')).toBeInTheDocument();
     expect(screen.getByText('$299.99')).toBeInTheDocument();
     expect(screen.getByText('Gaming Mouse')).toBeInTheDocument();
     expect(screen.getByText('$79.99')).toBeInTheDocument();
 
-    // Verify testimonial with complex data
     expect(screen.getByTestId('testimonial')).toBeInTheDocument();
     expect(
       screen.getByText(

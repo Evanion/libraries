@@ -14,12 +14,6 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
     }),
   ],
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
-  // Configuration for building your library.
-  // See: https://vitejs.dev/guide/build.html#library-mode
   build: {
     outDir: './dist',
     emptyOutDir: true,
@@ -28,16 +22,18 @@ export default defineConfig(() => ({
       transformMixedEsModules: true,
     },
     lib: {
-      // Could also be a dictionary or array of multiple entry points.
       entry: 'src/index.ts',
       name: '@evanion/react-widget',
       fileName: 'index',
-      // Change this to the formats you want to support.
-      // Don't forget to update your package.json as well.
+      // ES only, which is the single form package.json declares: `type:
+      // module` plus an exports map whose every condition points at
+      // `dist/index.js`.
       formats: ['es' as const],
     },
     rolldownOptions: {
-      // External packages that should not be bundled into your library.
+      // React is a peer dependency, so it resolves to the consumer's copy.
+      // Bundling it would put a second React in the graph, and an element
+      // created by one copy is not recognised by the other's renderer.
       external: ['react', 'react-dom', 'react/jsx-runtime'],
     },
   },
@@ -71,12 +67,13 @@ export default defineConfig(() => ({
           exclude: ['**/*.server.{test,spec}.{ts,tsx}'],
         },
       },
-      // This package is importable from a React Server Component because it
-      // never carries 'use client'. React's `react-server` export condition
-      // omits createContext, useContext, Component and every stateful hook, so
-      // a reintroduced import breaks that silently: the build succeeds and
-      // every jsdom test still passes. This project resolves react under that
-      // condition so the failure surfaces here.
+      // The project that holds this package to its Server Component promise.
+      // `react/package.json` maps the `react-server` condition to
+      // `react.react-server.js`, which exports no createContext, useContext,
+      // Component or stateful hook. Nothing else in the repo resolves that
+      // condition -- the library build and the jsdom project both get the
+      // default entry, where every one of those exports is present -- so an
+      // import of one fails here and nowhere else.
       {
         extends: true,
         resolve: { conditions: ['react-server'] },

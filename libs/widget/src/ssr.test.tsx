@@ -44,8 +44,9 @@ describe('server rendering', () => {
     container.innerHTML = html;
     document.body.appendChild(container);
 
-    // A hydration mismatch is reported through console.error, and React
-    // silently repairs the DOM afterwards -- so the spy is the assertion.
+    // React reports a hydration mismatch through console.error and then
+    // repairs the DOM, so the rendered result looks correct either way and the
+    // spy is the only thing that can tell the difference.
     const errorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);

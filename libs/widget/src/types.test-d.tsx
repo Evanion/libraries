@@ -84,7 +84,7 @@ describe('widget type inference', () => {
     ]);
   });
 
-  it('rejects `children` on a component that does not accept children (#25.2)', () => {
+  it('rejects `children` on a component that does not accept children', () => {
     const { defineItems } = createWidgets({ components });
 
     defineItems([

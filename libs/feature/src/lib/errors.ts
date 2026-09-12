@@ -1,11 +1,13 @@
 import type { FeatureKey } from './types.js';
 
 /**
- * Configuration errors, all thrown at construction.
+ * Base class for every error this library throws. All of them are raised by
+ * `createFeatures`; `resolve`, `plan` and `toggle` are total.
  *
- * This follows the lesson from the luhn audit: reference implementations enforce
- * their constraints when the configuration is supplied, not when it is used.
- * Checking at use is how `@evanion/luhn` ended up with issue #87.
+ * Constraints are enforced where the configuration is supplied rather than
+ * where it is read, so a store a caller holds cannot fail mid-evaluation. It is
+ * the same split `@evanion/luhn` and `@evanion/token` draw between
+ * `createLuhn`/`createToken` and their operations.
  */
 export class FeatureConfigError extends Error {
   constructor(message: string) {

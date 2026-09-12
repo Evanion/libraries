@@ -1,13 +1,10 @@
-/**
- * Every error this library throws is raised by `createToken`. `generate` and
- * `validate` are total: an accepted configuration cannot fail at use.
- */
-
 const codePointList = (offending: readonly string[]): string =>
   offending.map((entry) => JSON.stringify(entry)).join(', ');
 
 /**
- * Base class for every error this library throws.
+ * Base class for every error this library throws. All of them are raised by
+ * `createToken`: `generate` and `validate` are total, so an accepted
+ * configuration cannot fail at use.
  *
  * ```ts
  * try {

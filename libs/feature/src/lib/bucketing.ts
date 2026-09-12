@@ -13,9 +13,10 @@
  *    at all; the percentage is only a threshold on it. Raising a percentage can
  *    therefore only add members, never move one out.
  *
- * The naive version the spec warns about -- GrowthBook's pre-v2
- * `hashFnv32a(value + seed) % 1000` -- fails (2) for two separate reasons, and
- * this implementation departs on both:
+ * GrowthBook's pre-v2 `hashFnv32a(value + seed) % 1000` fails (2) for two
+ * separate reasons -- it is the implementation
+ * `docs/specs/2026-09-11-feature-toggles.md`, "Rollout bucketing", names as the
+ * one to avoid -- and this departs from it on both:
  *
  * - Concatenating value and seed with no unambiguous boundary makes the pairs
  *   ('ab', 'c') and ('a', 'bc') the same input, so flags whose keys share a

@@ -42,11 +42,13 @@ export type WidgetDataProps<C extends AnyWidgetComponent> = [
   : Omit<ComponentProps<C>, 'children'>;
 
 /**
- * Whether a component actually accepts `children`.
+ * The item's nested items when `C[K]` accepts `children`, and `never` when it
+ * does not.
  *
- * This is what makes nesting checkable. Attaching `children` to every variant
- * of the union let a CMS editor nest items under a widget that never renders
- * them, and they vanished with no compile error and no console output (#25.2).
+ * `never` is what makes `children` unwritable on such an item. The alternative
+ * -- `WidgetItem<C>[]` on every variant of the union -- admits nesting under a
+ * widget that never renders `children`, and the renderer then drops the whole
+ * nested subtree with no compile error and nothing logged.
  */
 export type WidgetChildren<
   C extends WidgetComponentMap,
@@ -72,7 +74,8 @@ export type WidgetItem<C extends WidgetComponentMap> = {
      * Placement and presentation data for the item chrome: grid column, span,
      * ordering, CMS edit affordances. Handed to `chrome.item` and never
      * spread into the widget's own props, because where a widget sits is not
-     * something the widget should know (#71).
+     * something the widget should know, and an unknown key spread onto a DOM
+     * element draws a React unknown-attribute warning.
      */
     meta?: Record<string, unknown>;
     /**
