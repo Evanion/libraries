@@ -3,11 +3,13 @@
 
 # Feature Toggles
 
-> Not published. The design is settled in
-> [the spec](../../docs/specs/2026-09-11-feature-toggles.md); the
-> implementation is not written. `package.json` carries `private: true` so a
-> release run versions it without publishing it. Remove that field when the
-> package does what this file describes.
+> Not published yet. `package.json` carries `private: true`, so a release run
+> versions and tags the package without publishing it. npm cannot configure a
+> trusted publisher for a package that does not exist on the registry, so the
+> first version has to be published by hand — see
+> [RELEASING.md](../../RELEASING.md). Removing `private` before that bootstrap
+> makes a release run fail at the publish step with everything else already
+> tagged.
 
 Feature toggles where one flag can depend on another. A parent that resolves off
 takes its dependants with it, transitively, and it does that without writing
