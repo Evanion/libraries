@@ -11,6 +11,37 @@ permissions:
   contents: read
 
 jobs:
+  # An invalid workflow file does not fail a job, because no job runs. GitHub
+  # records a run with no jobs and the message "This run likely failed because
+  # of a workflow file issue", and a workflow that only triggers manually shows
+  # that against every push. actionlint reads the files as GitHub's schema
+  # does, so the error surfaces in a job that can actually go red.
+  #
+  # Separate from `main` so it reports on its own, and first because it takes
+  # seconds.
+  workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          filter: tree:0
+
+      # Pinned by version and checksum rather than installed through a
+      # third-party action: the binary is the whole dependency, and verifying it
+      # is two lines.
+      - name: Lint workflow files
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict
+          tar xzf "$archive" actionlint
+          ./actionlint -color
+
   main:
     runs-on: ubuntu-latest
     steps:
