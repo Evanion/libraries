@@ -36,6 +36,7 @@ module.exports = {
         'astro-widget',
         'compose',
         'docs',
+        'feature',
         'luhn',
         'nestjs-correlation-id',
         'nx-astro',

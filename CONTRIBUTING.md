@@ -43,6 +43,7 @@ Package scopes:
 - **compose**: Changes to the `@evanion/compose` library
 - **urn**: Changes to the `@evanion/urn` library
 - **luhn**: Changes to the `@evanion/luhn` library
+- **feature**: Changes to the `@evanion/feature` library
 - **react-widget**: Changes to the `@evanion/react-widget` library
 - **astro-widget**: Changes to the `@evanion/astro-widget` library
 - **nestjs-correlation-id**: Changes to the `@evanion/nestjs-correlation-id` library
