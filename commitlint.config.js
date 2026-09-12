@@ -53,6 +53,7 @@ module.exports = {
         'repo-checks',
         'shop-api',
         'storefront',
+        'storefront-rsc',
         'token',
         'urn',
         // Repository scopes, for work that is not one package's. None of them
