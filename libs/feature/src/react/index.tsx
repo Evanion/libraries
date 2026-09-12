@@ -91,7 +91,12 @@ export function useFeature<F extends FeatureKey = string>(
   key: F,
 ): Decision<F> {
   const decisions = useFeatures<F>();
-  const decision = decisions[key];
+  // A bare index walks the prototype chain, so a key of `constructor` or
+  // `toString` resolves to a function off `Object.prototype` and passes the
+  // configured check below as a decision object.
+  const decision = Object.prototype.hasOwnProperty.call(decisions, key)
+    ? decisions[key]
+    : undefined;
   if (!decision) {
     throw new Error(
       `feature "${String(key)}" is not configured in this <FeatureProvider>`,

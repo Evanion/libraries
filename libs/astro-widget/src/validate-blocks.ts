@@ -1,6 +1,19 @@
 import type { BlockItem, BlockProblem, BlockRegistry } from './types';
 
 /**
+ * Own-key lookup against a caller-supplied object.
+ *
+ * `in` and a bare index both walk the prototype chain, so a block typed
+ * `constructor`, `toString` or `__proto__` resolves against `Object.prototype`:
+ * the type passes as registered, and `required[type]` comes back as a function
+ * for the field loop to iterate. Blocks are CMS data, so any string is
+ * reachable.
+ */
+function hasOwn(target: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(target, key);
+}
+
+/**
  * Checks a block list against a registry, recursing into `children`.
  *
  * Returns problems rather than throwing, and accumulates rather than
@@ -34,11 +47,12 @@ export function validateBlocks(
   items.forEach((item, index) => {
     const type = typeof item?.type === 'string' ? item.type : '-';
 
-    if (!(type in registry)) {
+    if (!hasOwn(registry, type)) {
       problems.push({ index, type, message: 'unknown block type' });
     } else {
-      for (const field of required[type] ?? []) {
-        const value = item[field];
+      const fields = hasOwn(required, type) ? required[type] ?? [] : [];
+      for (const field of fields) {
+        const value = hasOwn(item, field) ? item[field] : undefined;
         const blank =
           value === undefined ||
           value === null ||

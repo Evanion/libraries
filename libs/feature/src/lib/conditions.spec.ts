@@ -135,6 +135,21 @@ describe('evaluateCondition', () => {
       ).toBe(false);
     });
 
+    it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
+      'does not read the inherited context field %s',
+      (field) => {
+        expect(evaluateCondition({ field, op: 'eq', value: 'pro' }, {})).toBe(
+          false,
+        );
+        expect(evaluateCondition({ field, op: 'ne', value: 'pro' }, {})).toBe(
+          false,
+        );
+        expect(
+          evaluateCondition({ field, op: 'not-in', value: [] }, {}),
+        ).toBe(false);
+      },
+    );
+
     it('does not hold when the field is absent from the context', () => {
       expect(
         evaluateCondition({ field: 'plan', op: 'eq', value: 'pro' }, {})

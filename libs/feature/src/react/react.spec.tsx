@@ -178,4 +178,25 @@ describe('misuse', () => {
       ),
     ).toThrow(/nope/);
   });
+
+  it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
+    'throws for the inherited key %s rather than handing it back as a decision',
+    (key) => {
+      function Unknown() {
+        useFeature(key as Key);
+        return null;
+      }
+
+      expect(() =>
+        render(
+          <FeatureProvider
+            features={createFeatures(definitions)}
+            context={inWindow}
+          >
+            <Unknown />
+          </FeatureProvider>,
+        ),
+      ).toThrow(new RegExp(key));
+    },
+  );
 });

@@ -9,6 +9,12 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
+      "path": "../../libs/widget"
+    },
+    {
+      "path": "../../libs/astro-widget"
+    },
+    {
       "path": "../doc-examples"
     }
   ]
