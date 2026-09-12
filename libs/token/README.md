@@ -12,7 +12,10 @@ import { createToken } from '@evanion/token';
 
 const token = createToken();
 
-token.generate(); // -> { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+token.generate(); // { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+```
+
+```ts @import.meta.vitest
 token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
 ```
 
@@ -52,10 +55,10 @@ pnpm add @evanion/token
 const token = createToken();
 
 token.generate();
-// -> { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+// { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
 
 token.generate({ prefix: 'ORD' });
-// -> { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
+// { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
 ```
 
 `value` is the code as a person sees it. `body` is what the check character was
@@ -66,8 +69,8 @@ never checks for collisions — see [Entropy](#entropy).
 
 ## Validate a code
 
-```ts
-token.validate('a4kp-9mxa'); // -> { valid: true,  body: 'a4kp9mx' }
+```ts @import.meta.vitest
+token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
 token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 token.validate('a4kp-9mxo'); // -> { valid: false, reason: 'outside-alphabet' }
 token.validate('a4kp-9mx'); // -> { valid: false, reason: 'wrong-length' }
@@ -107,14 +110,14 @@ textbook mod-10 `{0, 9}` case, generalised.
 separator first, so a code typed without it, or grouped differently, still
 validates:
 
-```ts
+```ts @import.meta.vitest
 token.validate('a4kp9mxa').valid; // -> true
 token.validate('a4-kp-9m-xa').valid; // -> true
 ```
 
 Case is folded too, so a code read off a card in capitals validates:
 
-```ts
+```ts @import.meta.vitest
 token.validate('A4KP-9MXA'); // -> { valid: true, body: 'a4kp9mx' }
 ```
 
@@ -125,7 +128,7 @@ one character is exactly the thing this package exists to avoid. Set
 ```ts
 const short = createToken({ length: 6, chunkSize: 3, separator: ' ' });
 
-short.generate(); // -> { value: 'q7t 3n7', body: 'q7t3n', check: '7', prefix: undefined }
+short.generate(); // { value: 'q7t 3n7', body: 'q7t3n', check: '7', prefix: undefined }
 ```
 
 ## The prefix sits outside the checksum
@@ -136,8 +139,8 @@ the prefix:
 ```ts
 const { value } = token.generate({ prefix: 'ORD' });
 
-token.validate(value); // -> { valid: false, reason: 'outside-alphabet' }
-token.validate(value.slice('ORD-'.length)); // -> { valid: true, ... }
+token.validate(value); // { valid: false, reason: 'outside-alphabet' }
+token.validate(value.slice('ORD-'.length)); // { valid: true, body: ... }
 ```
 
 Folding the prefix in would require every prefix character to be in the
@@ -166,9 +169,10 @@ characters buys 25 more bits.
 
 The default is 32 characters:
 
-```ts
+```ts @import.meta.vitest
 token.dictionary; // -> '0123456789abcdefghjkmnpqrstuvxyz'
 token.n; // -> 32
+token.entropyBits; // -> 35
 ```
 
 It is the lowercase alphanumerics without `i`, `l`, `o` and `w`. The first

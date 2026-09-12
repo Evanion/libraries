@@ -59,10 +59,25 @@ function deepFreeze<T>(value: T): T {
 /**
  * Creates a feature store from its configuration.
  *
- * Validates the dependency graph here rather than at evaluation: a cycle, a
+ * The dependency graph is validated here rather than at evaluation: a cycle, a
  * dependency on a feature that does not exist and a duplicate key are all
- * configuration errors, and a cycle has no defined resolution order at all.
- * Checking at use is the mistake `@evanion/luhn` made with its alphabet.
+ * configuration errors, and a cycle has no defined resolution order at all, so
+ * there is nothing sensible for `resolve` to return for one.
+ *
+ * @throws {FeatureCycleError} when `dependsOn` closes a loop.
+ * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
+ * @throws {DuplicateFeatureError} when two definitions share a key.
+ *
+ * @example
+ * ```ts
+ * const features = createFeatures([
+ *   { key: 'checkout', enabled: true },
+ *   { key: 'express-checkout', enabled: true, dependsOn: ['checkout'] },
+ * ]);
+ *
+ * features.isEnabled('express-checkout'); // true
+ * features.toggle('checkout', false).willDisable; // ['express-checkout']
+ * ```
  */
 export function createFeatures<F extends FeatureKey>(
   definitions: readonly FeatureDefinition<F>[],
@@ -91,9 +106,8 @@ export function createFeatures<F extends FeatureKey>(
     const evaluationContext = withNow(context);
     const resolved = new Map<F, Decision<F>>();
 
-    // Dependency order, so a parent's *resolved* value exists before any
-    // dependant reads it. This is what makes the cascade transitive through a
-    // chain of any depth.
+    // `graph.order`, not `keys`: see FeatureGraph.order for why the cascade
+    // needs it.
     for (const key of graph.order) {
       const definition = definitionOf(key);
       if (!definition) continue;

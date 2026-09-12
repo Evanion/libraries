@@ -241,10 +241,12 @@ const assertShape = (
  * cannot carry a check character.
  *
  * @example
+ * ```ts @import.meta.vitest
  * const token = createToken();
  *
  * token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
  * token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
+ * ```
  */
 export function createToken(options: TokenOptions = {}): Token {
   const {

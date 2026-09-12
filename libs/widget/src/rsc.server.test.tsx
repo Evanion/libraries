@@ -4,17 +4,23 @@ import * as pkg from './index.js';
 import { createWidgets } from './index.js';
 
 /**
- * This file runs in the `@evanion/react-widget:react-server` vitest project,
- * which resolves react under its `react-server` export condition. That build
- * omits createContext, useContext, Component, PureComponent and every stateful
- * hook, so any of them creeping back into the package fails here at module
- * evaluation -- which is exactly the failure mode that shipped as #22 and that
- * the `'use client'` directive was papering over.
+ * Holds `@evanion/react-widget` to its promise of being importable from a React
+ * Server Component.
  *
- * There is no DOM renderer under this condition (`react-dom/server` throws
- * outright), so rendering is driven by invoking the component functions and
- * walking the element tree they return. That still executes every line of
- * `renderWidget`, because the recursion happens during render, not lazily.
+ * This file runs in the `@evanion/react-widget:react-server` vitest project,
+ * which resolves react under its `react-server` export condition.
+ * `react/package.json` maps that condition to `react.react-server.js`, which
+ * exports no createContext, useContext, Component, PureComponent or stateful
+ * hook, so an import of one is `undefined` and fails at module evaluation. No
+ * other suite resolves that condition: the library build and the jsdom project
+ * both get the default entry, where all of them exist.
+ *
+ * Rendering is driven by invoking the component functions and walking the
+ * element tree they return, because there is no renderer to call --
+ * `react-dom/server` resolves under this condition to a module whose only
+ * statement throws "react-dom/server is not supported in React Server
+ * Components". Walking the tree still executes every line of `renderWidget`,
+ * since the recursion happens during render rather than lazily.
  */
 
 type Element = React.ReactElement<Record<string, unknown>>;
@@ -59,7 +65,11 @@ describe('@evanion/react-widget under react-server', () => {
     expect(pkg.DefaultWrapper).toBeTypeOf('function');
   });
 
-  it('no longer exports the context-based surface', () => {
+  it('keeps internals and client-only shapes out of the published surface', () => {
+    // A provider, a hook, a context and a class error boundary each need a
+    // react export this condition omits, so none of them can be exported. The
+    // render internals are absent for a different reason: nothing outside the
+    // package may depend on them.
     const surface = pkg as unknown as Record<string, unknown>;
     expect(surface['WidgetsProvider']).toBeUndefined();
     expect(surface['useWidgets']).toBeUndefined();

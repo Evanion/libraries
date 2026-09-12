@@ -39,8 +39,6 @@ describe('buildGraph', () => {
 
     expect(error).toBeInstanceOf(FeatureCycleError);
     const cycle = error as FeatureCycleError;
-    // The path is a closed walk: it ends where it starts, so a reader can see
-    // the edge that closes it.
     expect(cycle.path[0]).toBe(cycle.path[cycle.path.length - 1]);
     expect(new Set(cycle.path)).toEqual(new Set(['a', 'b', 'c']));
     for (const key of ['a', 'b', 'c']) {

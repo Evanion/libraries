@@ -32,14 +32,11 @@ describe('Widget System - Performance', () => {
 
     const { rerender } = render(<Widgets items={items} />);
 
-    // Initial render
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with same props - should not cause widget to re-render
     rerender(<Widgets items={items} />);
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with different items - should cause re-render
     const newItems = [
       {
         id: 'widget1',
@@ -95,14 +92,11 @@ describe('Widget System - Performance', () => {
 
     const { rerender } = render(<Widgets items={items} />);
 
-    // Initial render
     expect(outputRenderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with same items - should not cause re-render
     rerender(<Widgets items={items} />);
     expect(outputRenderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with different children - should cause re-render
     const newItems = [
       {
         id: 'card1',
@@ -135,14 +129,12 @@ describe('Widget System - Performance', () => {
       },
     });
 
-    // Create 1000 widgets
-    // 50 rather than 1000. The library renders every item eagerly with no
-    // windowing, so a 1000-item region is not a workload it should imply support
-    // for -- realistic CMS regions, sidebars and dashboards are in the tens. At
-    // 1000 this also took long enough under the CPU contention of a full
-    // `nx run-many` to blow vitest's 5s timeout, failing intermittently for
-    // reasons that had nothing to do with correctness.
-    // For genuinely large regions, render a virtualized component *as* a widget.
+    // 50 items, which is the order of a real CMS region, sidebar or dashboard.
+    // The renderer has no windowing and renders every item eagerly, so a count
+    // in the thousands measures the machine rather than the library and, under
+    // the CPU contention of a full `nx run-many`, exceeds vitest's 5s default
+    // timeout. A genuinely large region is served by rendering a virtualized
+    // component as a widget.
     const items = Array.from({ length: 50 }, (_, i) => ({
       id: `widget-${i}`,
       type: 'test' as const,
@@ -151,12 +143,11 @@ describe('Widget System - Performance', () => {
 
     render(<Widgets items={items} />);
 
-    // Exactly one render per widget is the real performance property here, and
-    // unlike wall-clock time it is a property of the library rather than of the
-    // machine. This deliberately does not assert an elapsed-time budget: the
-    // suite runs concurrently with build, lint and typecheck, and a 1000ms
-    // threshold that passed in isolation took 2369ms under that load -- failing
-    // every cold run while looking like flakiness.
+    // One render per widget, rather than an elapsed-time budget. Render count
+    // is a property of the library; wall-clock time is a property of the
+    // machine, and `nx run-many` schedules this suite alongside build, lint and
+    // typecheck, where a threshold calibrated on an idle machine fails and
+    // reads as flakiness.
     expect(renderSpy).toHaveBeenCalledTimes(50);
     expect(screen.getByTestId('widget-0')).toBeInTheDocument();
     expect(screen.getByTestId('widget-49')).toBeInTheDocument();
@@ -192,10 +183,8 @@ describe('Widget System - Performance', () => {
       <Widgets items={items} components={instanceComponents} />,
     );
 
-    // Initial render
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with same instance components reference - should not cause re-render
     rerender(<Widgets items={items} components={instanceComponents} />);
     expect(renderSpy).toHaveBeenCalledTimes(1);
   });
@@ -235,16 +224,13 @@ describe('Widget System - Performance', () => {
 
     render(<TestComponent />);
 
-    // Initial render
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Click button multiple times rapidly
     const button = screen.getByText('Increment');
     fireEvent.click(button);
     fireEvent.click(button);
     fireEvent.click(button);
 
-    // Should only re-render when count actually changes
     expect(renderSpy).toHaveBeenCalledTimes(4); // Initial + 3 clicks
     expect(screen.getByText('Count: 3')).toBeInTheDocument();
   });
@@ -273,14 +259,11 @@ describe('Widget System - Performance', () => {
 
     const { rerender } = render(<Widgets items={items} />);
 
-    // Initial render
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with same items - should not cause re-render due to memoization
     rerender(<Widgets items={items} />);
     expect(renderSpy).toHaveBeenCalledTimes(1);
 
-    // Re-render with different items - should cause re-render
     const newItems = [
       {
         id: 'widget1',
@@ -355,11 +338,9 @@ describe('Widget System - Performance', () => {
 
     const { rerender } = render(<Widgets items={items} />);
 
-    // Initial render
     expect(cardRenderSpy).toHaveBeenCalledTimes(2); // 2 cards
     expect(textRenderSpy).toHaveBeenCalledTimes(3); // 3 text widgets
 
-    // Re-render with same items - should not cause re-renders
     rerender(<Widgets items={items} />);
     expect(cardRenderSpy).toHaveBeenCalledTimes(2);
     expect(textRenderSpy).toHaveBeenCalledTimes(3);

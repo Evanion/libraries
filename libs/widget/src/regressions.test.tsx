@@ -2,10 +2,10 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PropsWithChildren, useState } from 'react';
 
-// Deliberately imported from the public barrel rather than the internal
-// modules. Every other test file imports from './widget.js' or './widgets'
-// directly, which is exactly why the missing `export * from './widgets.js'` went
-// unnoticed.
+// Imported from the public barrel, unlike every other test file here, which
+// reaches './widget.js' and './widgets.js' directly. Only this import path can
+// tell that a re-export is missing from `src/index.ts`, which is what a
+// consumer resolves.
 import { createWidgets, DefaultItem, DefaultWrapper } from './index.js';
 
 const Box = ({ label, children }: PropsWithChildren<{ label: string }>) => (
@@ -72,9 +72,9 @@ describe('widget regressions', () => {
 
       expect(screen.getByTestId('box-a')).toBeInTheDocument();
       expect(screen.getByTestId('box-b')).toBeInTheDocument();
-      // Guards against grandchildren silently not rendering: Output must pass
-      // itself down at every nesting level, not just the first, or deeper
-      // content renders without any Output wrapping it.
+      // The grandchild is the assertion: `renderWidget` recurses through
+      // `item.children` at every level, so a renderer that handles only the
+      // first level renders a and b and drops c without warning.
       expect(screen.getByTestId('leaf-c')).toBeInTheDocument();
     });
 
@@ -168,14 +168,14 @@ describe('widget regressions', () => {
           .mockImplementation(() => undefined);
         const { Widgets } = createWidgets({ components: { leaf: Leaf } });
 
-        // `type in components` walked the prototype chain and handed React
-        // Object.prototype.toString, crashing instead of warning and skipping.
+        // `in` walks the prototype chain, so a lookup written that way finds
+        // these keys on Object.prototype and hands React a built-in function
+        // as a component. Items are untrusted CMS data, so the renderer owes
+        // the same warn-and-skip here as for any unknown type.
         expect(() =>
           render(
             <Widgets
               items={[
-                // Untrusted input: an inherited Object.prototype key. Cast
-                // because the point of the test is the runtime guard.
                 { id: 'x', type, props: {} } as unknown as {
                   id: string;
                   type: 'leaf';
@@ -232,9 +232,9 @@ describe('widget regressions', () => {
         />,
       );
 
-      // Guards against nested items falling back to the factory-level chrome:
-      // renderWidget threads the resolved chrome through the recursion, so a
-      // nested item gets the instance-level override too.
+      // Two, not one: `renderWidget` threads the resolved chrome through the
+      // recursion, so the nested item is wrapped in the instance-level
+      // override rather than falling back to the factory's.
       expect(
         container.querySelectorAll('[data-custom-item="yes"]'),
       ).toHaveLength(2);
@@ -262,11 +262,11 @@ describe('widget regressions', () => {
       fireEvent.click(screen.getByTestId('inc'));
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');
 
-      // A fresh array identity forces Widgets to re-render. This guards
-      // against React remounting the nested subtree when that happens: the
-      // injected Output component keeps a stable identity across renders
-      // rather than a new type each time, so nested state -- the counter here
-      // -- survives.
+      // A fresh array identity defeats the `memo` and forces a re-render.
+      // React remounts a subtree whenever the element type at that position
+      // changes identity, so the renderer has to reuse the same component
+      // references across renders rather than defining any of them per render;
+      // the counter's state is what shows it does.
       rerender(<Widgets items={[...items]} />);
 
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');
