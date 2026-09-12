@@ -32,6 +32,9 @@
     },
     {
       "path": "./apps/shop-api"
+    },
+    {
+      "path": "./libs/feature"
     }
   ],
   "compilerOptions": {
