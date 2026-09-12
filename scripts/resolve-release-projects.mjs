@@ -6,9 +6,10 @@
 // the raw input, so the set that gets versioned and the set that gets published
 // cannot drift apart.
 //
-// An unmatched name exits non-zero before either command runs. Nx reports a
-// filter that matches nothing as "please report this as a bug", which is the
-// right message for an Nx bug and the wrong one for a typo.
+// An unmatched name exits non-zero before either command runs, and the error
+// lists what is releasable. Nx reports a filter matching nothing as "please
+// report this as a bug", which is the right message for an Nx bug and the wrong
+// one for a typo in a workflow input.
 
 import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects } from 'nx/src/devkit-internals';
@@ -55,6 +56,8 @@ if (requested.length === 0) {
   );
 }
 
+// nx.json carries `//` comments, so it needs the comment-tolerant parser nx
+// itself reads it with; `JSON.parse` throws on it.
 const nxJson = parseJson(
   readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
   {

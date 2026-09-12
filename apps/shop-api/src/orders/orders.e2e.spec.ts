@@ -3,9 +3,11 @@ import { request as httpRequest } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /**
- * node:http rather than fetch, matching nest/correlation-id's own e2e spec:
- * it lets a request set the header this app's PORT is bound to regardless of
- * what the global fetch/Headers API would normalise.
+ * One request, resolved to its status and raw body.
+ *
+ * node:http rather than fetch: the Headers API lower-cases every name it is
+ * given and every name it reports, so a test using it can neither send a
+ * specific header casing nor observe the casing that came back.
  */
 const request = (
   method: string,
@@ -44,10 +46,10 @@ describe('shop-api end to end: the correlation-id hop', () => {
   const HEADER = 'X-Correlation-Id';
   const PORT = 34599;
   let HEADER_PREFIX = '';
-  // Resolved dynamically, once PORT is set, so config.ts (read by
-  // InventoryClient at import time) picks up this exact test port -- a
-  // static top-level import would run before this line, ahead of ESM import
-  // hoisting, and see the wrong value.
+  // Imported dynamically inside beforeAll, after process.env.PORT is set.
+  // config.ts reads PORT at module evaluation and InventoryClient builds its
+  // base URL from it, and every static import of a module is evaluated before
+  // any statement of this one, so a top-level import would bake in port 3000.
   let InventoryClient: (typeof import('./inventory-client.service.js'))['InventoryClient'];
   let GameURN: (typeof import('../domain/game.urn.js'))['GameURN'];
 
@@ -122,15 +124,23 @@ describe('shop-api end to end: the correlation-id hop', () => {
     ]);
   });
 
-  describe('nestjs-correlation-id#31 regression', () => {
-    it('constructs the singleton holding HttpService exactly once across multiple requests', async () => {
+  /**
+   * Nest propagates request scope upward through the injection graph, so one
+   * request-scoped provider anywhere between `CorrelationService` and
+   * `HttpService` turns InventoryClient request-scoped: a new instance per
+   * request, and `onModuleInit` never called on any of them. Both counters
+   * distinguish that from the singleton the app is wired for, and neither
+   * changes a response, so nothing else here would notice.
+   */
+  describe('the provider holding HttpService stays a singleton', () => {
+    it('is constructed once across several requests', async () => {
       const wingspan = GameURN.stringify('wingspan');
       await request('POST', `${base}/${HEADER_PREFIX}/orders`, {
-        headers: { [HEADER]: 'e2e-regression-a' },
+        headers: { [HEADER]: 'e2e-singleton-a' },
         body: { items: [{ urn: wingspan, quantity: 1 }] },
       });
       await request('POST', `${base}/${HEADER_PREFIX}/orders`, {
-        headers: { [HEADER]: 'e2e-regression-b' },
+        headers: { [HEADER]: 'e2e-singleton-b' },
         body: { items: [{ urn: wingspan, quantity: 1 }] },
       });
 

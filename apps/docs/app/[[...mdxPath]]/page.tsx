@@ -1,6 +1,12 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
 
+/**
+ * Enumerates one route per MDX file under `content/`.
+ *
+ * `output: 'export'` in next.config.ts has no server to render an unlisted
+ * route, so a page missing from this list is missing from the deployed site.
+ */
 export const generateStaticParams = generateStaticParamsFor('mdxPath');
 
 interface GenerateMetadataProps {
@@ -13,6 +19,11 @@ export async function generateMetadata(props: GenerateMetadataProps) {
   return metadata;
 }
 
+/**
+ * The theme's page frame: table of contents, breadcrumbs, edit link and footer.
+ * Rendering MDX content without it produces the body of a docs page with none
+ * of the chrome around it.
+ */
 const Wrapper = getMDXComponents().wrapper;
 
 interface PageProps {

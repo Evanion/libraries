@@ -24,6 +24,16 @@ export class OrdersService {
     private readonly correlationService: CorrelationService,
   ) {}
 
+  /**
+   * Checks every cart line against live stock and returns the confirmed order.
+   *
+   * The stock checks run concurrently, so one request produces several inventory
+   * hops at once and all of them carry this request's correlation id -- which is
+   * what the returned `inventoryCorrelationIds` lets a caller verify.
+   *
+   * @throws {BadRequestException} for an empty cart, a urn with no stock record,
+   * or a line that asks for more copies than are in stock.
+   */
   async createOrder(request: CreateOrderRequest): Promise<OrderResult> {
     if (!request.items || request.items.length === 0) {
       throw new BadRequestException('Cart must contain at least one item');
@@ -64,8 +74,12 @@ export class OrdersService {
     };
   }
 
-  /** A urn with no inventory record is a bad request, not a 404: the client
-   * asked to order something that does not exist in the catalogue. */
+  /**
+   * Stock for one cart line.
+   *
+   * A urn with no inventory record surfaces as 400 rather than 404: the missing
+   * thing is in the request body, and the order endpoint itself exists.
+   */
   private async checkStock(
     item: CartItem,
   ): Promise<{ quantity: number; correlationId?: string }> {
