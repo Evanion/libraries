@@ -24,27 +24,40 @@ class URN {
   static readonly urn: string = 'urn';
   static readonly separator: string = ':';
   static readonly nid: string = 'nid';
-  static readonly isValid: RegExp;
+
+  static get schemeGrammar(): RegExp;
+  static get nidGrammar(): RegExp;
+  static get nssGrammar(): RegExp;
+  static get rComponentGrammar(): RegExp;
+  static get qComponentGrammar(): RegExp;
+  static get fComponentGrammar(): RegExp;
 }
 ```
 
+Each role has its own grammar. There is no single flat `isValid` regex: one
+character class cannot describe three roles across two separator regimes, and
+the getters stay reactive to a subclass's `separator`.
+
 ## Static Methods
 
-### `stringify(nss, nid?, urn?)`
+### `stringify(parts)` and `stringify(nss, nid?, urn?)`
 
-Creates a URN string from its components.
+Creates a URN string from its parts.
 
 **Signature:**
 
 ```typescript
+static stringify(parts: URNParts): string
 static stringify(nss: string, nid?: string, urn?: string): string
 ```
 
 **Parameters:**
 
+- `parts` (URNParts): `{ nss, nid?, urn?, rComponent?, qComponent?, fComponent? }`,
+  keyed as `parse` returns them
 - `nss` (string): The namespace-specific string
-- `nid` (string, optional): The namespace identifier. Defaults to 'nid'
-- `urn` (string, optional): The URN scheme. Defaults to 'urn'
+- `nid` (string, optional): The namespace identifier. Defaults to the class's own
+- `urn` (string, optional): The URN scheme. Defaults to the class's own
 
 **Returns:** `string` - The formatted URN string
 
@@ -56,34 +69,45 @@ URN.stringify('example'); // "urn:nid:example"
 URN.stringify('example', 'my-namespace'); // "urn:my-namespace:example"
 URN.stringify('example', 'my-namespace', 'custom'); // "custom:my-namespace:example"
 
-// Handles duplicate nid
-URN.stringify('my-namespace:example', 'my-namespace'); // "urn:my-namespace:example"
+// Object form: the keys carry the meaning, and only this form can emit
+// the r-, q- and f-components
+URN.stringify({ nss: 'example', nid: 'my-namespace' }); // "urn:my-namespace:example"
+URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
+// "urn:example:weather?=lat=39"
+
+// No deduplication: an NSS whose first segment equals the NID survives
+URN.stringify('my-namespace:example', 'my-namespace');
+// "urn:my-namespace:my-namespace:example"
 ```
+
+The positional arguments are in the reverse order of `parse`'s return shape, so
+`stringify(...Object.values(parse(x)))` is silently wrong. Use the object form.
 
 **Throws:**
 
-- `InvalidError` - When URN contains invalid characters
-- `InvalidError` - When NID contains invalid characters
+- `InvalidError` - When a part is empty or breaks its role's grammar
 
 ### `parse(urnString)`
 
-Parses a URN string into its components.
+Parses a URN string into its parts.
 
 **Signature:**
 
 ```typescript
-static parse(urnString: string): { urn: string; nid: string; nss: string }
+static parse(urnString: string): ParsedURN
 ```
 
 **Parameters:**
 
 - `urnString` (string): The URN string to parse
 
-**Returns:** `object` - An object containing:
+**Returns:** `ParsedURN` - An object containing:
 
 - `urn` (string): The URN scheme
 - `nid` (string): The namespace identifier
 - `nss` (string): The namespace-specific string
+- `rComponent`, `qComponent`, `fComponent` (string, optional): the RFC 8141 §2.3
+  components, present only when the URN carries them
 
 **Examples:**
 
@@ -94,11 +118,16 @@ URN.parse('urn:my-namespace:example');
 
 // Custom scheme parsing
 URN.parse('custom:my-namespace:example');
-// Returns: { urn: 'custom', nid: 'my-namespace', nss: 'example' }
+// Returns: { urn: 'custom', nid: 'my-namespace', nss: 'custom:my-namespace:example' }
 
 // Different namespace handling
 URN.parse('urn:other-namespace:example');
 // Returns: { urn: 'urn', nid: 'other-namespace', nss: 'other-namespace:example' }
+
+// r-, q- and f-components
+URN.parse('urn:example:weather?=lat=39#today');
+// Returns: { urn: 'urn', nid: 'example', nss: 'weather',
+//            qComponent: 'lat=39', fComponent: 'today' }
 ```
 
 ## Class Properties
@@ -137,9 +166,9 @@ MyURN.stringify('example', 'namespace'); // "urn-namespace-example"
 
 ### `static nid: string`
 
-The namespace identifier for the class. When set, this value is used as the default namespace identifier.
+The namespace identifier for the class. Used as the default namespace identifier when `stringify` is not given one.
 
-**Default:** `undefined`
+**Default:** `'nid'`
 
 **Example:**
 
@@ -177,45 +206,52 @@ try {
 
 ## Type Definitions
 
-### URN Components
+### ParsedURN
 
 ```typescript
-interface URNComponents {
+interface ParsedURN {
   urn: string; // The URN scheme
   nid: string; // The namespace identifier
   nss: string; // The namespace-specific string
+  rComponent?: string; // RFC 8141 §2.3.1, introduced by '?+'
+  qComponent?: string; // RFC 8141 §2.3.2, introduced by '?='
+  fComponent?: string; // RFC 8141 §2.3.3, introduced by '#'
 }
 ```
 
-### URN Class Constructor
+The three component keys are absent, not `undefined`, when the URN carries no
+components.
+
+### URNParts
 
 ```typescript
-interface URNConstructor {
-  new (): URN;
-  stringify(nss: string, nid?: string, urn?: string): string;
-  parse(urnString: string): URNComponents;
-  urn: string;
-  separator: string;
-  nid?: string;
+interface URNParts {
+  urn?: string; // Defaults to the class's own scheme
+  nid?: string; // Defaults to the class's own NID
+  nss: string;
+  rComponent?: string;
+  qComponent?: string;
+  fComponent?: string;
 }
 ```
+
+The object form of `stringify`'s arguments. A `ParsedURN` is assignable to it.
 
 ## Validation Rules
 
-### Valid Characters
+Each role is validated against its own grammar, per RFC 8141 §2 and RFC 3986.
 
-The library validates URN components according to RFC 8141:
+| Role            | Allowed                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| scheme          | a letter, then letters, digits, `+`, `-`, `.`                                                            |
+| NID             | letters and digits, plus `-` in the interior; 2–32 writing, 1–32 reading                                 |
+| NSS             | `pchar` — letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets — plus `/` after the first character |
+| r-, q-component | the NSS set plus `?` after the first character                                                           |
+| f-component     | the NSS set plus `?`, with no first-character rule, and may be empty                                     |
 
-- **URN Scheme**: Must be valid URI scheme characters
-- **Namespace Identifier (NID)**: Must be valid NID characters (alphanumeric, hyphens)
-- **Namespace-Specific String (NSS)**: Must be valid NSS characters (alphanumeric, hyphens, periods, underscores)
-
-### Invalid Characters
-
-The following characters are considered invalid in URN components:
-
-- Spaces
-- Special characters like `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `+`, `=`, `[`, `]`, `{`, `}`, `|`, `\`, `:`, `;`, `"`, `'`, `<`, `>`, `,`, `.`, `?`, `/`
+Everything outside a role's set must be percent-encoded. Nothing is encoded or
+decoded for you: `stringify` rejects an NSS containing a literal space, and
+`encodeNss` is the explicit way to produce one.
 
 ## Best Practices
 
@@ -288,13 +324,13 @@ The URN library supports all modern browsers and Node.js environments:
 
 ### `isValidFormat(urnString)`
 
-Returns `true` when the string has at least three non-empty parts. Never throws,
-so use it to test input before parsing.
+Returns `true` when the string parses. It delegates to `parse`, so the two can
+never disagree, and it never throws — use it to test input before parsing.
 
 ### `extractId(urnString)`
 
-Returns everything after the scheme and the NID. Throws `ValidationError` on
-malformed input.
+Returns everything after the scheme and the NID, without any r-, q- or
+f-component. Throws `ValidationError` on malformed input.
 
 This is deliberately structural and differs from `parse(urnString).nss` on a
 foreign namespace — `parse` keeps a non-matching NID attached so the namespace

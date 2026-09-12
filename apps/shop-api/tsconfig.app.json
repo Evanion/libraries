@@ -1,10 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
+    // `dist` belongs to the webpack build, which cleans it before writing.
+    // tsc runs over this config only to type-check -- nothing consumes its
+    // emit -- so it goes to a throwaway directory: two producers writing one
+    // directory race whenever `build` and `typecheck` are scheduled together.
+    "outDir": "out-tsc/app",
     "types": ["node"],
     "rootDir": "src",
-    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "tsBuildInfoFile": "out-tsc/app/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "target": "es2021"

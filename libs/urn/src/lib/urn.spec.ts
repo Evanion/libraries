@@ -645,6 +645,285 @@ describe('URN', () => {
     });
   });
 
+  describe('r-, q- and f-components', () => {
+    const Example = namespaceOf('urn', 'example');
+
+    it('should leave a component-free URN parsing to exactly three keys', () => {
+      // The three component fields are additive: a consumer reading
+      // { urn, nid, nss } sees no new keys, not even undefined ones.
+      const parsed = URN.parse('urn:nid:foo');
+      expect(Object.keys(parsed)).toEqual(['urn', 'nid', 'nss']);
+      expect(parsed).toStrictEqual({ urn: 'urn', nid: 'nid', nss: 'foo' });
+      expect('rComponent' in parsed).toBe(false);
+      expect('qComponent' in parsed).toBe(false);
+      expect('fComponent' in parsed).toBe(false);
+    });
+
+    it('should split each component off the NSS', () => {
+      expect(Example.parse('urn:example:foo?+r1')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        rComponent: 'r1',
+      });
+      expect(Example.parse('urn:example:foo?=q1')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        qComponent: 'q1',
+      });
+      expect(Example.parse('urn:example:foo#f1')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        fComponent: 'f1',
+      });
+      expect(Example.parse('urn:example:foo?+r1?=q1#f1')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        rComponent: 'r1',
+        qComponent: 'q1',
+        fComponent: 'f1',
+      });
+    });
+
+    it("should end the r-component at the first '?='", () => {
+      // RFC 8141 2.3.1: the r-component may contain a bare '?', and ends at
+      // the first '?=' or '#'.
+      expect(Example.parse('urn:example:foo?+a?b?=c?d')).toMatchObject({
+        rComponent: 'a?b',
+        qComponent: 'c?d',
+      });
+    });
+
+    it("should take the f-component off before looking for a '?'", () => {
+      // '#' terminates the r- and q-components, and both may contain '?', so
+      // the f-component has to come off first or a '?' inside it is read as a
+      // component introducer.
+      expect(Example.parse('urn:example:foo#f?+x')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        fComponent: 'f?+x',
+      });
+      expect(Example.parse('urn:example:foo?+r#f?=x')).toMatchObject({
+        rComponent: 'r',
+        fComponent: 'f?=x',
+      });
+    });
+
+    it('should keep an empty f-component distinct from an absent one', () => {
+      expect(Example.parse('urn:example:foo#')).toStrictEqual({
+        urn: 'urn',
+        nid: 'example',
+        nss: 'foo',
+        fComponent: '',
+      });
+      expect(
+        Example.stringify({ nss: 'foo', nid: 'example', fComponent: '' }),
+      ).toBe('urn:example:foo#');
+    });
+
+    it('should keep the components out of the NSS on a foreign namespace', () => {
+      expect(URN.parse('urn:user:123?=q#f')).toStrictEqual({
+        urn: 'urn',
+        nid: 'user',
+        nss: 'user:123',
+        qComponent: 'q',
+        fComponent: 'f',
+      });
+      expect(URN.parse('ftp:user:123?=q')).toStrictEqual({
+        urn: 'ftp',
+        nid: 'user',
+        nss: 'ftp:user:123',
+        qComponent: 'q',
+      });
+    });
+
+    it('should emit the components from the object form of stringify', () => {
+      expect(
+        Example.stringify({
+          nss: 'foo',
+          nid: 'example',
+          rComponent: 'r1',
+          qComponent: 'q1',
+          fComponent: 'f1',
+        }),
+      ).toBe('urn:example:foo?+r1?=q1#f1');
+    });
+
+    it('should round-trip a URN with components through parse and stringify', () => {
+      for (const input of [
+        'urn:example:weather?=lat=39&lon=-104#today',
+        'urn:example:foo?+CCResolve:cc=uk',
+        'urn:example:a123%2Cz456?+r?=q#f',
+        'urn:example:foo#',
+      ]) {
+        expect(Example.stringify(Example.parse(input))).toBe(input);
+      }
+    });
+
+    it('should reject a component that breaks its grammar', () => {
+      expect(() => Example.parse('urn:example:foo?+r 1')).toThrow(InvalidError);
+      expect(() => Example.parse('urn:example:foo?+/r')).toThrow(
+        /R-COMPONENT is invalid in '\/r'/,
+      );
+      expect(() => Example.parse('urn:example:foo?+')).toThrow(
+        /R-COMPONENT must not be empty/,
+      );
+      expect(() => Example.parse('urn:example:foo?=')).toThrow(
+        /Q-COMPONENT must not be empty/,
+      );
+      expect(() => Example.parse('urn:example:foo#a#b')).toThrow(
+        /F-COMPONENT contains invalid character '#'/,
+      );
+      expect(() => Example.parse('urn:example:foo?+r%zz')).toThrow(
+        /malformed percent-encoded octet/,
+      );
+    });
+
+    it("should reject a bare '?' that introduces nothing", () => {
+      expect(() => URN.parse('urn:nid:foo?bar')).toThrow(ValidationError);
+      expect(() => URN.parse('urn:nid:foo?bar')).toThrow(
+        /A '\?' may only appear as '\?\+' or '\?='/,
+      );
+      expect(URN.isValidFormat('urn:nid:foo?bar')).toBe(false);
+    });
+
+    it('should keep the NSS argument of the positional form free of components', () => {
+      // The positional nss parameter is an NSS, not a tail: it is validated
+      // against the NSS grammar rather than split.
+      expect(() => URN.stringify('foo?+r', 'example')).toThrow(InvalidError);
+      expect(() => URN.stringify('foo#f', 'example')).toThrow(InvalidError);
+    });
+
+    it('should exclude the components from equivalence, per RFC 8141 3.1', () => {
+      expect(URN.equals('urn:example:foo?+r1', 'urn:example:foo?+r2')).toBe(
+        true,
+      );
+      expect(URN.equals('urn:example:foo?=q1', 'urn:example:foo')).toBe(true);
+      expect(URN.equals('urn:example:foo#f1', 'urn:example:foo#f2')).toBe(true);
+      expect(URN.equals('urn:example:foo?+r?=q#f', 'urn:example:foo')).toBe(
+        true,
+      );
+      expect(URN.equals('urn:example:foo?=q', 'urn:example:bar?=q')).toBe(
+        false,
+      );
+    });
+
+    it('should drop the components from extractId', () => {
+      expect(URN.extractId('urn:user:123?+r?=q#f')).toBe('123');
+      expect(URN.sameNamespace('urn:example:a#f', 'urn:example:b')).toBe(true);
+      expect(URN.belongsToNamespace('urn:example:a?=q', 'example')).toBe(true);
+    });
+
+    it('should expose the component grammars', () => {
+      expect(URN.rComponentGrammar.test('a?b/c%20d')).toBe(true);
+      expect(URN.rComponentGrammar.test('?a')).toBe(false);
+      expect(URN.rComponentGrammar.test('')).toBe(false);
+      expect(URN.qComponentGrammar.source).toBe(URN.rComponentGrammar.source);
+      expect(URN.fComponentGrammar.test('')).toBe(true);
+      expect(URN.fComponentGrammar.test('a#b')).toBe(false);
+    });
+
+    it('should parse components under a custom separator', () => {
+      class Dash extends URN {
+        static override readonly urn = 'trn';
+        static override readonly nid = 'user';
+        static override readonly separator = '-';
+      }
+      expect(Dash.parse('trn-user-123?=q#f')).toStrictEqual({
+        urn: 'trn',
+        nid: 'user',
+        nss: '123',
+        qComponent: 'q',
+        fComponent: 'f',
+      });
+      expect(Dash.stringify(Dash.parse('trn-user-123?=q#f'))).toBe(
+        'trn-user-123?=q#f',
+      );
+    });
+
+    it('should not parse components when the separator contains a delimiter', () => {
+      class Hash extends URN {
+        static override readonly urn = 'trn';
+        static override readonly nid = 'user';
+        static override readonly separator = '#';
+      }
+      // '#' cannot be both a separator and the f-component introducer, so the
+      // whole tail stays in the NSS -- and a component cannot be written.
+      expect(Hash.parse('trn#user#123')).toStrictEqual({
+        urn: 'trn',
+        nid: 'user',
+        nss: '123',
+      });
+      expect(() => Hash.stringify({ nss: '123', fComponent: 'f' })).toThrow(
+        /COMPONENT is invalid in '#'/,
+      );
+    });
+  });
+
+  describe('the object form of stringify', () => {
+    it('should accept a parsed URN directly', () => {
+      const UserURN = namespaceOf('urn', 'user');
+      expect(UserURN.stringify(UserURN.parse('urn:user:123'))).toBe(
+        'urn:user:123',
+      );
+    });
+
+    it('should default the scheme and the NID to the class', () => {
+      const UserURN = namespaceOf('trn', 'user');
+      expect(UserURN.stringify({ nss: '123' })).toBe('trn:user:123');
+      expect(UserURN.stringify({ nss: '123', nid: 'order' })).toBe(
+        'trn:order:123',
+      );
+      expect(UserURN.stringify({ nss: '123', urn: 'ftp' })).toBe(
+        'ftp:user:123',
+      );
+    });
+
+    it('should not invert parse on a foreign namespace', () => {
+      // parse retains a foreign NID inside the nss so the namespace is not
+      // lost, and stringify then prefixes the class's own. The two are
+      // inverses only within the parsing class's own namespace.
+      expect(URN.parse('urn:user:123').nss).toBe('user:123');
+      expect(URN.stringify(URN.parse('urn:user:123'))).toBe(
+        'urn:user:user:123',
+      );
+    });
+
+    it('should agree with the positional form', () => {
+      expect(URN.stringify({ nss: 'foo', nid: 'bar', urn: 'trn' })).toBe(
+        URN.stringify('foo', 'bar', 'trn'),
+      );
+    });
+
+    it('should validate the object form the same way', () => {
+      expect(() => URN.stringify({ nss: '' })).toThrow(/NSS must not be empty/);
+      // The NSS has no class-level fallback, so a JavaScript caller can omit
+      // it; without a guard the grammar would pass the string 'undefined'.
+      expect(() => URN.stringify({} as { nss: string })).toThrow(
+        /NSS must not be empty/,
+      );
+      expect(() => URN.stringify({ nss: 'a b' })).toThrow(InvalidError);
+      expect(() => URN.stringify({ nss: 'a', nid: 'x' })).toThrow(
+        /at least 2 characters/,
+      );
+    });
+
+    it('should undo what Object.values would have broken', () => {
+      // stringify's positional arguments are the reverse of parse's return
+      // shape, so spreading the parsed object mislabels every part. The object
+      // form is the fix: the keys carry the meaning.
+      const parsed = URN.parse('urn:nid:foo');
+      expect(
+        URN.stringify(...(Object.values(parsed) as [string, string, string])),
+      ).toBe('foo:nid:urn');
+      expect(URN.stringify(parsed)).toBe('urn:nid:foo');
+    });
+  });
+
   describe('error hierarchy', () => {
     it('should expose InvalidError as a ValidationError', () => {
       const error = new InvalidError('NSS', 'a b', ' ');

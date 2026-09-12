@@ -1,7 +1,7 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import { decodeNss, encodeNss, URN } from './urn.js';
 import { InvalidError, ValidationError } from './exceptions.js';
-import type { IFullURN, ParsedURN } from './types.js';
+import type { IFullURN, ParsedURN, URNComponents, URNParts } from './types.js';
 
 describe('urn types', () => {
   it('parses to plain strings rather than caller-asserted literals', () => {
@@ -23,6 +23,27 @@ describe('urn types', () => {
     expectTypeOf(URN.stringify('123')).toEqualTypeOf<string>();
   });
 
+  it('types the r-, q- and f-components as optional strings', () => {
+    const parsed = URN.parse('urn:example:foo?+r?=q#f');
+    expectTypeOf(parsed.rComponent).toEqualTypeOf<string | undefined>();
+    expectTypeOf(parsed.qComponent).toEqualTypeOf<string | undefined>();
+    expectTypeOf(parsed.fComponent).toEqualTypeOf<string | undefined>();
+    expectTypeOf<ParsedURN>().toMatchTypeOf<URNComponents>();
+  });
+
+  it('accepts a parsed URN as stringify input', () => {
+    // The object overload is what makes parse and stringify inverses: the
+    // positional form takes its arguments in the opposite order.
+    expectTypeOf(URN.stringify(URN.parse('urn:a:b'))).toEqualTypeOf<string>();
+    expectTypeOf(URN.stringify({ nss: 'b' })).toEqualTypeOf<string>();
+    expectTypeOf<ParsedURN>().toMatchTypeOf<URNParts>();
+  });
+
+  it('requires an nss in the object form', () => {
+    // @ts-expect-error the NSS is the one part with no class-level default
+    URN.stringify({ nid: 'example' });
+  });
+
   it('types the predicates as booleans', () => {
     expectTypeOf(URN.isValidFormat('urn:a:b')).toEqualTypeOf<boolean>();
     expectTypeOf(
@@ -35,10 +56,13 @@ describe('urn types', () => {
     expectTypeOf(URN.equals('urn:a:b', 'urn:a:b')).toEqualTypeOf<boolean>();
   });
 
-  it('types the three role-scoped grammars as regexes', () => {
+  it('types the role-scoped grammars as regexes', () => {
     expectTypeOf(URN.schemeGrammar).toEqualTypeOf<RegExp>();
     expectTypeOf(URN.nidGrammar).toEqualTypeOf<RegExp>();
     expectTypeOf(URN.nssGrammar).toEqualTypeOf<RegExp>();
+    expectTypeOf(URN.rComponentGrammar).toEqualTypeOf<RegExp>();
+    expectTypeOf(URN.qComponentGrammar).toEqualTypeOf<RegExp>();
+    expectTypeOf(URN.fComponentGrammar).toEqualTypeOf<RegExp>();
   });
 
   it('no longer exposes a single flat isValid regex', () => {

@@ -19,6 +19,8 @@ const Nested = ({ label, children }: PropsWithChildren<{ label: string }>) => (
   </div>
 );
 
+const Nada = () => <span />;
+
 const components = { news: News, weather: Weather, nested: Nested };
 type Components = typeof components;
 
@@ -126,6 +128,23 @@ describe('widget type inference', () => {
     ]);
 
     expectTypeOf(items).toEqualTypeOf<WidgetItem<Components>[]>();
+  });
+
+  it('checks props on a component that declares none', () => {
+    // `{}` accepts any object without an excess-property check, so a zero-prop
+    // component is where prop checking is easiest to lose.
+    expectTypeOf<WidgetDataProps<typeof Nada>>().toEqualTypeOf<
+      Record<string, never>
+    >();
+
+    const { defineItems } = createWidgets({ components: { nada: Nada } });
+
+    defineItems([{ id: '1', type: 'nada', props: {} }]);
+
+    defineItems([
+      // @ts-expect-error the nada component accepts no props at all
+      { id: '2', type: 'nada', props: { totally: 'bogus' } },
+    ]);
   });
 
   it('accepts a well-formed set', () => {
