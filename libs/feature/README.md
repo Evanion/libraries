@@ -3,6 +3,12 @@
 
 # Feature Toggles
 
+> Not published. The design is settled in
+> [the spec](../../docs/specs/2026-09-11-feature-toggles.md); the
+> implementation is not written. `package.json` carries `private: true` so a
+> release run versions it without publishing it. Remove that field when the
+> package does what this file describes.
+
 Feature toggles where one flag can depend on another. A parent that resolves off
 takes its dependants with it, transitively, and it does that without writing
 anything back into the configuration.
@@ -46,14 +52,14 @@ the provider and hooks and is client code.
 
 A feature is stored intent:
 
-| Field | Meaning |
-| --- | --- |
-| `key` | The identifier. `string` or `number`. |
-| `enabled` | The maintainer wants this on. |
-| `dependsOn` | Features that must resolve on for this one to. |
-| `rules` | Activation rules. OR-ed. |
-| `seed` | Bucketing seed for this feature's rollouts. Defaults to the key. |
-| `freezeTimeAtBuild` | Let `plan()` resolve this feature's time windows at build. |
+| Field               | Meaning                                                          |
+| ------------------- | ---------------------------------------------------------------- |
+| `key`               | The identifier. `string` or `number`.                            |
+| `enabled`           | The maintainer wants this on.                                    |
+| `dependsOn`         | Features that must resolve on for this one to.                   |
+| `rules`             | Activation rules. OR-ed.                                         |
+| `seed`              | Bucketing seed for this feature's rollouts. Defaults to the key. |
+| `freezeTimeAtBuild` | Let `plan()` resolve this feature's time windows at build.       |
 
 `enabled` is intent, not the answer. `rules` decide whether it resolves on for a
 given context.
@@ -95,13 +101,13 @@ negative operators. `ne` on an absent field is unevaluable, not true.
 `resolve(context)` returns one decision per feature. `enabled` is the decision;
 everything else explains it.
 
-| `reason` | meaning |
-| --- | --- |
-| `default-on` | enabled, no rules |
-| `rule-match` | enabled, a rule matched; carries `rule` |
-| `explicitly-off` | `enabled === false` |
+| `reason`          | meaning                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| `default-on`      | enabled, no rules                                                 |
+| `rule-match`      | enabled, a rule matched; carries `rule`                           |
+| `explicitly-off`  | `enabled === false`                                               |
 | `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
-| `dependency-off` | a parent resolved off; carries `blockedBy` and `cause` |
+| `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
 
 ```ts
 {
@@ -196,7 +202,11 @@ order at all, so none of them is left for evaluation to trip over.
 
 ```tsx
 'use client';
-import { FeatureProvider, useFeature, useFeatureEnabled } from '@evanion/feature/react';
+import {
+  FeatureProvider,
+  useFeature,
+  useFeatureEnabled,
+} from '@evanion/feature/react';
 
 const features = createFeatures(config);
 const context = { targetingKey: user.id, now: new Date() };
@@ -236,20 +246,20 @@ compile error instead of an `undefined` at runtime.
 
 ## API
 
-| Export | |
-| --- | --- |
-| `createFeatures(definitions)` | Builds the store. Validates the graph. |
-| `.resolve(context?)` | A decision per feature. |
-| `.isEnabled(key, context?)` | One boolean. |
-| `.plan(context?)` | Build-time partition. |
-| `.toggle(key, enabled, context?)` | Writes intent, reports `willDisable`. |
-| `.config` | The stored intent, deeply frozen. |
-| `.definition(key)` | One stored definition. |
-| `.dependants(key)` | Transitive dependants, in dependency order. |
-| `.keys` | Every key, in configuration order. |
-| `bucketOf(value, seed)`, `inRollout(value, percent, seed)`, `murmur3(input)` | The bucketing primitives, exported for snapshot tooling and tests. |
-| `evaluateCondition(condition, context)` | One condition, for the same reason. |
-| `FeatureCycleError`, `UnknownDependencyError`, `DuplicateFeatureError`, `FeatureConfigError` | Construction errors. |
+| Export                                                                                       |                                                                    |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `createFeatures(definitions)`                                                                | Builds the store. Validates the graph.                             |
+| `.resolve(context?)`                                                                         | A decision per feature.                                            |
+| `.isEnabled(key, context?)`                                                                  | One boolean.                                                       |
+| `.plan(context?)`                                                                            | Build-time partition.                                              |
+| `.toggle(key, enabled, context?)`                                                            | Writes intent, reports `willDisable`.                              |
+| `.config`                                                                                    | The stored intent, deeply frozen.                                  |
+| `.definition(key)`                                                                           | One stored definition.                                             |
+| `.dependants(key)`                                                                           | Transitive dependants, in dependency order.                        |
+| `.keys`                                                                                      | Every key, in configuration order.                                 |
+| `bucketOf(value, seed)`, `inRollout(value, percent, seed)`, `murmur3(input)`                 | The bucketing primitives, exported for snapshot tooling and tests. |
+| `evaluateCondition(condition, context)`                                                      | One condition, for the same reason.                                |
+| `FeatureCycleError`, `UnknownDependencyError`, `DuplicateFeatureError`, `FeatureConfigError` | Construction errors.                                               |
 
 ## License
 
