@@ -1,8 +1,11 @@
 /**
- * Base class for every error this library throws.
+ * Base class for every error this library throws. Catch it to handle any
+ * validation failure without naming the subclasses.
  *
- * Catch this to handle any validation failure:
+ * `@evanion/luhn` exports an unrelated `LuhnError` hierarchy, so the two
+ * packages' errors never share a base in a consumer's `catch`.
  *
+ * @example
  * ```ts
  * try {
  *   URN.parse(input);

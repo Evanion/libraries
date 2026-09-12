@@ -68,18 +68,31 @@ const UNRESERVED = /^[A-Za-z0-9\-._~]$/;
  */
 export class URN {
   /**
-   * separator between the different parts of the URN
+   * What the scheme, the NID and the NSS are joined by and split on.
+   *
+   * RFC 8141 2 fixes this at `:`. Overriding it trades the RFC grammars for
+   * separator-derived ones on the scheme and the NID, and a separator
+   * containing `?` or `#` also switches component parsing off.
    */
   static readonly separator: string = ':';
 
   /**
-   * URN schema; The first part of the URN
+   * The scheme: the first part of the identifier.
+   *
+   * RFC 8141 2 fixes this at the literal `urn`. A subclass overrides it to
+   * mint identifiers in a scheme of its own, which every read and write path
+   * on that subclass then compares against.
    */
   static readonly urn: string = 'urn';
 
   /**
-   * namespace ID
-   * identifies the resource type
+   * The namespace identifier: the part that says what kind of resource the NSS
+   * names.
+   *
+   * `'nid'` is a placeholder, not a registered namespace — IANA's URN
+   * namespace registry holds the real ones. A subclass overrides it so
+   * `stringify(nss)` needs no namespace argument, and so `parse` can tell its
+   * own namespace from a foreign one.
    */
   static readonly nid: string = 'nid';
 
@@ -209,15 +222,16 @@ export class URN {
    * The read path is lenient in exactly one respect: it accepts a
    * one-character NID, which RFC 2141 permitted. See {@link nidReadGrammar}.
    *
-   * ```ts
-   * URN.parse('urn:example:weather?=lat=39#today');
-   * // { urn: 'urn', nid: 'example', nss: 'weather',
-   * //   qComponent: 'lat=39', fComponent: 'today' }
-   * ```
+   * @throws {ValidationError} when the string is not a well-formed URN.
    *
-   * @param urnString The URN string to parse
-   * @returns object that contains the parts of the URN
-   * @throws {ValidationError} if the string is not a well-formed URN
+   * @example
+   * ```ts @import.meta.vitest
+   * class WeatherURN extends URN {
+   *   static override readonly nid = 'example';
+   * }
+   *
+   * WeatherURN.parse('urn:example:weather?=lat=39#today'); // -> { urn: 'urn', nid: 'example', nss: 'weather', qComponent: 'lat=39', fComponent: 'today' }
+   * ```
    */
   static parse(urnString: string): ParsedURN {
     const { urn, nid, nss, components } = this.splitParts(urnString);
@@ -239,13 +253,6 @@ export class URN {
   /**
    * Takes the parts of a URN and returns the URN string.
    *
-   * ```ts
-   * URN.stringify('123', 'user');                       // 'urn:user:123'
-   * URN.stringify({ nss: '123', nid: 'user' });         // 'urn:user:123'
-   * URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
-   * // 'urn:example:weather?=lat=39'
-   * ```
-   *
    * `stringify` operates on the wire form. It does not percent-encode: an NSS
    * that is not already encoded, such as one containing a literal space, is
    * rejected. Encode with {@link encodeNss} first if you need to.
@@ -254,9 +261,14 @@ export class URN {
    * is a static that subclasses may override, so any `${urn}:${nid}:${nss}`
    * type would be wrong for them.
    *
-   * @param parts The parts of the URN, keyed as {@link parse} returns them
-   * @returns generated URN
-   * @throws {InvalidError} if any part is empty or breaks its grammar
+   * @throws {InvalidError} when a part is empty or breaks its grammar.
+   *
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.stringify('123', 'user'); // -> 'urn:user:123'
+   * URN.stringify({ nss: '123', nid: 'user' }); // -> 'urn:user:123'
+   * URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' }); // -> 'urn:example:weather?=lat=39'
+   * ```
    */
   static stringify(parts: URNParts): string;
   /**
@@ -267,9 +279,7 @@ export class URN {
    * which this form cannot express, so `stringify(parse(x))` returns `x` for a
    * URN in this class's own namespace.
    *
-   * @param nss Namespace specific string
-   * @param nid Namespace ID
-   * @param urn Schema
+   * `nid` and `urn` default to this class's own statics.
    */
   static stringify(nss: string, nid?: string, urn?: string): string;
   // The defaults sit in the parameter list so the positional overload can fall
@@ -302,10 +312,14 @@ export class URN {
    * Checks if a string is a valid URN.
    *
    * Delegates to {@link parse}, so the read path and this predicate cannot
-   * drift apart.
+   * drift apart. Never throws, which makes it the cheap way to screen input
+   * before committing to `parse`.
    *
-   * @param urnString The string to validate
-   * @returns true if the string parses
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.isValidFormat('urn:example:123'); // -> true
+   * URN.isValidFormat('not-a-urn'); // -> false
+   * ```
    */
   static isValidFormat(urnString: string): boolean {
     try {
@@ -323,12 +337,7 @@ export class URN {
    * This is deliberately *structural* and differs from `parse(urnString).nss`
    * on a foreign namespace. `parse` keeps a non-matching NID attached to the
    * `nss` so the namespace is not silently lost, whereas `extractId` always
-   * drops it:
-   *
-   * ```ts
-   * URN.parse('urn:user:123').nss   // 'user:123' -- base class nid is 'nid'
-   * URN.extractId('urn:user:123')   // '123'
-   * ```
+   * drops it.
    *
    * Reach for `parse` when the namespace matters, and `extractId` when you
    * only want the trailing identifier.
@@ -337,22 +346,29 @@ export class URN {
    * resource's parameters and a secondary resource, none of which are part of
    * the identifier.
    *
-   * @param urnString The URN string to extract from
-   * @returns The identifier portion
-   * @throws {ValidationError} if the string is not a well-formed URN
+   * @throws {ValidationError} when the string is not a well-formed URN.
+   *
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.parse('urn:user:123').nss; // -> 'user:123'
+   * URN.extractId('urn:user:123'); // -> '123'
+   * ```
    */
   static extractId(urnString: string): string {
     return this.splitParts(urnString).nss;
   }
 
   /**
-   * Checks if two URNs are in the same namespace (same URN scheme and NID).
+   * Checks if two URNs are in the same namespace: same scheme and same NID.
    *
    * The scheme and the NID are compared case-insensitively, per RFC 8141 3.1.
+   * Malformed input returns `false` rather than throwing.
    *
-   * @param urn1 First URN string
-   * @param urn2 Second URN string
-   * @returns true if both URNs have the same scheme and namespace ID
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.sameNamespace('urn:user:1', 'URN:User:2'); // -> true
+   * URN.sameNamespace('urn:user:1', 'urn:order:2'); // -> false
+   * ```
    */
   static sameNamespace(urn1: string, urn2: string): boolean {
     try {
@@ -368,11 +384,15 @@ export class URN {
    * Checks if a URN belongs to a specific namespace.
    *
    * The scheme and the NID are compared case-insensitively, per RFC 8141 3.1.
+   * Malformed input returns `false` rather than throwing. `expectedUrn`
+   * defaults to this class's own scheme, so a subclass does not have to repeat
+   * it.
    *
-   * @param urnString The URN string to check
-   * @param expectedNid The expected namespace ID
-   * @param expectedUrn The expected URN scheme; defaults to this class's own scheme
-   * @returns true if the URN belongs to the specified namespace
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.belongsToNamespace('urn:user:1', 'user'); // -> true
+   * URN.belongsToNamespace('ftp:user:1', 'user'); // -> false
+   * ```
    */
   static belongsToNamespace(
     urnString: string,
@@ -399,6 +419,12 @@ export class URN {
    * is never decoded, so `%2C` and `,` are *not* equivalent.
    *
    * Returns `false` for malformed input rather than throwing.
+   *
+   * @example
+   * ```ts @import.meta.vitest
+   * URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // -> true
+   * URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // -> false
+   * ```
    */
   static equals(a: string, b: string): boolean {
     try {
@@ -646,6 +672,11 @@ function canonicaliseTriplets(value: string): string {
  * percent-triplets with uppercase hex, so the result is safe in any position
  * of an NSS. Neither `stringify` nor `parse` calls this: encoding is an
  * explicit, separate step, so a value can never be double-encoded by accident.
+ *
+ * @example
+ * ```ts @import.meta.vitest
+ * encodeNss('café'); // -> 'caf%C3%A9'
+ * ```
  */
 export function encodeNss(raw: string): string {
   let encoded = '';
@@ -664,8 +695,13 @@ export function encodeNss(raw: string): string {
 /**
  * Decodes the percent-triplets in an NSS back to the raw string.
  *
- * @throws {ValidationError} if the input contains a malformed or truncated
- *   percent sequence.
+ * @throws {ValidationError} when the input contains a malformed or truncated
+ * percent sequence.
+ *
+ * @example
+ * ```ts @import.meta.vitest
+ * decodeNss('caf%C3%A9'); // -> 'café'
+ * ```
  */
 export function decodeNss(encoded: string): string {
   if (/%(?![0-9A-Fa-f]{2})/.test(encoded)) {

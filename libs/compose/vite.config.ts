@@ -9,17 +9,14 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/libs/compose',
   plugins: [
     react(),
+    // The published `dist/*.d.ts` files come from here, not from tsc: this
+    // build owns `dist` and empties it, so tsc emits to a throwaway directory
+    // instead. See the `outDir` note in tsconfig.lib.json.
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
     }),
   ],
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
-  // Configuration for building your library.
-  // See: https://vitejs.dev/guide/build.html#library-mode
   build: {
     outDir: './dist',
     emptyOutDir: true,
@@ -28,16 +25,18 @@ export default defineConfig(() => ({
       transformMixedEsModules: true,
     },
     lib: {
-      // Could also be a dictionary or array of multiple entry points.
       entry: 'src/index.ts',
       name: '@evanion/compose',
       fileName: 'index',
-      // Change this to the formats you want to support.
-      // Don't forget to update your package.json as well.
+      // ESM only, which is what package.json declares: there is no `require`
+      // condition in its exports map and no CJS artifact to point one at.
       formats: ['es' as const],
     },
     rolldownOptions: {
-      // External packages that should not be bundled into your library.
+      // React is a peer dependency. Bundling it would give a consumer a second
+      // React instance, and two instances share no context or hook state.
+      // `react/jsx-runtime` is listed separately because the automatic JSX
+      // transform imports it directly, not through `react`.
       external: ['react', 'react-dom', 'react/jsx-runtime'],
     },
   },

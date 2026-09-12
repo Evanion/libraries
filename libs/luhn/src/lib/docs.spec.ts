@@ -6,15 +6,14 @@ import { ALTERNATING_CASE_DICTIONARY, DEFAULT_DICTIONARY, Luhn, createLuhn } fro
 /**
  * The documented claims that the README cannot make as an executable example.
  *
- * Every `// -> value` in README.md is now checked where it is written: the
- * blocks are marked `@import.meta.vitest`, and the claims become assertions at
- * transform time. What is left here is the rest — the claims that are about
- * throwing, about a fictional dependency, or about a statement too large to
- * carry a value claim on one line.
+ * Every `// -> value` in README.md is checked where it is written: those blocks
+ * are marked `@import.meta.vitest`, and `tools/doc-examples` turns each claim
+ * into an assertion at transform time. What is left here is the rest — the
+ * claims that are about throwing, about a fictional dependency, or about a
+ * statement too large to carry a value claim on one line.
  *
- * 2.0.0 changed the arithmetic and left the documented numbers at their 1.x
- * values, so the docs were wrong for two releases with nothing failing. That
- * is what both halves exist to prevent.
+ * Between them the two halves mean no documented value in this package can be
+ * wrong without a test failing.
  */
 describe('the documented claims the README cannot assert itself', () => {
   describe('README: quick start', () => {
@@ -63,7 +62,7 @@ describe('the documented claims the README cannot assert itself', () => {
     });
   });
 
-  describe('README: migration', () => {
+  describe('README: the default instance is frozen', () => {
     it('assignment to the default instance throws', () => {
       expect(() => {
         (Luhn as { dictionary: string }).dictionary = DEFAULT_DICTIONARY;
