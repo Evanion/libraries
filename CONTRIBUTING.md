@@ -160,6 +160,19 @@ for `apps/shop-api` that was a single `@nx/webpack/plugin` registration in
 `tools/repo-checks` fails the build if any of that collateral is left in, so
 `nx run-many -t test` will tell you before CI does.
 
+### Formatting
+
+CI runs `npx prettier --check .` over the whole tree in its own job, so an
+unformatted file fails the build whether or not your change touched it. Run
+`npx nx format:write` before pushing, or let your editor format on save.
+
+`.git-blame-ignore-revs` lists the formatting-only commits. GitHub's blame view
+applies it on its own; your clone does not until you point git at it:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 ### Pre-commit Hooks
 
 This project uses Husky pre-commit hooks that run **only on affected projects** using Nx:
