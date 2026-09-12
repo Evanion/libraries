@@ -1,174 +1,270 @@
-import { InvalidDictionaryError } from './exceptions.js';
+import { EmptyInputError, InvalidDictionaryError } from './exceptions.js';
 
 /**
- * @typedef {Object} GenerateResult
- * @property {String} phrase The filtered string
- * @property {String} checksum The generated checksum character
+ * 36 lowercase alphanumerics, the dictionary `createLuhn()` uses when the
+ * caller supplies none.
+ *
+ * It contains no case pairs, which is what makes case folding sound over it:
+ * folding maps uppercase input onto a dictionary entry instead of onto a
+ * second entry that is already taken.
  */
+export const DEFAULT_DICTIONARY = '0123456789abcdefghijklmnopqrstuvwxyz';
 
 /**
- * @typedef {Object} ValidateResult
- * @property {String} phrase The filtered string
- * @property {Boolean} isValid True if the string is valid
+ * 62 characters, digits followed by `Aa Bb Cc …`. Case-sensitive only: its
+ * case pairs make it invalid under `caseInsensitive`.
+ *
+ * The alternating order is load-bearing — it decides which index each letter
+ * occupies, and therefore every check character the dictionary produces.
  */
+export const ALTERNATING_CASE_DICTIONARY =
+  '0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz';
 
-/**
- * Lets you easily generate and validate checksum values based on the Luhn mod-N algorithm
- */
-export class Luhn {
+/** The filtered phrase and its check character. */
+export interface GenerateResult {
+  /** `input` with every code point outside the dictionary removed. */
+  phrase: string;
+  /** The check character, drawn from the dictionary. */
+  checksum: string;
+  /** How many code points of `input` were dropped. */
+  filtered: number;
+}
+
+/** The filtered phrase and whether its last character checks out. */
+export interface ValidateResult {
+  /** `input` with every code point outside the dictionary removed. */
+  phrase: string;
+  isValid: boolean;
+  /** How many code points of `input` were dropped. */
+  filtered: number;
+}
+
+export interface LuhnOptions {
   /**
-   * Toggle if the class should be case sensitive
-   */
-  static sensitive = false;
-
-  /**
-   * Dictionary that contains all valid characters.
-   * Override it if you want to use additional/less characters
-   */
-  static dictionary =
-    '0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz';
-
-  static lowercaseOnly = (dictionary: string) =>
-    dictionary
-      .toLowerCase()
-      .split('')
-      .filter((char, index, arr) => arr.indexOf(char) === index)
-      .join('');
-
-  /**
-   * Generates a check character for the input string.
-   * @param {String} input The string that should have a check character
-   * @param {Boolean} sensitive Toggle if the function should be case-sensitive or not.
-   * @returns {GenerateResult} The filtered string and checksum character
+   * The alphabet. Must be a string of an even number of distinct code points,
+   * at least two, and must contain no case pairs when `caseInsensitive` is on.
    *
-   * @example
-   * Luhn.generate('foo') // -> {phrase: 'foo', checksum: '5'}
-   * Luhn.generate('FoO') // -> {phrase: 'foo', checksum: '5'}
-   * Luhn.generate('FoO', true) // -> {phrase: 'FoO', checksum: 'n'}
+   * Defaults to {@link DEFAULT_DICTIONARY}.
    */
-  public static generate(input: string, sensitive?: boolean) {
-    const dictionary = sensitive
-      ? this.lowercaseOnly(this.dictionary)
-      : this.dictionary;
+  dictionary?: string;
+  /**
+   * Fold input to lowercase before looking it up, so `FOO` and `foo` check the
+   * same.
+   *
+   * Defaults to `true` when `dictionary` is omitted and `false` when it is
+   * given: the default dictionary is chosen to support folding, a
+   * caller-supplied one has to say whether it does.
+   */
+  caseInsensitive?: boolean;
+}
 
-    const n = this.getN(dictionary);
-    const filteredArr = (
-      sensitive || this.sensitive ? input : input.toLowerCase()
-    )
-      .split('')
-      .filter(this.filterValid(dictionary));
+/** A dictionary with `generate` and `validate` bound to it. */
+export interface Luhn {
+  readonly dictionary: string;
+  /** The modulus: the number of code points in the dictionary. */
+  readonly n: number;
+  readonly caseInsensitive: boolean;
+  /**
+   * Whether `byte % n` draws uniformly from the dictionary, which holds when
+   * `n` divides 256.
+   *
+   * It says nothing about the quality of the bytes. This library does not
+   * generate random values; the flag exists so a caller that does can reject a
+   * dictionary that would bias its output.
+   */
+  readonly uniformOverBytes: boolean;
 
-    const sum = [...filteredArr]
-      .reverse()
-      .reduce(this.reduce(2, dictionary), 0);
+  /**
+   * Computes the check character for `input`.
+   *
+   * @throws {EmptyInputError} when no code point of `input` is in the
+   * dictionary.
+   */
+  generate(input: string): GenerateResult;
 
-    const remainder = sum % n;
-    const checkCodePoint = (n - remainder) % n;
+  /**
+   * Checks `input`, whose last dictionary code point is the check character.
+   *
+   * Fewer than two surviving code points is not valid: a check character over
+   * no payload carries no information.
+   */
+  validate(input: string): ValidateResult;
+}
 
-    return {
-      phrase: filteredArr.join(''),
-      checksum: this.index2char(checkCodePoint, dictionary),
-    };
+/**
+ * Validates `dictionary` and returns its code points.
+ *
+ * Iteration is by code point rather than by UTF-16 unit, so an astral
+ * dictionary counts and indexes as the caller wrote it; `split('')` halves
+ * every surrogate pair.
+ */
+const codePointsOf = (
+  dictionary: string,
+  caseInsensitive: boolean,
+): string[] => {
+  if (typeof dictionary !== 'string') {
+    throw new InvalidDictionaryError('not-a-string', dictionary, []);
   }
 
-  /**
-   * Validates if the given string, matches the calculated checksum.
-   * The last character in the string is considered the checksum.
-   * @param {String} input The string that you want to check,
-   * including the check character in the end of the string
-   * @param {Boolean} sensitive Toggle if the function should be case-sensitive or not.
-   * @returns {ValidateResult} returns if the string is valid or not.
-   * @example
-   * Luhn.validate('foo5') // -> {phrase: 'foo5', isValid: true}
-   * Luhn.validate('FoO5') // -> {phrase: 'foo5', isValid: true}
-   * Luhn.validate('FoOö5') // -> {phrase: 'foo5', isValid: true}
-   * Luhn.validate('FoO5', true) // -> {phrase: 'FoO5', isValid: false}
-   */
-  public static validate(input: string, sensitive?: boolean) {
-    const dictionary = sensitive
-      ? this.lowercaseOnly(this.dictionary)
-      : this.dictionary;
-    const n = this.getN(dictionary);
-    const filteredArr = (
-      sensitive || this.sensitive ? input : input.toLowerCase()
-    )
-      .split('')
-      .filter(this.filterValid(dictionary));
+  const chars = [...dictionary];
 
-    const sum = [...filteredArr]
-      .reverse()
-      .reduce(this.reduce(1, dictionary), 0);
-
-    return {
-      phrase: filteredArr.join(''),
-      isValid: !(sum % n),
-    };
+  if (chars.length < 2) {
+    throw new InvalidDictionaryError('too-short', dictionary, []);
   }
 
-  /**
-   * Looks up an index in the dictionary based on the given character
-   * @param {String} character The character you want to find in the dictionary
-   * @returns {Number} the index of the character in the dictionary
-   */
-  protected static readonly char2index = (
-    character: string,
-    dictionary: string,
-  ) => dictionary.indexOf(character);
+  if (chars.length % 2 !== 0) {
+    throw new InvalidDictionaryError('odd-length', dictionary, []);
+  }
+
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const char of chars) {
+    if (seen.has(char)) repeated.add(char);
+    seen.add(char);
+  }
+  if (repeated.size > 0) {
+    throw new InvalidDictionaryError('duplicate', dictionary, [...repeated]);
+  }
+
+  if (caseInsensitive) {
+    const byFold = new Map<string, string[]>();
+    for (const char of chars) {
+      const fold = char.toLowerCase();
+      byFold.set(fold, [...(byFold.get(fold) ?? []), char]);
+    }
+    const pairs = [...byFold.values()]
+      .filter((group) => group.length > 1)
+      .map((group) => group.join(''));
+    if (pairs.length > 0) {
+      throw new InvalidDictionaryError('case-pairs', dictionary, pairs);
+    }
+  }
+
+  return chars;
+};
+
+/**
+ * Validates `options.dictionary` and returns a frozen object carrying it, its
+ * lookup tables, and the two operations bound to them.
+ *
+ * Everything a dictionary has to satisfy is checked here, once. Nothing is
+ * checked at use, so an accepted instance cannot produce a token its own
+ * `validate` rejects.
+ *
+ * @throws {InvalidDictionaryError} when the dictionary fails a constraint.
+ *
+ * @example
+ * const luhn = createLuhn({ dictionary: '0123456789' });
+ * luhn.generate('7992739871'); // -> { phrase: '7992739871', checksum: '3', filtered: 0 }
+ */
+export function createLuhn(options: LuhnOptions = {}): Luhn {
+  const dictionary = options.dictionary ?? DEFAULT_DICTIONARY;
+  const caseInsensitive =
+    options.caseInsensitive ?? options.dictionary === undefined;
+
+  const chars = codePointsOf(dictionary, caseInsensitive);
+  const n = chars.length;
+  const indexOf = new Map(chars.map((char, index) => [char, index]));
 
   /**
-   * Looks up a character in the dictionary based on it's index
-   * @param {Number} codePoint The index you want to find in the dictionary
-   * @returns {String} The character in the dictionary, at the given index
+   * Splits `input` into the dictionary indices it contains, in order, plus the
+   * phrase they spell and the count of what was dropped.
+   *
+   * Folding is applied per code point so that each code point of `input` is
+   * either one index or one drop, which is what makes `filtered` a count of
+   * the caller's own input.
    */
-  protected static readonly index2char = (
-    codePoint: number,
-    dictionary: string,
-  ) => dictionary.charAt(codePoint);
+  const scan = (input: string) => {
+    const indices: number[] = [];
+    let phrase = '';
+    let filtered = 0;
 
-  /**
-   * Filter out any characters that are not in the dictionary.
-   * @param {String} character The character you want to check
-   * @returns {Boolean} True if the character is in the dictionary
-   */
-  protected static readonly filterValid =
-    (dictionary: string) => (character: string) =>
-      dictionary.indexOf(character) !== -1;
-
-  /**
-   * Higher-order function that returns a reducer that calculates the checksum
-   * @param {Number}factor
-   * @returns {reduce~reducer}
-   */
-  protected static readonly reduce =
-    (factor: 1 | 2, dictionary: string) =>
-    /**
-     * Reducer function that is applied on an array of
-     * characters in order to calculate a checksum.
-     * @param {Number} sum current sum of the checksum
-     * @param {String} current current character that is being calculated
-     * @returns {Number} the checksum
-     */
-    (sum: number, current: string) => {
-      const codePoint = this.char2index(current, dictionary);
-      let addend = factor * codePoint;
-
-      factor = factor === 2 ? 1 : 2;
-
-      addend =
-        Math.floor(addend / dictionary.length) + (addend % dictionary.length);
-      return (sum += addend);
-    };
-
-  /**
-   * Checks that the dictionary complies with the requirements,
-   * and returns the N value.
-   * @returns {Number} Length of the dictionary
-   */
-  protected static readonly getN = (dictionary: string) => {
-    if (dictionary.length % 2 !== 0) {
-      throw new InvalidDictionaryError(dictionary);
+    for (const char of input) {
+      const key = caseInsensitive ? char.toLowerCase() : char;
+      const index = indexOf.get(key);
+      if (index === undefined) {
+        filtered++;
+        continue;
+      }
+      indices.push(index);
+      phrase += key;
     }
 
-    return dictionary.length;
+    return { indices, phrase, filtered };
   };
+
+  /**
+   * Luhn's fold, right to left: double every other index, then add the tens
+   * digit to the units digit — `floor(a / n) + (a % n)` over a dictionary of
+   * `n` code points.
+   *
+   * `factor` starts at 2 when a check character is about to be appended and at
+   * 1 when one is already present, which is what puts the doubling on the same
+   * positions in both directions.
+   */
+  const fold = (indices: readonly number[], startFactor: 1 | 2): number => {
+    let factor = startFactor;
+    let sum = 0;
+
+    for (let position = indices.length - 1; position >= 0; position--) {
+      const addend = factor * (indices[position] as number);
+      factor = factor === 2 ? 1 : 2;
+      sum += Math.floor(addend / n) + (addend % n);
+    }
+
+    return sum;
+  };
+
+  const generate = (input: string): GenerateResult => {
+    const { indices, phrase, filtered } = scan(input);
+
+    if (indices.length < 1) {
+      throw new EmptyInputError(
+        `Luhn cannot generate a check character over an input with no dictionary code points (received ${JSON.stringify(input)}).`,
+      );
+    }
+
+    const remainder = fold(indices, 2) % n;
+
+    return {
+      phrase,
+      checksum: chars[(n - remainder) % n] as string,
+      filtered,
+    };
+  };
+
+  const validate = (input: string): ValidateResult => {
+    const { indices, phrase, filtered } = scan(input);
+
+    return {
+      phrase,
+      isValid: indices.length >= 2 && fold(indices, 1) % n === 0,
+      filtered,
+    };
+  };
+
+  return Object.freeze({
+    dictionary,
+    n,
+    caseInsensitive,
+    uniformOverBytes: 256 % n === 0,
+    generate,
+    validate,
+  });
 }
+
+/**
+ * `createLuhn()`: the 36 lowercase alphanumerics, folding case.
+ *
+ * Frozen, so `Luhn.dictionary = x` — the 1.x and 2.x way to configure this
+ * library — throws a `TypeError` in a module rather than being accepted and
+ * ignored. Build a second instance with `createLuhn` instead.
+ */
+/*
+ * `Luhn` names the interface in type space and the default instance in value
+ * space, so `const luhn: Luhn = Luhn` resolves both. no-redeclare's
+ * ignoreDeclarationMerge option covers interface/class and interface/interface
+ * merges, not interface/variable.
+ */
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const Luhn: Luhn = createLuhn();
