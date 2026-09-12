@@ -44,6 +44,12 @@
     },
     {
       "path": "./libs/token"
+    },
+    {
+      "path": "./apps/storefront-rsc"
+    },
+    {
+      "path": "./apps/admin"
     }
   ],
   "compilerOptions": {

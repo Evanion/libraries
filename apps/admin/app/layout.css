@@ -1,0 +1,125 @@
+/*
+ * Layout for the back office, and nothing else.
+ *
+ * Every value here is a reference to a token defined in `app/ui/baize.tsx`. The
+ * page grid, the rail width and the link states are specific to this app, so they
+ * are not tokens and do not belong in the file that is to become the shared UI
+ * library.
+ */
+
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--bz-space-5) var(--bz-space-8);
+}
+
+/*
+ * Rail first, page second. The rail is fixed so the numbers in it sit on the
+ * same x-position on every route, which is what lets an operator compare them
+ * across pages without re-finding the column.
+ */
+.shell-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--bz-space-7);
+  padding-top: var(--bz-space-6);
+}
+
+@media (max-width: 860px) {
+  .shell-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--bz-space-5);
+  }
+}
+
+.page-head {
+  display: grid;
+  gap: var(--bz-space-4);
+  padding-bottom: var(--bz-space-6);
+}
+
+.page-title {
+  margin: 0;
+  font-family: var(--bz-font-display);
+  font-size: var(--bz-type-heading);
+  font-weight: 600;
+  font-stretch: 85%;
+  letter-spacing: -0.02em;
+}
+
+.page-note {
+  margin: 0 0 var(--bz-space-5);
+  max-width: 72ch;
+}
+
+.notice {
+  margin: var(--bz-space-4) 0 0;
+  padding: var(--bz-space-3) var(--bz-space-4);
+  border: 1px solid var(--bz-rule);
+  border-radius: var(--bz-radius-panel);
+  background: var(--bz-felt);
+}
+
+.nav-link,
+.rail-link,
+.row-link {
+  text-decoration: none;
+}
+
+.nav-link {
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--bz-lichen);
+}
+
+.nav-link:hover {
+  color: var(--bz-chalk);
+}
+
+/*
+ * The active section is marked by a rule under it rather than by colour. Colour
+ * is spoken for: it carries mechanism and availability, and a third meaning on
+ * the same channel would make all three harder to read.
+ */
+.nav-link.active {
+  color: var(--bz-chalk);
+  border-bottom-color: var(--bz-chalk);
+}
+
+.rail-link {
+  color: var(--bz-lichen);
+  font-size: var(--bz-type-small);
+}
+
+.rail-link.active,
+.rail-link:hover {
+  color: var(--bz-chalk);
+}
+
+.row-link:hover > span {
+  text-decoration: underline;
+}
+
+.title-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--bz-space-4);
+  margin-top: var(--bz-space-4);
+}
+
+.availability-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bz-space-2);
+}
+
+.select {
+  padding: var(--bz-space-2) var(--bz-space-3);
+  border: 1px solid var(--bz-rule);
+  border-radius: var(--bz-radius-button);
+  background: var(--bz-ink);
+  color: var(--bz-chalk);
+  font: inherit;
+  font-size: var(--bz-type-small);
+}

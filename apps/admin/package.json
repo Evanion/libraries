@@ -1,0 +1,60 @@
+{
+  "name": "admin",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "nx": {
+    "name": "admin",
+    "targets": {
+      "typegen": {
+        "cache": true,
+        "executor": "nx:run-commands",
+        "inputs": [
+          "{projectRoot}/app/routes.ts",
+          "{projectRoot}/app/**/*.tsx"
+        ],
+        "outputs": [
+          "{projectRoot}/.react-router"
+        ],
+        "options": {
+          "cwd": "apps/admin",
+          "command": "react-router typegen"
+        }
+      },
+      "typecheck": {
+        "dependsOn": [
+          "typegen",
+          "^typecheck"
+        ]
+      },
+      "test": {
+        "dependsOn": [
+          "typegen",
+          "^build",
+          "build"
+        ]
+      },
+      "lint": {
+        "dependsOn": [
+          "typegen"
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "@evanion/compose": "*",
+    "@evanion/react-widget": "*",
+    "@react-router/node": "^8.3.1",
+    "@react-router/serve": "^8.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.1",
+    "isbot": "^5"
+  },
+  "devDependencies": {
+    "@react-router/dev": "^8.3.1",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7"
+  }
+}

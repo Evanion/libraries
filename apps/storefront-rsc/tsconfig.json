@@ -1,0 +1,60 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    },
+    // This app consumes `@evanion/react-widget` the way a published consumer
+    // does: the `import`/`types` conditions, which resolve to the package's
+    // built `dist/`. tsconfig.base.json sets
+    // `customConditions: ["@evanion/source"]`, which would resolve the import to
+    // the library's TypeScript source instead; `next build` type-checks with a
+    // plain `tsc` that does not build project references, so the source file
+    // would be redirected to a declaration output no target emits (TS6305).
+    // `nx.json` orders the library's build ahead of this app's.
+    "customConditions": [],
+    "outDir": "dist",
+    "rootDir": ".",
+    "ignoreDeprecations": "6.0"
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "app/**/*.js",
+    "app/**/*.jsx",
+    "../../apps/storefront-rsc/.next/types/**/*.ts",
+    "../../dist/apps/storefront-rsc/.next/types/**/*.ts",
+    "next-env.d.ts"
+  ],
+  "exclude": [
+    "out-tsc",
+    "dist",
+    "node_modules",
+    ".next",
+    "eslint.config.js",
+    "eslint.config.cjs",
+    "eslint.config.mjs"
+  ],
+  "references": [
+    {
+      "path": "../../libs/widget"
+    }
+  ]
+}
