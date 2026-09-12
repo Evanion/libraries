@@ -29,6 +29,9 @@
     },
     {
       "path": "./libs/luhn"
+    },
+    {
+      "path": "./apps/shop-api"
     }
   ],
   "compilerOptions": {
