@@ -10,8 +10,11 @@ const STOCK: ReadonlyMap<string, number> = new Map([
   [GameURN.stringify('azul'), 25],
 ]);
 
+/** Read-only accessor over the static STOCK map. */
 @Injectable()
 export class InventoryService {
+  /** Throws rather than returning undefined when urn has no stock record --
+   * the return type is Stock, not an optional. */
   getStock(urn: string): Stock {
     const quantity = STOCK.get(urn);
     if (quantity === undefined) {

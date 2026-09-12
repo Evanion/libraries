@@ -2,6 +2,8 @@ import { Body, Controller, Post } from '@nestjs/common';
 import type { CreateOrderRequest, OrderResult } from './cart.model.js';
 import { OrdersService } from './orders.service.js';
 
+/** Single write endpoint: place an order against the in-memory catalogue and
+ * stock. Delegates everything to OrdersService. */
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
