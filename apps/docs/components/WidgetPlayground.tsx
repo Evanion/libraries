@@ -4,13 +4,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { LiveProvider, LiveError, LivePreview } from 'react-live';
 import { Editor } from '@monaco-editor/react';
 import type { OnMount } from '@monaco-editor/react';
+import { playgroundScope } from './playground-scope';
 
 interface WidgetPlaygroundProps {
   /**
    * The snippet the preview starts from. It is evaluated by react-live in
    * `noInline` mode, so it has to end in a `render(<… />)` call, and every name
-   * it uses has to be in `scope` below -- there is no module resolution inside
-   * the snippet.
+   * it uses has to be in `playgroundScope` -- there is no module resolution
+   * inside the snippet.
    */
   initialCode: string;
   /** Editor height in pixels, and the preview panel's minimum height. */
@@ -133,59 +134,6 @@ export default function WidgetPlayground({
     );
   }, []);
 
-  /**
-   * Stands in for `@evanion/react-widget`'s `createWidgets` inside the snippet.
-   *
-   * react-live evaluates a snippet against `scope` alone, with no module
-   * resolution, so every name the examples use has to be supplied here. This
-   * covers the lookup-and-render half the examples demonstrate; item validation
-   * and `chrome` are not implemented, so a snippet that passes `chrome` renders
-   * without it.
-   */
-  const mockCreateWidgets = (config: {
-    components: Record<string, React.ComponentType<Record<string, unknown>>>;
-  }) => {
-    const { components } = config;
-
-    const Widgets = ({
-      items,
-    }: {
-      items: Array<{
-        id: string;
-        type: string;
-        props: Record<string, unknown>;
-      }>;
-    }) => {
-      return (
-        <div>
-          {items.map((item) => {
-            const Component = components[item.type];
-            if (!Component) return null;
-            return (
-              <div key={item.id} style={{ marginBottom: '16px' }}>
-                <Component {...item.props} />
-              </div>
-            );
-          })}
-        </div>
-      );
-    };
-
-    return { Widgets };
-  };
-
-  const scope = {
-    createWidgets: mockCreateWidgets,
-    useState: React.useState,
-    useEffect: React.useEffect,
-    useMemo: React.useMemo,
-    useCallback: React.useCallback,
-    React: React,
-    // `noInline` makes react-live run the snippet as statements and render
-    // whatever it hands to `render`, which it expects the scope to provide.
-    render: (element: React.ReactElement) => element,
-  };
-
   return (
     <div className="widget-playground">
       <div className="playground-header">
@@ -210,7 +158,7 @@ export default function WidgetPlayground({
       <div className="playground-content">
         {activeTab === 'preview' ? (
           <div className="preview-panel">
-            <LiveProvider code={code} scope={scope} noInline={true}>
+            <LiveProvider code={code} scope={playgroundScope} noInline={true}>
               <div className="preview-container">
                 <LivePreview />
                 <LiveError className="error-display" />

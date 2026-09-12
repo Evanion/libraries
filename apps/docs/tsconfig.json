@@ -21,6 +21,15 @@
     "paths": {
       "@/*": ["./*"]
     },
+    // The docs app consumes `@evanion/react-widget` the way a published
+    // consumer does: the `import`/`types` conditions, which resolve to the
+    // package's built `dist/`. tsconfig.base.json sets
+    // `customConditions: ["@evanion/source"]`, which would resolve the import to
+    // the library's TypeScript source instead; `next build` type-checks with a
+    // plain `tsc` that does not build project references, so the source file
+    // would be redirected to a declaration output no target emits (TS6305).
+    // `nx.json` orders the library's build ahead of this app's.
+    "customConditions": [],
     "outDir": "dist",
     "rootDir": ".",
     "ignoreDeprecations": "6.0"
@@ -58,5 +67,9 @@
     "eslint.config.cjs",
     "eslint.config.mjs"
   ],
-  "references": []
+  "references": [
+    {
+      "path": "../../libs/widget"
+    }
+  ]
 }
