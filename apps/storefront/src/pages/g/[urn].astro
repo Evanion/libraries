@@ -1,0 +1,139 @@
+---
+import ApiOffline from '../../components/ApiOffline.astro';
+import AvailabilityPill from '../../components/AvailabilityPill.astro';
+import MechanismTags from '../../components/MechanismTags.astro';
+import StatLine from '../../components/StatLine.astro';
+import { ExpansionURN } from '../../domain/expansion.urn.js';
+import { GameURN } from '../../domain/game.urn.js';
+import Page from '../../layouts/Page.astro';
+import { formatPrice, gameHue } from '../../lib/catalogue.js';
+
+const { api } = Astro.locals;
+const urn = Astro.params.urn ?? '';
+
+// Screened before the API is called: the route takes a urn straight off the URL,
+// and `urn:expansion:wingspan:europe` or a bare slug is a 404 here rather than a
+// round trip that returns one.
+if (!GameURN.belongsToNamespace(urn, GameURN.nid)) {
+  return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+// Two calls, one correlation id. The footer's trace is what shows that.
+const [game, stock] = await Promise.all([api.game(urn), api.stock(urn)]);
+
+if (!game.ok && game.status === 404) {
+  return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+const copies = stock.ok ? stock.value.quantity : undefined;
+const sellable = copies !== undefined && copies > 0;
+---
+
+{
+  game.ok ? (
+    <Page title={game.value.title}>
+      <div class="detail" style={`--hue: ${gameHue(game.value)}`}>
+        <div>
+          <div class="detail__head">
+            <h1 class="baize-title baize-title--lg">{game.value.title}</h1>
+            <AvailabilityPill availability={game.value.availability} />
+          </div>
+          <MechanismTags mechanisms={game.value.mechanisms} />
+          <div class="feature__stats">
+            <StatLine
+              players={game.value.players}
+              playtime={game.value.playtime}
+              weight={game.value.weight}
+              size="lg"
+            />
+          </div>
+
+          {game.value.expansions.length > 0 && (
+            <div class="section">
+              <h2 class="section__heading">Expansions</h2>
+              <ul class="expansions">
+                {game.value.expansions.map((expansion) => (
+                  <li class="expansions__row">
+                    <div>
+                      <span>{expansion.title}</span>
+                      {/* The parent game comes out of the composite nss rather
+                          than out of a second field on the response: an
+                          expansion urn already carries the game it belongs to. */}
+                      <span class="expansions__urn">
+                        {expansion.urn}
+                        {ExpansionURN.parentGameUrn(expansion.urn) ===
+                          game.value.urn && ', expands this game'}
+                      </span>
+                    </div>
+                    <form method="post" action="/cart">
+                      <input type="hidden" name="intent" value="add" />
+                      <input type="hidden" name="urn" value={expansion.urn} />
+                      <input
+                        type="hidden"
+                        name="back"
+                        value={Astro.url.pathname}
+                      />
+                      <button class="baize-button baize-button--quiet">
+                        Add for {formatPrice(expansion.price)}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div class="detail__buy">
+          <div class="baize-art">{game.value.title}</div>
+          <div class="baize-panel">
+            <div class="detail__buy-row">
+              <span class="baize-price">{formatPrice(game.value.price)}</span>
+              <p class="baize-note">
+                {copies === undefined
+                  ? 'Stock unknown'
+                  : copies === 0
+                    ? 'None on the shelf'
+                    : `${copies} on the shelf`}
+              </p>
+            </div>
+            <form method="post" action="/cart" class="detail__buy-row">
+              <input type="hidden" name="intent" value="add" />
+              <input type="hidden" name="urn" value={game.value.urn} />
+              <input type="hidden" name="back" value={Astro.url.pathname} />
+              <label class="baize-sr-only" for="quantity">
+                Copies
+              </label>
+              <input
+                class="baize-qty"
+                id="quantity"
+                name="quantity"
+                type="number"
+                min="1"
+                max={copies ?? 1}
+                value="1"
+                disabled={!sellable}
+              />
+              <button
+                class="baize-button baize-button--primary"
+                disabled={!sellable}
+              >
+                Add to cart
+              </button>
+            </form>
+            {!sellable && (
+              <p class="baize-note">
+                Not orderable right now. Ask at the counter and we will say when
+                the next printing lands.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </Page>
+  ) : (
+    <Page title="Catalogue unavailable">
+      <ApiOffline error={game.error} status={game.status} />
+    </Page>
+  )
+}

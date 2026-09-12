@@ -101,10 +101,12 @@
   ],
   "targetDefaults": {
     "test": {
-      // Tests read build output: storefront's render.test.ts asserts on the HTML
-      // `astro build` emits. `build` orders a project's own build ahead of its
-      // tests, `^build` its dependencies'. A test like that passes without this
-      // wherever a previous run left dist/ behind, and fails on a clean checkout.
+      // Tests read build output: storefront's build.test.ts asserts on what
+      // `astro build` emits, which is how it proves the app is server-rendered
+      // rather than prerendered. `build` orders a project's own build ahead of
+      // its tests, `^build` its dependencies'. A test like that passes without
+      // this wherever a previous run left dist/ behind, and fails on a clean
+      // checkout.
       "dependsOn": ["^build", "build"]
     }
   },

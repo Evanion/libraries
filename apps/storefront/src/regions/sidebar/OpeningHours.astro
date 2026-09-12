@@ -1,0 +1,21 @@
+---
+interface Props {
+  heading: string;
+  /** One row per entry: the days, and the hours they cover. */
+  rows: { days: string; hours: string }[];
+}
+
+const { heading, rows } = Astro.props;
+---
+
+<h2 class="sidebar__heading">{heading}</h2>
+<dl class="sidebar__hours">
+  {
+    rows.map((row) => (
+      <div class="sidebar__hours-row">
+        <dt>{row.days}</dt>
+        <dd>{row.hours}</dd>
+      </div>
+    ))
+  }
+</dl>

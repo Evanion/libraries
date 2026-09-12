@@ -1,0 +1,30 @@
+---
+interface Props {
+  type: string;
+  id?: string;
+  meta?: Record<string, unknown>;
+}
+
+const { type, id, meta } = Astro.props;
+const width = typeof meta?.width === 'string' ? meta.width : 'full';
+const first = meta?.first === true;
+---
+
+{/*
+  The content region's item chrome. Everything it reads comes from `meta`: how
+  wide the block sits and whether it is the one above the first rule. That is the
+  point of `meta` -- placement is the page's decision, and a block that knew its
+  own column could not be moved by an editor.
+
+  It renders `id` and the blocks do not, because `Widgets` hands `id` to both and
+  two elements with one DOM id is invalid HTML.
+*/}
+<section
+  class="section"
+  data-block={type}
+  data-width={width}
+  data-first={first ? 'true' : undefined}
+  id={id}
+>
+  <slot />
+</section>

@@ -1,0 +1,42 @@
+---
+import {
+  gamesByMechanism,
+  mechanismHue,
+  mechanismSlug,
+  mechanisms,
+} from '../../lib/catalogue.js';
+import { regionCtx } from '../ctx.js';
+
+interface Props {
+  heading: string;
+  ctx?: Record<string, unknown>;
+}
+
+const { heading, ctx } = Astro.props;
+const { games, category } = regionCtx(ctx);
+const all = mechanisms(games);
+---
+
+{/* The filter knows which category is open from ctx, not from its own data: an
+    editor authors the panel once and it is correct on every category page. */}
+<h2 class="sidebar__heading">{heading}</h2>
+<ul class="sidebar__filter">
+  {
+    all.map((mechanism) => {
+      const slug = mechanismSlug(mechanism);
+      return (
+        <li style={`--mechanism: ${mechanismHue(mechanism)}`}>
+          <a
+            href={`/c/${slug}`}
+            aria-current={slug === category ? 'page' : undefined}
+          >
+            {mechanism}
+            <span class="sidebar__count">
+              {gamesByMechanism(games, slug).length}
+            </span>
+          </a>
+        </li>
+      );
+    })
+  }
+</ul>

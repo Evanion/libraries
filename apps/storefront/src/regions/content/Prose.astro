@@ -1,0 +1,16 @@
+---
+interface Props {
+  heading?: string;
+  /** One entry per paragraph. */
+  paragraphs: string[];
+}
+
+const { heading, paragraphs } = Astro.props;
+---
+
+<div>
+  {heading && <h2 class="section__heading">{heading}</h2>}
+  <div class="baize-prose">
+    {paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+  </div>
+</div>

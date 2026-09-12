@@ -1,0 +1,14 @@
+---
+interface Props {
+  heading: string;
+  body: string;
+  href: string;
+  label: string;
+}
+
+const { heading, body, href, label } = Astro.props;
+---
+
+<h2 class="sidebar__heading">{heading}</h2>
+<p class="baize-note">{body}</p>
+<a class="baize-button" href={href}>{label}</a>

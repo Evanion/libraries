@@ -1,0 +1,18 @@
+---
+import { regionCtx } from '../ctx.js';
+
+interface Props {
+  label: string;
+  href: string;
+  ctx?: Record<string, unknown>;
+}
+
+const { label, href, ctx } = Astro.props;
+const { path, cartCopies } = regionCtx(ctx);
+---
+
+{/* The count comes from ctx rather than from the block's own data: how many
+    copies are in the cart is request state, and a CMS cannot author it. */}
+<a href={href} aria-current={path === href ? 'page' : undefined}>
+  {label}{cartCopies === 0 ? '' : ` (${cartCopies})`}
+</a>

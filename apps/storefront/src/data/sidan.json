@@ -1,8 +1,0 @@
-{
-  "sektioner": [
-    { "type": "hero", "id": "start", "rubrik": "Hej" },
-    { "type": "text", "brodtext": "En bit text" },
-    { "type": "kort", "rubrik": "Kort", "kolumner": 4, "bakgrund": "mork" },
-    { "type": "finns-inte", "rubrik": "Ska hoppas över" }
-  ]
-}

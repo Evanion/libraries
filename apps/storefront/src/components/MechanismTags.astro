@@ -1,0 +1,21 @@
+---
+import { mechanismSlug } from '../lib/catalogue.js';
+
+interface Props {
+  mechanisms: string[];
+}
+
+const { mechanisms } = Astro.props;
+---
+
+{/* No hue of its own: it inherits `--hue` from the card or page that set it, so
+    a title and its mechanisms always read as one colour. */}
+<ul class="baize-mechanisms">
+  {
+    mechanisms.map((mechanism) => (
+      <li>
+        <a href={`/c/${mechanismSlug(mechanism)}`}>{mechanism}</a>
+      </li>
+    ))
+  }
+</ul>

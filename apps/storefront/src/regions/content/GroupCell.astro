@@ -1,0 +1,16 @@
+---
+interface Props {
+  type: string;
+  meta?: Record<string, unknown>;
+}
+
+const { type, meta } = Astro.props;
+const span = typeof meta?.span === 'number' ? meta.span : 1;
+---
+
+{/* Chrome for the nested region inside a group block. A group's cell spans
+    columns; a content section does not. Same library seam, different wrapper,
+    which is why chrome is per-region rather than per-app. */}
+<div class="group__cell" data-block={type} style={`--span: ${span}`}>
+  <slot />
+</div>

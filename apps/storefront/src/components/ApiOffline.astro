@@ -1,0 +1,28 @@
+---
+interface Props {
+  /** What the failed call reported. */
+  error: string;
+  /** 0 when nothing answered at all. */
+  status: number;
+}
+
+const { error, status } = Astro.props;
+---
+
+{/* The catalogue lives in a second process a reader may simply not have
+    started. Saying which command starts it is more use than a 500, and it is the
+    honest empty state for a server-rendered shop with no data of its own. */}
+<div class="baize-panel">
+  <p class="baize-note">
+    {
+      status === 0
+        ? 'The catalogue service is not answering.'
+        : `The catalogue service answered ${status}.`
+    }
+  </p>
+  <p class="baize-prose">
+    Start it with <strong>npx nx serve shop-api</strong>, then reload. It listens
+    on port 3000; set <strong>SHOP_API_URL</strong> if it is somewhere else.
+  </p>
+  <p class="baize-note">{error}</p>
+</div>

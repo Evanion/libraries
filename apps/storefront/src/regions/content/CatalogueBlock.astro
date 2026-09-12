@@ -1,0 +1,37 @@
+---
+import { gamesByMechanism } from '../../lib/catalogue.js';
+import CatalogueListing from '../listing/CatalogueListing.astro';
+import { regionCtx } from '../ctx.js';
+
+interface Props {
+  heading: string;
+  /** A mechanism slug to narrow the listing to. Absent lists everything. */
+  mechanism?: string;
+  /** Cap on titles shown, for a landing-page rail rather than a full listing. */
+  limit?: number;
+  /** Urn to give the wide cell. */
+  featured?: string;
+  ctx?: Record<string, unknown>;
+}
+
+const { heading, mechanism, limit, featured, ctx } = Astro.props;
+const { games } = regionCtx(ctx);
+const selected = mechanism ? gamesByMechanism(games, mechanism) : games;
+const shown = typeof limit === 'number' ? selected.slice(0, limit) : selected;
+---
+
+{/* A content block that opens the listing region inside itself: the editor says
+    which slice of the catalogue belongs here, and the region renders it. */}
+<div>
+  <div class="section__head">
+    <h2 class="section__heading">{heading}</h2>
+    {
+      mechanism && (
+        <a class="baize-link" href={`/c/${mechanism}`}>
+          All {shown.length === 1 ? 'title' : 'titles'} in this category
+        </a>
+      )
+    }
+  </div>
+  <CatalogueListing games={shown} featured={featured} />
+</div>

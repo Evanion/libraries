@@ -1,0 +1,15 @@
+---
+interface Props {
+  /** The block's type, which the chrome gets and the block does not need. */
+  type: string;
+  meta?: Record<string, unknown>;
+}
+
+const { type, meta } = Astro.props;
+const align = typeof meta?.align === 'string' ? meta.align : 'start';
+---
+
+{/* The navigation region's item chrome: one list item per link, with `meta.align`
+    deciding which end of the bar it sits at. A nav item's wrapper has nothing in
+    common with a content section's, which is why each region passes its own. */}
+<li class="site-nav__item" data-nav={type} data-align={align}><slot /></li>

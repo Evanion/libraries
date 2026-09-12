@@ -1,0 +1,127 @@
+/**
+ * Baize design tokens. Values only -- no selectors beyond `:root`, no component
+ * rules.
+ *
+ * This file and baize-ui.css are the whole visual system, kept apart from the
+ * app's own layout so that lifting them into a shared package is a file move:
+ * apps/docs and apps/admin want the same palette and the same card, and three
+ * copies of a hex value is the thing that would drift. Nothing outside these two
+ * files may name a colour, a radius, a type size or a font family.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Public+Sans:wght@300..800&display=swap');
+
+:root {
+  /*
+   * Ground. Table baize: chromatic greens rather than tinted near-black,
+   * because the subject is a playing surface and a neutral grey would read as
+   * generic product chrome.
+   */
+  --ink: #0c1714;
+  --felt: #142521;
+  --rule: #2a3f39;
+  --chalk: #f2ede3;
+  --lichen: #8fa69e;
+  --moss: #5e736c;
+
+  /*
+   * No house colour. Every saturated pixel below belongs to a data channel --
+   * mechanism or availability -- so a brand accent would compete with the one
+   * thing colour is carrying. Primary actions invert ink and chalk instead.
+   */
+
+  /*
+   * Mechanism: categorical. Addressed as `--mechanism-<slug>` so a component
+   * can resolve one with a CSS fallback and no parallel table in TypeScript:
+   * `var(--mechanism-co-op, var(--mechanism-default))`.
+   *
+   * Hues are spaced around the wheel at roughly even lightness, which is what
+   * keeps them distinguishable from each other rather than ranked -- a
+   * mechanism is a kind, not a quantity.
+   */
+  --mechanism-engine-building: #e9b24c;
+  --mechanism-economic: #d8d36a;
+  --mechanism-co-op: #8fd99a;
+  --mechanism-tile-placement: #6fd6c2;
+  --mechanism-worker-placement: #7fc4e8;
+  --mechanism-deckbuilder: #9fb0f0;
+  --mechanism-area-control: #c98be0;
+  --mechanism-dexterity: #f09a8a;
+  --mechanism-default: #c0b39a;
+
+  /*
+   * Availability: state, not category. Lower chroma than the mechanism hues and
+   * only ever worn by a pill, so the two systems are told apart by form before
+   * colour.
+   */
+  --state-in-stock: #7fb88c;
+  --state-preorder: #8fa8d8;
+  --state-reprint-pending: #c9a15e;
+  --state-out-of-print: #5e736c;
+
+  /*
+   * Weight: sequential, one hue darkest to lightest, because complexity 1 to 5
+   * is ordinal. Categorical hues here would imply five unrelated kinds of heavy.
+   */
+  --weight-1: #3b5a52;
+  --weight-2: #527168;
+  --weight-3: #6f8c81;
+  --weight-4: #93a89c;
+  --weight-5: #c2cdc4;
+
+  /*
+   * Two families, clearly distinct. Bricolage Grotesque carries game titles for
+   * its width and optical-size axes; Public Sans sets everything else, with
+   * tabular figures because the stat line has to align down a column.
+   */
+  --font-title:
+    'Bricolage Grotesque', 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-text: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.5rem;
+  --text-xl: 2.25rem;
+  --text-2xl: 3.375rem;
+
+  /* Tracking runs opposite by size: tight on display, open on small labels. */
+  --track-tight: -0.03em;
+  --track-snug: -0.015em;
+  --track-normal: 0;
+  --track-loose: 0.04em;
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.3;
+  --leading-normal: 1.6;
+
+  /* Radii by role, so a chip and a card are not the same object at two sizes. */
+  --radius-chip: 3px;
+  --radius-button: 6px;
+  --radius-card: 12px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Body text stays under 80 characters per line. */
+  --measure: 64ch;
+
+  /*
+   * Elevation layers a black shadow with a 4% tint of the ground, so a raised
+   * panel sits in the same light as the table rather than under a grey blur.
+   * Two depths, not one: a card and a flat panel are different claims.
+   */
+  --shadow-card:
+    0 1px 0 rgb(0 0 0 / 0.35), 0 14px 28px -18px rgb(0 0 0 / 0.75),
+    0 0 24px -12px rgb(143 166 158 / 0.04);
+  --shadow-raised: 0 1px 0 rgb(0 0 0 / 0.3), 0 6px 14px -10px rgb(0 0 0 / 0.6);
+
+  --dur-fast: 120ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+}

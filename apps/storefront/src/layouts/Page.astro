@@ -1,0 +1,72 @@
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import CorrelationTrace from '../components/CorrelationTrace.astro';
+import navigation from '../data/navigation.json';
+import { cartSize } from '../lib/cart.js';
+import NavItem from '../regions/navigation/NavItem.astro';
+import { navigationRegistry } from '../regions/navigation/registry.js';
+import '../styles/baize.css';
+import '../styles/baize-ui.css';
+import '../styles/storefront.css';
+
+interface Props {
+  /** Page title, ahead of the shop name in the tab. */
+  title: string;
+}
+
+const { title } = Astro.props;
+const { api, cart } = Astro.locals;
+
+// The navigation region's own context. Not the catalogue: the nav needs the
+// current path and the cart count, and handing it the whole page context would
+// make every nav block look like it might depend on the catalogue.
+const navCtx = {
+  path: Astro.url.pathname,
+  cartCopies: cartSize(cart),
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} — Baize</title>
+    <meta
+      name="description"
+      content="Baize sells tabletop games. Browse by mechanism, see what is on the shelf."
+    />
+  </head>
+  <body class="baize-root">
+    {/* Ordinary markup, not a block: a skip link is not something an editor
+        reorders, and putting it through a registry would teach the wrong lesson
+        about what a region is for. */}
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="page site-header">
+      <div>
+        <a class="site-header__brand" href="/">baize</a>
+        <p class="site-header__tagline">tabletop games since 2019</p>
+      </div>
+      <nav aria-label="Shop">
+        <ul class="site-nav">
+          <Widgets
+            items={navigation.items}
+            registry={navigationRegistry}
+            ctx={navCtx}
+            chrome={{ item: NavItem }}
+          />
+        </ul>
+      </nav>
+    </header>
+
+    <main class="page site-main" id="main">
+      <slot />
+    </main>
+
+    <footer class="page site-footer">
+      <CorrelationTrace api={api} />
+    </footer>
+  </body>
+</html>

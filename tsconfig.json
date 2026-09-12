@@ -37,6 +37,9 @@
       "path": "./apps/shop-api"
     },
     {
+      "path": "./apps/storefront"
+    },
+    {
       "path": "./libs/feature"
     },
     {

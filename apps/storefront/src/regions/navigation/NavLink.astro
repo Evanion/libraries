@@ -1,0 +1,15 @@
+---
+import { regionCtx } from '../ctx.js';
+
+interface Props {
+  label: string;
+  href: string;
+  ctx?: Record<string, unknown>;
+}
+
+const { label, href, ctx } = Astro.props;
+const { path } = regionCtx(ctx);
+const current = path === href;
+---
+
+<a href={href} aria-current={current ? 'page' : undefined}>{label}</a>
