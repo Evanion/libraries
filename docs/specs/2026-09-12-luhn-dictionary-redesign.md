@@ -229,9 +229,20 @@ comment must say what the flag does and does not mean: it reports that
 The README documents the trap next to the dictionary, says the default is not
 uniform over bytes, and states that a dictionary whose length divides 256 —
 32 is the useful size — is the one to pick if the caller intends to sample from
-it. `@evanion/token` does sample, with `crypto.randomBytes` and a modulo
-(`token.ts:37`) over a 32-character dictionary that happens to divide 256. It
-will consume this constraint rather than rediscovering it.
+it.
+
+Sampling belongs in `@evanion/token`, a planned package in this repo and luhn's
+only consumer. Its `generateRandom` already does `crypto.randomBytes` then
+`byte % dictionary.length` (`token.ts:37`), which is exactly the construct #87
+measured, so token is where the bias has to be handled. It will consume
+`uniformOverBytes` to validate its dictionary rather than reimplementing the
+check. Token is out of scope here and gets its own spec.
+
+Token's own default dictionary is also the worked example that these two
+constraints are satisfiable together in practice rather than merely checkable:
+`0123456789abcdefghjkmnpqrstuvxyz` is 32 characters, has no case pairs — so it
+is sound under `caseInsensitive` — and `256 % 32 === 0`, so it is unbiased under
+`uniformOverBytes`.
 
 ## Errors
 
@@ -492,8 +503,9 @@ Luhn; generate('foo')` works.
 ## Deliberately not done
 
 - **No rejection-sampling or token-generation helper.** #87 raises it; the
-  modulo bias is real and the fix belongs where the randomness is. luhn exposes
-  `uniformOverBytes` and documentation.
+  modulo bias is real and the fix belongs where the randomness is, which is
+  `@evanion/token`. luhn exposes `uniformOverBytes` and documentation, and does
+  not sample.
 - **No deprecated statics.** They cannot be made to work against precomputed
   tables, and a static that is accepted and ignored is #89's failure mode
   reintroduced at the migration boundary. A frozen object throwing on
