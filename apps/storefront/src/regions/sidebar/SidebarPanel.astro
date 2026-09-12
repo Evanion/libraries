@@ -9,9 +9,11 @@ const { type, id, meta } = Astro.props;
 const sticky = meta?.sticky === true;
 ---
 
-{/* The sidebar region's item chrome: a panel, optionally pinned while the
-    listing beside it scrolls. A content section has no such state, which is why
-    this region passes chrome of its own rather than reusing the page's. */}
+{/* The sidebar region's item chrome: a panel that can ask, through `data-sticky`,
+    to stay in view while the listing beside it scrolls. The stylesheet answers by
+    pinning the whole column, so a pinned panel never travels over the panels
+    under it. A content section has no such state, which is why this region passes
+    chrome of its own rather than reusing the page's. */}
 <section
   class="sidebar__panel baize-panel"
   data-block={type}
