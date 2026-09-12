@@ -55,7 +55,6 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/luhn": "^3.0.0",
-    "tslib": "^2.8.1"
+    "@evanion/luhn": "^3.0.0"
   }
 }

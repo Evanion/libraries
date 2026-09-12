@@ -11,11 +11,16 @@
     // target's own emit discardable -- see
     // tools/repo-checks/src/tsc-emit-outside-build-output.test.ts.
     "emitDeclarationOnly": true,
-    // Helpers are imported from tslib rather than inlined per file, so every
-    // package built by tsc declares tslib as a runtime dependency. A package
-    // whose JavaScript is bundled does not: the bundler resolves the helper at
-    // build time.
-    "importHelpers": true,
+    // Helpers are emitted inline, so the output of a package that declares no
+    // tslib dependency cannot import one. Few constructs emit a helper at
+    // target es2022 -- a decorator of either flavour, a `using` declaration --
+    // and the only ones in the repo are the legacy decorators of the two
+    // projects that turn this back on next to `experimentalDecorators`,
+    // declaring tslib where the output is published.
+    // tools/repo-checks/src/tslib-dependency.test.ts holds the setting and the
+    // declaration in step, and scripts/verify-packaging.mjs checks the packed
+    // output against it.
+    "importHelpers": false,
     "isolatedModules": true,
     "lib": ["es2022"],
     // nodenext on both, which is the resolution mode a consumer on Node ESM
