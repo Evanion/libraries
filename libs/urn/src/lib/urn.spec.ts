@@ -45,7 +45,7 @@ describe('URN', () => {
       expect(URN.parse('urn:nid:a:b').nss).toBe('a:b');
     });
 
-    it('should no longer deduplicate an NSS that starts with the NID', () => {
+    it('should emit an NSS that starts with the NID verbatim', () => {
       const UserURN = namespaceOf('urn', 'user');
       expect(UserURN.stringify('user:42')).toBe('urn:user:user:42');
       expect(UserURN.parse('urn:user:user:42').nss).toBe('user:42');
@@ -160,7 +160,7 @@ describe('URN', () => {
       }
     });
 
-    it('should accept sub-delims, colon and at-sign that used to be rejected', () => {
+    it('should accept the RFC 3986 sub-delims, colon and at-sign', () => {
       for (const nss of ['user@123', 'user$123', 'user!123', 'foo/bar']) {
         expect(() => URN.stringify(nss, 'example')).not.toThrow();
       }
@@ -337,7 +337,8 @@ describe('URN', () => {
       }
 
       // The foreign scheme is kept as-is. Substituting this.urn here would
-      // silently re-label the record, which is the bug in #11.
+      // re-label the record as belonging to a namespace it was never minted
+      // in, and nothing downstream could tell.
       expect(UserTRN.parse('ftp:user:1')).toEqual({
         urn: 'ftp',
         nid: 'user',
@@ -912,10 +913,10 @@ describe('URN', () => {
       );
     });
 
-    it('should undo what Object.values would have broken', () => {
+    it('should round-trip through the object form, not the spread', () => {
       // stringify's positional arguments are the reverse of parse's return
-      // shape, so spreading the parsed object mislabels every part. The object
-      // form is the fix: the keys carry the meaning.
+      // shape, so spreading the parsed object mislabels every part. Only the
+      // object form carries the meaning in the keys.
       const parsed = URN.parse('urn:nid:foo');
       expect(
         URN.stringify(...(Object.values(parsed) as [string, string, string])),

@@ -16,7 +16,11 @@ import { ComponentType, ComponentProps } from 'react';
 export type AnyComponent = ComponentType<any>;
 
 /**
- * Extracts props from a React component, excluding the children prop.
+ * `T`'s props without `children`.
+ *
+ * `children` is excluded because `ComposeProvider` supplies it — it is the next
+ * provider in the array, or the caller's own children at the innermost level.
+ * Leaving it in would make every provider's props look incomplete.
  */
 export type PropsWithoutChildren<T extends AnyComponent> = Omit<
   ComponentProps<T>,
@@ -24,15 +28,22 @@ export type PropsWithoutChildren<T extends AnyComponent> = Omit<
 >;
 
 /**
- * Helper to create a strongly-typed provider tuple.
+ * Pairs a component with its props as a `[component, props]` tuple.
  *
- * @param component - The provider component
- * @param props - Props for the provider (autocompleted based on component type)
+ * The props are checked here, at the call, rather than where the array reaches
+ * `ComposeProvider`: `T` is inferred from `component` in the same call, so the
+ * editor has the component's prop names while the object is being typed. A bare
+ * tuple literal only knows what it should be once `ComposeProvider` sees it.
+ *
+ * The `Record<Exclude<…>, never>` intersection on `props` is what rejects an
+ * excess key. Plain assignability would not: TypeScript's excess-property check
+ * fires on a fresh object literal and is skipped for a props object passed
+ * through a variable.
  *
  * @example
  * ```tsx
  * const p = provider(ThemeProvider, {
- *   theme: 'dark',           // ← IntelliSense suggests 'theme' and 'primaryColor'
+ *   theme: 'dark',
  *   primaryColor: '#007acc'
  * });
  * ```
@@ -63,8 +74,12 @@ export function provider<
 export type Provider = AnyComponent | readonly [AnyComponent, unknown];
 
 /**
- * Array of providers to be composed.
- * Providers are applied in order (first provider is outermost).
+ * A list of providers, first entry outermost.
+ *
+ * `readonly`, so an array written with `as const` is assignable. Annotating a
+ * value with this type widens away the element identity, and
+ * {@link ValidatedProviders} then checks nothing — build the array where the
+ * components are known if you want per-entry errors.
  */
 export type ProviderArray = readonly Provider[];
 
@@ -102,12 +117,11 @@ export type ValidateProvider<T> = T extends readonly [infer C, infer P]
       ? ComposeError<'second tuple element must be props, not another component'>
       : // The excess-key check runs *before* the assignability check, and the
         // order is load-bearing. A component whose props are all optional is a
-        // weak type, so `{ b: 1 }` is not assignable to it -- checking
-        // assignability first sent that case down the repaired-shape branch,
-        // where comparing the caller's mutable tuple against a constructed
-        // `readonly` tuple made TypeScript report the variance of
-        // `Array.prototype.every` instead of the prop nobody declared. That is
-        // the error #20 opens with.
+        // weak type, so an object of only unknown keys is not assignable to it;
+        // checking assignability first sends that case down the repaired-shape
+        // branch, where comparing the caller's mutable tuple against a
+        // constructed `readonly` tuple makes TypeScript report the variance of
+        // `Array.prototype.every` rather than the prop nobody declared.
         Exclude<keyof P, keyof PropsWithoutChildren<C>> extends never
         ? [P] extends [PropsWithoutChildren<C>]
           ? T
@@ -136,14 +150,13 @@ export type ValidateProviders<T extends ProviderArray> = {
  * tuple, and the plain array type for anything already widened.
  *
  * `number extends T['length']` is the standard tuple-versus-array test (the one
- * type-fest's `is-tuple.d.ts` uses). It is the whole fix for two separate
- * problems:
+ * type-fest's `is-tuple.d.ts` uses). Two things depend on it:
  *
  * - A value already typed as {@link ProviderArray} has lost its element
- *   identity, so there is nothing left to check element by element. Sending it
- *   through {@link ValidateProviders} mapped every entry onto the *repaired*
- *   shape, which the original was not assignable to, so forwarding a
- *   `ProviderArray` through a wrapper component could not compile.
+ *   identity, so there is nothing left to check element by element. Sent
+ *   through {@link ValidateProviders} it maps every entry onto the *repaired*
+ *   shape, which the original is not assignable to, and forwarding a
+ *   `ProviderArray` through a wrapper component stops compiling.
  * - Comparing a non-tuple array against a constructed `ReadonlyArray` makes
  *   TypeScript walk every inherited member -- `every`, `map`, `reduce` -- and
  *   report the variance of `predicate` before it ever mentions the real

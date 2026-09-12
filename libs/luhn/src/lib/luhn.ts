@@ -258,9 +258,15 @@ export function createLuhn(options: LuhnOptions = {}): Luhn {
 /**
  * `createLuhn()`: the 36 lowercase alphanumerics, folding case.
  *
- * Frozen, so `Luhn.dictionary = x` — the 1.x and 2.x way to configure this
- * library — throws a `TypeError` in a module rather than being accepted and
- * ignored. Build a second instance with `createLuhn` instead.
+ * Frozen, so `Luhn.dictionary = x` throws a `TypeError` in a module rather than
+ * being accepted and ignored. A second dictionary is a second instance, built
+ * with `createLuhn`.
+ *
+ * @example
+ * ```ts @import.meta.vitest
+ * Luhn.generate('foo'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }
+ * Luhn.validate('foo5'); // -> { phrase: 'foo5', isValid: true, filtered: 0 }
+ * ```
  */
 /*
  * `Luhn` names the interface in type space and the default instance in value

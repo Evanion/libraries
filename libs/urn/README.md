@@ -42,15 +42,16 @@ pnpm add @evanion/urn
 ```ts @import.meta.vitest
 import { URN } from '@evanion/urn';
 
-// You can easily extend the base class to create your own base schema
+// A subclass is the extension point: override the statics and every inherited
+// method reads the new values.
 class TRN extends URN {
   static override readonly urn = 'trn';
 }
 
-// Then you can generate a URN using the stringify method
 TRN.stringify('foo', 'bar'); // -> 'trn:bar:foo'
 
-// Parse a URN to get its constituent parts
+// `bar` is not this class's own NID, which is still the inherited `nid`, so
+// parse keeps it in the nss rather than discarding the namespace.
 const parsed = TRN.parse('trn:bar:foo'); // -> { urn: 'trn', nid: 'bar', nss: 'bar:foo' }
 ```
 <!-- #endregion basic-usage -->
@@ -71,17 +72,6 @@ const parsed = TRN.parse('trn:bar:foo'); // -> { urn: 'trn', nid: 'bar', nss: 'b
 - **r-, q- and f-components**: the optional `?+`, `?=` and `#` tails of
   RFC 8141 §2.3, parsed into their own fields and excluded from equivalence
 
-## Why should you use a URN
-
-How many times have you seen a random DocumentID being thrown around in a conversation,
-and you wonder what type of DocumentID it is? Is it a `product` or `productCategory` ID?  
-A URN will help, by always include information about the namespace that the ID is referring to.
-
-## Philosophy
-
-The idea with this library to make it as easy to work with URNs as it is to work with `JSON`.
-And the libraries API is inspired by the `JSON` API.
-
 ## Basic Usage
 
 ### Declare Namespace
@@ -89,12 +79,11 @@ And the libraries API is inspired by the `JSON` API.
 You can easily create a namespace specific class:
 
 ```ts
-// You can create namespace specific URN classes
 class UserTRN extends TRN {
   static override readonly nid = 'user';
 }
 
-// That will automatically create a URN with the proper namespace
+// With the NID on the class, the positional form needs only the identifier.
 UserTRN.stringify('1337'); // -> 'trn:user:1337'
 ```
 
@@ -102,12 +91,13 @@ UserTRN.stringify('1337'); // -> 'trn:user:1337'
 
 Create your own URN schemes for different domains:
 
-```ts
-// E-commerce system
+```ts @import.meta.vitest
 class EcommerceURN extends URN {
   static override readonly urn = 'ecommerce';
 }
 
+// A subclass per namespace, so the namespace is never an argument at the call
+// site and cannot be mistyped there.
 class ProductURN extends EcommerceURN {
   static override readonly nid = 'product';
 }
@@ -116,12 +106,8 @@ class OrderURN extends EcommerceURN {
   static override readonly nid = 'order';
 }
 
-// Usage
-const productUrn = ProductURN.stringify('laptop-123');
-console.log(productUrn); // "ecommerce:product:laptop-123"
-
-const orderUrn = OrderURN.stringify('456');
-console.log(orderUrn); // "ecommerce:order:456"
+ProductURN.stringify('laptop-123'); // -> 'ecommerce:product:laptop-123'
+OrderURN.stringify('456'); // -> 'ecommerce:order:456'
 ```
 
 ### Parse URNs
@@ -129,23 +115,21 @@ console.log(orderUrn); // "ecommerce:order:456"
 Parsing a URN will decode it into its constituent parts:
 
 ```ts
-const parsed = UserTRN.parse('trn:user:1337');
-console.log(parsed); // -> {urn:'trn', nid: 'user', nss: '1337'}
+UserTRN.parse('trn:user:1337'); // -> { urn: 'trn', nid: 'user', nss: '1337' }
 ```
 
 **Important**: If you parse a URN from another namespace ID, it will retain the namespace ID in the NSS. This way, each namespace should only work with plain ids when it's inside its own namespace, and retain the namespace information if it's from another namespace ID:
 
 ```ts
-const parsed = UserTRN.parse('trn:order:42');
-console.log(parsed); // -> {urn: 'trn', nid: 'order', nss: 'order:42'}
+UserTRN.parse('trn:order:42'); // -> { urn: 'trn', nid: 'order', nss: 'order:42' }
 ```
 
 A foreign **scheme** is retained the same way, verbatim, so a record read from
 another scheme cannot be silently re-labelled as this one:
 
 ```ts
-UserTRN.parse('ftp:user:1'); // -> {urn: 'ftp', nid: 'user', nss: 'ftp:user:1'}
-UserTRN.parse('trn:user:1'); // -> {urn: 'trn', nid: 'user', nss: '1'}
+UserTRN.parse('ftp:user:1'); // -> { urn: 'ftp', nid: 'user', nss: 'ftp:user:1' }
+UserTRN.parse('trn:user:1'); // -> { urn: 'trn', nid: 'user', nss: '1' }
 ```
 
 The comparisons are case-folded, so `URN:USER:1` is not foreign to a `urn` /
@@ -173,8 +157,8 @@ subclass's `separator`:
 
 <!-- #region grammars -->
 ```ts @import.meta.vitest
-URN.schemeGrammar; // /^[A-Za-z][A-Za-z0-9+.-]*$/
-URN.nidGrammar; // /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
+URN.schemeGrammar; // -> /^[A-Za-z][A-Za-z0-9+.-]*$/
+URN.nidGrammar; // -> /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
 URN.nssGrammar; // the RFC 8141 `pchar *(pchar / "/")` set
 URN.rComponentGrammar; // `pchar *(pchar / "/" / "?")`
 URN.qComponentGrammar; // the same production
@@ -185,13 +169,9 @@ URN.fComponentGrammar; // RFC 3986 `fragment`, which may be empty
 ```ts
 import { URN, InvalidError } from '@evanion/urn';
 
-// This will throw an InvalidError for invalid NID
-UserTRN.stringify('1337', 'f?o'); // throws InvalidError, an invalid NID
+UserTRN.stringify('1337', 'f?o'); // throws InvalidError: '?' is not an NID character
+UserTRN.stringify('1337', 'foo', 'b!r'); // throws InvalidError: '!' is not a scheme character
 
-// This will throw an InvalidError for invalid URN
-UserTRN.stringify('1337', 'foo', 'b!r'); // throws InvalidError, an invalid URN
-
-// Handle errors gracefully
 try {
   const urn = URN.stringify('invalid character', 'namespace');
 } catch (error) {
@@ -209,8 +189,8 @@ RFC 8141 Appendix B keeps earlier-valid URNs valid. Nothing else is relaxed on
 read:
 
 ```ts
-URN.parse('urn:x:1'); // ok
-URN.stringify('1', 'x'); // throws: NID must be at least 2 characters long
+URN.parse('urn:x:1'); // -> { urn: 'urn', nid: 'x', nss: 'x:1' }
+URN.stringify('1', 'x'); // throws InvalidError: NID must be at least 2 characters long
 ```
 
 ### Percent-encoding
@@ -259,10 +239,12 @@ parameters for the named resource) and the f-component (`#`, a secondary
 resource within the named one). `parse` returns each in its own field and never
 folds it into the `nss`:
 
-```ts
-URN.parse('urn:example:weather?=lat=39#today');
-// { urn: 'urn', nid: 'example', nss: 'weather',
-//   qComponent: 'lat=39', fComponent: 'today' }
+```ts @import.meta.vitest
+class WeatherURN extends URN {
+  static override readonly nid = 'example';
+}
+
+WeatherURN.parse('urn:example:weather?=lat=39#today'); // -> { urn: 'urn', nid: 'example', nss: 'weather', qComponent: 'lat=39', fComponent: 'today' }
 ```
 
 The fields are optional and absent — not `undefined` — when the URN carries no
@@ -271,9 +253,8 @@ saw before.
 
 Write them with the object form of `stringify`:
 
-```ts
-URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
-// 'urn:example:weather?=lat=39'
+```ts @import.meta.vitest
+URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' }); // -> 'urn:example:weather?=lat=39'
 ```
 
 The splitting needs no change to the NSS grammar: `pchar` contains neither `?`
@@ -285,9 +266,9 @@ first `?` of what remains introduces the r-component (`?+`) or the q-component
 RFC 8141 §3.1 excludes all three from equivalence, so `equals` ignores them,
 and `extractId` drops them:
 
-```ts
-URN.equals('urn:example:foo?+r1#a', 'urn:example:foo?+r2#b'); // true
-URN.extractId('urn:example:foo?=q#f'); // 'foo'
+```ts @import.meta.vitest
+URN.equals('urn:example:foo?+r1#a', 'urn:example:foo?+r2#b'); // -> true
+URN.extractId('urn:example:foo?=q#f'); // -> 'foo'
 ```
 
 A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
@@ -312,9 +293,9 @@ UserTRN.stringify('user:42'); // -> 'trn:user:user:42'
 UserTRN.parse('trn:user:user:42').nss; // -> 'user:42'
 ```
 
-Earlier versions dropped the repeated segment, which made `user:42` — a
-composite key imported from another system — irrecoverable. If you meant the
-other namespace, name it:
+That keeps a composite key imported from another system recoverable: drop the
+repeated segment and `user:42` can never be read back. If you meant the other
+namespace, name it:
 
 ```ts
 UserTRN.stringify('42', 'order'); // -> 'trn:order:42'
@@ -342,19 +323,20 @@ return shape, so `stringify(...Object.values(parse(x)))` is silently wrong —
 `'foo:nid:urn'`. Hand `stringify` the object instead; the keys carry the
 meaning, and only that form can express the r-, q- and f-components:
 
-```ts
-URN.stringify(URN.parse('urn:nid:foo')); // 'urn:nid:foo'
-URN.stringify({ nss: '123', nid: 'user' }); // 'urn:user:123'
+```ts @import.meta.vitest
+URN.stringify(URN.parse('urn:nid:foo')); // -> 'urn:nid:foo'
+URN.stringify({ nss: '123', nid: 'user' }); // -> 'urn:user:123'
 ```
 
 `stringify(parse(x))` returns `x` for a URN in the parsing class's own
 namespace. It does not for a foreign one, because `parse` retains the foreign
 scheme and NID inside the `nss` so they cannot be lost, and `stringify` then
-prefixes the class's own:
+prefixes the class's own. The base class's NID is `nid`, so `user` below is
+foreign to it:
 
-```ts
-URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
-URN.stringify(URN.parse('urn:user:123')); // 'urn:user:user:123'
+```ts @import.meta.vitest
+URN.parse('urn:user:123').nss; // -> 'user:123'
+URN.stringify(URN.parse('urn:user:123')); // -> 'urn:user:user:123'
 ```
 
 ## Common Use Cases
@@ -366,7 +348,7 @@ class ResourceURN extends URN {
   static override readonly urn = 'resource';
 }
 
-// Identify different types of resources
+// One class, the NID passed per call, when the namespaces are open-ended.
 const userUrn = ResourceURN.stringify('123', 'user');
 const productUrn = ResourceURN.stringify('456', 'product');
 const orderUrn = ResourceURN.stringify('789', 'order');
@@ -379,7 +361,8 @@ class ServiceURN extends URN {
   static override readonly urn = 'service';
 }
 
-// Identify services and their resources
+// The NID says whether the identifier names a service or a resource one of
+// them owns, so a bare id in a message is never ambiguous.
 const userServiceUrn = ServiceURN.stringify('user-service', 'service');
 const userResourceUrn = ServiceURN.stringify('123', 'user-service');
 ```
@@ -424,11 +407,11 @@ const userResourceUrn = ServiceURN.stringify('123', 'user-service');
 
 They differ on a foreign namespace, on purpose. `parse` keeps a non-matching NID
 attached to the `nss` so the namespace is not silently lost; `extractId` always
-drops it:
+drops it. The base class's NID is `nid`, so `user` here is foreign to it:
 
-```ts
-URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
-URN.extractId('urn:user:123'); // '123'
+```ts @import.meta.vitest
+URN.parse('urn:user:123').nss; // -> 'user:123'
+URN.extractId('urn:user:123'); // -> '123'
 ```
 
 Reach for `parse` when the namespace matters, `extractId` when you only want the
@@ -457,9 +440,9 @@ trailing identifier.
 - `static fComponentGrammar: RegExp` - The grammar the f-component must match,
   the only one that accepts the empty string
 
-`isValid` is gone. One flat regex cannot describe three roles across two
-separator regimes; the three getters can, and they stay reactive to a
-subclass's `separator`.
+There is no single flat validation regex. One character class cannot describe
+three roles across two separator regimes; the getters above can, and they stay
+reactive to a subclass's `separator`.
 
 When overriding these in a subclass, TypeScript's `noImplicitOverride` requires
 the `override` keyword:

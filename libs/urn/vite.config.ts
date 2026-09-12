@@ -16,6 +16,9 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/libs/urn',
   ...docExamples({ preamble }),
   test: {
+    // Without an explicit tsconfig, vitest falls back to the solution-style
+    // tsconfig.json (files: [], include: []), so it typechecks nothing and
+    // every expectTypeOf assertion silently passes.
     typecheck: {
       enabled: true,
       tsconfig: './tsconfig.spec.json',

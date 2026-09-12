@@ -1,13 +1,14 @@
 /**
  * A URN string with known parts, for annotating literals in consumer code.
  *
- * ```ts
- * type UserUrn = IFullURN<'urn', 'user', string>;  // `urn:user:${string}`
- * const id: UserUrn = 'urn:user:123';
- * ```
- *
  * Assumes the default `:` separator. A subclass with a custom separator cannot
  * be described by this type.
+ *
+ * @example
+ * ```ts
+ * type UserUrn = IFullURN<'urn', 'user', string>; // `urn:user:${string}`
+ * const id: UserUrn = 'urn:user:123';
+ * ```
  */
 export type IFullURN<
   URN extends string,
@@ -22,10 +23,15 @@ export type IFullURN<
  * without any percent-decoding. RFC 8141 3.1 excludes all three from
  * URN-equivalence, so `URN.equals` ignores them.
  *
- * ```ts
- * URN.parse('urn:example:foo?+r?=q#f');
- * // { urn: 'urn', nid: 'example', nss: 'foo',
- * //   rComponent: 'r', qComponent: 'q', fComponent: 'f' }
+ * @example
+ * ```ts @import.meta.vitest
+ * import { URN } from '@evanion/urn';
+ *
+ * class ExampleURN extends URN {
+ *   static override readonly nid = 'example';
+ * }
+ *
+ * ExampleURN.parse('urn:example:foo?+r?=q#f'); // -> { urn: 'urn', nid: 'example', nss: 'foo', rComponent: 'r', qComponent: 'q', fComponent: 'f' }
  * ```
  */
 export interface URNComponents {
@@ -50,10 +56,10 @@ export interface URNComponents {
 /**
  * The object returned by `URN.parse`.
  *
- * The parts are plain strings on purpose. `parse` takes a runtime `string`, so
- * it cannot know their literal types; earlier versions declared free type
- * parameters here that the caller could set to anything, which let
- * `URN.parse<'a', 'b', 'c'>(someString)` claim a shape nothing verified.
+ * The parts are plain strings, and deliberately not type parameters. `parse`
+ * takes a runtime `string`, so it cannot know their literal types; free type
+ * parameters here would let `URN.parse<'a', 'b', 'c'>(someString)` assert a
+ * shape nothing verifies.
  *
  * The three component keys are absent rather than `undefined` when the URN
  * carries no components, so such a URN parses to exactly `{ urn, nid, nss }`.
