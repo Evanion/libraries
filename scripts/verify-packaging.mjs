@@ -514,11 +514,32 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
 
   // The components ship class names and no stylesheet. Next resolves a CSS
   // import inside a package's module graph; Astro, plain Vite SSR and a bare
-  // `node` import do not, and the runtime import below fails first on one.
+  // `node` import do not.
   if (/(?:from|import)\s*["'][^"']+\.css["']/.test(baizeEntry)) {
     throw new Error(
       '@evanion/baize-ui dist/index.js imports a stylesheet. The app imports ' +
         '@evanion/baize-ui/styles.css once in its root instead.',
+    );
+  }
+  // Checking the entry for an import is not sufficient on its own: Vite's lib
+  // mode extracts a component's CSS import into an asset of its own and removes
+  // the import from the JavaScript, so the sabotage leaves the entry clean and
+  // shows up as a second stylesheet in the output. One CSS file, and it is the
+  // one the exports map names.
+  const baizeStylesheets = readdirSync(baizeDist, {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.css'))
+    .map((entry) =>
+      join(entry.parentPath, entry.name).slice(baizeDist.length + 1),
+    );
+  if (baizeStylesheets.join() !== 'styles.css') {
+    throw new Error(
+      '@evanion/baize-ui ships stylesheets it does not export: ' +
+        baizeStylesheets.join(', ') +
+        '. A second CSS file in the output means a module under src/ imported ' +
+        'one and the bundler extracted it.',
     );
   }
   if (/^["']use client["'];?$/.test(baizeEntry.split('\n')[0].trim())) {

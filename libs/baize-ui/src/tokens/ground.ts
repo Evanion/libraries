@@ -3,7 +3,7 @@
  * subject is baize.
  *
  * These are the values `docs/specs/2026-09-10-demo-apps.md` settles, quoted
- * exactly. `ground.test.ts` asserts each one against that document, so a hex
+ * exactly. `tokens.test.ts` asserts each one against that document, so a hex
  * edited here fails naming the token.
  */
 export const ground = {
