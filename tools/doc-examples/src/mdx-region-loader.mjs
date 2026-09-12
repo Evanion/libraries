@@ -1,0 +1,108 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { readRegion } from './regions.mjs';
+
+/**
+ * Fills empty code blocks in the docs app's MDX from named regions in the
+ * packages' READMEs, during `next build`.
+ *
+ *     ```ts file=libs/urn/README.md region=basic-usage
+ *     ```
+ *
+ * Paths are workspace-root relative, which survives a page being moved
+ * between directories — a docs page's own depth is not something an example
+ * reference should depend on.
+ *
+ * A webpack loader rather than the remark plugin the demo-apps spec called
+ * for. Nextra hands `mdxOptions.remarkPlugins` straight to unified, which
+ * requires plugin *functions*, while Next 16 requires every loader option to
+ * be serializable and rejects a config carrying one. A loader is the only
+ * position that satisfies both: its module path and its `{ root }` option are
+ * both strings, and it still runs inside `next build`, so no npm lifecycle
+ * hook is needed. It is ordered before Nextra's own loader, so what Nextra
+ * compiles already has the regions in it.
+ *
+ * Not `remark-code-import`: last published 2023-05-06, still on
+ * `unist-util-visit@^4` against this repo's MDX 3 / unified 11 stack, and it
+ * addresses snippets by line range. Line numbers drift silently when the
+ * source file is edited above them, which is the failure this exists to
+ * remove.
+ *
+ * A missing file or region throws, so the build fails. An unenforced sync
+ * mechanism drifts within a month.
+ */
+
+const REFERENCE = /(?:^|\s)file=(\S+)\s+region=([\w-]+)/;
+
+/**
+ * Expands every region reference in an MDX source.
+ *
+ * Textual rather than AST-based: a reference lives in a fence info string, and
+ * the replacement is the fence's body, so parsing the document buys nothing
+ * that the fence scan does not already give.
+ */
+export function expandRegions(source, root, file) {
+  const out = [];
+  let fence = null;
+  // Set while inside a block whose body came from a region, so the author's
+  // own placeholder lines are dropped rather than appended to it.
+  let replacing = false;
+
+  for (const line of source.split('\n')) {
+    const marker = line.match(/^(\s*)(`{3,})(.*)$/);
+    const opening = marker && fence === null;
+    const closing = marker && fence !== null && marker[2].startsWith(fence);
+
+    if (opening) {
+      const [, indent, ticks, info] = marker;
+      const reference = info.match(REFERENCE);
+      fence = ticks;
+      replacing = Boolean(reference);
+
+      if (!reference) {
+        out.push(line);
+        continue;
+      }
+
+      const [, path, name] = reference;
+      let contents;
+      try {
+        contents = readFileSync(join(root, path), 'utf8');
+      } catch {
+        throw new Error(
+          `${file}: cannot read '${path}', referenced by region '${name}'`,
+        );
+      }
+
+      const region = readRegion(contents, path, name);
+      const lang = info.replace(REFERENCE, '').trim() || region.lang || 'ts';
+
+      out.push(`${indent}${ticks}${lang}`);
+      for (const body of region.code.split('\n')) out.push(indent + body);
+      continue;
+    }
+
+    if (closing) {
+      fence = null;
+      replacing = false;
+      out.push(line);
+      continue;
+    }
+
+    if (!replacing) out.push(line);
+  }
+
+  return out.join('\n');
+}
+
+export default function mdxRegionLoader(source) {
+  const { root } = this.getOptions();
+
+  // A page is rebuilt when a README it pulls a region from changes.
+  for (const match of source.matchAll(new RegExp(REFERENCE, 'g'))) {
+    this.addDependency(join(root, match[1]));
+  }
+
+  return expandRegions(source, root, this.resourcePath);
+}
