@@ -132,7 +132,16 @@
       // resolve as a patch release. `scope-enum` in commitlint.config.js
       // enforces that every scope used here is a real project name, which is
       // what this setting requires.
-      "useCommitScope": true
+      "useCommitScope": true,
+      // nx's defaults mark `refactor` as hidden from the changelog, on the
+      // reading that a refactor changes no behaviour. A `refactor(x)!` does,
+      // and it is the commit that makes a release major, so hiding it leaves a
+      // major version whose changelog does not say what broke. Unhiding it also
+      // restores the Breaking Changes section, which is rendered from the
+      // commits the changelog shows.
+      "types": {
+        "refactor": { "changelog": { "hidden": false } }
+      }
     },
     "changelog": {
       "workspaceChangelog": false,
