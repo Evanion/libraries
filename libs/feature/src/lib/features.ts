@@ -46,7 +46,11 @@ export interface Features<F extends FeatureKey = string> {
    * information that blocking existed to provide is kept: a UI can confirm
    * before applying, a script can ignore it.
    */
-  toggle(key: F, enabled: boolean, context?: EvaluationContext): ToggleResult<F>;
+  toggle(
+    key: F,
+    enabled: boolean,
+    context?: EvaluationContext,
+  ): ToggleResult<F>;
 }
 
 function deepFreeze<T>(value: T): T {
@@ -127,12 +131,7 @@ export function createFeatures<F extends FeatureKey>(
     for (const key of graph.order) {
       const definition = definitionOf(key);
       if (!definition) continue;
-      const entry = planFeature(
-        definition,
-        evaluationContext,
-        plans,
-        resolved,
-      );
+      const entry = planFeature(definition, evaluationContext, plans, resolved);
       plans.set(key, entry);
       if (entry.decision) resolved.set(key, entry.decision);
     }
@@ -162,8 +161,7 @@ export function createFeatures<F extends FeatureKey>(
     const willDisable = graph
       .dependants(key)
       .filter(
-        (dependant) =>
-          before[dependant].enabled && !after[dependant].enabled,
+        (dependant) => before[dependant].enabled && !after[dependant].enabled,
       );
 
     return { ok: true, key, enabled, willDisable };

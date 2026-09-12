@@ -256,20 +256,20 @@ characters to 36, so every index changes. Tokens minted by 2.x do not validate
 under 3.x.
 
 | 2.x                                                | 3.x                                                                       |
-| -------------------------------------------------- | -------------------------------------------------------------------------- |
-| `Luhn.generate(input)`                             | unchanged call, new value                                                  |
-| `Luhn.validate(input)`                             | unchanged call; it now accepts every token `generate` produces             |
-| `Luhn.generate(input, true)`                       | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).generate(input)`  |
-| `class X extends Luhn { static dictionary = d }`   | `createLuhn({ dictionary: d, caseInsensitive: true })`                     |
-| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` — same values    |
-| `Luhn.dictionary = d`                              | `TypeError`; the default instance is frozen                                |
-| `Luhn.sensitive`                                   | `Luhn.caseInsensitive`                                                     |
-| `Luhn.lowercaseOnly(d)`                            | removed; nothing folds a dictionary any more                               |
-| the `protected static` helpers                     | removed; they were arrow fields bound to `Luhn` and never overridable      |
-| `ValidationError`                                  | `LuhnError`                                                                |
-| `validate('')` → `isValid: true`                   | `isValid: false`                                                           |
-| `generate('')` → `{ checksum: '0' }`               | throws `EmptyInputError`                                                   |
-| an odd dictionary throws at the first call         | throws at `createLuhn`                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| `Luhn.generate(input)`                             | unchanged call, new value                                                 |
+| `Luhn.validate(input)`                             | unchanged call; it now accepts every token `generate` produces            |
+| `Luhn.generate(input, true)`                       | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).generate(input)` |
+| `class X extends Luhn { static dictionary = d }`   | `createLuhn({ dictionary: d, caseInsensitive: true })`                    |
+| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` — same values   |
+| `Luhn.dictionary = d`                              | `TypeError`; the default instance is frozen                               |
+| `Luhn.sensitive`                                   | `Luhn.caseInsensitive`                                                    |
+| `Luhn.lowercaseOnly(d)`                            | removed; nothing folds a dictionary any more                              |
+| the `protected static` helpers                     | removed; they were arrow fields bound to `Luhn` and never overridable     |
+| `ValidationError`                                  | `LuhnError`                                                               |
+| `validate('')` → `isValid: true`                   | `isValid: false`                                                          |
+| `generate('')` → `{ checksum: '0' }`               | throws `EmptyInputError`                                                  |
+| an odd dictionary throws at the first call         | throws at `createLuhn`                                                    |
 
 A per-request dictionary is a per-request instance. That is one pass over the
 dictionary, which is the pass that would have happened anyway.

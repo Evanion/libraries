@@ -127,11 +127,11 @@ client can, and it avoids a root lockfile change while other work is in flight.
 
 ## Migration
 
-| Before | After |
-| --- | --- |
-| `require('@evanion/nestjs-correlation-id')` | ESM `import` only |
-| NestJS 10 or 11 | NestJS 12 |
-| Node 18 | Node 20 |
-| `CorrelationService` request-scoped | singleton over `AsyncLocalStorage` |
-| `module.resolve(CorrelationService, contextId)` | `module.get(CorrelationService)` |
-| `express` peer required for middleware types | platform-neutral, peer optional or removed |
+| Before                                          | After                                      |
+| ----------------------------------------------- | ------------------------------------------ |
+| `require('@evanion/nestjs-correlation-id')`     | ESM `import` only                          |
+| NestJS 10 or 11                                 | NestJS 12                                  |
+| Node 18                                         | Node 20                                    |
+| `CorrelationService` request-scoped             | singleton over `AsyncLocalStorage`         |
+| `module.resolve(CorrelationService, contextId)` | `module.get(CorrelationService)`           |
+| `express` peer required for middleware types    | platform-neutral, peer optional or removed |

@@ -166,38 +166,35 @@ describe('widget regressions', () => {
       'valueOf',
       'hasOwnProperty',
       '__proto__',
-    ])(
-      'refuses to render the inherited key %s',
-      (type) => {
-        const warn = vi
-          .spyOn(console, 'warn')
-          .mockImplementation(() => undefined);
-        const { Widgets } = createWidgets({ components: { leaf: Leaf } });
+    ])('refuses to render the inherited key %s', (type) => {
+      const warn = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const { Widgets } = createWidgets({ components: { leaf: Leaf } });
 
-        // `in` walks the prototype chain, so a lookup written that way finds
-        // these keys on Object.prototype and hands React a built-in function
-        // as a component. Items are untrusted CMS data, so the renderer owes
-        // the same warn-and-skip here as for any unknown type.
-        expect(() =>
-          render(
-            <Widgets
-              items={[
-                { id: 'x', type, props: {} } as unknown as {
-                  id: string;
-                  type: 'leaf';
-                  props: { label: string };
-                },
-              ]}
-            />,
-          ),
-        ).not.toThrow();
+      // `in` walks the prototype chain, so a lookup written that way finds
+      // these keys on Object.prototype and hands React a built-in function
+      // as a component. Items are untrusted CMS data, so the renderer owes
+      // the same warn-and-skip here as for any unknown type.
+      expect(() =>
+        render(
+          <Widgets
+            items={[
+              { id: 'x', type, props: {} } as unknown as {
+                id: string;
+                type: 'leaf';
+                props: { label: string };
+              },
+            ]}
+          />,
+        ),
+      ).not.toThrow();
 
-        expect(warn).toHaveBeenCalledWith(
-          expect.stringContaining(`Unknown widget type "${type}"`),
-        );
-        warn.mockRestore();
-      },
-    );
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(`Unknown widget type "${type}"`),
+      );
+      warn.mockRestore();
+    });
 
     it('still renders known types normally', () => {
       const { Widgets } = createWidgets({ components: { leaf: Leaf } });

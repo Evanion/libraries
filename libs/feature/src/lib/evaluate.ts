@@ -123,7 +123,10 @@ function rootCause<F extends FeatureKey>(
   for (;;) {
     const decision = resolved.get(at);
     if (!decision) return { key: at, reason: 'explicitly-off' };
-    if (decision.reason !== 'dependency-off' || decision.blockedBy === undefined) {
+    if (
+      decision.reason !== 'dependency-off' ||
+      decision.blockedBy === undefined
+    ) {
       const cause: Cause<F> = { key: at, reason: decision.reason };
       // The rule is named when there is exactly one to name: the matching rule,
       // or the single rule that failed. With several rules and none matching

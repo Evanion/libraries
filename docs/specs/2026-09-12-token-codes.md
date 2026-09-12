@@ -53,16 +53,16 @@ None of it carries over. The idea does.
 ## Shape
 
 ```ts
-const token = createToken();                       // defaults
-token.generate()
+const token = createToken(); // defaults
+token.generate();
 // { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a' }
 
-token.generate({ prefix: 'ORD' })
+token.generate({ prefix: 'ORD' });
 // { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
 
-token.validate('a4kp-9mxa')       // { valid: true,  body: 'a4kp9mx' }
-token.validate('a4kp-9mxb')       // { valid: false, reason: 'check-failed' }
-token.validate('a4kp-9mxo')       // { valid: false, reason: 'outside-alphabet' }
+token.validate('a4kp-9mxa'); // { valid: true,  body: 'a4kp9mx' }
+token.validate('a4kp-9mxb'); // { valid: false, reason: 'check-failed' }
+token.validate('a4kp-9mxo'); // { valid: false, reason: 'outside-alphabet' }
 ```
 
 `createToken({ length, chunkSize, separator, dictionary })`, validated once,
@@ -75,11 +75,11 @@ Default: `0123456789abcdefghjkmnpqrstuvxyz` — 32 characters, lowercase, with
 
 It has to satisfy three independent constraints at once, and it does:
 
-| Constraint | Source | Why |
-| --- | --- | --- |
-| No confusable characters | this package | `1`/`l`/`i`, `0`/`o` are the point |
-| Even length, no duplicates, no case pairs | `createLuhn` | the check character is computed over it |
-| `256 % n === 0` | uniform sampling | otherwise `byte % n` is biased |
+| Constraint                                | Source           | Why                                     |
+| ----------------------------------------- | ---------------- | --------------------------------------- |
+| No confusable characters                  | this package     | `1`/`l`/`i`, `0`/`o` are the point      |
+| Even length, no duplicates, no case pairs | `createLuhn`     | the check character is computed over it |
+| `256 % n === 0`                           | uniform sampling | otherwise `byte % n` is biased          |
 
 The third is the one that is easy to miss. `crypto.randomBytes` yields values
 0–255; taking `byte % n` over-represents the first `256 % n` characters. At
@@ -123,11 +123,11 @@ Prefix comparison is a literal string match, which is what a caller checking
 `validate` is the cheap gate before an expensive operation, so it must be
 total, fast and free of side effects. It returns a reason rather than throwing:
 
-| `reason` | meaning |
-| --- | --- |
+| `reason`           | meaning                                                          |
+| ------------------ | ---------------------------------------------------------------- |
 | `outside-alphabet` | a character not in the dictionary, after separators are stripped |
-| `wrong-length` | the token, separators stripped, is not `length` characters |
-| `check-failed` | the check character does not match the body |
+| `wrong-length`     | the token, separators stripped, is not `length` characters       |
+| `check-failed`     | the check character does not match the body                      |
 
 `valid: true` means the code is well formed. It does not mean the code exists.
 The README must say so, because a check character that is mistaken for
@@ -168,11 +168,11 @@ a code ends up guessable.
 At the defaults the space is `32^7` = 34,359,738,368 codes. Two numbers
 follow from that, and they differ by five orders of magnitude:
 
-| Number | Value | What it answers |
-| --- | --- | --- |
-| Space | 34,359,738,368 | How long enumeration takes |
-| 50% birthday threshold | ~218,000 | When a collision becomes likely across the whole set |
-| Per-insert probability at 1M issued | 1 in 34,360 | How often one insert actually fails |
+| Number                              | Value          | What it answers                                      |
+| ----------------------------------- | -------------- | ---------------------------------------------------- |
+| Space                               | 34,359,738,368 | How long enumeration takes                           |
+| 50% birthday threshold              | ~218,000       | When a collision becomes likely across the whole set |
+| Per-insert probability at 1M issued | 1 in 34,360    | How often one insert actually fails                  |
 
 The birthday threshold is the number to quote when codes are generated
 offline in a batch and never checked. With a unique constraint the

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { decide } from './evaluate.js';
 import { createFeatures } from './features.js';
 import { buildGraph } from './graph.js';
-import type { Decision, EvaluationContext, FeatureDefinition } from './types.js';
+import type {
+  Decision,
+  EvaluationContext,
+  FeatureDefinition,
+} from './types.js';
 
 /**
  * The invariant from `docs/specs/2026-09-11-feature-toggles.md`, "Result":
@@ -48,7 +52,10 @@ function resolveReasonBlind(
   return enabled;
 }
 
-function enabledOf(definitions: readonly FeatureDefinition[], context: EvaluationContext = {}) {
+function enabledOf(
+  definitions: readonly FeatureDefinition[],
+  context: EvaluationContext = {},
+) {
   const decisions = createFeatures(definitions).resolve({
     now: new Date('2026-09-01T00:00:00Z'),
     ...context,
@@ -126,7 +133,9 @@ describe('reason is output only', () => {
         rules: [
           {
             id: 'window',
-            when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+            when: [
+              { field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' },
+            ],
           },
         ],
       },

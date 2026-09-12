@@ -32,7 +32,7 @@ export function ComposeProvider<const T extends ProviderArray>(
 ```ts
 export type ValidatedProviders<T extends ProviderArray> =
   number extends T['length']
-    ? ProviderArray            // widened: element identity already erased
+    ? ProviderArray // widened: element identity already erased
     : T & ValidateProviders<T>; // literal tuple: validate element by element
 ```
 
@@ -69,7 +69,9 @@ Failures become a branded carrier whose message is the object key, so
 "Property '...' is missing" prints the message first instead of burying it:
 
 ```ts
-type ComposeError<Msg extends string> = { readonly [K in `ComposeError: ${Msg}`]: never };
+type ComposeError<Msg extends string> = {
+  readonly [K in `ComposeError: ${Msg}`]: never;
+};
 
 export type ValidateProvider<T> = T extends readonly [infer C, infer P]
   ? C extends AnyComponent
@@ -125,7 +127,9 @@ worse than refusing:
 ```ts
 if (!('providers' in props)) {
   if ('components' in props) {
-    throw new TypeError('ComposeProvider: `components` was removed in v2.0 — rename to `providers`.');
+    throw new TypeError(
+      'ComposeProvider: `components` was removed in v2.0 — rename to `providers`.',
+    );
   }
   throw new TypeError(/* existing undefined message */);
 }
@@ -179,9 +183,9 @@ That is still worth adding even though the bug it would have caught is fixed.
 
 ## Migration
 
-| Before | After |
-| --- | --- |
-| `<ComposeProvider components={[...]}>` | `<ComposeProvider providers={[...]}>` |
-| `LegacyComposeProviderProps` | removed |
-| `AnyComposeProviderProps` | removed |
-| forwarding a `ProviderArray` variable failed to compile | compiles, unchecked at that boundary |
+| Before                                                  | After                                 |
+| ------------------------------------------------------- | ------------------------------------- |
+| `<ComposeProvider components={[...]}>`                  | `<ComposeProvider providers={[...]}>` |
+| `LegacyComposeProviderProps`                            | removed                               |
+| `AnyComposeProviderProps`                               | removed                               |
+| forwarding a `ProviderArray` variable failed to compile | compiles, unchecked at that boundary  |

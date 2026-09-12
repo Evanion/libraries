@@ -52,13 +52,18 @@ const astroConfigGlob = '**/astro.config.{mjs,ts}';
 export const createNodesV2: CreateNodesV2<AstroPluginOptions> = [
   astroConfigGlob,
   async (configFiles, options, context) =>
-    createNodesFromFiles(createNodesInternal, configFiles, options ?? {}, context),
+    createNodesFromFiles(
+      createNodesInternal,
+      configFiles,
+      options ?? {},
+      context,
+    ),
 ];
 
 async function createNodesInternal(
   configFilePath: string,
   options: AstroPluginOptions | undefined,
-  context: CreateNodesContextV2
+  context: CreateNodesContextV2,
 ) {
   const opts = options ?? {};
   const projectRoot = dirname(configFilePath);

@@ -10,7 +10,13 @@ const httpServiceStub = (
 ): HttpService => ({ get: impl }) as unknown as HttpService;
 
 const axiosResponse = <T>(data: T): AxiosResponse<T> =>
-  ({ data, status: 200, statusText: 'OK', headers: {}, config: {} as never }) as AxiosResponse<T>;
+  ({
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: {} as never,
+  }) as AxiosResponse<T>;
 
 describe('InventoryClient', () => {
   it('calls the inventory endpoint on localhost for the given urn', () => {
@@ -23,12 +29,18 @@ describe('InventoryClient', () => {
 
     client.getStock('urn:game:wingspan');
 
-    expect(requestedUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/inventory\//);
+    expect(requestedUrl).toMatch(
+      /^http:\/\/127\.0\.0\.1:\d+\/api\/inventory\//,
+    );
     expect(requestedUrl).toContain(encodeURIComponent('urn:game:wingspan'));
   });
 
   it('resolves with the response body', async () => {
-    const stock = { urn: 'urn:game:wingspan', quantity: 5, correlationId: 'abc' };
+    const stock = {
+      urn: 'urn:game:wingspan',
+      quantity: 5,
+      correlationId: 'abc',
+    };
     const http = httpServiceStub(() => of(axiosResponse(stock)));
     const client = new InventoryClient(http);
 

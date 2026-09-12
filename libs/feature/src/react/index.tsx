@@ -87,9 +87,7 @@ export function useFeatures<F extends FeatureKey = string>(): Decisions<F> {
  * indistinguishable from a feature that is off, which is the failure mode flag
  * systems are worst at.
  */
-export function useFeature<F extends FeatureKey = string>(
-  key: F,
-): Decision<F> {
+export function useFeature<F extends FeatureKey = string>(key: F): Decision<F> {
   const decisions = useFeatures<F>();
   // A bare index walks the prototype chain, so a key of `constructor` or
   // `toString` resolves to a function off `Object.prototype` and passes the

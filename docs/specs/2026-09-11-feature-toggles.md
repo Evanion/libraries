@@ -102,13 +102,13 @@ cascades.
 One `enabled` boolean in the decision. The distinction between kinds of "off"
 lives in the explanation:
 
-| `reason` | meaning |
-| --- | --- |
-| `default-on` | enabled, no rules |
-| `rule-match` | enabled, a rule matched; carries the rule id |
-| `explicitly-off` | `enabled === false` |
-| `no-rule-matched` | enabled, rules present, none passed |
-| `dependency-off` | a parent resolved off |
+| `reason`          | meaning                                      |
+| ----------------- | -------------------------------------------- |
+| `default-on`      | enabled, no rules                            |
+| `rule-match`      | enabled, a rule matched; carries the rule id |
+| `explicitly-off`  | `enabled === false`                          |
+| `no-rule-matched` | enabled, rules present, none passed          |
+| `dependency-off`  | a parent resolved off                        |
 
 `no-rule-matched` carries a per-rule breakdown naming the failed condition, so
 a UI can say "outside window until 2026-10-01" rather than "off".
@@ -165,7 +165,7 @@ never read back as truth.
 ## Toggling
 
 ```ts
-features.toggle('payments-v3', false)
+features.toggle('payments-v3', false);
 // { ok: true, willDisable: ['checkout-v2', 'checkout-express'] }
 ```
 

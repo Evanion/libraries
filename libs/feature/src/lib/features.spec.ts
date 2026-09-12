@@ -165,9 +165,9 @@ describe('precedence', () => {
       },
     ]);
 
-    expect(features.resolve({ accountId: 'acct-1' })['checkout-v2']).toMatchObject(
-      { enabled: true, rule: 'ramp' },
-    );
+    expect(
+      features.resolve({ accountId: 'acct-1' })['checkout-v2'],
+    ).toMatchObject({ enabled: true, rule: 'ramp' });
     // No bucketing field in the context: the rule cannot be evaluated, so it
     // does not match.
     expect(features.resolve()['checkout-v2']).toMatchObject({
@@ -543,17 +543,24 @@ describe('plan', () => {
         enabled: true,
         freezeTimeAtBuild,
         rules: [
-          { id: 'window', when: [{ field: 'now', op: 'after', value: WINDOW }] },
+          {
+            id: 'window',
+            when: [{ field: 'now', op: 'after', value: WINDOW }],
+          },
         ],
       },
     ];
     const now = new Date('2026-10-15T00:00:00Z');
 
-    expect(createFeatures(definitions(false)).plan({ now }).windowed).toMatchObject({
+    expect(
+      createFeatures(definitions(false)).plan({ now }).windowed,
+    ).toMatchObject({
       resolved: 'deferred',
       needs: ['now'],
     });
-    expect(createFeatures(definitions(true)).plan({ now }).windowed).toMatchObject({
+    expect(
+      createFeatures(definitions(true)).plan({ now }).windowed,
+    ).toMatchObject({
       resolved: true,
     });
   });

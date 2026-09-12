@@ -140,9 +140,9 @@ describe('createLuhn', () => {
     });
 
     it('should accept a dictionary with case pairs when not folding', () => {
-      expect(
-        createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).n,
-      ).toBe(62);
+      expect(createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).n).toBe(
+        62,
+      );
     });
 
     it('should count an astral dictionary by code point, not UTF-16 unit', () => {

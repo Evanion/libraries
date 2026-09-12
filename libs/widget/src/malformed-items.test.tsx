@@ -17,7 +17,11 @@ describe('malformed items are skipped instead of crashing', () => {
     const { Widgets } = createWidgets({ components: { leaf: Leaf } });
 
     expect(() =>
-      render(<Widgets items={null as unknown as Parameters<typeof Widgets>[0]['items']} />),
+      render(
+        <Widgets
+          items={null as unknown as Parameters<typeof Widgets>[0]['items']}
+        />,
+      ),
     ).not.toThrow();
 
     expect(screen.queryByTestId(/leaf-/)).not.toBeInTheDocument();
@@ -34,7 +38,11 @@ describe('malformed items are skipped instead of crashing', () => {
     expect(() =>
       render(
         <Widgets
-          items={{ 0: { id: 'a', type: 'leaf', props: { label: 'a' } } } as unknown as Parameters<typeof Widgets>[0]['items']}
+          items={
+            {
+              0: { id: 'a', type: 'leaf', props: { label: 'a' } },
+            } as unknown as Parameters<typeof Widgets>[0]['items']
+          }
         />,
       ),
     ).not.toThrow();
@@ -53,10 +61,12 @@ describe('malformed items are skipped instead of crashing', () => {
     expect(() =>
       render(
         <Widgets
-          items={[
-            null,
-            { id: 'ok', type: 'leaf' as const, props: { label: 'ok' } },
-          ] as unknown as Parameters<typeof Widgets>[0]['items']}
+          items={
+            [
+              null,
+              { id: 'ok', type: 'leaf' as const, props: { label: 'ok' } },
+            ] as unknown as Parameters<typeof Widgets>[0]['items']
+          }
         />,
       ),
     ).not.toThrow();
@@ -76,10 +86,12 @@ describe('malformed items are skipped instead of crashing', () => {
     expect(() =>
       render(
         <Widgets
-          items={[
-            { id: 'bad', type: 123, props: {} },
-            { id: 'ok', type: 'leaf' as const, props: { label: 'ok' } },
-          ] as unknown as Parameters<typeof Widgets>[0]['items']}
+          items={
+            [
+              { id: 'bad', type: 123, props: {} },
+              { id: 'ok', type: 'leaf' as const, props: { label: 'ok' } },
+            ] as unknown as Parameters<typeof Widgets>[0]['items']
+          }
         />,
       ),
     ).not.toThrow();

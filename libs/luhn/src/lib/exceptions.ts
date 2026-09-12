@@ -53,11 +53,7 @@ export class LuhnError extends Error {
 
 /** Which construction constraint the dictionary failed. */
 export type InvalidDictionaryReason =
-  | 'not-a-string'
-  | 'too-short'
-  | 'odd-length'
-  | 'duplicate'
-  | 'case-pairs';
+  'not-a-string' | 'too-short' | 'odd-length' | 'duplicate' | 'case-pairs';
 
 /**
  * Thrown by `createLuhn` when the dictionary cannot support Luhn mod-N.
