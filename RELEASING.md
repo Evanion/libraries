@@ -45,11 +45,11 @@ Two things to get right:
   `nx release publish` runs a plain `npm publish` and a stage-only publisher
   would reject it.
 
-### 2. Bootstrap `@evanion/react-widget`
+### 2. Bootstrap a package that has never been published
 
 npm will not let you configure a trusted publisher for a package that does not
-exist yet, and `@evanion/react-widget` has never been published. It needs one
-manual publish first, from a maintainer's machine with their own 2FA:
+exist yet, so a new package needs one manual publish first, from a maintainer's
+machine with their own 2FA:
 
 ```bash
 npm login                       # if not already authenticated
@@ -73,13 +73,36 @@ Both extra flags are needed:
   appears in a live terminal. If your 2FA is web-only rather than TOTP, run the
   publish in a real terminal rather than through a tool that captures output.
 
-Then configure its trusted publisher as above. Every subsequent release goes
-through OIDC.
+`npm publish` from the workspace root fails with `EPRIVATE`, because the root
+`package.json` is private. Check where you are before publishing:
 
-`@evanion/compose`, `@evanion/urn` and `@evanion/react-widget` all exist on npm
-now, so no further bootstrapping is needed — configure their trusted publishers
-and they are ready. The steps above are kept for the next new package added to
-this repo.
+```bash
+node -p "require('./package.json').name"   # must print the package, not @evanion/open-source
+```
+
+The registry takes a minute or two to serve a brand new package. A 404
+immediately after publishing is propagation, not failure.
+
+#### Then tag the commit you published
+
+```bash
+cd ../..
+git tag '@evanion/<name>@<version>' <sha>
+git push origin '@evanion/<name>@<version>'
+```
+
+`nx release` resolves a package's current version from its tag, and
+`releaseTag.pattern` is `{projectName}@{version}`. Without the tag it falls back
+to the version on disk and reads conventional commits from the beginning of
+history, so the next release's bump and changelog are computed over every commit
+the package ever had rather than over the ones since it shipped.
+
+This is not hypothetical. `@evanion/luhn@2.0.1` was published from its own repo
+before the migration and carried no tag here, and the bump proposed for 3.0.0 was
+correct only by coincidence.
+
+Finally, configure its trusted publisher as above. Every subsequent release goes
+through OIDC, and every version after the bootstrap is attested.
 
 ## Cutting a release
 

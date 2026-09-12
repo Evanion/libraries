@@ -19,7 +19,11 @@ const SimpleProvider = ({ children }: React.PropsWithChildren) => (
   <div>{children}</div>
 );
 
-/** All props optional, so it is a "weak type" -- see the excess-prop case below. */
+/**
+ * Every prop optional, which makes it a TypeScript "weak type": an object
+ * sharing none of its keys is still structurally assignable to it. The
+ * excess-prop case below turns on that.
+ */
 type OptProvider = (
   props: React.PropsWithChildren<{ a?: string }>,
 ) => React.JSX.Element;
@@ -30,8 +34,8 @@ type OptProvider = (
  * Some negative cases go through this rather than JSX: on a plain call the
  * error is always reported on the call itself, while in JSX it lands on
  * whichever attribute line the checker reaches first, which moves when the
- * formatter reflows the element. The JSX cases below cover the real call shape
- * (#21); these cover the same checks in a position that cannot drift.
+ * formatter reflows the element. The JSX cases below cover the real call shape;
+ * these cover the same checks in a position that cannot drift.
  */
 declare function acceptsProviders<const T extends ProviderArray>(
   providers: ValidatedProviders<T>,
@@ -124,10 +128,10 @@ describe('compose error carriers', () => {
     }>();
   });
 
-  // Guards #20: a component whose props are all optional is a "weak type", so
-  // an object of only unknown keys is structurally assignable to it. The
-  // excess-key check must run before that structural comparison, or the
-  // excess prop goes unnamed.
+  // A component whose props are all optional is a "weak type", so an object of
+  // only unknown keys is structurally assignable to it. The excess-key check
+  // must run before that structural comparison, or the excess prop goes
+  // unnamed.
   it('names an excess prop on an all-optional-props component', () => {
     expectTypeOf<
       ValidateProvider<readonly [OptProvider, { b: number }]>
@@ -198,9 +202,9 @@ describe('ComposeProvider in JSX', () => {
     expectTypeOf(el).toMatchTypeOf<React.ReactElement>();
   });
 
-  // #19: a value already typed as `ProviderArray` has lost its element
-  // identity, so there is nothing left to validate element-wise. It must still
-  // be forwardable, which is the whole point of exporting the type.
+  // A value already typed as `ProviderArray` has lost its element identity, so
+  // there is nothing left to validate element-wise. It must still be
+  // forwardable, which is the whole point of exporting the type.
   it('compiles a widened ProviderArray forwarded through a wrapper', () => {
     function AppProviders({
       providers,
@@ -290,10 +294,10 @@ describe('ComposeProvider in JSX', () => {
     expectTypeOf(el).toMatchTypeOf<React.ReactElement>();
   });
 
-  it('rejects the removed components prop', () => {
+  it('rejects a components prop in place of providers', () => {
     const el = (
       <ComposeProvider
-        // @ts-expect-error `components` was removed in v2.0; `providers` is required
+        // @ts-expect-error `components` is not a prop; `providers` is required
         components={[SimpleProvider]}
       >
         <span />

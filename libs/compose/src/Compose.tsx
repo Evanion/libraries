@@ -41,9 +41,9 @@ function warnOnce(message: string): void {
 /**
  * Clears the warn-once cache.
  *
- * Deliberately not re-exported from `index.ts`, so it is not public API -- it
- * exists because a module-level cache is otherwise impossible to test more than
- * once per file.
+ * Not re-exported from `index.ts`, so it is not public API. It exists because a
+ * module-level cache otherwise lets only the first test in a file observe a
+ * warning.
  *
  * @internal
  */
@@ -64,8 +64,25 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
 }
 
 /**
- * Composes multiple React providers into a single component to eliminate nesting.
- * Providers are applied in order (first provider is outermost, matching pyramid-of-doom reading order).
+ * Nests `providers` around `children`, first entry outermost, so the rendered
+ * tree reads in the order the array is written.
+ *
+ * A generic function rather than a `React.FC`: the `const T` parameter infers
+ * the array as a literal tuple, which is what lets each entry be checked
+ * against its own component. A `React.FC` annotation would widen it and the
+ * per-entry checking would be gone.
+ *
+ * Hook-free, so it can be imported from a React Server Component graph without
+ * a `'use client'` boundary. React's `react-server` export condition leaves
+ * every stateful hook, `createContext` and `useContext` `undefined`.
+ *
+ * Changing the length or order of the array remounts everything below it: React
+ * reconciles by position, so `[...(isAuthed ? [AuthProvider] : []), Theme]`
+ * unmounts and remounts the whole subtree on login. Keep the array a fixed
+ * length and let the providers handle the conditional case themselves.
+ *
+ * @throws {TypeError} when `providers` is not an array, which only a caller
+ * outside TypeScript can reach.
  *
  * @example
  * ```tsx
@@ -78,16 +95,13 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
  *   <App />
  * </ComposeProvider>
  * ```
- *
- * @param props.providers - Array of providers to compose
- * @param props.children - Child elements to wrap with providers
  */
 export function ComposeProvider<const T extends ProviderArray>(
   props: ComposeProviderProps<T>,
 ): React.ReactElement {
-  // A JavaScript consumer can still reach this with the removed `components`
-  // prop. Refusing by name beats silently accepting a prop the types do not
-  // describe.
+  // `components` is not in `ComposeProviderProps`, so only a caller outside
+  // TypeScript reaches here. Naming the prop is what turns an empty render
+  // into a message the caller can act on.
   if (!('providers' in props) && 'components' in props) {
     throw new TypeError(
       'ComposeProvider: `components` was removed in v2.0 \u2014 rename it to `providers`.',
@@ -96,9 +110,9 @@ export function ComposeProvider<const T extends ProviderArray>(
 
   const providerList = props.providers as ProviderArray;
 
-  // Fail with a message that names the problem. Without this, a missing prop
-  // surfaces as "Cannot read properties of undefined (reading 'length')", which
-  // says nothing about what the caller did wrong.
+  // Without this guard a missing prop surfaces from the array reads below as
+  // "Cannot read properties of undefined", naming neither the prop nor the
+  // component.
   if (!Array.isArray(providerList)) {
     throw new TypeError(
       `ComposeProvider: expected \`providers\` to be an array, received ${
