@@ -27,6 +27,9 @@ export default [
   {
     ignores: [
       '**/dist',
+      // Where tsc puts the declarations it emits only because `tsc --build`
+      // has no check-only mode. Generated, never shipped, never read.
+      '**/out-tsc',
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
     ],

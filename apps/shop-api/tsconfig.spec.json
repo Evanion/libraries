@@ -10,11 +10,13 @@
     "ignoreDeprecations": "6.0",
     "rootDir": "."
   },
+  // The sources are compiled here rather than reached through a reference to
+  // tsconfig.app.json. A reference resolves a relative import to that
+  // project's declaration output, so every type-check of the tests would need
+  // some other target to have emitted it first; compiling the sources checks
+  // the tests against the real types and needs nothing built.
   "include": [
     "vite.config.mts",
-    "src/**/*.test.ts",
-    "src/**/*.spec.ts",
-    "src/**/*.d.ts"
-  ],
-  "references": [{ "path": "./tsconfig.app.json" }]
+    "src/**/*.ts"
+  ]
 }
