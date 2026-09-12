@@ -182,9 +182,9 @@ describe('the documented claims', () => {
     });
 
     it('rejects the 36-character alphabet as confusable', () => {
-      expect(
-        thrownBy('0123456789abcdefghijklmnopqrstuvwxyz'),
-      ).toBeInstanceOf(InvalidAlphabetError);
+      expect(thrownBy('0123456789abcdefghijklmnopqrstuvwxyz')).toBeInstanceOf(
+        InvalidAlphabetError,
+      );
       expect(thrownBy('0123456789abcdefghijklmnopqrstuvwxyz')).toMatchObject({
         reason: 'confusable',
         offending: ['i', 'l', 'o', 'w'],

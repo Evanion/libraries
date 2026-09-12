@@ -30,7 +30,11 @@ describe.each(inheritedKeys)('a CMS type of %s', (type) => {
   it('is an unknown block type to @evanion/astro-widget', () => {
     let problems: ReturnType<typeof validateBlocks> = [];
     expect(() => {
-      problems = validateBlocks([{ type }], { hero: {} }, { hero: ['heading'] });
+      problems = validateBlocks(
+        [{ type }],
+        { hero: {} },
+        { hero: ['heading'] },
+      );
     }).not.toThrow();
 
     expect(problems).toEqual([

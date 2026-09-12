@@ -22,7 +22,12 @@ describe('validateItems', () => {
 
   it('reports a non-array root rather than throwing', () => {
     expect(validateItems(undefined, knownTypes)).toEqual([
-      { index: -1, id: '-', type: '-', message: VALIDATION_MESSAGES.NOT_A_LIST },
+      {
+        index: -1,
+        id: '-',
+        type: '-',
+        message: VALIDATION_MESSAGES.NOT_A_LIST,
+      },
     ]);
     expect(validateItems('nope', knownTypes)).toHaveLength(1);
   });
@@ -40,14 +45,28 @@ describe('validateItems', () => {
   });
 
   it('reports a non-string id', () => {
-    expect(validateItems([{ id: 1, type: 'leaf', props: {} }], knownTypes)).toEqual(
-      [{ index: 0, id: '-', type: 'leaf', message: VALIDATION_MESSAGES.INVALID_ID }],
-    );
+    expect(
+      validateItems([{ id: 1, type: 'leaf', props: {} }], knownTypes),
+    ).toEqual([
+      {
+        index: 0,
+        id: '-',
+        type: 'leaf',
+        message: VALIDATION_MESSAGES.INVALID_ID,
+      },
+    ]);
   });
 
   it('reports a non-string type', () => {
-    expect(validateItems([{ id: 'a', type: 1, props: {} }], knownTypes)).toEqual([
-      { index: 0, id: 'a', type: '-', message: VALIDATION_MESSAGES.INVALID_TYPE },
+    expect(
+      validateItems([{ id: 'a', type: 1, props: {} }], knownTypes),
+    ).toEqual([
+      {
+        index: 0,
+        id: 'a',
+        type: '-',
+        message: VALIDATION_MESSAGES.INVALID_TYPE,
+      },
     ]);
   });
 
@@ -55,11 +74,22 @@ describe('validateItems', () => {
     expect(
       validateItems([{ id: 'a', type: 'nope', props: {} }], knownTypes),
     ).toEqual([
-      { index: 0, id: 'a', type: 'nope', message: VALIDATION_MESSAGES.UNKNOWN_TYPE },
+      {
+        index: 0,
+        id: 'a',
+        type: 'nope',
+        message: VALIDATION_MESSAGES.UNKNOWN_TYPE,
+      },
     ]);
   });
 
-  it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
+  it.each([
+    'constructor',
+    'toString',
+    'valueOf',
+    'hasOwnProperty',
+    '__proto__',
+  ])(
     'does not accept the inherited Object.prototype key %s as a known type',
     (type) => {
       let problems: ReturnType<typeof validateItems> = [];
@@ -82,7 +112,12 @@ describe('validateItems', () => {
     expect(
       validateItems([{ id: 'a', type: 'leaf', props: 'nope' }], knownTypes),
     ).toEqual([
-      { index: 0, id: 'a', type: 'leaf', message: VALIDATION_MESSAGES.INVALID_PROPS },
+      {
+        index: 0,
+        id: 'a',
+        type: 'leaf',
+        message: VALIDATION_MESSAGES.INVALID_PROPS,
+      },
     ]);
   });
 
@@ -153,7 +188,12 @@ describe('validateItems', () => {
       knownTypes,
     );
     expect(problems).toEqual([
-      { index: 0, id: 'b', type: 'nope', message: VALIDATION_MESSAGES.UNKNOWN_TYPE },
+      {
+        index: 0,
+        id: 'b',
+        type: 'nope',
+        message: VALIDATION_MESSAGES.UNKNOWN_TYPE,
+      },
     ]);
   });
 
@@ -172,16 +212,22 @@ describe('validateItems', () => {
       VALIDATION_MESSAGES.INVALID_CHILDREN,
     ]);
   });
-
 });
 
 describe('createWidgets().validateItems', () => {
   it('is bound to the factory component map', () => {
     const { validateItems: bound } = createWidgets({ components });
 
-    expect(bound([{ id: 'a', type: 'leaf', props: { label: 'a' } }])).toEqual([]);
+    expect(bound([{ id: 'a', type: 'leaf', props: { label: 'a' } }])).toEqual(
+      [],
+    );
     expect(bound([{ id: 'a', type: 'nope', props: {} }])).toEqual([
-      { index: 0, id: 'a', type: 'nope', message: VALIDATION_MESSAGES.UNKNOWN_TYPE },
+      {
+        index: 0,
+        id: 'a',
+        type: 'nope',
+        message: VALIDATION_MESSAGES.UNKNOWN_TYPE,
+      },
     ]);
   });
 });

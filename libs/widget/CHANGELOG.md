@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-- ⚠️  **widget:** drop context, become usable from a server component ([#24](https://github.com/Evanion/libraries/issues/24))
+- ⚠️ **widget:** drop context, become usable from a server component ([#24](https://github.com/Evanion/libraries/issues/24))
 - **nestjs-correlation-id:** migrate into the monorepo and support nestjs 12 ([81c0bfd](https://github.com/Evanion/libraries/commit/81c0bfd))
 
 ### 🩹 Fixes
@@ -11,9 +11,9 @@
 - **widget:** malformed items no longer crash the page ([#23](https://github.com/Evanion/libraries/issues/23))
 - **compose,widget:** make both packages usable from react server components ([#16](https://github.com/Evanion/libraries/issues/16), [#22](https://github.com/Evanion/libraries/issues/22), [#17](https://github.com/Evanion/libraries/issues/17))
 
-### ⚠️  Breaking Changes
+### ⚠️ Breaking Changes
 
-- **widget:** drop context, become usable from a server component  ([#24](https://github.com/Evanion/libraries/issues/24))
+- **widget:** drop context, become usable from a server component ([#24](https://github.com/Evanion/libraries/issues/24))
   WidgetsProvider, useWidgets, WidgetsConfig.context, the
   injected output prop, WidgetOutputProps, WidgetErrorBoundary, DEFAULT_STYLES
   and the error and loading ERROR_MESSAGES are removed. Nested items render as

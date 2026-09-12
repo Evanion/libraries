@@ -88,12 +88,12 @@ Removed: `WidgetsProvider`, `useWidgets`, `Output`, `WidgetOutputProps`,
 
 ## What this dissolves
 
-| Issue | Outcome |
-| --- | --- |
-| #24 `chrome.item` removes the error boundary | No default boundary exists |
-| #25.1 provider value ignored | No context exists |
-| #25.2 children vanish when a component skips `<Output/>` | Type-gated at compile time |
-| #23, #25.3 malformed items | `validateItems` plus skip-and-warn in the renderer |
+| Issue                                                    | Outcome                                            |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| #24 `chrome.item` removes the error boundary             | No default boundary exists                         |
+| #25.1 provider value ignored                             | No context exists                                  |
+| #25.2 children vanish when a component skips `<Output/>` | Type-gated at compile time                         |
+| #23, #25.3 malformed items                               | `validateItems` plus skip-and-warn in the renderer |
 
 ## #71: `meta`
 
@@ -147,13 +147,13 @@ webhook or CI scripts:
 
 Differences that remain, and why:
 
-| | astro | react |
-| --- | --- | --- |
-| recursion | block renders `<Widgets>` itself | renderer recurses into `children` |
-| `chrome.wrapper` | absent | present |
-| `suspenseFallback` | n/a | present |
-| typed props from registry | impossible, components are opaque | inferred |
-| registry binding | per render | bound by `createWidgets` |
+|                           | astro                             | react                             |
+| ------------------------- | --------------------------------- | --------------------------------- |
+| recursion                 | block renders `<Widgets>` itself  | renderer recurses into `children` |
+| `chrome.wrapper`          | absent                            | present                           |
+| `suspenseFallback`        | n/a                               | present                           |
+| typed props from registry | impossible, components are opaque | inferred                          |
+| registry binding          | per render                        | bound by `createWidgets`          |
 
 The recursion difference is forced by Astro's slot model. The rest are open if
 parity is wanted later.
@@ -176,25 +176,25 @@ Checking the import specifiers catches it either way, and is stronger.
 
 ## Disposition of existing work
 
-| Item | Action |
-| --- | --- |
-| PR #65 | Drop the code. Salvage `ssr.test.tsx`'s well-formed-tree case and the malformed-item message shapes. Drop its throwing-widget case, which assumes a boundary. |
-| PR #67 | Drop the README and context diffs. Salvage the dev-`NODE_ENV` guard on the unknown-widget warning and the `data-widget-*` DOM pass-through requirement. |
-| 8a1efc0 | Drop the code and both test files. Keep the lesson: boundary logic belongs in `renderWidget`. |
-| `context.test.tsx` | Delete. |
-| `widgets.test.tsx` | Keep 1-143. Drop 144-197. |
-| `widget.test.tsx`, `performance.test.tsx`, `regressions.test.tsx`, `types.test-d.tsx` | Keep. Every fixture using the `Output` prop rewrites to plain `children`. |
+| Item                                                                                  | Action                                                                                                                                                        |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #65                                                                                | Drop the code. Salvage `ssr.test.tsx`'s well-formed-tree case and the malformed-item message shapes. Drop its throwing-widget case, which assumes a boundary. |
+| PR #67                                                                                | Drop the README and context diffs. Salvage the dev-`NODE_ENV` guard on the unknown-widget warning and the `data-widget-*` DOM pass-through requirement.       |
+| 8a1efc0                                                                               | Drop the code and both test files. Keep the lesson: boundary logic belongs in `renderWidget`.                                                                 |
+| `context.test.tsx`                                                                    | Delete.                                                                                                                                                       |
+| `widgets.test.tsx`                                                                    | Keep 1-143. Drop 144-197.                                                                                                                                     |
+| `widget.test.tsx`, `performance.test.tsx`, `regressions.test.tsx`, `types.test-d.tsx` | Keep. Every fixture using the `Output` prop rewrites to plain `children`.                                                                                     |
 
 ## Migration
 
-| Removed | Replacement |
-| --- | --- |
-| `'use client'` | none; importable from RSC |
-| `WidgetsProvider`, `useWidgets`, `WidgetsConfig.context` | call `createWidgets` once at module scope |
-| `Output` prop and `<Output/>` | read `children` |
-| `WidgetOutputProps` | none needed |
-| default `WidgetErrorBoundary` | own boundary in a custom `chrome.item`, in your own `'use client'` file |
-| `DEFAULT_STYLES.LOADING` | `chrome.suspenseFallback` |
+| Removed                                                  | Replacement                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `'use client'`                                           | none; importable from RSC                                               |
+| `WidgetsProvider`, `useWidgets`, `WidgetsConfig.context` | call `createWidgets` once at module scope                               |
+| `Output` prop and `<Output/>`                            | read `children`                                                         |
+| `WidgetOutputProps`                                      | none needed                                                             |
+| default `WidgetErrorBoundary`                            | own boundary in a custom `chrome.item`, in your own `'use client'` file |
+| `DEFAULT_STYLES.LOADING`                                 | `chrome.suspenseFallback`                                               |
 
 ## Testing (#27)
 

@@ -1,7 +1,4 @@
-import type {
-  HttpModuleAsyncOptions,
-  HttpModuleOptions,
-} from '@nestjs/axios';
+import type { HttpModuleAsyncOptions, HttpModuleOptions } from '@nestjs/axios';
 import type { AxiosInstance } from 'axios';
 import {
   CORRELATION_AXIOS_INTERCEPTOR,

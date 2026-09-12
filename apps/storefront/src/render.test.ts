@@ -20,7 +20,9 @@ describe('demo output', () => {
   }, 120_000);
 
   it('renders each known block in order', () => {
-    const order = [...html().matchAll(/data-block="([a-z]+)"/g)].map((m) => m[1]);
+    const order = [...html().matchAll(/data-block="([a-z]+)"/g)].map(
+      (m) => m[1],
+    );
     expect(order).toEqual(['hero', 'text', 'kort']);
   });
 

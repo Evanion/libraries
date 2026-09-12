@@ -56,7 +56,9 @@ describe('ctx, the astro-widget parity prop', () => {
   it('is undefined when the caller supplies none', () => {
     const { Widgets } = createWidgets({ components: { label: Label } });
 
-    render(<Widgets items={[{ id: 'a', type: 'label' as const, props: {} }]} />);
+    render(
+      <Widgets items={[{ id: 'a', type: 'label' as const, props: {} }]} />,
+    );
 
     expect(screen.getByTestId('label')).toHaveTextContent('none');
   });

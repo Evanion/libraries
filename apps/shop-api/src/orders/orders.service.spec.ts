@@ -46,7 +46,11 @@ describe('OrdersService', () => {
 
   it('confirms an order urn when every item has enough stock', async () => {
     const { service } = buildService({
-      'urn:game:wingspan': { urn: 'urn:game:wingspan', quantity: 5, correlationId: 'outer-id' },
+      'urn:game:wingspan': {
+        urn: 'urn:game:wingspan',
+        quantity: 5,
+        correlationId: 'outer-id',
+      },
     });
 
     const result = await service.createOrder({
@@ -59,7 +63,11 @@ describe('OrdersService', () => {
   it('carries the outer request correlation id on the result', async () => {
     const { service } = buildService(
       {
-        'urn:game:wingspan': { urn: 'urn:game:wingspan', quantity: 5, correlationId: 'outer-id' },
+        'urn:game:wingspan': {
+          urn: 'urn:game:wingspan',
+          quantity: 5,
+          correlationId: 'outer-id',
+        },
       },
       'outer-id',
     );
@@ -74,7 +82,11 @@ describe('OrdersService', () => {
   it('carries the correlation id the inventory hop reported back', async () => {
     const { service } = buildService(
       {
-        'urn:game:wingspan': { urn: 'urn:game:wingspan', quantity: 5, correlationId: 'outer-id' },
+        'urn:game:wingspan': {
+          urn: 'urn:game:wingspan',
+          quantity: 5,
+          correlationId: 'outer-id',
+        },
       },
       'outer-id',
     );
@@ -92,7 +104,9 @@ describe('OrdersService', () => {
     });
 
     await expect(
-      service.createOrder({ items: [{ urn: 'urn:game:wingspan', quantity: 5 }] }),
+      service.createOrder({
+        items: [{ urn: 'urn:game:wingspan', quantity: 5 }],
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -100,7 +114,9 @@ describe('OrdersService', () => {
     const { service } = buildService({});
 
     await expect(
-      service.createOrder({ items: [{ urn: 'urn:game:unknown', quantity: 1 }] }),
+      service.createOrder({
+        items: [{ urn: 'urn:game:unknown', quantity: 1 }],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -109,7 +125,9 @@ describe('OrdersService', () => {
       'urn:game:wingspan': { urn: 'urn:game:wingspan', quantity: 5 },
     });
 
-    await service.createOrder({ items: [{ urn: 'urn:game:wingspan', quantity: 1 }] });
+    await service.createOrder({
+      items: [{ urn: 'urn:game:wingspan', quantity: 1 }],
+    });
 
     expect(telemetry.list().map((e) => e.type)).toEqual([
       'order.requested',
@@ -123,7 +141,9 @@ describe('OrdersService', () => {
     });
 
     await expect(
-      service.createOrder({ items: [{ urn: 'urn:game:wingspan', quantity: 5 }] }),
+      service.createOrder({
+        items: [{ urn: 'urn:game:wingspan', quantity: 5 }],
+      }),
     ).rejects.toThrow();
 
     expect(telemetry.list().map((e) => e.type)).toEqual([

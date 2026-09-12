@@ -12,7 +12,12 @@ describe('defineBlocks', () => {
   });
 
   it('accepts a block item with arbitrary props', () => {
-    const item: BlockItem = { type: 'hero', id: 'a', rubrik: 'Hej', kolumner: 3 };
+    const item: BlockItem = {
+      type: 'hero',
+      id: 'a',
+      rubrik: 'Hej',
+      kolumner: 3,
+    };
     expect(item.type).toBe('hero');
   });
 });

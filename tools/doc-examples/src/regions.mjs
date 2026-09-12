@@ -96,13 +96,13 @@ export function parseRegions(source, file) {
       fence = marker[1];
       // The fence info carries the doctest marker, which is meaningful to the
       // test run and noise on a docs page.
-      lang = (marker[2]).replace('@import.meta.vitest', '').trim();
+      lang = marker[2].replace('@import.meta.vitest', '').trim();
       body = [];
       blocks++;
       return;
     }
 
-    if (marker && fence !== null && (marker[1]).startsWith(fence)) {
+    if (marker && fence !== null && marker[1].startsWith(fence)) {
       fence = null;
       return;
     }

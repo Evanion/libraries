@@ -95,7 +95,8 @@ describe('inRollout', () => {
 
   it('lands within a point of the requested percentage', () => {
     for (const percent of [10, 25, 50]) {
-      const share = (members(users, percent, 'checkout-v2').length / users.length) * 100;
+      const share =
+        (members(users, percent, 'checkout-v2').length / users.length) * 100;
       expect(Math.abs(share - percent)).toBeLessThan(1.5);
     }
   });

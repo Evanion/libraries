@@ -89,7 +89,9 @@ describe('@evanion/react-widget under react-server', () => {
           id: 'outer',
           type: 'box' as const,
           props: {},
-          children: [{ id: 'inner', type: 'leaf' as const, props: { label: 'x' } }],
+          children: [
+            { id: 'inner', type: 'leaf' as const, props: { label: 'x' } },
+          ],
         },
       ],
     });
@@ -102,6 +104,8 @@ describe('@evanion/react-widget under react-server', () => {
 
   it('validates items without importing a renderer', () => {
     const { validateItems } = createWidgets({ components: { leaf: Leaf } });
-    expect(validateItems([{ id: 'a', type: 'nope', props: {} }])).toHaveLength(1);
+    expect(validateItems([{ id: 'a', type: 'nope', props: {} }])).toHaveLength(
+      1,
+    );
   });
 });

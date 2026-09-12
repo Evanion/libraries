@@ -15,9 +15,14 @@
     "ignoreDeprecations": "6.0"
   },
   "exclude": [
-    "out-tsc", "dist",
-    "**/*.spec.ts", "**/*.test.ts", "**/*.test-d.ts",
-    "vite.config.ts", "eslint.config.mjs", "src/test-setup.ts"
+    "out-tsc",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/*.test-d.ts",
+    "vite.config.ts",
+    "eslint.config.mjs",
+    "src/test-setup.ts"
   ],
   "include": ["src/**/*.ts"]
 }

@@ -35,7 +35,13 @@ const NewsTeaser = ({ title, body }: { title: string; body: string }) => (
   </article>
 );
 
-const UserSidebar = ({ username, messages }: { username: string; messages: number }) => (
+const UserSidebar = ({
+  username,
+  messages,
+}: {
+  username: string;
+  messages: number;
+}) => (
   <div>
     <span>{username}</span>
     <span>{messages} messages</span>
@@ -54,7 +60,11 @@ export default function Page() {
   return (
     <Widgets
       items={[
-        { id: 'u1', type: 'userInfo', props: { username: 'Evanion', messages: 5 } },
+        {
+          id: 'u1',
+          type: 'userInfo',
+          props: { username: 'Evanion', messages: 5 },
+        },
         { id: 'n1', type: 'news', props: { title: 'Hello', body: '…' } },
       ]}
     />
@@ -78,7 +88,7 @@ const { Widgets, defineItems } = createWidgets({
 
 const items = defineItems([
   { id: '1', type: 'news', props: { title: 'Hello', body: '…' } },
-  { id: '2', type: 'nope', props: {} },                    // ✗ not in the map
+  { id: '2', type: 'nope', props: {} }, // ✗ not in the map
   { id: '3', type: 'weather', props: { celsius: 'warm' } }, // ✗ celsius is a number
 ]);
 ```
@@ -247,23 +257,23 @@ Nothing is logged when `NODE_ENV` is `production`.
 
 `config`:
 
-| field | meaning |
-| --- | --- |
-| `components` | widget type -> component. Drives inference for the whole set |
-| `chrome.wrapper` | rendered around the whole set. Defaults to `<section>` |
-| `chrome.item` | rendered around each widget. Defaults to a `<div>` carrying `data-widget-id` and `data-widget-type` |
-| `chrome.suspenseFallback` | rendered while a widget suspends |
+| field                     | meaning                                                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `components`              | widget type -> component. Drives inference for the whole set                                        |
+| `chrome.wrapper`          | rendered around the whole set. Defaults to `<section>`                                              |
+| `chrome.item`             | rendered around each widget. Defaults to a `<div>` carrying `data-widget-id` and `data-widget-type` |
+| `chrome.suspenseFallback` | rendered while a widget suspends                                                                    |
 
 Returns `{ Widgets, defineItems, validateItems }`.
 
 ### `<Widgets>`
 
-| prop | meaning |
-| --- | --- |
-| `items` | the items to render |
+| prop         | meaning                                                       |
+| ------------ | ------------------------------------------------------------- |
+| `items`      | the items to render                                           |
 | `components` | per-instance component overrides, merged over the factory map |
-| `chrome` | per-instance chrome overrides |
-| `ctx` | page-level data passed to every widget |
+| `chrome`     | per-instance chrome overrides                                 |
+| `ctx`        | page-level data passed to every widget                        |
 
 ### Item shape
 
@@ -291,14 +301,14 @@ rather than `{}`, so an unexpected key is a compile error there too.
 
 ## Migrating from 0.1.x
 
-| Removed | Replacement |
-| --- | --- |
-| `'use client'` | none needed; the package is importable from an RSC |
-| `WidgetsProvider`, `useWidgets`, `WidgetsConfig.context` | call `createWidgets` once at module scope |
-| the injected `Output` prop and `<Output/>` | read `children` |
-| `WidgetOutputProps` | none needed |
-| the default `WidgetErrorBoundary` | your own boundary in a custom `chrome.item`, in your own `'use client'` file |
-| `DEFAULT_STYLES.LOADING` | `chrome.suspenseFallback` |
+| Removed                                                  | Replacement                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `'use client'`                                           | none needed; the package is importable from an RSC                           |
+| `WidgetsProvider`, `useWidgets`, `WidgetsConfig.context` | call `createWidgets` once at module scope                                    |
+| the injected `Output` prop and `<Output/>`               | read `children`                                                              |
+| `WidgetOutputProps`                                      | none needed                                                                  |
+| the default `WidgetErrorBoundary`                        | your own boundary in a custom `chrome.item`, in your own `'use client'` file |
+| `DEFAULT_STYLES.LOADING`                                 | `chrome.suspenseFallback`                                                    |
 
 `renderWidget` and `NestedWidgetsContext` are no longer exported: the nesting
 mechanism is internal.

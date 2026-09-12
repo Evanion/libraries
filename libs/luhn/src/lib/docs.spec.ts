@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { EmptyInputError, InvalidDictionaryError } from './exceptions.js';
-import { ALTERNATING_CASE_DICTIONARY, DEFAULT_DICTIONARY, Luhn, createLuhn } from './luhn.js';
+import {
+  ALTERNATING_CASE_DICTIONARY,
+  DEFAULT_DICTIONARY,
+  Luhn,
+  createLuhn,
+} from './luhn.js';
 
 /**
  * The documented claims that the README cannot make as an executable example.

@@ -11,10 +11,7 @@
   // project's declaration output, so every type-check of the tests would need
   // some other target to have emitted it first; compiling the sources checks
   // the tests against the real types and needs nothing built.
-  "include": [
-    "src/**/*.ts",
-    "vite.config.ts"
-  ],
+  "include": ["src/**/*.ts", "vite.config.ts"],
   // The container tests import .astro modules. tsc has no loader for those and
   // `astro check` -- which does -- would then type-check Widgets.astro through
   // this project rather than the library one, where its deliberate `as never`

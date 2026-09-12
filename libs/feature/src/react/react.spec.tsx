@@ -42,7 +42,10 @@ function Flag({ name }: { name: Key }) {
 describe('FeatureProvider', () => {
   it('exposes the resolved decision for every feature', () => {
     render(
-      <FeatureProvider features={createFeatures(definitions)} context={inWindow}>
+      <FeatureProvider
+        features={createFeatures(definitions)}
+        context={inWindow}
+      >
         <Flag name="payments-v3" />
         <Flag name="checkout-express" />
       </FeatureProvider>,
@@ -96,9 +99,8 @@ describe('FeatureProvider', () => {
   });
 
   it('accepts decisions resolved elsewhere, such as a build snapshot', () => {
-    const snapshot: Decisions<Key> = createFeatures(definitions).resolve(
-      inWindow,
-    );
+    const snapshot: Decisions<Key> =
+      createFeatures(definitions).resolve(inWindow);
 
     render(
       <FeatureProvider
@@ -119,11 +121,16 @@ describe('FeatureProvider', () => {
 describe('useFeatureEnabled', () => {
   it('returns the boolean decision', () => {
     function Gate() {
-      return <span>{useFeatureEnabled<Key>('checkout-v2') ? 'on' : 'off'}</span>;
+      return (
+        <span>{useFeatureEnabled<Key>('checkout-v2') ? 'on' : 'off'}</span>
+      );
     }
 
     render(
-      <FeatureProvider features={createFeatures(definitions)} context={inWindow}>
+      <FeatureProvider
+        features={createFeatures(definitions)}
+        context={inWindow}
+      >
         <Gate />
       </FeatureProvider>,
     );
@@ -140,7 +147,10 @@ describe('useFeatures', () => {
     }
 
     render(
-      <FeatureProvider features={createFeatures(definitions)} context={inWindow}>
+      <FeatureProvider
+        features={createFeatures(definitions)}
+        context={inWindow}
+      >
         <All />
       </FeatureProvider>,
     );
@@ -179,7 +189,13 @@ describe('misuse', () => {
     ).toThrow(/nope/);
   });
 
-  it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
+  it.each([
+    'constructor',
+    'toString',
+    'valueOf',
+    'hasOwnProperty',
+    '__proto__',
+  ])(
     'throws for the inherited key %s rather than handing it back as a decision',
     (key) => {
       function Unknown() {

@@ -36,7 +36,7 @@ function hasOwn(target: object, key: string): boolean {
 export function validateBlocks(
   items: BlockItem[],
   registry: BlockRegistry,
-  required: Record<string, string[]> = {}
+  required: Record<string, string[]> = {},
 ): BlockProblem[] {
   if (!Array.isArray(items)) {
     return [{ index: -1, type: '-', message: 'blocks is not a list' }];
@@ -50,7 +50,7 @@ export function validateBlocks(
     if (!hasOwn(registry, type)) {
       problems.push({ index, type, message: 'unknown block type' });
     } else {
-      const fields = hasOwn(required, type) ? required[type] ?? [] : [];
+      const fields = hasOwn(required, type) ? (required[type] ?? []) : [];
       for (const field of fields) {
         const value = hasOwn(item, field) ? item[field] : undefined;
         const blank =

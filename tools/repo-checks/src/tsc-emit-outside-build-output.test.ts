@@ -79,7 +79,9 @@ function outputDir(output: string, projectRoot: string): string | undefined {
   // separator before the first glob character rather than taking a dirname of
   // the truncated string, which would drop a trailing-slash segment.
   const glob = expanded.search(/[*?{]/);
-  return glob === -1 ? expanded : expanded.slice(0, glob).replace(/\/[^/]*$/, '');
+  return glob === -1
+    ? expanded
+    : expanded.slice(0, glob).replace(/\/[^/]*$/, '');
 }
 
 function isInside(child: string, parent: string): boolean {
