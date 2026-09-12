@@ -43,9 +43,7 @@ export interface AttributeCondition {
 }
 
 export type Condition =
-  | WindowCondition
-  | DayOfWeekCondition
-  | AttributeCondition;
+  WindowCondition | DayOfWeekCondition | AttributeCondition;
 
 /**
  * A percentage rollout.

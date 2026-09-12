@@ -34,7 +34,7 @@ describe('rewriteLine', () => {
   });
 
   it('produces exactly one line, because doctest maps blocks by line number', () => {
-    const multiline = at("f(); // -> { a: 1,\n b: 2 }".replace('\n', ' '));
+    const multiline = at('f(); // -> { a: 1,\n b: 2 }'.replace('\n', ' '));
     expect(multiline.split('\n')).toHaveLength(1);
   });
 
@@ -96,7 +96,7 @@ describe('rewriteLine', () => {
 
   describe('does not fire', () => {
     it('on a line with no comment', () => {
-      const line = "const x = compose(a, b);";
+      const line = 'const x = compose(a, b);';
       expect(at(line)).toBe(line);
     });
 
@@ -163,9 +163,9 @@ describe('rewriteLine', () => {
     });
 
     it('names the file and line', () => {
-      expect(() => rewriteLine('f(); // -> nope nope', 'README.md', 12)).toThrow(
-        /README\.md:12/,
-      );
+      expect(() =>
+        rewriteLine('f(); // -> nope nope', 'README.md', 12),
+      ).toThrow(/README\.md:12/);
     });
   });
 });
@@ -177,7 +177,7 @@ describe('rewriteMarkdown', () => {
     const source = [
       'Prose. // -> not code',
       `${fence}ts @import.meta.vitest`,
-      "f(); // -> 1",
+      'f(); // -> 1',
       fence,
     ].join('\n');
 

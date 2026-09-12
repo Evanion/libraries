@@ -6,11 +6,11 @@
 
 ### 💅 Refactors
 
-- ⚠️  **luhn:** validate the dictionary at construction instead of at use ([#85](https://github.com/Evanion/libraries/issues/85), [#86](https://github.com/Evanion/libraries/issues/86), [#87](https://github.com/Evanion/libraries/issues/87), [#88](https://github.com/Evanion/libraries/issues/88), [#89](https://github.com/Evanion/libraries/issues/89), [#90](https://github.com/Evanion/libraries/issues/90), [#91](https://github.com/Evanion/libraries/issues/91), [#94](https://github.com/Evanion/libraries/issues/94))
+- ⚠️ **luhn:** validate the dictionary at construction instead of at use ([#85](https://github.com/Evanion/libraries/issues/85), [#86](https://github.com/Evanion/libraries/issues/86), [#87](https://github.com/Evanion/libraries/issues/87), [#88](https://github.com/Evanion/libraries/issues/88), [#89](https://github.com/Evanion/libraries/issues/89), [#90](https://github.com/Evanion/libraries/issues/90), [#91](https://github.com/Evanion/libraries/issues/91), [#94](https://github.com/Evanion/libraries/issues/94))
 
-### ⚠️  Breaking Changes
+### ⚠️ Breaking Changes
 
-- **luhn:** validate the dictionary at construction instead of at use  ([#85](https://github.com/Evanion/libraries/issues/85), [#86](https://github.com/Evanion/libraries/issues/86), [#87](https://github.com/Evanion/libraries/issues/87), [#88](https://github.com/Evanion/libraries/issues/88), [#89](https://github.com/Evanion/libraries/issues/89), [#90](https://github.com/Evanion/libraries/issues/90), [#91](https://github.com/Evanion/libraries/issues/91), [#94](https://github.com/Evanion/libraries/issues/94))
+- **luhn:** validate the dictionary at construction instead of at use ([#85](https://github.com/Evanion/libraries/issues/85), [#86](https://github.com/Evanion/libraries/issues/86), [#87](https://github.com/Evanion/libraries/issues/87), [#88](https://github.com/Evanion/libraries/issues/88), [#89](https://github.com/Evanion/libraries/issues/89), [#90](https://github.com/Evanion/libraries/issues/90), [#91](https://github.com/Evanion/libraries/issues/91), [#94](https://github.com/Evanion/libraries/issues/94))
   `createLuhn` replaces the class; `Luhn` is now the frozen
   default instance, so `Luhn.dictionary = x` throws instead of being ignored. The
   default dictionary changes from 62 characters to 36, so every check character

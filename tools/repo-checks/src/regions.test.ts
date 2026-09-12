@@ -60,7 +60,9 @@ describe('parseRegions', () => {
       '<!-- #endregion x -->',
     ].join('\n');
 
-    expect(() => parseRegions(empty, 'README.md')).toThrow(/expected exactly 1/);
+    expect(() => parseRegions(empty, 'README.md')).toThrow(
+      /expected exactly 1/,
+    );
   });
 
   it('rejects a region wrapping two code blocks', () => {

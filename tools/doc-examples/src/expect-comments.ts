@@ -96,7 +96,11 @@ function isExpression(source: string): boolean {
  * checked. Skipping silently would leave an example that looks checked and is
  * not, which is worse than one that visibly is not.
  */
-export function rewriteLine(line: string, file: string, number: number): string {
+export function rewriteLine(
+  line: string,
+  file: string,
+  number: number,
+): string {
   const asImport = rewriteImport(line);
   if (asImport !== null) return asImport;
 
@@ -122,7 +126,9 @@ export function rewriteLine(line: string, file: string, number: number): string 
 
   // A claim on a declaration is about the value bound, so the assertion goes
   // after it and reads the binding. Two statements, still one line.
-  const declaration = statement.match(/^((?:const|let|var)\s+(\w+)\s*=\s*.+)$/s);
+  const declaration = statement.match(
+    /^((?:const|let|var)\s+(\w+)\s*=\s*.+)$/s,
+  );
   if (declaration && isExpression(declaration[2] as string)) {
     if (!isExpression(expected)) {
       throw new ExpectCommentError(
@@ -221,7 +227,9 @@ function rewriteImport(line: string): string | null {
     // `import x from 'm'` binds the module's default export, which destructures
     // off the namespace object as `default`.
     const parts = [
-      ...(defaultImport ? [`default: ${defaultImport.replace(/[\s,]/g, '')}`] : []),
+      ...(defaultImport
+        ? [`default: ${defaultImport.replace(/[\s,]/g, '')}`]
+        : []),
       ...(bindings ? [namedBindings(bindings)] : []),
     ].filter((part) => part !== '');
 
@@ -265,7 +273,11 @@ export function rewriteMarkdown(code: string, file: string): string {
         return line;
       }
 
-      if (opening && fence !== null && (opening[1] as string).startsWith(fence)) {
+      if (
+        opening &&
+        fence !== null &&
+        (opening[1] as string).startsWith(fence)
+      ) {
         fence = null;
         running = false;
         return line;

@@ -43,7 +43,12 @@ export function validateItems(
 ): WidgetItemProblem[] {
   if (!Array.isArray(items)) {
     return [
-      { index: -1, id: '-', type: '-', message: VALIDATION_MESSAGES.NOT_A_LIST },
+      {
+        index: -1,
+        id: '-',
+        type: '-',
+        message: VALIDATION_MESSAGES.NOT_A_LIST,
+      },
     ];
   }
 

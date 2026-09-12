@@ -21,7 +21,7 @@ describe('validateBlocks', () => {
     const problems = validateBlocks(
       [{ type: 'hero', heading: 'Hello' }],
       registry,
-      { hero: ['heading'] }
+      { hero: ['heading'] },
     );
     expect(problems).toEqual([]);
   });
@@ -34,25 +34,39 @@ describe('validateBlocks', () => {
   });
 
   it('reports a missing required field', () => {
-    const problems = validateBlocks([{ type: 'hero' }], registry, { hero: ['heading'] });
+    const problems = validateBlocks([{ type: 'hero' }], registry, {
+      hero: ['heading'],
+    });
     expect(problems).toEqual([
       { index: 0, type: 'hero', message: 'missing field heading' },
     ]);
   });
 
   it('treats an empty string as missing', () => {
-    const problems = validateBlocks([{ type: 'hero', heading: '   ' }], registry, {
-      hero: ['heading'],
-    });
+    const problems = validateBlocks(
+      [{ type: 'hero', heading: '   ' }],
+      registry,
+      {
+        hero: ['heading'],
+      },
+    );
     expect(problems).toHaveLength(1);
   });
 
   it('validates nested children', () => {
     const problems = validateBlocks(
-      [{ type: 'hero', heading: 'Hello', children: [{ type: 'also-unknown' }] }],
-      registry
+      [
+        {
+          type: 'hero',
+          heading: 'Hello',
+          children: [{ type: 'also-unknown' }],
+        },
+      ],
+      registry,
     );
-    expect(problems).toEqual([{ index: 0, type: 'also-unknown', message: 'unknown block type' }]);
+    expect(problems).toEqual([
+      { index: 0, type: 'also-unknown', message: 'unknown block type' },
+    ]);
   });
 
   it.each(inheritedKeys)(
@@ -66,7 +80,7 @@ describe('validateBlocks', () => {
       expect(problems).toEqual([
         { index: 0, type, message: 'unknown block type' },
       ]);
-    }
+    },
   );
 
   it.each(inheritedKeys)(
@@ -78,7 +92,7 @@ describe('validateBlocks', () => {
       }).not.toThrow();
 
       expect(problems).toEqual([]);
-    }
+    },
   );
 
   it('reads a required field off the block itself, not off its prototype', () => {

@@ -29,8 +29,7 @@ const interceptorProvider = (providers?: Provider[]): FactoryProviderLike => {
 /** Just enough of an axios instance to capture the registered interceptor. */
 function mockAxios() {
   let onRequest:
-    | ((c: InternalAxiosRequestConfig) => InternalAxiosRequestConfig)
-    | undefined;
+    ((c: InternalAxiosRequestConfig) => InternalAxiosRequestConfig) | undefined;
   const instance = {
     interceptors: {
       request: {
@@ -57,8 +56,9 @@ function mockAxios() {
   return { instance, send };
 }
 
-const service = (config = { header: CORRELATION_ID_HEADER, generator: () => 'gen' }) =>
-  new CorrelationService(config);
+const service = (
+  config = { header: CORRELATION_ID_HEADER, generator: () => 'gen' },
+) => new CorrelationService(config);
 
 describe('withCorrelation', () => {
   it('declares no dependencies for the options factory, so nothing turns HttpService request-scoped', () => {
@@ -71,7 +71,10 @@ describe('withCorrelation', () => {
   });
 
   it('passes the caller options through untouched, baking in no correlation id', async () => {
-    const options = withCorrelation({ baseURL: 'https://example.test', headers: { Authorization: 'Bearer token' } });
+    const options = withCorrelation({
+      baseURL: 'https://example.test',
+      headers: { Authorization: 'Bearer token' },
+    });
     const result = await options.useFactory?.();
     expect(result).toEqual({
       baseURL: 'https://example.test',
@@ -88,7 +91,13 @@ describe('withCorrelation', () => {
     const { instance, send } = mockAxios();
     const provider = interceptorProvider(withCorrelation().extraProviders);
 
-    provider.useFactory(...([instance, correlationService, { header: 'X-Request-Id', generator: () => 'gen' }] as never[]));
+    provider.useFactory(
+      ...([
+        instance,
+        correlationService,
+        { header: 'X-Request-Id', generator: () => 'gen' },
+      ] as never[]),
+    );
 
     const first = correlationService.run('REQ-1', send);
     const second = correlationService.run('REQ-2', send);
@@ -101,7 +110,13 @@ describe('withCorrelation', () => {
     const correlationService = service();
     const { instance, send } = mockAxios();
     const provider = interceptorProvider(withCorrelation().extraProviders);
-    provider.useFactory(...([instance, correlationService, { header: CORRELATION_ID_HEADER, generator: () => 'gen' }] as never[]));
+    provider.useFactory(
+      ...([
+        instance,
+        correlationService,
+        { header: CORRELATION_ID_HEADER, generator: () => 'gen' },
+      ] as never[]),
+    );
 
     const headers = correlationService.run('REQ-3', send);
     expect(headers.get(CORRELATION_ID_HEADER)).toBe('REQ-3');
@@ -112,7 +127,13 @@ describe('withCorrelation', () => {
     const correlationService = service();
     const { instance, send } = mockAxios();
     const provider = interceptorProvider(withCorrelation().extraProviders);
-    provider.useFactory(...([instance, correlationService, { header: CORRELATION_ID_HEADER, generator: () => 'gen' }] as never[]));
+    provider.useFactory(
+      ...([
+        instance,
+        correlationService,
+        { header: CORRELATION_ID_HEADER, generator: () => 'gen' },
+      ] as never[]),
+    );
 
     expect(send().size).toBe(0);
   });

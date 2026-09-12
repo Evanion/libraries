@@ -1,9 +1,17 @@
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { OrderURN } from '../domain/order.urn.js';
 import { TelemetryService } from '../telemetry/telemetry.service.js';
-import type { CartItem, CreateOrderRequest, OrderResult } from './cart.model.js';
+import type {
+  CartItem,
+  CreateOrderRequest,
+  OrderResult,
+} from './cart.model.js';
 import { InventoryClient } from './inventory-client.service.js';
 
 /**
@@ -60,7 +68,9 @@ export class OrdersService {
         reason: 'insufficient_stock',
         urns,
       });
-      throw new BadRequestException(`Insufficient stock for: ${urns.join(', ')}`);
+      throw new BadRequestException(
+        `Insufficient stock for: ${urns.join(', ')}`,
+      );
     }
 
     const orderUrn = OrderURN.stringify(randomBytes(3).toString('hex'));

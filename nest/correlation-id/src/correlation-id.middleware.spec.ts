@@ -16,7 +16,7 @@ function mockService(generated = 'test123') {
   return {
     seen,
     generate: vi.fn(() => generated),
-    run: vi.fn(<T,>(correlationId: string, callback: () => T): T => {
+    run: vi.fn(<T>(correlationId: string, callback: () => T): T => {
       seen.push(correlationId);
       return callback();
     }),
@@ -41,7 +41,8 @@ function mockReqRes(incoming?: string | string[]) {
   const sent = new Map<string, { name: string; value: string }>();
   const res = {
     getHeader: vi.fn(
-      (name: string) => sent.get(name.toLowerCase())?.value as string | undefined,
+      (name: string) =>
+        sent.get(name.toLowerCase())?.value as string | undefined,
     ),
     setHeader: vi.fn((name: string, value: string) => {
       sent.set(name.toLowerCase(), { name, value });

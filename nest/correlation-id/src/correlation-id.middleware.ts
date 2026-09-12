@@ -1,6 +1,9 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { CORRELATION_CONFIG_TOKEN, DEFAULT_CORRELATION_ID_VALIDATOR } from './constants.js';
+import {
+  CORRELATION_CONFIG_TOKEN,
+  DEFAULT_CORRELATION_ID_VALIDATOR,
+} from './constants.js';
 import { CorrelationService } from './correlation.service.js';
 // Must be `import type`: with isolatedModules and emitDecoratorMetadata,
 // a type referenced in a decorated signature cannot be a value import.
@@ -46,10 +49,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     res: ServerResponse,
     next: (error?: unknown) => void,
   ) {
-    const {
-      header,
-      validate = DEFAULT_CORRELATION_ID_VALIDATOR,
-    } = this.correlationConfig;
+    const { header, validate = DEFAULT_CORRELATION_ID_VALIDATOR } =
+      this.correlationConfig;
     const key = header.toLowerCase();
     const incoming = singleValue(req.headers[key]);
     // The generator runs only when nothing usable arrived, so a counter- or
@@ -66,7 +67,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     if (!req.headers[key]) req.headers[key] = correlationId;
     // setHeader preserves the casing it is given, so the configured casing is
     // what goes out on the wire.
-    if (res.getHeader(header) === undefined) res.setHeader(header, correlationId);
+    if (res.getHeader(header) === undefined)
+      res.setHeader(header, correlationId);
 
     // Everything downstream of next() -- guards, interceptors, the controller,
     // and anything they await -- runs inside this context.

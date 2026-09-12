@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { setTimeout as delay } from 'node:timers/promises';
-import { CORRELATION_CONFIG_TOKEN, CORRELATION_ID_HEADER } from './constants.js';
+import {
+  CORRELATION_CONFIG_TOKEN,
+  CORRELATION_ID_HEADER,
+} from './constants.js';
 import { CorrelationService } from './correlation.service.js';
 
 describe('CorrelationService', () => {

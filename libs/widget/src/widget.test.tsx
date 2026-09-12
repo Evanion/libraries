@@ -350,7 +350,10 @@ describe('Widget System - Nested Widgets', () => {
   });
 
   it('should render nested widgets through children', () => {
-    const CardWidget = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+    const CardWidget = ({
+      title,
+      children,
+    }: PropsWithChildren<{ title: string }>) => (
       <div data-testid="card" className="card">
         <h3>{title}</h3>
         {children}
@@ -402,7 +405,10 @@ describe('Widget System - Nested Widgets', () => {
   });
 
   it('should handle empty children gracefully', () => {
-    const CardWidget = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+    const CardWidget = ({
+      title,
+      children,
+    }: PropsWithChildren<{ title: string }>) => (
       <div data-testid="card" className="card">
         <h3>{title}</h3>
         {children}

@@ -24,6 +24,9 @@ export class InventoryController {
   getStock(@Param('urn') urn: string): Stock & { correlationId?: string } {
     const stock = this.inventory.getStock(urn);
     this.telemetry.record('inventory', 'inventory.checked', { ...stock });
-    return { ...stock, correlationId: this.correlationService.getCorrelationId() };
+    return {
+      ...stock,
+      correlationId: this.correlationService.getCorrelationId(),
+    };
   }
 }

@@ -2,16 +2,16 @@
 
 ### 🩹 Fixes
 
-- ⚠️  **astro-widget:** report validation problems in english ([e51907c](https://github.com/Evanion/libraries/commit/e51907c))
-- ⚠️  **astro-widget:** keep placement data out of block props ([2378269](https://github.com/Evanion/libraries/commit/2378269))
+- ⚠️ **astro-widget:** report validation problems in english ([e51907c](https://github.com/Evanion/libraries/commit/e51907c))
+- ⚠️ **astro-widget:** keep placement data out of block props ([2378269](https://github.com/Evanion/libraries/commit/2378269))
 
-### ⚠️  Breaking Changes
+### ⚠️ Breaking Changes
 
-- **astro-widget:** report validation problems in english  ([e51907c](https://github.com/Evanion/libraries/commit/e51907c))
+- **astro-widget:** report validation problems in english ([e51907c](https://github.com/Evanion/libraries/commit/e51907c))
   BlockProblem.message strings changed. A caller matching on the
   old text must match "unknown block type", "missing field <name>" and "blocks is
   not a list" instead.
-- **astro-widget:** keep placement data out of block props  ([2378269](https://github.com/Evanion/libraries/commit/2378269))
+- **astro-widget:** keep placement data out of block props ([2378269](https://github.com/Evanion/libraries/commit/2378269))
   a block that read placement data out of its own props must now
   read it from `meta` on the item chrome instead.
   Part of #71

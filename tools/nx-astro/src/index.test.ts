@@ -18,13 +18,23 @@ describe('createNodesV2', () => {
   it('infers build, dev, preview and check targets', async () => {
     const { root, configFile } = workspaceWithAstroProject();
     const [, fn] = createNodesV2;
-    const results = await fn([configFile], {}, { workspaceRoot: root } as never);
+    const results = await fn([configFile], {}, {
+      workspaceRoot: root,
+    } as never);
     const result = results[0];
-    assert(result, 'createNodesV2 should return a result for the astro config file');
+    assert(
+      result,
+      'createNodesV2 should return a result for the astro config file',
+    );
     const [, node] = result;
     const targets = node.projects!['apps/demo']!.targets!;
 
-    expect(Object.keys(targets).sort()).toEqual(['build', 'check', 'dev', 'preview']);
+    expect(Object.keys(targets).sort()).toEqual([
+      'build',
+      'check',
+      'dev',
+      'preview',
+    ]);
     expect(targets.build!.command).toBe('astro build');
     expect(targets.build!.options).toEqual({ cwd: 'apps/demo' });
     expect(targets.build!.dependsOn).toEqual(['^build']);
@@ -36,11 +46,19 @@ describe('createNodesV2', () => {
   it('skips a directory with no package.json or project.json', async () => {
     const root = mkdtempSync(join(tmpdir(), 'nx-astro-'));
     mkdirSync(join(root, 'stray'), { recursive: true });
-    writeFileSync(join(root, 'stray', 'astro.config.mjs'), 'export default {};');
+    writeFileSync(
+      join(root, 'stray', 'astro.config.mjs'),
+      'export default {};',
+    );
     const [, fn] = createNodesV2;
-    const results = await fn(['stray/astro.config.mjs'], {}, { workspaceRoot: root } as never);
+    const results = await fn(['stray/astro.config.mjs'], {}, {
+      workspaceRoot: root,
+    } as never);
     const result = results[0];
-    assert(result, 'createNodesV2 should return a result for the astro config file');
+    assert(
+      result,
+      'createNodesV2 should return a result for the astro config file',
+    );
     expect(result[1]).toEqual({});
   });
 
@@ -50,10 +68,13 @@ describe('createNodesV2', () => {
     const results = await fn(
       [configFile],
       { buildTargetName: 'bundle', outDir: './out' },
-      { workspaceRoot: root } as never
+      { workspaceRoot: root } as never,
     );
     const result = results[0];
-    assert(result, 'createNodesV2 should return a result for the astro config file');
+    assert(
+      result,
+      'createNodesV2 should return a result for the astro config file',
+    );
     const targets = result[1].projects!['apps/demo']!.targets!;
     expect(targets.bundle!.outputs).toEqual(['{projectRoot}/./out']);
     expect(targets.build).toBeUndefined();

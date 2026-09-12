@@ -39,6 +39,7 @@ pnpm add @evanion/urn
 ## Quick Start
 
 <!-- #region basic-usage -->
+
 ```ts @import.meta.vitest
 import { URN } from '@evanion/urn';
 
@@ -54,6 +55,7 @@ TRN.stringify('foo', 'bar'); // -> 'trn:bar:foo'
 // parse keeps it in the nss rather than discarding the namespace.
 const parsed = TRN.parse('trn:bar:foo'); // -> { urn: 'trn', nid: 'bar', nss: 'bar:foo' }
 ```
+
 <!-- #endregion basic-usage -->
 
 ## Features
@@ -156,6 +158,7 @@ Read the grammars off the class if you need them — they stay reactive to a
 subclass's `separator`:
 
 <!-- #region grammars -->
+
 ```ts @import.meta.vitest
 URN.schemeGrammar; // -> /^[A-Za-z][A-Za-z0-9+.-]*$/
 URN.nidGrammar; // -> /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
@@ -164,6 +167,7 @@ URN.rComponentGrammar; // `pchar *(pchar / "/" / "?")`
 URN.qComponentGrammar; // the same production
 URN.fComponentGrammar; // RFC 3986 `fragment`, which may be empty
 ```
+
 <!-- #endregion grammars -->
 
 ```ts
@@ -208,12 +212,14 @@ URN.parse('urn:example:a%20b').nss; // 'a%20b' -- triplets come back intact
 Two helpers cover the conversion explicitly:
 
 <!-- #region nss-encoding -->
+
 ```ts @import.meta.vitest
 import { encodeNss, decodeNss } from '@evanion/urn';
 
 encodeNss('café'); // -> 'caf%C3%A9'
 decodeNss('caf%C3%A9'); // -> 'café'
 ```
+
 <!-- #endregion nss-encoding -->
 
 ### Equivalence
@@ -224,11 +230,13 @@ of a percent-triplet canonicalise to uppercase. A percent-encoded octet is never
 decoded for comparison:
 
 <!-- #region equality -->
+
 ```ts @import.meta.vitest
 URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // -> true
 URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // -> false
 URN.equals('urn:example:A123', 'urn:example:a123'); // -> false
 ```
+
 <!-- #endregion equality -->
 
 ### r-, q- and f-components
@@ -304,9 +312,11 @@ UserTRN.stringify('42', 'order'); // -> 'trn:order:42'
 `stringify` is also not idempotent, and is not a normaliser:
 
 <!-- #region round-trip -->
+
 ```ts @import.meta.vitest
 URN.stringify(URN.stringify('foo')); // -> 'urn:nid:urn:nid:foo'
 ```
+
 <!-- #endregion round-trip -->
 
 The statics are unbound. Every one of them reads `this`, so unlike

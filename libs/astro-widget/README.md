@@ -43,8 +43,8 @@ Where `page.json` is whatever your CMS writes:
 
 ```ts
 interface BlockItem {
-  type: string;          // must be a key in the registry
-  id?: string;           // optional, useful as a DOM anchor
+  type: string; // must be a key in the registry
+  id?: string; // optional, useful as a DOM anchor
   children?: BlockItem[];
   [key: string]: unknown; // everything else becomes props
 }
@@ -60,7 +60,8 @@ import { validateBlocks } from '@evanion/astro-widget';
 
 const problems = validateBlocks(page.sections, registry, { hero: ['heading'] });
 if (problems.length) {
-  for (const p of problems) console.error(`section ${p.index} (${p.type}): ${p.message}`);
+  for (const p of problems)
+    console.error(`section ${p.index} (${p.type}): ${p.message}`);
   process.exit(1);
 }
 ```
@@ -102,11 +103,11 @@ const { children } = Astro.props;
 
 ## Differences from @evanion/react-widget
 
-| | react-widget | astro-widget |
-|---|---|---|
-| Provider / `useWidgets` | yes | **no** — build-time rendering has nothing to provide; use `ctx` |
-| Prop type inference | inferred from the component map | **no** — Astro components are opaque at the type level. Use `validateBlocks` |
-| Nested `children` | `<Output />` outlet | **no recursion** — a block must render `<Widgets items={children} registry={registry} />` itself |
+|                         | react-widget                    | astro-widget                                                                                     |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Provider / `useWidgets` | yes                             | **no** — build-time rendering has nothing to provide; use `ctx`                                  |
+| Prop type inference     | inferred from the component map | **no** — Astro components are opaque at the type level. Use `validateBlocks`                     |
+| Nested `children`       | `<Output />` outlet             | **no recursion** — a block must render `<Widgets items={children} registry={registry} />` itself |
 
 ## Licence
 

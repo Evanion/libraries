@@ -1,10 +1,7 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 
-import {
-  docExampleSources,
-  docExamples,
-} from '@evanion/doc-examples';
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
 
 // The names the README's later blocks use without reintroducing the import
 // line every time. A block that does show its imports shadows these, so the

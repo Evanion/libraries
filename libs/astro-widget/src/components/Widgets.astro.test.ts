@@ -51,17 +51,20 @@ describe('Widgets.astro', () => {
     expect(html).toContain('data-column="2"');
   });
 
-  it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
-    'skips a block typed with the inherited key %s',
-    async (type) => {
-      const html = await renderWidgets({
-        registry: { hero: Probe },
-        items: [{ type, id: 'x' }],
-      });
+  it.each([
+    'constructor',
+    'toString',
+    'valueOf',
+    'hasOwnProperty',
+    '__proto__',
+  ])('skips a block typed with the inherited key %s', async (type) => {
+    const html = await renderWidgets({
+      registry: { hero: Probe },
+      items: [{ type, id: 'x' }],
+    });
 
-      expect(html).not.toContain('probe');
-    }
-  );
+    expect(html).not.toContain('probe');
+  });
 
   it('skips a block whose type is not in the registry', async () => {
     const html = await renderWidgets({
