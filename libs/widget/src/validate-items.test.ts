@@ -59,18 +59,24 @@ describe('validateItems', () => {
     ]);
   });
 
-  it('does not accept an inherited Object.prototype key as a known type', () => {
-    expect(
-      validateItems([{ id: 'a', type: 'toString', props: {} }], components),
-    ).toEqual([
-      {
-        index: 0,
-        id: 'a',
-        type: 'toString',
-        message: VALIDATION_MESSAGES.UNKNOWN_TYPE,
-      },
-    ]);
-  });
+  it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__'])(
+    'does not accept the inherited Object.prototype key %s as a known type',
+    (type) => {
+      let problems: ReturnType<typeof validateItems> = [];
+      expect(() => {
+        problems = validateItems([{ id: 'a', type, props: {} }], components);
+      }).not.toThrow();
+
+      expect(problems).toEqual([
+        {
+          index: 0,
+          id: 'a',
+          type,
+          message: VALIDATION_MESSAGES.UNKNOWN_TYPE,
+        },
+      ]);
+    },
+  );
 
   it('reports non-object props', () => {
     expect(

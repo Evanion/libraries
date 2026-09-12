@@ -36,7 +36,16 @@ const Item = chrome?.item as never;
 ---
 {
   list.map((item) => {
-    const Component = registry[item?.type] as never;
+    // `in` and a bare index both walk the prototype chain, so a block typed
+    // `constructor` or `toString` resolves to a function off `Object.prototype`
+    // and reaches Astro as a component, which throws rather than skipping.
+    // Blocks are CMS data, so any string is reachable.
+    const Component = (
+      typeof item?.type === 'string' &&
+      Object.prototype.hasOwnProperty.call(registry, item.type)
+        ? registry[item.type]
+        : undefined
+    ) as never;
     if (!Component) return null;
 
     // `type`, `id`, `children` and `meta` are the renderer's own fields, and

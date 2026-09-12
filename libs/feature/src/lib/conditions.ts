@@ -76,7 +76,12 @@ export function evaluateCondition(
       : now.getTime() > boundary;
   }
 
-  if (!(condition.field in context)) return false;
+  // `in` walks the prototype chain, so a condition over `constructor` or
+  // `toString` reads a function off `Object.prototype` and evaluates against
+  // it, which makes `ne` hold on a field the context does not carry. A context
+  // is caller data, and a field name is config.
+  if (!Object.prototype.hasOwnProperty.call(context, condition.field))
+    return false;
   const actual = context[condition.field];
   if (actual === undefined) return false;
 

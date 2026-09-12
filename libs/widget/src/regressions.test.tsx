@@ -160,7 +160,13 @@ describe('widget regressions', () => {
   });
 
   describe('untrusted widget types', () => {
-    it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty'])(
+    it.each([
+      'constructor',
+      'toString',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+    ])(
       'refuses to render the inherited key %s',
       (type) => {
         const warn = vi
