@@ -11,6 +11,7 @@ import { DefaultItem, DefaultWrapper } from './widgets.js';
 import { renderWidget } from './utils.js';
 import { validateItems } from './validate-items.js';
 import { ERROR_MESSAGES } from './constants.js';
+import { warnOnce } from './warn.js';
 
 /**
  * Builds a widget set from a component map.
@@ -57,9 +58,7 @@ export function createWidgets<const C extends WidgetComponentMap>(
       : defaultComponents;
 
     if (!Array.isArray(items)) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(ERROR_MESSAGES.MALFORMED_ITEMS);
-      }
+      warnOnce(ERROR_MESSAGES.MALFORMED_ITEMS);
       return null;
     }
 
