@@ -11,6 +11,11 @@
     "tsBuildInfoFile": "out-tsc/app/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    // Legacy decorators emit __decorate, __metadata and __param into every
+    // decorated module, and fourteen modules here are decorated. webpack
+    // resolves the import and bundles one copy, so the alternative is fourteen
+    // inlined copies in the bundle.
+    "importHelpers": true,
     "target": "es2021"
   },
   "include": ["src/**/*.ts"],

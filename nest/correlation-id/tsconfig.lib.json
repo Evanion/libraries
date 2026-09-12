@@ -8,6 +8,11 @@
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    // Legacy decorators emit __decorate, __metadata and __param into every
+    // decorated module, which is every module here. Importing them from tslib
+    // keeps one copy in the published output instead of three, at the cost of
+    // the tslib runtime dependency package.json declares.
+    "importHelpers": true,
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts"],

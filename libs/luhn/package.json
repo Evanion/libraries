@@ -52,8 +52,5 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
-  },
-  "dependencies": {
-    "tslib": "^2.8.1"
   }
 }

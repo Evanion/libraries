@@ -418,6 +418,56 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   }
   console.log('  ✓ feature exports both entries');
 
+  // A helper tsc emits under `importHelpers` becomes an `import ... from
+  // "tslib"` in the published JavaScript, which the consumer's package manager
+  // has to have installed. Nothing inside the workspace can tell: tslib sits in
+  // the root node_modules, so every in-repo build and test resolves it whether
+  // the package declares it or not, and the import only fails once it is
+  // resolved from a consumer's own install — which is this directory.
+  //
+  // tools/repo-checks/src/tslib-dependency.test.ts checks the setting that
+  // governs the emit. This checks the emit, so it also covers a tslib import
+  // written by hand and one a bundler left in its output.
+  console.log('Checking tslib declarations against the packed output…');
+  const tslibProblems = [];
+  for (const [, name] of LIBS) {
+    const root = join(dir, 'node_modules', ...name.split('/'));
+    const manifest = JSON.parse(
+      readFileSync(join(root, 'package.json'), 'utf8'),
+    );
+    const declared = 'tslib' in (manifest.dependencies ?? {});
+
+    const modules = readdirSync(join(root, 'dist'), {
+      recursive: true,
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isFile() && /\.(?:js|cjs|mjs)$/.test(entry.name))
+      .map((entry) => join(entry.parentPath, entry.name));
+
+    const importers = modules.filter((file) =>
+      /(?:from|import|require\s*\()\s*["']tslib(?:\/[^"']*)?["']/.test(
+        readFileSync(file, 'utf8'),
+      ),
+    );
+
+    if (importers.length && !declared) {
+      tslibProblems.push(
+        `${name} imports tslib from ${importers.length} module(s) but declares ` +
+          `no tslib dependency: a consumer install resolves nothing`,
+      );
+    }
+    if (!importers.length && declared) {
+      tslibProblems.push(
+        `${name} declares tslib but no module in its published output imports ` +
+          `it: every consumer installs it for nothing`,
+      );
+    }
+  }
+  if (tslibProblems.length) {
+    throw new Error(tslibProblems.join('\n'));
+  }
+  console.log('  ✓ tslib is declared by exactly the packages that import it');
+
   console.log('\nPackaging verified.');
 } catch (error) {
   failed = true;
