@@ -1,10 +1,6 @@
-// const { join } = require('path');
-
-// Note: If you use library-specific PostCSS/Tailwind configuration then you should remove the `postcssConfig` build
-// option from your application's configuration (i.e. project.json).
-//
-// See: https://nx.dev/guides/using-tailwind-css-in-react#step-4:-applying-configuration-to-libraries
-
+// CommonJS, and named .js rather than .mjs: postcss-load-config resolves this
+// file for `next build`, and the app's package.json does not set
+// "type": "module", so `.js` is CommonJS here.
 module.exports = {
   plugins: {
     '@tailwindcss/postcss': {},

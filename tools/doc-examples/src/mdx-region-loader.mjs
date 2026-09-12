@@ -29,8 +29,8 @@ import { readRegion } from './regions.mjs';
  * source file is edited above them, which is the failure this exists to
  * remove.
  *
- * A missing file or region throws, so the build fails. An unenforced sync
- * mechanism drifts within a month.
+ * A missing file or region throws, so `next build` fails rather than deploying a
+ * page with an empty code block where an example should be.
  */
 
 const REFERENCE = /(?:^|\s)file=(\S+)\s+region=([\w-]+)/;
@@ -96,10 +96,16 @@ export function expandRegions(source, root, file) {
   return out.join('\n');
 }
 
+/**
+ * The loader entry point, configured in apps/docs/next.config.ts under
+ * `turbopack.rules`. `root` is the workspace root every reference resolves from.
+ */
 export default function mdxRegionLoader(source) {
   const { root } = this.getOptions();
 
-  // A page is rebuilt when a README it pulls a region from changes.
+  // Declares each referenced README as an input of this page, so editing one
+  // rebuilds the pages that quote it. Without this the page's own mtime is the
+  // only thing the build watches, and a page keeps serving a stale region.
   for (const match of source.matchAll(new RegExp(REFERENCE, 'g'))) {
     this.addDependency(join(root, match[1]));
   }

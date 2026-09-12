@@ -4,11 +4,17 @@ import { firstValueFrom } from 'rxjs';
 import { GLOBAL_PREFIX, PORT } from '../config.js';
 import type { Stock } from '../inventory/stock.model.js';
 
+/**
+ * The shape of a rejected axios request that this file needs, declared locally
+ * rather than imported: axios reaches this app only through @nestjs/axios, and
+ * a structural check works on whatever the installed copy throws.
+ */
 interface AxiosLikeError {
   isAxiosError?: boolean;
   response?: { status?: number };
 }
 
+/** Whether a rejection carries an upstream 404 response. */
 const isNotFound = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
@@ -19,13 +25,12 @@ const isNotFound = (error: unknown): boolean =>
  * localhost. That is the correlation-id hop the demo exists to show: same
  * process, real network round trip, id visible on both sides.
  *
- * A plain singleton holding HttpService. Regression guard for
- * nestjs-correlation-id#31: withCorrelation() used to inject the then
- * request-scoped CorrelationService into an HttpModuleOptions factory,
- * which made HttpService -- and every provider holding it, including this
- * one -- request-scoped too: reconstructed per request, onModuleInit never
- * called. `constructed` and `initialised` are the regression guard; both
- * should stay at 1 across any number of requests.
+ * `constructed` and `initialised` are the probe for the scope invariant
+ * `withCorrelation()` has to preserve. Nest propagates request scope upward, so
+ * anything request-scoped on the path from `CorrelationService` to
+ * `HttpService` makes this class request-scoped too -- rebuilt per request, and
+ * never given `onModuleInit`. Both counters therefore stay at 1 across any
+ * number of requests; orders.e2e.spec.ts is what asserts it.
  */
 @Injectable()
 export class InventoryClient implements OnModuleInit {
@@ -42,6 +47,13 @@ export class InventoryClient implements OnModuleInit {
     InventoryClient.initialised += 1;
   }
 
+  /**
+   * The stock record the /inventory endpoint reports for `urn`, together with
+   * the correlation id that endpoint saw.
+   *
+   * @throws {NotFoundException} when the endpoint answers 404, so the caller
+   * handles an unknown urn the same way whether the lookup crossed HTTP or not.
+   */
   async getStock(urn: string): Promise<Stock & { correlationId?: string }> {
     try {
       const response = await firstValueFrom(

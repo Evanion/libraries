@@ -10,8 +10,7 @@ export const metadata = {
     default: 'Evanion Libraries',
     template: '%s | Evanion Libraries',
   },
-  description:
-    'Documentation for the Evanion open source libraries: compose, urn and react-widget.',
+  description: 'Documentation for the Evanion open source libraries.',
   metadataBase: new URL('https://docs.evanion.com'),
 };
 
@@ -25,21 +24,27 @@ const footer = (
   <Footer>MIT {new Date().getFullYear()} © Mikael Pettersson.</Footer>
 );
 
+/**
+ * The shell every docs page renders inside: Nextra's theme layout, built from
+ * the page map the MDX files produce.
+ *
+ * `async` because the sidebar comes from `getPageMap()`, which reads the page map
+ * Nextra compiles from `content/`. Under `output: 'export'` that happens once, at
+ * build time.
+ */
 export default async function RootLayout({ children }: PropsWithChildren) {
   return (
     <html
-      // Not required, but good for SEO
       lang="en"
-      // Required to be set
+      // nextra-theme-docs reads `dir` to place its sidebar and breadcrumbs; it
+      // has no default, so an unset value leaves both unplaced.
       dir="ltr"
-      // Suggested by `next-themes` package https://github.com/pacocoursey/next-themes#with-app
+      // next-themes, which the theme uses, writes the colour-scheme class onto
+      // this element from a blocking script before React hydrates. Without this
+      // the class the client sees never matches the server's markup.
       suppressHydrationWarning
     >
-      <Head
-      // ... Your additional head options
-      >
-        {/* Your additional tags should be passed as `children` of `<Head>` element */}
-      </Head>
+      <Head />
       <body>
         <Layout
           navbar={navbar}

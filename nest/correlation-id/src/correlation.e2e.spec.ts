@@ -63,10 +63,15 @@ class Upstream {
 const upstream = new Upstream();
 
 /**
- * A plain singleton holding HttpService. Before CorrelationService moved to
- * AsyncLocalStorage, `withCorrelation()` made HttpService request-scoped, which
- * made this request-scoped too: a new instance per request, and onModuleInit
- * never called. Both counters are the regression guard.
+ * A singleton holding HttpService, and the probe for the scope invariant
+ * `withCorrelation()` has to preserve.
+ *
+ * Nest propagates request scope upward: a provider injecting a request-scoped
+ * provider becomes request-scoped itself, and so does every provider holding
+ * it. A request-scoped provider is constructed per request and never receives
+ * `onModuleInit`, so both counters stay at 1 for any number of requests exactly
+ * as long as nothing on the path from `HttpService` to `CorrelationService` is
+ * request-scoped.
  */
 @Injectable()
 class Downstream implements OnModuleInit {

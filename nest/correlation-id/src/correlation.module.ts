@@ -10,8 +10,35 @@ import { CorrelationService } from './correlation.service.js';
 // a type referenced in a decorated signature cannot be a value import.
 import type { CorrelationConfig } from './interfaces/correlation-config.interface.js';
 
+/**
+ * Provides `CorrelationService` and the correlation configuration to the whole
+ * application.
+ *
+ * @example
+ * ```ts
+ * @Module({ imports: [CorrelationModule.forRoot()] })
+ * export class AppModule implements NestModule {
+ *   configure(consumer: MiddlewareConsumer) {
+ *     consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+ *   }
+ * }
+ * ```
+ */
 @Module({})
 export class CorrelationModule {
+  /**
+   * Fills in every unset field of `config` and returns the module, registered
+   * `global: true`.
+   *
+   * Global because `CorrelationIdMiddleware`, `withCorrelation()` and every
+   * provider that reads an id all resolve `CORRELATION_CONFIG_TOKEN` from the
+   * root injector: without it each consuming module would have to import this
+   * one, and `HttpModule.registerAsync(withCorrelation())` fails with
+   * `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS`.
+   *
+   * Call it once. A second `forRoot()` registers a second configuration
+   * provider under the same token, and the last import wins.
+   */
   static forRoot(config?: Partial<CorrelationConfig>): DynamicModule {
     const correlationConfigProvider: Provider = {
       provide: CORRELATION_CONFIG_TOKEN,

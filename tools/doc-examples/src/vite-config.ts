@@ -6,8 +6,17 @@ import { expectComments } from './vite-plugin.ts';
 /**
  * The Vite configuration that makes a package's documented examples run.
  *
- * Every published package wires the same three things, so they live here
- * rather than in seven copies that drift apart.
+ * Every published package wires the same three things, so they live here rather
+ * than in a copy per package.
+ *
+ * @example
+ * ```ts
+ * // libs/<package>/vite.config.ts
+ * export default defineConfig(() => ({
+ *   ...docExamples(),
+ *   test: { includeSource: docExampleSources() },
+ * }));
+ * ```
  */
 export function docExamples(options: { preamble?: string } = {}) {
   return {

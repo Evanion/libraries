@@ -6,14 +6,18 @@ import type { TelemetryEvent } from './telemetry-event.model.js';
  * A mock observability sink -- a stand-in for something like Sentry or
  * Splunk. In-memory only, no external calls, per the demo's scope.
  *
- * Reads the correlation id itself, from the AsyncLocalStorage-backed
- * CorrelationService singleton, rather than having it threaded through every
- * call site. That is the property nestjs-correlation-id#31's fix provides: a
- * singleton can read the id of whichever request happens to be in flight
- * without the id being passed as a parameter.
+ * `record` takes no correlation id. It reads one from the
+ * AsyncLocalStorage-backed CorrelationService, which is a singleton and still
+ * resolves the id of whichever request is in flight, so neither this service nor
+ * any of its callers has to carry the id as a parameter.
  */
 @Injectable()
 export class TelemetryService {
+  /**
+   * How many events are kept. The sink is a process-lifetime array, so it needs
+   * a ceiling; past it the oldest event is dropped, and a trail older than the
+   * last 500 events is gone rather than paged.
+   */
   private static readonly MAX_EVENTS = 500;
 
   private readonly events: TelemetryEvent[] = [];
@@ -21,6 +25,7 @@ export class TelemetryService {
 
   constructor(private readonly correlationService: CorrelationService) {}
 
+  /** Records one event, stamped with the correlation id currently in scope. */
   record(
     source: string,
     type: string,
@@ -41,10 +46,12 @@ export class TelemetryService {
     return event;
   }
 
+  /** Every retained event, oldest first. A copy, so a caller cannot edit the sink. */
   list(): TelemetryEvent[] {
     return [...this.events];
   }
 
+  /** The retained events of one request, which is its trail across every source. */
   forCorrelationId(correlationId: string): TelemetryEvent[] {
     return this.events.filter((event) => event.correlationId === correlationId);
   }

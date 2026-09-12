@@ -10,6 +10,9 @@
       "!{projectRoot}/tsconfig.spec.json",
       "!{projectRoot}/src/test-setup.[jt]s"
     ],
+    // Part of every target's hash, so a change to the workflow that runs the
+    // targets invalidates the cache instead of replaying results produced under
+    // the previous one.
     "sharedGlobals": ["{workspaceRoot}/.github/workflows/ci.yml"]
   },
   "nxCloudId": "68bf338daff9c334d6ac12a1",
@@ -98,6 +101,10 @@
   ],
   "targetDefaults": {
     "test": {
+      // Tests read build output: storefront's render.test.ts asserts on the HTML
+      // `astro build` emits. `build` orders a project's own build ahead of its
+      // tests, `^build` its dependencies'. A test like that passes without this
+      // wherever a previous run left dist/ behind, and fails on a clean checkout.
       "dependsOn": ["^build", "build"]
     }
   },
@@ -115,35 +122,52 @@
     }
   },
   "release": {
+    // Each package carries its own version: they are published separately and
+    // share no release cadence.
     "projectsRelationship": "independent",
     "projects": ["libs/*", "nest/*"],
     "releaseTag": {
+      // The tag has to name the project, because independent versioning puts
+      // several `1.0.0` tags in one repository otherwise, and the tag is where
+      // nx starts reading commits for the next version of that package.
       "pattern": "{projectName}@{version}"
     },
     "version": {
       "conventionalCommits": true,
+      // Where the current version comes from when the package has no release
+      // tag yet: its package.json on disk. The default resolver asks the npm
+      // registry, which has no entry for a name that has never been published.
       "fallbackCurrentVersionResolver": "disk",
+      // While a package is below 1.0.0, a breaking change takes the minor and a
+      // feature the patch, so a 0.x package does not reach 1.0.0 on its first
+      // breaking change.
       "adjustSemverBumpsForZeroMajorVersion": true
     },
     "conventionalCommits": {
-      // A conventional-commit scope is matched against Nx project names. A
-      // scope that matches no project is not an error: it silently downgrades
-      // the bump to patch, so `feat(scope)!:` with a BREAKING CHANGE footer can
-      // resolve as a patch release. `scope-enum` in commitlint.config.js
-      // enforces that every scope used here is a real project name, which is
-      // what this setting requires.
+      // Attribute each commit to the project its scope names, rather than to
+      // every project whose files it touched.
+      //
+      // A scope matching no project is not an error. nx treats the commit as
+      // indirectly relevant and caps it at a patch bump
+      // (semver.js:29, determineSemverChange), so `feat(typo)!:` with a
+      // BREAKING CHANGE footer releases as a patch. `scope-enum` in
+      // commitlint.config.js is what rejects a scope that names no project, and
+      // tools/repo-checks keeps that list in step with this glob.
       "useCommitScope": true,
-      // nx's defaults mark `refactor` as hidden from the changelog, on the
-      // reading that a refactor changes no behaviour. A `refactor(x)!` does,
-      // and it is the commit that makes a release major, so hiding it leaves a
-      // major version whose changelog does not say what broke. Unhiding it also
-      // restores the Breaking Changes section, which is rendered from the
-      // commits the changelog shows.
+      // nx hides `refactor` from the changelog by default, on the reading that a
+      // refactor changes no behaviour. A `refactor(x)!` changes behaviour and is
+      // the commit that makes the release major, so hiding it publishes a major
+      // version whose changelog does not say what broke. The Breaking Changes
+      // section is rendered from the commits the changelog shows, so it is
+      // hidden along with them.
       "types": {
         "refactor": { "changelog": { "hidden": false } }
       }
     },
     "changelog": {
+      // No workspace-level changelog: the packages have independent versions, so
+      // there is no single version for it to be a changelog of. Each package
+      // gets its own, published as a GitHub release against its own tag.
       "workspaceChangelog": false,
       "projectChangelogs": {
         "createRelease": "github"

@@ -1,15 +1,31 @@
 {
   "compilerOptions": {
+    // Every project is a composite project referenced from a solution
+    // tsconfig.json, which is what lets `tsc --build` skip the ones whose
+    // inputs have not changed.
     "composite": true,
     "declarationMap": true,
+    // Declarations only. Where a project's JavaScript comes from a bundler, a
+    // second emit from tsc would be a second producer writing the same files;
+    // where it comes from `tsc --build`, this is what makes the typecheck
+    // target's own emit discardable -- see
+    // tools/repo-checks/src/tsc-emit-outside-build-output.test.ts.
     "emitDeclarationOnly": true,
+    // Helpers are imported from tslib rather than inlined per file, so every
+    // package built by tsc declares tslib as a runtime dependency. A package
+    // whose JavaScript is bundled does not: the bundler resolves the helper at
+    // build time.
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": [
-      "es2022"
-    ],
+    "lib": ["es2022"],
+    // nodenext on both, which is the resolution mode a consumer on Node ESM
+    // uses. It requires a file extension in every relative specifier, including
+    // in emitted .d.ts files; scripts/verify-packaging.mjs checks the packed
+    // result against the same setting.
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    // A failed build writes nothing, so a downstream project cannot typecheck
+    // against declarations emitted from code that did not compile.
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
@@ -18,13 +34,15 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": [
-      "@evanion/source"
-    ],
+    // Resolves every in-workspace import of `@evanion/*` to the package's
+    // TypeScript source, through the `@evanion/source` condition in its exports
+    // map. Nothing in the repo typechecks against another package's build
+    // output, so no build order is needed to typecheck -- and nothing here
+    // exercises the published resolution, which is what
+    // scripts/verify-packaging.mjs exists for.
+    "customConditions": ["@evanion/source"],
     "noUncheckedSideEffectImports": false,
-    "types": [
-      "*"
-    ],
+    "types": ["*"],
     "esModuleInterop": false,
     "ignoreDeprecations": "6.0",
     "noUncheckedIndexedAccess": true,

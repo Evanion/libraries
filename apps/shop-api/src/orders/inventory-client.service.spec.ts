@@ -46,7 +46,9 @@ describe('InventoryClient', () => {
     );
   });
 
-  it('counts each construction, for the nestjs-correlation-id#31 regression guard', () => {
+  // The two counters are what orders.e2e.spec.ts reads to prove the provider
+  // stayed a singleton, so they have to count what they claim to count.
+  it('counts every construction', () => {
     InventoryClient.constructed = 0;
     const http = httpServiceStub(() => of(axiosResponse({})));
 

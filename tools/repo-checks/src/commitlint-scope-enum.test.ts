@@ -6,18 +6,20 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * `nx release` resolves conventional-commit scopes against Nx PROJECT NAMES
- * (getCommitsRelevantToProjects in
- * nx/src/command-line/release/utils/shared.js). A scope that matches no
- * project is not an error -- semver.js downgrades the commit to a `patch`
- * bump. That is how `feat(widget)!:` on `@evanion/react-widget` resolved as
- * 0.1.1 instead of 0.2.0.
+ * The invariant: every project nx.json releases has a matching entry in
+ * commitlint's `scope-enum`, under the bare name Nx resolves a commit scope to.
  *
- * commitlint's `scope-enum` is therefore the guardrail, and it has to be a
- * static list: it runs in the commit-msg hook on every commit and cannot
- * afford a project-graph computation. Static list, dynamic test -- this is the
- * test. It fails the build when a releasable project is added without the
- * matching scope.
+ * `nx release` matches conventional-commit scopes against Nx project names
+ * (`getCommitsRelevantToProjects` in
+ * nx/src/command-line/release/utils/shared.js). A scope matching no project is
+ * not an error: semver.js attributes the commit to nothing and the bump falls
+ * back to `patch`, so `feat(x)!:` with a typo'd scope ships as a patch release
+ * with an empty Breaking Changes section.
+ *
+ * `scope-enum` is what turns that into an error, and it has to be a static list
+ * because it runs in the commit-msg hook on every commit and cannot afford a
+ * project-graph computation. This test is the dynamic half: it fails when a
+ * releasable project exists with no scope to name it in a commit.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -45,7 +47,10 @@ function readScopeEnum(): string[] {
   return scopes;
 }
 
-/** nx.json carries `//` comments, so it needs the JSONC fallback Nx itself uses. */
+/**
+ * nx.json carries `//` comments, so it is read with the same comment-tolerant
+ * parser Nx itself reads it with. `JSON.parse` throws on it.
+ */
 function readReleaseProjectPatterns(): string[] {
   const nxJson = parseJson<{ release?: { projects?: string | string[] } }>(
     readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
@@ -58,7 +63,16 @@ function readReleaseProjectPatterns(): string[] {
   return Array.isArray(patterns) ? patterns : [patterns as string];
 }
 
-/** `@evanion/react-widget` -> `react-widget`. This is what Nx matches a scope against. */
+/**
+ * `@evanion/react-widget` -> `react-widget`.
+ *
+ * A commit scope that is not a literal project name is matched against the
+ * project names with the word-boundary regex in `addMatchingProjectsByName`
+ * (nx/src/utils/find-matching-projects.js), where `@` and `-` both count as word
+ * characters. A bare name therefore matches its own scoped project and nothing
+ * else, while a fragment of one -- `widget` against `react-widget` -- matches
+ * nothing at all.
+ */
 function bareName(projectName: string): string {
   return projectName.replace(/^@[^/]+\//, '');
 }
@@ -96,8 +110,9 @@ describe('commitlint scope-enum', () => {
   });
 
   it('lists no scope carrying the @evanion/ prefix', () => {
-    // A scope of `@evanion/react-widget` would not survive the bare-name
-    // matching Nx does, so reject the prefixed form outright.
+    // One spelling per project. Nx resolves both forms, so a list holding the
+    // prefixed one as well would let two different scopes release the same
+    // project, and this test's bare-name comparison would stop covering it.
     expect(readScopeEnum().filter((scope) => scope.includes('/'))).toEqual([]);
   });
 });
