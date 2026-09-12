@@ -44,6 +44,7 @@ module.exports = {
         // under nx.json's `release.projects` globs is what versions a package.
         'admin',
         'astro-widget',
+        'baize-ui',
         'compose',
         'docs',
         'feature',

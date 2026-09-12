@@ -1,0 +1,96 @@
+import type { ReactNode } from 'react';
+
+import type { WeightStop } from '../tokens/weight.js';
+import { classNames, modifier } from './class-names.js';
+
+export interface StatProps {
+  /**
+   * The figure, already formatted: `1–5`, `40–70 min`, `2.4 / 5`. A string and
+   * never a number, because the dash, the unit and the separator are locale
+   * decisions the app's request context owns.
+   */
+  figure: string;
+  /** What the figure is: `players`, `playtime`, `weight`. */
+  label: string;
+  /** Anything that belongs under the label, such as a `WeightRamp`. */
+  children?: ReactNode;
+}
+
+/**
+ * One cell of the stat line: the figure above its label, figure first in the
+ * document so a screen reader reaches the value before the word.
+ */
+export function Stat({ figure, label, children }: StatProps) {
+  return (
+    <div className="baize-stat">
+      <span className="baize-stat__figure baize-figure">{figure}</span>
+      <span className="baize-stat__label">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+export interface StatLineProps {
+  children: ReactNode;
+  /** `lg` is the size the line takes when it leads a page rather than a card. */
+  size?: 'base' | 'lg';
+  /** Names the group for a screen reader, e.g. `Wingspan at a glance`. */
+  label?: string;
+}
+
+/**
+ * Players, time and weight in a rule-bounded row.
+ *
+ * The design's hero and structural device: it leads rather than sitting beneath a
+ * photograph, because those three figures are how anyone identifies a game at a
+ * glance. Columns are sized to their content rather than split into equal thirds,
+ * which is what stops a playtime range from wrapping at narrow widths.
+ */
+export function StatLine({ children, size = 'base', label }: StatLineProps) {
+  return (
+    <div
+      aria-label={label}
+      className={classNames(
+        'baize-statline',
+        modifier('baize-statline', 'size', size),
+      )}
+      role={label ? 'group' : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+export interface WeightRampProps {
+  /** How many pips are filled, and therefore which ramp stops they take. */
+  stop: WeightStop;
+  /**
+   * The accessible name, already worded and already formatted: `weight 2.4 of 5`.
+   * The ramp is a graphic, so this is the only thing a screen reader gets from
+   * it.
+   */
+  label: string;
+}
+
+/**
+ * Five pips, filled up to the stop, each filled pip in its own ramp colour.
+ *
+ * Per-pip colour rather than one colour for the filled run: the ramp is
+ * sequential, and a bar that lightens left to right reads as a scale where a
+ * uniform bar reads as a count.
+ */
+export function WeightRamp({ stop, label }: WeightRampProps) {
+  return (
+    <span aria-label={label} className="baize-weight" role="img">
+      {([1, 2, 3, 4, 5] as const).map((pip) => (
+        <span
+          className={classNames(
+            'baize-weight__pip',
+            pip <= stop && modifier('baize-weight__pip', 'stop', pip),
+          )}
+          key={pip}
+        />
+      ))}
+    </span>
+  );
+}

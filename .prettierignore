@@ -11,3 +11,8 @@
 # gets reverted by the next run.
 **/build
 **/.react-router
+# Written by `nx run baize-ui:generate-tokens` from libs/baize-ui/src/tokens/,
+# and compared byte for byte against that generator by a test. Prettier wraps a
+# long box-shadow value onto a second line, which makes the formatter a second
+# producer of the file and fails the comparison.
+libs/baize-ui/src/tokens.generated.css

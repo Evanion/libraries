@@ -1,0 +1,75 @@
+{
+  "name": "@evanion/baize-ui",
+  "version": "0.1.0",
+  "description": "The Baize design system: tokens as TypeScript, a stateless React component set, and one stylesheet.",
+  "keywords": [
+    "design-system",
+    "design-tokens",
+    "react",
+    "css-custom-properties",
+    "stateless",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/baize-ui#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/baize-ui"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./tokens": {
+      "@evanion/source": "./src/tokens/index.ts",
+      "types": "./dist/tokens/index.d.ts",
+      "import": "./dist/tokens/index.js",
+      "default": "./dist/tokens/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "!src/visual-check.html",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "nx": {
+    "name": "baize-ui",
+    "targets": {
+      "generate-tokens": {
+        "command": "npx jiti libs/baize-ui/tools/generate-tokens.ts"
+      }
+    }
+  }
+}
