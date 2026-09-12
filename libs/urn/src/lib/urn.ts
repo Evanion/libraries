@@ -1,5 +1,5 @@
 import { InvalidError, ValidationError } from './exceptions.js';
-import { ParsedURN } from './types.js';
+import { ParsedURN, URNComponents, URNParts } from './types.js';
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -24,6 +24,25 @@ const NSS_GRAMMAR =
 /** Every character a valid NSS may contain, `%` included, for diagnostics. */
 const NSS_CHAR = /^[A-Za-z0-9\-._~!$&'()*+,;=:@/%]$/;
 
+/**
+ * RFC 8141 2.3: `r-component = pchar *(pchar / "/" / "?")`, and the
+ * q-component is the same production. `?` is legal inside both; `#` is not,
+ * since it introduces the f-component.
+ */
+const RQ_COMPONENT_GRAMMAR =
+  /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@]|%[0-9A-Fa-f]{2})(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9A-Fa-f]{2})*$/;
+
+/**
+ * RFC 8141 2.3: `f-component = fragment`, which RFC 3986 3.5 defines as
+ * `*(pchar / "/" / "?")` -- the same set, with no first-character rule and no
+ * minimum length.
+ */
+const F_COMPONENT_GRAMMAR =
+  /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9A-Fa-f]{2})*$/;
+
+/** Every character an r-, q- or f-component may contain, for diagnostics. */
+const COMPONENT_CHAR = /^[A-Za-z0-9\-._~!$&'()*+,;=:@/?%]$/;
+
 /** Characters that never need percent-encoding: RFC 3986 2.3 `unreserved`. */
 const UNRESERVED = /^[A-Za-z0-9\-._~]$/;
 
@@ -36,6 +55,11 @@ const UNRESERVED = /^[A-Za-z0-9\-._~]$/;
  * overrides {@link URN.separator} gets separator-derived exclusion for the
  * scheme and the NID instead of the RFC grammars, and is not RFC 8141
  * conformant. The NSS keeps the RFC grammar under every separator.
+ *
+ * The optional r-, q- and f-components of RFC 8141 2.3 are split off the tail
+ * before the separator split, and are parsed under every separator except one
+ * that itself contains `?` or `#` -- such a separator is indistinguishable
+ * from a component delimiter, so the whole tail stays in the NSS there.
  *
  * Every static reads `this`, so they cannot be destructured the way
  * `JSON.stringify` can: `const { stringify } = URN` then `stringify('a')`
@@ -92,6 +116,36 @@ export class URN {
   }
 
   /**
+   * The grammar the r-component must match: RFC 8141 2.3.1
+   * `pchar *(pchar / "/" / "?")`.
+   *
+   * A bare `?` is allowed inside it; a `#` is not, because `#` introduces the
+   * f-component.
+   */
+  static get rComponentGrammar(): RegExp {
+    return RQ_COMPONENT_GRAMMAR;
+  }
+
+  /**
+   * The grammar the q-component must match: RFC 8141 2.3.2, the same
+   * production as {@link rComponentGrammar}.
+   */
+  static get qComponentGrammar(): RegExp {
+    return RQ_COMPONENT_GRAMMAR;
+  }
+
+  /**
+   * The grammar the f-component must match: RFC 8141 2.3.3 `fragment`, per
+   * RFC 3986 3.5.
+   *
+   * This is the one component grammar that accepts the empty string, so a URN
+   * ending in a bare `#` is well-formed.
+   */
+  static get fComponentGrammar(): RegExp {
+    return F_COMPONENT_GRAMMAR;
+  }
+
+  /**
    * The grammar the NID must match on the **read** path: {@link nidGrammar}
    * with a floor of one character.
    *
@@ -115,6 +169,17 @@ export class URN {
     );
   }
 
+  /**
+   * Whether `?+`, `?=` and `#` are read as component delimiters.
+   *
+   * False only for a separator that contains one of the delimiter characters,
+   * where a delimiter and a separator cannot be told apart. Such a subclass
+   * keeps the whole tail as its NSS and rejects components on write.
+   */
+  private static get parsesComponents(): boolean {
+    return !this.separator.includes('?') && !this.separator.includes('#');
+  }
+
   private static get genericChar(): RegExp {
     return new RegExp(
       `^(?:(?!${escapeRegex(this.separator)})[A-Za-z0-9._~-])$`,
@@ -136,56 +201,101 @@ export class URN {
    * comparisons are case-folded, since RFC 8141 3.1 makes the scheme and the
    * NID case-insensitive.
    *
+   * An r-, q- or f-component (RFC 8141 2.3) is returned in its own field and
+   * never folded into the `nss`, whichever namespace the URN belongs to. A URN
+   * that carries none parses to exactly `{ urn, nid, nss }`: the component
+   * keys are absent rather than `undefined`.
+   *
    * The read path is lenient in exactly one respect: it accepts a
    * one-character NID, which RFC 2141 permitted. See {@link nidReadGrammar}.
+   *
+   * ```ts
+   * URN.parse('urn:example:weather?=lat=39#today');
+   * // { urn: 'urn', nid: 'example', nss: 'weather',
+   * //   qComponent: 'lat=39', fComponent: 'today' }
+   * ```
    *
    * @param urnString The URN string to parse
    * @returns object that contains the parts of the URN
    * @throws {ValidationError} if the string is not a well-formed URN
    */
   static parse(urnString: string): ParsedURN {
-    const { urn, nid, nss } = this.splitParts(urnString);
+    const { urn, nid, nss, components } = this.splitParts(urnString);
 
     if (!this.sameToken(urn, this.urn))
       return {
         urn,
         nid,
         nss: `${urn}${this.separator}${nid}${this.separator}${nss}`,
+        ...components,
       };
 
     if (!this.sameToken(nid, this.nid))
-      return { urn, nid, nss: `${nid}${this.separator}${nss}` };
+      return { urn, nid, nss: `${nid}${this.separator}${nss}`, ...components };
 
-    return { urn, nid, nss };
+    return { urn, nid, nss, ...components };
   }
 
   /**
-   * Takes a namespace specific string (ie object ID) and returns a URN.
+   * Takes the parts of a URN and returns the URN string.
    *
-   * The arguments are in the reverse order of `parse`'s return shape, so
-   * `stringify(...Object.values(parse(x)))` is wrong. Pass them by name:
-   * `stringify(parsed.nss, parsed.nid, parsed.urn)`.
+   * ```ts
+   * URN.stringify('123', 'user');                       // 'urn:user:123'
+   * URN.stringify({ nss: '123', nid: 'user' });         // 'urn:user:123'
+   * URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
+   * // 'urn:example:weather?=lat=39'
+   * ```
    *
    * `stringify` operates on the wire form. It does not percent-encode: an NSS
    * that is not already encoded, such as one containing a literal space, is
    * rejected. Encode with {@link encodeNss} first if you need to.
    *
-   * @param nss Namespace specific string
-   * @param nid Namespace ID
-   * @param urn Schema
-   * @returns generated URN
-   * @throws {InvalidError} if any component is empty or breaks its grammar
-   *
    * Returns a plain `string` rather than a template-literal type: `separator`
    * is a static that subclasses may override, so any `${urn}:${nid}:${nss}`
    * type would be wrong for them.
+   *
+   * @param parts The parts of the URN, keyed as {@link parse} returns them
+   * @returns generated URN
+   * @throws {InvalidError} if any part is empty or breaks its grammar
    */
-  static stringify(nss: string, nid = this.nid, urn = this.urn): string {
-    this.assertScheme(urn);
-    this.assertNid(nid, this.nidGrammar);
-    this.assertNss(nss);
+  static stringify(parts: URNParts): string;
+  /**
+   * The positional form. Its arguments are in the reverse order of `parse`'s
+   * return shape, so `stringify(...Object.values(parse(x)))` is wrong and
+   * silently produces a URN with the scheme and the NSS swapped. The object
+   * overload keys the parts by name and carries the r-, q- and f-components,
+   * which this form cannot express, so `stringify(parse(x))` returns `x` for a
+   * URN in this class's own namespace.
+   *
+   * @param nss Namespace specific string
+   * @param nid Namespace ID
+   * @param urn Schema
+   */
+  static stringify(nss: string, nid?: string, urn?: string): string;
+  // The defaults sit in the parameter list so the positional overload can fall
+  // back to the calling class's own statics. That is also what makes every
+  // static unbound: `this` is read before the body runs.
+  static stringify(
+    nssOrParts: string | URNParts,
+    nid = this.nid,
+    urn = this.urn,
+  ): string {
+    const parts: URNParts =
+      typeof nssOrParts === 'string'
+        ? { nss: nssOrParts, nid, urn }
+        : nssOrParts;
+    const scheme = parts.urn ?? this.urn;
+    const namespace = parts.nid ?? this.nid;
 
-    return `${urn}${this.separator}${nid}${this.separator}${nss}`;
+    this.assertScheme(scheme);
+    this.assertNid(namespace, this.nidGrammar);
+    this.assertNss(parts.nss);
+    this.assertComponents(parts);
+
+    return (
+      `${scheme}${this.separator}${namespace}${this.separator}${parts.nss}` +
+      this.stringifyComponents(parts)
+    );
   }
 
   /**
@@ -223,19 +333,16 @@ export class URN {
    * Reach for `parse` when the namespace matters, and `extractId` when you
    * only want the trailing identifier.
    *
+   * Any r-, q- or f-component is dropped: they address a resolution service, a
+   * resource's parameters and a secondary resource, none of which are part of
+   * the identifier.
+   *
    * @param urnString The URN string to extract from
    * @returns The identifier portion
    * @throws {ValidationError} if the string is not a well-formed URN
    */
   static extractId(urnString: string): string {
-    if (!this.isValidFormat(urnString)) {
-      throw new ValidationError(
-        `Invalid URN format: '${urnString}'. Expected at least three non-empty parts separated by '${this.separator}'.`,
-      );
-    }
-    const parts = urnString.split(this.separator);
-    // Everything after the scheme and the NID.
-    return parts.slice(2).join(this.separator);
+    return this.splitParts(urnString).nss;
   }
 
   /**
@@ -316,8 +423,10 @@ export class URN {
     urn: string;
     nid: string;
     nss: string;
+    components: URNComponents;
   } {
-    const [urn, nid, ...rest] = urnString.split(this.separator);
+    const { assignedName, components } = this.splitComponents(urnString);
+    const [urn, nid, ...rest] = assignedName.split(this.separator);
 
     // The undefined checks are what narrow urn and nid to string under
     // noUncheckedIndexedAccess. They are also the real guard: without them, a
@@ -334,8 +443,119 @@ export class URN {
     this.assertScheme(urn);
     this.assertNid(nid, this.nidReadGrammar);
     this.assertNss(nss);
+    this.assertComponents(components);
 
-    return { urn, nid, nss };
+    return { urn, nid, nss, components };
+  }
+
+  /**
+   * Splits the r-, q- and f-components off the tail of a URN, leaving the
+   * assigned name (`scheme : NID : NSS`) behind.
+   *
+   * The delimiters cannot be confused with the assigned name, because `pchar`
+   * -- and so the NSS -- contains neither `?` nor `#`. The order is fixed by
+   * RFC 8141 2.3: the f-component comes off first, because `#` terminates the
+   * r- and q-components while both of those may contain a bare `?`; then the
+   * first `?` of what is left introduces either the r-component (`?+`) or the
+   * q-component (`?=`); an r-component runs to the first following `?=`.
+   *
+   * A separator containing `?` or `#` is indistinguishable from a component
+   * delimiter, so a subclass using one gets no components and keeps the whole
+   * tail as its NSS.
+   */
+  private static splitComponents(urnString: string): {
+    assignedName: string;
+    components: URNComponents;
+  } {
+    const components: URNComponents = {};
+    if (!this.parsesComponents) return { assignedName: urnString, components };
+
+    let assignedName = urnString;
+
+    const hash = assignedName.indexOf('#');
+    if (hash !== -1) {
+      components.fComponent = assignedName.slice(hash + 1);
+      assignedName = assignedName.slice(0, hash);
+    }
+
+    const question = assignedName.indexOf('?');
+    if (question === -1) return { assignedName, components };
+
+    const introducer = assignedName.slice(question, question + 2);
+    const tail = assignedName.slice(question + 2);
+    assignedName = assignedName.slice(0, question);
+
+    if (introducer === '?+') {
+      const q = tail.indexOf('?=');
+      if (q === -1) {
+        components.rComponent = tail;
+      } else {
+        components.rComponent = tail.slice(0, q);
+        components.qComponent = tail.slice(q + 2);
+      }
+    } else if (introducer === '?=') {
+      components.qComponent = tail;
+    } else {
+      throw new ValidationError(
+        `Invalid URN format: '${urnString}'. A '?' may only appear as '?+' or '?=', introducing an r- or q-component.`,
+      );
+    }
+
+    return { assignedName, components };
+  }
+
+  /** Validates whichever of the three optional components are present. */
+  private static assertComponents(components: URNComponents): void {
+    const { rComponent, qComponent, fComponent } = components;
+    if (
+      rComponent === undefined &&
+      qComponent === undefined &&
+      fComponent === undefined
+    )
+      return;
+
+    if (!this.parsesComponents)
+      throw new InvalidError(
+        'COMPONENT',
+        this.separator,
+        undefined,
+        "a separator containing '?' or '#' cannot be told apart from a component delimiter",
+      );
+
+    if (rComponent !== undefined)
+      this.assertComponent('R-COMPONENT', rComponent, this.rComponentGrammar);
+    if (qComponent !== undefined)
+      this.assertComponent('Q-COMPONENT', qComponent, this.qComponentGrammar);
+    if (fComponent !== undefined)
+      this.assertComponent('F-COMPONENT', fComponent, this.fComponentGrammar);
+  }
+
+  private static assertComponent(
+    property: string,
+    value: string,
+    grammar: RegExp,
+  ): void {
+    if (grammar.test(value)) return;
+    if (value === '') throw new InvalidError(property, value);
+
+    this.reject(
+      property,
+      value,
+      COMPONENT_CHAR,
+      value.includes('%')
+        ? 'contains a malformed percent-encoded octet'
+        : "must not start with '/' or '?'",
+    );
+  }
+
+  /** Re-attaches the components to an assigned name, with their delimiters. */
+  private static stringifyComponents(components: URNComponents): string {
+    const { rComponent, qComponent, fComponent } = components;
+    return (
+      (rComponent === undefined ? '' : `?+${rComponent}`) +
+      (qComponent === undefined ? '' : `?=${qComponent}`) +
+      (fComponent === undefined ? '' : `#${fComponent}`)
+    );
   }
 
   /** Case-folded token comparison, per RFC 8141 3.1. */
@@ -369,6 +589,10 @@ export class URN {
    * still round-trips -- which is what makes `stringify('user:42')` legal.
    */
   private static assertNss(value: string): void {
+    // The NSS is the one part with no class-level fallback, so a caller
+    // outside TypeScript can leave it off entirely. Without this guard the
+    // grammar would test the string `'undefined'` and pass it.
+    if (typeof value !== 'string') throw new InvalidError('NSS', '');
     if (value === '') throw new InvalidError('NSS', value);
     if (this.nssGrammar.test(value)) return;
 

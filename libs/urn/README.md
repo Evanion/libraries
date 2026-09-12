@@ -67,6 +67,8 @@ console.log(parsed); // -> {urn:'trn', nid: 'bar', nss: 'foo'}
   NSS, rather than one flat character class
 - **Case-folded comparison**: `sameNamespace`, `belongsToNamespace` and
   `equals` fold the scheme and the NID, per RFC 8141 §3.1
+- **r-, q- and f-components**: the optional `?+`, `?=` and `#` tails of
+  RFC 8141 §2.3, parsed into their own fields and excluded from equivalence
 
 ## Why should you use a URN
 
@@ -154,13 +156,16 @@ The library validates the URN scheme, the NID **and** the NSS, each against its
 own grammar. There is no single character class: the three roles are different
 in the RFC and are different here.
 
-| Role           | Allowed                                                                                                                                   | Length                     |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| scheme (`urn`) | a letter, then letters, digits, `+`, `-`, `.`                                                                                             | unbounded                  |
-| NID            | letters and digits, plus `-` in the interior                                                                                              | 2–32 writing, 1–32 reading |
-| NSS            | letters, digits, `-` `.` `_` `~` `!` `$` `&` `'` `(` `)` `*` `+` `,` `;` `=` `:` `@`, percent-triplets, and `/` after the first character | unbounded                  |
+| Role            | Allowed                                                                                                                                   | Length                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| scheme (`urn`)  | a letter, then letters, digits, `+`, `-`, `.`                                                                                             | unbounded                  |
+| NID             | letters and digits, plus `-` in the interior                                                                                              | 2–32 writing, 1–32 reading |
+| NSS             | letters, digits, `-` `.` `_` `~` `!` `$` `&` `'` `(` `)` `*` `+` `,` `;` `=` `:` `@`, percent-triplets, and `/` after the first character | unbounded                  |
+| r-, q-component | the NSS set plus `?` after the first character                                                                                            | unbounded                  |
+| f-component     | the NSS set plus `?`, with no first-character rule                                                                                        | unbounded, may be empty    |
 
-Letters are case-insensitive everywhere. Every component must be non-empty.
+Letters are case-insensitive everywhere. Every part must be non-empty, except
+the f-component.
 
 Read the grammars off the class if you need them — they stay reactive to a
 subclass's `separator`:
@@ -169,6 +174,9 @@ subclass's `separator`:
 URN.schemeGrammar; // /^[A-Za-z][A-Za-z0-9+.-]*$/
 URN.nidGrammar; // /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
 URN.nssGrammar; // the RFC 8141 `pchar *(pchar / "/")` set
+URN.rComponentGrammar; // `pchar *(pchar / "/" / "?")`
+URN.qComponentGrammar; // the same production
+URN.fComponentGrammar; // RFC 3986 `fragment`, which may be empty
 ```
 
 ```ts
@@ -236,6 +244,49 @@ URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // false
 URN.equals('urn:example:A123', 'urn:example:a123'); // false
 ```
 
+### r-, q- and f-components
+
+RFC 8141 §2.3 allows three optional components after the NSS: the r-component
+(`?+`, parameters for the resolution service), the q-component (`?=`,
+parameters for the named resource) and the f-component (`#`, a secondary
+resource within the named one). `parse` returns each in its own field and never
+folds it into the `nss`:
+
+```ts
+URN.parse('urn:example:weather?=lat=39#today');
+// { urn: 'urn', nid: 'example', nss: 'weather',
+//   qComponent: 'lat=39', fComponent: 'today' }
+```
+
+The fields are optional and absent — not `undefined` — when the URN carries no
+components, so a consumer reading `{ urn, nid, nss }` sees exactly the shape it
+saw before.
+
+Write them with the object form of `stringify`:
+
+```ts
+URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
+// 'urn:example:weather?=lat=39'
+```
+
+The splitting needs no change to the NSS grammar: `pchar` contains neither `?`
+nor `#`. The f-component comes off first, because `#` terminates the r- and
+q-components while both of those may themselves contain a bare `?`; then the
+first `?` of what remains introduces the r-component (`?+`) or the q-component
+(`?=`), and an r-component runs to the first following `?=`.
+
+RFC 8141 §3.1 excludes all three from equivalence, so `equals` ignores them,
+and `extractId` drops them:
+
+```ts
+URN.equals('urn:example:foo?+r1#a', 'urn:example:foo?+r2#b'); // true
+URN.extractId('urn:example:foo?=q#f'); // 'foo'
+```
+
+A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
+component delimiter. There, the whole tail stays in the NSS and writing a
+component throws.
+
 ### Custom separators are not RFC 8141
 
 A subclass that overrides `separator` gets a generic character class with the
@@ -276,12 +327,25 @@ const { stringify } = URN;
 stringify('a'); // TypeError -- the default parameter `nid = this.nid` needs `this`
 ```
 
-The arguments to `stringify` are in the reverse order of `parse`'s return shape,
-so `stringify(...Object.values(parse(x)))` is silently wrong. Pass them by name:
+The positional arguments to `stringify` are in the reverse order of `parse`'s
+return shape, so `stringify(...Object.values(parse(x)))` is silently wrong —
+`URN.stringify(...Object.values(URN.parse('urn:nid:foo')))` returns
+`'foo:nid:urn'`. Hand `stringify` the object instead; the keys carry the
+meaning, and only that form can express the r-, q- and f-components:
 
 ```ts
-const parsed = URN.parse(input);
-URN.stringify(parsed.nss, parsed.nid, parsed.urn);
+URN.stringify(URN.parse('urn:nid:foo')); // 'urn:nid:foo'
+URN.stringify({ nss: '123', nid: 'user' }); // 'urn:user:123'
+```
+
+`stringify(parse(x))` returns `x` for a URN in the parsing class's own
+namespace. It does not for a foreign one, because `parse` retains the foreign
+scheme and NID inside the `nss` so they cannot be lost, and `stringify` then
+prefixes the class's own:
+
+```ts
+URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
+URN.stringify(URN.parse('urn:user:123')); // 'urn:user:user:123'
 ```
 
 ## Common Use Cases
@@ -315,15 +379,23 @@ const userResourceUrn = ServiceURN.stringify('123', 'user-service');
 
 ### Static Methods
 
-- `URN.stringify(nss, nid?, urn?)` — Creates a URN string from components.
-  Throws `InvalidError` if any component is empty or contains a disallowed character.
-- `URN.parse(urnString)` — Parses a URN string into `{ urn, nid, nss }`.
+- `URN.stringify(parts)` — Creates a URN string from
+  `{ nss, nid?, urn?, rComponent?, qComponent?, fComponent? }`. The object form
+  is the one that can emit components, and its keys match `parse`'s return
+  shape.
+- `URN.stringify(nss, nid?, urn?)` — The positional form. Same validation, no
+  components, and its arguments are in the reverse order of `parse`'s return
+  shape. Both throw `InvalidError` if a part is empty or contains a disallowed
+  character.
+- `URN.parse(urnString)` — Parses a URN string into `{ urn, nid, nss }`, plus
+  `rComponent`, `qComponent` and `fComponent` when the URN carries them.
   Throws `ValidationError` if the string is not a well-formed URN.
 - `URN.isValidFormat(urnString)` — `true` if the string parses. Delegates to
   `parse`, so the two can never disagree. Never throws, so it is the cheap way
   to test input first.
-- `URN.extractId(urnString)` — Returns everything after the scheme and the NID.
-  Throws `ValidationError` on malformed input.
+- `URN.extractId(urnString)` — Returns everything after the scheme and the NID,
+  without any r-, q- or f-component. Throws `ValidationError` on malformed
+  input.
 - `URN.sameNamespace(a, b)` — `true` if both URNs share a scheme and NID.
   Returns `false` for malformed input rather than throwing.
 - `URN.belongsToNamespace(urnString, nid, urn?)` — `true` if the URN is in the
@@ -371,6 +443,10 @@ trailing identifier.
 - `static schemeGrammar: RegExp` - The grammar the scheme must match
 - `static nidGrammar: RegExp` - The grammar the NID must match when writing
 - `static nssGrammar: RegExp` - The grammar the NSS must match
+- `static rComponentGrammar: RegExp` - The grammar the r-component must match
+- `static qComponentGrammar: RegExp` - The grammar the q-component must match
+- `static fComponentGrammar: RegExp` - The grammar the f-component must match,
+  the only one that accepts the empty string
 
 `isValid` is gone. One flat regex cannot describe three roles across two
 separator regimes; the three getters can, and they stay reactive to a
