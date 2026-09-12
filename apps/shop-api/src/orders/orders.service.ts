@@ -6,6 +6,16 @@ import { TelemetryService } from '../telemetry/telemetry.service.js';
 import type { CartItem, CreateOrderRequest, OrderResult } from './cart.model.js';
 import { InventoryClient } from './inventory-client.service.js';
 
+/**
+ * A stubbed checkout: validates cart items against live stock over a real
+ * HTTP hop to InventoryClient, then returns a confirmed OrderResult with a
+ * freshly minted OrderURN.
+ *
+ * It does not decrement stock, charge anything, or persist the order
+ * anywhere -- STOCK and GAMES_CATALOGUE are unchanged by a successful call,
+ * and the returned order does not exist once the response is sent. There is
+ * nothing here that would stop the same cart from being ordered twice.
+ */
 @Injectable()
 export class OrdersService {
   constructor(

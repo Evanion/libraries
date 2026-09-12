@@ -1,3 +1,4 @@
+/** One entry of the games catalogue, as returned by every games/inventory endpoint. */
 export interface Game {
   /** Entity identity, e.g. `urn:game:wingspan`. */
   urn: string;
