@@ -57,13 +57,13 @@ export async function loader({ context }: Route.LoaderArgs) {
             availability: row.availability,
           })),
         },
-        meta: { column: 1, columnSpan: 7 },
+        meta: { lane: 'main' },
       },
       {
         id: 'shelf',
         type: 'shelf',
         props: { counts: availabilityCounts(shelf.rows) },
-        meta: { column: 8, columnSpan: 5 },
+        meta: { lane: 'aside' },
       },
       {
         id: 'orders',
@@ -77,7 +77,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             inventoryChecks: order.inventoryChecks,
           })),
         },
-        meta: { column: 1, columnSpan: 5 },
+        meta: { lane: 'main' },
       },
       {
         id: 'trail',
@@ -90,7 +90,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             type: event.type,
           })),
         },
-        meta: { column: 6, columnSpan: 7 },
+        meta: { lane: 'aside' },
       },
       {
         // No meta, deliberately: an unplaced item spans the grid. A dashboard
