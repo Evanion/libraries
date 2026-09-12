@@ -48,6 +48,7 @@ Package scopes:
 - **nestjs-correlation-id**: Changes to the `@evanion/nestjs-correlation-id` library
 - **docs**: Changes to the docs app
 - **storefront**: Changes to the storefront demo app
+- **shop-api**: Changes to the shop-api demo app
 - **nx-astro**: Changes to the local Nx Astro plugin
 
 Repository scopes (these are not projects and never bump a package on their
@@ -139,6 +140,37 @@ verification both run `lint test build typecheck check` for this reason.
 Note also that Nx caches parsed tsconfigs on disk. If `node_modules` changes in
 a way that alters how an `extends` chain resolves, that cache can go stale and
 Nx will infer the wrong command until you run `nx reset`.
+
+### Dependency overrides
+
+Root `package.json`'s `overrides` forces resolution of a package away from
+what its dependents ask for. Every entry there is a deliberate, narrow
+exception -- not a place to silence a conflict you have not diagnosed.
+
+- **`dompurify`**, **`nextra`/`nextra-theme-docs` → `zod`**: pin transitive
+  versions the docs toolchain needs.
+- **`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express` → `12.0.1`**:
+  `apps/shop-api` needs `@evanion/nestjs-correlation-id@2.0.0`, which peers
+  `@nestjs/common ^12.0.0`. But `@nx/nest@23.1.1` -- and every published
+  `@nx/nest` up to `23.3.0` canaries, as of this writing -- peers
+  `@nestjs/core`/`@nestjs/common` at `>=10.0.0 <12.0.0`. Without the override,
+  `npm install` fails with `ERESOLVE` because the tree cannot satisfy both a
+  Nest-12 peer and a Nest-<12 peer at once.
+
+  This override asserts a compatibility upstream currently denies, on
+  purpose and temporarily. `nrwl/nx#36938` ("feat(nest): support NestJS v12
+  with per-major bundler and test-runner") adds the peer bump; it is open,
+  unmerged as of 2026-09-12. Remove this override once a released `@nx/nest`
+  peers `^12`. That PR also changes bundler and test-runner selection per
+  Nest major, so when it lands, regenerating `apps/shop-api` with
+  `nx g @nx/nest:application` and re-diffing is more trustworthy than just
+  deleting the three override lines.
+
+  Interim hazard: until then, `nx g @nx/nest:*` generators still emit Nest 11
+  shapes (dependency versions, schema defaults) silently -- the override
+  does not change what the generator itself writes, only what actually gets
+  installed afterward. Re-pin any dependency versions a future `@nx/nest`
+  generator run adds for this app back to the `12.0.1` line.
 
 ### Pre-commit Hooks
 

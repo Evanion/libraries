@@ -18,7 +18,10 @@
     },
     "nextra-theme-docs": {
       "zod": "4.3.0"
-    }
+    },
+    "@nestjs/common": "12.0.1",
+    "@nestjs/core": "12.0.1",
+    "@nestjs/platform-express": "12.0.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
@@ -26,15 +29,20 @@
     "@babel/preset-react": "^8.0.1",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
+    "@nestjs/schematics": "^12.0.1",
+    "@nestjs/testing": "^12.0.1",
     "@next/eslint-plugin-next": "^16.3.4",
     "@nx/eslint": "23.1.1",
     "@nx/eslint-plugin": "23.1.1",
     "@nx/js": "23.1.1",
+    "@nx/nest": "23.1.1",
     "@nx/next": "23.1.1",
+    "@nx/node": "23.1.1",
     "@nx/react": "23.1.1",
     "@nx/vite": "23.1.1",
     "@nx/vitest": "23.1.1",
     "@nx/web": "23.1.1",
+    "@nx/webpack": "23.1.1",
     "@swc-node/register": "1.12.1",
     "@swc/cli": "0.8.1",
     "@swc/core": "1.16.2",
@@ -72,7 +80,10 @@
     "typescript-eslint": "^8.69.0",
     "vite": "8.2.2",
     "vite-plugin-dts": "^5.1.0",
-    "vitest": "4.1.9"
+    "vitest": "4.1.9",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^7.0.0",
+    "webpack-dev-server": "^5.2.1"
   },
   "workspaces": [
     "libs/*",
@@ -82,6 +93,10 @@
   ],
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@nestjs/axios": "^12.0.0",
+    "@nestjs/common": "12.0.1",
+    "@nestjs/core": "12.0.1",
+    "@nestjs/platform-express": "12.0.1",
     "@tailwindcss/postcss": "^4.3.3",
     "fuse.js": "^7.5.0",
     "next": "16.3.4",
@@ -90,7 +105,9 @@
     "prism-react-renderer": "^2.4.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-live": "^4.1.8"
+    "react-live": "^4.1.8",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
   },
   "config": {
     "commitizen": {

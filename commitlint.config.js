@@ -41,6 +41,7 @@ module.exports = {
         'nx-astro',
         'react-widget',
         'repo-checks',
+        'shop-api',
         'storefront',
         'urn',
         // Repository scopes -- not projects. Taken from the scopes already in
