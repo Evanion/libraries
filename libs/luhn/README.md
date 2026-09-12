@@ -44,7 +44,7 @@ pnpm add @evanion/luhn
 
 ## Generate a check character
 
-```ts
+```ts @import.meta.vitest
 Luhn.generate('foo'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }
 Luhn.generate('FoO'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }
 ```
@@ -61,7 +61,7 @@ character over no payload carries no information, and returning one makes
 
 The last dictionary code point of the input is the check character.
 
-```ts
+```ts @import.meta.vitest
 Luhn.validate('foo5'); // -> { phrase: 'foo5', isValid: true, filtered: 0 }
 Luhn.validate('FOO5'); // -> { phrase: 'foo5', isValid: true, filtered: 0 }
 Luhn.validate('FoO-ö5'); // -> { phrase: 'foo5', isValid: true, filtered: 2 }
@@ -71,7 +71,7 @@ Luhn.validate('bar5'); // -> { phrase: 'bar5', isValid: false, filtered: 0 }
 Fewer than two surviving code points is not valid — a payload and a check
 character is the minimum:
 
-```ts
+```ts @import.meta.vitest
 Luhn.validate(''); // -> { phrase: '', isValid: false, filtered: 0 }
 Luhn.validate('!!!!0'); // -> { phrase: '0', isValid: false, filtered: 4 }
 ```
@@ -81,7 +81,7 @@ Luhn.validate('!!!!0'); // -> { phrase: '0', isValid: false, filtered: 4 }
 Code points outside the dictionary are dropped before the checksum is computed,
 so a hyphenated or accented rendering of the same token checks the same:
 
-```ts
+```ts @import.meta.vitest
 Luhn.generate('foo-baz'); // -> { phrase: 'foobaz', checksum: 'p', filtered: 1 }
 Luhn.generate('fooö-baz'); // -> { phrase: 'foobaz', checksum: 'p', filtered: 2 }
 ```
@@ -93,7 +93,7 @@ can gate on it without reimplementing the filter.
 
 The default is 36 lowercase alphanumerics, with case folding on:
 
-```ts
+```ts @import.meta.vitest
 Luhn.dictionary; // -> '0123456789abcdefghijklmnopqrstuvwxyz'
 Luhn.n; // -> 36
 Luhn.caseInsensitive; // -> true
@@ -105,7 +105,7 @@ characters in a different order are different alphabets.
 
 Build your own with `createLuhn`:
 
-```ts
+```ts @import.meta.vitest
 import { createLuhn } from '@evanion/luhn';
 
 const hex = createLuhn({ dictionary: '0123456789abcdef' });
@@ -140,7 +140,7 @@ onto one and the rest become unreachable.
 
 It defaults to `true` when you supply no dictionary and `false` when you do.
 
-```ts
+```ts @import.meta.vitest
 import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
 
 const sensitive = createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY });
@@ -164,7 +164,7 @@ createLuhn({
 
 With `dictionary: '0123456789'` this library is plain Luhn mod-10:
 
-```ts
+```ts @import.meta.vitest
 const digits = createLuhn({ dictionary: '0123456789' });
 
 digits.generate('7992739871').checksum; // -> '3'
@@ -184,7 +184,7 @@ This library does not generate random values and will not start; a checksum
 library shipping a CSPRNG sampler acquires a security surface for a problem
 that is not its own. It states the fact instead:
 
-```ts
+```ts @import.meta.vitest
 Luhn.uniformOverBytes; // -> false
 createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' }).uniformOverBytes; // -> true
 ```

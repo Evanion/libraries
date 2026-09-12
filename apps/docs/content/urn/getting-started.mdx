@@ -34,21 +34,20 @@ import { URN } from '@evanion/urn';
 
 Let's create your first URN:
 
-```typescript
-import { URN } from '@evanion/urn';
+```ts file=libs/urn/README.md region=basic-usage
+```
 
-// Create a simple URN
-const myUrn = URN.stringify('my-resource', 'my-namespace');
-console.log(myUrn); // "urn:my-namespace:my-resource"
+### Percent-encoding the NSS
 
-// Parse it back
-const parsed = URN.parse(myUrn);
-console.log(parsed);
-// {
-//   urn: 'urn',
-//   nid: 'my-namespace',
-//   nss: 'my-resource'
-// }
+```ts file=libs/urn/README.md region=nss-encoding
+```
+
+### Comparing two URNs
+
+RFC 8141 equivalence is case-insensitive on the scheme and the NID, and exact
+on the NSS:
+
+```ts file=libs/urn/README.md region=equality
 ```
 
 ## Project Setup Examples

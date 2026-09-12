@@ -38,7 +38,8 @@ pnpm add @evanion/urn
 
 ## Quick Start
 
-```ts
+<!-- #region basic-usage -->
+```ts @import.meta.vitest
 import { URN } from '@evanion/urn';
 
 // You can easily extend the base class to create your own base schema
@@ -50,9 +51,9 @@ class TRN extends URN {
 TRN.stringify('foo', 'bar'); // -> 'trn:bar:foo'
 
 // Parse a URN to get its constituent parts
-const parsed = TRN.parse('trn:bar:foo');
-console.log(parsed); // -> {urn:'trn', nid: 'bar', nss: 'foo'}
+const parsed = TRN.parse('trn:bar:foo'); // -> { urn: 'trn', nid: 'bar', nss: 'bar:foo' }
 ```
+<!-- #endregion basic-usage -->
 
 ## Features
 
@@ -165,20 +166,22 @@ Letters are case-insensitive everywhere. Every component must be non-empty.
 Read the grammars off the class if you need them — they stay reactive to a
 subclass's `separator`:
 
-```ts
+<!-- #region grammars -->
+```ts @import.meta.vitest
 URN.schemeGrammar; // /^[A-Za-z][A-Za-z0-9+.-]*$/
 URN.nidGrammar; // /^[A-Za-z0-9][A-Za-z0-9-]{0,30}[A-Za-z0-9]$/
 URN.nssGrammar; // the RFC 8141 `pchar *(pchar / "/")` set
 ```
+<!-- #endregion grammars -->
 
 ```ts
 import { URN, InvalidError } from '@evanion/urn';
 
 // This will throw an InvalidError for invalid NID
-UserTRN.stringify('1337', 'f?o'); // -> will throw a NID ValidationError
+UserTRN.stringify('1337', 'f?o'); // throws InvalidError, an invalid NID
 
 // This will throw an InvalidError for invalid URN
-UserTRN.stringify('1337', 'foo', 'b!r'); // -> will throw a URN ValidationError
+UserTRN.stringify('1337', 'foo', 'b!r'); // throws InvalidError, an invalid URN
 
 // Handle errors gracefully
 try {
@@ -216,12 +219,14 @@ URN.parse('urn:example:a%20b').nss; // 'a%20b' -- triplets come back intact
 
 Two helpers cover the conversion explicitly:
 
-```ts
+<!-- #region nss-encoding -->
+```ts @import.meta.vitest
 import { encodeNss, decodeNss } from '@evanion/urn';
 
-encodeNss('café'); // 'caf%C3%A9'
-decodeNss('caf%C3%A9'); // 'café'
+encodeNss('café'); // -> 'caf%C3%A9'
+decodeNss('caf%C3%A9'); // -> 'café'
 ```
+<!-- #endregion nss-encoding -->
 
 ### Equivalence
 
@@ -230,11 +235,13 @@ case-insensitively, the NSS character for character, except that the hex digits
 of a percent-triplet canonicalise to uppercase. A percent-encoded octet is never
 decoded for comparison:
 
-```ts
-URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // true
-URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // false
-URN.equals('urn:example:A123', 'urn:example:a123'); // false
+<!-- #region equality -->
+```ts @import.meta.vitest
+URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // -> true
+URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // -> false
+URN.equals('urn:example:A123', 'urn:example:a123'); // -> false
 ```
+<!-- #endregion equality -->
 
 ### Custom separators are not RFC 8141
 
@@ -264,9 +271,11 @@ UserTRN.stringify('42', 'order'); // -> 'trn:order:42'
 
 `stringify` is also not idempotent, and is not a normaliser:
 
-```ts
+<!-- #region round-trip -->
+```ts @import.meta.vitest
 URN.stringify(URN.stringify('foo')); // -> 'urn:nid:urn:nid:foo'
 ```
+<!-- #endregion round-trip -->
 
 The statics are unbound. Every one of them reads `this`, so unlike
 `JSON.stringify` they cannot be destructured:

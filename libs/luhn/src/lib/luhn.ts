@@ -154,8 +154,10 @@ const codePointsOf = (
  * @throws {InvalidDictionaryError} when the dictionary fails a constraint.
  *
  * @example
+ * ```ts @import.meta.vitest
  * const luhn = createLuhn({ dictionary: '0123456789' });
  * luhn.generate('7992739871'); // -> { phrase: '7992739871', checksum: '3', filtered: 0 }
+ * ```
  */
 export function createLuhn(options: LuhnOptions = {}): Luhn {
   const dictionary = options.dictionary ?? DEFAULT_DICTIONARY;

@@ -35,6 +35,9 @@
   "references": [
     {
       "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "../../tools/doc-examples"
     }
   ]
 }

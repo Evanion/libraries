@@ -28,6 +28,9 @@
       "path": "./tools/repo-checks"
     },
     {
+      "path": "./tools/doc-examples"
+    },
+    {
       "path": "./libs/luhn"
     },
     {
