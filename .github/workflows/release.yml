@@ -11,7 +11,7 @@ on:
         type: boolean
         default: true
       projects:
-        description: 'Projects to release, comma separated (e.g. "urn,luhn"). Empty releases everything affected.'
+        description: 'Projects, comma separated. Same names as commit scopes. Empty releases everything affected.'
         type: string
         default: ''
 
