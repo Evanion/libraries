@@ -47,6 +47,7 @@ Package scopes:
 - **feature**: Changes to the `@evanion/feature` library
 - **react-widget**: Changes to the `@evanion/react-widget` library
 - **astro-widget**: Changes to the `@evanion/astro-widget` library
+- **baize-ui**: Changes to the `@evanion/baize-ui` design system
 - **nestjs-correlation-id**: Changes to the `@evanion/nestjs-correlation-id` library
 - **docs**: Changes to the docs app
 - **storefront**: Changes to the storefront demo app

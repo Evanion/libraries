@@ -45,6 +45,7 @@ const LIBS = [
   ['libs/luhn', '@evanion/luhn'],
   ['libs/feature', '@evanion/feature'],
   ['libs/token', '@evanion/token'],
+  ['libs/baize-ui', '@evanion/baize-ui'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -117,6 +118,10 @@ import { createToken, DEFAULT_DICTIONARY, InvalidAlphabetError, TokenError } fro
 import type { TokenOptions, ValidateResult } from '@evanion/token';
 // Second entry point, and the only one that may touch React.
 import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
+import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, WeightRamp } from '@evanion/baize-ui';
+import type { Availability, BoxArtPalette, Mechanism, StatProps, TitleSize, WeightStop } from '@evanion/baize-ui';
+// The token entry, which may not touch React at all.
+import { availability, boxArt, customProperties, ground, mechanism, radius, renderTokensCss, space, weight } from '@evanion/baize-ui/tokens';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -146,11 +151,32 @@ const tokenOptions: TokenOptions = { dictionary: DEFAULT_DICTIONARY, length: 8 }
 const tokenCheck: string = createToken(tokenOptions).generate({ prefix: 'ORD' }).check;
 const tokenResult: ValidateResult = createToken().validate('a4kp-9mxa');
 const tokenErr: TokenError = new InvalidAlphabetError('non-uniform', 'abcdef');
+// The design system. Every prop that selects a token is an enum member and every
+// prop that is displayed is a string, so a widened prop fails here.
+const hue: Mechanism = 'areaControl';
+const state: Availability = 'reprintPending';
+const stop: WeightStop = 3;
+const palette: BoxArtPalette = 'soot';
+const titleSize: TitleSize = 'xl';
+const statFigure: StatProps['figure'] = '40–70 min';
+const felt: string = ground.felt;
+const hueValue: string = mechanism[hue];
+const stateValue: string = availability[state];
+const stopValue: string = weight[stop];
+const artStop: string = boxArt[palette].from;
+const cardRadius: string = radius.card;
+const gutter: string = space[4];
+const propertyName: string = customProperties[0]?.[0] ?? '';
+const tokensCss: string = renderTokensCss();
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
-      tokenCheck, tokenResult, tokenErr];
+      tokenCheck, tokenResult, tokenErr,
+      AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip,
+      Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, WeightRamp,
+      felt, hueValue, stateValue, stopValue, artStop, cardRadius, gutter, propertyName, tokensCss,
+      titleSize, statFigure];
 `,
   );
 
@@ -187,6 +213,7 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
   writeFileSync(
     join(dir, 'runtime.mjs'),
     `
+import { readFileSync } from 'node:fs';
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
@@ -195,12 +222,15 @@ import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
+import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
+import { ground, renderTokensCss } from '@evanion/baize-ui/tokens';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
   defineBlocks, validateBlocks, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
   createToken, InvalidAlphabetError, TokenError,
+  Card, StatLine, BoxArtPlaceholder,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
@@ -215,6 +245,18 @@ if (!Object.isFrozen(token)) missing.push('createToken (result not frozen)');
 // Luhn is the default instance rather than a class, and it is frozen so that
 // assigning a dictionary to it throws instead of being silently ignored.
 if (typeof Luhn?.generate !== 'function' || !Object.isFrozen(Luhn)) missing.push('Luhn');
+// The stylesheet is a third entry rather than something a component imports, so
+// what has to hold at runtime is that the specifier resolves from a consumer's
+// own install and that the ground reached the file.
+const stylesheet = readFileSync(new URL(import.meta.resolve('@evanion/baize-ui/styles.css')), 'utf8');
+if (!stylesheet.includes(ground.felt.toLowerCase())) {
+  console.error('@evanion/baize-ui/styles.css does not carry the felt token value');
+  process.exit(1);
+}
+if (!renderTokensCss().includes(ground.felt.toLowerCase())) {
+  console.error('@evanion/baize-ui/tokens cannot render its own custom-property block');
+  process.exit(1);
+}
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
 `,
   );
@@ -417,6 +459,134 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     }
   }
   console.log('  ✓ feature exports both entries');
+
+  // @evanion/baize-ui promises statelessness, and the packed entry is where a
+  // promise kept in the source can still be broken: a bundler upgrade, a
+  // transitive dependency or a generated helper can reintroduce an import the
+  // source does not show. libs/baize-ui/src/react-imports.test.ts applies the
+  // same allowlist to the source, and catches the author instead.
+  //
+  // An allowlist rather than a denylist, because a denylist has to be maintained
+  // against React's surface: `/^use[A-Z]/` misses createContext, and the
+  // client-only list above misses useMemo -- which the `react-server` condition
+  // does provide, and which is still not stateless.
+  const baizeDist = join(dir, 'node_modules', '@evanion', 'baize-ui', 'dist');
+  const baizeEntry = readFileSync(join(baizeDist, 'index.js'), 'utf8');
+  const baizeAllowed = {
+    react: ['createElement', 'Fragment'],
+    'react/jsx-runtime': ['jsx', 'jsxs', 'jsxDEV', 'Fragment'],
+  };
+  const baizeOffenders = [];
+  for (const match of baizeEntry.matchAll(
+    /import\s*(?:\{([^}]*)\}|(\*\s+as\s+\w+|\w+))\s*from\s*["']([^"']+)["']/g,
+  )) {
+    const module = match[3];
+    if (!/^react(?:$|\/|-dom)/.test(module)) continue;
+    const allowed = baizeAllowed[module];
+    if (!allowed) {
+      baizeOffenders.push(`${module} (whole module)`);
+      continue;
+    }
+    const specifiers = (match[1] ?? '')
+      .split(',')
+      .map((specifier) =>
+        specifier
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim(),
+      )
+      .filter(Boolean);
+    for (const specifier of specifiers) {
+      if (!allowed.includes(specifier)) {
+        baizeOffenders.push(`${specifier} from ${module}`);
+      }
+    }
+  }
+  if (baizeOffenders.length) {
+    throw new Error(
+      '@evanion/baize-ui dist/index.js imports React APIs outside its ' +
+        'allowlist: ' +
+        baizeOffenders.join(', ') +
+        '. The package is stateless: no hook, no context, no renderer.',
+    );
+  }
+  console.log('  ✓ baize-ui imports only createElement-level React APIs');
+
+  // The components ship class names and no stylesheet. Next resolves a CSS
+  // import inside a package's module graph; Astro, plain Vite SSR and a bare
+  // `node` import do not, and the runtime import below fails first on one.
+  if (/(?:from|import)\s*["'][^"']+\.css["']/.test(baizeEntry)) {
+    throw new Error(
+      '@evanion/baize-ui dist/index.js imports a stylesheet. The app imports ' +
+        '@evanion/baize-ui/styles.css once in its root instead.',
+    );
+  }
+  if (/^["']use client["'];?$/.test(baizeEntry.split('\n')[0].trim())) {
+    throw new Error(
+      "@evanion/baize-ui dist/index.js must NOT carry a 'use client' " +
+        'directive: a stateless presentational component renders the same under ' +
+        'every rendering model.',
+    );
+  }
+  console.log("  ✓ baize-ui ships no CSS import and no 'use client'");
+
+  // The `./tokens` entry exists so that a build script, a Nest response or a
+  // test can read a token value without React in its graph.
+  const baizeTokens = readFileSync(
+    join(baizeDist, 'tokens', 'index.js'),
+    'utf8',
+  );
+  if (/(?:from|import)\s*["']react(?:\/[^"']*)?["']/.test(baizeTokens)) {
+    throw new Error(
+      '@evanion/baize-ui dist/tokens/index.js imports react. The token entry ' +
+        'must stay reachable from anything that needs a value.',
+    );
+  }
+  console.log('  ✓ baize-ui tokens entry imports nothing from react');
+
+  const baizePkg = JSON.parse(
+    readFileSync(
+      join(dir, 'node_modules', '@evanion', 'baize-ui', 'package.json'),
+      'utf8',
+    ),
+  );
+  // Three entries and no deep-import path: the exports map lists these and
+  // nothing else, so `@evanion/baize-ui/src/...` does not resolve.
+  for (const entry of ['.', './tokens', './styles.css']) {
+    if (!Object.keys(baizePkg.exports).includes(entry)) {
+      throw new Error(`@evanion/baize-ui stopped exporting "${entry}"`);
+    }
+  }
+  console.log('  ✓ baize-ui exports all three entries');
+
+  // One stylesheet, with the generated custom properties inlined. A build that
+  // stopped inlining the @import would publish a relative specifier resolved
+  // against whatever directory the consumer's bundler put the file in.
+  const baizeStyles = readFileSync(join(baizeDist, 'styles.css'), 'utf8');
+  if (/@import/.test(baizeStyles)) {
+    throw new Error(
+      '@evanion/baize-ui dist/styles.css still carries an @import; the build ' +
+        'inlines tokens.generated.css into it.',
+    );
+  }
+  const groundHexes = [
+    '#0c1714',
+    '#142521',
+    '#2a3f39',
+    '#f2ede3',
+    '#8fa69e',
+    '#5e736c',
+  ];
+  const missingHexes = groundHexes.filter(
+    (hex) => !baizeStyles.toLowerCase().includes(hex),
+  );
+  if (missingHexes.length) {
+    throw new Error(
+      '@evanion/baize-ui dist/styles.css is missing the approved ground: ' +
+        missingHexes.join(', '),
+    );
+  }
+  console.log('  ✓ baize-ui ships one stylesheet carrying the ground');
 
   // A helper tsc emits under `importHelpers` becomes an `import ... from
   // "tslib"` in the published JavaScript, which the consumer's package manager

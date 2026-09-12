@@ -1,0 +1,579 @@
+/*
+ * The Baize component classes. The `@evanion/baize-ui/styles.css` entry.
+ *
+ * Imported once in an app's root. The components in `@evanion/baize-ui` import no
+ * CSS themselves: Next resolves a stylesheet import inside a package's module
+ * graph, Astro and plain Vite SSR do not do so uniformly, and a non-bundler
+ * consumer -- a test runner, a build script, `node --import tsx` -- fails outright
+ * on one.
+ *
+ * The custom properties come from the generated half, which is written from
+ * `src/tokens/`. Nothing in this file may carry a literal colour, radius or
+ * spacing value; `styles.test.ts` fails on one.
+ */
+@import './tokens.generated.css';
+
+/*
+ * The page itself. An app puts this on its `<body>`: the ground, the reading
+ * family and tabular figures everywhere, because the design makes numeric
+ * alignment a requirement and a figure that opts in per component is a figure
+ * somebody forgot.
+ */
+.baize-root {
+  margin: 0;
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-base);
+  line-height: var(--baize-leading-normal);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
+}
+
+.baize-root *:focus-visible {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+/*
+ * The mechanism hue, bound once per family and read by every component that takes
+ * one. A title colours itself with it; a chip and a tag mix their border and tint
+ * out of it.
+ */
+.baize-hue-engine-building {
+  --baize-hue: var(--baize-mechanism-engine-building);
+}
+.baize-hue-economic {
+  --baize-hue: var(--baize-mechanism-economic);
+}
+.baize-hue-cooperative {
+  --baize-hue: var(--baize-mechanism-cooperative);
+}
+.baize-hue-tile-placement {
+  --baize-hue: var(--baize-mechanism-tile-placement);
+}
+.baize-hue-worker-placement {
+  --baize-hue: var(--baize-mechanism-worker-placement);
+}
+.baize-hue-deckbuilder {
+  --baize-hue: var(--baize-mechanism-deckbuilder);
+}
+.baize-hue-area-control {
+  --baize-hue: var(--baize-mechanism-area-control);
+}
+.baize-hue-dexterity {
+  --baize-hue: var(--baize-mechanism-dexterity);
+}
+.baize-hue-other {
+  --baize-hue: var(--baize-mechanism-other);
+}
+
+/* The availability colour, bound once per state and read by the pill. */
+.baize-state-in-stock {
+  --baize-state: var(--baize-availability-in-stock);
+}
+.baize-state-preorder {
+  --baize-state: var(--baize-availability-preorder);
+}
+.baize-state-reprint-pending {
+  --baize-state: var(--baize-availability-reprint-pending);
+}
+.baize-state-out-of-print {
+  --baize-state: var(--baize-availability-out-of-print);
+}
+
+/* Titles. Tracking tightens as the size grows. */
+.baize-title {
+  margin: 0;
+  font-family: var(--baize-font-title);
+  font-weight: 700;
+  font-stretch: 92%;
+  line-height: var(--baize-leading-tight);
+  letter-spacing: var(--baize-tracking-snug);
+  color: var(--baize-hue, var(--baize-chalk));
+}
+
+.baize-title--size-sm {
+  font-size: var(--baize-text-md);
+}
+
+.baize-title--size-md {
+  font-size: var(--baize-text-lg);
+}
+
+.baize-title--size-lg {
+  font-size: var(--baize-text-xl);
+  letter-spacing: var(--baize-tracking-tight);
+}
+
+.baize-title--size-xl {
+  font-size: var(--baize-text-2xl);
+  font-stretch: 88%;
+  letter-spacing: var(--baize-tracking-tight);
+}
+
+/* Text. */
+.baize-text {
+  margin: 0;
+  font-family: var(--baize-font-text);
+}
+
+.baize-text--tone-chalk {
+  color: var(--baize-chalk);
+}
+
+.baize-text--tone-lichen {
+  color: var(--baize-lichen);
+}
+
+.baize-text--tone-moss {
+  color: var(--baize-moss);
+}
+
+.baize-text--size-xs {
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.baize-text--size-sm {
+  font-size: var(--baize-text-sm);
+}
+
+.baize-text--size-base {
+  font-size: var(--baize-text-base);
+}
+
+.baize-text--size-md {
+  font-size: var(--baize-text-md);
+}
+
+.baize-text--measured {
+  max-width: var(--baize-measure);
+}
+
+.baize-text strong {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+/*
+ * Figures. Tabular numerals are repeated here rather than inherited from
+ * `.baize-root`, because a figure rendered outside a Baize root -- in an MDX page
+ * or a docs playground -- still has to align.
+ */
+.baize-figure {
+  color: var(--baize-chalk);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.baize-figure--size-base {
+  font-size: var(--baize-text-base);
+}
+
+.baize-figure--size-md {
+  font-size: var(--baize-text-md);
+}
+
+.baize-figure--size-lg {
+  font-size: var(--baize-text-lg);
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+.baize-figure--size-xl {
+  font-size: var(--baize-text-xl);
+  letter-spacing: var(--baize-tracking-tight);
+}
+
+/* Card: the raised surface. */
+.baize-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-3);
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: var(--baize-felt);
+  box-shadow: var(--baize-elevation-card);
+}
+
+.baize-card__head,
+.baize-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
+}
+
+/* Pinned to the foot however tall the body grows, so a row of cards lines up. */
+.baize-card__foot {
+  margin-top: auto;
+}
+
+/* Panel: the recessed surface. Same radius, no elevation. */
+.baize-panel {
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: color-mix(in oklab, var(--baize-felt) 60%, var(--baize-ink));
+}
+
+.baize-panel__heading {
+  margin: 0 0 var(--baize-space-3);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-lichen);
+}
+
+/* A heading with something opposite it on the baseline. */
+.baize-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-3);
+  margin-bottom: var(--baize-space-5);
+}
+
+.baize-section-header__aside {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+/*
+ * Buttons. `primary` inverts ink and parchment: the design has no house colour, so
+ * there is no brand fill to reach for.
+ */
+.baize-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--baize-space-2) var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  font: inherit;
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    border-color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.baize-button--variant-standard {
+  background: color-mix(in oklab, var(--baize-felt) 80%, var(--baize-chalk) 4%);
+  color: var(--baize-chalk);
+  box-shadow: var(--baize-elevation-raised);
+}
+
+.baize-button--variant-standard:hover {
+  border-color: color-mix(in oklab, var(--baize-rule) 60%, var(--baize-chalk));
+}
+
+.baize-button--variant-primary {
+  border-color: var(--baize-chalk);
+  background: var(--baize-chalk);
+  color: var(--baize-ink);
+  box-shadow: var(--baize-elevation-raised);
+}
+
+.baize-button--variant-primary:hover {
+  background: color-mix(in oklab, var(--baize-chalk) 88%, var(--baize-lichen));
+}
+
+.baize-button--variant-quiet {
+  padding: var(--baize-space-1) var(--baize-space-2);
+  border-color: transparent;
+  background: none;
+  color: var(--baize-lichen);
+  font-weight: 400;
+}
+
+.baize-button--variant-quiet:hover {
+  border-color: var(--baize-rule);
+  color: var(--baize-chalk);
+}
+
+.baize-button[disabled] {
+  border-color: var(--baize-rule);
+  background: none;
+  color: var(--baize-moss);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Chips and tags: the 3px radius, tinted out of whatever hue they carry. */
+.baize-chip,
+.baize-mechanism-tag {
+  display: inline-block;
+  padding: 1px var(--baize-space-2);
+  border: 1px solid color-mix(in oklab, currentcolor 35%, transparent);
+  border-radius: var(--baize-radius-chip);
+  background: color-mix(in oklab, currentcolor 8%, transparent);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-hue, var(--baize-lichen));
+}
+
+.baize-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1) var(--baize-space-2);
+}
+
+/* The state pill: a dot, then the label. */
+.baize-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+  padding: 2px var(--baize-space-2);
+  border: 1px solid color-mix(in oklab, var(--baize-state) 30%, transparent);
+  border-radius: var(--baize-radius-chip);
+  background: color-mix(in oklab, var(--baize-state) 10%, transparent);
+  color: color-mix(in oklab, var(--baize-state) 75%, var(--baize-chalk));
+  font-size: var(--baize-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-loose);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Decoration: the label carries the whole meaning. */
+.baize-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--baize-state);
+}
+
+/*
+ * The stat line. Columns are sized to their content and spread, rather than split
+ * into equal thirds: a third of a narrow card is not wide enough for `40–70 min`
+ * and the range wraps.
+ */
+.baize-statline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: space-between;
+  gap: var(--baize-space-5);
+  margin: 0;
+  padding: var(--baize-space-3) 0;
+  border-top: 1px solid var(--baize-rule);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.baize-stat {
+  min-width: 0;
+  margin: 0;
+}
+
+.baize-stat__figure {
+  display: block;
+  font-size: var(--baize-text-md);
+}
+
+.baize-stat__label {
+  display: block;
+  margin-top: var(--baize-space-1);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-lichen);
+}
+
+.baize-statline--size-lg .baize-stat__figure {
+  font-size: var(--baize-text-xl);
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+@media (max-width: 34rem) {
+  .baize-statline {
+    gap: var(--baize-space-3);
+  }
+
+  .baize-statline--size-lg .baize-stat__figure {
+    font-size: var(--baize-text-md);
+    letter-spacing: var(--baize-tracking-normal);
+  }
+}
+
+/* The weight ramp: five pips, each filled one carrying its own stop. */
+.baize-weight {
+  display: flex;
+  gap: 2px;
+  margin-top: var(--baize-space-1);
+  min-width: 4rem;
+}
+
+.baize-weight__pip {
+  flex: 1;
+  height: 3px;
+  border-radius: 1px;
+  background: color-mix(in oklab, var(--baize-rule) 70%, transparent);
+}
+
+.baize-weight__pip--stop-1 {
+  background: var(--baize-weight-1);
+}
+.baize-weight__pip--stop-2 {
+  background: var(--baize-weight-2);
+}
+.baize-weight__pip--stop-3 {
+  background: var(--baize-weight-3);
+}
+.baize-weight__pip--stop-4 {
+  background: var(--baize-weight-4);
+}
+.baize-weight__pip--stop-5 {
+  background: var(--baize-weight-5);
+}
+
+/*
+ * The card grid: as many 17rem columns as fit. Two apps arrived at this width and
+ * this gap independently.
+ */
+.baize-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--baize-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.baize-card-grid__cell {
+  display: flex;
+  min-width: 0;
+}
+
+/* Stretches the card to the cell, so a row of cards ends on one line. */
+.baize-card-grid__cell > * {
+  flex: 1;
+}
+
+/*
+ * A wide cell only where two columns fit. Below that the grid is one column and
+ * spanning two would be spanning the whole row twice.
+ */
+@media (min-width: 52rem) {
+  .baize-card-grid__cell--wide {
+    grid-column: span 2;
+  }
+}
+
+/*
+ * The box-art placeholder.
+ *
+ * Three layered radial gradients, each with its own falloff, over the darkest
+ * stop. That reads as an out-of-focus photograph without a `filter: blur()`,
+ * which would cost a compositing layer on every tile in a grid.
+ *
+ * The stops default to the ground, so a tile with no palette is felt lit from the
+ * top left rather than a transparent hole.
+ */
+.baize-box-art {
+  --baize-art-from: color-mix(in oklab, var(--baize-lichen) 45%, transparent);
+  --baize-art-via: color-mix(in oklab, var(--baize-moss) 40%, transparent);
+  --baize-art-to: var(--baize-felt);
+
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  max-width: 100%;
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background:
+    radial-gradient(90% 70% at 22% 14%, var(--baize-art-from), transparent 62%),
+    radial-gradient(80% 80% at 82% 28%, var(--baize-art-via), transparent 58%),
+    radial-gradient(
+      120% 100% at 48% 110%,
+      color-mix(in oklab, var(--baize-art-via) 60%, var(--baize-ink)),
+      transparent 70%
+    ),
+    var(--baize-art-to);
+}
+
+.baize-box-art__label {
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-lg);
+  font-weight: 700;
+  font-stretch: 85%;
+  letter-spacing: var(--baize-tracking-tight);
+  text-align: center;
+  color: color-mix(in oklab, var(--baize-chalk) 80%, var(--baize-art-to));
+  text-shadow: 0 1px 12px var(--baize-ink);
+}
+
+.baize-palette-soot {
+  --baize-art-from: var(--baize-box-art-soot-from);
+  --baize-art-via: var(--baize-box-art-soot-via);
+  --baize-art-to: var(--baize-box-art-soot-to);
+}
+.baize-palette-sky {
+  --baize-art-from: var(--baize-box-art-sky-from);
+  --baize-art-via: var(--baize-box-art-sky-via);
+  --baize-art-to: var(--baize-box-art-sky-to);
+}
+.baize-palette-garnet {
+  --baize-art-from: var(--baize-box-art-garnet-from);
+  --baize-art-via: var(--baize-box-art-garnet-via);
+  --baize-art-to: var(--baize-box-art-garnet-to);
+}
+.baize-palette-cobalt {
+  --baize-art-from: var(--baize-box-art-cobalt-from);
+  --baize-art-via: var(--baize-box-art-cobalt-via);
+  --baize-art-to: var(--baize-box-art-cobalt-to);
+}
+.baize-palette-terracotta {
+  --baize-art-from: var(--baize-box-art-terracotta-from);
+  --baize-art-via: var(--baize-box-art-terracotta-via);
+  --baize-art-to: var(--baize-box-art-terracotta-to);
+}
+.baize-palette-olive {
+  --baize-art-from: var(--baize-box-art-olive-from);
+  --baize-art-via: var(--baize-box-art-olive-via);
+  --baize-art-to: var(--baize-box-art-olive-to);
+}
+.baize-palette-rust {
+  --baize-art-from: var(--baize-box-art-rust-from);
+  --baize-art-via: var(--baize-box-art-rust-via);
+  --baize-art-to: var(--baize-box-art-rust-to);
+}
+.baize-palette-verdant {
+  --baize-art-from: var(--baize-box-art-verdant-from);
+  --baize-art-via: var(--baize-box-art-verdant-via);
+  --baize-art-to: var(--baize-box-art-verdant-to);
+}
+.baize-palette-vermilion {
+  --baize-art-from: var(--baize-box-art-vermilion-from);
+  --baize-art-via: var(--baize-box-art-vermilion-via);
+  --baize-art-to: var(--baize-box-art-vermilion-to);
+}
+.baize-palette-oak {
+  --baize-art-from: var(--baize-box-art-oak-from);
+  --baize-art-via: var(--baize-box-art-oak-via);
+  --baize-art-to: var(--baize-box-art-oak-to);
+}
+.baize-palette-indigo {
+  --baize-art-from: var(--baize-box-art-indigo-from);
+  --baize-art-via: var(--baize-box-art-indigo-via);
+  --baize-art-to: var(--baize-box-art-indigo-to);
+}
+.baize-palette-loam {
+  --baize-art-from: var(--baize-box-art-loam-from);
+  --baize-art-via: var(--baize-box-art-loam-via);
+  --baize-art-to: var(--baize-box-art-loam-to);
+}
+
+/* Motion is interaction-only, so there is nothing here to preserve. */
+@media (prefers-reduced-motion: reduce) {
+  .baize-button {
+    transition: none;
+  }
+}

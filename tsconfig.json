@@ -50,6 +50,9 @@
     },
     {
       "path": "./apps/admin"
+    },
+    {
+      "path": "./libs/baize-ui"
     }
   ],
   "compilerOptions": {

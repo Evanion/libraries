@@ -1,0 +1,453 @@
+<!doctype html>
+<!--
+  Every primitive, every hue, every state and every gradient on one page.
+
+  A library nobody can see is hard to review, and these are colours: a test can
+  assert a contrast ratio and cannot tell anyone whether five hues are
+  distinguishable at a glance. The markup here is written by hand to match what
+  the components render, and it loads the built stylesheet, so what a reviewer
+  sees is the published CSS rather than a copy of it.
+
+  Run `npx nx build baize-ui` first -- ../dist/styles.css is the build's output.
+  Excluded from the packed files: this is a page for a reviewer, not part of the
+  package.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Baize UI — visual check</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Public+Sans:wght@300..800&display=swap"
+      rel="stylesheet"
+    />
+    <link href="../dist/styles.css" rel="stylesheet" />
+    <style>
+      /* The page's own furniture: not part of the design system. */
+      body {
+        padding: var(--baize-space-6) var(--baize-space-5);
+      }
+      main {
+        display: grid;
+        gap: var(--baize-space-7);
+        max-width: 68rem;
+        margin: 0 auto;
+      }
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+        gap: var(--baize-space-3);
+      }
+      .swatch {
+        display: grid;
+        gap: var(--baize-space-1);
+        padding: var(--baize-space-3);
+        border: 1px solid var(--baize-rule);
+        border-radius: var(--baize-radius-chip);
+        font-size: var(--baize-text-xs);
+      }
+      .swatch b {
+        display: block;
+        height: 2.5rem;
+        border-radius: 2px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--baize-space-3);
+      }
+      .stack {
+        display: grid;
+        gap: var(--baize-space-3);
+      }
+    </style>
+  </head>
+  <body class="baize-root">
+    <main>
+      <section>
+        <div class="baize-section-header">
+          <h1 class="baize-title baize-title--size-lg">Baize UI</h1>
+          <div class="baize-section-header__aside">
+            every primitive, against the built stylesheet
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="swatch">
+            <b style="background: var(--baize-ink)"></b>ink
+          </div>
+          <div class="swatch">
+            <b style="background: var(--baize-felt)"></b>felt
+          </div>
+          <div class="swatch">
+            <b style="background: var(--baize-rule)"></b>rule
+          </div>
+          <div class="swatch">
+            <b style="background: var(--baize-chalk)"></b>chalk
+          </div>
+          <div class="swatch">
+            <b style="background: var(--baize-lichen)"></b>lichen
+          </div>
+          <div class="swatch">
+            <b style="background: var(--baize-moss)"></b>moss
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Titles</h2>
+          <div class="baize-section-header__aside">
+            tracking tightens by size
+          </div>
+        </div>
+        <div class="stack">
+          <span class="baize-title baize-title--size-xl"
+            >Brass: Birmingham</span
+          >
+          <span class="baize-title baize-title--size-lg">Spirit Island</span>
+          <span class="baize-title baize-title--size-md">Wingspan</span>
+          <span class="baize-title baize-title--size-sm">Azul</span>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Mechanism hues</h2>
+          <div class="baize-section-header__aside">
+            on a title, and on the tag under it
+          </div>
+        </div>
+        <div class="stack">
+          <div class="row">
+            <span
+              class="baize-title baize-title--size-sm baize-hue-engine-building"
+              >engine building</span
+            >
+            <span class="baize-mechanism-tag baize-hue-engine-building"
+              >engine building</span
+            >
+          </div>
+          <div class="row">
+            <span class="baize-title baize-title--size-sm baize-hue-economic"
+              >economic</span
+            >
+            <span class="baize-mechanism-tag baize-hue-economic">economic</span>
+          </div>
+          <div class="row">
+            <span class="baize-title baize-title--size-sm baize-hue-cooperative"
+              >co-op</span
+            >
+            <span class="baize-mechanism-tag baize-hue-cooperative">co-op</span>
+          </div>
+          <div class="row">
+            <span
+              class="baize-title baize-title--size-sm baize-hue-tile-placement"
+              >tile placement</span
+            >
+            <span class="baize-mechanism-tag baize-hue-tile-placement"
+              >tile placement</span
+            >
+          </div>
+          <div class="row">
+            <span
+              class="baize-title baize-title--size-sm baize-hue-worker-placement"
+              >worker placement</span
+            >
+            <span class="baize-mechanism-tag baize-hue-worker-placement"
+              >worker placement</span
+            >
+          </div>
+          <div class="row">
+            <span class="baize-title baize-title--size-sm baize-hue-deckbuilder"
+              >deckbuilder</span
+            >
+            <span class="baize-mechanism-tag baize-hue-deckbuilder"
+              >deckbuilder</span
+            >
+          </div>
+          <div class="row">
+            <span
+              class="baize-title baize-title--size-sm baize-hue-area-control"
+              >area control</span
+            >
+            <span class="baize-mechanism-tag baize-hue-area-control"
+              >area control</span
+            >
+          </div>
+          <div class="row">
+            <span class="baize-title baize-title--size-sm baize-hue-dexterity"
+              >dexterity</span
+            >
+            <span class="baize-mechanism-tag baize-hue-dexterity"
+              >dexterity</span
+            >
+          </div>
+          <div class="row">
+            <span class="baize-title baize-title--size-sm baize-hue-other"
+              >unmapped</span
+            >
+            <span class="baize-mechanism-tag baize-hue-other">farming</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Availability</h2>
+          <div class="baize-section-header__aside">four states, pill only</div>
+        </div>
+        <div class="row">
+          <span class="baize-pill baize-state-in-stock">in stock</span>
+          <span class="baize-pill baize-state-preorder">preorder</span>
+          <span class="baize-pill baize-state-reprint-pending"
+            >reprint pending</span
+          >
+          <span class="baize-pill baize-state-out-of-print">out of print</span>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Weight</h2>
+          <div class="baize-section-header__aside">
+            ordinal: one stop per filled pip
+          </div>
+        </div>
+        <div class="stack">
+          <span class="baize-weight" role="img" aria-label="weight 1 of 5"
+            ><span class="baize-weight__pip baize-weight__pip--stop-1"></span
+            ><span class="baize-weight__pip"></span
+            ><span class="baize-weight__pip"></span
+            ><span class="baize-weight__pip"></span
+            ><span class="baize-weight__pip"></span
+          ></span>
+          <span class="baize-weight" role="img" aria-label="weight 3 of 5"
+            ><span class="baize-weight__pip baize-weight__pip--stop-1"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-2"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-3"></span
+            ><span class="baize-weight__pip"></span
+            ><span class="baize-weight__pip"></span
+          ></span>
+          <span class="baize-weight" role="img" aria-label="weight 5 of 5"
+            ><span class="baize-weight__pip baize-weight__pip--stop-1"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-2"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-3"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-4"></span
+            ><span class="baize-weight__pip baize-weight__pip--stop-5"></span
+          ></span>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Controls</h2>
+          <div class="baize-section-header__aside">
+            no house colour: primary inverts
+          </div>
+        </div>
+        <div class="row">
+          <button class="baize-button baize-button--variant-primary">
+            Add to cart
+          </button>
+          <button class="baize-button baize-button--variant-standard">
+            See the game
+          </button>
+          <button class="baize-button baize-button--variant-quiet">
+            Back to the shelf
+          </button>
+          <button class="baize-button baize-button--variant-standard" disabled>
+            Out of print
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">The card, in a grid</h2>
+          <div class="baize-section-header__aside">first cell spans two</div>
+        </div>
+        <ul class="baize-card-grid">
+          <li class="baize-card-grid__cell baize-card-grid__cell--wide">
+            <div class="baize-card">
+              <div class="baize-card__head">
+                <span
+                  class="baize-title baize-title--size-sm baize-hue-economic"
+                  >Brass: Birmingham</span
+                >
+                <span class="baize-pill baize-state-reprint-pending"
+                  >reprint pending</span
+                >
+              </div>
+              <div class="baize-tag-row">
+                <span class="baize-mechanism-tag baize-hue-economic"
+                  >economic</span
+                >
+                <span class="baize-chip">network building</span>
+              </div>
+              <div class="baize-box-art baize-palette-soot">
+                <span class="baize-box-art__label">Brass: Birmingham</span>
+              </div>
+              <div class="baize-statline baize-statline--size-base">
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure">2–4</span>
+                  <span class="baize-stat__label">players</span>
+                </div>
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure"
+                    >60–120 min</span
+                  >
+                  <span class="baize-stat__label">playtime</span>
+                </div>
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure">3.9 / 5</span>
+                  <span class="baize-stat__label">weight</span>
+                  <span
+                    class="baize-weight"
+                    role="img"
+                    aria-label="weight 3.9 of 5"
+                    ><span
+                      class="baize-weight__pip baize-weight__pip--stop-1"
+                    ></span
+                    ><span
+                      class="baize-weight__pip baize-weight__pip--stop-2"
+                    ></span
+                    ><span
+                      class="baize-weight__pip baize-weight__pip--stop-3"
+                    ></span
+                    ><span
+                      class="baize-weight__pip baize-weight__pip--stop-4"
+                    ></span
+                    ><span class="baize-weight__pip"></span
+                  ></span>
+                </div>
+              </div>
+              <div class="baize-card__foot">
+                <span class="baize-figure baize-figure--size-md">749 kr</span>
+                <span
+                  class="baize-text baize-text--tone-lichen baize-text--size-sm"
+                  >no expansions</span
+                >
+              </div>
+            </div>
+          </li>
+          <li class="baize-card-grid__cell">
+            <div class="baize-card">
+              <div class="baize-card__head">
+                <span
+                  class="baize-title baize-title--size-sm baize-hue-tile-placement"
+                  >Azul</span
+                >
+                <span class="baize-pill baize-state-in-stock">in stock</span>
+              </div>
+              <div class="baize-box-art baize-palette-cobalt">
+                <span class="baize-box-art__label">Azul</span>
+              </div>
+              <div class="baize-statline baize-statline--size-base">
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure">2–4</span>
+                  <span class="baize-stat__label">players</span>
+                </div>
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure">30–45 min</span>
+                  <span class="baize-stat__label">playtime</span>
+                </div>
+                <div class="baize-stat">
+                  <span class="baize-stat__figure baize-figure">1.8 / 5</span>
+                  <span class="baize-stat__label">weight</span>
+                </div>
+              </div>
+              <div class="baize-card__foot">
+                <span class="baize-figure baize-figure--size-md">349 kr</span>
+              </div>
+            </div>
+          </li>
+          <li class="baize-card-grid__cell">
+            <section class="baize-panel">
+              <h3 class="baize-panel__heading">Opening hours</h3>
+              <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
+                The recessed surface, for a sidebar block or a dashboard tile.
+              </p>
+            </section>
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Box-art palettes</h2>
+          <div class="baize-section-header__aside">
+            twelve, plus the neutral fallback
+          </div>
+        </div>
+        <div class="swatches">
+          <div class="baize-box-art baize-palette-soot">
+            <span class="baize-box-art__label">soot</span>
+          </div>
+          <div class="baize-box-art baize-palette-sky">
+            <span class="baize-box-art__label">sky</span>
+          </div>
+          <div class="baize-box-art baize-palette-garnet">
+            <span class="baize-box-art__label">garnet</span>
+          </div>
+          <div class="baize-box-art baize-palette-cobalt">
+            <span class="baize-box-art__label">cobalt</span>
+          </div>
+          <div class="baize-box-art baize-palette-terracotta">
+            <span class="baize-box-art__label">terracotta</span>
+          </div>
+          <div class="baize-box-art baize-palette-olive">
+            <span class="baize-box-art__label">olive</span>
+          </div>
+          <div class="baize-box-art baize-palette-rust">
+            <span class="baize-box-art__label">rust</span>
+          </div>
+          <div class="baize-box-art baize-palette-verdant">
+            <span class="baize-box-art__label">verdant</span>
+          </div>
+          <div class="baize-box-art baize-palette-vermilion">
+            <span class="baize-box-art__label">vermilion</span>
+          </div>
+          <div class="baize-box-art baize-palette-oak">
+            <span class="baize-box-art__label">oak</span>
+          </div>
+          <div class="baize-box-art baize-palette-indigo">
+            <span class="baize-box-art__label">indigo</span>
+          </div>
+          <div class="baize-box-art baize-palette-loam">
+            <span class="baize-box-art__label">loam</span>
+          </div>
+          <div class="baize-box-art">
+            <span class="baize-box-art__label">no palette</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="baize-section-header">
+          <h2 class="baize-title baize-title--size-md">Text</h2>
+          <div class="baize-section-header__aside">
+            three tones, one measure
+          </div>
+        </div>
+        <div class="stack">
+          <p
+            class="baize-text baize-text--tone-chalk baize-text--size-base baize-text--measured"
+          >
+            Primary text on the measure. Warm parchment rather than white,
+            because the reference is a rulebook page and not a screen.
+          </p>
+          <p class="baize-text baize-text--tone-lichen baize-text--size-base">
+            Secondary text, for everything that supports the thing being read.
+          </p>
+          <p class="baize-text baize-text--tone-moss baize-text--size-xs">
+            Tertiary text, tracked loose because it is small.
+          </p>
+          <p>
+            <span class="baize-figure baize-figure--size-xl">1 499 kr</span>
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
