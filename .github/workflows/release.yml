@@ -107,13 +107,20 @@ jobs:
         # `nx release` publishes on its own unless told not to, so this step
         # passes --skip-publish -- without it, the Publish step below would
         # publish the same version a second time.
+        #
+        # --skip-publish is also what makes the step non-interactive, so --yes
+        # is neither needed nor allowed. Both answer the same publish prompt,
+        # in opposite directions, and nx rejects the pair:
+        #
+        #   shouldPromptPublishing =
+        #     !args.yes && !args.skipPublish && !args.dryRun && hasNewVersion
         run: |
           args=(--skip-publish)
           # An empty PROJECTS omits the flag. `--projects ""` is a filter that
           # matches nothing, which nx reports as an internal bug rather than as
           # an empty release.
           if [ -n "$PROJECTS" ]; then args+=(--projects "$PROJECTS"); fi
-          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--yes); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
           echo "Running: nx release ${args[*]}"
           npx nx release "${args[@]}"
 
