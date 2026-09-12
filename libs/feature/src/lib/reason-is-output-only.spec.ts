@@ -5,9 +5,10 @@ import { buildGraph } from './graph.js';
 import type { Decision, EvaluationContext, FeatureDefinition } from './types.js';
 
 /**
- * The spec's invariant: `reason` is output only. The cascade reads `enabled`
- * from a parent's result and nothing else, so deleting the reason field must
- * change no decision anywhere.
+ * The invariant from `docs/specs/2026-09-11-feature-toggles.md`, "Result":
+ * `reason` is output only. The cascade reads `enabled` from a parent's result
+ * and nothing else, so deleting every explanation field must change no decision
+ * anywhere.
  *
  * Asserting that the engine "does not branch on reason" by reading the source is
  * not a test. This runs the real per-feature decision function over the real

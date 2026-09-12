@@ -12,7 +12,7 @@ const Leaf = (props: { label: string }) => {
   return <span data-testid={`leaf-${props.label}`}>{props.label}</span>;
 };
 
-describe('item meta (#71)', () => {
+describe('item meta', () => {
   beforeEach(() => {
     cleanup();
     spyProps.mockClear();

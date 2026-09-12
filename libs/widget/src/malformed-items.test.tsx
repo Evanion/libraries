@@ -118,10 +118,11 @@ describe('malformed items are skipped instead of crashing', () => {
   });
 
   it('renders duplicate sibling ids rather than validating, per the safety-net split', () => {
-    // validateItems is the loud gate; the renderer stays defensive but never
-    // calls it. Two siblings sharing an id is a validateItems problem and must
-    // still render. React's own duplicate-key warning is dev-only and stripped
-    // in production, which is exactly why validateItems checks for it.
+    // Two siblings sharing an id is a `validateItems` problem and still
+    // renders: validation is the explicit gate, and the renderer only skips
+    // what it cannot render at all. React's own duplicate-key warning is
+    // dev-only and dropped in a production build, so `validateItems` is the
+    // only place the duplicate is reported where it matters.
     const errorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);

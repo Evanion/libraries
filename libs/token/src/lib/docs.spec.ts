@@ -12,65 +12,66 @@ import {
 } from './token.js';
 
 /**
- * Every worked example in README.md and in the doc comments, as an assertion.
+ * The documented claims that an executed example cannot carry.
  *
- * A check character cannot be read off a page and cannot be guessed — it is
- * the output of a fold over a specific alphabet in a specific order. A
- * documented code with a made-up check character is a lie that ships, and this
- * file is what stops it.
+ * Every `EXPR; // -> VALUE` line in README.md and in a doc comment is already
+ * an assertion: `docExamples()` in vite.config.ts rewrites it and
+ * vite-plugin-doctest runs it, so a documented value that is wrong fails the
+ * suite where it is written. What is left over lands here, and it is of three
+ * kinds.
  *
- * `generate` is random, so the documented outputs are pinned through
- * `validate`, which is the half that is deterministic.
+ * - Claims about `generate`, which draws from `crypto.randomBytes`. The
+ *   documented output cannot be reproduced, so what is checked instead is that
+ *   it is internally consistent: the printed `value` really is the printed
+ *   `body` plus a check character that validates, chunked by the documented
+ *   `chunkSize`. A made-up check character fails here, which is the whole
+ *   reason this file exists -- a check character is the output of a fold over a
+ *   specific alphabet in a specific order, so it cannot be read off a page.
+ * - Claims a reader has to take arithmetic on trust: the entropy figures, the
+ *   collision volumes, and the exact set of swaps Luhn misses.
+ * - Claims about prose rather than about a value: which characters the alphabet
+ *   leaves out, and which constraint rejects a dictionary.
  */
-describe('the documented examples', () => {
+describe('the documented claims', () => {
   const token = createToken();
 
-  describe('README: quick start', () => {
-    it("token.validate('a4kp-9mxa')", () => {
-      expect(token.validate('a4kp-9mxa')).toEqual({
-        valid: true,
-        body: 'a4kp9mx',
-      });
-    });
+  /** What `createToken` threw for `dictionary`, so its fields can be read. */
+  const thrownBy = (dictionary: string): unknown => {
+    try {
+      createToken({ dictionary });
+    } catch (error) {
+      return error;
+    }
+    return expect.unreachable('the documented call must throw');
+  };
 
-    it('the generate() result shown alongside it', () => {
-      // value 'a4kp-9mxa', body 'a4kp9mx', check 'a'.
+  describe('README: the generate() outputs', () => {
+    it("the quick start's 'a4kp-9mxa' is body 'a4kp9mx' plus check 'a'", () => {
       expect(token.validate('a4kp9mx' + 'a').valid).toBe(true);
       expect(`${'a4kp9mx'.slice(0, 4)}-${'a4kp9mx'.slice(4)}a`).toBe(
         'a4kp-9mxa',
       );
     });
-  });
 
-  describe('README: generate a code', () => {
-    it("the prefixed form is 'ORD-a4kp-9mxa'", () => {
+    it("the prefixed form is the same code behind 'ORD-'", () => {
       expect(['ORD', 'a4kp-9mxa'].join(DEFAULT_SEPARATOR)).toBe(
         'ORD-a4kp-9mxa',
       );
-      expect(token.validate('a4kp-9mxa').valid).toBe(true);
+    });
+
+    it("the short configuration's 'q7t 3n7' is body 'q7t3n' plus check '7'", () => {
+      const short = createToken({ length: 6, chunkSize: 3, separator: ' ' });
+
+      expect(short.validate('q7t 3n7')).toEqual({ valid: true, body: 'q7t3n' });
+      expect(`${'q7t3n'.slice(0, 3)} ${'q7t3n'.slice(3)}7`).toBe('q7t 3n7');
+    });
+
+    it('an unchunked configuration produces no separator', () => {
+      expect(createToken({ chunkSize: 8 }).generate().value).not.toContain('-');
     });
   });
 
-  describe('README: validate a code', () => {
-    it('the four documented outcomes', () => {
-      expect(token.validate('a4kp-9mxa')).toEqual({
-        valid: true,
-        body: 'a4kp9mx',
-      });
-      expect(token.validate('a4kp-9mx8')).toEqual({
-        valid: false,
-        reason: 'check-failed',
-      });
-      expect(token.validate('a4kp-9mxo')).toEqual({
-        valid: false,
-        reason: 'outside-alphabet',
-      });
-      expect(token.validate('a4kp-9mx')).toEqual({
-        valid: false,
-        reason: 'wrong-length',
-      });
-    });
-
+  describe('README: valid is a filter, not a credential', () => {
     it('one code in n passes by construction', () => {
       const passing = [...DEFAULT_DICTIONARY].filter(
         (candidate) => token.validate(`a4kp9mx${candidate}`).valid,
@@ -82,7 +83,7 @@ describe('the documented examples', () => {
   });
 
   describe('README: what the check character catches', () => {
-    it('catches every single-character substitution', () => {
+    it('every single-character substitution, at every position', () => {
       const code = 'a4kp9mxa';
 
       for (let at = 0; at < code.length; at++) {
@@ -97,7 +98,7 @@ describe('the documented examples', () => {
       }
     });
 
-    it('misses a swap of `0` and `z`, and nothing else adjacent', () => {
+    it('every adjacent swap except `0` and `z`', () => {
       const missed = new Set<string>();
       const digits = [...DEFAULT_DICTIONARY];
 
@@ -119,27 +120,109 @@ describe('the documented examples', () => {
       expect([...missed]).toEqual(['0z']);
     });
 
-    it('the first and last dictionary entries are `0` and `z`', () => {
+    it('`0` and `z` are the first and last dictionary entries', () => {
       expect(DEFAULT_DICTIONARY.at(0)).toBe('0');
       expect(DEFAULT_DICTIONARY.at(-1)).toBe('z');
     });
   });
 
-  describe('README: separators are presentation', () => {
-    it('a code validates however it is grouped, and in capitals', () => {
-      expect(token.validate('a4kp9mxa').valid).toBe(true);
-      expect(token.validate('a4-kp-9m-xa').valid).toBe(true);
-      expect(token.validate('A4KP-9MXA')).toEqual({
-        valid: true,
-        body: 'a4kp9mx',
+  describe('README: entropy', () => {
+    it('35 bits is 34,359,738,368 values', () => {
+      expect((DEFAULT_LENGTH - 1) * Math.log2(32)).toBe(35);
+      expect(2 ** 35).toBe(34_359_738_368);
+    });
+
+    it('a 50% collision chance arrives at about 218,000 codes', () => {
+      const half = Math.sqrt(2 * Math.LN2 * 2 ** 35);
+
+      expect(Math.round(half / 1_000) * 1_000).toBe(218_000);
+    });
+
+    it('a collision is effectively certain at 1,000,000 codes', () => {
+      const certainty = 1 - Math.exp(-(1_000_000 ** 2) / (2 * 2 ** 35));
+
+      expect(certainty).toBeGreaterThan(0.999_999);
+    });
+
+    it('five more characters buys 25 more bits', () => {
+      expect(createToken({ length: 13, chunkSize: 13 }).entropyBits).toBe(60);
+    });
+
+    it('entropyBits is (length - 1) * log2(n) at every length', () => {
+      for (const length of [2, 8, 12, 16]) {
+        expect(createToken({ length, chunkSize: length }).entropyBits).toBe(
+          (length - 1) * 5,
+        );
+      }
+    });
+  });
+
+  describe('README: the alphabet', () => {
+    it('leaves out exactly `i`, `l`, `o` and `w`', () => {
+      const removed = [...'0123456789abcdefghijklmnopqrstuvwxyz'].filter(
+        (char) => !DEFAULT_DICTIONARY.includes(char),
+      );
+
+      expect(removed).toEqual(['i', 'l', 'o', 'w']);
+      expect(CONFUSABLE_CHARACTERS).toBe('ilow');
+      expect([...DEFAULT_DICTIONARY]).toHaveLength(32);
+    });
+
+    it('the documented defaults are 8, 4 and `-`', () => {
+      expect([DEFAULT_LENGTH, DEFAULT_CHUNK_SIZE, DEFAULT_SEPARATOR]).toEqual([
+        8,
+        4,
+        '-',
+      ]);
+      expect([token.length, token.chunkSize, token.separator]).toEqual([
+        8,
+        4,
+        '-',
+      ]);
+    });
+
+    it('rejects the 36-character alphabet as confusable', () => {
+      expect(
+        thrownBy('0123456789abcdefghijklmnopqrstuvwxyz'),
+      ).toBeInstanceOf(InvalidAlphabetError);
+      expect(thrownBy('0123456789abcdefghijklmnopqrstuvwxyz')).toMatchObject({
+        reason: 'confusable',
+        offending: ['i', 'l', 'o', 'w'],
       });
     });
 
-    it("the short configuration produces 'q7t 3n7'", () => {
-      const short = createToken({ length: 6, chunkSize: 3, separator: ' ' });
+    it('rejects a 30-character alphabet as non-uniform', () => {
+      expect(thrownBy('0123456789abcdefghjkmnpqrstuvx')).toBeInstanceOf(
+        InvalidAlphabetError,
+      );
+      expect(thrownBy('0123456789abcdefghjkmnpqrstuvx')).toMatchObject({
+        reason: 'non-uniform',
+      });
+      expect([...'0123456789abcdefghjkmnpqrstuvx']).toHaveLength(30);
+      expect(256 % 30).not.toBe(0);
+    });
 
-      expect(short.validate('q7t 3n7')).toEqual({ valid: true, body: 'q7t3n' });
-      expect(`${'q7t3n'.slice(0, 3)} ${'q7t3n'.slice(3)}7`).toBe('q7t 3n7');
+    it("over-represents four of Luhn's 36 characters by 14.3%", () => {
+      const luhn = createLuhn();
+
+      expect(luhn.uniformOverBytes).toBe(false);
+      expect(256 % luhn.n).toBe(4);
+      // Four indices are hit by 8 of the 256 bytes, the other 32 by 7.
+      expect(Math.round((8 / 7 - 1) * 1000) / 10).toBe(14.3);
+    });
+
+    it('samples the default alphabet uniformly', () => {
+      expect(256 % token.n).toBe(0);
+      expect(
+        createLuhn({ dictionary: DEFAULT_DICTIONARY }).uniformOverBytes,
+      ).toBe(true);
+    });
+  });
+
+  describe('README: chunking', () => {
+    it('rejects a chunkSize that does not divide length', () => {
+      expect(() => createToken({ length: 6 })).toThrow(InvalidShapeError);
+      expect(() => createToken({ length: 6, chunkSize: 3 })).not.toThrow();
     });
   });
 
@@ -160,136 +243,6 @@ describe('the documented examples', () => {
     it('`ORD` contains a character the alphabet excludes', () => {
       expect(DEFAULT_DICTIONARY).not.toContain('o');
       expect(CONFUSABLE_CHARACTERS).toContain('o');
-    });
-  });
-
-  describe('README: entropy', () => {
-    it('35 bits at the defaults', () => {
-      expect(token.entropyBits).toBe(35);
-      expect((DEFAULT_LENGTH - 1) * Math.log2(32)).toBe(35);
-      expect(2 ** 35).toBe(34_359_738_368);
-    });
-
-    it('a 50% collision chance at about 218,000 codes', () => {
-      const half = Math.sqrt(2 * Math.LN2 * 2 ** 35);
-
-      expect(Math.round(half / 1_000) * 1_000).toBe(218_000);
-    });
-
-    it('a collision is effectively certain at 1,000,000 codes', () => {
-      const certainty = 1 - Math.exp(-(1_000_000 ** 2) / (2 * 2 ** 35));
-
-      expect(certainty).toBeGreaterThan(0.999_999);
-    });
-
-    it('five more characters buys 25 more bits', () => {
-      expect(createToken({ length: 13, chunkSize: 13 }).entropyBits).toBe(60);
-    });
-  });
-
-  describe('README: the alphabet', () => {
-    it('the default', () => {
-      expect(token.dictionary).toBe('0123456789abcdefghjkmnpqrstuvxyz');
-      expect(token.n).toBe(32);
-      expect(DEFAULT_DICTIONARY).toBe('0123456789abcdefghjkmnpqrstuvxyz');
-      expect(CONFUSABLE_CHARACTERS).toBe('ilow');
-    });
-
-    it('the documented defaults', () => {
-      expect([DEFAULT_LENGTH, DEFAULT_CHUNK_SIZE, DEFAULT_SEPARATOR]).toEqual([
-        8,
-        4,
-        '-',
-      ]);
-      expect(token.length).toBe(8);
-      expect(token.chunkSize).toBe(4);
-      expect(token.separator).toBe('-');
-    });
-
-    it('a confusable dictionary is rejected at construction', () => {
-      try {
-        createToken({ dictionary: '0123456789abcdefghijklmnopqrstuvwxyz' });
-        expect.unreachable('the documented call must throw');
-      } catch (error) {
-        expect(error).toBeInstanceOf(InvalidAlphabetError);
-        expect(error).toMatchObject({
-          reason: 'confusable',
-          offending: ['i', 'l', 'o', 'w'],
-        });
-      }
-    });
-
-    it('a 30-character dictionary is rejected as non-uniform', () => {
-      try {
-        createToken({ dictionary: '0123456789abcdefghjkmnpqrstuvx' });
-        expect.unreachable('the documented call must throw');
-      } catch (error) {
-        expect(error).toBeInstanceOf(InvalidAlphabetError);
-        expect(error).toMatchObject({ reason: 'non-uniform' });
-      }
-      expect([...'0123456789abcdefghjkmnpqrstuvx']).toHaveLength(30);
-      expect(256 % 30).not.toBe(0);
-    });
-
-    it("Luhn's 36-character default over-represents four characters by 14.3%", () => {
-      const luhn = createLuhn();
-
-      expect(luhn.uniformOverBytes).toBe(false);
-      expect(256 % luhn.n).toBe(4);
-      // Four indices are hit by 8 of the 256 bytes, the other 32 by 7.
-      expect(Math.round((8 / 7 - 1) * 1000) / 10).toBe(14.3);
-    });
-
-    it('the default alphabet is uniform', () => {
-      expect(256 % token.n).toBe(0);
-      expect(
-        createLuhn({ dictionary: DEFAULT_DICTIONARY }).uniformOverBytes,
-      ).toBe(true);
-    });
-  });
-
-  describe('README: chunking', () => {
-    it('chunkSize must divide length', () => {
-      expect(() => createToken({ length: 6 })).toThrow(InvalidShapeError);
-      expect(() => createToken({ length: 6, chunkSize: 3 })).not.toThrow();
-    });
-
-    it('chunkSize equal to length produces an unchunked code', () => {
-      const unchunked = createToken({ chunkSize: 8 });
-
-      expect(unchunked.generate().value).not.toContain('-');
-    });
-  });
-
-  describe('doc comments', () => {
-    it('createToken', () => {
-      const instance = createToken();
-
-      expect(instance.validate('a4kp-9mxa')).toEqual({
-        valid: true,
-        body: 'a4kp9mx',
-      });
-      expect(instance.validate('a4kp-9mx8')).toEqual({
-        valid: false,
-        reason: 'check-failed',
-      });
-    });
-
-    it('DEFAULT_DICTIONARY is the lowercase alphanumerics less `i`, `l`, `o`, `w`', () => {
-      const removed = [...'0123456789abcdefghijklmnopqrstuvwxyz'].filter(
-        (char) => !DEFAULT_DICTIONARY.includes(char),
-      );
-
-      expect(removed).toEqual(['i', 'l', 'o', 'w']);
-      expect([...DEFAULT_DICTIONARY]).toHaveLength(32);
-    });
-
-    it('Token.entropyBits is (length - 1) * log2(n)', () => {
-      for (const length of [2, 8, 12, 16]) {
-        expect(createToken({ length, chunkSize: length }).entropyBits).toBe(
-          (length - 1) * 5,
-        );
-      }
     });
   });
 });

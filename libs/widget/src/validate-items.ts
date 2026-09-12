@@ -30,6 +30,12 @@ function knows(known: KnownWidgetTypes, type: string): boolean {
  * is an explicit step run at ingestion or build time. Required props are
  * already checked at compile time by `WidgetItem<C>`; this exists for data that
  * bypasses the type checker.
+ *
+ * @example
+ * ```ts
+ * validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
+ * // [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
+ * ```
  */
 export function validateItems(
   items: unknown,

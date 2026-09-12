@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { bucketOf, inRollout, murmur3 } from './bucketing.js';
 
 /**
- * The three properties the spec requires of bucketing, each written so it fails
- * on the naive implementation it warns about
- * (`hashFnv32a(value + seed) % 1000`, GrowthBook pre-v2).
+ * The three properties `docs/specs/2026-09-11-feature-toggles.md`, "Rollout
+ * bucketing", requires: stable, decorrelated across features, and monotonic in
+ * the percentage.
+ *
+ * Each case is written so that it fails on the implementation that section
+ * names as the one to avoid -- GrowthBook's pre-v2
+ * `hashFnv32a(value + seed) % 1000` -- rather than merely passing on this one.
  */
 
 const members = (keys: readonly string[], percent: number, seed: string) =>
@@ -29,19 +33,20 @@ describe('bucketOf', () => {
   });
 
   it('is stable across processes', () => {
-    // Pinned literals, not a recomputation: a hash that changed between
-    // releases would still agree with itself inside one process. This is the
-    // only assertion that catches a changed hash, which would silently
-    // rebucket every user of every deployed flag.
+    // Pinned literals rather than a recomputation. A bucket is only useful if
+    // it agrees across processes and versions, and a changed hash still agrees
+    // with itself inside one process, so nothing but a pinned value catches it
+    // -- and a changed hash rebuckets every user of every deployed flag.
     expect(bucketOf('user-1', 'checkout-v2').toFixed(9)).toBe('0.550397675');
     expect(bucketOf('user-1', 'payments-v3').toFixed(9)).toBe('0.649353779');
     expect(bucketOf('', '').toFixed(9)).toBe('0.016881907');
   });
 
   it('hashes with a real MurmurHash3, x86 32-bit', () => {
-    // The canonical test vectors. Pinning only the bucket values above would
-    // also be satisfied by a private hash of my own invention, which is not
-    // something anyone else can reproduce or audit.
+    // MurmurHash3's canonical test vectors, from the reference
+    // implementation's own smhasher suite. The pinned buckets above are also
+    // satisfied by any private hash; these say which hash it is, so another
+    // implementation can reproduce a bucket without running this code.
     expect(murmur3('')).toBe(0);
     expect(murmur3('a').toString(16)).toBe('3c2569b2');
     expect(murmur3('abc').toString(16)).toBe('b3dd93fa');

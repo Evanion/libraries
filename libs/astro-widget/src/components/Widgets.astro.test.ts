@@ -4,6 +4,13 @@ import Widgets from './Widgets.astro';
 import Probe from './__fixtures__/Probe.astro';
 import Wrapper from './__fixtures__/Wrapper.astro';
 
+/**
+ * Renders `Widgets.astro` to a string through Astro's container API, which is
+ * what makes a component testable outside a build.
+ *
+ * These cases run in the `@evanion/astro-widget:astro` project, for the reason
+ * vitest.astro.config.ts gives.
+ */
 async function renderWidgets(props: Record<string, unknown>) {
   const container = await AstroContainer.create();
   return container.renderToString(Widgets, { props });
