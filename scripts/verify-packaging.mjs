@@ -33,6 +33,7 @@ const LIBS = [
   ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
+  ['libs/feature', '@evanion/feature'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -96,6 +97,10 @@ import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widg
 // @evanion/luhn exports a ValidationError of its own, unrelated to @evanion/urn's.
 // Aliased here so the collision is explicit rather than a compile error.
 import { Luhn, InvalidDictionaryError, ValidationError as LuhnValidationError } from '@evanion/luhn';
+import { createFeatures, FeatureCycleError } from '@evanion/feature';
+import type { Decision, FeatureDefinition } from '@evanion/feature';
+// Second entry point, and the only one that may touch React.
+import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -112,9 +117,17 @@ const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
 const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
 const checksum: string = Luhn.generate('foo').checksum;
 const luhnErr: LuhnValidationError = new InvalidDictionaryError('abc');
+const toggleConfig: FeatureDefinition<'payments-v3' | 'checkout-v2'>[] = [
+  { key: 'payments-v3', enabled: true, rules: [{ rollout: { percent: 25 } }] },
+  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
+];
+const toggles = createFeatures(toggleConfig);
+const toggleDecision: Decision<'payments-v3' | 'checkout-v2'> =
+  toggles.resolve({ targetingKey: 'acct-1' })['checkout-v2'];
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
-      registry, sections, problems, checksum, luhnErr];
+      registry, sections, problems, checksum, luhnErr,
+      toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures];
 `,
   );
 
@@ -152,10 +165,13 @@ import { ComposeProvider, provider } from '@evanion/compose';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 import { Luhn, InvalidDictionaryError } from '@evanion/luhn';
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeature } from '@evanion/feature/react';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
   defineBlocks, validateBlocks, Luhn, InvalidDictionaryError,
+  createFeatures, FeatureProvider, useFeature,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
 `,
@@ -275,6 +291,88 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
   }
   console.log('  ✓ react-widget imports no client-only React API');
+
+  // @evanion/feature ships two entries for a reason that no in-repo check can
+  // see: `'use client'` is a per-module directive, so the client layer needs its
+  // own module in the published output. Both halves of that break silently. A
+  // directive that migrated onto the core entry makes the whole package
+  // client-only, and a React import that leaked into the core makes it
+  // unimportable from the Nest API and from the build-time pass -- and in both
+  // cases the build succeeds and every test passes.
+  //
+  // The core is emitted file-per-file, so checking the entry alone is not
+  // enough: `dist/index.js` only re-exports, and a React import three files deep
+  // would pass. Every core module is checked.
+  const featureDist = join(dir, 'node_modules', '@evanion', 'feature', 'dist');
+  const coreModules = readdirSync(featureDist, {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith('.js') &&
+        !join(entry.parentPath, entry.name).includes(join(featureDist, 'react')),
+    )
+    .map((entry) => join(entry.parentPath, entry.name));
+
+  if (coreModules.length === 0) {
+    throw new Error('@evanion/feature ships no core modules at all');
+  }
+
+  const reactImporters = coreModules.filter((file) =>
+    /(?:from|import)\s*["']react(?:\/[^"']*)?["']/.test(
+      readFileSync(file, 'utf8'),
+    ),
+  );
+  if (reactImporters.length) {
+    throw new Error(
+      '@evanion/feature core entry imports React: ' +
+        reactImporters
+          .map((file) => file.slice(featureDist.length + 1))
+          .join(', ') +
+        ". The core must be usable from the API and at build time, so nothing under it may import react.",
+    );
+  }
+  console.log('  ✓ feature core imports nothing from react');
+
+  const coreFirstLine = readFileSync(join(featureDist, 'index.js'), 'utf8')
+    .split('\n')[0]
+    .trim();
+  if (/^["']use client["'];?$/.test(coreFirstLine)) {
+    throw new Error(
+      "@evanion/feature dist/index.js must NOT carry a 'use client' directive",
+    );
+  }
+
+  const clientFirstLine = readFileSync(
+    join(featureDist, 'react', 'index.js'),
+    'utf8',
+  )
+    .split('\n')[0]
+    .trim();
+  if (!/^["']use client["'];?$/.test(clientFirstLine)) {
+    throw new Error(
+      "@evanion/feature dist/react/index.js must carry a 'use client' " +
+        'directive as its first line; a bundler that collapsed the two entries ' +
+        'into one module would drop it.',
+    );
+  }
+  console.log("  ✓ feature ships 'use client' on the react entry only");
+
+  const featurePkg = JSON.parse(
+    readFileSync(
+      join(dir, 'node_modules', '@evanion', 'feature', 'package.json'),
+      'utf8',
+    ),
+  );
+  const featureEntries = Object.keys(featurePkg.exports);
+  for (const entry of ['.', './react']) {
+    if (!featureEntries.includes(entry)) {
+      throw new Error(`@evanion/feature stopped exporting "${entry}"`);
+    }
+  }
+  console.log('  ✓ feature exports both entries');
 
   console.log('\nPackaging verified.');
 } catch (error) {
