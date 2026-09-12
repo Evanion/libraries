@@ -124,11 +124,10 @@ describe('compose error carriers', () => {
     }>();
   });
 
-  // #20's headline case. A component whose props are all optional is a "weak
-  // type", so an object of only unknown keys is not assignable to it -- which
-  // used to route this through the repaired-shape branch and, from there, into
-  // a structural comparison of `Array.prototype.every`. The excess-key check
-  // has to run first for the prop to get named.
+  // Guards #20: a component whose props are all optional is a "weak type", so
+  // an object of only unknown keys is structurally assignable to it. The
+  // excess-key check must run before that structural comparison, or the
+  // excess prop goes unnamed.
   it('names an excess prop on an all-optional-props component', () => {
     expectTypeOf<
       ValidateProvider<readonly [OptProvider, { b: number }]>

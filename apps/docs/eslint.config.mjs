@@ -1,6 +1,6 @@
 // eslint-config-next 16 ships native flat config, so it is spread directly.
-// Going through FlatCompat/fixupConfigRules (as this file used to) makes ESLint
-// throw "Converting circular structure to JSON" on the react plugin.
+// Going through FlatCompat/fixupConfigRules makes ESLint throw "Converting
+// circular structure to JSON" on the react plugin.
 // `core-web-vitals` already includes the base `next` and `next/typescript` configs.
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nx from '@nx/eslint-plugin';

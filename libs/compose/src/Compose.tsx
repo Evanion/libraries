@@ -18,16 +18,17 @@ const isDevelopment =
 /**
  * Messages already emitted, so a warning fires once rather than on every render.
  *
- * This is deliberately a module-level set rather than a hook. An earlier version
- * used `useEffect`, which meant the component required hooks -- and under
- * React's `react-server` condition `useEffect` is `undefined`, so
- * `ComposeProvider` threw on first render in any React Server Component. A Next.js
- * root `app/layout.tsx` is exactly that. Keeping the component hook-free is what
- * lets it be imported from the server graph without a `'use client'` boundary.
+ * This is deliberately a module-level set rather than a hook: a `useEffect`
+ * would require the component to use hooks, and React's `react-server`
+ * condition leaves `useEffect` `undefined`, so `ComposeProvider` would throw on
+ * first render in any React Server Component -- a Next.js root
+ * `app/layout.tsx` included. Keeping the component hook-free is what lets it
+ * be imported from the server graph without a `'use client'` boundary.
  *
- * The effect version also did not achieve what it claimed: its dependency was the
- * caller's array, and a JSX literal is a fresh identity every render, so the
- * warning re-fired on every render for the most common call style.
+ * A `useEffect`-based version also would not do what it looks like it does:
+ * its dependency would be the caller's array, and a JSX literal is a fresh
+ * identity every render, so the warning would re-fire on every render for the
+ * most common call style.
  */
 const warnedMessages = new Set<string>();
 
@@ -84,9 +85,9 @@ export interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
 export function ComposeProvider<const T extends ProviderArray>(
   props: ComposeProviderProps<T>,
 ): React.ReactElement {
-  // A JavaScript consumer, or one upgrading from 1.x, can still reach this with
-  // the removed `components` prop. Refusing by name beats silently accepting a
-  // prop the types no longer describe.
+  // A JavaScript consumer can still reach this with the removed `components`
+  // prop. Refusing by name beats silently accepting a prop the types do not
+  // describe.
   if (!('providers' in props) && 'components' in props) {
     throw new TypeError(
       'ComposeProvider: `components` was removed in v2.0 \u2014 rename it to `providers`.',

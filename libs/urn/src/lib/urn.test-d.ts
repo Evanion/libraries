@@ -13,8 +13,8 @@ describe('urn types', () => {
   });
 
   it('does not let a caller assert the parsed shape', () => {
-    // parse used to declare three free type parameters that nothing verified,
-    // so this claimed a shape the runtime never guaranteed.
+    // parse takes no type arguments: accepting them would let a caller assert
+    // a shape nothing verifies, which the runtime does not guarantee.
     // @ts-expect-error parse takes no type arguments
     URN.parse<'urn', 'user', '123'>('urn:user:123');
   });
@@ -83,8 +83,8 @@ describe('urn types', () => {
       static override readonly nid = 'bar';
     }
 
-    // These used to require `(TRN as typeof URN)` because the free type
-    // parameters on parse broke static inheritance.
+    // Guards inherited statics from requiring a cast to `typeof URN`: free
+    // type parameters on parse would otherwise break variance for subclasses.
     expectTypeOf(TRN.stringify('foo')).toEqualTypeOf<string>();
     expectTypeOf(TRN.parse('trn:bar:foo')).toEqualTypeOf<ParsedURN>();
     expectTypeOf(

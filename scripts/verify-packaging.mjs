@@ -163,12 +163,10 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   run('node', ['runtime.mjs'], dir);
   console.log('  ✓ every package imports cleanly as ESM');
 
-  // nestjs-correlation-id used to ship a dual build, which handed Nest two
-  // unrelated CorrelationService class objects whenever one copy was require()d
-  // and the other imported -- and CorrelationService is a DI token. It is now
-  // ESM only. Assert that positively: exactly one build in the tarball, no
-  // `require` condition in the exports map. A reintroduced CJS half would
-  // otherwise go unnoticed until someone hit the dual load.
+  // nestjs-correlation-id ships ESM only: exactly one build in the tarball,
+  // no `require` condition in the exports map. A `require` condition would
+  // let one copy be require()d and another imported, handing Nest two
+  // unrelated CorrelationService class objects for what is a DI token.
   const nestPkg = JSON.parse(
     readFileSync(
       join(

@@ -72,9 +72,9 @@ describe('widget regressions', () => {
 
       expect(screen.getByTestId('box-a')).toBeInTheDocument();
       expect(screen.getByTestId('box-b')).toBeInTheDocument();
-      // This is the level that used to be silently dropped: Output rendered
-      // grandchildren without passing an Output of their own. Direct recursion
-      // has no equivalent hazard, and this locks that in.
+      // Guards against grandchildren silently not rendering: Output must pass
+      // itself down at every nesting level, not just the first, or deeper
+      // content renders without any Output wrapping it.
       expect(screen.getByTestId('leaf-c')).toBeInTheDocument();
     });
 
@@ -232,9 +232,9 @@ describe('widget regressions', () => {
         />,
       );
 
-      // Output used to fall back to the factory-level chrome, so nested items
-      // silently lost the instance override. renderWidget now threads the
-      // resolved chrome through the recursion instead.
+      // Guards against nested items falling back to the factory-level chrome:
+      // renderWidget threads the resolved chrome through the recursion, so a
+      // nested item gets the instance-level override too.
       expect(
         container.querySelectorAll('[data-custom-item="yes"]'),
       ).toHaveLength(2);
@@ -262,10 +262,11 @@ describe('widget regressions', () => {
       fireEvent.click(screen.getByTestId('inc'));
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');
 
-      // A fresh array identity forces Widgets to re-render. The injected Output
-      // used to be a brand-new component type each time, so React remounted the
-      // nested subtree and the counter reset to 0. Nothing mounts a synthetic
-      // component any more, but the property still has to hold.
+      // A fresh array identity forces Widgets to re-render. This guards
+      // against React remounting the nested subtree when that happens: the
+      // injected Output component keeps a stable identity across renders
+      // rather than a new type each time, so nested state -- the counter here
+      // -- survives.
       rerender(<Widgets items={[...items]} />);
 
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');

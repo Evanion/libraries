@@ -7,11 +7,12 @@ import { __resetWarningsForTests } from './Compose.js';
 import type { ComposeProviderProps, ProviderArray } from './index.js';
 
 /**
- * `ComposeProvider` is now generic and overloaded, so props built dynamically
- * (a union, or an object missing `providers` entirely) no longer resolve
- * against either overload -- which is the point. These tests exercise the
- * runtime guards for input a JavaScript consumer can still produce, so they go
- * through a deliberately loosened alias.
+ * `ComposeProvider` is generic and overloaded, so props built dynamically (a
+ * union, or an object missing `providers` entirely) do not resolve against
+ * either overload -- by design, it forces callers onto a shape TypeScript can
+ * check statically. These tests exercise the runtime guards for input a
+ * JavaScript consumer can still produce, through a deliberately loosened
+ * alias.
  */
 const LooseComposeProvider = ComposeProvider as unknown as React.FC<
   Record<string, unknown>

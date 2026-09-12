@@ -10,13 +10,11 @@ interface CorrelationStore {
 }
 
 /**
- * A plain singleton over AsyncLocalStorage.
- *
- * It used to be `@Injectable({ scope: Scope.REQUEST })`. Nest propagates scope
- * upward through the injection graph, so every provider that reached this one
- * -- including `HttpService`, via `withCorrelation` -- silently became
+ * A plain singleton over AsyncLocalStorage. AsyncLocalStorage gives per-request
+ * isolation without Nest's request scope: request-scoping this provider would
+ * propagate upward through the injection graph, making every provider that
+ * depends on it -- including `HttpService`, via `withCorrelation` -- also
  * request-scoped: re-instantiated per request, and never given `onModuleInit`.
- * AsyncLocalStorage gives the same per-request isolation with none of that.
  */
 @Injectable()
 export class CorrelationService {
