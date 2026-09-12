@@ -320,9 +320,9 @@ export class URN {
     const [urn, nid, ...rest] = urnString.split(this.separator);
 
     // The undefined checks are what narrow urn and nid to string under
-    // noUncheckedIndexedAccess. They are also the real guard: destructuring a
-    // short split is exactly how this method used to produce the literal string
-    // "undefined:".
+    // noUncheckedIndexedAccess. They are also the real guard: without them, a
+    // short split silently produces the literal string "undefined:" instead of
+    // throwing.
     if (urn === undefined || nid === undefined || rest.length === 0) {
       throw new ValidationError(
         `Invalid URN format: '${urnString}'. Expected at least three non-empty parts separated by '${this.separator}', e.g. '${this.urn}${this.separator}${this.nid}${this.separator}id'.`,

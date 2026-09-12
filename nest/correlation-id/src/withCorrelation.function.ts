@@ -26,10 +26,10 @@ const AXIOS_INSTANCE_TOKEN = 'AXIOS_INSTANCE_TOKEN';
  * global module, so importing it once in the root module is enough; without it
  * Nest fails with `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS`.
  *
- * The id is read by an axios request interceptor, at the moment the request is
- * made. It used to be baked into the options object by a factory injecting the
- * then request-scoped `CorrelationService`, which made `HttpService` -- and
- * every provider holding it -- request-scoped too.
+ * The id is read by an axios request interceptor at the moment the request is
+ * made, not baked into the options object at factory time: that keeps
+ * `CorrelationService` a singleton, so `HttpService` -- and every provider
+ * holding it -- stays a singleton too.
  */
 export const withCorrelation = (
   config?: HttpModuleOptions,

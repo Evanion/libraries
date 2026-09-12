@@ -71,12 +71,12 @@ export default defineConfig(() => ({
           exclude: ['**/*.server.{test,spec}.{ts,tsx}'],
         },
       },
-      // The whole point of this package no longer carrying 'use client' is that
-      // it can be imported from a React Server Component. React's `react-server`
-      // export condition omits createContext, useContext, Component and every
-      // stateful hook, so a single reintroduced import breaks that silently:
-      // the build succeeds and every jsdom test still passes. This project
-      // resolves react under that condition so the failure surfaces here.
+      // This package is importable from a React Server Component because it
+      // never carries 'use client'. React's `react-server` export condition
+      // omits createContext, useContext, Component and every stateful hook, so
+      // a reintroduced import breaks that silently: the build succeeds and
+      // every jsdom test still passes. This project resolves react under that
+      // condition so the failure surfaces here.
       {
         extends: true,
         resolve: { conditions: ['react-server'] },

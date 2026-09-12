@@ -89,15 +89,9 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --skip-publish matters. `nx release` publishes on its own:
-        # release.js:261 is
-        # `shouldPublish = !!args.yes && !args.skipPublish && hasNewVersion`,
-        # so without it this step publishes and the Publish step below then
-        # publishes a second time. On the 2.0.0 release that produced
-        # "409 Cannot publish over previously staged version" for the two
-        # packages npm had not finished promoting yet -- everything landed,
-        # but the run failed and the publish step's own dry-run guard was not
-        # what was gating npm access.
+        # `nx release` publishes on its own unless told not to, so this step
+        # passes --skip-publish -- without it, the Publish step below would
+        # publish the same version a second time.
         run: |
           args=(--skip-publish)
           if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--yes); fi

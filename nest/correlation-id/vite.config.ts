@@ -5,11 +5,10 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/nestjs-correlation-id',
   test: {
-    // No vitest `typecheck` block: there are no *.test-d.ts files here, and the
-    // glob that used to be configured matched none of them, so the check was
-    // vacuous. `nx typecheck` builds tsconfig.json, which references both
-    // tsconfig.lib.json and tsconfig.spec.json, so sources and specs are both
-    // typechecked there.
+    // No vitest `typecheck` block: there are no *.test-d.ts files here for a
+    // glob to match. `nx typecheck` builds tsconfig.json, which references
+    // both tsconfig.lib.json and tsconfig.spec.json, so sources and specs are
+    // both typechecked there.
     watch: false,
     globals: true,
     environment: 'node',

@@ -115,33 +115,12 @@
       "adjustSemverBumpsForZeroMajorVersion": true
     },
     "conventionalCommits": {
-      //
-      // Nx 22.0.x silently made `useCommitScope: true` the default. With it on,
-      // a conventional-commit scope is matched against Nx PROJECT NAMES
-      // (getCommitsRelevantToProjects in
-      // nx/src/command-line/release/utils/shared.js) with
-      // /(?<![@a-zA-Z0-9-])<scope>(?![@a-zA-Z0-9-])/. The scope this repo
-      // documented for @evanion/react-widget was `widget`, and the hyphen in
-      // `react-widget` makes that regex fail, so every `widget`-scoped commit
-      // was attributed to no project at all. semver.js:29
-      // (`if (config.useCommitScope && !isProjectScopedCommit)`) then downgrades
-      // those commits to `patch`, so `feat(widget)!:` with a BREAKING CHANGE
-      // footer resolved as 0.1.1 instead of 0.2.0. Nothing errors, the version
-      // is just wrong, and published npm versions are immutable.
-      //
-      // Turning it off restores attribution by CHANGED FILES, which is what
-      // Nx's published release guide still describes.
-      //
-      // The tradeoff: with attribution by files, a commit touching a root file
-      // fans out to every project -- `nx show projects --affected
-      // --files=package-lock.json` returns all of them. A `deps` commit bumps
-      // everything rather than nothing: over-bumping, which is recoverable,
-      // instead of under-bumping, which is not.
-      //
-      // Back on as of the 2.0.0 release: its tags reset the changelog range,
-      // so no `widget`-scoped commit is in range any more, and `scope-enum` in
-      // commitlint.config.js now rejects a scope that is not a project name.
-      // Kept on so a root-file commit does not fan out to every package.
+      // A conventional-commit scope is matched against Nx project names. A
+      // scope that matches no project is not an error: it silently downgrades
+      // the bump to patch, so `feat(scope)!:` with a BREAKING CHANGE footer can
+      // resolve as a patch release. `scope-enum` in commitlint.config.js
+      // enforces that every scope used here is a real project name, which is
+      // what this setting requires.
       "useCommitScope": true
     },
     "changelog": {
