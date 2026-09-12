@@ -44,6 +44,7 @@ module.exports = {
         'repo-checks',
         'shop-api',
         'storefront',
+        'token',
         'urn',
         // Repository scopes -- not projects. Taken from the scopes already in
         // use on main, so existing practice keeps working.

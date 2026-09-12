@@ -34,6 +34,7 @@ const LIBS = [
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
   ['libs/feature', '@evanion/feature'],
+  ['libs/token', '@evanion/token'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -98,6 +99,8 @@ import { Luhn, createLuhn, InvalidDictionaryError, LuhnError } from '@evanion/lu
 import type { LuhnOptions } from '@evanion/luhn';
 import { createFeatures, FeatureCycleError } from '@evanion/feature';
 import type { Decision, FeatureDefinition } from '@evanion/feature';
+import { createToken, DEFAULT_DICTIONARY, InvalidAlphabetError, TokenError } from '@evanion/token';
+import type { TokenOptions, ValidateResult } from '@evanion/token';
 // Second entry point, and the only one that may touch React.
 import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
 
@@ -125,10 +128,15 @@ const toggleConfig: FeatureDefinition<'payments-v3' | 'checkout-v2'>[] = [
 const toggles = createFeatures(toggleConfig);
 const toggleDecision: Decision<'payments-v3' | 'checkout-v2'> =
   toggles.resolve({ targetingKey: 'acct-1' })['checkout-v2'];
+const tokenOptions: TokenOptions = { dictionary: DEFAULT_DICTIONARY, length: 8 };
+const tokenCheck: string = createToken(tokenOptions).generate({ prefix: 'ORD' }).check;
+const tokenResult: ValidateResult = createToken().validate('a4kp-9mxa');
+const tokenErr: TokenError = new InvalidAlphabetError('non-uniform', 'abcdef');
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
-      toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures];
+      toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
+      tokenCheck, tokenResult, tokenErr];
 `,
   );
 
@@ -168,12 +176,24 @@ import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
+import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
   defineBlocks, validateBlocks, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
+  createToken, InvalidAlphabetError, TokenError,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
+// token depends on luhn rather than bundling it, so a broken dependency range
+// only shows up once both are installed from their tarballs: this call is the
+// first thing that actually resolves the import.
+const token = createToken();
+const minted = token.generate({ prefix: 'ORD' });
+if (!minted.value.startsWith('ORD-') || !token.validate(minted.value.slice(4)).valid) {
+  console.error('@evanion/token cannot round-trip a code against the installed @evanion/luhn');
+  process.exit(1);
+}
+if (!Object.isFrozen(token)) missing.push('createToken (result not frozen)');
 // Luhn is the default instance rather than a class, and it is frozen so that
 // assigning a dictionary to it throws instead of being silently ignored.
 if (typeof Luhn?.generate !== 'function' || !Object.isFrozen(Luhn)) missing.push('Luhn');
@@ -316,7 +336,9 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
       (entry) =>
         entry.isFile() &&
         entry.name.endsWith('.js') &&
-        !join(entry.parentPath, entry.name).includes(join(featureDist, 'react')),
+        !join(entry.parentPath, entry.name).includes(
+          join(featureDist, 'react'),
+        ),
     )
     .map((entry) => join(entry.parentPath, entry.name));
 
@@ -335,7 +357,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
         reactImporters
           .map((file) => file.slice(featureDist.length + 1))
           .join(', ') +
-        ". The core must be usable from the API and at build time, so nothing under it may import react.",
+        '. The core must be usable from the API and at build time, so nothing under it may import react.',
     );
   }
   console.log('  ✓ feature core imports nothing from react');
