@@ -1,0 +1,7 @@
+---
+// Renders whatever props it was handed, so a test can assert on exactly what
+// reached a block rather than on what the block chose to render.
+const props = Astro.props;
+---
+
+<pre data-probe>{JSON.stringify(props)}</pre>

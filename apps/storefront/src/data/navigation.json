@@ -1,0 +1,18 @@
+{
+  "items": [
+    { "type": "link", "id": "games", "label": "games", "href": "/" },
+    {
+      "type": "link",
+      "id": "co-op",
+      "label": "co-op",
+      "href": "/c/co-op"
+    },
+    {
+      "type": "cart",
+      "id": "cart",
+      "label": "cart",
+      "href": "/cart",
+      "meta": { "align": "end" }
+    }
+  ]
+}

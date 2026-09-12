@@ -5,7 +5,9 @@
   "type": "module",
   "dependencies": {
     "astro": "^7.3.1",
+    "@astrojs/node": "^11.1.5",
     "@evanion/astro-widget": "*",
+    "@evanion/urn": "*",
     "cookie": "^2.0.1"
   }
 }

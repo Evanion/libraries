@@ -1,0 +1,39 @@
+---
+import type { ShopApi } from '../lib/shop-api.js';
+
+interface Props {
+  api: ShopApi;
+}
+
+const { api } = Astro.props;
+
+// Read here rather than in the layout's frontmatter: this component renders
+// after the page body, so by now every call the page made has been counted.
+const trace = api.trace();
+const matched =
+  trace.echoed.length === 1 && trace.echoed[0] === trace.sent;
+const renderedAt = new Date().toISOString().slice(11, 23);
+---
+
+{/* The trace is the demo's subject, not debug output: this page view minted an
+    id, sent it to the shop-api on every call, and the API sent the same id back.
+    A prerendered build would show one id baked in at build time for every
+    reader. */}
+<div class="baize-trace">
+  <span>
+    this page view <span class="baize-trace__id">{trace.sent}</span>
+  </span>
+  <span>
+    {trace.calls} api {trace.calls === 1 ? 'call' : 'calls'}
+  </span>
+  <span>
+    {
+      trace.echoed.length === 0
+        ? 'nothing echoed back'
+        : matched
+          ? 'api echoed the same id'
+          : `api echoed ${trace.echoed.join(', ')}`
+    }
+  </span>
+  <span>rendered at <span class="baize-trace__id">{renderedAt}</span></span>
+</div>

@@ -1,0 +1,428 @@
+/**
+ * Storefront layout: page chrome, the catalogue grid, the detail split and the
+ * cart table.
+ *
+ * Nothing shared lives here -- no token, no primitive. The test for whether a
+ * rule belongs in this file is whether apps/admin or apps/docs would want it; if
+ * they would, it belongs in baize.css or baize-ui.css instead.
+ */
+
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding-inline: var(--space-5);
+}
+
+/* Visible only once it has focus, which is the one time it is of any use. */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -3rem;
+  z-index: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-button);
+  background: var(--chalk);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top var(--dur-fast) var(--ease-out);
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header__brand {
+  font-family: var(--font-title);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  font-stretch: 80%;
+  letter-spacing: var(--track-tight);
+  color: var(--chalk);
+  text-decoration: none;
+}
+
+.site-header__tagline {
+  margin: 0;
+  color: var(--moss);
+  font-size: var(--text-xs);
+  letter-spacing: var(--track-loose);
+}
+
+/* A list, because the navigation is a widget region and its item chrome is an
+   `<li>`. The cart item is pushed to the end by `meta.align`. */
+.site-nav {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.site-nav__item[data-align='end'] {
+  margin-left: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--rule);
+}
+
+.site-nav a {
+  color: var(--lichen);
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current='page'] {
+  color: var(--chalk);
+}
+
+.site-main {
+  padding-block: var(--space-6) var(--space-8);
+}
+
+.site-footer {
+  padding-block: var(--space-5) var(--space-6);
+}
+
+/*
+ * The landing feature. One game, its stat line set large: the figures are the
+ * headline, so the heading above them stays small and the figures do the
+ * shouting.
+ */
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.feature__lede {
+  margin: 0 0 var(--space-4);
+  color: var(--lichen);
+  font-size: var(--text-sm);
+  letter-spacing: var(--track-loose);
+}
+
+.feature__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.feature__stats {
+  margin-top: var(--space-5);
+}
+
+.feature__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.section {
+  padding-block: var(--space-7);
+  border-bottom: 1px solid var(--rule);
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+/* Set by the content region's chrome from `meta`, which is where placement
+   belongs: the block inside decides none of this. */
+.section[data-first='true'] {
+  padding-top: 0;
+}
+
+.section[data-width='measure'] {
+  max-width: var(--measure);
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.section__heading {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: var(--track-snug);
+  color: var(--chalk);
+}
+
+.catalogue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalogue-grid__cell {
+  display: flex;
+  min-width: 0;
+}
+
+.catalogue-grid__cell > * {
+  flex: 1;
+}
+
+/* The wide cell the listing chrome gives one item through `meta.span`. It is
+   dropped below the breakpoint, where the grid is one column anyway. */
+@media (min-width: 52rem) {
+  .catalogue-grid__cell[data-span='2'] {
+    grid-column: span 2;
+  }
+}
+
+/* The nested region inside a group block: its own grid, its own cell chrome. */
+.group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.group__cell {
+  grid-column: span var(--span, 1);
+}
+
+.mechanism-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mechanism-bar a {
+  text-decoration: none;
+  color: var(--mechanism, var(--lichen));
+}
+
+.mechanism-bar__count {
+  margin-left: var(--space-2);
+  color: var(--moss);
+}
+
+/* The category page: a small authored sidebar region beside the large listing
+   region. */
+.browse {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.sidebar {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sidebar__panel[data-sticky='true'] {
+  position: sticky;
+  top: var(--space-4);
+}
+
+.sidebar__heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-loose);
+  color: var(--lichen);
+}
+
+.sidebar__filter {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.sidebar__filter a {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-chip);
+  color: var(--mechanism, var(--lichen));
+  text-decoration: none;
+}
+
+.sidebar__filter a:hover,
+.sidebar__filter a[aria-current='page'] {
+  background: color-mix(in oklab, currentColor 10%, transparent);
+}
+
+.sidebar__count {
+  color: var(--moss);
+}
+
+.sidebar__hours {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.sidebar__hours-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--lichen);
+}
+
+.sidebar__hours-row dd {
+  margin: 0;
+  color: var(--chalk);
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.detail__buy {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.detail__buy-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.expansions {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expansions__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule);
+}
+
+.expansions__urn {
+  display: block;
+  margin-top: 2px;
+  color: var(--moss);
+  font-size: var(--text-xs);
+}
+
+.cart {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 46rem;
+}
+
+.cart__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.cart__quantity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cart__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--chalk);
+}
+
+.cart__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.receipt {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.receipt__urn {
+  font-size: var(--text-md);
+  color: var(--chalk);
+}
+
+@media (max-width: 52rem) {
+  .feature,
+  .detail,
+  .browse {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .group__cell {
+    grid-column: span 1;
+  }
+
+  .sidebar__panel[data-sticky='true'] {
+    position: static;
+  }
+
+  .cart__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,22 @@
+---
+interface Props {
+  type: string;
+  id?: string;
+  meta?: Record<string, unknown>;
+}
+
+const { type, id, meta } = Astro.props;
+const sticky = meta?.sticky === true;
+---
+
+{/* The sidebar region's item chrome: a panel, optionally pinned while the
+    listing beside it scrolls. A content section has no such state, which is why
+    this region passes chrome of its own rather than reusing the page's. */}
+<section
+  class="sidebar__panel baize-panel"
+  data-block={type}
+  data-sticky={sticky ? 'true' : undefined}
+  id={id}
+>
+  <slot />
+</section>

@@ -3,6 +3,9 @@
   "references": [
     {
       "path": "../../libs/astro-widget"
+    },
+    {
+      "path": "../../libs/urn"
     }
   ]
 }

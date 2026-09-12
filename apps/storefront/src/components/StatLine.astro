@@ -1,0 +1,36 @@
+---
+import { formatWeight } from '../lib/catalogue.js';
+import WeightRamp from './WeightRamp.astro';
+
+interface Props {
+  players: string;
+  playtime: string;
+  weight: number;
+  /** `lg` sets the figures at display size, for the landing feature. */
+  size?: 'md' | 'lg';
+}
+
+const { players, playtime, weight, size = 'md' } = Astro.props;
+---
+
+{/* Players, time and weight, in that order and ahead of everything else on a
+    card: it is how a player identifies a game at a glance.
+
+    Each cell is a div and not a paragraph: the weight cell holds the ramp, and
+    a parser closes an open `<p>` when a `<div>` starts inside it, which silently
+    lifts the ramp out of its grid column. */}
+<div class:list={['baize-statline', size === 'lg' && 'baize-statline--lg']}>
+  <div class="baize-statline__cell">
+    <span class="baize-statline__figure">{players}</span>
+    <span class="baize-statline__label">players</span>
+  </div>
+  <div class="baize-statline__cell">
+    <span class="baize-statline__figure">{playtime}</span>
+    <span class="baize-statline__label">playtime</span>
+  </div>
+  <div class="baize-statline__cell">
+    <span class="baize-statline__figure">{formatWeight(weight)}</span>
+    <span class="baize-statline__label">weight</span>
+    <WeightRamp weight={weight} />
+  </div>
+</div>

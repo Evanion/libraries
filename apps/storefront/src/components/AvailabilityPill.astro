@@ -1,0 +1,16 @@
+---
+import { availabilityColour, availabilityLabel } from '../lib/catalogue.js';
+import type { Availability } from '../lib/shop-api.js';
+
+interface Props {
+  availability: Availability;
+}
+
+const { availability } = Astro.props;
+---
+
+{/* Availability is the catalogue's state, and live stock is a separate fact a
+    page shows separately: a title can be in stock and at zero copies. */}
+<span class="baize-pill" style={`--state: ${availabilityColour(availability)}`}>
+  {availabilityLabel(availability)}
+</span>

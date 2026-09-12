@@ -1,0 +1,13 @@
+---
+interface Props {
+  heading: string;
+  body: string;
+}
+
+const { heading, body } = Astro.props;
+---
+
+<div class="baize-panel">
+  <h3 class="baize-title baize-title--sm">{heading}</h3>
+  <p class="baize-note">{body}</p>
+</div>

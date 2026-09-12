@@ -1,17 +1,37 @@
 ---
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import Sektion from '../blocks/Sektion.astro';
-import { registry } from '../registry';
-import sidan from '../data/sidan.json';
+import ApiOffline from '../components/ApiOffline.astro';
+import landing from '../data/landing.json';
+import Page from '../layouts/Page.astro';
+import { cartSize } from '../lib/cart.js';
+import ContentSection from '../regions/content/ContentSection.astro';
+import { contentRegistry } from '../regions/content/registry.js';
+
+const { api, cart } = Astro.locals;
+
+// One catalogue fetch for the whole page, handed to every block as ctx. Several
+// blocks need it -- the feature, the listing, the mechanism bar -- and a fetch
+// per block would trace as several calls for one page view.
+const catalogue = await api.games();
+
+const ctx = {
+  games: catalogue.ok ? catalogue.value : [],
+  cartCopies: cartSize(cart),
+  path: Astro.url.pathname,
+};
 ---
-<html lang="sv">
-  <head><meta charset="utf-8" /><title>astro-widget demo</title></head>
-  <body>
-    <Widgets
-      items={sidan.sektioner}
-      registry={registry}
-      ctx={{ site: 'demo' }}
-      chrome={{ item: Sektion }}
-    />
-  </body>
-</html>
+
+<Page title="Tabletop games in Gothenburg">
+  {
+    catalogue.ok ? (
+      <Widgets
+        items={landing.items}
+        registry={contentRegistry}
+        ctx={ctx}
+        chrome={{ item: ContentSection }}
+      />
+    ) : (
+      <ApiOffline error={catalogue.error} status={catalogue.status} />
+    )
+  }
+</Page>

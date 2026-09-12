@@ -1,0 +1,39 @@
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import type { BlockItem } from '@evanion/astro-widget';
+import GroupCell from './GroupCell.astro';
+import { groupRegistry } from './group.registry.js';
+
+interface Props {
+  heading: string;
+  /** The nested blocks. `Widgets` does not recurse, so this block renders them. */
+  children?: BlockItem[];
+  ctx?: Record<string, unknown>;
+}
+
+const { heading, children, ctx } = Astro.props;
+const items = Array.isArray(children) ? children : [];
+---
+
+{/*
+  The nesting path. An Astro component receives child content through `<slot />`
+  rather than through a `children` prop, so `Widgets` has nothing to render nested
+  blocks into and hands them over as data instead -- this block opens its own
+  region over them, with its own registry and its own chrome.
+
+  `ctx` is threaded down by hand. It does not flow into a nested region on its
+  own, because the nested `Widgets` is an ordinary call from inside a block.
+*/}
+<div>
+  <div class="section__head">
+    <h2 class="section__heading">{heading}</h2>
+  </div>
+  <div class="group">
+    <Widgets
+      items={items}
+      registry={groupRegistry}
+      ctx={ctx}
+      chrome={{ item: GroupCell }}
+    />
+  </div>
+</div>

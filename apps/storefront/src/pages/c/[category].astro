@@ -1,0 +1,73 @@
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import ApiOffline from '../../components/ApiOffline.astro';
+import sidebar from '../../data/sidebar.json';
+import Page from '../../layouts/Page.astro';
+import { cartSize } from '../../lib/cart.js';
+import {
+  gamesByMechanism,
+  mechanismHue,
+  mechanismSlug,
+} from '../../lib/catalogue.js';
+import CatalogueListing from '../../regions/listing/CatalogueListing.astro';
+import SidebarPanel from '../../regions/sidebar/SidebarPanel.astro';
+import { sidebarRegistry } from '../../regions/sidebar/registry.js';
+
+const { api, cart } = Astro.locals;
+const category = Astro.params.category ?? '';
+
+const catalogue = await api.games();
+const games = catalogue.ok ? catalogue.value : [];
+const selected = gamesByMechanism(games, category);
+
+// A slug no game carries is a 404 rather than an empty listing: the category
+// does not exist, which is a different thing from a category with nothing in it.
+if (catalogue.ok && selected.length === 0) {
+  return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+// The slug is in the URL; the heading wants the mechanism as the catalogue
+// spells it, so it is read back off the first game that carries it.
+const label = selected[0]?.mechanisms.find(
+  (mechanism) => mechanismSlug(mechanism) === category,
+);
+
+const ctx = {
+  games,
+  cartCopies: cartSize(cart),
+  path: Astro.url.pathname,
+  category,
+};
+---
+
+<Page title={label ?? category}>
+  {
+    catalogue.ok ? (
+      <div class="browse" style={`--hue: ${mechanismHue(label)}`}>
+        {/* Two regions side by side, each with its own registry and its own
+            chrome: a small authored sidebar, and the large listing built from the
+            API response. */}
+        <aside class="sidebar" aria-label="Browse">
+          <Widgets
+            items={sidebar.items}
+            registry={sidebarRegistry}
+            ctx={ctx}
+            chrome={{ item: SidebarPanel }}
+          />
+        </aside>
+        <div>
+          <div class="section__head">
+            <h1 class="baize-title baize-title--lg">{label ?? category}</h1>
+            <p class="baize-note">
+              {selected.length}
+              {selected.length === 1 ? ' title' : ' titles'}
+            </p>
+          </div>
+          <CatalogueListing games={selected} />
+        </div>
+      </div>
+    ) : (
+      <ApiOffline error={catalogue.error} status={catalogue.status} />
+    )
+  }
+</Page>

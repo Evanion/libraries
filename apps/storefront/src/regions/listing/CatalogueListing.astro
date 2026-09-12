@@ -1,0 +1,29 @@
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import type { Game } from '../../lib/shop-api.js';
+import GridCell from './GridCell.astro';
+import { listingItems, listingRegistry } from './registry.js';
+
+interface Props {
+  games: Game[];
+  /** Given a two-column cell, when it is in `games`. */
+  featured?: string;
+}
+
+const { games, featured } = Astro.props;
+const items = listingItems(games, featured);
+---
+
+{
+  items.length === 0 ? (
+    <p class="baize-note">Nothing in this part of the shop yet.</p>
+  ) : (
+    <ul class="catalogue-grid" data-items={String(items.length)}>
+      <Widgets
+        items={items}
+        registry={listingRegistry}
+        chrome={{ item: GridCell }}
+      />
+    </ul>
+  )
+}

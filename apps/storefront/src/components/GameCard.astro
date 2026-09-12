@@ -1,0 +1,46 @@
+---
+import { formatPrice, gameHue } from '../lib/catalogue.js';
+import type { Game } from '../lib/shop-api.js';
+import AvailabilityPill from './AvailabilityPill.astro';
+import MechanismTags from './MechanismTags.astro';
+import StatLine from './StatLine.astro';
+
+interface Props {
+  game: Game;
+}
+
+const { game } = Astro.props;
+---
+
+{/* `--hue` is set once on the card and inherited by the title and the
+    mechanisms, which is what makes the colour read as the game's rather than as
+    a decoration on one element.
+
+    Not a list item: the card is a listing block, and the cell around it comes
+    from that region's chrome. A card that wrote its own `<li>` could not be put
+    anywhere else. */}
+<div class="baize-card" style={`--hue: ${gameHue(game)}`} data-game={game.urn}>
+  <div class="baize-card__head">
+    <h3 class="baize-title baize-title--sm">
+      <a class="baize-card__title-link" href={`/g/${game.urn}`}>{game.title}</a>
+    </h3>
+    <AvailabilityPill availability={game.availability} />
+  </div>
+  <MechanismTags mechanisms={game.mechanisms} />
+  <StatLine
+    players={game.players}
+    playtime={game.playtime}
+    weight={game.weight}
+  />
+  <div class="baize-card__foot">
+    <span class="baize-price">{formatPrice(game.price)}</span>
+    {
+      game.expansions.length > 0 && (
+        <span class="baize-note">
+          {game.expansions.length}
+          {game.expansions.length === 1 ? ' expansion' : ' expansions'}
+        </span>
+      )
+    }
+  </div>
+</div>

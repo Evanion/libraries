@@ -1,0 +1,231 @@
+---
+import ApiOffline from '../components/ApiOffline.astro';
+import { OrderURN } from '../domain/order.urn.js';
+import Page from '../layouts/Page.astro';
+import {
+  CART_COOKIE,
+  addLine,
+  removeLine,
+  setQuantity,
+  type CartLine,
+} from '../lib/cart.js';
+import { formatPrice, gameHue } from '../lib/catalogue.js';
+import type { Order } from '../lib/shop-api.js';
+
+const { api } = Astro.locals;
+
+let lines: CartLine[] = Astro.locals.cart;
+let order: Order | undefined;
+let checkoutError: string | undefined;
+
+/**
+ * Only a path on this site. A `back` field is form data, so an absolute URL
+ * there would make the cart an open redirect; `//host` is rejected for the same
+ * reason, since a protocol-relative URL leaves the site too.
+ */
+function safeBack(value: unknown): string {
+  const path = typeof value === 'string' ? value : '';
+  return path.startsWith('/') && !path.startsWith('//') ? path : '/cart';
+}
+
+function persist(next: CartLine[]) {
+  if (next.length === 0) {
+    Astro.cookies.delete(CART_COOKIE, { path: '/' });
+    return;
+  }
+  // Serialised here rather than handed to `cookies.set` as an array: Astro
+  // stringifies a value it is given, and an array comes back out of that as
+  // `[object Object]`. `readCart` parses this with the cookie's own `json()`.
+  Astro.cookies.set(CART_COOKIE, JSON.stringify(next), {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+  });
+}
+
+// The cart is written by POST and read by GET, in the same page, because the app
+// is server-rendered. A prerendered build could not accept the form at all.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = form.get('intent');
+  const urn = String(form.get('urn') ?? '');
+  const quantity = Number(form.get('quantity') ?? 1);
+
+  if (intent === 'add') {
+    lines = addLine(lines, urn, Number.isFinite(quantity) ? quantity : 1);
+    persist(lines);
+    // 303 so a reload does not re-add the copies: the POST's result is a page to
+    // go and get, not a page to redisplay.
+    return Astro.redirect(safeBack(form.get('back')), 303);
+  }
+
+  if (intent === 'update') {
+    lines = setQuantity(lines, urn, quantity);
+    persist(lines);
+    return Astro.redirect('/cart', 303);
+  }
+
+  if (intent === 'remove') {
+    lines = removeLine(lines, urn);
+    persist(lines);
+    return Astro.redirect('/cart', 303);
+  }
+
+  if (intent === 'checkout' && lines.length > 0) {
+    const placed = await api.createOrder(lines);
+    if (placed.ok) {
+      order = placed.value;
+      lines = [];
+      persist(lines);
+    } else {
+      checkoutError = placed.error;
+    }
+  }
+}
+
+const catalogue = await api.games();
+
+// Prices are read from the catalogue on this request rather than stored in the
+// cart cookie, so a price change cannot be carried along in a reader's browser.
+const priced = new Map<
+  string,
+  { title: string; price: number; hue: string; href: string }
+>();
+if (catalogue.ok) {
+  for (const game of catalogue.value) {
+    const hue = gameHue(game);
+    priced.set(game.urn, {
+      title: game.title,
+      price: game.price,
+      hue,
+      href: `/g/${game.urn}`,
+    });
+    for (const expansion of game.expansions) {
+      priced.set(expansion.urn, {
+        title: `${game.title}: ${expansion.title}`,
+        price: expansion.price,
+        hue,
+        href: `/g/${game.urn}`,
+      });
+    }
+  }
+}
+
+const rows = lines.map((line) => ({ line, item: priced.get(line.urn) }));
+const total = rows.reduce(
+  (sum, { line, item }) => sum + (item ? item.price * line.quantity : 0),
+  0,
+);
+const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
+---
+
+<Page title="Cart">
+  {!catalogue.ok && <ApiOffline error={catalogue.error} status={catalogue.status} />}
+
+  {
+    order && (
+      <div class="section" data-first="true">
+        <h1 class="baize-title baize-title--lg">That is ordered</h1>
+        <div class="receipt">
+          <p class="baize-note">
+            Nothing was charged and nothing was shipped: checkout is stubbed, so
+            the order exists only in this response.
+          </p>
+          <p class="receipt__urn">
+            {orderUrnValid ? order.urn : 'The API returned an unreadable order id'}
+          </p>
+          {/* The API's own orders -> inventory hop, reported back. One id for the
+              request, and one per cart line from the stock check it triggered --
+              the same id if it propagated, which is the thing being shown. */}
+          <p class="baize-note">
+            Correlation id on the order: {order.correlationId ?? 'none'}
+          </p>
+          <p class="baize-note">
+            The inventory service saw:{' '}
+            {order.inventoryCorrelationIds
+              .map((id) => id ?? 'none')
+              .join(' ')}
+          </p>
+          <a class="baize-button" href="/">Back to the games</a>
+        </div>
+      </div>
+    )
+  }
+
+  {
+    checkoutError && (
+      <div class="section" data-first="true">
+        <h1 class="baize-title baize-title--lg">That did not go through</h1>
+        <p class="baize-note">{checkoutError}</p>
+      </div>
+    )
+  }
+
+  {
+    !order && (
+      <div class="cart">
+        <h1 class="baize-title baize-title--lg">Cart</h1>
+
+        {rows.length === 0 ? (
+          <p class="baize-prose">
+            Nothing in it yet. <a class="baize-link" href="/">Browse the shop</a>
+            and add something.
+          </p>
+        ) : (
+          <>
+            {rows.map(({ line, item }) => (
+              <div class="cart__row" style={`--hue: ${item?.hue ?? 'var(--mechanism-default)'}`}>
+                <div>
+                  <a class="baize-title baize-title--sm baize-card__title-link" href={item?.href ?? '/'}>
+                    {item?.title ?? line.urn}
+                  </a>
+                  <span class="expansions__urn">{line.urn}</span>
+                </div>
+                <form method="post" action="/cart" class="cart__quantity">
+                  <input type="hidden" name="intent" value="update" />
+                  <input type="hidden" name="urn" value={line.urn} />
+                  <label class="baize-sr-only" for={`qty-${line.urn}`}>
+                    Copies of {item?.title ?? line.urn}
+                  </label>
+                  <input
+                    class="baize-qty"
+                    id={`qty-${line.urn}`}
+                    name="quantity"
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={String(line.quantity)}
+                  />
+                  <button class="baize-button baize-button--quiet">Update</button>
+                </form>
+                <span class="baize-price">
+                  {item ? formatPrice(item.price * line.quantity) : 'unpriced'}
+                </span>
+              </div>
+            ))}
+
+            <div class="cart__total">
+              <span>Total</span>
+              <span class="baize-price">{formatPrice(total)}</span>
+            </div>
+
+            <div class="cart__actions">
+              <form method="post" action="/cart">
+                <input type="hidden" name="intent" value="checkout" />
+                <button class="baize-button baize-button--primary">
+                  Place the order
+                </button>
+              </form>
+              <a class="baize-button" href="/">Keep browsing</a>
+            </div>
+
+            <p class="baize-note">
+              Stock is checked against the shop when you place the order, not when
+              you add a copy.
+            </p>
+          </>
+        )}
+      </div>
+    )
+  }
+</Page>

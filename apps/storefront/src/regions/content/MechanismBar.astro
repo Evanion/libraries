@@ -1,0 +1,42 @@
+---
+import {
+  gamesByMechanism,
+  mechanismHue,
+  mechanismSlug,
+  mechanisms,
+} from '../../lib/catalogue.js';
+import { regionCtx } from '../ctx.js';
+
+interface Props {
+  heading: string;
+  ctx?: Record<string, unknown>;
+}
+
+const { heading, ctx } = Astro.props;
+const { games } = regionCtx(ctx);
+const all = mechanisms(games);
+---
+
+{/* Mechanism is how players name a game, so it is how the shop is indexed.
+    Each entry wears its own categorical hue, which is the same colour the titles
+    in that category are set in. */}
+<div>
+  <div class="section__head">
+    <h2 class="section__heading">{heading}</h2>
+    <p class="baize-note">{all.length} categories</p>
+  </div>
+  <ul class="mechanism-bar">
+    {
+      all.map((mechanism) => (
+        <li style={`--mechanism: ${mechanismHue(mechanism)}`}>
+          <a class="baize-chip" href={`/c/${mechanismSlug(mechanism)}`}>
+            {mechanism}
+            <span class="mechanism-bar__count">
+              {gamesByMechanism(games, mechanismSlug(mechanism)).length}
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</div>
