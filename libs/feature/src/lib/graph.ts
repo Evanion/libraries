@@ -9,12 +9,12 @@ export interface FeatureGraph<F extends FeatureKey> {
   /**
    * Every key, ordered so a feature always follows the features it depends on.
    *
-   * This ordering is what makes the cascade transitive. The 2022 sketch folded
-   * over the features in declaration order and read each parent's stored
-   * `active` rather than its computed result, so a chain A -> B -> C never
-   * cascaded past one level. Resolving in this order means a parent's result
-   * always exists by the time its dependants are evaluated, for a chain of any
-   * depth.
+   * This ordering is what makes the cascade transitive: a parent's *resolved*
+   * decision exists by the time any dependant is evaluated, for a chain of any
+   * depth. Evaluating in declaration order instead leaves a dependant with no
+   * resolved parent to read, and falling back to the parent's stored `enabled`
+   * cascades exactly one level -- `docs/specs/2026-09-11-feature-toggles.md`,
+   * "Cascade".
    */
   readonly order: readonly F[];
   /** Transitive dependants of `key`, in dependency order. */

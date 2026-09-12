@@ -1,7 +1,8 @@
 /**
- * A feature identifier. Carried over from the 2022 sketch, which parameterised
- * on `Feature extends string | number` so a consumer can use a string union or
- * a numeric enum and keep exhaustiveness.
+ * A feature identifier.
+ *
+ * `string | number` rather than `string`, so a consumer can key features on a
+ * numeric enum and still get exhaustiveness from `Decisions<F>`.
  */
 export type FeatureKey = string | number;
 

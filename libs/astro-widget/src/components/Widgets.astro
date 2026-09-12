@@ -1,22 +1,32 @@
 ---
 /**
- * Renders a list of CMS blocks.
+ * Renders a list of CMS blocks, one component per block.
  *
- * Deliberately defensive: an unknown type is skipped rather than thrown on, so
- * a gap in build-time validation can never take a page down mid-render.
- * `validateBlocks` is the loud gate; this is the safety net.
+ * Defensive by design: an unknown type is skipped rather than thrown on, so a
+ * gap in build-time validation cannot take a page down mid-render.
+ * `validateBlocks` is the loud gate and this is the net underneath it.
  */
 import type { BlockItem, BlockRegistry } from '../types';
 
 interface Props {
   items: BlockItem[];
   registry: BlockRegistry;
-  /** Page-level data passed to every block. Astro renders at build time, so
-      there is no context provider to do this for us — and none is needed. */
+  /**
+   * Page-level data passed to every block as a `ctx` prop. The counterpart to
+   * `@evanion/react-widget`'s `ctx`.
+   *
+   * A prop rather than a provider: an Astro component runs once, top down, and
+   * has no render-time context to read from.
+   */
   ctx?: Record<string, unknown>;
-  /** Optional wrapper rendered around every block, e.g. for CMS edit affordances.
-      `chrome.item` MUST render <slot /> — if it doesn't, Astro silently drops
-      the wrapped block and it will not appear on the page. No error is thrown. */
+  /**
+   * Chrome rendered around every block, for CMS edit affordances and
+   * positioning. It is handed the block's `meta`.
+   *
+   * It has to render `<slot />`. An Astro component that does not render its
+   * slot discards the content passed to it, so the block inside disappears from
+   * the page with nothing thrown and nothing logged.
+   */
   chrome?: { item?: unknown };
 }
 
@@ -29,10 +39,11 @@ const Item = chrome?.item as never;
     const Component = registry[item?.type] as never;
     if (!Component) return null;
 
-    // `meta` is placement data for the item chrome -- grid column, span,
-    // ordering, CMS edit affordances. It is destructured out here so it never
-    // reaches the block: where a block sits is not something the block should
-    // know, and spreading it in would collide with the block's own props.
+    // `type`, `id`, `children` and `meta` are the renderer's own fields, and
+    // `props` is everything else the CMS wrote. Destructuring them out is what
+    // keeps them from being spread into the block: `meta` is placement data for
+    // the chrome, and where a block sits is not something the block should
+    // know.
     const { type, id, children, meta, ...props } = item;
 
     return Item ? (

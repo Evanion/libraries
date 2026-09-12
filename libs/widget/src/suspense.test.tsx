@@ -83,10 +83,10 @@ describe('suspense boundary', () => {
   });
 
   it('suspends and resolves a data-fetching widget', async () => {
-    // A widget that fetches its own data is the point of the redesign. On the
-    // client that is `use(promise)`; in an RSC graph it is the `await` in an
-    // async Server Component. Both suspend through the same mechanism, and only
-    // the first is renderable without a flight renderer.
+    // A widget that fetches its own data suspends through the same mechanism
+    // whether it is `use(promise)` on the client or the `await` in an async
+    // Server Component. `use` is the form this suite can exercise: rendering an
+    // async component needs a flight renderer, which jsdom has none of.
     const fetched = new Map<string, Promise<string>>();
     const fetchValue = (id: string) => {
       const existing = fetched.get(id);

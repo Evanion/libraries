@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createWidgets } from './widget.js';
 import { PropsWithChildren } from 'react';
 
-// Test components for our examples
 const NewsTeaser = ({
   title,
   publishedAt,
@@ -74,7 +73,6 @@ describe('Widget System - Basic Usage', () => {
   });
 
   it('should render widgets with basic configuration', () => {
-    // Example: Basic sidebar with news and user info
     const { Widgets } = createWidgets({
       components: {
         news: NewsTeaser,
@@ -105,12 +103,10 @@ describe('Widget System - Basic Usage', () => {
 
     render(<Widgets items={items} />);
 
-    // Verify user sidebar is rendered
     expect(screen.getByTestId('user-sidebar')).toBeInTheDocument();
     expect(screen.getByText('Evanion')).toBeInTheDocument();
     expect(screen.getByText('5 messages')).toBeInTheDocument();
 
-    // Verify news teaser is rendered
     expect(screen.getByTestId('news-teaser')).toBeInTheDocument();
     expect(screen.getByText('Breaking News')).toBeInTheDocument();
     expect(screen.getByText('1/15/2024')).toBeInTheDocument();
@@ -125,7 +121,6 @@ describe('Widget System - Basic Usage', () => {
 
     render(<Widgets items={[]} />);
 
-    // Should render without errors
     expect(screen.queryByTestId('news-teaser')).not.toBeInTheDocument();
   });
 
@@ -137,9 +132,9 @@ describe('Widget System - Basic Usage', () => {
     });
 
     const items = [
-      // Deliberately not in the component map: this models untrusted CMS data
-      // and is cast wholesale, because rejecting it is exactly what the types
-      // now do. The test asserts the runtime guard still warns and skips.
+      // A type the component map does not contain, cast wholesale. The types
+      // reject this item, which is the point: it models a CMS payload that
+      // never met the type checker, and the renderer is the net underneath.
       {
         id: 'unknown',
         type: 'unknownType',
@@ -162,7 +157,6 @@ describe('Widget System - Basic Usage', () => {
 
     render(<Widgets items={items} />);
 
-    // Only the valid news should render
     expect(screen.getByTestId('news-teaser')).toBeInTheDocument();
     expect(screen.getByText('Valid News')).toBeInTheDocument();
     expect(
@@ -177,7 +171,6 @@ describe('Widget System - Custom Chrome', () => {
   });
 
   it('should render with custom wrapper chrome', () => {
-    // Example: E-commerce product showcase with custom styling
     const { Widgets } = createWidgets({
       components: {
         productCard: ProductCard,
@@ -216,17 +209,14 @@ describe('Widget System - Custom Chrome', () => {
 
     render(<Widgets items={items} />);
 
-    // Verify custom wrapper is applied
     expect(screen.getByTestId('product-showcase')).toBeInTheDocument();
     expect(screen.getByText('Featured Products')).toBeInTheDocument();
 
-    // Verify widgets are rendered inside the wrapper
     expect(screen.getByTestId('banner')).toBeInTheDocument();
     expect(screen.getByTestId('product-card')).toBeInTheDocument();
   });
 
   it('should render with custom item wrapper chrome', () => {
-    // Example: Blog sidebar with custom item styling
     const { Widgets } = createWidgets({
       components: {
         news: NewsTeaser,
@@ -259,7 +249,6 @@ describe('Widget System - Custom Chrome', () => {
 
     render(<Widgets items={items} />);
 
-    // Verify both wrappers are applied
     expect(screen.getByTestId('blog-sidebar')).toBeInTheDocument();
     expect(screen.getByTestId('widget-item')).toBeInTheDocument();
     expect(screen.getByTestId('news-teaser')).toBeInTheDocument();
@@ -272,7 +261,6 @@ describe('Widget System - Instance Overrides', () => {
   });
 
   it('should allow instance-specific component overrides', () => {
-    // Example: Different news components for different pages
     const { Widgets } = createWidgets({
       components: {
         news: NewsTeaser,
@@ -308,7 +296,6 @@ describe('Widget System - Instance Overrides', () => {
       <Widgets items={items} components={{ news: specialNewsComponent }} />,
     );
 
-    // Should use the overridden component
     expect(screen.getByTestId('featured-news')).toBeInTheDocument();
     expect(screen.getByText('Featured: Regular News')).toBeInTheDocument();
     expect(
@@ -351,7 +338,6 @@ describe('Widget System - Instance Overrides', () => {
       />,
     );
 
-    // Should use the overridden chrome
     expect(screen.getByTestId('override-wrapper')).toBeInTheDocument();
     expect(screen.getByText('Override:')).toBeInTheDocument();
     expect(screen.queryByTestId('default-wrapper')).not.toBeInTheDocument();
@@ -364,7 +350,6 @@ describe('Widget System - Nested Widgets', () => {
   });
 
   it('should render nested widgets through children', () => {
-    // Example: Card with nested content
     const CardWidget = ({ title, children }: PropsWithChildren<{ title: string }>) => (
       <div data-testid="card" className="card">
         <h3>{title}</h3>
@@ -407,11 +392,9 @@ describe('Widget System - Nested Widgets', () => {
 
     render(<Widgets items={items} />);
 
-    // Verify card is rendered
     expect(screen.getByTestId('card')).toBeInTheDocument();
     expect(screen.getByText('My Card')).toBeInTheDocument();
 
-    // Verify nested widgets are rendered
     const textWidgets = screen.getAllByTestId('text');
     expect(textWidgets).toHaveLength(2);
     expect(screen.getByText('Nested text content')).toBeInTheDocument();
@@ -445,7 +428,6 @@ describe('Widget System - Nested Widgets', () => {
 
     render(<Widgets items={items} />);
 
-    // Should render without errors
     expect(screen.getByTestId('card')).toBeInTheDocument();
     expect(screen.getByText('Empty Card')).toBeInTheDocument();
   });
@@ -464,7 +446,7 @@ describe('Widget System - Nested Widgets', () => {
     const items = [
       {
         id: 'unknown1',
-        // Deliberately not in the component map -- see note above.
+        // A type the component map does not contain, cast past the check.
         type: 'unknown-widget' as unknown as 'text',
         props: { content: 'This should not render' },
       },
@@ -486,7 +468,6 @@ describe('Widget System - Real World Examples', () => {
   });
 
   it('should handle CMS-driven blog layout', () => {
-    // Example: Blog with author bio, related posts, and social sharing
     const AuthorBio = ({
       name,
       bio,
@@ -575,7 +556,6 @@ describe('Widget System - Real World Examples', () => {
 
     render(<Widgets items={blogItems} />);
 
-    // Verify all components are rendered
     expect(screen.getByTestId('blog-sidebar')).toBeInTheDocument();
     expect(screen.getByTestId('author-bio')).toBeInTheDocument();
     expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -586,7 +566,6 @@ describe('Widget System - Real World Examples', () => {
   });
 
   it('should handle dashboard with mixed widget types', () => {
-    // Example: Admin dashboard with charts, stats, and actions
     const StatCard = ({
       title,
       value,
@@ -667,10 +646,8 @@ describe('Widget System - Real World Examples', () => {
 
     render(<Widgets items={dashboardItems} />);
 
-    // Verify dashboard layout
     expect(screen.getByTestId('dashboard-grid')).toBeInTheDocument();
 
-    // Verify stat cards
     const statCards = screen.getAllByTestId('stat-card');
     expect(statCards).toHaveLength(2);
     expect(screen.getByText('Total Users')).toBeInTheDocument();
@@ -678,7 +655,6 @@ describe('Widget System - Real World Examples', () => {
     expect(screen.getByText('Revenue')).toBeInTheDocument();
     expect(screen.getByText('$45,678')).toBeInTheDocument();
 
-    // Verify action button
     expect(screen.getByTestId('action-button')).toBeInTheDocument();
     expect(screen.getByText('Export Data')).toBeInTheDocument();
   });

@@ -1,3 +1,10 @@
+/**
+ * Messages `Widgets` and `renderWidget` pass to `warnOnce`.
+ *
+ * Each one names the offending item's `id` and `type`, which is what lets
+ * `warnOnce` key on the message text and still report a second bad item
+ * separately.
+ */
 export const ERROR_MESSAGES = {
   UNKNOWN_WIDGET: (type: string, id: string) =>
     `Unknown widget type "${type}" for widget ID "${id}". Skipping render.`,

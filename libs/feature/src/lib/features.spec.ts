@@ -249,8 +249,9 @@ describe('cascade', () => {
 
     features.toggle('a', false);
 
-    // The 2022 sketch's bug stops here: with the parent's *stored* value read
-    // instead of its resolved one, b goes off and c, d, e stay on.
+    // All five, not just b. A cascade that reads each parent's stored
+    // `enabled` rather than its resolved decision turns b off and leaves c, d
+    // and e on, because only a's stored value changed.
     expect(enabledOf(features.resolve())).toEqual({
       a: false,
       b: false,
@@ -403,8 +404,9 @@ describe('the store holds intent', () => {
 
     expect(JSON.stringify(definitions)).toBe(snapshot);
     expect(JSON.stringify(features.config)).toBe(snapshot);
-    // `enabled` meant "the maintainer wants this on" throughout, and that did
-    // not change when the window closed.
+    // `enabled` is the maintainer's intent, and a window closing is not the
+    // maintainer. Nothing but `toggle` and an edit to the configuration writes
+    // it.
     expect(features.definition('child')?.enabled).toBe(true);
   });
 

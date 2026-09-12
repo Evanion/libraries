@@ -42,10 +42,8 @@ export default defineConfig(() => ({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     reporters: ['default'],
-    // Widgets.astro is the only source file the type checker cannot see into,
-    // so it is the one that needs rendering to test. Astro's container API does
-    // that, but importing a .astro module requires astro's own vite plugin,
-    // which the library build must not carry.
+    // The container tests live in their own project, for the reason
+    // vitest.astro.config.ts gives.
     projects: [
       {
         extends: true,
