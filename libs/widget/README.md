@@ -237,6 +237,10 @@ will never render:
 ingestion or build time; the renderer underneath stays defensive, skipping a
 malformed item with a dev-only `console.warn` rather than taking a page down.
 
+The renderer warns from render, so each message is logged once per process: a
+stale `type` reports once instead of on every re-render and again on hydration.
+Nothing is logged when `NODE_ENV` is `production`.
+
 ## API
 
 ### `createWidgets(config)`
@@ -278,9 +282,12 @@ Returns `{ Widgets, defineItems, validateItems }`.
 `createWidgets`, `validateItems`, `DefaultWrapper`, `DefaultItem`,
 `ERROR_MESSAGES`, `VALIDATION_MESSAGES`, and the types `WidgetItem`,
 `WidgetProps`, `WidgetDataProps`, `WidgetComponentMap`, `WidgetsConfig`,
-`WidgetsProps`, `WidgetsChrome`, `WidgetItemComponent`,
-`WidgetsWrapperComponent`, `WidgetItemProblem`, `RenderableWidgetItem`,
-`AnyWidgetComponent`.
+`WidgetsProps`, `WidgetsChrome`, `WidgetChildren`, `WidgetItemComponent`,
+`WidgetsWrapperComponent`, `WidgetItemProblem`, `KnownWidgetTypes`,
+`RenderableWidgetItem`, `AnyWidgetComponent`.
+
+`props` on a widget whose component declares no props is `Record<string, never>`
+rather than `{}`, so an unexpected key is a compile error there too.
 
 ## Migrating from 0.1.x
 
