@@ -17,9 +17,10 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
-      // Without an explicit include, v8 reports only the files a test happened
-      // to load -- so the suite printed 100% while never loading two of the
-      // five source modules.
+      // v8 coverage is collected from the modules the run actually loaded, so
+      // without an explicit include a source file no test imports is absent
+      // from the report rather than reported as uncovered, and the percentage
+      // is computed over the loaded subset.
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.spec.ts', 'src/index.ts'],
     },

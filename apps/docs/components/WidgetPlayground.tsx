@@ -6,11 +6,31 @@ import { Editor } from '@monaco-editor/react';
 import type { OnMount } from '@monaco-editor/react';
 
 interface WidgetPlaygroundProps {
+  /**
+   * The snippet the preview starts from. It is evaluated by react-live in
+   * `noInline` mode, so it has to end in a `render(<… />)` call, and every name
+   * it uses has to be in `scope` below -- there is no module resolution inside
+   * the snippet.
+   */
   initialCode: string;
+  /** Editor height in pixels, and the preview panel's minimum height. */
   height?: number;
+  /** Whether the Code tab is offered. The preview tab is always there. */
   showEditor?: boolean;
 }
 
+/**
+ * An editable code sample with a live preview, usable as a JSX tag in any MDX
+ * page through the map in mdx-components.js.
+ *
+ * A client component: it evaluates the snippet in the browser and loads Monaco,
+ * neither of which has a server rendering.
+ *
+ * @example
+ * ```mdx
+ * <WidgetPlayground initialCode={`render(<b>hi</b>)`} height={300} />
+ * ```
+ */
 export default function WidgetPlayground({
   initialCode,
   height = 400,
@@ -20,7 +40,11 @@ export default function WidgetPlayground({
   const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview');
   const [isDark, setIsDark] = useState(false);
 
-  // Detect theme from the document
+  // Monaco takes its theme as a prop rather than reading CSS, so the active
+  // theme has to be resolved in JS. next-themes, which nextra-theme-docs uses,
+  // records the choice by writing a class onto <html> outside React, so the
+  // element is observed directly; `prefers-color-scheme` covers the "system"
+  // setting, under which next-themes writes nothing.
   useEffect(() => {
     const checkTheme = () => {
       const isDarkMode =
@@ -32,7 +56,6 @@ export default function WidgetPlayground({
 
     checkTheme();
 
-    // Listen for theme changes
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
@@ -54,8 +77,11 @@ export default function WidgetPlayground({
     }
   }, []);
 
+  // Monaco's TypeScript defaults assume a plain module with no JSX and no
+  // ambient React, and its diagnostics are independent of react-live's
+  // evaluation. Without the three calls below the editor marks every snippet as
+  // broken while the preview renders it correctly.
   const handleEditorDidMount = useCallback<OnMount>((editor, monaco) => {
-    // Configure Monaco for TypeScript with JSX support
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.Latest,
       allowNonTsExtensions: true,
@@ -71,13 +97,15 @@ export default function WidgetPlayground({
       skipLibCheck: true,
     });
 
-    // Set the model to TypeScript
     const model = editor.getModel();
     if (model) {
       monaco.editor.setModelLanguage(model, 'typescript');
     }
 
-    // Add React types
+    // A hand-written subset of React's types, registered under the path Monaco
+    // resolves `react` from. The real @types/react is not reachable: Monaco
+    // resolves modules inside the worker, against files added here, and never
+    // against the bundle's node_modules.
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `declare module 'react' {
         export = React;
@@ -105,7 +133,15 @@ export default function WidgetPlayground({
     );
   }, []);
 
-  // Simple mock for the playground
+  /**
+   * Stands in for `@evanion/react-widget`'s `createWidgets` inside the snippet.
+   *
+   * react-live evaluates a snippet against `scope` alone, with no module
+   * resolution, so every name the examples use has to be supplied here. This
+   * covers the lookup-and-render half the examples demonstrate; item validation
+   * and `chrome` are not implemented, so a snippet that passes `chrome` renders
+   * without it.
+   */
   const mockCreateWidgets = (config: {
     components: Record<string, React.ComponentType<Record<string, unknown>>>;
   }) => {
@@ -145,7 +181,9 @@ export default function WidgetPlayground({
     useMemo: React.useMemo,
     useCallback: React.useCallback,
     React: React,
-    render: (element: React.ReactElement) => element, // Add render function for noInline mode
+    // `noInline` makes react-live run the snippet as statements and render
+    // whatever it hands to `render`, which it expects the scope to provide.
+    render: (element: React.ReactElement) => element,
   };
 
   return (
@@ -202,9 +240,9 @@ export default function WidgetPlayground({
                   bracketPairs: true,
                   indentation: true,
                 },
-                // Fix tooltip positioning
                 hover: {
-                  // monaco 0.56 changed this from boolean to 'on' | 'off' | 'onKeyboardModifier'
+                  // monaco 0.56 types this as 'on' | 'off' | 'onKeyboardModifier',
+                  // not boolean.
                   enabled: 'on',
                   delay: 300,
                 },
@@ -212,7 +250,10 @@ export default function WidgetPlayground({
                   showKeywords: false,
                   showSnippets: false,
                 },
-                // Prevent tooltips from being cut off
+                // Monaco renders hover and suggestion widgets inside the editor
+                // element by default, where the docs layout's own overflow and
+                // stacking contexts clip anything taller than the editor. These
+                // two move them to <body>, outside every such context.
                 fixedOverflowWidgets: true,
                 overflowWidgetsDomNode: document.body,
               }}
@@ -297,7 +338,12 @@ export default function WidgetPlayground({
           z-index: 1;
         }
 
-        /* Fix Monaco Editor tooltip styling */
+        /*
+         * Hover widgets are reparented to <body> by overflowWidgetsDomNode, so
+         * they inherit the page's colours instead of the editor's theme. :global
+         * is what reaches them from a styled-jsx block, which otherwise scopes
+         * every selector to this component's own elements.
+         */
         :global(.monaco-editor .monaco-hover) {
           background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
           border: 1px solid ${isDark ? '#454545' : '#cccccc'} !important;
@@ -360,7 +406,6 @@ export default function WidgetPlayground({
           color: ${isDark ? '#cccccc' : '#333333'} !important;
         }
 
-        /* Additional tooltip styling for better visibility */
         :global(
           .monaco-editor
             .monaco-hover

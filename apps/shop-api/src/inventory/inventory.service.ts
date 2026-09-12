@@ -13,8 +13,13 @@ const STOCK: ReadonlyMap<string, number> = new Map([
 /** Read-only accessor over the static STOCK map. */
 @Injectable()
 export class InventoryService {
-  /** Throws rather than returning undefined when urn has no stock record --
-   * the return type is Stock, not an optional. */
+  /**
+   * The stock record for one game urn.
+   *
+   * @throws {NotFoundException} when the urn has no record, which Nest renders
+   * as a 404. InventoryClient translates that 404 back into a
+   * `NotFoundException` on the calling side of the HTTP hop.
+   */
   getStock(urn: string): Stock {
     const quantity = STOCK.get(urn);
     if (quantity === undefined) {

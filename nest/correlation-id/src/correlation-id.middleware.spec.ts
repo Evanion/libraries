@@ -26,8 +26,11 @@ function mockService(generated = 'test123') {
 /**
  * Models what node:http actually gives a middleware: `req.headers` keyed by
  * lower-case name, `res.getHeader`/`res.setHeader` case-insensitive on lookup
- * but preserving the casing they were given. The old mock returned the same
- * value for every header name, which made casing untestable by construction.
+ * but preserving the casing they were given.
+ *
+ * Keyed per header name rather than answering every lookup with one value: the
+ * middleware's whole header contract is about which name and which casing, so a
+ * mock that ignores the name cannot fail when the middleware gets either wrong.
  */
 function mockReqRes(incoming?: string | string[]) {
   const req = {

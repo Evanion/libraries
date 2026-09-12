@@ -23,6 +23,7 @@ const REGION = /<!--\s*#region\s+([\w-]+)\s*-->/;
 const ENDREGION = /<!--\s*#endregion\s+([\w-]+)\s*-->/;
 const FENCE = /^\s*(`{3,})(.*)$/;
 
+/** A malformed or missing region, with the file and line in its message. */
 export class RegionError extends Error {
   constructor(message) {
     super(message);

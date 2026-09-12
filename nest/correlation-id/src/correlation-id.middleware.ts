@@ -17,6 +17,22 @@ const singleValue = (
   value: string | string[] | undefined,
 ): string | undefined => (Array.isArray(value) ? value.join(', ') : value);
 
+/**
+ * Opens a correlation context around every request, reusing the id the caller
+ * sent when it passes `validate` and minting one otherwise.
+ *
+ * Typed against `node:http` rather than Express: `req`/`res` are only read for
+ * headers, so the same middleware class works under either adapter.
+ *
+ * @example
+ * ```ts
+ * export class AppModule implements NestModule {
+ *   configure(consumer: MiddlewareConsumer) {
+ *     consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+ *   }
+ * }
+ * ```
+ */
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   constructor(
@@ -43,6 +59,10 @@ export class CorrelationIdMiddleware implements NestMiddleware {
         ? incoming
         : this.correlationService.generate();
 
+    // A generated id is written back onto the request, so anything reading the
+    // header rather than CorrelationService -- a proxy, an access logger, a
+    // framework-level request logger -- sees the same id. A header that arrived
+    // is left exactly as it came in, including one `validate` rejected.
     if (!req.headers[key]) req.headers[key] = correlationId;
     // setHeader preserves the casing it is given, so the configured casing is
     // what goes out on the wire.

@@ -17,9 +17,11 @@ export class GamesController {
     return this.games.findAll();
   }
 
-  /** `urn` is the full urn string, e.g. `urn:game:wingspan` -- not the bare
-   * nss `wingspan` -- since that is what Game.urn and GamesService compare
-   * against. */
+  /**
+   * @param urn The full urn, `urn:game:wingspan`, not the bare nss `wingspan`:
+   * it is matched against `Game.urn`, which GameURN writes in full. Colons are
+   * legal in a path segment, so nothing needs escaping on the way in.
+   */
   @Get(':urn')
   findOne(@Param('urn') urn: string): Game {
     return this.games.findByUrn(urn);

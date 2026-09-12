@@ -2,9 +2,9 @@ import { join } from 'node:path';
 
 import nextra from 'nextra';
 
-// `composePlugins`/`withNx` from @nx/next are deprecated and removed in Nx 24.
-// A plain next.config is the recommended pattern now -- Next.js transpiles
-// workspace libraries on its own.
+// A plain Next config, not wrapped in @nx/next's `composePlugins`/`withNx`:
+// those are deprecated and removed in Nx 24, and Next transpiles workspace
+// libraries without them.
 const withNextra = nextra({
   defaultShowCopyCode: true,
   latex: true,
@@ -16,18 +16,13 @@ const withNextra = nextra({
 const workspaceRoot = join(import.meta.dirname, '../..');
 
 export default withNextra({
-  // A `file=… region=…` code block is filled from the named region in the
-  // package's README, which is itself executed as a test, so the docs app
-  // renders the example the package ships rather than a copy of it. A renamed
-  // or deleted region fails this build.
+  // Fills every `file=… region=…` code block from the named region of the
+  // package's own README, so a docs page renders the example the package ships
+  // and a renamed region fails this build. The loader carries the rest of the
+  // reasoning.
   //
-  // A loader rather than the remark plugin the demo-apps spec called for:
-  // Nextra hands `mdxOptions.remarkPlugins` to unified, which needs plugin
-  // functions, and Next 16 rejects a config carrying one. A loader's module
-  // path and its `{ root }` option are both strings, and it still runs inside
-  // `next build`, so no npm lifecycle hook is needed. Next 16 builds with
-  // Turbopack, so the rule goes here rather than in `webpack()`, which is
-  // never called.
+  // The rule goes under `turbopack` rather than in `webpack()`: Next 16 builds
+  // with Turbopack, and never calls `webpack()`.
   turbopack: {
     rules: {
       '*.mdx': {

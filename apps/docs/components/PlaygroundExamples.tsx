@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import WidgetPlayground from './WidgetPlayground';
 
+/**
+ * The snippets the tab strip switches between.
+ *
+ * Each `code` string is handed to react-live in `noInline` mode, so it ends in a
+ * `render(…)` call and may only use names WidgetPlayground puts in scope:
+ * `createWidgets`, `render`, `React` and the hooks. An import, or a name that is
+ * not there, surfaces as a runtime error in the preview pane rather than at
+ * build time -- nothing typechecks these strings.
+ */
 const examples = {
   basic: {
     title: 'Basic Widget System',
@@ -217,6 +226,11 @@ render(<Widgets items={items} />)`,
   },
 };
 
+/**
+ * A tab strip over {@link examples}, feeding the selected snippet to one
+ * WidgetPlayground. Usable as a JSX tag in any MDX page through the map in
+ * mdx-components.js.
+ */
 export default function PlaygroundExamples() {
   const [selectedExample, setSelectedExample] =
     useState<keyof typeof examples>('basic');

@@ -24,6 +24,7 @@
 /** The comment marker a value claim is written with. */
 const MARKER = '->';
 
+/** A line claiming a value that cannot be turned into an assertion. */
 export class ExpectCommentError extends Error {
   // Explicit fields rather than constructor parameter properties: Nx loads a
   // vite.config.ts importing this module under Node's strip-only TypeScript
@@ -165,17 +166,6 @@ export function rewriteLine(line: string, file: string, number: number): string 
 }
 
 /**
- * Rewrites a static import into the dynamic form, because doctest runs a block
- * as a function body and a static import is only legal at module top level.
- *
- * The alternative is to hide the imports in a per-package preamble, which
- * costs the README the line a reader most needs — which package the names come
- * from. The specifier is untouched, so a block resolves `@evanion/luhn` the
- * way a consumer does, through the package's own exports map.
- *
- * One line in, one line out, same as the value claims.
- */
-/**
  * `{ a, b as c, type T }` as a destructuring pattern.
  *
  * An inline `type` specifier names nothing at runtime, so it is dropped rather
@@ -191,6 +181,18 @@ function namedBindings(clause: string): string {
     .join(', ');
 }
 
+/**
+ * Rewrites a static import into the dynamic form, or returns null for a line
+ * that is not an import.
+ *
+ * doctest runs a code block as a function body, where a static import is a
+ * syntax error. The alternative is to move the imports into a per-package
+ * preamble, which costs the README the line a reader most needs — which package
+ * the names come from. The specifier is untouched, so the block resolves
+ * `@evanion/luhn` the way a consumer does, through the package's exports map.
+ *
+ * One line in, one line out, same as the value claims.
+ */
 function rewriteImport(line: string): string | null {
   const indent = line.slice(0, line.length - line.trimStart().length);
   const source = line.trim();

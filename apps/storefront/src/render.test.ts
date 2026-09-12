@@ -6,7 +6,13 @@ import { join } from 'node:path';
 const appRoot = join(import.meta.dirname, '..');
 const html = () => readFileSync(join(appRoot, 'dist', 'index.html'), 'utf8');
 
+/**
+ * Asserts against the HTML `astro build` emits, because what the blocks receive
+ * and whether an unknown one is skipped are decided by Astro's own renderer.
+ */
 describe('demo output', () => {
+  // `nx test` depends on `build`, so dist/ is normally already there; this
+  // builds it when the file is run directly, e.g. from an editor or `vitest`.
   beforeAll(() => {
     if (!existsSync(join(appRoot, 'dist', 'index.html'))) {
       execFileSync('npx', ['astro', 'build'], { cwd: appRoot, stdio: 'pipe' });

@@ -79,7 +79,6 @@ jobs:
           PROJECTS: ${{ inputs.projects }}
         run: node scripts/resolve-release-projects.mjs
 
-      # Never publish an unverified tree.
       - name: Verify
         # Same target list as CI, including `check`. storefront's
         # inferred typecheck target is a disabled no-op (Astro's config sets
@@ -93,13 +92,19 @@ jobs:
       - name: Verify packaging
         run: npm run verify:packaging
 
+      # `nx release` commits the version bumps and tags them, so it needs an
+      # identity. The push itself authenticates as the deploy key above, not as
+      # this author.
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Version, changelog and tag
-        # Inputs go through env rather than being interpolated into the script.
+        # Inputs reach the script as environment variables. A `${{ }}`
+        # interpolation is substituted into the script text before the shell sees
+        # it, so a dispatch input containing shell syntax would run as part of
+        # this step.
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           PROJECTS: ${{ steps.projects.outputs.projects }}

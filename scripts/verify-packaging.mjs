@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 /**
- * Packs each publishable library, installs the tarballs into a throwaway
- * project outside the workspace, and checks that a real consumer can both
- * import them and see their types.
+ * Packs every publishable library, installs the tarballs into a throwaway
+ * project outside the workspace, and checks that a consumer can import them and
+ * see their types.
  *
- * This exists because a bug got all the way to the edge of a release that
- * nothing else caught: vite-plugin-dts emitted extensionless re-exports
- * (`export * from './Compose'`), which a consumer on moduleResolution
- * node16/nodenext cannot resolve -- so `@evanion/compose` and
- * `@evanion/react-widget` appeared to export nothing at all. Every in-repo
- * check passed, because inside the workspace those modules resolve from source.
+ * Nothing inside the repo can tell whether a package resolves as published.
+ * tsconfig.base.json sets `customConditions: ["@evanion/source"]`, so every
+ * in-workspace import reaches a package's TypeScript source and the exports map,
+ * the emitted declarations and the build output are all bypassed. A package can
+ * therefore typecheck, test and lint clean while exporting nothing a consumer
+ * can reach -- an extensionless relative specifier in an emitted .d.ts is enough,
+ * because `moduleResolution: nodenext` requires the extension.
  *
- * Anything that only shows up once the package is packed belongs here.
+ * Everything that only exists once the package is packed is checked here: the
+ * exports map, the conditions in it, the declarations as emitted, the entry
+ * points, and the directives and imports the bundler left in the output.
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -25,7 +28,14 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
-// [directory, package name]
+
+/**
+ * Every publishable package, as `[directory, package name]`.
+ *
+ * A package missing from this list is packed by nothing and checked by nothing;
+ * the count is asserted after packing so a failed `npm pack` cannot pass as a
+ * shorter list.
+ */
 const LIBS = [
   ['libs/compose', '@evanion/compose'],
   ['libs/urn', '@evanion/urn'],
@@ -82,6 +92,10 @@ try {
       include: ['consumer.ts'],
     }),
   );
+  // Names every public export and assigns the types to annotated bindings, so
+  // `tsc` fails on a symbol that stopped being exported and on one whose type
+  // stopped being reachable. `void [...]` at the end keeps the values used
+  // without running anything.
   writeFileSync(
     join(dir, 'consumer.ts'),
     `
@@ -165,6 +179,10 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
   run('npx', ['tsc', '-p', 'tsconfig.json'], dir);
   console.log('  ✓ every package exposes its types under nodenext');
 
+  // A second pass at runtime: the typecheck above resolves through the exports
+  // map's `types` condition, node resolves through `import`, and the two point
+  // at different files. A declaration can promise a value the emitted JavaScript
+  // does not export.
   console.log('Importing at runtime…');
   writeFileSync(
     join(dir, 'runtime.mjs'),
