@@ -27,11 +27,19 @@ export type WidgetComponentMap = Record<string, AnyWidgetComponent>;
 /**
  * The props a widget component accepts as *data*, i.e. everything except
  * `children`, which the renderer supplies from the item's nested items.
+ *
+ * A component that declares no data props resolves to `Record<string, never>`
+ * rather than `{}`. TypeScript assigns any object to `{}` without an
+ * excess-property check, so `props: { totally: 'bogus' }` on a zero-prop widget
+ * would compile clean -- a hole in the "mismatched props is a compile error"
+ * guarantee, opening exactly where the component is simplest. An index
+ * signature of `never` closes it while still admitting `props: {}`.
  */
-export type WidgetDataProps<C extends AnyWidgetComponent> = Omit<
-  ComponentProps<C>,
-  'children'
->;
+export type WidgetDataProps<C extends AnyWidgetComponent> = [
+  keyof Omit<ComponentProps<C>, 'children'>,
+] extends [never]
+  ? Record<string, never>
+  : Omit<ComponentProps<C>, 'children'>;
 
 /**
  * Whether a component actually accepts `children`.
