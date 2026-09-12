@@ -97,9 +97,28 @@ this repo.
 
 3. Re-run with `dry-run: false`.
 
-`first-release: true` is only needed when a package has no git tag yet. It tells
-`nx release` not to look for a previous tag and not to check whether the version
-already exists on the registry.
+### Releasing a subset
+
+`projects` takes a comma-separated list and defaults to empty, which releases
+everything affected. Names are the bare form used as commit scopes, so
+`urn,luhn` rather than `@evanion/urn,@evanion/luhn`; both are accepted.
+
+```
+projects: urn,luhn
+```
+
+The list is resolved against the project graph before anything is versioned, so
+a name that is not released here fails the run immediately and prints the
+releasable names. The same resolved list drives both the version step and the
+publish step, so what gets tagged is what gets published.
+
+Deferring a package loses nothing. Tags are per project, so a package left out
+of a run has its commits read on the next run that includes it.
+
+Reach for this when a package needs a fix while another has unreleased work that
+is not ready, when a publish failed for one package after everything was already
+versioned and tagged, or when a new package is taking its first release on its
+own.
 
 ## Verifying a release worked
 

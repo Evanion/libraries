@@ -142,6 +142,23 @@ Note also that Nx caches parsed tsconfigs on disk. If `node_modules` changes in
 a way that alters how an `extends` chain resolves, that cache can go stale and
 Nx will infer the wrong command until you run `nx reset`.
 
+### Running `nx g`
+
+Nx generators rewrite root config beyond the project they create. Devkit's
+`writeJson` is `JSON.stringify`, so any generator that touches `nx.json`
+rewrites the whole file and drops its comments. Scaffolding a publishable
+library also adds `release.version.preVersionCommand`, a `verdaccio`
+devDependency, a `local-registry` target in root `package.json`, and
+`.verdaccio/config.yml`. Nx offers no option to suppress any of it.
+
+After running a generator, diff the files outside the new project, restore the
+root config and re-apply by hand only what the generator legitimately added --
+for `apps/shop-api` that was a single `@nx/webpack/plugin` registration in
+`nx.json`.
+
+`tools/repo-checks` fails the build if any of that collateral is left in, so
+`nx run-many -t test` will tell you before CI does.
+
 ### Pre-commit Hooks
 
 This project uses Husky pre-commit hooks that run **only on affected projects** using Nx:
