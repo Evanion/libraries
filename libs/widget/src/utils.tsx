@@ -1,18 +1,12 @@
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { ERROR_MESSAGES } from './constants.js';
+import { warnOnce } from './warn.js';
 import type {
   AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetItemComponent,
 } from './types.js';
-
-/** Dev-only warning helper that is stripped in production builds. */
-function warn(message: string) {
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn(message);
-  }
-}
 
 /**
  * Renders one item and, recursively, its nested items as that item's children.
@@ -20,10 +14,8 @@ function warn(message: string) {
  * Internal: not re-exported from the package barrel, so the nesting mechanism
  * stays free to change without a breaking release.
  *
- * The `<Suspense>` boundary lives here rather than in the item chrome. It used
- * to sit inside `DefaultItem`, which meant any custom `chrome.item` silently
- * removed it -- the bug 8a1efc0 fixed for the error boundary, applied to the
- * only boundary that still exists.
+ * The `<Suspense>` boundary lives here rather than in the item chrome, so a
+ * custom `chrome.item` cannot silently remove it.
  */
 export function renderWidget(
   item: RenderableWidgetItem,
@@ -37,7 +29,7 @@ export function renderWidget(
     typeof item !== 'object' ||
     typeof item.type !== 'string'
   ) {
-    warn(ERROR_MESSAGES.MALFORMED_ITEM(item?.id, item?.type));
+    warnOnce(ERROR_MESSAGES.MALFORMED_ITEM(item?.id, item?.type));
     return null;
   }
 
@@ -52,7 +44,7 @@ export function renderWidget(
     : undefined;
 
   if (!Component) {
-    warn(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
+    warnOnce(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
     return null;
   }
 
@@ -61,7 +53,7 @@ export function renderWidget(
     if (Array.isArray(item.children)) {
       children = item.children;
     } else {
-      warn(ERROR_MESSAGES.MALFORMED_CHILDREN(item.id));
+      warnOnce(ERROR_MESSAGES.MALFORMED_CHILDREN(item.id));
     }
   }
 
