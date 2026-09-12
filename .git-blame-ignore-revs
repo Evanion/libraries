@@ -1,0 +1,13 @@
+# Commits listed here are skipped by `git blame`, so a line's blame points at
+# the commit that wrote the code rather than at a sweep that only moved
+# whitespace. One full SHA per line; `#` starts a comment.
+#
+# GitHub reads this file by name and applies it to the blame view with no
+# configuration. Local git does not -- each clone has to be pointed at it once:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Only list commits that changed formatting and nothing else, and only once the
+# commit is on `main`. This repository merges by rebase, so a pull request's
+# commit gets a new SHA when it lands; git silently skips a SHA it cannot
+# resolve, so a branch SHA recorded here reads as correct and does nothing.

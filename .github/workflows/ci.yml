@@ -42,6 +42,33 @@ jobs:
           tar xzf "$archive" actionlint
           ./actionlint -color
 
+  # Prettier directly rather than `nx format:check`: the nx command is scoped to
+  # what changed against a base ref, so it reports nothing when the base is the
+  # commit being pushed, and on a pull request it reports only the files in the
+  # diff -- a file left unformatted in the base passes. Formatting is a property
+  # of the working tree, not of a project, so the check has to read every file.
+  #
+  # Its own job rather than part of `main`, so a missing `nx format:write` is
+  # reported in the time of an install instead of behind a full build.
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          filter: tree:0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      # From the lockfile, so the check runs with the prettier version the
+      # repository pins. `--ignore-scripts` because the only lifecycle script is
+      # husky installing git hooks, which nothing in this job uses.
+      - run: npm ci --ignore-scripts
+
+      - run: npx prettier --check .
+
   main:
     runs-on: ubuntu-latest
     steps:
