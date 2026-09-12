@@ -1,0 +1,25 @@
+{
+  "name": "@evanion/storefront-rsc",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "storefront-rsc",
+    "tags": [
+      "scope:demo",
+      "type:app"
+    ],
+    "targets": {
+      "build": {
+        "outputs": [
+          "{projectRoot}/.next"
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "@evanion/react-widget": "*",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  }
+}
