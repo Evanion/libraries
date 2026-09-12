@@ -94,9 +94,8 @@ import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
 import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widget';
-// @evanion/luhn exports a ValidationError of its own, unrelated to @evanion/urn's.
-// Aliased here so the collision is explicit rather than a compile error.
-import { Luhn, InvalidDictionaryError, ValidationError as LuhnValidationError } from '@evanion/luhn';
+import { Luhn, createLuhn, InvalidDictionaryError, LuhnError } from '@evanion/luhn';
+import type { LuhnOptions } from '@evanion/luhn';
 import { createFeatures, FeatureCycleError } from '@evanion/feature';
 import type { Decision, FeatureDefinition } from '@evanion/feature';
 // Second entry point, and the only one that may touch React.
@@ -116,7 +115,9 @@ const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
 const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
 const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
 const checksum: string = Luhn.generate('foo').checksum;
-const luhnErr: LuhnValidationError = new InvalidDictionaryError('abc');
+const luhnOptions: LuhnOptions = { dictionary: '0123456789' };
+const filtered: number = createLuhn(luhnOptions).validate('79927398713').filtered;
+const luhnErr: LuhnError = new InvalidDictionaryError('odd-length', 'abc', []);
 const toggleConfig: FeatureDefinition<'payments-v3' | 'checkout-v2'>[] = [
   { key: 'payments-v3', enabled: true, rules: [{ rollout: { percent: 25 } }] },
   { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
@@ -126,7 +127,7 @@ const toggleDecision: Decision<'payments-v3' | 'checkout-v2'> =
   toggles.resolve({ targetingKey: 'acct-1' })['checkout-v2'];
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
-      registry, sections, problems, checksum, luhnErr,
+      registry, sections, problems, checksum, filtered, luhnErr,
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures];
 `,
   );
@@ -164,15 +165,18 @@ import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
 import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
-import { Luhn, InvalidDictionaryError } from '@evanion/luhn';
+import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
-  defineBlocks, validateBlocks, Luhn, InvalidDictionaryError,
+  defineBlocks, validateBlocks, Luhn, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
+// Luhn is the default instance rather than a class, and it is frozen so that
+// assigning a dictionary to it throws instead of being silently ignored.
+if (typeof Luhn?.generate !== 'function' || !Object.isFrozen(Luhn)) missing.push('Luhn');
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
 `,
   );
