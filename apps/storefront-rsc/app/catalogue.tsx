@@ -1,65 +1,25 @@
+import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
+
 /**
- * The widget this app exists for: an async Server Component that fetches its
- * own data.
+ * The catalogue grid, as an async Server Component that fetches its own data.
  *
  * Nothing hands it a catalogue. It is handed `heading`, which is presentation,
  * and it awaits the rest itself -- the call the widget package's redesign was
  * for. Under Next's App Router this function body runs on the server only: the
- * `await` below resolves before any HTML is flushed, the games reach the
+ * awaits below resolve before the widget's HTML is flushed, the games reach the
  * browser already rendered, and neither the fetch nor the response is part of
  * the client bundle.
  *
- * No `'use client'` anywhere in this file or in `@evanion/react-widget`. The
- * package is importable here because it touches nothing React omits under its
- * `react-server` export condition -- no createContext, useContext, Component
- * or stateful hook. `catalogue.server.test.tsx` runs this component under that
+ * No client directive in this file or in `@evanion/react-widget`. The package is
+ * importable here because it touches nothing React omits under its
+ * `react-server` export condition -- no createContext, useContext, Component or
+ * stateful hook. `region.server.test.tsx` runs this component under that
  * condition, and `scripts/verify-packaging.mjs` holds the package to it.
  *
- * Types are this app's own, per the demo spec: the API is the contract and no
- * package exists to share response shapes.
+ * The two legs are a waterfall on purpose and cannot be otherwise: the urns to
+ * ask about come out of the first response. Inside the second leg the requests
+ * are parallel.
  */
-
-/** One catalogue entry, as `GET /games` returns it. */
-interface Game {
-  /** Entity identity, e.g. `urn:game:wingspan`. */
-  urn: string;
-  title: string;
-  mechanisms: string[];
-  players: string;
-  playtime: string;
-  /** Complexity, 1 (light) to 5 (heavy). */
-  weight: number;
-}
-
-/** Stock for one game, as `GET /inventory/:urn` returns it. */
-interface Stock {
-  urn: string;
-  quantity: number;
-}
-
-/**
- * Where `apps/shop-api` listens, including its global `api` prefix.
- *
- * Read from the environment so the demo can point at a shop-api on another
- * port, and defaulted so `nx serve shop-api` plus `nx dev storefront-rsc` is the
- * whole setup.
- */
-const SHOP_API = process.env.SHOP_API_URL ?? 'http://localhost:3000/api';
-
-/**
- * `cache: 'no-store'` on every request: stock changes, and a cached response
- * would let the page claim a game is available after it has sold out. It is
- * also what keeps this route out of the build -- a fetch Next cannot cache
- * makes the page dynamic, so `next build` never calls shop-api and the build
- * does not need it running.
- */
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${SHOP_API}${path}`, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`GET ${path} returned ${response.status}`);
-  }
-  return (await response.json()) as T;
-}
 
 /** The segments of the weight ramp, drawn as filled or empty. */
 const WEIGHT_STEPS = [1, 2, 3, 4, 5];
@@ -69,12 +29,8 @@ export async function Catalogue({ heading }: { heading: string }) {
   const entries = await Promise.all(
     games.map(async (game) => ({
       ...game,
-      // The urn is one path segment containing colons. They are legal there
-      // unencoded, but Express decodes the parameter either way, so encoding
-      // is the form that also survives an nss with a reserved character in it.
-      quantity: (
-        await fetchJson<Stock>(`/inventory/${encodeURIComponent(game.urn)}`)
-      ).quantity,
+      quantity: (await fetchJson<Stock>(`/inventory/${urnPath(game.urn)}`))
+        .quantity,
     })),
   );
 
