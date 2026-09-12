@@ -18,7 +18,6 @@ const LooseComposeProvider = ComposeProvider as unknown as React.FC<
   Record<string, unknown>
 >;
 
-// Example provider components with different prop types
 interface ThemeProviderProps {
   theme: 'light' | 'dark';
   primaryColor: string;
@@ -134,7 +133,7 @@ describe('ComposeProvider', () => {
     expect(authElement).toHaveAttribute('data-token', 'abc123');
   });
 
-  it('should throw a rename hint when only the removed components prop is passed', () => {
+  it('should name the providers prop when only components is passed', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -207,7 +206,6 @@ describe('ComposeProvider', () => {
       </ComposeProvider>,
     );
 
-    // Verify provider order: first provider should be outermost
     const provider1 = container.querySelector('[data-provider="1"]');
     const provider5 = container.querySelector('[data-provider="5"]');
 
@@ -216,7 +214,6 @@ describe('ComposeProvider', () => {
     expect(provider1).toHaveAttribute('data-id', 'first');
     expect(provider5).toHaveAttribute('data-id', 'fifth');
 
-    // Provider1 should contain Provider5 (outermost contains innermost)
     expect(provider1).toContainElement(provider5 as HTMLElement);
   });
 
@@ -273,7 +270,6 @@ describe('ComposeProvider', () => {
   });
 
   it('should apply providers in correct order (pyramid-of-doom reading order)', () => {
-    // Create providers that show their nesting order
     const OuterProvider: React.FC<
       React.PropsWithChildren<{ name: string }>
     > = ({ children, name }) => (
@@ -312,7 +308,6 @@ describe('ComposeProvider', () => {
     const middle = container.querySelector('[data-level="middle"]');
     const inner = container.querySelector('[data-level="inner"]');
 
-    // Verify nesting: outer contains middle, middle contains inner
     expect(outer).toContainElement(middle as HTMLElement);
     expect(middle).toContainElement(inner as HTMLElement);
     expect(outer).toHaveAttribute('data-name', 'outer');
@@ -334,7 +329,8 @@ describe('ComposeProvider', () => {
 
     const afterFirstRender = consoleWarnSpy.mock.calls.length;
 
-    // Same array identity across re-renders -> the effect must not re-run.
+    // Same array identity across re-renders. The dedupe is by message, not by
+    // array identity, so this would still pass once per process either way.
     rerender(
       <ComposeProvider providers={providers}>
         <div>Content</div>
@@ -350,7 +346,7 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should let providers win over components when both are supplied', () => {
+  it('should ignore components when providers is also supplied', () => {
     const bothProps = {
       providers: [SimpleProvider],
       components: [

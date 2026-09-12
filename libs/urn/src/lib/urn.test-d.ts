@@ -65,8 +65,10 @@ describe('urn types', () => {
     expectTypeOf(URN.fComponentGrammar).toEqualTypeOf<RegExp>();
   });
 
-  it('no longer exposes a single flat isValid regex', () => {
-    // @ts-expect-error isValid was replaced by the three grammar getters
+  it('exposes no single flat validation regex', () => {
+    // One character class cannot describe three roles across two separator
+    // regimes; the role-scoped grammar getters above are the whole surface.
+    // @ts-expect-error URN has no isValid member
     void URN.isValid;
   });
 
@@ -107,8 +109,9 @@ describe('urn types', () => {
       static override readonly nid = 'bar';
     }
 
-    // Guards inherited statics from requiring a cast to `typeof URN`: free
-    // type parameters on parse would otherwise break variance for subclasses.
+    // A subclass calls every inherited static without a cast to `typeof URN`.
+    // Free type parameters on `parse` would break that: the subclass's own
+    // `parse` would not be assignable to the base signature.
     expectTypeOf(TRN.stringify('foo')).toEqualTypeOf<string>();
     expectTypeOf(TRN.parse('trn:bar:foo')).toEqualTypeOf<ParsedURN>();
     expectTypeOf(

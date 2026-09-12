@@ -1,3 +1,10 @@
+/**
+ * The sentence for one rejected dictionary.
+ *
+ * The switch has no `default` arm and the function has a declared return type,
+ * so adding a member to {@link InvalidDictionaryReason} without a message here
+ * fails to compile on the implicit `undefined` return.
+ */
 const messageFor = (
   reason: InvalidDictionaryReason,
   dictionary: string,
@@ -20,8 +27,13 @@ const messageFor = (
 };
 
 /**
- * Base class for every error this library throws.
+ * Base class for every error this library throws. Catch it to handle any
+ * failure without naming the subclasses.
  *
+ * `@evanion/urn` exports an unrelated `ValidationError`; the name here is
+ * package-specific so the two never collide in a consumer's import list.
+ *
+ * @example
  * ```ts
  * try {
  *   createLuhn({ dictionary });
@@ -31,9 +43,6 @@ const messageFor = (
  *   }
  * }
  * ```
- *
- * `@evanion/urn` exports an unrelated `ValidationError`; the name here is
- * package-specific so the two never collide in a consumer's import list.
  */
 export class LuhnError extends Error {
   constructor(message: string) {
@@ -56,6 +65,18 @@ export type InvalidDictionaryReason =
  * One class carrying a `reason` rather than one class per constraint, so a
  * caller that only wants to know whether a dictionary is acceptable writes one
  * `catch` arm instead of five.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   createLuhn({ dictionary: 'aabbccdd' });
+ * } catch (error) {
+ *   if (error instanceof InvalidDictionaryError) {
+ *     error.reason; // 'duplicate'
+ *     error.offending; // ['a', 'b', 'c', 'd']
+ *   }
+ * }
+ * ```
  */
 export class InvalidDictionaryError extends LuhnError {
   readonly reason: InvalidDictionaryReason;
