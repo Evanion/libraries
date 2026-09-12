@@ -171,7 +171,7 @@ import { FeatureProvider, useFeature } from '@evanion/feature/react';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
-  defineBlocks, validateBlocks, Luhn, createLuhn, InvalidDictionaryError,
+  defineBlocks, validateBlocks, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // Luhn is the default instance rather than a class, and it is frozen so that
