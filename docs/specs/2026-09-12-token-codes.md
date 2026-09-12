@@ -55,13 +55,13 @@ None of it carries over. The idea does.
 ```ts
 const token = createToken();                       // defaults
 token.generate()
-// { value: 'a4kp-9mx7', body: 'a4kp9mx', check: '7', prefix: undefined }
+// { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a' }
 
 token.generate({ prefix: 'ORD' })
-// { value: 'ORD-a4kp-9mx7', body: 'a4kp9mx', check: '7', prefix: 'ORD' }
+// { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
 
-token.validate('a4kp-9mx7')       // { valid: true,  body: 'a4kp9mx' }
-token.validate('a4kp-9mx8')       // { valid: false, reason: 'check-failed' }
+token.validate('a4kp-9mxa')       // { valid: true,  body: 'a4kp9mx' }
+token.validate('a4kp-9mxb')       // { valid: false, reason: 'check-failed' }
 token.validate('a4kp-9mxo')       // { valid: false, reason: 'outside-alphabet' }
 ```
 
@@ -90,8 +90,17 @@ it.
 
 A supplied dictionary is validated on all three. luhn already reports the
 second as `too-short`, `odd-length`, `duplicate`, `case-pairs`; token checks
-the first and third and reports its own reasons. It reads
-`createLuhn(...).uniformOverBytes` rather than recomputing `256 % n === 0`.
+the first and third and reports its own reasons, `confusable` and
+`non-uniform`. It reads `createLuhn(...).uniformOverBytes` rather than
+recomputing `256 % n === 0`.
+
+A fourth reason, `unfolded`, rejects a dictionary containing an uppercase
+character. The "no case pairs" constraint is only active under luhn's
+`caseInsensitive`, so token constructs its luhn instance with case folding on
+and folds input before validating. An all-uppercase dictionary satisfies every
+constraint in the table and then matches nothing once folded, which would give
+a construction that succeeds and a `generate` that throws. Construction rejects
+it instead.
 
 Rejection sampling is the alternative to constraining the alphabet. It is not
 used: it makes generation variable-time, and the constraint is satisfiable — the
@@ -99,7 +108,7 @@ default proves it.
 
 ## The prefix sits outside the checksum
 
-`ORD-a4kp-9mx7` checksums `a4kp9mx` only.
+`ORD-a4kp-9mxa` checksums `a4kp9mx` only.
 
 Folding the prefix in requires every prefix character to be in the alphabet.
 `ORD` contains `o`, which is excluded precisely because it is confusable, so
@@ -117,7 +126,7 @@ total, fast and free of side effects. It returns a reason rather than throwing:
 | `reason` | meaning |
 | --- | --- |
 | `outside-alphabet` | a character not in the dictionary, after separators are stripped |
-| `wrong-length` | body length does not match the configured length |
+| `wrong-length` | the token, separators stripped, is not `length` characters |
 | `check-failed` | the check character does not match the body |
 
 `valid: true` means the code is well formed. It does not mean the code exists.
@@ -138,14 +147,95 @@ exists to avoid.
 
 ## Entropy
 
-`length` counts body characters including the check character, so usable
-entropy is `(length - 1) * log2(n)`. At the defaults — length 8, n = 32 —
-that is 35 bits. The README states this next to the default rather than leaving
-it to be derived, because a verification code sized by eye is how a code ends
-up guessable.
+Two words with two meanings, fixed here because the rest of the spec relies on
+the distinction:
 
-`generate` never retries or checks for collisions. Uniqueness is the caller's
-database constraint, not a property a generator can offer.
+- `length` is the whole token, check character included. It is what `validate`
+  measures and what `wrong-length` reports on.
+- `body` is the token without its check character, and is what `generate`
+  returns under that name.
+
+The check character is derived from the body, so it carries no entropy. Usable
+entropy is therefore `(length - 1) * log2(n)`. At the defaults — length 8,
+n = 32 — that is 35 bits. The README states this next to the default rather
+than leaving it to be derived, because a verification code sized by eye is how
+a code ends up guessable.
+
+`generate` never retries or checks for collisions.
+
+## Collisions
+
+At the defaults the space is `32^7` = 34,359,738,368 codes. Two numbers
+follow from that, and they differ by five orders of magnitude:
+
+| Number | Value | What it answers |
+| --- | --- | --- |
+| Space | 34,359,738,368 | How long enumeration takes |
+| 50% birthday threshold | ~218,000 | When a collision becomes likely across the whole set |
+| Per-insert probability at 1M issued | 1 in 34,360 | How often one insert actually fails |
+
+The birthday threshold is the number to quote when codes are generated
+offline in a batch and never checked. With a unique constraint the
+per-insert probability is the one that governs, and at a million issued
+codes an insert retries once in every 34,360 attempts.
+
+So the documented pattern is a unique index and an insert-retry loop:
+
+```ts
+for (;;) {
+  const { value } = token.generate();
+  try {
+    return await orders.insert({ code: value });
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+  }
+}
+```
+
+This is the only construction that holds under concurrency. Two
+processes can generate the same code in the same instant, and any check
+performed before the insert is a time-of-check-to-time-of-use race. That
+is why `generate` takes no `exists` callback: it would make collisions
+rarer while reading as though they were impossible, and a caller who
+believes that drops the unique constraint.
+
+## Guaranteed uniqueness, not implemented
+
+Random sampling is what produces birthday collisions. A generator that
+enumerated the space under a bijection instead would have none: distinct
+inputs give distinct codes by construction, for all 34,359,738,368 of
+them.
+
+The bijection has to be indistinguishable from random, or codes become
+guessable, which is format-preserving encryption over a domain of
+exactly `32^7`. Encryption is a permutation, so injectivity is free, and
+without the key the output carries nothing about its input. NIST FF1
+(SP 800-38G) standardises this and radix 32 at length 7 is inside its
+domain requirements; a small-domain Feistel network with HMAC-SHA256 as
+the round function is the dependency-free equivalent.
+
+```
+1 -> encode(key, 1) -> a4kp9mx + check
+2 -> encode(key, 2) -> q7t2fbd + check
+3 -> encode(key, 3) -> 3nzhc5r + check
+```
+
+It is not implemented, for one reason: it needs a monotonic counter and
+a secret key. A counter that is correct under concurrency lives in a
+database sequence, so the library would carry a dependency on the
+caller's storage, and this library is self-contained. The shape that
+would preserve that — `createToken({ key })` with
+`token.encode(sequenceNumber)`, the caller passing a value it already
+holds — remains available if the trade is ever worth making.
+
+Key rotation is the sharp edge to design for first. Two keys are two
+permutations, and they can map different counters onto the same code, so
+rotation either returns to birthday-level risk or partitions the space
+by key version.
+
+Uniform random sampling stays the default. Within a stateless generator
+it is already optimal: uniform minimises collision probability over a
+fixed space, so there is nothing in the sampling to tune.
 
 ## Migration
 
