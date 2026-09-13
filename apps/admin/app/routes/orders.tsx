@@ -4,7 +4,7 @@ import { correlationContext } from '../page-context.js';
 import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
 import { Ledger, defineLedgerItems, ledgerColumns } from '../regions/ledger.js';
-import { Panel, PanelTitle, Quiet, StatLine } from '../ui/baize.js';
+import { Panel, Stat, StatLine, Text, Title } from '@evanion/baize-ui';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Orders · Baize' }];
 
@@ -88,14 +88,11 @@ export default function Orders({ loaderData }: Route.ComponentProps) {
 
   if (unavailable) {
     return (
-      <Panel>
-        <PanelTitle>No order history</PanelTitle>
-        <p style={{ margin: 0 }}>
-          <Quiet>
-            Orders are rebuilt from shop-api&rsquo;s event sink, which is not
-            answering. Start it and this page fills in.
-          </Quiet>
-        </p>
+      <Panel heading="No order history">
+        <Text measured>
+          Orders are rebuilt from shop-api&rsquo;s event sink, which is not
+          answering. Start it and this page fills in.
+        </Text>
       </Panel>
     );
   }
@@ -103,16 +100,26 @@ export default function Orders({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">Orders</h1>
-        <StatLine label="Order totals" figures={figures} scale="row" />
+        <Title as="h1" size="lg">
+          Orders
+        </Title>
+        <StatLine label="Order totals">
+          {figures.map((figure) => (
+            <Stat
+              figure={figure.value}
+              key={figure.label}
+              label={figure.label}
+            />
+          ))}
+        </StatLine>
       </header>
-      <p className="page-note">
-        <Quiet>
+      <div className="page-note">
+        <Text measured size="sm">
           shop-api persists nothing, so this is its event sink read back. Each
           row is one correlation id, and &ldquo;hops&rdquo; counts the inventory
           lookups recorded under it on the far side of a real HTTP call.
-        </Quiet>
-      </p>
+        </Text>
+      </div>
       <Ledger items={items} chrome={{ wrapper: OrdersTable }} />
     </>
   );

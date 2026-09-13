@@ -1,4 +1,4 @@
-import type { Availability } from './ui/baize.js';
+import type { Availability } from './ui/catalogue.js';
 import type { ShelfPolicy } from './shelf.js';
 
 /**

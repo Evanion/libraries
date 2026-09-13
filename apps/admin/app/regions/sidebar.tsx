@@ -1,18 +1,10 @@
+import { AvailabilityPill, Button, Figure, Text } from '@evanion/baize-ui';
 import { NavLink } from 'react-router';
 import { createWidgets } from '@evanion/react-widget';
 import type { WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
 import { useRestock } from '../providers.js';
-import {
-  Action,
-  AvailabilityPill,
-  Hairline,
-  Quiet,
-  ground,
-  space,
-  typeScale,
-} from '../ui/baize.js';
-import type { Availability } from '../ui/baize.js';
+import { availabilityToken, type Availability } from '../ui/catalogue.js';
 
 /**
  * The sidebar, as a widget region.
@@ -24,20 +16,15 @@ import type { Availability } from '../ui/baize.js';
  * renderer.
  */
 
+/**
+ * A rail heading.
+ *
+ * The library's panel heading class, because that is what the design calls this
+ * treatment -- a small tracked label over a block -- and the rail's blocks are
+ * panels without a border.
+ */
 function Heading({ label }: { label: string }) {
-  return (
-    <h2
-      style={{
-        margin: 0,
-        fontSize: typeScale.micro,
-        fontWeight: 600,
-        letterSpacing: '0.06em',
-        color: ground.moss,
-      }}
-    >
-      {label}
-    </h2>
-  );
+  return <h2 className="baize-panel__heading">{label}</h2>;
 }
 
 function Link({ label, to }: { label: string; to: string }) {
@@ -52,21 +39,22 @@ function Link({ label, to }: { label: string; to: string }) {
  * A vertical figure list.
  *
  * Not `StatLine`: that primitive sets figures across a row so they align down a
- * column of rows, and a 180px rail has no room for a row. Same tabular figures,
- * different axis.
+ * column of rows, and a 200px rail has no room for a row. Same tabular figures
+ * through the same `Figure`, different axis.
  */
 function FigureList({ rows }: { rows: { label: string; value: string }[] }) {
   return (
-    <dl style={{ margin: 0, display: 'grid', gap: space[2] }}>
+    <dl className="stack">
       {rows.map((row) => (
-        <div
-          key={row.label}
-          style={{ display: 'flex', justifyContent: 'space-between' }}
-        >
+        <div className="pair" key={row.label}>
           <dt>
-            <Quiet tone="moss">{row.label}</Quiet>
+            <Text as="span" size="sm" tone="moss">
+              {row.label}
+            </Text>
           </dt>
-          <dd style={{ margin: 0, fontSize: typeScale.body }}>{row.value}</dd>
+          <Figure as="dd" size="base">
+            {row.value}
+          </Figure>
         </div>
       ))}
     </dl>
@@ -80,18 +68,14 @@ function ShelfStates({
   counts: { state: Availability; titles: number }[];
 }) {
   return (
-    <div style={{ display: 'grid', gap: space[2] }}>
+    <div className="stack">
       {counts.map(({ state, titles }) => (
-        <div
-          key={state}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: space[2],
-          }}
-        >
-          <AvailabilityPill state={state} />
-          <span>{titles}</span>
+        <div className="pair" key={state}>
+          <AvailabilityPill
+            availability={availabilityToken(state)}
+            label={state}
+          />
+          <Figure size="base">{String(titles)}</Figure>
         </div>
       ))}
     </div>
@@ -106,29 +90,34 @@ function ShelfStates({
  * nor needs to: `createWidgets` takes any component, and nothing about a
  * stateful one reaches back into the package. Keeping the state here is also why
  * the rail's own markup stays free of it.
+ *
+ * `@evanion/baize-ui` is on the other side of the same line. Its `Button` renders
+ * the handler this widget hands it and owns nothing, which is how a stateless
+ * library serves a stateful widget.
  */
 function Basket() {
   const restock = useRestock();
   const lines = Object.entries(restock.lines);
 
   return (
-    <div style={{ display: 'grid', gap: space[2] }}>
+    <div className="stack">
       {lines.length === 0 ? (
-        <Quiet tone="moss">
+        <Text size="sm" tone="moss">
           Nothing to reorder. Add copies from a title page.
-        </Quiet>
+        </Text>
       ) : (
         <>
           {lines.map(([urn, quantity]) => (
-            <div
-              key={urn}
-              style={{ display: 'flex', justifyContent: 'space-between' }}
-            >
-              <Quiet>{urn.replace('urn:game:', '')}</Quiet>
-              <span>{quantity}</span>
+            <div className="pair" key={urn}>
+              <Text as="span" size="sm">
+                {urn.replace('urn:game:', '')}
+              </Text>
+              <Figure size="base">{String(quantity)}</Figure>
             </div>
           ))}
-          <Action onClick={restock.clear}>Clear {restock.units} copies</Action>
+          <Button onClick={restock.clear} variant="quiet">
+            Clear {restock.units} copies
+          </Button>
         </>
       )}
     </div>
@@ -144,17 +133,14 @@ function Basket() {
  * exactly the kind of fact `meta` carries.
  */
 const RailSlot: WidgetItemComponent = ({ children, meta, ...attributes }) => (
-  <div {...attributes} style={{ display: 'grid', gap: space[3] }}>
-    {meta?.['group'] === 'start' ? <Hairline /> : null}
+  <div {...attributes} className="stack">
+    {meta?.['group'] === 'start' ? <hr className="hairline" /> : null}
     {children}
   </div>
 );
 
 const Rail = ({ children }: { children?: ReactNode }) => (
-  <aside
-    aria-label="Shop summary"
-    style={{ display: 'grid', gap: space[4], alignContent: 'start' }}
-  >
+  <aside aria-label="Shop summary" className="stack stack--wide">
     {children}
   </aside>
 );

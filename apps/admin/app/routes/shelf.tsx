@@ -4,7 +4,7 @@ import type { Route } from './+types/shelf';
 import { shelfContext } from '../page-context.js';
 import { shelfTotals } from '../shelf.js';
 import { Ledger, defineLedgerItems, ledgerColumns } from '../regions/ledger.js';
-import { Panel, PanelTitle, Quiet, StatLine } from '../ui/baize.js';
+import { Panel, Stat, StatLine, Text, Title } from '@evanion/baize-ui';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Shelf · Baize' }];
 
@@ -84,14 +84,11 @@ export default function Shelf({ loaderData }: Route.ComponentProps) {
 
   if (unavailable) {
     return (
-      <Panel>
-        <PanelTitle>No catalogue</PanelTitle>
-        <p style={{ margin: 0 }}>
-          <Quiet>
-            The shelf is the catalogue joined to stock, both from shop-api.
-            Start it and this page fills in.
-          </Quiet>
-        </p>
+      <Panel heading="No catalogue">
+        <Text measured>
+          The shelf is the catalogue joined to stock, both from shop-api. Start
+          it and this page fills in.
+        </Text>
       </Panel>
     );
   }
@@ -99,8 +96,18 @@ export default function Shelf({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="page-head">
-        <h1 className="page-title">Shelf</h1>
-        <StatLine label="Shelf totals" figures={figures} scale="row" />
+        <Title as="h1" size="lg">
+          Shelf
+        </Title>
+        <StatLine label="Shelf totals">
+          {figures.map((figure) => (
+            <Stat
+              figure={figure.value}
+              key={figure.label}
+              label={figure.label}
+            />
+          ))}
+        </StatLine>
       </header>
       <Ledger items={items} chrome={{ wrapper: ShelfTable }} />
     </>

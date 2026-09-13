@@ -1,3 +1,5 @@
+import baizeHref from '@evanion/baize-ui/styles.css?url';
+import { Panel, Text } from '@evanion/baize-ui';
 import {
   Links,
   Meta,
@@ -8,13 +10,7 @@ import {
 } from 'react-router';
 import type { Route } from './+types/root';
 import layoutHref from './layout.css?url';
-import {
-  Panel,
-  PanelTitle,
-  Quiet,
-  baizeFontLinks,
-  baizeTokensCss,
-} from './ui/baize.js';
+import { baizeFontLinks } from './ui/catalogue.js';
 
 export const meta: Route.MetaFunction = () => [
   { title: 'Baize back office' },
@@ -27,13 +23,19 @@ export const meta: Route.MetaFunction = () => [
 /**
  * Two stylesheets and two font families.
  *
- * The app's own layout rules go through `links` as a real `<link>` rather than a
- * bare `import './layout.css'`, so the document's first paint has them: a
- * side-effect import is injected by the client bundle, which is a frame late on
- * a server-rendered page.
+ * The design system comes first and the app's layout second, because the layout
+ * reads the library's custom properties and overriding order is the only thing
+ * that decides which declaration of a shared selector wins.
+ *
+ * Both go through `links` as real `<link>` elements rather than a bare
+ * `import './layout.css'`, so the document's first paint has them: a side-effect
+ * import is injected by the client bundle, which is a frame late on a
+ * server-rendered page. `?url` is how Vite hands back the built asset's path
+ * instead of inlining the stylesheet into the module graph.
  */
 export const links: Route.LinksFunction = () => [
   ...baizeFontLinks,
+  { rel: 'stylesheet', href: baizeHref },
   { rel: 'stylesheet', href: layoutHref },
 ];
 
@@ -45,11 +47,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        {/* The token system, inlined ahead of the stylesheet link so no element
-            ever paints before the custom properties it reads exist. */}
-        <style>{baizeTokensCss}</style>
       </head>
-      <body>
+      {/* `baize-root` is how an app claims the design system's page: the ground,
+          the reading family and tabular figures everywhere. The library styles a
+          class rather than `body`, so it fights nothing this app sets. */}
+      <body className="baize-root">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -80,13 +82,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className="shell">
-      <Panel>
-        <PanelTitle>
-          {status === 404 ? 'No such page' : 'Something broke'}
-        </PanelTitle>
-        <p style={{ margin: 0 }}>
-          <Quiet>{String(detail)}</Quiet>
-        </p>
+      <Panel heading={status === 404 ? 'No such page' : 'Something broke'}>
+        <Text>{String(detail)}</Text>
       </Panel>
     </main>
   );

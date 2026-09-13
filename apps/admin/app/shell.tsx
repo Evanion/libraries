@@ -7,7 +7,7 @@ import { availabilityCounts, shelfTotals } from './shelf.js';
 import { CartProvider, SessionProvider, ThemeProvider } from './providers.js';
 import { Nav, defineNavItems } from './regions/nav.js';
 import { Sidebar, defineSidebarItems } from './regions/sidebar.js';
-import { Quiet } from './ui/baize.js';
+import { Text } from '@evanion/baize-ui';
 
 /**
  * The pathless layout every page sits inside: the provider stack, the nav region
@@ -107,10 +107,10 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
         <Nav items={navItems} />
         {unavailable ? (
           <p className="notice">
-            <Quiet>
+            <Text as="span" size="sm">
               shop-api is not answering ({unavailable}). Start it with{' '}
               <code>nx serve @evanion/shop-api</code> and reload.
-            </Quiet>
+            </Text>
           </p>
         ) : null}
         <div className="shell-body">

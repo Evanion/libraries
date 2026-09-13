@@ -1,30 +1,33 @@
+import {
+  AvailabilityPill,
+  Button,
+  MechanismTag,
+  Panel,
+  SectionHeader,
+  Stat,
+  StatLine,
+  TagRow,
+  Text,
+  Title as BaizeTitle,
+  WeightRamp,
+} from '@evanion/baize-ui';
 import { Form, Link, href, isRouteErrorResponse } from 'react-router';
 import type { Route } from './+types/title';
 import { shelfContext } from '../page-context.js';
 import { clearShelfPolicy, setShelfPolicy } from '../shelf-policy.server.js';
 import { useRestock } from '../providers.js';
 import {
-  Action,
-  AvailabilityPill,
-  GameTitle,
-  Hairline,
-  Identifier,
-  MechanismTag,
-  Panel,
-  PanelTitle,
-  Quiet,
-  StatLine,
-  WeightMeter,
-  availabilityHues,
-  space,
-} from '../ui/baize.js';
-import type { Availability } from '../ui/baize.js';
+  AVAILABILITY_STATES,
+  availabilityToken,
+  formatWeight,
+  mechanismToken,
+  weightStop,
+  type Availability,
+} from '../ui/catalogue.js';
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [
   { title: loaderData ? `${loaderData.row.title} · Baize` : 'Baize' },
 ];
-
-const STATES = Object.keys(availabilityHues) as Availability[];
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const shelf = await context.get(shelfContext)();
@@ -59,7 +62,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   const state = form.get('availability');
-  if (typeof state !== 'string' || !STATES.includes(state as Availability)) {
+  if (
+    typeof state !== 'string' ||
+    !AVAILABILITY_STATES.includes(state as Availability)
+  ) {
     return { error: `Not an availability state: ${String(state)}` };
   }
 
@@ -77,68 +83,77 @@ export default function Title({
 
   return (
     <>
-      <p className="page-note">
+      <div className="page-note">
         <Link to={href('/shelf')} className="row-link">
-          <Quiet>Back to the shelf</Quiet>
+          <Text as="span" size="sm">
+            Back to the shelf
+          </Text>
         </Link>
-      </p>
+      </div>
 
       <Panel>
-        <header
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'start',
-            gap: space[4],
-          }}
-        >
-          <span style={{ display: 'grid', gap: space[2] }}>
-            <GameTitle title={row.title} mechanism={mechanism} />
-            <span style={{ display: 'flex', gap: space[2], flexWrap: 'wrap' }}>
-              {row.mechanisms.map((name) => (
-                <MechanismTag key={name} mechanism={name} />
-              ))}
-            </span>
-          </span>
-          <AvailabilityPill state={row.availability} />
-        </header>
-
-        <div style={{ padding: `${space[5]} 0` }}>
-          <Hairline />
-        </div>
-
-        <StatLine
-          scale="row"
-          label={`${row.title} at a glance`}
-          figures={[
-            { label: 'players', value: row.players },
-            { label: 'playtime', value: row.playtime },
-            { label: 'weight', value: row.weight.toFixed(1) },
-            { label: 'on hand', value: String(row.quantity) },
-          ]}
+        <SectionHeader
+          aside={
+            <AvailabilityPill
+              availability={availabilityToken(row.availability)}
+              label={row.availability}
+            />
+          }
+          heading={
+            <div className="stack">
+              <BaizeTitle
+                as="h1"
+                mechanism={mechanismToken(mechanism)}
+                size="lg"
+              >
+                {row.title}
+              </BaizeTitle>
+              <TagRow>
+                {row.mechanisms.map((name) => (
+                  <MechanismTag
+                    key={name}
+                    label={name}
+                    mechanism={mechanismToken(name)}
+                  />
+                ))}
+              </TagRow>
+            </div>
+          }
         />
 
-        <p style={{ margin: `${space[5]} 0 0` }}>
-          <Identifier>{row.urn}</Identifier>
-          {'  '}
-          <WeightMeter weight={row.weight} />
-        </p>
+        <StatLine label={`${row.title} at a glance`} size="lg">
+          <Stat figure={row.players} label="players" />
+          <Stat figure={row.playtime} label="playtime" />
+          <Stat figure={formatWeight(row.weight)} label="weight">
+            <WeightRamp
+              label={`weight ${formatWeight(row.weight)} of 5`}
+              stop={weightStop(row.weight)}
+            />
+          </Stat>
+          <Stat figure={String(row.quantity)} label="on hand" />
+        </StatLine>
+
+        <Text size="sm" tone="moss">
+          {row.urn}
+        </Text>
       </Panel>
 
       <div className="title-actions">
-        <Panel>
-          <PanelTitle>Availability</PanelTitle>
-          <p style={{ margin: `0 0 ${space[4]}` }}>
-            <Quiet>
-              {row.declared
-                ? 'Set by hand. Clearing it returns the title to what stock implies.'
-                : 'Derived from stock. Declaring a state overrides it.'}
-            </Quiet>
-          </p>
+        <Panel heading="Availability">
+          <Text size="sm">
+            {row.declared
+              ? 'Set by hand. Clearing it returns the title to what stock implies.'
+              : 'Derived from stock. Declaring a state overrides it.'}
+          </Text>
 
+          {/* One form, two submits. The pair the browser sends for whichever was
+              pressed is what the action reads, which is why the library's button
+              carries a `name` and a `value` and no handler. */}
           <Form method="post" className="availability-form">
             <label htmlFor="availability">
-              <Quiet>State</Quiet>
+              <Text as="span" size="sm">
+                State
+              </Text>
             </label>
             <select
               id="availability"
@@ -146,53 +161,46 @@ export default function Title({
               defaultValue={row.availability}
               className="select"
             >
-              {STATES.map((state) => (
+              {AVAILABILITY_STATES.map((state) => (
                 <option key={state} value={state}>
                   {state}
                 </option>
               ))}
             </select>
-            <Action
-              type="submit"
+            <Button
               name="intent"
+              type="submit"
               value="declare"
               variant="primary"
             >
               Save state
-            </Action>
-            <Action type="submit" name="intent" value="clear">
+            </Button>
+            <Button name="intent" type="submit" value="clear">
               Clear
-            </Action>
+            </Button>
           </Form>
 
           {actionData && 'error' in actionData ? (
-            <p style={{ margin: `${space[3]} 0 0` }}>
-              <Quiet>{actionData.error}</Quiet>
-            </p>
+            <Text size="sm">{actionData.error}</Text>
           ) : null}
           {actionData && 'declared' in actionData ? (
-            <p style={{ margin: `${space[3]} 0 0` }}>
-              <Quiet>
-                {actionData.declared
-                  ? `Saved as ${actionData.declared}.`
-                  : 'Cleared. Stock decides now.'}
-              </Quiet>
-            </p>
+            <Text size="sm">
+              {actionData.declared
+                ? `Saved as ${actionData.declared}.`
+                : 'Cleared. Stock decides now.'}
+            </Text>
           ) : null}
         </Panel>
 
-        <Panel>
-          <PanelTitle>Restock</PanelTitle>
-          <p style={{ margin: `0 0 ${space[4]}` }}>
-            <Quiet>
-              A working list for the buyer. It is not sent anywhere — shop-api
-              has no purchasing endpoint — so it lives in the browser and resets
-              on reload.
-            </Quiet>
-          </p>
-          <div style={{ display: 'flex', gap: space[2] }}>
-            <Action onClick={() => restock.add(row.urn, 6)}>Add 6</Action>
-            <Action onClick={() => restock.add(row.urn, -6)}>Remove 6</Action>
+        <Panel heading="Restock">
+          <Text size="sm">
+            A working list for the buyer. It is not sent anywhere — shop-api has
+            no purchasing endpoint — so it lives in the browser and resets on
+            reload.
+          </Text>
+          <div className="actions">
+            <Button onClick={() => restock.add(row.urn, 6)}>Add 6</Button>
+            <Button onClick={() => restock.add(row.urn, -6)}>Remove 6</Button>
           </div>
         </Panel>
       </div>
@@ -209,19 +217,16 @@ export function ErrorBoundary({ error, params }: Route.ErrorBoundaryProps) {
   const notFound = isRouteErrorResponse(error) && error.status === 404;
 
   return (
-    <Panel>
-      <PanelTitle>
-        {notFound ? 'Not on the shelf' : 'Could not load title'}
-      </PanelTitle>
-      <p style={{ margin: `0 0 ${space[4]}` }}>
-        <Quiet>
-          {notFound
-            ? `Baize carries no ${params.urn}.`
-            : 'Something failed while reading this title.'}
-        </Quiet>
-      </p>
+    <Panel heading={notFound ? 'Not on the shelf' : 'Could not load title'}>
+      <Text>
+        {notFound
+          ? `Baize carries no ${params.urn}.`
+          : 'Something failed while reading this title.'}
+      </Text>
       <Link to={href('/shelf')} className="row-link">
-        <Quiet>See what is on the shelf</Quiet>
+        <Text as="span" size="sm">
+          See what is on the shelf
+        </Text>
       </Link>
     </Panel>
   );
