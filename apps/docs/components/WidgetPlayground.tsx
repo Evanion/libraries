@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { LiveProvider, LiveError, LivePreview } from 'react-live';
+import { Button } from '@evanion/baize-ui';
 import { Editor } from '@monaco-editor/react';
 import type { OnMount } from '@monaco-editor/react';
 import { playgroundScope } from './playground-scope';
@@ -138,19 +139,19 @@ export default function WidgetPlayground({
     <div className="widget-playground">
       <div className="playground-header">
         <div className="playground-tabs">
-          <button
-            className={`tab ${activeTab === 'preview' ? 'active' : ''}`}
+          <Button
+            variant={activeTab === 'preview' ? 'standard' : 'quiet'}
             onClick={() => setActiveTab('preview')}
           >
             Preview
-          </button>
+          </Button>
           {showEditor && (
-            <button
-              className={`tab ${activeTab === 'editor' ? 'active' : ''}`}
+            <Button
+              variant={activeTab === 'editor' ? 'standard' : 'quiet'}
               onClick={() => setActiveTab('editor')}
             >
               Code
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -211,50 +212,35 @@ export default function WidgetPlayground({
         )}
       </div>
 
+      {/*
+        The frame, in the design system's own properties.
+
+        Every colour here is one of the six ground roles `app/global.css` binds
+        per theme, so the playground follows the site's light/dark toggle without
+        a single value in this file and without a second set to keep in step. What
+        is left in JS is Monaco's `theme`, which the editor takes as a prop rather
+        than reading from CSS.
+      */}
       <style jsx>{`
         .widget-playground {
-          border: 1px solid ${isDark ? '#374151' : '#e1e5e9'};
-          border-radius: 8px;
-          overflow: visible;
-          margin: 20px 0;
-          background: ${isDark ? '#1f2937' : 'white'};
           position: relative;
           z-index: 0;
+          margin: var(--baize-space-5) 0;
+          border: 1px solid var(--baize-rule);
+          border-radius: var(--baize-radius-card);
+          background: var(--baize-felt);
+          box-shadow: var(--baize-elevation-card);
         }
 
         .playground-header {
-          background: ${isDark ? '#374151' : '#f8f9fa'};
-          border-bottom: 1px solid ${isDark ? '#4b5563' : '#e1e5e9'};
-          padding: 0;
+          padding: var(--baize-space-2);
+          border-bottom: 1px solid var(--baize-rule);
         }
 
         .playground-tabs {
           display: flex;
-        }
-
-        .tab {
-          background: none;
-          border: none;
-          padding: 12px 20px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          color: ${isDark ? '#9ca3af' : '#6b7280'};
-          border-bottom: 2px solid transparent;
-          transition: all 0.2s;
-        }
-
-        .tab:hover {
-          color: ${isDark ? '#d1d5db' : '#374151'};
-          background: ${
-            isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
-          };
-        }
-
-        .tab.active {
-          color: ${isDark ? '#60a5fa' : '#2563eb'};
-          border-bottom-color: ${isDark ? '#60a5fa' : '#2563eb'};
-          background: ${isDark ? '#1f2937' : 'white'};
+          flex-wrap: wrap;
+          gap: var(--baize-space-2);
         }
 
         .playground-content {
@@ -262,28 +248,28 @@ export default function WidgetPlayground({
         }
 
         .preview-panel {
-          padding: 20px;
-          background: ${isDark ? '#111827' : '#f9f9f9'};
+          padding: var(--baize-space-4);
           min-height: ${height}px;
         }
 
+        /* Recessed, so a snippet's own colours sit on something that is not the
+           card they are already on. The same mix the library's Panel uses. */
         .preview-container {
-          background: ${isDark ? '#1f2937' : 'white'};
-          border-radius: 6px;
-          padding: 20px;
-          box-shadow: ${
-            isDark
-              ? '0 1px 3px rgba(0, 0, 0, 0.3)'
-              : '0 1px 3px rgba(0, 0, 0, 0.1)'
-          };
-          color: ${isDark ? '#f9fafb' : '#111827'};
+          padding: var(--baize-space-4);
+          border-radius: var(--baize-radius-card);
+          background: color-mix(
+            in oklab,
+            var(--baize-felt) 60%,
+            var(--baize-ink)
+          );
+          color: var(--baize-chalk);
         }
 
         .editor-panel {
-          border-top: 1px solid ${isDark ? '#4b5563' : '#e1e5e9'};
-          overflow: visible;
           position: relative;
           z-index: 1;
+          overflow: visible;
+          border-top: 1px solid var(--baize-rule);
         }
 
         /*
@@ -293,106 +279,46 @@ export default function WidgetPlayground({
          * every selector to this component's own elements.
          */
         :global(.monaco-editor .monaco-hover) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-          border: 1px solid ${isDark ? '#454545' : '#cccccc'} !important;
-          border-radius: 6px !important;
-          box-shadow: ${
-            isDark
-              ? '0 4px 12px rgba(0, 0, 0, 0.3)'
-              : '0 4px 12px rgba(0, 0, 0, 0.1)'
-          } !important;
+          border: 1px solid var(--baize-rule) !important;
+          border-radius: var(--baize-radius-button) !important;
+          background: var(--baize-felt) !important;
+          box-shadow: var(--baize-elevation-raised) !important;
         }
 
-        :global(.monaco-editor .monaco-hover .hover-row) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-          color: ${isDark ? '#cccccc' : '#333333'} !important;
+        :global(.monaco-editor .monaco-hover .hover-row),
+        :global(.monaco-editor .monaco-hover .hover-contents),
+        :global(.monaco-editor .monaco-hover .monaco-editor),
+        :global(.monaco-editor .monaco-hover .monaco-editor .view-lines),
+        :global(.monaco-editor .monaco-hover .monaco-editor .view-line),
+        :global(.monaco-editor .monaco-hover .monaco-editor .margin) {
+          background: var(--baize-felt) !important;
+          color: var(--baize-chalk) !important;
         }
 
-        :global(.monaco-editor .monaco-hover .hover-row .hover-contents) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-          color: ${isDark ? '#cccccc' : '#333333'} !important;
-        }
-
-        :global(
-          .monaco-editor .monaco-hover .hover-row .hover-contents .monaco-editor
-        ) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-        }
-
-        :global(
-          .monaco-editor
-            .monaco-hover
-            .hover-row
-            .hover-contents
-            .monaco-editor
-            .view-lines
-        ) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-        }
-
-        :global(
-          .monaco-editor
-            .monaco-hover
-            .hover-row
-            .hover-contents
-            .monaco-editor
-            .view-line
-        ) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-        }
-
-        :global(
-          .monaco-editor
-            .monaco-hover
-            .hover-row
-            .hover-contents
-            .monaco-editor
-            .view-line
-            span
-        ) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-          color: ${isDark ? '#cccccc' : '#333333'} !important;
-        }
-
-        :global(
-          .monaco-editor
-            .monaco-hover
-            .hover-row
-            .hover-contents
-            .monaco-editor
-            .margin
-        ) {
-          background: ${isDark ? '#1e1e1e' : '#ffffff'} !important;
-        }
-
+        /*
+         * A snippet that threw.
+         *
+         * Nextra's own red rather than a Baize value. The design system has a
+         * ground, a complexity ladder and two colour systems that belong to the
+         * shop; it has no error role, and adding one from the docs app would make
+         * this file the second author of the palette. The theme's caution
+         * callouts are already this colour, so a broken snippet reads like every
+         * other warning on the site.
+         */
         .error-display {
-          background: ${isDark ? '#7f1d1d' : '#fef2f2'};
-          border: 1px solid ${isDark ? '#991b1b' : '#fecaca'};
-          border-radius: 4px;
-          padding: 12px;
-          margin-top: 16px;
-          color: ${isDark ? '#fca5a5' : '#dc2626'};
-          font-family:
-            'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
-            'Courier New', monospace;
-          font-size: 13px;
+          margin-top: var(--baize-space-4);
+          padding: var(--baize-space-3);
+          border: 1px solid var(--x-color-red-600);
+          border-radius: var(--baize-radius-button);
+          background: color-mix(
+            in oklab,
+            var(--x-color-red-600) 12%,
+            var(--baize-felt)
+          );
+          color: var(--x-color-red-600);
+          font-family: var(--x-font-mono);
+          font-size: var(--baize-text-sm);
           white-space: pre-wrap;
-        }
-
-        @media (max-width: 768px) {
-          .playground-tabs {
-            flex-direction: column;
-          }
-
-          .tab {
-            border-bottom: none;
-            border-right: 2px solid transparent;
-          }
-
-          .tab.active {
-            border-bottom-color: transparent;
-            border-right-color: ${isDark ? '#60a5fa' : '#2563eb'};
-          }
         }
       `}</style>
     </div>

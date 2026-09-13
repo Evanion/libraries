@@ -2,24 +2,32 @@
 @import '@evanion/baize-ui/styles.css';
 
 /*
- * Step 1 of adopting `@evanion/baize-ui` here: the tokens, mapped onto the theme
- * variables `nextra-theme-docs` is built on. No library component renders in this
- * app yet, so the stylesheet's component rules come along and match nothing --
- * which is the accepted cost of one entry rather than two.
+ * Tailwind v4's `dark:` variant follows `prefers-color-scheme`. This site's theme
+ * is a choice, written onto `<html>` as a class by `next-themes`, and a reader
+ * who picks the light theme on a dark machine gets both at once without this: the
+ * page in the theme they asked for and every `dark:` utility in the one they did
+ * not. The utilities in the playground snippets are the ones that show it.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * `@evanion/baize-ui` on a Nextra site.
  *
- * `--nextra-bg` and the primary HSL are not here. `Head` writes both into an
- * inline `<style>` in the document, which wins over any stylesheet link, so they
- * are passed to it as props from `baize-theme.ts` instead.
+ * Nextra owns the shell -- the navbar, the sidebar, the search UI, the
+ * colour-scheme class `next-themes` writes onto `<html>` -- and exposes its theme
+ * through three surfaces that take three different treatments:
  *
- * What is here is Nextra 4's Tailwind v4 scale, read out of the installed
- * `nextra-theme-docs/dist/style.css` rather than from memory. Its components
- * reach for `gray`, `neutral` and `slate` steps for surfaces, borders, secondary
- * text and code blocks, and nothing in the theme abstracts them into named roles
- * -- so the mapping is per step, and only the steps the theme actually uses.
+ * 1. `--nextra-bg` and the primary HSL. `Head` writes both into an inline
+ *    `<style>` in the document, which beats any stylesheet link, so they are
+ *    passed to it as props from `baize-theme.ts` rather than declared here.
+ * 2. Tailwind v4's `gray`, `neutral` and `slate` steps, which the theme's
+ *    components use directly with no named roles in between. Remapped below,
+ *    per step, read out of the installed `nextra-theme-docs/dist/style.css`.
+ * 3. The heading family, which Nextra takes from its body family. A rule of its
+ *    own, scoped to the article.
  *
- * The foundation only. No `--baize-mechanism-*` or `--baize-availability-*`
- * appears below: those are the shop's informational colour systems, and this site
- * sells nothing.
+ * No `--baize-mechanism-*` or `--baize-availability-*` appears here: those are
+ * the shop's informational colour systems, and this site sells nothing.
  */
 :root {
   /*
@@ -33,19 +41,101 @@
   --baize-font-text:
     var(--font-text), 'Public Sans', ui-sans-serif, system-ui, sans-serif;
   --x-font-sans: var(--baize-font-text);
+}
 
-  /* Light theme: chalk is the page, so the near-white steps become paper and the
-     dark steps become ink. */
+/*
+ * The reader's palette: the six ground roles, per theme.
+ *
+ * Baize is a dark-ground design and Nextra keeps a light/dark toggle, so light
+ * mode is that design on paper rather than a second design. The roles do not
+ * change -- a page, a surface raised off it, a hairline and three weights of
+ * text -- only which end of the palette each one takes. Dark is the library's own
+ * six values. Light is chalk as the page, felt as the material laid on it, and
+ * ink as the writing.
+ *
+ * `felt` ends up darker than the page in light mode and lighter in dark mode.
+ * That is the same relationship either way round: a card is a different material
+ * on the page, not a brighter one.
+ *
+ * Declared on `html` and bound to the library's roles on `body`, because a
+ * custom property cannot be defined in terms of itself on one element: light
+ * `--docs-rule` is a mix of `--baize-chalk`, and `--baize-chalk` is itself one of
+ * the properties being rebound. Resolving the two on different elements is what
+ * keeps that from being a cycle -- in which every property in it would be
+ * invalid, and the page would render unstyled.
+ */
+html {
+  --docs-page: var(--baize-chalk);
+  --docs-raised: color-mix(in oklab, var(--baize-chalk) 94%, var(--baize-rule));
+  --docs-rule: color-mix(in oklab, var(--baize-chalk) 74%, var(--baize-rule));
+  --docs-text: var(--baize-ink);
+  --docs-text-secondary: color-mix(
+    in oklab,
+    var(--baize-rule) 55%,
+    var(--baize-moss)
+  );
+  --docs-text-tertiary: var(--baize-moss);
+}
+
+/*
+ * `next-themes`, which the theme uses, writes this class onto `<html>` from a
+ * blocking script before React hydrates.
+ */
+html.dark {
+  --docs-page: var(--baize-ink);
+  --docs-raised: var(--baize-felt);
+  --docs-rule: var(--baize-rule);
+  --docs-text: var(--baize-chalk);
+  --docs-text-secondary: var(--baize-lichen);
+  --docs-text-tertiary: var(--baize-moss);
+}
+
+/*
+ * The library's roles, bound to the active palette.
+ *
+ * Every class in `@evanion/baize-ui/styles.css` reads these six properties and
+ * nothing else, so this is the whole of what makes `Card`, `Button`, `Title` and
+ * the rest render correctly in both themes. The stylesheet is not forked and
+ * nothing in it is overridden.
+ */
+body {
+  --baize-ink: var(--docs-page);
+  --baize-felt: var(--docs-raised);
+  --baize-rule: var(--docs-rule);
+  --baize-chalk: var(--docs-text);
+  --baize-lichen: var(--docs-text-secondary);
+  --baize-moss: var(--docs-text-tertiary);
+
+  font-family: var(--baize-font-text);
+}
+
+/*
+ * Nextra's Tailwind scale.
+ *
+ * One mapping, not one per theme. The theme's own rules are written as pairs --
+ * `text-gray-900 dark:text-gray-100`, `bg-gray-100 dark:bg-gray-800` -- so the
+ * step number already carries the theme's choice, and what the scale has to be is
+ * an absolute lightness ladder: 50 the lightest value in the palette, 900 the
+ * darkest, in both themes. Reading it as a role ladder instead is what would need
+ * two blocks, and it would be wrong in one of them.
+ *
+ * Only the steps `nextra-theme-docs/dist/style.css` actually uses, and the
+ * literal library values rather than the rebound `--docs-*` roles, because the
+ * ladder is a ladder of colours and not of roles. The informational hues the
+ * theme reaches for -- its callout reds, yellows and blues -- are left alone.
+ */
+:root {
   --x-color-white: var(--baize-chalk);
+
   --x-color-gray-50: var(--baize-chalk);
   --x-color-gray-100: color-mix(
     in oklab,
-    var(--baize-chalk) 92%,
+    var(--baize-chalk) 95%,
     var(--baize-rule)
   );
   --x-color-gray-200: color-mix(
     in oklab,
-    var(--baize-chalk) 82%,
+    var(--baize-chalk) 86%,
     var(--baize-rule)
   );
   --x-color-gray-300: color-mix(
@@ -53,16 +143,12 @@
     var(--baize-chalk) 68%,
     var(--baize-rule)
   );
-  --x-color-gray-400: var(--baize-moss);
-  --x-color-gray-600: color-mix(
-    in oklab,
-    var(--baize-rule) 70%,
-    var(--baize-ink)
-  );
+  --x-color-gray-400: var(--baize-lichen);
+  --x-color-gray-600: var(--baize-moss);
   --x-color-gray-700: color-mix(
     in oklab,
-    var(--baize-rule) 85%,
-    var(--baize-ink)
+    var(--baize-rule) 65%,
+    var(--baize-moss)
   );
   --x-color-gray-800: var(--baize-rule);
   --x-color-gray-900: var(--baize-ink);
@@ -70,7 +156,7 @@
   --x-color-neutral-50: var(--baize-chalk);
   --x-color-neutral-200: color-mix(
     in oklab,
-    var(--baize-chalk) 82%,
+    var(--baize-chalk) 86%,
     var(--baize-rule)
   );
   --x-color-neutral-300: color-mix(
@@ -78,12 +164,12 @@
     var(--baize-chalk) 68%,
     var(--baize-rule)
   );
-  --x-color-neutral-400: var(--baize-moss);
-  --x-color-neutral-500: var(--baize-lichen);
+  --x-color-neutral-400: var(--baize-lichen);
+  --x-color-neutral-500: var(--baize-moss);
   --x-color-neutral-600: color-mix(
     in oklab,
-    var(--baize-rule) 70%,
-    var(--baize-ink)
+    var(--baize-rule) 65%,
+    var(--baize-moss)
   );
   --x-color-neutral-700: var(--baize-rule);
   --x-color-neutral-800: var(--baize-felt);
@@ -92,66 +178,16 @@
   --x-color-slate-50: var(--baize-chalk);
   --x-color-slate-100: color-mix(
     in oklab,
-    var(--baize-chalk) 92%,
+    var(--baize-chalk) 95%,
     var(--baize-rule)
   );
   --x-color-slate-200: color-mix(
     in oklab,
-    var(--baize-chalk) 82%,
+    var(--baize-chalk) 86%,
     var(--baize-rule)
   );
   --x-color-slate-700: var(--baize-rule);
   --x-color-slate-900: var(--baize-ink);
-}
-
-/*
- * Dark theme. `next-themes` puts `.dark` on `<html>` from a blocking script, and
- * the theme's own rules are written as `dark:` variants against these same steps,
- * so the dark ground is the same scale read from the other end: the light steps
- * become the recessed surfaces and the dark steps become the page.
- */
-.dark {
-  --x-color-gray-50: var(--baize-chalk);
-  --x-color-gray-100: var(--baize-chalk);
-  --x-color-gray-200: color-mix(
-    in oklab,
-    var(--baize-chalk) 80%,
-    var(--baize-felt)
-  );
-  --x-color-gray-300: var(--baize-lichen);
-  --x-color-gray-400: var(--baize-lichen);
-  --x-color-gray-600: var(--baize-moss);
-  --x-color-gray-700: var(--baize-rule);
-  --x-color-gray-800: var(--baize-rule);
-  --x-color-gray-900: var(--baize-felt);
-
-  --x-color-neutral-200: color-mix(
-    in oklab,
-    var(--baize-chalk) 80%,
-    var(--baize-felt)
-  );
-  --x-color-neutral-300: var(--baize-lichen);
-  --x-color-neutral-400: var(--baize-lichen);
-  --x-color-neutral-500: var(--baize-moss);
-  --x-color-neutral-600: var(--baize-rule);
-  --x-color-neutral-700: var(--baize-rule);
-  --x-color-neutral-800: var(--baize-felt);
-  --x-color-neutral-900: var(--baize-ink);
-
-  --x-color-slate-700: var(--baize-rule);
-  --x-color-slate-900: var(--baize-ink);
-}
-
-/*
- * The reading family, on the document.
- *
- * Remapping `--x-font-sans` is not enough on its own: Nextra sets no family on
- * `html` or `body` and reaches for the `font-sans` utility only where a component
- * needs it, so the prose inherits whatever the browser defaults to. This is what
- * puts Public Sans under the text a reader actually reads.
- */
-body {
-  font-family: var(--baize-font-text);
 }
 
 /*
@@ -162,17 +198,33 @@ body {
  *
  * Scoped to the article rather than applied to `h1`-`h4` globally, so the sidebar's
  * and the navbar's own headings stay in the reading family where the theme put
- * them.
+ * them, and so a `Title` from the library inside a page keeps the size and
+ * tracking its own class gives it.
  */
-article h1,
-article h2,
-article h3,
-article h4 {
+article :where(h1, h2, h3, h4):not([class*='baize-']) {
   font-family: var(--baize-font-title);
   font-stretch: 92%;
   letter-spacing: var(--baize-tracking-snug);
 }
 
-article h1 {
+article h1:not([class*='baize-']) {
   letter-spacing: var(--baize-tracking-tight);
+}
+
+/*
+ * Library components inside MDX.
+ *
+ * Nextra's prose rules space an article by element -- a paragraph, a list, a
+ * heading -- and a component from the library is none of those, so it lands
+ * against the element above it. This is the one place the two systems have to be
+ * told about each other.
+ */
+article
+  :where(
+    .baize-card-grid,
+    .baize-panel,
+    .baize-statline,
+    .baize-section-header
+  ) {
+  margin-block: var(--baize-space-5);
 }
