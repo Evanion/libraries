@@ -12,14 +12,14 @@
     "registry",
     "typescript"
   ],
-  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/widget#readme",
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/react-widget#readme",
   "bugs": {
     "url": "https://github.com/Evanion/libraries/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Evanion/libraries.git",
-    "directory": "libs/widget"
+    "directory": "libs/react-widget"
   },
   "license": "MIT",
   "author": "Mikael Pettersson",

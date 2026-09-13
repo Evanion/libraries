@@ -57,7 +57,7 @@
       "path": "../../libs/baize-ui"
     },
     {
-      "path": "../../libs/widget"
+      "path": "../../libs/react-widget"
     }
   ]
 }

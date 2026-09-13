@@ -28,7 +28,7 @@ export default defineConfig(() => ({
     // Without an explicit tsconfig, vitest falls back to the solution-style
     // tsconfig.json (files: [], include: []), so it typechecks nothing and
     // every expectTypeOf assertion silently passes. `include` is pinned to
-    // *.test-d.ts (matching libs/urn, libs/widget, libs/compose) rather than
+    // *.test-d.ts (matching libs/urn, libs/react-widget, libs/compose) rather than
     // left at vitest's default, because expectTypeOf assertions belong in a
     // dedicated type-only test file: an assertion inside a regular *.test.ts
     // is never type-checked and silently passes regardless of its strength.

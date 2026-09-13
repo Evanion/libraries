@@ -142,7 +142,7 @@ export interface DocumentedPackage {
 export const packages: readonly DocumentedPackage[] = [
   {
     name: '@evanion/react-widget',
-    root: 'libs/widget',
+    root: 'libs/react-widget',
     slug: 'widget',
     title: 'React Widget',
     group: 'rendering',
