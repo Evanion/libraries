@@ -1,4 +1,4 @@
-import { defineBlocks } from '@evanion/astro-widget';
+import { defineWidgets } from '@evanion/astro-widget';
 import MechanismFilter from './MechanismFilter.astro';
 import OpeningHours from './OpeningHours.astro';
 import Promo from './Promo.astro';
@@ -11,13 +11,13 @@ import Promo from './Promo.astro';
  * hours, or drop it from the page entirely, without touching the listing it
  * filters -- which is the reason the sidebar is a region rather than markup.
  */
-export const sidebarRegistry = defineBlocks({
+export const sidebarRegistry = defineWidgets({
   filter: MechanismFilter,
   hours: OpeningHours,
   promo: Promo,
 });
 
-/** Fields `validateBlocks` must find on each type. */
+/** Fields `validateItems` must find on each type. */
 export const sidebarRequired = {
   filter: ['heading'],
   hours: ['heading', 'rows'],

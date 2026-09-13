@@ -1,12 +1,11 @@
 {
   "name": "@evanion/astro-widget",
   "version": "0.2.0",
-  "description": "Render CMS-driven Astro sections from structured block data. Build-time, zero runtime.",
+  "description": "Render CMS-driven Astro sections from structured widget data. Build-time, zero runtime.",
   "keywords": [
     "astro",
     "widget",
     "cms",
-    "blocks",
     "sections",
     "registry",
     "typescript"
@@ -56,6 +55,9 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "dependencies": {
+    "@evanion/widget": "0.1.0"
   },
   "peerDependencies": {
     "astro": "^7.3.1"

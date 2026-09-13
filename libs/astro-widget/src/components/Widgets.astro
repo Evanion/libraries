@@ -1,18 +1,24 @@
 ---
 /**
- * Renders a list of CMS blocks, one component per block.
+ * Renders a widget region, one component per item.
  *
- * Defensive by design: an unknown type is skipped rather than thrown on, so a
- * gap in build-time validation cannot take a page down mid-render.
- * `validateBlocks` is the loud gate and this is the net underneath it.
+ * Defensive by design: an unknown type is skipped with a dev-only warning
+ * rather than thrown on, so a gap in build-time validation cannot take a page
+ * down mid-render. `validateItems` is the loud gate and this is the net
+ * underneath it.
  */
-import type { BlockItem, BlockRegistry } from '../types';
+import {
+  ERROR_MESSAGES,
+  warnOnce,
+  type AnyWidgetItem,
+  type WidgetRegistry,
+} from '@evanion/widget';
 
 interface Props {
-  items: BlockItem[];
-  registry: BlockRegistry;
+  items: AnyWidgetItem[];
+  registry: WidgetRegistry;
   /**
-   * Page-level data passed to every block as a `ctx` prop. The counterpart to
+   * Page-level data passed to every widget as a `ctx` prop. The counterpart to
    * `@evanion/react-widget`'s `ctx`.
    *
    * A prop rather than a provider: an Astro component runs once, top down, and
@@ -20,43 +26,59 @@ interface Props {
    */
   ctx?: Record<string, unknown>;
   /**
-   * Chrome rendered around every block, for CMS edit affordances and
-   * positioning. It is handed the block's `meta`.
+   * Chrome rendered around every widget, for CMS edit affordances and
+   * positioning. It is handed the item's `type`, `id` and `meta`, and nothing
+   * from `props` -- a widget's data is the widget's business.
    *
    * It has to render `<slot />`. An Astro component that does not render its
-   * slot discards the content passed to it, so the block inside disappears from
-   * the page with nothing thrown and nothing logged.
+   * slot discards the content passed to it, so the widget inside disappears
+   * from the page with nothing thrown and nothing logged.
    */
   chrome?: { item?: unknown };
 }
 
 const { items, registry, ctx, chrome } = Astro.props;
-const list = Array.isArray(items) ? items : [];
+
+let list: AnyWidgetItem[] = [];
+if (Array.isArray(items)) {
+  list = items;
+} else if (items !== undefined) {
+  warnOnce(ERROR_MESSAGES.MALFORMED_ITEMS);
+}
+
 const Item = chrome?.item as never;
 ---
 {
   list.map((item) => {
-    // `in` and a bare index both walk the prototype chain, so a block typed
+    // `in` and a bare index both walk the prototype chain, so an item typed
     // `constructor` or `toString` resolves to a function off `Object.prototype`
     // and reaches Astro as a component, which throws rather than skipping.
-    // Blocks are CMS data, so any string is reachable.
+    // Items are CMS data, so any string is reachable.
     const Component = (
       typeof item?.type === 'string' &&
       Object.prototype.hasOwnProperty.call(registry, item.type)
         ? registry[item.type]
         : undefined
     ) as never;
-    if (!Component) return null;
 
-    // `type`, `id`, `children` and `meta` are the renderer's own fields, and
-    // `props` is everything else the CMS wrote. Destructuring them out is what
-    // keeps them from being spread into the block: `meta` is placement data for
-    // the chrome, and where a block sits is not something the block should
-    // know.
-    const { type, id, children, meta, ...props } = item;
+    if (!Component) {
+      warnOnce(
+        ERROR_MESSAGES.UNKNOWN_WIDGET(
+          typeof item?.type === 'string' ? item.type : ERROR_MESSAGES.UNKNOWN,
+          typeof item?.id === 'string' ? item.id : ERROR_MESSAGES.UNKNOWN,
+        ),
+      );
+      return null;
+    }
 
+    const { type, id, props = {}, meta, children } = item;
+
+    // `children` reaches the widget as ordinary prop data rather than as
+    // rendered content. An Astro component receives child content through
+    // `<slot />`, so there is nothing here for a renderer to recurse into; a
+    // widget that wants nesting renders `<Widgets items={children} …>` itself.
     return Item ? (
-      <Item type={type} id={id} meta={meta} {...props}>
+      <Item type={type} id={id} meta={meta}>
         <Component {...props} id={id} ctx={ctx} children={children} />
       </Item>
     ) : (

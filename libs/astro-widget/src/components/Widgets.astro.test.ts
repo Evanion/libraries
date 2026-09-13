@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import { resetWarnings } from '@evanion/widget';
 import Widgets from './Widgets.astro';
 import Probe from './__fixtures__/Probe.astro';
 import Wrapper from './__fixtures__/Wrapper.astro';
@@ -17,20 +18,27 @@ async function renderWidgets(props: Record<string, unknown>) {
 }
 
 describe('Widgets.astro', () => {
-  it('passes a block its own fields as props', async () => {
+  beforeEach(resetWarnings);
+
+  it('spreads an item props into the widget', async () => {
     const html = await renderWidgets({
       registry: { hero: Probe },
-      items: [{ type: 'hero', id: 'h1', heading: 'Hello' }],
+      items: [{ id: 'h1', type: 'hero', props: { heading: 'Hello' } }],
     });
 
     expect(html).toContain('&quot;heading&quot;:&quot;Hello&quot;');
   });
 
-  it('never spreads meta into the block props', async () => {
+  it('never spreads meta into the widget props', async () => {
     const html = await renderWidgets({
       registry: { hero: Probe },
       items: [
-        { type: 'hero', id: 'h1', heading: 'Hello', meta: { column: 1 } },
+        {
+          id: 'h1',
+          type: 'hero',
+          props: { heading: 'Hello' },
+          meta: { column: 1 },
+        },
       ],
     });
 
@@ -39,16 +47,52 @@ describe('Widgets.astro', () => {
     expect(html).not.toContain('column');
   });
 
-  it('hands meta to chrome.item, which is what positions the block', async () => {
+  it('hands meta to chrome.item, which is what positions the widget', async () => {
     const html = await renderWidgets({
       registry: { hero: Probe },
       chrome: { item: Wrapper },
       items: [
-        { type: 'hero', id: 'h1', heading: 'Hello', meta: { column: 2 } },
+        {
+          id: 'h1',
+          type: 'hero',
+          props: { heading: 'Hello' },
+          meta: { column: 2 },
+        },
       ],
     });
 
     expect(html).toContain('data-column="2"');
+    expect(html).toContain('data-widget-type="hero"');
+  });
+
+  it('keeps a widget props out of its chrome', async () => {
+    const html = await renderWidgets({
+      registry: { hero: Probe },
+      chrome: { item: Wrapper },
+      items: [
+        { id: 'h1', type: 'hero', props: { heading: 'Hello', column: 9 } },
+      ],
+    });
+
+    // The chrome reads `meta.column` and this item carries none, so the widget
+    // prop of the same name must not reach it.
+    expect(html).not.toContain('data-column="9"');
+  });
+
+  it('hands nested items to the widget as data, not as rendered content', async () => {
+    const html = await renderWidgets({
+      registry: { hero: Probe },
+      items: [
+        {
+          id: 'h1',
+          type: 'hero',
+          props: {},
+          children: [{ id: 'c1', type: 'hero', props: { heading: 'Nested' } }],
+        },
+      ],
+    });
+
+    expect(html).toContain('&quot;id&quot;:&quot;c1&quot;');
   });
 
   it.each([
@@ -57,21 +101,44 @@ describe('Widgets.astro', () => {
     'valueOf',
     'hasOwnProperty',
     '__proto__',
-  ])('skips a block typed with the inherited key %s', async (type) => {
+  ])('skips a widget typed with the inherited key %s', async (type) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const html = await renderWidgets({
       registry: { hero: Probe },
-      items: [{ type, id: 'x' }],
+      items: [{ id: 'x', type, props: {} }],
     });
 
     expect(html).not.toContain('probe');
+    warn.mockRestore();
   });
 
-  it('skips a block whose type is not in the registry', async () => {
+  it('warns once for a type the registry does not hold, rather than skipping in silence', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
     const html = await renderWidgets({
       registry: { hero: Probe },
-      items: [{ type: 'missing', id: 'x' }],
+      items: [
+        { id: 'x', type: 'missing', props: {} },
+        { id: 'x', type: 'missing', props: {} },
+      ],
     });
 
     expect(html).not.toContain('probe');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('Unknown widget type "missing"');
+    warn.mockRestore();
+  });
+
+  it('renders nothing and warns when items is not a list', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const html = await renderWidgets({
+      registry: { hero: Probe },
+      items: 'nope',
+    });
+
+    expect(html).not.toContain('probe');
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
   });
 });

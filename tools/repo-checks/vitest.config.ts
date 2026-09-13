@@ -34,5 +34,18 @@ export default defineConfig({
     reporters: ['default'],
     // The project graph is slower than a unit test.
     testTimeout: 120_000,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: '@evanion/repo-checks',
+          include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+          exclude: ['src/**/*.astro.test.ts'],
+        },
+      },
+      // The checks that render an .astro component, for the reason
+      // vitest.astro.config.ts gives.
+      './vitest.astro.config.ts',
+    ],
   },
 });

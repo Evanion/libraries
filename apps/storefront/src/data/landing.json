@@ -1,74 +1,111 @@
 {
   "items": [
     {
-      "type": "feature",
       "id": "tonight",
-      "lede": "on the table tonight",
-      "urn": "urn:game:brass-birmingham",
-      "meta": { "width": "full", "first": true }
+      "type": "feature",
+      "props": {
+        "lede": "on the table tonight",
+        "urn": "urn:game:brass-birmingham"
+      },
+      "meta": {
+        "width": "full",
+        "first": true
+      }
     },
     {
-      "type": "catalogue",
       "id": "new-in",
-      "heading": "New in",
-      "featured": "urn:game:spirit-island",
-      "limit": 6,
-      "meta": { "width": "full" }
+      "type": "catalogue",
+      "props": {
+        "heading": "New in",
+        "featured": "urn:game:spirit-island",
+        "limit": 6
+      },
+      "meta": {
+        "width": "full"
+      }
     },
     {
-      "type": "group",
       "id": "how-we-work",
-      "heading": "How the shop works",
-      "meta": { "width": "full" },
+      "type": "group",
+      "props": {
+        "heading": "How the shop works"
+      },
+      "meta": {
+        "width": "full"
+      },
       "children": [
         {
-          "type": "card",
           "id": "play-first",
-          "heading": "Play before you buy",
-          "body": "Four tables at the back, a library of 300 titles, no charge. Ask at the counter and we will teach you the rules.",
-          "meta": { "span": 1 }
+          "type": "card",
+          "props": {
+            "heading": "Play before you buy",
+            "body": "Four tables at the back, a library of 300 titles, no charge. Ask at the counter and we will teach you the rules."
+          },
+          "meta": {
+            "span": 1
+          }
         },
         {
-          "type": "card",
           "id": "complexity",
-          "heading": "Complexity, not hype",
-          "body": "Every listing carries players, playtime and a complexity rating from 1 to 5, because those three numbers decide whether a game fits your evening.",
-          "meta": { "span": 2 }
-        },
-        {
           "type": "card",
-          "id": "reprints",
-          "heading": "We say when it is out",
-          "body": "A reprint pending means the publisher has confirmed one. Out of print means we cannot get it, and we will tell you who might.",
-          "meta": { "span": 1 }
+          "props": {
+            "heading": "Complexity, not hype",
+            "body": "Every listing carries players, playtime and a complexity rating from 1 to 5, because those three numbers decide whether a game fits your evening."
+          },
+          "meta": {
+            "span": 2
+          }
         },
         {
-          "type": "kort",
+          "id": "reprints",
+          "type": "card",
+          "props": {
+            "heading": "We say when it is out",
+            "body": "A reprint pending means the publisher has confirmed one. Out of print means we cannot get it, and we will tell you who might."
+          },
+          "meta": {
+            "span": 1
+          }
+        },
+        {
           "id": "skipped-nested",
-          "heading": "Not a registered nested type"
+          "type": "kort",
+          "props": {
+            "heading": "Not a registered nested type"
+          }
         }
       ]
     },
     {
-      "type": "mechanisms",
       "id": "categories",
-      "heading": "Browse by mechanism",
-      "meta": { "width": "full" }
+      "type": "mechanisms",
+      "props": {
+        "heading": "Browse by mechanism"
+      },
+      "meta": {
+        "width": "full"
+      }
     },
     {
-      "type": "prose",
       "id": "about",
-      "heading": "About Baize",
-      "paragraphs": [
-        "We opened in 2019 with eleven games and one table. The shop is named for the cloth on that table, which is still there and now has a scorch mark from a tea light.",
-        "Everything listed here is on the shelf in Gothenburg unless it says otherwise. Stock is read live, so what you see is what is in the building."
-      ],
-      "meta": { "width": "measure" }
+      "type": "prose",
+      "props": {
+        "heading": "About Baize",
+        "paragraphs": [
+          "We opened in 2019 with eleven games and one table. The shop is named for the cloth on that table, which is still there and now has a scorch mark from a tea light.",
+          "Everything listed here is on the shelf in Gothenburg unless it says otherwise. Stock is read live, so what you see is what is in the building."
+        ]
+      },
+      "meta": {
+        "width": "measure"
+      }
     },
     {
-      "type": "nyhetsbrev",
       "id": "skipped",
-      "heading": "Not a registered type"
+      "type": "nyhetsbrev",
+      "props": {
+        "heading": "Not a registered type"
+      }
     }
   ]
 }

@@ -1,13 +1,13 @@
 ---
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import type { BlockItem } from '@evanion/astro-widget';
+import type { AnyWidgetItem } from '@evanion/astro-widget';
 import GroupCell from './GroupCell.astro';
 import { groupRegistry } from './group.registry.js';
 
 interface Props {
   heading: string;
-  /** The nested blocks. `Widgets` does not recurse, so this block renders them. */
-  children?: BlockItem[];
+  /** The nested items. `Widgets` does not recurse, so this block renders them. */
+  children?: AnyWidgetItem[];
   ctx?: Record<string, unknown>;
 }
 
