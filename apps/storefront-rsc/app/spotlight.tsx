@@ -1,4 +1,27 @@
+import {
+  AvailabilityPill,
+  BoxArtPlaceholder,
+  Card,
+  Figure,
+  MechanismTag,
+  Stat,
+  StatLine,
+  TagRow,
+  Text,
+  Title,
+  WeightRamp,
+} from '@evanion/baize-ui';
+
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
+import {
+  availabilityLabel,
+  availabilityToken,
+  boxArtPalette,
+  formatPrice,
+  formatWeight,
+  mechanismToken,
+  weightStop,
+} from './tokens';
 
 /**
  * One game, in full, as an async Server Component that fetches its own data.
@@ -18,45 +41,60 @@ export async function Spotlight({ urn }: { urn: string }) {
   ]);
 
   return (
-    <section aria-labelledby="spotlight-heading">
-      <div className="card feature">
-        <div className="card-head">
-          <h2 className="title feature-title" id="spotlight-heading">
-            {game.title}
-          </h2>
-          <span className="pill">
-            {stock.quantity > 0 ? `${stock.quantity} in stock` : 'out of stock'}
-          </span>
-        </div>
-        <p className="tags">
+    <section aria-label={game.title} className="spotlight">
+      <BoxArtPlaceholder label={game.title} palette={boxArtPalette(game.urn)} />
+      <Card
+        foot={
+          <>
+            <Figure size="lg">{formatPrice(game.price)}</Figure>
+            <Text as="span" size="sm" tone="moss">
+              {stock.quantity > 0
+                ? `${stock.quantity} on the shelf`
+                : 'none on the shelf'}
+            </Text>
+          </>
+        }
+        head={
+          <>
+            <Title
+              as="h2"
+              mechanism={mechanismToken(game.mechanisms[0])}
+              size="lg"
+            >
+              {game.title}
+            </Title>
+            <AvailabilityPill
+              availability={availabilityToken(game.availability)}
+              label={availabilityLabel(game.availability)}
+            />
+          </>
+        }
+      >
+        <TagRow>
           {game.mechanisms.map((mechanism) => (
-            <span className="chip" key={mechanism}>
-              {mechanism}
-            </span>
+            <MechanismTag
+              key={mechanism}
+              label={mechanism}
+              mechanism={mechanismToken(mechanism)}
+            />
           ))}
-        </p>
-        <dl className="stats">
-          <div>
-            <dt>players</dt>
-            <dd>{game.players}</dd>
-          </div>
-          <div>
-            <dt>playtime</dt>
-            <dd>{game.playtime}</dd>
-          </div>
-          <div>
-            <dt>weight</dt>
-            <dd>
-              {game.weight.toFixed(1)}
-              <span className="of"> / 5</span>
-            </dd>
-          </div>
-          <div>
-            <dt>correlation id</dt>
-            <dd className="small">{stock.correlationId ?? 'none'}</dd>
-          </div>
-        </dl>
-      </div>
+        </TagRow>
+        <StatLine label={`${game.title} at a glance`} size="lg">
+          <Stat figure={game.players} label="players" />
+          <Stat figure={game.playtime} label="playtime" />
+          <Stat figure={formatWeight(game.weight)} label="weight">
+            <WeightRamp
+              label={`weight ${game.weight.toFixed(1)} of 5`}
+              stop={weightStop(game.weight)}
+            />
+          </Stat>
+        </StatLine>
+        <Text size="sm">
+          shop-api saw correlation id{' '}
+          <span className="identifier">{stock.correlationId ?? 'none'}</span>{' '}
+          for the stock request behind this card.
+        </Text>
+      </Card>
     </section>
   );
 }

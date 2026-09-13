@@ -7,16 +7,38 @@
  * this app exists to show.
  */
 
+/** Whether a title can be bought, and why not when it cannot. */
+export type Availability =
+  'in-stock' | 'preorder' | 'reprint-pending' | 'out-of-print';
+
+/** An expansion, identified by a composite-NSS `urn:expansion:game:slug`. */
+export interface Expansion {
+  urn: string;
+  title: string;
+  /** Minor units, SEK öre. */
+  price: number;
+}
+
 /** One catalogue entry, as `GET /games` and `GET /games/:urn` return it. */
 export interface Game {
   /** Entity identity, e.g. `urn:game:wingspan`. */
   urn: string;
   title: string;
+  /** Most characteristic mechanism first; that one carries the title's hue. */
   mechanisms: string[];
   players: string;
   playtime: string;
   /** Complexity, 1 (light) to 5 (heavy). */
   weight: number;
+  /** Minor units, SEK öre. */
+  price: number;
+  /**
+   * What the shop says about buying it. A separate fact from stock: a title can be
+   * listed in stock and sit at zero copies, and the inventory endpoint is what
+   * knows the copies.
+   */
+  availability: Availability;
+  expansions: Expansion[];
 }
 
 /** Stock for one game, as `GET /inventory/:urn` returns it. */

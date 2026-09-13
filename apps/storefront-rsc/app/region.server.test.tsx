@@ -39,13 +39,21 @@ function flatten(node: React.ReactNode): Element[] {
   return [element, ...flatten(element.props['children'] as React.ReactNode)];
 }
 
-/** Every string the tree renders, concatenated in document order. */
+/**
+ * Every string the tree renders, concatenated in prop order.
+ *
+ * Every element-valued prop and not only `children`: `@evanion/baize-ui`'s `Card`
+ * takes its head and foot rows as slots, so a title passed as `head` is text the
+ * page renders and a walk of `children` alone would never reach it.
+ */
 function text(node: React.ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(text).join('');
   if (React.isValidElement(node)) {
-    return text((node as Element).props['children'] as React.ReactNode);
+    return Object.values((node as Element).props)
+      .map((value) => text(value as React.ReactNode))
+      .join('');
   }
   return '';
 }
@@ -58,6 +66,9 @@ const CATALOGUE = [
     players: '1-5',
     playtime: '40-70 min',
     weight: 2.4,
+    price: 59900,
+    availability: 'in-stock',
+    expansions: [],
   },
   {
     urn: 'urn:game:brass-birmingham',
@@ -66,6 +77,9 @@ const CATALOGUE = [
     players: '2-4',
     playtime: '60-120 min',
     weight: 3.9,
+    price: 74900,
+    availability: 'reprint-pending',
+    expansions: [],
   },
 ];
 
@@ -158,10 +172,13 @@ describe('every widget in the region', () => {
       '/api/telemetry',
     ]);
     expect(spotlight).toContain('Wingspan');
-    expect(spotlight).toContain('12 in stock');
+    expect(spotlight).toContain('12 on the shelf');
     expect(catalogue).toContain('Brass: Birmingham');
     expect(catalogue).toContain('40-70 min');
-    expect(catalogue).toContain('out of stock');
+    // Availability is the shop's own statement and stock is the warehouse's:
+    // Brass is listed as awaiting a reprint and has nothing on the shelf.
+    expect(catalogue).toContain('reprint pending');
+    expect(catalogue).toContain('none on the shelf');
     expect(activity).toContain('inventory.checked');
     expect(activity).toContain('08:15:42');
   });

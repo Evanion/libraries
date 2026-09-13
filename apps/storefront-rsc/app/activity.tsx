@@ -1,3 +1,5 @@
+import { SectionHeader, Text, Title } from '@evanion/baize-ui';
+
 import { fetchJson, type TelemetryEvent } from './shop-api';
 
 /**
@@ -21,12 +23,17 @@ export async function Activity({ heading }: { heading: string }) {
   const recent = [...events].slice(-SHOWN).reverse();
 
   return (
-    <section aria-labelledby="activity-heading">
-      <h2 className="heading" id="activity-heading">
-        {heading}
-      </h2>
+    <section aria-label={heading}>
+      <SectionHeader
+        aside={`last ${recent.length} of ${events.length}`}
+        heading={
+          <Title as="h2" size="md">
+            {heading}
+          </Title>
+        }
+      />
       {recent.length === 0 ? (
-        <p className="empty">Nothing recorded yet.</p>
+        <Text tone="moss">Nothing recorded yet.</Text>
       ) : (
         <ol className="events">
           {recent.map((event) => (
@@ -37,7 +44,9 @@ export async function Activity({ heading }: { heading: string }) {
               <span className="time">{event.timestamp.slice(11, 19)}</span>
               <span className="source">{event.source}</span>
               <span className="type">{event.type}</span>
-              <span className="small">{event.correlationId ?? 'none'}</span>
+              <span className="identifier">
+                {event.correlationId ?? 'none'}
+              </span>
             </li>
           ))}
         </ol>

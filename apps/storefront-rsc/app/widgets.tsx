@@ -1,3 +1,4 @@
+import { Text } from '@evanion/baize-ui';
 import { createWidgets } from '@evanion/react-widget';
 import { Activity } from './activity';
 import { Catalogue } from './catalogue';
@@ -24,7 +25,7 @@ export const { Widgets, defineItems } = createWidgets({
     activity: Activity,
   },
   chrome: {
-    suspenseFallback: <p className="empty">Asking shop-api…</p>,
+    suspenseFallback: <Text tone="moss">Asking shop-api…</Text>,
   },
 });
 
