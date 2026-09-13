@@ -1,46 +1,70 @@
 import { VALIDATION_MESSAGES } from './constants.js';
-import type { WidgetComponentMap, WidgetItemProblem } from './types.js';
-
-/**
- * The set of widget types a list may use.
- *
- * A plain list of names is accepted alongside a component map so that a webhook
- * handler or a CI script can validate CMS payloads without importing React
- * components it will never render.
- */
-export type KnownWidgetTypes = WidgetComponentMap | readonly string[];
+import type { KnownWidgetTypes, WidgetProblem } from './types.js';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Own-key lookup against a caller-supplied object.
+ *
+ * `in` and a bare index both walk the prototype chain, so a type of
+ * `constructor`, `toString` or `__proto__` resolves against `Object.prototype`:
+ * the type passes as registered, and `required[type]` comes back as a function
+ * for the field loop to iterate. Items are CMS data, so any string is
+ * reachable.
+ */
+function hasOwn(target: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(target, key);
+}
+
 function knows(known: KnownWidgetTypes, type: string): boolean {
   if (Array.isArray(known)) return known.includes(type);
-  // `in` walks the prototype chain, so "constructor" or "toString" would pass
-  // against a component map. Items are untrusted input.
-  return Object.prototype.hasOwnProperty.call(known, type);
+  return hasOwn(known, type);
 }
 
 /**
- * Checks a widget item list against the set of known types.
+ * A value a CMS text field that was opened and left empty arrives as.
+ */
+function isBlank(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '')
+  );
+}
+
+/**
+ * Checks a widget item list against the set of known types, recursing into
+ * `children`.
  *
  * Returns problems rather than throwing, and accumulates rather than
- * short-circuiting, so a caller can print all of them at once. The renderer
- * never calls this: `Widgets` stays defensive (skip and warn), and validation
- * is an explicit step run at ingestion or build time. Required props are
- * already checked at compile time by `WidgetItem<C>`; this exists for data that
- * bypasses the type checker.
+ * short-circuiting, so a caller can print all of them at once. No renderer
+ * calls this: an adapter stays defensive -- skip the item and warn -- and
+ * validation is the loud, explicit gate run at ingestion or build time.
+ *
+ * `required` maps a widget type to the prop names that must be present and
+ * non-blank on `item.props`, where blank means `undefined`, `null` or
+ * whitespace only. It is the only check an Astro widget's props get, because an
+ * `.astro` component exposes no prop types to infer from; a React consumer
+ * wants it for data that never met `WidgetItem<C>`.
  *
  * @example
  * ```ts
  * validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
  * // [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
+ *
+ * validateItems([{ id: 'a', type: 'hero', props: {} }], ['hero'], {
+ *   hero: ['heading'],
+ * });
+ * // [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
  * ```
  */
 export function validateItems(
   items: unknown,
   known: KnownWidgetTypes,
-): WidgetItemProblem[] {
+  required: Record<string, string[]> = {},
+): WidgetProblem[] {
   if (!Array.isArray(items)) {
     return [
       {
@@ -52,7 +76,7 @@ export function validateItems(
     ];
   }
 
-  const problems: WidgetItemProblem[] = [];
+  const problems: WidgetProblem[] = [];
   const seenIds = new Set<string>();
 
   items.forEach((item: unknown, index) => {
@@ -77,8 +101,8 @@ export function validateItems(
         message: VALIDATION_MESSAGES.INVALID_ID,
       });
     } else if (seenIds.has(id)) {
-      // Only within one sibling list: React scopes keys per list, so the same
-      // id at different depths is fine.
+      // Only within one sibling list: a renderer scopes keys per list, so the
+      // same id at different depths is fine.
       problems.push({
         index,
         id,
@@ -105,18 +129,42 @@ export function validateItems(
       });
     }
 
-    if (item['props'] !== undefined && !isPlainObject(item['props'])) {
+    const props = item['props'];
+
+    // An absent `props` is a problem, not an empty one. A widget's data lives
+    // under that key and nowhere else, so an item without it is an item whose
+    // props the payload put somewhere the renderer does not read -- which is
+    // exactly what a payload written against a flat item shape looks like, and
+    // exactly what this check is the migration gate for. A renderer then draws
+    // the widget with nothing in it and nothing logged.
+    if (!isPlainObject(props)) {
       problems.push({
         index,
         id,
         type,
         message: VALIDATION_MESSAGES.INVALID_PROPS,
       });
+    } else if (type !== '-' && knows(known, type) && hasOwn(required, type)) {
+      // Only for a type the registry declares. An unknown type has already
+      // been reported, and listing the fields it did not supply says nothing
+      // the first problem did not.
+      const fields = required[type] ?? [];
+      for (const field of fields) {
+        const value = hasOwn(props, field) ? props[field] : undefined;
+        if (isBlank(value)) {
+          problems.push({
+            index,
+            id,
+            type,
+            message: VALIDATION_MESSAGES.MISSING_FIELD(field),
+          });
+        }
+      }
     }
 
     if (item['children'] !== undefined) {
       if (Array.isArray(item['children'])) {
-        problems.push(...validateItems(item['children'], known));
+        problems.push(...validateItems(item['children'], known, required));
       } else {
         problems.push({
           index,

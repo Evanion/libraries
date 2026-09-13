@@ -1,19 +1,19 @@
 # Validation
 
-`Widgets.astro` skips an unknown block type silently, so a bad CMS save can
-never break a render. Catch them loudly at build time instead.
+`Widgets.astro` skips an unknown widget type with a dev-only warning, so a bad
+CMS save can never break a render. Catch them loudly at build time instead.
 
 ```js
-import { validateBlocks } from '@evanion/astro-widget';
+import { validateItems } from '@evanion/astro-widget';
 import { registry } from './src/registry';
 import page from './src/data/page.json';
 
-const problems = validateBlocks(page.sections, registry, { hero: ['heading'] });
+const problems = validateItems(page.sections, registry, { hero: ['heading'] });
 
 if (problems.length) {
   for (const problem of problems) {
     console.error(
-      `section ${problem.index} (${problem.type}): ${problem.message}`,
+      `section ${problem.index} (${problem.id}, ${problem.type}): ${problem.message}`,
     );
   }
   process.exit(1);
@@ -21,73 +21,92 @@ if (problems.length) {
 ```
 
 This matters more here than in `@evanion/react-widget`, because it is the only
-check a block's props get. An `.astro` component exposes no prop types to infer
+check a widget's props get. An `.astro` component exposes no prop types to infer
 from, so there is no compile-time half.
 
 ## What it reports
 
 ```ts
-interface BlockProblem {
+interface WidgetProblem {
   index: number;
+  id: string;
   type: string;
   message: string;
 }
 ```
 
-| Message                | Raised when                                    |
-| ---------------------- | ---------------------------------------------- |
-| `blocks is not a list` | the root is not an array; `index` is `-1`      |
-| `unknown block type`   | `type` is not an own key of the registry       |
-| `missing field x`      | a field named in `required` is absent or blank |
+| Message                     | Raised when                                   |
+| --------------------------- | --------------------------------------------- |
+| `items is not a list`       | the root is not an array; `index` is `-1`     |
+| `item is not an object`     | an entry is null, an array, or a primitive    |
+| `item id is not a string`   | `id` is missing or not a string               |
+| `item type is not a string` | `type` is missing or not a string             |
+| `unknown widget type`       | `type` is not an own key of the registry      |
+| `props is not an object`    | `props` is missing or not a plain object      |
+| `children is not a list`    | `children` is present and not an array        |
+| `duplicate sibling id`      | two items in one sibling list share an `id`   |
+| `missing field x`           | a prop named in `required` is absent or blank |
 
-`type` is `'-'` when the block has none usable. Problems accumulate rather than
-short-circuiting, and nothing throws, so one run reports everything.
+`id` and `type` are `'-'` when the item has none usable. Problems accumulate
+rather than short-circuiting, and nothing throws, so one run reports
+everything.
 
 ## Required fields
 
 ```ts
-validateBlocks(sections, registry, {
+validateItems(sections, registry, {
   hero: ['heading'],
   cards: ['heading', 'items'],
 });
 ```
 
-The third argument maps a block type to the field names that must be present and
-non-blank. Blank means `undefined`, `null`, or a string that is whitespace only
+The third argument maps a widget type to the prop names that must be present and
+non-blank on `item.props`. Blank means `undefined`, `null`, or a string that is whitespace only
 — a CMS text field that was opened and left empty arrives as the last of those,
 and is exactly the case a plain presence check misses.
 
 ```ts
-validateBlocks([{ type: 'hero' }], { hero: Hero }, { hero: ['heading'] });
-// [{ index: 0, type: 'hero', message: 'missing field heading' }]
-
-validateBlocks(
-  [{ type: 'hero', heading: '   ' }],
+validateItems(
+  [{ id: 'a', type: 'hero', props: {} }],
   { hero: Hero },
   { hero: ['heading'] },
 );
-// [{ index: 0, type: 'hero', message: 'missing field heading' }]
+// [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
+
+validateItems(
+  [{ id: 'a', type: 'hero', props: { heading: '   ' } }],
+  { hero: Hero },
+  { hero: ['heading'] },
+);
+// [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
 ```
 
-Required fields are only checked for a block whose type is in the registry. An
+Required props are only checked for a widget whose type is in the registry. An
 unknown type reports once, as an unknown type, rather than once plus one per
-field it does not have.
+prop it does not have.
 
 ## `index` is scoped to its own level
 
 The validator recurses into `children`, and `index` is the position within the
-block's own sibling list. A problem in a top-level section and a problem in one
+item's own sibling list. A problem in a top-level section and a problem in one
 of its `children` can both report `index: 0`, meaning different things.
 
 ```ts
-validateBlocks([{ type: 'cards', children: [{ type: 'nope' }] }], {
-  cards: Cards,
-});
-// [{ index: 0, type: 'nope', message: 'unknown block type' }]
+validateItems(
+  [
+    {
+      id: 'a',
+      type: 'cards',
+      props: {},
+      children: [{ id: 'b', type: 'nope', props: {} }],
+    },
+  ],
+  { cards: Cards },
+);
+// [{ index: 0, id: 'b', type: 'nope', message: 'unknown widget type' }]
 ```
 
-Use `type` and `message` alongside `index`, or walk `children` yourself if you
-need an unambiguous path to the offending block. The problem list is flat.
+`id` is what tells the two apart. The problem list is flat.
 
 ## Where to run it
 
@@ -106,16 +125,13 @@ Or on the CMS webhook, so an editor learns about it at save time rather than at
 deploy time. Both is better: the webhook gives the fast feedback, the build gate
 is the one that cannot be skipped.
 
-A `BlockRegistry` is `Record<string, unknown>`, and only its keys are read, so a
-CI script that does not want to pull `.astro` modules into a plain Node process
-can hand it a bare object of names:
+A `WidgetRegistry` is `Record<string, unknown>` here, and only its keys are
+read, so a CI script that does not want to pull `.astro` modules into a plain
+Node process can hand it a bare list of names — `validateItems` lives in
+`@evanion/widget` and imports no framework at all:
 
 ```js
-validateBlocks(
-  page.sections,
-  { hero: true, cards: true },
-  { hero: ['heading'] },
-);
+validateItems(page.sections, ['hero', 'cards'], { hero: ['heading'] });
 ```
 
 The real registry is the better argument where it is already imported, since the

@@ -4,7 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./libs/widget"
+      "path": "./libs/react-widget"
     },
     {
       "path": "./apps/docs"
@@ -53,6 +53,9 @@
     },
     {
       "path": "./libs/baize-ui"
+    },
+    {
+      "path": "./libs/widget"
     }
   ],
   "compilerOptions": {

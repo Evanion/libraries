@@ -1,4 +1,4 @@
-import { defineBlocks } from '@evanion/astro-widget';
+import { defineWidgets } from '@evanion/astro-widget';
 import NoteCard from './NoteCard.astro';
 
 /**
@@ -9,7 +9,7 @@ import NoteCard from './NoteCard.astro';
  * avoids an import cycle: the content registry holds `ContentGroup`, and
  * `ContentGroup` needs a registry for its children.
  */
-export const groupRegistry = defineBlocks({ card: NoteCard });
+export const groupRegistry = defineWidgets({ card: NoteCard });
 
-/** Fields `validateBlocks` must find on each nested type. */
+/** Fields `validateItems` must find on each nested type. */
 export const groupRequired = { card: ['heading', 'body'] };

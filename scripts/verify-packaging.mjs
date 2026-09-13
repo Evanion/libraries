@@ -38,8 +38,9 @@ const ROOT = resolve(import.meta.dirname, '..');
  */
 const LIBS = [
   ['libs/compose', '@evanion/compose'],
+  ['libs/widget', '@evanion/widget'],
   ['libs/urn', '@evanion/urn'],
-  ['libs/widget', '@evanion/react-widget'],
+  ['libs/react-widget', '@evanion/react-widget'],
   ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
@@ -128,14 +129,16 @@ try {
     `
 import { ComposeProvider, provider } from '@evanion/compose';
 import type { ProviderArray } from '@evanion/compose';
+import { defineWidgets, validateItems as validateWidgetItems, VALIDATION_MESSAGES } from '@evanion/widget';
+import type { AnyWidgetItem as CoreWidgetItem, KnownWidgetTypes as CoreKnownTypes, WidgetProblem as CoreProblem, WidgetRegistry as CoreRegistry } from '@evanion/widget';
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import type { ParsedURN } from '@evanion/urn';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
-import type { WidgetItem, WidgetItemProblem } from '@evanion/react-widget';
+import type { WidgetItem, WidgetProblem, WidgetRegistry, AnyWidgetComponent, WidgetsWrapperComponent } from '@evanion/react-widget';
 import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion/nestjs-correlation-id';
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
-import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
-import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widget';
+import { defineWidgets as defineAstroWidgets, validateItems as validateAstroItems } from '@evanion/astro-widget';
+import type { AnyWidgetItem as AstroWidgetItem, WidgetRegistry as AstroWidgetRegistry, WidgetProblem as AstroWidgetProblem } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError, LuhnError } from '@evanion/luhn';
 import type { LuhnOptions } from '@evanion/luhn';
 import { createFeatures, FeatureCycleError } from '@evanion/feature';
@@ -149,6 +152,11 @@ import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps,
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 
+const widgetRegistry: CoreRegistry = defineWidgets({ hero: 'not-a-real-component' });
+const anyItems: CoreWidgetItem[] = [{ id: 'a', type: 'hero', props: { heading: 'ok' } }];
+const known: CoreKnownTypes = widgetRegistry;
+const coreProblems: CoreProblem[] = validateWidgetItems(anyItems, known, { hero: ['heading'] });
+const notAList: string = VALIDATION_MESSAGES.NOT_A_LIST;
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
 const err: ValidationError = new InvalidError('NSS', 'x', 'x');
@@ -157,11 +165,14 @@ const { defineItems } = createWidgets({ components: { news: News } });
 const items: WidgetItem<{ news: typeof News }>[] = defineItems([
   { id: '1', type: 'news', props: { title: 'ok' } },
 ]);
-const widgetProblems: WidgetItemProblem[] = validateItems(items, ['news']);
+const widgetProblems: WidgetProblem[] = validateItems(items, ['news'], { news: ['title'] });
+const reactRegistry: WidgetRegistry<AnyWidgetComponent> = { news: News };
+// The wrapper is handed the region's items beside its children.
+const Region: WidgetsWrapperComponent = ({ items: given }) => (given?.length ?? 0) > 0 ? null : null;
 const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: () => 'x' };
-const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
-const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
-const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
+const registry: AstroWidgetRegistry = defineAstroWidgets({ hero: 'not-a-real-component' });
+const sections: AstroWidgetItem[] = [{ id: 'h1', type: 'hero', props: { heading: 'ok' } }];
+const problems: AstroWidgetProblem[] = validateAstroItems(sections, registry, { hero: ['heading'] });
 const checksum: string = Luhn.generate('foo').checksum;
 const luhnOptions: LuhnOptions = { dictionary: '0123456789' };
 const filtered: number = createLuhn(luhnOptions).validate('79927398713').filtered;
@@ -197,6 +208,7 @@ const gutter: string = space[4];
 const propertyName: string = customProperties[0]?.[0] ?? '';
 const tokensCss: string = renderTokensCss();
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
+      widgetRegistry, anyItems, coreProblems, notAList, reactRegistry, Region,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
@@ -244,8 +256,9 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
 import { readFileSync } from 'node:fs';
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
+import { defineWidgets, validateItems as validateWidgetItems } from '@evanion/widget';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
-import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
+import { defineWidgets as defineAstroWidgets, validateItems as validateAstroItems } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
@@ -255,7 +268,8 @@ import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClas
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
-  defineBlocks, validateBlocks, createLuhn, InvalidDictionaryError,
+  defineWidgets, validateWidgetItems,
+  defineAstroWidgets, validateAstroItems, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
@@ -351,6 +365,80 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
       '  ✓ nestjs-correlation-id ships one ESM build, no require condition',
     );
   }
+
+  // @evanion/widget promises to import no framework at all, which is what makes
+  // it usable from a webhook handler, a Nest service or a CI script that checks
+  // a CMS payload before anything renders it. That promise breaks silently: a
+  // framework import three modules deep still builds and still tests clean, and
+  // only fails once someone imports the core where the framework is not
+  // installed. The core is emitted file-per-file, so checking `dist/index.js`
+  // alone would miss it.
+  const widgetCoreDist = join(
+    dir,
+    'node_modules',
+    '@evanion',
+    'widget',
+    'dist',
+  );
+  const widgetCoreModules = readdirSync(widgetCoreDist, {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+    .map((entry) => join(entry.parentPath, entry.name));
+
+  if (widgetCoreModules.length === 0) {
+    throw new Error('@evanion/widget ships no modules at all');
+  }
+
+  const frameworks = ['react', 'astro', 'svelte', 'vue', 'solid-js'];
+  const frameworkImporters = widgetCoreModules.filter((file) => {
+    const source = readFileSync(file, 'utf8');
+    return frameworks.some((framework) =>
+      new RegExp(`(?:from|import)\\s*["']${framework}(?:/[^"']*)?["']`).test(
+        source,
+      ),
+    );
+  });
+  if (frameworkImporters.length) {
+    throw new Error(
+      '@evanion/widget imports a framework: ' +
+        frameworkImporters
+          .map((file) => file.slice(widgetCoreDist.length + 1))
+          .join(', ') +
+        '. The core is what every adapter shares, so nothing under it may import one.',
+    );
+  }
+  console.log('  ✓ widget core imports no framework');
+
+  // Every adapter names the core at an exact version equal to the packed core's
+  // own. A caret range is what lets a consumer with two adapters resolve two
+  // copies of the core, and an adapter compiled against one item shape and
+  // running against another is a rendering bug with no error message. nx
+  // rewrites the pin during the version step (`versionPrefix: ""` in nx.json);
+  // this is the check that catches one it did not.
+  const corePkg = JSON.parse(
+    readFileSync(
+      join(dir, 'node_modules', '@evanion', 'widget', 'package.json'),
+      'utf8',
+    ),
+  );
+  for (const adapter of ['react-widget', 'astro-widget']) {
+    const adapterPkg = JSON.parse(
+      readFileSync(
+        join(dir, 'node_modules', '@evanion', adapter, 'package.json'),
+        'utf8',
+      ),
+    );
+    const pin = adapterPkg.dependencies?.['@evanion/widget'];
+    if (pin !== corePkg.version) {
+      throw new Error(
+        `@evanion/${adapter} pins @evanion/widget at ${pin ?? 'nothing'}; the ` +
+          `packed core is ${corePkg.version}. Adapters name the core exactly.`,
+      );
+    }
+  }
+  console.log('  ✓ every adapter pins the core exactly');
 
   // react-widget is importable from a React Server Component, which holds only
   // while it stays off createContext/useContext/Component -- none of which

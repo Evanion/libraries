@@ -1,9 +1,13 @@
 /**
- * Messages `Widgets` and `renderWidget` pass to `warnOnce`.
+ * Messages an adapter's renderer passes to {@link warnOnce}.
  *
  * Each one names the offending item's `id` and `type`, which is what lets
  * `warnOnce` key on the message text and still report a second bad item
  * separately.
+ *
+ * They live here rather than in each adapter so that a region rendered through
+ * React and the same region rendered through Astro report a stale CMS type in
+ * the same words.
  */
 export const ERROR_MESSAGES = {
   UNKNOWN_WIDGET: (type: string, id: string) =>
@@ -18,7 +22,7 @@ export const ERROR_MESSAGES = {
 } as const;
 
 /**
- * Messages reported by `validateItems`.
+ * Messages reported by {@link validateItems}.
  *
  * Exported so a caller can group or translate problems without matching on
  * prose, and so the tests assert against the same strings the library emits.
@@ -32,4 +36,12 @@ export const VALIDATION_MESSAGES = {
   INVALID_PROPS: 'props is not an object',
   INVALID_CHILDREN: 'children is not a list',
   DUPLICATE_ID: 'duplicate sibling id',
+  /**
+   * A field the caller's `required` map demands is absent or blank.
+   *
+   * A function rather than a constant because the field name is the whole of
+   * the report: a CMS editor reads "missing field heading" and knows which box
+   * to fill.
+   */
+  MISSING_FIELD: (field: string) => `missing field ${field}`,
 } as const;

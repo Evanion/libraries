@@ -2,16 +2,28 @@
 
 Every export of `@evanion/react-widget`.
 
+The item model — `AnyWidgetItem`, `WidgetRegistry`, `WidgetProblem`,
+`WidgetMeta`, `KnownWidgetTypes`, `validateItems`, `defineWidgets`,
+`ERROR_MESSAGES`, `VALIDATION_MESSAGES` — comes from `@evanion/widget` and is
+re-exported here. The specifier does not change and neither does the install:
+this package pins the core exactly and depends on it.
+
 ## `createWidgets(config)`
 
 ```tsx
-function createWidgets<const C extends WidgetComponentMap, M = WidgetMeta>(
+function createWidgets<
+  const C extends WidgetRegistry<AnyWidgetComponent>,
+  M = WidgetMeta,
+>(
   config: WidgetsConfig<C, M>,
 ): {
   // memo()-wrapped
   Widgets: ComponentType<WidgetsProps<C, M>>;
   defineItems: (items: WidgetItem<C, M>[]) => WidgetItem<C, M>[];
-  validateItems: (items: unknown) => WidgetItemProblem[];
+  validateItems: (
+    items: unknown,
+    required?: Record<string, string[]>,
+  ) => WidgetProblem[];
 };
 ```
 
@@ -57,13 +69,14 @@ item carries under that name — including when the renderer has none and the
 widget is handed `undefined`. Items are untrusted input, and `WidgetDataProps`
 omits `ctx`, so a typed item cannot express one at all.
 
-## `validateItems(items, known)`
+## `validateItems(items, known, required?)`
 
 ```ts
 function validateItems(
   items: unknown,
-  known: WidgetComponentMap | readonly string[],
-): WidgetItemProblem[];
+  known: WidgetRegistry | readonly string[],
+  required?: Record<string, string[]>,
+): WidgetProblem[];
 ```
 
 Checks data that never met the type checker. Returns problems rather than
@@ -94,16 +107,28 @@ The messages, all exported as `VALIDATION_MESSAGES`:
 | `INVALID_ID`       | `item id is not a string`   | `id` is missing or not a string             |
 | `INVALID_TYPE`     | `item type is not a string` | `type` is missing or not a string           |
 | `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set   |
-| `INVALID_PROPS`    | `props is not an object`    | `props` is present and not a plain object   |
+| `INVALID_PROPS`    | `props is not an object`    | `props` is missing or not a plain object    |
 | `INVALID_CHILDREN` | `children is not a list`    | `children` is present and not an array      |
 | `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list share an `id` |
+| `MISSING_FIELD`    | `missing field <name>`      | a prop `required` names is absent or blank  |
 
 Duplicate ids are only reported within one sibling list. React scopes keys per
 list, so the same id at different depths is fine.
 
-`props` is not checked against the component. That is `WidgetItem<C>`'s job and
-it does it at compile time; `validateItems` covers structure, which is all it can
-see given a list of type names.
+`required` maps a widget type to the props that must be present and non-blank on
+`item.props`, where blank means `undefined`, `null` or whitespace only — which is
+what a CMS text field that was opened and left empty arrives as.
+
+```ts
+validateItems([{ id: 'a', type: 'news', props: {} }], ['news'], {
+  news: ['title'],
+});
+// [{ index: 0, id: 'a', type: 'news', message: 'missing field title' }]
+```
+
+Beyond that, `props` is not checked against the component. That is
+`WidgetItem<C>`'s job and it does it at compile time; `validateItems` covers
+structure, which is all it can see given a list of type names.
 
 Lookups use `Object.prototype.hasOwnProperty` rather than `in`. Items are
 untrusted input, and `in` walks the prototype chain — a CMS-supplied type of
@@ -207,24 +232,42 @@ Annotating one of these is what types the whole set's `meta`.
 
 ### `WidgetsWrapperComponent`
 
-`ComponentType<{ children?: ReactNode }>`. The region wrapper receives its
-children and nothing else.
+```ts
+type WidgetsWrapperComponent = ComponentType<{
+  children?: ReactNode;
+  items?: readonly RenderableWidgetItem[];
+}>;
+```
 
-### `WidgetProps<Type, Props>`
+The region wrapper receives the rendered children and the items that produced
+them, positionally aligned: an item the renderer skipped is dropped from both at
+once, so index `i` of one is index `i` of the other. That is what lets a wrapper
+group, size, key or window a region by `meta` — `Children.toArray` walks the
+`<Suspense>` elements the renderer created, not the items, so a wrapper cannot
+recover an item from its child without this prop.
+
+`items` is optional, so a wrapper that ignores it declares nothing. One that
+spreads its props onto a DOM element has to drop it, the way `DefaultWrapper`
+does, or React warns about an unknown attribute.
+
+### `AnyWidgetItem<Type, Props>`
 
 ```ts
-interface WidgetProps<Type extends string = string, Props = object> {
+interface AnyWidgetItem<Type extends string = string, Props = object> {
   id: string;
   type: Type;
   props: Props;
   meta?: Record<string, unknown>;
-  children?: WidgetProps[];
+  children?: AnyWidgetItem[];
 }
 ```
 
 A loose item shape for callers building item data before a component map exists
 — a CMS payload, a fixture, a network response. It checks nothing against a
 component. Prefer `WidgetItem`.
+
+From `@evanion/widget`, and the same type an `@evanion/astro-widget` consumer
+writes, which is what makes one payload render through both.
 
 ### `RenderableWidgetItem`
 
@@ -242,8 +285,28 @@ the concrete component that was passed.
 
 ### Others
 
-`WidgetComponentMap`, `WidgetsConfig<C, M>`, `WidgetsProps<C, M>`,
-`WidgetSuspenseMode`, `WidgetItemProblem`, `KnownWidgetTypes`.
+`WidgetRegistry<T>`, `WidgetsConfig<C, M>`, `WidgetsProps<C, M>`,
+`WidgetSuspenseMode`, `WidgetProblem`, `KnownWidgetTypes`, `defineWidgets`.
+
+## Migrating from 0.2.x
+
+The item shape, the props and the data are unchanged. Three type names moved to
+`@evanion/widget` and are re-exported from here under the names the whole family
+uses.
+
+| Was                  | Now                                  |
+| -------------------- | ------------------------------------ |
+| `WidgetComponentMap` | `WidgetRegistry<AnyWidgetComponent>` |
+| `WidgetItemProblem`  | `WidgetProblem`                      |
+| `WidgetProps`        | `AnyWidgetItem`                      |
+
+`WidgetProps` and `WidgetsProps` differed by one character and meant different
+things — the loose item, and the component's props. `AnyWidgetItem` is the
+untyped counterpart to `WidgetItem`, which is what it always was.
+
+`chrome.wrapper` now receives an `items` prop beside its children. It is
+optional, so an existing wrapper keeps compiling; a wrapper that spreads its
+props onto a DOM element has to drop it.
 
 ## Migrating from 0.1.x
 

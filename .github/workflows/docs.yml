@@ -32,7 +32,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # The release notice on every package page names the version on npm and
+      # says whether `main` is ahead of it, and it reads both from the release
+      # tags: the newest `{name}@{version}` tag, and `git rev-list` from it to
+      # HEAD over the package's directory. The default checkout fetches one
+      # commit and no tags, which builds a site with no release notices on it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24

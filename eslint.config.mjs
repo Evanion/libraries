@@ -44,15 +44,16 @@ export default [
         'error',
         {
           enforceBuildableLibDependency: true,
-          // Build-time tooling that a project's own config files pull in.
-          // Neither is a dependency of the shipped package: the eslint config
-          // is lint-only, and @evanion/doc-examples is imported by
-          // vite.config.ts to run the documented examples as tests. Without
-          // this, enforceBuildableLibDependency rejects a buildable library
-          // for importing either one.
+          // Build-time tooling that never reaches a shipped artefact. The
+          // eslint config is lint-only. @evanion/doc-examples is imported by
+          // each package's vite.config.ts to run the documented examples as
+          // tests, and by apps/docs to read a README region while it
+          // prerenders -- both at build time, neither in what the build
+          // produces. Without this, enforceBuildableLibDependency rejects a
+          // buildable project for importing either one.
           allow: [
             '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
-            '^@evanion/doc-examples$',
+            '^@evanion/doc-examples(/.+)?$',
           ],
           depConstraints: [
             {

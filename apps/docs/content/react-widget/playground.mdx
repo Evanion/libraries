@@ -24,12 +24,12 @@ render(<Widgets items={[{ id: 't', type: 'text', props: { body: 'hi' } }]} />);
 
 Everything runs in the browser. The package is importable from a React Server
 Component, but nothing in a playground is one, so async widgets and the
-streaming behaviour described under [Suspense](/widget/advanced#suspense) cannot
+streaming behaviour described under [Suspense](/react-widget/advanced#suspense) cannot
 be demonstrated here — `chrome.suspenseFallback` still works, but only for a
 widget that suspends on the client.
 
 Type errors do not show. The snippets are strings; nothing typechecks them, so
-[an unknown `type`](/widget/getting-started#typing-items-held-in-a-variable),
+[an unknown `type`](/react-widget/getting-started#typing-items-held-in-a-variable),
 mismatched props and `children` on a component that does not take them all run
 here without complaint. What the editor does show is the rendered output, the
 chrome composing around it, and the console warning when an item names a type

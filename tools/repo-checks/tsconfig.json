@@ -7,9 +7,16 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
+  // The parity check imports .astro modules. tsc has no loader for those, and
+  // `astro check` -- which does -- is not run over this project. Vitest runs
+  // the file; tsc does not read it.
+  "exclude": ["src/**/*.astro.test.ts"],
   "references": [
     {
       "path": "../../libs/widget"
+    },
+    {
+      "path": "../../libs/react-widget"
     },
     {
       "path": "../../libs/astro-widget"

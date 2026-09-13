@@ -1,4 +1,4 @@
-import { defineBlocks } from '@evanion/astro-widget';
+import { defineWidgets } from '@evanion/astro-widget';
 import CartLink from './CartLink.astro';
 import NavLink from './NavLink.astro';
 
@@ -11,12 +11,12 @@ import NavLink from './NavLink.astro';
  * the nav bar is a data error, and keeping the registries apart is what makes it
  * one -- `Widgets` skips a type the registry does not hold.
  */
-export const navigationRegistry = defineBlocks({
+export const navigationRegistry = defineWidgets({
   link: NavLink,
   cart: CartLink,
 });
 
-/** Fields `validateBlocks` must find on each type. */
+/** Fields `validateItems` must find on each type. */
 export const navigationRequired = {
   link: ['label', 'href'],
   cart: ['label', 'href'],

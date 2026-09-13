@@ -60,7 +60,7 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
-    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. The same model in React and in Astro.',
+    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. One item shape, held in a framework-free core, rendered by React and by Astro.',
   },
   {
     id: 'identifiers',
@@ -142,8 +142,8 @@ export interface DocumentedPackage {
 export const packages: readonly DocumentedPackage[] = [
   {
     name: '@evanion/react-widget',
-    root: 'libs/widget',
-    slug: 'widget',
+    root: 'libs/react-widget',
+    slug: 'react-widget',
     title: 'React Widget',
     group: 'rendering',
     framework: 'React',
@@ -160,6 +160,24 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'Astro',
     hue: 'coral',
     documented: true,
+    workshop: false,
+  },
+  {
+    name: '@evanion/widget',
+    root: 'libs/widget',
+    slug: 'widget',
+    title: 'Widget',
+    group: 'rendering',
+    framework: 'universal',
+    // `stone` is the unsaturated hue on the categorical scale, for a member
+    // with no colour of its own. The core belongs to no framework, so it takes
+    // the hue that belongs to no category, and each renderer keeps the colour a
+    // reader already associates with its runtime.
+    hue: 'stone',
+    // The section this package wants is the shared half of the two renderers'
+    // pages, which is a docs restructure rather than part of a migration. Until
+    // it is written the sidebar links to the README.
+    documented: false,
     workshop: false,
   },
   {

@@ -148,7 +148,20 @@
       // While a package is below 1.0.0, a breaking change takes the minor and a
       // feature the patch, so a 0.x package does not reach 1.0.0 on its first
       // breaking change.
-      "adjustSemverBumpsForZeroMajorVersion": true
+      "adjustSemverBumpsForZeroMajorVersion": true,
+      // An in-workspace dependency is written as an exact pin rather than a
+      // caret range. `@evanion/widget` holds the item shape every widget
+      // adapter renders, and an adapter compiled against one version of it and
+      // running against another is a rendering bug with no error message. An
+      // exact pin also never matches the core's next version, so
+      // `preserveMatchingDependencyRanges` -- which only preserves a range that
+      // still matches -- never preserves it, and nx rewrites it during the
+      // version step of the same release run.
+      "versionPrefix": "",
+      // Update a dependent even when a `projects` filter excludes it. Under
+      // `auto`, the default, a subset release of the core alone would publish a
+      // core that no adapter references.
+      "updateDependents": "always"
     },
     "conventionalCommits": {
       // Attribute each commit to the project its scope names, rather than to

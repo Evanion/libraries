@@ -4,20 +4,20 @@
 
 ```ts
 // src/registry.ts
-import { defineBlocks } from '@evanion/astro-widget';
-import Hero from './blocks/Hero.astro';
-import Cards from './blocks/Cards.astro';
+import { defineWidgets } from '@evanion/astro-widget';
+import Hero from './widgets/Hero.astro';
+import Cards from './widgets/Cards.astro';
 
-export const registry = defineBlocks({ hero: Hero, cards: Cards });
+export const registry = defineWidgets({ hero: Hero, cards: Cards });
 ```
 
-`defineBlocks` returns the object unchanged. Its only job is the generic
-parameter: annotating the same object as `BlockRegistry` widens its keys to
+`defineWidgets` returns the object unchanged. Its only job is the generic
+parameter: annotating the same object as `WidgetRegistry` widens its keys to
 `string`, and the key union is what an editor completes on and what
-`validateBlocks` narrows a `required` map against.
+`validateItems` narrows a `required` map against.
 
 ```ts
-const registry = defineBlocks({ hero: Hero, cards: Cards });
+const registry = defineWidgets({ hero: Hero, cards: Cards });
 //    ^? { hero: AstroComponentFactory; cards: AstroComponentFactory }
 ```
 
@@ -33,39 +33,48 @@ import page from '../data/page.json';
 <Widgets items={page.sections} registry={registry} />
 ```
 
-| Prop       | Meaning                                                |
-| ---------- | ------------------------------------------------------ |
-| `items`    | the blocks to render                                   |
-| `registry` | block type to component                                |
-| `ctx`      | page-level data, passed to every block as a `ctx` prop |
-| `chrome`   | `{ item }` — a component rendered around every block   |
+| Prop       | Meaning                                                 |
+| ---------- | ------------------------------------------------------- |
+| `items`    | the widgets to render                                   |
+| `registry` | widget type to component                                |
+| `ctx`      | page-level data, passed to every widget as a `ctx` prop |
+| `chrome`   | `{ item }` — a component rendered around every widget   |
 
 An `items` that is not an array renders nothing rather than throwing.
 
 ## The data shape
 
 ```ts
-interface BlockItem {
-  type: string; // must be a key in the registry
-  id?: string; // optional, useful as a DOM anchor
-  children?: BlockItem[];
+interface AnyWidgetItem<Type extends string = string, Props = object> {
+  id: string; // required: the key, and the handle in a warning
+  type: Type; // must be a key in the registry
+  props: Props; // spread into the component
   meta?: Record<string, unknown>;
-  [key: string]: unknown; // everything else becomes props
+  children?: AnyWidgetItem[];
 }
 ```
 
-`type`, `id`, `children` and `meta` are the renderer's own fields. Everything
-else on the object is spread into the block as props, so a CMS that writes
+`props` is a named field rather than "every key the renderer does not claim for
+itself". The renderer's own fields would otherwise be reserved words in the
+CMS's vocabulary, and adding one later would take a prop away from every payload
+already written. So a CMS that writes
 
 ```json
-{ "type": "hero", "heading": "Hello", "eyebrow": "New" }
+{
+  "id": "top",
+  "type": "hero",
+  "props": { "heading": "Hello", "eyebrow": "New" }
+}
 ```
 
-renders `<Hero heading="Hello" eyebrow="New" id={undefined} ctx={ctx} />`.
+renders `<Hero heading="Hello" eyebrow="New" id="top" ctx={ctx} />`.
 
-`id` reaches the block as well as the chrome, because a block often wants it as
-an anchor target. `meta` does not: where a block sits is not something the block
-should know.
+This is the same item an `@evanion/react-widget` consumer writes, which is what
+makes one payload render through both.
+
+`id` reaches the widget as well as the chrome, because a widget often wants it
+as an anchor target. `meta` does not: where a widget sits is not something the
+widget should know.
 
 ## `ctx`
 
@@ -73,29 +82,29 @@ should know.
 <Widgets items={sections} registry={registry} ctx={{ site: Astro.site, locale }} />
 ```
 
-Every block receives `ctx` as a prop. A prop rather than a provider: an Astro
+Every widget receives `ctx` as a prop. A prop rather than a provider: an Astro
 component runs once, top down, and has no render-time context to read from.
 
 This is the counterpart to `@evanion/react-widget`'s `ctx`, under the same name,
-so a block ported between the two reads the same field.
+so a widget ported between the two reads the same field.
 
 ## Chrome
 
-Wrap every block without each block reimplementing section markup:
+Wrap every widget without each widget reimplementing section markup:
 
 ```astro
 <Widgets items={items} registry={registry} chrome={{ item: Section }} />
 ```
 
-`Section` receives the block's `type`, `id` and `meta`, plus the block's own
-props, and it must render `<slot />`:
+`Section` receives the item's `type`, `id` and `meta` — never its `props`, which
+are the widget's own business — and it must render `<slot />`:
 
 ```astro
 ---
 // Section.astro
 interface Props {
   type: string;
-  id?: string;
+  id: string;
   meta?: { background?: string };
 }
 
@@ -104,29 +113,34 @@ const { type, id, meta } = Astro.props;
 
 <section
   id={id}
-  data-block={type}
-  class:list={['block', meta?.background && `bg-${meta.background}`]}
+  data-widget-type={type}
+  class:list={['widget', meta?.background && `bg-${meta.background}`]}
 >
   <slot />
 </section>
 ```
 
 An Astro component that does not render its slot discards the content passed to
-it, so a chrome missing `<slot />` makes every block vanish from the page — with
+it, so a chrome missing `<slot />` makes every widget vanish from the page — with
 nothing thrown and nothing logged. That is the first thing to check when a page
 comes out empty.
 
 `meta` is the placement channel: grid column, background, CMS edit affordances.
-It is handed to the chrome and never spread into the block.
+It is handed to the chrome and never spread into the widget.
+
+There is no region wrapper. The container is whatever element you put
+`<Widgets>` inside, and one the library supplied would be markup you did not ask
+for. `@evanion/react-widget` has a `chrome.wrapper` because a React region has
+to return one element; an Astro fragment does not.
 
 ## Nesting
 
-The renderer does not recurse. `children` on a `BlockItem` is forwarded to its
-block as ordinary prop data, nothing more — Astro projects child content through
+The renderer does not recurse. `children` on an item is forwarded to its widget
+as ordinary prop data, nothing more — Astro projects child content through
 `<slot />`, never through a `children` prop, so there is nothing for a renderer
-to pass nested blocks into.
+to pass nested items into.
 
-A block that wants nested sections renders them itself:
+A widget that wants nested sections renders them itself:
 
 ```astro
 ---
@@ -149,13 +163,14 @@ call with its own props. Importing it from one module — as
 
 ## Unknown types are skipped
 
-A block whose `type` is not a key of the registry renders nothing. No throw, no
-warning: a gap in build-time validation must not take a page down mid-render.
+An item whose `type` is not a key of the registry renders nothing and draws a
+dev-only `console.warn` naming the type and the id. Nothing throws: a gap in
+build-time validation must not take a page down mid-render.
 
-Run [`validateBlocks`](/astro-widget/validation) at build time, or a bad CMS
-save is a silently missing section.
+Run [`validateItems`](/astro-widget/validation) at build time, or a bad CMS save
+is a missing section with only a line in a log to say so.
 
-Registry lookup uses `Object.prototype.hasOwnProperty`, so a block typed
+Registry lookup uses `Object.prototype.hasOwnProperty`, so an item typed
 `constructor`, `toString` or `__proto__` is skipped like any other unknown type
 rather than resolving to a function off `Object.prototype` and reaching Astro as
-a component. Blocks are CMS data, so any string is reachable.
+a component. Items are CMS data, so any string is reachable.

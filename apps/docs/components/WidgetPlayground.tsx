@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { LiveProvider, LiveError, LivePreview } from 'react-live';
+import { useState, useEffect } from 'react';
+import { LiveProvider, LiveError, LivePreview, LiveEditor } from 'react-live';
+import { themes } from 'prism-react-renderer';
 import { Button } from '@evanion/baize-ui';
-import { Editor } from '@monaco-editor/react';
-import type { OnMount } from '@monaco-editor/react';
 import { playgroundScope } from './playground-scope';
 
 interface WidgetPlaygroundProps {
@@ -25,8 +24,14 @@ interface WidgetPlaygroundProps {
  * An editable code sample with a live preview, usable as a JSX tag in any MDX
  * page through the map in mdx-components.js.
  *
- * A client component: it evaluates the snippet in the browser and loads Monaco,
- * neither of which has a server rendering.
+ * A client component: it evaluates the snippet in the browser, which has no
+ * server rendering.
+ *
+ * The editor is react-live's own, so the text a reader edits is the string the
+ * provider beside it evaluates, with no second copy and no bridge between two
+ * libraries. `LiveProvider` holds no code of its own -- `context.code` is
+ * whatever it was handed -- so the state lives here and `LiveEditor`'s
+ * `onChange` writes to it.
  *
  * @example
  * ```mdx
@@ -42,11 +47,11 @@ export default function WidgetPlayground({
   const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview');
   const [isDark, setIsDark] = useState(false);
 
-  // Monaco takes its theme as a prop rather than reading CSS, so the active
-  // theme has to be resolved in JS. next-themes, which nextra-theme-docs uses,
-  // records the choice by writing a class onto <html> outside React, so the
-  // element is observed directly; `prefers-color-scheme` covers the "system"
-  // setting, under which next-themes writes nothing.
+  // A prism theme is an object of literal colours, not a stylesheet, so the
+  // active theme has to be resolved in JS. next-themes, which
+  // nextra-theme-docs uses, records the choice by writing a class onto <html>
+  // outside React, so the element is observed directly; `prefers-color-scheme`
+  // covers the "system" setting, under which next-themes writes nothing.
   useEffect(() => {
     const checkTheme = () => {
       const isDarkMode =
@@ -73,144 +78,49 @@ export default function WidgetPlayground({
     };
   }, []);
 
-  const handleEditorChange = useCallback((value: string | undefined) => {
-    if (value !== undefined) {
-      setCode(value);
-    }
-  }, []);
-
-  // Monaco's TypeScript defaults assume a plain module with no JSX and no
-  // ambient React, and its diagnostics are independent of react-live's
-  // evaluation. Without the three calls below the editor marks every snippet as
-  // broken while the preview renders it correctly.
-  const handleEditorDidMount = useCallback<OnMount>((editor, monaco) => {
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.Latest,
-      allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: monaco.languages.typescript.ModuleKind.CommonJS,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
-      reactNamespace: 'React',
-      allowJs: true,
-      typeRoots: ['node_modules/@types'],
-      strict: false,
-      skipLibCheck: true,
-    });
-
-    const model = editor.getModel();
-    if (model) {
-      monaco.editor.setModelLanguage(model, 'typescript');
-    }
-
-    // A hand-written subset of React's types, registered under the path Monaco
-    // resolves `react` from. The real @types/react is not reachable: Monaco
-    // resolves modules inside the worker, against files added here, and never
-    // against the bundle's node_modules.
-    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-      `declare module 'react' {
-        export = React;
-        export as namespace React;
-        declare namespace React {
-          type ReactNode = React.ReactElement | string | number | React.ReactNodeArray | React.ReactPortal | boolean | null | undefined;
-          interface ReactElement<P = any, T extends string | React.JSXElementConstructor<any> = string | React.JSXElementConstructor<any>> {
-            type: T;
-            props: P;
-            key: React.Key | null;
-          }
-          interface Component<P = {}, S = {}> {}
-          interface FunctionComponent<P = {}> {
-            (props: P, context?: any): ReactElement<any, any> | null;
-          }
-          interface HTMLAttributes<T> {
-            style?: React.CSSProperties;
-          }
-          interface CSSProperties {
-            [key: string]: string | number | undefined;
-          }
-        }
-      }`,
-      'file:///node_modules/@types/react/index.d.ts',
-    );
-  }, []);
-
   return (
     <div className="widget-playground">
-      <div className="playground-header">
-        <div className="playground-tabs">
-          <Button
-            variant={activeTab === 'preview' ? 'standard' : 'quiet'}
-            onClick={() => setActiveTab('preview')}
-          >
-            Preview
-          </Button>
-          {showEditor && (
+      <LiveProvider
+        code={code}
+        scope={playgroundScope}
+        noInline={true}
+        language="tsx"
+        theme={isDark ? themes.vsDark : themes.vsLight}
+      >
+        <div className="playground-header">
+          <div className="playground-tabs">
             <Button
-              variant={activeTab === 'editor' ? 'standard' : 'quiet'}
-              onClick={() => setActiveTab('editor')}
+              variant={activeTab === 'preview' ? 'standard' : 'quiet'}
+              onClick={() => setActiveTab('preview')}
             >
-              Code
+              Preview
             </Button>
-          )}
+            {showEditor && (
+              <Button
+                variant={activeTab === 'editor' ? 'standard' : 'quiet'}
+                onClick={() => setActiveTab('editor')}
+              >
+                Code
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="playground-content">
-        {activeTab === 'preview' ? (
-          <div className="preview-panel">
-            <LiveProvider code={code} scope={playgroundScope} noInline={true}>
+        <div className="playground-content">
+          {activeTab === 'preview' ? (
+            <div className="preview-panel">
               <div className="preview-container">
                 <LivePreview />
                 <LiveError className="error-display" />
               </div>
-            </LiveProvider>
-          </div>
-        ) : (
-          <div className="editor-panel">
-            <Editor
-              height={`${height}px`}
-              language="typescript"
-              value={code}
-              onChange={handleEditorChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                wordWrap: 'on',
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                insertSpaces: true,
-                renderWhitespace: 'selection',
-                bracketPairColorization: { enabled: true },
-                guides: {
-                  bracketPairs: true,
-                  indentation: true,
-                },
-                hover: {
-                  // monaco 0.56 types this as 'on' | 'off' | 'onKeyboardModifier',
-                  // not boolean.
-                  enabled: 'on',
-                  delay: 300,
-                },
-                suggest: {
-                  showKeywords: false,
-                  showSnippets: false,
-                },
-                // Monaco renders hover and suggestion widgets inside the editor
-                // element by default, where the docs layout's own overflow and
-                // stacking contexts clip anything taller than the editor. These
-                // two move them to <body>, outside every such context.
-                fixedOverflowWidgets: true,
-                overflowWidgetsDomNode: document.body,
-              }}
-              theme={isDark ? 'vs-dark' : 'vs-light'}
-            />
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="editor-panel">
+              <LiveEditor onChange={setCode} className="editor-surface" />
+            </div>
+          )}
+        </div>
+      </LiveProvider>
 
       {/*
         The frame, in the design system's own properties.
@@ -218,8 +128,8 @@ export default function WidgetPlayground({
         Every colour here is one of the six ground roles `app/global.css` binds
         per theme, so the playground follows the site's light/dark toggle without
         a single value in this file and without a second set to keep in step. What
-        is left in JS is Monaco's `theme`, which the editor takes as a prop rather
-        than reading from CSS.
+        is left in JS is the prism theme, which the editor takes as an object of
+        literal colours rather than reading from CSS.
       */}
       <style jsx>{`
         .widget-playground {
@@ -266,33 +176,42 @@ export default function WidgetPlayground({
         }
 
         .editor-panel {
-          position: relative;
-          z-index: 1;
-          overflow: visible;
           border-top: 1px solid var(--baize-rule);
         }
 
         /*
-         * Hover widgets are reparented to <body> by overflowWidgetsDomNode, so
-         * they inherit the page's colours instead of the editor's theme. :global
-         * is what reaches them from a styled-jsx block, which otherwise scopes
-         * every selector to this component's own elements.
+         * react-live edits the highlighted <pre> itself, through use-editable,
+         * and sets font-family: inherit on it. So the type is set here, on
+         * the box around it, and the box is the one that scrolls -- the <pre>
+         * grows with the snippet, and without a height on the panel a long one
+         * would push the rest of the page down.
+         *
+         * :global is what reaches an element react-live rendered from a
+         * styled-jsx block, which otherwise scopes every selector to this
+         * component's own elements.
          */
-        :global(.monaco-editor .monaco-hover) {
-          border: 1px solid var(--baize-rule) !important;
-          border-radius: var(--baize-radius-button) !important;
-          background: var(--baize-felt) !important;
-          box-shadow: var(--baize-elevation-raised) !important;
+        .editor-panel :global(.editor-surface) {
+          height: ${height}px;
+          overflow: auto;
+          font-family: var(--x-font-mono);
+          font-size: var(--baize-text-sm);
+          line-height: var(--baize-leading-normal);
         }
 
-        :global(.monaco-editor .monaco-hover .hover-row),
-        :global(.monaco-editor .monaco-hover .hover-contents),
-        :global(.monaco-editor .monaco-hover .monaco-editor),
-        :global(.monaco-editor .monaco-hover .monaco-editor .view-lines),
-        :global(.monaco-editor .monaco-hover .monaco-editor .view-line),
-        :global(.monaco-editor .monaco-hover .monaco-editor .margin) {
-          background: var(--baize-felt) !important;
-          color: var(--baize-chalk) !important;
+        /*
+         * The prism theme paints its ground on the <pre>, which is only as
+         * tall as the snippet. Filling the box keeps a short snippet from
+         * sitting on a band of the editor's ground and a band of the card's.
+         */
+        .editor-panel :global(.editor-surface pre) {
+          box-sizing: border-box;
+          min-height: 100%;
+        }
+
+        /* The editable element is the <pre>, so the focus ring goes on it. */
+        .editor-panel :global(.editor-surface pre:focus-visible) {
+          outline: 2px solid var(--baize-hue, var(--baize-chalk));
+          outline-offset: -2px;
         }
 
         /*

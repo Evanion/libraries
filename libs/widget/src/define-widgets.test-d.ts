@@ -1,12 +1,12 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { defineBlocks } from './define-blocks';
+import { defineWidgets } from './define-widgets.js';
 
 const Hero = { name: 'Hero' };
 const Text = { name: 'Text' };
 
-describe('defineBlocks types', () => {
+describe('defineWidgets types', () => {
   it('keeps the key union in the type', () => {
-    const registry = defineBlocks({ hero: Hero, text: Text });
+    const registry = defineWidgets({ hero: Hero, text: Text });
     expectTypeOf(registry).toEqualTypeOf<{
       hero: typeof Hero;
       text: typeof Text;

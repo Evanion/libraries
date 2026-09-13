@@ -240,16 +240,31 @@ a {
 }
 
 /*
- * The cell stretches its panel to the row, so two panels side by side end on one
- * line. The panel itself makes no claim on its own height -- the library's takes
- * no style -- and this is the cell's business anyway.
+ * A column of panels down one lane of a band.
+ *
+ * The bed's direct children are lanes rather than panels, so the panels in one
+ * lane stack at their own heights. Placing each panel on the grid individually
+ * made every grid row as tall as its tallest panel, which left a screen of
+ * nothing under a five-line summary sitting beside a stock table.
  */
-.dashboard > * {
+.dashboard__lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-4);
+  min-width: 0;
+}
+
+/*
+ * The cell stretches its panel to the width it was given. The panel itself makes
+ * no claim -- the library's takes no style -- and this is the cell's business
+ * anyway.
+ */
+.dashboard__cell {
   display: flex;
   min-width: 0;
 }
 
-.dashboard > * > * {
+.dashboard__cell > * {
   flex: 1;
 }
 

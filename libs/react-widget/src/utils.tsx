@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
-import { ERROR_MESSAGES } from './constants.js';
-import { warnOnce } from './warn.js';
+import { ERROR_MESSAGES, warnOnce } from '@evanion/widget';
 import type {
   AnyWidgetComponent,
   RenderableWidgetItem,

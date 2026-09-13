@@ -70,6 +70,7 @@
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "jsdom": "^30.0.1",
+    "jsonc-eslint-parser": "^2.1.0",
     "jsonc-parser": "^3.3.1",
     "nx": "23.1.1",
     "pagefind": "^1.5.2",
@@ -95,7 +96,6 @@
     "tools/*"
   ],
   "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
     "@nestjs/axios": "^12.0.0",
     "@nestjs/common": "12.0.1",
     "@nestjs/core": "12.0.1",

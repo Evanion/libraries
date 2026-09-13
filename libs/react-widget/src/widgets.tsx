@@ -1,4 +1,5 @@
 import type { HTMLProps } from 'react';
+import type { RenderableWidgetItem } from './types.js';
 
 /**
  * Default chrome around the whole set: a `<section>` carrying whatever props it
@@ -8,8 +9,18 @@ import type { HTMLProps } from 'react';
  * landmark role (HTML-AAM), so a caller who passes `aria-label` gets a widget
  * region that is reachable by landmark navigation and one who does not is no
  * worse off than with a `<div>`.
+ *
+ * `items` is dropped rather than forwarded, as `meta` is on {@link DefaultItem}.
+ * It is an array of objects with no meaning to the DOM, and React warns about
+ * an unknown attribute on every prop that reaches an element. A wrapper that
+ * places things by item is where it is read.
  */
-export function DefaultWrapper(props: HTMLProps<HTMLDivElement>) {
+export function DefaultWrapper({
+  items: _items,
+  ...props
+}: HTMLProps<HTMLDivElement> & {
+  items?: readonly RenderableWidgetItem[];
+}) {
   return <section {...props} />;
 }
 
