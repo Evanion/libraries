@@ -4,17 +4,27 @@ A collection of high-quality, production-ready libraries and tools built with mo
 
 ## 📦 Libraries
 
-### [@evanion/react-widget](./libs/react-widget)
+### [@evanion/widget](./libs/widget)
 
-A powerful React library for creating dynamic, reusable widget regions from structured data. Perfect for building CMS-driven layouts, dynamic sidebars, dashboards, and any interface that needs to render different components based on configuration data.
+The framework-free half of a widget region: the item shape, the registry and the validator every widget renderer shares. It renders nothing and imports no framework, so it also runs where no renderer does — a webhook checking a CMS payload, a build script, a test.
 
 **Key Features:**
 
-- 🎯 **Type-safe**: Full TypeScript support with intelligent type inference
-- 🔧 **Flexible**: Support for custom chrome components and wrappers
-- ⚡ **Lightweight**: Minimal bundle size with zero dependencies
-- 🎨 **Customizable**: Easy theming and styling through wrapper components
-- 🔄 **Context-aware**: Built-in React Context support for component sharing
+- 🧱 **One item shape**: the same array renders through every renderer below
+- 🛡️ **Validation**: structural checks plus a map of props each type must supply
+- 🌍 **Universal**: no framework import at all, enforced by the packaging check
+- 🪶 **Zero dependencies**
+
+### [@evanion/react-widget](./libs/react-widget)
+
+The React renderer. Dynamic, reusable widget regions from structured data, for CMS-driven layouts, dynamic sidebars, dashboards, and any interface that renders different components from configuration data.
+
+**Key Features:**
+
+- 🎯 **Type-safe**: an item's `props` are checked against its component at compile time
+- 🔧 **Flexible**: custom chrome per item and per region, the region chrome told what is in it
+- ⚡ **Server-component ready**: no `'use client'`, no context, importable from an RSC
+- 🎨 **Customizable**: placement travels in `meta`, which never reaches a widget
 
 ### [@evanion/compose](./libs/compose)
 
