@@ -143,6 +143,18 @@
 }
 
 /*
+ * The reading family, on the document.
+ *
+ * Remapping `--x-font-sans` is not enough on its own: Nextra sets no family on
+ * `html` or `body` and reaches for the `font-sans` utility only where a component
+ * needs it, so the prose inherits whatever the browser defaults to. This is what
+ * puts Public Sans under the text a reader actually reads.
+ */
+body {
+  font-family: var(--baize-font-text);
+}
+
+/*
  * Headings in the display family, which is the half of the type system a scale
  * remap cannot reach: Nextra's headings take `--x-font-sans` like its body text,
  * and the design sets titles in Bricolage Grotesque and everything else in Public
