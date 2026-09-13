@@ -10,7 +10,7 @@ import { createWidgets } from '@evanion/react-widget';
  * is what makes the preview the output of the code the page shows.
  *
  * A module of its own rather than a field of WidgetPlayground, so a test can
- * evaluate a snippet against it without loading Monaco.
+ * evaluate a snippet against it without rendering the playground.
  */
 export const playgroundScope = {
   createWidgets,
