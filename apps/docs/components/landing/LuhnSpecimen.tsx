@@ -1,6 +1,8 @@
 'use client';
 
+import { Luhn } from '@evanion/luhn';
 import { useId, useState } from 'react';
+import { useSettled } from './settle';
 import { luhnCheck } from './specimens';
 
 /**
@@ -13,11 +15,19 @@ import { luhnCheck } from './specimens';
  * is the whole demonstration. `Luhn.generate` folds over the dictionary's
  * code points and drops the rest, so `FoO-ö` and `foo` produce the same
  * character, which a reader can see for themselves.
+ *
+ * The character settles rather than snaps: for 200ms after a keystroke it
+ * turns through the dictionary before landing, which is what computing
+ * something looks like, and turns through the dictionary rather than any
+ * glyph so the alphabet shows itself in passing. What a screen reader gets
+ * is the `<output>`, which only ever holds the real character; the turning
+ * span is hidden from it.
  */
 export default function LuhnSpecimen({ initial }: { initial: string }) {
   const [body, setBody] = useState(initial);
   const id = useId();
   const check = luhnCheck(body);
+  const shown = useSettled(check, Luhn.dictionary);
 
   return (
     <p className="landing-specimen landing-specimen--live">
@@ -39,11 +49,10 @@ export default function LuhnSpecimen({ initial }: { initial: string }) {
           autoCorrect="off"
         />
       </span>
-      <output
-        htmlFor={id}
-        className="landing-specimen__mark"
-        aria-live="polite"
-      >
+      <span className="landing-specimen__mark" aria-hidden="true">
+        {shown ?? ''}
+      </span>
+      <output htmlFor={id} className="landing-sr-only" aria-live="polite">
         {check ?? ''}
       </output>
       {check === undefined ? (
