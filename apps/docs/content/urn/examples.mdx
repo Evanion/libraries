@@ -1,487 +1,285 @@
-# URN Examples
+# Examples
 
-Practical examples demonstrating how to use the URN library in real-world scenarios.
+Worked patterns. Every stated result is what the library actually returns —
+including the ones that are not what you would first guess.
 
-## Basic Examples
+## One class per namespace
 
-### Simple URN Creation
+The common shape. A base class fixes the scheme, one subclass per namespace
+fixes the NID, and no call site ever names a namespace:
 
-```typescript
+```ts
 import { URN } from '@evanion/urn';
 
-// Create a basic URN
-const userUrn = URN.stringify('123', 'user');
-console.log(userUrn); // "urn:user:123"
-
-// Parse it back
-const parsed = URN.parse(userUrn);
-console.log(parsed);
-// {
-//   urn: 'urn',
-//   nid: 'user',
-//   nss: '123'
-// }
-```
-
-### Custom URN Schemes
-
-```typescript
-import { URN } from '@evanion/urn';
-
-// Use custom scheme
-const customUrn = URN.stringify('456', 'product', 'myapp');
-console.log(customUrn); // "myapp:product:456"
-
-// Parse custom scheme
-const parsed = URN.parse(customUrn);
-console.log(parsed);
-// {
-//   urn: 'myapp',
-//   nid: 'product',
-//   nss: '456'
-// }
-```
-
-## Domain-Specific Examples
-
-### E-commerce System
-
-```typescript
-import { URN } from '@evanion/urn';
-
-// Define domain-specific URN classes
 class EcommerceURN extends URN {
-  static urn = 'ecommerce';
+  static override readonly urn = 'ecommerce';
 }
 
 class ProductURN extends EcommerceURN {
-  static nid = 'product';
+  static override readonly nid = 'product';
 }
 
 class OrderURN extends EcommerceURN {
-  static nid = 'order';
+  static override readonly nid = 'order';
 }
 
 class CustomerURN extends EcommerceURN {
-  static nid = 'customer';
+  static override readonly nid = 'customer';
 }
 
-// Usage examples
-const productUrn = ProductURN.stringify('laptop-123');
-console.log(productUrn); // "ecommerce:product:laptop-123"
+ProductURN.stringify('laptop-123'); // 'ecommerce:product:laptop-123'
+OrderURN.stringify('456'); // 'ecommerce:order:456'
+CustomerURN.stringify('789'); // 'ecommerce:customer:789'
 
-const orderUrn = OrderURN.stringify('456');
-console.log(orderUrn); // "ecommerce:order:456"
-
-const customerUrn = CustomerURN.stringify('789');
-console.log(customerUrn); // "ecommerce:customer:789"
+ProductURN.parse('ecommerce:product:laptop-123');
+// { urn: 'ecommerce', nid: 'product', nss: 'laptop-123' }
 ```
 
-### Microservices Architecture
+Each class only strips its own NID. Hand `ProductURN` an order and it keeps the
+namespace where you can see it:
 
-```typescript
-import { URN } from '@evanion/urn';
-
-// Service-specific URN classes
-class ServiceURN extends URN {
-  static urn = 'service';
-}
-
-class UserServiceURN extends ServiceURN {
-  static nid = 'user-service';
-}
-
-class PaymentServiceURN extends ServiceURN {
-  static nid = 'payment-service';
-}
-
-class NotificationServiceURN extends ServiceURN {
-  static nid = 'notification-service';
-}
-
-// Cross-service communication
-function sendUserUpdate(userId: string, service: string) {
-  const userUrn = UserServiceURN.stringify(userId);
-  const targetServiceUrn = ServiceURN.stringify(service, 'service');
-
-  console.log(`Sending user ${userUrn} to ${targetServiceUrn}`);
-  // Implementation...
-}
-
-sendUserUpdate('123', 'payment-service');
-// Output: "Sending user service:user-service:123 to service:service:payment-service"
+```ts
+ProductURN.parse('ecommerce:order:456');
+// { urn: 'ecommerce', nid: 'order', nss: 'order:456' }
 ```
 
-### Database Entity References
+That is the property to lean on when a payload mixes namespaces:
 
-```typescript
-import { URN } from '@evanion/urn';
+```ts
+function isProduct(urn: string): boolean {
+  return ProductURN.belongsToNamespace(urn, 'product');
+}
+```
 
-// Database-specific URN classes
+`belongsToNamespace` returns `false` for malformed input rather than throwing,
+so it is safe on untrusted strings.
+
+## One class, the NID per call
+
+When the set of namespaces is open-ended, a single class and a positional NID is
+less ceremony than a subclass nobody reads:
+
+```ts
+class ResourceURN extends URN {
+  static override readonly urn = 'resource';
+}
+
+ResourceURN.stringify('123', 'user'); // 'resource:user:123'
+ResourceURN.stringify('456', 'product'); // 'resource:product:456'
+ResourceURN.stringify('789', 'order'); // 'resource:order:789'
+```
+
+`parse` on this class retains every NID in the `nss`, since none of them is its
+own. Use `extractId` when you want the bare identifier and `parse().nid` when
+you want the namespace:
+
+```ts
+ResourceURN.parse('resource:user:123').nid; // 'user'
+ResourceURN.extractId('resource:user:123'); // '123'
+```
+
+## A custom separator
+
+A separator other than `:` takes the class outside RFC 8141, which is a fair
+trade when the identifier is internal and has to read as a path:
+
+```ts
 class DatabaseURN extends URN {
-  static urn = 'db';
-  static separator = '.';
+  static override readonly urn = 'db';
+  static override readonly separator = '.';
 }
 
 class TableURN extends DatabaseURN {
-  static nid = 'table';
+  static override readonly nid = 'table';
 }
 
-class RecordURN extends DatabaseURN {
-  static nid = 'record';
-}
-
-// Reference database entities
-const usersTableUrn = TableURN.stringify('users');
-console.log(usersTableUrn); // "db.table.users"
-
-const userRecordUrn = RecordURN.stringify('123');
-console.log(userRecordUrn); // "db.record.123"
-
-// Parse database references
-function getTableName(tableUrn: string): string {
-  const parsed = TableURN.parse(tableUrn);
-  return parsed.nss;
-}
-
-const tableName = getTableName('db.table.users');
-console.log(tableName); // "users"
+TableURN.stringify('users'); // 'db.table.users'
+TableURN.parse('db.table.users');
+// { urn: 'db', nid: 'table', nss: 'users' }
 ```
 
-## Advanced Examples
+The scheme and the NID are then checked against a generic character class with
+the separator excluded, rather than against the RFC grammars. `db` and `table`
+pass; a scheme containing the separator does not — `DatabaseURN` could not use
+the scheme `my.db`.
 
-### Hierarchical Resource Identification
+## Screening untrusted input
 
-```typescript
-import { URN } from '@evanion/urn';
+```ts
+import { URN, ValidationError } from '@evanion/urn';
 
-// Multi-level resource hierarchy
-class ResourceURN extends URN {
-  static urn = 'resource';
-}
-
-class OrganizationURN extends ResourceURN {
-  static nid = 'org';
-}
-
-class ProjectURN extends ResourceURN {
-  static nid = 'project';
-}
-
-class TaskURN extends ResourceURN {
-  static nid = 'task';
-}
-
-// Create hierarchical references
-const orgUrn = OrganizationURN.stringify('acme-corp');
-const projectUrn = ProjectURN.stringify('website-redesign');
-const taskUrn = TaskURN.stringify('task-001');
-
-console.log(orgUrn); // "resource:org:acme-corp"
-console.log(projectUrn); // "resource:project:website-redesign"
-console.log(taskUrn); // "resource:task:task-001"
-
-// Parse and validate hierarchy
-function validateResourceHierarchy(
-  orgId: string,
-  projectId: string,
-  taskId: string,
-) {
-  const orgUrn = OrganizationURN.stringify(orgId);
-  const projectUrn = ProjectURN.stringify(projectId);
-  const taskUrn = TaskURN.stringify(taskId);
-
-  return {
-    organization: OrganizationURN.parse(orgUrn),
-    project: ProjectURN.parse(projectUrn),
-    task: TaskURN.parse(taskUrn),
-  };
+function parseOrNull(input: string) {
+  return URN.isValidFormat(input) ? URN.parse(input) : null;
 }
 ```
 
-### API Resource Endpoints
+`isValidFormat` delegates to `parse`, so the pair can never disagree about what
+is valid, and it never throws. Where you want the reason, catch instead:
 
-```typescript
-import { URN } from '@evanion/urn';
-
-// API-specific URN classes
-class APIURN extends URN {
-  static urn = 'api';
+```ts
+function describe(input: string): string {
+  try {
+    const { nid, nss } = URN.parse(input);
+    return `${nss} in ${nid}`;
+  } catch (error) {
+    if (error instanceof ValidationError) return `not a URN: ${error.message}`;
+    throw error;
+  }
 }
-
-class EndpointURN extends APIURN {
-  static nid = 'endpoint';
-}
-
-class VersionURN extends APIURN {
-  static nid = 'version';
-}
-
-// Generate API endpoints
-function generateEndpoint(version: string, endpoint: string): string {
-  const versionUrn = VersionURN.stringify(version);
-  const endpointUrn = EndpointURN.stringify(endpoint);
-
-  return `/api/${versionUrn.split(':')[2]}/${endpointUrn.split(':')[2]}`;
-}
-
-const userEndpoint = generateEndpoint('v1', 'users');
-console.log(userEndpoint); // "/api/v1/users"
-
-const productEndpoint = generateEndpoint('v2', 'products');
-console.log(productEndpoint); // "/api/v2/products"
 ```
 
-### Content Management System
+## Validating before writing
 
-```typescript
-import { URN } from '@evanion/urn';
+`stringify` throws on a part that breaks its grammar, so a batch job that must
+not stop on one bad row catches per item:
 
-// CMS-specific URN classes
-class CMSURN extends URN {
-  static urn = 'cms';
-}
-
-class ContentURN extends CMSURN {
-  static nid = 'content';
-}
-
-class MediaURN extends CMSURN {
-  static nid = 'media';
-}
-
-class TemplateURN extends CMSURN {
-  static nid = 'template';
-}
-
-// Content management functions
-class ContentManager {
-  static createContent(contentId: string, type: string): string {
-    return ContentURN.stringify(`${type}-${contentId}`);
-  }
-
-  static createMedia(mediaId: string, format: string): string {
-    return MediaURN.stringify(`${format}-${mediaId}`);
-  }
-
-  static createTemplate(templateId: string, theme: string): string {
-    return TemplateURN.stringify(`${theme}-${templateId}`);
-  }
-
-  static parseContent(contentUrn: string) {
-    return ContentURN.parse(contentUrn);
-  }
-}
-
-// Usage
-const articleUrn = ContentManager.createContent('123', 'article');
-console.log(articleUrn); // "cms:content:article-123"
-
-const imageUrn = ContentManager.createMedia('456', 'jpg');
-console.log(imageUrn); // "cms:media:jpg-456"
-
-const templateUrn = ContentManager.createTemplate('789', 'dark');
-console.log(templateUrn); // "cms:template:dark-789"
-```
-
-## Error Handling Examples
-
-### Validation and Error Handling
-
-```typescript
+```ts
 import { URN, InvalidError } from '@evanion/urn';
 
-// Safe URN creation with validation
-function createSafeUrn(nss: string, nid: string = 'default'): string | null {
-  try {
-    return URN.stringify(nss, nid);
-  } catch (error) {
-    if (error instanceof InvalidError) {
-      console.error(`Invalid URN: ${error.message}`);
-      return null;
-    }
-    throw error; // Re-throw unexpected errors
-  }
-}
-
-// Usage with error handling
-const validUrn = createSafeUrn('123', 'user');
-console.log(validUrn); // "urn:user:123"
-
-const invalidUrn = createSafeUrn('user!123', 'user');
-console.log(invalidUrn); // null (with error logged)
-
-// Batch URN creation with error handling
-function createBatchUrns(items: Array<{ id: string; type: string }>): string[] {
-  const results: string[] = [];
+function mint(items: { id: string; type: string }[]): string[] {
+  const urns: string[] = [];
 
   for (const item of items) {
     try {
-      const urn = URN.stringify(item.id, item.type);
-      results.push(urn);
+      urns.push(URN.stringify(item.id, item.type));
     } catch (error) {
       if (error instanceof InvalidError) {
-        console.warn(`Skipping invalid item: ${item.id}`);
+        console.warn(`skipping ${item.id}: ${error.message}`);
         continue;
       }
       throw error;
     }
   }
 
-  return results;
-}
-
-const items = [
-  { id: '123', type: 'user' },
-  { id: 'product!456', type: 'product' }, // Invalid character
-  { id: '789', type: 'order' },
-];
-
-const urns = createBatchUrns(items);
-console.log(urns); // ["urn:user:123", "urn:order:789"]
-```
-
-## Integration Examples
-
-### Express.js API Integration
-
-```typescript
-import { URN } from '@evanion/urn';
-import express from 'express';
-
-// URN-based resource routing
-class ResourceRouter {
-  static setupRoutes(app: express.Application) {
-    // Parse URN from URL parameter
-    app.get('/resource/:urn', (req, res) => {
-      try {
-        const parsed = URN.parse(req.params.urn);
-        res.json({
-          urn: req.params.urn,
-          components: parsed,
-          resource: this.getResource(parsed),
-        });
-      } catch (error) {
-        res.status(400).json({ error: 'Invalid URN format' });
-      }
-    });
-
-    // Create resource with URN
-    app.post('/resource', (req, res) => {
-      const { type, id } = req.body;
-      const urn = URN.stringify(id, type);
-
-      res.json({
-        urn,
-        created: true,
-        resource: this.createResource(type, id),
-      });
-    });
-  }
-
-  private static getResource(components: any) {
-    // Implementation to fetch resource based on URN components
-    return { id: components.nss, type: components.nid };
-  }
-
-  private static createResource(type: string, id: string) {
-    // Implementation to create resource
-    return { id, type, createdAt: new Date() };
-  }
+  return urns;
 }
 ```
 
-### React Component Integration
+What gets skipped is narrower than you might expect. The NSS grammar is RFC
+3986's `pchar`, which includes `!`, `$`, `&`, `'`, `(`, `)`, `*`, `+`, `,`, `;`,
+`=`, `:` and `@`:
 
-```typescript
-import React from 'react';
-import { URN } from '@evanion/urn';
+```ts
+URN.stringify('product!456', 'product'); // 'urn:product:product!456' — valid
+URN.stringify('a b', 'example'); // InvalidError — a space is not
+```
 
-// URN-aware React component
-interface ResourceProps {
-  urn: string;
-  onResourceClick?: (urn: string) => void;
+The NID is the strict one: letters and digits with interior hyphens, two to
+thirty-two characters. A `type` field copied straight from a CMS is the value
+most likely to fail here.
+
+## Identifiers a person types
+
+Anything with a space, an accent or a slash has to be encoded before it is an
+NSS:
+
+```ts
+import { URN, encodeNss, decodeNss } from '@evanion/urn';
+
+const title = 'Brass: Birmingham';
+
+const urn = URN.stringify(encodeNss(title), 'game');
+// 'urn:game:Brass%3A%20Birmingham'
+
+decodeNss(URN.extractId(urn)); // 'Brass: Birmingham'
+```
+
+`encodeNss` encodes everything outside `unreserved`, including the `:` that
+would otherwise have been legal, which is what makes its output safe in any
+position. Decoding is equally explicit — `parse` will not do it for you.
+
+## Comparing URNs from two sources
+
+Two systems can write the same URN differently and both be right: RFC 8141 makes
+the scheme and the NID case-insensitive, and the hex digits of a percent-triplet
+case-insensitive with them.
+
+```ts
+URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // true
+URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // false
+URN.equals('urn:example:A123', 'urn:example:a123'); // false
+```
+
+The second and third are the ones that matter. An encoded octet is never decoded
+for comparison, and the NSS is case-sensitive — both are what the RFC requires,
+and both differ from what a naive `toLowerCase()` comparison would do.
+
+Use `equals` rather than `===` anywhere URNs arrive from more than one producer.
+
+## Carrying request parameters
+
+The q-component is for parameters meant for the named resource, and `equals`
+ignores it, so a cache keyed on URN equivalence treats these as one entry:
+
+```ts
+class WeatherURN extends URN {
+  static override readonly nid = 'example';
 }
 
-const ResourceComponent: React.FC<ResourceProps> = ({
-  urn,
-  onResourceClick,
-}) => {
-  const parsed = URN.parse(urn);
+const base = WeatherURN.stringify({ nss: 'weather', nid: 'example' });
+// 'urn:example:weather'
 
-  const handleClick = () => {
-    if (onResourceClick) {
-      onResourceClick(urn);
-    }
-  };
+const today = WeatherURN.stringify({
+  nss: 'weather',
+  nid: 'example',
+  qComponent: 'lat=39;lon=-77',
+  fComponent: 'today',
+});
+// 'urn:example:weather?=lat=39;lon=-77#today'
+
+WeatherURN.parse(today);
+// { urn: 'urn', nid: 'example', nss: 'weather',
+//   qComponent: 'lat=39;lon=-77', fComponent: 'today' }
+
+URN.equals(base, today); // true — components are excluded from equivalence
+```
+
+See [r-, q- and f-components](/urn/components) for the rest.
+
+## In a React component
+
+Nothing about the library is environment-specific — it is pure string handling —
+but `parse` throws, so a component rendering untrusted data needs the guard:
+
+```tsx
+import { URN } from '@evanion/urn';
+
+function ResourceRow({ urn }: { urn: string }) {
+  if (!URN.isValidFormat(urn)) return <li>malformed identifier</li>;
+
+  const { nid, nss } = URN.parse(urn);
 
   return (
-    <div onClick={handleClick} className="resource-item">
-      <h3>{parsed.nss}</h3>
-      <p>Type: {parsed.nid}</p>
-      <p>Scheme: {parsed.urn}</p>
-    </div>
+    <li>
+      <strong>{nid}</strong> {nss}
+    </li>
   );
-};
-
-// Usage in parent component
-const ResourceList: React.FC = () => {
-  const resources = ['urn:user:123', 'urn:product:456', 'urn:order:789'];
-
-  const handleResourceClick = (urn: string) => {
-    console.log('Clicked resource:', urn);
-  };
-
-  return (
-    <div>
-      {resources.map((urn) => (
-        <ResourceComponent
-          key={urn}
-          urn={urn}
-          onResourceClick={handleResourceClick}
-        />
-      ))}
-    </div>
-  );
-};
+}
 ```
 
-## Testing Examples
+## In an HTTP handler
 
-### Unit Testing with Vitest
+A URN in a path segment has to be encoded, because `:` and `/` both mean
+something to a router. `encodeURIComponent` on the whole URN is the usual
+answer, and it is not the same thing as `encodeNss`:
 
-```typescript
-import { describe, it, expect } from 'vitest';
-import { URN, InvalidError } from '@evanion/urn';
+```ts
+import { URN, ValidationError } from '@evanion/urn';
 
-describe('URN Examples', () => {
-  it('should create and parse basic URNs', () => {
-    const urn = URN.stringify('example', 'namespace');
-    expect(urn).toBe('urn:namespace:example');
-
-    const parsed = URN.parse(urn);
-    expect(parsed).toEqual({
-      urn: 'urn',
-      nid: 'namespace',
-      nss: 'example',
-    });
-  });
-
-  it('should handle custom URN classes', () => {
-    class MyURN extends URN {
-      static urn = 'my-scheme';
+app.get('/resource/:urn', (req, res) => {
+  try {
+    const parsed = URN.parse(decodeURIComponent(req.params.urn));
+    res.json({ namespace: parsed.nid, id: parsed.nss });
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: error.message });
+      return;
     }
-
-    const urn = MyURN.stringify('example', 'namespace');
-    expect(urn).toBe('my-scheme:namespace:example');
-  });
-
-  it('should throw error for invalid characters', () => {
-    expect(() => URN.stringify('invalid!character', 'namespace')).toThrow(
-      InvalidError,
-    );
-  });
+    throw error;
+  }
 });
 ```
 
-These examples demonstrate the versatility and power of the URN library across different domains and use cases. The library's flexible design allows it to adapt to various scenarios while maintaining consistency and type safety.
+`encodeNss` makes a string safe as the NSS of a URN. `encodeURIComponent` makes
+a whole URN safe as one segment of a URL. Applying the first where you needed
+the second produces a URN that parses and points at the wrong thing.
