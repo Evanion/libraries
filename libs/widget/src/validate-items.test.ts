@@ -165,8 +165,28 @@ describe('validateItems', () => {
     ]);
   });
 
-  it('accepts a missing props field', () => {
-    expect(validateItems([{ id: 'a', type: 'leaf' }], knownTypes)).toEqual([]);
+  it('reports a missing props field, which a flat 0.2.x payload has', () => {
+    expect(validateItems([{ id: 'a', type: 'leaf' }], knownTypes)).toEqual([
+      {
+        index: 0,
+        id: 'a',
+        type: 'leaf',
+        message: VALIDATION_MESSAGES.INVALID_PROPS,
+      },
+    ]);
+  });
+
+  it('reports the whole of a flat item, so the migration gate is loud', () => {
+    // What every 0.2.x @evanion/astro-widget payload looks like: props at the
+    // top level, and on the Astro side an id that may not be there at all.
+    expect(
+      validateItems([{ type: 'leaf', label: 'Hello' }], knownTypes).map(
+        (problem) => problem.message,
+      ),
+    ).toEqual([
+      VALIDATION_MESSAGES.INVALID_ID,
+      VALIDATION_MESSAGES.INVALID_PROPS,
+    ]);
   });
 
   it('reports non-array children', () => {
@@ -309,10 +329,19 @@ describe('required fields', () => {
     ]);
   });
 
-  it('reports a required prop on an item that carries no props at all', () => {
+  it('reports the absent props rather than each prop it would have held', () => {
+    // One problem, not one per required field: the item's props are missing as
+    // a whole, and naming every field it did not supply buries that.
     expect(
       validateItems([{ id: 'a', type: 'leaf' }], registry, required),
-    ).toHaveLength(1);
+    ).toEqual([
+      {
+        index: 0,
+        id: 'a',
+        type: 'leaf',
+        message: VALIDATION_MESSAGES.INVALID_PROPS,
+      },
+    ]);
   });
 
   it('applies to nested items too', () => {

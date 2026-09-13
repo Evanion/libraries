@@ -95,6 +95,12 @@ The renderer's own fields would otherwise be reserved words in the CMS's
 vocabulary, and adding one later would take a prop away from every payload
 already written.
 
+It is required, and `validateItems` reports an item without it. A widget's data
+lives under that key and nowhere else, so an item missing it is one whose props
+the payload put somewhere no renderer reads — which is what a payload written
+against a flat item shape looks like, and what a renderer would draw as an empty
+widget with nothing logged.
+
 `meta` is placement: which column, what span, whether a rule sits above it. It
 goes to the region's chrome and never into the widget's own props, because where
 a widget sits is not something the widget should know.
