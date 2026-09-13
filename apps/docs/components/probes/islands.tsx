@@ -25,6 +25,7 @@ export interface IslandProps {
 export const islands = {
   luhn: dynamic(() => import('./luhn-probe')),
   token: dynamic(() => import('./token-probe')),
+  urn: dynamic(() => import('./urn-probe')),
 };
 
 /** The package names a page may write on a `<Probe>`. */

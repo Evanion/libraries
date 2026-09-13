@@ -19,19 +19,11 @@ urn:example:weather?+cache=no?=lat=39;lon=-77#today
 
 `parse` returns each in its own field and never folds it into the `nss`:
 
-```ts
-class ExampleURN extends URN {
-  static override readonly nid = 'example';
-}
+```ts file=libs/urn/README.md region=components
 
-ExampleURN.parse('urn:example:foo?+r?=q#f');
-// { urn: 'urn', nid: 'example', nss: 'foo',
-//   rComponent: 'r', qComponent: 'q', fComponent: 'f' }
-
-ExampleURN.parse('urn:example:weather?=lat=39#today');
-// { urn: 'urn', nid: 'example', nss: 'weather',
-//   qComponent: 'lat=39', fComponent: 'today' }
 ```
+
+<Probe package="urn" probe="components" />
 
 The three keys are absent, not `undefined`, when the URN carries none, so a URN
 without them parses to exactly `{ urn, nid, nss }` and a consumer destructuring
