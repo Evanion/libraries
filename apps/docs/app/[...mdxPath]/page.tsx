@@ -1,7 +1,9 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
+import ReleaseNotice from '../../components/ReleaseNotice';
 import { packages } from '../navigation';
+import { releaseState } from '../release-state';
 
 const listPages = generateStaticParamsFor('mdxPath');
 
@@ -60,6 +62,22 @@ function identity(mdxPath: string[]): string {
   return entry ? `docs-identity ${categoricalClass(entry.hue)}` : '';
 }
 
+/**
+ * The release notice for the section this page is in, or nothing outside one.
+ *
+ * It mounts here rather than in each MDX file, the way `WorkshopNotice` does,
+ * because it says the same thing on every page of a section and there are forty
+ * of them: written per page it is forty chances to be left off a new one. The
+ * route already knows the package -- the first path segment is what `identity()`
+ * reads -- so nothing has to be written down for this to be complete.
+ */
+function releaseNotice(mdxPath: string[]) {
+  const slug = mdxPath[0];
+  const state = slug === undefined ? null : releaseState(slug);
+
+  return state ? <ReleaseNotice {...state} /> : null;
+}
+
 export default async function Page(props: PageProps) {
   const params = await props.params;
   const {
@@ -71,6 +89,7 @@ export default async function Page(props: PageProps) {
   return (
     <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
       <div className={identity(params.mdxPath)}>
+        {releaseNotice(params.mdxPath)}
         <MDXContent {...props} params={params} />
       </div>
     </Wrapper>

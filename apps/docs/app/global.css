@@ -339,3 +339,25 @@ html:not(.dark) [class*='baize-platform-'] {
 .nextra-sidebar-footer > [title='Change theme'] {
   display: none;
 }
+
+/*
+ * The release notice, above the page title.
+ *
+ * Above rather than below: it says what the reader is looking at, and a reader
+ * who has already read the title and the first paragraph has formed that belief
+ * without it. The article's own top edge is the notice's, so the block's leading
+ * margin is dropped and the trailing one is the gap before the title.
+ *
+ * The theme floats its copy-page control to the end of the article's first line,
+ * where a heading's text wraps around it. A panel is a block, so its ground
+ * would run underneath the control instead; clearing puts the notice on the line
+ * below it.
+ */
+.docs-release {
+  clear: both;
+  margin-block: 0 var(--baize-space-5);
+}
+
+.docs-release > * {
+  margin-block: 0;
+}
