@@ -1,0 +1,217 @@
+import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
+import { findMatchingProjects } from 'nx/src/devkit-internals';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+/**
+ * The invariant: the docs site's navigation names every package the repository
+ * releases.
+ *
+ * Five packages went undocumented and what let it happen is that nothing was the
+ * list. Nextra builds its sidebar from `_meta` files, which are ES modules
+ * bundled into the page map: they cannot read the filesystem and they cannot ask
+ * the Nx project graph what exists, so the set of packages has to be written down
+ * somewhere a bundler can reach, and `apps/docs/app/navigation.ts` is that place.
+ *
+ * This file is the other half, on the same pattern as
+ * `commitlint-scope-enum.test.ts`: the static list is held against the project
+ * graph here, where computing the graph is affordable. Adding a package under
+ * `libs/` or `nest/` fails this test until the site says something about it.
+ *
+ * The titles and the order are not checked. They are editorial -- nothing derives
+ * "URN" from `urn` -- and they are the reason the list is not generated.
+ */
+
+/** What `apps/docs/app/navigation.ts` exports, restated rather than imported.
+ *
+ * A `import type` across the project boundary would put an app's source inside
+ * this project's compilation, which its tsconfig does not include. The shape is
+ * checked by the assertions below either way. */
+interface DocumentedPackage {
+  name: string;
+  root: string;
+  slug: string;
+  title: string;
+  documented: boolean;
+}
+
+interface ReleasedProject {
+  name: string;
+  root: string;
+}
+
+const docsRoot = join(workspaceRoot, 'apps', 'docs');
+const contentRoot = join(docsRoot, 'content');
+
+async function loadNavigation(): Promise<readonly DocumentedPackage[]> {
+  const module_ = (await import(
+    pathToFileURL(join(docsRoot, 'app', 'navigation.ts')).href
+  )) as { packages: readonly DocumentedPackage[] };
+
+  return module_.packages;
+}
+
+/**
+ * The projects `nx release` versions, which is what "a released package" means
+ * here. Read from `nx.json` rather than restated, so the one exclusion it carries
+ * -- the private design system -- is honoured by this test as well.
+ *
+ * `nx.json` carries `//` comments, so it is read with the comment-tolerant parser
+ * Nx itself reads it with.
+ */
+const released: Promise<ReleasedProject[]> = (async () => {
+  const nxJson = parseJson<{ release?: { projects?: string | string[] } }>(
+    readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
+    { expectComments: true },
+  );
+  const patterns = nxJson.release?.projects;
+
+  if (!patterns) throw new Error('nx.json must define release.projects');
+
+  const graph = await createProjectGraphAsync({ exitOnError: false });
+  const names = findMatchingProjects(
+    Array.isArray(patterns) ? patterns : [patterns],
+    graph.nodes,
+  );
+
+  return names.map((name) => {
+    const node = graph.nodes[name];
+    if (!node)
+      throw new Error(`${name} matched release.projects but is not a node`);
+    return { name, root: node.data.root };
+  });
+})();
+
+/** Every `_meta` module under `content/`, with the directory it orders. */
+async function metaFiles(): Promise<
+  { directory: string; meta: Record<string, unknown> }[]
+> {
+  const found: { directory: string; meta: Record<string, unknown> }[] = [];
+
+  const walk = async (directory: string): Promise<void> => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else if (/^_meta\.(js|jsx|ts|tsx)$/.test(entry.name)) {
+        const module_ = (await import(pathToFileURL(path).href)) as {
+          default: Record<string, unknown>;
+        };
+        found.push({ directory, meta: module_.default });
+      }
+    }
+  };
+
+  await walk(contentRoot);
+  return found;
+}
+
+/** Whether a `_meta` key resolves to a page Nextra will find. */
+function pageExists(directory: string, name: string): boolean {
+  return ['.mdx', '.md'].some(
+    (extension) =>
+      existsSync(join(directory, `${name}${extension}`)) ||
+      existsSync(join(directory, name, `index${extension}`)),
+  );
+}
+
+describe('the docs navigation', () => {
+  it('names every released package', async () => {
+    const projects = await released;
+
+    expect(
+      projects.length,
+      'release.projects matched no projects -- the globs or the graph are wrong',
+    ).toBeGreaterThan(0);
+
+    const listed = new Set((await loadNavigation()).map((entry) => entry.name));
+
+    expect(
+      projects
+        .map((project) => project.name)
+        .filter((name) => !listed.has(name))
+        .sort(),
+      'Add these to `packages` in apps/docs/app/navigation.ts. A released ' +
+        'package missing from it is one the docs site never mentions, which is ' +
+        'how five of them stayed undocumented.',
+    ).toEqual([]);
+  });
+
+  it('names nothing the repository does not release', async () => {
+    const names = new Set((await released).map((project) => project.name));
+
+    expect(
+      (await loadNavigation())
+        .map((entry) => entry.name)
+        .filter((name) => !names.has(name)),
+    ).toEqual([]);
+  });
+
+  it('gives every package the directory the project graph gives it', async () => {
+    const roots = new Map(
+      (await released).map((project) => [project.name, project.root]),
+    );
+    const navigation = await loadNavigation();
+
+    expect(navigation.map((entry) => `${entry.name} ${entry.root}`)).toEqual(
+      navigation.map((entry) => `${entry.name} ${roots.get(entry.name)}`),
+    );
+  });
+
+  it('lists every package once', async () => {
+    const slugs = (await loadNavigation()).map((entry) => entry.slug);
+
+    expect(slugs).toEqual([...new Set(slugs)]);
+  });
+
+  /**
+   * `documented` is what chooses between a section on this site and a link to
+   * the package's README, and Nextra fails the build on a `_meta` key naming a
+   * page it cannot find. Holding the flag against the content directory is what
+   * makes it flip when the section lands, rather than a month later.
+   */
+  it('says which packages have a section here, and is right', async () => {
+    const navigation = await loadNavigation();
+
+    expect(
+      navigation.map((entry) => `${entry.slug} ${entry.documented}`),
+    ).toEqual(
+      navigation.map(
+        (entry) =>
+          `${entry.slug} ${existsSync(join(contentRoot, entry.slug, 'index.mdx'))}`,
+      ),
+    );
+  });
+});
+
+describe('every _meta file', () => {
+  it('is found', async () => {
+    expect((await metaFiles()).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Nextra throws `Validation of "_meta" file has failed` during the build for a
+   * key that names no page and carries no `href`
+   * (nextra/dist/server/page-map/normalize.js). A renamed or deleted page is how
+   * that happens; failing here names the key rather than failing a deploy.
+   */
+  it('names only pages that exist', async () => {
+    const dangling: string[] = [];
+
+    for (const { directory, meta } of await metaFiles()) {
+      for (const [key, item] of Object.entries(meta)) {
+        const isLink =
+          typeof item === 'object' && item !== null && 'href' in item;
+
+        if (!isLink && !pageExists(directory, key)) {
+          dangling.push(`${relative(workspaceRoot, directory)}: ${key}`);
+        }
+      }
+    }
+
+    expect(dangling).toEqual([]);
+  });
+});
