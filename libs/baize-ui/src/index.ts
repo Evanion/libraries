@@ -64,6 +64,6 @@ export type { BoxArtPlaceholderProps } from './components/box-art.js';
 export type {
   Availability,
   BoxArtPalette,
-  Mechanism,
   ComplexityStop,
+  Mechanism,
 } from './tokens/index.js';

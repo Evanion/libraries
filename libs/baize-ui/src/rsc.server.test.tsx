@@ -44,7 +44,7 @@ describe('the react-server export condition', () => {
 describe('@evanion/baize-ui under react-server', () => {
   it('renders a card of primitives', () => {
     const tree = Card({
-      head: Title({ children: 'Wingspan', mechanism: 'engineBuilding' }),
+      head: Title({ children: 'Wingspan', complexity: 3 }),
       foot: AvailabilityPill({ availability: 'inStock', label: 'in stock' }),
       children: StatLine({
         children: [
@@ -60,6 +60,6 @@ describe('@evanion/baize-ui under react-server', () => {
 
     expect(classes).toContain('baize-card');
     expect(classes).toContain('baize-statline baize-statline--size-base');
-    expect(classes.join(' ')).toContain('baize-hue-engine-building');
+    expect(classes.join(' ')).toContain('baize-ladder-3');
   });
 });

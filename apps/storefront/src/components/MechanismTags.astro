@@ -1,7 +1,5 @@
 ---
-import { classNames } from '@evanion/baize-ui/tokens';
-
-import { mechanismHueClass, mechanismSlug } from '../lib/catalogue.js';
+import { mechanismSlug } from '../lib/catalogue.js';
 
 interface Props {
   mechanisms: string[];
@@ -13,22 +11,16 @@ const { mechanisms } = Astro.props;
 {/* The library's `TagRow` of `MechanismTag`s, as Astro, each tag wrapped in the
     link to its category.
 
-    Each tag carries its own hue rather than inheriting the card's: a game's second
-    mechanism belongs to its own family, and the title above already says which
-    family leads. The link is outside the tag, because the tag is the shape the
-    stylesheet draws and a link has no business carrying it. */}
+    No hue on a tag. Mechanism is still a channel -- the shape, the wording and the
+    link to the category are all here -- but the card spends its one saturated
+    colour on the complexity ladder in the title above. The link is outside the tag,
+    because the tag is the shape the stylesheet draws and a link has no business
+    carrying it. */}
 <div class="baize-tag-row">
   {
     mechanisms.map((mechanism) => (
       <a class="tag-link" href={`/c/${mechanismSlug(mechanism)}`}>
-        <span
-          class={classNames(
-            'baize-mechanism-tag',
-            mechanismHueClass(mechanism),
-          )}
-        >
-          {mechanism}
-        </span>
+        <span class="baize-mechanism-tag">{mechanism}</span>
       </a>
     ))
   }

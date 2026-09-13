@@ -1,5 +1,6 @@
 import type { Availability } from './availability.js';
 import type { BoxArtPalette } from './box-art.js';
+import type { ComplexityStop } from './complexity.js';
 import type { Mechanism } from './mechanism.js';
 
 /**
@@ -52,6 +53,17 @@ export function modifier(
  */
 export function hueClass(mechanism: Mechanism): string {
   return `baize-hue-${slug(mechanism)}`;
+}
+
+/**
+ * The class that binds a complexity stop's ramp colour, as `--baize-ladder`.
+ *
+ * One class per stop rather than a modifier per component, for the same reason
+ * `hueClass` is one class: the title takes it on a card and the stat cell's figure
+ * could take it on a page, and the stylesheet stays at one rule per stop.
+ */
+export function ladderClass(stop: ComplexityStop): string {
+  return `baize-ladder-${stop}`;
 }
 
 /** The class that binds an availability colour, as `--baize-state`. */

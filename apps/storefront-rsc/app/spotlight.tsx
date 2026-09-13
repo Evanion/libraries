@@ -17,10 +17,10 @@ import {
   availabilityLabel,
   availabilityToken,
   boxArtPalette,
-  formatPrice,
-  formatComplexity,
-  mechanismToken,
   complexityStop,
+  complexityTierName,
+  formatComplexity,
+  formatPrice,
 } from './tokens';
 
 /**
@@ -58,7 +58,7 @@ export async function Spotlight({ urn }: { urn: string }) {
           <>
             <Title
               as="h2"
-              mechanism={mechanismToken(game.mechanisms[0])}
+              complexity={complexityStop(game.complexity)}
               size="lg"
             >
               {game.title}
@@ -72,17 +72,16 @@ export async function Spotlight({ urn }: { urn: string }) {
       >
         <TagRow>
           {game.mechanisms.map((mechanism) => (
-            <MechanismTag
-              key={mechanism}
-              label={mechanism}
-              mechanism={mechanismToken(mechanism)}
-            />
+            <MechanismTag key={mechanism} label={mechanism} />
           ))}
         </TagRow>
         <StatLine label={`${game.title} at a glance`} size="lg">
           <Stat figure={game.players} label="players" />
           <Stat figure={game.playtime} label="playtime" />
-          <Stat figure={formatComplexity(game.complexity)} label="complexity">
+          <Stat
+            figure={complexityTierName(game.complexity)}
+            label={`complexity ${formatComplexity(game.complexity)}`}
+          >
             <ComplexityRamp
               label={`complexity ${game.complexity.toFixed(1)} of 5`}
               stop={complexityStop(game.complexity)}

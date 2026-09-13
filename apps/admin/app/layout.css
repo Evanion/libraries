@@ -192,11 +192,16 @@ a {
   text-align: right;
 }
 
-/* Complexity: the ramp, and the number beside it. */
+/*
+ * Complexity: the tier word, the ramp, and the rating. Wraps, because a buyer
+ * narrowing the window needs the word and the number more than one line.
+ */
 .complexity-cell {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--baize-space-2);
+  justify-content: flex-end;
+  gap: var(--baize-space-1) var(--baize-space-2);
 }
 
 .complexity-cell .baize-complexity {

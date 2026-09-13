@@ -8,7 +8,12 @@ import { contrast } from './contrast.js';
 import { customProperties } from './custom-properties.js';
 import { ground } from './ground.js';
 import { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
-import { complexity, COMPLEXITY_CONTRAST_FLOOR } from './complexity.js';
+import {
+  complexity,
+  COMPLEXITY_CONTRAST_FLOOR,
+  complexityTier,
+  complexityTiers,
+} from './complexity.js';
 
 const DESIGN_SPEC = join(
   import.meta.dirname,
@@ -116,11 +121,29 @@ describe('contrast against felt', () => {
       const ratio = contrast(value, ground.felt);
       expect(
         Number(ratio.toFixed(2)),
-        `complexity.${stop} (${value}) reaches ${ratio.toFixed(2)}:1 on felt. A ` +
-          `pip is a non-text graphic, so the floor is 3:1 rather than 4.5:1.`,
+        `complexity.${stop} (${value}) reaches ${ratio.toFixed(2)}:1 on felt, ` +
+          `and the ladder paints a card title at 18px bold. That is under the ` +
+          `14pt-bold threshold for the 3:1 allowance, so it is normal text.`,
       ).toBeGreaterThanOrEqual(COMPLEXITY_CONTRAST_FLOOR);
     });
   }
+
+  it('rises in chroma as it rises in contrast', () => {
+    const chromas = Object.values(complexity).map((value) => {
+      const [r, g, b] = [1, 3, 5].map(
+        (at) => Number.parseInt(value.slice(at, at + 2), 16) / 255,
+      ) as [number, number, number];
+      return Math.max(r, g, b) - Math.min(r, g, b);
+    });
+
+    expect(
+      chromas,
+      `The ladder is the only saturated informational ramp, and it reads as one ` +
+        `because lightness and chroma rise together. A stop that is brighter ` +
+        `than its neighbour but duller reads as a different colour, not a ` +
+        `further rung.`,
+    ).toEqual([...chromas].sort((a, b) => a - b));
+  });
 
   it('runs the complexity ramp in one direction', () => {
     const ratios = Object.values(complexity).map((value) =>
@@ -166,5 +189,51 @@ describe('box-art palettes', () => {
           `last stop as the tile's ground and the first as its highlight.`,
       ).toEqual([...ordered].sort((a, b) => b - a));
     }
+  });
+});
+
+/**
+ * The tier vocabulary, which is what keeps the ladder off colour alone: a reader
+ * who sees no hue difference reads `Gateway` and `Brain-burner` instead.
+ */
+describe('complexity tiers', () => {
+  it('covers all five ramp stops, one tier each', () => {
+    expect(complexityTiers.map((tier) => tier.stop)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('names the tiers BoardGameGeek names', () => {
+    expect(complexityTiers.map((tier) => tier.name)).toEqual([
+      'Gateway',
+      'Light',
+      'Midweight',
+      'Heavy',
+      'Brain-burner',
+    ]);
+  });
+
+  it('rises, so a heavier rating never lands in a shallower tier', () => {
+    const floors = complexityTiers.map((tier) => tier.floor);
+    expect(floors).toEqual([...floors].sort((a, b) => a - b));
+  });
+
+  it('places every rating the catalogue carries', () => {
+    const tier = (rating: number) => complexityTier(rating).name;
+
+    expect(tier(1.1)).toBe('Gateway');
+    expect(tier(1.7)).toBe('Light');
+    expect(tier(1.8)).toBe('Light');
+    expect(tier(2.4)).toBe('Midweight');
+    expect(tier(2.9)).toBe('Midweight');
+    expect(tier(3.6)).toBe('Heavy');
+    expect(tier(3.8)).toBe('Heavy');
+    expect(tier(3.9)).toBe('Brain-burner');
+    expect(tier(4)).toBe('Brain-burner');
+  });
+
+  it('clamps rather than throwing, at both ends and off the scale', () => {
+    expect(complexityTier(0).stop).toBe(1);
+    expect(complexityTier(-3).stop).toBe(1);
+    expect(complexityTier(9).stop).toBe(5);
+    expect(complexityTier(Number.NaN).stop).toBe(1);
   });
 });

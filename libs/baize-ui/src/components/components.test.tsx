@@ -34,7 +34,7 @@ describe('the stat line', () => {
       <StatLine label="Wingspan at a glance">
         <Stat figure="1–5" label="players" />
         <Stat figure="40–70 min" label="playtime" />
-        <Stat figure="2.4 / 5" label="complexity">
+        <Stat figure="Midweight" label="complexity 2.4 / 5">
           <ComplexityRamp label="complexity 2.4 of 5" stop={3} />
         </Stat>
       </StatLine>,
@@ -45,7 +45,7 @@ describe('the stat line', () => {
     expect(figures.map((figure) => figure.textContent)).toEqual([
       '1–5',
       '40–70 min',
-      '2.4 / 5',
+      'Midweight',
     ]);
     for (const figure of figures) {
       expect(figure.classList.contains('baize-figure')).toBe(true);
@@ -93,29 +93,29 @@ describe('the complexity ramp', () => {
 });
 
 describe('the informational colour systems', () => {
-  it('binds a mechanism hue on a title through one hue class', () => {
+  it('binds a complexity stop on a title through one ladder class', () => {
     const { container } = render(
-      <Title mechanism="areaControl" size="lg">
+      <Title complexity={4} size="lg">
         Root
       </Title>,
     );
 
     const title = container.querySelector('.baize-title');
-    expect(title?.className).toContain('baize-hue-area-control');
+    expect(title?.className).toContain('baize-ladder-4');
     expect(title?.className).toContain('baize-title--size-lg');
   });
 
-  it('binds the same hue class on a chip and a tag', () => {
+  it('leaves a mechanism tag unhued, and keeps the hue on a chip', () => {
     const { container } = render(
       <>
         <Chip mechanism="deckbuilder">deckbuilder</Chip>
-        <MechanismTag label="deckbuilder" mechanism="deckbuilder" />
+        <MechanismTag label="deckbuilder" />
       </>,
     );
 
-    for (const element of container.children) {
-      expect(element.className).toContain('baize-hue-deckbuilder');
-    }
+    const [chip, tag] = [...container.children] as [Element, Element];
+    expect(chip.className).toContain('baize-hue-deckbuilder');
+    expect(tag.className).toBe('baize-mechanism-tag');
   });
 
   it('leaves a title with no mechanism on the chalk default', () => {

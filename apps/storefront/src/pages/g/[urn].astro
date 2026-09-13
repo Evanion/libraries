@@ -9,7 +9,7 @@ import StatLine from '../../components/StatLine.astro';
 import { ExpansionURN } from '../../domain/expansion.urn.js';
 import { GameURN } from '../../domain/game.urn.js';
 import Page from '../../layouts/Page.astro';
-import { formatPrice, gameHueClass } from '../../lib/catalogue.js';
+import { formatPrice, gameLadderClass } from '../../lib/catalogue.js';
 
 const { api } = Astro.locals;
 const urn = Astro.params.urn ?? '';
@@ -42,7 +42,7 @@ const sellable = copies !== undefined && copies > 0;
               class={classNames(
                 'baize-title',
                 'baize-title--size-lg',
-                gameHueClass(game.value),
+                gameLadderClass(game.value),
               )}
             >
               {game.value.title}

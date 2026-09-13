@@ -19,9 +19,9 @@ import { useRestock } from '../providers.js';
 import {
   AVAILABILITY_STATES,
   availabilityToken,
-  formatComplexity,
-  mechanismToken,
   complexityStop,
+  complexityTierName,
+  formatComplexity,
   type Availability,
 } from '../ui/catalogue.js';
 
@@ -79,7 +79,6 @@ export default function Title({
 }: Route.ComponentProps) {
   const { row } = loaderData;
   const restock = useRestock();
-  const mechanism = row.mechanisms[0] ?? 'uncategorised';
 
   return (
     <>
@@ -103,18 +102,14 @@ export default function Title({
             <div className="stack">
               <BaizeTitle
                 as="h1"
-                mechanism={mechanismToken(mechanism)}
+                complexity={complexityStop(row.complexity)}
                 size="lg"
               >
                 {row.title}
               </BaizeTitle>
               <TagRow>
                 {row.mechanisms.map((name) => (
-                  <MechanismTag
-                    key={name}
-                    label={name}
-                    mechanism={mechanismToken(name)}
-                  />
+                  <MechanismTag key={name} label={name} />
                 ))}
               </TagRow>
             </div>
@@ -124,7 +119,10 @@ export default function Title({
         <StatLine label={`${row.title} at a glance`} size="lg">
           <Stat figure={row.players} label="players" />
           <Stat figure={row.playtime} label="playtime" />
-          <Stat figure={formatComplexity(row.complexity)} label="complexity">
+          <Stat
+            figure={complexityTierName(row.complexity)}
+            label={`complexity ${formatComplexity(row.complexity)} / 5`}
+          >
             <ComplexityRamp
               label={`complexity ${formatComplexity(row.complexity)} of 5`}
               stop={complexityStop(row.complexity)}

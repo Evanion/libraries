@@ -3,14 +3,17 @@
  * families it names.
  *
  * The design system itself is the library. What is left here is the back office's
- * own vocabulary -- the states a merchant declares, the mechanisms the catalogue
- * carries -- mapped onto the library's enums. Nothing here names a colour, a
- * radius or a type size: the app had its own copy of all three and that copy is
+ * own vocabulary -- the states a merchant declares, the complexity tiers a buyer
+ * reads a shelf by -- mapped onto the library's enums. Nothing here names a colour,
+ * a radius or a type size: the app had its own copy of all three and that copy is
  * what the library exists to remove.
+ *
+ * No mechanism mapping, because the back office paints no mechanism hue: the colour
+ * ladder carries complexity and a mechanism reaches a page as its name.
  */
+import { complexityTier } from '@evanion/baize-ui/tokens';
 import type {
   Availability as BaizeAvailability,
-  Mechanism,
   ComplexityStop,
 } from '@evanion/baize-ui';
 
@@ -46,26 +49,6 @@ const AVAILABILITY: Record<Availability, BaizeAvailability> = {
   'out of print': 'outOfPrint',
 };
 
-/**
- * The mechanism families the hue scale covers, keyed by catalogue slug.
- *
- * A table rather than the hash this app used to assign hues with. A hash gave
- * every mechanism a stable colour and gave the storefront a different one for the
- * same game, because the two hashed into different palettes -- which is the
- * divergence this adoption is for. Partial on purpose: the catalogue's vocabulary
- * is open and the scale is not, so an unlisted mechanism reads as uncategorised.
- */
-const MECHANISMS: Readonly<Record<string, Mechanism>> = {
-  'engine-building': 'engineBuilding',
-  economic: 'economic',
-  'co-op': 'cooperative',
-  'tile-placement': 'tilePlacement',
-  'worker-placement': 'workerPlacement',
-  deckbuilder: 'deckbuilder',
-  'area-control': 'areaControl',
-  dexterity: 'dexterity',
-};
-
 /** The state token a pill takes. */
 export function availabilityToken(
   availability: Availability,
@@ -73,25 +56,27 @@ export function availabilityToken(
   return AVAILABILITY[availability];
 }
 
-/** The hue family a mechanism belongs to, or `other` for one with no family. */
-export function mechanismToken(mechanism: string | undefined): Mechanism {
-  if (!mechanism) return 'other';
-  return (
-    MECHANISMS[mechanism.trim().toLowerCase().replace(/\s+/g, '-')] ?? 'other'
-  );
+/**
+ * Which stop on the five-stop ramp a rating reaches.
+ *
+ * The stop comes from the tier rather than from rounding the rating: one tier per
+ * stop, so the ramp, the word and the colour a title is set in can never disagree.
+ * Rounding put nine of the twelve catalogue titles on two stops and never reached
+ * the first or the last.
+ */
+export function complexityStop(complexity: number): ComplexityStop {
+  return complexityTier(complexity).stop;
 }
 
 /**
- * Which stop on the five-stop ramp a complexity reaches.
+ * The tier a rating falls in: `Gateway`, `Brain-burner`.
  *
- * Complexity ratings are fractional and the ramp has five stops, so the value is bucketed by
- * its ceiling. Anything outside 1-5 is clamped rather than rejected: the catalogue
- * is the authority on the number, and a ramp that throws is worse than one showing
- * its end.
+ * A buyer reading a shelf wants the word, and the word is also what keeps the
+ * ladder off colour alone. The number stays beside it in every cell that shows one,
+ * because the difference between two Heavy titles is the whole reason to buy one.
  */
-export function complexityStop(complexity: number): ComplexityStop {
-  if (!Number.isFinite(complexity)) return 1;
-  return Math.min(5, Math.max(1, Math.ceil(complexity))) as ComplexityStop;
+export function complexityTierName(complexity: number): string {
+  return complexityTier(complexity).name;
 }
 
 /** Complexity as a figure, at the precision the published scale has. */

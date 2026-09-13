@@ -14,8 +14,8 @@ import type {
 import type { CSSProperties, ReactNode } from 'react';
 import {
   availabilityToken,
+  complexityTierName,
   formatComplexity,
-  mechanismToken,
   complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
@@ -87,7 +87,6 @@ function Head({ cells }: { cells: string[] }) {
 function ShelfRow({
   urn,
   title,
-  mechanism,
   players,
   playtime,
   complexity,
@@ -97,7 +96,6 @@ function ShelfRow({
 }: {
   urn: string;
   title: string;
-  mechanism: string;
   players: string;
   playtime: string;
   complexity: number;
@@ -109,7 +107,7 @@ function ShelfRow({
     <>
       <Cell>
         <Link to={href} className="row-link">
-          <Title as="span" mechanism={mechanismToken(mechanism)} size="sm">
+          <Title as="span" complexity={complexityStop(complexity)} size="sm">
             {title}
           </Title>
         </Link>
@@ -129,6 +127,9 @@ function ShelfRow({
       </Cell>
       <Cell align="end">
         <span className="complexity-cell">
+          <Text as="span" size="sm" tone="chalk">
+            {complexityTierName(complexity)}
+          </Text>
           <ComplexityRamp
             label={`complexity ${formatComplexity(complexity)} of 5`}
             stop={complexityStop(complexity)}

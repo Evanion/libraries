@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
-import type { Mechanism } from '../tokens/mechanism.js';
-import { classNames, hueClass, modifier } from './class-names.js';
+import type { ComplexityStop } from '../tokens/complexity.js';
+import { classNames, ladderClass, modifier } from './class-names.js';
 
 /** The four steps a title is set at, smallest first. */
 export type TitleSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -19,31 +19,32 @@ export interface TitleProps {
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'span';
   size?: TitleSize;
   /**
-   * The mechanism family whose hue the title takes. Omitted, the title is
-   * `chalk`: a heading that names no game carries no mechanism.
+   * The complexity stop whose ramp colour the title takes. Omitted, the title is
+   * `chalk`: a heading that names no game sits on no rung.
    */
-  mechanism?: Mechanism;
+  complexity?: ComplexityStop;
 }
 
 /**
  * A title in the display family, tracked tighter as it gets larger.
  *
- * This is where the mechanism hue binds. The design makes the title the place a
- * reader identifies a game by colour, so the binding lives in one component
- * rather than in each app's stylesheet.
+ * This is where the complexity ladder binds. The design makes the title the place
+ * a reader identifies a game by colour, and the one thing the ladder carries is
+ * complexity -- so the binding lives in one component and takes one ordinal value.
+ * There is no mechanism prop: a game's title must not be coloured by its category.
  */
 export function Title({
   children,
   as: Element = 'h2',
   size = 'md',
-  mechanism,
+  complexity,
 }: TitleProps) {
   return (
     <Element
       className={classNames(
         'baize-title',
         modifier('baize-title', 'size', size),
-        mechanism && hueClass(mechanism),
+        complexity && ladderClass(complexity),
       )}
     >
       {children}
