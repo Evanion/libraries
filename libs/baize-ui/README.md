@@ -1,3 +1,5 @@
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+
 # @evanion/baize-ui
 
 The Baize design system: the tokens as TypeScript, a stateless React component

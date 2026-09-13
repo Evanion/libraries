@@ -1,5 +1,6 @@
-![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)
-![npm (scoped)](https://img.shields.io/npm/v/@evanion/luhn)
+[![npm version](https://img.shields.io/npm/v/@evanion/luhn)](https://www.npmjs.com/package/@evanion/luhn)
+[![npm downloads](https://img.shields.io/npm/dm/@evanion/luhn)](https://www.npmjs.com/package/@evanion/luhn)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
 
 # Luhn Library
 
@@ -9,12 +10,10 @@ carries `generate` and `validate` bound to it.
 
 ```ts
 import { Luhn } from '@evanion/luhn';
-import { generateRandom } from 'some_library';
 
-const createToken = () => {
-  const randomString = generateRandom();
-  const { checksum } = Luhn.generate(randomString);
-  return `${randomString}-${checksum}`;
+const withCheckCharacter = (body: string) => {
+  const { checksum } = Luhn.generate(body);
+  return `${body}-${checksum}`;
 };
 ```
 
@@ -273,12 +272,6 @@ under 3.x.
 
 A per-request dictionary is a per-request instance. That is one pass over the
 dictionary, which is the pass that would have happened anyway.
-
-## Testing
-
-```bash
-npm test
-```
 
 ## License
 

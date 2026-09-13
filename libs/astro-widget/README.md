@@ -1,9 +1,14 @@
+[![npm version](https://img.shields.io/npm/v/@evanion/astro-widget)](https://www.npmjs.com/package/@evanion/astro-widget)
+[![npm downloads](https://img.shields.io/npm/dm/@evanion/astro-widget)](https://www.npmjs.com/package/@evanion/astro-widget)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+
 # @evanion/astro-widget
 
 Render CMS-driven Astro sections from structured block data. Build-time only —
 no runtime, no hydration, nothing shipped to the browser.
 
-The Astro counterpart to [`@evanion/react-widget`](../widget).
+The Astro counterpart to
+[`@evanion/react-widget`](https://www.npmjs.com/package/@evanion/react-widget).
 
 ## Install
 
