@@ -1,4 +1,5 @@
 import { availability } from './availability.js';
+import { slug as kebab } from './class-names.js';
 import { boxArt } from './box-art.js';
 import { elevation, measure, motion, radius, space } from './geometry.js';
 import { ground } from './ground.js';
@@ -15,11 +16,6 @@ import { weight } from './weight.js';
  * `tokens-generated.test.ts` renders it again and compares byte for byte, so the
  * committed artefact and the token modules cannot drift in either direction.
  */
-
-/** `workerPlacement` -> `worker-placement`. */
-function kebab(name: string): string {
-  return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-}
 
 /**
  * A hex value is lowercased; everything else passes through.

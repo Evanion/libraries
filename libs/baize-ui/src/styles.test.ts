@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { availability } from './tokens/availability.js';
+import { boxArt } from './tokens/box-art.js';
+import { hueClass, paletteClass, stateClass } from './tokens/class-names.js';
 import { customProperties } from './tokens/custom-properties.js';
+import { mechanism } from './tokens/mechanism.js';
 
 const styles = readFileSync(join(import.meta.dirname, 'styles.css'), 'utf8');
 
@@ -77,6 +81,38 @@ describe('styles.css', () => {
       `A box-art palette value reached something other than the placeholder's ` +
         `own gradient stops. Mechanism hue and availability are the two ` +
         `informational colour systems; these gradients must not become a third.`,
+    ).toEqual([]);
+  });
+
+  /**
+   * The class-name resolvers are the contract a non-React consumer has with this
+   * file: `apps/storefront` is pure Astro and emits these names from frontmatter,
+   * so a token added without its rule is a class that styles nothing and a rule
+   * renamed without its token is a rule nothing reaches.
+   */
+  it('declares a rule for every class the token enums resolve to', () => {
+    const selectors = new Set(
+      [...rules.matchAll(/^\.([\w-]+)[\s,{]/gm)].map(
+        (match) => match[1] as string,
+      ),
+    );
+    const expected = [
+      ...Object.keys(mechanism).map((name) =>
+        hueClass(name as keyof typeof mechanism),
+      ),
+      ...Object.keys(availability).map((name) =>
+        stateClass(name as keyof typeof availability),
+      ),
+      ...Object.keys(boxArt).map((name) =>
+        paletteClass(name as keyof typeof boxArt),
+      ),
+    ];
+
+    expect(
+      expected.filter((name) => !selectors.has(name)),
+      `These classes are what hueClass, stateClass and paletteClass resolve to, ` +
+        `and this file declares no rule for them. A consumer emitting one gets ` +
+        `an element with no hue, no state colour or no gradient.`,
     ).toEqual([]);
   });
 

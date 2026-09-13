@@ -29,3 +29,18 @@ export type { WeightStop } from './weight.js';
 export { boxArt } from './box-art.js';
 export type { BoxArtPalette, BoxArtStop } from './box-art.js';
 export { customProperties, renderTokensCss } from './custom-properties.js';
+/**
+ * The class names the stylesheet binds each token enum through.
+ *
+ * On this entry rather than on `.` because the consumer that needs them is
+ * `apps/storefront`, which renders no React: an `.astro` component resolves a
+ * mechanism to `baize-hue-worker-placement` here instead of spelling the
+ * convention out a second time.
+ */
+export {
+  classNames,
+  hueClass,
+  modifier,
+  paletteClass,
+  stateClass,
+} from './class-names.js';

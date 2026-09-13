@@ -121,7 +121,7 @@ import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@ev
 import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, WeightRamp } from '@evanion/baize-ui';
 import type { Availability, BoxArtPalette, Mechanism, StatProps, TitleSize, WeightStop } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
-import { availability, boxArt, customProperties, ground, mechanism, radius, renderTokensCss, space, weight } from '@evanion/baize-ui/tokens';
+import { availability, boxArt, classNames, customProperties, ground, hueClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass, weight } from '@evanion/baize-ui/tokens';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -223,7 +223,7 @@ import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
-import { ground, renderTokensCss } from '@evanion/baize-ui/tokens';
+import { ground, hueClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
@@ -231,6 +231,7 @@ const missing = Object.entries({
   createFeatures, FeatureProvider, useFeature,
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
+  hueClass, paletteClass, stateClass,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
@@ -251,6 +252,16 @@ if (typeof Luhn?.generate !== 'function' || !Object.isFrozen(Luhn)) missing.push
 const stylesheet = readFileSync(new URL(import.meta.resolve('@evanion/baize-ui/styles.css')), 'utf8');
 if (!stylesheet.includes(ground.felt.toLowerCase())) {
   console.error('@evanion/baize-ui/styles.css does not carry the felt token value');
+  process.exit(1);
+}
+// The class-name resolvers are the only contract a non-React consumer has with
+// the stylesheet: apps/storefront is pure Astro and emits these names from
+// frontmatter, so they have to survive the build on the entry that imports no
+// React.
+if (hueClass('workerPlacement') !== 'baize-hue-worker-placement' ||
+    stateClass('reprintPending') !== 'baize-state-reprint-pending' ||
+    paletteClass('terracotta') !== 'baize-palette-terracotta') {
+  console.error('@evanion/baize-ui/tokens resolves a class name the stylesheet does not declare');
   process.exit(1);
 }
 if (!renderTokensCss().includes(ground.felt.toLowerCase())) {
