@@ -104,6 +104,43 @@ correct only by coincidence.
 Finally, configure its trusted publisher as above. Every subsequent release goes
 through OIDC, and every version after the bootstrap is attested.
 
+#### `@evanion/widget` is waiting for this
+
+It is unpublished, and `@evanion/react-widget` and `@evanion/astro-widget` both
+name it as an exact dependency, so neither of them can be published until it
+exists on the registry. The order, once:
+
+1. Bootstrap-publish `libs/widget` at `0.1.0`, per the steps above.
+2. Tag and push `@evanion/widget@0.1.0` at the commit it was published from.
+3. Configure its trusted publisher (Evanion / libraries / `release.yml` /
+   `npm publish`).
+4. Run **Release** for `react-widget,astro-widget`.
+
+## In-workspace dependencies are pinned exactly
+
+`version.versionPrefix` is `""`, so a dependency between two packages in this
+workspace is written as `"@evanion/widget": "0.1.0"` rather than `^0.1.0`. Every
+widget renderer holds the item shape it was compiled against; one running against
+a different version of it is a rendering bug with no error message, and a caret
+range is what lets a consumer with two renderers installed end up with two copies
+of the core.
+
+Two consequences for a release run:
+
+- An exact pin never matches the core's next version, so
+  `preserveMatchingDependencyRanges` never preserves it. nx rewrites it during
+  the version step of the same run, with no follow-up commit. There is no repeat
+  of `8fc85f9`, where a caret range had to be raised by hand because it named a
+  version that did not exist yet.
+- `version.updateDependents` is `always`, so a subset release of the core alone
+  still versions and republishes every package that names it. Under the default
+  `auto` a `projects: widget` run would publish a core no renderer references.
+
+So a core change is one workflow run that versions the core and every renderer,
+and a renderer-local change is one run that versions that renderer alone.
+`scripts/verify-packaging.mjs` asserts the pin equals the packed core's version,
+which is what catches a pin nx did not rewrite.
+
 ## Cutting a release
 
 1. Land the work on `main`. Commits must be
