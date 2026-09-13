@@ -1,7 +1,7 @@
 {
   "name": "@evanion/luhn",
   "version": "3.0.0",
-  "description": "Append a check character to an identifier, so a mistyped one is rejected without a database lookup. Luhn mod-N, over any dictionary you choose.",
+  "description": "A check character for anything a person types by hand, so a typo is rejected before it reaches your database. Any alphabet.",
   "keywords": [
     "luhn",
     "luhn-mod-n",

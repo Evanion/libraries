@@ -1,7 +1,7 @@
 {
   "name": "@evanion/token",
   "version": "0.1.0",
-  "description": "Short codes a person can read aloud or type off a card: a confusable-free alphabet, a check character that catches a typo before the lookup, and readable chunking.",
+  "description": "Short codes a user can easily communicate without confusion, with validation built in.",
   "keywords": [
     "token",
     "code",
