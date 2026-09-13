@@ -3,7 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
-import { boxArt } from './box-art.js';
+import { boxArt, boxArtPhoto } from './box-art.js';
+import {
+  BOX_ART_MAX_DEPTH,
+  BOX_ART_VIEW_BOX,
+  boxArtScene,
+} from './box-art-scene.js';
 import { contrast } from './contrast.js';
 import { customProperties } from './custom-properties.js';
 import { ground } from './ground.js';
@@ -188,6 +193,105 @@ describe('box-art palettes', () => {
         `boxArt.${palette} is declared light to dark; the stylesheet reads the ` +
           `last stop as the tile's ground and the first as its highlight.`,
       ).toEqual([...ordered].sort((a, b) => b - a));
+    }
+  });
+});
+
+/**
+ * The generated vista.
+ *
+ * The tile is the one thing in this library whose output is not a fixed string,
+ * so what has to hold is that it is a *function* of the seed and of nothing else,
+ * and that what comes out is drawable.
+ */
+describe('the box-art scene', () => {
+  const urns = [
+    'urn:game:wingspan',
+    'urn:game:brass-birmingham',
+    'urn:game:gloomhaven',
+    'urn:game:azul',
+    'urn:game:viticulture',
+    'urn:game:dominion',
+    'urn:game:root',
+    'urn:game:ark-nova',
+    'urn:game:flamme-rouge',
+    'urn:game:crokinole',
+    'urn:game:spirit-island',
+    'urn:game:agricola',
+  ];
+
+  it('draws the same landscape for a seed every time it is asked', () => {
+    for (const urn of urns) {
+      expect(boxArtScene(urn)).toEqual(boxArtScene(urn));
+    }
+  });
+
+  it('draws a different landscape for every title in the catalogue', () => {
+    const drawn = new Set(urns.map((urn) => JSON.stringify(boxArtScene(urn))));
+
+    expect(
+      drawn.size,
+      `Twelve titles sharing a vista is a grid of wallpaper, which is the ` +
+        `failure the gradient tile had and the reason this one is seeded.`,
+    ).toBe(urns.length);
+  });
+
+  it('gives no two titles the same foreground twice over', () => {
+    const forms = urns.map((urn) => boxArtScene(urn).foreground);
+
+    expect(
+      new Set(forms).size,
+      `The near form is the shape a reader recognises a tile by across a grid.`,
+    ).toBe(urns.length);
+  });
+
+  it('keeps every ridge on a depth the stylesheet paints', () => {
+    for (const urn of urns) {
+      const scene = boxArtScene(urn);
+      expect(scene.ridges.length).toBeGreaterThanOrEqual(3);
+      for (const ridge of scene.ridges) {
+        expect(ridge.depth).toBeLessThanOrEqual(BOX_ART_MAX_DEPTH);
+        // The fill is the crest closed down to the foot of the tile, so the two
+        // cannot disagree about where the hill is.
+        expect(ridge.fill.startsWith(ridge.crest)).toBe(true);
+      }
+    }
+  });
+
+  it('spans the full width, so no ridge leaves a gap at an edge', () => {
+    for (const urn of urns) {
+      for (const ridge of boxArtScene(urn).ridges) {
+        expect(ridge.crest.startsWith('M0 ')).toBe(true);
+        expect(ridge.crest).toContain(` L${BOX_ART_VIEW_BOX.width} `);
+      }
+    }
+  });
+
+  it('draws with a neutral seed rather than throwing on one', () => {
+    expect(() => boxArtScene('')).not.toThrow();
+  });
+});
+
+describe('a box-art photograph', () => {
+  it('becomes a url a style attribute can carry', () => {
+    expect(boxArtPhoto('/box-art/azul.webp')).toBe('url("/box-art/azul.webp")');
+    expect(boxArtPhoto(undefined)).toBeUndefined();
+  });
+
+  /**
+   * This value is written into a `style` attribute. A quote or a parenthesis
+   * inside it ends the `url()` and lets whatever follows declare properties of
+   * its own, so an unquotable URL is treated as no URL rather than escaped.
+   */
+  it('refuses anything that would break out of the url', () => {
+    for (const hostile of [
+      'a.webp"); color: red; --x: url("b',
+      "a.webp'",
+      'a.webp) url(b',
+      'a.webp; color: red',
+      'a b.webp',
+    ]) {
+      expect(boxArtPhoto(hostile)).toBeUndefined();
     }
   });
 });

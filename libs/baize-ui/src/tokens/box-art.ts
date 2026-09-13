@@ -55,3 +55,24 @@ export type BoxArtPalette = keyof typeof boxArt;
 
 /** The three stops a palette defines, light to dark. */
 export type BoxArtStop = keyof (typeof boxArt)[BoxArtPalette];
+
+/**
+ * A photograph's URL as the custom property the tile paints it through, or
+ * nothing for a URL that cannot be put in a style attribute safely.
+ *
+ * The tile paints a real image as a CSS background layer above the generated
+ * vista rather than as an `<img>`, and that is the point of it: a
+ * `background-image` whose file is missing paints nothing, so the vista shows
+ * through. An `<img>` with a bad `src` paints the browser's broken-image glyph
+ * into the middle of a card instead. No script, no `onerror`, no flash.
+ *
+ * The guard is not decoration. This value reaches a `style` attribute, and a
+ * quote or a closing parenthesis inside it would end the `url()` and let the
+ * rest of the string declare properties of its own. A URL carrying one is
+ * dropped rather than escaped: a catalogue URL has no business containing
+ * either, so the honest answer is that this one is not a URL.
+ */
+export function boxArtPhoto(url: string | undefined): string | undefined {
+  if (!url || /["'()\\\s;]/.test(url)) return undefined;
+  return `url("${url}")`;
+}
