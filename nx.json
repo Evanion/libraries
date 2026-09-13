@@ -127,7 +127,12 @@
     // Each package carries its own version: they are published separately and
     // share no release cadence.
     "projectsRelationship": "independent",
-    "projects": ["libs/*", "nest/*"],
+    // `!libs/baize-ui` is the one exclusion: it is the repository's own design
+    // system, private and never published, so versioning and tagging it would
+    // add a tag and a GitHub release for something nobody can install. Every
+    // other package under these globs is released, so adding one needs no edit
+    // here.
+    "projects": ["libs/*", "nest/*", "!libs/baize-ui"],
     "releaseTag": {
       // The tag has to name the project, because independent versioning puts
       // several `1.0.0` tags in one repository otherwise, and the tag is where
