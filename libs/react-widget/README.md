@@ -326,8 +326,8 @@ if (problems.length) {
 
 It returns problems and never throws, accumulates rather than stopping at the
 first, and recurses into `children`. It reports: a non-list root, a non-object
-item, a non-string `id` or `type`, an unknown `type`, non-object `props`,
-non-list `children`, and duplicate sibling `id`s.
+item, a non-string `id` or `type`, an unknown `type`, missing or non-object
+`props`, non-list `children`, and duplicate sibling `id`s.
 
 It takes a third argument: a map of widget type to the props that must be
 present and non-blank, where blank means `undefined`, `null` or whitespace only

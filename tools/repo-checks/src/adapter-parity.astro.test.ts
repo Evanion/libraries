@@ -78,13 +78,43 @@ describe('one item array through every adapter', () => {
     warn.mockRestore();
   });
 
+  /**
+   * The type sequence alone would survive a renderer that stopped spreading
+   * `props`: it reads the chrome's attributes, and the chrome never sees an
+   * item's props. `Probe.astro` dumps everything it was handed as JSON for
+   * exactly this, so the delivered value is what is asserted.
+   */
+  it('delivers the same props to the widget', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const astro = await renderThroughAstro();
+    const react = renderThroughReact();
+
+    // JSON inside markup, so the quotes arrive escaped.
+    expect(astro).toContain('&quot;heading&quot;:&quot;One&quot;');
+    expect(astro).toContain('&quot;heading&quot;:&quot;Two&quot;');
+    expect(react).toContain('<probe>One</probe>');
+    expect(react).toContain('<probe>Two</probe>');
+    warn.mockRestore();
+  });
+
   it('skips the unknown type in both rather than throwing in either', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     expect(await renderThroughAstro()).not.toContain('gone');
-    expect(renderThroughReact()).not.toContain('gone');
-    // Once per distinct message, and the two runtimes raise the same one.
     expect(warn).toHaveBeenCalledTimes(1);
+
+    // Cleared between the two, because `warnOnce` keys on the message text for
+    // the lifetime of the process and both adapters raise the identical string.
+    // Without this, an adapter that stopped warning altogether would pass on
+    // the other one's call.
+    resetWarnings();
+    warn.mockClear();
+
+    expect(renderThroughReact()).not.toContain('gone');
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    expect(warn.mock.calls[0]?.[0]).toContain('Unknown widget type "gone"');
     warn.mockRestore();
   });
 });

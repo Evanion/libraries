@@ -131,7 +131,13 @@ export function validateItems(
 
     const props = item['props'];
 
-    if (props !== undefined && !isPlainObject(props)) {
+    // An absent `props` is a problem, not an empty one. A widget's data lives
+    // under that key and nowhere else, so an item without it is an item whose
+    // props the payload put somewhere the renderer does not read -- which is
+    // exactly what a payload written against a flat item shape looks like, and
+    // exactly what this check is the migration gate for. A renderer then draws
+    // the widget with nothing in it and nothing logged.
+    if (!isPlainObject(props)) {
       problems.push({
         index,
         id,
@@ -144,10 +150,7 @@ export function validateItems(
       // the first problem did not.
       const fields = required[type] ?? [];
       for (const field of fields) {
-        const value =
-          props !== undefined && hasOwn(props, field)
-            ? props[field]
-            : undefined;
+        const value = hasOwn(props, field) ? props[field] : undefined;
         if (isBlank(value)) {
           problems.push({
             index,

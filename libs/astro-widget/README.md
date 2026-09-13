@@ -149,6 +149,32 @@ The import specifiers do not change, and neither does
 changes. Two messages changed with it: `'unknown block type'` is now
 `'unknown widget type'` and `'blocks is not a list'` is `'items is not a list'`.
 
+### The validator checks more than it did
+
+`validateBlocks` reported an unknown type and a missing required field, and
+nothing else. `validateItems` is the one implementation both renderers share, so
+it also brings the five rules the React side always had. Each of these is a new
+problem on a payload that passed yesterday:
+
+| Message                   | Raised when                                 |
+| ------------------------- | ------------------------------------------- |
+| `item is not an object`   | an entry is null, an array, or a primitive  |
+| `item id is not a string` | `id` is missing or not a string             |
+| `duplicate sibling id`    | two items in one sibling list share an `id` |
+| `props is not an object`  | `props` is missing or not a plain object    |
+| `children is not a list`  | `children` is present and not an array      |
+
+`duplicate sibling id` is the one to check first. A CMS that emits a constant id
+per section type — `"hero"` on every hero — or an empty string where an editor
+left the field alone now fails a build that passed before. Ids only have to be
+unique within one sibling list, so the same id at two depths is still fine.
+
+`props is not an object` is the rule that catches an unmigrated payload: an item
+with its props still at the top level has no `props` key at all, and without this
+it would validate clean and render as an empty widget.
+
+### The data
+
 The item's own props move under `props`, and `id` becomes required:
 
 ```ts
