@@ -5,6 +5,7 @@ import { boxArt } from './box-art.js';
 import { elevation, measure, motion, radius, space } from './geometry.js';
 import { ground } from './ground.js';
 import { mechanism } from './mechanism.js';
+import { platform, platformOnLight } from './platform.js';
 import { leading, text, tracking, type } from './type.js';
 import { complexity } from './complexity.js';
 
@@ -59,6 +60,8 @@ export const customProperties: readonly (readonly [string, string])[] = [
   ...group('motion-', motion),
   ...group('categorical-', categorical),
   ...group('categorical-on-light-', categoricalOnLight),
+  ...group('platform-', platform),
+  ...group('platform-on-light-', platformOnLight),
   ...group('mechanism-', mechanism),
   ...group('availability-', availability),
   ...group('complexity-', complexity),

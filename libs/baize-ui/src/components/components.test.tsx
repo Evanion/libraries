@@ -118,6 +118,14 @@ describe('the informational colour systems', () => {
     expect(tag.className).toBe('baize-mechanism-tag');
   });
 
+  it('binds a platform hue on a chip', () => {
+    const { container } = render(<Chip platform="nestjs">NestJS</Chip>);
+
+    expect(container.firstElementChild?.className).toBe(
+      'baize-chip baize-platform-nestjs',
+    );
+  });
+
   it('leaves a title with no mechanism on the chalk default', () => {
     const { container } = render(<Title>How the shop works</Title>);
     expect(container.querySelector('[class*="baize-hue-"]')).toBeNull();

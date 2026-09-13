@@ -21,6 +21,13 @@ import {
 } from './categorical.js';
 import { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
 import {
+  platform,
+  platformOnLight,
+  PLATFORM_CONTRAST_FLOOR,
+  PLATFORM_DARK_GROUND,
+  PLATFORM_LIGHT_GROUND,
+} from './platform.js';
+import {
   complexity,
   COMPLEXITY_CONTRAST_FLOOR,
   complexityTier,
@@ -146,6 +153,42 @@ describe('the categorical scale', () => {
       Object.values(categorical).sort(),
     );
   });
+});
+
+/**
+ * Both ends of the platform scale, against the ground each is for.
+ *
+ * These are brand colours, tuned for the platforms' own sites: React's cyan
+ * reaches 1.6:1 on paper and NestJS's red 3.4:1 on felt, so each end is walked
+ * to the floor separately and held there.
+ */
+describe('the platform scale', () => {
+  it('carries the same platforms at both ends', () => {
+    expect(Object.keys(platformOnLight)).toEqual(Object.keys(platform));
+  });
+
+  for (const [name, value] of Object.entries(platform)) {
+    it(`holds platform.${name} at ${PLATFORM_CONTRAST_FLOOR}:1 on the dark ground`, () => {
+      const ratio = contrast(value, PLATFORM_DARK_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `platform.${name} (${value}) reaches ${ratio.toFixed(2)}:1 on ` +
+          `${PLATFORM_DARK_GROUND}, and it is chip text.`,
+      ).toBeGreaterThanOrEqual(PLATFORM_CONTRAST_FLOOR);
+    });
+  }
+
+  for (const [name, value] of Object.entries(platformOnLight)) {
+    it(`holds platformOnLight.${name} at ${PLATFORM_CONTRAST_FLOOR}:1 on the light ground`, () => {
+      const ratio = contrast(value, PLATFORM_LIGHT_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `platformOnLight.${name} (${value}) reaches ${ratio.toFixed(2)}:1 ` +
+          `on ${PLATFORM_LIGHT_GROUND}, which is the card a docs page puts ` +
+          `it on.`,
+      ).toBeGreaterThanOrEqual(PLATFORM_CONTRAST_FLOOR);
+    });
+  }
 });
 
 describe('contrast against felt', () => {

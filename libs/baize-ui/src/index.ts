@@ -66,4 +66,5 @@ export type {
   BoxArtPalette,
   ComplexityStop,
   Mechanism,
+  Platform,
 } from './tokens/index.js';

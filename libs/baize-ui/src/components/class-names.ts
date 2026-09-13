@@ -14,5 +14,6 @@ export {
   hueClass,
   ladderClass,
   paletteClass,
+  platformClass,
   stateClass,
 } from '../tokens/class-names.js';
