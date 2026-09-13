@@ -102,6 +102,22 @@ mechanism.areaControl; // '#C98BE0'
 weight[3]; // '#8AA096'
 ```
 
+A consumer that renders no React resolves its class names from the same entry,
+rather than spelling the stylesheet's naming convention out a second time:
+
+```ts
+import { classNames, hueClass, stateClass } from '@evanion/baize-ui/tokens';
+
+hueClass('workerPlacement'); // 'baize-hue-worker-placement'
+stateClass('reprintPending'); // 'baize-state-reprint-pending'
+classNames('baize-title', hueClass('economic')); // 'baize-title baize-hue-economic'
+```
+
+`apps/storefront` is pure Astro and is the reason these sit here: its `.astro`
+components emit the library's class names from frontmatter, and a literal
+`baize-hue-worker-placement` in a template is a copy of a convention that drifts
+the first time a token is renamed.
+
 The foundation — ground, type, radii, spacing, tracking, elevation — is
 `--baize-*` with no domain vocabulary in it. The two informational colour systems
 are namespaced as `--baize-mechanism-*` and `--baize-availability-*`, so an app
