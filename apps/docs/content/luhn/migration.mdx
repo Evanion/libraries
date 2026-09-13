@@ -52,10 +52,9 @@ lookup tables. Three consequences, all of them shipped bugs:
   fields whose `this` was bound to `Luhn` at class-body evaluation, so a
   subclass override of any of them was a silent no-op.
 
-A frozen object from a factory has the moment the class never had. The
-assignment that used to configure it now throws, in a module, in strict mode —
-rather than being accepted and ignored, which is the failure mode the rewrite
-was for.
+`createLuhn` gives that moment: the dictionary is checked and turned into lookup
+tables once. The assignment that used to configure it now throws, in a module,
+in strict mode, instead of being accepted and ignored.
 
 ## Why the default alphabet shrank
 

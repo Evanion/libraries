@@ -26,8 +26,8 @@ features.isEnabled('checkout-v2', { targetingKey: 'acct-2' });
 ```
 
 `checkout-v2` is on only when `payments-v3` resolves on for that same account.
-Without the cascade, a 25% rollout on the parent would leak to 100% of the
-dependant's users — which is the failure this package exists to prevent.
+Without the cascade, a 25% rollout on the parent leaks to 100% of the
+dependant's users.
 
 ## Not published yet
 
@@ -79,8 +79,8 @@ means "the maintainer wants this on", which stayed true.
 
 Writing resolved values back would put entries in an audit log that nobody
 performed, make a process that slept through a window boundary disagree with one
-that was awake, and destroy the difference between "someone turned this off" and
-"the system turned it off" — which is the distinction an operator needs at 3am.
+that was awake, and erase the difference between "someone turned this off" and
+"the system turned it off".
 
 ## Pages
 

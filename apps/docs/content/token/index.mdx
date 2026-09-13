@@ -25,16 +25,14 @@ npm install @evanion/token
 Node 20 or newer — `generate` draws from `node:crypto`. ESM only. One
 dependency, `@evanion/luhn`.
 
-## The two properties that make a code usable by a human
+## The alphabet and the check character
 
 The alphabet leaves out characters that are confused when read or heard.
 `1`/`l`/`i` and `0`/`o` are the point; `w` goes too, because "double-u" is the
 one English letter name that contains another letter's name.
 
-A wrong code is rejected before an expensive operation. A database lookup for a
-code that was mistyped is a lookup that never needed to happen. That is the
-check character, and it is not optional here — without it this package is three
-lines of `crypto.randomBytes`.
+Every code carries a check character and there is no option to omit it. A
+mistyped code fails the check without a database lookup.
 
 ## `value` and `body`
 

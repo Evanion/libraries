@@ -19,9 +19,8 @@ export class AppModule implements NestModule {
 }
 ```
 
-Two separate steps, because they do different things. `forRoot()` provides
-`CorrelationService` and the resolved configuration; the middleware is what opens
-a correlation context per request.
+`forRoot()` provides `CorrelationService` and the resolved configuration; the
+middleware opens a correlation context per request.
 
 `forRoot()` registers a global module, so importing it once in the root module is
 enough. Call it once — a second `forRoot()` registers a second configuration
@@ -121,7 +120,7 @@ axios request interceptor that reads the current context at the moment the
 request is made, rather than being baked into the options object when the
 factory runs.
 
-That distinction is what keeps the whole chain singleton-scoped. Options
+That keeps the whole chain singleton-scoped. Options
 computed at factory time would have to come from a request-scoped provider, and
 `HttpService` — and every provider holding it — would become request-scoped with
 it.

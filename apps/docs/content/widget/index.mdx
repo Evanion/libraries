@@ -31,11 +31,10 @@ The package carries no `'use client'`. It uses only what React exports under the
 `<Widgets>` can be a Server Component, and a widget can be an async Server
 Component that fetches its own data.
 
-That constraint shapes the whole API. There is no provider, no hook and no class
-error boundary here, because `react/package.json` maps the `react-server`
-condition to a build that does not export the APIs those need. Everything that
-would have been context is a prop: `ctx` for page-level data, `meta` for
-placement.
+There is no provider, no hook and no class error boundary here, because
+`react/package.json` maps the `react-server` condition to a build that does not
+export the APIs those need. What would have been context is a prop: `ctx` for
+page-level data, `meta` for placement.
 
 ## What it gives you
 

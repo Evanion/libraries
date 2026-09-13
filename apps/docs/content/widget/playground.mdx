@@ -1,7 +1,6 @@
 # Playground
 
-The editors below run the real `@evanion/react-widget` — the same build npm
-installs, not a mock — so what you see is what the library does.
+The editors below run the published `@evanion/react-widget` build.
 
 <PlaygroundExamples />
 
@@ -29,15 +28,12 @@ streaming behaviour described under [Suspense](/widget/advanced#suspense) cannot
 be demonstrated here — `chrome.suspenseFallback` still works, but only for a
 widget that suspends on the client.
 
-Type errors do not show. The snippets are strings; nothing typechecks them. The
-compile-time guarantees that make up most of this package's value —
+Type errors do not show. The snippets are strings; nothing typechecks them, so
 [an unknown `type`](/widget/getting-started#typing-items-held-in-a-variable),
-mismatched props, `children` on a component that does not take them — are
-exactly the things you cannot see in this editor. Try them in your own project.
-
-What you can see here is the runtime half: the rendered output, the chrome
-composing around it, and the console warning when an item names a type the map
-does not have.
+mismatched props and `children` on a component that does not take them all run
+here without complaint. What the editor does show is the rendered output, the
+chrome composing around it, and the console warning when an item names a type
+the map does not have.
 
 ## Try changing
 

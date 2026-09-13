@@ -14,8 +14,8 @@ features.plan({ now: new Date() });
 ```
 
 A static site emits only the deferred set and resolves that per request; an API
-calls `resolve()` per request. One engine, not a second code path — the
-resolvable cases go through the same `decide` as `resolve` does.
+calls `resolve()` per request. The resolvable cases go through the same `decide`
+as `resolve` does.
 
 ## A plan entry
 

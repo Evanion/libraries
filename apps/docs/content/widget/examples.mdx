@@ -45,9 +45,8 @@ if (problems.length) {
 }
 ```
 
-`page.blocks` arrives as `unknown` from the CMS, so the compile-time checking
-does nothing for it — which is exactly what `validateItems` is for. Items you
-write by hand get the other half.
+`page.blocks` arrives as `unknown` from the CMS, so nothing about it is checked
+at compile time. `validateItems` is the runtime check for that path.
 
 ## A dashboard grid
 
@@ -228,6 +227,5 @@ const { Widgets } = createWidgets({ components: { valid: ValidWidget } });
 />;
 ```
 
-The cast is the point: you cannot write that array in TypeScript against this
-map. It is what a JSON payload looks like after `JSON.parse`, and the reason the
-renderer has a runtime path at all.
+The `as never` is needed because that array does not typecheck against this
+map. It is what a JSON payload looks like after `JSON.parse`.

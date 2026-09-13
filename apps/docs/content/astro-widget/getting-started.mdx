@@ -152,9 +152,8 @@ call with its own props. Importing it from one module — as
 A block whose `type` is not a key of the registry renders nothing. No throw, no
 warning: a gap in build-time validation must not take a page down mid-render.
 
-That makes [`validateBlocks`](/astro-widget/validation) the loud gate, and this
-the net underneath it. Run the validator, or a bad CMS save is a silently
-missing section.
+Run [`validateBlocks`](/astro-widget/validation) at build time, or a bad CMS
+save is a silently missing section.
 
 Registry lookup uses `Object.prototype.hasOwnProperty`, so a block typed
 `constructor`, `toString` or `__proto__` is skipped like any other unknown type

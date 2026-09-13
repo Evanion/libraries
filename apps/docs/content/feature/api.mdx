@@ -210,10 +210,8 @@ as epoch milliseconds.
 | `UnknownDependencyError` | `FeatureConfigError` | `key`, `dependency`     |
 | `DuplicateFeatureError`  | `FeatureConfigError` | `key`                   |
 
-All of them are raised by `createFeatures`. Constraints are enforced where the
-configuration is supplied rather than where it is read, so a store a caller
-holds cannot fail mid-evaluation — the same split `@evanion/luhn` and
-`@evanion/token` draw between their factories and their operations.
+All of them are raised by `createFeatures`, so a store a caller holds cannot
+fail mid-evaluation.
 
 ## React exports
 

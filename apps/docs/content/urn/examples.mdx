@@ -1,7 +1,6 @@
 # Examples
 
-Worked patterns. Every stated result is what the library actually returns —
-including the ones that are not what you would first guess.
+Worked patterns.
 
 ## One class per namespace
 
@@ -43,7 +42,7 @@ ProductURN.parse('ecommerce:order:456');
 // { urn: 'ecommerce', nid: 'order', nss: 'order:456' }
 ```
 
-That is the property to lean on when a payload mixes namespaces:
+For a payload that mixes namespaces:
 
 ```ts
 function isProduct(urn: string): boolean {
@@ -56,8 +55,8 @@ so it is safe on untrusted strings.
 
 ## One class, the NID per call
 
-When the set of namespaces is open-ended, a single class and a positional NID is
-less ceremony than a subclass nobody reads:
+When the set of namespaces is open-ended, a single class takes the NID
+positionally instead of needing a subclass for each one:
 
 ```ts
 class ResourceURN extends URN {
@@ -155,9 +154,8 @@ function mint(items: { id: string; type: string }[]): string[] {
 }
 ```
 
-What gets skipped is narrower than you might expect. The NSS grammar is RFC
-3986's `pchar`, which includes `!`, `$`, `&`, `'`, `(`, `)`, `*`, `+`, `,`, `;`,
-`=`, `:` and `@`:
+The NSS grammar is RFC 3986's `pchar`, which includes `!`, `$`, `&`, `'`, `(`,
+`)`, `*`, `+`, `,`, `;`, `=`, `:` and `@`:
 
 ```ts
 URN.stringify('product!456', 'product'); // 'urn:product:product!456' — valid
