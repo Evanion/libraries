@@ -123,6 +123,58 @@ describe('suspense boundary', () => {
     );
   });
 
+  it('lets a suspension escape the region under chrome.suspense: none', async () => {
+    // What `none` gives up, asserted where it shows: with no boundary of its
+    // own, a widget that suspends anyway suspends whatever boundary is above
+    // the region, and the resolved sibling goes down with it.
+    const Fast = () => <div>fast</div>;
+    const { Widgets } = createWidgets({
+      components: { slow: lazyWidget('loaded'), fast: Fast },
+      chrome: { suspense: 'none', suspenseFallback: <div>inner</div> },
+    });
+
+    render(
+      <React.Suspense fallback={<div>outer</div>}>
+        <Widgets
+          items={[
+            { id: 's', type: 'slow' as const, props: {} },
+            { id: 'f', type: 'fast' as const, props: {} },
+          ]}
+        />
+      </React.Suspense>,
+    );
+
+    expect(screen.getByText('outer')).toBeInTheDocument();
+    expect(screen.queryByText('inner')).not.toBeInTheDocument();
+    expect(screen.queryByText('fast')).not.toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByText('loaded')).toBeInTheDocument());
+    expect(screen.getByText('fast')).toBeInTheDocument();
+  });
+
+  it('renders a synchronous region unchanged under chrome.suspense: none', () => {
+    const Fast = ({ label }: { label: string }) => <div>{label}</div>;
+    const { Widgets } = createWidgets({
+      components: { fast: Fast },
+      chrome: { suspense: 'none' },
+    });
+
+    const { container } = render(
+      <Widgets
+        items={[
+          { id: 'a', type: 'fast' as const, props: { label: 'one' } },
+          { id: 'b', type: 'fast' as const, props: { label: 'two' } },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('one')).toBeInTheDocument();
+    expect(screen.getByText('two')).toBeInTheDocument();
+    // The item chrome is outside the boundary either way, so turning it off
+    // changes nothing a consumer keys off.
+    expect(container.querySelectorAll('[data-widget-id]')).toHaveLength(2);
+  });
+
   it('renders nothing rather than a placeholder when no fallback is configured', async () => {
     const { Widgets } = createWidgets({
       components: { slow: lazyWidget('loaded') },

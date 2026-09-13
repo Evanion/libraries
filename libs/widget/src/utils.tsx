@@ -6,6 +6,7 @@ import type {
   AnyWidgetComponent,
   RenderableWidgetItem,
   WidgetItemComponent,
+  WidgetSuspenseMode,
 } from './types.js';
 
 /**
@@ -15,7 +16,9 @@ import type {
  * stays free to change without a breaking release.
  *
  * The `<Suspense>` boundary lives here rather than in the item chrome, so a
- * custom `chrome.item` cannot silently remove it.
+ * custom `chrome.item` cannot silently remove it. `suspense` decides whether
+ * there is one to remove; it comes from the chrome, which is the only place
+ * that knows whether the region's widgets suspend.
  */
 export function renderWidget(
   item: RenderableWidgetItem,
@@ -23,6 +26,7 @@ export function renderWidget(
   ItemWrapper: WidgetItemComponent,
   ctx: Record<string, unknown> | undefined,
   suspenseFallback: ReactNode,
+  suspense: WidgetSuspenseMode,
 ): ReactNode {
   if (
     item == null ||
@@ -57,6 +61,21 @@ export function renderWidget(
     }
   }
 
+  const body = (
+    <Component {...item.props} ctx={ctx}>
+      {children.map((child) =>
+        renderWidget(
+          child,
+          components,
+          ItemWrapper,
+          ctx,
+          suspenseFallback,
+          suspense,
+        ),
+      )}
+    </Component>
+  );
+
   return (
     <ItemWrapper
       key={item.id}
@@ -64,13 +83,11 @@ export function renderWidget(
       data-widget-type={item.type}
       meta={item.meta}
     >
-      <Suspense fallback={suspenseFallback}>
-        <Component {...item.props} ctx={ctx}>
-          {children.map((child) =>
-            renderWidget(child, components, ItemWrapper, ctx, suspenseFallback),
-          )}
-        </Component>
-      </Suspense>
+      {suspense === 'none' ? (
+        body
+      ) : (
+        <Suspense fallback={suspenseFallback}>{body}</Suspense>
+      )}
     </ItemWrapper>
   );
 }

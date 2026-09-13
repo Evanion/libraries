@@ -155,15 +155,52 @@ export type WidgetItemComponent<M = WidgetMeta> = ComponentType<{
   meta?: M;
 }>;
 
+/**
+ * How many `<Suspense>` boundaries a region gets.
+ *
+ * `per-item` gives every widget its own, so one slow widget does not hold up
+ * its siblings. `none` gives the region none at all, for a region whose widgets
+ * are all synchronous.
+ *
+ * React's streaming SSR outlines a boundary it has not finished by the time the
+ * shell passes `progressiveChunkSize` (12,800 bytes by default), whether or not
+ * anything in it suspended: the content goes into a trailing `<div hidden>` and
+ * an inline `$RC` script moves it into place. A client that does not run that
+ * script -- scripts off, or a CSP rejecting inline script without a nonce --
+ * never sees it.
+ *
+ * There is no region-wide setting, because one boundary around the whole set
+ * outlines the whole set: measured over 150 synchronous items, `per-item` keeps
+ * 5 of them in the shell and a single region boundary keeps none. A caller who
+ * wants one boundary writes `<Suspense>` around `<Widgets>` and sets `none`.
+ */
+export type WidgetSuspenseMode = 'per-item' | 'none';
+
 export interface WidgetsChrome<M = WidgetMeta> {
   wrapper?: WidgetsWrapperComponent;
   item?: WidgetItemComponent<M>;
+  /**
+   * Whether each widget gets its own `<Suspense>` boundary. Defaults to
+   * `per-item`.
+   *
+   * Only the region's author knows whether its widgets suspend. The renderer
+   * cannot tell: a component calling `use(promise)` is indistinguishable from a
+   * synchronous one, and `memo()` and downlevelled `async` hide the rest, so a
+   * guess would drop the boundary from widgets that do suspend.
+   *
+   * Under `none` a widget that suspends anyway suspends whatever boundary is
+   * above the region, up to the page.
+   */
+  suspense?: WidgetSuspenseMode;
   /**
    * Rendered while a widget suspends.
    *
    * The `<Suspense>` boundary itself lives in the renderer rather than in
    * `chrome.item`, so replacing the item chrome cannot silently remove it.
    * Defaults to nothing, which is what React renders for a missing fallback.
+   * The library has no shape to draw here: a region is a dashboard grid or a
+   * table of rows depending on the consumer, and one generic skeleton would be
+   * wrong in both.
    */
   suspenseFallback?: ReactNode;
 }
