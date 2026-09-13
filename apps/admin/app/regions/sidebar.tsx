@@ -125,6 +125,16 @@ function Basket() {
 }
 
 /**
+ * The placement vocabulary of this region, and the whole of it.
+ *
+ * `createWidgets` reads it off `RailSlot` below, so a rail item naming anything
+ * else is a compile error rather than a rule that never draws.
+ */
+export interface SidebarMeta {
+  group?: 'start';
+}
+
+/**
  * Stacks a rail item, and rules above it when `meta.group` says a new group
  * starts here.
  *
@@ -132,9 +142,13 @@ function Basket() {
  * needs a line above it depends on what was configured before it, which is
  * exactly the kind of fact `meta` carries.
  */
-const RailSlot: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+const RailSlot: WidgetItemComponent<SidebarMeta> = ({
+  children,
+  meta,
+  ...attributes
+}) => (
   <div {...attributes} className="stack">
-    {meta?.['group'] === 'start' ? <hr className="hairline" /> : null}
+    {meta?.group === 'start' ? <hr className="hairline" /> : null}
     {children}
   </div>
 );

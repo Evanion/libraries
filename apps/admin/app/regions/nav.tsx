@@ -47,6 +47,17 @@ function Operator({ name }: { name: string }) {
 }
 
 /**
+ * The placement vocabulary of this region, and the whole of it.
+ *
+ * One key, because a single-axis bar has one placement question to answer.
+ * `createWidgets` reads it off `BarSlot` below, so a nav item naming anything
+ * else is a compile error.
+ */
+export interface NavMeta {
+  align?: 'end';
+}
+
+/**
  * Places a nav item along the bar from its `meta`.
  *
  * `align: 'end'` is the whole of the placement vocabulary a single-axis region
@@ -54,12 +65,16 @@ function Operator({ name }: { name: string }) {
  * about which end of the bar it sits at. An inline style rather than a class,
  * because the value comes from `meta` at render time.
  */
-const BarSlot: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+const BarSlot: WidgetItemComponent<NavMeta> = ({
+  children,
+  meta,
+  ...attributes
+}) => (
   <div
     {...attributes}
     className="nav-bar__slot"
     style={{
-      marginInlineStart: meta?.['align'] === 'end' ? 'auto' : undefined,
+      marginInlineStart: meta?.align === 'end' ? 'auto' : undefined,
     }}
   >
     {children}

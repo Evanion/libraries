@@ -264,9 +264,22 @@ const lanes = ['main', 'aside', 'full'] as const;
 
 type Lane = (typeof lanes)[number];
 
-function laneOf(meta: Record<string, unknown> | undefined): Lane {
-  const lane = meta?.['lane'];
-  return lanes.includes(lane as Lane) ? (lane as Lane) : 'full';
+/**
+ * The placement vocabulary of this region, and the whole of it.
+ *
+ * `createWidgets` reads this off `GridCell` below, so a dashboard item naming
+ * anything else -- `lanes`, `column`, a misspelt `lane` -- is a compile error
+ * rather than a panel that quietly takes the full width.
+ */
+export interface DashboardMeta {
+  lane?: Lane;
+}
+
+function laneOf(meta: DashboardMeta | undefined): Lane {
+  const lane = meta?.lane;
+  // Still checked at runtime: items assembled from a CMS payload never met the
+  // type checker, and `meta` is the field they are most likely to get wrong.
+  return lane !== undefined && lanes.includes(lane) ? lane : 'full';
 }
 
 /**
@@ -286,7 +299,11 @@ function laneOf(meta: Record<string, unknown> | undefined): Lane {
  * An inline style rather than a class: the lane is read off `meta` at render time,
  * and the bed in layout.css is where the lines it resolves against are declared.
  */
-const GridCell: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+const GridCell: WidgetItemComponent<DashboardMeta> = ({
+  children,
+  meta,
+  ...attributes
+}) => (
   <div {...attributes} style={{ gridColumn: laneOf(meta) }}>
     {children}
   </div>
