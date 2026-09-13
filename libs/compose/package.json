@@ -1,7 +1,7 @@
 {
   "name": "@evanion/compose",
   "version": "2.0.0",
-  "description": "React component that gets you out of provider hell by flattening nested providers into a single, readable list.",
+  "description": "A React component for composing providers: a tree of nested wrappers becomes one flat, readable list.",
   "keywords": [
     "react",
     "provider",
