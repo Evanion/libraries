@@ -1,0 +1,87 @@
+# Standards and modulo bias
+
+## Mod-10 is normative
+
+With `dictionary: '0123456789'` this library is plain Luhn mod-10, and matches
+the published vectors:
+
+```ts
+const digits = createLuhn({ dictionary: '0123456789' });
+
+digits.generate('7992739871').checksum; // '3'
+digits.validate('4539578763621486').isValid; // true
+digits.validate('79927398710').isValid; // false
+```
+
+The algorithm is defined by Luhn's patent
+[US 2,950,048](https://patents.google.com/patent/US2950048A/en) and specified
+for issuer identification numbers by ISO/IEC 7812-1 Annex B, restated in 3GPP
+TS 23.003 Annex B.2 and in the
+[CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
+
+## Mod-N is not
+
+No RFC, ISO, ITU or ANSI document defines the generalisation to an arbitrary
+alphabet. The `floor(a / n) + (a % n)` formula everyone uses traces to
+[Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899),
+dated 2006-09-06, which was unsourced then and is unsourced now; the
+implementations that exist say in their own comments that they were
+transliterated from that page.
+
+With any `n` other than 10, this library implements that common generalisation
+and claims nothing more. Two consequences worth knowing:
+
+- Interoperability with another mod-N implementation is a coincidence, not a
+  guarantee. Check it against vectors rather than against the name.
+- The order of the dictionary is part of the algorithm. Two libraries agreeing
+  on the formula and disagreeing on the alphabet produce different check
+  characters.
+
+The fold itself is Luhn's original formulation rather than a generalisation of
+"subtract 9". The patent describes "twice the original digit plus an end around
+carry … the addition of any digit standing in the tens position to the digit
+standing in the units position". Subtract-9 is the decimal shortcut for the same
+thing, and does not generalise.
+
+## Modulo bias
+
+The obvious way to use this library is to draw a random string over the
+dictionary and then check-character it. Drawing with `byte % dictionary.length`
+is uniform only when the dictionary size divides 256.
+
+The default 36-character dictionary does not. `256 % 36` is 4, so the first four
+characters come up about 14% more often than the rest.
+
+This library does not generate random values and will not start. A checksum
+library shipping a CSPRNG sampler acquires a security surface for a problem that
+is not its own. It states the fact instead:
+
+```ts
+Luhn.uniformOverBytes; // false
+createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' }).uniformOverBytes;
+// true
+```
+
+`uniformOverBytes` reports that `byte % n` is unbiased. It says nothing about
+the quality of the bytes — that is your generator's problem, and
+`crypto.randomBytes` is the answer to it.
+
+If you intend to sample from your dictionary, pick a size that divides 256. 32
+is the useful one: it leaves room to drop the confusable characters from a
+36-character alphabet and still reach a power of two.
+
+The alternative is rejection sampling — draw a byte, discard it if it lands in
+the biased tail, draw again. It is correct and it makes generation
+variable-time, which is why `@evanion/token` constrains the alphabet instead.
+
+## What a check character is not
+
+It is not a checksum over content. Two different payloads share a check
+character one time in `n`; that is the design, not a weakness.
+
+It is not authentication. Anyone can compute the check character for any string,
+because the algorithm and the dictionary are both public. A code that validates
+proves someone followed the format, nothing more.
+
+It is not a substitute for a uniqueness constraint. A check character says a
+string is well formed; whether it exists is a question for your database.

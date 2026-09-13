@@ -1,0 +1,86 @@
+# @evanion/luhn
+
+A check character over any alphabet you choose. Append one to an identifier and
+a mistyped version of it can be rejected without a database lookup.
+
+```ts
+import { Luhn } from '@evanion/luhn';
+
+const { checksum } = Luhn.generate('4a7f2c9');
+const code = `4a7f2c9${checksum}`; // '4a7f2c9r'
+
+Luhn.validate(code).isValid; // true
+Luhn.validate('4a7f2c8r').isValid; // false — one character changed
+```
+
+That is worth having anywhere a person types an identifier by hand: a licence
+key, a gift-card number, a support reference, an order code read off a receipt
+over the phone.
+
+## Installation
+
+```bash
+npm install @evanion/luhn
+```
+
+Node 20 or newer. ESM only. No dependencies.
+
+## The shape of the API
+
+A dictionary is validated once, at construction, and you get back a frozen
+object with `generate` and `validate` bound to it:
+
+```ts
+import { createLuhn } from '@evanion/luhn';
+
+const hex = createLuhn({ dictionary: '0123456789abcdef' });
+
+hex.generate('cafe'); // { phrase: 'cafe', checksum: '3', filtered: 0 }
+hex.validate('cafe3').isValid; // true
+```
+
+`Luhn` is `createLuhn()` — the default instance, over 36 lowercase
+alphanumerics, folding case. `Luhn.generate(x)` works without constructing
+anything.
+
+Nothing is checked at use. An instance you hold cannot produce a token its own
+`validate` rejects, because every constraint a dictionary has to satisfy was
+settled before the object existed.
+
+## What it catches, and what it does not
+
+Luhn's guarantee, over any alphabet:
+
+- Every single-character substitution, at every position, including the check
+  character itself.
+- Every transposition of two adjacent characters, except one pair — the first
+  and last entries of the dictionary.
+
+That one blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a
+swap of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n),
+which for even `n` has the single non-trivial solution `{0, n - 1}`. It is the
+textbook mod-10 `{0, 9}` case, generalised.
+
+A check character is not a checksum over content, not a hash, and not
+authentication. It catches typing mistakes. One string in `n` passes by
+construction.
+
+## Version 3.0 is a different alphabet
+
+The default dictionary went from 62 characters to 36, so every index changed and
+every check character with it. Tokens minted by 2.x do not validate under 3.x.
+[Migrating from 2.x](/luhn/migration) is the full list.
+
+## Pages
+
+- [Generating and validating](/luhn/usage) — the two operations and what they return
+- [Dictionaries](/luhn/dictionaries) — building one, and the five constraints
+- [Standards and modulo bias](/luhn/standards) — what is normative and what is not
+- [API reference](/luhn/api)
+- [Migrating from 2.x](/luhn/migration)
+
+## Related
+
+`@evanion/token` is built on this one. It generates human-readable codes over a
+32-character alphabet with the confusable characters removed, and uses
+`@evanion/luhn` for the check character.
