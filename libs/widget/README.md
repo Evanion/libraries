@@ -138,7 +138,13 @@ renders the same at column 1 and at column 7.
 `meta` is handed to `chrome.item` and is never spread into the widget's props.
 
 ```tsx
-const GridItem = ({ children, meta, ...rest }) => (
+type GridMeta = { column: number; columnSpan?: number };
+
+const GridItem: WidgetItemComponent<GridMeta> = ({
+  children,
+  meta,
+  ...rest
+}) => (
   <div
     {...rest}
     style={{ gridColumn: `${meta?.column} / span ${meta?.columnSpan}` }}
@@ -159,14 +165,29 @@ const { Widgets } = createWidgets({
       type: 'chart',
       props: { metric: 'revenue' },
       meta: { column: 1, columnSpan: 4 },
+      // meta: { colunm: 1 }  ← compile error: not a key GridItem reads
     },
   ]}
 />;
 ```
 
-`meta` is typed `Record<string, unknown>`. It carries no per-type shape the way
-`props` does, so giving it a generic would cost a type parameter for a feature
-most consumers will not use.
+### Typing `meta`
+
+Annotate `chrome.item` with the vocabulary it reads and every item's `meta` is
+checked against it, at the top level and inside `children`. Without that, a
+misspelled key compiles and the item is placed by whatever fallback the chrome
+applies -- a layout that looks deliberate.
+
+There is no type argument to pass. `createWidgets` infers the vocabulary from
+the `chrome.item` it is given, through an annotated component, a plain function
+with an annotated parameter object, or a `memo()`-wrapped one. Naming it by hand
+would mean restating the component map type as well, and a set with no
+`chrome.item` has nothing that reads `meta` to check against -- there, and for
+an unannotated chrome, `meta` stays any object as before.
+
+Typing `meta` removes the typo, not the narrowing: `meta` is optional on every
+item, so a chrome that needs a key still writes a fallback for the item that
+omits it.
 
 ## `ctx`: page-level data for every widget
 
@@ -282,7 +303,7 @@ Returns `{ Widgets, defineItems, validateItems }`.
   id: string;                        // stable identity, used as the React key
   type: keyof typeof components;     // which component to render
   props: ComponentProps<That>;       // minus `children`
-  meta?: Record<string, unknown>;    // for chrome.item only
+  meta?: M;                          // for chrome.item only; M comes from it
   children?: Item[];                 // only if that component accepts children
 }
 ```

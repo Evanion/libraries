@@ -53,7 +53,16 @@ export type WidgetDataProps<C extends AnyWidgetComponent> = [
 export type WidgetChildren<
   C extends WidgetComponentMap,
   K extends keyof C,
-> = 'children' extends keyof ComponentProps<C[K]> ? WidgetItem<C>[] : never;
+  M = WidgetMeta,
+> = 'children' extends keyof ComponentProps<C[K]> ? WidgetItem<C, M>[] : never;
+
+/**
+ * The `meta` vocabulary of a widget set whose chrome declares none.
+ *
+ * Any object, so an item may carry whatever placement data it likes and a
+ * chrome that reads `meta` narrows it by hand.
+ */
+export type WidgetMeta = Record<string, unknown>;
 
 /**
  * A single item in a widget set, discriminated on `type`.
@@ -61,8 +70,13 @@ export type WidgetChildren<
  * Distributing over the keys of the component map is what makes this checked:
  * `type: 'news'` forces `props` to the props of the `news` component, and an
  * unknown `type` is a compile error rather than a runtime `console.warn`.
+ *
+ * `M` is the set's `meta` vocabulary, inferred from `chrome.item`. It does not
+ * distribute over `keyof C`: one chrome reads every item's `meta`, so there is
+ * one `M` per set rather than one per widget type, and `meta?: M` adds no
+ * members to the union above.
  */
-export type WidgetItem<C extends WidgetComponentMap> = {
+export type WidgetItem<C extends WidgetComponentMap, M = WidgetMeta> = {
   [K in keyof C & string]: {
     /** Stable identity for this item; used as the React key. */
     id: string;
@@ -76,15 +90,19 @@ export type WidgetItem<C extends WidgetComponentMap> = {
      * spread into the widget's own props, because where a widget sits is not
      * something the widget should know, and an unknown key spread onto a DOM
      * element draws a React unknown-attribute warning.
+     *
+     * Typed `M`, the vocabulary `chrome.item` declares, so a key that chrome
+     * does not read is a compile error rather than an item that renders in a
+     * place its author did not choose.
      */
-    meta?: Record<string, unknown>;
+    meta?: M;
     /**
      * Nested items, rendered as the component's `children`.
      *
      * Typed `never` when the mapped component does not accept `children`, so
      * nesting under a widget that would drop them is a compile error.
      */
-    children?: WidgetChildren<C, K>;
+    children?: WidgetChildren<C, K, M>;
   };
 }[keyof C & string];
 
@@ -122,18 +140,24 @@ export interface RenderableWidgetItem {
 /** Chrome wrapped around the whole widget set. */
 export type WidgetsWrapperComponent = ComponentType<{ children?: ReactNode }>;
 
-/** Chrome wrapped around each individual widget. */
-export type WidgetItemComponent = ComponentType<{
+/**
+ * Chrome wrapped around each individual widget.
+ *
+ * Annotating one of these with a `meta` vocabulary is what types the whole
+ * set's `meta`: `createWidgets` infers its `M` from the `chrome.item` it is
+ * given, so an item's `meta` is checked against what this component reads.
+ */
+export type WidgetItemComponent<M = WidgetMeta> = ComponentType<{
   children?: ReactNode;
   'data-widget-id': string;
   'data-widget-type': string;
   /** The item's {@link WidgetItem.meta}, if it has any. */
-  meta?: Record<string, unknown>;
+  meta?: M;
 }>;
 
-export interface WidgetsChrome {
+export interface WidgetsChrome<M = WidgetMeta> {
   wrapper?: WidgetsWrapperComponent;
-  item?: WidgetItemComponent;
+  item?: WidgetItemComponent<M>;
   /**
    * Rendered while a widget suspends.
    *
@@ -147,21 +171,26 @@ export interface WidgetsChrome {
 /**
  * Configuration for {@link createWidgets}.
  */
-export interface WidgetsConfig<C extends WidgetComponentMap> {
+export interface WidgetsConfig<C extends WidgetComponentMap, M = WidgetMeta> {
   /** The component map. Its shape drives inference for the whole set. */
   components: C;
-  chrome?: WidgetsChrome;
+  chrome?: WidgetsChrome<M>;
 }
 
 /**
  * Props of the `Widgets` component returned by {@link createWidgets}.
  */
-export interface WidgetsProps<C extends WidgetComponentMap> {
-  items: WidgetItem<C>[];
+export interface WidgetsProps<C extends WidgetComponentMap, M = WidgetMeta> {
+  items: WidgetItem<C, M>[];
   /** Per-instance component overrides, merged over the factory's map. */
   components?: Partial<C>;
-  /** Per-instance chrome overrides. */
-  chrome?: WidgetsChrome;
+  /**
+   * Per-instance chrome overrides.
+   *
+   * Typed against the factory's `M`, so an override may replace the item
+   * chrome but not the `meta` vocabulary the set's items were checked against.
+   */
+  chrome?: WidgetsChrome<M>;
   /**
    * Page-level data handed to every widget as a `ctx` prop.
    *

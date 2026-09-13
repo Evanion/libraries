@@ -3,7 +3,9 @@ import type {
   RenderableWidgetItem,
   WidgetComponentMap,
   WidgetItem,
+  WidgetItemComponent,
   WidgetItemProblem,
+  WidgetMeta,
   WidgetsConfig,
   WidgetsProps,
 } from './types.js';
@@ -23,6 +25,13 @@ import { warnOnce } from './warn.js';
  * React's `react-server` export condition has neither `createContext` nor
  * `useContext` and this package has to be importable from a Server Component.
  *
+ * The item `meta` vocabulary is inferred from `chrome.item`. Annotate that
+ * component with the shape it reads and every item's `meta` is checked against
+ * it; leave it unannotated, or pass no chrome, and `meta` stays any object.
+ * There is no type argument to pass by hand: `chrome.item` is the only thing
+ * that reads `meta`, so a set with no such chrome has nothing to check against,
+ * and naming `M` explicitly would cost the inference of `C`.
+ *
  * @example
  * ```tsx
  * const { Widgets } = createWidgets({
@@ -35,9 +44,10 @@ import { warnOnce } from './warn.js';
  * ]} />
  * ```
  */
-export function createWidgets<const C extends WidgetComponentMap>(
-  config: WidgetsConfig<C>,
-) {
+export function createWidgets<
+  const C extends WidgetComponentMap,
+  M = WidgetMeta,
+>(config: WidgetsConfig<C, M>) {
   const { components: defaultComponents, chrome: defaultChrome } = config;
 
   const Widgets = memo(function Widgets({
@@ -45,7 +55,7 @@ export function createWidgets<const C extends WidgetComponentMap>(
     components: instanceComponents,
     chrome,
     ctx,
-  }: WidgetsProps<C>) {
+  }: WidgetsProps<C, M>) {
     const Wrapper = chrome?.wrapper ?? defaultChrome?.wrapper ?? DefaultWrapper;
     const ItemWrapper = chrome?.item ?? defaultChrome?.item ?? DefaultItem;
     const suspenseFallback =
@@ -64,10 +74,19 @@ export function createWidgets<const C extends WidgetComponentMap>(
 
     return (
       <Wrapper>
-        {/* The single, documented widening from the checked WidgetItem<C>
-            union to the renderer's erased view. See RenderableWidgetItem. */}
+        {/* The single, documented widening from the checked WidgetItem<C, M>
+            union to the renderer's erased view. See RenderableWidgetItem.
+            The item chrome is erased with it: the renderer hands it whatever
+            `meta` the item carried, and M is what checked that it was the
+            right shape. */}
         {(items as unknown as RenderableWidgetItem[]).map((item) =>
-          renderWidget(item, components, ItemWrapper, ctx, suspenseFallback),
+          renderWidget(
+            item,
+            components,
+            ItemWrapper as WidgetItemComponent,
+            ctx,
+            suspenseFallback,
+          ),
         )}
       </Wrapper>
     );
@@ -90,7 +109,7 @@ export function createWidgets<const C extends WidgetComponentMap>(
    * Not needed when the array is written inline in JSX -- that is already
    * contextually typed. `satisfies WidgetItem<typeof components>[]` works too.
    */
-  const defineItems = (items: WidgetItem<C>[]): WidgetItem<C>[] => items;
+  const defineItems = (items: WidgetItem<C, M>[]): WidgetItem<C, M>[] => items;
 
   /**
    * `validateItems` bound to this factory's component map, for data that never
