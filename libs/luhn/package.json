@@ -1,7 +1,7 @@
 {
   "name": "@evanion/luhn",
   "version": "3.0.0",
-  "description": "Generate and validate check characters with the Luhn mod-N algorithm, over any dictionary you choose.",
+  "description": "Append a check character to an identifier, so a mistyped one is rejected without a database lookup. Luhn mod-N, over any dictionary you choose.",
   "keywords": [
     "luhn",
     "luhn-mod-n",
