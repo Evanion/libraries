@@ -1,4 +1,5 @@
 import { availability } from './availability.js';
+import { categorical, categoricalOnLight } from './categorical.js';
 import { slug as kebab } from './class-names.js';
 import { boxArt } from './box-art.js';
 import { elevation, measure, motion, radius, space } from './geometry.js';
@@ -56,6 +57,8 @@ export const customProperties: readonly (readonly [string, string])[] = [
   [`--baize-measure`, measure],
   ...group('elevation-', elevation),
   ...group('motion-', motion),
+  ...group('categorical-', categorical),
+  ...group('categorical-on-light-', categoricalOnLight),
   ...group('mechanism-', mechanism),
   ...group('availability-', availability),
   ...group('complexity-', complexity),

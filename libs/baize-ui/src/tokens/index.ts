@@ -20,6 +20,14 @@ export type {
   RadiusToken,
   SpaceToken,
 } from './geometry.js';
+export {
+  categorical,
+  categoricalOnLight,
+  CATEGORICAL_CONTRAST_FLOOR,
+  CATEGORICAL_DARK_GROUND,
+  CATEGORICAL_LIGHT_GROUND,
+} from './categorical.js';
+export type { CategoricalHue } from './categorical.js';
 export { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
 export type { Mechanism } from './mechanism.js';
 export { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
@@ -49,6 +57,7 @@ export { customProperties, renderTokensCss } from './custom-properties.js';
  * convention out a second time.
  */
 export {
+  categoricalClass,
   classNames,
   hueClass,
   ladderClass,

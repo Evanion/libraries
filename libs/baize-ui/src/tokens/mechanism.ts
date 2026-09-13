@@ -1,3 +1,5 @@
+import { categorical, CATEGORICAL_CONTRAST_FLOOR } from './categorical.js';
+
 /**
  * The contrast floor every mechanism hue is held to, against `felt`.
  *
@@ -6,17 +8,19 @@
  * allowance. `mechanism.test.ts` computes the ratio for every hue below and
  * fails naming the one that drops under this number.
  */
-export const MECHANISM_CONTRAST_FLOOR = 4.5;
+export const MECHANISM_CONTRAST_FLOOR = CATEGORICAL_CONTRAST_FLOOR;
 
 /**
  * Categorical hues, one per mechanism family, used on game titles and on the
  * tags under them.
  *
- * Categorical rather than ordinal: no mechanism outranks another, so the hues are
- * spread around the wheel at a roughly even lightness instead of forming a ramp.
+ * The shop's vocabulary mapped onto the categorical scale in `categorical.ts`,
+ * rather than a second table of hexes. The docs site maps its packages onto the
+ * same nine values, and one scale is what keeps the two from drifting into two
+ * sets of nearly-equal colours.
  *
- * `other` is the hue for a mechanism with no entry here -- warm grey, and the
- * only unsaturated value in the scale, so an unmapped mechanism reads as
+ * `other` is the hue for a mechanism with no entry here -- `stone`, warm grey,
+ * the only unsaturated value in the scale, so an unmapped mechanism reads as
  * uncategorised rather than as a ninth category.
  *
  * The vocabulary is what the catalogue contains, not a fixed five. A mechanism
@@ -24,15 +28,15 @@ export const MECHANISM_CONTRAST_FLOOR = 4.5;
  * above, and renders as `other` until then.
  */
 export const mechanism = {
-  engineBuilding: '#E9B24C',
-  economic: '#D8D36A',
-  cooperative: '#8FD99A',
-  tilePlacement: '#6FD6C2',
-  workerPlacement: '#7FC4E8',
-  deckbuilder: '#9FB0F0',
-  areaControl: '#C98BE0',
-  dexterity: '#F09A8A',
-  other: '#C0B39A',
+  engineBuilding: categorical.amber,
+  economic: categorical.citron,
+  cooperative: categorical.mint,
+  tilePlacement: categorical.teal,
+  workerPlacement: categorical.sky,
+  deckbuilder: categorical.periwinkle,
+  areaControl: categorical.orchid,
+  dexterity: categorical.coral,
+  other: categorical.stone,
 } as const;
 
 /** The mechanism families the hue scale covers. */
