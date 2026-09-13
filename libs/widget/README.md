@@ -11,7 +11,8 @@ CMS-driven layouts, dashboards and configurable sidebars.
 - **Server-component ready**: no `'use client'`, no context, no class
   components. Importable from a React Server Component, and a widget can be an
   async Server Component that fetches its own data
-- **Composable chrome**: wrapper, per-item wrapper, and a Suspense fallback
+- **Composable chrome**: wrapper, per-item wrapper, a Suspense fallback, and
+  per-region control over whether there is a boundary at all
 - **Placement without prop leakage**: `meta` reaches the item chrome and never
   the widget
 - **Validation for untrusted data**: `validateItems` for payloads that never met
@@ -201,8 +202,8 @@ React's `react-server` condition has no `createContext`.
 
 ## Suspense
 
-The renderer wraps every widget in its own `<Suspense>` boundary, so one
-suspending widget does not block its siblings. The fallback comes from
+By default the renderer wraps every widget in its own `<Suspense>` boundary, so
+one suspending widget does not block its siblings. The fallback comes from
 `chrome.suspenseFallback` and defaults to nothing.
 
 ```tsx
@@ -214,6 +215,57 @@ const { Widgets } = createWidgets({
 
 The boundary lives in the renderer rather than in the item chrome, so replacing
 `chrome.item` cannot silently remove it.
+
+There is no default skeleton. A region is a dashboard grid for one consumer and
+a table of rows for the next, and one generic placeholder would be wrong in
+both. Set `suspenseFallback` if a blank space during streaming is not what you
+want.
+
+### Synchronous regions: `chrome.suspense`
+
+A boundary costs more than its markers when the region is large. React's
+streaming SSR outlines any boundary it has not finished by the time the shell
+passes `progressiveChunkSize` -- 12,800 bytes by default -- **whether or not
+anything in it suspended**. The content is written to a trailing `<div hidden>`
+and an inline `<script>$RC(…)</script>` moves it into place.
+
+Measured over 150 synchronous items of ~1,000 bytes each, streamed with the
+default chunk size:
+
+| `chrome.suspense` | bytes   | deferred boundaries | rows in the shell |
+| ----------------- | ------- | ------------------- | ----------------- |
+| `per-item`        | 139,233 | 145                 | 5 of 150          |
+| `none`            | 122,069 | 0                   | 150 of 150        |
+
+So for a region whose widgets are all synchronous, say so:
+
+```tsx
+const { Widgets } = createWidgets({
+  components: { row: LedgerRow },
+  chrome: { suspense: 'none' },
+});
+```
+
+**A client that does not run the inline scripts never sees outlined content.**
+It is in the HTML, inside `<div hidden>`, and `$RC` is what moves it. That
+covers scripts disabled and a Content-Security-Policy that rejects inline
+script without a nonce. Anything reading the HTML in document order -- a text
+extraction, a reader-mode pass, a diffing snapshot test, `curl | sed` -- sees
+placeholders where the content should be and the content at the bottom in
+completion order.
+
+There is no detection and no heuristic. An `async function` component and
+`React.lazy` are recognisable at runtime; a component calling `use(promise)` is
+not, `memo()` hides both, and an `async function` downlevelled below ES2017
+becomes a plain function. Guessing wrong would drop the boundary from a widget
+that does suspend, which is worse than paying for one that does not. Under
+`none`, a widget that suspends anyway suspends whatever boundary is above the
+region -- put your own `<Suspense>` around `<Widgets>` if that should be the
+region rather than the page.
+
+The host has a knob too: `progressiveChunkSize` on `renderToPipeableStream`
+takes the deferral to zero, and `renderToString` never defers at all. That is
+the framework's `entry.server` to set, not the library's.
 
 ## Error boundaries
 
@@ -283,6 +335,7 @@ Nothing is logged when `NODE_ENV` is `production`.
 | `components`              | widget type -> component. Drives inference for the whole set                                        |
 | `chrome.wrapper`          | rendered around the whole set. Defaults to `<section>`                                              |
 | `chrome.item`             | rendered around each widget. Defaults to a `<div>` carrying `data-widget-id` and `data-widget-type` |
+| `chrome.suspense`         | `'per-item'` (default) or `'none'`: whether each widget gets its own `<Suspense>` boundary          |
 | `chrome.suspenseFallback` | rendered while a widget suspends                                                                    |
 
 Returns `{ Widgets, defineItems, validateItems }`.

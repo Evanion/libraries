@@ -60,6 +60,7 @@ export function createWidgets<
     const ItemWrapper = chrome?.item ?? defaultChrome?.item ?? DefaultItem;
     const suspenseFallback =
       chrome?.suspenseFallback ?? defaultChrome?.suspenseFallback;
+    const suspense = chrome?.suspense ?? defaultChrome?.suspense ?? 'per-item';
     // Not memoised. `useMemo` exists under the react-server condition but
     // calling a hook from a Server Component does not, and merging a handful of
     // map entries is cheaper than the hazard.
@@ -86,6 +87,7 @@ export function createWidgets<
             ItemWrapper as WidgetItemComponent,
             ctx,
             suspenseFallback,
+            suspense,
           ),
         )}
       </Wrapper>
