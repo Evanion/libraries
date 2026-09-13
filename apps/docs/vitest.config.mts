@@ -1,5 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
+
+/** A package as installed at the workspace root. */
+function workspaceModule(name: string): string {
+  return fileURLToPath(new URL(`../../node_modules/${name}`, import.meta.url));
+}
 
 /**
  * Test-only config: the docs site is built by `next build` through
@@ -24,11 +30,32 @@ export default defineConfig({
   // The docs tsconfig sets `jsx: preserve` for Next, which esbuild cannot emit
   // to runnable JS on its own.
   plugins: [react()],
+  // This app pins the React that Next 16 ships against, one minor behind the
+  // workspace's, so `apps/docs/node_modules` holds a second copy. A component
+  // under test would take its hooks from that copy while
+  // `@testing-library/react`, which Node loads from the workspace root as an
+  // external dependency, renders with the other -- and the first hook call
+  // reads a dispatcher that is not there. So under test every `react` import
+  // is the workspace's copy, the one the testing library already renders
+  // with. One minor ahead of what the site ships, which nothing here depends
+  // on.
+  resolve: {
+    alias: [
+      { find: /^react$/, replacement: workspaceModule('react') },
+      { find: /^react\/(.*)$/, replacement: `${workspaceModule('react')}/$1` },
+      { find: /^react-dom$/, replacement: workspaceModule('react-dom') },
+      {
+        find: /^react-dom\/(.*)$/,
+        replacement: `${workspaceModule('react-dom')}/$1`,
+      },
+    ],
+  },
   test: {
     name: '@evanion/docs',
     watch: false,
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['./test-setup.ts'],
     include: ['components/**/*.test.{ts,tsx}'],
     reporters: ['default'],
   },

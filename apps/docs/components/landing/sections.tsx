@@ -11,8 +11,11 @@ import DataDemo from './DataDemo';
 import { demoItems } from './demo';
 import { listing } from './listing';
 import { description } from './manifest';
+import LuhnSpecimen from './LuhnSpecimen';
 import { platformsOf } from './platforms';
-import { specimens } from './specimens';
+import { luhnBody, tokenSpecimen, urnSpecimen } from './specimens';
+import TokenSpecimen from './TokenSpecimen';
+import UrnSpecimen from './UrnSpecimen';
 
 /** Where a package's name and buttons send a reader. */
 function href(entry: DocumentedPackage): string {
@@ -175,20 +178,26 @@ export function Pair({ group: id }: { group: string }) {
   );
 }
 
-/** The one line of what a package produces, in the package's own colour. */
+/**
+ * What a package produces, produced by it, on the card that sells it.
+ *
+ * Each is a client island, because each answers the reader: text to append a
+ * check character to, a button that mints a code, a part of a URN that says
+ * what it is. The opening values are rendered here on the server from
+ * `specimens.ts`, so the first paint is the final one. A package with no
+ * specimen gets nothing rather than a placeholder.
+ */
 function Specimen({ slug }: { slug: string }) {
-  const segments = specimens[slug];
-  if (!segments) return null;
-
-  return (
-    <p className="landing-specimen">
-      {segments.map((segment, index) => (
-        <span key={index} className={`landing-specimen__${segment.role}`}>
-          {segment.text}
-        </span>
-      ))}
-    </p>
-  );
+  switch (slug) {
+    case 'luhn':
+      return <LuhnSpecimen initial={luhnBody} />;
+    case 'token':
+      return <TokenSpecimen initial={tokenSpecimen} />;
+    case 'urn':
+      return <UrnSpecimen value={urnSpecimen} />;
+    default:
+      return null;
+  }
 }
 
 /**

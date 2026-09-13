@@ -53,7 +53,8 @@
     "components/**/*.tsx",
     "next-env.d.ts",
     ".next/types/**/*.ts",
-    "mdx-components.js"
+    "mdx-components.js",
+    "test-setup.ts"
   ],
   "exclude": [
     "out-tsc",
