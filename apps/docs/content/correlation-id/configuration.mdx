@@ -1,0 +1,119 @@
+# Configuration
+
+`CorrelationModule.forRoot()` takes a `Partial<CorrelationConfig>` and fills in
+every unset field, so consumers of the injection token never see a partial
+object.
+
+```ts
+import {
+  CorrelationModule,
+  type CorrelationConfig,
+} from '@evanion/nestjs-correlation-id';
+
+const config: Partial<CorrelationConfig> = {
+  header: 'X-Request-Id',
+  generator: () => myId(),
+  validate: (value) => /^[0-9a-f]{32}$/.test(value),
+};
+
+CorrelationModule.forRoot(config);
+```
+
+| Field       | Default                            | Meaning                                        |
+| ----------- | ---------------------------------- | ---------------------------------------------- |
+| `header`    | `'X-Correlation-Id'`               | read from the request, written to the response |
+| `generator` | `randomUUID` from `node:crypto`    | mints an id when none arrived                  |
+| `validate`  | `DEFAULT_CORRELATION_ID_VALIDATOR` | decides whether an incoming id is used         |
+
+## `header`
+
+No correlation header is registered with IANA, so there is no canonical spelling
+to defer to; `X-Correlation-Id` and `X-Request-Id` are the two in common use.
+
+The casing you configure is what goes out on the wire. Matching against the
+request is case-insensitive, because Node lowercases incoming header names
+before you ever see them.
+
+Pick whichever one the rest of your stack already speaks. There is only one
+header — the middleware does not read a list of candidates.
+
+## `generator`
+
+Called only when no usable id arrived, so a counter- or sequence-backed
+generator is not advanced for ids that get discarded.
+
+`randomUUID` is the default, which produces the 36-character shape the default
+validator is sized for. A generator that produces something longer than 128
+characters will mint ids that the same application rejects when they come back
+in as a header, so keep the two in step.
+
+## Validating an incoming id
+
+An incoming id that passes is echoed into the response header and carried into
+whatever the application logs. That is attacker-controlled text in two sinks that
+are both line-oriented.
+
+```ts
+export const DEFAULT_CORRELATION_ID_VALIDATOR = (value: string): boolean =>
+  /^[\w.:-]{1,128}$/.test(value);
+```
+
+One to 128 word characters, dots, colons and hyphens — an RFC 9110 token subset.
+What it excludes is the point:
+
+- CR and LF, which is what keeps a header value from splitting a response or
+  forging a log line.
+- Anything over 128 characters, which bounds what a single request can append to
+  every log line it touches. A UUID is 36.
+
+```ts
+DEFAULT_CORRELATION_ID_VALIDATOR('018f3a2b-7c41-7e3a-9f55-2c1d4e6a8b90'); // true
+DEFAULT_CORRELATION_ID_VALIDATOR('abc\r\nX-Admin: 1'); // false
+```
+
+An id that fails is replaced by a generated one. The request's own header is left
+exactly as it arrived — the middleware only writes the header when none was
+there — so a rejected value does not silently become the correlation id for
+anything reading the raw header.
+
+### Duplicate headers
+
+Node normalises repeated request headers into a single comma-joined string, for
+everything except `set-cookie`. The middleware joins an array the same way, so
+both shapes take one code path, and the default validator then rejects the
+result — a comma is not in its character set.
+
+That is the wanted behaviour for a duplicated correlation id: two callers
+disagreeing about the id is not a case to pick a winner in.
+
+### Replacing it
+
+```ts
+CorrelationModule.forRoot({
+  validate: (value) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+      value,
+    ),
+});
+```
+
+Tightening it to the exact shape your stack mints is safe. Loosening it is where
+the risk is: a validator that accepts CR or LF accepts response splitting and log
+forging, and one with no length bound lets a single request write an arbitrarily
+long string into every log line it touches.
+
+`validate` is optional on `CorrelationConfig` and is defaulted by `forRoot()`,
+so a caller reading the injected config always finds one.
+
+## Calling `forRoot` once
+
+The module is registered `global: true`, because `CorrelationIdMiddleware`,
+`withCorrelation()` and every provider that reads an id all resolve the
+configuration token from the root injector. Without that, each consuming module
+would have to import this one, and `HttpModule.registerAsync(withCorrelation())`
+fails with `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS`.
+
+A second `forRoot()` registers a second configuration provider under the same
+token, and the last import wins. That is not an error and nothing warns about
+it, so if two feature modules each call it, the header one of them configured
+quietly stops applying.

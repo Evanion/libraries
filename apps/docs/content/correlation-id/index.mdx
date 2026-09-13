@@ -1,0 +1,73 @@
+# @evanion/nestjs-correlation-id
+
+A correlation id on every request, carried through everything the request
+awaits, and forwarded on outgoing HTTP calls.
+
+```ts
+@Module({
+  imports: [CorrelationModule.forRoot()],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}
+```
+
+When you are following an issue through a stack of services, the thing that
+makes a log line useful is knowing which request produced it. That is a header
+the caller sends — `X-Correlation-Id`, or `X-Request-Id` — reused where it
+arrives and minted where it does not, then forwarded to everything downstream.
+
+## Installation
+
+```bash
+npm install @evanion/nestjs-correlation-id
+```
+
+|                 |                                                    |
+| --------------- | -------------------------------------------------- |
+| NestJS          | `^12.0.0`                                          |
+| Node            | 20 or newer                                        |
+| `@nestjs/axios` | `^12.0.0`, optional — only for `withCorrelation()` |
+
+ESM only, matching NestJS 12. There is no CommonJS build, so
+`require('@evanion/nestjs-correlation-id')` will not work. No runtime
+dependencies beyond `tslib`.
+
+One build means one module graph and one `CorrelationService` class object, so
+injecting by class token is always safe. A dual build can hand Nest two
+unrelated copies of the same class, and then an injection that looks correct
+resolves nothing.
+
+## How the pieces fit
+
+| Export                    | What it does                                                  |
+| ------------------------- | ------------------------------------------------------------- |
+| `CorrelationModule`       | provides the service and the resolved configuration, globally |
+| `CorrelationIdMiddleware` | opens the correlation context around each request             |
+| `CorrelationService`      | reads, replaces and mints the id                              |
+| `withCorrelation()`       | `HttpModule.registerAsync` options that forward the id        |
+
+The context is an
+[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html), not a
+request-scoped provider. Request-scoping `CorrelationService` would propagate
+upward through the injection graph: every provider that depends on it —
+including `HttpService`, via `withCorrelation` — would become request-scoped
+too, re-instantiated per request and never given `onModuleInit`.
+
+Everything downstream of the middleware sees its request's id, and concurrent
+requests stay isolated.
+
+## Adapter-agnostic
+
+The middleware is typed against `node:http`'s `IncomingMessage` and
+`ServerResponse` and only reads and writes raw headers, so it works under
+`@nestjs/platform-express` and `@nestjs/platform-fastify` alike. `express` is not
+a peer dependency.
+
+## Pages
+
+- [Getting started](/correlation-id/getting-started) — the middleware, outgoing calls, work with no request
+- [Configuration](/correlation-id/configuration) — header, generator, and the validator
+- [API reference](/correlation-id/api)
