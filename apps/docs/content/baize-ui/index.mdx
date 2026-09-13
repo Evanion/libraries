@@ -1,0 +1,90 @@
+# @evanion/baize-ui
+
+The Baize design system: the tokens as TypeScript, a stateless React component
+set, and one stylesheet.
+
+Private to this repository and never published. Every app here is styled with
+it, so it is documented like the published packages — but `npm install
+@evanion/baize-ui` will not work, and nothing outside this workspace can consume
+it.
+
+```tsx
+import { Card, StatLine, Stat, Title, ComplexityRamp } from '@evanion/baize-ui';
+
+<Card head={<Title complexity={3}>Wingspan</Title>}>
+  <StatLine label="Wingspan at a glance">
+    <Stat figure="1–5" label="players" />
+    <Stat figure="40–70 min" label="playtime" />
+    <Stat figure="Midweight" label="complexity 2.4 / 5">
+      <ComplexityRamp label="complexity 2.4 of 5" stop={3} />
+    </Stat>
+  </StatLine>
+</Card>;
+```
+
+## Three entries
+
+| Entry                          | Contents                                          | Consumers                                       |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------- |
+| `@evanion/baize-ui`            | the components, stateless, no CSS import          | every app that renders React                    |
+| `@evanion/baize-ui/tokens`     | the token values and their types, no React import | tests, build scripts, any JS that needs a value |
+| `@evanion/baize-ui/styles.css` | the custom properties and the component classes   | every app, imported once in its root            |
+
+The components ship class names only. Import the stylesheet once, in the app's
+root:
+
+```ts
+import '@evanion/baize-ui/styles.css';
+```
+
+A CSS import inside the package's own module graph resolves under Next and does
+not resolve uniformly under Astro, plain Vite SSR or a bare `node` import, which
+is why it is a separate entry.
+
+Nothing in the `/tokens` graph imports React: a build script, a Nest response or
+a test that needs the availability hue should not pull a renderer in behind it.
+
+## Stateless, and staying that way
+
+Every component takes props and returns elements. No hook of any kind, no state,
+no context, no effect, no `await`, no `'use client'`. Astro, React Router SSR,
+Next App Router and Nextra all render them identically, and a Server Component
+can import them because nothing here reaches for an API the `react-server`
+condition omits.
+
+A primitive that needs client state — a disclosure, a tab set, a quantity
+stepper, a theme toggle — belongs to the app that needs it, written in that app's
+own `'use client'` file and styled with these classes. There is no `./client`
+entry and there is not going to be one: the moment it exists, statelessness has
+an exception and the next stateful component has a precedent instead of a
+boundary.
+
+## Props are already-formatted values
+
+Strings for anything displayed, enum members for anything that selects a token,
+`ReactNode` for slots. No `Intl` anywhere in the library, and nothing taking a
+`Date` or a number it would have to render.
+
+The en dash in `1–5`, the unit in `40–70 min` and the thousands separator in a
+price are locale decisions, and they belong where the request context is. A
+component that took a game object would be one step from fetching, because the
+next request is for the field the object does not carry yet.
+
+## Where the boundary sits
+
+| Out                                           | Why                                                             |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| Disclosure, tabs, quantity stepper, toggle    | needs state; the app writes it and styles it with these classes |
+| Navigation, breadcrumbs, search               | needs a router                                                  |
+| Two-column detail, filter sidebar, page shell | one app's page layout, and its widths are that app's            |
+| A row with a column template                  | the hairline is shared and the template never is                |
+| Cart, order row, checkout                     | domain vocabulary, not design vocabulary                        |
+
+## Pages
+
+- [Components](/baize-ui/components) — the whole set, and what each one is for
+- [Tokens](/baize-ui/tokens) — the values, the three colour systems, the class-name resolvers
+- [Using it](/baize-ui/usage) — wiring it into a React app, an Astro app, and a test
+
+The design this implements is specified in
+`docs/specs/2026-09-12-baize-ui.md` and `docs/specs/2026-09-10-demo-apps.md`.
