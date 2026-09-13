@@ -71,5 +71,8 @@
         "command": "npx jiti libs/baize-ui/tools/generate-tokens.ts"
       }
     }
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1"
   }
 }

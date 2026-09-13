@@ -1,6 +1,5 @@
+import { cva } from 'class-variance-authority';
 import type { ReactNode } from 'react';
-
-import { classNames } from './class-names.js';
 
 export interface CardGridProps {
   children: ReactNode;
@@ -35,6 +34,17 @@ export function CardGrid({
   );
 }
 
+/** The cell's classes. */
+const cell = cva('baize-card-grid__cell', {
+  variants: {
+    wide: {
+      true: 'baize-card-grid__cell--wide',
+      false: null,
+    },
+  },
+  defaultVariants: { wide: false },
+});
+
 export interface CardGridCellProps {
   children: ReactNode;
   as?: 'div' | 'li';
@@ -52,16 +62,7 @@ export interface CardGridCellProps {
 export function CardGridCell({
   children,
   as: Element = 'div',
-  wide = false,
+  wide,
 }: CardGridCellProps) {
-  return (
-    <Element
-      className={classNames(
-        'baize-card-grid__cell',
-        wide && 'baize-card-grid__cell--wide',
-      )}
-    >
-      {children}
-    </Element>
-  );
+  return <Element className={cell({ wide })}>{children}</Element>;
 }
