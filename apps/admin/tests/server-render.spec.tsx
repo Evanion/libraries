@@ -80,6 +80,12 @@ describe('the dashboard region', () => {
       id: 'stray',
       type: 'orders',
       props: { orders: [] },
+      // Both halves of the guarantee in one item. `DashboardMeta` makes a lane
+      // the bed does not declare a compile error, which is why this needs the
+      // directive; the region still has to place such an item when it arrives
+      // from a payload that never met the type checker, which is what the
+      // assertions below check.
+      // @ts-expect-error 'left-hand-side' is not a lane the bed declares
       meta: { lane: 'left-hand-side' },
     },
     {

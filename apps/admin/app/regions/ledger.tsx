@@ -240,19 +240,31 @@ function Total({
 }
 
 /**
+ * The placement vocabulary of this region, and the whole of it.
+ *
+ * `createWidgets` reads it off `LedgerRow` below, so a row naming anything else
+ * is a compile error rather than a heading that draws as a record.
+ */
+export interface LedgerMeta {
+  emphasis?: 'head' | 'total';
+}
+
+/**
  * A row.
  *
  * `meta.emphasis` marks the heading and total rows, which are rows of the table
  * and not a separate structure -- so they are configured items like the records
  * between them, and how they are drawn is page data.
  */
-const LedgerRow: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+const LedgerRow: WidgetItemComponent<LedgerMeta> = ({
+  children,
+  meta,
+  ...attributes
+}) => (
   <div
     {...attributes}
     className={
-      meta?.['emphasis'] === 'head'
-        ? 'ledger-row ledger-row--head'
-        : 'ledger-row'
+      meta?.emphasis === 'head' ? 'ledger-row ledger-row--head' : 'ledger-row'
     }
     role="row"
   >
@@ -271,6 +283,18 @@ const Rows: WidgetsWrapperComponent = ({ children }) => (
   </div>
 );
 
+/**
+ * Every component above takes its data as props and none of them awaits
+ * anything, so `suspense: 'none'` costs the region nothing and saves it the
+ * outlining. A per-item boundary React has not finished by the time the shell
+ * passes `progressiveChunkSize` is written to a trailing `<div hidden>` and
+ * moved into place by an inline `$RC` script, whether or not it suspended --
+ * over 150 order rows that is 145 of them, leaving 5 in the shell for a client
+ * that does not run inline scripts.
+ *
+ * This is the region where it matters. The nav and the rail hold five or six
+ * items and never reach the chunk budget, so they keep the default.
+ */
 export const { Widgets: Ledger, defineItems: defineLedgerItems } =
   createWidgets({
     components: {
@@ -279,5 +303,5 @@ export const { Widgets: Ledger, defineItems: defineLedgerItems } =
       orderRow: OrderRow,
       total: Total,
     },
-    chrome: { wrapper: Rows, item: LedgerRow },
+    chrome: { wrapper: Rows, item: LedgerRow, suspense: 'none' },
   });
