@@ -1,4 +1,4 @@
-import { Footer, Layout, Navbar } from 'nextra-theme-docs';
+import { Footer, Layout, Navbar, ThemeSwitch } from 'nextra-theme-docs';
 import { Head } from 'nextra/components';
 import { getPageMap } from 'nextra/page-map';
 import { Bricolage_Grotesque, Public_Sans } from 'next/font/google';
@@ -34,11 +34,19 @@ export const metadata = {
   metadataBase: new URL('https://docs.evanion.com'),
 };
 
+/**
+ * The theme switch is in the navbar rather than in the sidebar's footer,
+ * where the theme puts it, because the landing page has no sidebar and a
+ * reader there still needs it. One control for the whole site; global.css
+ * hides the sidebar's copy so a docs page does not show two.
+ */
 const navbar = (
   <Navbar
     logo={<b>Evanion Libraries</b>}
     projectLink="https://github.com/Evanion/libraries"
-  />
+  >
+    <ThemeSwitch lite />
+  </Navbar>
 );
 const footer = (
   <Footer>MIT {new Date().getFullYear()} © Mikael Pettersson.</Footer>

@@ -3,13 +3,26 @@ import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
 import { packages } from '../navigation';
 
+const listPages = generateStaticParamsFor('mdxPath');
+
 /**
  * Enumerates one route per MDX file under `content/`.
  *
  * `output: 'export'` in next.config.ts has no server to render an unlisted
  * route, so a page missing from this list is missing from the deployed site.
+ *
+ * The segment is a required catch-all, `[...mdxPath]`, because `/` is
+ * `app/page.tsx` -- the landing page, which is not an MDX document and does
+ * not render inside the theme's article frame -- and Next refuses an optional
+ * catch-all beside a page of the same specificity. Nextra lists the root route
+ * as an empty path, so it is dropped here rather than handed to a segment that
+ * cannot take it.
  */
-export const generateStaticParams = generateStaticParamsFor('mdxPath');
+export async function generateStaticParams() {
+  return (await listPages()).filter(
+    (entry) => entry.mdxPath?.length && entry.mdxPath[0] !== '',
+  );
+}
 
 interface GenerateMetadataProps {
   params: Promise<{ mdxPath: string[] }>;
@@ -37,12 +50,12 @@ interface PageProps {
  *
  * A page under `content/urn/` is a URN page, which is the only thing the route
  * knows and all this needs: everything below it -- the title, the rule under it,
- * the anchor links -- reads `--baize-hue` and takes the package's colour. The
- * landing page and anything outside a package section get no class and fall back
- * to the ground, which is what the library's own rules already do.
+ * the anchor links -- reads `--baize-hue` and takes the package's colour. A page
+ * outside a package section gets no class and falls back to the ground, which
+ * is what the library's own rules already do.
  */
-function identity(mdxPath: string[] | undefined): string {
-  const entry = packages.find((item) => item.slug === mdxPath?.[0]);
+function identity(mdxPath: string[]): string {
+  const entry = packages.find((item) => item.slug === mdxPath[0]);
 
   return entry ? `docs-identity ${categoricalClass(entry.hue)}` : '';
 }

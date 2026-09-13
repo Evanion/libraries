@@ -1,0 +1,377 @@
+/*
+ * The landing page.
+ *
+ * Every value is a `--baize-*` property from `@evanion/baize-ui/styles.css`,
+ * bound per theme in `app/global.css`, or `--baize-hue`, which the identity
+ * class on a package's subtree binds. No colour, radius or size of its own.
+ *
+ * The page is a widget region: `.landing-section` is the item chrome, and the
+ * `data-*` attributes on it are what `meta` in `items.ts` resolves to. The
+ * classes below it are the sections, each a different shape -- a tile index, a
+ * pair beside a listing, a row of cards, a list of rows -- because a page that
+ * repeats one card grid reads as a list, and a reader scrolling for one package
+ * has nothing to stop on.
+ */
+
+.landing {
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-section__inner {
+  box-sizing: border-box;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-block: var(--baize-space-7);
+  padding-inline: clamp(var(--baize-space-4), 4vw, var(--baize-space-6));
+}
+
+/* The hairline sits inside the width, so it ends where the text ends. */
+.landing-section[data-rule] .landing-section__inner {
+  border-top: 1px solid var(--baize-rule);
+}
+
+/*
+ * The raised ground. Full-bleed, on the material the cards are made of, with a
+ * hairline under it: the one large field of colour on the page, and the hero
+ * is what sits on it.
+ */
+.landing-section[data-ground='felt'] {
+  background: var(--baize-felt);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.landing-section[data-ground='felt'] .landing-section__inner {
+  padding-block: var(--baize-space-8);
+}
+
+/* The hero: the headline beside the index, level with it. */
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--baize-space-7);
+  align-items: center;
+}
+
+.landing-hero__text {
+  display: grid;
+  gap: var(--baize-space-5);
+}
+
+.landing-hero__text .baize-title {
+  max-width: 14ch;
+  text-wrap: balance;
+}
+
+/*
+ * The index: every package, two abreast.
+ *
+ * A tile is the package's colour as a field rather than as a title: a tint of
+ * the hue laid into the page ground, a spine of it down the left, and the name
+ * set in it. Eight tiles in eight hues is what makes the index scannable
+ * without reading -- a reader who has been in URN's pages finds its periwinkle
+ * before the word.
+ *
+ * The tint is mixed from `ink`, not `felt`, so on the raised ground the tile
+ * sits recessed into it, and on paper it lifts off the darker material.
+ */
+.landing-index {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--baize-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-tile__link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--baize-space-4);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 28%, var(--baize-rule));
+  border-left: 3px solid var(--baize-hue);
+  border-radius: var(--baize-radius-card);
+  background: color-mix(in oklab, var(--baize-hue) 10%, var(--baize-ink));
+  text-decoration: none;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    border-color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-tile__link:hover {
+  border-color: color-mix(in oklab, var(--baize-hue) 55%, var(--baize-rule));
+  background: color-mix(in oklab, var(--baize-hue) 18%, var(--baize-ink));
+}
+
+/* The marker: name and stack, each its own word. */
+.landing-marker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-1) var(--baize-space-3);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-moss);
+}
+
+.landing-marker__stack {
+  color: var(--baize-lichen);
+}
+
+/* The unreleased chip is a status, not a package colour: pinned to the
+   secondary text so it reads the same on every card. */
+.landing-marker .baize-chip {
+  color: var(--baize-lichen);
+}
+
+/* A title that is a link keeps the title's colour and gains an underline only
+   under the pointer. */
+.landing-route__title {
+  color: inherit;
+  text-decoration: none;
+}
+
+.landing-route__title:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+/* Rendering from data: the model on the left, the listing on the right. */
+.landing-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--baize-space-5);
+  align-items: start;
+}
+
+.landing-routes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--baize-space-5);
+  margin: var(--baize-space-3) 0 0;
+  padding: var(--baize-space-4) 0 0;
+  border-top: 1px solid var(--baize-rule);
+  list-style: none;
+}
+
+.landing-routes > li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--baize-space-3);
+}
+
+/*
+ * The listing: the page's own items, set as a design object rather than
+ * dropped in a grey box. It carries the flagship's hue on its edge and in its
+ * strings, which is what says "this is the widget library" without a label.
+ */
+.landing-listing {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  border-radius: var(--baize-radius-card);
+  background: color-mix(in oklab, var(--baize-hue) 6%, var(--baize-ink));
+}
+
+.landing-listing__caption {
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+/*
+ * The array, flowed into two columns: the brackets span the row, the items
+ * fill it in order. Two columns beside the card is what puts the whole list
+ * in view at once instead of twice the card's height down the page.
+ */
+.landing-listing__code {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--baize-space-2) var(--baize-space-4);
+  margin: 0;
+  padding: var(--baize-space-4);
+  color: var(--baize-moss);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+  /* The hero's two sentences are the one long value; they wrap rather than
+     scroll, so the whole listing is readable without touching it. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.landing-listing__bracket {
+  grid-column: 1 / -1;
+}
+
+.landing-listing__item {
+  display: block;
+  font: inherit;
+}
+
+.landing-listing__key {
+  color: var(--baize-chalk);
+}
+
+.landing-listing__string {
+  color: var(--baize-hue);
+}
+
+/* Identifiers and codes: one column per member, however many there are. */
+.landing-cards {
+  display: grid;
+  grid-template-columns: repeat(var(--landing-columns, 3), minmax(0, 1fr));
+  gap: var(--baize-space-4);
+  margin: var(--baize-space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-cards > li {
+  display: flex;
+  min-width: 0;
+}
+
+.landing-cards > li > .baize-card {
+  flex: 1;
+}
+
+/*
+ * The specimen: the thing the package produces, set at the display step in
+ * the reading family with tabular figures, on a field of the package's hue.
+ * The marked segment -- the namespace, the check character -- is in the hue;
+ * the scaffolding around it steps back.
+ */
+.landing-specimen {
+  margin: 0;
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(in oklab, var(--baize-hue) 10%, var(--baize-ink));
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-lg);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-snug);
+  line-height: var(--baize-leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.landing-specimen__mark {
+  color: var(--baize-hue);
+}
+
+.landing-specimen__dim {
+  color: var(--baize-moss);
+  font-weight: 400;
+}
+
+/* On their own: a row each, on hairlines, with the package's spine. */
+.landing-rows {
+  margin: var(--baize-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--baize-space-3) var(--baize-space-6);
+  padding: var(--baize-space-4) 0 var(--baize-space-4) var(--baize-space-4);
+  border-top: 1px solid var(--baize-rule);
+  border-left: 3px solid var(--baize-hue);
+}
+
+.landing-row:last-child {
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.landing-row .landing-marker {
+  justify-content: flex-end;
+}
+
+/* The colophon: how the pages work, and the rest of the project. */
+.landing-colophon {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--baize-space-6);
+}
+
+.landing-colophon > div {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+}
+
+.landing-elsewhere {
+  display: grid;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--baize-text-sm);
+}
+
+.landing-link {
+  color: var(--baize-chalk);
+  text-decoration-color: var(--baize-moss);
+  text-underline-offset: 3px;
+}
+
+.landing-link:hover {
+  text-decoration-color: var(--baize-lichen);
+}
+
+.landing *:focus-visible {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+@media (max-width: 64rem) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--baize-space-6);
+  }
+
+  .landing-hero__text .baize-title {
+    max-width: none;
+  }
+}
+
+@media (max-width: 52rem) {
+  .landing-pair,
+  .landing-cards,
+  .landing-colophon {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landing-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--baize-space-2);
+  }
+
+  .landing-row .landing-marker {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 30rem) {
+  .landing-index,
+  .landing-routes,
+  .landing-listing__code {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-tile__link {
+    transition: none;
+  }
+}
