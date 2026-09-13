@@ -1,19 +1,23 @@
 import { memo } from 'react';
+import type { ReactNode } from 'react';
+import {
+  ERROR_MESSAGES,
+  validateItems,
+  warnOnce,
+  type WidgetMeta,
+  type WidgetProblem,
+  type WidgetRegistry,
+} from '@evanion/widget';
 import type {
+  AnyWidgetComponent,
   RenderableWidgetItem,
-  WidgetComponentMap,
   WidgetItem,
   WidgetItemComponent,
-  WidgetItemProblem,
-  WidgetMeta,
   WidgetsConfig,
   WidgetsProps,
 } from './types.js';
 import { DefaultItem, DefaultWrapper } from './widgets.js';
 import { renderWidget } from './utils.js';
-import { validateItems } from './validate-items.js';
-import { ERROR_MESSAGES } from './constants.js';
-import { warnOnce } from './warn.js';
 
 /**
  * Builds a widget set from a component map.
@@ -45,7 +49,7 @@ import { warnOnce } from './warn.js';
  * ```
  */
 export function createWidgets<
-  const C extends WidgetComponentMap,
+  const C extends WidgetRegistry<AnyWidgetComponent>,
   M = WidgetMeta,
 >(config: WidgetsConfig<C, M>) {
   const { components: defaultComponents, chrome: defaultChrome } = config;
@@ -73,23 +77,34 @@ export function createWidgets<
       return null;
     }
 
+    // The single, documented widening from the checked WidgetItem<C, M> union
+    // to the renderer's erased view. See RenderableWidgetItem. The item chrome
+    // is erased with it: the renderer hands it whatever `meta` the item
+    // carried, and M is what checked that it was the right shape.
+    const erased = items as unknown as RenderableWidgetItem[];
+
+    // Rendered first, then split, so that `items` and `children` stay aligned
+    // index for index. `renderWidget` returns null for an item it skipped --
+    // malformed, or a type the registry does not hold -- and a wrapper reading
+    // `items[i]` for `children[i]` would otherwise be handed the wrong item
+    // from the first skip onwards, which is exactly when the renderer is
+    // already warning about something.
+    const rendered: [RenderableWidgetItem, ReactNode][] = [];
+    for (const item of erased) {
+      const node = renderWidget(
+        item,
+        components,
+        ItemWrapper as WidgetItemComponent,
+        ctx,
+        suspenseFallback,
+        suspense,
+      );
+      if (node !== null) rendered.push([item, node]);
+    }
+
     return (
-      <Wrapper>
-        {/* The single, documented widening from the checked WidgetItem<C, M>
-            union to the renderer's erased view. See RenderableWidgetItem.
-            The item chrome is erased with it: the renderer hands it whatever
-            `meta` the item carried, and M is what checked that it was the
-            right shape. */}
-        {(items as unknown as RenderableWidgetItem[]).map((item) =>
-          renderWidget(
-            item,
-            components,
-            ItemWrapper as WidgetItemComponent,
-            ctx,
-            suspenseFallback,
-            suspense,
-          ),
-        )}
+      <Wrapper items={rendered.map(([item]) => item)}>
+        {rendered.map(([, node]) => node)}
       </Wrapper>
     );
   });
@@ -119,8 +134,10 @@ export function createWidgets<
    * explicit gate run at ingestion or build time, and the renderer is the
    * safety net underneath it.
    */
-  const boundValidateItems = (items: unknown): WidgetItemProblem[] =>
-    validateItems(items, defaultComponents);
+  const boundValidateItems = (
+    items: unknown,
+    required?: Record<string, string[]>,
+  ): WidgetProblem[] => validateItems(items, defaultComponents, required);
 
   return { Widgets, defineItems, validateItems: boundValidateItems };
 }
