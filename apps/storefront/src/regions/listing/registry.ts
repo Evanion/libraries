@@ -13,23 +13,29 @@ import type { Game } from '../../lib/shop-api.js';
 export const listingRegistry = defineBlocks({ game: GameCard });
 
 /** Fields `validateBlocks` must find on each type. */
-export const listingRequired = { game: ['game'] };
+export const listingRequired = { game: ['game', 'back'] };
 
 /**
  * Turns a catalogue response into listing blocks.
  *
+ * @param back Where a card's add-to-cart returns the shopper to. A block prop
+ * and not `meta`: the card posts it, so it is the card's business, and a listing
+ * on the landing page and the same listing on a category page have to send a
+ * shopper back to two different places.
  * @param featured The urn to give a two-column cell, if it is in `games`. It
  * reaches the chrome through `meta` and never the card, because how wide a cell
  * sits is the listing's decision and not the card's.
  */
 export function listingItems(
   games: readonly Game[],
+  back: string,
   featured?: string,
 ): BlockItem[] {
   return games.map((game) => ({
     type: 'game',
     id: game.urn,
     game,
+    back,
     meta: { span: game.urn === featured ? 2 : 1 },
   }));
 }

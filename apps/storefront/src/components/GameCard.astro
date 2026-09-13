@@ -3,30 +3,54 @@ import { classNames } from '@evanion/baize-ui/tokens';
 
 import { formatPrice, gameLadderClass } from '../lib/catalogue.js';
 import type { Game } from '../lib/shop-api.js';
+import AddToCart from './AddToCart.astro';
 import AvailabilityPill from './AvailabilityPill.astro';
+import BoxArt from './BoxArt.astro';
 import MechanismTags from './MechanismTags.astro';
 import StatLine from './StatLine.astro';
 
 interface Props {
   game: Game;
+  /** Where adding a copy returns the shopper to. The page they are on. */
+  back: string;
 }
 
-const { game } = Astro.props;
+const { game, back } = Astro.props;
+const sellable =
+  game.availability === 'in-stock' || game.availability === 'preorder';
 ---
 
-{/* The library's `Card` with a `Title` in its head and a `Figure` in its foot, as
-    Astro.
+{/* The library's `Card` with its media, head and foot slots filled, as Astro.
+
+    Picture first. A shop leads with the thing being sold, and the version of this
+    card that opened with a title, a pill and a wall of tags read as a spreadsheet
+    row: the price sat at the bottom in body weight with an empty gap above it and
+    nothing on the card to press. Now the art is the first row, the title and the
+    price share the second, the tags and the stat line support them, and the foot
+    is a button that puts a copy in the cart.
+
+    The availability pill is pinned to the art rather than sharing the title's
+    line. That line is why one card's title wrapped and the next card's did not,
+    which is how a row of cards ended up with nothing at the same height.
 
     The ladder is on the title rather than on the card: the design makes the title
-    the place a reader identifies a game by colour, and a card that tinted everything
-    inside it would put the ramp on the price as well. One saturated data signal per
-    card, plus the box art -- the mechanism tags and the availability pill keep their
-    shapes and spend no hue on the ladder's behalf.
+    the place a reader identifies a game by colour, and a card that tinted
+    everything inside it would put the ramp on the price as well. One saturated
+    data signal per card, plus the box art -- the mechanism tags and the
+    availability pill keep their shapes and spend no hue on the ladder's behalf.
 
     Not a list item: the card is a listing block, and the cell around it comes from
     that region's chrome. A card that wrote its own `<li>` could not be put
     anywhere else. */}
 <div class="baize-card" data-game={game.urn}>
+  <div class="baize-card__media">
+    <a class="card-art" href={`/g/${game.urn}`} tabindex="-1" aria-hidden="true">
+      <BoxArt urn={game.urn} />
+    </a>
+    <div class="baize-card__pin">
+      <AvailabilityPill availability={game.availability} />
+    </div>
+  </div>
   <div class="baize-card__head">
     <h3
       class={classNames(
@@ -37,7 +61,9 @@ const { game } = Astro.props;
     >
       <a class="title-link" href={`/g/${game.urn}`}>{game.title}</a>
     </h3>
-    <AvailabilityPill availability={game.availability} />
+    <span class="baize-figure baize-figure--size-md">
+      {formatPrice(game.price)}
+    </span>
   </div>
   <MechanismTags mechanisms={game.mechanisms} />
   <StatLine
@@ -46,9 +72,12 @@ const { game } = Astro.props;
     complexity={game.complexity}
   />
   <div class="baize-card__foot">
-    <span class="baize-figure baize-figure--size-md">
-      {formatPrice(game.price)}
-    </span>
+    <AddToCart
+      back={back}
+      disabled={!sellable}
+      label={sellable ? 'Add to cart' : 'Not orderable'}
+      urn={game.urn}
+    />
     {
       game.expansions.length > 0 && (
         <span class="baize-text baize-text--tone-lichen baize-text--size-sm">

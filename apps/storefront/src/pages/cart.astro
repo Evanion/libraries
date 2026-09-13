@@ -1,5 +1,6 @@
 ---
 import ApiOffline from '../components/ApiOffline.astro';
+import BoxArt from '../components/BoxArt.astro';
 import { OrderURN } from '../domain/order.urn.js';
 import Page from '../layouts/Page.astro';
 import {
@@ -87,16 +88,24 @@ const catalogue = await api.games();
 
 // Prices are read from the catalogue on this request rather than stored in the
 // cart cookie, so a price change cannot be carried along in a reader's browser.
-const priced = new Map<string, { title: string; price: number; href: string }>();
+// `art` is the parent game's urn on both a game line and an expansion line: an
+// expansion has no box of its own here, and the tile a shopper recognises the
+// line by is the game's.
+const priced = new Map<
+  string,
+  { title: string; price: number; href: string; art: string }
+>();
 if (catalogue.ok) {
   for (const game of catalogue.value) {
     priced.set(game.urn, {
+      art: game.urn,
       title: game.title,
       price: game.price,
       href: `/g/${game.urn}`,
     });
     for (const expansion of game.expansions) {
       priced.set(expansion.urn, {
+        art: game.urn,
         title: `${game.title}: ${expansion.title}`,
         price: expansion.price,
         href: `/g/${game.urn}`,
@@ -178,6 +187,11 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
           <>
             {rows.map(({ line, item }) => (
               <div class="cart__row">
+                {item && (
+                  <a class="cart__art" href={item.href} aria-hidden="true" tabindex="-1">
+                    <BoxArt urn={item.art} />
+                  </a>
+                )}
                 <div>
                   <a
                     class="baize-title baize-title--size-sm title-link"

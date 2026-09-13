@@ -71,7 +71,7 @@ const ctx = {
               {selected.length === 1 ? ' title' : ' titles'}
             </div>
           </div>
-          <CatalogueListing games={selected} />
+          <CatalogueListing back={Astro.url.pathname} games={selected} />
         </div>
       </div>
     ) : (

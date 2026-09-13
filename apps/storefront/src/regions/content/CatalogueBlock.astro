@@ -15,7 +15,7 @@ interface Props {
 }
 
 const { heading, mechanism, limit, featured, ctx } = Astro.props;
-const { games } = regionCtx(ctx);
+const { games, path } = regionCtx(ctx);
 const selected = mechanism ? gamesByMechanism(games, mechanism) : games;
 const shown = typeof limit === 'number' ? selected.slice(0, limit) : selected;
 ---
@@ -35,5 +35,5 @@ const shown = typeof limit === 'number' ? selected.slice(0, limit) : selected;
       )
     }
   </div>
-  <CatalogueListing games={shown} featured={featured} />
+  <CatalogueListing back={path} games={shown} featured={featured} />
 </div>

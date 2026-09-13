@@ -1,23 +1,83 @@
 ---
-import { classNames } from '@evanion/baize-ui/tokens';
+import {
+  BOX_ART_VIEW_BOX,
+  boxArtPhoto,
+  boxArtScene,
+  classNames,
+} from '@evanion/baize-ui/tokens';
 
-import { boxArtPaletteClass } from '../lib/catalogue.js';
+import { boxArtPaletteClass, boxArtPhotoUrl } from '../lib/catalogue.js';
 
 interface Props {
   /** The game whose box this stands in for, as a full game urn. */
   urn: string;
-  /** The title, as the catalogue spells it. */
-  title: string;
+  /**
+   * The title, where the tile is standing on its own. Left off wherever the
+   * title is already beside the tile, which on a card and on a detail page is
+   * everywhere: a name printed over the art is a caption, not box art.
+   */
+  label?: string;
 }
 
-const { urn, title } = Astro.props;
+const { urn, label } = Astro.props;
+
+// Seeded on the urn, so Wingspan draws the same ridgeline here, on the detail
+// page and in the Next shop next door.
+const scene = boxArtScene(urn);
+const photo = boxArtPhoto(boxArtPhotoUrl(urn));
+const style = {
+  '--baize-art-light-x': scene.light.x,
+  '--baize-art-light-y': scene.light.y,
+  '--baize-art-horizon': scene.horizon,
+  ...(photo ? { '--baize-art-photo': photo } : {}),
+};
 ---
 
-{/* The library's `BoxArtPlaceholder`, as Astro: a blurred gradient in roughly the
-    box's own colours where a photograph will go.
+{/* The library's `BoxArtPlaceholder`, as Astro: the stylised vista a photograph
+    of the box will eventually cover. Same class names, same document order, same
+    markup -- `baize-contract.astro.test.ts` renders this against the React
+    component for the same game and fails on a divergence.
 
-    The palette comes from the app's catalogue mapping, so a game nobody has mapped
-    paints the neutral gradient rather than a grey hole. */}
-<div class={classNames('baize-box-art', boxArtPaletteClass(urn))}>
-  <span class="baize-box-art__label">{title}</span>
+    Both halves draw from `boxArtScene` on the React-free tokens entry rather than
+    each carrying its own geometry. That is the only thing that makes two
+    independent implementations of a hand-drawn landscape possible at all: the
+    shapes are data, and this file and the React one are two renderings of it.
+
+    The palette comes from the app's catalogue mapping, so a game nobody has
+    mapped paints the neutral vista rather than a grey hole. */}
+<div
+  aria-hidden={label ? undefined : true}
+  class={classNames('baize-box-art', boxArtPaletteClass(urn))}
+  style={style}
+>
+  <svg
+    aria-hidden="true"
+    class="baize-box-art__scene"
+    preserveAspectRatio="xMidYMid slice"
+    viewBox={`0 0 ${BOX_ART_VIEW_BOX.width} ${BOX_ART_VIEW_BOX.height}`}
+  >
+    <circle
+      class="baize-box-art__disc"
+      cx={scene.disc.cx}
+      cy={scene.disc.cy}
+      r={scene.disc.r}
+    />
+    {
+      scene.ridges.map((ridge) => (
+        <Fragment>
+          <path
+            class={`baize-box-art__ridge baize-box-art__ridge--depth-${ridge.depth}`}
+            d={ridge.fill}
+          />
+          <path
+            class={`baize-box-art__crest baize-box-art__crest--depth-${ridge.depth}`}
+            d={ridge.crest}
+          />
+        </Fragment>
+      ))
+    }
+    <path class="baize-box-art__fore" d={scene.foreground} />
+  </svg>
+  <div class="baize-box-art__photo"></div>
+  {label && <span class="baize-box-art__label">{label}</span>}
 </div>
