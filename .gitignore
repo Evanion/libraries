@@ -57,6 +57,16 @@ error.log
 # Next.js
 .next
 out
+# Written by every `next` command, and its content depends on which one ran:
+# `next dev` points the route-type imports at `.next/dev/types`, `next build` at
+# `.next/types` (next/dist/lib/typescript/writeAppTypeDeclarations.js builds the
+# path from distDir). Next's convention is to commit it, which assumes one
+# checkout does not see both commands. This one does, so a dev server dirties
+# the tree and a pull aborts. The imports it carries name files under `.next`,
+# which is ignored, so a fresh clone gains nothing from the committed copy; the
+# `next` ambient types it references are back as soon as any `next` command
+# runs.
+**/next-env.d.ts
 
 # Pagefind search index
 _pagefind/
@@ -69,3 +79,14 @@ _pagefind/
 apps/storefront/.astro/
 apps/storefront/dist/
 *.tsbuildinfo
+
+# Screenshots and browser-automation output, written to the working directory by
+# whatever is driving a browser. Anchored to the root because that is where a
+# tool run from the repository writes them, and because every image the repo
+# actually ships lives under an app's public/ directory.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+/.playwright-mcp/
