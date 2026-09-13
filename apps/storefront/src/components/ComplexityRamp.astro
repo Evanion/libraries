@@ -2,13 +2,13 @@
 import {
   classNames,
   modifier,
-  type WeightStop,
+  type ComplexityStop,
 } from '@evanion/baize-ui/tokens';
 
 interface Props {
   /** How many pips are filled, and therefore which ramp stops they take. */
-  stop: WeightStop;
-  /** The accessible name, already worded: `weight 2.4 of 5`. */
+  stop: ComplexityStop;
+  /** The accessible name, already worded: `complexity 2.4 of 5`. */
   label: string;
 }
 
@@ -16,16 +16,16 @@ const { stop, label } = Astro.props;
 const pips = [1, 2, 3, 4, 5] as const;
 ---
 
-{/* The library's `WeightRamp`, as Astro. `role="img"` with the rating in the
+{/* The library's `ComplexityRamp`, as Astro. `role="img"` with the rating in the
     label, because five coloured pips say nothing to a screen reader and the
     figure beside them is the real content. */}
-<span aria-label={label} class="baize-weight" role="img">
+<span aria-label={label} class="baize-complexity" role="img">
   {
     pips.map((pip) => (
       <span
         class={classNames(
-          'baize-weight__pip',
-          pip <= stop && modifier('baize-weight__pip', 'stop', pip),
+          'baize-complexity__pip',
+          pip <= stop && modifier('baize-complexity__pip', 'stop', pip),
         )}
       />
     ))

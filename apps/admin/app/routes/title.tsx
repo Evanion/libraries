@@ -9,7 +9,7 @@ import {
   TagRow,
   Text,
   Title as BaizeTitle,
-  WeightRamp,
+  ComplexityRamp,
 } from '@evanion/baize-ui';
 import { Form, Link, href, isRouteErrorResponse } from 'react-router';
 import type { Route } from './+types/title';
@@ -19,9 +19,9 @@ import { useRestock } from '../providers.js';
 import {
   AVAILABILITY_STATES,
   availabilityToken,
-  formatWeight,
+  formatComplexity,
   mechanismToken,
-  weightStop,
+  complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
 
@@ -124,10 +124,10 @@ export default function Title({
         <StatLine label={`${row.title} at a glance`} size="lg">
           <Stat figure={row.players} label="players" />
           <Stat figure={row.playtime} label="playtime" />
-          <Stat figure={formatWeight(row.weight)} label="weight">
-            <WeightRamp
-              label={`weight ${formatWeight(row.weight)} of 5`}
-              stop={weightStop(row.weight)}
+          <Stat figure={formatComplexity(row.complexity)} label="complexity">
+            <ComplexityRamp
+              label={`complexity ${formatComplexity(row.complexity)} of 5`}
+              stop={complexityStop(row.complexity)}
             />
           </Stat>
           <Stat figure={String(row.quantity)} label="on hand" />

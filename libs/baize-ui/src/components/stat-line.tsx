@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { WeightStop } from '../tokens/weight.js';
+import type { ComplexityStop } from '../tokens/complexity.js';
 import { classNames, modifier } from './class-names.js';
 
 export interface StatProps {
@@ -10,9 +10,9 @@ export interface StatProps {
    * decisions the app's request context owns.
    */
   figure: string;
-  /** What the figure is: `players`, `playtime`, `weight`. */
+  /** What the figure is: `players`, `playtime`, `complexity`. */
   label: string;
-  /** Anything that belongs under the label, such as a `WeightRamp`. */
+  /** Anything that belongs under the label, such as a `ComplexityRamp`. */
   children?: ReactNode;
 }
 
@@ -39,7 +39,7 @@ export interface StatLineProps {
 }
 
 /**
- * Players, time and weight in a rule-bounded row.
+ * Players, time and complexity in a rule-bounded row.
  *
  * The design's hero and structural device: it leads rather than sitting beneath a
  * photograph, because those three figures are how anyone identifies a game at a
@@ -61,11 +61,11 @@ export function StatLine({ children, size = 'base', label }: StatLineProps) {
   );
 }
 
-export interface WeightRampProps {
+export interface ComplexityRampProps {
   /** How many pips are filled, and therefore which ramp stops they take. */
-  stop: WeightStop;
+  stop: ComplexityStop;
   /**
-   * The accessible name, already worded and already formatted: `weight 2.4 of 5`.
+   * The accessible name, already worded and already formatted: `complexity 2.4 of 5`.
    * The ramp is a graphic, so this is the only thing a screen reader gets from
    * it.
    */
@@ -79,14 +79,14 @@ export interface WeightRampProps {
  * sequential, and a bar that lightens left to right reads as a scale where a
  * uniform bar reads as a count.
  */
-export function WeightRamp({ stop, label }: WeightRampProps) {
+export function ComplexityRamp({ stop, label }: ComplexityRampProps) {
   return (
-    <span aria-label={label} className="baize-weight" role="img">
+    <span aria-label={label} className="baize-complexity" role="img">
       {([1, 2, 3, 4, 5] as const).map((pip) => (
         <span
           className={classNames(
-            'baize-weight__pip',
-            pip <= stop && modifier('baize-weight__pip', 'stop', pip),
+            'baize-complexity__pip',
+            pip <= stop && modifier('baize-complexity__pip', 'stop', pip),
           )}
           key={pip}
         />

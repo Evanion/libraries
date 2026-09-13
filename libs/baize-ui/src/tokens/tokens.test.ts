@@ -8,7 +8,7 @@ import { contrast } from './contrast.js';
 import { customProperties } from './custom-properties.js';
 import { ground } from './ground.js';
 import { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
-import { weight, WEIGHT_CONTRAST_FLOOR } from './weight.js';
+import { complexity, COMPLEXITY_CONTRAST_FLOOR } from './complexity.js';
 
 const DESIGN_SPEC = join(
   import.meta.dirname,
@@ -111,26 +111,26 @@ describe('contrast against felt', () => {
     });
   }
 
-  for (const [stop, value] of Object.entries(weight)) {
-    it(`holds weight.${stop} at ${WEIGHT_CONTRAST_FLOOR}:1`, () => {
+  for (const [stop, value] of Object.entries(complexity)) {
+    it(`holds complexity.${stop} at ${COMPLEXITY_CONTRAST_FLOOR}:1`, () => {
       const ratio = contrast(value, ground.felt);
       expect(
         Number(ratio.toFixed(2)),
-        `weight.${stop} (${value}) reaches ${ratio.toFixed(2)}:1 on felt. A ` +
+        `complexity.${stop} (${value}) reaches ${ratio.toFixed(2)}:1 on felt. A ` +
           `pip is a non-text graphic, so the floor is 3:1 rather than 4.5:1.`,
-      ).toBeGreaterThanOrEqual(WEIGHT_CONTRAST_FLOOR);
+      ).toBeGreaterThanOrEqual(COMPLEXITY_CONTRAST_FLOOR);
     });
   }
 
-  it('runs the weight ramp in one direction', () => {
-    const ratios = Object.values(weight).map((value) =>
+  it('runs the complexity ramp in one direction', () => {
+    const ratios = Object.values(complexity).map((value) =>
       contrast(value, ground.felt),
     );
     const ascending = [...ratios].sort((a, b) => a - b);
 
     expect(
       ratios,
-      `The weight ramp is sequential: stop 1 is the most recessive and stop 5 ` +
+      `The complexity ramp is sequential: stop 1 is the most recessive and stop 5 ` +
         `the brightest. Two apps built this in opposite directions, which is ` +
         `the drift the ramp exists to end.`,
     ).toEqual(ascending);

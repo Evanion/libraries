@@ -3,7 +3,7 @@ import {
   Figure,
   Text,
   Title,
-  WeightRamp,
+  ComplexityRamp,
 } from '@evanion/baize-ui';
 import { Link } from 'react-router';
 import { createWidgets } from '@evanion/react-widget';
@@ -14,9 +14,9 @@ import type {
 import type { CSSProperties, ReactNode } from 'react';
 import {
   availabilityToken,
-  formatWeight,
+  formatComplexity,
   mechanismToken,
-  weightStop,
+  complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
 
@@ -90,7 +90,7 @@ function ShelfRow({
   mechanism,
   players,
   playtime,
-  weight,
+  complexity,
   quantity,
   availability,
   href,
@@ -100,7 +100,7 @@ function ShelfRow({
   mechanism: string;
   players: string;
   playtime: string;
-  weight: number;
+  complexity: number;
   quantity: number;
   availability: Availability;
   href: string;
@@ -128,13 +128,13 @@ function ShelfRow({
         </Text>
       </Cell>
       <Cell align="end">
-        <span className="weight-cell">
-          <WeightRamp
-            label={`weight ${formatWeight(weight)} of 5`}
-            stop={weightStop(weight)}
+        <span className="complexity-cell">
+          <ComplexityRamp
+            label={`complexity ${formatComplexity(complexity)} of 5`}
+            stop={complexityStop(complexity)}
           />
           <Text as="span" size="sm">
-            {formatWeight(weight)}
+            {formatComplexity(complexity)}
           </Text>
         </span>
       </Cell>

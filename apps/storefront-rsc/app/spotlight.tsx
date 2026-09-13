@@ -9,7 +9,7 @@ import {
   TagRow,
   Text,
   Title,
-  WeightRamp,
+  ComplexityRamp,
 } from '@evanion/baize-ui';
 
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
@@ -18,9 +18,9 @@ import {
   availabilityToken,
   boxArtPalette,
   formatPrice,
-  formatWeight,
+  formatComplexity,
   mechanismToken,
-  weightStop,
+  complexityStop,
 } from './tokens';
 
 /**
@@ -82,10 +82,10 @@ export async function Spotlight({ urn }: { urn: string }) {
         <StatLine label={`${game.title} at a glance`} size="lg">
           <Stat figure={game.players} label="players" />
           <Stat figure={game.playtime} label="playtime" />
-          <Stat figure={formatWeight(game.weight)} label="weight">
-            <WeightRamp
-              label={`weight ${game.weight.toFixed(1)} of 5`}
-              stop={weightStop(game.weight)}
+          <Stat figure={formatComplexity(game.complexity)} label="complexity">
+            <ComplexityRamp
+              label={`complexity ${game.complexity.toFixed(1)} of 5`}
+              stop={complexityStop(game.complexity)}
             />
           </Stat>
         </StatLine>

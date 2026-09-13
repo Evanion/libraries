@@ -1,6 +1,6 @@
 /**
  * Turning catalogue data into what the design system takes: a mechanism, an
- * availability state, a ramp stop, a box-art palette, a price, a weight.
+ * availability state, a ramp stop, a box-art palette, a price, a complexity.
  *
  * `@evanion/baize-ui` takes enum members and already-formatted strings, so this
  * is where the catalogue's own vocabulary is translated into the library's.
@@ -19,7 +19,7 @@ import {
   type Availability as BaizeAvailability,
   type BoxArtPalette,
   type Mechanism,
-  type WeightStop,
+  type ComplexityStop,
 } from '@evanion/baize-ui/tokens';
 
 import type { Availability, Game } from './shop-api.js';
@@ -146,22 +146,22 @@ export function formatPrice(minorUnits: number): string {
   return PRICE.format(minorUnits / 100);
 }
 
-/** Weight as the stat line shows it: one decimal, against the scale's top. */
-export function formatWeight(weight: number): string {
-  return `${weight.toFixed(1)} / 5`;
+/** Complexity as the stat line shows it: one decimal, against the scale's top. */
+export function formatComplexity(complexity: number): string {
+  return `${complexity.toFixed(1)} / 5`;
 }
 
 /**
- * Which stop on the five-stop ramp a weight reaches, or nothing for an unrated
+ * Which stop on the five-stop ramp a complexity reaches, or nothing for an unrated
  * game.
  *
  * Rounded up, so 2.4 reaches stop 3: the last filled pip stands for the part of
  * a step the game is into, and a heavier game never shows fewer pips than a
  * lighter one.
  */
-export function weightStop(weight: number): WeightStop | undefined {
-  if (!Number.isFinite(weight) || weight <= 0) return undefined;
-  return Math.min(5, Math.ceil(weight)) as WeightStop;
+export function complexityStop(complexity: number): ComplexityStop | undefined {
+  if (!Number.isFinite(complexity) || complexity <= 0) return undefined;
+  return Math.min(5, Math.ceil(complexity)) as ComplexityStop;
 }
 
 /** Every mechanism in the catalogue, in catalogue order, without repeats. */

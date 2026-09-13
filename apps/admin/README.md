@@ -91,7 +91,7 @@ checks nothing.
 ## Design
 
 Tokens and shared primitives are all in `app/ui/baize.tsx` — palette, type scale,
-radii, the mechanism hues, the availability pills, the weight ramp, and the stat
+radii, the mechanism hues, the availability pills, the complexity ramp, and the stat
 line. They are destined for a shared UI library that `apps/storefront`,
 `apps/rsc-example` and `apps/docs` will also consume, so the file is
 self-contained and nothing outside it defines a colour, radius or type size.

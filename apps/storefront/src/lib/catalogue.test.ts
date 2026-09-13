@@ -4,14 +4,14 @@ import {
   availabilityStateClass,
   boxArtPaletteClass,
   formatPrice,
-  formatWeight,
+  formatComplexity,
   gameHueClass,
   gamesByMechanism,
   mechanismHueClass,
   mechanismSlug,
   mechanismToken,
   mechanisms,
-  weightStop,
+  complexityStop,
 } from './catalogue.js';
 import type { Game } from './shop-api.js';
 
@@ -21,7 +21,7 @@ const game = (overrides: Partial<Game> = {}): Game => ({
   mechanisms: ['tile placement', 'pattern building'],
   players: '2-4',
   playtime: '30-45 min',
-  weight: 1.8,
+  complexity: 1.8,
   price: 34900,
   availability: 'in-stock',
   expansions: [],
@@ -113,21 +113,21 @@ describe('formatPrice', () => {
   });
 });
 
-describe('weight', () => {
+describe('complexity', () => {
   it('shows one decimal against the top of the scale', () => {
-    expect(formatWeight(2.4)).toBe('2.4 / 5');
+    expect(formatComplexity(2.4)).toBe('2.4 / 5');
   });
 
   it('reaches the stop a rating is partway into', () => {
-    expect(weightStop(2.4)).toBe(3);
+    expect(complexityStop(2.4)).toBe(3);
   });
 
   it('never passes the five stops the ramp has', () => {
-    expect(weightStop(9)).toBe(5);
+    expect(complexityStop(9)).toBe(5);
   });
 
   it('reaches no stop at all for an unrated game', () => {
-    expect(weightStop(0)).toBeUndefined();
+    expect(complexityStop(0)).toBeUndefined();
   });
 });
 

@@ -358,8 +358,8 @@
  * and the range wraps.
  *
  * A column per stat, however many there are, rather than a fixed three. A
- * storefront card carries players, time and weight; a back office reads orders,
- * units sold, units on hand, mean weight and empty shelves off the same device,
+ * storefront card carries players, time and complexity; a back office reads orders,
+ * units sold, units on hand, mean complexity and empty shelves off the same device,
  * and a fixed template put the fourth figure underneath the first.
  *
  * Flex and not a grid, so the row wraps. A figure is `white-space: nowrap` --
@@ -412,35 +412,35 @@
   }
 }
 
-/* The weight ramp: five pips, each filled one carrying its own stop. */
-.baize-weight {
+/* The complexity ramp: five pips, each filled one carrying its own stop. */
+.baize-complexity {
   display: flex;
   gap: 2px;
   margin-top: var(--baize-space-1);
   min-width: 4rem;
 }
 
-.baize-weight__pip {
+.baize-complexity__pip {
   flex: 1;
   height: 3px;
   border-radius: 1px;
   background: color-mix(in oklab, var(--baize-rule) 70%, transparent);
 }
 
-.baize-weight__pip--stop-1 {
-  background: var(--baize-weight-1);
+.baize-complexity__pip--stop-1 {
+  background: var(--baize-complexity-1);
 }
-.baize-weight__pip--stop-2 {
-  background: var(--baize-weight-2);
+.baize-complexity__pip--stop-2 {
+  background: var(--baize-complexity-2);
 }
-.baize-weight__pip--stop-3 {
-  background: var(--baize-weight-3);
+.baize-complexity__pip--stop-3 {
+  background: var(--baize-complexity-3);
 }
-.baize-weight__pip--stop-4 {
-  background: var(--baize-weight-4);
+.baize-complexity__pip--stop-4 {
+  background: var(--baize-complexity-4);
 }
-.baize-weight__pip--stop-5 {
-  background: var(--baize-weight-5);
+.baize-complexity__pip--stop-5 {
+  background: var(--baize-complexity-5);
 }
 
 /*

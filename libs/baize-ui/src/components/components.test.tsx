@@ -17,7 +17,7 @@ import {
   StatLine,
   Text,
   Title,
-  WeightRamp,
+  ComplexityRamp,
 } from '../index.js';
 
 /**
@@ -34,8 +34,8 @@ describe('the stat line', () => {
       <StatLine label="Wingspan at a glance">
         <Stat figure="1–5" label="players" />
         <Stat figure="40–70 min" label="playtime" />
-        <Stat figure="2.4 / 5" label="weight">
-          <WeightRamp label="weight 2.4 of 5" stop={3} />
+        <Stat figure="2.4 / 5" label="complexity">
+          <ComplexityRamp label="complexity 2.4 of 5" stop={3} />
         </Stat>
       </StatLine>,
     );
@@ -63,12 +63,12 @@ describe('the stat line', () => {
   });
 });
 
-describe('the weight ramp', () => {
+describe('the complexity ramp', () => {
   it('fills pips up to the stop and leaves the rest unfilled', () => {
     const { container } = render(
-      <WeightRamp label="weight 3.9 of 5" stop={4} />,
+      <ComplexityRamp label="complexity 3.9 of 5" stop={4} />,
     );
-    const pips = [...container.querySelectorAll('.baize-weight__pip')];
+    const pips = [...container.querySelectorAll('.baize-complexity__pip')];
 
     expect(pips).toHaveLength(5);
     expect(
@@ -76,18 +76,18 @@ describe('the weight ramp', () => {
         [...pip.classList].find((name) => name.includes('--stop-')),
       ),
     ).toEqual([
-      'baize-weight__pip--stop-1',
-      'baize-weight__pip--stop-2',
-      'baize-weight__pip--stop-3',
-      'baize-weight__pip--stop-4',
+      'baize-complexity__pip--stop-1',
+      'baize-complexity__pip--stop-2',
+      'baize-complexity__pip--stop-3',
+      'baize-complexity__pip--stop-4',
       undefined,
     ]);
   });
 
   it('is one graphic with one name, not five', () => {
-    render(<WeightRamp label="weight 2.4 of 5" stop={3} />);
+    render(<ComplexityRamp label="complexity 2.4 of 5" stop={3} />);
     expect(screen.getByRole('img').getAttribute('aria-label')).toBe(
-      'weight 2.4 of 5',
+      'complexity 2.4 of 5',
     );
   });
 });

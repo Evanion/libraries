@@ -192,14 +192,14 @@ a {
   text-align: right;
 }
 
-/* Weight: the ramp, and the number beside it. */
-.weight-cell {
+/* Complexity: the ramp, and the number beside it. */
+.complexity-cell {
   display: inline-flex;
   align-items: center;
   gap: var(--baize-space-2);
 }
 
-.weight-cell .baize-weight {
+.complexity-cell .baize-complexity {
   min-width: 2.5rem;
 }
 

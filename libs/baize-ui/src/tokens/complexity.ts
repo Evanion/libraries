@@ -1,13 +1,13 @@
 /**
- * The contrast floor every weight stop is held to, against `felt`.
+ * The contrast floor every complexity stop is held to, against `felt`.
  *
  * 3:1, the WCAG floor for a non-text graphic, because the ramp paints the pips
- * beside the weight figure and never the figure itself -- that stays `chalk`.
+ * beside the complexity figure and never the figure itself -- that stays `chalk`.
  */
-export const WEIGHT_CONTRAST_FLOOR = 3;
+export const COMPLEXITY_CONTRAST_FLOOR = 3;
 
 /**
- * Five stops, darkest first. Weight is ordinal, so the ramp is sequential in
+ * Five stops, darkest first. Complexity is ordinal, so the ramp is sequential in
  * lightness within one hue.
  *
  * The direction is part of the token: a filled pip gets its own stop's colour, so
@@ -22,7 +22,7 @@ export const WEIGHT_CONTRAST_FLOOR = 3;
  * The darkest stop is lifted off the storefront's original `#3b5a52`, which
  * reached 2.1:1 on felt and was invisible at a pip's 3px.
  */
-export const weight = {
+export const complexity = {
   1: '#5A7A6F',
   2: '#6F8C81',
   3: '#8AA096',
@@ -30,5 +30,5 @@ export const weight = {
   5: '#C2CDC4',
 } as const;
 
-/** A stop on the weight ramp. Ordinal, 1 to 5. */
-export type WeightStop = keyof typeof weight;
+/** A stop on the complexity ramp. Ordinal, 1 to 5. */
+export type ComplexityStop = keyof typeof complexity;

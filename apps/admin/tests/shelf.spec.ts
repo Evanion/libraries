@@ -7,12 +7,12 @@ import {
 } from '../app/shelf.js';
 import {
   mechanism as mechanismHues,
-  weight as weightRamp,
+  complexity as complexityRamp,
 } from '@evanion/baize-ui/tokens';
 import {
   availabilityToken,
   mechanismToken,
-  weightStop,
+  complexityStop,
 } from '../app/ui/catalogue.js';
 import type { Game, Stock } from '../app/shop-api.server.js';
 
@@ -23,7 +23,7 @@ const games: Game[] = [
     mechanisms: ['engine building'],
     players: '1-5',
     playtime: '40-70 min',
-    weight: 2.4,
+    complexity: 2.4,
   },
   {
     urn: 'urn:game:brass-birmingham',
@@ -31,7 +31,7 @@ const games: Game[] = [
     mechanisms: ['network building'],
     players: '2-4',
     playtime: '60-120 min',
-    weight: 3.9,
+    complexity: 3.9,
   },
 ];
 
@@ -73,7 +73,7 @@ describe('buildShelf', () => {
       titles: 2,
       unitsOnHand: 12,
       emptyShelves: 1,
-      meanWeight: 3.15,
+      meanComplexity: 3.15,
     });
   });
 
@@ -111,13 +111,13 @@ describe('the channels the shelf maps onto', () => {
     expect(availabilityToken('out of print')).toBe('outOfPrint');
   });
 
-  it('walks the weight ramp in order and clamps past its ends', () => {
-    expect(weightStop(1)).toBe(1);
-    expect(weightStop(2.4)).toBe(3);
-    expect(weightStop(5)).toBe(5);
-    expect(weightStop(0)).toBe(1);
-    expect(weightStop(9)).toBe(5);
+  it('walks the complexity ramp in order and clamps past its ends', () => {
+    expect(complexityStop(1)).toBe(1);
+    expect(complexityStop(2.4)).toBe(3);
+    expect(complexityStop(5)).toBe(5);
+    expect(complexityStop(0)).toBe(1);
+    expect(complexityStop(9)).toBe(5);
     // The ramp's own stops are the library's, and it runs one direction.
-    expect(Object.keys(weightRamp)).toEqual(['1', '2', '3', '4', '5']);
+    expect(Object.keys(complexityRamp)).toEqual(['1', '2', '3', '4', '5']);
   });
 });

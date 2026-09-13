@@ -118,10 +118,10 @@ import { createToken, DEFAULT_DICTIONARY, InvalidAlphabetError, TokenError } fro
 import type { TokenOptions, ValidateResult } from '@evanion/token';
 // Second entry point, and the only one that may touch React.
 import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
-import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, WeightRamp } from '@evanion/baize-ui';
-import type { Availability, BoxArtPalette, Mechanism, StatProps, TitleSize, WeightStop } from '@evanion/baize-ui';
+import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp } from '@evanion/baize-ui';
+import type { Availability, BoxArtPalette, Mechanism, StatProps, TitleSize, ComplexityStop } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
-import { availability, boxArt, classNames, customProperties, ground, hueClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass, weight } from '@evanion/baize-ui/tokens';
+import { availability, boxArt, classNames, customProperties, ground, hueClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass, complexity } from '@evanion/baize-ui/tokens';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -155,14 +155,14 @@ const tokenErr: TokenError = new InvalidAlphabetError('non-uniform', 'abcdef');
 // prop that is displayed is a string, so a widened prop fails here.
 const hue: Mechanism = 'areaControl';
 const state: Availability = 'reprintPending';
-const stop: WeightStop = 3;
+const stop: ComplexityStop = 3;
 const palette: BoxArtPalette = 'soot';
 const titleSize: TitleSize = 'xl';
 const statFigure: StatProps['figure'] = '40–70 min';
 const felt: string = ground.felt;
 const hueValue: string = mechanism[hue];
 const stateValue: string = availability[state];
-const stopValue: string = weight[stop];
+const stopValue: string = complexity[stop];
 const artStop: string = boxArt[palette].from;
 const cardRadius: string = radius.card;
 const gutter: string = space[4];
@@ -174,7 +174,7 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
       tokenCheck, tokenResult, tokenErr,
       AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip,
-      Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, WeightRamp,
+      Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp,
       felt, hueValue, stateValue, stopValue, artStop, cardRadius, gutter, propertyName, tokensCss,
       titleSize, statFigure];
 `,

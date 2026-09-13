@@ -5,7 +5,7 @@ import { elevation, measure, motion, radius, space } from './geometry.js';
 import { ground } from './ground.js';
 import { mechanism } from './mechanism.js';
 import { leading, text, tracking, type } from './type.js';
-import { weight } from './weight.js';
+import { complexity } from './complexity.js';
 
 /**
  * The TypeScript token modules rendered as the custom-property block the
@@ -58,7 +58,7 @@ export const customProperties: readonly (readonly [string, string])[] = [
   ...group('motion-', motion),
   ...group('mechanism-', mechanism),
   ...group('availability-', availability),
-  ...group('weight-', weight),
+  ...group('complexity-', complexity),
   ...Object.entries(boxArt).flatMap(([palette, stops]) =>
     Object.entries(stops).map(
       ([stop, value]) =>

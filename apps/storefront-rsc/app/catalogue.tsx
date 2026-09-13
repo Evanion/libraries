@@ -11,7 +11,7 @@ import {
   TagRow,
   Text,
   Title,
-  WeightRamp,
+  ComplexityRamp,
 } from '@evanion/baize-ui';
 
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
@@ -19,9 +19,9 @@ import {
   availabilityLabel,
   availabilityToken,
   formatPrice,
-  formatWeight,
+  formatComplexity,
   mechanismToken,
-  weightStop,
+  complexityStop,
 } from './tokens';
 
 /**
@@ -115,10 +115,13 @@ export async function Catalogue({ heading }: { heading: string }) {
               <StatLine label={`${entry.title} at a glance`}>
                 <Stat figure={entry.players} label="players" />
                 <Stat figure={entry.playtime} label="playtime" />
-                <Stat figure={formatWeight(entry.weight)} label="weight">
-                  <WeightRamp
-                    label={`weight ${entry.weight.toFixed(1)} of 5`}
-                    stop={weightStop(entry.weight)}
+                <Stat
+                  figure={formatComplexity(entry.complexity)}
+                  label="complexity"
+                >
+                  <ComplexityRamp
+                    label={`complexity ${entry.complexity.toFixed(1)} of 5`}
+                    stop={complexityStop(entry.complexity)}
                   />
                 </Stat>
               </StatLine>

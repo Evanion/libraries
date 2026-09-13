@@ -43,11 +43,11 @@ export type {
   TitleProps,
   TitleSize,
 } from './components/typography.js';
-export { Stat, StatLine, WeightRamp } from './components/stat-line.js';
+export { Stat, StatLine, ComplexityRamp } from './components/stat-line.js';
 export type {
   StatLineProps,
   StatProps,
-  WeightRampProps,
+  ComplexityRampProps,
 } from './components/stat-line.js';
 export { CardGrid, CardGridCell } from './components/layout.js';
 export type { CardGridCellProps, CardGridProps } from './components/layout.js';
@@ -65,5 +65,5 @@ export type {
   Availability,
   BoxArtPalette,
   Mechanism,
-  WeightStop,
+  ComplexityStop,
 } from './tokens/index.js';

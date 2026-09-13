@@ -7,16 +7,16 @@ import {
   StatLine,
   Text,
   Title,
-  WeightRamp,
+  ComplexityRamp,
 } from '@evanion/baize-ui';
 import { createWidgets } from '@evanion/react-widget';
 import type { WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
 import {
   availabilityToken,
-  formatWeight,
+  formatComplexity,
   mechanismToken,
-  weightStop,
+  complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
 
@@ -52,7 +52,7 @@ export interface StockRow {
   title: string;
   mechanism: string;
   quantity: number;
-  weight: number;
+  complexity: number;
   availability: Availability;
 }
 
@@ -77,16 +77,16 @@ function Row({ children }: { children: ReactNode }) {
   return <div className="panel-row">{children}</div>;
 }
 
-/** Weight on its ramp, with the number beside it in tabular figures. */
-function Weight({ weight }: { weight: number }) {
+/** Complexity on its ramp, with the number beside it in tabular figures. */
+function Complexity({ complexity }: { complexity: number }) {
   return (
-    <span className="weight-cell">
-      <WeightRamp
-        label={`weight ${formatWeight(weight)} of 5`}
-        stop={weightStop(weight)}
+    <span className="complexity-cell">
+      <ComplexityRamp
+        label={`complexity ${formatComplexity(complexity)} of 5`}
+        stop={complexityStop(complexity)}
       />
       <Text as="span" size="sm">
-        {formatWeight(weight)}
+        {formatComplexity(complexity)}
       </Text>
     </span>
   );
@@ -133,7 +133,7 @@ function StockByGame({ rows }: { rows: StockRow[]; ctx?: DashboardCtx }) {
               />
             </span>
           </span>
-          <Weight weight={row.weight} />
+          <Complexity complexity={row.complexity} />
           <span className="figure-cell">
             <Figure size="md">{String(row.quantity)}</Figure>
           </span>

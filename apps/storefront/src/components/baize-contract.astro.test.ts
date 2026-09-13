@@ -9,7 +9,7 @@ import {
   TagRow as ReactTagRow,
   Text as ReactText,
   Title as ReactTitle,
-  WeightRamp as ReactWeightRamp,
+  ComplexityRamp as ReactComplexityRamp,
 } from '@evanion/baize-ui';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { createElement as h, Fragment, type ReactNode } from 'react';
@@ -22,7 +22,7 @@ import BoxArt from './BoxArt.astro';
 import GameCard from './GameCard.astro';
 import MechanismTags from './MechanismTags.astro';
 import StatLine from './StatLine.astro';
-import WeightRamp from './WeightRamp.astro';
+import ComplexityRamp from './ComplexityRamp.astro';
 
 /**
  * The storefront renders no React, so its `.astro` components are a second
@@ -98,7 +98,7 @@ const wingspan: Game = {
   mechanisms: ['engine building', 'set collection'],
   players: '1-5',
   playtime: '40-70 min',
-  weight: 2.4,
+  complexity: 2.4,
   price: 59900,
   availability: 'in-stock',
   expansions: [
@@ -115,10 +115,10 @@ const statCells = [
   h(ReactStat, { figure: '1-5', key: 'p', label: 'players' }),
   h(ReactStat, { figure: '40-70 min', key: 't', label: 'playtime' }),
   h(ReactStat, {
-    children: h(ReactWeightRamp, { label: 'weight 2.4 of 5', stop: 3 }),
+    children: h(ReactComplexityRamp, { label: 'complexity 2.4 of 5', stop: 3 }),
     figure: '2.4 / 5',
     key: 'w',
-    label: 'weight',
+    label: 'complexity',
   }),
 ];
 
@@ -139,18 +139,20 @@ const mechanismTags = [
   ),
 ];
 
-describe('the weight ramp', () => {
+describe('the complexity ramp', () => {
   it('renders the library markup for a mid-scale stop', async () => {
     expect(
-      await astro(WeightRamp, { label: 'weight 2.4 of 5', stop: 3 }),
-    ).toEqual(react(h(ReactWeightRamp, { label: 'weight 2.4 of 5', stop: 3 })));
+      await astro(ComplexityRamp, { label: 'complexity 2.4 of 5', stop: 3 }),
+    ).toEqual(
+      react(h(ReactComplexityRamp, { label: 'complexity 2.4 of 5', stop: 3 })),
+    );
   });
 
   it('leaves the same pips unfilled at the ends of the scale', async () => {
     for (const stop of [1, 5] as const) {
-      expect(await astro(WeightRamp, { label: `stop ${stop}`, stop })).toEqual(
-        react(h(ReactWeightRamp, { label: `stop ${stop}`, stop })),
-      );
+      expect(
+        await astro(ComplexityRamp, { label: `stop ${stop}`, stop }),
+      ).toEqual(react(h(ReactComplexityRamp, { label: `stop ${stop}`, stop })));
     }
   });
 });
@@ -185,7 +187,7 @@ describe('the stat line', () => {
           players: '1-5',
           playtime: '40-70 min',
           size,
-          weight: 2.4,
+          complexity: 2.4,
         }),
       ).toEqual(react(h(ReactStatLine, { children: statCells, size })));
     }

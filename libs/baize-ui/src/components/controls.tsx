@@ -3,7 +3,7 @@ import type { MouseEventHandler, ReactNode } from 'react';
 import { classNames, modifier } from './class-names.js';
 
 /**
- * Which weight a control carries.
+ * How much emphasis a control carries.
  *
  * `primary` inverts ink and parchment. There is no brand button, because the
  * design has no house colour: the catalogue supplies every saturated pixel and a

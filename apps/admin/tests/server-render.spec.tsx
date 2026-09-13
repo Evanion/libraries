@@ -63,7 +63,7 @@ describe('the dashboard region', () => {
             title: 'Wingspan',
             mechanism: 'engine building',
             quantity: 12,
-            weight: 2.4,
+            complexity: 2.4,
             availability: 'in stock',
           },
         ],
