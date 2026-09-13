@@ -8,7 +8,7 @@
  * `playground-examples.test.tsx` evaluates every one of them instead.
  *
  * A module of its own rather than a constant inside PlaygroundExamples, so that
- * test reaches the shipped snippets without loading Monaco.
+ * test reaches the shipped snippets without rendering the playground.
  */
 export const examples = {
   basic: {

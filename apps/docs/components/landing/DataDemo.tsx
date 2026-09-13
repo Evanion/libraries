@@ -85,9 +85,9 @@ interface DataDemoProps {
  *
  * A textarea rather than a code editor, because what a reader edits here is
  * data: the components are fixed and the data is the whole input. The
- * playground on the React Widget pages loads Monaco for snippets that define
- * their own components; here that is a code editor on the landing page's
- * critical path for twenty lines of JSON.
+ * playground on the React Widget pages loads react-live for snippets that
+ * define their own components; here that is a transpiler and a highlighter on
+ * the landing page's critical path for twenty lines of JSON.
  *
  * State is the text and the last list that parsed. The preview only changes
  * when a parse succeeds; while the text is mid-edit it holds, and the parser's
