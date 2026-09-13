@@ -200,6 +200,11 @@ Every widget receives `ctx` as a prop. This is the counterpart to
 `@evanion/astro-widget`'s `ctx`, and it exists instead of a context provider:
 React's `react-server` condition has no `createContext`.
 
+`ctx` is the renderer's to supply, so it is omitted from an item's `props`
+alongside `children`. A widget may declare it required without every item having
+to repeat a value `<Widgets>` is going to pass anyway, and an item cannot
+override it -- `ctx` follows the spread, and items are untrusted input.
+
 ## Suspense
 
 By default the renderer wraps every widget in its own `<Suspense>` boundary, so
@@ -355,7 +360,7 @@ Returns `{ Widgets, defineItems, validateItems }`.
 {
   id: string;                        // stable identity, used as the React key
   type: keyof typeof components;     // which component to render
-  props: ComponentProps<That>;       // minus `children`
+  props: ComponentProps<That>;       // minus `children` and `ctx`
   meta?: M;                          // for chrome.item only; M comes from it
   children?: Item[];                 // only if that component accepts children
 }

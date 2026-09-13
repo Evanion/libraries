@@ -62,6 +62,12 @@ export function renderWidget(
   }
 
   const body = (
+    // `ctx` follows the spread, so the renderer's value wins over anything an
+    // item carries under that name -- including when the renderer has none and
+    // the widget is handed undefined. `ctx` is page-level data from
+    // `<Widgets ctx={…}>` and items are untrusted input, so a payload naming a
+    // `ctx` prop does not get to supply one. `WidgetDataProps` omits `ctx`, so
+    // a typed item cannot express this at all.
     <Component {...item.props} ctx={ctx}>
       {children.map((child) =>
         renderWidget(
