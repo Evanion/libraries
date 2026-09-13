@@ -69,6 +69,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/baize-ui"
+    },
+    {
       "path": "../../libs/widget"
     }
   ]

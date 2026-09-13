@@ -1,1 +1,166 @@
 @import 'tailwindcss';
+@import '@evanion/baize-ui/styles.css';
+
+/*
+ * Step 1 of adopting `@evanion/baize-ui` here: the tokens, mapped onto the theme
+ * variables `nextra-theme-docs` is built on. No library component renders in this
+ * app yet, so the stylesheet's component rules come along and match nothing --
+ * which is the accepted cost of one entry rather than two.
+ *
+ * `--nextra-bg` and the primary HSL are not here. `Head` writes both into an
+ * inline `<style>` in the document, which wins over any stylesheet link, so they
+ * are passed to it as props from `baize-theme.ts` instead.
+ *
+ * What is here is Nextra 4's Tailwind v4 scale, read out of the installed
+ * `nextra-theme-docs/dist/style.css` rather than from memory. Its components
+ * reach for `gray`, `neutral` and `slate` steps for surfaces, borders, secondary
+ * text and code blocks, and nothing in the theme abstracts them into named roles
+ * -- so the mapping is per step, and only the steps the theme actually uses.
+ *
+ * The foundation only. No `--baize-mechanism-*` or `--baize-availability-*`
+ * appears below: those are the shop's informational colour systems, and this site
+ * sells nothing.
+ */
+:root {
+  /*
+   * The two families the design asks for. `next/font` fills `--font-title` and
+   * `--font-text` in layout.tsx; the library's own stacks stay behind them as what
+   * a reader sees before the webfont arrives and if it never does.
+   */
+  --baize-font-title:
+    var(--font-title), 'Bricolage Grotesque', 'Arial Narrow', ui-sans-serif,
+    sans-serif;
+  --baize-font-text:
+    var(--font-text), 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --x-font-sans: var(--baize-font-text);
+
+  /* Light theme: chalk is the page, so the near-white steps become paper and the
+     dark steps become ink. */
+  --x-color-white: var(--baize-chalk);
+  --x-color-gray-50: var(--baize-chalk);
+  --x-color-gray-100: color-mix(
+    in oklab,
+    var(--baize-chalk) 92%,
+    var(--baize-rule)
+  );
+  --x-color-gray-200: color-mix(
+    in oklab,
+    var(--baize-chalk) 82%,
+    var(--baize-rule)
+  );
+  --x-color-gray-300: color-mix(
+    in oklab,
+    var(--baize-chalk) 68%,
+    var(--baize-rule)
+  );
+  --x-color-gray-400: var(--baize-moss);
+  --x-color-gray-600: color-mix(
+    in oklab,
+    var(--baize-rule) 70%,
+    var(--baize-ink)
+  );
+  --x-color-gray-700: color-mix(
+    in oklab,
+    var(--baize-rule) 85%,
+    var(--baize-ink)
+  );
+  --x-color-gray-800: var(--baize-rule);
+  --x-color-gray-900: var(--baize-ink);
+
+  --x-color-neutral-50: var(--baize-chalk);
+  --x-color-neutral-200: color-mix(
+    in oklab,
+    var(--baize-chalk) 82%,
+    var(--baize-rule)
+  );
+  --x-color-neutral-300: color-mix(
+    in oklab,
+    var(--baize-chalk) 68%,
+    var(--baize-rule)
+  );
+  --x-color-neutral-400: var(--baize-moss);
+  --x-color-neutral-500: var(--baize-lichen);
+  --x-color-neutral-600: color-mix(
+    in oklab,
+    var(--baize-rule) 70%,
+    var(--baize-ink)
+  );
+  --x-color-neutral-700: var(--baize-rule);
+  --x-color-neutral-800: var(--baize-felt);
+  --x-color-neutral-900: var(--baize-ink);
+
+  --x-color-slate-50: var(--baize-chalk);
+  --x-color-slate-100: color-mix(
+    in oklab,
+    var(--baize-chalk) 92%,
+    var(--baize-rule)
+  );
+  --x-color-slate-200: color-mix(
+    in oklab,
+    var(--baize-chalk) 82%,
+    var(--baize-rule)
+  );
+  --x-color-slate-700: var(--baize-rule);
+  --x-color-slate-900: var(--baize-ink);
+}
+
+/*
+ * Dark theme. `next-themes` puts `.dark` on `<html>` from a blocking script, and
+ * the theme's own rules are written as `dark:` variants against these same steps,
+ * so the dark ground is the same scale read from the other end: the light steps
+ * become the recessed surfaces and the dark steps become the page.
+ */
+.dark {
+  --x-color-gray-50: var(--baize-chalk);
+  --x-color-gray-100: var(--baize-chalk);
+  --x-color-gray-200: color-mix(
+    in oklab,
+    var(--baize-chalk) 80%,
+    var(--baize-felt)
+  );
+  --x-color-gray-300: var(--baize-lichen);
+  --x-color-gray-400: var(--baize-lichen);
+  --x-color-gray-600: var(--baize-moss);
+  --x-color-gray-700: var(--baize-rule);
+  --x-color-gray-800: var(--baize-rule);
+  --x-color-gray-900: var(--baize-felt);
+
+  --x-color-neutral-200: color-mix(
+    in oklab,
+    var(--baize-chalk) 80%,
+    var(--baize-felt)
+  );
+  --x-color-neutral-300: var(--baize-lichen);
+  --x-color-neutral-400: var(--baize-lichen);
+  --x-color-neutral-500: var(--baize-moss);
+  --x-color-neutral-600: var(--baize-rule);
+  --x-color-neutral-700: var(--baize-rule);
+  --x-color-neutral-800: var(--baize-felt);
+  --x-color-neutral-900: var(--baize-ink);
+
+  --x-color-slate-700: var(--baize-rule);
+  --x-color-slate-900: var(--baize-ink);
+}
+
+/*
+ * Headings in the display family, which is the half of the type system a scale
+ * remap cannot reach: Nextra's headings take `--x-font-sans` like its body text,
+ * and the design sets titles in Bricolage Grotesque and everything else in Public
+ * Sans.
+ *
+ * Scoped to the article rather than applied to `h1`-`h4` globally, so the sidebar's
+ * and the navbar's own headings stay in the reading family where the theme put
+ * them.
+ */
+article h1,
+article h2,
+article h3,
+article h4 {
+  font-family: var(--baize-font-title);
+  font-stretch: 92%;
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+article h1 {
+  letter-spacing: var(--baize-tracking-tight);
+}
