@@ -30,6 +30,14 @@ export {
 export type { CategoricalHue } from './categorical.js';
 export { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
 export type { Mechanism } from './mechanism.js';
+export {
+  platform,
+  platformOnLight,
+  PLATFORM_CONTRAST_FLOOR,
+  PLATFORM_DARK_GROUND,
+  PLATFORM_LIGHT_GROUND,
+} from './platform.js';
+export type { Platform } from './platform.js';
 export { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
 export type { Availability } from './availability.js';
 export {
@@ -63,5 +71,6 @@ export {
   ladderClass,
   modifier,
   paletteClass,
+  platformClass,
   stateClass,
 } from './class-names.js';

@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 
 import type { Availability } from '../tokens/availability.js';
 import type { Mechanism } from '../tokens/mechanism.js';
-import { classNames, hueClass, stateClass } from './class-names.js';
+import type { Platform } from '../tokens/platform.js';
+import {
+  classNames,
+  hueClass,
+  platformClass,
+  stateClass,
+} from './class-names.js';
 
 export interface ChipProps {
   children: ReactNode;
@@ -14,13 +20,25 @@ export interface ChipProps {
    * it to compete with.
    */
   mechanism?: Mechanism;
+  /**
+   * The platform the chip names, in that platform's own colour.
+   *
+   * A token rather than a colour: React's cyan on a dark card is not React's
+   * cyan on paper, and the scale carries both so the chip does not have to
+   * know which ground it is on.
+   */
+  platform?: Platform;
 }
 
 /** The 3px-radius chip: a tint and a hairline mixed from the current colour. */
-export function Chip({ children, mechanism }: ChipProps) {
+export function Chip({ children, mechanism, platform }: ChipProps) {
   return (
     <span
-      className={classNames('baize-chip', mechanism && hueClass(mechanism))}
+      className={classNames(
+        'baize-chip',
+        mechanism && hueClass(mechanism),
+        platform && platformClass(platform),
+      )}
     >
       {children}
     </span>

@@ -630,6 +630,23 @@ catalogue starts carrying is a new entry in the token module, reviewed against
 
 Only `Chip` paints a mechanism hue. See [`MechanismTag`](#mechanismtag) for why.
 
+### Platform: recognised, not learned
+
+```ts
+platform.react; // '#58C4DC'
+platformOnLight.react; // '#1B6E80'
+```
+
+The colour a platform is already known by, for a chip that names the stack a
+package runs in: React, Astro, NestJS, and `universal` for a package that
+imports no framework, which takes TypeScript's blue. Two ends like the
+categorical scale, because a brand colour is tuned for its own site and none of
+the four clears 4.5:1 on both grounds as published.
+
+Separate from `categorical` on purpose. A categorical hue is an identity the
+app assigns and a reader learns on the page; a platform hue is one the reader
+arrives knowing. `<Chip platform="react">` is the only thing that paints one.
+
 ### Availability: state
 
 ```ts

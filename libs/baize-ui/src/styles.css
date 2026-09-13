@@ -120,6 +120,30 @@
 }
 
 /*
+ * A platform hue, bound once per platform and read by the chip that names it.
+ *
+ * The colour a platform is already known by, on the same `--baize-hue`
+ * property the other scales bind, with the light-ground value alongside for an
+ * app with a light theme to rebind in one rule.
+ */
+.baize-platform-react {
+  --baize-hue: var(--baize-platform-react);
+  --baize-hue-on-light: var(--baize-platform-on-light-react);
+}
+.baize-platform-astro {
+  --baize-hue: var(--baize-platform-astro);
+  --baize-hue-on-light: var(--baize-platform-on-light-astro);
+}
+.baize-platform-nestjs {
+  --baize-hue: var(--baize-platform-nestjs);
+  --baize-hue-on-light: var(--baize-platform-on-light-nestjs);
+}
+.baize-platform-universal {
+  --baize-hue: var(--baize-platform-universal);
+  --baize-hue-on-light: var(--baize-platform-on-light-universal);
+}
+
+/*
  * The complexity ramp stop, bound once per stop and read by the title.
  *
  * The ladder is the card's one saturated data signal: a game's title is set in its

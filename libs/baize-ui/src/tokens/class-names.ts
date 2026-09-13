@@ -3,6 +3,7 @@ import type { CategoricalHue } from './categorical.js';
 import type { BoxArtPalette } from './box-art.js';
 import type { ComplexityStop } from './complexity.js';
 import type { Mechanism } from './mechanism.js';
+import type { Platform } from './platform.js';
 
 /**
  * The class names `styles.css` binds a token enum through, as functions of the
@@ -66,6 +67,17 @@ export function hueClass(mechanism: Mechanism): string {
  */
 export function categoricalClass(hue: CategoricalHue): string {
   return `baize-categorical-${slug(hue)}`;
+}
+
+/**
+ * The class that binds a platform hue, as `--baize-hue`, for the chip that
+ * names the platform.
+ *
+ * The same property the categorical and mechanism classes bind, so `Chip`
+ * reads one property whichever scale the colour came from.
+ */
+export function platformClass(platform: Platform): string {
+  return `baize-platform-${slug(platform)}`;
 }
 
 /**

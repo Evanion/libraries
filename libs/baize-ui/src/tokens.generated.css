@@ -60,6 +60,14 @@
   --baize-categorical-on-light-orchid: #864b9b;
   --baize-categorical-on-light-coral: #9a4c3f;
   --baize-categorical-on-light-stone: #6e624b;
+  --baize-platform-react: #58c4dc;
+  --baize-platform-astro: #ff5d01;
+  --baize-platform-nestjs: #ea5b7c;
+  --baize-platform-universal: #4d8dd3;
+  --baize-platform-on-light-react: #1b6e80;
+  --baize-platform-on-light-astro: #ae3f00;
+  --baize-platform-on-light-nestjs: #c41c42;
+  --baize-platform-on-light-universal: #2964a5;
   --baize-mechanism-engine-building: #e9b24c;
   --baize-mechanism-economic: #d8d36a;
   --baize-mechanism-cooperative: #8fd99a;
