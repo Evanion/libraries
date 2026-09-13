@@ -89,6 +89,43 @@ function isExpression(source: string): boolean {
   }
 }
 
+/** The two halves of a `EXPR; // -> VALUE` line, as written. */
+export interface ValueClaim {
+  /** Whitespace before the expression, so a rewrite can put it back. */
+  indent: string;
+  /** The expression, without its trailing semicolon. */
+  statement: string;
+  /** The claimed value, as source text. */
+  expected: string;
+}
+
+/**
+ * Splits a line into its expression and its claimed value, or returns null for
+ * a line that claims nothing.
+ *
+ * Nothing here is validated: `rewriteLine` decides which of these pairs can
+ * become an assertion, and a reader of a claim that is already running as a
+ * test wants the pair rather than that judgement. Exported because the docs
+ * app's probes seed themselves from the same claims — a second scanner would
+ * be a second answer to "is this line a claim", on the lines the first one
+ * already owns.
+ */
+export function readValueClaim(line: string): ValueClaim | null {
+  const commentAt = indexOfLineComment(line);
+  if (commentAt === -1) return null;
+
+  const comment = line.slice(commentAt + 2).trim();
+  if (!comment.startsWith(MARKER)) return null;
+
+  const code = line.slice(0, commentAt).trimEnd();
+
+  return {
+    indent: code.slice(0, code.length - code.trimStart().length),
+    statement: code.trim().replace(/;$/, ''),
+    expected: comment.slice(MARKER.length).trim(),
+  };
+}
+
 /**
  * Rewrites one line, or returns it unchanged when it carries no value claim.
  *
@@ -104,16 +141,10 @@ export function rewriteLine(
   const asImport = rewriteImport(line);
   if (asImport !== null) return asImport;
 
-  const commentAt = indexOfLineComment(line);
-  if (commentAt === -1) return line;
+  const claim = readValueClaim(line);
+  if (claim === null) return line;
 
-  const comment = line.slice(commentAt + 2).trim();
-  if (!comment.startsWith(MARKER)) return line;
-
-  const expected = comment.slice(MARKER.length).trim();
-  const code = line.slice(0, commentAt).trimEnd();
-  const indent = code.slice(0, code.length - code.trimStart().length);
-  const statement = code.trim().replace(/;$/, '');
+  const { indent, statement, expected } = claim;
 
   if (statement === '') {
     throw new ExpectCommentError(
