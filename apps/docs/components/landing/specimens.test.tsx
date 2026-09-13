@@ -1,6 +1,6 @@
 import { Luhn } from '@evanion/luhn';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import LuhnSpecimen from './LuhnSpecimen';
 import {
   luhnBody,
@@ -52,6 +52,52 @@ describe('the Luhn card', () => {
     expect(screen.getByRole('status')).toHaveTextContent('');
     expect(screen.getByText(/nothing from the alphabet/)).toBeInTheDocument();
   });
+
+  /**
+   * The visible character turns through the dictionary before it lands. The
+   * `status` above is what a screen reader gets and never turns, which is
+   * why the assertions above read it at once; the visible mark is read here,
+   * and waited for.
+   */
+  it('turns the visible character through the dictionary, then lands it', async () => {
+    const { container } = render(<LuhnSpecimen initial={luhnBody} />);
+    const mark = container.querySelector('.landing-specimen__mark');
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'bar' } });
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'brass' },
+    });
+
+    // Every frame is a dictionary character, including the ones a fast
+    // typist interrupts, and the one that stays is the real one.
+    const frames = new Set<string>();
+    await waitFor(() => {
+      frames.add(mark?.textContent ?? '');
+      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
+    });
+    for (const seen of frames) expect(Luhn.dictionary).toContain(seen);
+  });
+
+  it('lands the visible character at once under reduced motion', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    try {
+      const { container } = render(<LuhnSpecimen initial={luhnBody} />);
+      const mark = container.querySelector('.landing-specimen__mark');
+
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'brass' },
+      });
+
+      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('the Token card', () => {
@@ -74,6 +120,17 @@ describe('the Token card', () => {
     }
 
     expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('lands the visible code left to right, separator standing', async () => {
+    const { container } = render(<TokenSpecimen initial={tokenSpecimen} />);
+    const visible = container.querySelector('.landing-specimen__value');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    const minted = screen.getByRole('status').textContent ?? '';
+
+    expect(visible?.textContent?.[4]).toBe('-');
+    await waitFor(() => expect(visible).toHaveTextContent(minted));
   });
 });
 
