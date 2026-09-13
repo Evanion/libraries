@@ -70,16 +70,19 @@
   ],
   "references": [
     {
+      "path": "../../tools/doc-examples"
+    },
+    {
       "path": "../../libs/urn"
     },
     {
       "path": "../../libs/token"
     },
     {
-      "path": "../../libs/luhn"
+      "path": "../../libs/widget"
     },
     {
-      "path": "../../libs/widget"
+      "path": "../../libs/luhn"
     },
     {
       "path": "../../libs/baize-ui"

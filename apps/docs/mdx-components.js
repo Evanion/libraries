@@ -1,4 +1,5 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
+import Probe from './components/Probe';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
 import WorkshopNotice from './components/WorkshopNotice';
@@ -56,6 +57,7 @@ export function useMDXComponents(components) {
     TagRow,
     Text,
     Title,
+    Probe,
     WorkshopNotice,
     WidgetPlayground,
     PlaygroundExamples,

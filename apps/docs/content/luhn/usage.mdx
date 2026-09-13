@@ -3,14 +3,17 @@
 Two operations, both total apart from one thrown error, and both returning the
 filtered phrase alongside their answer.
 
-## `generate`
-
 ```ts
 import { Luhn } from '@evanion/luhn';
-
-Luhn.generate('foo'); // { phrase: 'foo', checksum: '5', filtered: 0 }
-Luhn.generate('FoO'); // { phrase: 'foo', checksum: '5', filtered: 0 }
 ```
+
+## `generate`
+
+```ts file=libs/luhn/README.md region=generate
+
+```
+
+<Probe package="luhn" probe="generate" />
 
 `checksum` is one character drawn from the dictionary. It is not appended for
 you — the caller decides where it goes and what separates it:

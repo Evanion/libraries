@@ -43,10 +43,14 @@ pnpm add @evanion/luhn
 
 ## Generate a check character
 
+<!-- #region generate -->
+
 ```ts @import.meta.vitest
 Luhn.generate('foo'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }
 Luhn.generate('FoO'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }
 ```
+
+<!-- #endregion generate -->
 
 `generate` returns the filtered phrase alongside the check character, because
 the phrase it computed over is not always the phrase you passed in — see
