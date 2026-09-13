@@ -16,9 +16,11 @@ const items = listingItems(games, featured);
 
 {
   items.length === 0 ? (
-    <p class="baize-note">Nothing in this part of the shop yet.</p>
+    <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
+      Nothing in this part of the shop yet.
+    </p>
   ) : (
-    <ul class="catalogue-grid" data-items={String(items.length)}>
+    <ul class="baize-card-grid" data-items={String(items.length)}>
       <Widgets
         items={items}
         registry={listingRegistry}

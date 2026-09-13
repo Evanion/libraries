@@ -9,6 +9,6 @@ interface Props {
 const { heading, body, href, label } = Astro.props;
 ---
 
-<h2 class="sidebar__heading">{heading}</h2>
-<p class="baize-note">{body}</p>
-<a class="baize-button" href={href}>{label}</a>
+<h2 class="baize-panel__heading">{heading}</h2>
+<p class="baize-text baize-text--tone-lichen baize-text--size-sm">{body}</p>
+<a class="baize-button baize-button--variant-standard" href={href}>{label}</a>

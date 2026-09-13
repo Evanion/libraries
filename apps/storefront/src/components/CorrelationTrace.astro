@@ -19,9 +19,9 @@ const renderedAt = new Date().toISOString().slice(11, 23);
     id, sent it to the shop-api on every call, and the API sent the same id back.
     A prerendered build would show one id baked in at build time for every
     reader. */}
-<div class="baize-trace">
+<div class="trace">
   <span>
-    this page view <span class="baize-trace__id">{trace.sent}</span>
+    this page view <span class="trace__id">{trace.sent}</span>
   </span>
   <span>
     {trace.calls} api {trace.calls === 1 ? 'call' : 'calls'}
@@ -35,5 +35,5 @@ const renderedAt = new Date().toISOString().slice(11, 23);
           : `api echoed ${trace.echoed.join(', ')}`
     }
   </span>
-  <span>rendered at <span class="baize-trace__id">{renderedAt}</span></span>
+  <span>rendered at <span class="trace__id">{renderedAt}</span></span>
 </div>

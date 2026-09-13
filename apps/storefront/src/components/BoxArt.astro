@@ -1,0 +1,23 @@
+---
+import { classNames } from '@evanion/baize-ui/tokens';
+
+import { boxArtPaletteClass } from '../lib/catalogue.js';
+
+interface Props {
+  /** The game whose box this stands in for, as a full game urn. */
+  urn: string;
+  /** The title, as the catalogue spells it. */
+  title: string;
+}
+
+const { urn, title } = Astro.props;
+---
+
+{/* The library's `BoxArtPlaceholder`, as Astro: a blurred gradient in roughly the
+    box's own colours where a photograph will go.
+
+    The palette comes from the app's catalogue mapping, so a game nobody has mapped
+    paints the neutral gradient rather than a grey hole. */}
+<div class={classNames('baize-box-art', boxArtPaletteClass(urn))}>
+  <span class="baize-box-art__label">{title}</span>
+</div>

@@ -1,29 +1,33 @@
 ---
-import { weightSteps } from '../lib/catalogue.js';
+import {
+  classNames,
+  modifier,
+  type WeightStop,
+} from '@evanion/baize-ui/tokens';
 
 interface Props {
-  /** Complexity, 1 to 5. */
-  weight: number;
+  /** How many pips are filled, and therefore which ramp stops they take. */
+  stop: WeightStop;
+  /** The accessible name, already worded: `weight 2.4 of 5`. */
+  label: string;
 }
 
-const { weight } = Astro.props;
-const filled = weightSteps(weight);
-const cells = [1, 2, 3, 4, 5];
+const { stop, label } = Astro.props;
+const pips = [1, 2, 3, 4, 5] as const;
 ---
 
-{/* role="img" with the rating in the label, because five coloured cells say
-    nothing to a screen reader and the figure beside them is the real content. */}
-<div
-  class="baize-weight"
-  role="img"
-  aria-label={`weight ${weight.toFixed(1)} of 5`}
->
+{/* The library's `WeightRamp`, as Astro. `role="img"` with the rating in the
+    label, because five coloured pips say nothing to a screen reader and the
+    figure beside them is the real content. */}
+<span aria-label={label} class="baize-weight" role="img">
   {
-    cells.map((step) => (
+    pips.map((pip) => (
       <span
-        class="baize-weight__cell"
-        data-step={step <= filled ? String(step) : undefined}
+        class={classNames(
+          'baize-weight__pip',
+          pip <= stop && modifier('baize-weight__pip', 'stop', pip),
+        )}
       />
     ))
   }
-</div>
+</span>

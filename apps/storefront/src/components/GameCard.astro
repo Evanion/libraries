@@ -1,5 +1,7 @@
 ---
-import { formatPrice, gameHue } from '../lib/catalogue.js';
+import { classNames } from '@evanion/baize-ui/tokens';
+
+import { formatPrice, gameHueClass } from '../lib/catalogue.js';
 import type { Game } from '../lib/shop-api.js';
 import AvailabilityPill from './AvailabilityPill.astro';
 import MechanismTags from './MechanismTags.astro';
@@ -12,17 +14,26 @@ interface Props {
 const { game } = Astro.props;
 ---
 
-{/* `--hue` is set once on the card and inherited by the title and the
-    mechanisms, which is what makes the colour read as the game's rather than as
-    a decoration on one element.
+{/* The library's `Card` with a `Title` in its head and a `Figure` in its foot, as
+    Astro.
 
-    Not a list item: the card is a listing block, and the cell around it comes
-    from that region's chrome. A card that wrote its own `<li>` could not be put
+    The hue is on the title rather than on the card: the design makes the title the
+    place a reader identifies a game by colour, and a card that tinted everything
+    inside it would put the hue on the price as well.
+
+    Not a list item: the card is a listing block, and the cell around it comes from
+    that region's chrome. A card that wrote its own `<li>` could not be put
     anywhere else. */}
-<div class="baize-card" style={`--hue: ${gameHue(game)}`} data-game={game.urn}>
+<div class="baize-card" data-game={game.urn}>
   <div class="baize-card__head">
-    <h3 class="baize-title baize-title--sm">
-      <a class="baize-card__title-link" href={`/g/${game.urn}`}>{game.title}</a>
+    <h3
+      class={classNames(
+        'baize-title',
+        'baize-title--size-sm',
+        gameHueClass(game),
+      )}
+    >
+      <a class="title-link" href={`/g/${game.urn}`}>{game.title}</a>
     </h3>
     <AvailabilityPill availability={game.availability} />
   </div>
@@ -33,10 +44,12 @@ const { game } = Astro.props;
     weight={game.weight}
   />
   <div class="baize-card__foot">
-    <span class="baize-price">{formatPrice(game.price)}</span>
+    <span class="baize-figure baize-figure--size-md">
+      {formatPrice(game.price)}
+    </span>
     {
       game.expansions.length > 0 && (
-        <span class="baize-note">
+        <span class="baize-text baize-text--tone-lichen baize-text--size-sm">
           {game.expansions.length}
           {game.expansions.length === 1 ? ' expansion' : ' expansions'}
         </span>

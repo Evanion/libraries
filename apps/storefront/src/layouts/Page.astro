@@ -5,8 +5,7 @@ import navigation from '../data/navigation.json';
 import { cartSize } from '../lib/cart.js';
 import NavItem from '../regions/navigation/NavItem.astro';
 import { navigationRegistry } from '../regions/navigation/registry.js';
-import '../styles/baize.css';
-import '../styles/baize-ui.css';
+import '@evanion/baize-ui/styles.css';
 import '../styles/storefront.css';
 
 interface Props {
@@ -32,6 +31,15 @@ const navCtx = {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {/* The library names the two families and ships neither, so each app loads
+        them its own way. Real `<link>` elements rather than a CSS `@import`: an
+        `@import` inside the stylesheet serialises the font request behind it. */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Public+Sans:wght@300..800&display=swap"
+    />
     <title>{title} — Baize</title>
     <meta
       name="description"

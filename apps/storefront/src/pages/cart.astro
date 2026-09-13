@@ -9,7 +9,7 @@ import {
   setQuantity,
   type CartLine,
 } from '../lib/cart.js';
-import { formatPrice, gameHue } from '../lib/catalogue.js';
+import { formatPrice } from '../lib/catalogue.js';
 import type { Order } from '../lib/shop-api.js';
 
 const { api } = Astro.locals;
@@ -87,24 +87,18 @@ const catalogue = await api.games();
 
 // Prices are read from the catalogue on this request rather than stored in the
 // cart cookie, so a price change cannot be carried along in a reader's browser.
-const priced = new Map<
-  string,
-  { title: string; price: number; hue: string; href: string }
->();
+const priced = new Map<string, { title: string; price: number; href: string }>();
 if (catalogue.ok) {
   for (const game of catalogue.value) {
-    const hue = gameHue(game);
     priced.set(game.urn, {
       title: game.title,
       price: game.price,
-      hue,
       href: `/g/${game.urn}`,
     });
     for (const expansion of game.expansions) {
       priced.set(expansion.urn, {
         title: `${game.title}: ${expansion.title}`,
         price: expansion.price,
-        hue,
         href: `/g/${game.urn}`,
       });
     }
@@ -125,9 +119,9 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
   {
     order && (
       <div class="section" data-first="true">
-        <h1 class="baize-title baize-title--lg">That is ordered</h1>
+        <h1 class="baize-title baize-title--size-lg">That is ordered</h1>
         <div class="receipt">
-          <p class="baize-note">
+          <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
             Nothing was charged and nothing was shipped: checkout is stubbed, so
             the order exists only in this response.
           </p>
@@ -137,16 +131,18 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
           {/* The API's own orders -> inventory hop, reported back. One id for the
               request, and one per cart line from the stock check it triggered --
               the same id if it propagated, which is the thing being shown. */}
-          <p class="baize-note">
+          <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
             Correlation id on the order: {order.correlationId ?? 'none'}
           </p>
-          <p class="baize-note">
+          <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
             The inventory service saw:{' '}
             {order.inventoryCorrelationIds
               .map((id) => id ?? 'none')
               .join(' ')}
           </p>
-          <a class="baize-button" href="/">Back to the games</a>
+          <a class="baize-button baize-button--variant-standard" href="/">
+            Back to the games
+          </a>
         </div>
       </div>
     )
@@ -155,8 +151,10 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
   {
     checkoutError && (
       <div class="section" data-first="true">
-        <h1 class="baize-title baize-title--lg">That did not go through</h1>
-        <p class="baize-note">{checkoutError}</p>
+        <h1 class="baize-title baize-title--size-lg">That did not go through</h1>
+        <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
+          {checkoutError}
+        </p>
       </div>
     )
   }
@@ -164,19 +162,27 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
   {
     !order && (
       <div class="cart">
-        <h1 class="baize-title baize-title--lg">Cart</h1>
+        <h1 class="baize-title baize-title--size-lg">Cart</h1>
 
         {rows.length === 0 ? (
-          <p class="baize-prose">
-            Nothing in it yet. <a class="baize-link" href="/">Browse the shop</a>
+          <p
+            class="baize-text baize-text--tone-lichen baize-text--size-base baize-text--measured"
+          >
+            Nothing in it yet.{' '}
+            <a class="inline-link" href="/">
+              Browse the shop
+            </a>{' '}
             and add something.
           </p>
         ) : (
           <>
             {rows.map(({ line, item }) => (
-              <div class="cart__row" style={`--hue: ${item?.hue ?? 'var(--mechanism-default)'}`}>
+              <div class="cart__row">
                 <div>
-                  <a class="baize-title baize-title--sm baize-card__title-link" href={item?.href ?? '/'}>
+                  <a
+                    class="baize-title baize-title--size-sm title-link"
+                    href={item?.href ?? '/'}
+                  >
                     {item?.title ?? line.urn}
                   </a>
                   <span class="expansions__urn">{line.urn}</span>
@@ -184,11 +190,11 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
                 <form method="post" action="/cart" class="cart__quantity">
                   <input type="hidden" name="intent" value="update" />
                   <input type="hidden" name="urn" value={line.urn} />
-                  <label class="baize-sr-only" for={`qty-${line.urn}`}>
+                  <label class="sr-only" for={`qty-${line.urn}`}>
                     Copies of {item?.title ?? line.urn}
                   </label>
                   <input
-                    class="baize-qty"
+                    class="quantity-input"
                     id={`qty-${line.urn}`}
                     name="quantity"
                     type="number"
@@ -196,9 +202,11 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
                     max="99"
                     value={String(line.quantity)}
                   />
-                  <button class="baize-button baize-button--quiet">Update</button>
+                  <button class="baize-button baize-button--variant-quiet">
+                    Update
+                  </button>
                 </form>
-                <span class="baize-price">
+                <span class="baize-figure baize-figure--size-md">
                   {item ? formatPrice(item.price * line.quantity) : 'unpriced'}
                 </span>
               </div>
@@ -206,20 +214,24 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
 
             <div class="cart__total">
               <span>Total</span>
-              <span class="baize-price">{formatPrice(total)}</span>
+              <span class="baize-figure baize-figure--size-lg">
+                {formatPrice(total)}
+              </span>
             </div>
 
             <div class="cart__actions">
               <form method="post" action="/cart">
                 <input type="hidden" name="intent" value="checkout" />
-                <button class="baize-button baize-button--primary">
+                <button class="baize-button baize-button--variant-primary">
                   Place the order
                 </button>
               </form>
-              <a class="baize-button" href="/">Keep browsing</a>
+              <a class="baize-button baize-button--variant-standard" href="/">
+                Keep browsing
+              </a>
             </div>
 
-            <p class="baize-note">
+            <p class="baize-text baize-text--tone-moss baize-text--size-sm">
               Stock is checked against the shop when you place the order, not when
               you add a copy.
             </p>

@@ -1,7 +1,7 @@
 ---
 import {
   gamesByMechanism,
-  mechanismHue,
+  mechanismHueClass,
   mechanismSlug,
   mechanisms,
 } from '../../lib/catalogue.js';
@@ -18,14 +18,17 @@ const all = mechanisms(games);
 ---
 
 {/* The filter knows which category is open from ctx, not from its own data: an
-    editor authors the panel once and it is correct on every category page. */}
-<h2 class="sidebar__heading">{heading}</h2>
+    editor authors the panel once and it is correct on every category page.
+
+    The hue class sits on the row, so the link reads in the same colour as the
+    titles in the category it opens. */}
+<h2 class="baize-panel__heading">{heading}</h2>
 <ul class="sidebar__filter">
   {
     all.map((mechanism) => {
       const slug = mechanismSlug(mechanism);
       return (
-        <li style={`--mechanism: ${mechanismHue(mechanism)}`}>
+        <li class={mechanismHueClass(mechanism)}>
           <a
             href={`/c/${slug}`}
             aria-current={slug === category ? 'page' : undefined}

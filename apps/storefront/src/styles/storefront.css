@@ -1,10 +1,20 @@
 /**
- * Storefront layout: page chrome, the catalogue grid, the detail split and the
+ * Storefront layout: page chrome, the detail split, the filter sidebar and the
  * cart table.
  *
- * Nothing shared lives here -- no token, no primitive. The test for whether a
- * rule belongs in this file is whether apps/admin or apps/docs would want it; if
- * they would, it belongs in baize.css or baize-ui.css instead.
+ * The design system is `@evanion/baize-ui/styles.css`, imported beside this file
+ * in the page layout. Nothing shared lives here: no token, no colour, no radius,
+ * no type size of its own -- every value below is a `--baize-*` custom property
+ * the library declares.
+ *
+ * What is here is what the library deliberately did not take: a page shell, a
+ * two-column detail, a filter rail and a cart table are one app's chrome, and a
+ * second app would want none of them. The test for whether a rule belongs here is
+ * whether apps/admin or apps/docs would want it.
+ *
+ * The classes at the foot are the few the library supplies no component for --
+ * a link inside a title, a quantity field, the correlation trace -- and they are
+ * outside the `baize-` prefix, which belongs to the library.
  */
 
 .page {
@@ -12,27 +22,27 @@
   width: 100%;
   max-width: 68rem;
   margin: 0 auto;
-  padding-inline: var(--space-5);
+  padding-inline: var(--baize-space-5);
 }
 
 /* Visible only once it has focus, which is the one time it is of any use. */
 .skip-link {
   position: absolute;
-  left: var(--space-4);
+  left: var(--baize-space-4);
   top: -3rem;
   z-index: 1;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-button);
-  background: var(--chalk);
-  color: var(--ink);
-  font-size: var(--text-sm);
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-chalk);
+  color: var(--baize-ink);
+  font-size: var(--baize-text-sm);
   font-weight: 600;
   text-decoration: none;
-  transition: top var(--dur-fast) var(--ease-out);
+  transition: top var(--baize-motion-duration) var(--baize-motion-easing);
 }
 
 .skip-link:focus {
-  top: var(--space-4);
+  top: var(--baize-space-4);
 }
 
 .site-header {
@@ -40,26 +50,26 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding-block: var(--space-5);
-  border-bottom: 1px solid var(--rule);
+  gap: var(--baize-space-4);
+  padding-block: var(--baize-space-5);
+  border-bottom: 1px solid var(--baize-rule);
 }
 
 .site-header__brand {
-  font-family: var(--font-title);
-  font-size: var(--text-lg);
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-lg);
   font-weight: 800;
   font-stretch: 80%;
-  letter-spacing: var(--track-tight);
-  color: var(--chalk);
+  letter-spacing: var(--baize-tracking-tight);
+  color: var(--baize-chalk);
   text-decoration: none;
 }
 
 .site-header__tagline {
   margin: 0;
-  color: var(--moss);
-  font-size: var(--text-xs);
-  letter-spacing: var(--track-loose);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
 }
 
 /* A list, because the navigation is a widget region and its item chrome is an
@@ -67,35 +77,35 @@
 .site-nav {
   display: flex;
   align-items: baseline;
-  gap: var(--space-4);
+  gap: var(--baize-space-4);
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-sm);
+  font-size: var(--baize-text-sm);
 }
 
 .site-nav__item[data-align='end'] {
-  margin-left: var(--space-3);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--rule);
+  margin-left: var(--baize-space-3);
+  padding-left: var(--baize-space-4);
+  border-left: 1px solid var(--baize-rule);
 }
 
 .site-nav a {
-  color: var(--lichen);
+  color: var(--baize-lichen);
   text-decoration: none;
 }
 
 .site-nav a:hover,
 .site-nav a[aria-current='page'] {
-  color: var(--chalk);
+  color: var(--baize-chalk);
 }
 
 .site-main {
-  padding-block: var(--space-6) var(--space-8);
+  padding-block: var(--baize-space-6) var(--baize-space-8);
 }
 
 .site-footer {
-  padding-block: var(--space-5) var(--space-6);
+  padding-block: var(--baize-space-5) var(--baize-space-6);
 }
 
 /*
@@ -106,41 +116,32 @@
 .feature {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: var(--space-6);
+  gap: var(--baize-space-6);
   align-items: start;
 }
 
 .feature__lede {
-  margin: 0 0 var(--space-4);
-  color: var(--lichen);
-  font-size: var(--text-sm);
-  letter-spacing: var(--track-loose);
-}
-
-.feature__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin: 0 0 var(--baize-space-4);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-loose);
 }
 
 .feature__stats {
-  margin-top: var(--space-5);
+  margin-top: var(--baize-space-5);
 }
 
 .feature__buy {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
+  gap: var(--baize-space-4);
+  margin-top: var(--baize-space-5);
 }
 
 .section {
-  padding-block: var(--space-7);
-  border-bottom: 1px solid var(--rule);
+  padding-block: var(--baize-space-7);
+  border-bottom: 1px solid var(--baize-rule);
 }
 
 .section:last-child {
@@ -154,58 +155,14 @@
 }
 
 .section[data-width='measure'] {
-  max-width: var(--measure);
-}
-
-.section__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.section__heading {
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: var(--text-lg);
-  font-weight: 650;
-  letter-spacing: var(--track-snug);
-  color: var(--chalk);
-}
-
-.catalogue-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.catalogue-grid__cell {
-  display: flex;
-  min-width: 0;
-}
-
-.catalogue-grid__cell > * {
-  flex: 1;
-}
-
-/* The wide cell the listing chrome gives one item through `meta.span`. It is
-   dropped below the breakpoint, where the grid is one column anyway. */
-@media (min-width: 52rem) {
-  .catalogue-grid__cell[data-span='2'] {
-    grid-column: span 2;
-  }
+  max-width: var(--baize-measure);
 }
 
 /* The nested region inside a group block: its own grid, its own cell chrome. */
 .group {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: var(--baize-space-4);
 }
 
 .group__cell {
@@ -215,7 +172,7 @@
 .mechanism-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--baize-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -223,12 +180,11 @@
 
 .mechanism-bar a {
   text-decoration: none;
-  color: var(--mechanism, var(--lichen));
 }
 
 .mechanism-bar__count {
-  margin-left: var(--space-2);
-  color: var(--moss);
+  margin-left: var(--baize-space-2);
+  color: var(--baize-moss);
 }
 
 /* The category page: a small authored sidebar region beside the large listing
@@ -236,13 +192,13 @@
 .browse {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
-  gap: var(--space-6);
+  gap: var(--baize-space-6);
   align-items: start;
 }
 
 .sidebar {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--baize-space-4);
 }
 
 /* A panel asking to be pinned pins the column, not itself.
@@ -257,100 +213,85 @@
    as the listing scrolls and no further. */
 .sidebar:has(> [data-sticky='true']) {
   position: sticky;
-  top: var(--space-4);
+  top: var(--baize-space-4);
   /* A pinned column taller than the viewport would keep its lower panels out of
      reach for the whole scroll, which is the same content-hidden failure by a
      different route. */
-  max-height: calc(100vh - 2 * var(--space-4));
+  max-height: calc(100vh - 2 * var(--baize-space-4));
   overflow-y: auto;
-}
-
-.sidebar__heading {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: var(--track-loose);
-  color: var(--lichen);
 }
 
 .sidebar__filter {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--baize-space-1);
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-sm);
+  font-size: var(--baize-text-sm);
 }
 
+/* The hue class on the item binds `--baize-hue`, so the filter reads in the same
+   colour as the titles in the category it opens. */
 .sidebar__filter a {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-chip);
-  color: var(--mechanism, var(--lichen));
+  gap: var(--baize-space-3);
+  padding: 2px var(--baize-space-2);
+  border-radius: var(--baize-radius-chip);
+  color: var(--baize-hue, var(--baize-lichen));
   text-decoration: none;
 }
 
 .sidebar__filter a:hover,
 .sidebar__filter a[aria-current='page'] {
-  background: color-mix(in oklab, currentColor 10%, transparent);
+  background: color-mix(in oklab, currentcolor 10%, transparent);
 }
 
 .sidebar__count {
-  color: var(--moss);
+  color: var(--baize-moss);
 }
 
 .sidebar__hours {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--baize-space-2);
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--baize-text-sm);
 }
 
 .sidebar__hours-row {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-3);
-  color: var(--lichen);
+  gap: var(--baize-space-3);
+  color: var(--baize-lichen);
 }
 
 .sidebar__hours-row dd {
   margin: 0;
-  color: var(--chalk);
+  color: var(--baize-chalk);
 }
 
 .detail {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: var(--space-6);
+  gap: var(--baize-space-6);
   align-items: start;
-}
-
-.detail__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
 }
 
 .detail__buy {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--baize-space-4);
 }
 
 .detail__buy-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--baize-space-3);
 }
 
 .expansions {
   display: grid;
-  gap: var(--space-3);
-  margin: var(--space-4) 0 0;
+  gap: var(--baize-space-3);
+  margin: var(--baize-space-4) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -360,21 +301,21 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--rule);
+  gap: var(--baize-space-3);
+  padding-top: var(--baize-space-3);
+  border-top: 1px solid var(--baize-rule);
 }
 
 .expansions__urn {
   display: block;
   margin-top: 2px;
-  color: var(--moss);
-  font-size: var(--text-xs);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
 }
 
 .cart {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--baize-space-5);
   max-width: 46rem;
 }
 
@@ -382,40 +323,115 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--space-4);
-  padding-block: var(--space-4);
-  border-top: 1px solid var(--rule);
+  gap: var(--baize-space-4);
+  padding-block: var(--baize-space-4);
+  border-top: 1px solid var(--baize-rule);
 }
 
 .cart__quantity {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--baize-space-2);
 }
 
 .cart__total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--chalk);
+  gap: var(--baize-space-4);
+  padding-top: var(--baize-space-4);
+  border-top: 1px solid var(--baize-chalk);
 }
 
 .cart__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--baize-space-3);
 }
 
 .receipt {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--baize-space-3);
 }
 
 .receipt__urn {
-  font-size: var(--text-md);
-  color: var(--chalk);
+  font-size: var(--baize-text-md);
+  color: var(--baize-chalk);
+}
+
+/*
+ * What the library supplies no component for.
+ *
+ * A link inside a title and a link inside prose are app decisions about
+ * navigation, which the library carries no router for. The quantity field is a
+ * form control the design system has no primitive for, and the trace is this
+ * demo's own subject.
+ */
+
+.title-link,
+.tag-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.title-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.tag-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inline-link {
+  color: var(--baize-chalk);
+  text-decoration-color: var(--baize-moss);
+  text-underline-offset: 3px;
+}
+
+.inline-link:hover {
+  text-decoration-color: var(--baize-lichen);
+}
+
+.quantity-input {
+  width: 4.5rem;
+  padding: var(--baize-space-1) var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The trace is the demo's subject, not debug output: one page view, one id. */
+.trace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2) var(--baize-space-5);
+  padding: var(--baize-space-3) 0;
+  border-top: 1px solid var(--baize-rule);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.trace__id {
+  color: var(--baize-lichen);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 52rem) {

@@ -23,13 +23,15 @@ const shown = typeof limit === 'number' ? selected.slice(0, limit) : selected;
 {/* A content block that opens the listing region inside itself: the editor says
     which slice of the catalogue belongs here, and the region renders it. */}
 <div>
-  <div class="section__head">
-    <h2 class="section__heading">{heading}</h2>
+  <div class="baize-section-header">
+    <h2 class="baize-title baize-title--size-md">{heading}</h2>
     {
       mechanism && (
-        <a class="baize-link" href={`/c/${mechanism}`}>
-          All {shown.length === 1 ? 'title' : 'titles'} in this category
-        </a>
+        <div class="baize-section-header__aside">
+          <a class="inline-link" href={`/c/${mechanism}`}>
+            All {shown.length === 1 ? 'title' : 'titles'} in this category
+          </a>
+        </div>
       )
     }
   </div>

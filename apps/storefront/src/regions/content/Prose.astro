@@ -9,8 +9,14 @@ const { heading, paragraphs } = Astro.props;
 ---
 
 <div>
-  {heading && <h2 class="section__heading">{heading}</h2>}
-  <div class="baize-prose">
-    {paragraphs.map((paragraph) => <p>{paragraph}</p>)}
-  </div>
+  {heading && <h2 class="baize-title baize-title--size-md">{heading}</h2>}
+  {
+    paragraphs.map((paragraph) => (
+      <p
+        class="baize-text baize-text--tone-lichen baize-text--size-base baize-text--measured"
+      >
+        {paragraph}
+      </p>
+    ))
+  }
 </div>

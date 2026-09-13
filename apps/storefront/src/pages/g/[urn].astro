@@ -1,12 +1,15 @@
 ---
+import { classNames } from '@evanion/baize-ui/tokens';
+
 import ApiOffline from '../../components/ApiOffline.astro';
 import AvailabilityPill from '../../components/AvailabilityPill.astro';
+import BoxArt from '../../components/BoxArt.astro';
 import MechanismTags from '../../components/MechanismTags.astro';
 import StatLine from '../../components/StatLine.astro';
 import { ExpansionURN } from '../../domain/expansion.urn.js';
 import { GameURN } from '../../domain/game.urn.js';
 import Page from '../../layouts/Page.astro';
-import { formatPrice, gameHue } from '../../lib/catalogue.js';
+import { formatPrice, gameHueClass } from '../../lib/catalogue.js';
 
 const { api } = Astro.locals;
 const urn = Astro.params.urn ?? '';
@@ -32,10 +35,18 @@ const sellable = copies !== undefined && copies > 0;
 {
   game.ok ? (
     <Page title={game.value.title}>
-      <div class="detail" style={`--hue: ${gameHue(game.value)}`}>
+      <div class="detail">
         <div>
-          <div class="detail__head">
-            <h1 class="baize-title baize-title--lg">{game.value.title}</h1>
+          <div class="baize-section-header">
+            <h1
+              class={classNames(
+                'baize-title',
+                'baize-title--size-lg',
+                gameHueClass(game.value),
+              )}
+            >
+              {game.value.title}
+            </h1>
             <AvailabilityPill availability={game.value.availability} />
           </div>
           <MechanismTags mechanisms={game.value.mechanisms} />
@@ -50,7 +61,7 @@ const sellable = copies !== undefined && copies > 0;
 
           {game.value.expansions.length > 0 && (
             <div class="section">
-              <h2 class="section__heading">Expansions</h2>
+              <h2 class="baize-title baize-title--size-md">Expansions</h2>
               <ul class="expansions">
                 {game.value.expansions.map((expansion) => (
                   <li class="expansions__row">
@@ -73,7 +84,7 @@ const sellable = copies !== undefined && copies > 0;
                         name="back"
                         value={Astro.url.pathname}
                       />
-                      <button class="baize-button baize-button--quiet">
+                      <button class="baize-button baize-button--variant-quiet">
                         Add for {formatPrice(expansion.price)}
                       </button>
                     </form>
@@ -85,11 +96,13 @@ const sellable = copies !== undefined && copies > 0;
         </div>
 
         <div class="detail__buy">
-          <div class="baize-art">{game.value.title}</div>
-          <div class="baize-panel">
+          <BoxArt title={game.value.title} urn={game.value.urn} />
+          <section class="baize-panel">
             <div class="detail__buy-row">
-              <span class="baize-price">{formatPrice(game.value.price)}</span>
-              <p class="baize-note">
+              <span class="baize-figure baize-figure--size-lg">
+                {formatPrice(game.value.price)}
+              </span>
+              <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
                 {copies === undefined
                   ? 'Stock unknown'
                   : copies === 0
@@ -101,11 +114,11 @@ const sellable = copies !== undefined && copies > 0;
               <input type="hidden" name="intent" value="add" />
               <input type="hidden" name="urn" value={game.value.urn} />
               <input type="hidden" name="back" value={Astro.url.pathname} />
-              <label class="baize-sr-only" for="quantity">
+              <label class="sr-only" for="quantity">
                 Copies
               </label>
               <input
-                class="baize-qty"
+                class="quantity-input"
                 id="quantity"
                 name="quantity"
                 type="number"
@@ -115,19 +128,19 @@ const sellable = copies !== undefined && copies > 0;
                 disabled={!sellable}
               />
               <button
-                class="baize-button baize-button--primary"
+                class="baize-button baize-button--variant-primary"
                 disabled={!sellable}
               >
                 Add to cart
               </button>
             </form>
             {!sellable && (
-              <p class="baize-note">
+              <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
                 Not orderable right now. Ask at the counter and we will say when
                 the next printing lands.
               </p>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </Page>

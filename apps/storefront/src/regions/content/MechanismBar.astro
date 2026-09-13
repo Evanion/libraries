@@ -1,7 +1,9 @@
 ---
+import { classNames } from '@evanion/baize-ui/tokens';
+
 import {
   gamesByMechanism,
-  mechanismHue,
+  mechanismHueClass,
   mechanismSlug,
   mechanisms,
 } from '../../lib/catalogue.js';
@@ -21,18 +23,22 @@ const all = mechanisms(games);
     Each entry wears its own categorical hue, which is the same colour the titles
     in that category are set in. */}
 <div>
-  <div class="section__head">
-    <h2 class="section__heading">{heading}</h2>
-    <p class="baize-note">{all.length} categories</p>
+  <div class="baize-section-header">
+    <h2 class="baize-title baize-title--size-md">{heading}</h2>
+    <div class="baize-section-header__aside">{all.length} categories</div>
   </div>
   <ul class="mechanism-bar">
     {
       all.map((mechanism) => (
-        <li style={`--mechanism: ${mechanismHue(mechanism)}`}>
-          <a class="baize-chip" href={`/c/${mechanismSlug(mechanism)}`}>
-            {mechanism}
-            <span class="mechanism-bar__count">
-              {gamesByMechanism(games, mechanismSlug(mechanism)).length}
+        <li>
+          <a href={`/c/${mechanismSlug(mechanism)}`}>
+            <span
+              class={classNames('baize-chip', mechanismHueClass(mechanism))}
+            >
+              {mechanism}
+              <span class="mechanism-bar__count">
+                {gamesByMechanism(games, mechanismSlug(mechanism)).length}
+              </span>
             </span>
           </a>
         </li>

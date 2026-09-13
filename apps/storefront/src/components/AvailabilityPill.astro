@@ -1,5 +1,10 @@
 ---
-import { availabilityColour, availabilityLabel } from '../lib/catalogue.js';
+import { classNames } from '@evanion/baize-ui/tokens';
+
+import {
+  availabilityLabel,
+  availabilityStateClass,
+} from '../lib/catalogue.js';
 import type { Availability } from '../lib/shop-api.js';
 
 interface Props {
@@ -9,8 +14,12 @@ interface Props {
 const { availability } = Astro.props;
 ---
 
-{/* Availability is the catalogue's state, and live stock is a separate fact a
-    page shows separately: a title can be in stock and at zero copies. */}
-<span class="baize-pill" style={`--state: ${availabilityColour(availability)}`}>
+{/* The library's `AvailabilityPill`, as Astro. The state class binds the colour
+    and the stylesheet draws the dot, so the label is the whole accessible name
+    and a reader who cannot see the colour loses nothing.
+
+    Availability is the catalogue's state, and live stock is a separate fact a page
+    shows separately: a title can be in stock and at zero copies. */}
+<span class={classNames('baize-pill', availabilityStateClass(availability))}>
   {availabilityLabel(availability)}
 </span>

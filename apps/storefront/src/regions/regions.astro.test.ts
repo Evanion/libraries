@@ -283,7 +283,7 @@ describe('the listing region', () => {
       chrome: { item: GridCell },
     });
 
-    expect([...html.matchAll(/catalogue-grid__cell/g)]).toHaveLength(2);
+    expect([...html.matchAll(/baize-card-grid__cell/g)]).toHaveLength(2);
   });
 
   it('widens the cell of the featured urn and no other', async () => {
@@ -312,7 +312,9 @@ describe('the listing region', () => {
       chrome: { item: GridCell },
     });
 
-    expect(html).toContain('--hue: var(--mechanism-economic');
-    expect(html).toContain('--hue: var(--mechanism-co-op');
+    // The hue is a class the library's stylesheet binds, not an inline colour:
+    // `co-op` is the catalogue's wording and `cooperative` is the token's.
+    expect(html).toContain('baize-hue-economic');
+    expect(html).toContain('baize-hue-cooperative');
   });
 });
