@@ -76,7 +76,16 @@ export default defineConfig(() => ({
       // React is a peer dependency, so it resolves to the consumer's copy.
       // Bundling it would put a second React in the graph, and an element
       // created by one copy is not recognised by the other's renderer.
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      //
+      // class-variance-authority is a declared dependency, and external for the
+      // ordinary reason: an app that also uses it gets one copy from its own
+      // node_modules instead of a second one inlined here.
+      external: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        'class-variance-authority',
+      ],
       output: {
         entryFileNames: '[name].js',
       },

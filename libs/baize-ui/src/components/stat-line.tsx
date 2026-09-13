@@ -1,7 +1,8 @@
+import { cva } from 'class-variance-authority';
 import type { ReactNode } from 'react';
 
 import type { ComplexityStop } from '../tokens/complexity.js';
-import { classNames, modifier } from './class-names.js';
+import type { Variant } from './variants.js';
 
 export interface StatProps {
   /**
@@ -33,10 +34,24 @@ export function Stat({ figure, label, children }: StatProps) {
   );
 }
 
+/**
+ * The stat line's classes. `base` is emitted and styles nothing: `.baize-statline`
+ * is already that size, and `lg` is the only step with a rule of its own.
+ */
+const statLine = cva('baize-statline', {
+  variants: {
+    size: {
+      base: 'baize-statline--size-base',
+      lg: 'baize-statline--size-lg',
+    },
+  },
+  defaultVariants: { size: 'base' },
+});
+
 export interface StatLineProps {
   children: ReactNode;
   /** `lg` is the size the line takes when it leads a page rather than a card. */
-  size?: 'base' | 'lg';
+  size?: Variant<typeof statLine, 'size'>;
   /** Names the group for a screen reader, e.g. `Wingspan at a glance`. */
   label?: string;
 }
@@ -49,20 +64,35 @@ export interface StatLineProps {
  * glance. Columns are sized to their content rather than split into equal thirds,
  * which is what stops a playtime range from wrapping at narrow widths.
  */
-export function StatLine({ children, size = 'base', label }: StatLineProps) {
+export function StatLine({ children, size, label }: StatLineProps) {
   return (
     <div
       aria-label={label}
-      className={classNames(
-        'baize-statline',
-        modifier('baize-statline', 'size', size),
-      )}
+      className={statLine({ size })}
       role={label ? 'group' : undefined}
     >
       {children}
     </div>
   );
 }
+
+/**
+ * The ramp colour each filled pip takes, one class per stop.
+ *
+ * Spelled out against `ComplexityStop` rather than derived from the stop number:
+ * a sixth stop added to the token module fails to compile here until the
+ * stylesheet has a rule for it.
+ */
+const pipStops = {
+  1: 'baize-complexity__pip--stop-1',
+  2: 'baize-complexity__pip--stop-2',
+  3: 'baize-complexity__pip--stop-3',
+  4: 'baize-complexity__pip--stop-4',
+  5: 'baize-complexity__pip--stop-5',
+} satisfies Record<ComplexityStop, string>;
+
+/** One pip. Unfilled where it sits above the stop, which is `stop: undefined`. */
+const pip = cva('baize-complexity__pip', { variants: { stop: pipStops } });
 
 export interface ComplexityRampProps {
   /** How many pips are filled, and therefore which ramp stops they take. */
@@ -88,13 +118,10 @@ export interface ComplexityRampProps {
 export function ComplexityRamp({ stop, label }: ComplexityRampProps) {
   return (
     <span aria-label={label} className="baize-complexity" role="img">
-      {([1, 2, 3, 4, 5] as const).map((pip) => (
+      {([1, 2, 3, 4, 5] as const).map((index) => (
         <span
-          className={classNames(
-            'baize-complexity__pip',
-            pip <= stop && modifier('baize-complexity__pip', 'stop', pip),
-          )}
-          key={pip}
+          className={pip({ stop: index <= stop ? index : undefined })}
+          key={index}
         />
       ))}
     </span>
