@@ -1,279 +1,50 @@
 # Playground
 
-Experiment with the React Widget System. Try the live demos below or copy the examples to learn how the system works.
-
-## Interactive Demo
-
-Try these live examples to experiment with different widget configurations:
+The editors below run the real `@evanion/react-widget` — the same build npm
+installs, not a mock — so what you see is what the library does.
 
 <PlaygroundExamples />
 
-## Basic Widget System
+## What a snippet can use
 
-Start with a simple widget system:
+Each snippet is evaluated by react-live in `noInline` mode against a fixed
+scope. There is no module resolution inside one, so an `import` line, or a name
+that is not in the scope, surfaces as a runtime error in the preview pane rather
+than as a build failure.
 
-```tsx
-import { createWidgets } from '@evanion/react-widget';
-
-// Define your widget components
-const NewsTeaser = ({ title, publishedAt, body }) => (
-  <article className="news-teaser">
-    <h3>{title}</h3>
-    <time>{publishedAt.toLocaleDateString()}</time>
-    <p>{body}</p>
-  </article>
-);
-
-const UserSidebar = ({ username, avatar, messages }) => (
-  <div className="user-info">
-    <img src={avatar} alt={username} />
-    <span>{username}</span>
-    <span>{messages} messages</span>
-  </div>
-);
-
-// Create the widget system
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
-});
-
-// Define your layout data
-const items = [
-  {
-    id: 'userinfo',
-    type: 'userInfo',
-    props: {
-      username: 'Evanion',
-      avatar: 'https://evanion.com/avatar.jpg',
-      messages: 5,
-    },
-  },
-  {
-    id: 'news1',
-    type: 'news',
-    props: {
-      title: 'Breaking News',
-      publishedAt: new Date('2024-01-15'),
-      body: 'This is a sample news article...',
-    },
-  },
-];
-
-// Render your widgets
-function PlaygroundExample() {
-  return <Widgets items={items} />;
-}
-```
-
-## Custom Chrome Example
-
-Try adding custom wrappers:
+Available: `createWidgets`, `React`, `useState`, `useEffect`, `useMemo`,
+`useCallback`, and `render` — which every snippet has to end in.
 
 ```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
-  chrome: {
-    wrapper: ({ children }) => (
-      <aside className="blog-sidebar">
-        <header>Latest Updates</header>
-        <div className="widget-container">{children}</div>
-      </aside>
-    ),
-    item: ({ children }) => <div className="widget-item">{children}</div>,
-  },
-});
+const { Widgets } = createWidgets({ components: { text: Text } });
+
+render(<Widgets items={[{ id: 't', type: 'text', props: { body: 'hi' } }]} />);
 ```
 
-## Nested Widgets
+## Things that behave differently here
 
-Experiment with nested widgets:
+Everything runs in the browser. The package is importable from a React Server
+Component, but nothing in a playground is one, so async widgets and the
+streaming behaviour described under [Suspense](/widget/advanced#suspense) cannot
+be demonstrated here — `chrome.suspenseFallback` still works, but only for a
+widget that suspends on the client.
 
-```tsx
-const CardWidget = ({ title, Output }) => (
-  <div className="card">
-    <h3>{title}</h3>
-    <div className="card-content">
-      <Output />
-    </div>
-  </div>
-);
+Type errors do not show. The snippets are strings; nothing typechecks them. The
+compile-time guarantees that make up most of this package's value —
+[an unknown `type`](/widget/getting-started#typing-items-held-in-a-variable),
+mismatched props, `children` on a component that does not take them — are
+exactly the things you cannot see in this editor. Try them in your own project.
 
-const TextWidget = ({ content }) => <p>{content}</p>;
+What you can see here is the runtime half: the rendered output, the chrome
+composing around it, and the console warning when an item names a type the map
+does not have.
 
-const { Widgets } = createWidgets({
-  components: {
-    card: CardWidget,
-    text: TextWidget,
-  },
-});
+## Try changing
 
-const nestedItems = [
-  {
-    id: 'card1',
-    type: 'card',
-    props: {
-      title: 'My Card',
-    },
-    children: [
-      {
-        id: 'text1',
-        type: 'text',
-        props: { content: 'Nested text content' },
-      },
-    ],
-  },
-];
-```
-
-## Dynamic Widgets
-
-Create dynamic widget systems:
-
-```tsx
-import { useState } from 'react';
-
-function DynamicPlayground() {
-  const [widgetType, setWidgetType] = useState('news');
-  const [widgetData, setWidgetData] = useState({
-    title: 'Dynamic News',
-    publishedAt: new Date(),
-    body: 'This widget is dynamically configured!',
-  });
-
-  const { Widgets } = createWidgets({
-    components: {
-      news: NewsTeaser,
-      userInfo: UserSidebar,
-    },
-  });
-
-  const dynamicItems = [
-    {
-      id: 'dynamic1',
-      type: widgetType,
-      props: widgetData,
-    },
-  ];
-
-  return (
-    <div>
-      <div className="controls">
-        <select
-          value={widgetType}
-          onChange={(e) => setWidgetType(e.target.value)}
-        >
-          <option value="news">News</option>
-          <option value="userInfo">User Info</option>
-        </select>
-
-        <input
-          type="text"
-          value={widgetData.title}
-          onChange={(e) =>
-            setWidgetData({ ...widgetData, title: e.target.value })
-          }
-          placeholder="Widget title"
-        />
-      </div>
-
-      <Widgets items={dynamicItems} />
-    </div>
-  );
-}
-```
-
-## Error Handling
-
-Test error handling:
-
-```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    // Intentionally missing 'userInfo' component
-  },
-});
-
-const errorItems = [
-  {
-    id: 'valid1',
-    type: 'news',
-    props: {
-      title: 'Valid News',
-      publishedAt: new Date(),
-      body: 'This will render',
-    },
-  },
-  {
-    id: 'invalid1',
-    type: 'userInfo', // This type is not defined
-    props: {
-      username: 'Test User',
-      avatar: '/avatar.jpg',
-      messages: 3,
-    },
-  },
-];
-
-// Only the valid widget will render
-// The invalid one will be skipped with a console warning
-function ErrorHandlingExample() {
-  return <Widgets items={errorItems} />;
-}
-```
-
-## Tips for Experimenting
-
-- **Start simple** - Begin with basic widget components
-- **Add complexity gradually** - Add chrome, then nesting, then dynamic features
-- **Use TypeScript** - Get better IntelliSense and error checking
-- **Check the console** - Look for warnings about unknown widget types
-- **Copy working examples** - Use the examples from the documentation as starting points
-
-## Common Patterns to Try
-
-### Conditional Widgets
-
-```tsx
-const conditionalItems = [
-  ...(showNews
-    ? [
-        {
-          id: 'news1',
-          type: 'news',
-          props: { title: 'News', publishedAt: new Date(), body: 'Content' },
-        },
-      ]
-    : []),
-];
-```
-
-### Dynamic Props
-
-```tsx
-const dynamicItems = items.map((item) => ({
-  ...item,
-  props: {
-    ...item.props,
-    className: isActive ? 'active' : 'inactive',
-  },
-}));
-```
-
-### Component Overrides
-
-```tsx
-// Use different components for different contexts
-<Widgets
-  items={items}
-  components={{
-    news: isHomePage ? FeaturedNews : RegularNews,
-  }}
-/>
-```
+- A `type` to something not in the `components` map. The item disappears and the
+  browser console carries one warning naming its `id`.
+- A `props` key. Nothing validates it at runtime — the widget just receives
+  `undefined` — which is the gap the type checker closes outside this editor.
+- The `chrome.wrapper`, to see how the region container composes.
+- An item's position in the array. `id` is the React key, so reordering moves
+  the element rather than rebuilding it.
