@@ -25,8 +25,14 @@
   box-sizing: border-box;
 }
 
+/*
+ * The same measure the Astro storefront holds, so the two shops put a card grid
+ * at the same column width and a stat line wraps in both or neither. A card is
+ * 17rem at its narrowest and the design system decides what fits in one; the
+ * page is what decides how many.
+ */
 .page {
-  max-width: 56rem;
+  max-width: 68rem;
   margin: 0 auto;
   padding: var(--baize-space-8) var(--baize-space-5);
 }
