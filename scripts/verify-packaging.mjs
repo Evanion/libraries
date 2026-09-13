@@ -55,8 +55,34 @@ const dir = mkdtempSync(join(tmpdir(), 'evanion-packaging-'));
 let failed = false;
 
 try {
+  // CI builds from a checkout that has no `dist` at all. Here `dist` is whatever
+  // the last local build left, and `nx build` empties it at no point: a file
+  // planted in `libs/urn/dist` survives a rebuild, which overwrites what it
+  // emits and touches nothing else, and survives a cache hit, which restores the
+  // cached outputs alongside what is already on disk. A source file deleted
+  // since the last build therefore leaves its JavaScript behind, `npm pack`
+  // ships it, and every check below reports on a tarball that cannot be
+  // published.
+  //
+  // Both halves are needed. Clearing alone is not enough, because a build that
+  // ran against a dirty `dist` cached the stale file as part of its output, and
+  // that cache entry is keyed on the sources as they are now -- so the build
+  // after the clean hits it and puts the file straight back. `--skip-nx-cache`
+  // alone is not enough either, since a rebuild does not prune. Together they
+  // give a build from sources into an empty directory, which is what ships, and
+  // the run replaces the poisoned cache entry on its way past.
+  //
+  // Only this script does it. Making `nx build` empty its own output would turn
+  // every incremental local build into a full one, to catch something that shows
+  // up only after a deletion; reproducing what ships is this script's whole
+  // purpose and nothing else's.
+  console.log('Clearing build output…');
+  for (const [libDir] of LIBS) {
+    rmSync(join(ROOT, libDir, 'dist'), { recursive: true, force: true });
+  }
+
   console.log('Building libraries…');
-  run('npx', ['nx', 'run-many', '-t', 'build'], ROOT);
+  run('npx', ['nx', 'run-many', '-t', 'build', '--skip-nx-cache'], ROOT);
 
   console.log(`Packing into ${dir}`);
   for (const [libDir] of LIBS) {
