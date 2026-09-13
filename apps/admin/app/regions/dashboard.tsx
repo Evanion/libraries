@@ -247,37 +247,59 @@ function Figures({ figures }: { figures: { label: string; value: string }[] }) {
 }
 
 /**
+ * The lanes a dashboard item can sit in.
+ *
+ * Placement is a closed set of names rather than a start line and a width. A
+ * start line and a width let two items tile the same bed and still disagree
+ * about where the seam between them falls -- each row is individually valid and
+ * the panels do not line up down the page. A lane resolves to grid lines the
+ * bed declares once, so every item on the page shares one seam and a
+ * misalignment has nowhere to come from.
+ */
+const lanes = ['main', 'aside', 'full'] as const;
+
+type Lane = (typeof lanes)[number];
+
+function laneOf(meta: Record<string, unknown> | undefined): Lane {
+  const lane = meta?.['lane'];
+  return lanes.includes(lane as Lane) ? (lane as Lane) : 'full';
+}
+
+/**
  * Places each widget on the dashboard grid from its `meta`.
  *
- * This is what `meta` is for: column and span are facts about the page, not
- * about the widget, so they travel beside the props rather than in them. The
- * renderer hands `meta` to this component and spreads only `props` into the
- * widget itself, which is why `StockByGame` never sees a `column` prop it would
- * have to accept and ignore.
+ * This is what `meta` is for: the lane is a fact about the page, not about the
+ * widget, so it travels beside the props rather than in them. The renderer
+ * hands `meta` to this component and spreads only `props` into the widget
+ * itself, which is why `StockByGame` never sees a `lane` prop it would have to
+ * accept and ignore.
  *
- * An item with no `meta` spans the full grid. A dashboard assembled from a CMS
- * payload will have items that were never placed, and a widget that vanishes is
- * worse than one that is too wide.
+ * An item whose `meta` names no lane, or names one the bed does not declare,
+ * takes the full width. A dashboard assembled from a CMS payload will have
+ * items that were never placed, and a widget that vanishes is worse than one
+ * that is too wide.
  */
-const GridCell: WidgetItemComponent = ({ children, meta, ...attributes }) => {
-  const column = typeof meta?.['column'] === 'number' ? meta['column'] : 1;
-  const span =
-    typeof meta?.['columnSpan'] === 'number' ? meta['columnSpan'] : 12;
+const GridCell: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+  <div {...attributes} style={{ gridColumn: laneOf(meta) }}>
+    {children}
+  </div>
+);
 
-  return (
-    <div {...attributes} style={{ gridColumn: `${column} / span ${span}` }}>
-      {children}
-    </div>
-  );
-};
-
-/** The 12-column bed the cells are placed on. */
+/**
+ * The bed the cells are placed on, and the only place the seam is written.
+ *
+ * The lane names come from the `-start`/`-end` line names below: a pair of
+ * lines named `main-start` and `main-end` is what makes `grid-column: main`
+ * resolve. `minmax(0, ...)` rather than a bare `fr` so a panel holding a long
+ * identifier cannot push its lane wider than its share.
+ */
 const Grid = ({ children }: { children?: ReactNode }) => (
   <section
     aria-label="Dashboard"
     style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(12, 1fr)',
+      gridTemplateColumns:
+        '[full-start main-start] minmax(0, 7fr) [main-end aside-start] minmax(0, 5fr) [aside-end full-end]',
       gap: space[4],
       alignItems: 'start',
     }}

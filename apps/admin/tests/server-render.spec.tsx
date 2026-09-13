@@ -68,13 +68,19 @@ describe('the dashboard region', () => {
           },
         ],
       },
-      meta: { column: 1, columnSpan: 7 },
+      meta: { lane: 'main' },
     },
     {
       id: 'shelf',
       type: 'shelf',
       props: { counts: [{ state: 'in stock', titles: 1 }] },
-      meta: { column: 8, columnSpan: 5 },
+      meta: { lane: 'aside' },
+    },
+    {
+      id: 'stray',
+      type: 'orders',
+      props: { orders: [] },
+      meta: { lane: 'left-hand-side' },
     },
     {
       id: 'memo',
@@ -103,14 +109,33 @@ describe('the dashboard region', () => {
   });
 
   it('places each widget from its meta, not from its props', () => {
-    expect(html).toContain('grid-column:1 / span 7');
-    expect(html).toContain('grid-column:8 / span 5');
-    // The stock widget receives no `column`, so nothing leaks onto a DOM node.
-    expect(html).not.toContain('column="1"');
+    expect(html).toContain('grid-column:main');
+    expect(html).toContain('grid-column:aside');
+    // The stock widget receives no `lane`, so nothing leaks onto a DOM node.
+    expect(html).not.toContain('lane="main"');
   });
 
-  it('spans the grid for an item nobody positioned', () => {
-    expect(html).toContain('grid-column:1 / span 12');
+  it('spans the bed for an item nobody positioned', () => {
+    expect(html).toContain('grid-column:full');
+  });
+
+  /**
+   * The point of naming lanes rather than counting columns. Every placement the
+   * chrome can emit is a lane the bed declares, so no item can land on a seam
+   * of its own or reach past the bed's last line, whatever `meta` holds.
+   */
+  it('emits only lanes the bed declares, never a line number', () => {
+    const placements = [...html.matchAll(/grid-column:([^;"]+)/g)].map(
+      (match) => match[1],
+    );
+
+    // One per chrome wrapper, nested items included -- so a placement that
+    // stopped being emitted at all fails here rather than passing vacuously.
+    const wrappers = [...html.matchAll(/data-widget-id=/g)].length;
+    expect(placements.length).toBe(wrappers);
+    for (const placement of placements) {
+      expect(['main', 'aside', 'full']).toContain(placement);
+    }
   });
 
   it('renders a nested item inside its parent', () => {

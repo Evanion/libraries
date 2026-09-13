@@ -245,9 +245,24 @@
   gap: var(--space-4);
 }
 
-.sidebar__panel[data-sticky='true'] {
+/* A panel asking to be pinned pins the column, not itself.
+
+   `position: sticky` does not take a box out of flow and does not reserve the
+   ground it travels over. A panel pinned on its own is constrained by the
+   sidebar box, which is every panel stacked, so it slides down through the
+   space its siblings occupy -- and, being positioned, it is its own stacking
+   context and paints over them. The column has no siblings inside it to cover,
+   and its constraint rectangle is the browse row, whose height is the listing's
+   whenever the listing is the taller of the two. So it travels exactly as far
+   as the listing scrolls and no further. */
+.sidebar:has(> [data-sticky='true']) {
   position: sticky;
   top: var(--space-4);
+  /* A pinned column taller than the viewport would keep its lower panels out of
+     reach for the whole scroll, which is the same content-hidden failure by a
+     different route. */
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
 }
 
 .sidebar__heading {
@@ -418,8 +433,12 @@
     grid-column: span 1;
   }
 
-  .sidebar__panel[data-sticky='true'] {
+  /* Stacked above the listing rather than beside it, the column has nothing to
+     stay level with, and pinning it would hold it over the listing. */
+  .sidebar:has(> [data-sticky='true']) {
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .cart__row {
