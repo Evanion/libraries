@@ -361,11 +361,15 @@
  * storefront card carries players, time and weight; a back office reads orders,
  * units sold, units on hand, mean weight and empty shelves off the same device,
  * and a fixed template put the fourth figure underneath the first.
+ *
+ * Flex and not a grid, so the row wraps. A figure is `white-space: nowrap` --
+ * numeric alignment is the whole point of it -- so a column that will not fit
+ * cannot shrink, and a grid track has nowhere to put it but on top of its
+ * neighbour. `40–70 min` beside `2.4 / 5` in a 17rem card is where that shows.
  */
 .baize-statline {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, auto);
+  display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--baize-space-5);
   margin: 0;

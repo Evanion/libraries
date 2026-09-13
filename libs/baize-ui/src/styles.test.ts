@@ -117,17 +117,21 @@ describe('styles.css', () => {
   });
 
   /**
-   * A storefront card carries three stats and a back office reads five off the
-   * same device. A fixed column template put the fourth figure under the first,
-   * which is a layout failure no render test on the components would see.
+   * Two layout failures no render test on the components would see. A storefront
+   * card carries three stats and a back office reads five off the same device, so
+   * a fixed column template put the fourth figure under the first. And a figure is
+   * `white-space: nowrap`, so a column that will not fit cannot shrink -- in a
+   * grid track it lands on top of its neighbour instead of moving to a new row.
    */
-  it('gives the stat line a column per stat rather than a fixed three', () => {
+  it('lets the stat line take any number of stats and wrap them', () => {
     const rule = /\.baize-statline\s*\{([^}]*)\}/.exec(rules)?.[1] ?? '';
 
     expect(
       rule,
-      `The stat line takes as many stats as a page gives it.`,
-    ).toContain('grid-auto-flow: column');
+      `The stat line takes as many stats as a page gives it, and wraps rather ` +
+        `than overlapping when they do not fit across.`,
+    ).toContain('flex-wrap: wrap');
+    expect(rule).toContain('display: flex');
     expect(rule).not.toMatch(/grid-template-columns:\s*repeat\(\s*\d/);
   });
 
