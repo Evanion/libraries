@@ -140,19 +140,27 @@ describe('the docs navigation', () => {
     ).toEqual([]);
   });
 
-  it('names nothing the repository does not release', async () => {
-    const names = new Set((await released).map((project) => project.name));
+  it('names nothing that is not a project here', async () => {
+    // Released packages must all appear, which the test above enforces. This one
+    // is the other direction and is deliberately looser: a package excluded from
+    // `release.projects` can still be documented -- the private design system is,
+    // because every app in this repository is styled with it. What must not
+    // appear is a name the project graph does not know, which is an entry
+    // pointing at nothing.
+    const graph = await createProjectGraphAsync({ exitOnError: false });
+    const known = new Set(Object.keys(graph.nodes));
 
     expect(
       (await loadNavigation())
         .map((entry) => entry.name)
-        .filter((name) => !names.has(name)),
+        .filter((name) => !known.has(name)),
     ).toEqual([]);
   });
 
   it('gives every package the directory the project graph gives it', async () => {
+    const graph = await createProjectGraphAsync({ exitOnError: false });
     const roots = new Map(
-      (await released).map((project) => [project.name, project.root]),
+      Object.values(graph.nodes).map((node) => [node.name, node.data.root]),
     );
     const navigation = await loadNavigation();
 
