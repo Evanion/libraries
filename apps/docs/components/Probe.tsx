@@ -2,6 +2,7 @@ import { seedOf } from './probes/claims';
 import ProbeIsland, { type ProbePackage } from './probes/islands';
 import { probes as luhn } from './probes/luhn';
 import type { Probe as ProbeDefinition } from './probes/probe';
+import { probes as token } from './probes/token';
 
 /**
  * Every probe the site ships, by package.
@@ -12,6 +13,7 @@ import type { Probe as ProbeDefinition } from './probes/probe';
  */
 const catalogue: Record<ProbePackage, Record<string, ProbeDefinition>> = {
   luhn,
+  token,
 };
 
 interface ProbeProps {
