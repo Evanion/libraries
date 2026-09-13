@@ -6,7 +6,7 @@ import * as path from 'path';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/libs/widget',
+  cacheDir: '../../node_modules/.vite/libs/react-widget',
   plugins: [
     react(),
     dts({
@@ -34,7 +34,12 @@ export default defineConfig(() => ({
       // React is a peer dependency, so it resolves to the consumer's copy.
       // Bundling it would put a second React in the graph, and an element
       // created by one copy is not recognised by the other's renderer.
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      //
+      // `@evanion/widget` is externalised for a different reason: it is a
+      // dependency this package pins exactly, so a consumer installing two
+      // adapters at the same core version gets one copy of it rather than a
+      // copy inlined into each.
+      external: ['react', 'react-dom', 'react/jsx-runtime', '@evanion/widget'],
     },
   },
   test: {

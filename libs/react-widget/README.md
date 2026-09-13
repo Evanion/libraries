@@ -7,8 +7,12 @@
 Render dynamic, type-safe React widget regions from structured data. Built for
 CMS-driven layouts, dashboards and configurable sidebars.
 
-Full documentation: [docs.evanion.com/widget](https://docs.evanion.com/widget).
-The Astro counterpart, for build-time sections with no runtime, is
+Full documentation:
+[docs.evanion.com/react-widget](https://docs.evanion.com/react-widget). The item
+shape, the registry and the validator come from
+[`@evanion/widget`](https://www.npmjs.com/package/@evanion/widget), which this
+package pins exactly and re-exports, so installing this one is enough. The Astro
+renderer of the same items, for build-time sections with no runtime, is
 [`@evanion/astro-widget`](https://www.npmjs.com/package/@evanion/astro-widget).
 
 ## Features
@@ -24,7 +28,9 @@ The Astro counterpart, for build-time sections with no runtime, is
 - **Placement without prop leakage**: `meta` reaches the item chrome and never
   the widget
 - **Validation for untrusted data**: `validateItems` for payloads that never met
-  the type checker
+  the type checker, with an optional map of props each type must supply
+- **One item shape across runtimes**: the same array renders through
+  `@evanion/astro-widget` and produces the same widgets in the same order
 
 ## Installation
 
@@ -323,11 +329,24 @@ first, and recurses into `children`. It reports: a non-list root, a non-object
 item, a non-string `id` or `type`, an unknown `type`, non-object `props`,
 non-list `children`, and duplicate sibling `id`s.
 
+It takes a third argument: a map of widget type to the props that must be
+present and non-blank, where blank means `undefined`, `null` or whitespace only
+-- which is what a CMS text field that was opened and left empty arrives as.
+`WidgetItem<C>` already requires them on the typed path; this is for the data
+that bypassed it.
+
+```ts
+validateItems(payload, ['news'], { news: ['title'] });
+// -> [{ index: 0, id: 'a', type: 'news', message: 'missing field title' }]
+```
+
 Two entry points, so a CI script does not have to import React components it
 will never render:
 
-- `validateItems(items, knownTypes: readonly string[])`, exported standalone
-- `createWidgets(...).validateItems(items)`, bound to the component map
+- `validateItems(items, knownTypes: readonly string[], required?)`, exported
+  standalone
+- `createWidgets(...).validateItems(items, required?)`, bound to the component
+  map
 
 `Widgets` does not call it. Validation is a loud, explicit gate you run at
 ingestion or build time; the renderer underneath stays defensive, skipping a
@@ -346,7 +365,7 @@ Nothing is logged when `NODE_ENV` is `production`.
 | field                     | meaning                                                                                             |
 | ------------------------- | --------------------------------------------------------------------------------------------------- |
 | `components`              | widget type -> component. Drives inference for the whole set                                        |
-| `chrome.wrapper`          | rendered around the whole set. Defaults to `<section>`                                              |
+| `chrome.wrapper`          | rendered around the whole set. Defaults to `<section>`. Receives `items` as well as `children`      |
 | `chrome.item`             | rendered around each widget. Defaults to a `<div>` carrying `data-widget-id` and `data-widget-type` |
 | `chrome.suspense`         | `'per-item'` (default) or `'none'`: whether each widget gets its own `<Suspense>` boundary          |
 | `chrome.suspenseFallback` | rendered while a widget suspends                                                                    |
@@ -376,15 +395,40 @@ Returns `{ Widgets, defineItems, validateItems }`.
 
 ### Exports
 
-`createWidgets`, `validateItems`, `DefaultWrapper`, `DefaultItem`,
-`ERROR_MESSAGES`, `VALIDATION_MESSAGES`, and the types `WidgetItem`,
-`WidgetProps`, `WidgetDataProps`, `WidgetComponentMap`, `WidgetsConfig`,
-`WidgetsProps`, `WidgetsChrome`, `WidgetChildren`, `WidgetItemComponent`,
-`WidgetsWrapperComponent`, `WidgetItemProblem`, `KnownWidgetTypes`,
-`RenderableWidgetItem`, `AnyWidgetComponent`.
+`createWidgets`, `validateItems`, `defineWidgets`, `DefaultWrapper`,
+`DefaultItem`, `ERROR_MESSAGES`, `VALIDATION_MESSAGES`, and the types
+`WidgetItem`, `AnyWidgetItem`, `WidgetDataProps`, `WidgetRegistry`,
+`WidgetsConfig`, `WidgetsProps`, `WidgetsChrome`, `WidgetChildren`,
+`WidgetItemComponent`, `WidgetsWrapperComponent`, `WidgetProblem`,
+`WidgetMeta`, `KnownWidgetTypes`, `RenderableWidgetItem`, `AnyWidgetComponent`.
+
+`validateItems`, `defineWidgets`, `AnyWidgetItem`, `WidgetRegistry`,
+`WidgetProblem`, `WidgetMeta`, `KnownWidgetTypes`, `ERROR_MESSAGES` and
+`VALIDATION_MESSAGES` come from `@evanion/widget` and are re-exported here, so
+a consumer who never names the core never installs it by hand.
 
 `props` on a widget whose component declares no props is `Record<string, never>`
 rather than `{}`, so an unexpected key is a compile error there too.
+
+## Migrating from 0.2.x
+
+The item shape, the props and the data are unchanged. Three type names moved to
+`@evanion/widget` and are re-exported from here under the names the whole family
+uses.
+
+| Was                  | Now                                  |
+| -------------------- | ------------------------------------ |
+| `WidgetComponentMap` | `WidgetRegistry<AnyWidgetComponent>` |
+| `WidgetItemProblem`  | `WidgetProblem`                      |
+| `WidgetProps`        | `AnyWidgetItem`                      |
+
+`WidgetProps` and `WidgetsProps` differed by one character and meant different
+things -- the loose item, and the component's props. `AnyWidgetItem` is the
+untyped counterpart to `WidgetItem`, which is what it always was.
+
+`chrome.wrapper` now receives an `items` prop beside its children. It is
+optional, so an existing wrapper keeps compiling; a wrapper that spreads its
+props onto a DOM element has to drop it, the way `DefaultWrapper` does.
 
 ## Migrating from 0.1.x
 

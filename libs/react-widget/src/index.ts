@@ -16,5 +16,24 @@
 export * from './widget.js';
 export * from './widgets.js';
 export * from './types.js';
-export * from './constants.js';
-export * from './validate-items.js';
+
+// The item model, re-exported from `@evanion/widget` so that a consumer who
+// never names the core never installs it by hand. The same names reach an
+// `@evanion/astro-widget` consumer from its own entry point, which is what
+// makes an item array authored for one runtime render through the other.
+//
+// `warnOnce` and `resetWarnings` are deliberately not among them: they are the
+// seam the adapters reach the core through, not something a consumer calls.
+export {
+  defineWidgets,
+  validateItems,
+  ERROR_MESSAGES,
+  VALIDATION_MESSAGES,
+} from '@evanion/widget';
+export type {
+  AnyWidgetItem,
+  KnownWidgetTypes,
+  WidgetMeta,
+  WidgetProblem,
+  WidgetRegistry,
+} from '@evanion/widget';

@@ -50,5 +50,10 @@
     "src/**/*.test-d.ts",
     "src/**/*.test-d.tsx"
   ],
-  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
+  "references": [
+    {
+      "path": "../widget/tsconfig.lib.json"
+    }
+  ]
 }

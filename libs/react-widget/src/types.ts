@@ -1,4 +1,10 @@
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
+import type { WidgetMeta, WidgetRegistry } from '@evanion/widget';
+
+// `WidgetRegistry<AnyWidgetComponent>` is this package's component map, and it
+// is written out at each use below rather than aliased to a name of its own.
+// One noun for the registry across the family is the point of the core; an
+// alias per adapter is what the family had before.
 
 /**
  * Any widget component, for use in a generic *constraint*.
@@ -14,15 +20,6 @@ import type { ComponentProps, ComponentType, ReactNode } from 'react';
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyWidgetComponent = ComponentType<any>;
-
-/**
- * A map of widget type name -> component.
- *
- * This is the type that drives inference for a whole widget set: pass a literal
- * object to {@link createWidgets} and every item's `type` and `props` are
- * checked against it.
- */
-export type WidgetComponentMap = Record<string, AnyWidgetComponent>;
 
 /**
  * The props a widget component accepts as *data*: everything except `children`,
@@ -57,18 +54,10 @@ export type WidgetDataProps<C extends AnyWidgetComponent> = [
  * nested subtree with no compile error and nothing logged.
  */
 export type WidgetChildren<
-  C extends WidgetComponentMap,
+  C extends WidgetRegistry<AnyWidgetComponent>,
   K extends keyof C,
   M = WidgetMeta,
 > = 'children' extends keyof ComponentProps<C[K]> ? WidgetItem<C, M>[] : never;
-
-/**
- * The `meta` vocabulary of a widget set whose chrome declares none.
- *
- * Any object, so an item may carry whatever placement data it likes and a
- * chrome that reads `meta` narrows it by hand.
- */
-export type WidgetMeta = Record<string, unknown>;
 
 /**
  * A single item in a widget set, discriminated on `type`.
@@ -82,7 +71,10 @@ export type WidgetMeta = Record<string, unknown>;
  * one `M` per set rather than one per widget type, and `meta?: M` adds no
  * members to the union above.
  */
-export type WidgetItem<C extends WidgetComponentMap, M = WidgetMeta> = {
+export type WidgetItem<
+  C extends WidgetRegistry<AnyWidgetComponent>,
+  M = WidgetMeta,
+> = {
   [K in keyof C & string]: {
     /** Stable identity for this item; used as the React key. */
     id: string;
@@ -113,20 +105,6 @@ export type WidgetItem<C extends WidgetComponentMap, M = WidgetMeta> = {
 }[keyof C & string];
 
 /**
- * Loose item shape, for callers that build item data before a component map
- * exists (a CMS payload, a fixture, a network response).
- *
- * Prefer {@link WidgetItem}, which is checked against the component map.
- */
-export interface WidgetProps<Type extends string = string, Props = object> {
-  id: string;
-  type: Type;
-  props: Props;
-  meta?: Record<string, unknown>;
-  children?: WidgetProps[];
-}
-
-/**
  * Type-erased view of an item, used internally by the renderer.
  *
  * The checked {@link WidgetItem} union is widened to this exactly once, at the
@@ -143,8 +121,32 @@ export interface RenderableWidgetItem {
   children?: RenderableWidgetItem[];
 }
 
-/** Chrome wrapped around the whole widget set. */
-export type WidgetsWrapperComponent = ComponentType<{ children?: ReactNode }>;
+/**
+ * Chrome wrapped around the whole widget set.
+ *
+ * It is handed the region's items as well as the rendered children, because a
+ * container that decides where things go has to know what they are. Without
+ * them a wrapper can only reach its children through `Children.toArray`, whose
+ * positional `.$` keys lose item identity across a reorder -- and which walks
+ * the `<Suspense>` elements `renderWidget` creates rather than the items, so an
+ * item cannot be recovered from its child even positionally.
+ */
+export type WidgetsWrapperComponent = ComponentType<{
+  children?: ReactNode;
+  /**
+   * The region's items, type-erased, in the order they render.
+   *
+   * Positionally aligned with `children`: `Widgets` drops an item the renderer
+   * skipped -- malformed, or a type the registry does not hold -- from both at
+   * once, so index `i` of one is always index `i` of the other. A wrapper may
+   * therefore key, size, group or window by item.
+   *
+   * Optional, so a wrapper that does not care declares nothing and
+   * {@link DefaultWrapper} ignores it. Only the region's top-level items: a
+   * nested item's siblings belong to whatever widget opened a region over them.
+   */
+  items?: readonly RenderableWidgetItem[];
+}>;
 
 /**
  * Chrome wrapped around each individual widget.
@@ -214,7 +216,10 @@ export interface WidgetsChrome<M = WidgetMeta> {
 /**
  * Configuration for {@link createWidgets}.
  */
-export interface WidgetsConfig<C extends WidgetComponentMap, M = WidgetMeta> {
+export interface WidgetsConfig<
+  C extends WidgetRegistry<AnyWidgetComponent>,
+  M = WidgetMeta,
+> {
   /** The component map. Its shape drives inference for the whole set. */
   components: C;
   chrome?: WidgetsChrome<M>;
@@ -223,7 +228,10 @@ export interface WidgetsConfig<C extends WidgetComponentMap, M = WidgetMeta> {
 /**
  * Props of the `Widgets` component returned by {@link createWidgets}.
  */
-export interface WidgetsProps<C extends WidgetComponentMap, M = WidgetMeta> {
+export interface WidgetsProps<
+  C extends WidgetRegistry<AnyWidgetComponent>,
+  M = WidgetMeta,
+> {
   items: WidgetItem<C, M>[];
   /** Per-instance component overrides, merged over the factory's map. */
   components?: Partial<C>;
@@ -243,15 +251,4 @@ export interface WidgetsProps<C extends WidgetComponentMap, M = WidgetMeta> {
    * Component.
    */
   ctx?: Record<string, unknown>;
-}
-
-/** A problem found by `validateItems`. Mirrors astro-widget's `BlockProblem`. */
-export interface WidgetItemProblem {
-  /** Index within the item's own sibling list; -1 when the root is not a list. */
-  index: number;
-  /** The item's `id`, or `-` when it has none usable. */
-  id: string;
-  /** The item's `type`, or `-` when it has none usable. */
-  type: string;
-  message: string;
 }
