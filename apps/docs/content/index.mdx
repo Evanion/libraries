@@ -1,30 +1,41 @@
-# Welcome to Evanion Docs
+# Evanion libraries
 
-Welcome to the comprehensive documentation for Evanion's open-source libraries. Here you'll find guides, API references, examples, and interactive playgrounds for all our libraries.
+Documentation for the packages in the
+[Evanion/libraries](https://github.com/Evanion/libraries) monorepo. Pick one
+from the sidebar.
 
-## Available Libraries
+## What is here
+
+Small, single-purpose packages, most of them extracted from applications that
+needed them. They share a house style rather than a framework:
+
+- Constraints are checked once. Where a package has a construction step, it
+  validates everything there and nothing at use, so an instance you hold cannot
+  fail later.
+- Types do the work the runtime should not have to. A widget item, a provider
+  array and a feature key are all checked against the thing they name at compile
+  time.
+- Untrusted data has a separate, loud path. A payload from a CMS or a network
+  call gets an explicit validator, and the renderer underneath it stays
+  defensive rather than throwing.
+- Nothing is normalised behind your back. Encoding, decoding and case-folding
+  are steps you take, not things that happen to your values.
 
 <PackageIndex />
 
-## Features
+## Reading these pages
 
-- 📚 **Comprehensive Documentation** - Detailed guides and API references
-- 🔍 **Smart Search** - Find what you need quickly
-- 🎮 **Live Examples** - Interactive code playgrounds
-- 📱 **Responsive Design** - Works on all devices
-- 🌙 **Dark Mode** - Easy on the eyes
+Each package has an overview, and then as many pages as its surface needs. Every
+one of them assumes you have already installed the package and are trying to do
+something with it — the README on npm is the pitch, and this is the manual.
 
-## Getting Started
+Where a page states a value in an example, that value was produced by running
+the package. Several of the examples are pulled directly out of the package's
+own README at build time, and the README runs them as tests.
 
-Choose a library from the sidebar to begin exploring its documentation. Each library includes:
+## Elsewhere
 
-- **Getting Started** - Quick setup and installation
-- **API Reference** - Complete function and component documentation
-- **Examples** - Real-world usage examples
-- **Playground** - Interactive code editor
-
-## Contributing
-
-Found an issue or want to contribute? See the
-[Contributing Guide](https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md)
-or visit the [GitHub repository](https://github.com/Evanion/libraries).
+- [GitHub](https://github.com/Evanion/libraries) — issues, discussions, source
+- [Contributing](https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md)
+- [Releasing](https://github.com/Evanion/libraries/blob/main/RELEASING.md)
+- [Security policy](https://github.com/Evanion/libraries/blob/main/SECURITY.md)
