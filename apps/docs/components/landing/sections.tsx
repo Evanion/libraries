@@ -1,11 +1,4 @@
-import {
-  ButtonLink,
-  Card,
-  Chip,
-  SectionHeader,
-  Text,
-  Title,
-} from '@evanion/baize-ui';
+import { Card, Chip, SectionHeader, Text, Title } from '@evanion/baize-ui';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import {
   groups,
@@ -125,15 +118,17 @@ export function Hero({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * Rendering from data: the concept, the demo, and a route into each runtime.
+ * Rendering from data: the two packages, the concept, and the demo.
+ *
+ * The packages come first, level with the heading, so a reader has the names
+ * before the demonstration. One model in two runtimes, so the teasers carry
+ * the name and the stack and nothing else: the section's own line explains
+ * the concept once, and a paragraph each would say it twice more.
  *
  * The demo is the section. The concept is that a page is data and the library
  * renders it, and the only thing that proves that is data a reader can change
  * and a preview that follows. The editor opens on the same items the preview
  * first renders, serialised here on the server, so nothing moves at hydration.
- *
- * One model in two runtimes, so one description and a route into each; which
- * runtime a reader wants is theirs to pick from the two names.
  */
 export function Pair({ group: id }: { group: string }) {
   const group = groupById(id);
@@ -147,6 +142,23 @@ export function Pair({ group: id }: { group: string }) {
             {group.title}
           </Title>
         }
+        aside={
+          <ul className="landing-teasers" aria-label={group.title}>
+            {members(group).map((entry) => (
+              <li key={entry.name} className={identity(entry)}>
+                <a
+                  className="landing-tile__link landing-teaser"
+                  href={href(entry)}
+                >
+                  <Title as="h3" size="md">
+                    {entry.title}
+                  </Title>
+                  <Marker entry={entry} status="chip" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        }
       />
       <Text measured>{group.line}</Text>
       {lead ? (
@@ -159,20 +171,6 @@ export function Pair({ group: id }: { group: string }) {
           </figcaption>
         </figure>
       ) : null}
-      <ul className="landing-routes" aria-label={group.title}>
-        {members(group).map((entry) => (
-          <li key={entry.name} className={identity(entry)}>
-            <Title as="h3" size="md">
-              <a className="landing-route__title" href={href(entry)}>
-                {entry.title}
-              </a>
-            </Title>
-            <Text size="sm">{description(entry.root)}</Text>
-            <Marker entry={entry} status="chip" />
-            <ButtonLink href={href(entry)}>Read the manual</ButtonLink>
-          </li>
-        ))}
-      </ul>
     </>
   );
 }
@@ -212,7 +210,6 @@ export function Cards({ group: id }: { group: string }) {
             {group.title}
           </Title>
         }
-        aside="Every value on these cards was produced by running the package."
       />
       <Text measured>{group.line}</Text>
       <ul
