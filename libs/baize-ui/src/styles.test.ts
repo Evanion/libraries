@@ -116,6 +116,21 @@ describe('styles.css', () => {
     ).toEqual([]);
   });
 
+  /**
+   * A storefront card carries three stats and a back office reads five off the
+   * same device. A fixed column template put the fourth figure under the first,
+   * which is a layout failure no render test on the components would see.
+   */
+  it('gives the stat line a column per stat rather than a fixed three', () => {
+    const rule = /\.baize-statline\s*\{([^}]*)\}/.exec(rules)?.[1] ?? '';
+
+    expect(
+      rule,
+      `The stat line takes as many stats as a page gives it.`,
+    ).toContain('grid-auto-flow: column');
+    expect(rule).not.toMatch(/grid-template-columns:\s*repeat\(\s*\d/);
+  });
+
   it('sets tabular numerals on the figure class', () => {
     expect(
       /\.baize-figure\s*\{[^}]*font-variant-numeric:\s*tabular-nums/.test(

@@ -354,12 +354,18 @@
 
 /*
  * The stat line. Columns are sized to their content and spread, rather than split
- * into equal thirds: a third of a narrow card is not wide enough for `40–70 min`
+ * into equal shares: a third of a narrow card is not wide enough for `40–70 min`
  * and the range wraps.
+ *
+ * A column per stat, however many there are, rather than a fixed three. A
+ * storefront card carries players, time and weight; a back office reads orders,
+ * units sold, units on hand, mean weight and empty shelves off the same device,
+ * and a fixed template put the fourth figure underneath the first.
  */
 .baize-statline {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, auto));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, auto);
   justify-content: space-between;
   gap: var(--baize-space-5);
   margin: 0;
