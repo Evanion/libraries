@@ -253,7 +253,7 @@ export function boxArtScene(seed: string): BoxArtScene {
   // Its own stream, off its own hash. Drawn from the shared one it followed
   // whatever the ridges happened to consume, and eight of the twelve catalogue
   // titles came out with the same form standing in front of them.
-  const pick = random(hash(`${seed} foreground`));
+  const pick = random(hash(`${seed} foreground`));
 
   // The horizon sits below the middle: most of the tile is sky, which is where
   // the palette's colour lives and what a card reads as art from across a room.
