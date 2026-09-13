@@ -1,0 +1,149 @@
+# Decisions
+
+## `resolve` and `isEnabled`
+
+```ts
+features.resolve(context); // every feature, with its explanation
+features.isEnabled('checkout-v2', context); // one boolean
+```
+
+Both are pure functions of `(config, context, now)` and write nothing. `context`
+is optional; `now` defaults to `new Date()` at the call.
+
+`isEnabled` returns `false` for a key that is not configured. `resolve` returns
+a record whose keys are exactly the configured ones, in dependency order.
+
+```ts
+features.resolve({ now: novemberFirst, targetingKey: 'acct-2' });
+// {
+//   'payments-v3': { key: 'payments-v3', enabled: true,
+//                    reason: 'rule-match', rule: 'window-q4' },
+//   'checkout-v2': { key: 'checkout-v2', enabled: true, reason: 'default-on' },
+// }
+```
+
+Call `resolve` once per request and read from the record, rather than calling
+`isEnabled` per flag. `isEnabled` resolves the whole store to answer one
+question, which is cheap for ten flags and is still ten times the work for ten
+questions.
+
+## A decision
+
+```ts
+interface Decision<F> {
+  key: F;
+  enabled: boolean;
+  reason: Reason;
+  rule?: string; // the matching rule, on 'rule-match'
+  rules?: RuleOutcome[]; // the per-rule breakdown, on 'no-rule-matched'
+  blockedBy?: F; // the immediate parent, on 'dependency-off'
+  cause?: Cause<F>; // the first ancestor off for its own reason
+}
+```
+
+`enabled` is the decision. Everything else is explanation, and is output only —
+nothing in this library reads `reason`, `rule`, `rules`, `blockedBy` or `cause`
+back to decide anything. The cascade is typed to see an `enabled` flag and
+nothing else, so that is enforced by the type system rather than by convention.
+
+| `reason`          | Meaning                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| `default-on`      | enabled, no rules                                                 |
+| `rule-match`      | enabled, a rule matched; carries `rule`                           |
+| `explicitly-off`  | `enabled === false`                                               |
+| `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
+| `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
+
+## Reading a cascade
+
+```ts
+const features = createFeatures([
+  { key: 'a', enabled: true },
+  { key: 'b', enabled: true, dependsOn: ['a'] },
+  { key: 'c', enabled: true, dependsOn: ['b'] },
+]);
+
+features.toggle('a', false);
+features.resolve();
+// a: { enabled: false, reason: 'explicitly-off' }
+// b: { enabled: false, reason: 'dependency-off', blockedBy: 'a',
+//      cause: { key: 'a', reason: 'explicitly-off' } }
+// c: { enabled: false, reason: 'dependency-off', blockedBy: 'b',
+//      cause: { key: 'a', reason: 'explicitly-off' } }
+```
+
+`blockedBy` is the edge, for a graph view. `cause` walks to the first ancestor
+that is off for a reason of its own, for an operator who wants to know what to
+fix. On `c` those are two different features, which is the point of carrying
+both.
+
+`cause.rule` is named when there is exactly one rule to name: the matching rule,
+or the single rule that failed. With several rules and none matching there is no
+one rule to blame, and the full breakdown sits on that ancestor's own decision.
+
+## Why a rule did not match
+
+```ts
+features.resolve({ plan: 'free' });
+// { key: 'k', enabled: false, reason: 'no-rule-matched', rules: [
+//   { rule: '#0', matched: false,
+//     failed: { field: 'plan', op: 'eq', value: 'pro' } },
+// ] }
+```
+
+`failed` is the first condition that failed, so a UI can name it. When the
+rollout is why the rule did not match, `rollout` carries the numbers instead:
+
+```ts
+// { rule: 'window-q4', matched: false,
+//   rollout: { percent: 25, by: 'targetingKey', bucket: 0.9875, member: false } }
+```
+
+`bucket` is absent when the context did not carry the bucketing field. A rule
+whose `when` failed carries no `rollout` at all — conditions are checked first,
+and the rollout is never evaluated.
+
+Rule ids default to `#0`, `#1` and so on. Name them.
+
+## `toggle`
+
+```ts
+features.toggle('payments-v3', false, context);
+// { ok: true, key: 'payments-v3', enabled: false,
+//   willDisable: ['checkout-v2'] }
+```
+
+The only writer. It sets `enabled` on the stored definition and reports which
+dependants go off with it — transitive, in dependency order, and only the ones
+that resolve on now and will not after.
+
+Both sides of that comparison are evaluated against one context, so
+`willDisable` is not an artefact of the clock moving between the two
+evaluations. Pass the context you care about; it defaults the same way `resolve`
+does.
+
+`willDisable` is empty when enabling, and empty when the feature was already
+off. A UI can confirm before applying; a script can ignore it.
+
+```ts
+features.toggle('nope', false);
+// { ok: false, key: 'nope', error: 'unknown-feature' }
+```
+
+An unknown key returns that rather than throwing. Narrow on `ok`.
+
+Dependencies cascade one way only — a dependant never blocks its parent — but
+the information that upward blocking would have provided is kept, in
+`willDisable`.
+
+## Inspecting the store
+
+```ts
+features.keys; // every key, in configuration order
+features.config; // the stored intent, deeply frozen
+features.definition('checkout-v2'); // one definition, or undefined
+features.dependants('payments-v3'); // ['checkout-v2'] — transitive, in dependency order
+```
+
+`config` is a deep clone of what you passed, frozen, so an attempt to edit it
+throws rather than silently diverging from what was resolved.

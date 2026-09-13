@@ -1,0 +1,92 @@
+# @evanion/feature
+
+Feature toggles where one flag can depend on another. A parent that resolves off
+takes its dependants with it, transitively, and it does that without writing
+anything back into the configuration.
+
+```ts
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'payments-v3',
+    enabled: true,
+    rules: [
+      {
+        id: 'window-q4',
+        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+        rollout: { percent: 25, by: 'targetingKey' },
+      },
+    ],
+  },
+  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
+]);
+
+features.isEnabled('checkout-v2', { targetingKey: 'acct-2' });
+```
+
+`checkout-v2` is on only when `payments-v3` resolves on for that same account.
+Without the cascade, a 25% rollout on the parent would leak to 100% of the
+dependant's users — which is the failure this package exists to prevent.
+
+## Not published yet
+
+The package carries `private: true`. A release run versions and tags it without
+publishing, because npm cannot configure a trusted publisher for a package that
+does not exist on the registry, so the first version has to go up by hand.
+Inside this repository it resolves from source like any other workspace package.
+
+## Two entry points
+
+```ts
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeature } from '@evanion/feature/react';
+```
+
+The core imports no framework, so it runs in an API, in a script, or at build
+time. The React adapter is a provider and three hooks over an already-built
+store, and is client code. Nothing in it decides anything.
+
+`'use client'` is a per-module directive and a bundle is one module, so the
+package is emitted file by file and the core entry stays free of both the
+directive and any React import.
+
+## The shape of a decision
+
+`resolve` returns one decision per feature. `enabled` is the answer; everything
+else explains it:
+
+```ts
+features.resolve({ targetingKey: 'acct-2' })['checkout-v2'];
+// { key: 'checkout-v2', enabled: false, reason: 'dependency-off',
+//   blockedBy: 'payments-v3',
+//   cause: { key: 'payments-v3', reason: 'no-rule-matched', rule: 'window-q4' } }
+```
+
+`reason` is output only. Nothing in this library reads it back to decide
+anything, so deleting it would change no decision. It exists for the operator
+looking at a flag that is off and asking why.
+
+## The store never writes
+
+The only writers are `toggle()` and editing the configuration. `resolve()` and
+`plan()` are pure functions of `(config, context, now)`.
+
+When a parent's time window expires, nothing changes in the store; `resolve()`
+starts returning false for the dependant. When the window reopens it returns
+true again. The dependant's `enabled` was `true` throughout, because that field
+means "the maintainer wants this on", which stayed true.
+
+Writing resolved values back would put entries in an audit log that nobody
+performed, make a process that slept through a window boundary disagree with one
+that was awake, and destroy the difference between "someone turned this off" and
+"the system turned it off" — which is the distinction an operator needs at 3am.
+
+## Pages
+
+- [Configuration](/feature/configuration) — definitions, precedence, conditions
+- [Rollouts](/feature/rollouts) — bucketing, seeds, and why raising a percentage is additive
+- [Decisions](/feature/decisions) — resolving, toggling, and reading a reason
+- [Build-time planning](/feature/build-time) — `plan()` for static sites
+- [React](/feature/react) — the provider and the three hooks
+- [API reference](/feature/api)

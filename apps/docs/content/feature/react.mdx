@@ -1,0 +1,158 @@
+# React
+
+```tsx
+'use client';
+
+import {
+  FeatureProvider,
+  useFeature,
+  useFeatureEnabled,
+  useFeatures,
+} from '@evanion/feature/react';
+```
+
+A provider and three hooks over an already-built store. Nothing here decides
+anything — evaluation lives in the core, and this layer carries the result down
+the tree.
+
+The entry is separate from `@evanion/feature` because `'use client'` is a
+per-module directive and a bundle is one module. Keeping the core entry free of
+the directive and of any React import is what lets an API, a script or a build
+step import it.
+
+React is an optional peer dependency, so a consumer that only uses the core does
+not install it.
+
+## `FeatureProvider`
+
+```tsx
+const features = createFeatures(config);
+const context = { targetingKey: user.id, now: new Date() };
+
+<FeatureProvider features={features} context={context}>
+  <Checkout />
+</FeatureProvider>;
+```
+
+| Prop        | Meaning                                        |
+| ----------- | ---------------------------------------------- |
+| `features`  | the store, built by `createFeatures`           |
+| `context`   | the evaluation context                         |
+| `decisions` | decisions resolved elsewhere, used as they are |
+
+Resolution is memoised on the `context` object's identity. An object literal
+written inline is a fresh identity on every render, so it re-resolves every
+render:
+
+```tsx
+// Re-resolves the whole store on every render.
+<FeatureProvider features={features} context={{ targetingKey: user.id }}>
+```
+
+Hold the context in a `useMemo`, in a module constant, or wherever the data it
+comes from already lives:
+
+```tsx
+const context = useMemo(() => ({ targetingKey: user.id, now }), [user.id, now]);
+```
+
+Leaving `now` out means "the clock at the moment this context was first
+resolved". A tree that has to agree with a server render should pass `now`
+explicitly, with the same instant the server used.
+
+### Decisions from elsewhere
+
+```tsx
+<FeatureProvider features={features} decisions={fromServer}>
+```
+
+Supplied decisions are used as they are, and `features` and `context` become
+only a fallback for what the snapshot does not cover. That is the hand-off for a
+server render, and for the settled half of a
+[`plan()`](/feature/build-time#using-a-plan).
+
+## The hooks
+
+```tsx
+function Checkout() {
+  if (!useFeatureEnabled('checkout-v2')) return <LegacyCheckout />;
+  return <NewCheckout />;
+}
+```
+
+| Hook                     | Returns                            |
+| ------------------------ | ---------------------------------- |
+| `useFeatures()`          | every decision                     |
+| `useFeature(key)`        | one decision, explanation included |
+| `useFeatureEnabled(key)` | the boolean                        |
+
+All three throw outside a `<FeatureProvider>`, naming the provider and the
+package.
+
+`useFeature` also throws for a key that is not configured in that provider:
+
+```
+feature "checkout-v3" is not configured in this <FeatureProvider>
+```
+
+A silent `false` would make a typo indistinguishable from a feature that is off,
+which is the failure mode flag systems are worst at. If you want the explanation
+rather than the boolean — to show an operator why a flag is off — `useFeature`
+is the one that carries it:
+
+```tsx
+const decision = useFeature('checkout-v2');
+// { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
+```
+
+The key lookup uses `Object.prototype.hasOwnProperty`, so a key of `constructor`
+or `toString` does not resolve to a function off `Object.prototype` and pass as
+a decision object.
+
+## Typing the keys
+
+```tsx
+type Flag = 'payments-v3' | 'checkout-v2';
+
+const decisions = useFeatures<Flag>();
+const enabled = useFeatureEnabled<Flag>('checkout-v2');
+```
+
+The hooks take the key union as a type parameter, defaulting to `string`. Pass
+the same union you passed `createFeatures` and a typo is a compile error rather
+than a thrown one.
+
+## Server components
+
+`FeatureProvider` uses `createContext` and `useMemo`, so it is client code and
+carries `'use client'`. The core is not: resolve on the server, and hand the
+result down.
+
+```tsx
+// app/layout.tsx — a Server Component
+import { features } from '../features';
+import { Flags } from './flags';
+
+export default function Layout({ children }) {
+  const decisions = features.resolve({ targetingKey: await currentUserId() });
+  return <Flags decisions={decisions}>{children}</Flags>;
+}
+```
+
+```tsx
+// app/flags.tsx
+'use client';
+
+import { FeatureProvider } from '@evanion/feature/react';
+
+export function Flags({ decisions, children }) {
+  return (
+    <FeatureProvider features={features} decisions={decisions}>
+      {children}
+    </FeatureProvider>
+  );
+}
+```
+
+Decisions are plain objects, so they cross the boundary as serialised props.
+Passing the store itself would not — it carries functions.

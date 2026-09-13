@@ -1,0 +1,237 @@
+# API reference
+
+Two entry points. `@evanion/feature` is the core; `@evanion/feature/react` is
+the adapter.
+
+## `createFeatures(definitions)`
+
+```ts
+function createFeatures<F extends FeatureKey>(
+  definitions: readonly FeatureDefinition<F>[],
+): Features<F>;
+```
+
+Validates the dependency graph, deep-clones and freezes the configuration, and
+returns the store.
+
+Throws `FeatureCycleError`, `UnknownDependencyError` or
+`DuplicateFeatureError`. All three are configuration errors and all three are
+raised here rather than at evaluation.
+
+## `Features<F>`
+
+| Member                           | Returns                             | Notes                                  |
+| -------------------------------- | ----------------------------------- | -------------------------------------- |
+| `keys`                           | `readonly F[]`                      | every key, in configuration order      |
+| `config`                         | `readonly FeatureDefinition<F>[]`   | the stored intent, deeply frozen       |
+| `definition(key)`                | `FeatureDefinition<F> \| undefined` |                                        |
+| `dependants(key)`                | `readonly F[]`                      | transitive, in dependency order        |
+| `resolve(context?)`              | `Decisions<F>`                      | a decision per feature; writes nothing |
+| `isEnabled(key, context?)`       | `boolean`                           | `false` for an unknown key             |
+| `plan(context?)`                 | `Plan<F>`                           | build-time partition                   |
+| `toggle(key, enabled, context?)` | `ToggleResult<F>`                   | the only writer; reports `willDisable` |
+
+`resolve`, `plan` and `toggle` all default `context.now` to `new Date()` at the
+call.
+
+## Core exports
+
+```ts
+import {
+  createFeatures,
+  bucketOf,
+  inRollout,
+  murmur3,
+  evaluateCondition,
+  DEFAULT_ROLLOUT_FIELD,
+  FeatureConfigError,
+  FeatureCycleError,
+  UnknownDependencyError,
+  DuplicateFeatureError,
+} from '@evanion/feature';
+```
+
+| Export                             | What it is                                             |
+| ---------------------------------- | ------------------------------------------------------ |
+| `bucketOf(value, seed)`            | the bucket in `[0, 1)`, for snapshot tooling and tests |
+| `inRollout(value, percent, seed)`  | whether that bucket is inside the rollout              |
+| `murmur3(input, seed?)`            | the hash itself, unsigned 32-bit                       |
+| `evaluateCondition(cond, context)` | one condition, for the same reason                     |
+| `DEFAULT_ROLLOUT_FIELD`            | `'targetingKey'`                                       |
+
+## Types
+
+### `FeatureDefinition<F>`
+
+```ts
+interface FeatureDefinition<F extends FeatureKey = string> {
+  key: F;
+  enabled: boolean;
+  dependsOn?: readonly F[];
+  rules?: readonly Rule[];
+  seed?: string;
+  freezeTimeAtBuild?: boolean;
+}
+```
+
+### `Rule` and `RolloutSpec`
+
+```ts
+interface Rule {
+  id?: string; // defaults to '#0', '#1', … by index
+  when?: readonly Condition[];
+  rollout?: RolloutSpec;
+}
+
+interface RolloutSpec {
+  percent: number;
+  by?: string; // defaults to 'targetingKey'
+  seed?: string; // defaults to the feature's seed, then the key
+}
+```
+
+### `Condition`
+
+```ts
+type Condition = WindowCondition | DayOfWeekCondition | AttributeCondition;
+
+interface WindowCondition {
+  field: 'now';
+  op: 'before' | 'after';
+  value: Instant; // ISO string, epoch ms, or Date
+}
+
+interface DayOfWeekCondition {
+  field: 'now';
+  op: 'day-of-week';
+  zone: string; // IANA; required
+  value: readonly Weekday[];
+}
+
+interface AttributeCondition {
+  field: string;
+  op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
+  value: unknown;
+}
+```
+
+`Weekday` is `'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat'`.
+
+### `EvaluationContext`
+
+```ts
+interface EvaluationContext {
+  now?: Date;
+  targetingKey?: string;
+  [field: string]: unknown;
+}
+```
+
+### `Decision<F>` and `Decisions<F>`
+
+```ts
+interface Decision<F extends FeatureKey = string> {
+  key: F;
+  enabled: boolean;
+  reason: Reason;
+  rule?: string;
+  rules?: readonly RuleOutcome[];
+  blockedBy?: F;
+  cause?: Cause<F>;
+}
+
+type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
+```
+
+`Reason` is
+`'default-on' | 'rule-match' | 'explicitly-off' | 'no-rule-matched' | 'dependency-off'`.
+
+### `RuleOutcome`
+
+```ts
+interface RuleOutcome {
+  rule: string;
+  matched: boolean;
+  failed?: Condition; // the first condition that failed
+  rollout?: {
+    percent: number;
+    by: string;
+    bucket?: number; // absent when the context carried no bucketing value
+    member: boolean;
+  };
+}
+```
+
+### `Cause<F>`
+
+```ts
+interface Cause<F extends FeatureKey = string> {
+  key: F;
+  reason: Reason;
+  rule?: string;
+}
+```
+
+### `PlanEntry<F>` and `Plan<F>`
+
+```ts
+interface PlanEntry<F extends FeatureKey = string> {
+  key: F;
+  resolved: boolean | 'deferred';
+  needs: readonly string[];
+  decision?: Decision<F>;
+}
+
+type Plan<F extends FeatureKey = string> = Record<F, PlanEntry<F>>;
+```
+
+### `ToggleResult<F>`
+
+```ts
+type ToggleResult<F extends FeatureKey = string> =
+  | { ok: true; key: F; enabled: boolean; willDisable: readonly F[] }
+  | { ok: false; key: F; error: 'unknown-feature' };
+```
+
+### `FeatureKey` and `Instant`
+
+`FeatureKey` is `string | number` rather than `string`, so a consumer can key
+features on a numeric enum and still get exhaustiveness from `Decisions<F>`.
+
+`Instant` is `string | number | Date`: a string is parsed as ISO 8601, a number
+as epoch milliseconds.
+
+## Errors
+
+| Class                    | Extends              | Carries                 |
+| ------------------------ | -------------------- | ----------------------- |
+| `FeatureConfigError`     | `Error`              |                         |
+| `FeatureCycleError`      | `FeatureConfigError` | `path`, the closed walk |
+| `UnknownDependencyError` | `FeatureConfigError` | `key`, `dependency`     |
+| `DuplicateFeatureError`  | `FeatureConfigError` | `key`                   |
+
+All of them are raised by `createFeatures`. Constraints are enforced where the
+configuration is supplied rather than where it is read, so a store a caller
+holds cannot fail mid-evaluation — the same split `@evanion/luhn` and
+`@evanion/token` draw between their factories and their operations.
+
+## React exports
+
+```ts
+import {
+  FeatureProvider,
+  useFeatures,
+  useFeature,
+  useFeatureEnabled,
+} from '@evanion/feature/react';
+```
+
+| Export                      | Signature                                       |
+| --------------------------- | ----------------------------------------------- |
+| `FeatureProvider`           | `{ features, context?, decisions?, children? }` |
+| `useFeatures<F>()`          | `Decisions<F>`                                  |
+| `useFeature<F>(key)`        | `Decision<F>`; throws for an unconfigured key   |
+| `useFeatureEnabled<F>(key)` | `boolean`                                       |
+
+`FeatureProviderProps<F>` is exported as a type. See
+[React](/feature/react) for the memoisation rule on `context`.
