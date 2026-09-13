@@ -278,7 +278,7 @@ describe('the sidebar region', () => {
 describe('the listing region', () => {
   it('renders one cell per game', async () => {
     const html = await render({
-      items: listingItems(games),
+      items: listingItems(games, '/'),
       registry: listingRegistry,
       chrome: { item: GridCell },
     });
@@ -288,7 +288,7 @@ describe('the listing region', () => {
 
   it('widens the cell of the featured urn and no other', async () => {
     const html = await render({
-      items: listingItems(games, 'urn:game:spirit-island'),
+      items: listingItems(games, '/', 'urn:game:spirit-island'),
       registry: listingRegistry,
       chrome: { item: GridCell },
     });
@@ -301,13 +301,17 @@ describe('the listing region', () => {
 
   it('builds items every block type in its registry can render', () => {
     expect(
-      validateBlocks(listingItems(games), listingRegistry, listingRequired),
+      validateBlocks(
+        listingItems(games, '/'),
+        listingRegistry,
+        listingRequired,
+      ),
     ).toEqual([]);
   });
 
   it('titles each game on its complexity rung, and nowhere else', async () => {
     const html = await render({
-      items: listingItems(games),
+      items: listingItems(games, '/'),
       registry: listingRegistry,
       chrome: { item: GridCell },
     });

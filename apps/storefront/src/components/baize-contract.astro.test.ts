@@ -204,16 +204,54 @@ describe('the mechanism tags', () => {
 });
 
 describe('the box-art placeholder', () => {
+  /**
+   * The one component whose markup is generated rather than fixed, which makes
+   * this the case the file is worth most on: the two implementations draw the
+   * same landscape only because both read it out of `boxArtScene`, and a
+   * divergence here is one of them having grown geometry of its own.
+   */
   it('renders the library markup for a mapped game', async () => {
     expect(
-      await astro(BoxArt, { title: 'Wingspan', urn: wingspan.urn }),
-    ).toEqual(react(h(ReactBoxArt, { label: 'Wingspan', palette: 'sky' })));
+      await astro(BoxArt, { label: 'Wingspan', urn: wingspan.urn }),
+    ).toEqual(
+      react(
+        h(ReactBoxArt, {
+          label: 'Wingspan',
+          palette: 'sky',
+          seed: wingspan.urn,
+        }),
+      ),
+    );
   });
 
-  it('falls back to the neutral gradient for a game nobody mapped', async () => {
+  it('falls back to the neutral vista for a game nobody mapped', async () => {
+    expect(await astro(BoxArt, { urn: 'urn:game:hive' })).toEqual(
+      react(h(ReactBoxArt, { seed: 'urn:game:hive' })),
+    );
+  });
+
+  /**
+   * Class names and tag names are all the comparison above sees, and every ridge
+   * is a `path`. So the shapes themselves are compared here, because a seed read
+   * differently on the two sides passes that comparison drawing two different
+   * landscapes.
+   */
+  it('draws the same shapes on both sides, not merely the same elements', async () => {
+    const paths = (html: string) =>
+      [...html.matchAll(/\sd="([^"]+)"/g)].map((match) => match[1]);
+
+    const container = await AstroContainer.create();
     expect(
-      await astro(BoxArt, { title: 'Hive', urn: 'urn:game:hive' }),
-    ).toEqual(react(h(ReactBoxArt, { label: 'Hive' })));
+      paths(
+        await container.renderToString(BoxArt, {
+          props: { urn: wingspan.urn },
+        }),
+      ),
+    ).toEqual(
+      paths(
+        renderToStaticMarkup(h(ReactBoxArt, { seed: wingspan.urn }) as never),
+      ),
+    );
   });
 });
 
@@ -224,8 +262,8 @@ describe('the game card', () => {
    * Astro card does not have and the mismatch would be this file's rather than the
    * card's.
    */
-  it('renders the library card, head and foot included', async () => {
-    expect(await astro(GameCard, { game: wingspan })).toEqual(
+  it('renders the library card, media, pin, head and foot included', async () => {
+    expect(await astro(GameCard, { back: '/', game: wingspan })).toEqual(
       react(
         h(ReactCard, {
           children: [
@@ -234,7 +272,20 @@ describe('the game card', () => {
           ],
           foot: h(Fragment, {
             children: [
-              h(ReactFigure, { children: '599 kr', key: 'price' }),
+              // The card's own affordance. A form and not a handler, because
+              // `apps/storefront` ships no JavaScript and `/cart` takes a POST.
+              h(
+                'form',
+                { className: 'add-to-cart', key: 'add' },
+                h('input', { key: 'intent', type: 'hidden' }),
+                h('input', { key: 'urn', type: 'hidden' }),
+                h('input', { key: 'back', type: 'hidden' }),
+                h(
+                  'button',
+                  { className: 'baize-button baize-button--variant-standard' },
+                  'Add to cart',
+                ),
+              ),
               h(ReactText, {
                 as: 'span',
                 children: '1 expansion',
@@ -256,12 +307,17 @@ describe('the game card', () => {
                 key: 'title',
                 size: 'sm',
               }),
-              h(ReactAvailabilityPill, {
-                availability: 'inStock',
-                key: 'pill',
-                label: 'in stock',
-              }),
+              h(ReactFigure, { children: '599 kr', key: 'price', size: 'md' }),
             ],
+          }),
+          media: h(
+            'a',
+            { className: 'card-art', href: '/g/x', key: 'art' },
+            h(ReactBoxArt, { palette: 'sky', seed: wingspan.urn }),
+          ),
+          pin: h(ReactAvailabilityPill, {
+            availability: 'inStock',
+            label: 'in stock',
           }),
         }),
       ),

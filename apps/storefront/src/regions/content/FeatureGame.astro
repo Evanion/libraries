@@ -1,6 +1,7 @@
 ---
 import { classNames } from '@evanion/baize-ui/tokens';
 
+import AddToCart from '../../components/AddToCart.astro';
 import AvailabilityPill from '../../components/AvailabilityPill.astro';
 import BoxArt from '../../components/BoxArt.astro';
 import MechanismTags from '../../components/MechanismTags.astro';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 const { urn, lede, ctx } = Astro.props;
-const { games } = regionCtx(ctx);
+const { games, path } = regionCtx(ctx);
 const game = games.find((candidate) => candidate.urn === urn);
 ---
 
@@ -41,7 +42,6 @@ const game = games.find((candidate) => candidate.urn === urn);
           >
             {game.title}
           </h1>
-          <AvailabilityPill availability={game.availability} />
         </div>
         <MechanismTags mechanisms={game.mechanisms} />
         <div class="feature__stats">
@@ -53,18 +53,31 @@ const game = games.find((candidate) => candidate.urn === urn);
           />
         </div>
         <div class="feature__buy">
-          <span class="baize-figure baize-figure--size-lg">
+          <span class="baize-figure baize-figure--size-xl">
             {formatPrice(game.price)}
           </span>
+          <AddToCart
+            back={path}
+            label="Add to cart"
+            urn={game.urn}
+            variant="primary"
+          />
           <a
-            class="baize-button baize-button--variant-primary"
+            class="baize-button baize-button--variant-standard"
             href={`/g/${game.urn}`}
           >
             See the game
           </a>
         </div>
       </div>
-      <BoxArt title={game.title} urn={game.urn} />
+      <div class="feature__art">
+        <a href={`/g/${game.urn}`} aria-label={game.title}>
+          <BoxArt urn={game.urn} />
+        </a>
+        <div class="baize-card__pin">
+          <AvailabilityPill availability={game.availability} />
+        </div>
+      </div>
     </div>
   )
 }

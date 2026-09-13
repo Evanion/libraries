@@ -3,6 +3,7 @@ import {
   availabilityLabel,
   availabilityStateClass,
   boxArtPaletteClass,
+  boxArtPhotoUrl,
   complexityStop,
   complexityTierName,
   formatComplexity,
@@ -91,6 +92,18 @@ describe('boxArtPaletteClass', () => {
 
   it('leaves a game nobody mapped on the neutral gradient', () => {
     expect(boxArtPaletteClass('urn:game:hive')).toBeUndefined();
+  });
+});
+
+describe('boxArtPhotoUrl', () => {
+  /**
+   * Nothing is photographed yet, and this is what that state has to look like:
+   * no URL at all, so no card asks the network for a file that does not exist
+   * and the generated vista is what every tile paints.
+   */
+  it('asks for no file for a title nobody has photographed', () => {
+    expect(boxArtPhotoUrl('urn:game:wingspan')).toBeUndefined();
+    expect(boxArtPhotoUrl('urn:game:hive')).toBeUndefined();
   });
 });
 

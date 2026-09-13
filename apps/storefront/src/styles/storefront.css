@@ -115,9 +115,20 @@
  */
 .feature {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: var(--baize-space-6);
   align-items: start;
+}
+
+/* The picture is half of what the hero is selling, and it is a link: a shopper
+   who clicks the art expects the game. The pin is the library's card anatomy and
+   needs a containing block, which is what this box is. */
+.feature__art {
+  position: relative;
+}
+
+.feature__art a {
+  display: block;
 }
 
 .feature__lede {
@@ -272,7 +283,9 @@
 
 .detail {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  /* Wide enough for the large stat line, which is three figures at the display
+     step and is the widest thing either column ever holds. */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: var(--baize-space-6);
   align-items: start;
 }
@@ -280,12 +293,41 @@
 .detail__buy {
   display: grid;
   gap: var(--baize-space-4);
+  /* The one thing on the page a shopper came to do, kept in view while they
+     read the expansions beside it. */
+  position: sticky;
+  top: var(--baize-space-4);
+}
+
+/* The pin is the library's card anatomy; the art here is not in a card, so the
+   containing block it needs comes from this box. */
+.detail__art {
+  position: relative;
+}
+
+.detail__panel {
+  display: grid;
+  gap: var(--baize-space-4);
+}
+
+.detail__price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-3);
 }
 
 .detail__buy-row {
   display: flex;
   align-items: center;
   gap: var(--baize-space-3);
+}
+
+/* The button takes whatever the quantity field leaves, so the row is one block
+   rather than two controls with a gap after them. */
+.detail__add {
+  flex: 1;
+  padding-block: var(--baize-space-3);
 }
 
 .expansions {
@@ -321,17 +363,33 @@
 
 .cart__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: 5rem minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--baize-space-4);
   padding-block: var(--baize-space-4);
   border-top: 1px solid var(--baize-rule);
 }
 
+/* A cart is a list of things, and a line with no picture of the thing is a
+   receipt. The tile is the same one the card and the detail page drew. */
+.cart__art {
+  display: block;
+  border-radius: var(--baize-radius-button);
+  overflow: hidden;
+}
+
 .cart__quantity {
   display: flex;
   align-items: center;
   gap: var(--baize-space-2);
+}
+
+/* Each row is its own grid, so an `auto` track is sized from that row alone and
+   two rows' prices ended a few pixels apart. A floor plus right alignment is
+   what puts a column of tabular figures on one edge down the page. */
+.cart__row > .baize-figure {
+  min-width: 6rem;
+  text-align: right;
 }
 
 .cart__total {
@@ -372,6 +430,23 @@
 .tag-link {
   color: inherit;
   text-decoration: none;
+}
+
+/* The art on a card is a second route to the same game as the title above it.
+   Hidden from assistive technology and out of the tab order for exactly that
+   reason: a reader who has heard the title does not need to hear it twice. */
+.card-art {
+  display: block;
+}
+
+/* The whole card lifts, not the picture inside it: a shopper is pointing at the
+   game, and the card is the game. */
+.baize-card:hover {
+  border-color: color-mix(in oklab, var(--baize-rule) 45%, var(--baize-chalk));
+}
+
+.add-to-cart {
+  display: contents;
 }
 
 .title-link:hover {
@@ -457,7 +532,19 @@
     overflow-y: visible;
   }
 
+  /* Stacked, the buy panel has nothing beside it to stay level with, so
+     pinning it would hold it over the expansions it is meant to sit next to. */
+  .detail__buy {
+    position: static;
+  }
+
+  /* The picture keeps its column and everything else takes the rest: a thumbnail
+     stretched to the full width of a phone is not a thumbnail. */
   .cart__row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 4rem minmax(0, 1fr);
+  }
+
+  .cart__art {
+    grid-row: span 2;
   }
 }
