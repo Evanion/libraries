@@ -1,0 +1,55 @@
+{
+  "name": "@evanion/widget",
+  "version": "0.1.0",
+  "description": "The framework-free half of a widget region: the item shape, the registry, and the validator every @evanion widget renderer shares.",
+  "keywords": [
+    "widget",
+    "cms",
+    "blocks",
+    "registry",
+    "validation",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/widget#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/widget"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
