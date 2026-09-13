@@ -42,7 +42,7 @@ token.generate({ prefix: 'ORD' });
 // { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
 ```
 
-`length - 1` characters are drawn from `crypto.randomBytes` with `byte % n`,
+`length - 1` characters are drawn from `crypto.getRandomValues` with `byte % n`,
 which is unbiased because the alphabet's size divides 256 — a constraint
 `createToken` enforces. That is what keeps generation constant-time instead of
 rejection-sampling.

@@ -59,7 +59,7 @@ which does not extend `TokenError` — catch `Error` to cover both.
 
 ## Why `256 % n === 0` is the one that is easy to miss
 
-`crypto.randomBytes` yields 0–255, and `byte % n` over-represents the first
+`crypto.getRandomValues` yields 0–255, and `byte % n` over-represents the first
 `256 % n` characters. At n = 32 the division is exact and every character is
 equally likely.
 

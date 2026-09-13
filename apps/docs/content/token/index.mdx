@@ -22,8 +22,9 @@ token.validate('a4kp-9mx8'); // { valid: false, reason: 'check-failed' }
 npm install @evanion/token
 ```
 
-Node 20 or newer — `generate` draws from `node:crypto`. ESM only. One
-dependency, `@evanion/luhn`.
+Node 20 or newer, or a browser — `generate` draws from
+`crypto.getRandomValues`, which both provide. ESM only. One dependency,
+`@evanion/luhn`.
 
 ## The alphabet and the check character
 
