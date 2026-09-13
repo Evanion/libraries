@@ -30,7 +30,7 @@ Two properties make a code usable by a human:
   lookup for a code that was mistyped is a lookup that never needed to happen.
 
 The second one is the check character, and it is not optional here. Without it
-this package is three lines of `crypto.randomBytes`.
+this package is three lines of `crypto.getRandomValues`.
 
 ## Installation
 
@@ -65,7 +65,9 @@ token.generate({ prefix: 'ORD' });
 `value` is the code as a person sees it. `body` is what the check character was
 computed over, unchunked, which is the form to store and index on.
 
-Characters are drawn from `crypto.randomBytes`. `generate` never retries and
+Characters are drawn from `crypto.getRandomValues` -- Web Crypto, which is the
+same CSPRNG in Node 20 and in a browser, so the package runs in either with no
+import and no polyfill. `generate` never retries and
 never checks for collisions — see [Entropy](#entropy).
 
 ## Validate a code
@@ -201,7 +203,7 @@ createToken({ dictionary: '0123456789abcdefghjkmnpqrstuvx' });
 // throws InvalidAlphabetError { reason: 'non-uniform' } -- 30 does not divide 256
 ```
 
-`256 % n === 0` is the constraint that is easy to miss. `crypto.randomBytes`
+`256 % n === 0` is the constraint that is easy to miss. `crypto.getRandomValues`
 yields 0–255, and `byte % n` over-represents the first `256 % n` characters. At
 n = 32 the division is exact. Luhn's own 36-character default is **not**
 uniform — `256 % 36 === 4`, over-representing its first four characters by

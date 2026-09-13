@@ -20,7 +20,7 @@ import {
  * suite where it is written. What is left over lands here, and it is of three
  * kinds.
  *
- * - Claims about `generate`, which draws from `crypto.randomBytes`. The
+ * - Claims about `generate`, which draws from `crypto.getRandomValues`. The
  *   documented output cannot be reproduced, so what is checked instead is that
  *   it is internally consistent: the printed `value` really is the printed
  *   `body` plus a check character that validates, chunked by the documented

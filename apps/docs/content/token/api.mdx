@@ -60,7 +60,7 @@ interface GenerateResult {
 }
 ```
 
-Draws `length - 1` characters from `crypto.randomBytes` and appends the check
+Draws `length - 1` characters from `crypto.getRandomValues` and appends the check
 character. Never retries, never checks for collisions.
 
 The prefix is not validated against the alphabet and is not part of the
