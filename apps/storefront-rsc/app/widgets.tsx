@@ -14,6 +14,12 @@ import { Spotlight } from './spotlight';
  * awaits resolve -- the renderer puts a `<Suspense>` boundary around every item
  * rather than one around the region, so a slow widget holds up only itself.
  *
+ * So this region keeps `chrome.suspense` at its `per-item` default, and is the
+ * reason that is the default. `none` is for a region of synchronous widgets,
+ * where the boundaries buy nothing and React outlines them anyway; here they
+ * are the whole point, and turning them off would make the slowest of the three
+ * fetches decide when any of them paints.
+ *
  * `@evanion/react-widget` resolves here through its `import` condition to the
  * package's built `dist/`, the way a published consumer resolves it. The app's
  * tsconfig sets `customConditions: []` to keep the type side on the same file.
