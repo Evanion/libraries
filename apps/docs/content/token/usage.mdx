@@ -1,0 +1,172 @@
+# Generating and validating
+
+## Construct once
+
+```ts
+import { createToken } from '@evanion/token';
+
+export const orderCode = createToken();
+export const giftCard = createToken({ length: 16, chunkSize: 4 });
+```
+
+`createToken` validates every option and returns a frozen object with
+`generate` and `validate` bound to it. Nothing is checked at use, so an instance
+you hold cannot produce a code its own `validate` rejects.
+
+| Option       | Default  | Meaning                                             |
+| ------------ | -------- | --------------------------------------------------- |
+| `length`     | `8`      | total characters, the check character included      |
+| `chunkSize`  | `4`      | characters between separators; must divide `length` |
+| `separator`  | `'-'`    | between chunks, and between a prefix and the code   |
+| `dictionary` | 32 chars | the alphabet — see [The alphabet](/token/alphabet)  |
+
+`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk of
+one character is exactly the thing this package exists to avoid. Set `chunkSize`
+equal to `length` for an unchunked code.
+
+```ts
+createToken({ length: 10, chunkSize: 4 });
+// InvalidShapeError: Token chunkSize must divide length, or the last chunk is
+// shorter than the rest; 4 does not divide 10.
+```
+
+## `generate`
+
+```ts
+const token = createToken();
+
+token.generate();
+// { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+
+token.generate({ prefix: 'ORD' });
+// { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
+```
+
+`length - 1` characters are drawn from `crypto.randomBytes` with `byte % n`,
+which is unbiased because the alphabet's size divides 256 — a constraint
+`createToken` enforces. That is what keeps generation constant-time instead of
+rejection-sampling.
+
+The check character is appended, then the whole thing is chunked. `body` is the
+random part alone, before the check character and before chunking.
+
+`generate` never retries and never checks for collisions.
+
+## `validate`
+
+```ts
+token.validate('a4kp-9mxa'); // { valid: true, body: 'a4kp9mx' }
+token.validate('a4kp-9mx8'); // { valid: false, reason: 'check-failed' }
+token.validate('a4kp-9mxo'); // { valid: false, reason: 'outside-alphabet' }
+token.validate('a4kp-9mx'); // { valid: false, reason: 'wrong-length' }
+```
+
+| `reason`           | Meaning                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| `outside-alphabet` | a character not in the dictionary, after separators are stripped |
+| `wrong-length`     | the code is not `length` characters long                         |
+| `check-failed`     | the last character does not check out against the ones before it |
+
+Checked in that order, and the first failure is the one reported.
+
+It returns a reason rather than throwing, because it is the cheap gate in front
+of a lookup rather than an exceptional path. It is total and free of side
+effects, which makes it safe to run on every request before doing anything
+expensive.
+
+Narrow on `valid` to reach `body`:
+
+```ts
+const result = token.validate(input);
+
+if (!result.valid) {
+  return reply.status(400).send({ error: result.reason });
+}
+
+const order = await db.orderByCode(result.body);
+```
+
+`body` is the code without its check character, case-folded — the same string
+`generate` returned as `body`, whatever grouping or case the caller typed.
+
+## Separators are presentation
+
+`generate` chunks `value` and leaves `body` unchunked. `validate` strips the
+separator first, so a code typed without it, or grouped differently, still
+validates:
+
+```ts
+token.validate('a4kp9mxa').valid; // true
+token.validate('a4-kp-9m-xa').valid; // true
+token.validate('A4KP-9MXA'); // { valid: true, body: 'a4kp9mx' }
+```
+
+Case is folded too, so a code read off a card in capitals validates.
+
+The separator must share no character with the dictionary, or stripping it would
+remove payload:
+
+```ts
+createToken({ separator: 'a' });
+// InvalidShapeError: Token separator must share no code point with the
+// dictionary, or validate cannot strip it; "a" does.
+```
+
+A shorter, spaced code, for something read aloud:
+
+```ts
+const short = createToken({ length: 6, chunkSize: 3, separator: ' ' });
+
+short.generate();
+// { value: '8c4 hum', body: '8c4hu', check: 'm', prefix: undefined }
+```
+
+## The prefix sits outside the checksum
+
+```ts
+const { value } = token.generate({ prefix: 'ORD' });
+// 'ORD-a4kp-9mxa'
+
+token.validate(value); // { valid: false, reason: 'outside-alphabet' }
+token.validate(value.slice('ORD-'.length)); // { valid: true, body: … }
+```
+
+Folding the prefix in would require every prefix character to be in the
+alphabet, and `ORD` contains `o`, which is excluded precisely because it is
+confusable. Comparing the prefix is a literal string match, which is what a
+caller writing `value.startsWith('ORD-')` expects.
+
+If you want the prefix authenticated, put it in the body instead of in the
+prefix.
+
+A helper for the round trip:
+
+```ts
+const PREFIX = 'ORD-';
+
+function mint(): string {
+  return token.generate({ prefix: 'ORD' }).value;
+}
+
+function read(input: string) {
+  if (!input.startsWith(PREFIX))
+    return { valid: false as const, reason: 'prefix' };
+  return token.validate(input.slice(PREFIX.length));
+}
+```
+
+## What the check character catches
+
+Luhn's guarantee, over any alphabet:
+
+- Every single-character substitution, at every position, including the check
+  character itself.
+- Every swap of two adjacent characters, except one pair: the first and last
+  entries of the dictionary — `0` and `z` by default.
+
+That one blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a
+swap of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n),
+which for even `n` has the single non-trivial solution `{0, n - 1}`. It is the
+textbook mod-10 `{0, 9}` case, generalised.
+
+It catches nothing else. A code invented from scratch passes one time in 32.

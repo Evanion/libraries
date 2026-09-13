@@ -1,0 +1,152 @@
+# API reference
+
+## `createToken(options?)`
+
+```ts
+function createToken(options?: TokenOptions): Token;
+```
+
+Validates the options and returns a frozen `Token`.
+
+| Option       | Type     | Default              | Meaning                                             |
+| ------------ | -------- | -------------------- | --------------------------------------------------- |
+| `length`     | `number` | `8`                  | total characters, the check character included      |
+| `chunkSize`  | `number` | `4`                  | characters between separators; must divide `length` |
+| `separator`  | `string` | `'-'`                | between chunks, and after a prefix                  |
+| `dictionary` | `string` | `DEFAULT_DICTIONARY` | the alphabet                                        |
+
+Throws `InvalidAlphabetError` when the dictionary is confusable, not lowercase,
+or of a size that biases `byte % n`; `InvalidShapeError` when `length`,
+`chunkSize` and `separator` cannot describe a code; and
+`InvalidDictionaryError` from `@evanion/luhn` when the dictionary cannot carry a
+check character.
+
+Everything is checked here, once. Nothing is checked at use, so an accepted
+instance cannot produce a code its own `validate` rejects.
+
+`chunkSize` defaults to `4`, which does not divide every `length` — a `length`
+that is not a multiple of 4 has to name its own.
+
+## The returned object
+
+```ts
+interface Token {
+  readonly dictionary: string;
+  readonly n: number;
+  readonly length: number;
+  readonly chunkSize: number;
+  readonly separator: string;
+  readonly entropyBits: number;
+  generate(options?: GenerateOptions): GenerateResult;
+  validate(input: string): ValidateResult;
+}
+```
+
+`entropyBits` is `(length - 1) * log2(n)` — see
+[Entropy and collisions](/token/entropy).
+
+### `generate(options?)`
+
+```ts
+interface GenerateOptions {
+  prefix?: string;
+}
+
+interface GenerateResult {
+  value: string; // the code as a person sees it
+  body: string; // the payload the check character was computed over
+  check: string; // the check character
+  prefix: string | undefined; // echoed from the call
+}
+```
+
+Draws `length - 1` characters from `crypto.randomBytes` and appends the check
+character. Never retries, never checks for collisions.
+
+The prefix is not validated against the alphabet and is not part of the
+checksum: it is written ahead of the code, separated by `separator`, and
+compared by literal string match.
+
+### `validate(input)`
+
+```ts
+type ValidateResult =
+  | { valid: true; body: string }
+  | { valid: false; reason: ValidateFailureReason };
+
+type ValidateFailureReason =
+  'outside-alphabet' | 'wrong-length' | 'check-failed';
+```
+
+Total and free of side effects. Separators are stripped and input is case-folded
+first, so a code typed without them, or grouped differently, still validates.
+
+The three checks run in the order listed and the first failure is reported. A
+prefix is not part of the code — `validate` sees a leading `ORD-` as three
+characters outside the alphabet.
+
+`body` on success is the code without its check character, case-folded: the
+string to look up.
+
+## Constants
+
+| Export                  | Value                                  |
+| ----------------------- | -------------------------------------- |
+| `DEFAULT_DICTIONARY`    | `'0123456789abcdefghjkmnpqrstuvxyz'`   |
+| `CONFUSABLE_CHARACTERS` | `'ilow'`, excluded from every alphabet |
+| `DEFAULT_LENGTH`        | `8`                                    |
+| `DEFAULT_CHUNK_SIZE`    | `4`                                    |
+| `DEFAULT_SEPARATOR`     | `'-'`                                  |
+
+## Types
+
+`TokenOptions`, `GenerateOptions`, `GenerateResult`, `ValidateResult`,
+`ValidToken`, `InvalidToken`, `ValidateFailureReason`, `TokenShape`,
+`InvalidDictionaryReason`, `InvalidShapeReason`, and the `Token` interface
+above.
+
+## Errors
+
+### `TokenError`
+
+Base class for everything this package throws. All of them are raised by
+`createToken`: `generate` and `validate` are total, so an accepted configuration
+cannot fail at use.
+
+### `InvalidAlphabetError extends TokenError`
+
+The three dictionary constraints this package owns.
+
+| Property     | Meaning                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| `reason`     | `'confusable'`, `'unfolded'` or `'non-uniform'`                         |
+| `dictionary` | the dictionary as supplied                                              |
+| `offending`  | the code points named; empty for `non-uniform`, which is about the size |
+
+### `InvalidShapeError extends TokenError`
+
+`length`, `chunkSize` or `separator` cannot describe a code.
+
+| Property                           | Meaning                 |
+| ---------------------------------- | ----------------------- |
+| `reason`                           | which constraint failed |
+| `length`, `chunkSize`, `separator` | all three, as supplied  |
+
+```ts
+type InvalidShapeReason =
+  | 'length' // not an integer, or below 2
+  | 'chunk-size' // not an integer, or below 1
+  | 'chunk-size-indivisible' // does not divide length
+  | 'separator-empty'
+  | 'separator-in-dictionary';
+```
+
+It carries all three values rather than only the offending one, because the
+constraints are relations between them: the value that has to change is not
+always the value the `reason` names.
+
+### From `@evanion/luhn`
+
+A dictionary that fails Luhn's own constraints — even size, no repeats, no case
+pairs — throws `InvalidDictionaryError`, which does not extend `TokenError`.
+Catch `Error` to cover both hierarchies, or catch the two by name.

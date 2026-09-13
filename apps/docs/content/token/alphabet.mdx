@@ -1,0 +1,110 @@
+# The alphabet
+
+## The default 32
+
+```ts
+token.dictionary; // '0123456789abcdefghjkmnpqrstuvxyz'
+token.n; // 32
+```
+
+The lowercase alphanumerics without `i`, `l`, `o` and `w`, exported as
+`DEFAULT_DICTIONARY`.
+
+The first three go because they are read as `1`, `1` and `0`. `w` goes because
+it is the one English letter whose name is polysyllabic and contains another
+letter's name — "double-u" — which is what breaks it when a code is dictated.
+
+`1` and `0` survive their own groups because a code is as often typed as spoken,
+and a digit is unambiguous on a keypad.
+
+32 is not an accident either. It is even and free of case pairs, so
+`@evanion/luhn` can compute a check character over it, and it divides 256, so
+`byte % 32` draws every character with equal probability.
+
+## Supplying your own
+
+Four constraints hold at once, and all four are checked by `createToken`:
+
+| Constraint                      | Enforced by     | Why                                    |
+| ------------------------------- | --------------- | -------------------------------------- |
+| no confusable characters        | this package    | `1`/`l`/`i` and `0`/`o` are the point  |
+| lowercase                       | this package    | input is case folded before it is read |
+| `256 % n === 0`                 | this package    | otherwise `byte % n` is biased         |
+| even size, no repeats, no pairs | `@evanion/luhn` | a check character has to be definable  |
+
+```ts
+createToken({ dictionary: '0123456789abcdefghijklmnopqrstuvwxyz' });
+// InvalidAlphabetError: Token dictionary must not contain characters that are
+// confused when read or heard; found: "i", "l", "o", "w".
+//   reason: 'confusable', offending: ['i', 'l', 'o', 'w']
+
+createToken({ dictionary: '0123456789abcdefghjkmnpqrstuvx' });
+// InvalidAlphabetError: … must contain a number of code points that divides
+// 256 …; 30 does not.
+//   reason: 'non-uniform'
+
+createToken({ dictionary: '0123456789ABCDEFGHJKMNPQRSTUVXYZ' });
+// InvalidAlphabetError: … must be lowercase, or case folding makes the entry
+// unreachable …
+//   reason: 'unfolded'
+```
+
+`CONFUSABLE_CHARACTERS` is `'ilow'`, and it is matched without regard to case,
+so an uppercase `I` is rejected as confusable before the lowercase rule sees it.
+
+The three reasons this package owns are `confusable`, `unfolded` and
+`non-uniform`, all on `InvalidAlphabetError`. A dictionary that fails one of
+Luhn's own constraints throws `InvalidDictionaryError` from `@evanion/luhn`,
+which does not extend `TokenError` — catch `Error` to cover both.
+
+## Why `256 % n === 0` is the one that is easy to miss
+
+`crypto.randomBytes` yields 0–255, and `byte % n` over-represents the first
+`256 % n` characters. At n = 32 the division is exact and every character is
+equally likely.
+
+Luhn's own 36-character default is not uniform — `256 % 36` is 4,
+over-representing its first four characters by about 14% — which is why this
+package does not adopt it, even though the check character itself would work
+fine.
+
+Rejection sampling is the alternative to constraining the alphabet: draw a byte,
+discard it if it lands in the biased tail, draw again. It is correct and it makes
+generation variable-time. The constraint is satisfiable — the default proves it —
+so the constraint is what this package takes.
+
+## Order is part of the alphabet
+
+The order of the dictionary decides which index each character occupies, and
+therefore every check character it produces. Two alphabets with the same
+characters in a different order are different alphabets, and a code minted under
+one does not validate under the other.
+
+Store the string as a constant. Do not sort it, deduplicate it or build it from
+a `Set` whose iteration order you have not pinned.
+
+## A worked alternative
+
+Hexadecimal passes all four constraints — 16 divides 256, it is even, lowercase,
+free of repeats and free of `i`, `l`, `o` and `w`:
+
+```ts
+const hex = createToken({ dictionary: '0123456789abcdef', length: 12 });
+
+hex.n; // 16
+hex.entropyBits; // 44
+hex.generate();
+// { value: '3cfb-46ac-624f', body: '3cfb46ac624', check: 'f', prefix: undefined }
+```
+
+The trade is four bits per character instead of five, so a hex code needs more
+characters for the same collision budget. Its advantage is that it reads as
+something people already recognise as an identifier.
+
+Sizes that divide 256 and are large enough to be useful: 16, 32, 64, 128. There
+are only 36 lowercase alphanumerics and four of them are confusable, so 32 is the
+largest alphabet reachable without punctuation — which would then collide with
+the separator. That is where the default sits.
+
+Building an alphabet is four simultaneous constraints, and every error names the
+one you broke. Call `createToken` once in a test rather than reasoning about it.

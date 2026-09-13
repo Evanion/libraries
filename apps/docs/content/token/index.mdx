@@ -1,0 +1,76 @@
+# @evanion/token
+
+Short codes a person can read aloud, type off a card, or dictate over a phone —
+each carrying a check character, so a mistyped one is rejected before you touch
+the database.
+
+```ts
+import { createToken } from '@evanion/token';
+
+const token = createToken();
+
+token.generate();
+// { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+
+token.validate('a4kp-9mxa'); // { valid: true, body: 'a4kp9mx' }
+token.validate('a4kp-9mx8'); // { valid: false, reason: 'check-failed' }
+```
+
+## Installation
+
+```bash
+npm install @evanion/token
+```
+
+Node 20 or newer — `generate` draws from `node:crypto`. ESM only. One
+dependency, `@evanion/luhn`.
+
+## The two properties that make a code usable by a human
+
+The alphabet leaves out characters that are confused when read or heard.
+`1`/`l`/`i` and `0`/`o` are the point; `w` goes too, because "double-u" is the
+one English letter name that contains another letter's name.
+
+A wrong code is rejected before an expensive operation. A database lookup for a
+code that was mistyped is a lookup that never needed to happen. That is the
+check character, and it is not optional here — without it this package is three
+lines of `crypto.randomBytes`.
+
+## `value` and `body`
+
+```ts
+token.generate({ prefix: 'ORD' });
+// { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
+```
+
+`value` is the code as a person sees it: prefix, chunks, separators. `body` is
+what the check character was computed over, unchunked — the form to store and
+index on.
+
+`validate` returns `body` too, from the stripped and case-folded input, so a
+code typed without its separators still resolves to the same stored key.
+
+## What it does not do
+
+It does not check for collisions and never retries. Uniqueness is a unique index
+on your table; see [Entropy and collisions](/token/entropy) for the numbers you
+need to size `length`.
+
+`valid: true` does not mean the code exists, and it is not authentication. One
+code in `n` passes by construction — one in 32 with the default alphabet. Treat
+it as a filter in front of a lookup, never as a credential.
+
+The prefix sits outside the checksum. `ORD-a4kp-9mxa` checksums `a4kp9mx` only,
+and `validate` takes the code without the prefix.
+
+## Pages
+
+- [Generating and validating](/token/usage) — the two operations, separators, prefixes
+- [The alphabet](/token/alphabet) — the default 32, and the constraints on your own
+- [Entropy and collisions](/token/entropy) — sizing `length`
+- [API reference](/token/api)
+
+## Related
+
+`@evanion/luhn` supplies the check character and is the package to reach for
+when you have your own identifier and only want to sign it.
