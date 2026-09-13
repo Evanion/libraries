@@ -237,31 +237,71 @@
 }
 
 /*
- * The editor: a text field set like the listing it holds, in the hue for the
- * strings the way a code block would be. No border of its own; the figure's
- * edge is its edge, and a box inside a box is what a textarea looks like when
- * nobody styled it.
+ * The editor: a highlighted `<pre>` under a transparent `<textarea>`, both in
+ * the one grid cell.
+ *
+ * `.landing-demo__layer` is every property that decides where a glyph goes,
+ * set once for both so the caret in the field lands on the character drawn
+ * underneath it. Both wrap, at the same width, so a long value folds the same
+ * way in each and neither scrolls past the other. The `<pre>` is the layer
+ * with a height; the field stretches to it. No border of its own: the
+ * figure's edge is its edge, and a box inside a box is what a textarea looks
+ * like when nobody styled it.
  */
-.landing-demo__source {
+.landing-demo__field {
+  display: grid;
+  min-height: 12rem;
+}
+
+.landing-demo__layer {
+  grid-area: 1 / 1;
   box-sizing: border-box;
   width: 100%;
-  min-height: 12rem;
   margin: 0;
   padding: 0;
   border: 0;
-  background: none;
-  color: var(--baize-hue);
   font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
   font-size: var(--baize-text-sm);
+  font-variant-ligatures: none;
   line-height: 1.55;
+  letter-spacing: normal;
   tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+
+.landing-demo__highlight {
+  color: var(--baize-moss);
+  pointer-events: none;
+}
+
+.landing-demo__highlight code {
+  font: inherit;
+}
+
+.landing-demo__token--key {
+  color: var(--baize-chalk);
+}
+
+.landing-demo__token--string {
+  color: var(--baize-hue);
+}
+
+.landing-demo__token--literal {
+  color: var(--baize-lichen);
+}
+
+.landing-demo__source {
+  height: 100%;
+  background: none;
+  color: transparent;
+  caret-color: var(--baize-chalk);
   resize: none;
-  white-space: pre;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* Grows with its lines where the browser can; `rows` is set from the text
-     for the ones that cannot. */
-  field-sizing: content;
+}
+
+.landing-demo__source::selection {
+  background: color-mix(in oklab, var(--baize-hue) 30%, transparent);
 }
 
 /* Focus is shown on the editor's edge, not as a ring around the field: the
@@ -272,6 +312,14 @@
 
 .landing-demo__editor:focus-within {
   box-shadow: inset 3px 0 0 var(--baize-hue);
+}
+
+/* What the parser said, under the field it is about. Quiet, because it is
+   true for as long as it takes to type the next character. */
+.landing-demo__parse {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
 }
 
 /* The rendered region: two columns, each item spanning what its meta says. */
@@ -316,23 +364,28 @@
   list-style: none;
 }
 
-/* The two runtimes, under the demo: a column each, the same shape. */
-.landing-routes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--baize-space-6);
-  margin: var(--baize-space-6) 0 0;
+/*
+ * The two runtimes, level with the section's heading and above the demo, so
+ * a reader has the names before the demonstration. The same tile as the
+ * index, which the reader has already learned is the way into a package: the
+ * name, the stack, nothing to read twice.
+ */
+.landing-teasers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-3);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.landing-routes > li {
+.landing-teasers > li {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--baize-space-3);
-  padding-left: var(--baize-space-4);
-  border-left: 3px solid var(--baize-hue);
+  min-width: 12rem;
+}
+
+.landing-teaser {
+  padding: var(--baize-space-3) var(--baize-space-4);
 }
 
 /* Identifiers and codes: one column per member, however many there are. */
@@ -475,8 +528,7 @@
 }
 
 @media (max-width: 30rem) {
-  .landing-index,
-  .landing-routes {
+  .landing-index {
     grid-template-columns: minmax(0, 1fr);
   }
 }
