@@ -1,5 +1,4 @@
-![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)
-![npm (scoped)](https://img.shields.io/npm/v/@evanion/feature)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
 
 # Feature Toggles
 
