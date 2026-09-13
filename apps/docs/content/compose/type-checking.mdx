@@ -1,0 +1,137 @@
+# Where the check happens
+
+`ComposeProvider` checks each entry of `providers` against the component in that
+entry. The check is entirely at the type level — nothing is validated at
+runtime beyond `providers` being an array — so where you write the array decides
+whether the check runs at all.
+
+## Three positions
+
+### Inline in JSX
+
+```tsx
+<ComposeProvider
+  providers={[
+    ThemeProvider, // ✗ ThemeProvider requires props
+    [ThemeProvider, { theme: 'dark' }], // ✗ missing primaryColor
+    [ThemeProvider, { theme: 'blue', primaryColor: '#fff' }], // ✗ 'blue'
+    [ThemeProvider, { theme: 'dark', primaryColor: '#fff', typo: 1 }], // ✗ typo
+  ]}
+>
+  <App />
+</ComposeProvider>
+```
+
+A JSX attribute is a contextually typed position, so TypeScript infers the array
+as a literal tuple and every entry is checked.
+
+### Through `provider()`
+
+```tsx
+const providers = [
+  ErrorBoundary,
+  provider(CacheProvider, { value: emotionCache }),
+  provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
+];
+```
+
+`provider()` infers the component type from its own first argument, so the props
+object is checked at the call. That also means the editor knows the prop names
+while you are typing the object, which a bare tuple cannot offer.
+
+### In a variable, unannotated
+
+```tsx
+const entry = [ThemeProvider, { theme: 'dark' }]; // no error here
+```
+
+TypeScript widens this to `(typeof ThemeProvider | { theme: string })[]`. The
+pairing between the component and its props is gone before `ComposeProvider`
+ever sees it. Two ways out:
+
+```tsx
+const providers = [
+  provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
+];
+
+// or
+const providers = [
+  [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }],
+] satisfies ProviderArray;
+```
+
+## Reading the errors
+
+A failing entry has to resolve to some type your value is not assignable to, and
+whatever that type is ends up quoted in the diagnostic. For a failure that is
+not simply a wrong value, the explanation is carried in a property key, so
+TypeScript prints it in the first line instead of burying it under a structural
+walk:
+
+```
+Property '"ComposeError: unknown prop 'typo'"' is missing in type
+'[ThemeProvider, { theme: "dark"; primaryColor: "#fff"; typo: 1; }]'
+but required in type 'ComposeError<"unknown prop 'typo'">'.
+```
+
+The messages you can get:
+
+| Message                                                                                        | What it means                                               |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `unknown prop 'x'`                                                                             | the props object has a key the component does not declare   |
+| `this component requires props — use provider(Component, props) or a [Component, props] tuple` | a bare component whose props are not all optional           |
+| `first tuple element must be a component`                                                      | the pair is the wrong way round, or the first entry is data |
+| `second tuple element must be props, not another component`                                    | two components in one tuple                                 |
+| `not a valid provider`                                                                         | the entry is neither a component nor a two-element tuple    |
+
+A missing or mistyped prop value does not get a carrier. It resolves to the
+shape the entry should have had, because
+`Type '"blue"' is not assignable to type '"light" | "dark"'` already says
+everything a message could.
+
+## Forwarding an array through a wrapper
+
+A value already typed `ProviderArray` has lost the identity of its elements, so
+there is nothing left to check entry by entry. `ValidatedProviders` detects that
+and resolves to plain `ProviderArray`, which is what lets a wrapper component
+compile:
+
+```tsx
+function AppProviders({
+  providers,
+  children,
+}: {
+  providers: ProviderArray;
+  children: React.ReactNode;
+}) {
+  return <ComposeProvider providers={providers}>{children}</ComposeProvider>;
+}
+```
+
+The entries are unchecked at that boundary. Build the array where the components
+are known if you want the per-entry errors, and pass the built array through.
+
+## Why the excess-key check runs first
+
+`ValidateProvider` tests for an unknown key before it tests assignability, and
+the order matters for a component whose props are all optional. Such a component
+is a weak type: an object of only unrelated keys is not assignable to it.
+Checking assignability first sends that case down the repaired-shape branch,
+where comparing your mutable tuple against a constructed `readonly` tuple makes
+TypeScript report the variance of `Array.prototype.every` rather than the prop
+nobody declared.
+
+## Runtime behaviour
+
+Three things happen at runtime, and only three:
+
+- `providers` that is not an array throws a `TypeError` naming the prop and the
+  type it received. Without it, a missing prop surfaces from the array reads as
+  "Cannot read properties of undefined", naming neither.
+- A `components` prop with no `providers` throws a `TypeError` telling you to
+  rename it. That prop was removed in 2.0 and is not in the type surface, so
+  only a caller outside TypeScript reaches this.
+- An empty array logs a development-mode warning, once per process.
+
+Nothing else is inspected. `provider()` builds a tuple and returns it; the type
+parameters do the rest.

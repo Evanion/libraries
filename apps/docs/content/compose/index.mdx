@@ -1,7 +1,7 @@
 # @evanion/compose
 
-Get out of provider hell. `ComposeProvider` takes a flat array of providers and
-nests them for you, so this:
+`ComposeProvider` takes a flat array of providers and nests them for you, so
+this:
 
 ```tsx
 <ThemeProvider theme="dark" primaryColor="#007acc">
@@ -29,7 +29,7 @@ import { ComposeProvider, provider } from '@evanion/compose';
 </ComposeProvider>;
 ```
 
-The first provider is the outermost, so the array reads in the same order the
+The first entry is the outermost, so the array reads in the same order the
 nested version did.
 
 ## Installation
@@ -38,19 +38,30 @@ nested version did.
 npm install @evanion/compose
 ```
 
-React 18 or 19 is required as a peer dependency.
+React 18 or 19 is a peer dependency. The package is ESM only — there is no
+`require` condition, so a CommonJS consumer (Jest without ESM support, a
+`require()` in a `.cjs` file) gets `ERR_REQUIRE_ESM`.
 
-## Two ways to pass props
+## Two ways to write an entry
 
-`provider()` is checked where you call it, and gives you IntelliSense for the
-component's props:
+A bare component is an entry on its own, as long as every prop it declares is
+optional:
+
+```tsx
+<ComposeProvider providers={[QueryProvider]}>
+  <App />
+</ComposeProvider>
+```
+
+`provider()` pairs a component with its props and is checked where you call it,
+so the editor completes on the component's prop names while you type the object:
 
 ```tsx
 provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' });
 ```
 
-A plain tuple is more concise, and is checked when the array reaches
-`ComposeProvider`:
+A plain tuple is the same thing without the call, and is checked when the array
+reaches `ComposeProvider`:
 
 ```tsx
 <ComposeProvider
@@ -60,34 +71,55 @@ A plain tuple is more concise, and is checked when the array reaches
 </ComposeProvider>
 ```
 
-Both reject a missing prop, a wrong value, and a prop the component does not
-declare.
+All three forms reject a missing prop, a wrong value, and a prop the component
+does not declare. `children` is excluded from what an entry supplies —
+`ComposeProvider` fills it in with the next provider down, or with your own
+children at the innermost level.
 
-> **Where the check happens matters.** A tuple only knows what it should be once
-> it reaches `ComposeProvider`. A bare `[ThemeProvider, { theme: 'dark' }]`
-> assigned to a variable is widened by TypeScript and will not error — use
-> `provider()` for those, or write the array inline.
+Where the check happens is the difference. A tuple only knows what it should be
+once it reaches `ComposeProvider`, so a bare
+`[ThemeProvider, { theme: 'dark' }]` assigned to a variable is widened by
+TypeScript and will not error. Write the array inline, use `provider()` for
+those entries, or annotate the array `satisfies ProviderArray`.
 
-## API
+[Where the check happens](/compose/type-checking) covers the rest of that, and
+[the API reference](/compose/api) has the full export list.
 
-### `ComposeProvider`
+## The array's shape is part of the tree
 
-| Prop         | Type            | Notes                                    |
-| ------------ | --------------- | ---------------------------------------- |
-| `providers`  | `ProviderArray` | Providers to compose; first is outermost |
-| `components` | `ProviderArray` | **Deprecated** alias for `providers`     |
-| `children`   | `ReactNode`     | Wrapped by every provider                |
+React reconciles by position, so changing the length or the order of the array
+unmounts and remounts everything below it:
 
-Throws a `TypeError` naming the problem if `providers` is missing or is not an
-array. In development it also warns on an empty array, on the deprecated
-`components` prop, and when both props are supplied.
+```tsx
+// Every piece of state under this is lost on login.
+<ComposeProvider
+  providers={[...(isAuthed ? [AuthProvider] : []), ThemeProvider]}
+>
+  <App />
+</ComposeProvider>
+```
 
-### `provider(component, props)`
+Keep the array a fixed length and let the providers themselves handle the
+conditional case. This is not something the library can detect for you: it sees
+an array of a different length and has no way to tell a deliberate change from
+an accidental one.
 
-Returns a typed `[component, props]` tuple. Purely a type-level helper — there is
-no runtime cost beyond building the tuple.
+## Server components
 
-### Types
+`ComposeProvider` is hook-free and uses no `createContext`, so it imports
+cleanly into a React Server Component graph — a Next.js root `app/layout.tsx`,
+for instance — with no `'use client'` boundary of its own. The providers you
+pass it are a different matter: a provider built on `createContext` is client
+code and carries its own directive.
 
-`Provider`, `ProviderArray`, `ComposeProviderProps`, `LegacyComposeProviderProps`,
-`PropsWithoutChildren`.
+The same constraint is why the development-mode warnings are keyed on a
+module-level set rather than a `useEffect`. React's `react-server` export
+condition leaves every stateful hook `undefined`, so a hook here would throw on
+first render in a Server Component.
+
+## Related
+
+`@evanion/react-widget` solves the neighbouring problem from the other side: it
+renders a region of components from data with no provider and no context at all,
+because it has to stay importable from a Server Component. `ComposeProvider`
+composes providers you already have; the widget package avoids needing one.
