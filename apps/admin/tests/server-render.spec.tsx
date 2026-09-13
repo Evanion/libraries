@@ -42,7 +42,7 @@ function ssr(element: React.ReactElement): string {
 describe('the package as the app resolves it', () => {
   it('resolves to built output and that output carries no client directive', () => {
     const resolved = import.meta.resolve('@evanion/react-widget');
-    expect(resolved).toMatch(/libs\/widget\/dist\/index\.js$/);
+    expect(resolved).toMatch(/libs\/react-widget\/dist\/index\.js$/);
 
     const entry = readFileSync(fileURLToPath(resolved), 'utf-8');
     expect(entry).not.toMatch(/['"]use client['"]/);
@@ -74,6 +74,14 @@ describe('the dashboard region', () => {
       id: 'shelf',
       type: 'shelf',
       props: { counts: [{ state: 'in stock', titles: 1 }] },
+      meta: { lane: 'aside' },
+    },
+    {
+      // A second aside panel, below the first rather than below whatever the
+      // main lane's next panel happens to be.
+      id: 'trail',
+      type: 'trail',
+      props: { correlationId: 'cid-1', events: [] },
       meta: { lane: 'aside' },
     },
     {
@@ -126,19 +134,36 @@ describe('the dashboard region', () => {
   });
 
   /**
+   * Two panels in one lane share one column, so the short one does not hold a
+   * row open under itself while the tall one beside it runs on. The bed can
+   * only do this because the wrapper is handed the region's items and can read
+   * `meta` off them; with children alone it has nothing to group by.
+   */
+  it('stacks a lane rather than placing each panel on its own row', () => {
+    expect([...html.matchAll(/grid-column:aside/g)]).toHaveLength(1);
+
+    const lane = html.slice(
+      html.indexOf('grid-column:aside'),
+      html.indexOf('grid-column:full'),
+    );
+    expect(lane).toContain('data-widget-id="shelf"');
+    expect(lane).toContain('data-widget-id="trail"');
+  });
+
+  /**
    * The point of naming lanes rather than counting columns. Every placement the
-   * chrome can emit is a lane the bed declares, so no item can land on a seam
-   * of its own or reach past the bed's last line, whatever `meta` holds.
+   * bed emits is a lane it declares, so no panel can land on a seam of its own
+   * or reach past the bed's last line, whatever `meta` holds.
    */
   it('emits only lanes the bed declares, never a line number', () => {
     const placements = [...html.matchAll(/grid-column:([^;"]+)/g)].map(
       (match) => match[1],
     );
 
-    // One per chrome wrapper, nested items included -- so a placement that
-    // stopped being emitted at all fails here rather than passing vacuously.
-    const wrappers = [...html.matchAll(/data-widget-id=/g)].length;
-    expect(placements.length).toBe(wrappers);
+    // One band of the fixture is a main/aside pair and two are full-width, so a
+    // placement that stopped being emitted at all fails here rather than
+    // passing vacuously.
+    expect(placements).toHaveLength(4);
     for (const placement of placements) {
       expect(['main', 'aside', 'full']).toContain(placement);
     }
