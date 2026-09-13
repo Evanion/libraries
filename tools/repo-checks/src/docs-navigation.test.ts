@@ -140,27 +140,35 @@ describe('the docs navigation', () => {
     ).toEqual([]);
   });
 
-  it('names nothing that is not a project here', async () => {
-    // Released packages must all appear, which the test above enforces. This one
-    // is the other direction and is deliberately looser: a package excluded from
-    // `release.projects` can still be documented -- the private design system is,
-    // because every app in this repository is styled with it. What must not
-    // appear is a name the project graph does not know, which is an entry
-    // pointing at nothing.
-    const graph = await createProjectGraphAsync({ exitOnError: false });
-    const known = new Set(Object.keys(graph.nodes));
+  /**
+   * The other direction, and the reason it is `release.projects` rather than the
+   * whole project graph: this site is what a reader reaches from npm, so every
+   * section on it has to be something that reader can install. A project the
+   * repository does not release cannot be -- `@evanion/baize-ui` is `private:
+   * true`, exists to style the demo apps in this workspace, and `npm install`
+   * does not resolve it. Its manual is `libs/baize-ui/README.md`, where a
+   * contributor is the audience.
+   *
+   * Widening this to the project graph admits every app, every tool and every
+   * private library, which is the whole repository rather than its published
+   * surface.
+   */
+  it('names nothing the repository does not release', async () => {
+    const names = new Set((await released).map((project) => project.name));
 
     expect(
       (await loadNavigation())
         .map((entry) => entry.name)
-        .filter((name) => !known.has(name)),
+        .filter((name) => !names.has(name)),
+      'Remove these from `packages` in apps/docs/app/navigation.ts, or release ' +
+        'the package. A reader arriving from npm cannot install what the ' +
+        'repository does not publish.',
     ).toEqual([]);
   });
 
   it('gives every package the directory the project graph gives it', async () => {
-    const graph = await createProjectGraphAsync({ exitOnError: false });
     const roots = new Map(
-      Object.values(graph.nodes).map((node) => [node.name, node.data.root]),
+      (await released).map((project) => [project.name, project.root]),
     );
     const navigation = await loadNavigation();
 
