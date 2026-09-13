@@ -1,0 +1,144 @@
+# API reference
+
+Everything `@evanion/compose` exports, and what it does.
+
+## `ComposeProvider`
+
+```tsx
+function ComposeProvider<const T extends ProviderArray>(
+  props: ComposeProviderProps<T>,
+): React.ReactElement;
+```
+
+| Prop        | Type                    | Notes                                        |
+| ----------- | ----------------------- | -------------------------------------------- |
+| `providers` | `ValidatedProviders<T>` | Providers to compose; the first is outermost |
+| `children`  | `React.ReactNode`       | Wrapped by every provider                    |
+
+A generic function rather than a `React.FC`. The `const T` parameter is what
+infers the array as a literal tuple, and a `React.FC` annotation would widen it
+and take the per-entry checking with it.
+
+Renders a fragment containing the nested tree. An entry that is a bare component
+is rendered with no props; a tuple entry is rendered with its second element
+spread as props.
+
+Throws `TypeError` when `providers` is not an array, and when a `components`
+prop is supplied without `providers`. In development it also warns once on an
+empty array.
+
+## `provider(component, props)`
+
+```tsx
+function provider<T extends AnyComponent, P extends PropsWithoutChildren<T>>(
+  component: T,
+  props: P & Record<Exclude<keyof P, keyof PropsWithoutChildren<T>>, never>,
+): readonly [T, PropsWithoutChildren<T>];
+```
+
+Returns the `[component, props]` tuple. There is no runtime cost beyond building
+the array; the value of the call is that `T` is inferred from `component` in the
+same expression, so `props` is checked and completed against that component.
+
+The `Record<Exclude<…>, never>` intersection is what rejects an excess key.
+Plain assignability would not: TypeScript's excess-property check fires on a
+fresh object literal and is skipped for a props object that arrives through a
+variable.
+
+## Types
+
+### `AnyComponent`
+
+```tsx
+type AnyComponent = ComponentType<any>;
+```
+
+A constraint, not an annotation. `ComponentType<unknown>` would reject a
+component with concrete props — component props are contravariant, so a
+`ComponentType<{ theme: string }>` is not assignable to a
+`ComponentType<unknown>` — and TypeScript has no "some component, props unknown"
+type for this position. Inference is unaffected: every check below resolves
+against the component actually passed.
+
+### `PropsWithoutChildren<T>`
+
+```tsx
+type PropsWithoutChildren<T extends AnyComponent> = Omit<
+  ComponentProps<T>,
+  'children'
+>;
+```
+
+What an entry has to supply. `children` is excluded because `ComposeProvider`
+provides it.
+
+### `Provider`
+
+```tsx
+type Provider = AnyComponent | readonly [AnyComponent, unknown];
+```
+
+### `ProviderArray`
+
+```tsx
+type ProviderArray = readonly Provider[];
+```
+
+`readonly`, so an array written `as const` is assignable. Annotating a value
+with this type widens away its element identity — see
+[forwarding through a wrapper](/compose/type-checking).
+
+### `ValidateProvider<T>`
+
+Checks one entry. A valid entry maps to itself; a failing one maps to a carrier
+type naming what is wrong, except for a missing or mistyped prop value, which
+maps to the shape the entry should have had.
+
+### `ValidateProviders<T>`
+
+`ValidateProvider` applied across a tuple, positions preserved, so the error
+points at the offending element.
+
+### `ValidatedProviders<T>`
+
+```tsx
+type ValidatedProviders<T extends ProviderArray> = number extends T['length']
+  ? ProviderArray
+  : T & ValidateProviders<T>;
+```
+
+The type of the `providers` prop. `number extends T['length']` is the standard
+tuple-versus-array test, and gating on it does two things: a widened
+`ProviderArray` is passed through unchecked instead of being compared against a
+repaired shape it cannot match, and a non-tuple array is never compared member
+by member — which would make TypeScript walk `every`, `map` and `reduce` and
+report the variance of a predicate before mentioning the real mismatch.
+
+Keeping `T` in the intersection is also deliberate. A bare
+`ValidateProviders<T>` is a non-homomorphic mapped type and therefore not an
+inference site, so TypeScript would fall back to the constraint and check
+nothing.
+
+### `ComposeProviderProps<T>`
+
+The props interface above, exported for a wrapper that needs to name it.
+
+## Migrating from 1.x
+
+| Before                                                  | After                                 |
+| ------------------------------------------------------- | ------------------------------------- |
+| `<ComposeProvider components={[...]}>`                  | `<ComposeProvider providers={[...]}>` |
+| `LegacyComposeProviderProps`                            | removed                               |
+| `AnyComposeProviderProps`                               | removed                               |
+| forwarding a `ProviderArray` variable failed to compile | compiles, unchecked at that boundary  |
+
+`components` is gone from the type surface entirely rather than deprecated. A
+JavaScript caller that still passes it gets a named error:
+
+```
+TypeError: ComposeProvider: `components` was removed in v2.0 — rename it to `providers`.
+```
+
+Keeping it as a second overload is what produced the unreadable diagnostics in
+1.x: every error on a `providers` call carried a second half about the legacy
+overload that could never match.
