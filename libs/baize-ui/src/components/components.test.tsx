@@ -152,6 +152,35 @@ describe('the surfaces', () => {
     expect(bare.container.querySelector('.baize-card__head')).toBeNull();
   });
 
+  it('puts the media above the head, with the pin inside it', () => {
+    const { container } = render(
+      <Card
+        head={<Title size="sm">Azul</Title>}
+        media={<BoxArtPlaceholder seed="urn:game:azul" />}
+        pin={<AvailabilityPill availability="inStock" label="in stock" />}
+      >
+        <Text>Tile placement.</Text>
+      </Card>,
+    );
+
+    const card = container.querySelector('.baize-card');
+    expect(card?.firstElementChild?.className).toBe('baize-card__media');
+    expect(
+      container.querySelector('.baize-card__media .baize-card__pin .baize-pill')
+        ?.textContent,
+    ).toBe('in stock');
+  });
+
+  it('drops the pin where there is no picture to pin it to', () => {
+    const { container } = render(
+      <Card pin={<AvailabilityPill availability="inStock" label="in stock" />}>
+        Azul
+      </Card>,
+    );
+
+    expect(container.querySelector('.baize-card__pin')).toBeNull();
+  });
+
   it('renders a panel as a region with its heading', () => {
     render(<Panel heading="Opening hours">closed Mondays</Panel>);
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
@@ -257,5 +286,40 @@ describe('the box-art placeholder', () => {
     expect(tile?.className).toBe('baize-box-art');
     expect(tile?.getAttribute('aria-hidden')).toBe('true');
     expect(tile?.textContent).toBe('');
+  });
+
+  it('draws a different landscape per seed and the same one twice', () => {
+    const draw = (seed: string) =>
+      render(<BoxArtPlaceholder seed={seed} />).container.innerHTML;
+
+    expect(draw('urn:game:wingspan')).not.toBe(draw('urn:game:azul'));
+    expect(draw('urn:game:wingspan')).toBe(draw('urn:game:wingspan'));
+  });
+
+  /**
+   * The whole reason the photograph is a background layer rather than an `<img>`:
+   * a URL that 404s paints nothing and the vista underneath is what is seen.
+   */
+  it('carries a photograph as a custom property, and drops an unquotable url', () => {
+    const good = render(
+      <BoxArtPlaceholder photo="/box-art/azul.webp" seed="a" />,
+    );
+    expect(
+      good.container
+        .querySelector<HTMLElement>('.baize-box-art')
+        ?.style.getPropertyValue('--baize-art-photo'),
+    ).toBe('url("/box-art/azul.webp")');
+
+    const bad = render(
+      <BoxArtPlaceholder
+        photo={'x.webp"); color: red; --a: url("y'}
+        seed="a"
+      />,
+    );
+    expect(
+      bad.container
+        .querySelector<HTMLElement>('.baize-box-art')
+        ?.style.getPropertyValue('--baize-art-photo'),
+    ).toBe('');
   });
 });

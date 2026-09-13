@@ -47,7 +47,6 @@ const sellable = copies !== undefined && copies > 0;
             >
               {game.value.title}
             </h1>
-            <AvailabilityPill availability={game.value.availability} />
           </div>
           <MechanismTags mechanisms={game.value.mechanisms} />
           <div class="feature__stats">
@@ -96,10 +95,18 @@ const sellable = copies !== undefined && copies > 0;
         </div>
 
         <div class="detail__buy">
-          <BoxArt title={game.value.title} urn={game.value.urn} />
-          <section class="baize-panel">
-            <div class="detail__buy-row">
-              <span class="baize-figure baize-figure--size-lg">
+          {/* The pill sits on the art here for the same reason it does on a
+              card: it is a fact about buying the thing, and it belongs beside
+              the thing rather than on the line the title needs. */}
+          <div class="detail__art">
+            <BoxArt urn={game.value.urn} />
+            <div class="baize-card__pin">
+              <AvailabilityPill availability={game.value.availability} />
+            </div>
+          </div>
+          <section class="baize-panel detail__panel">
+            <div class="detail__price">
+              <span class="baize-figure baize-figure--size-xl">
                 {formatPrice(game.value.price)}
               </span>
               <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
@@ -128,7 +135,7 @@ const sellable = copies !== undefined && copies > 0;
                 disabled={!sellable}
               />
               <button
-                class="baize-button baize-button--variant-primary"
+                class="baize-button baize-button--variant-primary detail__add"
                 disabled={!sellable}
               >
                 Add to cart
@@ -140,6 +147,9 @@ const sellable = copies !== undefined && copies > 0;
                 the next printing lands.
               </p>
             )}
+            <p class="baize-text baize-text--tone-moss baize-text--size-sm">
+              Collect in Gothenburg, or we post it the next working day.
+            </p>
           </section>
         </div>
       </div>

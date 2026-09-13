@@ -51,6 +51,12 @@
   gap: var(--baize-space-4);
 }
 
+/* The containing block the library's card pin needs. Inside a card that block
+   is `.baize-card__media`; here the art stands beside the card, so it is this. */
+.spotlight__art {
+  position: relative;
+}
+
 @media (min-width: 44rem) {
   .spotlight {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);

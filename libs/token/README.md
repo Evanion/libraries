@@ -1,5 +1,6 @@
-![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)
-![npm (scoped)](https://img.shields.io/npm/v/@evanion/token)
+[![npm version](https://img.shields.io/npm/v/@evanion/token)](https://www.npmjs.com/package/@evanion/token)
+[![npm downloads](https://img.shields.io/npm/dm/@evanion/token)](https://www.npmjs.com/package/@evanion/token)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
 
 # Token Library
 
@@ -257,12 +258,6 @@ A dictionary that fails one of Luhn's own constraints throws
 
 Everything is checked at construction. Nothing is checked at use, so an
 instance you hold cannot produce a code its own `validate` rejects.
-
-## Testing
-
-```bash
-npm test
-```
 
 ## License
 

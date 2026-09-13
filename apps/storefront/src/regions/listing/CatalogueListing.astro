@@ -6,12 +6,14 @@ import { listingItems, listingRegistry } from './registry.js';
 
 interface Props {
   games: Game[];
+  /** Where a card's add-to-cart returns the shopper to. */
+  back: string;
   /** Given a two-column cell, when it is in `games`. */
   featured?: string;
 }
 
-const { games, featured } = Astro.props;
-const items = listingItems(games, featured);
+const { games, back, featured } = Astro.props;
+const items = listingItems(games, back, featured);
 ---
 
 {

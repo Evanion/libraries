@@ -1,0 +1,41 @@
+---
+interface Props {
+  /** What is being bought, as a full game or expansion urn. */
+  urn: string;
+  /** Where the shopper goes back to. A path on this site; `/cart` screens it. */
+  back: string;
+  /** The button's own words. */
+  label: string;
+  /** `primary` for the detail page's own buy button. */
+  variant?: 'primary' | 'standard' | 'quiet';
+  /** Out of print, or nothing on the shelf. */
+  disabled?: boolean;
+}
+
+const {
+  urn,
+  back,
+  label,
+  variant = 'standard',
+  disabled = false,
+} = Astro.props;
+---
+
+{/* A form and not a button with a listener. `/cart` already accepts a POST for
+    add, update, remove and checkout, and posting to it is what makes a card
+    work in a browser that has not run a line of this app's JavaScript -- which
+    in an Astro app with no islands is every browser, always.
+
+    The 303 the cart replies with is what sends the shopper back to `back`, so
+    adding from a grid leaves them in the grid. */}
+<form action="/cart" class="add-to-cart" method="post">
+  <input name="intent" type="hidden" value="add" />
+  <input name="urn" type="hidden" value={urn} />
+  <input name="back" type="hidden" value={back} />
+  <button
+    class={`baize-button baize-button--variant-${variant}`}
+    disabled={disabled}
+  >
+    {label}
+  </button>
+</form>

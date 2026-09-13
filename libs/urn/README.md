@@ -1,9 +1,12 @@
-![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)
-![npm (scoped)](https://img.shields.io/npm/v/@evanion/urn)
+[![npm version](https://img.shields.io/npm/v/@evanion/urn)](https://www.npmjs.com/package/@evanion/urn)
+[![npm downloads](https://img.shields.io/npm/dm/@evanion/urn)](https://www.npmjs.com/package/@evanion/urn)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
 
 # URN Library
 
 A URN Library that makes it easier to work with more meaningful identifiers. The API is inspired by, and designed to be as simple as the JSON class.
+
+Full documentation: [docs.evanion.com/urn](https://docs.evanion.com/urn).
 
 ## What is a URN?
 
@@ -13,10 +16,6 @@ URN stands for `Universal Resource Name` and is part of the URI spec in [RFC8141
 
 How many times have you seen a random DocumentID being thrown around in a conversation, and you wonder what type of DocumentID it is? Is it a `product` or `productCategory` ID?  
 A URN will help, by always include information about the namespace that the ID is referring to.
-
-## Philosophy
-
-The idea with this library is to make it as easy to work with URNs as it is to work with `JSON`. And the library's API is inspired by the `JSON` API.
 
 ## Installation
 
@@ -60,14 +59,11 @@ const parsed = TRN.parse('trn:bar:foo'); // -> { urn: 'trn', nid: 'bar', nss: 'b
 
 ## Features
 
-- **Simple API**: JSON-inspired API for easy adoption
-- **URN Parsing**: Parse URN strings into structured components
-- **URN Stringifying**: Create URN strings from components
-- **Custom Schemes**: Support for custom URN schemes beyond the standard `urn:`
-- **Namespace Support**: Handle custom namespaces and identifiers
-- **Class Inheritance**: Extend the base URN class for domain-specific implementations
-- **TypeScript Support**: Full TypeScript support with comprehensive type definitions
-- **RFC 8141 grammar**: A role-scoped grammar for the scheme, the NID and the
+- **A `JSON`-shaped API**: `parse` and `stringify`, and the subclass is the
+  only place a scheme or a namespace is named
+- **Custom schemes and namespaces**: extend the base class, override the
+  statics, and every inherited method reads the new values
+- **RFC 8141 grammar**: a role-scoped grammar for the scheme, the NID and the
   NSS, rather than one flat character class
 - **Case-folded comparison**: `sameNamespace`, `belongsToNamespace` and
   `equals` fold the scheme and the NID, per RFC 8141 §3.1
@@ -464,22 +460,16 @@ class UserTRN extends URN {
 }
 ```
 
-## Testing
+## Documentation
 
-The library includes comprehensive test coverage with Vitest:
-
-```bash
-npm test
-```
+Guides, worked examples and the full API reference:
+[docs.evanion.com/urn](https://docs.evanion.com/urn).
 
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines and submit pull requests for any improvements.
+Contributions are welcome! See
+[Contributing](https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md).
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Documentation
-
-For comprehensive documentation, examples, and API reference, visit our [documentation site](https://docs.evanion.com/urn).

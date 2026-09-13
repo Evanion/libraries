@@ -102,6 +102,28 @@ const BOX_ART: Readonly<Record<string, BoxArtPalette>> = {
   agricola: 'loam',
 };
 
+/**
+ * Where a photographed box lives, and which titles have been photographed.
+ *
+ * Nothing yet, which is the state this is built for rather than a gap in it: the
+ * tile paints a photograph as a CSS background layer over the generated vista,
+ * so a title listed here whose file has not landed shows the vista and a title
+ * not listed here never asks for a file at all. Adding one is one entry below,
+ * and no change to `@evanion/baize-ui`.
+ *
+ * An absolute URL because the files will be served from the docs site, which
+ * deploys statically: all three apps then read the same pictures from one place
+ * without any of them carrying binaries in git.
+ */
+const BOX_ART_PHOTOS = 'https://docs.evanion.com/box-art';
+const PHOTOGRAPHED: ReadonlySet<string> = new Set<string>();
+
+/** The photograph of a game's box, for the titles that have one. */
+export function boxArtPhotoUrl(urn: string): string | undefined {
+  const slug = urn.replace(/^urn:game:/, '');
+  return PHOTOGRAPHED.has(slug) ? `${BOX_ART_PHOTOS}/${slug}.webp` : undefined;
+}
+
 /** The urn path segment a mechanism is browsable under. */
 export function mechanismSlug(mechanism: string): string {
   return mechanism.trim().toLowerCase().replace(/\s+/g, '-');

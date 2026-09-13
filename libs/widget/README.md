@@ -1,7 +1,15 @@
+[![npm version](https://img.shields.io/npm/v/@evanion/react-widget)](https://www.npmjs.com/package/@evanion/react-widget)
+[![npm downloads](https://img.shields.io/npm/dm/@evanion/react-widget)](https://www.npmjs.com/package/@evanion/react-widget)
+[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+
 # @evanion/react-widget
 
 Render dynamic, type-safe React widget regions from structured data. Built for
 CMS-driven layouts, dashboards and configurable sidebars.
+
+Full documentation: [docs.evanion.com/widget](https://docs.evanion.com/widget).
+The Astro counterpart, for build-time sections with no runtime, is
+[`@evanion/astro-widget`](https://www.npmjs.com/package/@evanion/astro-widget).
 
 ## Features
 
