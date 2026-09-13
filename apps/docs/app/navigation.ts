@@ -100,13 +100,6 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'NestJS Correlation ID',
     documented: true,
   },
-  {
-    name: '@evanion/baize-ui',
-    root: 'libs/baize-ui',
-    slug: 'baize-ui',
-    title: 'Baize UI',
-    documented: true,
-  },
 ];
 
 /** The README that stands in for a package with no section on this site. */
