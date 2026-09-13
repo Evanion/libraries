@@ -29,7 +29,7 @@ export interface Game {
   players: string;
   playtime: string;
   /** Complexity, 1 (light) to 5 (heavy). */
-  weight: number;
+  complexity: number;
   /** Minor units, SEK öre. */
   price: number;
   /**

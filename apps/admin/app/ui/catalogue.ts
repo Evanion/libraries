@@ -11,7 +11,7 @@
 import type {
   Availability as BaizeAvailability,
   Mechanism,
-  WeightStop,
+  ComplexityStop,
 } from '@evanion/baize-ui';
 
 /**
@@ -82,21 +82,21 @@ export function mechanismToken(mechanism: string | undefined): Mechanism {
 }
 
 /**
- * Which stop on the five-stop ramp a weight reaches.
+ * Which stop on the five-stop ramp a complexity reaches.
  *
- * Weights are fractional and the ramp has five stops, so the value is bucketed by
+ * Complexity ratings are fractional and the ramp has five stops, so the value is bucketed by
  * its ceiling. Anything outside 1-5 is clamped rather than rejected: the catalogue
  * is the authority on the number, and a ramp that throws is worse than one showing
  * its end.
  */
-export function weightStop(weight: number): WeightStop {
-  if (!Number.isFinite(weight)) return 1;
-  return Math.min(5, Math.max(1, Math.ceil(weight))) as WeightStop;
+export function complexityStop(complexity: number): ComplexityStop {
+  if (!Number.isFinite(complexity)) return 1;
+  return Math.min(5, Math.max(1, Math.ceil(complexity))) as ComplexityStop;
 }
 
-/** Weight as a figure, at the precision the published scale has. */
-export function formatWeight(weight: number): string {
-  return weight.toFixed(1);
+/** Complexity as a figure, at the precision the published scale has. */
+export function formatComplexity(complexity: number): string {
+  return complexity.toFixed(1);
 }
 
 /**

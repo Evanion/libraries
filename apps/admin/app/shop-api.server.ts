@@ -20,7 +20,7 @@ export interface Game {
   players: string;
   playtime: string;
   /** Complexity, 1 (light) to 5 (heavy). */
-  weight: number;
+  complexity: number;
 }
 
 /** Stock for one game, as `GET /inventory/:urn` returns it. */

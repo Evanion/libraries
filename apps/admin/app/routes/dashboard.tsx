@@ -37,7 +37,7 @@ export async function loader({ context }: Route.LoaderArgs) {
       { label: 'orders', value: String(totals.orders) },
       { label: 'units sold', value: String(totals.unitsSold) },
       { label: 'units on hand', value: String(shelfSums.unitsOnHand) },
-      { label: 'mean weight', value: shelfSums.meanWeight.toFixed(1) },
+      { label: 'mean complexity', value: shelfSums.meanComplexity.toFixed(1) },
       {
         label: 'empty shelves',
         value: `${shelfSums.emptyShelves} of ${shelfSums.titles}`,
@@ -53,7 +53,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             title: row.title,
             mechanism: row.mechanisms[0] ?? 'uncategorised',
             quantity: row.quantity,
-            weight: row.weight,
+            complexity: row.complexity,
             availability: row.availability,
           })),
         },

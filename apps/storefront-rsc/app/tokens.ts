@@ -15,7 +15,7 @@ import type {
   Availability as BaizeAvailability,
   BoxArtPalette,
   Mechanism,
-  WeightStop,
+  ComplexityStop,
 } from '@evanion/baize-ui';
 
 import type { Availability } from './shop-api';
@@ -121,20 +121,20 @@ export function formatPrice(minorUnits: number): string {
   return PRICE.format(minorUnits / 100);
 }
 
-/** Weight as the stat line shows it: one decimal, against the scale's top. */
-export function formatWeight(weight: number): string {
-  return `${weight.toFixed(1)} / 5`;
+/** Complexity as the stat line shows it: one decimal, against the scale's top. */
+export function formatComplexity(complexity: number): string {
+  return `${complexity.toFixed(1)} / 5`;
 }
 
 /**
- * Which stop on the five-stop ramp a weight reaches.
+ * Which stop on the five-stop ramp a complexity reaches.
  *
  * Rounded up, so 2.4 reaches stop 3: the last filled pip stands for the part of a
  * step the game is into. Clamped rather than rejected — the catalogue is the
  * authority on the number, and a ramp that throws is worse than one showing its
  * end.
  */
-export function weightStop(weight: number): WeightStop {
-  if (!Number.isFinite(weight)) return 1;
-  return Math.min(5, Math.max(1, Math.ceil(weight))) as WeightStop;
+export function complexityStop(complexity: number): ComplexityStop {
+  if (!Number.isFinite(complexity)) return 1;
+  return Math.min(5, Math.max(1, Math.ceil(complexity))) as ComplexityStop;
 }

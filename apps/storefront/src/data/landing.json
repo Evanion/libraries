@@ -30,8 +30,8 @@
         },
         {
           "type": "card",
-          "id": "weight",
-          "heading": "Weight, not hype",
+          "id": "complexity",
+          "heading": "Complexity, not hype",
           "body": "Every listing carries players, playtime and a complexity rating from 1 to 5, because those three numbers decide whether a game fits your evening.",
           "meta": { "span": 2 }
         },

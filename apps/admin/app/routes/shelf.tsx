@@ -33,7 +33,7 @@ export async function loader({ context }: Route.LoaderArgs) {
       { label: 'titles', value: String(totals.titles) },
       { label: 'units on hand', value: String(totals.unitsOnHand) },
       { label: 'empty shelves', value: String(totals.emptyShelves) },
-      { label: 'mean weight', value: totals.meanWeight.toFixed(1) },
+      { label: 'mean complexity', value: totals.meanComplexity.toFixed(1) },
     ],
     items: defineLedgerItems([
       {
@@ -44,7 +44,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             'title',
             'players',
             'playtime',
-            'weight',
+            'complexity',
             'availability',
             'on hand',
           ],
@@ -60,7 +60,7 @@ export async function loader({ context }: Route.LoaderArgs) {
           mechanism: row.mechanisms[0] ?? 'uncategorised',
           players: row.players,
           playtime: row.playtime,
-          weight: row.weight,
+          complexity: row.complexity,
           quantity: row.quantity,
           availability: row.availability,
           href: href('/shelf/:urn', { urn: row.urn }),

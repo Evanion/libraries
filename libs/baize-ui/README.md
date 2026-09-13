@@ -51,8 +51,8 @@ Strings for anything displayed, enum members for anything that selects a token,
 <StatLine label="Wingspan at a glance">
   <Stat figure="1–5" label="players" />
   <Stat figure="40–70 min" label="playtime" />
-  <Stat figure="2.4 / 5" label="weight">
-    <WeightRamp label="weight 2.4 of 5" stop={3} />
+  <Stat figure="2.4 / 5" label="complexity">
+    <ComplexityRamp label="complexity 2.4 of 5" stop={3} />
   </Stat>
 </StatLine>
 ```
@@ -64,16 +64,16 @@ next request is for the field the object does not carry yet.
 
 ## What is in it
 
-| Export                           | Why                                                          |
-| -------------------------------- | ------------------------------------------------------------ |
-| `Title`, `Text`, `Figure`        | the two families, the tracking-by-size rule, tabular figures |
-| `Card`, `Panel`, `SectionHeader` | the 12px radius and the two grounds, one definition          |
-| `Button`, `ButtonLink`           | the 6px radius and the ink/parchment inversion               |
-| `Chip`, `TagRow`, `MechanismTag` | the 3px radius and the mechanism hue binding                 |
-| `AvailabilityPill`               | the other informational colour system                        |
-| `StatLine`, `Stat`, `WeightRamp` | the design's hero and structural device                      |
-| `CardGrid`, `CardGridCell`       | the card's own bed, at the width two apps agreed on          |
-| `BoxArtPlaceholder`              | a gradient where the photograph of the box will go           |
+| Export                               | Why                                                          |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `Title`, `Text`, `Figure`            | the two families, the tracking-by-size rule, tabular figures |
+| `Card`, `Panel`, `SectionHeader`     | the 12px radius and the two grounds, one definition          |
+| `Button`, `ButtonLink`               | the 6px radius and the ink/parchment inversion               |
+| `Chip`, `TagRow`, `MechanismTag`     | the 3px radius and the mechanism hue binding                 |
+| `AvailabilityPill`                   | the other informational colour system                        |
+| `StatLine`, `Stat`, `ComplexityRamp` | the design's hero and structural device                      |
+| `CardGrid`, `CardGridCell`           | the card's own bed, at the width two apps agreed on          |
+| `BoxArtPlaceholder`                  | a gradient where the photograph of the box will go           |
 
 What is out, and where it goes instead:
 
@@ -95,11 +95,11 @@ had — and a TypeScript object cannot be read from an `.astro` style block, so
 both forms exist and a test keeps them identical.
 
 ```ts
-import { ground, mechanism, weight } from '@evanion/baize-ui/tokens';
+import { ground, mechanism, complexity } from '@evanion/baize-ui/tokens';
 
 ground.felt; // '#142521'
 mechanism.areaControl; // '#C98BE0'
-weight[3]; // '#8AA096'
+complexity[3]; // '#8AA096'
 ```
 
 A consumer that renders no React resolves its class names from the same entry,
@@ -158,7 +158,7 @@ maps any of them.
 ## Looking at it
 
 `src/visual-check.html` renders every primitive, every mechanism hue, every
-availability state, the weight ramp and all twelve gradients against the real
+availability state, the complexity ramp and all twelve gradients against the real
 stylesheet. Build first, then open it:
 
 ```sh

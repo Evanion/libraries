@@ -27,7 +27,7 @@ export interface Game {
   mechanisms: string[];
   players: string;
   playtime: string;
-  weight: number;
+  complexity: number;
   /** Minor units, SEK öre. */
   price: number;
   availability: Availability;

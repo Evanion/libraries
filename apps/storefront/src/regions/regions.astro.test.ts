@@ -41,7 +41,7 @@ const games: Game[] = [
     mechanisms: ['economic', 'network building'],
     players: '2-4',
     playtime: '60-120 min',
-    weight: 3.9,
+    complexity: 3.9,
     price: 74900,
     availability: 'reprint-pending',
     expansions: [],
@@ -52,7 +52,7 @@ const games: Game[] = [
     mechanisms: ['co-op', 'area control'],
     players: '1-4',
     playtime: '90-120 min',
-    weight: 4,
+    complexity: 4,
     price: 84900,
     availability: 'in-stock',
     expansions: [

@@ -33,7 +33,7 @@ export interface ShelfRow {
   mechanisms: string[];
   players: string;
   playtime: string;
-  weight: number;
+  complexity: number;
   quantity: number;
   availability: Availability;
   /** True when a merchant set the availability rather than stock implying it. */
@@ -62,7 +62,7 @@ export function buildShelf(
       mechanisms: game.mechanisms,
       players: game.players,
       playtime: game.playtime,
-      weight: game.weight,
+      complexity: game.complexity,
       quantity,
       availability: availabilityOf(game.urn, quantity, policy),
       declared: policy[game.urn] !== undefined,
@@ -75,13 +75,13 @@ export interface ShelfTotals {
   titles: number;
   unitsOnHand: number;
   emptyShelves: number;
-  meanWeight: number;
+  meanComplexity: number;
 }
 
 /**
  * Totals across the shelf.
  *
- * `meanWeight` is unweighted by stock: it describes what the shop chooses to
+ * `meanComplexity` counts each title once, whatever its stock: it describes what the shop chooses to
  * carry, which is the question a buyer is asking, not what happens to be on the
  * shelf this morning.
  */
@@ -90,10 +90,10 @@ export function shelfTotals(rows: ShelfRow[]): ShelfTotals {
     titles: rows.length,
     unitsOnHand: rows.reduce((total, row) => total + row.quantity, 0),
     emptyShelves: rows.filter((row) => row.quantity === 0).length,
-    meanWeight:
+    meanComplexity:
       rows.length === 0
         ? 0
-        : rows.reduce((total, row) => total + row.weight, 0) / rows.length,
+        : rows.reduce((total, row) => total + row.complexity, 0) / rows.length,
   };
 }
 

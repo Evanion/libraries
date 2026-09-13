@@ -55,11 +55,11 @@
   --baize-availability-preorder: #8fa8d8;
   --baize-availability-reprint-pending: #c9a15e;
   --baize-availability-out-of-print: #8fa69e;
-  --baize-weight-1: #5a7a6f;
-  --baize-weight-2: #6f8c81;
-  --baize-weight-3: #8aa096;
-  --baize-weight-4: #a7b9ae;
-  --baize-weight-5: #c2cdc4;
+  --baize-complexity-1: #5a7a6f;
+  --baize-complexity-2: #6f8c81;
+  --baize-complexity-3: #8aa096;
+  --baize-complexity-4: #a7b9ae;
+  --baize-complexity-5: #c2cdc4;
   --baize-box-art-soot-from: #c8922f;
   --baize-box-art-soot-via: #4a3b2a;
   --baize-box-art-soot-to: #1a1714;

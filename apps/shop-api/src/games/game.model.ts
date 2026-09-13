@@ -32,7 +32,7 @@ export interface Game {
   players: string;
   playtime: string;
   /** Complexity, 1 (light) to 5 (heavy). */
-  weight: number;
+  complexity: number;
   /** Price in minor units of the catalogue currency, SEK öre. */
   price: number;
   availability: Availability;

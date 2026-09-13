@@ -66,7 +66,10 @@ export async function loader({ context }: Route.LoaderArgs) {
           rows: [
             { label: 'titles', value: String(totals.titles) },
             { label: 'units', value: String(totals.unitsOnHand) },
-            { label: 'mean weight', value: totals.meanWeight.toFixed(1) },
+            {
+              label: 'mean complexity',
+              value: totals.meanComplexity.toFixed(1),
+            },
           ],
         },
       },
