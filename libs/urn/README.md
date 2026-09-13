@@ -243,13 +243,17 @@ parameters for the named resource) and the f-component (`#`, a secondary
 resource within the named one). `parse` returns each in its own field and never
 folds it into the `nss`:
 
+<!-- #region components -->
+
 ```ts @import.meta.vitest
 class WeatherURN extends URN {
   static override readonly nid = 'example';
 }
 
-WeatherURN.parse('urn:example:weather?=lat=39#today'); // -> { urn: 'urn', nid: 'example', nss: 'weather', qComponent: 'lat=39', fComponent: 'today' }
+WeatherURN.parse('urn:example:weather?=lat=39#today'); // -> { urn: 'urn', nid: 'example', nss: 'weather', fComponent: 'today', qComponent: 'lat=39' }
 ```
+
+<!-- #endregion components -->
 
 The fields are optional and absent — not `undefined` — when the URN carries no
 components, so a consumer reading `{ urn, nid, nss }` sees exactly the shape it
