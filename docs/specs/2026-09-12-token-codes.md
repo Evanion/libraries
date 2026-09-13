@@ -15,7 +15,13 @@ aloud, types from a card, or dictates over a phone. Two properties matter:
   mistyped is a lookup that never needed to happen.
 
 The second is why this is a package rather than three lines of
-`crypto.randomBytes`.
+`crypto.getRandomValues`.
+
+Randomness comes from Web Crypto, `globalThis.crypto.getRandomValues`, rather
+than `node:crypto`'s `randomBytes`: the same CSPRNG in Node 20 and in a
+browser, with no import, so the package runs in both. `Math.random` is not
+acceptable for the same reason it never was -- a code is a credential-shaped
+thing and its generator has to be unpredictable.
 
 ## Why not the 2022 original
 
@@ -81,8 +87,8 @@ It has to satisfy three independent constraints at once, and it does:
 | Even length, no duplicates, no case pairs | `createLuhn`     | the check character is computed over it |
 | `256 % n === 0`                           | uniform sampling | otherwise `byte % n` is biased          |
 
-The third is the one that is easy to miss. `crypto.randomBytes` yields values
-0–255; taking `byte % n` over-represents the first `256 % n` characters. At
+The third is the one that is easy to miss. `crypto.getRandomValues` yields
+values 0–255; taking `byte % n` over-represents the first `256 % n` characters. At
 n = 32 the division is exact and every character is equally likely. luhn's own
 36-character default is **not** uniform — `256 % 36 === 4`, over-representing
 its first four characters by 14.3% — which is why token does not simply adopt
