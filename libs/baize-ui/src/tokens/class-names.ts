@@ -1,4 +1,5 @@
 import type { Availability } from './availability.js';
+import type { CategoricalHue } from './categorical.js';
 import type { BoxArtPalette } from './box-art.js';
 import type { ComplexityStop } from './complexity.js';
 import type { Mechanism } from './mechanism.js';
@@ -53,6 +54,18 @@ export function modifier(
  */
 export function hueClass(mechanism: Mechanism): string {
   return `baize-hue-${slug(mechanism)}`;
+}
+
+/**
+ * The class that binds a categorical hue, as `--baize-hue`.
+ *
+ * The scale rather than one app's vocabulary: `hueClass` is the shop's mechanism
+ * families, and this is what the docs site's packages take, on the same nine
+ * values. Both resolve to the same custom property, so every component that
+ * reads `--baize-hue` works under either.
+ */
+export function categoricalClass(hue: CategoricalHue): string {
+  return `baize-categorical-${slug(hue)}`;
 }
 
 /**

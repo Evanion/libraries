@@ -12,6 +12,13 @@ import {
 import { contrast } from './contrast.js';
 import { customProperties } from './custom-properties.js';
 import { ground } from './ground.js';
+import {
+  categorical,
+  categoricalOnLight,
+  CATEGORICAL_CONTRAST_FLOOR,
+  CATEGORICAL_DARK_GROUND,
+  CATEGORICAL_LIGHT_GROUND,
+} from './categorical.js';
 import { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
 import {
   complexity,
@@ -95,6 +102,49 @@ describe('no house colour', () => {
       `Baize has no house colour. A token named like this is one, whatever its ` +
         `value: a primary action inverts ink and parchment instead.`,
     ).toEqual([]);
+  });
+});
+
+/**
+ * Both ends of the categorical scale, against the ground each is for.
+ *
+ * The dark values sit between 1.20:1 and 1.96:1 on paper, so a light theme
+ * reusing them would render every package's identity unreadable. Two scales, two
+ * grounds, one floor.
+ */
+describe('the categorical scale', () => {
+  it('carries the same hues at both ends', () => {
+    expect(Object.keys(categoricalOnLight)).toEqual(Object.keys(categorical));
+  });
+
+  for (const [name, value] of Object.entries(categorical)) {
+    it(`holds categorical.${name} at ${CATEGORICAL_CONTRAST_FLOOR}:1 on the dark ground`, () => {
+      const ratio = contrast(value, CATEGORICAL_DARK_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `categorical.${name} (${value}) reaches ${ratio.toFixed(2)}:1 on ` +
+          `${CATEGORICAL_DARK_GROUND}. It carries a title and the small print ` +
+          `under it, which is normal-size text.`,
+      ).toBeGreaterThanOrEqual(CATEGORICAL_CONTRAST_FLOOR);
+    });
+  }
+
+  for (const [name, value] of Object.entries(categoricalOnLight)) {
+    it(`holds categoricalOnLight.${name} at ${CATEGORICAL_CONTRAST_FLOOR}:1 on the light ground`, () => {
+      const ratio = contrast(value, CATEGORICAL_LIGHT_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `categoricalOnLight.${name} (${value}) reaches ${ratio.toFixed(2)}:1 ` +
+          `on ${CATEGORICAL_LIGHT_GROUND}, which is the card a docs page puts ` +
+          `it on.`,
+      ).toBeGreaterThanOrEqual(CATEGORICAL_CONTRAST_FLOOR);
+    });
+  }
+
+  it('is the only table of these hexes', () => {
+    expect(Object.values(mechanism).sort()).toEqual(
+      Object.values(categorical).sort(),
+    );
   });
 });
 

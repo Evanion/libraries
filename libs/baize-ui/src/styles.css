@@ -73,6 +73,53 @@
 }
 
 /*
+ * A categorical hue, bound once per hue and read by whatever carries it.
+ *
+ * The same nine values the mechanism classes above resolve to, under the scale's
+ * own names rather than one app's vocabulary. Each class binds both ends of the
+ * scale: `--baize-hue` takes the dark-ground value, and `--baize-hue-on-light`
+ * sits alongside it so an app with a light theme rebinds one property in one
+ * rule instead of one rule per hue. Baize itself has no light theme, so nothing
+ * here reads that second property.
+ */
+.baize-categorical-amber {
+  --baize-hue: var(--baize-categorical-amber);
+  --baize-hue-on-light: var(--baize-categorical-on-light-amber);
+}
+.baize-categorical-citron {
+  --baize-hue: var(--baize-categorical-citron);
+  --baize-hue-on-light: var(--baize-categorical-on-light-citron);
+}
+.baize-categorical-mint {
+  --baize-hue: var(--baize-categorical-mint);
+  --baize-hue-on-light: var(--baize-categorical-on-light-mint);
+}
+.baize-categorical-teal {
+  --baize-hue: var(--baize-categorical-teal);
+  --baize-hue-on-light: var(--baize-categorical-on-light-teal);
+}
+.baize-categorical-sky {
+  --baize-hue: var(--baize-categorical-sky);
+  --baize-hue-on-light: var(--baize-categorical-on-light-sky);
+}
+.baize-categorical-periwinkle {
+  --baize-hue: var(--baize-categorical-periwinkle);
+  --baize-hue-on-light: var(--baize-categorical-on-light-periwinkle);
+}
+.baize-categorical-orchid {
+  --baize-hue: var(--baize-categorical-orchid);
+  --baize-hue-on-light: var(--baize-categorical-on-light-orchid);
+}
+.baize-categorical-coral {
+  --baize-hue: var(--baize-categorical-coral);
+  --baize-hue-on-light: var(--baize-categorical-on-light-coral);
+}
+.baize-categorical-stone {
+  --baize-hue: var(--baize-categorical-stone);
+  --baize-hue-on-light: var(--baize-categorical-on-light-stone);
+}
+
+/*
  * The complexity ramp stop, bound once per stop and read by the title.
  *
  * The ladder is the card's one saturated data signal: a game's title is set in its
