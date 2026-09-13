@@ -59,17 +59,21 @@ function hsl(hex: string): {
  * the secondary text colour, which makes the accent the ground's own hue at the
  * ground's own low chroma rather than a colour introduced for the purpose.
  *
- * Lightness is the one value not taken from the token. `lichen` sits where it
- * does to be legible on `felt`; on the light theme's parchment the same hue has
- * to come down to stay legible, and Nextra draws the accent as link and
- * active-item text in both.
+ * The hue is the token's. Saturation and lightness are the token's on the dark
+ * theme and are not on the light one, because the job is different there.
+ * `lichen` is a secondary text colour: pale, barely chromatic, and legible on
+ * `felt`. Dropped onto parchment it has to come down in lightness to stay
+ * legible, and at that lightness its 11% chroma lands within a few percent of
+ * `rule`, which is the prose colour -- a link indistinguishable from the sentence
+ * around it. So the light accent keeps the hue and spends chroma instead. Same
+ * colour, more of it; not a second colour.
  */
 const accent = hsl(ground.lichen);
 
 export const baizeColor = {
   hue: accent.hue,
-  saturation: accent.saturation,
-  lightness: { dark: accent.lightness, light: 32 },
+  saturation: { dark: accent.saturation, light: 28 },
+  lightness: { dark: accent.lightness, light: 30 },
 };
 
 /**
