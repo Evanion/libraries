@@ -1,29 +1,18 @@
-# URN API Reference
+# API reference
 
-Complete API reference for the URN library.
+Every export of `@evanion/urn`. Node 20 or newer; the package is ESM only.
 
-[![CircleCI](https://circleci.com/gh/Evanion/urn/tree/main.svg?style=shield)](https://circleci.com/gh/Evanion/urn/tree/main)
-[![codecov](https://codecov.io/gh/Evanion/urn/branch/main/graph/badge.svg?token=S5V045X33K)](https://codecov.io/gh/Evanion/urn)
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=bugs)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Evanion_urn&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=Evanion_urn)
-[![Known Vulnerabilities](https://snyk.io/test/github/Evanion/urn/badge.svg)](https://snyk.io/test/github/Evanion/urn)
-![npm (scoped)](https://img.shields.io/npm/v/@evanion/urn)
+## `URN`
 
-## Core Classes
+A class whose entire surface is static. Nothing is ever instantiated — `URN` is
+a namespace for the operations and a carrier for the three configurable values a
+subclass overrides.
 
-### URN
-
-The base URN class providing core functionality for URN parsing and stringifying.
-
-```typescript
+```ts
 class URN {
-  static readonly urn: string = 'urn';
-  static readonly separator: string = ':';
-  static readonly nid: string = 'nid';
+  static readonly urn: string; // 'urn'
+  static readonly nid: string; // 'nid'
+  static readonly separator: string; // ':'
 
   static get schemeGrammar(): RegExp;
   static get nidGrammar(): RegExp;
@@ -31,325 +20,149 @@ class URN {
   static get rComponentGrammar(): RegExp;
   static get qComponentGrammar(): RegExp;
   static get fComponentGrammar(): RegExp;
+
+  static stringify(parts: URNParts): string;
+  static stringify(nss: string, nid?: string, urn?: string): string;
+  static parse(urnString: string): ParsedURN;
+  static isValidFormat(urnString: string): boolean;
+  static extractId(urnString: string): string;
+  static sameNamespace(a: string, b: string): boolean;
+  static belongsToNamespace(
+    urnString: string,
+    nid: string,
+    urn?: string,
+  ): boolean;
+  static equals(a: string, b: string): boolean;
 }
 ```
 
-Each role has its own grammar. There is no single flat `isValid` regex: one
-character class cannot describe three roles across two separator regimes, and
-the getters stay reactive to a subclass's `separator`.
+Every static reads `this`, so none of them can be destructured off the class.
+`const { stringify } = URN; stringify('a')` throws a `TypeError`, because the
+default parameter `nid = this.nid` runs with `this` undefined.
 
-## Static Methods
+### Class properties
 
-### `stringify(parts)` and `stringify(nss, nid?, urn?)`
+| Static      | Default | Meaning                                                   |
+| ----------- | ------- | --------------------------------------------------------- |
+| `urn`       | `'urn'` | the scheme this class writes and recognises as its own    |
+| `nid`       | `'nid'` | the namespace this class writes and recognises as its own |
+| `separator` | `':'`   | what the three parts are joined by and split on           |
 
-Creates a URN string from its parts.
+`'nid'` is a placeholder, not a registered namespace; IANA's URN namespace
+registry holds the real ones. Overriding `nid` is what makes `stringify(nss)`
+need no namespace argument, and what lets `parse` tell its own namespace from a
+foreign one.
 
-**Signature:**
+```ts
+class MyURN extends URN {
+  static override readonly urn = 'my-scheme';
+  static override readonly nid = 'my-namespace';
+}
 
-```typescript
-static stringify(parts: URNParts): string
-static stringify(nss: string, nid?: string, urn?: string): string
+MyURN.stringify('example'); // 'my-scheme:my-namespace:example'
 ```
 
-**Parameters:**
+### `stringify(parts)` / `stringify(nss, nid?, urn?)`
 
-- `parts` (URNParts): `{ nss, nid?, urn?, rComponent?, qComponent?, fComponent? }`,
-  keyed as `parse` returns them
-- `nss` (string): The namespace-specific string
-- `nid` (string, optional): The namespace identifier. Defaults to the class's own
-- `urn` (string, optional): The URN scheme. Defaults to the class's own
+Writes a URN string. `nid` and `urn` default to the calling class's own statics.
 
-**Returns:** `string` - The formatted URN string
-
-**Examples:**
-
-```typescript
-// Basic usage
-URN.stringify('example'); // "urn:nid:example"
-URN.stringify('example', 'my-namespace'); // "urn:my-namespace:example"
-URN.stringify('example', 'my-namespace', 'custom'); // "custom:my-namespace:example"
-
-// Object form: the keys carry the meaning, and only this form can emit
-// the r-, q- and f-components
-URN.stringify({ nss: 'example', nid: 'my-namespace' }); // "urn:my-namespace:example"
+```ts
+URN.stringify('example', 'my-namespace'); // 'urn:my-namespace:example'
+URN.stringify('example', 'my-namespace', 'custom'); // 'custom:my-namespace:example'
+URN.stringify({ nss: 'example', nid: 'my-namespace' }); // 'urn:my-namespace:example'
 URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
-// "urn:example:weather?=lat=39"
-
-// No deduplication: an NSS whose first segment equals the NID survives
-URN.stringify('my-namespace:example', 'my-namespace');
-// "urn:my-namespace:my-namespace:example"
+// 'urn:example:weather?=lat=39'
 ```
 
-The positional arguments are in the reverse order of `parse`'s return shape, so
-`stringify(...Object.values(parse(x)))` is silently wrong. Use the object form.
+Prefer the object form. Its keys match `parse`'s return shape, it is the only
+form that can emit the r-, q- and f-components, and the positional arguments are
+in the reverse order of what `parse` returns — so
+`stringify(...Object.values(parse(x)))` is silently wrong.
 
-**Throws:**
+It does not deduplicate. Whatever you pass as the NSS is emitted verbatim after
+the scheme and the NID:
 
-- `InvalidError` - When a part is empty or breaks its role's grammar
+```ts
+URN.stringify('my-namespace:example', 'my-namespace');
+// 'urn:my-namespace:my-namespace:example'
+```
+
+That is what keeps a composite key imported from another system recoverable: if
+the repeated segment were dropped, `my-namespace:example` could never be read
+back. Name the namespace you meant instead —
+`URN.stringify('example', 'my-namespace')`.
+
+It is also not idempotent and is not a normaliser:
+
+```ts file=libs/urn/README.md region=round-trip
+
+```
+
+Throws `InvalidError` when a part is empty or breaks its role's grammar.
 
 ### `parse(urnString)`
 
-Parses a URN string into its parts.
+Reads a URN into `ParsedURN`. Nothing is normalised, nothing is decoded: the
+parts come back in their original case with percent-triplets intact, because RFC
+8141 §3.1 requires that an encoded octet stay opaque for equivalence purposes.
 
-**Signature:**
+```ts
+URN.parse('urn:nid:example');
+// { urn: 'urn', nid: 'nid', nss: 'example' }
 
-```typescript
-static parse(urnString: string): ParsedURN
-```
-
-**Parameters:**
-
-- `urnString` (string): The URN string to parse
-
-**Returns:** `ParsedURN` - An object containing:
-
-- `urn` (string): The URN scheme
-- `nid` (string): The namespace identifier
-- `nss` (string): The namespace-specific string
-- `rComponent`, `qComponent`, `fComponent` (string, optional): the RFC 8141 §2.3
-  components, present only when the URN carries them
-
-**Examples:**
-
-```typescript
-// Standard URN parsing
-URN.parse('urn:my-namespace:example');
-// Returns: { urn: 'urn', nid: 'my-namespace', nss: 'example' }
-
-// Custom scheme parsing
-URN.parse('custom:my-namespace:example');
-// Returns: { urn: 'custom', nid: 'my-namespace', nss: 'custom:my-namespace:example' }
-
-// Different namespace handling
 URN.parse('urn:other-namespace:example');
-// Returns: { urn: 'urn', nid: 'other-namespace', nss: 'other-namespace:example' }
+// { urn: 'urn', nid: 'other-namespace', nss: 'other-namespace:example' }
 
-// r-, q- and f-components
-URN.parse('urn:example:weather?=lat=39#today');
-// Returns: { urn: 'urn', nid: 'example', nss: 'weather',
-//            qComponent: 'lat=39', fComponent: 'today' }
+URN.parse('custom:my-namespace:example');
+// { urn: 'custom', nid: 'my-namespace', nss: 'custom:my-namespace:example' }
 ```
 
-## Class Properties
+A scheme or NID that differs from the parsing class's own is retained inside the
+`nss` rather than discarded. The base class's own NID is `'nid'`, which is why
+the second and third calls above look the way they do — see
+[the namespace rule](/urn/getting-started).
 
-### `static urn: string`
+The read path is lenient in exactly one respect: it accepts a one-character NID,
+which RFC 2141 permitted.
 
-The URN scheme for the class. Used when stringifying URNs.
-
-**Default:** `'urn'`
-
-**Example:**
-
-```typescript
-class MyURN extends URN {
-  static urn = 'my-scheme';
-}
-
-MyURN.stringify('example', 'namespace'); // "my-scheme:namespace:example"
-```
-
-### `static separator: string`
-
-The separator used between URN components when stringifying.
-
-**Default:** `':'`
-
-**Example:**
-
-```typescript
-class MyURN extends URN {
-  static separator = '-';
-}
-
-MyURN.stringify('example', 'namespace'); // "urn-namespace-example"
-```
-
-### `static nid: string`
-
-The namespace identifier for the class. Used as the default namespace identifier when `stringify` is not given one.
-
-**Default:** `'nid'`
-
-**Example:**
-
-```typescript
-class MyURN extends URN {
-  static nid = 'my-namespace';
-}
-
-MyURN.stringify('example'); // "urn:my-namespace:example"
-```
-
-## Error Classes
-
-### InvalidError
-
-Thrown when URN operations encounter invalid input.
-
-**Properties:**
-
-- `message` (string): Error description
-
-**Examples:**
-
-```typescript
-import { InvalidError } from '@evanion/urn';
-
-try {
-  URN.stringify('invalid!character', 'namespace');
-} catch (error) {
-  if (error instanceof InvalidError) {
-    console.log(error.message); // "URN contains invalid characters"
-  }
-}
-```
-
-## Type Definitions
-
-### ParsedURN
-
-```typescript
-interface ParsedURN {
-  urn: string; // The URN scheme
-  nid: string; // The namespace identifier
-  nss: string; // The namespace-specific string
-  rComponent?: string; // RFC 8141 §2.3.1, introduced by '?+'
-  qComponent?: string; // RFC 8141 §2.3.2, introduced by '?='
-  fComponent?: string; // RFC 8141 §2.3.3, introduced by '#'
-}
-```
-
-The three component keys are absent, not `undefined`, when the URN carries no
-components.
-
-### URNParts
-
-```typescript
-interface URNParts {
-  urn?: string; // Defaults to the class's own scheme
-  nid?: string; // Defaults to the class's own NID
-  nss: string;
-  rComponent?: string;
-  qComponent?: string;
-  fComponent?: string;
-}
-```
-
-The object form of `stringify`'s arguments. A `ParsedURN` is assignable to it.
-
-## Validation Rules
-
-Each role is validated against its own grammar, per RFC 8141 §2 and RFC 3986.
-
-| Role            | Allowed                                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| scheme          | a letter, then letters, digits, `+`, `-`, `.`                                                            |
-| NID             | letters and digits, plus `-` in the interior; 2–32 writing, 1–32 reading                                 |
-| NSS             | `pchar` — letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets — plus `/` after the first character |
-| r-, q-component | the NSS set plus `?` after the first character                                                           |
-| f-component     | the NSS set plus `?`, with no first-character rule, and may be empty                                     |
-
-Everything outside a role's set must be percent-encoded. Nothing is encoded or
-decoded for you: `stringify` rejects an NSS containing a literal space, and
-`encodeNss` is the explicit way to produce one.
-
-## Best Practices
-
-### Class Inheritance
-
-```typescript
-// Good: Clear hierarchy with specific purposes
-class ResourceURN extends URN {
-  static urn = 'resource';
-}
-
-class UserURN extends ResourceURN {
-  static nid = 'user';
-}
-
-// Good: Custom separators for specific domains
-class DatabaseURN extends URN {
-  static urn = 'db';
-  static separator = '.';
-}
-```
-
-### Error Handling
-
-```typescript
-// Good: Always handle potential errors
-try {
-  const urn = URN.stringify(userId, 'user');
-  // Use urn...
-} catch (error) {
-  if (error instanceof InvalidError) {
-    // Handle invalid input
-    console.error('Invalid URN:', error.message);
-  } else {
-    // Handle unexpected errors
-    console.error('Unexpected error:', error);
-  }
-}
-```
-
-### Type Safety
-
-```typescript
-// Good: Use TypeScript for type safety
-interface User {
-  id: string;
-  urn: string;
-}
-
-function createUser(id: string): User {
-  const urn = URN.stringify(id, 'user');
-  return { id, urn };
-}
-```
-
-## Performance Considerations
-
-- **String Operations**: URN stringifying and parsing are optimized for performance
-- **Memory Usage**: Minimal memory footprint with no internal state
-- **Validation**: Fast character validation using efficient algorithms
-- **Caching**: Consider caching frequently used URN strings in your application
-
-## Browser Support
-
-The URN library supports all modern browsers and Node.js environments:
-
-- **Node.js**: 14+
-- **Browsers**: ES2015+ (Chrome 60+, Firefox 55+, Safari 12+, Edge 79+)
-- **TypeScript**: 4.0+
+Throws `ValidationError` when the string is not a well-formed URN.
 
 ### `isValidFormat(urnString)`
 
-Returns `true` when the string parses. It delegates to `parse`, so the two can
-never disagree, and it never throws — use it to test input before parsing.
+`true` when the string parses. It delegates to `parse`, so the two cannot drift
+apart, and it never throws — which makes it the cheap way to screen input before
+committing to `parse`.
 
 ### `extractId(urnString)`
 
-Returns everything after the scheme and the NID, without any r-, q- or
-f-component. Throws `ValidationError` on malformed input.
+Everything after the scheme and the NID, with any r-, q- or f-component dropped.
 
 This is deliberately structural and differs from `parse(urnString).nss` on a
-foreign namespace — `parse` keeps a non-matching NID attached so the namespace
-is not lost, `extractId` always drops it:
+foreign namespace: `parse` keeps a non-matching NID attached so the namespace is
+not lost, `extractId` always drops it.
 
 ```ts
-URN.parse('urn:user:123').nss; // 'user:123'  (base class nid is 'nid')
+URN.parse('urn:user:123').nss; // 'user:123'
 URN.extractId('urn:user:123'); // '123'
 ```
 
+Reach for `parse` when the namespace matters, `extractId` when you only want the
+trailing identifier. Throws `ValidationError` on malformed input.
+
 ### `sameNamespace(a, b)`
 
-`true` when both URNs share a scheme and NID. Returns `false` for malformed
-input rather than throwing.
+`true` when both URNs share a scheme and a NID, compared case-insensitively.
+Returns `false` for malformed input rather than throwing.
+
+```ts
+URN.sameNamespace('urn:user:1', 'URN:User:2'); // true
+URN.sameNamespace('urn:user:1', 'urn:order:2'); // false
+```
 
 ### `belongsToNamespace(urnString, nid, urn?)`
 
-`true` when the URN is in the given namespace. `urn` defaults to **this class's
-own scheme**, so it works on subclasses without repeating it:
+`true` when the URN is in the given namespace. `urn` defaults to this class's own
+scheme, so a subclass does not repeat it:
 
 ```ts
 class TRN extends URN {
@@ -358,13 +171,177 @@ class TRN extends URN {
 }
 
 TRN.belongsToNamespace('trn:bar:foo', 'bar'); // true
+URN.belongsToNamespace('ftp:user:1', 'user'); // false
 ```
+
+### `equals(a, b)`
+
+RFC 8141 §3.1 equivalence. The scheme and the NID fold case; the NSS is compared
+character for character, except that the hex digits of a percent-triplet
+canonicalise to uppercase. An encoded octet is never decoded, so `%2C` and `,`
+are not equivalent. The r-, q- and f-components are excluded.
+
+```ts file=libs/urn/README.md region=equality
+
+```
+
+Returns `false` for malformed input.
+
+## Functions
+
+### `encodeNss(raw)`
+
+Percent-encodes everything outside RFC 3986's `unreserved` set (`A-Z a-z 0-9`
+and `- . _ ~`) as UTF-8 triplets with uppercase hex, so the result is valid in
+any NSS position.
+
+### `decodeNss(encoded)`
+
+The inverse. Throws `ValidationError` on a malformed or truncated percent
+sequence.
+
+```ts file=libs/urn/README.md region=nss-encoding
+
+```
+
+Neither `stringify` nor `parse` calls either of these. Encoding is a separate,
+explicit step, so a value can never be double-encoded by accident.
+
+## Grammars
+
+Six getters, all readable off the class, all reactive to a subclass's
+`separator`:
+
+```ts file=libs/urn/README.md region=grammars
+
+```
+
+There is no single flat validation regex. One character class cannot describe
+three roles across two separator regimes; these getters can.
+
+| Role            | Allowed                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| scheme          | a letter, then letters, digits, `+`, `-`, `.`                                                  |
+| NID             | letters and digits, plus `-` in the interior; 2–32 writing, 1–32 reading                       |
+| NSS             | `pchar` — letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets — plus `/` after the first |
+| r-, q-component | the NSS set plus `?` after the first character                                                 |
+| f-component     | the NSS set plus `?`, no first-character rule, and may be empty                                |
+
+Everything outside a role's set must be percent-encoded. `nidGrammar` is the
+write grammar; the read path uses an unexported variant with a floor of one
+character.
+
+### Custom separators are not RFC 8141
+
+A subclass that overrides `separator` gets a generic character class with the
+separator excluded, for the scheme and the NID, and no RFC length bounds. The
+NSS keeps the RFC grammar under every separator, because split-then-rejoin on
+the same delimiter is lossless and the NSS therefore cannot structurally collide
+with it.
+
+```ts
+class DatabaseURN extends URN {
+  static override readonly urn = 'db';
+  static override readonly separator = '.';
+}
+
+DatabaseURN.stringify('users', 'table'); // 'db.table.users'
+```
+
+A separator containing `?` or `#` also switches component parsing off — see
+[r-, q- and f-components](/urn/components). Such a subclass is not claimed to be
+RFC 8141 conformant.
+
+## Types
+
+### `ParsedURN`
+
+```ts
+interface ParsedURN extends URNComponents {
+  urn: string;
+  nid: string;
+  nss: string;
+}
+```
+
+The parts are plain strings and deliberately not type parameters: `parse` takes
+a runtime `string`, so it cannot know their literal types, and free type
+parameters would let `URN.parse<'a', 'b', 'c'>(someString)` assert a shape
+nothing verifies.
+
+### `URNParts`
+
+```ts
+interface URNParts extends URNComponents {
+  urn?: string; // defaults to the class's own scheme
+  nid?: string; // defaults to the class's own NID
+  nss: string;
+}
+```
+
+A `ParsedURN` is assignable to it.
+
+### `URNComponents`
+
+```ts
+interface URNComponents {
+  rComponent?: string;
+  qComponent?: string;
+  fComponent?: string;
+}
+```
+
+Absent, not `undefined`, when the URN carries none.
+
+### `IFullURN`
+
+```ts
+type IFullURN<
+  URN extends string,
+  NID extends string,
+  NSS extends string,
+> = `${URN}:${NID}:${NSS}`;
+```
+
+For annotating literals in consumer code:
+
+```ts
+type UserUrn = IFullURN<'urn', 'user', string>; // `urn:user:${string}`
+const id: UserUrn = 'urn:user:123';
+```
+
+It assumes the default `:` separator, so a subclass with a custom one cannot be
+described by it. `stringify` returns plain `string` rather than a template
+literal type for the same reason.
 
 ## Errors
 
-- `ValidationError` — base class for everything this library throws.
-- `InvalidError extends ValidationError` — a component was empty or contained a
-  disallowed character. Carries `property`, `value` and `invalidChar`.
+### `ValidationError`
 
-`parse` and `extractId` throw `ValidationError` on malformed input; `stringify`
-throws `InvalidError`. Catch `ValidationError` to handle either.
+Base class for everything the library throws. Catch it to handle any validation
+failure without naming the subclasses.
+
+### `InvalidError extends ValidationError`
+
+A component was empty, contained a disallowed character, or broke a structural
+rule of its grammar.
+
+| Property      | Meaning                                                           |
+| ------------- | ----------------------------------------------------------------- |
+| `property`    | which role failed: `'URN'`, `'NID'`, `'NSS'`, or a component name |
+| `value`       | the offending value                                               |
+| `invalidChar` | the first disallowed character, when one could be identified      |
+| `reason`      | why it failed when no single character is at fault                |
+
+```ts
+URN.stringify('a b', 'example');
+// InvalidError: NSS contains invalid character ' ' in 'a b'
+//   property: 'NSS', value: 'a b', invalidChar: ' '
+
+URN.stringify('1', 'x');
+// InvalidError: NID is invalid in 'x': must be at least 2 characters long
+//   property: 'NID', value: 'x', reason: 'must be at least 2 characters long'
+```
+
+`parse` and `extractId` throw `ValidationError`; `stringify` throws
+`InvalidError`. Catching `ValidationError` covers both.

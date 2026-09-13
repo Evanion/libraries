@@ -1,0 +1,121 @@
+# r-, q- and f-components
+
+RFC 8141 §2.3 allows three optional components after the NSS. They are not part
+of the identifier: the assigned name is `scheme : NID : NSS`, and everything
+after it addresses something about resolving or using the named resource.
+
+| Component | Introducer | RFC 8141 | Carries                                   |
+| --------- | ---------- | -------- | ----------------------------------------- |
+| r         | `?+`       | §2.3.1   | parameters for the resolution service     |
+| q         | `?=`       | §2.3.2   | parameters for the named resource         |
+| f         | `#`        | §2.3.3   | a secondary resource within the named one |
+
+```
+urn:example:weather?+cache=no?=lat=39;lon=-77#today
+└──── assigned name ────┘└─ r ─┘└─── q ───┘└ f ┘
+```
+
+## Reading them
+
+`parse` returns each in its own field and never folds it into the `nss`:
+
+```ts
+class ExampleURN extends URN {
+  static override readonly nid = 'example';
+}
+
+ExampleURN.parse('urn:example:foo?+r?=q#f');
+// { urn: 'urn', nid: 'example', nss: 'foo',
+//   rComponent: 'r', qComponent: 'q', fComponent: 'f' }
+
+ExampleURN.parse('urn:example:weather?=lat=39#today');
+// { urn: 'urn', nid: 'example', nss: 'weather',
+//   qComponent: 'lat=39', fComponent: 'today' }
+```
+
+The three keys are absent, not `undefined`, when the URN carries none, so a URN
+without them parses to exactly `{ urn, nid, nss }` and a consumer destructuring
+those three sees the shape it saw before components existed.
+
+## Writing them
+
+Only the object form of `stringify` can express them:
+
+```ts
+URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
+// 'urn:example:weather?=lat=39'
+
+URN.stringify({
+  nss: 'foo',
+  nid: 'example',
+  rComponent: 'r',
+  qComponent: 'q',
+  fComponent: '',
+});
+// 'urn:example:foo?+r?=q#'
+```
+
+The order on the wire is always r, then q, then f, whatever order the keys were
+written in. A `ParsedURN` is assignable to `URNParts`, so
+`stringify(parse(x))` round-trips a URN in the parsing class's own namespace,
+components included.
+
+## How the split works
+
+The NSS grammar needs no change to make this unambiguous: `pchar` contains
+neither `?` nor `#`, so neither delimiter can occur inside an assigned name.
+
+The order the parser takes them off is fixed by the grammar:
+
+1. The f-component comes off first, at the first `#`. It has to: `#` terminates
+   the r- and q-components, while both of those may contain a bare `?`.
+2. The first `?` of what is left introduces the r-component when followed by
+   `+`, and the q-component when followed by `=`. Anything else is a
+   `ValidationError` — a bare `?` is not a legal introducer.
+3. An r-component runs to the first following `?=`, which starts the
+   q-component.
+
+## Grammars
+
+```ts
+URN.rComponentGrammar; // pchar *(pchar / "/" / "?")
+URN.qComponentGrammar; // the same production
+URN.fComponentGrammar; // RFC 3986 `fragment`
+```
+
+The r- and q-components take the NSS set plus `?` after the first character.
+The f-component is RFC 3986's `fragment` production: the same set, with no
+first-character rule and no minimum length. It is the one component grammar that
+accepts the empty string, so `urn:example:foo#` is well formed and parses to
+`fComponent: ''`.
+
+Nothing is percent-decoded. A component is carried in its wire form, without its
+introducing delimiter.
+
+## What ignores them
+
+RFC 8141 §3.1 excludes all three from URN equivalence, so two URNs that differ
+only in their components are the same URN:
+
+```ts
+URN.equals('urn:example:foo?+r1#a', 'urn:example:foo?+r2#b'); // true
+```
+
+`extractId` drops them too, because it returns the identifier and a component is
+not part of one:
+
+```ts
+URN.extractId('urn:example:foo?=q#f'); // 'foo'
+```
+
+`sameNamespace` and `belongsToNamespace` only look at the scheme and the NID, so
+components never affect them either.
+
+## Custom separators switch this off
+
+A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
+component delimiter. There, the whole tail stays in the NSS, and writing a
+component throws an `InvalidError` with `property: 'COMPONENT'` rather than
+emitting something the same class could not read back.
+
+Every other separator parses components normally.

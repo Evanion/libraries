@@ -1,455 +1,220 @@
-# Getting Started with URN
+# Getting started
 
-Learn how to get up and running with the URN library in your project.
-
-## Installation
-
-Install the URN library using npm:
+## Install
 
 ```bash
 npm install @evanion/urn
 ```
-
-Or with yarn:
 
 ```bash
 yarn add @evanion/urn
 ```
 
-Or with pnpm:
-
 ```bash
 pnpm add @evanion/urn
 ```
 
-## Basic Setup
+The package is ESM and ships its own types. Import by name:
 
-### Import the Library
-
-```typescript
-import { URN } from '@evanion/urn';
+```ts
+import { URN, InvalidError } from '@evanion/urn';
 ```
 
-### Your First URN
-
-Let's create your first URN:
+## Your first URN
 
 ```ts file=libs/urn/README.md region=basic-usage
 
 ```
 
-### Percent-encoding the NSS
+## Subclass per namespace
+
+The three statics — `urn`, `nid` and `separator` — are what a subclass
+overrides, and every inherited method reads them off `this`. A subclass per
+namespace means the namespace is never an argument at a call site and cannot be
+mistyped there:
+
+```ts
+class EcommerceURN extends URN {
+  static override readonly urn = 'ecommerce';
+}
+
+class ProductURN extends EcommerceURN {
+  static override readonly nid = 'product';
+}
+
+class OrderURN extends EcommerceURN {
+  static override readonly nid = 'order';
+}
+
+ProductURN.stringify('laptop-123'); // 'ecommerce:product:laptop-123'
+OrderURN.stringify('456'); // 'ecommerce:order:456'
+```
+
+TypeScript's `noImplicitOverride` requires the `override` keyword on each one.
+
+The alternative is one class and the NID per call, which is what an open-ended
+set of namespaces wants:
+
+```ts
+class ResourceURN extends URN {
+  static override readonly urn = 'resource';
+}
+
+ResourceURN.stringify('123', 'user'); // 'resource:user:123'
+ResourceURN.stringify('456', 'product'); // 'resource:product:456'
+```
+
+## The rule that surprises people
+
+`parse` keeps a foreign namespace in the `nss`. It never discards it.
+
+```ts
+class UserTRN extends URN {
+  static override readonly urn = 'trn';
+  static override readonly nid = 'user';
+}
+
+UserTRN.parse('trn:user:1'); // { urn: 'trn', nid: 'user', nss: '1' }
+UserTRN.parse('trn:order:42'); // { urn: 'trn', nid: 'order', nss: 'order:42' }
+UserTRN.parse('ftp:user:1'); // { urn: 'ftp', nid: 'user', nss: 'ftp:user:1' }
+```
+
+A matching scheme and NID give a clean `nss`. A foreign NID stays attached to
+it; a foreign scheme keeps the whole original identifier. Either way a record
+read from another namespace cannot be silently re-labelled as this one.
+
+The base `URN` class is subject to the same rule, and its own NID is the
+placeholder `'nid'`, so almost every namespace is foreign to it:
+
+```ts
+URN.parse('urn:user:123'); // { urn: 'urn', nid: 'user', nss: 'user:123' }
+URN.parse('urn:nid:123'); // { urn: 'urn', nid: 'nid', nss: '123' }
+```
+
+Both comparisons are case-folded, per RFC 8141 §3.1, so `URN:USER:1` is not
+foreign to a `urn` / `user` class. The parts always come back in the case they
+were written in.
+
+When you want the trailing identifier regardless of namespace, `extractId` is
+the structural answer:
+
+```ts
+URN.parse('urn:user:123').nss; // 'user:123'
+URN.extractId('urn:user:123'); // '123'
+```
+
+## Validation
+
+Each of the three roles has its own grammar. There is no single flat
+`isValid` regex — one character class cannot describe three roles across two
+separator regimes.
+
+| Role   | Allowed                                                                                     | Length                     |
+| ------ | ------------------------------------------------------------------------------------------- | -------------------------- |
+| scheme | a letter, then letters, digits, `+`, `-`, `.`                                               | unbounded                  |
+| NID    | letters and digits, plus `-` in the interior                                                | 2–32 writing, 1–32 reading |
+| NSS    | `pchar` — letters, digits, `-._~!$&'()*+,;=:@`, percent-triplets — plus `/` after the first | unbounded                  |
+
+The NSS set is wider than people expect. `!`, `$`, `&`, `'`, `(`, `)`, `*`,
+`+`, `,`, `;`, `=`, `:` and `@` are all `sub-delims` or `pchar` under RFC 3986
+§3.3 and pass without encoding:
+
+```ts
+URN.stringify('invalid!character', 'namespace');
+// 'urn:namespace:invalid!character' — no error, '!' is a valid NSS character
+```
+
+A space is not:
+
+```ts
+URN.stringify('a b', 'example');
+// InvalidError: NSS contains invalid character ' ' in 'a b'
+```
+
+### Read-lenient, write-strict
+
+`stringify` enforces the RFC 8141 NID exactly. `parse` accepts the same
+character set but allows a one-character NID, because RFC 2141 permitted one and
+RFC 8141 Appendix B keeps earlier-valid URNs valid. Nothing else is relaxed on
+read:
+
+```ts
+URN.parse('urn:x:1'); // { urn: 'urn', nid: 'x', nss: 'x:1' }
+URN.stringify('1', 'x');
+// InvalidError: NID is invalid in 'x': must be at least 2 characters long
+```
+
+## Percent-encoding the NSS
+
+`stringify` works on the wire form and encodes nothing; `parse` decodes nothing.
+Both helpers are explicit:
 
 ```ts file=libs/urn/README.md region=nss-encoding
 
 ```
 
-### Comparing two URNs
+`encodeNss` encodes everything outside RFC 3986's `unreserved` set as UTF-8
+percent-triplets with uppercase hex, so its output is safe in any NSS position.
 
-RFC 8141 equivalence is case-insensitive on the scheme and the NID, and exact
-on the NSS:
+## Comparing two URNs
+
+RFC 8141 equivalence is case-insensitive on the scheme and the NID, and exact on
+the NSS except that the hex digits of a percent-triplet canonicalise to
+uppercase. An encoded octet is never decoded for comparison:
 
 ```ts file=libs/urn/README.md region=equality
 
 ```
 
-## Project Setup Examples
+`equals`, `sameNamespace` and `belongsToNamespace` all return `false` for
+malformed input rather than throwing. `parse` and `extractId` throw.
 
-### TypeScript Project
+## Error handling
 
-If you're using TypeScript, the library provides full type support:
+```ts
+import { URN, ValidationError, InvalidError } from '@evanion/urn';
 
-```typescript
-// tsconfig.json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+try {
+  return URN.parse(input);
+} catch (error) {
+  if (error instanceof InvalidError) {
+    // A component was empty, held a disallowed character, or broke a
+    // structural rule. error.property, error.value, error.invalidChar,
+    // error.reason say which.
+  } else if (error instanceof ValidationError) {
+    // The string was not a well-formed URN at all.
   }
+  throw error;
 }
 ```
 
-```typescript
-// src/urn-example.ts
-import { URN, InvalidError } from '@evanion/urn';
+`InvalidError extends ValidationError`, so catching the base covers both. If you
+only want to know whether a string parses, `isValidFormat` never throws:
 
-// Type-safe URN operations
-function createUserUrn(userId: string): string {
-  return URN.stringify(userId, 'user');
-}
-
-function parseUserUrn(urn: string): { userId: string; type: string } {
-  const parsed = URN.parse(urn);
-  return {
-    userId: parsed.nss,
-    type: parsed.nid,
-  };
-}
-
-// Usage
-const userUrn = createUserUrn('user-123');
-const userInfo = parseUserUrn(userUrn);
-console.log(userInfo); // { userId: 'user-123', type: 'user' }
+```ts
+URN.isValidFormat('urn:example:123'); // true
+URN.isValidFormat('not-a-urn'); // false
 ```
 
-### Node.js Project
+It delegates to `parse`, so the two can never disagree.
 
-For Node.js applications:
+## Two things that will bite
 
-```javascript
-// package.json
-{
-  "name": "my-urn-app",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@evanion/urn": "^1.1.0"
-  }
-}
+The statics are unbound. Every one of them reads `this`, so unlike
+`JSON.stringify` they cannot be destructured:
+
+```ts
+const { stringify } = URN;
+stringify('a'); // TypeError — the default parameter `nid = this.nid` needs `this`
 ```
 
-```javascript
-// src/app.js
-import { URN } from '@evanion/urn';
+And the positional arguments to `stringify` are in the reverse order of `parse`'s
+return shape:
 
-// Create URNs for different resources
-const resources = {
-  users: URN.stringify('user-123', 'user'),
-  products: URN.stringify('product-456', 'product'),
-  orders: URN.stringify('order-789', 'order'),
-};
-
-console.log(resources);
-// {
-//   users: 'urn:user:user-123',
-//   products: 'urn:product:product-456',
-//   orders: 'urn:order:order-789'
-// }
+```ts
+URN.stringify(...Object.values(URN.parse('urn:nid:foo'))); // 'foo:nid:urn'
+URN.stringify(URN.parse('urn:nid:foo')); // 'urn:nid:foo'
 ```
 
-### React Project
-
-For React applications:
-
-```bash
-npx create-react-app my-urn-app --template typescript
-cd my-urn-app
-npm install @evanion/urn
-```
-
-```typescript
-// src/components/ResourceList.tsx
-import React from 'react';
-import { URN } from '@evanion/urn';
-
-interface Resource {
-  id: string;
-  type: string;
-}
-
-interface ResourceListProps {
-  resources: Resource[];
-}
-
-const ResourceList: React.FC<ResourceListProps> = ({ resources }) => {
-  return (
-    <ul>
-      {resources.map(resource => {
-        const urn = URN.stringify(resource.id, resource.type);
-        return (
-          <li key={urn}>
-            <strong>{resource.type}:</strong> {resource.id}
-            <br />
-            <small>URN: {urn}</small>
-          </li>
-        );
-      })}
-    </ul>
-  );
-};
-
-export default ResourceList;
-```
-
-```typescript
-// src/App.tsx
-import React from 'react';
-import ResourceList from './components/ResourceList';
-
-const App: React.FC = () => {
-  const resources = [
-    { id: 'user-123', type: 'user' },
-    { id: 'product-456', type: 'product' },
-    { id: 'order-789', type: 'order' }
-  ];
-
-  return (
-    <div className="App">
-      <h1>My URN App</h1>
-      <ResourceList resources={resources} />
-    </div>
-  );
-};
-
-export default App;
-```
-
-### Express.js API
-
-For Express.js APIs:
-
-```bash
-npm init -y
-npm install express @evanion/urn
-npm install -D @types/express typescript ts-node nodemon
-```
-
-```typescript
-// src/server.ts
-import express from 'express';
-import { URN, InvalidError } from '@evanion/urn';
-
-const app = express();
-app.use(express.json());
-
-// URN-based resource endpoints
-app.get('/resource/:urn', (req, res) => {
-  try {
-    const parsed = URN.parse(req.params.urn);
-    res.json({
-      urn: req.params.urn,
-      components: parsed,
-      message: `Resource ${parsed.nss} of type ${parsed.nid}`,
-    });
-  } catch (error) {
-    if (error instanceof InvalidError) {
-      res.status(400).json({ error: 'Invalid URN format' });
-    } else {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-});
-
-app.post('/resource', (req, res) => {
-  const { id, type } = req.body;
-
-  try {
-    const urn = URN.stringify(id, type);
-    res.json({
-      urn,
-      created: true,
-      message: `Created ${type} resource with ID ${id}`,
-    });
-  } catch (error) {
-    if (error instanceof InvalidError) {
-      res.status(400).json({ error: 'Invalid resource data' });
-    } else {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-```
-
-## Common Patterns
-
-### Resource Factory Pattern
-
-```typescript
-import { URN } from '@evanion/urn';
-
-class ResourceFactory {
-  static createUser(id: string): string {
-    return URN.stringify(id, 'user');
-  }
-
-  static createProduct(id: string): string {
-    return URN.stringify(id, 'product');
-  }
-
-  static createOrder(id: string): string {
-    return URN.stringify(id, 'order');
-  }
-
-  static parseResource(urn: string): { id: string; type: string } {
-    const parsed = URN.parse(urn);
-    return {
-      id: parsed.nss,
-      type: parsed.nid,
-    };
-  }
-}
-
-// Usage
-const userUrn = ResourceFactory.createUser('user-123');
-const productUrn = ResourceFactory.createProduct('product-456');
-const orderUrn = ResourceFactory.createOrder('order-789');
-
-console.log(userUrn); // "urn:user:user-123"
-console.log(productUrn); // "urn:product:product-456"
-console.log(orderUrn); // "urn:order:order-789"
-```
-
-### Custom URN Classes
-
-```typescript
-import { URN } from '@evanion/urn';
-
-// Base resource URN
-class ResourceURN extends URN {
-  static urn = 'resource';
-}
-
-// Specific resource types
-class UserURN extends ResourceURN {
-  static nid = 'user';
-}
-
-class ProductURN extends ResourceURN {
-  static nid = 'product';
-}
-
-class OrderURN extends ResourceURN {
-  static nid = 'order';
-}
-
-// Usage
-const userUrn = UserURN.stringify('user-123');
-const productUrn = ProductURN.stringify('product-456');
-const orderUrn = OrderURN.stringify('order-789');
-
-console.log(userUrn); // "resource:user:user-123"
-console.log(productUrn); // "resource:product:product-456"
-console.log(orderUrn); // "resource:order:order-789"
-```
-
-### Error Handling Pattern
-
-```typescript
-import { URN, InvalidError } from '@evanion/urn';
-
-function safeUrnOperation<T>(operation: () => T, fallback: T): T {
-  try {
-    return operation();
-  } catch (error) {
-    if (error instanceof InvalidError) {
-      console.warn(`Invalid URN operation: ${error.message}`);
-      return fallback;
-    }
-    throw error; // Re-throw unexpected errors
-  }
-}
-
-// Usage
-const validUrn = safeUrnOperation(
-  () => URN.stringify('user-123', 'user'),
-  'urn:default:fallback',
-);
-console.log(validUrn); // "urn:user:user-123"
-
-const invalidUrn = safeUrnOperation(
-  () => URN.stringify('user!123', 'user'),
-  'urn:default:fallback',
-);
-console.log(invalidUrn); // "urn:default:fallback"
-```
-
-## Testing Your Setup
-
-Create a simple test to verify everything is working:
-
-```typescript
-// test/urn.test.ts
-import { describe, it, expect } from 'vitest';
-import { URN } from '@evanion/urn';
-
-describe('URN Setup Test', () => {
-  it('should create and parse URNs', () => {
-    const urn = URN.stringify('test-resource', 'test-namespace');
-    expect(urn).toBe('urn:test-namespace:test-resource');
-
-    const parsed = URN.parse(urn);
-    expect(parsed).toEqual({
-      urn: 'urn',
-      nid: 'test-namespace',
-      nss: 'test-resource',
-    });
-  });
-
-  it('should handle custom URN classes', () => {
-    class TestURN extends URN {
-      static urn = 'test';
-    }
-
-    const urn = TestURN.stringify('resource', 'namespace');
-    expect(urn).toBe('test:namespace:resource');
-  });
-});
-```
-
-Run the test:
-
-```bash
-npm test
-```
-
-## Next Steps
-
-Now that you have the URN library set up, you can:
-
-1. **Explore the API**: Check out the [API Reference](/urn/api) for detailed method documentation
-2. **See Examples**: Look at [Examples](/urn/examples) for real-world usage patterns
-3. **Build Your Application**: Start integrating URNs into your application logic
-4. **Create Custom Classes**: Extend the base URN class for your specific domain needs
-
-## Troubleshooting
-
-### Common Issues
-
-**Import Errors**
-
-```typescript
-// ❌ Wrong
-import URN from '@evanion/urn';
-
-// ✅ Correct
-import { URN } from '@evanion/urn';
-```
-
-**TypeScript Configuration**
-Make sure your `tsconfig.json` includes proper module resolution:
-
-```json
-{
-  "compilerOptions": {
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
-  }
-}
-```
-
-**Node.js ES Modules**
-If using ES modules in Node.js, ensure your `package.json` has:
-
-```json
-{
-  "type": "module"
-}
-```
-
-### Getting Help
-
-- Check the [API Reference](/urn/api) for detailed documentation
-- Look at [Examples](/urn/examples) for usage patterns
-- Review the [GitHub repository](https://github.com/Evanion/libraries) for issues and discussions
-
-You're now ready to start using URNs in your project! 🎉
+Hand `stringify` the object. Its keys carry the meaning, and only that form can
+express the [r-, q- and f-components](/urn/components).
