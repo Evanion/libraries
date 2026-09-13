@@ -12,9 +12,6 @@ import { defineItems } from './region';
  * `defineItems` supplies the contextual type: an unknown `type`, a prop the
  * component does not take, or a `meta` key the chrome does not read fails the
  * build rather than rendering a section somewhere its author did not choose.
- *
- * The "Rendering from data" section serialises this list and shows it beside
- * the sections it placed, so what is written here is what a reader sees.
  */
 export const items = defineItems([
   {
@@ -22,7 +19,7 @@ export const items = defineItems([
     type: 'hero',
     props: {
       title: 'Small TypeScript libraries, one problem each.',
-      line: 'Documentation for the packages in the Evanion/libraries monorepo. Each is installed on its own. The index is grouped by the problem a package solves, and each entry says what stack it runs in.',
+      line: 'Each one solves a problem you would otherwise solve by hand, and stops there. No framework to adopt, no configuration to learn. Install the one you need and it works on its own.',
     },
     meta: { ground: 'felt' },
   },
@@ -44,8 +41,8 @@ export const items = defineItems([
     meta: { rule: true },
   },
   {
-    id: 'colophon',
-    type: 'colophon',
+    id: 'elsewhere',
+    type: 'elsewhere',
     props: {},
     meta: { rule: true },
   },
