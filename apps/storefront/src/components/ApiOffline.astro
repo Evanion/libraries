@@ -12,17 +12,19 @@ const { error, status } = Astro.props;
 {/* The catalogue lives in a second process a reader may simply not have
     started. Saying which command starts it is more use than a 500, and it is the
     honest empty state for a server-rendered shop with no data of its own. */}
-<div class="baize-panel">
-  <p class="baize-note">
+<section class="baize-panel">
+  <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
     {
       status === 0
         ? 'The catalogue service is not answering.'
         : `The catalogue service answered ${status}.`
     }
   </p>
-  <p class="baize-prose">
+  <p
+    class="baize-text baize-text--tone-lichen baize-text--size-base baize-text--measured"
+  >
     Start it with <strong>npx nx serve shop-api</strong>, then reload. It listens
     on port 3000; set <strong>SHOP_API_URL</strong> if it is somewhere else.
   </p>
-  <p class="baize-note">{error}</p>
-</div>
+  <p class="baize-text baize-text--tone-moss baize-text--size-sm">{error}</p>
+</section>

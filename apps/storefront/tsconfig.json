@@ -5,6 +5,9 @@
       "path": "../../libs/astro-widget"
     },
     {
+      "path": "../../libs/baize-ui"
+    },
+    {
       "path": "../../libs/urn"
     }
   ]

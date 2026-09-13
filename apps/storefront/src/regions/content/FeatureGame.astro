@@ -1,8 +1,11 @@
 ---
+import { classNames } from '@evanion/baize-ui/tokens';
+
 import AvailabilityPill from '../../components/AvailabilityPill.astro';
+import BoxArt from '../../components/BoxArt.astro';
 import MechanismTags from '../../components/MechanismTags.astro';
 import StatLine from '../../components/StatLine.astro';
-import { formatPrice, gameHue } from '../../lib/catalogue.js';
+import { formatPrice, gameHueClass } from '../../lib/catalogue.js';
 import { regionCtx } from '../ctx.js';
 
 interface Props {
@@ -25,11 +28,19 @@ const game = games.find((candidate) => candidate.urn === urn);
 }
 {
   game && (
-    <div class="feature" style={`--hue: ${gameHue(game)}`}>
+    <div class="feature">
       <div>
         <p class="feature__lede">{lede}</p>
-        <div class="feature__head">
-          <h1 class="baize-title baize-title--xl">{game.title}</h1>
+        <div class="baize-section-header">
+          <h1
+            class={classNames(
+              'baize-title',
+              'baize-title--size-xl',
+              gameHueClass(game),
+            )}
+          >
+            {game.title}
+          </h1>
           <AvailabilityPill availability={game.availability} />
         </div>
         <MechanismTags mechanisms={game.mechanisms} />
@@ -42,13 +53,18 @@ const game = games.find((candidate) => candidate.urn === urn);
           />
         </div>
         <div class="feature__buy">
-          <span class="baize-price">{formatPrice(game.price)}</span>
-          <a class="baize-button baize-button--primary" href={`/g/${game.urn}`}>
+          <span class="baize-figure baize-figure--size-lg">
+            {formatPrice(game.price)}
+          </span>
+          <a
+            class="baize-button baize-button--variant-primary"
+            href={`/g/${game.urn}`}
+          >
             See the game
           </a>
         </div>
       </div>
-      <div class="baize-art">{game.title}</div>
+      <BoxArt title={game.title} urn={game.urn} />
     </div>
   )
 }

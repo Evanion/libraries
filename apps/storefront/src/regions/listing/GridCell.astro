@@ -11,6 +11,13 @@ const span = meta?.span === 2 ? 2 : 1;
 {/* The listing region's item chrome: a grid cell, widened by `meta.span`. The
     card inside it knows nothing about columns, which is what lets the same card
     appear in a two-column feature slot and in the ordinary grid. */}
-<li class="catalogue-grid__cell" data-block={type} data-span={String(span)}>
+<li
+  class:list={[
+    'baize-card-grid__cell',
+    span === 2 && 'baize-card-grid__cell--wide',
+  ]}
+  data-block={type}
+  data-span={String(span)}
+>
   <slot />
 </li>

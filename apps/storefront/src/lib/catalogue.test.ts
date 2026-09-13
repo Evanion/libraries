@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  availabilityColour,
   availabilityLabel,
+  availabilityStateClass,
+  boxArtPaletteClass,
   formatPrice,
   formatWeight,
-  gameHue,
+  gameHueClass,
   gamesByMechanism,
-  mechanismHue,
+  mechanismHueClass,
   mechanismSlug,
+  mechanismToken,
   mechanisms,
-  weightSteps,
+  weightStop,
 } from './catalogue.js';
 import type { Game } from './shop-api.js';
 
@@ -36,27 +38,55 @@ describe('mechanismSlug', () => {
   });
 });
 
-describe('mechanismHue', () => {
-  it('resolves to the mechanism token with the categorical fallback', () => {
-    expect(mechanismHue('engine building')).toBe(
-      'var(--mechanism-engine-building, var(--mechanism-default))',
-    );
+describe('mechanismToken', () => {
+  it('resolves a catalogue mechanism to its hue family', () => {
+    expect(mechanismToken('engine building')).toBe('engineBuilding');
   });
 
-  it('names no colour of its own, so the palette stays in css', () => {
-    expect(mechanismHue('dexterity')).not.toMatch(/#|rgb|oklab/);
+  it('reads co-op as the library spells it', () => {
+    expect(mechanismToken('co-op')).toBe('cooperative');
   });
 
-  it('falls back for a mechanism with no token', () => {
-    expect(mechanismHue(undefined)).toBe('var(--mechanism-default)');
+  /**
+   * The catalogue's vocabulary is open and the hue scale is not. A mechanism with
+   * no family reads as uncategorised rather than borrowing another one's colour.
+   */
+  it('leaves a mechanism with no family uncategorised', () => {
+    expect(mechanismToken('asymmetric powers')).toBe('other');
+    expect(mechanismToken(undefined)).toBe('other');
   });
 });
 
-describe('gameHue', () => {
-  it('uses the first mechanism, the one players name the game by', () => {
-    expect(gameHue(game({ mechanisms: ['co-op', 'area control'] }))).toBe(
-      'var(--mechanism-co-op, var(--mechanism-default))',
+describe('mechanismHueClass', () => {
+  it("names no colour of its own, because the hue is the stylesheet's", () => {
+    expect(mechanismHueClass('worker placement')).toBe(
+      'baize-hue-worker-placement',
     );
+    expect(mechanismHueClass('dexterity')).not.toMatch(/#|rgb|oklab/);
+  });
+});
+
+describe('gameHueClass', () => {
+  it('uses the first mechanism, the one players name the game by', () => {
+    expect(gameHueClass(game({ mechanisms: ['co-op', 'area control'] }))).toBe(
+      'baize-hue-cooperative',
+    );
+  });
+});
+
+describe('boxArtPaletteClass', () => {
+  /**
+   * The palettes are named after pigments, so the mapping is the app's: a reader
+   * decodes nothing from a gradient, the same way they decode nothing from a
+   * photograph of a box.
+   */
+  it('paints a mapped game in the palette its box is printed in', () => {
+    expect(boxArtPaletteClass('urn:game:azul')).toBe('baize-palette-cobalt');
+    expect(boxArtPaletteClass('urn:game:crokinole')).toBe('baize-palette-oak');
+  });
+
+  it('leaves a game nobody mapped on the neutral gradient', () => {
+    expect(boxArtPaletteClass('urn:game:hive')).toBeUndefined();
   });
 });
 
@@ -65,9 +95,12 @@ describe('availability', () => {
     expect(availabilityLabel('reprint-pending')).toBe('reprint pending');
   });
 
-  it('resolves a state to its own token, separate from the mechanism hues', () => {
-    expect(availabilityColour('out-of-print')).toBe(
-      'var(--state-out-of-print)',
+  it('resolves a state to its own class, separate from the mechanism hues', () => {
+    expect(availabilityStateClass('out-of-print')).toBe(
+      'baize-state-out-of-print',
+    );
+    expect(availabilityStateClass('reprint-pending')).toBe(
+      'baize-state-reprint-pending',
     );
   });
 });
@@ -85,16 +118,16 @@ describe('weight', () => {
     expect(formatWeight(2.4)).toBe('2.4 / 5');
   });
 
-  it('fills the cell a rating is partway into', () => {
-    expect(weightSteps(2.4)).toBe(3);
+  it('reaches the stop a rating is partway into', () => {
+    expect(weightStop(2.4)).toBe(3);
   });
 
-  it('never fills more than the five cells there are', () => {
-    expect(weightSteps(9)).toBe(5);
+  it('never passes the five stops the ramp has', () => {
+    expect(weightStop(9)).toBe(5);
   });
 
-  it('fills nothing for an unrated game', () => {
-    expect(weightSteps(0)).toBe(0);
+  it('reaches no stop at all for an unrated game', () => {
+    expect(weightStop(0)).toBeUndefined();
   });
 });
 

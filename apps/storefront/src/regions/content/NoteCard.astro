@@ -7,7 +7,7 @@ interface Props {
 const { heading, body } = Astro.props;
 ---
 
-<div class="baize-panel">
-  <h3 class="baize-title baize-title--sm">{heading}</h3>
-  <p class="baize-note">{body}</p>
-</div>
+<section class="baize-panel">
+  <h3 class="baize-title baize-title--size-sm">{heading}</h3>
+  <p class="baize-text baize-text--tone-lichen baize-text--size-sm">{body}</p>
+</section>

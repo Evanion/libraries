@@ -1,5 +1,7 @@
 ---
-import { mechanismSlug } from '../lib/catalogue.js';
+import { classNames } from '@evanion/baize-ui/tokens';
+
+import { mechanismHueClass, mechanismSlug } from '../lib/catalogue.js';
 
 interface Props {
   mechanisms: string[];
@@ -8,14 +10,26 @@ interface Props {
 const { mechanisms } = Astro.props;
 ---
 
-{/* No hue of its own: it inherits `--hue` from the card or page that set it, so
-    a title and its mechanisms always read as one colour. */}
-<ul class="baize-mechanisms">
+{/* The library's `TagRow` of `MechanismTag`s, as Astro, each tag wrapped in the
+    link to its category.
+
+    Each tag carries its own hue rather than inheriting the card's: a game's second
+    mechanism belongs to its own family, and the title above already says which
+    family leads. The link is outside the tag, because the tag is the shape the
+    stylesheet draws and a link has no business carrying it. */}
+<div class="baize-tag-row">
   {
     mechanisms.map((mechanism) => (
-      <li>
-        <a href={`/c/${mechanismSlug(mechanism)}`}>{mechanism}</a>
-      </li>
+      <a class="tag-link" href={`/c/${mechanismSlug(mechanism)}`}>
+        <span
+          class={classNames(
+            'baize-mechanism-tag',
+            mechanismHueClass(mechanism),
+          )}
+        >
+          {mechanism}
+        </span>
+      </a>
     ))
   }
-</ul>
+</div>

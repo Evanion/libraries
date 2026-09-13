@@ -6,7 +6,7 @@ import Page from '../../layouts/Page.astro';
 import { cartSize } from '../../lib/cart.js';
 import {
   gamesByMechanism,
-  mechanismHue,
+  mechanismHueClass,
   mechanismSlug,
 } from '../../lib/catalogue.js';
 import CatalogueListing from '../../regions/listing/CatalogueListing.astro';
@@ -43,7 +43,7 @@ const ctx = {
 <Page title={label ?? category}>
   {
     catalogue.ok ? (
-      <div class="browse" style={`--hue: ${mechanismHue(label)}`}>
+      <div class="browse">
         {/* Two regions side by side, each with its own registry and its own
             chrome: a small authored sidebar, and the large listing built from the
             API response. */}
@@ -56,12 +56,20 @@ const ctx = {
           />
         </aside>
         <div>
-          <div class="section__head">
-            <h1 class="baize-title baize-title--lg">{label ?? category}</h1>
-            <p class="baize-note">
+          <div class="baize-section-header">
+            <h1
+              class:list={[
+                'baize-title',
+                'baize-title--size-lg',
+                mechanismHueClass(label),
+              ]}
+            >
+              {label ?? category}
+            </h1>
+            <div class="baize-section-header__aside">
               {selected.length}
               {selected.length === 1 ? ' title' : ' titles'}
-            </p>
+            </div>
           </div>
           <CatalogueListing games={selected} />
         </div>
