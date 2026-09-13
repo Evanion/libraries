@@ -1,3 +1,4 @@
+import { categorical } from '@evanion/baize-ui/tokens';
 import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects } from 'nx/src/devkit-internals';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -38,6 +39,7 @@ interface DocumentedPackage {
   workshop: boolean;
   group: string;
   framework: string;
+  hue: string;
 }
 
 interface PackageGroup {
@@ -224,6 +226,29 @@ describe('the docs navigation', () => {
         .filter((entry) => entry.framework.trim() === '')
         .map((entry) => entry.slug),
     ).toEqual([]);
+  });
+
+  /**
+   * A package's hue is its identity on the cards and on its own pages, so two
+   * packages sharing one is worse than neither having one: the reader learns a
+   * colour that means two things. A hue the scale does not carry resolves to an
+   * undefined custom property and renders as the ground, silently.
+   */
+  it('gives every package a distinct hue from the scale', async () => {
+    const navigation = await loadNavigation();
+    const hues = navigation.map((entry) => entry.hue);
+
+    expect(
+      hues.filter((hue) => !(hue in categorical)),
+      `Every \`hue\` in apps/docs/app/navigation.ts has to name one of ` +
+        `\`categorical\` in @evanion/baize-ui/tokens.`,
+    ).toEqual([]);
+
+    expect(
+      hues,
+      'Two packages in one colour teaches a reader a colour that means two ' +
+        'things. The scale carries nine.',
+    ).toEqual([...new Set(hues)]);
   });
 
   it('lists every package once', async () => {

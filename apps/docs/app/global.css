@@ -228,3 +228,83 @@ article
   ) {
   margin-block: var(--baize-space-5);
 }
+
+/*
+ * Package identity.
+ *
+ * Baize has no house colour, and the rule that makes that work in the shop is
+ * that the catalogue supplies every saturated pixel. This site's catalogue is
+ * the packages, so a package carries a hue from the categorical scale and the
+ * site follows the same rule instead of needing an exemption from it — which is
+ * what left it a green page on a green ground.
+ *
+ * `.docs-identity` marks an element whose subtree belongs to one package, and the
+ * `.baize-categorical-*` class next to it binds both ends of the scale.
+ * `--baize-hue` arrives holding the dark-ground value, which is right in dark
+ * mode and unreadable on paper — the dark hues sit between 1.20:1 and 1.96:1
+ * against a light card. This one rule swaps in the light-ground value for the
+ * light theme, rather than a rule per hue.
+ */
+html:not(.dark) .docs-identity {
+  --baize-hue: var(--baize-hue-on-light);
+}
+
+/*
+ * Where the hue lands: the page title, the rule under a section heading, and a
+ * card's own title.
+ *
+ * On the type and the hairlines, never as a background wash. A tinted panel puts
+ * the colour behind the words and makes the reading surface a different colour
+ * per package, which is a theme rather than an identity; a title and a rule are
+ * the two places a reader is already looking.
+ */
+.docs-identity h1:not([class*='baize-']),
+.docs-identity .baize-card__head a,
+.docs-identity .baize-card__head .baize-title {
+  color: var(--baize-hue);
+}
+
+.docs-identity :where(h2, h3):not([class*='baize-']) {
+  border-color: color-mix(in oklab, var(--baize-hue) 45%, transparent);
+}
+
+/*
+ * The card's own edge, so a reader picking one out of a grid of eight has the
+ * colour before reading a title. A hairline on one side rather than a border all
+ * the way round: the card already has a border, and doubling it in a saturated
+ * colour is the row of pills this design avoids.
+ */
+.docs-identity .baize-card {
+  border-top: 2px solid var(--baize-hue);
+}
+
+/*
+ * A route inside the combined card: the package's name, its marker and the
+ * button into its section, stacked.
+ *
+ * The card holds a nested grid so the two runtimes sit side by side at reading
+ * width and stack on a narrow screen, which is what the grid already does. The
+ * gap is the only thing it needs from here.
+ */
+.docs-route {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--baize-space-2);
+}
+
+.docs-route .baize-title a {
+  color: var(--baize-hue);
+}
+
+/*
+ * The unreleased chip is a separate channel from the package's colour.
+ *
+ * `.baize-chip` reads `--baize-hue`, which inside an identity subtree is the
+ * package's own — and then the card says "amber" twice meaning two different
+ * things, the package and its release state. The chip is pinned to the ground's
+ * secondary text instead, so it reads as a status wherever it appears.
+ */
+.docs-identity .baize-chip {
+  color: var(--baize-lichen);
+}
