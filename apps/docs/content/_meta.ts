@@ -38,11 +38,15 @@ function group(id: string, title: string) {
  * the package out of the navigation entirely, which is the failure this file
  * exists to prevent.
  *
+ * The first entry is a link, not a page: the landing page is `app/page.tsx`,
+ * outside the MDX content, and a reader inside a package's pages still wants
+ * one click back to the whole index.
+ *
  * The order is the order of `groups`, then of `packages` within each. A group
  * whose packages have all been removed emits no separator, because Nextra
  * renders one whether or not anything follows it.
  */
 export default {
-  index: 'Introduction',
+  index: { title: 'All packages', href: '/' },
   ...Object.assign({}, ...groups.map((it) => group(it.id, it.title))),
 } satisfies MetaRecord;

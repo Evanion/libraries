@@ -1,7 +1,6 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
-import PackageIndex from './components/PackageIndex';
 import WorkshopNotice from './components/WorkshopNotice';
 import {
   Button,
@@ -57,7 +56,6 @@ export function useMDXComponents(components) {
     TagRow,
     Text,
     Title,
-    PackageIndex,
     WorkshopNotice,
     WidgetPlayground,
     PlaygroundExamples,

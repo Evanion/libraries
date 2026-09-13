@@ -279,25 +279,6 @@ html:not(.dark) .docs-identity {
 }
 
 /*
- * A route inside the combined card: the package's name, its marker and the
- * button into its section, stacked.
- *
- * The card holds a nested grid so the two runtimes sit side by side at reading
- * width and stack on a narrow screen, which is what the grid already does. The
- * gap is the only thing it needs from here.
- */
-.docs-route {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--baize-space-2);
-}
-
-.docs-route .baize-title a {
-  color: var(--baize-hue);
-}
-
-/*
  * The unreleased chip is a separate channel from the package's colour.
  *
  * `.baize-chip` reads `--baize-hue`, which inside an identity subtree is the
@@ -337,4 +318,13 @@ html:not(.dark) .docs-identity {
   .nextra-sidebar .nextra-mask {
     mask-image: none;
   }
+}
+
+/*
+ * The theme switch lives in the navbar, on every page. The sidebar's footer
+ * renders its own, which on a docs page would be the second control for the
+ * same setting a few hundred pixels from the first.
+ */
+.nextra-sidebar-footer > [title='Change theme'] {
+  display: none;
 }

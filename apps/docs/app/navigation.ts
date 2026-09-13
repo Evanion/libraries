@@ -32,23 +32,15 @@ export interface PackageGroup {
   /**
    * The group's own line on the landing page. The sidebar shows only the title.
    *
-   * For a `combined` group this is the card's body -- the one description both
-   * packages share -- so it has to name each runtime in words. A reader scanning
-   * for "astro" finds it here.
+   * For the rendering group this is the body of the one card both packages
+   * share -- so it has to name each runtime in words. A reader scanning for
+   * "astro" finds it here.
+   *
+   * Which shape a group takes on the landing page -- one card for the pair, a
+   * card each, a row each -- is the page's decision and lives in
+   * `components/landing/items.ts`, where each group is an item of one type.
    */
   line: string;
-  /**
-   * Whether the group is one card with a link to each package, rather than a
-   * card each.
-   *
-   * The two widget renderers are one model in two runtimes, and two cards side
-   * by side said nothing about that -- a reader took them for unrelated
-   * packages. One card whose body describes the model once, with a button
-   * through to each runtime, is the relationship stated structurally. It is a
-   * landing-page presentation only: each package keeps its own section in the
-   * sidebar and its own pages.
-   */
-  combined?: boolean;
 }
 
 /**
@@ -69,7 +61,6 @@ export const groups: readonly PackageGroup[] = [
     id: 'rendering',
     title: 'Rendering from data',
     line: 'One model in two runtimes: a list of structured items, a map of the components that render them, and no provider in either. React Widget renders a region of React components, with each item checked against its component at compile time. Astro Widget renders Astro sections from CMS block data, at build time, shipping nothing to the browser.',
-    combined: true,
   },
   {
     id: 'identifiers',

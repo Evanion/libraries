@@ -69,10 +69,19 @@
   ],
   "references": [
     {
-      "path": "../../libs/baize-ui"
+      "path": "../../libs/urn"
+    },
+    {
+      "path": "../../libs/token"
+    },
+    {
+      "path": "../../libs/luhn"
     },
     {
       "path": "../../libs/widget"
+    },
+    {
+      "path": "../../libs/baize-ui"
     }
   ]
 }
