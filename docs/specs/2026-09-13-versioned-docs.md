@@ -29,7 +29,7 @@ common here.
 A reader on `@evanion/luhn@2.0.1` wants 2.x docs. Those docs do not exist and
 cannot be made to exist: at the `@evanion/luhn@3.0.0` tag, `content/luhn/`
 contains zero files. Every one of the six luhn pages was first committed on
-2026-09-13, a day after the tag. Section 2 has the same count for every package.
+2026-09-13, a day after the tag. Section 2 has the count for every package.
 
 A reader evaluating an unreleased change wants docs for code that is not on npm.
 Those docs exist and are deployed right now — the site builds from `main`, which
@@ -37,8 +37,10 @@ is 103 commits past the luhn tag and 136 past the urn one — and nothing on the
 page says so. That is not a snapshot problem. It is a labelling problem, and it
 is live today.
 
-So the two halves land at different times, and most of this document is about
-the first one being unbuildable rather than expensive.
+So the two halves land at different times. Most of this document is about the
+first one, which is neither expensive nor urgent: it has almost nothing to
+capture yet, and because it reads from git tags, capturing it later captures it
+completely. Section 9 is where that stops being an excuse and becomes a test.
 
 ## Decisions
 
@@ -64,10 +66,14 @@ the first one being unbuildable rather than expensive.
 9. No backports. An archived page is what the tag shipped and is not edited.
 10. Retention is the current major plus one.
 11. Decisions 2 and 3 are built now. Decisions 4 through 10 are specified and
-    deferred until a tag exists whose content directory is not empty.
+    deferred. Reading from tags is what makes deferring cost nothing: tags are
+    permanent, so the machinery built later captures every release in between.
+12. What schedules the deferred half is a repo-check, not a person. It fails once
+    a superseded major has real pages and no archive, and it ships now.
 
-Decision 11 is the one this document exists to argue. Decision 7 is the one I
-expect disagreement on. Decision 1 is the only one that is not a trade-off.
+Decisions 11 and 12 are the pair this document exists to argue, and they only
+work together. Decision 7 is the one I expect disagreement on. Decision 1 is the
+only one that is not a trade-off.
 
 ## 1. There is no site version, so the switcher moves into the section
 
@@ -216,7 +222,7 @@ Three assertions are added rather than relaxed:
   directory it was written to.
 - No file or directory directly under `content/<slug>/` matches `/^v\d+$/`.
 
-## 2. The historical half is empty, measured
+## 2. What there is to archive, measured
 
 Every released package, at its own newest tag, against `main`:
 
@@ -232,26 +238,43 @@ Every released package, at its own newest tag, against `main`:
 
 `git ls-tree -r --name-only <tag> apps/docs/content/<slug>/`, run on
 2026-09-13. Four of seven released packages have no documentation at all at the
-version that is on npm. The eleven pages that do exist predate the rewrites that
-produced the current ones.
+version that is on npm.
 
-For any tag older than those, the number is zero across the board: the docs app's
-first commit is newer than every release except the ones above.
+The eleven pages that do exist are not archive material, and the reason is
+sharper than "they are old". They document the version that is still current.
+No package has released since those tags, so `content/urn/` at
+`@evanion/urn@2.0.0` and `content/urn/` on `main` describe the same published
+2.0.0 — the difference between them is a documentation rewrite, and it is
+large: urn's four pages differ by 608 added and 1258 removed lines, and
+`index.mdx` went from 281 lines to 55. Archiving that as "urn v2" would file two
+documents under one version number and freeze the one that was replaced for
+being worse. An archive keyed on version can only hold a version that is no
+longer current.
 
-So the archive on day one is not "every version". It is empty, and the earliest
-version that can have a snapshot is the next release of each package — a release
-that has not happened. Building the machinery in decision 4 now produces a
-switcher with one entry, pointing at the page the reader is already on.
+Superseded majors are where an archive belongs, and there is one:
 
-The reader this was meant to serve does have something today, and it is better
-than a snapshot would be. `content/luhn/migration.mdx` opens with "Every check
-character changes", states the 62-to-36 dictionary change, and gives a table
-mapping every 2.x call to its 3.x form. A frozen 2.x section would tell that
-reader what 2.x did; the migration page tells them what to do, which is the
-question they actually have. This is the strongest argument in the document for
-decision 11, and it generalises: a breaking change that deserves an archive
-deserves a migration page first, and the migration page is cheaper and is read by
-more people.
+| Tag                                    | Superseded major   | Pages |
+| -------------------------------------- | ------------------ | ----- |
+| `@evanion/urn@1.1.1`                   | urn 1.x            | 4     |
+| `@evanion/luhn@2.0.1`                  | luhn 2.x           | 0     |
+| `@evanion/compose@1.0.8`               | compose 1.x        | 0     |
+| `@evanion/nestjs-correlation-id@1.1.0` | correlation-id 1.x | 0     |
+| `@evanion/react-widget@0.1.0`          | 0.x, not retained  | 6     |
+| `@evanion/astro-widget@0.1.0`          | 0.x, not retained  | 0     |
+
+So the whole buildable archive today is `@evanion/urn` v1: four pages, differing
+from the v2 tag's four by 51 added and 3 removed lines in `api.mdx` and nothing
+elsewhere. Every other superseded major of a 1.0.0-or-above package has an empty
+content directory, and section 8 does not retain 0.x.
+
+Building decision 4's machinery now — the snapshot script, the MDX rewriting, the
+region inlining, the live-element stripping, the page-for-page mapping, the
+Pagefind filter — buys a switcher that appears on one of eight packages and
+offers 51 lines.
+
+That is the measurement. What follows from it is section 9, and it is not "never"
+— `content/luhn/` has six pages on `main` right now, so luhn's next release
+produces a tag worth archiving.
 
 ## 3. Switching to a version that does not have the page
 
@@ -522,23 +545,62 @@ commits past their tags. That is a wrong statement on forty pages, it costs a
 generated manifest and a component, and it needs none of the rest of this
 document.
 
-**Defer**: decisions 4 through 10. The measurement in section 2 is the argument.
-Four of seven released packages have zero pages at the tag that is on npm, and
-the other three have pages that predate the current rewrites. The switcher would
-ship with one entry. The first snapshot with anything in it comes from the next
-release of each package, so the earliest this machinery does any work is one
-release away, and at that point the thing to snapshot is content that has not
-been written yet.
+**Defer**: decisions 4 through 10, on the measurement in section 2 — the whole
+buildable archive today is four urn 1.x pages differing from v2's by 51 lines.
 
-Against that, the reader on an old version is served today by a migration page
-that answers a better question, and the download counts are mirror traffic on
-packages that are days old in this repository.
+The objection to deferring is that the emptiness is temporary. That is correct:
+`content/luhn/` has six pages on `main` right now, so the next release of luhn
+produces a tag with six real pages in it, and the window in which there is
+nothing to capture is one release wide rather than open-ended. Deferring on
+"there is nothing there" would be deferring on a fact with a short expiry.
 
-The trigger to build the deferred half, stated so it is checkable rather than a
-feeling: a breaking release lands on a package whose current section has pages,
-and either a reader asks for the previous version's docs or the migration page
-cannot carry the difference. The first condition will be met by the next major of
-`luhn`, `urn` or `react-widget`. The second is the one to actually wait for.
+Two things decide it, and they point the same way.
+
+**Waiting loses nothing.** Decision 5 reads snapshots from git tags at build
+time. Tags are permanent and the tree at `@evanion/urn@1.1.1` will still be there
+in five years, so the machinery built at any later date captures every release
+that happened in the meantime, retroactively and identically. There is no window
+that closes and nothing that has to be captured while it is warm. This is the
+argument that makes deferring safe rather than lossy, and it is a property of
+decision 5 rather than luck — a design that snapshotted at release time, by
+copying files in the pipeline, would not have it, and would have to be built
+before the next release or lose that release forever.
+
+**The cost of deferring is forgetting.** One release of saved effort, against a
+step someone has to remember at exactly the moment they are doing something else.
+That is a real cost and it is the one this repository already has a pattern for:
+`docs-navigation.test.ts` exists because five packages went undocumented and
+nothing was the list.
+
+So: defer the build, land the check now.
+
+### The check
+
+For every released package at 1.0.0 or above, for every major that is no longer
+current, if that major's newest tag has a non-empty `content/<slug>/`, an archive
+for it must exist. A `tools/repo-checks` test, computing both sides from the
+repository the way `docs-navigation.test.ts` computes `release.projects` from
+`nx.json`.
+
+It passes today for every package except urn, whose v1 tag has four pages. That
+one is named in the test as a deferred exception, carrying the sentence that says
+why — 51 lines against the cost of the whole snapshot pipeline — on the same
+pattern as `!libs/baize-ui` in `nx.json`, which is one exclusion carrying its own
+reason. Adding a second exception means editing the test and writing down why,
+which is the friction that stops it happening quietly.
+
+The moment luhn, urn, compose or `nestjs-correlation-id` takes its next major,
+that package's current section becomes a superseded major with real pages, the
+check fails, and the build stops until the archive exists. Nobody has to remember
+anything.
+
+The remaining judgement, which the check cannot make, is whether the archive is
+the right answer for that release or whether a migration page is.
+`content/luhn/migration.mdx` opens with "Every check character changes", states
+the 62-to-36 dictionary change, and maps every 2.x call to its 3.x form; that
+tells the 2.x reader what to do, where a frozen 2.x section tells them what 2.x
+did. When the check fires, writing the migration page and adding the exception is
+a legitimate answer — once. Twice is the signal that the archive should be built.
 
 ## Sequencing
 
@@ -547,17 +609,20 @@ cannot carry the difference. The first condition will be met by the next major o
 2. `ReleaseNotice`, on every package page, beside `WorkshopNotice`.
 3. Repo-checks: the manifest names only known slugs, and every documented package
    has an entry.
+4. Repo-checks: the archive check in section 9, with urn v1 as its one named
+   exception. This is what schedules everything below it.
 
-Then, when section 9's trigger fires:
+Then, when that check fails:
 
-4. `scripts/snapshot-docs.mjs`: worktree per tag, copy, region inlining.
-5. Live-element stripping and the archive notice.
-6. The switcher and the page-for-page mapping.
-7. The Pagefind version filter and the layout's default, the reserved-segment
+5. `scripts/snapshot-docs.mjs`: worktree per tag, copy, region inlining.
+6. Live-element stripping and the archive notice.
+7. The switcher and the page-for-page mapping.
+8. The Pagefind version filter and the layout's default, the reserved-segment
    check, retention.
 
-Steps 1 to 3 are independent of everything after them and are worth doing whether
-or not the rest is ever built.
+Steps 1 to 4 are independent of everything after them and are worth doing whether
+or not the rest is ever built. Step 4 is the one that decides when the rest
+happens, so it is not optional if steps 5 to 8 are deferred.
 
 ## Testing
 
@@ -588,6 +653,12 @@ or not the rest is ever built.
 - A hand-edited archived file survives a rebuild unmodified.
 - `release.yml` has no docs step, asserted by the workflow check that already
   reads it, so a dry run cannot produce a snapshot.
+- Section 9's check: a superseded major whose tag has pages and no archive fails,
+  a superseded major whose tag is empty passes, a current major is not considered
+  however many pages it has, and 0.x is skipped. Asserted against a fixture
+  repository, because the real one has one exception today and none tomorrow.
+- The deferred-exception list is empty or every entry in it names a tag that
+  exists, so an exception cannot outlive the tag it excuses.
 
 ## Where I am guessing
 
@@ -610,11 +681,15 @@ or not the rest is ever built.
   build starts, so writing before `next build` should be indistinguishable from
   committing the files. I have not tried it, and if it is wrong, the fallback is
   a second route segment outside `content/`, which costs the theme frame.
-- The eleven pages that do exist at a release tag: I counted them with
-  `git ls-tree` and did not read them. They may be close enough to the current
-  pages that even those archives would be near-duplicates, which would make
-  section 2's case stronger than stated.
+- Section 2's line counts are `git diff --numstat`, so they measure how much text
+  moved, not whether the API described changed. I read urn's `api.mdx` diff
+  between its v1 and v2 tags and it is the v2 additions; I did not read the other
+  three files, so "51 lines" is the size of the archive's value and could be
+  understating it if those 51 lines are the whole of what v1 users need.
+- That urn v1 is the only exception the check needs on day one. It follows from
+  the table in section 2, which is `git ls-tree` over six tags, and a tag I have
+  not thought of would add a second exception and weaken the pattern.
 - That no reader has asked for an old version. I am inferring it from the packages
   being days old in this repository and from the download counts being mirror
-  traffic. If someone has asked, that is the trigger in section 9 and it fires
-  now.
+  traffic. If someone has asked, section 9's judgement is already made and the
+  archive is built now rather than at the next major.
