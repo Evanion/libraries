@@ -1,7 +1,7 @@
 {
   "name": "@evanion/token",
   "version": "0.1.0",
-  "description": "Generate and validate short, human-shareable codes: a confusable-free alphabet, a Luhn check character, and chunking you can read aloud.",
+  "description": "Short codes a person can read aloud or type off a card: a confusable-free alphabet, a check character that catches a typo before the lookup, and readable chunking.",
   "keywords": [
     "token",
     "code",
