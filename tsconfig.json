@@ -53,6 +53,9 @@
     },
     {
       "path": "./libs/baize-ui"
+    },
+    {
+      "path": "./libs/widget"
     }
   ],
   "compilerOptions": {
