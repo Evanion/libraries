@@ -250,6 +250,14 @@ html:not(.dark) .docs-identity {
 }
 
 /*
+ * The same swap for a platform chip, which binds its own hue on the chip
+ * itself rather than inheriting a package's: React's cyan on paper is 1.6:1.
+ */
+html:not(.dark) [class*='baize-platform-'] {
+  --baize-hue: var(--baize-hue-on-light);
+}
+
+/*
  * Where the hue lands: the page title, the rule under a section heading, and a
  * card's own title.
  *
@@ -285,8 +293,11 @@ html:not(.dark) .docs-identity {
  * package's own — and then the card says "amber" twice meaning two different
  * things, the package and its release state. The chip is pinned to the ground's
  * secondary text instead, so it reads as a status wherever it appears.
+ *
+ * A platform chip is the exception: it binds its own hue on itself, which is
+ * the platform's colour and not the package's.
  */
-.docs-identity .baize-chip {
+.docs-identity .baize-chip:not([class*='baize-platform-']) {
   color: var(--baize-lichen);
 }
 

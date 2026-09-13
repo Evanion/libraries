@@ -7,7 +7,6 @@ import {
   Title,
 } from '@evanion/baize-ui';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
-import type { ReactNode } from 'react';
 import {
   groups,
   packages,
@@ -15,8 +14,11 @@ import {
   type DocumentedPackage,
   type PackageGroup,
 } from '../../app/navigation';
+import DataDemo from './DataDemo';
+import { demoItems } from './demo';
 import { listing } from './listing';
 import { description } from './manifest';
+import { platformsOf } from './platforms';
 import { specimens } from './specimens';
 
 /** Where a package's name and buttons send a reader. */
@@ -43,17 +45,47 @@ function identity(entry: DocumentedPackage): string {
 
 /**
  * The two facts a reader needs before opening anything: the published name,
- * and the stack it runs in. Plus `unreleased`, which is a chip because it
- * changes what a reader can do -- there is nothing on npm to install.
+ * and the stack it runs in, as a chip in that platform's own colour.
+ *
+ * `status` is where the unreleased mark goes. On a tile or a card it is the
+ * ribbon across the corner, drawn by the tile, so the marker carries nothing;
+ * in a row there is no corner to drape it over, so it is a chip here.
  */
-function Marker({ entry }: { entry: DocumentedPackage }) {
+function Marker({
+  entry,
+  status = 'ribbon',
+}: {
+  entry: DocumentedPackage;
+  status?: 'ribbon' | 'chip';
+}) {
   return (
     <span className="landing-marker">
       <span className="landing-marker__name">{entry.name}</span>
-      <span className="landing-marker__stack">{entry.framework}</span>
-      {entry.workshop ? <Chip>unreleased</Chip> : null}
+      {platformsOf(entry.framework).map(({ label, platform }) => (
+        <Chip key={platform} platform={platform}>
+          {label}
+        </Chip>
+      ))}
+      {entry.workshop && status === 'chip' ? <Chip>unreleased</Chip> : null}
     </span>
   );
+}
+
+/**
+ * The ribbon across a tile's corner for a package that is not on npm.
+ *
+ * Read at a glance without being read: a diagonal band on the one corner the
+ * tile leaves empty. Quiet, on the ground's own colours -- the page's two
+ * colour channels are the package hue and the platform chip, and a status is
+ * neither. Derived from `workshop`, which repo-checks holds equal to
+ * `private: true`, so it leaves the tile the day the package ships.
+ */
+function Ribbon({ entry }: { entry: DocumentedPackage }) {
+  return entry.workshop ? (
+    <span className="landing-ribbon">
+      <span className="landing-ribbon__band">unreleased</span>
+    </span>
+  ) : null;
 }
 
 /**
@@ -84,6 +116,7 @@ export function Hero({ title, line }: { title: string; line: string }) {
               </Title>
               <Marker entry={entry} />
             </a>
+            <Ribbon entry={entry} />
           </li>
         ))}
       </ul>
@@ -92,70 +125,18 @@ export function Hero({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * One item's JSON with three kinds of token told apart by colour: keys in the
- * reading colour, strings in the package's hue, punctuation and numbers in the
- * quiet one. A tokenizer of JSON and nothing else, which is all an item is
- * once serialised.
- */
-function Tokens({ source }: { source: string }) {
-  const tokens = source.split(/("(?:[^"\\]|\\.)*"\s*:?)/);
-
-  return tokens.map((token, index) => {
-    if (index % 2 === 0) return token;
-    const key = token.trimEnd().endsWith(':');
-    return (
-      <span
-        key={index}
-        className={key ? 'landing-listing__key' : 'landing-listing__string'}
-      >
-        {token}
-      </span>
-    );
-  });
-}
-
-/**
- * The page's items, as the array they are.
+ * Rendering from data: the concept, the demo, and a route into each runtime.
  *
- * Each item is its own block so the stylesheet can flow the array into two
- * columns beside the card it stands next to: five items one under the other
- * are twice the height of anything they could sit beside, and a listing a
- * reader has to scroll is not one they take in at a glance. The brackets and
- * the commas are still there, because it is still the array.
- */
-function Listing({ items }: { items: readonly unknown[] }) {
-  return (
-    <pre className="landing-listing__code">
-      <span className="landing-listing__bracket">[</span>
-      {items.map((item, index) => (
-        <code key={index} className="landing-listing__item">
-          <Tokens source={listing(item, '  ')} />
-          {index < items.length - 1 ? ',' : ''}
-        </code>
-      ))}
-      <span className="landing-listing__bracket">]</span>
-    </pre>
-  );
-}
-
-/**
- * Rendering from data: the pair of widget renderers, and the proof.
+ * The demo is the section. The concept is that a page is data and the library
+ * renders it, and the only thing that proves that is data a reader can change
+ * and a preview that follows. The editor opens on the same items the preview
+ * first renders, serialised here on the server, so nothing moves at hydration.
  *
- * One model in two runtimes, so one description and a route into each -- two
- * cards side by side said nothing about the relationship. Beside it, the
- * `items` array this page was rendered from, because the page is a
- * `@evanion/react-widget` region and the section describing that library is
- * the place to show it.
+ * One model in two runtimes, so one description and a route into each; which
+ * runtime a reader wants is theirs to pick from the two names.
  */
-export function Pair({
-  group: id,
-  ctx,
-}: {
-  group: string;
-  ctx?: Record<string, unknown>;
-}) {
+export function Pair({ group: id }: { group: string }) {
   const group = groupById(id);
-  const items = Array.isArray(ctx?.items) ? ctx.items : [];
   const lead = members(group)[0];
 
   return (
@@ -167,33 +148,31 @@ export function Pair({
           </Title>
         }
       />
-      <div className="landing-pair">
-        <Card>
-          <Text measured>{group.line}</Text>
-          <ul className="landing-routes" aria-label={group.title}>
-            {members(group).map((entry) => (
-              <li key={entry.name} className={identity(entry)}>
-                <Title as="h3" size="md">
-                  <a className="landing-route__title" href={href(entry)}>
-                    {entry.title}
-                  </a>
-                </Title>
-                <Marker entry={entry} />
-                <ButtonLink href={href(entry)}>Read the manual</ButtonLink>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        {lead ? (
-          <figure className={`landing-listing ${identity(lead)}`}>
-            <figcaption className="landing-listing__caption">
-              This page is a {lead.title} region. These are its items, as the
-              page was rendered from them.
-            </figcaption>
-            <Listing items={items} />
-          </figure>
-        ) : null}
-      </div>
+      <Text measured>{group.line}</Text>
+      {lead ? (
+        <figure className={`landing-proof ${identity(lead)}`}>
+          <DataDemo initial={listing(demoItems)} />
+          <figcaption className="landing-proof__caption">
+            Edit the items and the preview follows. A type the map does not know
+            is reported, not rendered. This page is itself a {lead.title}{' '}
+            region, built the same way.
+          </figcaption>
+        </figure>
+      ) : null}
+      <ul className="landing-routes" aria-label={group.title}>
+        {members(group).map((entry) => (
+          <li key={entry.name} className={identity(entry)}>
+            <Title as="h3" size="md">
+              <a className="landing-route__title" href={href(entry)}>
+                {entry.title}
+              </a>
+            </Title>
+            <Text size="sm">{description(entry.root)}</Text>
+            <Marker entry={entry} status="chip" />
+            <ButtonLink href={href(entry)}>Read the manual</ButtonLink>
+          </li>
+        ))}
+      </ul>
     </>
   );
 }
@@ -233,6 +212,7 @@ export function Cards({ group: id }: { group: string }) {
             {group.title}
           </Title>
         }
+        aside="Every value on these cards was produced by running the package."
       />
       <Text measured>{group.line}</Text>
       <ul
@@ -255,6 +235,7 @@ export function Cards({ group: id }: { group: string }) {
               <Specimen slug={entry.slug} />
               <Text size="sm">{description(entry.root)}</Text>
             </Card>
+            <Ribbon entry={entry} />
           </li>
         ))}
       </ul>
@@ -267,7 +248,8 @@ export function Cards({ group: id }: { group: string }) {
  *
  * Rows rather than cards, because the group's reason for existing is that its
  * members share nothing, and a list of rows reads as a list of separate things
- * where a grid of cards reads as a set.
+ * where a grid of cards reads as a set. A row has no corner for a ribbon, so
+ * the unreleased mark is a chip here.
  */
 export function Rows({ group: id }: { group: string }) {
   const group = groupById(id);
@@ -291,7 +273,7 @@ export function Rows({ group: id }: { group: string }) {
               </a>
             </Title>
             <Text size="sm">{description(entry.root)}</Text>
-            <Marker entry={entry} />
+            <Marker entry={entry} status="chip" />
           </li>
         ))}
       </ul>
@@ -299,51 +281,38 @@ export function Rows({ group: id }: { group: string }) {
   );
 }
 
-function Elsewhere({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <li>
-      <a className="landing-link" href={href}>
-        {children}
-      </a>
-    </li>
-  );
-}
+const elsewhere = [
+  [
+    'https://github.com/Evanion/libraries',
+    'GitHub: issues, discussions, source',
+  ],
+  [
+    'https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md',
+    'Contributing',
+  ],
+  ['https://github.com/Evanion/libraries/blob/main/RELEASING.md', 'Releasing'],
+  [
+    'https://github.com/Evanion/libraries/blob/main/SECURITY.md',
+    'Security policy',
+  ],
+] as const;
 
-/** How the pages work, and where the rest of the project lives. */
-export function Colophon() {
+/** Where the rest of the project lives. */
+export function Elsewhere() {
   return (
-    <div className="landing-colophon">
-      <div>
-        <Title as="h2" size="sm">
-          Reading these pages
-        </Title>
-        <Text size="sm" measured>
-          Each package has an overview and then as many pages as its surface
-          needs. They assume the package is installed. Every value stated in an
-          example was produced by running the package. Some examples are pulled
-          out of the package&apos;s README at build time, and the README runs
-          them as tests.
-        </Text>
-      </div>
-      <div>
-        <Title as="h2" size="sm">
-          Elsewhere
-        </Title>
-        <ul className="landing-elsewhere">
-          <Elsewhere href="https://github.com/Evanion/libraries">
-            GitHub: issues, discussions, source
-          </Elsewhere>
-          <Elsewhere href="https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md">
-            Contributing
-          </Elsewhere>
-          <Elsewhere href="https://github.com/Evanion/libraries/blob/main/RELEASING.md">
-            Releasing
-          </Elsewhere>
-          <Elsewhere href="https://github.com/Evanion/libraries/blob/main/SECURITY.md">
-            Security policy
-          </Elsewhere>
-        </ul>
-      </div>
+    <div className="landing-elsewhere">
+      <Title as="h2" size="sm">
+        Elsewhere
+      </Title>
+      <ul className="landing-elsewhere__links">
+        {elsewhere.map(([url, label]) => (
+          <li key={url}>
+            <a className="landing-link" href={url}>
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

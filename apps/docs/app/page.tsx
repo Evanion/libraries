@@ -22,12 +22,8 @@ export const metadata = {
  * `items`, placed by `meta`, rendered by the component its `type` names in
  * `region.tsx`. That is not decoration: the widget libraries are the flagship
  * here, and a reader looking at this page is looking at one of them working.
- * The "Rendering from data" section shows the same `items`, serialised, next to
- * the sections they placed -- the claim and its proof in one place.
- *
- * `ctx` is the library's channel for page-level data, and the item list is
- * that: it belongs to the page, not to any one item, and a widget that wanted
- * the whole list as a prop would have had to be told about itself.
+ * The "Rendering from data" section says so, beside a demo built the same way
+ * whose items a reader can edit.
  *
  * `SkipNavContent` is the target the theme's skip link points at. The article
  * frame renders it for a document; here the page renders it itself.
@@ -36,7 +32,7 @@ export default function Page() {
   return (
     <>
       <SkipNavContent />
-      <Widgets items={items} ctx={{ items }} />
+      <Widgets items={items} />
     </>
   );
 }

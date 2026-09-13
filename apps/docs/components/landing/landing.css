@@ -7,8 +7,8 @@
  *
  * The page is a widget region: `.landing-section` is the item chrome, and the
  * `data-*` attributes on it are what `meta` in `items.ts` resolves to. The
- * classes below it are the sections, each a different shape -- a tile index, a
- * pair beside a listing, a row of cards, a list of rows -- because a page that
+ * classes below it are the sections, each a different shape -- a tile index, an
+ * editable demo, a row of cards, a list of rows -- because a page that
  * repeats one card grid reads as a list, and a reader scrolling for one package
  * has nothing to stop on.
  */
@@ -107,25 +107,66 @@
   background: color-mix(in oklab, var(--baize-hue) 18%, var(--baize-ink));
 }
 
-/* The marker: name and stack, each its own word. */
+/*
+ * The marker: the published name, then the stack as a chip in the platform's
+ * own colour. The chip binds its hue on itself, so it keeps React's cyan
+ * inside a tile that is amber all the way round it.
+ */
 .landing-marker {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--baize-space-1) var(--baize-space-3);
+  align-items: center;
+  gap: var(--baize-space-2) var(--baize-space-2);
   font-size: var(--baize-text-xs);
   letter-spacing: var(--baize-tracking-loose);
   color: var(--baize-moss);
 }
 
-.landing-marker__stack {
-  color: var(--baize-lichen);
+.landing-marker__name {
+  margin-right: var(--baize-space-1);
 }
 
-/* The unreleased chip is a status, not a package colour: pinned to the
-   secondary text so it reads the same on every card. */
-.landing-marker .baize-chip {
+/*
+ * The ribbon: a band across the top-right corner, the one corner a tile
+ * leaves empty, rotated so it reads as draped rather than placed.
+ *
+ * The outer box is the corner itself, clipping the band to the tile's rounded
+ * edge; clipping the tile instead would take a card's shadow with it. On the
+ * ground's colours, not a hue: the package's colour and the platform's are
+ * the page's two channels, and a status shouting from the corner would be a
+ * third.
+ */
+.landing-tile,
+.landing-cards > li {
+  position: relative;
+}
+
+.landing-ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6rem;
+  height: 6rem;
+  overflow: hidden;
+  border-top-right-radius: var(--baize-radius-card);
+  pointer-events: none;
+}
+
+.landing-ribbon__band {
+  position: absolute;
+  top: var(--baize-space-4);
+  right: calc(-1 * var(--baize-space-6));
+  width: 9rem;
+  padding: 2px 0;
+  transform: rotate(45deg);
+  border-top: 1px solid var(--baize-lichen);
+  border-bottom: 1px solid var(--baize-lichen);
+  background: var(--baize-felt);
   color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-loose);
+  text-align: center;
 }
 
 /* A title that is a link keeps the title's colour and gains an underline only
@@ -141,21 +182,149 @@
   text-decoration-thickness: 1px;
 }
 
-/* Rendering from data: the model on the left, the listing on the right. */
-.landing-pair {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: var(--baize-space-5);
-  align-items: start;
+/*
+ * Rendering from data: the demo, then a route into each runtime.
+ *
+ * The demo is a figure in the flagship's hue: the editor on the left, what the
+ * library renders from it on the right, and one caption under both. The hue
+ * on its edge and in its strings is what says "this is the widget library"
+ * without a label.
+ */
+.landing-proof {
+  margin: var(--baize-space-5) 0 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  border-radius: var(--baize-radius-card);
+  background: color-mix(in oklab, var(--baize-hue) 6%, var(--baize-ink));
 }
 
+.landing-proof__caption {
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border-top: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.landing-demo__editor,
+.landing-demo__preview {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+/* The preview is the page the items describe, so it sits on the page's own
+   material, raised off the editor beside it. */
+.landing-demo__preview {
+  border-left: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-felt);
+}
+
+/* What each side is, in the quiet colour: the variable on one, the call that
+   renders it on the other. */
+.landing-demo__label {
+  margin: 0;
+  color: var(--baize-moss);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+/*
+ * The editor: a text field set like the listing it holds, in the hue for the
+ * strings the way a code block would be. No border of its own; the figure's
+ * edge is its edge, and a box inside a box is what a textarea looks like when
+ * nobody styled it.
+ */
+.landing-demo__source {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 12rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--baize-hue);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-sm);
+  line-height: 1.55;
+  tab-size: 2;
+  resize: none;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Grows with its lines where the browser can; `rows` is set from the text
+     for the ones that cannot. */
+  field-sizing: content;
+}
+
+/* Focus is shown on the editor's edge, not as a ring around the field: the
+   field has no box of its own to ring. */
+.landing .landing-demo__source:focus-visible {
+  outline: none;
+}
+
+.landing-demo__editor:focus-within {
+  box-shadow: inset 3px 0 0 var(--baize-hue);
+}
+
+/* The rendered region: two columns, each item spanning what its meta says. */
+.landing-demo__stage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--baize-space-3);
+}
+
+.landing-demo__cell {
+  min-width: 0;
+  padding: var(--baize-space-3);
+  border: 1px dashed
+    color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+}
+
+.landing-demo__stat {
+  display: grid;
+  gap: var(--baize-space-1);
+  margin: 0;
+}
+
+/*
+ * What the validator said. Nextra's own red, as the playground uses: the
+ * design system has no error role, and a broken item reads like every other
+ * warning on the site.
+ */
+.landing-demo__problems {
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid var(--x-color-red-600);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(
+    in oklab,
+    var(--x-color-red-600) 12%,
+    var(--baize-felt)
+  );
+  color: var(--x-color-red-600);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  list-style: none;
+}
+
+/* The two runtimes, under the demo: a column each, the same shape. */
 .landing-routes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--baize-space-5);
-  margin: var(--baize-space-3) 0 0;
-  padding: var(--baize-space-4) 0 0;
-  border-top: 1px solid var(--baize-rule);
+  gap: var(--baize-space-6);
+  margin: var(--baize-space-6) 0 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -164,65 +333,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--baize-space-3);
-}
-
-/*
- * The listing: the page's own items, set as a design object rather than
- * dropped in a grey box. It carries the flagship's hue on its edge and in its
- * strings, which is what says "this is the widget library" without a label.
- */
-.landing-listing {
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
-  border-radius: var(--baize-radius-card);
-  background: color-mix(in oklab, var(--baize-hue) 6%, var(--baize-ink));
-}
-
-.landing-listing__caption {
-  padding: var(--baize-space-3) var(--baize-space-4);
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
-  color: var(--baize-lichen);
-  font-size: var(--baize-text-sm);
-}
-
-/*
- * The array, flowed into two columns: the brackets span the row, the items
- * fill it in order. Two columns beside the card is what puts the whole list
- * in view at once instead of twice the card's height down the page.
- */
-.landing-listing__code {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--baize-space-2) var(--baize-space-4);
-  margin: 0;
-  padding: var(--baize-space-4);
-  color: var(--baize-moss);
-  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
-  font-size: var(--baize-text-xs);
-  line-height: 1.5;
-  /* The hero's two sentences are the one long value; they wrap rather than
-     scroll, so the whole listing is readable without touching it. */
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.landing-listing__bracket {
-  grid-column: 1 / -1;
-}
-
-.landing-listing__item {
-  display: block;
-  font: inherit;
-}
-
-.landing-listing__key {
-  color: var(--baize-chalk);
-}
-
-.landing-listing__string {
-  color: var(--baize-hue);
+  padding-left: var(--baize-space-4);
+  border-left: 3px solid var(--baize-hue);
 }
 
 /* Identifiers and codes: one column per member, however many there are. */
@@ -297,22 +409,18 @@
   justify-content: flex-end;
 }
 
-/* The colophon: how the pages work, and the rest of the project. */
-.landing-colophon {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--baize-space-6);
-}
-
-.landing-colophon > div {
-  display: grid;
-  align-content: start;
-  gap: var(--baize-space-3);
-}
-
+/* Where the rest of the project lives: a heading and the links in one row. */
 .landing-elsewhere {
-  display: grid;
-  gap: var(--baize-space-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-3) var(--baize-space-6);
+}
+
+.landing-elsewhere__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2) var(--baize-space-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -346,10 +454,16 @@
 }
 
 @media (max-width: 52rem) {
-  .landing-pair,
-  .landing-cards,
-  .landing-colophon {
+  .landing-demo,
+  .landing-cards {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked, the preview sits under the editor rather than beside it. */
+  .landing-demo__preview {
+    border-left: 0;
+    border-top: 1px solid
+      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
   }
 
   .landing-row {
@@ -364,8 +478,7 @@
 
 @media (max-width: 30rem) {
   .landing-index,
-  .landing-routes,
-  .landing-listing__code {
+  .landing-routes {
     grid-template-columns: minmax(0, 1fr);
   }
 }

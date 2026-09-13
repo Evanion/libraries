@@ -60,7 +60,7 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
-    line: 'One model in two runtimes: a list of structured items, a map of the components that render them, and no provider in either. React Widget renders a region of React components, with each item checked against its component at compile time. Astro Widget renders Astro sections from CMS block data, at build time, shipping nothing to the browser.',
+    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. The same model in React and in Astro.',
   },
   {
     id: 'identifiers',
@@ -111,13 +111,14 @@ export interface DocumentedPackage {
   /** Which entry of `groups` this package sits under. */
   group: string;
   /**
-   * The stack the package runs in, as one short marker on its card.
+   * The stack the package runs in, as a chip on its card.
    *
-   * `any` is the real answer for a package that imports no framework, and the
-   * page said nothing about those at all -- a reader could not tell that URN,
-   * Luhn and Token work anywhere. `@evanion/feature` says `any + React` because
-   * both halves are true and dropping either misleads: the core imports no
-   * framework and the React adapter is a separate entry point.
+   * `universal` is the answer for a package that imports no framework: it runs
+   * wherever TypeScript does, and `any` said that to nobody. `@evanion/feature`
+   * says `universal + React` because both halves are true and dropping either
+   * misleads: the core imports no framework and the React adapter is a
+   * separate entry point. Each word has to be one
+   * `components/landing/platforms.ts` can paint.
    */
   framework: string;
   /**
@@ -167,7 +168,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'urn',
     title: 'URN',
     group: 'identifiers',
-    framework: 'any',
+    framework: 'universal',
     hue: 'periwinkle',
     documented: true,
     workshop: false,
@@ -178,7 +179,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'luhn',
     title: 'Luhn',
     group: 'identifiers',
-    framework: 'any',
+    framework: 'universal',
     hue: 'citron',
     documented: true,
     workshop: false,
@@ -189,7 +190,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'token',
     title: 'Token',
     group: 'identifiers',
-    framework: 'any',
+    framework: 'universal',
     hue: 'teal',
     documented: true,
     workshop: false,
@@ -222,7 +223,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'feature',
     title: 'Feature Toggles',
     group: 'standalone',
-    framework: 'any + React',
+    framework: 'universal + React',
     hue: 'amber',
     documented: true,
     workshop: true,
