@@ -130,11 +130,12 @@
  * The ribbon: a band across the top-right corner, the one corner a tile
  * leaves empty, rotated so it reads as draped rather than placed.
  *
- * The outer box is the corner itself, clipping the band to the tile's rounded
- * edge; clipping the tile instead would take a card's shadow with it. On the
- * ground's colours, not a hue: the package's colour and the platform's are
- * the page's two channels, and a status shouting from the corner would be a
- * third.
+ * The outer box lies over the whole tile and clips the band to the tile's own
+ * rounded edge, so the band's two ends leave through the top and the right and
+ * nothing hangs past the corner. Clipping the tile itself would take a card's
+ * shadow with it; this box has no shadow to lose. On the ground's colours, not
+ * a hue: the package's colour and the platform's are the page's two channels,
+ * and a status shouting from the corner would be a third.
  */
 .landing-tile,
 .landing-cards > li {
@@ -143,20 +144,17 @@
 
 .landing-ribbon {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 6rem;
-  height: 6rem;
+  inset: 0;
   overflow: hidden;
-  border-top-right-radius: var(--baize-radius-card);
+  border-radius: var(--baize-radius-card);
   pointer-events: none;
 }
 
 .landing-ribbon__band {
   position: absolute;
-  top: var(--baize-space-4);
+  top: var(--baize-space-3);
   right: calc(-1 * var(--baize-space-6));
-  width: 9rem;
+  width: 8rem;
   padding: 2px 0;
   transform: rotate(45deg);
   border-top: 1px solid var(--baize-lichen);
