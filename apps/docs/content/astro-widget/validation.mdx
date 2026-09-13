@@ -1,0 +1,122 @@
+# Validation
+
+`Widgets.astro` skips an unknown block type silently, so a bad CMS save can
+never break a render. Catch them loudly at build time instead.
+
+```js
+import { validateBlocks } from '@evanion/astro-widget';
+import { registry } from './src/registry';
+import page from './src/data/page.json';
+
+const problems = validateBlocks(page.sections, registry, { hero: ['heading'] });
+
+if (problems.length) {
+  for (const problem of problems) {
+    console.error(
+      `section ${problem.index} (${problem.type}): ${problem.message}`,
+    );
+  }
+  process.exit(1);
+}
+```
+
+This matters more here than in `@evanion/react-widget`, because it is the only
+check a block's props get. An `.astro` component exposes no prop types to infer
+from, so there is no compile-time half.
+
+## What it reports
+
+```ts
+interface BlockProblem {
+  index: number;
+  type: string;
+  message: string;
+}
+```
+
+| Message                | Raised when                                    |
+| ---------------------- | ---------------------------------------------- |
+| `blocks is not a list` | the root is not an array; `index` is `-1`      |
+| `unknown block type`   | `type` is not an own key of the registry       |
+| `missing field x`      | a field named in `required` is absent or blank |
+
+`type` is `'-'` when the block has none usable. Problems accumulate rather than
+short-circuiting, and nothing throws, so one run reports everything.
+
+## Required fields
+
+```ts
+validateBlocks(sections, registry, {
+  hero: ['heading'],
+  cards: ['heading', 'items'],
+});
+```
+
+The third argument maps a block type to the field names that must be present and
+non-blank. Blank means `undefined`, `null`, or a string that is whitespace only
+— a CMS text field that was opened and left empty arrives as the last of those,
+and is exactly the case a plain presence check misses.
+
+```ts
+validateBlocks([{ type: 'hero' }], { hero: Hero }, { hero: ['heading'] });
+// [{ index: 0, type: 'hero', message: 'missing field heading' }]
+
+validateBlocks(
+  [{ type: 'hero', heading: '   ' }],
+  { hero: Hero },
+  { hero: ['heading'] },
+);
+// [{ index: 0, type: 'hero', message: 'missing field heading' }]
+```
+
+Required fields are only checked for a block whose type is in the registry. An
+unknown type reports once, as an unknown type, rather than once plus one per
+field it does not have.
+
+## `index` is scoped to its own level
+
+The validator recurses into `children`, and `index` is the position within the
+block's own sibling list. A problem in a top-level section and a problem in one
+of its `children` can both report `index: 0`, meaning different things.
+
+```ts
+validateBlocks([{ type: 'cards', children: [{ type: 'nope' }] }], {
+  cards: Cards,
+});
+// [{ index: 0, type: 'nope', message: 'unknown block type' }]
+```
+
+Use `type` and `message` alongside `index`, or walk `children` yourself if you
+need an unambiguous path to the offending block. The problem list is flat.
+
+## Where to run it
+
+As a script before `astro build`, so a bad payload fails the build rather than
+shipping a page with a section missing:
+
+```json
+{
+  "scripts": {
+    "build": "node ./scripts/check-content.mjs && astro build"
+  }
+}
+```
+
+Or on the CMS webhook, so an editor learns about it at save time rather than at
+deploy time. Both is better: the webhook gives the fast feedback, the build gate
+is the one that cannot be skipped.
+
+A `BlockRegistry` is `Record<string, unknown>`, and only its keys are read, so a
+CI script that does not want to pull `.astro` modules into a plain Node process
+can hand it a bare object of names:
+
+```js
+validateBlocks(
+  page.sections,
+  { hero: true, cards: true },
+  { hero: ['heading'] },
+);
+```
+
+The real registry is the better argument where it is already imported, since the
+two cannot then disagree about which types exist.

@@ -1,0 +1,109 @@
+# API reference
+
+## `Widgets.astro`
+
+```astro
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+---
+
+<Widgets items={items} registry={registry} ctx={ctx} chrome={{ item: Section }} />
+```
+
+| Prop       | Type                      | Meaning                                 |
+| ---------- | ------------------------- | --------------------------------------- |
+| `items`    | `BlockItem[]`             | the blocks to render                    |
+| `registry` | `BlockRegistry`           | block type to component                 |
+| `ctx`      | `Record<string, unknown>` | page-level data, passed to every block  |
+| `chrome`   | `{ item?: unknown }`      | a component rendered around every block |
+
+Published as source, not as compiled output: an `.astro` module has to be
+compiled by Astro's own Vite plugin, which runs in the consuming project.
+
+What each block receives:
+
+```astro
+<Component {...props} id={id} ctx={ctx} children={children} />
+```
+
+where `props` is the block object minus `type`, `id`, `children` and `meta`. The
+chrome, when there is one, receives `type`, `id`, `meta` and the same `props`,
+and wraps that element in its slot.
+
+A non-array `items` renders nothing. A `type` that is not an own key of the
+registry is skipped, silently.
+
+## `defineBlocks(map)`
+
+```ts
+function defineBlocks<M extends BlockRegistry>(map: M): M;
+```
+
+Returns the map unchanged, typed as the literal object that was passed. The
+generic parameter is the whole point — annotating the same object as
+`BlockRegistry` widens its keys to `string`, and the key union is what an editor
+completes on.
+
+## `validateBlocks(items, registry, required?)`
+
+```ts
+function validateBlocks(
+  items: BlockItem[],
+  registry: BlockRegistry,
+  required?: Record<string, string[]>,
+): BlockProblem[];
+```
+
+Checks a block list against a registry, recursing into `children`. Returns
+problems rather than throwing, and accumulates rather than short-circuiting.
+
+`required` maps a block type to field names that must be present and non-blank,
+where blank means `undefined`, `null` or whitespace only.
+
+See [Validation](/astro-widget/validation) for the messages and for where to run
+it.
+
+## Types
+
+### `BlockItem`
+
+```ts
+interface BlockItem {
+  type: string;
+  id?: string;
+  children?: BlockItem[];
+  meta?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+```
+
+The index signature is what makes the CMS's own fields legal on the object, and
+it is also why this type checks almost nothing. `validateBlocks` is the check.
+
+### `BlockRegistry`
+
+```ts
+type BlockRegistry = Record<string, unknown>;
+```
+
+The values are `unknown` rather than a component type. An `.astro` module's
+default export is an `AstroComponentFactory`, which carries no prop types — the
+props of a `.astro` file live in its frontmatter `Props` interface and are not
+reachable from the factory's type.
+
+So a narrower value type would buy nothing: there is nothing to infer a block's
+props from, which is the difference from `@evanion/react-widget` and the reason
+`validateBlocks` exists.
+
+### `BlockProblem`
+
+```ts
+interface BlockProblem {
+  index: number; // within the block's own sibling list; -1 when the root is not a list
+  type: string; // or '-' when the block has none usable
+  message: string;
+}
+```
+
+Mirrors react-widget's `WidgetItemProblem`, minus `id` — a block's `id` is
+optional there, so it is not a usable handle for reporting.

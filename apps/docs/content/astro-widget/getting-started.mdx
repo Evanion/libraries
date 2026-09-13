@@ -1,0 +1,162 @@
+# Getting started
+
+## The registry
+
+```ts
+// src/registry.ts
+import { defineBlocks } from '@evanion/astro-widget';
+import Hero from './blocks/Hero.astro';
+import Cards from './blocks/Cards.astro';
+
+export const registry = defineBlocks({ hero: Hero, cards: Cards });
+```
+
+`defineBlocks` returns the object unchanged. Its only job is the generic
+parameter: annotating the same object as `BlockRegistry` widens its keys to
+`string`, and the key union is what an editor completes on and what
+`validateBlocks` narrows a `required` map against.
+
+```ts
+const registry = defineBlocks({ hero: Hero, cards: Cards });
+//    ^? { hero: AstroComponentFactory; cards: AstroComponentFactory }
+```
+
+## Rendering
+
+```astro
+---
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import { registry } from '../registry';
+import page from '../data/page.json';
+---
+
+<Widgets items={page.sections} registry={registry} />
+```
+
+| Prop       | Meaning                                                |
+| ---------- | ------------------------------------------------------ |
+| `items`    | the blocks to render                                   |
+| `registry` | block type to component                                |
+| `ctx`      | page-level data, passed to every block as a `ctx` prop |
+| `chrome`   | `{ item }` — a component rendered around every block   |
+
+An `items` that is not an array renders nothing rather than throwing.
+
+## The data shape
+
+```ts
+interface BlockItem {
+  type: string; // must be a key in the registry
+  id?: string; // optional, useful as a DOM anchor
+  children?: BlockItem[];
+  meta?: Record<string, unknown>;
+  [key: string]: unknown; // everything else becomes props
+}
+```
+
+`type`, `id`, `children` and `meta` are the renderer's own fields. Everything
+else on the object is spread into the block as props, so a CMS that writes
+
+```json
+{ "type": "hero", "heading": "Hello", "eyebrow": "New" }
+```
+
+renders `<Hero heading="Hello" eyebrow="New" id={undefined} ctx={ctx} />`.
+
+`id` reaches the block as well as the chrome, because a block often wants it as
+an anchor target. `meta` does not: where a block sits is not something the block
+should know.
+
+## `ctx`
+
+```astro
+<Widgets items={sections} registry={registry} ctx={{ site: Astro.site, locale }} />
+```
+
+Every block receives `ctx` as a prop. A prop rather than a provider: an Astro
+component runs once, top down, and has no render-time context to read from.
+
+This is the counterpart to `@evanion/react-widget`'s `ctx`, under the same name,
+so a block ported between the two reads the same field.
+
+## Chrome
+
+Wrap every block without each block reimplementing section markup:
+
+```astro
+<Widgets items={items} registry={registry} chrome={{ item: Section }} />
+```
+
+`Section` receives the block's `type`, `id` and `meta`, plus the block's own
+props, and it must render `<slot />`:
+
+```astro
+---
+// Section.astro
+interface Props {
+  type: string;
+  id?: string;
+  meta?: { background?: string };
+}
+
+const { type, id, meta } = Astro.props;
+---
+
+<section
+  id={id}
+  data-block={type}
+  class:list={['block', meta?.background && `bg-${meta.background}`]}
+>
+  <slot />
+</section>
+```
+
+An Astro component that does not render its slot discards the content passed to
+it, so a chrome missing `<slot />` makes every block vanish from the page — with
+nothing thrown and nothing logged. That is the first thing to check when a page
+comes out empty.
+
+`meta` is the placement channel: grid column, background, CMS edit affordances.
+It is handed to the chrome and never spread into the block.
+
+## Nesting
+
+The renderer does not recurse. `children` on a `BlockItem` is forwarded to its
+block as ordinary prop data, nothing more — Astro projects child content through
+`<slot />`, never through a `children` prop, so there is nothing for a renderer
+to pass nested blocks into.
+
+A block that wants nested sections renders them itself:
+
+```astro
+---
+// Cards.astro
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import { registry } from '../registry';
+
+const { children = [], heading } = Astro.props;
+---
+
+<section>
+  <h2>{heading}</h2>
+  <Widgets items={children} registry={registry} />
+</section>
+```
+
+The registry has to be imported again, because the nested `<Widgets>` is a fresh
+call with its own props. Importing it from one module — as
+`src/registry.ts` above — keeps that from becoming a second registry that drifts.
+
+## Unknown types are skipped
+
+A block whose `type` is not a key of the registry renders nothing. No throw, no
+warning: a gap in build-time validation must not take a page down mid-render.
+
+That makes [`validateBlocks`](/astro-widget/validation) the loud gate, and this
+the net underneath it. Run the validator, or a bad CMS save is a silently
+missing section.
+
+Registry lookup uses `Object.prototype.hasOwnProperty`, so a block typed
+`constructor`, `toString` or `__proto__` is skipped like any other unknown type
+rather than resolving to a function off `Object.prototype` and reaching Astro as
+a component. Blocks are CMS data, so any string is reachable.
