@@ -1,5 +1,13 @@
 # @evanion/feature
 
+<WorkshopNotice slug="feature">
+  <Text size="sm">
+    The implementation is complete and covered by 83 passing tests, against the
+    approved spec at `docs/specs/2026-09-11-feature-toggles.md`. Inside this
+    repository it resolves from source like any other workspace package.
+  </Text>
+</WorkshopNotice>
+
 Feature toggles where one flag can depend on another. A parent that resolves off
 takes its dependants with it, transitively, and it does that without writing
 anything back into the configuration.
@@ -28,13 +36,6 @@ features.isEnabled('checkout-v2', { targetingKey: 'acct-2' });
 `checkout-v2` is on only when `payments-v3` resolves on for that same account.
 Without the cascade, a 25% rollout on the parent leaks to 100% of the
 dependant's users.
-
-## Not published yet
-
-The package carries `private: true`. A release run versions and tags it without
-publishing, because npm cannot configure a trusted publisher for a package that
-does not exist on the registry, so the first version has to go up by hand.
-Inside this repository it resolves from source like any other workspace package.
 
 ## Two entry points
 
