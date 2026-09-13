@@ -2,7 +2,7 @@
   "name": "@evanion/feature",
   "version": "0.0.1",
   "private": true,
-  "description": "Dependency-aware feature toggles. Cascading prerequisites, rule-based activation and deterministic rollout bucketing, with a framework-free core.",
+  "description": "Feature toggles that depend on each other: turning one flag off turns off the flags that need it, and a parent's 25% rollout does not leak to 100% of its dependants.",
   "keywords": [
     "feature-flags",
     "feature-toggles",
