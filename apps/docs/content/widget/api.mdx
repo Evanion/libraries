@@ -1,171 +1,267 @@
-# API Reference
+# API reference
 
-Complete reference for the React Widget System API.
+Every export of `@evanion/react-widget`.
 
-## Core Functions
-
-### createWidgets
-
-Creates a widget system with defined components and optional chrome (wrappers).
+## `createWidgets(config)`
 
 ```tsx
-import { createWidgets } from '@evanion/react-widget';
+function createWidgets<const C extends WidgetComponentMap, M = WidgetMeta>(
+  config: WidgetsConfig<C, M>,
+): {
+  // memo()-wrapped
+  Widgets: ComponentType<WidgetsProps<C, M>>;
+  defineItems: (items: WidgetItem<C, M>[]) => WidgetItem<C, M>[];
+  validateItems: (items: unknown) => WidgetItemProblem[];
+};
 ```
 
-#### Parameters
+Call once, at module scope.
 
-| Parameter | Type                   | Description                                     |
-| --------- | ---------------------- | ----------------------------------------------- |
-| `config`  | `WidgetsConfig<Items>` | Configuration object with components and chrome |
+### `config`
 
-#### Returns
+| Field                     | Meaning                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `components`              | widget type → component. Drives inference for the whole set                            |
+| `chrome.wrapper`          | rendered around the whole set. Defaults to `<section>`                                 |
+| `chrome.item`             | rendered around each widget. Defaults to a `<div>` with the `data-widget-*` attributes |
+| `chrome.suspense`         | `'per-item'` (default) or `'none'`                                                     |
+| `chrome.suspenseFallback` | rendered while a widget suspends. Defaults to nothing                                  |
 
-| Property          | Type                                                     | Description                                   |
-| ----------------- | -------------------------------------------------------- | --------------------------------------------- |
-| `Widgets`         | `React.ComponentType<WidgetsProps<Items>>`               | Main widget rendering component               |
-| `WidgetsProvider` | `React.ComponentType<{ value: Components }>`             | Context provider for components               |
-| `useWidgets`      | `() => Components`                                       | Hook to access widget components from context |
-| `Output`          | `React.ComponentType<{ items?: WidgetProps<string>[] }>` | Component for rendering nested widgets        |
+### The two type parameters
 
-#### Example
+`C` is the component map, inferred from `config.components`. `M` is the item
+`meta` vocabulary, inferred from `config.chrome.item`.
+
+Neither is meant to be passed by hand. Naming `M` explicitly costs the inference
+of `C`, and `chrome.item` is the only thing that reads `meta`, so a set with no
+such chrome has nothing to check `meta` against — there, and for an unannotated
+chrome, `meta` stays any object.
+
+## `<Widgets>`
+
+| Prop         | Type                      | Meaning                                               |
+| ------------ | ------------------------- | ----------------------------------------------------- |
+| `items`      | `WidgetItem<C, M>[]`      | the items to render                                   |
+| `components` | `Partial<C>`              | per-instance overrides, merged over the factory's map |
+| `chrome`     | `WidgetsChrome<M>`        | per-instance chrome overrides                         |
+| `ctx`        | `Record<string, unknown>` | page-level data passed to every widget as a prop      |
+
+Wrapped in `memo()`. An `items` prop that is not an array is skipped with a
+development warning and renders `null`.
+
+Chrome is resolved per field, not per object: an instance `chrome` that sets
+only `wrapper` keeps the factory's `item`, `suspense` and `suspenseFallback`.
+
+`ctx` follows the props spread, so the renderer's value wins over anything an
+item carries under that name — including when the renderer has none and the
+widget is handed `undefined`. Items are untrusted input, and `WidgetDataProps`
+omits `ctx`, so a typed item cannot express one at all.
+
+## `validateItems(items, known)`
+
+```ts
+function validateItems(
+  items: unknown,
+  known: WidgetComponentMap | readonly string[],
+): WidgetItemProblem[];
+```
+
+Checks data that never met the type checker. Returns problems rather than
+throwing, accumulates rather than short-circuiting, and recurses into
+`children`.
+
+Two entry points. The standalone export takes a plain list of type names, so a
+webhook handler or a CI script can validate a payload without importing React
+components it will never render. The bound form off `createWidgets` uses the
+factory's component map.
+
+```ts
+validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
+// [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
+```
+
+A problem is `{ index, id, type, message }`. `index` is the position within the
+item's own sibling list, so a problem at the top level and one inside a
+`children` array can both report `index: 0`. `id` and `type` are `'-'` when the
+item has none usable.
+
+The messages, all exported as `VALIDATION_MESSAGES`:
+
+| Constant           | Message                     | Raised when                                 |
+| ------------------ | --------------------------- | ------------------------------------------- |
+| `NOT_A_LIST`       | `items is not a list`       | the root is not an array; `index` is `-1`   |
+| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is null, an array, or a primitive  |
+| `INVALID_ID`       | `item id is not a string`   | `id` is missing or not a string             |
+| `INVALID_TYPE`     | `item type is not a string` | `type` is missing or not a string           |
+| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set   |
+| `INVALID_PROPS`    | `props is not an object`    | `props` is present and not a plain object   |
+| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and not an array      |
+| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list share an `id` |
+
+Duplicate ids are only reported within one sibling list. React scopes keys per
+list, so the same id at different depths is fine.
+
+`props` is not checked against the component. That is `WidgetItem<C>`'s job and
+it does it at compile time; `validateItems` covers structure, which is all it can
+see given a list of type names.
+
+Lookups use `Object.prototype.hasOwnProperty` rather than `in`. Items are
+untrusted input, and `in` walks the prototype chain — a CMS-supplied type of
+`constructor`, `toString` or `__proto__` would otherwise pass as registered.
+
+## `DefaultWrapper`
 
 ```tsx
-const { Widgets, WidgetsProvider, useWidgets, Output } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
-  chrome: {
-    wrapper: ({ children }) => <aside>{children}</aside>,
-    item: ({ children }) => <div className="widget-item">{children}</div>,
-  },
-});
+function DefaultWrapper(props: HTMLProps<HTMLDivElement>): ReactElement;
 ```
+
+A `<section>` carrying whatever props it is handed. `<section>` rather than
+`<div>` because a named section maps to the `region` landmark role, so a caller
+who passes `aria-label` gets a region reachable by landmark navigation and one
+who does not is no worse off.
+
+## `DefaultItem`
+
+```tsx
+function DefaultItem(
+  props: HTMLProps<HTMLDivElement> & { meta?: Record<string, unknown> },
+): ReactElement;
+```
+
+A `<div>` carrying `data-widget-id` and `data-widget-type`, which CMS
+click-to-edit overlays, analytics and E2E selectors key off.
+
+`meta` is dropped rather than forwarded. It is arbitrary consumer data with no
+meaning to the DOM, and React warns about an unknown attribute on every key of
+it that reaches an element. Reading `meta` is what a custom `chrome.item` is for.
+
+Neither default carries an error boundary or a Suspense boundary. The Suspense
+boundary lives in the renderer; error boundaries are not in this package at all.
+
+## `ERROR_MESSAGES`
+
+What the renderer passes to its warn-once logger.
+
+| Key                  | Shape                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `UNKNOWN_WIDGET`     | `(type, id) => 'Unknown widget type "…" for widget ID "…". Skipping render.'`         |
+| `MALFORMED_ITEMS`    | a string: the `items` prop was not an array                                           |
+| `MALFORMED_ITEM`     | `(id, type) => 'Malformed widget item (id="…", type="…"). Skipping render.'`          |
+| `MALFORMED_CHILDREN` | a function of `id`: the item's children were not an array, so it renders without them |
+| `UNKNOWN`            | the literal `'unknown'`, used where an id or type is unusable                         |
+
+Each message names the offending item, which is what makes the message text a
+usable key: every bad item is reported once per process, and a second bad item
+is still reported separately.
 
 ## Types
 
-### WidgetProps
+### `WidgetItem<C, M>`
 
-Defines the structure of a widget item.
+The checked item union, distributed over the keys of the component map. `type`
+narrows `props` to that component's props minus `children` and `ctx`, `meta` is
+typed `M`, and `children` is gated on whether the component accepts it.
 
-```tsx
-interface WidgetProps<Type extends string, Props = object> {
-  id: string; // Unique identifier
-  type: Type; // Widget type (must match component key)
-  props: Props; // Props to pass to the widget component
-  children: WidgetProps<string>[]; // Optional nested widgets
+`M` does not distribute over `keyof C`: one chrome reads every item's `meta`, so
+there is one vocabulary per set rather than one per widget type.
+
+### `WidgetDataProps<C>`
+
+`Omit<ComponentProps<C>, 'children' | 'ctx'>`, except that a component with no
+remaining props resolves to `Record<string, never>` rather than `{}`.
+
+### `WidgetChildren<C, K, M>`
+
+`WidgetItem<C, M>[]` when `C[K]` accepts `children`, and `never` when it does
+not. The `never` is what makes nesting under such a widget a compile error
+instead of a dropped subtree.
+
+### `WidgetMeta`
+
+`Record<string, unknown>`. The `meta` vocabulary of a set whose chrome declares
+none.
+
+### `WidgetsChrome<M>`
+
+```ts
+interface WidgetsChrome<M = WidgetMeta> {
+  wrapper?: WidgetsWrapperComponent;
+  item?: WidgetItemComponent<M>;
+  suspense?: 'per-item' | 'none';
+  suspenseFallback?: ReactNode;
 }
 ```
 
-### WidgetComponent
+### `WidgetItemComponent<M>`
 
-Type for widget component functions.
-
-```tsx
-type WidgetComponent<
-  Items extends Record<string, WidgetProps<string>>,
-  Type extends keyof Items,
-> = React.ComponentType<Items[Type]['props']>;
+```ts
+type WidgetItemComponent<M = WidgetMeta> = ComponentType<{
+  children?: ReactNode;
+  'data-widget-id': string;
+  'data-widget-type': string;
+  meta?: M;
+}>;
 ```
 
-### WidgetsConfig
+Annotating one of these is what types the whole set's `meta`.
 
-Configuration object for creating a widget system.
+### `WidgetsWrapperComponent`
 
-```tsx
-interface WidgetsConfig<Items extends Record<string, WidgetProps<string>>> {
-  components: {
-    [K in keyof Items]: WidgetComponent<Items, K>;
-  };
-  chrome?: {
-    wrapper?: React.ComponentType<PropsWithChildren>;
-    item?: React.ComponentType<PropsWithChildren>;
-  };
-  context?: Context<{
-    [K in keyof Items]: WidgetComponent<Items, K>;
-  }>;
+`ComponentType<{ children?: ReactNode }>`. The region wrapper receives its
+children and nothing else.
+
+### `WidgetProps<Type, Props>`
+
+```ts
+interface WidgetProps<Type extends string = string, Props = object> {
+  id: string;
+  type: Type;
+  props: Props;
+  meta?: Record<string, unknown>;
+  children?: WidgetProps[];
 }
 ```
 
-### WidgetsProps
+A loose item shape for callers building item data before a component map exists
+— a CMS payload, a fixture, a network response. It checks nothing against a
+component. Prefer `WidgetItem`.
 
-Props for the Widgets component.
+### `RenderableWidgetItem`
 
-```tsx
-interface WidgetsProps<
-  Items extends Record<string, WidgetProps<string>>,
-  Config extends WidgetsConfig<Items> = WidgetsConfig<Items>,
-> extends Partial<Config> {
-  items: WidgetProps<string>[];
-}
-```
+The type-erased view the renderer uses internally. The checked union is widened
+to this exactly once, at the boundary between the public props and the render
+loop: spreading a discriminated union of this size directly onto a component
+makes TypeScript give up with "union type that is too complex to represent".
 
-## Default Components
+### `AnyWidgetComponent`
 
-### DefaultWrapper
+`ComponentType<any>`, for use in a generic constraint. `ComponentType<unknown>`
+would reject a component with concrete props, because component props are
+contravariant. Inference is unaffected — `ComponentProps<C[K]>` resolves against
+the concrete component that was passed.
 
-Default wrapper component that renders as a `<section>` element.
+### Others
 
-```tsx
-import { DefaultWrapper } from '@evanion/react-widget';
+`WidgetComponentMap`, `WidgetsConfig<C, M>`, `WidgetsProps<C, M>`,
+`WidgetSuspenseMode`, `WidgetItemProblem`, `KnownWidgetTypes`.
 
-<DefaultWrapper className="my-widgets">{/* Widget content */}</DefaultWrapper>;
-```
+## Migrating from 0.1.x
 
-### DefaultItem
+0.2.0 removed everything that could not exist under React's `react-server`
+export condition.
 
-Default item wrapper with error boundary and suspense support.
+| Removed                                                                                                         | Replacement                                                                  |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `'use client'`                                                                                                  | none needed; the package is importable from an RSC                           |
+| `WidgetsProvider`, `useWidgets`, `WidgetsConfig.context`                                                        | call `createWidgets` once at module scope                                    |
+| the injected `Output` prop and `<Output/>`                                                                      | read `children`                                                              |
+| `WidgetOutputProps`                                                                                             | none needed                                                                  |
+| the default `WidgetErrorBoundary`                                                                               | your own boundary in a custom `chrome.item`, in your own `'use client'` file |
+| `DEFAULT_STYLES.LOADING`                                                                                        | `chrome.suspenseFallback`                                                    |
+| `DEFAULT_STYLES.ERROR`, `ERROR_MESSAGES.WIDGET_ERROR`, `ERROR_MESSAGES.WIDGET_FAILED`, `ERROR_MESSAGES.LOADING` | gone with the boundary that used them                                        |
 
-```tsx
-import { DefaultItem } from '@evanion/react-widget';
+`renderWidget` and `NestedWidgetsContext` are no longer exported: the nesting
+mechanism is internal, so changing it is not a breaking release.
 
-<DefaultItem data-widget-id="my-widget" data-widget-type="news">
-  {/* Widget content */}
-</DefaultItem>;
-```
-
-## Error Handling
-
-The system includes built-in error handling:
-
-- **Error Boundaries** - Catch widget rendering errors
-- **Unknown Widget Types** - Skip unknown widgets with console warnings
-- **Loading States** - Suspense fallback for lazy-loaded widgets
-
-## Constants
-
-### ERROR_MESSAGES
-
-Predefined error messages for consistent error handling.
-
-```tsx
-import { ERROR_MESSAGES } from '@evanion/react-widget';
-
-ERROR_MESSAGES.UNKNOWN_WIDGET('news', 'widget-1');
-// "Unknown widget type "news" for widget ID "widget-1". Skipping render."
-
-ERROR_MESSAGES.WIDGET_ERROR('news', 'widget-1');
-// "Widget Error: news (ID: widget-1)"
-
-ERROR_MESSAGES.WIDGET_FAILED('news');
-// "Widget failed to render: news"
-
-ERROR_MESSAGES.LOADING;
-// "Loading widget..."
-```
-
-### DEFAULT_STYLES
-
-Default styling for error and loading states.
-
-```tsx
-import { DEFAULT_STYLES } from '@evanion/react-widget';
-
-// Error state styling
-DEFAULT_STYLES.ERROR;
-// { padding: '8px', border: '1px solid #ff6b6b', ... }
-
-// Loading state styling
-DEFAULT_STYLES.LOADING;
-// { padding: '8px', border: '1px solid #ddd', ... }
-```
+Added since: `meta` and its typing through `chrome.item`, `chrome.suspense`, and
+`validateItems`.

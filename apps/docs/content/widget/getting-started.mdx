@@ -1,10 +1,6 @@
-# Getting Started
+# Getting started
 
-Learn how to build dynamic, composable user interfaces with the React Widget System.
-
-## Installation
-
-Install the package using your preferred package manager:
+## Install
 
 ```bash
 npm install @evanion/react-widget
@@ -18,183 +14,182 @@ yarn add @evanion/react-widget
 pnpm add @evanion/react-widget
 ```
 
-## Core Concepts
+React 18 or 19 is the peer dependency. Node 20 or newer. The package is ESM only.
 
-The React Widget System is built around three main concepts:
+## Three pieces
 
-1. **Widget Components** - React components that define how widgets look and behave
-2. **Widget Configuration** - Data that describes which widgets to render and with what props
-3. **Widget System** - The engine that renders widgets from configuration
-
-## Basic Example
-
-Let's create a simple blog sidebar with news and user information:
+A widget set is a component map, a list of items, and the `Widgets`
+component that renders one against the other.
 
 ```tsx
 import { createWidgets } from '@evanion/react-widget';
 
-// 1. Define your widget components
-const NewsTeaser = ({ title, publishedAt, body }) => (
-  <article className="news-teaser">
+// 1. The components.
+const NewsTeaser = ({ title, body }: { title: string; body: string }) => (
+  <article>
     <h3>{title}</h3>
-    <time>{publishedAt.toLocaleDateString()}</time>
     <p>{body}</p>
   </article>
 );
 
-const UserSidebar = ({ username, avatar, messages }) => (
-  <div className="user-info">
-    <img src={avatar} alt={username} />
+const UserSidebar = ({
+  username,
+  messages,
+}: {
+  username: string;
+  messages: number;
+}) => (
+  <div>
     <span>{username}</span>
     <span>{messages} messages</span>
   </div>
 );
 
-// 2. Create the widget system
+// 2. The set. Call createWidgets once, at module scope.
 const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
+  components: { news: NewsTeaser, userInfo: UserSidebar },
+  chrome: {
+    wrapper: ({ children }) => <aside className="sidebar">{children}</aside>,
   },
 });
 
-// 3. Define your layout data
-const sidebarItems = [
-  {
-    id: 'userinfo',
-    type: 'userInfo',
-    props: {
-      username: 'Evanion',
-      avatar: 'https://evanion.com/avatar.jpg',
-      messages: 5,
-    },
-  },
-  {
-    id: 'news1',
-    type: 'news',
-    props: {
-      title: 'Breaking News',
-      publishedAt: new Date('2024-01-15'),
-      body: 'This is a sample news article...',
-    },
-  },
-];
-
-// 4. Render your widgets
-function BlogSidebar() {
-  return <Widgets items={sidebarItems} />;
+// 3. The items.
+export default function Page() {
+  return (
+    <Widgets
+      items={[
+        {
+          id: 'u1',
+          type: 'userInfo',
+          props: { username: 'Evanion', messages: 5 },
+        },
+        { id: 'n1', type: 'news', props: { title: 'Hello', body: '…' } },
+      ]}
+    />
+  );
 }
 ```
 
-## Live Demo
+That page can be a Server Component. Nothing in the package forces the widgets
+into the client bundle; a widget that needs client state carries its own
+`'use client'` and nothing else changes.
 
-Try editing the code below to see how the widget system works:
+### Why once at module scope
 
-<WidgetPlayground
-  initialCode={`const NewsTeaser = ({ title, publishedAt, body }: { title: string; publishedAt: Date; body: string }) => (
-  <article className="border border-gray-300 dark:border-gray-600 p-4 my-2 rounded-lg bg-white dark:bg-gray-800">
-    <h3 className="mb-2 text-gray-900 dark:text-gray-100 font-semibold">{title}</h3>
-    <time className="text-gray-600 dark:text-gray-400 text-sm">
-      {publishedAt.toLocaleDateString()}
-    </time>
-    <p className="mt-2 text-gray-700 dark:text-gray-300">{body}</p>
-  </article>
-);
+`createWidgets` is a factory, not a hook and not a provider. Calling it inside a
+component builds a new `Widgets` identity on every render, which remounts the
+whole region. There is no provider to call it from instead: React's
+`react-server` export condition has no `createContext`.
 
-const UserSidebar = ({ username, avatar, messages }: { username: string; avatar: string; messages: number }) => (
+## The item shape
 
-{' '}
-
-<div className="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg my-2 bg-white dark:bg-gray-800">
-  <img src={avatar} alt={username} className="w-10 h-10 rounded-full mr-3" />
-  <div>
-    <div className="font-bold text-gray-900 dark:text-gray-100">{username}</div>
-    <div className="text-sm text-gray-600 dark:text-gray-400">
-      {messages} messages
-    </div>
-  </div>
-</div>
-);
-
-const { Widgets } = createWidgets({
-components: {
-news: NewsTeaser,
-userInfo: UserSidebar,
-},
-});
-
-const items = [
+```ts
 {
-id: 'userinfo',
-type: 'userInfo',
-props: {
-username: 'Evanion',
-avatar: 'https://via.placeholder.com/40',
-messages: 5,
-},
-children: [],
-},
-{
-id: 'news1',
-type: 'news',
-props: {
-title: 'Breaking News',
-publishedAt: new Date(),
-body: 'Try editing this text to see the widget update!',
-},
-children: [],
-},
-];
-
-render(<Widgets items={items} />)`} height={400}
-/>
-
-## Widget Data Structure
-
-Each widget item follows this structure:
-
-```tsx
-interface WidgetItem {
-  id: string; // Unique identifier
-  type: string; // Widget type (must match a component key)
-  props: object; // Props to pass to the widget component
-  children?: WidgetItem[]; // Optional nested widgets
+  id: string;                    // stable identity, used as the React key
+  type: keyof typeof components; // which component to render
+  props: ComponentProps<That>;   // minus `children` and `ctx`
+  meta?: M;                      // for chrome.item only
+  children?: Item[];             // only if that component accepts children
 }
 ```
 
-## TypeScript Support
+`props` excludes `children` and `ctx` because the renderer supplies both. A
+widget may declare `ctx` required without every item having to repeat a value
+`<Widgets>` is going to pass anyway, and an item cannot override it.
 
-The library provides full TypeScript support with generic types:
+A widget whose component declares no props at all gets
+`props: Record<string, never>` rather than `{}`. TypeScript assigns any object
+to `{}` without an excess-property check, so `props: { totally: 'bogus' }` on a
+zero-prop widget would otherwise compile clean — a hole in the guarantee,
+opening exactly where the component is simplest.
+
+## Typing items held in a variable
+
+Written inline in JSX, an item array is already contextually typed. Assigned to
+a variable it is not: `const items = [{ type: 'news', … }]` infers
+`type: string`, which cannot narrow to the map's keys, and the check is silently
+lost.
+
+`defineItems` is the identity function that supplies the type:
 
 ```tsx
-import { createWidgets, WidgetProps } from '@evanion/react-widget';
-
-// Define your widget types
-type MyWidgets = {
-  news: WidgetProps<'news', { title: string; publishedAt: Date; body: string }>;
-  userInfo: WidgetProps<
-    'userInfo',
-    { username: string; avatar: string; messages: number }
-  >;
-};
-
-// Create typed widget system
-const { Widgets } = createWidgets<MyWidgets>({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
+const { Widgets, defineItems } = createWidgets({
+  components: { news: NewsTeaser, weather: WeatherCard },
 });
+
+const items = defineItems([
+  { id: '1', type: 'news', props: { title: 'Hello', body: '…' } },
+  { id: '2', type: 'nope', props: {} }, // ✗ not a key of the map
+  { id: '3', type: 'weather', props: { celsius: 'warm' } }, // ✗ celsius is a number
+]);
 ```
 
-## Next Steps
+`satisfies WidgetItem<typeof components>[]` works too, if you would rather not
+destructure a second name off the factory.
 
-- Explore the [API Reference](/widget/api) for complete documentation
-- Check out [Examples](/widget/examples) for real-world usage patterns
-- Learn about [Advanced Patterns](/widget/advanced) for custom chrome and nested widgets
+## Nesting
 
-## Need Help?
+Nested items render as the parent component's `children`:
 
-- Check our [FAQ](/widget/faq) for common questions
-- Join our [Discord community](https://discord.gg/your-discord) for support
-- Report issues on [GitHub](https://github.com/evanion/open-source/issues)
+```tsx
+const Card = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+  <section>
+    <h3>{title}</h3>
+    {children}
+  </section>
+);
+
+const { Widgets } = createWidgets({ components: { card: Card, text: Text } });
+
+<Widgets
+  items={[
+    {
+      id: 'c1',
+      type: 'card',
+      props: { title: 'My card' },
+      children: [{ id: 't1', type: 'text', props: { content: 'Nested' } }],
+    },
+  ]}
+/>;
+```
+
+`children` is type-gated: permitted only when the mapped component actually
+accepts `children`, and typed `never` otherwise. Nesting under a widget that
+would drop the child items is a compile error rather than content that silently
+disappears.
+
+There is no `Output` component and no outlet prop. A widget renders its nested
+items by rendering `children`, like any other React component.
+
+## What happens to bad data
+
+The type checker covers items you wrote. For a CMS payload it does not, and the
+renderer stays defensive: a malformed item, an unknown `type`, or a non-array
+`children` is skipped with a development-only `console.warn` rather than taking
+the page down.
+
+Each message is logged once per process, keyed on its own text — which carries
+the offending item's `id` and `type`, so a second bad item is still reported
+separately. Nothing is logged when `NODE_ENV` is `production`.
+
+Run the loud check yourself at ingestion or in CI:
+
+```ts
+import { validateItems } from '@evanion/react-widget';
+
+const problems = validateItems(payload, ['news', 'weather', 'card']);
+if (problems.length) {
+  console.error(problems);
+  process.exit(1);
+}
+```
+
+`Widgets` never calls it. Validation is an explicit gate; the renderer is the
+net underneath it. See [the API reference](/widget/api#validateitems) for what
+it reports.
+
+## Next
+
+- [Chrome, `meta` and Suspense](/widget/advanced) — the composition seams
+- [API reference](/widget/api) — every export
+- [Examples](/widget/examples)

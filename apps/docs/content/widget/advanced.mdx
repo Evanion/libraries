@@ -1,481 +1,269 @@
-# Advanced Patterns
+# Chrome, meta and Suspense
 
-Advanced usage patterns for the React Widget System including custom chrome, nested widgets, and performance optimization.
+Everything the renderer puts around a widget is configurable, and everything a
+widget should not know about itself is kept out of its props. This page is the
+three seams that do that.
 
-## Custom Chrome (Wrappers)
+## Chrome
 
-Chrome refers to the wrapper components that provide styling and layout structure around your widgets.
-
-### Custom Wrapper
+A widget set has two wrappers. `chrome.wrapper` goes around the whole region;
+`chrome.item` goes around each widget.
 
 ```tsx
-import { createWidgets } from '@evanion/react-widget';
-
 const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
+  components: { news: NewsTeaser, userInfo: UserSidebar },
   chrome: {
     wrapper: ({ children }) => (
       <aside className="blog-sidebar">
-        <header>Latest Updates</header>
+        <header>Latest updates</header>
         <div className="widget-container">{children}</div>
       </aside>
     ),
-  },
-});
-```
-
-### Custom Item Wrapper
-
-```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-  },
-  chrome: {
-    item: ({ children, ...props }) => (
-      <div
-        className="widget-item"
-        data-widget-id={props['data-widget-id']}
-        data-widget-type={props['data-widget-type']}
-      >
-        <div className="widget-content">{children}</div>
-      </div>
-    ),
-  },
-});
-```
-
-### Both Wrappers
-
-```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-  },
-  chrome: {
-    wrapper: ({ children }) => (
-      <section className="widget-section">
-        <h2>Widget Section</h2>
+    item: ({ children, ...rest }) => (
+      <div className="widget-item" {...rest}>
         {children}
-      </section>
-    ),
-    item: ({ children }) => (
-      <article className="widget-article">{children}</article>
-    ),
-  },
-});
-```
-
-## Nested Widgets with Output
-
-The `Output` component allows widgets to render nested widgets within themselves.
-
-### Basic Nested Structure
-
-```tsx
-import { createWidgets } from '@evanion/react-widget';
-
-const CardWidget = ({ title, Output }) => (
-  <div className="card">
-    <h3>{title}</h3>
-    <div className="card-content">
-      <Output />
-    </div>
-  </div>
-);
-
-const TextWidget = ({ content }) => <p>{content}</p>;
-
-const ImageWidget = ({ src, alt }) => <img src={src} alt={alt} />;
-
-const { Widgets } = createWidgets({
-  components: {
-    card: CardWidget,
-    text: TextWidget,
-    image: ImageWidget,
-  },
-});
-
-// Nested widget data
-const nestedItems = [
-  {
-    id: 'card1',
-    type: 'card',
-    props: {
-      title: 'My Card',
-    },
-    children: [
-      {
-        id: 'text1',
-        type: 'text',
-        props: { content: 'Nested text content' },
-      },
-      {
-        id: 'image1',
-        type: 'image',
-        props: {
-          src: '/image.jpg',
-          alt: 'Nested image',
-        },
-      },
-    ],
-  },
-];
-```
-
-### Complex Nested Layouts
-
-```tsx
-const LayoutWidget = ({ title, sidebar, main, Output }) => (
-  <div className="layout">
-    <header>{title}</header>
-    <div className="layout-content">
-      <aside className="sidebar">
-        <Output />
-      </aside>
-      <main className="main-content">{main}</main>
-    </div>
-  </div>
-);
-
-const SidebarWidget = ({ items, Output }) => (
-  <nav className="sidebar-nav">
-    {items.map((item) => (
-      <div key={item.id} className="nav-item">
-        <a href={item.href}>{item.label}</a>
       </div>
-    ))}
-    <Output />
-  </nav>
-);
-
-const { Widgets } = createWidgets({
-  components: {
-    layout: LayoutWidget,
-    sidebar: SidebarWidget,
-    text: TextWidget,
-  },
-});
-
-const complexItems = [
-  {
-    id: 'layout1',
-    type: 'layout',
-    props: {
-      title: 'My App',
-      main: 'Main content here',
-    },
-    children: [
-      {
-        id: 'sidebar1',
-        type: 'sidebar',
-        props: {
-          items: [
-            { id: 'home', label: 'Home', href: '/' },
-            { id: 'about', label: 'About', href: '/about' },
-          ],
-        },
-        children: [
-          {
-            id: 'text1',
-            type: 'text',
-            props: { content: 'Additional sidebar content' },
-          },
-        ],
-      },
-    ],
-  },
-];
-```
-
-## Instance-Specific Overrides
-
-You can override components and chrome for specific instances of the Widgets component.
-
-### Component Overrides
-
-```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-  },
-});
-
-// Default news component
-const NewsTeaser = ({ title, publishedAt, body }) => (
-  <article className="news-teaser">
-    <h3>{title}</h3>
-    <time>{publishedAt.toLocaleDateString()}</time>
-    <p>{body}</p>
-  </article>
-);
-
-// Special featured news component
-const FeaturedNews = ({ title, publishedAt, body }) => (
-  <div className="featured-news">
-    <h2>Featured: {title}</h2>
-    <div className="featured-content">
-      <time>{publishedAt.toLocaleDateString()}</time>
-      <p>{body}</p>
-    </div>
-  </div>
-);
-
-// Use different components for different pages
-function HomePage() {
-  return <Widgets items={newsItems} components={{ news: FeaturedNews }} />;
-}
-
-function BlogPage() {
-  return <Widgets items={newsItems} />; // Uses default NewsTeaser
-}
-```
-
-### Chrome Overrides
-
-```tsx
-const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-  },
-  chrome: {
-    wrapper: ({ children }) => (
-      <div className="default-wrapper">Default: {children}</div>
     ),
   },
 });
+```
 
-function SpecialPage() {
+The wrapper receives `children` and nothing else. The item chrome receives
+`children`, `data-widget-id`, `data-widget-type` and `meta`.
+
+Spread the `data-widget-*` attributes onto the element unless you have a reason
+not to: CMS click-to-edit overlays, analytics and E2E selectors key off them,
+and a custom chrome that drops them silently breaks all three.
+
+The defaults are `DefaultWrapper` (a `<section>`) and `DefaultItem` (a `<div>`
+with those attributes). Both are exported, so a custom chrome can wrap one
+rather than reimplementing it.
+
+### Per-instance overrides
+
+`<Widgets>` takes `components` and `chrome` of its own, merged over the
+factory's:
+
+```tsx
+function HomePage() {
   return (
     <Widgets
-      items={newsItems}
-      chrome={{
-        wrapper: ({ children }) => (
-          <div className="special-wrapper">Special: {children}</div>
-        ),
-      }}
+      items={items}
+      components={{ news: FeaturedNews }}
+      chrome={{ wrapper: HeroRegion }}
     />
   );
 }
 ```
 
-## Performance Optimization
+`components` is a shallow merge of the two maps; `chrome` is resolved field by
+field, so overriding `wrapper` keeps the factory's `item`, `suspense` and
+`suspenseFallback`.
 
-### Memoized Components
+## `meta`: placing a widget without telling it where it is
+
+A dashboard grid, a masonry board or a CMS page with per-block spans needs
+placement data. That data belongs to the wrapper: a widget renders the same at
+column 1 and at column 7.
+
+`meta` is handed to `chrome.item` and is never spread into the widget's props.
 
 ```tsx
-import { memo } from 'react';
+import type { WidgetItemComponent } from '@evanion/react-widget';
 
-const ExpensiveWidget = memo(({ data, onUpdate }) => {
-  // Expensive computation
-  const processedData = useMemo(() => {
-    return data.map((item) => ({
-      ...item,
-      processed: expensiveProcessing(item),
-    }));
-  }, [data]);
+type GridMeta = { column: number; columnSpan?: number };
 
+const GridItem: WidgetItemComponent<GridMeta> = ({
+  children,
+  meta,
+  ...rest
+}) => (
+  <div
+    {...rest}
+    style={{
+      gridColumn: `${meta?.column ?? 'auto'} / span ${meta?.columnSpan ?? 1}`,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const { Widgets } = createWidgets({
+  components: { chart: Chart },
+  chrome: { item: GridItem },
+});
+
+<Widgets
+  items={[
+    {
+      id: 'today',
+      type: 'chart',
+      props: { metric: 'revenue' },
+      meta: { column: 1, columnSpan: 4 },
+      // meta: { colunm: 1 }  ← compile error: not a key GridItem reads
+    },
+  ]}
+/>;
+```
+
+Annotating `chrome.item` with the vocabulary it reads is what types every item's
+`meta`, at the top level and inside `children`. Without that, a misspelled key
+compiles and the item is placed by whatever fallback the chrome applies — a
+layout that looks deliberate.
+
+There is no type argument to pass. `createWidgets` infers the vocabulary from
+the `chrome.item` it is given: an annotated component, a plain function with an
+annotated parameter object, or a `memo()`-wrapped one all work.
+
+Typing `meta` removes the typo, not the narrowing. `meta` is optional on every
+item, so a chrome that needs a key still writes the fallback for the item that
+omits it — the `?? 'auto'` above.
+
+`DefaultItem` drops `meta` rather than forwarding it. React warns about an
+unknown attribute for every key of an arbitrary object that reaches a DOM
+element.
+
+## `ctx`: page-level data for every widget
+
+```tsx
+<Widgets ctx={{ locale, currency }} items={items} />
+```
+
+Every widget receives `ctx` as a prop. This exists instead of a context
+provider: React's `react-server` condition has no `createContext`, and the
+package has to be importable from a Server Component.
+
+`ctx` is the renderer's to supply, so it is omitted from an item's `props`
+alongside `children`. A widget may declare it required without every item
+repeating a value `<Widgets>` is going to pass anyway, and an item cannot
+override it — `ctx` follows the props spread, and items are untrusted input.
+
+The counterpart in `@evanion/astro-widget` is the same prop by the same name.
+
+## Suspense
+
+By default every widget gets its own `<Suspense>` boundary, so one suspending
+widget does not block its siblings. The fallback comes from
+`chrome.suspenseFallback` and defaults to nothing.
+
+```tsx
+const { Widgets } = createWidgets({
+  components: { report: AsyncReport },
+  chrome: { suspenseFallback: <Skeleton /> },
+});
+```
+
+The boundary lives in the renderer rather than in the item chrome, so replacing
+`chrome.item` cannot silently remove it.
+
+There is no default skeleton. A region is a dashboard grid for one consumer and
+a table of rows for the next, and one generic placeholder would be wrong in
+both.
+
+### Synchronous regions: `chrome.suspense`
+
+A boundary costs more than its markers when the region is large. React's
+streaming SSR outlines any boundary it has not finished by the time the shell
+passes `progressiveChunkSize` — 12,800 bytes by default — whether or not
+anything in it suspended. The content is written to a trailing `<div hidden>`
+and an inline `<script>$RC(…)</script>` moves it into place.
+
+Measured over 150 synchronous items of about 1,000 bytes each, streamed with the
+default chunk size:
+
+| `chrome.suspense` | bytes   | deferred boundaries | rows in the shell |
+| ----------------- | ------- | ------------------- | ----------------- |
+| `per-item`        | 139,233 | 145                 | 5 of 150          |
+| `none`            | 122,069 | 0                   | 150 of 150        |
+
+So for a region whose widgets are all synchronous, say so:
+
+```tsx
+const { Widgets } = createWidgets({
+  components: { row: LedgerRow },
+  chrome: { suspense: 'none' },
+});
+```
+
+A client that does not run the inline scripts never sees outlined content. It is
+in the HTML, inside `<div hidden>`, and `$RC` is what moves it — which covers
+scripts disabled and a Content-Security-Policy rejecting inline script without a
+nonce. Anything reading the HTML in document order sees placeholders where the
+content should be, and the content at the bottom in completion order: a text
+extraction, a reader-mode pass, a diffing snapshot test, `curl | sed`.
+
+There is no detection and no heuristic. An `async function` component and
+`React.lazy` are recognisable at runtime; a component calling `use(promise)` is
+not, `memo()` hides both, and an `async function` downlevelled below ES2017
+becomes a plain function. Guessing wrong drops the boundary from a widget that
+does suspend, which is worse than paying for one that does not.
+
+Under `none` a widget that suspends anyway suspends whatever boundary is above
+the region, up to the page. Put your own `<Suspense>` around `<Widgets>` if that
+should be the region rather than the page — which is also how you get one
+boundary for the whole set, since there is no region-wide setting. One boundary
+around the whole set outlines the whole set: over those same 150 items,
+`per-item` keeps 5 rows in the shell and a single region boundary keeps none.
+
+The host has a knob too: `progressiveChunkSize` on `renderToPipeableStream`
+takes the deferral to zero, and `renderToString` never defers. That is the
+framework's `entry.server` to set, not the library's.
+
+## Error boundaries
+
+The package ships none. A React error boundary requires a class component, which
+React does not expose under the `react-server` condition, so a default boundary
+would put a `'use client'` directive on the whole package and drag every widget
+into the client bundle with it.
+
+Add your own in a custom `chrome.item`, in your own `'use client'` file:
+
+```tsx
+'use client';
+
+import { ErrorBoundary } from 'react-error-boundary';
+
+export function SafeItem({ children, ...rest }) {
   return (
-    <div>
-      {processedData.map((item) => (
-        <div key={item.id}>{item.processed}</div>
-      ))}
+    <div {...rest}>
+      <ErrorBoundary fallback={<p>This widget failed.</p>}>
+        {children}
+      </ErrorBoundary>
     </div>
   );
-});
-
-const { Widgets } = createWidgets({
-  components: {
-    expensive: ExpensiveWidget,
-  },
-});
-```
-
-### Lazy Loading
-
-```tsx
-import { lazy, Suspense } from 'react';
-
-const LazyWidget = lazy(() => import('./LazyWidget'));
-
-const { Widgets } = createWidgets({
-  components: {
-    lazy: LazyWidget,
-  },
-});
-
-// The DefaultItem wrapper already includes Suspense
-// with a loading fallback
-```
-
-### Context Optimization
-
-```tsx
-import { createContext, useContext } from 'react';
-
-// Create a custom context for better performance
-const CustomContext = createContext();
-
-const { Widgets, WidgetsProvider } = createWidgets({
-  components: {
-    news: NewsTeaser,
-  },
-  context: CustomContext,
-});
-
-// Use the custom context
-const useCustomWidgets = () => useContext(CustomContext);
-```
-
-## Error Boundaries and Error Handling
-
-### Custom Error Boundaries
-
-```tsx
-import { Component } from 'react';
-
-class CustomErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    // Log to error reporting service
-    console.error('Widget Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-fallback">
-          <h3>Something went wrong</h3>
-          <p>This widget failed to render.</p>
-          <button onClick={() => this.setState({ hasError: false })}>
-            Try Again
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
 }
+```
 
+```tsx
 const { Widgets } = createWidgets({
-  components: {
-    news: NewsTeaser,
-  },
-  chrome: {
-    item: ({ children, ...props }) => (
-      <CustomErrorBoundary>
-        <div className="widget-item" {...props}>
-          {children}
-        </div>
-      </CustomErrorBoundary>
-    ),
-  },
+  components: { news: NewsTeaser },
+  chrome: { item: SafeItem },
 });
 ```
 
-### Error Recovery
+The boundary is then client code and the widgets inside it are not, which is the
+split the package is arranged to allow.
 
-```tsx
-const ResilientWidget = ({ data, fallback }) => {
-  try {
-    if (!data) {
-      throw new Error('No data provided');
-    }
+## Large regions
 
-    return <div>{data.content}</div>;
-  } catch (error) {
-    return (
-      <div className="error-state">{fallback || 'Failed to load widget'}</div>
-    );
-  }
-};
-```
+The renderer is eager: every item in the list is rendered, and there is no
+windowing option. Two recipes cover the cases that made people ask for one.
 
-## TypeScript Advanced Patterns
+For server-rendered, SEO-relevant content, do not virtualize — put
+`content-visibility: auto` on the item chrome. It removes the layout and paint
+cost of off-screen blocks while leaving every one of them in the HTML:
 
-### Strict Typing
-
-```tsx
-import { createWidgets, WidgetProps } from '@evanion/react-widget';
-
-// Define strict widget types
-type MyWidgets = {
-  news: WidgetProps<
-    'news',
-    {
-      title: string;
-      publishedAt: Date;
-      body: string;
-    }
-  >;
-  userInfo: WidgetProps<
-    'userInfo',
-    {
-      username: string;
-      avatar: string;
-      messages: number;
-    }
-  >;
-  card: WidgetProps<
-    'card',
-    {
-      title: string;
-      Output: React.ComponentType;
-    }
-  >;
-};
-
-// Create typed widget system
-const { Widgets } = createWidgets<MyWidgets>({
-  components: {
-    news: NewsTeaser,
-    userInfo: UserSidebar,
-    card: CardWidget,
-  },
-});
-
-// Type-safe widget data
-const typedItems: WidgetProps<string>[] = [
-  {
-    id: 'news1',
-    type: 'news', // TypeScript will enforce this matches MyWidgets
-    props: {
-      title: 'Breaking News',
-      publishedAt: new Date(),
-      body: 'Content here',
-    },
-  },
-];
-```
-
-### Generic Widget Components
-
-```tsx
-interface GenericWidgetProps<T> {
-  data: T;
-  render: (data: T) => React.ReactNode;
+```css
+.widget-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
 }
-
-const GenericWidget = <T,>({ data, render }: GenericWidgetProps<T>) => {
-  return <div className="generic-widget">{render(data)}</div>;
-};
-
-const { Widgets } = createWidgets({
-  components: {
-    generic: GenericWidget,
-  },
-});
 ```
+
+For a client-side dashboard where the list is long enough to matter, virtualize
+in your own `'use client'` `chrome.wrapper` with `@tanstack/react-virtual`. The
+wrapper receives only `children`, so it windows over
+`React.Children.toArray(children)` — one entry per top-level item, already
+rendered as elements. That keeps the virtualizer a dependency of the application
+rather than of this package. Only the top-level list of a region is ever a
+candidate; nested items are not.
