@@ -6,8 +6,12 @@ on:
     branches: [main]
     paths:
       # The site documents the libraries, so their source counts as an input.
+      # `tools/repo-checks/src/docs-trigger.test.ts` holds this list against the
+      # roots `nx.json` releases, because a released package missing from it
+      # deploys nothing and reports nothing.
       - 'apps/docs/**'
       - 'libs/**'
+      - 'nest/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docs.yml'
