@@ -1,0 +1,198 @@
+# Configuration
+
+A feature is stored intent. `createFeatures` takes a list of definitions,
+validates the dependency graph, deep-clones and freezes the configuration, and
+returns the store.
+
+```ts
+const features = createFeatures([
+  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
+]);
+```
+
+| Field               | Meaning                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `key`               | the identifier. `string` or `number`                            |
+| `enabled`           | the maintainer wants this on                                    |
+| `dependsOn`         | features that must resolve on for this one to                   |
+| `rules`             | activation rules, OR-ed                                         |
+| `seed`              | bucketing seed for this feature's rollouts. Defaults to the key |
+| `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build       |
+
+`enabled` is intent, not the answer. `rules` decide whether it resolves on for a
+given context.
+
+The configuration is cloned before it is frozen, so the store cannot be edited
+behind its own back:
+
+```ts
+features.config[0].enabled = false;
+// TypeError: Cannot assign to read only property 'enabled' of object
+```
+
+## Precedence
+
+- `enabled === false` short-circuits. Rules never run.
+- A parent that resolved off short-circuits. Rules never run.
+- `enabled === true` with no rules means on.
+- Rules are OR-ed; the `when` conditions inside one rule are AND-ed. A rollout is
+  one more conjunct of the rule that carries it.
+
+Not first-match. Rule order never changes the outcome, which is what lets a rule
+be added to a list without reading the rules already in it.
+
+Toggling `enabled` on for a feature whose rules do not match changes stored
+intent, and the feature still resolves off. It is a kill switch in one direction
+only; it is not a force-on.
+
+## Dependencies
+
+```ts
+createFeatures([
+  { key: 'a', enabled: true },
+  { key: 'b', enabled: true, dependsOn: ['a'] },
+  { key: 'c', enabled: true, dependsOn: ['b'] },
+]);
+```
+
+The cascade is transitive, and one way only — a dependant never blocks its
+parent. Turning `a` off takes `b` and `c` with it:
+
+```ts
+features.toggle('a', false);
+// { ok: true, key: 'a', enabled: false, willDisable: ['b', 'c'] }
+```
+
+Features are evaluated in dependency order rather than in declaration order,
+which is what makes the cascade work at any depth. Evaluating in declaration
+order leaves a dependant with no resolved parent to read, and falling back to the
+parent's stored `enabled` cascades exactly one level.
+
+### Three configuration errors
+
+All three are raised by `createFeatures`, not by evaluation.
+
+```ts
+createFeatures([
+  { key: 'a', enabled: true, dependsOn: ['c'] },
+  { key: 'b', enabled: true, dependsOn: ['a'] },
+  { key: 'c', enabled: true, dependsOn: ['b'] },
+]);
+// FeatureCycleError: feature dependency cycle: a -> c -> b -> a
+
+createFeatures([{ key: 'a', enabled: true, dependsOn: ['b'] }]);
+// UnknownDependencyError: feature "a" depends on "b", which is not configured
+
+createFeatures([
+  { key: 'a', enabled: true },
+  { key: 'a', enabled: true },
+]);
+// DuplicateFeatureError: duplicate feature key "a"
+```
+
+A cycle has no defined resolution order at all, so there is nothing sensible for
+`resolve` to return for one. The error's `path` is the closed walk, trimmed to
+the cycle itself and ending where it starts, so the edge that closes the loop is
+visible rather than the route taken to reach it.
+
+All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
+`plan` and `toggle` are total — a store you hold cannot fail mid-evaluation.
+
+## Rules
+
+```ts
+{
+  key: 'beta-banner',
+  enabled: true,
+  rules: [
+    { id: 'internal', when: [{ field: 'roles', op: 'contains', value: 'staff' }] },
+    { id: 'ramp', rollout: { percent: 10 } },
+  ],
+}
+```
+
+Two rules, OR-ed: a staff account matches the first, everyone else is subject to
+the 10% ramp.
+
+`id` is used in `reason` and defaults to the rule's index, as `#0`, `#1`. Naming
+them is worth the keystrokes — an operator reading `rule: '#1'` has to count.
+
+A rule with neither `when` nor `rollout` matches unconditionally.
+
+## Conditions
+
+```ts
+{ field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
+{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
+{ field: 'plan', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'pro' }
+```
+
+| `op`          | Holds when                                                  |
+| ------------- | ----------------------------------------------------------- |
+| `before`      | `now` is strictly before the instant                        |
+| `after`       | `now` is strictly after the instant                         |
+| `day-of-week` | `now` falls on one of the named weekdays, in the named zone |
+| `eq`          | the field is strictly equal to `value`                      |
+| `ne`          | the field is present and not strictly equal to `value`      |
+| `in`          | `value` is an array containing the field                    |
+| `not-in`      | `value` is an array not containing the field                |
+| `contains`    | the field is an array containing `value`                    |
+
+A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
+
+### `now` is injected
+
+`now` comes from the evaluation context and defaults to `new Date()` at the
+call. It is never read from an ambient clock, which is what makes build-time
+evaluation honest and tests trivial:
+
+```ts
+features.resolve({ now: new Date('2026-11-01T00:00:00Z') });
+```
+
+### A day-of-week condition must name an IANA zone
+
+```ts
+{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['sat'] }
+```
+
+There is no default. UTC day-of-week is wrong for every business rule anyone
+writes, and a rule that quietly used it would be wrong for eight hours a day.
+The weekday is derived through `Intl`, so the zone's rules — DST transitions
+included — are the runtime's to know rather than this library's to model.
+
+### An absent field never holds
+
+A condition over a field the context does not carry never holds, including the
+negative operators:
+
+```ts
+features.resolve({}); // context carries no `plan`
+// { reason: 'no-rule-matched', rules: [{ rule: 'r', matched: false,
+//   failed: { field: 'plan', op: 'ne', value: 'free' } }] }
+```
+
+`ne` on an absent field is not "true because it is not equal"; it is
+unevaluable. Treating it as true would switch features on for exactly the
+contexts that carry the least information.
+
+Field lookup uses `Object.prototype.hasOwnProperty` rather than `in`, so a
+condition over `constructor` or `toString` does not read a function off
+`Object.prototype` and evaluate against it. A context is caller data and a field
+name is configuration; neither is trusted with the prototype chain.
+
+## Typed keys
+
+```ts
+type Flag = 'payments-v3' | 'checkout-v2';
+
+const features = createFeatures<Flag>(config);
+
+features.resolve()['checkout-v2'].enabled; // Decision, not Decision | undefined
+features.isEnabled('checkout-v3'); // compile error: not a Flag
+```
+
+Passing a literal key union makes the decision record exact, so a typo is a
+compile error instead of an `undefined` at runtime. Without it, `F` infers as
+the union of the literal keys in the array you passed, which is usually the same
+thing — declare the type when the configuration arrives from elsewhere.

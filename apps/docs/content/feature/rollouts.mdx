@@ -1,0 +1,114 @@
+# Rollouts
+
+```ts
+{ rollout: { percent: 25, by: 'targetingKey', seed: 'q4-cohort' } }
+```
+
+A rollout is one more conjunct of the rule that carries it. A rule with both
+`when` and `rollout` matches only for a context that satisfies the conditions
+and falls inside the bucket range.
+
+| Field     | Default          | Meaning                          |
+| --------- | ---------------- | -------------------------------- |
+| `percent` | required         | the threshold, 0 to 100          |
+| `by`      | `'targetingKey'` | which context field to bucket on |
+| `seed`    | the feature key  | what the hash is seeded with     |
+
+## How a bucket is derived
+
+The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
+2^32 buckets into `[0, 1)`. Three properties follow from that, and all three
+come from how the bucket is derived rather than from how it is compared.
+
+### Stable
+
+The bucket is a pure hash of the `(seed, value)` pair. No randomness,
+no clock, no process state, so every process and every evaluation agrees:
+
+```ts
+import { bucketOf, inRollout } from '@evanion/feature';
+
+bucketOf('acct-2', 'payments-v3'); // 0.1822… — always
+inRollout('acct-2', 25, 'payments-v3'); // true
+inRollout('acct-42', 25, 'payments-v3'); // false — bucket 0.9875
+```
+
+### Decorrelated across features
+
+The seed defaults to the feature key, so the
+same account hashes to an unrelated bucket per feature:
+
+```ts
+bucketOf('acct-2', 'payments-v3'); // 0.1822
+bucketOf('acct-2', 'checkout-v2'); // 0.0490
+bucketOf('acct-42', 'payments-v3'); // 0.9875
+bucketOf('acct-42', 'checkout-v2'); // 0.3007
+```
+
+Seeding with a constant instead is what puts someone in every rollout or in
+none. Set `seed` explicitly only to correlate two features deliberately — a pair
+of flags that must reach the same cohort.
+
+### Monotonic in the percentage
+
+The bucket does not depend on `percent` at all;
+`percent` is only a threshold on it. Raising a percentage can therefore only add
+members, never move one out. Lowering it removes the highest buckets.
+
+That last property is the one to lean on when ramping. A user who saw the new
+checkout at 10% still sees it at 25%.
+
+## Edges
+
+```ts
+inRollout('acct-2', 0, 'seed'); // false — 0% includes nobody
+inRollout('acct-2', 100, 'seed'); // true — 100% includes everybody
+```
+
+Comparison is strictly below the threshold, and every bucket is strictly below
+1, so both ends are exact.
+
+A context with no value for `by` does not match the rollout:
+
+```ts
+features.resolve({ now }); // no targetingKey
+// rules: [{ rule: 'window-q4', matched: false,
+//           rollout: { percent: 25, by: 'targetingKey', member: false } }]
+```
+
+`bucket` is absent from that outcome, because there was nothing to bucket.
+Defaulting to "in" would ramp a rollout to everyone whose context happens to be
+incomplete, which is the population you least want it to reach first.
+
+Only a `string` or a `number` is a usable bucketing value. Anything else — an
+object, a boolean, `null` — is treated as absent.
+
+## Why not FNV-1a over a concatenation
+
+GrowthBook's pre-v2 `hashFnv32a(value + seed) % 1000` fails decorrelation for
+two separate reasons, and this departs from it on both.
+
+Concatenating value and seed with no unambiguous boundary makes the pairs
+`('ab', 'c')` and `('a', 'bc')` the same input, so flags whose keys share a
+prefix share buckets. The seed here is length-prefixed, which is unambiguous for
+every possible input — no separator character can be, since any separator may
+itself occur in a key or a targeting value.
+
+FNV-1a also has weak avalanche in its low bits, and a modulus reads exactly
+those. MurmurHash3's finalisation mixes the whole word, and the bucket is taken
+from all 32 bits rather than from a modulus — which is also what makes the
+granularity fine enough that a percentage change adds buckets instead of
+reshuffling them.
+
+MurmurHash3 over a normalised 32-bit space is Unleash's approach, with the
+group id defaulting to the flag name: the same defaulting as `seed` here.
+
+## The primitives are exported
+
+```ts
+import { bucketOf, inRollout, murmur3 } from '@evanion/feature';
+```
+
+For snapshot tooling and tests: computing which accounts a ramp will reach
+before applying it, or asserting that a cohort did not move across a deploy.
+Nothing in the library reads them back.

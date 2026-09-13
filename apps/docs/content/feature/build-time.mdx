@@ -1,0 +1,123 @@
+# Build-time planning
+
+`plan()` partitions every feature into resolvable now and deferred, for a build
+that does not have the whole evaluation context.
+
+```ts
+features.plan({ now: new Date() });
+// {
+//   'payments-v3': { key: 'payments-v3', resolved: 'deferred',
+//                    needs: ['now', 'targetingKey'] },
+//   'checkout-v2': { key: 'checkout-v2', resolved: 'deferred',
+//                    needs: ['now', 'targetingKey'] },
+// }
+```
+
+A static site emits only the deferred set and resolves that per request; an API
+calls `resolve()` per request. One engine, not a second code path — the
+resolvable cases go through the same `decide` as `resolve` does.
+
+## A plan entry
+
+```ts
+interface PlanEntry<F> {
+  key: F;
+  resolved: boolean | 'deferred';
+  needs: readonly string[]; // sorted; empty unless deferred
+  decision?: Decision<F>; // present when `resolved` is a boolean
+}
+```
+
+`resolved: true` or `false` is a settled answer, and `decision` carries it with
+its reason. `resolved: 'deferred'` means some rule still needs context this plan
+did not have, and `needs` lists the fields, sorted.
+
+A deferred feature's `needs` includes whatever its deferred parents need, so an
+entry's list is everything the request has to supply before this feature can be
+decided at all.
+
+## What makes a rule resolvable
+
+A rule whose fields are all present in the context can be decided now; one that
+still needs a field cannot.
+
+```ts
+features.plan({ targetingKey: 'acct-2' });
+// payments-v3: { resolved: 'deferred', needs: ['now'] }
+```
+
+The rollout resolved — `targetingKey` was there — and the time window did not.
+
+```ts
+createFeatures([
+  {
+    key: 'pro-only',
+    enabled: true,
+    rules: [{ id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] }],
+  },
+]).plan({});
+// { 'pro-only': { key: 'pro-only', resolved: 'deferred', needs: ['plan'] } }
+```
+
+A feature with `enabled: false` is `resolved: false` immediately, whatever its
+rules need. A feature with no rules is `resolved: true`, given `enabled`.
+
+## `now` is deferred unless the feature opts in
+
+`now` is deliberately not treated as available, even though `plan()` fills it in
+the same way `resolve()` does:
+
+```ts
+createFeatures([
+  {
+    key: 'x',
+    enabled: true,
+    freezeTimeAtBuild: true,
+    rules: [
+      {
+        id: 'live',
+        when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+      },
+    ],
+  },
+  { key: 'y', enabled: true, dependsOn: ['x'] },
+]).plan({ now: new Date('2026-11-01T00:00:00Z') });
+// x: { resolved: true, needs: [], decision: { enabled: true, reason: 'rule-match', rule: 'live' } }
+// y: { resolved: true, needs: [], decision: { enabled: true, reason: 'default-on' } }
+```
+
+Whether a date window may be frozen into a build is a deploy-cadence decision,
+and it belongs to whoever owns the feature rather than to whoever runs the
+build. A site that rebuilds hourly can freeze a window that opens on a date; a
+site that rebuilds monthly cannot, and the same flag in both places has to be
+able to say so.
+
+Without `freezeTimeAtBuild`, a `now`-dependent rule is deferred and `'now'`
+appears in `needs`. The static build emits the rule and the request resolves it.
+
+## Using a plan
+
+The two halves go to different places.
+
+```ts
+const plan = features.plan({ now: new Date() });
+
+const settled = Object.fromEntries(
+  Object.entries(plan)
+    .filter(([, entry]) => entry.resolved !== 'deferred')
+    .map(([key, entry]) => [key, entry.decision!]),
+);
+
+const deferred = Object.values(plan)
+  .filter((entry) => entry.resolved === 'deferred')
+  .map((entry) => entry.key);
+```
+
+`settled` is a `Decisions` record, which is exactly what
+`<FeatureProvider decisions={…}>` takes — see [React](/feature/react). Ship it
+with the build. `deferred` is the list the runtime still has to resolve, and the
+union of their `needs` is the context the runtime has to assemble.
+
+A flag that is settled `false` at build time can be stripped from the bundle
+entirely. One that is deferred cannot, because the branch it gates has to exist
+for the request that turns it on.
