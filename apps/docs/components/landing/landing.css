@@ -435,6 +435,160 @@
   font-weight: 400;
 }
 
+/*
+ * A specimen the reader drives: the value on the left, whatever acts on it
+ * on the right, on one baseline.
+ */
+.landing-specimen--live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2) var(--baize-space-3);
+}
+
+/*
+ * The Luhn field is the specimen's own text made editable: no box, no fill,
+ * the specimen's type, and a dotted hairline under it in the package's hue
+ * to say it takes typing. Sized to its content so the check character sits
+ * right after the last letter, the way the package appends it.
+ */
+/*
+ * The hidden copy sets the box and the field lies over it, absolutely, so the
+ * field's own intrinsic width -- twenty characters of nothing -- never
+ * counts.
+ */
+.landing-specimen__field {
+  position: relative;
+  display: inline-block;
+  min-width: 2ch;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.landing-specimen__mirror {
+  display: inline-block;
+  visibility: hidden;
+  white-space: pre;
+  padding: 0 0 1px;
+  border-bottom: 1px solid transparent;
+}
+
+.landing-specimen__input {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 1px;
+  border: 0;
+  border-bottom: 1px dotted var(--baize-hue);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.landing .landing-specimen__input:focus-visible {
+  outline: none;
+  border-bottom-style: solid;
+}
+
+.landing-specimen__hint {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.landing-specimen__value {
+  flex: 1 1 auto;
+}
+
+.landing-specimen__action {
+  margin-left: auto;
+  font-size: var(--baize-text-sm);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+/*
+ * The URN's parts. Each is a button set as plain text with a dotted
+ * underline, the same hint the Luhn field gives, and its explanation is a
+ * tooltip under the whole specimen: full width of the box, so it can never
+ * run past the card. Shown on hover, on keyboard focus, and while tapped
+ * open; always in the DOM for the description the button names.
+ */
+.landing-specimen--urn {
+  position: relative;
+}
+
+.landing-urn__segment {
+  display: inline;
+}
+
+.landing-urn__part {
+  margin: 0;
+  padding: 0 0 1px;
+  border: 0;
+  border-bottom: 1px dotted currentcolor;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: help;
+}
+
+.landing-urn__part--urn {
+  color: var(--baize-moss);
+  font-weight: 400;
+}
+
+.landing-urn__part--nid {
+  color: var(--baize-hue);
+}
+
+.landing .landing-urn__part:focus-visible {
+  outline: none;
+  border-bottom-style: solid;
+}
+
+.landing-urn__tip {
+  position: absolute;
+  top: calc(100% + var(--baize-space-2));
+  left: 0;
+  right: 0;
+  z-index: 1;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-felt);
+  box-shadow: var(--baize-elevation-raised);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+  line-height: var(--baize-leading-snug);
+  /* Out of sight, not out of the tree: `aria-describedby` still reads it. */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--baize-motion-duration) var(--baize-motion-easing),
+    visibility var(--baize-motion-duration);
+}
+
+.landing-urn__tip-name {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.landing-urn__part:hover + .landing-urn__tip,
+.landing-urn__part:focus-visible + .landing-urn__tip,
+.landing-urn__tip[data-open] {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* On their own: a row each, on hairlines, with the package's spine. */
 .landing-rows {
   margin: var(--baize-space-3) 0 0;

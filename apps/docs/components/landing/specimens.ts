@@ -1,45 +1,69 @@
+import { EmptyInputError, Luhn } from '@evanion/luhn';
+import { createToken } from '@evanion/token';
+import { URN } from '@evanion/urn';
+
 /**
- * One line of what a package produces, for the card that sells it.
+ * What each identifier package produces, for the card that sells it, and the
+ * package itself doing the producing.
  *
- * A description says what a library is for; a specimen shows the thing itself.
- * `urn:user:1337` is the whole of what a URN is, and a reader who has seen one
- * knows whether it is what they came for before reading a sentence.
+ * A description says what a library is for; a specimen shows the thing. These
+ * are the values the three cards open on, and the functions the cards call as
+ * a reader interacts: the check character is `Luhn.generate`'s, a new token
+ * is `createToken().generate()`'s, the parts of a URN are `URN.parse`'s. The
+ * card cannot disagree with the package about a value it asked the package
+ * for, and `specimens.test.tsx` renders each card and holds it to that.
  *
- * Each specimen is segments so the card can set the part that matters in the
- * package's own colour: the namespace of a URN, the check character Luhn
- * appended, the check character at the end of a token. `dim` is scaffolding the
- * eye should read past.
- *
- * Every value here is one the package's own README states and runs as a test,
- * and `specimens.test.ts` runs the packages against these strings too, so the
- * line on the card is a value the package produced rather than one somebody
- * typed. Keyed by the package's slug in `app/navigation.ts`; a package with no
- * entry has no specimen line, which is right for one whose output is not a
- * string.
+ * Shared by the server, which renders the opening values, and the client
+ * islands, which render the rest; nothing here touches the filesystem.
  */
-export interface SpecimenSegment {
-  text: string;
-  role: 'plain' | 'mark' | 'dim';
+
+/** The text the Luhn card opens with. Its README states `foo` -> `5`. */
+export const luhnBody = 'foo';
+
+/**
+ * The check character for `body` under the default dictionary, or nothing
+ * when no code point of `body` is in it -- a check character over no payload
+ * carries no information, and the package throws rather than pretend.
+ */
+export function luhnCheck(body: string): string | undefined {
+  try {
+    return Luhn.generate(body).checksum;
+  } catch (error) {
+    if (error instanceof EmptyInputError) return undefined;
+    throw error;
+  }
 }
 
-export const specimens: Readonly<Record<string, readonly SpecimenSegment[]>> = {
-  urn: [
-    { text: 'urn:', role: 'dim' },
-    { text: 'user', role: 'mark' },
-    { text: ':', role: 'dim' },
-    { text: '1337', role: 'plain' },
-  ],
-  luhn: [
-    { text: 'foo', role: 'plain' },
-    { text: '5', role: 'mark' },
-  ],
-  token: [
-    { text: 'a4kp-9mx', role: 'plain' },
-    { text: 'a', role: 'mark' },
-  ],
-};
+/** The code the Token card opens with. Its README states this value. */
+export const tokenSpecimen = 'a4kp-9mxa';
 
-/** The specimen as the one string the package produced. */
-export function specimenText(segments: readonly SpecimenSegment[]): string {
-  return segments.map((segment) => segment.text).join('');
+/** The default token: eight characters, chunked in fours, check last. */
+export const token = createToken();
+
+/** A code as the card sets it: the body, then the check character in colour. */
+export function tokenParts(value: string): { body: string; check: string } {
+  return { body: value.slice(0, -1), check: value.slice(-1) };
+}
+
+/** The identifier the URN card opens with. */
+export const urnSpecimen = 'urn:user:1337';
+
+/**
+ * The card's namespace, as a subclass, which is the package's extension
+ * point. With `nid` set, `parse` gives back the name without the namespace;
+ * the base class, whose `nid` is a placeholder, keeps `user:` in the `nss`
+ * rather than discard a namespace it was not told about.
+ */
+export class UserURN extends URN {
+  static override readonly nid = 'user';
+}
+
+/** The three parts of the specimen, from the package's own parser. */
+export function urnParts(value: string): {
+  urn: string;
+  nid: string;
+  nss: string;
+} {
+  const { urn, nid, nss } = UserURN.parse(value);
+  return { urn, nid, nss };
 }

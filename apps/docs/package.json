@@ -22,14 +22,12 @@
   },
   "dependencies": {
     "@evanion/baize-ui": "*",
+    "@evanion/luhn": "*",
     "@evanion/react-widget": "*",
+    "@evanion/token": "*",
+    "@evanion/urn": "*",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@evanion/luhn": "*",
-    "@evanion/token": "*",
-    "@evanion/urn": "*"
   }
 }
