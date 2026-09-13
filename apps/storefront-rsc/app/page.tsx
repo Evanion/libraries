@@ -1,3 +1,5 @@
+import { Text, Title } from '@evanion/baize-ui';
+
 import { Widgets, items } from './widgets';
 
 /**
@@ -9,13 +11,19 @@ import { Widgets, items } from './widgets';
 export default function Home() {
   return (
     <main className="page">
-      <h1 className="masthead">Baize</h1>
-      <p className="lede">
-        One page, one widget region. Each widget below is an async Server
-        Component that fetches its own data from shop-api during render. The
-        data and the fetches are server-side; neither is in the JavaScript this
-        page sends.
-      </p>
+      <Title as="h1" size="xl">
+        Baize
+      </Title>
+      {/* Wrapped rather than given a class: no component in the library takes
+          one, so the space around a passage is the page's to set. */}
+      <div className="lede">
+        <Text measured>
+          One page, one widget region. Each widget below is an async Server
+          Component that fetches its own data from shop-api during render. The
+          data and the fetches are server-side; neither is in the JavaScript
+          this page sends.
+        </Text>
+      </div>
       <Widgets items={items} />
     </main>
   );

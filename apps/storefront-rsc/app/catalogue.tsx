@@ -1,4 +1,28 @@
+import {
+  AvailabilityPill,
+  Card,
+  CardGrid,
+  CardGridCell,
+  Figure,
+  MechanismTag,
+  SectionHeader,
+  Stat,
+  StatLine,
+  TagRow,
+  Text,
+  Title,
+  WeightRamp,
+} from '@evanion/baize-ui';
+
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
+import {
+  availabilityLabel,
+  availabilityToken,
+  formatPrice,
+  formatWeight,
+  mechanismToken,
+  weightStop,
+} from './tokens';
 
 /**
  * The catalogue grid, as an async Server Component that fetches its own data.
@@ -13,17 +37,15 @@ import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
  * No client directive in this file or in `@evanion/react-widget`. The package is
  * importable here because it touches nothing React omits under its
  * `react-server` export condition -- no createContext, useContext, Component or
- * stateful hook. `region.server.test.tsx` runs this component under that
- * condition, and `scripts/verify-packaging.mjs` holds the package to it.
+ * stateful hook. `@evanion/baize-ui` is importable for the stronger reason: it
+ * imports no React API beyond `createElement` and `Fragment`, which its own
+ * packaging guard holds it to. `region.server.test.tsx` runs this component under
+ * that condition, and `scripts/verify-packaging.mjs` holds both packages to it.
  *
  * The two legs are a waterfall on purpose and cannot be otherwise: the urns to
  * ask about come out of the first response. Inside the second leg the requests
  * are parallel.
  */
-
-/** The segments of the weight ramp, drawn as filled or empty. */
-const WEIGHT_STEPS = [1, 2, 3, 4, 5];
-
 export async function Catalogue({ heading }: { heading: string }) {
   const games = await fetchJson<Game[]>('/games');
   const entries = await Promise.all(
@@ -34,62 +56,76 @@ export async function Catalogue({ heading }: { heading: string }) {
     })),
   );
 
+  // `aria-label` rather than `aria-labelledby`: the library's `Title` takes no
+  // `id`, on the reading that document structure belongs to the page. The region
+  // is named either way, and asking the library for an attribute to hang a
+  // reference off would be the page pushing its own concern into it.
   return (
-    <section aria-labelledby="catalogue-heading">
-      <h2 className="heading" id="catalogue-heading">
-        {heading}
-      </h2>
-      <ul className="catalogue">
+    <section aria-label={heading}>
+      <SectionHeader
+        aside={`${entries.length} titles`}
+        heading={
+          <Title as="h2" size="md">
+            {heading}
+          </Title>
+        }
+      />
+      <CardGrid as="ul" label={heading}>
         {entries.map((entry) => (
-          <li className="card" key={entry.urn}>
-            <div className="card-head">
-              <h3 className="title">{entry.title}</h3>
-              {/* shop-api reports a quantity, not an availability state, so
-                  this says only what a quantity can say. */}
-              <span className="pill">
-                {entry.quantity > 0 ? 'in stock' : 'out of stock'}
-              </span>
-            </div>
-            <p className="tags">
-              {entry.mechanisms.map((mechanism) => (
-                <span className="chip" key={mechanism}>
-                  {mechanism}
-                </span>
-              ))}
-            </p>
-            {/* Label before value in the markup, as a description list
-                requires; the CSS reverses the pair so the figure leads. */}
-            <dl className="stats">
-              <div>
-                <dt>players</dt>
-                <dd>{entry.players}</dd>
-              </div>
-              <div>
-                <dt>playtime</dt>
-                <dd>{entry.playtime}</dd>
-              </div>
-              <div>
-                <dt>weight</dt>
-                <dd>
-                  {entry.weight.toFixed(1)}
-                  <span className="of"> / 5</span>
-                </dd>
-              </div>
-            </dl>
-            {/* Weight is ordinal, so it reads as a ramp rather than as one of
-                five colours. The figure above it carries the same value, so
-                this is decoration. */}
-            <p aria-hidden="true" className="ramp">
-              {WEIGHT_STEPS.map((step) => (
-                <span
-                  data-filled={step <= Math.round(entry.weight)}
-                  key={step}
-                />
-              ))}
-            </p>
-          </li>
+          <CardGridCell as="li" key={entry.urn}>
+            <Card
+              foot={
+                <>
+                  <Figure>{formatPrice(entry.price)}</Figure>
+                  {/* Availability is what the shop says about buying it;
+                      the copies on the shelf are what inventory answered.
+                      Two facts, shown as two. */}
+                  <Text as="span" size="sm" tone="moss">
+                    {entry.quantity > 0
+                      ? `${entry.quantity} on the shelf`
+                      : 'none on the shelf'}
+                  </Text>
+                </>
+              }
+              head={
+                <>
+                  <Title
+                    as="h3"
+                    mechanism={mechanismToken(entry.mechanisms[0])}
+                    size="sm"
+                  >
+                    {entry.title}
+                  </Title>
+                  <AvailabilityPill
+                    availability={availabilityToken(entry.availability)}
+                    label={availabilityLabel(entry.availability)}
+                  />
+                </>
+              }
+            >
+              <TagRow>
+                {entry.mechanisms.map((mechanism) => (
+                  <MechanismTag
+                    key={mechanism}
+                    label={mechanism}
+                    mechanism={mechanismToken(mechanism)}
+                  />
+                ))}
+              </TagRow>
+              <StatLine label={`${entry.title} at a glance`}>
+                <Stat figure={entry.players} label="players" />
+                <Stat figure={entry.playtime} label="playtime" />
+                <Stat figure={formatWeight(entry.weight)} label="weight">
+                  <WeightRamp
+                    label={`weight ${entry.weight.toFixed(1)} of 5`}
+                    stop={weightStop(entry.weight)}
+                  />
+                </Stat>
+              </StatLine>
+            </Card>
+          </CardGridCell>
         ))}
-      </ul>
+      </CardGrid>
     </section>
   );
 }
