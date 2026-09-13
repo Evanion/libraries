@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ExpectCommentError,
+  readValueClaim,
   rewriteJsDoc,
   rewriteLine,
   rewriteMarkdown,
@@ -17,6 +18,39 @@ import {
  */
 
 const at = (line: string) => rewriteLine(line, 'test.md', 1);
+
+describe('readValueClaim', () => {
+  it('splits a claim into its expression and its value', () => {
+    expect(
+      readValueClaim("Luhn.generate('foo'); // -> { checksum: '5' }"),
+    ).toEqual({
+      indent: '',
+      statement: "Luhn.generate('foo')",
+      expected: "{ checksum: '5' }",
+    });
+  });
+
+  it('keeps the indent, so a rewrite can put it back', () => {
+    expect(readValueClaim('  f(); // -> 1')?.indent).toBe('  ');
+  });
+
+  it('reads nothing from a line with no claim', () => {
+    expect(readValueClaim('const x = 1;')).toBeNull();
+    expect(readValueClaim('f(); // a plain comment')).toBeNull();
+  });
+
+  it('ignores a marker inside a string', () => {
+    expect(readValueClaim("f('// -> not a claim');")).toBeNull();
+  });
+
+  it('does not judge a claim it cannot turn into an assertion', () => {
+    expect(readValueClaim('// -> 1')).toEqual({
+      indent: '',
+      statement: '',
+      expected: '1',
+    });
+  });
+});
 
 describe('rewriteLine', () => {
   it('rewrites a value claim', () => {
