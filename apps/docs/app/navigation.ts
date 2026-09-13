@@ -63,7 +63,7 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/astro-widget',
     slug: 'astro-widget',
     title: 'Astro Widget',
-    documented: false,
+    documented: true,
   },
   {
     name: '@evanion/urn',
@@ -77,28 +77,35 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/token',
     slug: 'token',
     title: 'Token',
-    documented: false,
+    documented: true,
   },
   {
     name: '@evanion/luhn',
     root: 'libs/luhn',
     slug: 'luhn',
     title: 'Luhn',
-    documented: false,
+    documented: true,
   },
   {
     name: '@evanion/feature',
     root: 'libs/feature',
     slug: 'feature',
     title: 'Feature Toggles',
-    documented: false,
+    documented: true,
   },
   {
     name: '@evanion/nestjs-correlation-id',
     root: 'nest/correlation-id',
     slug: 'nestjs-correlation-id',
     title: 'NestJS Correlation ID',
-    documented: false,
+    documented: true,
+  },
+  {
+    name: '@evanion/baize-ui',
+    root: 'libs/baize-ui',
+    slug: 'baize-ui',
+    title: 'Baize UI',
+    documented: true,
   },
 ];
 
