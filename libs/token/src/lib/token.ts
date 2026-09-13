@@ -1,5 +1,4 @@
 import { createLuhn } from '@evanion/luhn';
-import { randomBytes } from 'node:crypto';
 
 import { InvalidAlphabetError, InvalidShapeError } from './exceptions.js';
 
@@ -134,7 +133,7 @@ export interface Token {
   readonly entropyBits: number;
 
   /**
-   * Draws a new code from `crypto.randomBytes` and appends its check
+   * Draws a new code from `crypto.getRandomValues` and appends its check
    * character.
    *
    * It never retries and never checks for collisions. Uniqueness is a database
@@ -285,9 +284,14 @@ export function createToken(options: TokenOptions = {}): Token {
    * `byte % n` is unbiased only because `n` divides 256, which the alphabet
    * constraint guarantees. That is what lets this stay constant-time rather
    * than rejection-sampling.
+   *
+   * Web Crypto rather than `node:crypto`: `globalThis.crypto` is the same
+   * CSPRNG in Node 20 and in a browser, with no import, so the package runs
+   * wherever TypeScript does. A bundler handed `node:crypto` for the browser
+   * either fails or ships a 130 kB shim for one call.
    */
   const randomBody = (): string => {
-    const bytes = randomBytes(length - 1);
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(length - 1));
     let body = '';
 
     for (const byte of bytes) {
