@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { EmptyInputError, Luhn } from '@evanion/luhn';
+import { createToken } from '@evanion/token';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -10,6 +11,7 @@ import ProbeField from './ProbeField';
 import { claimsOf, regionOf, seedOf } from './claims';
 import { INPUT_LIMIT, format, quote } from './probe';
 import { probes as luhn } from './luhn';
+import { probes as token } from './token';
 
 /**
  * The probe is the tested example, not a copy of it.
@@ -22,14 +24,15 @@ import { probes as luhn } from './luhn';
  * character.
  *
  * Every claim in the region is checked, not only the one the probe opens on.
- * `luhn`'s block claims the same value for `foo` and for `FoO`, which is the
- * variation the probe exists to let a reader make, so it is one the probe has
- * to agree with.
+ * `luhn`'s block claims the same value for `foo` and for `FoO`, and `token`'s
+ * claims a different rejection for each of three ways to mistype a code. Those
+ * are the variations the probes exist to let a reader make, so they are the
+ * ones a probe has to agree with.
  */
 
 const CONTENT = join(import.meta.dirname, '../../content');
 
-const all = Object.entries({ luhn }).flatMap(([pkg, probes]) =>
+const all = Object.entries({ luhn, token }).flatMap(([pkg, probes]) =>
   Object.entries(probes).map(([name, probe]) => ({ pkg, name, probe })),
 );
 
@@ -100,6 +103,9 @@ describe.each(all)('the $pkg $name probe', ({ probe }) => {
 describe('what a probe calls', () => {
   it('is the package export, not a stand-in', () => {
     expect(luhn.generate.call('foo')).toEqual(Luhn.generate('foo'));
+    expect(token.validate.call('a4kp-9mxa')).toEqual(
+      createToken().validate('a4kp-9mxa'),
+    );
   });
 
   it.each([{ probe: luhn.generate, typed: '', throws: EmptyInputError }])(

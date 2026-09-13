@@ -72,12 +72,16 @@ never checks for collisions — see [Entropy](#entropy).
 
 ## Validate a code
 
+<!-- #region validate -->
+
 ```ts @import.meta.vitest
 token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
 token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 token.validate('a4kp-9mxo'); // -> { valid: false, reason: 'outside-alphabet' }
 token.validate('a4kp-9mx'); // -> { valid: false, reason: 'wrong-length' }
 ```
+
+<!-- #endregion validate -->
 
 | `reason`           | Meaning                                                          |
 | ------------------ | ---------------------------------------------------------------- |
