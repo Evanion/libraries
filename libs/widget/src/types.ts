@@ -25,8 +25,14 @@ export type AnyWidgetComponent = ComponentType<any>;
 export type WidgetComponentMap = Record<string, AnyWidgetComponent>;
 
 /**
- * The props a widget component accepts as *data*, i.e. everything except
- * `children`, which the renderer supplies from the item's nested items.
+ * The props a widget component accepts as *data*: everything except `children`,
+ * which the renderer supplies from the item's nested items, and `ctx`, which it
+ * supplies from `<Widgets ctx={…}>`.
+ *
+ * Both are the renderer's to provide, so neither belongs in an item. Leaving
+ * `ctx` in made a component that declares it required uneditable from data --
+ * every item had to repeat a value the renderer was going to overwrite anyway
+ * (TS2322) -- and made an item look able to supply one when it could not.
  *
  * A component that declares no data props resolves to `Record<string, never>`
  * rather than `{}`. TypeScript assigns any object to `{}` without an
@@ -36,10 +42,10 @@ export type WidgetComponentMap = Record<string, AnyWidgetComponent>;
  * signature of `never` closes it while still admitting `props: {}`.
  */
 export type WidgetDataProps<C extends AnyWidgetComponent> = [
-  keyof Omit<ComponentProps<C>, 'children'>,
+  keyof Omit<ComponentProps<C>, 'children' | 'ctx'>,
 ] extends [never]
   ? Record<string, never>
-  : Omit<ComponentProps<C>, 'children'>;
+  : Omit<ComponentProps<C>, 'children' | 'ctx'>;
 
 /**
  * The item's nested items when `C[K]` accepts `children`, and `never` when it

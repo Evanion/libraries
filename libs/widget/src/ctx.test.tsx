@@ -62,4 +62,49 @@ describe('ctx, the astro-widget parity prop', () => {
 
     expect(screen.getByTestId('label')).toHaveTextContent('none');
   });
+
+  it('belongs to the renderer, so an item cannot supply one', () => {
+    // `ctx` follows the spread in renderWidget. Items are untrusted input and
+    // `ctx` is page-level data, so a payload naming a `ctx` prop does not get
+    // to supply one -- and the renderer's absent `ctx` still wins.
+    const { Widgets } = createWidgets({ components: { label: Label } });
+
+    render(
+      <Widgets
+        items={[
+          {
+            id: 'a',
+            type: 'label' as const,
+            // Only reachable from data that never met the type checker:
+            // WidgetDataProps omits `ctx`.
+            props: { ctx: { locale: 'from-props' } } as unknown as Record<
+              string,
+              never
+            >,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('label')).toHaveTextContent('none');
+  });
+
+  it('reaches a widget that declares ctx as required', () => {
+    // `WidgetDataProps` omits `ctx`, so the item does not have to repeat a
+    // value the renderer supplies. Leaving it in was a TS2322 on every item.
+    const Required = ({ ctx }: { ctx: Ctx }) => (
+      <span data-testid="required">{ctx.locale ?? 'none'}</span>
+    );
+
+    const { Widgets } = createWidgets({ components: { required: Required } });
+
+    render(
+      <Widgets
+        ctx={{ locale: 'nb-NO' }}
+        items={[{ id: 'a', type: 'required' as const, props: {} }]}
+      />,
+    );
+
+    expect(screen.getByTestId('required')).toHaveTextContent('nb-NO');
+  });
 });

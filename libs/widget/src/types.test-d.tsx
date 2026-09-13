@@ -135,6 +135,40 @@ describe('widget type inference', () => {
     expectTypeOf(items).toEqualTypeOf<WidgetItem<Components>[]>();
   });
 
+  it('omits `ctx` from item props, because the renderer supplies it', () => {
+    const Needs = ({
+      rows,
+      ctx,
+    }: {
+      rows: string[];
+      ctx: { shop: string };
+    }) => (
+      <div>
+        {rows.length}
+        {ctx.shop}
+      </div>
+    );
+
+    expectTypeOf<WidgetDataProps<typeof Needs>>().toEqualTypeOf<{
+      rows: string[];
+    }>();
+
+    const { defineItems } = createWidgets({ components: { needs: Needs } });
+
+    // No `ctx` in props, though the component requires one: it arrives from
+    // `<Widgets ctx={…}>`. Leaving `ctx` in was a TS2322 on every such item.
+    defineItems([{ id: '1', type: 'needs', props: { rows: [] } }]);
+
+    defineItems([
+      {
+        id: '2',
+        type: 'needs',
+        // @ts-expect-error `ctx` is the renderer's to supply, not the item's
+        props: { rows: [], ctx: { shop: 'Baize' } },
+      },
+    ]);
+  });
+
   it('checks props on a component that declares none', () => {
     // `{}` accepts any object without an excess-property check, so a zero-prop
     // component is where prop checking is easiest to lose.
