@@ -4,7 +4,7 @@ A collection of high-quality, production-ready libraries and tools built with mo
 
 ## 📦 Libraries
 
-### [@evanion/react-widget](./libs/widget)
+### [@evanion/react-widget](./libs/react-widget)
 
 A powerful React library for creating dynamic, reusable widget regions from structured data. Perfect for building CMS-driven layouts, dynamic sidebars, dashboards, and any interface that needs to render different components based on configuration data.
 

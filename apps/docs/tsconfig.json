@@ -79,7 +79,7 @@
       "path": "../../libs/token"
     },
     {
-      "path": "../../libs/widget"
+      "path": "../../libs/react-widget"
     },
     {
       "path": "../../libs/luhn"

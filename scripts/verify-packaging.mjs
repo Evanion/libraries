@@ -39,7 +39,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const LIBS = [
   ['libs/compose', '@evanion/compose'],
   ['libs/urn', '@evanion/urn'],
-  ['libs/widget', '@evanion/react-widget'],
+  ['libs/react-widget', '@evanion/react-widget'],
   ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
