@@ -14,13 +14,72 @@
  * commitlint.config.js. Adding a package to the repository fails that test until
  * it is added here.
  *
- * `title` and the order are editorial and are the reason this is not generated:
- * nothing derives "URN" from `urn`, or decides that the widget renderers belong
- * next to each other.
+ * `title`, `group` and the order are editorial and are the reason this is not
+ * generated: nothing derives "URN" from `urn`, or decides that the widget
+ * renderers belong next to each other.
  */
 
 /** Where a package with no section here sends the reader. */
 const repository = 'https://github.com/Evanion/libraries/tree/main';
+
+export interface PackageGroup {
+  /** The key `content/_meta.ts` gives this group's sidebar separator. */
+  id: string;
+  /** What the separator and the landing-page section are called. */
+  title: string;
+  /**
+   * The group's own line on the landing page. The sidebar shows only the title.
+   *
+   * For a `combined` group this is the card's body -- the one description both
+   * packages share -- so it has to name each runtime in words. A reader scanning
+   * for "astro" finds it here.
+   */
+  line: string;
+  /**
+   * Whether the group is one card with a link to each package, rather than a
+   * card each.
+   *
+   * The two widget renderers are one model in two runtimes, and two cards side
+   * by side said nothing about that -- a reader took them for unrelated
+   * packages. One card whose body describes the model once, with a button
+   * through to each runtime, is the relationship stated structurally. It is a
+   * landing-page presentation only: each package keeps its own section in the
+   * sidebar and its own pages.
+   */
+  combined?: boolean;
+}
+
+/**
+ * The axis the landing page and the sidebar are ordered on: what problem a
+ * package is for.
+ *
+ * Eight equal cards in one list gave a reader arriving with a problem nothing to
+ * scan against, and it hid the one relationship on the site that matters --
+ * `react-widget` and `astro-widget` are the same model in two runtimes, and
+ * adjacency alone never said so. The rendering group's line says it in words.
+ *
+ * One axis, not two. Whether a package is on npm is a property of the package
+ * and rides on its card next to the framework, rather than pulling it out of the
+ * group a reader would look for it in.
+ */
+export const groups: readonly PackageGroup[] = [
+  {
+    id: 'rendering',
+    title: 'Rendering from data',
+    line: 'One model in two runtimes: a list of structured items, a map of the components that render them, and no provider in either. React Widget renders a region of React components, with each item checked against its component at compile time. Astro Widget renders Astro sections from CMS block data, at build time, shipping nothing to the browser.',
+    combined: true,
+  },
+  {
+    id: 'identifiers',
+    title: 'Identifiers and codes',
+    line: 'Naming a thing, signing an identifier so a typo is caught before the database is, and minting a code a person can read back over the phone. Token is built on Luhn.',
+  },
+  {
+    id: 'standalone',
+    title: 'On their own',
+    line: 'One problem each, sharing a domain with nothing else here.',
+  },
+];
 
 export interface DocumentedPackage {
   /** The published package name. */
@@ -45,9 +104,10 @@ export interface DocumentedPackage {
    * Whether the package's own `package.json` carries `private: true`.
    *
    * `private: true` is what makes `nx release publish` skip a package, so it is
-   * already the statement "this is not on npm". The sidebar and the package
-   * index group on it, under Workshop, and a reader who follows one of those
-   * pages to `npm install` is told first.
+   * already the statement "this is not on npm". The card says so next to the
+   * framework, and `WorkshopNotice` says it at the top of every one of the
+   * package's pages, because a reader arriving from a search result sees neither
+   * the cards nor the sidebar.
    *
    * Written down here for the same reason the rest of this list is -- a `_meta`
    * module is bundled and cannot read a manifest -- and held against the
@@ -55,22 +115,28 @@ export interface DocumentedPackage {
    * `private` off a package moves it out of Workshop or fails the build.
    */
   workshop: boolean;
+  /** Which entry of `groups` this package sits under. */
+  group: string;
+  /**
+   * The stack the package runs in, as one short marker on its card.
+   *
+   * `any` is the real answer for a package that imports no framework, and the
+   * page said nothing about those at all -- a reader could not tell that URN,
+   * Luhn and Token work anywhere. `@evanion/feature` says `any + React` because
+   * both halves are true and dropping either misleads: the core imports no
+   * framework and the React adapter is a separate entry point.
+   */
+  framework: string;
 }
 
 export const packages: readonly DocumentedPackage[] = [
-  {
-    name: '@evanion/compose',
-    root: 'libs/compose',
-    slug: 'compose',
-    title: 'Compose',
-    documented: true,
-    workshop: false,
-  },
   {
     name: '@evanion/react-widget',
     root: 'libs/widget',
     slug: 'widget',
     title: 'React Widget',
+    group: 'rendering',
+    framework: 'React',
     documented: true,
     workshop: false,
   },
@@ -79,6 +145,8 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/astro-widget',
     slug: 'astro-widget',
     title: 'Astro Widget',
+    group: 'rendering',
+    framework: 'Astro',
     documented: true,
     workshop: false,
   },
@@ -87,14 +155,8 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/urn',
     slug: 'urn',
     title: 'URN',
-    documented: true,
-    workshop: false,
-  },
-  {
-    name: '@evanion/token',
-    root: 'libs/token',
-    slug: 'token',
-    title: 'Token',
+    group: 'identifiers',
+    framework: 'any',
     documented: true,
     workshop: false,
   },
@@ -103,6 +165,38 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/luhn',
     slug: 'luhn',
     title: 'Luhn',
+    group: 'identifiers',
+    framework: 'any',
+    documented: true,
+    workshop: false,
+  },
+  {
+    name: '@evanion/token',
+    root: 'libs/token',
+    slug: 'token',
+    title: 'Token',
+    group: 'identifiers',
+    framework: 'any',
+    documented: true,
+    workshop: false,
+  },
+  {
+    name: '@evanion/compose',
+    root: 'libs/compose',
+    slug: 'compose',
+    title: 'Compose',
+    group: 'standalone',
+    framework: 'React',
+    documented: true,
+    workshop: false,
+  },
+  {
+    name: '@evanion/nestjs-correlation-id',
+    root: 'nest/correlation-id',
+    slug: 'nestjs-correlation-id',
+    title: 'NestJS Correlation ID',
+    group: 'standalone',
+    framework: 'NestJS',
     documented: true,
     workshop: false,
   },
@@ -111,16 +205,10 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/feature',
     slug: 'feature',
     title: 'Feature Toggles',
+    group: 'standalone',
+    framework: 'any + React',
     documented: true,
     workshop: true,
-  },
-  {
-    name: '@evanion/nestjs-correlation-id',
-    root: 'nest/correlation-id',
-    slug: 'nestjs-correlation-id',
-    title: 'NestJS Correlation ID',
-    documented: true,
-    workshop: false,
   },
 ];
 

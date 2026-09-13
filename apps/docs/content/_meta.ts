@@ -1,5 +1,5 @@
 import type { MetaRecord } from 'nextra';
-import { packages, readmeUrl } from '../app/navigation';
+import { groups, packages, readmeUrl } from '../app/navigation';
 
 /** How a package appears in the sidebar: a section, or a link to its README. */
 function entry(item: (typeof packages)[number]) {
@@ -8,17 +8,25 @@ function entry(item: (typeof packages)[number]) {
     : { title: item.title, href: readmeUrl(item) };
 }
 
-/** The packages on one side of the Workshop separator, keyed by slug. */
-function section(workshop: boolean) {
-  return Object.fromEntries(
-    packages
-      .filter((item) => item.workshop === workshop)
-      .map((item) => [item.slug, entry(item)]),
-  );
-}
+/**
+ * One group: its separator, then the packages under it in `navigation.ts` order.
+ *
+ * A separator rather than a folder. Nesting the packages under a Nextra folder
+ * would put a group between a reader and every page inside it -- one more click,
+ * and a collapsed group hides the package someone came for. A separator groups
+ * the list while leaving every package one click away, which is what the sidebar
+ * is for.
+ */
+function group(id: string, title: string) {
+  const members = packages.filter((item) => item.group === id);
 
-const published = section(false);
-const workshop = section(true);
+  if (members.length === 0) return {};
+
+  return {
+    [`group-${id}`]: { type: 'separator', title },
+    ...Object.fromEntries(members.map((item) => [item.slug, entry(item)])),
+  };
+}
 
 /**
  * The top level of the sidebar, built from `app/navigation.ts`.
@@ -30,16 +38,11 @@ const workshop = section(true);
  * the package out of the navigation entirely, which is the failure this file
  * exists to prevent.
  *
- * The Workshop separator sits above the packages whose `package.json` carries
- * `private: true`, the same flag that makes `nx release publish` skip them.
- * Taking the flag off moves a package above the separator with no edit here. The
- * separator is omitted when nothing is private, because Nextra renders one
- * whether or not anything follows it.
+ * The order is the order of `groups`, then of `packages` within each. A group
+ * whose packages have all been removed emits no separator, because Nextra
+ * renders one whether or not anything follows it.
  */
 export default {
   index: 'Introduction',
-  ...published,
-  ...(Object.keys(workshop).length > 0
-    ? { workshop: { type: 'separator', title: 'Workshop' }, ...workshop }
-    : {}),
+  ...Object.assign({}, ...groups.map((it) => group(it.id, it.title))),
 } satisfies MetaRecord;

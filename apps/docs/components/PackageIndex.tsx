@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
+  ButtonLink,
   Card,
   CardGrid,
   CardGridCell,
@@ -9,7 +10,12 @@ import {
   Text,
   Title,
 } from '@evanion/baize-ui';
-import { packages, readmeUrl, type DocumentedPackage } from '../app/navigation';
+import {
+  groups,
+  packages,
+  readmeUrl,
+  type DocumentedPackage,
+} from '../app/navigation';
 
 /**
  * The workspace root, found by walking up from wherever the build was started.
@@ -45,41 +51,125 @@ function description(root: string): string {
   return manifest.description;
 }
 
-function PackageCards({ entries }: { entries: readonly DocumentedPackage[] }) {
+/** Where a card's title and buttons send a reader. */
+function href(entry: DocumentedPackage): string {
+  return entry.documented ? `/${entry.slug}` : readmeUrl(entry);
+}
+
+/**
+ * The two facts a reader needs before opening a card: the stack it runs in, and
+ * whether it is on npm.
+ *
+ * Plain text at the small step rather than a row of coloured pills, which would
+ * compete with the sentence that says what the package does. The one exception
+ * is `unreleased`, which is a chip because it changes what a reader can do --
+ * "preview" would imply they can try it and "work in progress" that it is
+ * unfinished, and neither is true: there is nothing on npm, and the
+ * implementation is complete.
+ */
+function Marker({ entry }: { entry: DocumentedPackage }) {
   return (
-    <CardGrid as="ul" label="Packages">
-      {entries.map((entry) => (
-        <CardGridCell as="li" key={entry.name}>
-          <Card
-            head={
-              <a href={entry.documented ? `/${entry.slug}` : readmeUrl(entry)}>
-                <Title as="h3" size="sm">
-                  {entry.title}
-                </Title>
-              </a>
-            }
-            foot={
-              entry.workshop ? (
-                <Chip>{entry.name} — not on npm yet</Chip>
-              ) : (
-                <Text size="xs" tone="moss">
-                  {entry.name}
-                </Text>
-              )
-            }
-          >
-            <Text size="sm" tone="lichen">
-              {description(entry.root)}
-            </Text>
-          </Card>
-        </CardGridCell>
+    <Text size="xs" tone="moss">
+      {entry.name} · {entry.framework}
+      {entry.workshop ? <Chip>unreleased</Chip> : null}
+    </Text>
+  );
+}
+
+/** One package, one card. */
+function PackageCard({ entry }: { entry: DocumentedPackage }) {
+  return (
+    <Card
+      head={
+        <a href={href(entry)}>
+          <Title as="h3" size="sm">
+            {entry.title}
+          </Title>
+        </a>
+      }
+      foot={<Marker entry={entry} />}
+    >
+      <Text size="sm" tone="lichen">
+        {description(entry.root)}
+      </Text>
+    </Card>
+  );
+}
+
+/** A whole group as one card: the shared description, then a way into each. */
+function CombinedCard({
+  group,
+  members,
+}: {
+  group: (typeof groups)[number];
+  members: readonly DocumentedPackage[];
+}) {
+  return (
+    <Card
+      head={
+        <Title as="h3" size="sm">
+          {group.title}
+        </Title>
+      }
+      foot={
+        <>
+          {members.map((entry) => (
+            <ButtonLink key={entry.name} href={href(entry)}>
+              {entry.title}
+            </ButtonLink>
+          ))}
+        </>
+      }
+    >
+      <Text size="sm" tone="lichen">
+        {group.line}
+      </Text>
+      {members.map((entry) => (
+        <Marker key={entry.name} entry={entry} />
       ))}
-    </CardGrid>
+    </Card>
   );
 }
 
 /**
- * Every package this site is responsible for, as a grid of cards.
+ * One group: a heading, and either a card per package or the whole group as one.
+ *
+ * A combined group's line is its card's body, so it is not repeated under the
+ * heading.
+ */
+function Group({ group }: { group: (typeof groups)[number] }) {
+  const members = packages.filter((entry) => entry.group === group.id);
+
+  if (members.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeader heading={<Title as="h2">{group.title}</Title>} />
+      {group.combined ? null : (
+        <Text size="sm" tone="lichen">
+          {group.line}
+        </Text>
+      )}
+      <CardGrid as="ul" label={group.title}>
+        {group.combined ? (
+          <CardGridCell as="li">
+            <CombinedCard group={group} members={members} />
+          </CardGridCell>
+        ) : (
+          members.map((entry) => (
+            <CardGridCell as="li" key={entry.name}>
+              <PackageCard entry={entry} />
+            </CardGridCell>
+          ))
+        )}
+      </CardGrid>
+    </>
+  );
+}
+
+/**
+ * Every package this site is responsible for, as cards under the problem each
+ * one is for.
  *
  * Usable as a JSX tag in any MDX page through the map in mdx-components.js, and
  * the reason the landing page does not list three packages by name. It renders
@@ -91,32 +181,13 @@ function PackageCards({ entries }: { entries: readonly DocumentedPackage[] }) {
  * card's sentence is the `description` from the package's own manifest, so the
  * index cannot describe a package differently from npm. `output: 'export'` means
  * this runs once, during the build.
- *
- * The Workshop grid is the packages carrying `private: true`, which is what makes
- * `nx release publish` skip them. A reader scanning the cards has to be able to
- * tell an install from a thing being built, and dropping the flag moves a package
- * into the first grid with no edit here.
  */
 export default function PackageIndex() {
-  const published = packages.filter((entry) => !entry.workshop);
-  const workshop = packages.filter((entry) => entry.workshop);
-
   return (
     <>
-      <PackageCards entries={published} />
-      {workshop.length > 0 ? (
-        <>
-          <SectionHeader
-            heading={<Title as="h2">Workshop</Title>}
-            aside={
-              <Text size="sm" tone="lichen">
-                Built and documented, not on npm yet
-              </Text>
-            }
-          />
-          <PackageCards entries={workshop} />
-        </>
-      ) : null}
+      {groups.map((group) => (
+        <Group key={group.id} group={group} />
+      ))}
     </>
   );
 }
