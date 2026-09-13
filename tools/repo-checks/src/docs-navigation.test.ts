@@ -35,6 +35,7 @@ interface DocumentedPackage {
   slug: string;
   title: string;
   documented: boolean;
+  workshop: boolean;
 }
 
 interface ReleasedProject {
@@ -184,6 +185,37 @@ describe('the docs navigation', () => {
   });
 
   /**
+   * `workshop` is what puts a package under the sidebar's Workshop separator,
+   * into the second grid on the landing page, and behind a notice on every one
+   * of its pages saying `npm install` does not resolve. `private: true` in the
+   * package's own manifest is the same statement -- it is what makes
+   * `nx release publish` skip it -- so the two are held equal here rather than
+   * maintained side by side. Publishing a package is then one edit, to its
+   * manifest, and the site follows.
+   */
+  it('marks as Workshop exactly the packages that are private', async () => {
+    const navigation = await loadNavigation();
+
+    expect(
+      navigation.map((entry) => `${entry.slug} ${entry.workshop}`),
+      'Set `workshop` on the entry in apps/docs/app/navigation.ts to match ' +
+        '`private` in the package manifest, or change the manifest. A reader ' +
+        'told to `npm install` a private package gets nothing.',
+    ).toEqual(
+      navigation.map((entry) => {
+        const manifest = parseJson<{ private?: boolean }>(
+          readFileSync(
+            join(workspaceRoot, entry.root, 'package.json'),
+            'utf-8',
+          ),
+        );
+
+        return `${entry.slug} ${manifest.private === true}`;
+      }),
+    );
+  });
+
+  /**
    * `documented` is what chooses between a section on this site and a link to
    * the package's README, and Nextra fails the build on a `_meta` key naming a
    * page it cannot find. Holding the flag against the content directory is what
@@ -219,10 +251,17 @@ describe('every _meta file', () => {
 
     for (const { directory, meta } of await metaFiles()) {
       for (const [key, item] of Object.entries(meta)) {
-        const isLink =
-          typeof item === 'object' && item !== null && 'href' in item;
+        // The same three exemptions Nextra's own normalizer grants: a separator,
+        // a menu, and anything carrying an `href`. `content/_meta.ts` emits a
+        // separator to head the Workshop group.
+        const isChrome =
+          typeof item === 'object' &&
+          item !== null &&
+          ('href' in item ||
+            ('type' in item &&
+              (item.type === 'separator' || item.type === 'menu')));
 
-        if (!isLink && !pageExists(directory, key)) {
+        if (!isChrome && !pageExists(directory, key)) {
           dangling.push(`${relative(workspaceRoot, directory)}: ${key}`);
         }
       }

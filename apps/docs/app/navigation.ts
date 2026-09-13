@@ -41,6 +41,20 @@ export interface DocumentedPackage {
    * left behind when the section lands.
    */
   documented: boolean;
+  /**
+   * Whether the package's own `package.json` carries `private: true`.
+   *
+   * `private: true` is what makes `nx release publish` skip a package, so it is
+   * already the statement "this is not on npm". The sidebar and the package
+   * index group on it, under Workshop, and a reader who follows one of those
+   * pages to `npm install` is told first.
+   *
+   * Written down here for the same reason the rest of this list is -- a `_meta`
+   * module is bundled and cannot read a manifest -- and held against the
+   * manifests by `tools/repo-checks/src/docs-navigation.test.ts`, so taking
+   * `private` off a package moves it out of Workshop or fails the build.
+   */
+  workshop: boolean;
 }
 
 export const packages: readonly DocumentedPackage[] = [
@@ -50,6 +64,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'compose',
     title: 'Compose',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/react-widget',
@@ -57,6 +72,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'widget',
     title: 'React Widget',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/astro-widget',
@@ -64,6 +80,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'astro-widget',
     title: 'Astro Widget',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/urn',
@@ -71,6 +88,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'urn',
     title: 'URN',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/token',
@@ -78,6 +96,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'token',
     title: 'Token',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/luhn',
@@ -85,6 +104,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'luhn',
     title: 'Luhn',
     documented: true,
+    workshop: false,
   },
   {
     name: '@evanion/feature',
@@ -92,6 +112,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'feature',
     title: 'Feature Toggles',
     documented: true,
+    workshop: true,
   },
   {
     name: '@evanion/nestjs-correlation-id',
@@ -99,6 +120,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'nestjs-correlation-id',
     title: 'NestJS Correlation ID',
     documented: true,
+    workshop: false,
   },
 ];
 
