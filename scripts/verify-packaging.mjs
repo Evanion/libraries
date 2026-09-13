@@ -119,9 +119,9 @@ import type { TokenOptions, ValidateResult } from '@evanion/token';
 // Second entry point, and the only one that may touch React.
 import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
 import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp } from '@evanion/baize-ui';
-import type { Availability, BoxArtPalette, Mechanism, StatProps, TitleSize, ComplexityStop } from '@evanion/baize-ui';
+import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
-import { availability, boxArt, classNames, customProperties, ground, hueClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass, complexity } from '@evanion/baize-ui/tokens';
+import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -163,6 +163,8 @@ const felt: string = ground.felt;
 const hueValue: string = mechanism[hue];
 const stateValue: string = availability[state];
 const stopValue: string = complexity[stop];
+const tierName: string = complexityTier(2.4).name;
+const rung: string = ladderClass(stop);
 const artStop: string = boxArt[palette].from;
 const cardRadius: string = radius.card;
 const gutter: string = space[4];
@@ -175,7 +177,7 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
       tokenCheck, tokenResult, tokenErr,
       AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip,
       Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp,
-      felt, hueValue, stateValue, stopValue, artStop, cardRadius, gutter, propertyName, tokensCss,
+      felt, hueValue, stateValue, stopValue, tierName, rung, artStop, cardRadius, gutter, propertyName, tokensCss,
       titleSize, statFigure];
 `,
   );
@@ -223,7 +225,7 @@ import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
-import { ground, hueClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
+import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
@@ -231,7 +233,7 @@ const missing = Object.entries({
   createFeatures, FeatureProvider, useFeature,
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
-  hueClass, paletteClass, stateClass,
+  hueClass, ladderClass, paletteClass, stateClass,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
@@ -260,6 +262,7 @@ if (!stylesheet.includes(ground.felt.toLowerCase())) {
 // React.
 if (hueClass('workerPlacement') !== 'baize-hue-worker-placement' ||
     stateClass('reprintPending') !== 'baize-state-reprint-pending' ||
+    ladderClass(4) !== 'baize-ladder-4' ||
     paletteClass('terracotta') !== 'baize-palette-terracotta') {
   console.error('@evanion/baize-ui/tokens resolves a class name the stylesheet does not declare');
   process.exit(1);

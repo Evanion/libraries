@@ -24,8 +24,13 @@ export { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
 export type { Mechanism } from './mechanism.js';
 export { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
 export type { Availability } from './availability.js';
-export { complexity, COMPLEXITY_CONTRAST_FLOOR } from './complexity.js';
-export type { ComplexityStop } from './complexity.js';
+export {
+  complexity,
+  COMPLEXITY_CONTRAST_FLOOR,
+  complexityTier,
+  complexityTiers,
+} from './complexity.js';
+export type { ComplexityStop, ComplexityTier } from './complexity.js';
 export { boxArt } from './box-art.js';
 export type { BoxArtPalette, BoxArtStop } from './box-art.js';
 export { customProperties, renderTokensCss } from './custom-properties.js';
@@ -40,6 +45,7 @@ export { customProperties, renderTokensCss } from './custom-properties.js';
 export {
   classNames,
   hueClass,
+  ladderClass,
   modifier,
   paletteClass,
   stateClass,

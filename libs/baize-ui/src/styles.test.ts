@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest';
 
 import { availability } from './tokens/availability.js';
 import { boxArt } from './tokens/box-art.js';
-import { hueClass, paletteClass, stateClass } from './tokens/class-names.js';
+import { complexity } from './tokens/complexity.js';
+import {
+  hueClass,
+  ladderClass,
+  paletteClass,
+  stateClass,
+} from './tokens/class-names.js';
 import { customProperties } from './tokens/custom-properties.js';
 import { mechanism } from './tokens/mechanism.js';
 
@@ -106,11 +112,15 @@ describe('styles.css', () => {
       ...Object.keys(boxArt).map((name) =>
         paletteClass(name as keyof typeof boxArt),
       ),
+      ...Object.keys(complexity).map((stop) =>
+        ladderClass(Number(stop) as keyof typeof complexity),
+      ),
     ];
 
     expect(
       expected.filter((name) => !selectors.has(name)),
-      `These classes are what hueClass, stateClass and paletteClass resolve to, ` +
+      `These classes are what hueClass, stateClass, paletteClass and ladderClass ` +
+        `resolve to, ` +
         `and this file declares no rule for them. A consumer emitting one gets ` +
         `an element with no hue, no state colour or no gradient.`,
     ).toEqual([]);

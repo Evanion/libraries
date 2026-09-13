@@ -116,9 +116,9 @@ const statCells = [
   h(ReactStat, { figure: '40-70 min', key: 't', label: 'playtime' }),
   h(ReactStat, {
     children: h(ReactComplexityRamp, { label: 'complexity 2.4 of 5', stop: 3 }),
-    figure: '2.4 / 5',
+    figure: 'Midweight',
     key: 'w',
-    label: 'complexity',
+    label: 'complexity 2.4 / 5',
   }),
 ];
 
@@ -127,15 +127,12 @@ const mechanismTags = [
   h(
     'a',
     { className: 'tag-link', href: '/c/engine-building', key: 'a' },
-    h(ReactMechanismTag, {
-      label: 'engine building',
-      mechanism: 'engineBuilding',
-    }),
+    h(ReactMechanismTag, { label: 'engine building' }),
   ),
   h(
     'a',
     { className: 'tag-link', href: '/c/set-collection', key: 'b' },
-    h(ReactMechanismTag, { label: 'set collection', mechanism: 'other' }),
+    h(ReactMechanismTag, { label: 'set collection' }),
   ),
 ];
 
@@ -199,7 +196,7 @@ describe('the mechanism tags', () => {
    * The link is the app's and is in both trees: the library carries no router, so
    * a tag that wrapped itself in an anchor would need one.
    */
-  it('renders a hue-carrying tag per mechanism, unmapped ones as other', async () => {
+  it('renders one unhued tag per mechanism, mapped or not', async () => {
     expect(
       await astro(MechanismTags, { mechanisms: wingspan.mechanisms }),
     ).toEqual(react(h(ReactTagRow, { children: mechanismTags })));
@@ -255,8 +252,8 @@ describe('the game card', () => {
                   { className: 'title-link', href: '/g/x' },
                   'Wingspan',
                 ),
+                complexity: 3,
                 key: 'title',
-                mechanism: 'engineBuilding',
                 size: 'sm',
               }),
               h(ReactAvailabilityPill, {

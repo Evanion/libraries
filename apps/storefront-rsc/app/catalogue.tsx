@@ -18,10 +18,10 @@ import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
 import {
   availabilityLabel,
   availabilityToken,
-  formatPrice,
-  formatComplexity,
-  mechanismToken,
   complexityStop,
+  complexityTierName,
+  formatComplexity,
+  formatPrice,
 } from './tokens';
 
 /**
@@ -91,7 +91,7 @@ export async function Catalogue({ heading }: { heading: string }) {
                 <>
                   <Title
                     as="h3"
-                    mechanism={mechanismToken(entry.mechanisms[0])}
+                    complexity={complexityStop(entry.complexity)}
                     size="sm"
                   >
                     {entry.title}
@@ -105,19 +105,15 @@ export async function Catalogue({ heading }: { heading: string }) {
             >
               <TagRow>
                 {entry.mechanisms.map((mechanism) => (
-                  <MechanismTag
-                    key={mechanism}
-                    label={mechanism}
-                    mechanism={mechanismToken(mechanism)}
-                  />
+                  <MechanismTag key={mechanism} label={mechanism} />
                 ))}
               </TagRow>
               <StatLine label={`${entry.title} at a glance`}>
                 <Stat figure={entry.players} label="players" />
                 <Stat figure={entry.playtime} label="playtime" />
                 <Stat
-                  figure={formatComplexity(entry.complexity)}
-                  label="complexity"
+                  figure={complexityTierName(entry.complexity)}
+                  label={`complexity ${formatComplexity(entry.complexity)}`}
                 >
                   <ComplexityRamp
                     label={`complexity ${entry.complexity.toFixed(1)} of 5`}

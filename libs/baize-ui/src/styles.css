@@ -37,9 +37,12 @@
 }
 
 /*
- * The mechanism hue, bound once per family and read by every component that takes
- * one. A title colours itself with it; a chip and a tag mix their border and tint
- * out of it.
+ * The mechanism hue, bound once per family and read by the chip that carries one.
+ *
+ * Mechanism is categorical and the colour ladder is ordinal, and the design spends
+ * one saturated colour per card on the ordinal one. So a hue reaches only a place
+ * where the mechanism is itself the subject -- the category index, and the heading
+ * of a category's own page -- and never a game's title or the tags under it.
  */
 .baize-hue-engine-building {
   --baize-hue: var(--baize-mechanism-engine-building);
@@ -69,6 +72,29 @@
   --baize-hue: var(--baize-mechanism-other);
 }
 
+/*
+ * The complexity ramp stop, bound once per stop and read by the title.
+ *
+ * The ladder is the card's one saturated data signal: a game's title is set in its
+ * complexity's colour the way an item's name carries its rarity, so the shallow end
+ * of the catalogue and the deep end are sorted by eye before anything is read.
+ */
+.baize-ladder-1 {
+  --baize-ladder: var(--baize-complexity-1);
+}
+.baize-ladder-2 {
+  --baize-ladder: var(--baize-complexity-2);
+}
+.baize-ladder-3 {
+  --baize-ladder: var(--baize-complexity-3);
+}
+.baize-ladder-4 {
+  --baize-ladder: var(--baize-complexity-4);
+}
+.baize-ladder-5 {
+  --baize-ladder: var(--baize-complexity-5);
+}
+
 /* The availability colour, bound once per state and read by the pill. */
 .baize-state-in-stock {
   --baize-state: var(--baize-availability-in-stock);
@@ -83,7 +109,14 @@
   --baize-state: var(--baize-availability-out-of-print);
 }
 
-/* Titles. Tracking tightens as the size grows. */
+/*
+ * Titles. Tracking tightens as the size grows.
+ *
+ * The ladder wins over the mechanism hue where a title somehow carries both, so
+ * that a game title is never coloured by its category: the `Title` component takes
+ * a complexity stop and no mechanism, and the only headings that bind a hue are the
+ * ones naming a mechanism, which carry no complexity to ladder.
+ */
 .baize-title {
   margin: 0;
   font-family: var(--baize-font-title);
@@ -91,7 +124,7 @@
   font-stretch: 92%;
   line-height: var(--baize-leading-tight);
   letter-spacing: var(--baize-tracking-snug);
-  color: var(--baize-hue, var(--baize-chalk));
+  color: var(--baize-ladder, var(--baize-hue, var(--baize-chalk)));
 }
 
 .baize-title--size-sm {
@@ -307,7 +340,12 @@
   cursor: not-allowed;
 }
 
-/* Chips and tags: the 3px radius, tinted out of whatever hue they carry. */
+/*
+ * Chips and tags: the 3px radius, tinted out of whatever hue they carry.
+ *
+ * A mechanism tag binds no hue, so it falls back to `lichen` and keeps its shape
+ * and its label while the ladder keeps the card's colour to itself.
+ */
 .baize-chip,
 .baize-mechanism-tag {
   display: inline-block;

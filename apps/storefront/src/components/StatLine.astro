@@ -1,7 +1,11 @@
 ---
 import { classNames, modifier } from '@evanion/baize-ui/tokens';
 
-import { formatComplexity, complexityStop } from '../lib/catalogue.js';
+import {
+  complexityStop,
+  complexityTierName,
+  formatComplexity,
+} from '../lib/catalogue.js';
 import ComplexityRamp from './ComplexityRamp.astro';
 
 interface Props {
@@ -22,7 +26,11 @@ const stop = complexityStop(complexity);
 
     Each cell is a div and not a paragraph: the complexity cell holds the ramp, and a
     parser closes an open `<p>` when a `<div>` starts inside it, which silently
-    lifts the ramp out of its grid column. */}
+    lifts the ramp out of its grid column.
+
+    The tier word leads the complexity cell and the rating follows it in the label.
+    The word is what a shopper reads and what carries the ladder's meaning without
+    colour; the number is still there for anyone comparing two Midweight games. */}
 <div class={classNames('baize-statline', modifier('baize-statline', 'size', size))}>
   <div class="baize-stat">
     <span class="baize-stat__figure baize-figure">{players}</span>
@@ -33,8 +41,12 @@ const stop = complexityStop(complexity);
     <span class="baize-stat__label">playtime</span>
   </div>
   <div class="baize-stat">
-    <span class="baize-stat__figure baize-figure">{formatComplexity(complexity)}</span>
-    <span class="baize-stat__label">complexity</span>
+    <span class="baize-stat__figure baize-figure">
+      {complexityTierName(complexity)}
+    </span>
+    <span class="baize-stat__label">
+      complexity {formatComplexity(complexity)}
+    </span>
     {stop && <ComplexityRamp label={`complexity ${complexity.toFixed(1)} of 5`} stop={stop} />}
   </div>
 </div>

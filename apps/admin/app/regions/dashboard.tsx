@@ -14,8 +14,8 @@ import type { WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
 import {
   availabilityToken,
+  complexityTierName,
   formatComplexity,
-  mechanismToken,
   complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
@@ -77,10 +77,13 @@ function Row({ children }: { children: ReactNode }) {
   return <div className="panel-row">{children}</div>;
 }
 
-/** Complexity on its ramp, with the number beside it in tabular figures. */
+/** Complexity on its ramp: the tier word, the number, and the five pips. */
 function Complexity({ complexity }: { complexity: number }) {
   return (
     <span className="complexity-cell">
+      <Text as="span" size="sm" tone="chalk">
+        {complexityTierName(complexity)}
+      </Text>
       <ComplexityRamp
         label={`complexity ${formatComplexity(complexity)} of 5`}
         stop={complexityStop(complexity)}
@@ -123,14 +126,15 @@ function StockByGame({ rows }: { rows: StockRow[]; ctx?: DashboardCtx }) {
       {rows.map((row) => (
         <Row key={row.urn}>
           <span className="stack">
-            <Title as="h3" mechanism={mechanismToken(row.mechanism)} size="sm">
+            <Title
+              as="h3"
+              complexity={complexityStop(row.complexity)}
+              size="sm"
+            >
               {row.title}
             </Title>
             <span>
-              <MechanismTag
-                label={row.mechanism}
-                mechanism={mechanismToken(row.mechanism)}
-              />
+              <MechanismTag label={row.mechanism} />
             </span>
           </span>
           <Complexity complexity={row.complexity} />

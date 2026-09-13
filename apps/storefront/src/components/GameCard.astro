@@ -1,7 +1,7 @@
 ---
 import { classNames } from '@evanion/baize-ui/tokens';
 
-import { formatPrice, gameHueClass } from '../lib/catalogue.js';
+import { formatPrice, gameLadderClass } from '../lib/catalogue.js';
 import type { Game } from '../lib/shop-api.js';
 import AvailabilityPill from './AvailabilityPill.astro';
 import MechanismTags from './MechanismTags.astro';
@@ -17,9 +17,11 @@ const { game } = Astro.props;
 {/* The library's `Card` with a `Title` in its head and a `Figure` in its foot, as
     Astro.
 
-    The hue is on the title rather than on the card: the design makes the title the
-    place a reader identifies a game by colour, and a card that tinted everything
-    inside it would put the hue on the price as well.
+    The ladder is on the title rather than on the card: the design makes the title
+    the place a reader identifies a game by colour, and a card that tinted everything
+    inside it would put the ramp on the price as well. One saturated data signal per
+    card, plus the box art -- the mechanism tags and the availability pill keep their
+    shapes and spend no hue on the ladder's behalf.
 
     Not a list item: the card is a listing block, and the cell around it comes from
     that region's chrome. A card that wrote its own `<li>` could not be put
@@ -30,7 +32,7 @@ const { game } = Astro.props;
       class={classNames(
         'baize-title',
         'baize-title--size-sm',
-        gameHueClass(game),
+        gameLadderClass(game),
       )}
     >
       <a class="title-link" href={`/g/${game.urn}`}>{game.title}</a>

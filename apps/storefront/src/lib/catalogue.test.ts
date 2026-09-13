@@ -3,15 +3,16 @@ import {
   availabilityLabel,
   availabilityStateClass,
   boxArtPaletteClass,
-  formatPrice,
+  complexityStop,
+  complexityTierName,
   formatComplexity,
-  gameHueClass,
+  formatPrice,
+  gameLadderClass,
   gamesByMechanism,
   mechanismHueClass,
+  mechanisms,
   mechanismSlug,
   mechanismToken,
-  mechanisms,
-  complexityStop,
 } from './catalogue.js';
 import type { Game } from './shop-api.js';
 
@@ -66,11 +67,14 @@ describe('mechanismHueClass', () => {
   });
 });
 
-describe('gameHueClass', () => {
-  it('uses the first mechanism, the one players name the game by', () => {
-    expect(gameHueClass(game({ mechanisms: ['co-op', 'area control'] }))).toBe(
-      'baize-hue-cooperative',
-    );
+describe('gameLadderClass', () => {
+  it('sets a title on the rung its complexity reaches', () => {
+    expect(gameLadderClass(game({ complexity: 2.4 }))).toBe('baize-ladder-3');
+    expect(gameLadderClass(game({ complexity: 4 }))).toBe('baize-ladder-5');
+  });
+
+  it('leaves an unrated title on no rung at all', () => {
+    expect(gameLadderClass(game({ complexity: 0 }))).toBeUndefined();
   });
 });
 
@@ -118,8 +122,18 @@ describe('complexity', () => {
     expect(formatComplexity(2.4)).toBe('2.4 / 5');
   });
 
-  it('reaches the stop a rating is partway into', () => {
+  it('reaches the stop its tier sits on', () => {
+    expect(complexityStop(1.1)).toBe(1);
+    expect(complexityStop(1.8)).toBe(2);
     expect(complexityStop(2.4)).toBe(3);
+    expect(complexityStop(3.8)).toBe(4);
+    expect(complexityStop(4)).toBe(5);
+  });
+
+  it('names the tier a shopper reads instead of the number', () => {
+    expect(complexityTierName(1.1)).toBe('Gateway');
+    expect(complexityTierName(2.4)).toBe('Midweight');
+    expect(complexityTierName(4)).toBe('Brain-burner');
   });
 
   it('never passes the five stops the ramp has', () => {

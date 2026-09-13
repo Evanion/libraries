@@ -6,7 +6,13 @@ import { classNames, hueClass, stateClass } from './class-names.js';
 
 export interface ChipProps {
   children: ReactNode;
-  /** The hue the chip's border and tint are mixed from. */
+  /**
+   * The hue the chip's border and tint are mixed from.
+   *
+   * The one place a mechanism still carries its colour: a chip on the category
+   * index labels the mechanism itself, where there is no game and so no ladder for
+   * it to compete with.
+   */
   mechanism?: Mechanism;
 }
 
@@ -31,23 +37,24 @@ export function TagRow({ children }: TagRowProps) {
 }
 
 export interface MechanismTagProps {
-  /** Selects the hue. */
-  mechanism: Mechanism;
   /**
    * What the tag says, as the catalogue spells it -- `co-op` rather than
-   * `cooperative`. The enum selects a token and the string is what a reader sees;
-   * the two are separate because only the app knows the catalogue's wording.
+   * `cooperative`.
    */
   label: string;
 }
 
-/** A mechanism name in its family's hue. */
-export function MechanismTag({ mechanism, label }: MechanismTagProps) {
-  return (
-    <span className={classNames('baize-mechanism-tag', hueClass(mechanism))}>
-      {label}
-    </span>
-  );
+/**
+ * A mechanism name, in the secondary text colour.
+ *
+ * Takes no mechanism token and paints no hue. Mechanism is categorical and the
+ * colour ladder is ordinal, the design spends its one saturated colour per card on
+ * the ordinal one, and a component that could be handed a hue is a component
+ * somebody hands one. A mechanism chip on the category index is where the hue
+ * lives, and that is `Chip`.
+ */
+export function MechanismTag({ label }: MechanismTagProps) {
+  return <span className="baize-mechanism-tag">{label}</span>;
 }
 
 export interface AvailabilityPillProps {

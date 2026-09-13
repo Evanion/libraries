@@ -51,7 +51,7 @@ Strings for anything displayed, enum members for anything that selects a token,
 <StatLine label="Wingspan at a glance">
   <Stat figure="1–5" label="players" />
   <Stat figure="40–70 min" label="playtime" />
-  <Stat figure="2.4 / 5" label="complexity">
+  <Stat figure="Midweight" label="complexity 2.4 / 5">
     <ComplexityRamp label="complexity 2.4 of 5" stop={3} />
   </Stat>
 </StatLine>
@@ -67,10 +67,11 @@ next request is for the field the object does not carry yet.
 | Export                               | Why                                                          |
 | ------------------------------------ | ------------------------------------------------------------ |
 | `Title`, `Text`, `Figure`            | the two families, the tracking-by-size rule, tabular figures |
+| `Title`'s `complexity` prop          | the colour ladder, bound where a reader identifies a game    |
 | `Card`, `Panel`, `SectionHeader`     | the 12px radius and the two grounds, one definition          |
 | `Button`, `ButtonLink`               | the 6px radius and the ink/parchment inversion               |
-| `Chip`, `TagRow`, `MechanismTag`     | the 3px radius and the mechanism hue binding                 |
-| `AvailabilityPill`                   | the other informational colour system                        |
+| `Chip`, `TagRow`, `MechanismTag`     | the 3px radius; `Chip` is the one place a mechanism is hued  |
+| `AvailabilityPill`                   | a state, which is not a ladder, so it keeps its own colours  |
 | `StatLine`, `Stat`, `ComplexityRamp` | the design's hero and structural device                      |
 | `CardGrid`, `CardGridCell`           | the card's own bed, at the width two apps agreed on          |
 | `BoxArtPlaceholder`                  | a gradient where the photograph of the box will go           |
@@ -95,11 +96,17 @@ had — and a TypeScript object cannot be read from an `.astro` style block, so
 both forms exist and a test keeps them identical.
 
 ```ts
-import { ground, mechanism, complexity } from '@evanion/baize-ui/tokens';
+import {
+  complexity,
+  complexityTier,
+  ground,
+  mechanism,
+} from '@evanion/baize-ui/tokens';
 
 ground.felt; // '#142521'
 mechanism.areaControl; // '#C98BE0'
-complexity[3]; // '#8AA096'
+complexity[3]; // '#C5A96A'
+complexityTier(2.4).name; // 'Midweight'
 ```
 
 A consumer that renders no React resolves its class names from the same entry,
@@ -158,8 +165,8 @@ maps any of them.
 ## Looking at it
 
 `src/visual-check.html` renders every primitive, every mechanism hue, every
-availability state, the complexity ramp and all twelve gradients against the real
-stylesheet. Build first, then open it:
+availability state, the complexity ladder on a title and on its ramp, and all twelve
+gradients against the real stylesheet. Build first, then open it:
 
 ```sh
 npx nx build baize-ui

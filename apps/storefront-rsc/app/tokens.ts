@@ -11,11 +11,12 @@
  * shared types package between two demo apps would hide a breaking change behind a
  * compile that still passes.
  */
+import { complexityTier } from '@evanion/baize-ui/tokens';
 import type {
   Availability as BaizeAvailability,
   BoxArtPalette,
-  Mechanism,
   ComplexityStop,
+  Mechanism,
 } from '@evanion/baize-ui';
 
 import type { Availability } from './shop-api';
@@ -121,20 +122,31 @@ export function formatPrice(minorUnits: number): string {
   return PRICE.format(minorUnits / 100);
 }
 
-/** Complexity as the stat line shows it: one decimal, against the scale's top. */
+/** The rating as the stat line shows it: one decimal, against the scale's top. */
 export function formatComplexity(complexity: number): string {
   return `${complexity.toFixed(1)} / 5`;
 }
 
 /**
- * Which stop on the five-stop ramp a complexity reaches.
+ * Which stop on the five-stop ramp a rating reaches.
  *
- * Rounded up, so 2.4 reaches stop 3: the last filled pip stands for the part of a
- * step the game is into. Clamped rather than rejected — the catalogue is the
- * authority on the number, and a ramp that throws is worse than one showing its
- * end.
+ * The stop comes from the tier rather than from rounding the rating: one tier per
+ * stop, so the colour the title is set in and the word under it can never
+ * disagree. Rounding put nine of the twelve catalogue titles on two stops and
+ * never reached the first or the last.
  */
 export function complexityStop(complexity: number): ComplexityStop {
-  if (!Number.isFinite(complexity)) return 1;
-  return Math.min(5, Math.max(1, Math.ceil(complexity))) as ComplexityStop;
+  return complexityTier(complexity).stop;
+}
+
+/**
+ * The tier a rating falls in, as a shopper reads it: `Gateway`, `Brain-burner`.
+ *
+ * The word leads the stat cell and the number follows it in the label, because
+ * `2.4 / 5` is BoardGameGeek's measure of rules overhead and means nothing until
+ * you have learnt the scale -- and because colour cannot be the only thing
+ * separating a Gateway game from a Heavy one.
+ */
+export function complexityTierName(complexity: number): string {
+  return complexityTier(complexity).name;
 }

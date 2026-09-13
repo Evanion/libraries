@@ -5,12 +5,15 @@ import { classNames, modifier } from './class-names.js';
 
 export interface StatProps {
   /**
-   * The figure, already formatted: `1–5`, `40–70 min`, `2.4 / 5`. A string and
-   * never a number, because the dash, the unit and the separator are locale
-   * decisions the app's request context owns.
+   * The cell's value, already worded: `1–5`, `40–70 min`, `Midweight`. A string
+   * and never a number, because the dash, the unit, the separator and the tier's
+   * vocabulary are all decisions the app's request context owns.
    */
   figure: string;
-  /** What the figure is: `players`, `playtime`, `complexity`. */
+  /**
+   * What the value is, and the place a number behind a word goes:
+   * `players`, `playtime`, `complexity 2.4 / 5`.
+   */
   label: string;
   /** Anything that belongs under the label, such as a `ComplexityRamp`. */
   children?: ReactNode;
@@ -78,6 +81,9 @@ export interface ComplexityRampProps {
  * Per-pip colour rather than one colour for the filled run: the ramp is
  * sequential, and a bar that lightens left to right reads as a scale where a
  * uniform bar reads as a count.
+ *
+ * The same five colours the title above it is set in, so the ladder on a card is
+ * one statement made twice rather than two channels to reconcile.
  */
 export function ComplexityRamp({ stop, label }: ComplexityRampProps) {
   return (

@@ -8,6 +8,7 @@
 export {
   classNames,
   hueClass,
+  ladderClass,
   modifier,
   paletteClass,
   stateClass,

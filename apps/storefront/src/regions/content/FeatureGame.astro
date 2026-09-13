@@ -5,7 +5,7 @@ import AvailabilityPill from '../../components/AvailabilityPill.astro';
 import BoxArt from '../../components/BoxArt.astro';
 import MechanismTags from '../../components/MechanismTags.astro';
 import StatLine from '../../components/StatLine.astro';
-import { formatPrice, gameHueClass } from '../../lib/catalogue.js';
+import { formatPrice, gameLadderClass } from '../../lib/catalogue.js';
 import { regionCtx } from '../ctx.js';
 
 interface Props {
@@ -36,7 +36,7 @@ const game = games.find((candidate) => candidate.urn === urn);
             class={classNames(
               'baize-title',
               'baize-title--size-xl',
-              gameHueClass(game),
+              gameLadderClass(game),
             )}
           >
             {game.title}

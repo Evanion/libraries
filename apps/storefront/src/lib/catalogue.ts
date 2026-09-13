@@ -1,6 +1,6 @@
 /**
  * Turning catalogue data into what the design system takes: a mechanism, an
- * availability state, a ramp stop, a box-art palette, a price, a complexity.
+ * availability state, a ramp stop, a tier name, a box-art palette, a price.
  *
  * `@evanion/baize-ui` takes enum members and already-formatted strings, so this
  * is where the catalogue's own vocabulary is translated into the library's.
@@ -13,13 +13,15 @@
  * library's contrast floor, and renders as `other` until someone adds it.
  */
 import {
+  complexityTier,
   hueClass,
+  ladderClass,
   paletteClass,
   stateClass,
   type Availability as BaizeAvailability,
   type BoxArtPalette,
-  type Mechanism,
   type ComplexityStop,
+  type Mechanism,
 } from '@evanion/baize-ui/tokens';
 
 import type { Availability, Game } from './shop-api.js';
@@ -117,11 +119,16 @@ export function mechanismHueClass(mechanism: string | undefined): string {
 }
 
 /**
- * The hue class a game's title and tags take: its first, most characteristic
- * mechanism.
+ * The class that sets a game's title in its complexity's colour.
+ *
+ * The ladder is the only saturated signal a card spends, so the title carries it
+ * and nothing else does. An unrated game's title stays `chalk`.
  */
-export function gameHueClass(game: Pick<Game, 'mechanisms'>): string {
-  return mechanismHueClass(game.mechanisms[0]);
+export function gameLadderClass(
+  game: Pick<Game, 'complexity'>,
+): string | undefined {
+  const stop = complexityStop(game.complexity);
+  return stop && ladderClass(stop);
 }
 
 /** The class that binds an availability state's colour for the pill. */
@@ -146,22 +153,34 @@ export function formatPrice(minorUnits: number): string {
   return PRICE.format(minorUnits / 100);
 }
 
-/** Complexity as the stat line shows it: one decimal, against the scale's top. */
+/** The rating as the stat line shows it: one decimal, against the scale's top. */
 export function formatComplexity(complexity: number): string {
   return `${complexity.toFixed(1)} / 5`;
 }
 
 /**
- * Which stop on the five-stop ramp a complexity reaches, or nothing for an unrated
+ * The tier a rating falls in, as a shopper reads it: `Gateway`, `Brain-burner`.
+ *
+ * The word leads the stat cell and the number follows it in the label, because
+ * `2.4 / 5` is BoardGameGeek's measure of rules overhead and means nothing until
+ * you have learnt the scale -- and because colour cannot be the only thing
+ * separating a Gateway game from a Heavy one.
+ */
+export function complexityTierName(complexity: number): string {
+  return complexityTier(complexity).name;
+}
+
+/**
+ * Which stop on the five-stop ramp a rating reaches, or nothing for an unrated
  * game.
  *
- * Rounded up, so 2.4 reaches stop 3: the last filled pip stands for the part of
- * a step the game is into, and a heavier game never shows fewer pips than a
- * lighter one.
+ * The stop comes from the tier rather than from rounding the rating: one tier per
+ * stop, so the colour and the word can never disagree. Rounding put nine of the
+ * twelve catalogue titles on two stops and never reached the first or the last.
  */
 export function complexityStop(complexity: number): ComplexityStop | undefined {
   if (!Number.isFinite(complexity) || complexity <= 0) return undefined;
-  return Math.min(5, Math.ceil(complexity)) as ComplexityStop;
+  return complexityTier(complexity).stop;
 }
 
 /** Every mechanism in the catalogue, in catalogue order, without repeats. */

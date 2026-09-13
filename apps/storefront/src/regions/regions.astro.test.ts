@@ -305,16 +305,20 @@ describe('the listing region', () => {
     ).toEqual([]);
   });
 
-  it('titles each game in the hue of its first mechanism', async () => {
+  it('titles each game on its complexity rung, and nowhere else', async () => {
     const html = await render({
       items: listingItems(games),
       registry: listingRegistry,
       chrome: { item: GridCell },
     });
 
-    // The hue is a class the library's stylesheet binds, not an inline colour:
-    // `co-op` is the catalogue's wording and `cooperative` is the token's.
-    expect(html).toContain('baize-hue-economic');
-    expect(html).toContain('baize-hue-cooperative');
+    // The rung is a class the library's stylesheet binds, not an inline colour.
+    // Both of these titles are rated 3.9 or over, which is the top tier.
+    expect(html).toContain('baize-ladder-5');
+    expect(html).toContain('Brain-burner');
+
+    // The colour ladder carries complexity and nothing else: a mechanism reaches
+    // a card as a tag with a name on it and no hue of its own.
+    expect(html).not.toContain('baize-hue-');
   });
 });
