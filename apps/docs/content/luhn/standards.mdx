@@ -52,9 +52,8 @@ is uniform only when the dictionary size divides 256.
 The default 36-character dictionary does not. `256 % 36` is 4, so the first four
 characters come up about 14% more often than the rest.
 
-This library does not generate random values and will not start. A checksum
-library shipping a CSPRNG sampler acquires a security surface for a problem that
-is not its own. It states the fact instead:
+This library does not generate random values. It reports whether sampling over
+the dictionary would be biased:
 
 ```ts
 Luhn.uniformOverBytes; // false

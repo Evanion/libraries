@@ -59,7 +59,7 @@ export const DEFAULT_CORRELATION_ID_VALIDATOR = (value: string): boolean =>
 ```
 
 One to 128 word characters, dots, colons and hyphens — an RFC 9110 token subset.
-What it excludes is the point:
+It excludes:
 
 - CR and LF, which is what keeps a header value from splitting a response or
   forging a log line.
@@ -83,8 +83,7 @@ everything except `set-cookie`. The middleware joins an array the same way, so
 both shapes take one code path, and the default validator then rejects the
 result — a comma is not in its character set.
 
-That is the wanted behaviour for a duplicated correlation id: two callers
-disagreeing about the id is not a case to pick a winner in.
+Two callers disagreeing about the id is not a case to pick a winner in.
 
 ### Replacing it
 
@@ -97,10 +96,10 @@ CorrelationModule.forRoot({
 });
 ```
 
-Tightening it to the exact shape your stack mints is safe. Loosening it is where
-the risk is: a validator that accepts CR or LF accepts response splitting and log
-forging, and one with no length bound lets a single request write an arbitrarily
-long string into every log line it touches.
+Tightening it to the exact shape your stack mints is safe. A validator that
+accepts CR or LF accepts response splitting and log forging, and one with no
+length bound lets a single request write an arbitrarily long string into every
+log line it touches.
 
 `validate` is optional on `CorrelationConfig` and is defaulted by `forRoot()`,
 so a caller reading the injected config always finds one.

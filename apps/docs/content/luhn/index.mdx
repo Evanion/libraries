@@ -43,9 +43,9 @@ hex.validate('cafe3').isValid; // true
 alphanumerics, folding case. `Luhn.generate(x)` works without constructing
 anything.
 
-Nothing is checked at use. An instance you hold cannot produce a token its own
-`validate` rejects, because every constraint a dictionary has to satisfy was
-settled before the object existed.
+Nothing is checked at use. `createLuhn` settles every constraint on the
+dictionary, so an instance you hold cannot produce a token its own `validate`
+rejects.
 
 ## What it catches, and what it does not
 

@@ -14,8 +14,8 @@ createToken({ length: 13, chunkSize: 13 }).entropyBits; // 60
 
 ## Read it as a collision budget
 
-35 bits is 34,359,738,368 values. That sounds like a lot and is not, because
-what matters is the birthday bound rather than the space:
+35 bits is 34,359,738,368 values. The birthday bound, not the size of the space,
+is what decides when two codes collide:
 
 | Issued codes | Chance at least two collide, at 35 bits |
 | ------------ | --------------------------------------- |
@@ -63,9 +63,8 @@ Index on `body`, not on `value`. `body` is the unchunked, prefix-free,
 case-folded form, and it is what `validate` hands back for a lookup — a caller
 who typed the code without its separators has to find the same row.
 
-The retry loop is the right place for the collision handling because the
-database is the only participant that knows. A generator that retried internally
-would be checking against nothing.
+The retry loop belongs here because the database is the only participant that
+knows what has been issued.
 
 ## This is not a guess-resistance budget
 
@@ -90,6 +89,5 @@ Raise `n`. 64 characters is 6 bits each instead of 5, but the alphabet rules
 forbid uppercase, which is where the extra 32 would have to come from.
 
 Drop the check character. `length: 8` with no check would be 40 bits rather than
-35 — and then a mistyped code costs a database lookup and an unhelpful "not
-found", which is the whole thing this package exists to prevent. There is no
-option to do it.
+35, and a mistyped code would then cost a database lookup and an unhelpful "not
+found". There is no option to do it.

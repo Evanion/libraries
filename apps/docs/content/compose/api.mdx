@@ -1,6 +1,6 @@
 # API reference
 
-Everything `@evanion/compose` exports, and what it does.
+Everything `@evanion/compose` exports.
 
 ## `ComposeProvider`
 
@@ -36,9 +36,9 @@ function provider<T extends AnyComponent, P extends PropsWithoutChildren<T>>(
 ): readonly [T, PropsWithoutChildren<T>];
 ```
 
-Returns the `[component, props]` tuple. There is no runtime cost beyond building
-the array; the value of the call is that `T` is inferred from `component` in the
-same expression, so `props` is checked and completed against that component.
+Returns the `[component, props]` tuple, and nothing else happens at runtime. `T`
+is inferred from `component` in the same expression, so `props` is checked and
+completed against that component.
 
 The `Record<Exclude<…>, never>` intersection is what rejects an excess key.
 Plain assignability would not: TypeScript's excess-property check fires on a
@@ -53,7 +53,7 @@ variable.
 type AnyComponent = ComponentType<any>;
 ```
 
-A constraint, not an annotation. `ComponentType<unknown>` would reject a
+For use in a generic constraint. `ComponentType<unknown>` would reject a
 component with concrete props — component props are contravariant, so a
 `ComponentType<{ theme: string }>` is not assignable to a
 `ComponentType<unknown>` — and TypeScript has no "some component, props unknown"
@@ -114,10 +114,9 @@ repaired shape it cannot match, and a non-tuple array is never compared member
 by member — which would make TypeScript walk `every`, `map` and `reduce` and
 report the variance of a predicate before mentioning the real mismatch.
 
-Keeping `T` in the intersection is also deliberate. A bare
-`ValidateProviders<T>` is a non-homomorphic mapped type and therefore not an
-inference site, so TypeScript would fall back to the constraint and check
-nothing.
+`T` stays in the intersection because a bare `ValidateProviders<T>` is a
+non-homomorphic mapped type and therefore not an inference site: TypeScript
+would fall back to the constraint and check nothing.
 
 ### `ComposeProviderProps<T>`
 

@@ -19,8 +19,8 @@ const features = createFeatures([
 | `seed`              | bucketing seed for this feature's rollouts. Defaults to the key |
 | `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build       |
 
-`enabled` is intent, not the answer. `rules` decide whether it resolves on for a
-given context.
+`enabled` records the intent; `rules` decide whether the feature resolves on for
+a given context.
 
 The configuration is cloned before it is frozen, so the store cannot be edited
 behind its own back:
@@ -42,8 +42,7 @@ Not first-match. Rule order never changes the outcome, which is what lets a rule
 be added to a list without reading the rules already in it.
 
 Toggling `enabled` on for a feature whose rules do not match changes stored
-intent, and the feature still resolves off. It is a kill switch in one direction
-only; it is not a force-on.
+intent, and the feature still resolves off. It is a kill switch only.
 
 ## Dependencies
 
@@ -114,8 +113,8 @@ All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
 Two rules, OR-ed: a staff account matches the first, everyone else is subject to
 the 10% ramp.
 
-`id` is used in `reason` and defaults to the rule's index, as `#0`, `#1`. Naming
-them is worth the keystrokes — an operator reading `rule: '#1'` has to count.
+`id` is used in `reason` and defaults to the rule's index, as `#0`, `#1`. Name
+them: an operator reading `rule: '#1'` has to count.
 
 A rule with neither `when` nor `rollout` matches unconditionally.
 
@@ -143,8 +142,8 @@ A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
 ### `now` is injected
 
 `now` comes from the evaluation context and defaults to `new Date()` at the
-call. It is never read from an ambient clock, which is what makes build-time
-evaluation honest and tests trivial:
+call. It is never read from an ambient clock, so a build-time evaluation and a
+test can both pass the instant they mean:
 
 ```ts
 features.resolve({ now: new Date('2026-11-01T00:00:00Z') });

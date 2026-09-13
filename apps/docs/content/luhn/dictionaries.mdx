@@ -54,9 +54,9 @@ createLuhn({ dictionary: 'aabbccdd' });
 The error carries `dictionary` and `offending` alongside `reason`, so a
 configuration screen can point at the characters rather than restating the rule.
 
-An even size is not a stylistic preference. The fold applied at every second
-position is `g(x) = floor(2x / n) + (2x mod n)`, and for an odd `n` that map is
-not injective — over a three-character dictionary, `g(1)` and `g(2)` are both 2.
+The fold applied at every second position is
+`g(x) = floor(2x / n) + (2x mod n)`, and for an odd `n` that map is not
+injective — over a three-character dictionary, `g(1)` and `g(2)` are both 2.
 Two different characters then contribute the same amount, and the guarantee that
 every single-character substitution is caught is gone.
 
@@ -109,8 +109,6 @@ is case-sensitive only. The alternating order is load-bearing: it decides which
 index each letter occupies.
 
 ## Choosing a size
-
-Two considerations pull in different directions.
 
 A larger `n` spreads the check character over more values, so a random string
 passes validation less often: one in `n`.

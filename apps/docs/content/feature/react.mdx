@@ -95,10 +95,9 @@ package.
 feature "checkout-v3" is not configured in this <FeatureProvider>
 ```
 
-A silent `false` would make a typo indistinguishable from a feature that is off,
-which is the failure mode flag systems are worst at. If you want the explanation
-rather than the boolean — to show an operator why a flag is off — `useFeature`
-is the one that carries it:
+A silent `false` would make a typo indistinguishable from a feature that is off.
+`useFeature` is the hook that carries the explanation, for showing an operator
+why a flag is off:
 
 ```tsx
 const decision = useFeature('checkout-v2');

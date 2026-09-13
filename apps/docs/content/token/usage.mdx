@@ -20,9 +20,9 @@ you hold cannot produce a code its own `validate` rejects.
 | `separator`  | `'-'`    | between chunks, and between a prefix and the code   |
 | `dictionary` | 32 chars | the alphabet — see [The alphabet](/token/alphabet)  |
 
-`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk of
-one character is exactly the thing this package exists to avoid. Set `chunkSize`
-equal to `length` for an unchunked code.
+`chunkSize` must divide `length`, or `createToken` throws, so no code ends in a
+chunk shorter than the rest. Set `chunkSize` equal to `length` for an unchunked
+code.
 
 ```ts
 createToken({ length: 10, chunkSize: 4 });
@@ -69,10 +69,8 @@ token.validate('a4kp-9mx'); // { valid: false, reason: 'wrong-length' }
 
 Checked in that order, and the first failure is the one reported.
 
-It returns a reason rather than throwing, because it is the cheap gate in front
-of a lookup rather than an exceptional path. It is total and free of side
-effects, which makes it safe to run on every request before doing anything
-expensive.
+It returns a reason rather than throwing, and is total and free of side effects,
+so it is safe to run on every request ahead of the lookup.
 
 Narrow on `valid` to reach `body`:
 

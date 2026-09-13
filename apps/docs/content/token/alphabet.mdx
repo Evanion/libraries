@@ -17,7 +17,7 @@ letter's name — "double-u" — which is what breaks it when a code is dictated
 `1` and `0` survive their own groups because a code is as often typed as spoken,
 and a digit is unambiguous on a keypad.
 
-32 is not an accident either. It is even and free of case pairs, so
+32 is even and free of case pairs, so
 `@evanion/luhn` can compute a check character over it, and it divides 256, so
 `byte % 32` draws every character with equal probability.
 
@@ -70,8 +70,8 @@ fine.
 
 Rejection sampling is the alternative to constraining the alphabet: draw a byte,
 discard it if it lands in the biased tail, draw again. It is correct and it makes
-generation variable-time. The constraint is satisfiable — the default proves it —
-so the constraint is what this package takes.
+generation variable-time. The default alphabet shows the constraint is
+satisfiable, so this package constrains the alphabet instead.
 
 ## Order is part of the alphabet
 
@@ -106,5 +106,5 @@ are only 36 lowercase alphanumerics and four of them are confusable, so 32 is th
 largest alphabet reachable without punctuation — which would then collide with
 the separator. That is where the default sits.
 
-Building an alphabet is four simultaneous constraints, and every error names the
-one you broke. Call `createToken` once in a test rather than reasoning about it.
+Every error names the constraint that failed, so call `createToken` once in a
+test rather than reasoning about all four at once.

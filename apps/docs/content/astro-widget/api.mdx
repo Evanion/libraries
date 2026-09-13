@@ -39,10 +39,9 @@ registry is skipped, silently.
 function defineBlocks<M extends BlockRegistry>(map: M): M;
 ```
 
-Returns the map unchanged, typed as the literal object that was passed. The
-generic parameter is the whole point — annotating the same object as
-`BlockRegistry` widens its keys to `string`, and the key union is what an editor
-completes on.
+Returns the map unchanged, typed as the literal object that was passed.
+Annotating the same object as `BlockRegistry` instead widens its keys to
+`string`, and the key union is what an editor completes on.
 
 ## `validateBlocks(items, registry, required?)`
 
@@ -91,9 +90,8 @@ default export is an `AstroComponentFactory`, which carries no prop types — th
 props of a `.astro` file live in its frontmatter `Props` interface and are not
 reachable from the factory's type.
 
-So a narrower value type would buy nothing: there is nothing to infer a block's
-props from, which is the difference from `@evanion/react-widget` and the reason
-`validateBlocks` exists.
+So a narrower value type would buy nothing. There is nothing to infer a block's
+props from, which is why `validateBlocks` exists.
 
 ### `BlockProblem`
 

@@ -17,8 +17,7 @@ and falls inside the bucket range.
 ## How a bucket is derived
 
 The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
-2^32 buckets into `[0, 1)`. Three properties follow from that, and all three
-come from how the bucket is derived rather than from how it is compared.
+2^32 buckets into `[0, 1)`. Three properties follow.
 
 ### Stable
 
@@ -55,8 +54,7 @@ The bucket does not depend on `percent` at all;
 `percent` is only a threshold on it. Raising a percentage can therefore only add
 members, never move one out. Lowering it removes the highest buckets.
 
-That last property is the one to lean on when ramping. A user who saw the new
-checkout at 10% still sees it at 25%.
+A user who saw the new checkout at 10% still sees it at 25%.
 
 ## Edges
 

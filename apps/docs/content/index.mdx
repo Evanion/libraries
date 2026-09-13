@@ -1,37 +1,20 @@
 # Evanion libraries
 
 Documentation for the packages in the
-[Evanion/libraries](https://github.com/Evanion/libraries) monorepo. Pick one
-from the sidebar.
-
-## What is here
-
-Small, single-purpose packages, most of them extracted from applications that
-needed them. They share a house style rather than a framework:
-
-- Constraints are checked once. Where a package has a construction step, it
-  validates everything there and nothing at use, so an instance you hold cannot
-  fail later.
-- Types do the work the runtime should not have to. A widget item, a provider
-  array and a feature key are all checked against the thing they name at compile
-  time.
-- Untrusted data has a separate, loud path. A payload from a CMS or a network
-  call gets an explicit validator, and the renderer underneath it stays
-  defensive rather than throwing.
-- Nothing is normalised behind your back. Encoding, decoding and case-folding
-  are steps you take, not things that happen to your values.
+[Evanion/libraries](https://github.com/Evanion/libraries) monorepo. Each is
+published on its own and covers one problem; the cards below say which. Pick one
+there or from the sidebar.
 
 <PackageIndex />
 
 ## Reading these pages
 
-Each package has an overview, and then as many pages as its surface needs. Every
-one of them assumes you have already installed the package and are trying to do
-something with it — the README on npm is the pitch, and this is the manual.
+Each package has an overview and then as many pages as its surface needs. They
+assume the package is installed.
 
-Where a page states a value in an example, that value was produced by running
-the package. Several of the examples are pulled directly out of the package's
-own README at build time, and the README runs them as tests.
+Every value stated in an example was produced by running the package. Some
+examples are pulled out of the package's README at build time, and the README
+runs them as tests.
 
 ## Elsewhere
 

@@ -12,8 +12,8 @@ urn : user : 1337
 scheme  NID   NSS
 ```
 
-The value of that over a bare `1337` is that nothing downstream has to be told
-what the id refers to. AWS's ARNs are the same idea with a longer NSS.
+Nothing downstream has to be told what a bare `1337` refers to. AWS's ARNs are
+the same idea with a longer NSS.
 
 ## Installation
 
@@ -44,8 +44,8 @@ UserTRN.stringify('1337'); // 'trn:user:1337'
 UserTRN.parse('trn:user:1337'); // { urn: 'trn', nid: 'user', nss: '1337' }
 ```
 
-That retention rule is the single thing most worth understanding about this
-library. [Parsing and namespaces](/urn/getting-started) covers it.
+[Parsing and namespaces](/urn/getting-started) covers that retention rule in
+full.
 
 ## What is in the package
 
