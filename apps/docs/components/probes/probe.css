@@ -1,0 +1,116 @@
+/*
+ * A probe sits directly under the code block it was seeded from, so it is the
+ * same card carried on: the page's raised material, the package's hue on the
+ * one part that is not fixed. Every colour is one of the six ground roles
+ * `app/global.css` binds per theme, and `--baize-hue` is the package's, bound
+ * by `.docs-identity` on the article; on a page without one it falls back to
+ * the reading colour rather than to a house colour the design does not have.
+ */
+.probe {
+  --probe-hue: var(--baize-hue, var(--baize-chalk));
+
+  margin-block: var(--baize-space-4);
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: var(--baize-felt);
+  color: var(--baize-chalk);
+}
+
+/*
+ * The label and the field on one baseline. It wraps at narrow widths, where a
+ * long URN would otherwise push the field off the card.
+ */
+.probe__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2) var(--baize-space-3);
+}
+
+.probe__label {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+/*
+ * The field is the value made editable: no box and no fill, the monospace face
+ * the call above it is set in, and a dotted hairline in the package's hue to
+ * say it takes typing. The same treatment the landing page's specimen uses.
+ */
+.probe__input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px dotted var(--probe-hue);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--x-font-mono);
+  font-size: var(--baize-text-sm);
+}
+
+.probe__input:focus-visible {
+  outline: none;
+  border-bottom-style: solid;
+}
+
+/*
+ * The call, rebuilt from whatever is in the field. A code block the theme has
+ * not highlighted, because what changes in it is the argument and Shiki's
+ * per-token colours are inlined per block at build time.
+ */
+.probe__call {
+  margin: var(--baize-space-3) 0 0;
+  padding: 0;
+  overflow-x: auto;
+  background: none;
+  color: var(--baize-lichen);
+  font-family: var(--x-font-mono);
+  font-size: var(--baize-text-sm);
+}
+
+.probe__value {
+  display: flex;
+  gap: var(--baize-space-2);
+  margin: var(--baize-space-1) 0 0;
+  overflow-x: auto;
+  font-family: var(--x-font-mono);
+  font-size: var(--baize-text-sm);
+}
+
+.probe__value output {
+  overflow-wrap: anywhere;
+}
+
+.probe__arrow {
+  flex: none;
+  color: var(--probe-hue);
+}
+
+/*
+ * What the call threw. Nextra's own red rather than a Baize value: the design
+ * system has no error role, and the theme's caution callouts are already this
+ * colour, so a throw reads like every other warning on the site.
+ */
+.probe__error {
+  margin: var(--baize-space-2) 0 0;
+  color: var(--x-color-red-600);
+  font-family: var(--x-font-mono);
+  font-size: var(--baize-text-xs);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * What to type. The secondary text rather than the tertiary, which is the
+ * weight the ground roles reserve for chrome a reader is not being asked to
+ * read -- and this line is the one instruction the probe gives.
+ */
+.probe__hint {
+  margin: var(--baize-space-3) 0 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+}
