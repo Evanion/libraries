@@ -1,18 +1,31 @@
 {
   "items": [
-    { "type": "link", "id": "games", "label": "games", "href": "/" },
     {
+      "id": "games",
       "type": "link",
-      "id": "co-op",
-      "label": "co-op",
-      "href": "/c/co-op"
+      "props": {
+        "label": "games",
+        "href": "/"
+      }
     },
     {
-      "type": "cart",
+      "id": "co-op",
+      "type": "link",
+      "props": {
+        "label": "co-op",
+        "href": "/c/co-op"
+      }
+    },
+    {
       "id": "cart",
-      "label": "cart",
-      "href": "/cart",
-      "meta": { "align": "end" }
+      "type": "cart",
+      "props": {
+        "label": "cart",
+        "href": "/cart"
+      },
+      "meta": {
+        "align": "end"
+      }
     }
   ]
 }

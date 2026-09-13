@@ -22,7 +22,10 @@ export default defineConfig(() => ({
       fileName: 'index',
       formats: ['es' as const],
     },
-    rolldownOptions: { external: ['astro'] },
+    // `@evanion/widget` is a dependency this package pins exactly, not
+    // something to inline: a consumer installing two adapters at the same core
+    // version gets one copy of it rather than a copy in each.
+    rolldownOptions: { external: ['astro', '@evanion/widget'] },
   },
   test: {
     // Without an explicit tsconfig, vitest falls back to the solution-style

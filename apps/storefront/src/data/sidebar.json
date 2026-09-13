@@ -1,28 +1,45 @@
 {
   "items": [
     {
-      "type": "filter",
       "id": "by-mechanism",
-      "heading": "Mechanism",
-      "meta": { "sticky": true }
+      "type": "filter",
+      "props": {
+        "heading": "Mechanism"
+      },
+      "meta": {
+        "sticky": true
+      }
     },
     {
-      "type": "hours",
       "id": "hours",
-      "heading": "Open",
-      "rows": [
-        { "days": "Tue to Fri", "hours": "11-19" },
-        { "days": "Saturday", "hours": "10-17" },
-        { "days": "Sunday", "hours": "12-16" }
-      ]
+      "type": "hours",
+      "props": {
+        "heading": "Open",
+        "rows": [
+          {
+            "days": "Tue to Fri",
+            "hours": "11-19"
+          },
+          {
+            "days": "Saturday",
+            "hours": "10-17"
+          },
+          {
+            "days": "Sunday",
+            "hours": "12-16"
+          }
+        ]
+      }
     },
     {
-      "type": "promo",
       "id": "demo-night",
-      "heading": "Demo night",
-      "body": "Thursdays from 18. Whatever is new that week is out of the shrink and on a table.",
-      "href": "/c/co-op",
-      "label": "See what is out"
+      "type": "promo",
+      "props": {
+        "heading": "Demo night",
+        "body": "Thursdays from 18. Whatever is new that week is out of the shrink and on a table.",
+        "href": "/c/co-op",
+        "label": "See what is out"
+      }
     }
   ]
 }

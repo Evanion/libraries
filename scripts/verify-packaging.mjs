@@ -130,15 +130,15 @@ try {
 import { ComposeProvider, provider } from '@evanion/compose';
 import type { ProviderArray } from '@evanion/compose';
 import { defineWidgets, validateItems as validateWidgetItems, VALIDATION_MESSAGES } from '@evanion/widget';
-import type { AnyWidgetItem, KnownWidgetTypes, WidgetProblem, WidgetRegistry } from '@evanion/widget';
+import type { AnyWidgetItem as CoreWidgetItem, KnownWidgetTypes as CoreKnownTypes, WidgetProblem as CoreProblem, WidgetRegistry as CoreRegistry } from '@evanion/widget';
 import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import type { ParsedURN } from '@evanion/urn';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
-import type { WidgetItem, WidgetItemProblem } from '@evanion/react-widget';
+import type { WidgetItem, WidgetProblem, WidgetRegistry, AnyWidgetComponent, WidgetsWrapperComponent } from '@evanion/react-widget';
 import { CorrelationModule, CorrelationService, withCorrelation } from '@evanion/nestjs-correlation-id';
 import type { CorrelationConfig } from '@evanion/nestjs-correlation-id';
-import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
-import type { BlockItem, BlockRegistry, BlockProblem } from '@evanion/astro-widget';
+import { defineWidgets as defineAstroWidgets, validateItems as validateAstroItems } from '@evanion/astro-widget';
+import type { AnyWidgetItem as AstroWidgetItem, WidgetRegistry as AstroWidgetRegistry, WidgetProblem as AstroWidgetProblem } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError, LuhnError } from '@evanion/luhn';
 import type { LuhnOptions } from '@evanion/luhn';
 import { createFeatures, FeatureCycleError } from '@evanion/feature';
@@ -152,10 +152,10 @@ import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps,
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 
-const widgetRegistry: WidgetRegistry = defineWidgets({ hero: 'not-a-real-component' });
-const anyItems: AnyWidgetItem[] = [{ id: 'a', type: 'hero', props: { heading: 'ok' } }];
-const known: KnownWidgetTypes = widgetRegistry;
-const coreProblems: WidgetProblem[] = validateWidgetItems(anyItems, known, { hero: ['heading'] });
+const widgetRegistry: CoreRegistry = defineWidgets({ hero: 'not-a-real-component' });
+const anyItems: CoreWidgetItem[] = [{ id: 'a', type: 'hero', props: { heading: 'ok' } }];
+const known: CoreKnownTypes = widgetRegistry;
+const coreProblems: CoreProblem[] = validateWidgetItems(anyItems, known, { hero: ['heading'] });
 const notAList: string = VALIDATION_MESSAGES.NOT_A_LIST;
 const parsed: ParsedURN = URN.parse('urn:user:1');
 const arr: ProviderArray = [];
@@ -165,11 +165,14 @@ const { defineItems } = createWidgets({ components: { news: News } });
 const items: WidgetItem<{ news: typeof News }>[] = defineItems([
   { id: '1', type: 'news', props: { title: 'ok' } },
 ]);
-const widgetProblems: WidgetItemProblem[] = validateItems(items, ['news']);
+const widgetProblems: WidgetProblem[] = validateItems(items, ['news'], { news: ['title'] });
+const reactRegistry: WidgetRegistry<AnyWidgetComponent> = { news: News };
+// The wrapper is handed the region's items beside its children.
+const Region: WidgetsWrapperComponent = ({ items: given }) => (given?.length ?? 0) > 0 ? null : null;
 const correlation: CorrelationConfig = { header: 'X-Correlation-Id', generator: () => 'x' };
-const registry: BlockRegistry = defineBlocks({ hero: 'not-a-real-component' });
-const sections: BlockItem[] = [{ type: 'hero', heading: 'ok' }];
-const problems: BlockProblem[] = validateBlocks(sections, registry, { hero: ['heading'] });
+const registry: AstroWidgetRegistry = defineAstroWidgets({ hero: 'not-a-real-component' });
+const sections: AstroWidgetItem[] = [{ id: 'h1', type: 'hero', props: { heading: 'ok' } }];
+const problems: AstroWidgetProblem[] = validateAstroItems(sections, registry, { hero: ['heading'] });
 const checksum: string = Luhn.generate('foo').checksum;
 const luhnOptions: LuhnOptions = { dictionary: '0123456789' };
 const filtered: number = createLuhn(luhnOptions).validate('79927398713').filtered;
@@ -205,7 +208,7 @@ const gutter: string = space[4];
 const propertyName: string = customProperties[0]?.[0] ?? '';
 const tokensCss: string = renderTokensCss();
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
-      widgetRegistry, anyItems, coreProblems, notAList,
+      widgetRegistry, anyItems, coreProblems, notAList, reactRegistry, Region,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
@@ -255,7 +258,7 @@ import { URN, InvalidError, ValidationError } from '@evanion/urn';
 import { ComposeProvider, provider } from '@evanion/compose';
 import { defineWidgets, validateItems as validateWidgetItems } from '@evanion/widget';
 import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evanion/react-widget';
-import { defineBlocks, validateBlocks } from '@evanion/astro-widget';
+import { defineWidgets as defineAstroWidgets, validateItems as validateAstroItems } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
 import { FeatureProvider, useFeature } from '@evanion/feature/react';
@@ -266,7 +269,7 @@ const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
   defineWidgets, validateWidgetItems,
-  defineBlocks, validateBlocks, createLuhn, InvalidDictionaryError,
+  defineAstroWidgets, validateAstroItems, createLuhn, InvalidDictionaryError,
   createFeatures, FeatureProvider, useFeature,
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,

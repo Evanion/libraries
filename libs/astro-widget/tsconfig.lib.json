@@ -24,5 +24,10 @@
     "eslint.config.mjs",
     "src/test-setup.ts"
   ],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../widget/tsconfig.lib.json"
+    }
+  ]
 }

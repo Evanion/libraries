@@ -1,5 +1,11 @@
 # API reference
 
+The item model — `AnyWidgetItem`, `WidgetRegistry`, `WidgetProblem`,
+`WidgetMeta`, `KnownWidgetTypes`, `defineWidgets`, `validateItems`,
+`ERROR_MESSAGES`, `VALIDATION_MESSAGES` — comes from `@evanion/widget` and is
+re-exported here. The specifier does not change and neither does the install:
+this package pins the core exactly and depends on it.
+
 ## `Widgets.astro`
 
 ```astro
@@ -10,98 +16,108 @@ import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 <Widgets items={items} registry={registry} ctx={ctx} chrome={{ item: Section }} />
 ```
 
-| Prop       | Type                      | Meaning                                 |
-| ---------- | ------------------------- | --------------------------------------- |
-| `items`    | `BlockItem[]`             | the blocks to render                    |
-| `registry` | `BlockRegistry`           | block type to component                 |
-| `ctx`      | `Record<string, unknown>` | page-level data, passed to every block  |
-| `chrome`   | `{ item?: unknown }`      | a component rendered around every block |
+| Prop       | Type                      | Meaning                                  |
+| ---------- | ------------------------- | ---------------------------------------- |
+| `items`    | `AnyWidgetItem[]`         | the widgets to render                    |
+| `registry` | `WidgetRegistry`          | widget type to component                 |
+| `ctx`      | `Record<string, unknown>` | page-level data, passed to every widget  |
+| `chrome`   | `{ item?: unknown }`      | a component rendered around every widget |
 
 Published as source, not as compiled output: an `.astro` module has to be
 compiled by Astro's own Vite plugin, which runs in the consuming project.
 
-What each block receives:
+What each widget receives:
 
 ```astro
 <Component {...props} id={id} ctx={ctx} children={children} />
 ```
 
-where `props` is the block object minus `type`, `id`, `children` and `meta`. The
-chrome, when there is one, receives `type`, `id`, `meta` and the same `props`,
-and wraps that element in its slot.
+The chrome, when there is one, receives `type`, `id` and `meta`, and wraps that
+element in its slot. It never receives `props`: a widget's data is the widget's
+business, and placement is the chrome's.
 
-A non-array `items` renders nothing. A `type` that is not an own key of the
-registry is skipped, silently.
+A non-array `items` renders nothing and warns. A `type` that is not an own key
+of the registry is skipped, with a dev-only `console.warn` naming the type and
+the id.
 
-## `defineBlocks(map)`
+There is no `chrome.wrapper`. The region's container is whatever element you put
+`<Widgets>` inside, and a wrapper the library supplied would be markup you did
+not ask for.
+
+## `defineWidgets(registry)`
 
 ```ts
-function defineBlocks<M extends BlockRegistry>(map: M): M;
+function defineWidgets<R extends WidgetRegistry>(registry: R): R;
 ```
 
-Returns the map unchanged, typed as the literal object that was passed.
-Annotating the same object as `BlockRegistry` instead widens its keys to
+Returns the registry unchanged, typed as the literal object that was passed.
+Annotating the same object as `WidgetRegistry` instead widens its keys to
 `string`, and the key union is what an editor completes on.
 
-## `validateBlocks(items, registry, required?)`
+## `validateItems(items, known, required?)`
 
 ```ts
-function validateBlocks(
-  items: BlockItem[],
-  registry: BlockRegistry,
+function validateItems(
+  items: unknown,
+  known: WidgetRegistry | readonly string[],
   required?: Record<string, string[]>,
-): BlockProblem[];
+): WidgetProblem[];
 ```
 
-Checks a block list against a registry, recursing into `children`. Returns
+Checks an item list against a registry, recursing into `children`. Returns
 problems rather than throwing, and accumulates rather than short-circuiting.
 
-`required` maps a block type to field names that must be present and non-blank,
-where blank means `undefined`, `null` or whitespace only.
+`required` maps a widget type to prop names that must be present and non-blank
+on `item.props`, where blank means `undefined`, `null` or whitespace only.
 
 See [Validation](/astro-widget/validation) for the messages and for where to run
 it.
 
 ## Types
 
-### `BlockItem`
+### `AnyWidgetItem`
 
 ```ts
-interface BlockItem {
-  type: string;
-  id?: string;
-  children?: BlockItem[];
+interface AnyWidgetItem<Type extends string = string, Props = object> {
+  id: string;
+  type: Type;
+  props: Props;
   meta?: Record<string, unknown>;
-  [key: string]: unknown;
+  children?: AnyWidgetItem[];
 }
 ```
 
-The index signature is what makes the CMS's own fields legal on the object, and
-it is also why this type checks almost nothing. `validateBlocks` is the check.
+The same type an `@evanion/react-widget` consumer writes, which is what makes
+one payload render through both. React's `WidgetItem<C>` is the checked
+counterpart, inferred from a component map; there is no Astro equivalent,
+because an `.astro` component exposes no prop types to infer from.
+`validateItems` is the check on this side.
 
-### `BlockRegistry`
+### `WidgetRegistry`
 
 ```ts
-type BlockRegistry = Record<string, unknown>;
+type WidgetRegistry<T = unknown> = Record<string, T>;
 ```
 
-The values are `unknown` rather than a component type. An `.astro` module's
-default export is an `AstroComponentFactory`, which carries no prop types — the
-props of a `.astro` file live in its frontmatter `Props` interface and are not
-reachable from the factory's type.
+Here the values stay `unknown`. An `.astro` module's default export is an
+`AstroComponentFactory`, which carries no prop types — the props of a `.astro`
+file live in its frontmatter `Props` interface and are not reachable from the
+factory's type. So a narrower value type would buy nothing, which is why
+`validateItems` exists.
 
-So a narrower value type would buy nothing. There is nothing to infer a block's
-props from, which is why `validateBlocks` exists.
+The React adapter instantiates the same type at its own component type, which is
+what drives its compile-time prop check.
 
-### `BlockProblem`
+### `WidgetProblem`
 
 ```ts
-interface BlockProblem {
-  index: number; // within the block's own sibling list; -1 when the root is not a list
-  type: string; // or '-' when the block has none usable
+interface WidgetProblem {
+  index: number; // within the item's own sibling list; -1 when the root is not a list
+  id: string; // or '-' when the item has none usable
+  type: string; // or '-' when the item has none usable
   message: string;
 }
 ```
 
-Mirrors react-widget's `WidgetItemProblem`, minus `id` — a block's `id` is
-optional there, so it is not a usable handle for reporting.
+`id` is a usable handle now that every item has one, which is what tells apart
+two problems reporting the same `index` at different depths.

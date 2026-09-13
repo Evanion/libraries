@@ -1,5 +1,5 @@
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { validateBlocks, type BlockItem } from '@evanion/astro-widget';
+import { validateItems, type AnyWidgetItem } from '@evanion/astro-widget';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { describe, expect, it } from 'vitest';
 
@@ -30,8 +30,8 @@ import { sidebarRegistry, sidebarRequired } from './sidebar/registry.js';
  *
  * Each region is a registry, a chrome pair and a list of items, and what this
  * file asserts is the seam between them: that placement reaches the chrome and
- * not the block, that page context reaches the block, and that a type a region's
- * registry does not hold renders nothing.
+ * not the widget, that page context reaches the widget, and that a type a
+ * region's registry does not hold renders nothing.
  */
 
 const games: Game[] = [
@@ -79,25 +79,35 @@ describe('the authored region data', () => {
   ] as const)(
     '%s validates against its registry',
     (_name, items, registry, required) => {
-      expect(validateBlocks(items as BlockItem[], registry, required)).toEqual(
-        [],
-      );
+      expect(
+        validateItems(items as AnyWidgetItem[], registry, required),
+      ).toEqual([]);
     },
   );
 
   it('landing validates except for the types it deliberately holds', () => {
     // Two unknown types on purpose, one nested: the landing data is the case
-    // that proves an unrecognised block is skipped rather than fatal, which is
+    // that proves an unrecognised item is skipped rather than fatal, which is
     // what a CMS sending a type the deploy does not have yet looks like.
-    const problems = validateBlocks(
-      landing.items as BlockItem[],
+    const problems = validateItems(
+      landing.items as AnyWidgetItem[],
       { ...contentRegistry, ...groupRegistry },
       { ...contentRequired, ...groupRequired },
     );
 
     expect(problems).toEqual([
-      { index: 3, type: 'kort', message: 'unknown block type' },
-      { index: 5, type: 'nyhetsbrev', message: 'unknown block type' },
+      {
+        index: 3,
+        id: 'skipped-nested',
+        type: 'kort',
+        message: 'unknown widget type',
+      },
+      {
+        index: 5,
+        id: 'skipped',
+        type: 'nyhetsbrev',
+        message: 'unknown widget type',
+      },
     ]);
   });
 });
@@ -151,7 +161,7 @@ describe('the navigation region', () => {
 });
 
 describe('the content region', () => {
-  it('renders each known block in order', async () => {
+  it('renders each known widget in order', async () => {
     const html = await render({
       items: landing.items,
       registry: contentRegistry,
@@ -160,7 +170,7 @@ describe('the content region', () => {
     });
 
     // Scoped to the region's own chrome: the nested group region and the
-    // listing region inside the catalogue block write `data-block` too.
+    // listing region inside the catalogue widget write `data-block` too.
     expect(
       [...html.matchAll(/class="section" data-block="([a-z]+)"/g)].map(
         (m) => m[1],
@@ -191,15 +201,15 @@ describe('the content region', () => {
     expect(html).toContain('data-first="true"');
   });
 
-  it('never spreads meta into a block', async () => {
+  it('never spreads meta into a widget', async () => {
     // No chrome here on purpose: the chrome legitimately renders the meta it was
     // given, and this is an assertion about what the block did not receive.
     const html = await render({
       items: [
         {
-          type: 'probe',
           id: 'p1',
-          heading: 'Seen',
+          type: 'probe',
+          props: { heading: 'Seen' },
           meta: { width: 'measure' },
         },
       ],
@@ -211,7 +221,7 @@ describe('the content region', () => {
     expect(html).not.toContain('measure');
   });
 
-  it('renders the group block nested region, with its own cell chrome', async () => {
+  it('renders the group widget nested region, with its own cell chrome', async () => {
     const html = await render({
       items: landing.items,
       registry: contentRegistry,
@@ -299,13 +309,9 @@ describe('the listing region', () => {
     ]);
   });
 
-  it('builds items every block type in its registry can render', () => {
+  it('builds items every widget type in its registry can render', () => {
     expect(
-      validateBlocks(
-        listingItems(games, '/'),
-        listingRegistry,
-        listingRequired,
-      ),
+      validateItems(listingItems(games, '/'), listingRegistry, listingRequired),
     ).toEqual([]);
   });
 
