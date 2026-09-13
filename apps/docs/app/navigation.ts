@@ -19,6 +19,8 @@
  * renderers belong next to each other.
  */
 
+import type { CategoricalHue } from '@evanion/baize-ui/tokens';
+
 /** Where a package with no section here sends the reader. */
 const repository = 'https://github.com/Evanion/libraries/tree/main';
 
@@ -127,6 +129,22 @@ export interface DocumentedPackage {
    * framework and the React adapter is a separate entry point.
    */
   framework: string;
+  /**
+   * The package's identity colour, from the categorical scale in
+   * `@evanion/baize-ui/tokens`.
+   *
+   * Baize has no house colour and the catalogue supplies every saturated pixel.
+   * This site's catalogue is the packages, so the packages are what carries the
+   * colour -- without them the design is a green page on a green ground, which
+   * is what it was. A reader scanning for one package finds it by colour before
+   * reading a word, and a reader who has been in `@evanion/urn`'s pages
+   * recognises its periwinkle on a card.
+   *
+   * One hue each and no two alike: `tools/repo-checks/src/docs-navigation.test.ts`
+   * fails on a repeat, because two packages in one colour is worse than none,
+   * and on a name the scale does not carry.
+   */
+  hue: CategoricalHue;
 }
 
 export const packages: readonly DocumentedPackage[] = [
@@ -137,6 +155,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'React Widget',
     group: 'rendering',
     framework: 'React',
+    hue: 'sky',
     documented: true,
     workshop: false,
   },
@@ -147,6 +166,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Astro Widget',
     group: 'rendering',
     framework: 'Astro',
+    hue: 'coral',
     documented: true,
     workshop: false,
   },
@@ -157,6 +177,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'URN',
     group: 'identifiers',
     framework: 'any',
+    hue: 'periwinkle',
     documented: true,
     workshop: false,
   },
@@ -167,6 +188,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Luhn',
     group: 'identifiers',
     framework: 'any',
+    hue: 'citron',
     documented: true,
     workshop: false,
   },
@@ -177,6 +199,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Token',
     group: 'identifiers',
     framework: 'any',
+    hue: 'teal',
     documented: true,
     workshop: false,
   },
@@ -187,6 +210,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Compose',
     group: 'standalone',
     framework: 'React',
+    hue: 'orchid',
     documented: true,
     workshop: false,
   },
@@ -197,6 +221,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'NestJS Correlation ID',
     group: 'standalone',
     framework: 'NestJS',
+    hue: 'mint',
     documented: true,
     workshop: false,
   },
@@ -207,6 +232,7 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Feature Toggles',
     group: 'standalone',
     framework: 'any + React',
+    hue: 'amber',
     documented: true,
     workshop: true,
   },

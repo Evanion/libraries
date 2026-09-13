@@ -1,5 +1,7 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
+import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
+import { packages } from '../navigation';
 
 /**
  * Enumerates one route per MDX file under `content/`.
@@ -30,6 +32,21 @@ interface PageProps {
   params: Promise<{ mdxPath: string[] }>;
 }
 
+/**
+ * The class that binds a page's package colour, from the first path segment.
+ *
+ * A page under `content/urn/` is a URN page, which is the only thing the route
+ * knows and all this needs: everything below it -- the title, the rule under it,
+ * the anchor links -- reads `--baize-hue` and takes the package's colour. The
+ * landing page and anything outside a package section get no class and fall back
+ * to the ground, which is what the library's own rules already do.
+ */
+function identity(mdxPath: string[] | undefined): string {
+  const entry = packages.find((item) => item.slug === mdxPath?.[0]);
+
+  return entry ? `docs-identity ${categoricalClass(entry.hue)}` : '';
+}
+
 export default async function Page(props: PageProps) {
   const params = await props.params;
   const {
@@ -40,7 +57,9 @@ export default async function Page(props: PageProps) {
   } = await importPage(params.mdxPath);
   return (
     <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
-      <MDXContent {...props} params={params} />
+      <div className={identity(params.mdxPath)}>
+        <MDXContent {...props} params={params} />
+      </div>
     </Wrapper>
   );
 }

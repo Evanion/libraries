@@ -10,6 +10,7 @@ import {
   Text,
   Title,
 } from '@evanion/baize-ui';
+import { categoricalClass } from '@evanion/baize-ui/tokens';
 import {
   groups,
   packages,
@@ -76,27 +77,37 @@ function Marker({ entry }: { entry: DocumentedPackage }) {
   );
 }
 
-/** One package, one card. */
+/** One package, one card, in the package's own colour. */
 function PackageCard({ entry }: { entry: DocumentedPackage }) {
   return (
-    <Card
-      head={
-        <a href={href(entry)}>
-          <Title as="h3" size="sm">
-            {entry.title}
-          </Title>
-        </a>
-      }
-      foot={<Marker entry={entry} />}
-    >
-      <Text size="sm" tone="lichen">
-        {description(entry.root)}
-      </Text>
-    </Card>
+    <div className={`docs-identity ${categoricalClass(entry.hue)}`}>
+      <Card
+        head={
+          <a href={href(entry)}>
+            <Title as="h3" size="sm">
+              {entry.title}
+            </Title>
+          </a>
+        }
+        foot={<Marker entry={entry} />}
+      >
+        <Text size="sm" tone="lichen">
+          {description(entry.root)}
+        </Text>
+      </Card>
+    </div>
   );
 }
 
-/** A whole group as one card: the shared description, then a way into each. */
+/**
+ * A whole group as one card: the shared description once, then a way into each.
+ *
+ * No head. The section heading above already names the group, and repeating it
+ * inside the card says one thing twice in two type sizes. What the card carries
+ * instead is the pair -- each package's name in its own colour, its marker, and
+ * the button into its section -- so the relationship is the card, and the choice
+ * between the two runtimes is a column each.
+ */
 function CombinedCard({
   group,
   members,
@@ -105,28 +116,25 @@ function CombinedCard({
   members: readonly DocumentedPackage[];
 }) {
   return (
-    <Card
-      head={
-        <Title as="h3" size="sm">
-          {group.title}
-        </Title>
-      }
-      foot={
-        <>
-          {members.map((entry) => (
-            <ButtonLink key={entry.name} href={href(entry)}>
-              {entry.title}
-            </ButtonLink>
-          ))}
-        </>
-      }
-    >
+    <Card>
       <Text size="sm" tone="lichen">
         {group.line}
       </Text>
-      {members.map((entry) => (
-        <Marker key={entry.name} entry={entry} />
-      ))}
+      <CardGrid as="ul" label={group.title}>
+        {members.map((entry) => (
+          <CardGridCell as="li" key={entry.name}>
+            <div
+              className={`docs-identity docs-route ${categoricalClass(entry.hue)}`}
+            >
+              <Title as="h3" size="sm">
+                <a href={href(entry)}>{entry.title}</a>
+              </Title>
+              <Marker entry={entry} />
+              <ButtonLink href={href(entry)}>Read the manual</ButtonLink>
+            </div>
+          </CardGridCell>
+        ))}
+      </CardGrid>
     </Card>
   );
 }
@@ -150,19 +158,17 @@ function Group({ group }: { group: (typeof groups)[number] }) {
           {group.line}
         </Text>
       )}
-      <CardGrid as="ul" label={group.title}>
-        {group.combined ? (
-          <CardGridCell as="li">
-            <CombinedCard group={group} members={members} />
-          </CardGridCell>
-        ) : (
-          members.map((entry) => (
+      {group.combined ? (
+        <CombinedCard group={group} members={members} />
+      ) : (
+        <CardGrid as="ul" label={group.title}>
+          {members.map((entry) => (
             <CardGridCell as="li" key={entry.name}>
               <PackageCard entry={entry} />
             </CardGridCell>
-          ))
-        )}
-      </CardGrid>
+          ))}
+        </CardGrid>
+      )}
     </>
   );
 }
