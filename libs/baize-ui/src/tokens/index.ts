@@ -31,8 +31,14 @@ export {
   complexityTiers,
 } from './complexity.js';
 export type { ComplexityStop, ComplexityTier } from './complexity.js';
-export { boxArt } from './box-art.js';
+export { boxArt, boxArtPhoto } from './box-art.js';
 export type { BoxArtPalette, BoxArtStop } from './box-art.js';
+export {
+  BOX_ART_MAX_DEPTH,
+  BOX_ART_VIEW_BOX,
+  boxArtScene,
+} from './box-art-scene.js';
+export type { BoxArtDepth, BoxArtRidge, BoxArtScene } from './box-art-scene.js';
 export { customProperties, renderTokensCss } from './custom-properties.js';
 /**
  * The class names the stylesheet binds each token enum through.
