@@ -1,3 +1,10 @@
+import {
+  AvailabilityPill,
+  Figure,
+  Text,
+  Title,
+  WeightRamp,
+} from '@evanion/baize-ui';
 import { Link } from 'react-router';
 import { createWidgets } from '@evanion/react-widget';
 import type {
@@ -5,17 +12,13 @@ import type {
   WidgetsWrapperComponent,
 } from '@evanion/react-widget';
 import type { CSSProperties, ReactNode } from 'react';
-import type { Availability } from '../ui/baize.js';
 import {
-  AvailabilityPill,
-  GameTitle,
-  Identifier,
-  Quiet,
-  WeightMeter,
-  ground,
-  space,
-  typeScale,
-} from '../ui/baize.js';
+  availabilityToken,
+  formatWeight,
+  mechanismToken,
+  weightStop,
+  type Availability,
+} from '../ui/catalogue.js';
 
 /**
  * The ledger: the large region, one item per record.
@@ -31,7 +34,13 @@ import {
  * view and the shelf view are the same region rendered twice, not two regions.
  */
 
-/** Column template for a ledger instance, read by every row in it. */
+/**
+ * Column template for a ledger instance, read by every row in it.
+ *
+ * A custom property set on the table and read by `.ledger-row`, because the
+ * template is the one thing that differs per instance and a row has no way to
+ * learn it otherwise.
+ */
 export function ledgerColumns(template: string): CSSProperties {
   return { ['--ledger-columns' as string]: template };
 }
@@ -48,8 +57,11 @@ function Cell({
 }) {
   return (
     <span
+      className={
+        align === 'end' ? 'ledger-cell ledger-cell--end' : 'ledger-cell'
+      }
       role="cell"
-      style={{ justifySelf: align, minWidth: 0, gridColumn: span }}
+      style={span ? { gridColumn: span } : undefined}
     >
       {children}
     </span>
@@ -61,16 +73,10 @@ function Head({ cells }: { cells: string[] }) {
   return (
     <>
       {cells.map((cell, index) => (
-        <Cell key={cell} align={index === 0 ? 'start' : 'end'}>
-          <span
-            style={{
-              color: ground.moss,
-              fontSize: typeScale.micro,
-              letterSpacing: '0.04em',
-            }}
-          >
+        <Cell align={index === 0 ? 'start' : 'end'} key={cell}>
+          <Text as="span" size="xs" tone="moss">
             {cell}
-          </span>
+          </Text>
         </Cell>
       ))}
     </>
@@ -103,27 +109,43 @@ function ShelfRow({
     <>
       <Cell>
         <Link to={href} className="row-link">
-          <GameTitle title={title} mechanism={mechanism} size="lead" />
+          <Title as="span" mechanism={mechanismToken(mechanism)} size="sm">
+            {title}
+          </Title>
         </Link>
-        <br />
-        <Identifier>{urn}</Identifier>
+        <Text size="sm" tone="moss">
+          {urn}
+        </Text>
       </Cell>
       <Cell align="end">
-        <Quiet>{players}</Quiet>
+        <Text as="span" size="sm">
+          {players}
+        </Text>
       </Cell>
       <Cell align="end">
-        <Quiet>{playtime}</Quiet>
+        <Text as="span" size="sm">
+          {playtime}
+        </Text>
       </Cell>
       <Cell align="end">
-        <WeightMeter weight={weight} />
-      </Cell>
-      <Cell align="end">
-        <AvailabilityPill state={availability} />
-      </Cell>
-      <Cell align="end">
-        <span style={{ fontSize: typeScale.figure, fontWeight: 300 }}>
-          {quantity}
+        <span className="weight-cell">
+          <WeightRamp
+            label={`weight ${formatWeight(weight)} of 5`}
+            stop={weightStop(weight)}
+          />
+          <Text as="span" size="sm">
+            {formatWeight(weight)}
+          </Text>
         </span>
+      </Cell>
+      <Cell align="end">
+        <AvailabilityPill
+          availability={availabilityToken(availability)}
+          label={availability}
+        />
+      </Cell>
+      <Cell align="end">
+        <Figure size="md">{String(quantity)}</Figure>
       </Cell>
     </>
   );
@@ -152,31 +174,40 @@ function OrderRow({
   return (
     <>
       <Cell>
-        <Identifier>{urn ?? '—'}</Identifier>
-        <br />
-        <Quiet tone="moss">
+        <Text size="sm" tone="chalk">
+          {urn ?? '—'}
+        </Text>
+        <Text size="sm" tone="moss">
           {lines.map((line) => line.urn.replace('urn:game:', '')).join(', ') ||
             'no lines recorded'}
-        </Quiet>
+        </Text>
       </Cell>
       <Cell align="end">
-        <Quiet>{at.slice(11, 19)}</Quiet>
+        <Text as="span" size="sm">
+          {at.slice(11, 19)}
+        </Text>
       </Cell>
       <Cell align="end">
-        <Identifier>{correlationId}</Identifier>
+        <Text as="span" size="sm">
+          {correlationId}
+        </Text>
       </Cell>
       <Cell align="end">
-        <Quiet>{inventoryChecks}</Quiet>
+        <Text as="span" size="sm">
+          {String(inventoryChecks)}
+        </Text>
       </Cell>
       <Cell align="end">
-        <Quiet tone={outcome === 'confirmed' ? 'lichen' : 'moss'}>
+        <Text
+          as="span"
+          size="sm"
+          tone={outcome === 'confirmed' ? 'lichen' : 'moss'}
+        >
           {reason ? `${outcome}: ${reason}` : outcome}
-        </Quiet>
+        </Text>
       </Cell>
       <Cell align="end">
-        <span style={{ fontSize: typeScale.figure, fontWeight: 300 }}>
-          {units}
-        </span>
+        <Figure size="md">{String(units)}</Figure>
       </Cell>
     </>
   );
@@ -195,11 +226,13 @@ function Total({
   return (
     <>
       <Cell span="1 / -2">
-        <Quiet>{label}</Quiet>
+        <Text as="span" size="sm">
+          {label}
+        </Text>
         {children}
       </Cell>
       <Cell align="end">
-        <span style={{ fontSize: typeScale.figure }}>{value}</span>
+        <Figure size="md">{value}</Figure>
       </Cell>
     </>
   );
@@ -212,27 +245,19 @@ function Total({
  * and not a separate structure -- so they are configured items like the records
  * between them, and how they are drawn is page data.
  */
-const LedgerRow: WidgetItemComponent = ({ children, meta, ...attributes }) => {
-  const emphasis = meta?.['emphasis'];
-  return (
-    <div
-      {...attributes}
-      role="row"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'var(--ledger-columns)',
-        alignItems: 'center',
-        gap: space[4],
-        padding: `${space[3]} 0`,
-        borderTop: emphasis === 'head' ? 'none' : `1px solid ${ground.rule}`,
-        borderBottom:
-          emphasis === 'head' ? `1px solid ${ground.rule}` : undefined,
-      }}
-    >
-      {children}
-    </div>
-  );
-};
+const LedgerRow: WidgetItemComponent = ({ children, meta, ...attributes }) => (
+  <div
+    {...attributes}
+    className={
+      meta?.['emphasis'] === 'head'
+        ? 'ledger-row ledger-row--head'
+        : 'ledger-row'
+    }
+    role="row"
+  >
+    {children}
+  </div>
+);
 
 /**
  * The default bed. Each route replaces it with one carrying its own column

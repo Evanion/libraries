@@ -1,21 +1,24 @@
+import {
+  AvailabilityPill,
+  Figure,
+  MechanismTag,
+  Panel,
+  Stat,
+  StatLine,
+  Text,
+  Title,
+  WeightRamp,
+} from '@evanion/baize-ui';
 import { createWidgets } from '@evanion/react-widget';
 import type { WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
-import type { Availability } from '../ui/baize.js';
 import {
-  AvailabilityPill,
-  GameTitle,
-  Identifier,
-  MechanismTag,
-  Panel,
-  PanelTitle,
-  Quiet,
-  StatLine,
-  WeightMeter,
-  ground,
-  space,
-  typeScale,
-} from '../ui/baize.js';
+  availabilityToken,
+  formatWeight,
+  mechanismToken,
+  weightStop,
+  type Availability,
+} from '../ui/catalogue.js';
 
 /**
  * The dashboard's widget set.
@@ -24,12 +27,17 @@ import {
  * React Router a route component is not a Server Component, it ships to the
  * browser and runs there too, so the data has to arrive from the route's loader
  * and be handed down. A widget that awaited its own data would be a lie about
- * what this app proves -- that claim belongs to `apps/rsc-example`, where a
+ * what this app proves -- that claim belongs to `apps/storefront-rsc`, where a
  * widget really is an async Server Component.
  *
  * What it does prove: `@evanion/react-widget` renders server-side in a
  * mainstream framework with no `'use client'` in the package, no context, and no
  * class error boundary. Failures are the route module's `ErrorBoundary` now.
+ *
+ * Every visual primitive below comes from `@evanion/baize-ui`. This file used to
+ * carry the palette, the type scale and the primitives as inline styles, and the
+ * storefront carried its own copy -- the same card at two radii, the same ramp
+ * running in opposite directions.
  */
 
 /** Page-level data handed to every widget as `ctx`, not repeated in each item. */
@@ -64,20 +72,23 @@ export interface TrailRow {
   type: string;
 }
 
+/** A record and its columns, inside a panel. */
 function Row({ children }: { children: ReactNode }) {
+  return <div className="panel-row">{children}</div>;
+}
+
+/** Weight on its ramp, with the number beside it in tabular figures. */
+function Weight({ weight }: { weight: number }) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr auto auto',
-        alignItems: 'center',
-        gap: space[4],
-        padding: `${space[2]} 0`,
-        borderTop: `1px solid ${ground.rule}`,
-      }}
-    >
-      {children}
-    </div>
+    <span className="weight-cell">
+      <WeightRamp
+        label={`weight ${formatWeight(weight)} of 5`}
+        stop={weightStop(weight)}
+      />
+      <Text as="span" size="sm">
+        {formatWeight(weight)}
+      </Text>
+    </span>
   );
 }
 
@@ -89,23 +100,15 @@ function ShelfPulse({
   ctx?: DashboardCtx;
 }) {
   return (
-    <Panel style={{ height: '100%' }}>
-      <PanelTitle>Shelf</PanelTitle>
-      <div style={{ display: 'grid', gap: space[2] }}>
+    <Panel heading="Shelf">
+      <div className="stack">
         {counts.map(({ state, titles }) => (
-          <div
-            key={state}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: space[3],
-            }}
-          >
-            <AvailabilityPill state={state} />
-            <span style={{ fontSize: typeScale.figure, fontWeight: 300 }}>
-              {titles}
-            </span>
+          <div className="pair" key={state}>
+            <AvailabilityPill
+              availability={availabilityToken(state)}
+              label={state}
+            />
+            <Figure size="md">{String(titles)}</Figure>
           </div>
         ))}
       </div>
@@ -116,30 +119,23 @@ function ShelfPulse({
 /** Stock per title: the stat line's columns, repeated down the page. */
 function StockByGame({ rows }: { rows: StockRow[]; ctx?: DashboardCtx }) {
   return (
-    <Panel style={{ height: '100%' }}>
-      <PanelTitle>Stock by title</PanelTitle>
+    <Panel heading="Stock by title">
       {rows.map((row) => (
         <Row key={row.urn}>
-          <span style={{ display: 'grid', gap: space[1] }}>
-            <GameTitle
-              title={row.title}
-              mechanism={row.mechanism}
-              size="lead"
-            />
+          <span className="stack">
+            <Title as="h3" mechanism={mechanismToken(row.mechanism)} size="sm">
+              {row.title}
+            </Title>
             <span>
-              <MechanismTag mechanism={row.mechanism} />
+              <MechanismTag
+                label={row.mechanism}
+                mechanism={mechanismToken(row.mechanism)}
+              />
             </span>
           </span>
-          <WeightMeter weight={row.weight} />
-          <span
-            style={{
-              fontSize: typeScale.figure,
-              fontWeight: 300,
-              minWidth: '3ch',
-              textAlign: 'right',
-            }}
-          >
-            {row.quantity}
+          <Weight weight={row.weight} />
+          <span className="figure-cell">
+            <Figure size="md">{String(row.quantity)}</Figure>
           </span>
         </Row>
       ))}
@@ -151,25 +147,27 @@ function StockByGame({ rows }: { rows: StockRow[]; ctx?: DashboardCtx }) {
 function OrderFeed({ orders }: { orders: OrderRow[]; ctx?: DashboardCtx }) {
   if (orders.length === 0) {
     return (
-      <Panel style={{ height: '100%' }}>
-        <PanelTitle>Orders</PanelTitle>
-        <Quiet>
+      <Panel heading="Orders">
+        <Text size="sm">
           No orders yet. Place one through the storefront, or post a cart to
           shop-api, and it appears here.
-        </Quiet>
+        </Text>
       </Panel>
     );
   }
 
   return (
-    <Panel style={{ height: '100%' }}>
-      <PanelTitle>Orders</PanelTitle>
+    <Panel heading="Orders">
       {orders.map((order) => (
         <Row key={order.correlationId}>
-          <Identifier>{order.urn ?? order.correlationId}</Identifier>
-          <Quiet tone="moss">{order.inventoryChecks} checks</Quiet>
-          <span style={{ fontSize: typeScale.figure, fontWeight: 300 }}>
-            {order.units}
+          <Text as="span" size="sm">
+            {order.urn ?? order.correlationId}
+          </Text>
+          <Text as="span" size="sm" tone="moss">
+            {order.inventoryChecks} checks
+          </Text>
+          <span className="figure-cell">
+            <Figure size="md">{String(order.units)}</Figure>
           </span>
         </Row>
       ))}
@@ -187,22 +185,25 @@ function CorrelationTrail({
   ctx?: DashboardCtx;
 }) {
   return (
-    <Panel style={{ height: '100%' }}>
-      <PanelTitle>This page view</PanelTitle>
-      <p style={{ margin: `0 0 ${space[3]}` }}>
-        <Identifier>{correlationId}</Identifier>
-      </p>
+    <Panel heading="This page view">
+      <Text size="sm">{correlationId}</Text>
       {events.length === 0 ? (
-        <Quiet>
+        <Text size="sm" tone="moss">
           shop-api recorded nothing under this id. Reads are not instrumented;
           only inventory checks and orders are.
-        </Quiet>
+        </Text>
       ) : (
         events.map((event, index) => (
           <Row key={`${event.at}-${index}`}>
-            <Quiet>{event.type}</Quiet>
-            <Quiet tone="moss">{event.source}</Quiet>
-            <Quiet tone="moss">{event.at.slice(11, 19)}</Quiet>
+            <Text as="span" size="sm">
+              {event.type}
+            </Text>
+            <Text as="span" size="sm" tone="moss">
+              {event.source}
+            </Text>
+            <Text as="span" size="sm" tone="moss">
+              {event.at.slice(11, 19)}
+            </Text>
           </Row>
         ))
       )}
@@ -224,15 +225,12 @@ function Memo({
   ctx?: DashboardCtx;
 }) {
   return (
-    <Panel style={{ height: '100%' }}>
-      <PanelTitle>Buyer's note</PanelTitle>
-      <p style={{ margin: 0, maxWidth: '62ch' }}>{body}</p>
+    <Panel heading="Buyer's note">
+      <Text measured>{body}</Text>
       {children}
-      <p style={{ margin: `${space[3]} 0 0` }}>
-        <Quiet tone="moss">
-          {ctx ? `${ctx.shop}, ${ctx.asOf}` : 'no page context'}
-        </Quiet>
-      </p>
+      <Text size="sm" tone="moss">
+        {ctx ? `${ctx.shop}, ${ctx.asOf}` : 'no page context'}
+      </Text>
     </Panel>
   );
 }
@@ -240,9 +238,11 @@ function Memo({
 /** A small figure group inside the note, to give nesting something to render. */
 function Figures({ figures }: { figures: { label: string; value: string }[] }) {
   return (
-    <div style={{ marginTop: space[4] }}>
-      <StatLine scale="row" label="Buying targets" figures={figures} />
-    </div>
+    <StatLine label="Buying targets">
+      {figures.map((figure) => (
+        <Stat figure={figure.value} key={figure.label} label={figure.label} />
+      ))}
+    </StatLine>
   );
 }
 
@@ -278,6 +278,9 @@ function laneOf(meta: Record<string, unknown> | undefined): Lane {
  * takes the full width. A dashboard assembled from a CMS payload will have
  * items that were never placed, and a widget that vanishes is worse than one
  * that is too wide.
+ *
+ * An inline style rather than a class: the lane is read off `meta` at render time,
+ * and the bed in layout.css is where the lines it resolves against are declared.
  */
 const GridCell: WidgetItemComponent = ({ children, meta, ...attributes }) => (
   <div {...attributes} style={{ gridColumn: laneOf(meta) }}>
@@ -285,25 +288,8 @@ const GridCell: WidgetItemComponent = ({ children, meta, ...attributes }) => (
   </div>
 );
 
-/**
- * The bed the cells are placed on, and the only place the seam is written.
- *
- * The lane names come from the `-start`/`-end` line names below: a pair of
- * lines named `main-start` and `main-end` is what makes `grid-column: main`
- * resolve. `minmax(0, ...)` rather than a bare `fr` so a panel holding a long
- * identifier cannot push its lane wider than its share.
- */
 const Grid = ({ children }: { children?: ReactNode }) => (
-  <section
-    aria-label="Dashboard"
-    style={{
-      display: 'grid',
-      gridTemplateColumns:
-        '[full-start main-start] minmax(0, 7fr) [main-end aside-start] minmax(0, 5fr) [aside-end full-end]',
-      gap: space[4],
-      alignItems: 'start',
-    }}
-  >
+  <section aria-label="Dashboard" className="dashboard">
     {children}
   </section>
 );

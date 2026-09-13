@@ -4,7 +4,7 @@ import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { availabilityCounts, shelfTotals } from '../shelf.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
 import { Dashboard, defineDashboardItems } from '../regions/dashboard.js';
-import { Panel, PanelTitle, Quiet, StatLine } from '../ui/baize.js';
+import { Panel, Stat, StatLine, Text } from '@evanion/baize-ui';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Today · Baize' }];
 
@@ -136,14 +136,11 @@ export default function Today({ loaderData }: Route.ComponentProps) {
 
   if (unavailable) {
     return (
-      <Panel>
-        <PanelTitle>Nothing to show yet</PanelTitle>
-        <p style={{ margin: 0 }}>
-          <Quiet>
-            The dashboard reads the catalogue, stock and the event sink from
-            shop-api. Start it and this page fills in.
-          </Quiet>
-        </p>
+      <Panel heading="Nothing to show yet">
+        <Text measured>
+          The dashboard reads the catalogue, stock and the event sink from
+          shop-api. Start it and this page fills in.
+        </Text>
       </Panel>
     );
   }
@@ -151,7 +148,15 @@ export default function Today({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="page-head">
-        <StatLine label="Today at Baize" figures={figures} />
+        <StatLine label="Today at Baize" size="lg">
+          {figures.map((figure) => (
+            <Stat
+              figure={figure.value}
+              key={figure.label}
+              label={figure.label}
+            />
+          ))}
+        </StatLine>
       </header>
       <Dashboard items={items} ctx={{ shop, asOf }} />
     </>

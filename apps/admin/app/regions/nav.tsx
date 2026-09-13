@@ -1,8 +1,8 @@
+import { Text } from '@evanion/baize-ui';
 import { NavLink } from 'react-router';
 import { createWidgets } from '@evanion/react-widget';
 import type { WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
-import { Quiet, fonts, ground, space, typeScale } from '../ui/baize.js';
 
 /**
  * The top navigation, as a widget region.
@@ -18,20 +18,15 @@ import { Quiet, fonts, ground, space, typeScale } from '../ui/baize.js';
  * well.
  */
 
+/**
+ * The shop's name.
+ *
+ * A class of this app's own rather than the library's `Title`: a wordmark is the
+ * display family at a width and tracking no title size reaches, and the design
+ * system has no wordmark because a wordmark is one shop's.
+ */
 function Wordmark({ shop }: { shop: string }) {
-  return (
-    <span
-      style={{
-        fontFamily: fonts.display,
-        fontSize: typeScale.lead,
-        fontWeight: 700,
-        fontStretch: '80%',
-        letterSpacing: '0.02em',
-      }}
-    >
-      {shop}
-    </span>
-  );
+  return <span className="wordmark">{shop}</span>;
 }
 
 function Section({ label, to }: { label: string; to: string }) {
@@ -44,7 +39,11 @@ function Section({ label, to }: { label: string; to: string }) {
 
 /** The signed-in operator. Text, because there is nothing to act on here. */
 function Operator({ name }: { name: string }) {
-  return <Quiet tone="moss">{name}</Quiet>;
+  return (
+    <Text as="span" size="sm" tone="moss">
+      {name}
+    </Text>
+  );
 }
 
 /**
@@ -52,14 +51,14 @@ function Operator({ name }: { name: string }) {
  *
  * `align: 'end'` is the whole of the placement vocabulary a single-axis region
  * needs, and it is page data rather than widget data -- `Section` has no opinion
- * about which end of the bar it sits at.
+ * about which end of the bar it sits at. An inline style rather than a class,
+ * because the value comes from `meta` at render time.
  */
 const BarSlot: WidgetItemComponent = ({ children, meta, ...attributes }) => (
   <div
     {...attributes}
+    className="nav-bar__slot"
     style={{
-      display: 'flex',
-      alignItems: 'center',
       marginInlineStart: meta?.['align'] === 'end' ? 'auto' : undefined,
     }}
   >
@@ -68,16 +67,7 @@ const BarSlot: WidgetItemComponent = ({ children, meta, ...attributes }) => (
 );
 
 const Bar = ({ children }: { children?: ReactNode }) => (
-  <nav
-    aria-label="Sections"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: space[5],
-      padding: `${space[3]} 0`,
-      borderBottom: `1px solid ${ground.rule}`,
-    }}
-  >
+  <nav aria-label="Sections" className="nav-bar">
     {children}
   </nav>
 );

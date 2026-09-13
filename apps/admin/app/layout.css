@@ -1,16 +1,42 @@
 /*
  * Layout for the back office, and nothing else.
  *
- * Every value here is a reference to a token defined in `app/ui/baize.tsx`. The
- * page grid, the rail width and the link states are specific to this app, so they
- * are not tokens and do not belong in the file that is to become the shared UI
- * library.
+ * The design system is `@evanion/baize-ui/styles.css`, linked ahead of this file
+ * from the root route. Every value here is a `--baize-*` custom property the
+ * library declares: no colour, radius, spacing step or type size is defined in
+ * this app.
+ *
+ * What is here is what the library deliberately did not take -- the page grid, the
+ * rail width, the dashboard bed's lanes, the two ledger tables' rows -- plus the
+ * link states and the one form control the design has no primitive for. The test
+ * for whether a rule belongs here is whether apps/storefront would want it.
  */
+
+* {
+  box-sizing: border-box;
+}
+
+/* A link takes the colour of whatever it sits in: a game title keeps its
+   mechanism hue when it becomes a link to that title's page. */
+a {
+  color: inherit;
+}
+
+/*
+ * Motion in this app is interaction-only, so there is nothing here to preserve and
+ * the blanket off-switch is honest rather than lazy.
+ */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
 
 .shell {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 var(--bz-space-5) var(--bz-space-8);
+  padding: 0 var(--baize-space-5) var(--baize-space-8);
 }
 
 /*
@@ -21,43 +47,33 @@
 .shell-body {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
-  gap: var(--bz-space-7);
-  padding-top: var(--bz-space-6);
+  gap: var(--baize-space-7);
+  padding-top: var(--baize-space-6);
 }
 
 @media (max-width: 860px) {
   .shell-body {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--bz-space-5);
+    gap: var(--baize-space-5);
   }
 }
 
 .page-head {
   display: grid;
-  gap: var(--bz-space-4);
-  padding-bottom: var(--bz-space-6);
-}
-
-.page-title {
-  margin: 0;
-  font-family: var(--bz-font-display);
-  font-size: var(--bz-type-heading);
-  font-weight: 600;
-  font-stretch: 85%;
-  letter-spacing: -0.02em;
+  gap: var(--baize-space-4);
+  padding-bottom: var(--baize-space-6);
 }
 
 .page-note {
-  margin: 0 0 var(--bz-space-5);
-  max-width: 72ch;
+  margin: 0 0 var(--baize-space-5);
 }
 
 .notice {
-  margin: var(--bz-space-4) 0 0;
-  padding: var(--bz-space-3) var(--bz-space-4);
-  border: 1px solid var(--bz-rule);
-  border-radius: var(--bz-radius-panel);
-  background: var(--bz-felt);
+  margin: var(--baize-space-4) 0 0;
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: var(--baize-felt);
 }
 
 .nav-link,
@@ -69,11 +85,11 @@
 .nav-link {
   padding-bottom: 2px;
   border-bottom: 2px solid transparent;
-  color: var(--bz-lichen);
+  color: var(--baize-lichen);
 }
 
 .nav-link:hover {
-  color: var(--bz-chalk);
+  color: var(--baize-chalk);
 }
 
 /*
@@ -82,44 +98,198 @@
  * the same channel would make all three harder to read.
  */
 .nav-link.active {
-  color: var(--bz-chalk);
-  border-bottom-color: var(--bz-chalk);
+  color: var(--baize-chalk);
+  border-bottom-color: var(--baize-chalk);
 }
 
 .rail-link {
-  color: var(--bz-lichen);
-  font-size: var(--bz-type-small);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
 }
 
 .rail-link.active,
 .rail-link:hover {
-  color: var(--bz-chalk);
+  color: var(--baize-chalk);
 }
 
-.row-link:hover > span {
+.row-link:hover > * {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .title-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--bz-space-4);
-  margin-top: var(--bz-space-4);
+  gap: var(--baize-space-4);
+  margin-top: var(--baize-space-4);
 }
 
 .availability-form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--bz-space-2);
+  gap: var(--baize-space-2);
 }
 
+/* The one form control the design system has no primitive for. */
 .select {
-  padding: var(--bz-space-2) var(--bz-space-3);
-  border: 1px solid var(--bz-rule);
-  border-radius: var(--bz-radius-button);
-  background: var(--bz-ink);
-  color: var(--bz-chalk);
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
   font: inherit;
-  font-size: var(--bz-type-small);
+  font-size: var(--baize-text-sm);
+}
+
+/* The only divider, and the library took no component for it. */
+.hairline {
+  border: 0;
+  border-top: 1px solid var(--baize-rule);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+}
+
+/*
+ * Stacks.
+ *
+ * The rail, the panel bodies and the rows inside a panel are all a column on one
+ * of two gaps. Named for the gap rather than for the place, because the same
+ * rhythm is what makes a figure in the rail line up with the figure in the panel
+ * beside it.
+ */
+.stack {
+  display: grid;
+  gap: var(--baize-space-2);
+  align-content: start;
+}
+
+.stack--wide {
+  gap: var(--baize-space-4);
+}
+
+/* A label on the left and its figure on the right, down a narrow column. */
+.pair {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--baize-space-3);
+  margin: 0;
+}
+
+.pair dd {
+  margin: 0;
+}
+
+/* A figure read down a column of rows: the panel's own quantity column. */
+.figure-cell {
+  min-width: 3ch;
+  text-align: right;
+}
+
+/* Weight: the ramp, and the number beside it. */
+.weight-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+}
+
+.weight-cell .baize-weight {
+  min-width: 2.5rem;
+}
+
+/*
+ * A row inside a dashboard panel: the record, then its columns. The ledger's rows
+ * are a different shape and get their template per instance.
+ */
+.panel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--baize-space-4);
+  padding: var(--baize-space-2) 0;
+  border-top: 1px solid var(--baize-rule);
+}
+
+/*
+ * The dashboard bed, and the only place the seam is written.
+ *
+ * Placement is a closed set of lane names rather than a start line and a width: a
+ * start line and a width let two items tile the same bed and still disagree about
+ * where the seam between them falls, so each row is individually valid and the
+ * panels do not line up down the page. The lane names come from the `-start` and
+ * `-end` line names here, which is what makes `grid-column: main` resolve.
+ */
+.dashboard {
+  display: grid;
+  grid-template-columns:
+    [full-start main-start] minmax(0, 7fr)
+    [main-end aside-start] minmax(0, 5fr) [aside-end full-end];
+  gap: var(--baize-space-4);
+  align-items: start;
+}
+
+/*
+ * The cell stretches its panel to the row, so two panels side by side end on one
+ * line. The panel itself makes no claim on its own height -- the library's takes
+ * no style -- and this is the cell's business anyway.
+ */
+.dashboard > * {
+  display: flex;
+  min-width: 0;
+}
+
+.dashboard > * > * {
+  flex: 1;
+}
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--baize-space-5);
+  padding: var(--baize-space-3) 0;
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.nav-bar__slot {
+  display: flex;
+  align-items: center;
+}
+
+/* The wordmark: the display family at its narrowest, which the library's title
+   sizes do not reach. */
+.wordmark {
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-md);
+  font-weight: 700;
+  font-stretch: 80%;
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-chalk);
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: var(--ledger-columns);
+  align-items: center;
+  gap: var(--baize-space-4);
+  padding: var(--baize-space-3) 0;
+  border-top: 1px solid var(--baize-rule);
+}
+
+.ledger-row--head {
+  border-top: 0;
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.ledger-cell {
+  min-width: 0;
+}
+
+.ledger-cell--end {
+  justify-self: end;
 }

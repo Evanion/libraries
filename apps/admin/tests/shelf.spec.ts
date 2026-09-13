@@ -6,11 +6,14 @@ import {
   shelfTotals,
 } from '../app/shelf.js';
 import {
-  mechanismHue,
-  mechanismHues,
-  weightColor,
-  weightRamp,
-} from '../app/ui/baize.js';
+  mechanism as mechanismHues,
+  weight as weightRamp,
+} from '@evanion/baize-ui/tokens';
+import {
+  availabilityToken,
+  mechanismToken,
+  weightStop,
+} from '../app/ui/catalogue.js';
 import type { Game, Stock } from '../app/shop-api.server.js';
 
 const games: Game[] = [
@@ -84,19 +87,37 @@ describe('buildShelf', () => {
   });
 });
 
-describe('the colour channels', () => {
-  it('gives a mechanism the same hue every time, in any app', () => {
-    expect(mechanismHue('engine building')).toBe(
-      mechanismHue('Engine Building'),
-    );
-    expect(mechanismHues).toContain(mechanismHue('dexterity'));
+/**
+ * The three channels the shelf hands to `@evanion/baize-ui`.
+ *
+ * The claim the previous version of this file made -- that a mechanism gets the
+ * same hue in any app -- was not true: the hue came from a hash of the name, and
+ * the storefront hashed into a different palette for the same game. A table
+ * against the library's own enum is what makes it true.
+ */
+describe('the channels the shelf maps onto', () => {
+  it('resolves a mechanism to a family the library declares', () => {
+    expect(mechanismToken('engine building')).toBe('engineBuilding');
+    expect(mechanismToken('Engine Building')).toBe('engineBuilding');
+    expect(Object.keys(mechanismHues)).toContain(mechanismToken('dexterity'));
+  });
+
+  it('leaves a mechanism outside the scale uncategorised', () => {
+    expect(mechanismToken('asymmetric powers')).toBe('other');
+  });
+
+  it('resolves every state a merchant can declare', () => {
+    expect(availabilityToken('reprint pending')).toBe('reprintPending');
+    expect(availabilityToken('out of print')).toBe('outOfPrint');
   });
 
   it('walks the weight ramp in order and clamps past its ends', () => {
-    expect(weightColor(1)).toBe(weightRamp[0]);
-    expect(weightColor(2.4)).toBe(weightRamp[2]);
-    expect(weightColor(5)).toBe(weightRamp[4]);
-    expect(weightColor(0)).toBe(weightRamp[0]);
-    expect(weightColor(9)).toBe(weightRamp[4]);
+    expect(weightStop(1)).toBe(1);
+    expect(weightStop(2.4)).toBe(3);
+    expect(weightStop(5)).toBe(5);
+    expect(weightStop(0)).toBe(1);
+    expect(weightStop(9)).toBe(5);
+    // The ramp's own stops are the library's, and it runs one direction.
+    expect(Object.keys(weightRamp)).toEqual(['1', '2', '3', '4', '5']);
   });
 });

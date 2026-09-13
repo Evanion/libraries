@@ -42,6 +42,7 @@
     }
   },
   "dependencies": {
+    "@evanion/baize-ui": "*",
     "@evanion/compose": "*",
     "@evanion/react-widget": "*",
     "@react-router/node": "^8.3.1",

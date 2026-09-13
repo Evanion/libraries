@@ -41,6 +41,9 @@
     },
     {
       "path": "../../libs/widget/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/baize-ui/tsconfig.lib.json"
     }
   ]
 }
