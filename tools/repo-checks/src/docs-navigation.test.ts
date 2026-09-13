@@ -36,6 +36,14 @@ interface DocumentedPackage {
   title: string;
   documented: boolean;
   workshop: boolean;
+  group: string;
+  framework: string;
+}
+
+interface PackageGroup {
+  id: string;
+  title: string;
+  line: string;
 }
 
 interface ReleasedProject {
@@ -47,11 +55,23 @@ const docsRoot = join(workspaceRoot, 'apps', 'docs');
 const contentRoot = join(docsRoot, 'content');
 
 async function loadNavigation(): Promise<readonly DocumentedPackage[]> {
-  const module_ = (await import(
-    pathToFileURL(join(docsRoot, 'app', 'navigation.ts')).href
-  )) as { packages: readonly DocumentedPackage[] };
+  return (await loadNavigationModule()).packages;
+}
 
-  return module_.packages;
+async function loadGroups(): Promise<readonly PackageGroup[]> {
+  return (await loadNavigationModule()).groups;
+}
+
+async function loadNavigationModule(): Promise<{
+  packages: readonly DocumentedPackage[];
+  groups: readonly PackageGroup[];
+}> {
+  return (await import(
+    pathToFileURL(join(docsRoot, 'app', 'navigation.ts')).href
+  )) as {
+    packages: readonly DocumentedPackage[];
+    groups: readonly PackageGroup[];
+  };
 }
 
 /**
@@ -176,6 +196,34 @@ describe('the docs navigation', () => {
     expect(navigation.map((entry) => `${entry.name} ${entry.root}`)).toEqual(
       navigation.map((entry) => `${entry.name} ${roots.get(entry.name)}`),
     );
+  });
+
+  /**
+   * The landing page and the sidebar both order by `groups` and drop a package
+   * whose `group` matches no entry, silently -- `filter` on a key nothing has
+   * returns an empty list, and an empty group renders nothing at all. A typo
+   * would take the package off both without failing a build.
+   */
+  it('puts every package in a group that exists', async () => {
+    const ids = new Set((await loadGroups()).map((group) => group.id));
+
+    expect(
+      (await loadNavigation())
+        .filter((entry) => !ids.has(entry.group))
+        .map((entry) => `${entry.slug}: ${entry.group}`),
+      'Every package needs a `group` naming one of `groups` in ' +
+        'apps/docs/app/navigation.ts. A package in no group is on neither the ' +
+        'landing page nor the sidebar.',
+    ).toEqual([]);
+  });
+
+  /** The card says what stack a package runs in, so every card needs one. */
+  it('says what stack every package runs in', async () => {
+    expect(
+      (await loadNavigation())
+        .filter((entry) => entry.framework.trim() === '')
+        .map((entry) => entry.slug),
+    ).toEqual([]);
   });
 
   it('lists every package once', async () => {
