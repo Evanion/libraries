@@ -1,5 +1,6 @@
 import {
   AvailabilityPill,
+  BoxArtPlaceholder,
   Card,
   CardGrid,
   CardGridCell,
@@ -18,6 +19,8 @@ import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
 import {
   availabilityLabel,
   availabilityToken,
+  boxArtPalette,
+  boxArtPhotoUrl,
   complexityStop,
   complexityTierName,
   formatComplexity,
@@ -75,17 +78,14 @@ export async function Catalogue({ heading }: { heading: string }) {
           <CardGridCell as="li" key={entry.urn}>
             <Card
               foot={
-                <>
-                  <Figure>{formatPrice(entry.price)}</Figure>
-                  {/* Availability is what the shop says about buying it;
-                      the copies on the shelf are what inventory answered.
-                      Two facts, shown as two. */}
-                  <Text as="span" size="sm" tone="moss">
-                    {entry.quantity > 0
-                      ? `${entry.quantity} on the shelf`
-                      : 'none on the shelf'}
-                  </Text>
-                </>
+                /* Availability is what the shop says about buying it; the
+                   copies on the shelf are what inventory answered. Two facts,
+                   and the pill on the art above carries the other one. */
+                <Text as="span" size="sm" tone="moss">
+                  {entry.quantity > 0
+                    ? `${entry.quantity} on the shelf`
+                    : 'none on the shelf'}
+                </Text>
               }
               head={
                 <>
@@ -96,11 +96,21 @@ export async function Catalogue({ heading }: { heading: string }) {
                   >
                     {entry.title}
                   </Title>
-                  <AvailabilityPill
-                    availability={availabilityToken(entry.availability)}
-                    label={availabilityLabel(entry.availability)}
-                  />
+                  <Figure>{formatPrice(entry.price)}</Figure>
                 </>
+              }
+              media={
+                <BoxArtPlaceholder
+                  palette={boxArtPalette(entry.urn)}
+                  photo={boxArtPhotoUrl(entry.urn)}
+                  seed={entry.urn}
+                />
+              }
+              pin={
+                <AvailabilityPill
+                  availability={availabilityToken(entry.availability)}
+                  label={availabilityLabel(entry.availability)}
+                />
               }
             >
               <TagRow>
