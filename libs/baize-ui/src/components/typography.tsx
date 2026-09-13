@@ -1,10 +1,25 @@
+import { cva } from 'class-variance-authority';
 import type { ReactNode } from 'react';
 
 import type { ComplexityStop } from '../tokens/complexity.js';
-import { classNames, ladderClass, modifier } from './class-names.js';
+import { ladderClass } from './class-names.js';
+import type { Variant } from './variants.js';
+
+/** The title's classes. The ladder colour reaches it as the `class` argument. */
+const title = cva('baize-title', {
+  variants: {
+    size: {
+      sm: 'baize-title--size-sm',
+      md: 'baize-title--size-md',
+      lg: 'baize-title--size-lg',
+      xl: 'baize-title--size-xl',
+    },
+  },
+  defaultVariants: { size: 'md' },
+});
 
 /** The four steps a title is set at, smallest first. */
-export type TitleSize = 'sm' | 'md' | 'lg' | 'xl';
+export type TitleSize = Variant<typeof title, 'size'>;
 
 export interface TitleProps {
   children: ReactNode;
@@ -36,30 +51,54 @@ export interface TitleProps {
 export function Title({
   children,
   as: Element = 'h2',
-  size = 'md',
+  size,
   complexity,
 }: TitleProps) {
   return (
     <Element
-      className={classNames(
-        'baize-title',
-        modifier('baize-title', 'size', size),
-        complexity && ladderClass(complexity),
-      )}
+      className={title({
+        class: complexity && ladderClass(complexity),
+        size,
+      })}
     >
       {children}
     </Element>
   );
 }
 
+/**
+ * The passage's classes. `measured` is a boolean variant: the prose measure is one
+ * width, and a passage either sits inside it or does not.
+ */
+const text = cva('baize-text', {
+  variants: {
+    tone: {
+      chalk: 'baize-text--tone-chalk',
+      lichen: 'baize-text--tone-lichen',
+      moss: 'baize-text--tone-moss',
+    },
+    size: {
+      xs: 'baize-text--size-xs',
+      sm: 'baize-text--size-sm',
+      base: 'baize-text--size-base',
+      md: 'baize-text--size-md',
+    },
+    measured: {
+      true: 'baize-text--measured',
+      false: null,
+    },
+  },
+  defaultVariants: { tone: 'lichen', size: 'base', measured: false },
+});
+
 /** Which of the three text colours a passage takes. */
-export type TextTone = 'chalk' | 'lichen' | 'moss';
+export type TextTone = Variant<typeof text, 'tone'>;
 
 export interface TextProps {
   children: ReactNode;
   as?: 'p' | 'span' | 'div' | 'dd' | 'dt';
   tone?: TextTone;
-  size?: 'xs' | 'sm' | 'base' | 'md';
+  size?: Variant<typeof text, 'size'>;
   /** Hold the passage to the prose measure. */
   measured?: boolean;
 }
@@ -68,23 +107,27 @@ export interface TextProps {
 export function Text({
   children,
   as: Element = 'p',
-  tone = 'lichen',
-  size = 'base',
-  measured = false,
+  tone,
+  size,
+  measured,
 }: TextProps) {
   return (
-    <Element
-      className={classNames(
-        'baize-text',
-        modifier('baize-text', 'tone', tone),
-        modifier('baize-text', 'size', size),
-        measured && 'baize-text--measured',
-      )}
-    >
-      {children}
-    </Element>
+    <Element className={text({ measured, size, tone })}>{children}</Element>
   );
 }
+
+/** The figure's classes. */
+const figure = cva('baize-figure', {
+  variants: {
+    size: {
+      base: 'baize-figure--size-base',
+      md: 'baize-figure--size-md',
+      lg: 'baize-figure--size-lg',
+      xl: 'baize-figure--size-xl',
+    },
+  },
+  defaultVariants: { size: 'md' },
+});
 
 export interface FigureProps {
   /**
@@ -94,7 +137,7 @@ export interface FigureProps {
    */
   children: string;
   as?: 'span' | 'dd' | 'p';
-  size?: 'base' | 'md' | 'lg' | 'xl';
+  size?: Variant<typeof figure, 'size'>;
 }
 
 /**
@@ -105,19 +148,6 @@ export interface FigureProps {
  * set in one app and forgotten in another is exactly the drift the library is
  * for. A price, a quantity and a stat figure are all this.
  */
-export function Figure({
-  children,
-  as: Element = 'span',
-  size = 'md',
-}: FigureProps) {
-  return (
-    <Element
-      className={classNames(
-        'baize-figure',
-        modifier('baize-figure', 'size', size),
-      )}
-    >
-      {children}
-    </Element>
-  );
+export function Figure({ children, as: Element = 'span', size }: FigureProps) {
+  return <Element className={figure({ size })}>{children}</Element>;
 }

@@ -1,6 +1,22 @@
+import { cva } from 'class-variance-authority';
 import type { MouseEventHandler, ReactNode } from 'react';
 
-import { classNames, modifier } from './class-names.js';
+import type { Variant } from './variants.js';
+
+/**
+ * The button's classes: one shape, one emphasis modifier, shared by the button
+ * and the link because the two differ in their tag and not in their skin.
+ */
+const button = cva('baize-button', {
+  variants: {
+    variant: {
+      primary: 'baize-button--variant-primary',
+      standard: 'baize-button--variant-standard',
+      quiet: 'baize-button--variant-quiet',
+    },
+  },
+  defaultVariants: { variant: 'standard' },
+});
 
 /**
  * How much emphasis a control carries.
@@ -9,7 +25,7 @@ import { classNames, modifier } from './class-names.js';
  * design has no house colour: the catalogue supplies every saturated pixel and a
  * button is not catalogue.
  */
-export type ButtonVariant = 'primary' | 'standard' | 'quiet';
+export type ButtonVariant = Variant<typeof button, 'variant'>;
 
 export interface ButtonProps {
   children: ReactNode;
@@ -41,7 +57,7 @@ export interface ButtonProps {
 /** A 6px-radius button. */
 export function Button({
   children,
-  variant = 'standard',
+  variant,
   onClick,
   type = 'button',
   disabled = false,
@@ -52,10 +68,7 @@ export function Button({
   return (
     <button
       aria-label={ariaLabel}
-      className={classNames(
-        'baize-button',
-        modifier('baize-button', 'variant', variant),
-      )}
+      className={button({ variant })}
       disabled={disabled}
       name={name}
       onClick={onClick}
@@ -89,18 +102,11 @@ export interface ButtonLinkProps {
 export function ButtonLink({
   children,
   href,
-  variant = 'standard',
+  variant,
   'aria-label': ariaLabel,
 }: ButtonLinkProps) {
   return (
-    <a
-      aria-label={ariaLabel}
-      className={classNames(
-        'baize-button',
-        modifier('baize-button', 'variant', variant),
-      )}
-      href={href}
-    >
+    <a aria-label={ariaLabel} className={button({ variant })} href={href}>
       {children}
     </a>
   );
