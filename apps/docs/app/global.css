@@ -308,3 +308,33 @@ html:not(.dark) .docs-identity {
 .docs-identity .baize-chip {
   color: var(--baize-lichen);
 }
+
+/*
+ * The sidebar's list dissolves before it reaches the footer.
+ *
+ * The theme masks the list with two gradients, each running from transparent
+ * at one edge through opaque at 20px to transparent again at the far edge,
+ * composited as a union. Where they overlap the list is a quarter transparent,
+ * and at the foot the fade is 20px against a footer with an opaque ground and
+ * a hairline -- so whichever entry lands at the fold is sliced through the
+ * middle by the footer's top edge, half of it legible above the line and the
+ * rest under it. One gradient, opaque through the middle and fading over the
+ * height of an entry at each end, is what lets the entry at the fold dissolve
+ * instead.
+ */
+.nextra-sidebar .nextra-mask {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--baize-space-5),
+    #000 calc(100% - var(--baize-space-7)),
+    transparent
+  );
+}
+
+/* The theme drops its mask here too: a fade is contrast given away. */
+@media (prefers-contrast: more) {
+  .nextra-sidebar .nextra-mask {
+    mask-image: none;
+  }
+}
