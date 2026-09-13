@@ -190,6 +190,33 @@ whether or not they mount, so a client wrapper under RSC still receives the
 entire subtree in the flight payload. Virtualization at this seam saves
 mounting. It never saves transfer.
 
+### What the seam does not control
+
+Amended by #140. This document's conclusion holds — the wrapper is a sufficient
+seam for virtualization — but for a narrower reason than the prose above
+suggests, and the difference matters to anyone reading it for guidance about
+what else a wrapper can decide.
+
+`renderWidget` creates each item's `<Suspense>` boundary before `chrome.wrapper`
+sees a child. So the children a wrapper receives are already boundary-wrapped,
+and the region's streaming cost is set inside the library rather than at the
+seam. A windowed wrapper does create fewer boundaries, but only because it
+renders fewer items: that is a side effect of windowing, not a property of the
+seam. A consumer reasoning "the wrapper is the seam, so the wrapper controls
+what the region costs" reaches the right answer about virtualization by the
+wrong route, and the wrong answer about everything else.
+
+Two consequences for the sections above. `Children.toArray(children)` in the
+recipe at the end of this document walks `Suspense` elements, not item elements
+— which strengthens the `items` prop argument in "The one core change", since
+the wrapper cannot recover an item from its child even positionally without
+that prop. And a region of synchronous blocks pays for boundaries it does not
+need: React outlines any boundary unfinished when the shell passes
+`progressiveChunkSize`, whether or not anything suspended, so 150 synchronous
+items stream as 145 deferred placeholders. That is #140's measurement, and the
+fix is `chrome.suspense: 'none'` on the chrome — again inside the library,
+not at the seam.
+
 The answer to #5's SSR question, then, is that it is not a switch on the
 virtualization feature. It is a fork in which feature to use:
 
@@ -352,6 +379,10 @@ Follow-up work, small enough for one issue each:
    virtualized component as a widget". That advice is now wrong in two ways —
    the seam is the wrapper rather than a widget, and below 150 blocks the
    answer is CSS. Rewrite it to point at the recipes.
+4. #140: the per-item `<Suspense>` boundary is created inside `renderWidget`,
+   so a large synchronous region streams as deferred placeholders no wrapper
+   can prevent. Settled by `chrome.suspense`; see "What the seam does not
+   control" above.
 
 ## Testing
 
