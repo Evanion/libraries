@@ -118,6 +118,28 @@ export function boxArtPalette(urn: string): BoxArtPalette | undefined {
   return BOX_ART[urn.replace(/^urn:game:/, '')];
 }
 
+/**
+ * Where a photographed box lives, and which titles have been photographed.
+ *
+ * Nothing yet, which is the state this is built for rather than a gap in it: the
+ * tile paints a photograph as a CSS background layer over the generated vista,
+ * so a title listed here whose file has not landed shows the vista and a title
+ * not listed here never asks for a file at all.
+ *
+ * The same list as `apps/storefront`'s, declared separately for the same reason
+ * every other mapping in this file is: each app owns its own catalogue data, and
+ * a shared package between two demo apps would hide a breaking change behind a
+ * compile that still passes.
+ */
+const BOX_ART_PHOTOS = 'https://docs.evanion.com/box-art';
+const PHOTOGRAPHED: ReadonlySet<string> = new Set<string>();
+
+/** The photograph of a game's box, for the titles that have one. */
+export function boxArtPhotoUrl(urn: string): string | undefined {
+  const slug = urn.replace(/^urn:game:/, '');
+  return PHOTOGRAPHED.has(slug) ? `${BOX_ART_PHOTOS}/${slug}.webp` : undefined;
+}
+
 export function formatPrice(minorUnits: number): string {
   return PRICE.format(minorUnits / 100);
 }

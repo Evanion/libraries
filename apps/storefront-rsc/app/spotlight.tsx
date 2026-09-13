@@ -17,6 +17,7 @@ import {
   availabilityLabel,
   availabilityToken,
   boxArtPalette,
+  boxArtPhotoUrl,
   complexityStop,
   complexityTierName,
   formatComplexity,
@@ -42,17 +43,29 @@ export async function Spotlight({ urn }: { urn: string }) {
 
   return (
     <section aria-label={game.title} className="spotlight">
-      <BoxArtPlaceholder label={game.title} palette={boxArtPalette(game.urn)} />
+      {/* The pin is the library's card anatomy and needs a containing block.
+          Here the art is beside the card rather than inside it, so the block is
+          this app's. */}
+      <div className="spotlight__art">
+        <BoxArtPlaceholder
+          palette={boxArtPalette(game.urn)}
+          photo={boxArtPhotoUrl(game.urn)}
+          seed={game.urn}
+        />
+        <div className="baize-card__pin">
+          <AvailabilityPill
+            availability={availabilityToken(game.availability)}
+            label={availabilityLabel(game.availability)}
+          />
+        </div>
+      </div>
       <Card
         foot={
-          <>
-            <Figure size="lg">{formatPrice(game.price)}</Figure>
-            <Text as="span" size="sm" tone="moss">
-              {stock.quantity > 0
-                ? `${stock.quantity} on the shelf`
-                : 'none on the shelf'}
-            </Text>
-          </>
+          <Text as="span" size="sm" tone="moss">
+            {stock.quantity > 0
+              ? `${stock.quantity} on the shelf`
+              : 'none on the shelf'}
+          </Text>
         }
         head={
           <>
@@ -63,10 +76,7 @@ export async function Spotlight({ urn }: { urn: string }) {
             >
               {game.title}
             </Title>
-            <AvailabilityPill
-              availability={availabilityToken(game.availability)}
-              label={availabilityLabel(game.availability)}
-            />
+            <Figure size="lg">{formatPrice(game.price)}</Figure>
           </>
         }
       >
