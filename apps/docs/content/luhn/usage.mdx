@@ -1,0 +1,153 @@
+# Generating and validating
+
+Two operations, both total apart from one thrown error, and both returning the
+filtered phrase alongside their answer.
+
+## `generate`
+
+```ts
+import { Luhn } from '@evanion/luhn';
+
+Luhn.generate('foo'); // { phrase: 'foo', checksum: '5', filtered: 0 }
+Luhn.generate('FoO'); // { phrase: 'foo', checksum: '5', filtered: 0 }
+```
+
+`checksum` is one character drawn from the dictionary. It is not appended for
+you — the caller decides where it goes and what separates it:
+
+```ts
+const body = 'inv0ice';
+const { checksum } = Luhn.generate(body);
+
+`${body}-${checksum}`; // 'inv0ice-g'
+```
+
+`phrase` is the input with everything outside the dictionary removed, which is
+what the check character was actually computed over. It is returned because the
+two are not always the same string, and a caller storing the phrase should store
+what was checked.
+
+### Empty input throws
+
+```ts
+Luhn.generate('');
+// EmptyInputError: Luhn cannot generate a check character over an input
+// with no dictionary code points (received "").
+
+Luhn.generate('!!!!'); // the same error
+```
+
+A check character over no payload carries no information, and returning one
+makes `generate('')` and `generate('!!!!')` indistinguishable. This is the only
+error either operation raises.
+
+## `validate`
+
+The last dictionary character of the input is the check character.
+
+```ts
+Luhn.validate('foo5'); // { phrase: 'foo5', isValid: true, filtered: 0 }
+Luhn.validate('FOO5'); // { phrase: 'foo5', isValid: true, filtered: 0 }
+Luhn.validate('FoO-ö5'); // { phrase: 'foo5', isValid: true, filtered: 2 }
+Luhn.validate('bar5'); // { phrase: 'bar5', isValid: false, filtered: 0 }
+```
+
+It never throws. Fewer than two surviving characters is not valid — a payload
+and a check character is the minimum:
+
+```ts
+Luhn.validate(''); // { phrase: '', isValid: false, filtered: 0 }
+Luhn.validate('!!!!0'); // { phrase: '0', isValid: false, filtered: 4 }
+```
+
+`phrase` here includes the check character, because that is what was validated.
+`generate`'s `phrase` does not, because the check character did not exist yet.
+
+## Filtering
+
+Characters outside the dictionary are dropped before anything is computed, so a
+hyphenated or accented rendering of the same token checks the same:
+
+```ts
+Luhn.generate('foo-baz'); // { phrase: 'foobaz', checksum: 'p', filtered: 1 }
+Luhn.generate('fooö-baz'); // { phrase: 'foobaz', checksum: 'p', filtered: 2 }
+```
+
+This is what makes a printed code survive being typed back in with the grouping
+in the wrong place, or without it:
+
+```ts
+Luhn.generate('order-2026-0042');
+// { phrase: 'order20260042', checksum: 'l', filtered: 2 }
+
+Luhn.validate('order-2026-0042l').isValid; // true
+Luhn.validate('ORDER20260042L').isValid; // true
+Luhn.validate('or-der-2026-0042-l').isValid; // true
+```
+
+`filtered` counts the dropped characters, so a caller who wants strict input can
+gate on it rather than reimplementing the filter:
+
+```ts
+const result = Luhn.validate(input);
+
+if (!result.isValid) return reject('bad code');
+if (result.filtered > 0) return reject('unexpected characters');
+```
+
+Counting is by code point, not by UTF-16 unit, so an astral character is one
+drop rather than two.
+
+## Case folding
+
+The default instance folds input to lowercase before looking it up. That is a
+property of the dictionary rather than of the call — see
+[Dictionaries](/luhn/dictionaries#case-sensitivity) — and it is why `phrase`
+comes back lowercased:
+
+```ts
+Luhn.generate('FoO'); // { phrase: 'foo', checksum: '5', filtered: 0 }
+```
+
+Over a case-sensitive dictionary, the input's case is preserved and is part of
+what is checked:
+
+```ts
+import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
+
+const sensitive = createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY });
+
+sensitive.generate('FoO'); // { phrase: 'FoO', checksum: 'K', filtered: 0 }
+sensitive.validate('FoOK').isValid; // true
+sensitive.validate('fook').isValid; // false
+```
+
+## A minted-identifier helper
+
+Putting the two together, with the check character in a fixed position:
+
+```ts
+import { Luhn } from '@evanion/luhn';
+
+export function sign(body: string): string {
+  const { checksum } = Luhn.generate(body);
+  return `${body}-${checksum}`;
+}
+
+export function verify(code: string): string | null {
+  const { isValid, phrase } = Luhn.validate(code);
+  return isValid ? phrase.slice(0, -1) : null;
+}
+
+sign('4a7f2c9'); // '4a7f2c9-r'
+verify('4a7f2c9-r'); // '4a7f2c9'
+verify('4a7f2c9-x'); // null
+```
+
+`verify` returns the body from `phrase` rather than from the caller's string,
+because `phrase` is the filtered form and is what `sign` checked. Slicing the
+raw input instead would return the separator on a differently-grouped rendering
+of the same code.
+
+If you want this whole shape ready-made — random body, chunking, prefix,
+a confusion-free alphabet — that is [`@evanion/token`](/token).

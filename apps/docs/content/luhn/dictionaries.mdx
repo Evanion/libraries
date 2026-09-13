@@ -1,0 +1,142 @@
+# Dictionaries
+
+The dictionary is the alphabet the check character is drawn from and the payload
+is read against. It is the only configuration this package has.
+
+## The default
+
+```ts
+Luhn.dictionary; // '0123456789abcdefghijklmnopqrstuvwxyz'
+Luhn.n; // 36
+Luhn.caseInsensitive; // true
+```
+
+36 lowercase alphanumerics, exported as `DEFAULT_DICTIONARY`. It contains no
+case pairs, which is what makes case folding sound over it.
+
+## Building your own
+
+```ts
+import { createLuhn } from '@evanion/luhn';
+
+const hex = createLuhn({ dictionary: '0123456789abcdef' });
+
+hex.generate('cafe'); // { phrase: 'cafe', checksum: '3', filtered: 0 }
+hex.validate('cafe3').isValid; // true
+```
+
+The order of the dictionary decides which index each character occupies, and
+therefore every check character it produces. Two dictionaries holding the same
+characters in a different order are different alphabets, and a code minted under
+one does not validate under the other. Treat the string as a stored constant,
+not as something to sort or deduplicate in flight.
+
+## The five constraints
+
+All checked once, by `createLuhn`, which throws `InvalidDictionaryError`
+carrying a `reason`:
+
+| `reason`       | Constraint                                                   |
+| -------------- | ------------------------------------------------------------ |
+| `not-a-string` | the dictionary is a string                                   |
+| `too-short`    | at least 2 code points                                       |
+| `odd-length`   | an even number of code points                                |
+| `duplicate`    | no code point appears twice                                  |
+| `case-pairs`   | no two code points are case variants, when `caseInsensitive` |
+
+```ts
+createLuhn({ dictionary: 'aabbccdd' });
+// InvalidDictionaryError: Luhn dictionary must not repeat a code point;
+// repeated: "a", "b", "c", "d".
+//   reason: 'duplicate', offending: ['a', 'b', 'c', 'd']
+```
+
+The error carries `dictionary` and `offending` alongside `reason`, so a
+configuration screen can point at the characters rather than restating the rule.
+
+An even size is not a stylistic preference. The fold applied at every second
+position is `g(x) = floor(2x / n) + (2x mod n)`, and for an odd `n` that map is
+not injective — over a three-character dictionary, `g(1)` and `g(2)` are both 2.
+Two different characters then contribute the same amount, and the guarantee that
+every single-character substitution is caught is gone.
+
+Nothing is checked at use. That is the reason for a construction step at all: a
+dictionary read on every call can be replaced between calls, so no precomputed
+table derived from it can be trusted, and every operation pays to re-derive.
+
+## Counting is by code point
+
+```ts
+const emoji = createLuhn({ dictionary: '🂡🂢🂣🂤' });
+emoji.n; // 4
+```
+
+Iteration is by code point rather than by UTF-16 unit, so an astral dictionary
+is measured and indexed as you wrote it. `split('')` halves every surrogate
+pair; this does not.
+
+## Case sensitivity
+
+`caseInsensitive` folds input to lowercase before looking it up. It is a
+property of the dictionary, not of the call, because folding is only sound when
+the dictionary contains no case pairs — otherwise two distinct indices fold onto
+one and the rest become unreachable.
+
+It defaults to `true` when you supply no dictionary and `false` when you do. The
+default dictionary was chosen to support folding; a caller-supplied one has to
+say whether it does.
+
+```ts
+createLuhn().caseInsensitive; // true
+createLuhn({ dictionary: '0123456789abcdef' }).caseInsensitive; // false
+```
+
+Asking for folding over a dictionary that has case pairs is rejected rather than
+quietly downgraded:
+
+```ts
+import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
+
+createLuhn({
+  dictionary: ALTERNATING_CASE_DICTIONARY,
+  caseInsensitive: true,
+});
+// InvalidDictionaryError, reason: 'case-pairs'
+```
+
+`ALTERNATING_CASE_DICTIONARY` is 62 characters — `0-9` then `Aa Bb Cc …` — and
+is case-sensitive only. The alternating order is load-bearing: it decides which
+index each letter occupies.
+
+## Choosing a size
+
+Two considerations pull in different directions.
+
+A larger `n` spreads the check character over more values, so a random string
+passes validation less often: one in `n`.
+
+A size that divides 256 is what makes `byte % n` an unbiased draw from the
+dictionary, which matters if you intend to sample random identifiers over the
+same alphabet. See [modulo bias](/luhn/standards#modulo-bias).
+
+```ts
+Luhn.uniformOverBytes; // false — 256 % 36 is 4
+createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' }).uniformOverBytes;
+// true — 32 divides 256
+```
+
+32 is the useful size that satisfies both. It is what `@evanion/token` uses,
+with `i`, `l`, `o` and `w` dropped from the 36 for legibility.
+
+## A per-request dictionary
+
+A dictionary that varies per request is an instance per request:
+
+```ts
+function checkFor(tenant: Tenant, code: string): boolean {
+  return createLuhn({ dictionary: tenant.alphabet }).validate(code).isValid;
+}
+```
+
+That is one pass over the dictionary — the pass that would have happened anyway
+to validate it. Cache the instance by alphabet if the same few recur.
