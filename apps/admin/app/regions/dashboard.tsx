@@ -10,8 +10,13 @@ import {
   ComplexityRamp,
 } from '@evanion/baize-ui';
 import { createWidgets } from '@evanion/react-widget';
-import type { WidgetItemComponent } from '@evanion/react-widget';
-import type { ReactNode } from 'react';
+import type {
+  RenderableWidgetItem,
+  WidgetItemComponent,
+  WidgetsWrapperComponent,
+} from '@evanion/react-widget';
+import { Children } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   availabilityToken,
   complexityTierName,
@@ -283,37 +288,124 @@ function laneOf(meta: DashboardMeta | undefined): Lane {
 }
 
 /**
- * Places each widget on the dashboard grid from its `meta`.
+ * Wraps one widget. It places nothing: where a panel sits is a fact about the
+ * band it is in and about its neighbours, which only the bed can see.
  *
- * This is what `meta` is for: the lane is a fact about the page, not about the
- * widget, so it travels beside the props rather than in them. The renderer
- * hands `meta` to this component and spreads only `props` into the widget
- * itself, which is why `StockByGame` never sees a `lane` prop it would have to
- * accept and ignore.
- *
- * An item whose `meta` names no lane, or names one the bed does not declare,
- * takes the full width. A dashboard assembled from a CMS payload will have
- * items that were never placed, and a widget that vanishes is worse than one
- * that is too wide.
- *
- * An inline style rather than a class: the lane is read off `meta` at render time,
- * and the bed in layout.css is where the lines it resolves against are declared.
+ * The annotation is still what types the whole set's `meta` -- `createWidgets`
+ * reads `M` off `chrome.item` -- so a dashboard item naming anything but a lane
+ * is a compile error whether or not this component reads the field.
  */
 const GridCell: WidgetItemComponent<DashboardMeta> = ({
   children,
-  meta,
+  meta: _meta,
   ...attributes
 }) => (
-  <div {...attributes} style={{ gridColumn: laneOf(meta) }}>
+  <div {...attributes} className="dashboard__cell">
     {children}
   </div>
 );
 
-const Grid = ({ children }: { children?: ReactNode }) => (
-  <section aria-label="Dashboard" className="dashboard">
-    {children}
-  </section>
-);
+/** A stretch of the bed: one full-width panel, or a main and aside column. */
+type Band =
+  | { lane: 'full'; node: ReactNode }
+  | { lane: 'split'; main: ReactNode[]; aside: ReactNode[] };
+
+/**
+ * Groups the region's items into bands, preserving the order they were written
+ * in.
+ *
+ * Consecutive `main` and `aside` items collect into one band, and a `full` item
+ * closes the band it meets and stands alone. So a short aside panel and a tall
+ * main panel do not have to be the same height, and the order an editor wrote
+ * the items in still decides what follows what.
+ */
+function bandsOf(items: readonly RenderableWidgetItem[], nodes: ReactNode[]) {
+  const bands: Band[] = [];
+
+  items.forEach((item, index) => {
+    const node = nodes[index];
+    const lane = laneOf(item.meta as DashboardMeta | undefined);
+
+    if (lane === 'full') {
+      bands.push({ lane: 'full', node });
+      return;
+    }
+
+    const open = bands.at(-1);
+    if (open?.lane === 'split') open[lane].push(node);
+    else
+      bands.push({
+        lane: 'split',
+        main: lane === 'main' ? [node] : [],
+        aside: lane === 'aside' ? [node] : [],
+      });
+  });
+
+  return bands;
+}
+
+/**
+ * The dashboard bed.
+ *
+ * It reads the region's items rather than only its children, which is the whole
+ * reason the lane can be resolved here. Placing each panel individually made
+ * every row of the grid as tall as its tallest panel: a five-line shelf summary
+ * beside the stock table left most of a screen of nothing under it, and the
+ * trail below it started where the stock table ended. Columns of their own let
+ * each side run at its own height.
+ *
+ * `items` is positionally aligned with `children` -- the renderer drops a
+ * skipped item from both -- so `nodes[index]` is the panel `items[index]`
+ * produced.
+ *
+ * An inline style rather than a class: the lane names come from the bed's own
+ * `-start` and `-end` line names in layout.css, and this is what resolves
+ * against them.
+ */
+const Grid: WidgetsWrapperComponent = ({ children, items = [] }) => {
+  const nodes = Children.toArray(children);
+
+  return (
+    <section aria-label="Dashboard" className="dashboard">
+      {bandsOf(items, nodes).map((band, index) =>
+        band.lane === 'full' ? (
+          <div
+            key={index}
+            className="dashboard__cell"
+            style={laneStyle('full')}
+          >
+            {band.node}
+          </div>
+        ) : (
+          [
+            band.main.length ? (
+              <div
+                className="dashboard__lane"
+                key={`${index}-main`}
+                style={laneStyle('main')}
+              >
+                {band.main}
+              </div>
+            ) : null,
+            band.aside.length ? (
+              <div
+                className="dashboard__lane"
+                key={`${index}-aside`}
+                style={laneStyle('aside')}
+              >
+                {band.aside}
+              </div>
+            ) : null,
+          ]
+        ),
+      )}
+    </section>
+  );
+};
+
+function laneStyle(lane: Lane): CSSProperties {
+  return { gridColumn: lane };
+}
 
 export const { Widgets: Dashboard, defineItems: defineDashboardItems } =
   createWidgets({
