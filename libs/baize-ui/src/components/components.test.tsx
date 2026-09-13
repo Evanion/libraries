@@ -189,6 +189,24 @@ describe('the controls', () => {
     );
   });
 
+  /**
+   * A back office declares and clears a title's availability through one form with
+   * two submits, which is what works before hydration. The pair the browser sends
+   * is what tells them apart.
+   */
+  it('carries a submit name and value into the form', () => {
+    render(
+      <Button name="intent" type="submit" value="declare">
+        Save state
+      </Button>,
+    );
+    const button = screen.getByRole('button') as HTMLButtonElement;
+
+    expect(button.type).toBe('submit');
+    expect(button.name).toBe('intent');
+    expect(button.value).toBe('declare');
+  });
+
   it('disables a button without losing its class', () => {
     render(<Button disabled>Sold out</Button>);
     const button = screen.getByRole('button') as HTMLButtonElement;

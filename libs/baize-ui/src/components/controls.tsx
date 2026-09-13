@@ -24,6 +24,16 @@ export interface ButtonProps {
   onClick?: MouseEventHandler<HTMLButtonElement>;
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
+  /**
+   * What a submit reports to the form it is in.
+   *
+   * A form with two submits tells them apart by the pair a browser sends for
+   * whichever one was pressed, which is the only way a form works before
+   * hydration. That is submission, not state: nothing here reads either value,
+   * and a form that posted to a server read both without this library existing.
+   */
+  name?: string;
+  value?: string;
   /** Where the control's own text is not the whole label. */
   'aria-label'?: string;
 }
@@ -35,6 +45,8 @@ export function Button({
   onClick,
   type = 'button',
   disabled = false,
+  name,
+  value,
   'aria-label': ariaLabel,
 }: ButtonProps) {
   return (
@@ -45,8 +57,10 @@ export function Button({
         modifier('baize-button', 'variant', variant),
       )}
       disabled={disabled}
+      name={name}
       onClick={onClick}
       type={type}
+      value={value}
     >
       {children}
     </button>
