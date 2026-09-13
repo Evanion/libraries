@@ -1,0 +1,135 @@
+# API reference
+
+## `CorrelationModule`
+
+```ts
+class CorrelationModule {
+  static forRoot(config?: Partial<CorrelationConfig>): DynamicModule;
+}
+```
+
+Fills in every unset field of `config` and returns the module, registered
+`global: true`. Provides and exports `CorrelationService` and the resolved
+configuration under `CORRELATION_CONFIG_TOKEN`.
+
+Call it once, in the root module. See
+[Configuration](/correlation-id/configuration#calling-forroot-once).
+
+## `CorrelationIdMiddleware`
+
+```ts
+class CorrelationIdMiddleware implements NestMiddleware {
+  use(
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: (error?: unknown) => void,
+  ): void;
+}
+```
+
+Opens a correlation context around every request, reusing the id the caller sent
+when it passes `validate` and minting one otherwise.
+
+Typed against `node:http` rather than Express, so the same class works under
+either platform adapter.
+
+Apply it with `consumer.apply(CorrelationIdMiddleware).forRoutes('*')`. Anything
+that reads an id has to be applied after it.
+
+## `CorrelationService`
+
+```ts
+@Injectable()
+class CorrelationService {
+  run<T>(correlationId: string, callback: () => T): T;
+  getCorrelationId(): string | undefined;
+  setCorrelationId(correlationId: string): void;
+  generate(): string;
+}
+```
+
+A plain singleton over `AsyncLocalStorage`.
+
+| Method                 | Notes                                                          |
+| ---------------------- | -------------------------------------------------------------- |
+| `run(id, callback)`    | runs the callback in a correlation context; returns its result |
+| `getCorrelationId()`   | the surrounding context's id, or `undefined` outside one       |
+| `setCorrelationId(id)` | replaces the surrounding context's id; throws outside one      |
+| `generate()`           | a fresh id from the configured generator                       |
+
+`run` is what the middleware calls per request. Call it directly for work that
+has no request behind it.
+
+`getCorrelationId()` is synchronous — it never returned a promise — and gives
+`undefined` where there is no context, because there genuinely is no correlation
+id there.
+
+`setCorrelationId` throws outside a context rather than writing somewhere
+nothing will read:
+
+```
+setCorrelationId() was called outside a correlation context. Apply
+CorrelationIdMiddleware, or wrap the work in CorrelationService.run().
+```
+
+## `withCorrelation(config?)`
+
+```ts
+function withCorrelation(config?: HttpModuleOptions): HttpModuleAsyncOptions;
+```
+
+Options for `HttpModule.registerAsync` that forward the current correlation id
+on every outgoing request, through an axios request interceptor registered as an
+extra provider.
+
+Requires `CorrelationModule.forRoot()` somewhere in the application. `config` is
+passed through to the axios instance unchanged.
+
+`@nestjs/axios` is a type-only import here, which is what makes it genuinely
+optional at runtime: an application that never calls `withCorrelation` does not
+need it installed.
+
+No header is attached when there is no correlation context.
+
+## `CorrelationConfig`
+
+```ts
+interface CorrelationConfig {
+  header: string;
+  generator: () => string;
+  validate?: (value: string) => boolean;
+}
+```
+
+The resolved configuration, as `forRoot()` builds it. Every field is filled in
+there, `validate` included, so a consumer of the injection token never sees a
+partial object.
+
+## Constants
+
+| Export                             | Value                                                 |
+| ---------------------------------- | ----------------------------------------------------- |
+| `CORRELATION_ID_HEADER`            | `'X-Correlation-Id'`                                  |
+| `DEFAULT_CORRELATION_ID_VALIDATOR` | `(value) => /^[\w.:-]{1,128}$/.test(value)`           |
+| `CORRELATION_CONFIG_TOKEN`         | `'@evanion/nestjs-correlation-id:CORRELATION_CONFIG'` |
+| `CORRELATION_AXIOS_INTERCEPTOR`    | `'@evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR'`  |
+
+Inject `CORRELATION_CONFIG_TOKEN` to read the resolved configuration from your
+own provider:
+
+```ts
+constructor(
+  @Inject(CORRELATION_CONFIG_TOKEN)
+  private readonly config: CorrelationConfig,
+) {}
+```
+
+Both tokens are namespaced, because the provider is registered in a
+`global: true` module and a bare `'CORRELATION_CONFIG'` would collide silently
+with any other package that picked the same string. They are strings rather than
+symbols: a `Symbol()` is identity-based, so two copies of this module would mint
+two tokens and Nest would fail to resolve one of them.
+
+`CORRELATION_AXIOS_INTERCEPTOR` is the token of the provider that attaches the
+interceptor to the axios instance. Nothing injects it; it exists so Nest
+instantiates the factory that does the registering.
