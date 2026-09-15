@@ -16,8 +16,8 @@ Two packages, following the repo's universal-core + separate-platform convention
 
 | Package | Role |
 | ------- | ---- |
-| `@evanion/authorization` | Universal core. Framework-free, runs in any JS runtime. No React, no DOM, no Node-only dependency. |
-| `@evanion/react-authorization` | React binding. `PolicyProvider` + hooks on the client; a universal server-side `authorize(subject)` util. Depends on the core. |
+| `@evanion/authorization` | Universal core. Framework-free, runs in any JS runtime. No React, no DOM, no Node-only dependency. Carries the engine and the server-side `authorize(subject, ...)` util. |
+| `@evanion/react-authorization` | React binding. `PolicyProvider` + hooks. Depends on the core. |
 
 There are no per-framework packages and no `/next` or `/react-router` exports.
 The React package serves both runtime shapes from one surface — an RSC-style
@@ -29,8 +29,8 @@ separate product. See [Consumption shapes](#consumption-shapes).
 
 - **One artifact: the matrix definition.** A global policy document. It is the
   only thing that must be serializable.
-- **One engine, local evaluation.** `can(subject, action, object, now)` is a
-  pure function of the matrix and a context. The platform that evaluates holds
+- **One engine, local evaluation.** `can(subject, key, action, object, now)` is
+  a pure function of the matrix and a context. The platform that evaluates holds
   the matrix and computes the answer itself.
 - **The frontend pulls the matrix once** — from a backend endpoint
   (`parseMatrix(await fetch(...))`) or bundled at build time — instantiates it
@@ -43,7 +43,7 @@ separate product. See [Consumption shapes](#consumption-shapes).
   server checks live outside the matrix, as server-side app-layer decisions.
 
 ```
-matrix (serializable, frozen, JSON round-trip) ─▶ one engine: can(subject, action, object, now) → Decision
+matrix (serializable, frozen, JSON round-trip) ─▶ one engine: can(subject, key, action, object?, now?) → Decision
         │
         ├─ Node backend     local evaluation (authoritative)
         ├─ FE SSR           local (RSC graph / React Router loaders, actions, middleware)
@@ -62,8 +62,16 @@ public, avoiding a v2 breaking rename.
 | Term | Means | Example |
 | ---- | ----- | ------- |
 | `subject` | the actor doing the action | a `User` |
+| `key` | the object kind | `'comment'` |
 | `action` | what they do | `'update'` |
-| `object` | what they act on — the kind name, the instance, or both | `'comment'`, or a `Comment` instance, or `('comment', comment)` |
+| `object` | the instance they act on, when one exists | a `Comment` |
+
+The canonical call order across every entry point is
+`(subject, key, action, object?, now?)`. It is the same order in `can`,
+`canMany`, `canFields`, `authorize`, and the bound `object()` handler. The
+`key` names the object kind; `object` is the instance, optional for the create
+case; `now` is the optional clock instant. All examples and the hooks
+(`useCan(key, action, object?)`, etc.) use this order.
 
 ## Scope
 
@@ -73,8 +81,8 @@ public, avoiding a v2 breaking rename.
 - One framework-free engine evaluating it in any JS runtime.
 - Authoring helpers with typed subject and object keys.
 - Matrix acquisition by fetch or by build-time bundling.
-- `@evanion/react-authorization`: provider, hooks, and a server-side
-  `authorize(subject)` util.
+- `@evanion/react-authorization`: provider and hooks.
+- The server-side `authorize(subject)` util, in the core.
 - Field-level permissions.
 - Bulk evaluation (`canMany`) in the core.
 
@@ -96,7 +104,7 @@ public, avoiding a v2 breaking rename.
 
 ## The evaluation context
 
-`can(subject, action, object, now)` splits the subject and the object as
+`can(subject, key, action, object?, now?)` splits the subject and the object as
 separate structured arguments. The condition DSL reads fields from a **three-key
 context object** with namespaced paths:
 
@@ -172,16 +180,26 @@ prototype chain.
 
 ## Decision
 
-Identical to `feature`'s decision shape.
+Mirrors `feature`'s decision shape, renamed for authorization.
 
 ```ts
-{
-  key: 'article.publish',
-  allowed: false,
-  reason: 'dependency-off',
-  blockedBy: 'article.update',
-  cause: { key: 'article.update', reason: 'no-rule-matched', rule: 'author' },
-}
+type Decision = {
+  key: string;
+  allowed: boolean;
+  reason: Reason;
+  blockedBy?: string;    // the dependency key, when reason is 'dependency-off'
+  cause?: Decision;      // the first ancestor off, for a reason of its own
+  rule?: string;         // the rule that decided, when reason is 'allow' | 'denied'
+  missing?: string[];    // the field paths, when reason is 'unevaluable'
+};
+
+type Reason =
+  | 'allow'
+  | 'no-rule-matched'
+  | 'denied'
+  | 'dependency-off'
+  | 'unknown-action'
+  | 'unevaluable';
 ```
 
 `reason` is **output only**. Nothing in the library reads a `reason` back to
@@ -191,12 +209,12 @@ decide anything, so stripping it changes no decision. A test asserts this.
 
 | `reason` | meaning |
 | -------- | ------- |
-| `allow` | a rule matched |
+| `allow` | an allow rule matched; carries `rule` |
 | `no-rule-matched` | rules present, none passed |
-| `denied` | an explicit deny matched (see [Deny](#deny)) |
+| `denied` | an explicit deny matched (see [Deny](#deny)); carries `rule` |
 | `dependency-off` | a dependency resolved off; carries `blockedBy` and `cause` |
 | `unknown-action` | the key is not in the matrix (fail-closed path only) |
-| `unevaluable` | an `object`-dependent condition had no instance (the "create" case) or a field-level decision needed a field the object did not carry |
+| `unevaluable` | an `object`-dependent condition had no instance (the "create" case); carries `missing`. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
 
 ## Deny
 
@@ -251,14 +269,33 @@ access.can(subject, 'comment', 'create');
 
 The engine never evaluates an absent object's fields against `undefined`.
 
+### `unevaluable` in the precedence order
+
+`unevaluable` is the result of a whole permission whose `object`-dependent rules
+cannot be decided for lack of an instance. It ranks below `deny` and
+`dependency-off` but above `no-rule-matched`, and it is distinct from a
+definite deny:
+
+1. If a deny rule matches, deny (`denied`).
+2. Else if a dependency resolved off, deny (`dependency-off`).
+3. Else if an allow rule matches, allow (`allow`).
+4. Else if an `object`-dependent rule could not be evaluated for lack of an
+   instance, `unevaluable`.
+5. Else deny (`no-rule-matched`).
+
+A rule that mixes `object`-dependent and `object`-independent branches with no
+instance is decided by the `object`-independent branch alone: `permit(or(eq('object.authorId','subject.id'), always))` with no instance is `allow`, because
+`always` does not need the object. Only a permission whose matching branches all
+need an absent object yields `unevaluable`.
+
 ## Field-level permissions
 
-`can(subject, action, object, now)` returns the action `Decision`. A separate
-entry point answers "which fields does this action touch":
+`can(subject, key, action, object, now)` returns the action `Decision`. A
+separate entry point answers "which fields does this action touch":
 
 ```ts
 access.canFields(subject, 'comment', 'update', comment, 'write');
-// -> { allowed: false, fields: { body: 'allowed', title: 'allowed', status: 'denied' }, reasons: { ... } }
+// -> { allowed: false, fields: { body: 'allowed', title: 'allowed', status: 'denied' }, reasons: { body: 'allow', title: 'allow', status: 'denied' } }
 ```
 
 Read and write are separate axes. **Read is a projection hint, never a security
@@ -273,10 +310,19 @@ Each field decision is **tri-state**, because a missing field is not a deny:
 ```ts
 type FieldState = 'allowed' | 'denied' | 'unevaluable';
 
+type FieldReason =
+  | 'allow'                 // the field passed its allow-list / value rule
+  | 'not-listed'            // the field is not in the allow-list
+  | 'denied'                // the field matched a bang ('!') entry or a deny
+  | 'targets-failed'        // the proposed value is not in the targets allow-list
+  | 'transition-failed'     // the current->proposed edge is not allowed
+  | 'missing-field'         // the object lacks the field the rule reads
+  | 'proposed-required';     // a targets rule was evaluated without a proposed value
+
 interface FieldDecision {
   allowed: boolean;            // true iff every field is 'allowed'
   fields: Record<string, FieldState>;
-  reasons: Record<string, Reason>;
+  reasons: Record<string, FieldReason>;
 }
 ```
 
@@ -311,7 +357,7 @@ The write axis takes an optional proposed value, because `targets` and
 `transitions` read the field in different states:
 
 ```ts
-canFields(subject, action, object, 'write', proposed?, now?)
+canFields(subject, key, action, object, axis, proposed?, now?)
 ```
 
 - `transitions` reads the field's **current** value off `object` and checks the
@@ -323,6 +369,16 @@ Decision rule for choosing between them: **know the current value → use
 `transitions`; setting a fresh field or not knowing the current value → use
 `targets`.** If `proposed` is omitted but a `targets` rule exists, the decision
 is `unevaluable` naming the field.
+
+The single `proposed` value is a whole-object write. It carries the proposed
+state of the object being written, so each field configured with `targets` is
+checked against the corresponding value in `proposed`, and each field configured
+with `transitions` is checked against the edge from its current value in
+`object` to its value in `proposed`. A single call can therefore mix `targets`
+and `transitions` across fields of one write: the engine reads each field's
+current value from `object` and its proposed value from `proposed`. When
+`proposed` is a whole object, `canFields` covers the multi-field write case
+without ambiguity.
 
 ### The transition contract
 
@@ -382,7 +438,14 @@ access.can(subject, 'comment', 'create');       // no instance: reason 'unevalua
   cannot spell through `permit`.
 - `eq` is symmetric: both arguments are field paths resolved in the namespaced
   context, and both are checked against their respective types regardless of
-  which scope they name.
+  which scope they name. A field may also be compared to a **literal**
+  (`eq('object.status', 'published')`), matching the canonical condition DSL's
+  `value` form.
+- The full typed helper surface mirrors the ops: `eq`, `ne`, `in`, `not-in`,
+  `contains`, plus `and`, `or`, and `always`. `always` serializes to an empty
+  `when` array (always true). A time condition is written with
+  `before` / `after` over the `now` namespace, e.g.
+  `after('now', '2026-10-01T00:00:00Z')`.
 - The nested authoring form **flattens** to the canonical flat JSON matrix at
   construction; `JSON.stringify(access.matrix)` emits the same document a foreign
   backend would produce.
@@ -398,6 +461,22 @@ v1. The constructor class-key path (`[Comment]:`) is not; it is the most magical
 of the authoring options and reintroduces "class is a runtime value" against the
 JSON round-trip. It can return in a later release if a consumer needs
 instance-resolution.
+
+### Construction entry points
+
+Three constructors, one surface. Each returns the same `access` object —
+`.can`, `.canFields`, `.canMany`, `.capabilities`, `.authorize`, `.object`,
+`.matrix`, `.version`:
+
+- `createPolicy(matrix)` — from a canonical matrix (array form).
+- `policy<Subject>(nested)` — from the typed nested authoring form; flattens to
+  the same canonical matrix.
+- `parseMatrix(json)` — from foreign or emitted JSON; the untrusted path.
+
+All validate once and freeze. A locally-authored `policy(...)` has no foreign
+`version`; `access.version` for a typed matrix is `undefined`, or a value the
+author supplies as an option. Only a fetched matrix carries a meaningful
+`version` for the revalidate contract.
 
 ### Optional: bound object handler
 
@@ -460,8 +539,10 @@ explain themselves:
 - `BangInAllowListError` — a `!` entry mixed into an explicit allow-list.
 - `TargetsTransitionsConflictError` — both `targets` and `transitions` on one
   field.
-- `ProposedValueRequiredError` — a `targets` rule was evaluated without the
-  `proposed` value (thrown at the `canFields` call, not at construction).
+
+Evaluation is total: it never throws for a data-shape problem. Omitting
+`proposed` where a `targets` rule exists yields an `unevaluable` field decision,
+not a thrown error, keeping the repo's "evaluate is total" discipline.
 
 ## Acquisition
 
@@ -477,6 +558,33 @@ matrix. A frontend evaluating a stale matrix keeps a permission the backend has
 since revoked, so staleness is a security concern, not a cache detail. There is
 no auto-refetch machinery in v1; the version is the surface the caller uses.
 
+## Server-side `authorize`
+
+A universal server-side helper lives in the core and binds a subject for the
+current request. It is the curried form of `can`, so a Node middleware, loader,
+action, or RSC server component evaluates against an `access` instance without
+restating the subject:
+
+```ts
+import { createPolicy } from '@evanion/authorization';
+
+const access = createPolicy(matrix);
+const forUser = access.authorize(subject, { now });   // returns a bound handle
+
+forUser.can('comment', 'create');                    // -> Decision
+forUser.can('comment', 'update', comment);           // -> Decision
+forUser.canMany('comment', 'read', comments);        // -> Decision[]
+```
+
+`authorize` lives in the core, not the React package, because it is plain Node
+server-side evaluation and must not force a React peer dependency on a server
+that only needs the evaluator. The traditional split's middleware/loader/action
+is a plain Node layer and imports from the core.
+
+Signature: `access.authorize(subject, { now? }): Authorized` where `Authorized`
+exposes `can`, `canMany`, `canFields` and `capabilities` with the `subject`
+already bound.
+
 ## Consumption shapes
 
 `@evanion/react-authorization` serves both runtime shapes from one surface.
@@ -490,8 +598,11 @@ framework.
 
 ```tsx
 // server component
-const subject = await getSubject();          // app-supplied (cookies/session)
-const decision = authorize(subject, 'comment', 'create');
+import { createPolicy } from '@evanion/authorization';
+const access = createPolicy(matrix);
+const subject = await getSubject();                     // app-supplied (cookies/session)
+const forUser = access.authorize(subject);
+const decision = forUser.can('comment', 'create');      // -> Decision
 // render conditionally, and pass subject to the provider:
 
 <PolicyProvider access={access} subject={subject} context={{ now }}>
@@ -505,12 +616,15 @@ Middleware, a loader, or an action resolves the subject and evaluates server-sid
 (authoritative), then bridges the result to the client provider.
 
 ```tsx
-// server (middleware / loader / action)
-const subject = resolveSubject(req);         // app-supplied
-const allowed = authorize(subject, 'comment', 'update', comment);
+// server (middleware / loader / action) — imports from the core, no React dep
+import { createPolicy } from '@evanion/authorization';
+const access = createPolicy(matrix);
+const subject = resolveSubject(req);                    // app-supplied
+const allowed = access.authorize(subject).can('comment', 'update', comment);
 if (!allowed) return redirect(...);
 
 // client provider, fed the server-resolved subject
+import { PolicyProvider } from '@evanion/react-authorization';
 <PolicyProvider access={access} subject={subject} context={{ now }}>
   <CommentList />
 </PolicyProvider>
@@ -526,7 +640,6 @@ supplies the evaluator, not the principal.
 
 ```tsx
 import { PolicyProvider, useCan, useCanFields, useCanMany } from '@evanion/react-authorization';
-import { authorize } from '@evanion/react-authorization';
 
 <PolicyProvider access={access} subject={subject} context={{ now }}>
   <App />
@@ -548,12 +661,19 @@ Hooks:
 - `useCanMany(key, action, objects)` — a bulk decision array for a list,
   parallel to the input.
 - `useCapabilities()` — every decision for the **current subject**, action-level
-  only (no object, so no `object`-dependent decisions).
+  only (no object, so no `object`-dependent decisions). It is backed by the
+  core's `access.capabilities(subject, { now })`, which returns one
+  `Decision` per configured key, keyed as a record `Record<key, Decision>` —
+  the same keyed shape `feature`'s `resolve()` uses. For an unconfigured key it
+  matches the matrix's open/closed behaviour (throws for a typed matrix, fails
+  closed for a foreign one).
 
 The provider evaluates the full matrix against the current context; it does not
-ship or imply a per-subject snapshot. Evaluation is memoised on the context
-object's identity. Lists should use `useCanMany` to avoid N memoised
-evaluations.
+ship or imply a per-subject snapshot. Evaluation is memoised on the tuple
+`(context identity, key, action, object identity)` — a hook that carries a
+per-call `object` must not key on the context alone, or a re-render with a
+different instance returns a stale decision. Lists should use `useCanMany` to
+avoid N memoised evaluations.
 
 ## React Native and Electron
 
@@ -584,13 +704,14 @@ evaluation model.
 ```
 libs/authorization/                 # universal core
   src/
-    index.ts          # createPolicy / policy, parseMatrix, can, canMany, canFields
-    types.ts          # Matrix, Permission, Rule, Condition, Decision, FieldState, FieldDecision
+    index.ts          # createPolicy / policy, parseMatrix, can, canMany, canFields, capabilities, authorize
+    types.ts          # Matrix, Permission, Rule, Condition, Decision, Reason, FieldState, FieldReason, FieldDecision
     evaluate.ts       # can(): (matrix, context) -> Decision
     conditions.ts     # declarative condition evaluator (namespaced paths + proto guard)
     graph.ts          # dependsOn cascade + cycle/unknown/duplicate validation
     project.ts        # nested authoring form -> canonical flat matrix
     parse-matrix.ts   # foreign JSON validation/adoption
+    authorize.ts      # access.authorize(subject) -> bound Authorized handle
     errors.ts
     test-setup.ts
   README.md
@@ -598,17 +719,18 @@ libs/authorization/                 # universal core
 
 libs/react-authorization/           # React binding, depends on @evanion/authorization
   src/
-    index.tsx         # PolicyProvider + hooks + authorize(subject) util
-    server.ts         # authorize(subject, ...) — universal Node-side eval
+    index.tsx         # PolicyProvider + hooks; re-exports core types
     test-setup.ts
   README.md
   package.json        # name: @evanion/react-authorization
 ```
 
 Both follow `@evanion/source` file-per-entry packaging; the React package marks
-its client modules `'use client'` and keeps the server util free of that marker
-so it runs on Node. When `react-authorization` is documented, `apps/docs`'
-`navigation.ts` gains an entry and the repo-checks test passes.
+its client modules `'use client'`, re-exports the core's types so a consumer who
+never names the core never installs it by hand, and depends on a compatible
+range of `@evanion/authorization`. The two packages release in lockstep. When
+`react-authorization` is documented, `apps/docs`' `navigation.ts` gains an entry
+and the repo-checks test passes.
 
 ## Testing
 
@@ -629,4 +751,4 @@ Mirrors `feature`'s discipline:
 - typed `.test-d.ts` for the `policy`/`permit` authoring path, asserting
   *readable* errors
 - README doctests (`@import.meta.vitest`)
-- a `react-authorization` smoke test (provider + hooks + server util)
+- a `react-authorization` smoke test (provider + hooks)
