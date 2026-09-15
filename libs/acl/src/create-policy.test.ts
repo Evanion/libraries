@@ -49,8 +49,8 @@ describe('createPolicy', () => {
     const comments = [{ authorId: 's1' }, { authorId: 'OTHER' }];
     const ds = access.canMany(editor, 'comment', 'update', comments);
     expect(ds).toHaveLength(2);
-    expect(ds[0].allowed).toBe(true);
-    expect(ds[1].allowed).toBe(false);
+    expect(ds[0]!.allowed).toBe(true);
+    expect(ds[1]!.allowed).toBe(false);
   });
 
   it('a foreign matrix fails closed on an unknown permission', () => {
@@ -115,8 +115,8 @@ describe('createPolicy', () => {
   it('capabilities returns every action-level decision', () => {
     const access = createPolicy(matrix);
     const caps = access.capabilities(editor);
-    expect(caps['comment.read'].allowed).toBe(true);
-    expect(caps['comment.update'].reason).toBe('unevaluable');
+    expect(caps['comment.read']!.allowed).toBe(true);
+    expect(caps['comment.update']!.reason).toBe('unevaluable');
   });
 
   it('authorize binds the subject', () => {

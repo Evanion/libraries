@@ -4,44 +4,45 @@ import type { Condition, FieldRules, Permission, Rule } from './types.js';
 /** A condition that is always true; serializes to an empty `when` array. */
 export const always: readonly [] = [];
 
-export type ConditionOrGroup = Condition | readonly Condition[];
+/**
+ * What `permit` accepts for one permission: a single condition, a flat list of
+ * conditions (one rule), or a nested list of condition-lists (several rules,
+ * OR-ed — what `or(...)` produces).
+ */
+export type RuleSpec =
+  | Condition
+  | readonly Condition[]
+  | readonly (readonly Condition[])[];
 
-function asRules(
-  groups: readonly ConditionOrGroup[],
-): readonly Rule[] {
+function asRules(specs: readonly RuleSpec[]): readonly Rule[] {
   const rules: Rule[] = [];
-  for (const group of groups) {
-    if (Array.isArray(group)) {
-      // A nested array (from `or(...)`) becomes separate rules; a flat array
-      // (from `and(...)`) is one rule with several conditions.
-      if (group.length && Array.isArray(group[0])) {
-        for (const inner of group as readonly (readonly Condition[])[]) {
-          rules.push({ when: inner });
-        }
-      } else {
-        rules.push({ when: group as readonly Condition[] });
+  for (const spec of specs) {
+    const value = spec as Condition | readonly Condition[] | readonly (readonly Condition[])[];
+    if (Array.isArray(value) && Array.isArray(value[0])) {
+      // A nested list (from `or(...)`) becomes separate rules.
+      for (const inner of value as readonly (readonly Condition[])[]) {
+        rules.push({ when: inner });
       }
+    } else if (Array.isArray(value)) {
+      // A flat list (from `and(...)`) is one rule with several conditions.
+      rules.push({ when: value as readonly Condition[] });
     } else {
-      rules.push({ when: [group as Condition] });
+      rules.push({ when: [value as Condition] });
     }
   }
   return rules;
 }
 
 /** AND: conditions in one rule. */
-export function and(
-  ...groups: ConditionOrGroup[]
-): readonly ConditionOrGroup[] {
-  return groups.flatMap((g) =>
-    Array.isArray(g) && !g.some((x) => Array.isArray(x)) ? g : [g],
-  );
+export function and(...conditions: readonly Condition[]): readonly Condition[] {
+  return conditions;
 }
 
 /** OR: each argument becomes its own rule. */
 export function or(
-  ...groups: ConditionOrGroup[]
-): readonly (readonly ConditionOrGroup[])[] {
-  return groups.map((g) => [g]);
+  ...conditions: readonly Condition[]
+): readonly (readonly Condition[])[] {
+  return conditions.map((condition) => [condition]);
 }
 
 /** Equality between two scopes or a scope and a literal. */
@@ -68,10 +69,8 @@ export interface PermitBuilder {
 }
 
 /** Build one permission's allow rules. */
-export function permit(
-  ...conditions: ConditionOrGroup[]
-): PermitBuilder {
-  const rules = asRules(conditions);
+export function permit(...specs: RuleSpec[]): PermitBuilder {
+  const rules = asRules(specs);
   const builder: PermitBuilder = {
     rules,
     fields(fieldRules: FieldRules): PermitBuilder {
@@ -93,9 +92,9 @@ export interface PolicyConfig {
  *
  * @example
  * ```ts
- * const access = policy<Subject>({
+ * const access = policy({
  *   comment: {
- *     update: permit<Comment>(eq('object.authorId', 'subject.id')),
+ *     update: permit(eq('object.authorId', 'subject.id')),
  *   },
  * });
  * ```

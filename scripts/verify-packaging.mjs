@@ -413,6 +413,49 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   }
   console.log('  ✓ widget core imports no framework');
 
+  // @evanion/authorization is the framework-free half of access control: its
+  // core evaluates a matrix locally and must import no framework, so it runs in
+  // a Node backend, a frontend SSR graph, a browser SPA or a hybrid JS platform.
+  // Same silent-breakage risk as the widget core, so the same check: every
+  // emitted module is scanned for a framework import.
+  const authzCoreDist = join(
+    dir,
+    'node_modules',
+    '@evanion',
+    'authorization',
+    'dist',
+  );
+  const authzCoreModules = readdirSync(authzCoreDist, {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+    .map((entry) => join(entry.parentPath, entry.name));
+
+  if (authzCoreModules.length === 0) {
+    throw new Error('@evanion/authorization ships no modules at all');
+  }
+
+  const authzFrameworkImporters = authzCoreModules.filter((file) => {
+    const source = readFileSync(file, 'utf8');
+    return ['react', 'astro', 'svelte', 'vue', 'solid-js'].some((framework) =>
+      new RegExp(`(?:from|import)\\s*["']${framework}(?:/[^"']*)?["']`).test(
+        source,
+      ),
+    );
+  });
+  if (authzFrameworkImporters.length) {
+    throw new Error(
+      '@evanion/authorization imports a framework: ' +
+        authzFrameworkImporters
+          .map((file) => file.slice(authzCoreDist.length + 1))
+          .join(', ') +
+        '. The core is what every runtime shares, so nothing under it may import one.',
+    );
+  }
+  console.log('  ✓ authorization core imports no framework');
+
+
   // Every adapter names the core at an exact version equal to the packed core's
   // own. A caret range is what lets a consumer with two adapters resolve two
   // copies of the core, and an adapter compiled against one item shape and
