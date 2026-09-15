@@ -227,13 +227,16 @@ the action level must match.
 A permission may carry `rules` (allows) and/or `denyRules` (denies). Denies use
 the same `when`/`dependsOn` shape and are fully serializable.
 
-Precedence, defined once:
+Deny is a stage in the single precedence order, defined once (see the full
+five-step order in [the no-instance case](#the-no-instance-case)):
 
 1. If a deny rule matches, deny (reason `denied`).
 2. Else if a dependency resolved off, deny (reason `dependency-off`,
    `blockedBy`, `cause`).
 3. Else if an allow rule matches, allow (reason `allow`).
-4. Else deny (reason `no-rule-matched`).
+4. Else if an `object`-dependent rule could not be evaluated for lack of an
+   instance, `unevaluable`.
+5. Else deny (reason `no-rule-matched`).
 
 When both a deny and a dependency-off apply, `denied` wins; the result may still
 carry `blockedBy`/`cause`. A matched deny carries the same
@@ -363,7 +366,7 @@ canFields(subject, key, action, object, axis, proposed?, now?)
 - `transitions` reads the field's **current** value off `object` and checks the
   allowed edge. `canFields(subject, 'comment', 'update', currentComment, 'write')`.
 - `targets` checks a **proposed** value: `canFields(subject, 'comment', 'update',
-  currentComment, 'write', 'published')`.
+  currentComment, 'write', { status: 'published' })`.
 
 Decision rule for choosing between them: **know the current value → use
 `transitions`; setting a fresh field or not knowing the current value → use
