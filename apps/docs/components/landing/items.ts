@@ -25,7 +25,7 @@ export const items = defineItems([
   },
   {
     id: 'rendering',
-    type: 'pair',
+    type: 'family',
     props: { group: 'rendering' },
   },
   {

@@ -158,7 +158,10 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Astro Widget',
     group: 'rendering',
     framework: 'Astro',
-    hue: 'coral',
+    // The rendering group is one family, so its three packages share one hue —
+    // the same way `feature` (universal + React) uses one. A reader who has
+    // been in the React Widget pages recognises the family by colour.
+    hue: 'sky',
     documented: true,
     workshop: false,
   },
@@ -169,11 +172,8 @@ export const packages: readonly DocumentedPackage[] = [
     title: 'Widget',
     group: 'rendering',
     framework: 'universal',
-    // `stone` is the unsaturated hue on the categorical scale, for a member
-    // with no colour of its own. The core belongs to no framework, so it takes
-    // the hue that belongs to no category, and each renderer keeps the colour a
-    // reader already associates with its runtime.
-    hue: 'stone',
+    // One hue for the whole rendering family, including the framework-free core.
+    hue: 'sky',
     // The section this package wants is the shared half of the two renderers'
     // pages, which is a docs restructure rather than part of a migration. Until
     // it is written the sidebar links to the README.
@@ -244,6 +244,31 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'universal + React',
     hue: 'amber',
     documented: true,
+    workshop: true,
+  },
+  {
+    name: '@evanion/authorization',
+    root: 'libs/authorization',
+    slug: 'authorization',
+    title: 'Authorization',
+    group: 'standalone',
+    framework: 'universal',
+    hue: 'coral',
+    documented: false,
+    workshop: true,
+  },
+  {
+    name: '@evanion/react-authorization',
+    root: 'libs/react-authorization',
+    slug: 'react-authorization',
+    title: 'React Authorization',
+    group: 'standalone',
+    framework: 'React',
+    // `stone` is the unsaturated hue on the categorical scale, for a member
+    // with no colour of its own. The React binding has no colour of its own
+    // either, and its core already took `coral`.
+    hue: 'stone',
+    documented: false,
     workshop: true,
   },
 ];

@@ -1,5 +1,5 @@
 import { Card, Chip, SectionHeader, Text, Title } from '@evanion/baize-ui';
-import { categoricalClass } from '@evanion/baize-ui/tokens';
+import { categoricalClass, type Platform } from '@evanion/baize-ui/tokens';
 import {
   groups,
   packages,
@@ -32,6 +32,23 @@ function groupById(id: string): PackageGroup {
 /** The packages under a group, in `navigation.ts` order. */
 function members(group: PackageGroup): DocumentedPackage[] {
   return packages.filter((entry) => entry.group === group.id);
+}
+
+/**
+ * The platforms a whole family runs on, unioned across its members and deduped.
+ *
+ * A family card carries one chip per platform, so `universal` (the core),
+ * `React` (the renderer) and `Astro` (the renderer) each appear once even
+ * though the members name them separately.
+ */
+function platformsOfFamily(membersList: DocumentedPackage[]) {
+  const seen = new Map<string, { label: string; platform: Platform }>();
+  for (const entry of membersList) {
+    for (const chip of platformsOf(entry.framework)) {
+      seen.set(chip.platform, chip);
+    }
+  }
+  return [...seen.values()];
 }
 
 /** The class that binds a package's colour to everything inside an element. */
@@ -121,21 +138,22 @@ export function Hero({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * Rendering from data: the two packages, the concept, and the demo.
+ * Rendering from data: the family, the concept, and the demo.
  *
- * The packages come first, level with the heading, so a reader has the names
- * before the demonstration. One model in two runtimes, so the teasers carry
- * the name and the stack and nothing else: the section's own line explains
- * the concept once, and a paragraph each would say it twice more.
+ * One model in three runtimes, so the family is one card that carries a chip
+ * for every platform it runs on — the same way `feature` is one card — rather
+ * than a card each. A reader has the whole family at a glance, and the chips
+ * say which runtimes it reaches. Each member still links to its own page.
  *
  * The demo is the section. The concept is that a page is data and the library
  * renders it, and the only thing that proves that is data a reader can change
  * and a preview that follows. The editor opens on the same items the preview
  * first renders, serialised here on the server, so nothing moves at hydration.
  */
-export function Pair({ group: id }: { group: string }) {
+export function Family({ group: id }: { group: string }) {
   const group = groupById(id);
-  const lead = members(group)[0];
+  const membersList = members(group);
+  const lead = membersList[0];
 
   return (
     <>
@@ -145,34 +163,53 @@ export function Pair({ group: id }: { group: string }) {
             {group.title}
           </Title>
         }
-        aside={
-          <ul className="landing-teasers" aria-label={group.title}>
-            {members(group).map((entry) => (
-              <li key={entry.name} className={identity(entry)}>
-                <a
-                  className="landing-tile__link landing-teaser"
-                  href={href(entry)}
-                >
-                  <Title as="h3" size="md">
-                    {entry.title}
-                  </Title>
-                  <Marker entry={entry} status="chip" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        }
       />
       <Text measured>{group.line}</Text>
       {lead ? (
-        <figure className={`landing-proof ${identity(lead)}`}>
-          <DataDemo initial={listing(demoItems)} />
-          <figcaption className="landing-proof__caption">
-            Edit the items and the preview follows. A type the map does not know
-            is reported, not rendered. This page is itself a {lead.title}{' '}
-            region, built the same way.
-          </figcaption>
-        </figure>
+        <ul className="landing-cards landing-family" aria-label={group.title}>
+          <li className={`landing-family__card ${identity(lead)}`}>
+            <Card
+              head={
+                <Title as="h3" size="md">
+                  <a className="landing-route__title" href={href(lead)}>
+                    {group.title}
+                  </a>
+                </Title>
+              }
+              foot={
+                <span className="landing-family__marker">
+                  <span className="landing-family__links">
+                    {membersList.map((entry) => (
+                      <a
+                        key={entry.name}
+                        className="landing-family__link"
+                        href={href(entry)}
+                      >
+                        {entry.title}
+                      </a>
+                    ))}
+                  </span>
+                  <span className="landing-marker">
+                    {platformsOfFamily(membersList).map(({ label, platform }) => (
+                      <Chip key={platform} platform={platform}>
+                        {label}
+                      </Chip>
+                    ))}
+                  </span>
+                </span>
+              }
+            >
+              <figure className={`landing-proof ${identity(lead)}`}>
+                <DataDemo initial={listing(demoItems)} />
+                <figcaption className="landing-proof__caption">
+                  Edit the items and the preview follows. A type the map does not
+                  know is reported, not rendered. This page is itself a{' '}
+                  {lead.title} region, built the same way.
+                </figcaption>
+              </figure>
+            </Card>
+          </li>
+        </ul>
       ) : null}
     </>
   );

@@ -388,6 +388,46 @@
   padding: var(--baize-space-3) var(--baize-space-4);
 }
 
+/*
+ * Rendering from data: one card for the whole family.
+ *
+ * Unlike the cards section's "one column per member", the family is one card
+ * carrying a chip per platform, so it takes the single-column layout. The
+ * member names are links in the card's foot, one per runtime, so a reader can
+ * still reach each renderer's page.
+ */
+.landing-family {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.landing-family__card .landing-marker {
+  justify-content: flex-end;
+}
+
+.landing-family__marker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-4);
+}
+
+.landing-family__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2) var(--baize-space-4);
+}
+
+.landing-family__link {
+  color: var(--baize-chalk);
+  text-decoration-color: var(--baize-moss);
+  text-underline-offset: 3px;
+}
+
+.landing-family__link:hover {
+  text-decoration-color: var(--baize-lichen);
+}
+
 /* Identifiers and codes: one column per member, however many there are. */
 .landing-cards {
   display: grid;

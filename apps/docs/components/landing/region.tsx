@@ -1,6 +1,6 @@
 import { createWidgets, type WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
-import { Cards, Elsewhere, Hero, Pair, Rows } from './sections';
+import { Cards, Elsewhere, Family, Hero, Rows } from './sections';
 
 /**
  * What the landing page's item chrome reads off an item's `meta`.
@@ -60,7 +60,7 @@ function Region({ children }: { children?: ReactNode }) {
 export const { Widgets, defineItems } = createWidgets({
   components: {
     hero: Hero,
-    pair: Pair,
+    family: Family,
     cards: Cards,
     rows: Rows,
     elsewhere: Elsewhere,

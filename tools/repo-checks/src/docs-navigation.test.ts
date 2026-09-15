@@ -233,22 +233,39 @@ describe('the docs navigation', () => {
    * packages sharing one is worse than neither having one: the reader learns a
    * colour that means two things. A hue the scale does not carry resolves to an
    * undefined custom property and renders as the ground, silently.
+   *
+   * One sharing is allowed: within a group. The rendering group's three
+   * packages are one family, so they carry one hue to say so — the same way
+   * `feature` (universal + React) uses one. A hue must still be distinct across
+   * groups, or a reader scanning the cards learns one colour for two unrelated
+   * packages.
    */
-  it('gives every package a distinct hue from the scale', async () => {
+  it('gives every package a hue from the scale, distinct across groups', async () => {
     const navigation = await loadNavigation();
-    const hues = navigation.map((entry) => entry.hue);
 
     expect(
-      hues.filter((hue) => !(hue in categorical)),
+      navigation
+        .map((entry) => entry.hue)
+        .filter((hue) => !(hue in categorical)),
       `Every \`hue\` in apps/docs/app/navigation.ts has to name one of ` +
         `\`categorical\` in @evanion/baize-ui/tokens.`,
     ).toEqual([]);
 
+    // Within one group a hue may repeat (a family); across groups it may not.
+    // Dedupe each group's hues first, so a family's shared hue counts once.
+    const byGroup = new Map<string, string[]>();
+    for (const entry of navigation) {
+      const group = entry.group;
+      byGroup.set(group, [...(byGroup.get(group) ?? []), entry.hue]);
+    }
+    const acrossGroups = [...byGroup.values()].flatMap(
+      (hues) => [...new Set(hues)],
+    );
     expect(
-      hues,
-      'Two packages in one colour teaches a reader a colour that means two ' +
-        'things. The scale carries nine.',
-    ).toEqual([...new Set(hues)]);
+      acrossGroups,
+      'Two packages in different groups sharing one colour teaches a reader ' +
+        'a colour that means two unrelated things.',
+    ).toEqual([...new Set(acrossGroups)]);
   });
 
   it('lists every package once', async () => {
