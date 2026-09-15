@@ -56,6 +56,9 @@
     },
     {
       "path": "./libs/widget"
+    },
+    {
+      "path": "./libs/authorization"
     }
   ],
   "compilerOptions": {
