@@ -3,9 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { always, and, contains, eq, or, permit, policy } from './authoring.js';
 import type { Access } from './create-policy.js';
 
-type Subject = { id: string; roles: string[] };
-type Comment = { authorId: string; status: 'draft' | 'published' };
-
 describe('authoring', () => {
   it('flattens the nested form to a canonical matrix', () => {
     const access = policy({
