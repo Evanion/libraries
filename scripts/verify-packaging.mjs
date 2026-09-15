@@ -47,6 +47,8 @@ const LIBS = [
   ['libs/feature', '@evanion/feature'],
   ['libs/token', '@evanion/token'],
   ['libs/baize-ui', '@evanion/baize-ui'],
+  ['libs/authorization', '@evanion/authorization'],
+  ['libs/react-authorization', '@evanion/react-authorization'],
 ];
 
 const run = (cmd, args, cwd) =>
