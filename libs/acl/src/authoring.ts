@@ -1,44 +1,28 @@
-import { createPolicy, type Access, type Subject } from './create-policy.js';
-import type { Condition, FieldRules, Permission } from './types.js';
+import { createPolicy, type Access } from './create-policy.js';
+import type { Condition, FieldRules, Permission, Rule } from './types.js';
 
 /** A condition that is always true; serializes to an empty `when` array. */
 export const always: readonly [] = [];
 
 export type ConditionOrGroup = Condition | readonly Condition[];
 
-/**
- * A dotted path into the object scope, validated against `O`.
- *
- * Strict: with a concrete `O` only real fields type-check. The default
- * `O = Record<string, unknown>` widens to `object.${string}`, which is how the
- * untyped string-key form keeps working.
- */
-type ObjectPath<O extends object> = `object.${Extract<keyof O, string>}`;
-
-/**
- * A condition whose `object.*` field is checked against `O` and whose `path`
- * (when object-scoped) is checked against `O` as well.
- */
-export interface TypedCondition<O extends object> extends Condition {
-  field: ObjectPath<O>;
-  path?: string;
-}
-
 function asRules(
   groups: readonly ConditionOrGroup[],
-): { when: readonly Condition[] }[] {
-  const rules: { when: readonly Condition[] }[] = [];
+): readonly Rule[] {
+  const rules: Rule[] = [];
   for (const group of groups) {
     if (Array.isArray(group)) {
+      // A nested array (from `or(...)`) becomes separate rules; a flat array
+      // (from `and(...)`) is one rule with several conditions.
       if (group.length && Array.isArray(group[0])) {
         for (const inner of group as readonly (readonly Condition[])[]) {
           rules.push({ when: inner });
         }
       } else {
-        rules.push({ when: group });
+        rules.push({ when: group as readonly Condition[] });
       }
     } else {
-      rules.push({ when: [group] });
+      rules.push({ when: [group as Condition] });
     }
   }
   return rules;
@@ -54,55 +38,47 @@ export function and(
 }
 
 /** OR: each argument becomes its own rule. */
-export function or(...groups: ConditionOrGroup[]): readonly ConditionOrGroup[] {
-  return groups;
+export function or(
+  ...groups: ConditionOrGroup[]
+): readonly (readonly ConditionOrGroup[])[] {
+  return groups.map((g) => [g]);
 }
 
-/**
- * Equality between two scopes or a scope and a literal.
- *
- * Provide the object type `O` (and optionally subject type `S`) to have the
- * `object.*` / `subject.*` paths checked against them. Without the generics it
- * degrades to the untyped string-key form.
- */
-export function eq<O extends object = Record<string, unknown>>(
-  field: ObjectPath<O>,
-  other: string | unknown,
-): Condition {
+/** Equality between two scopes or a scope and a literal. */
+export function eq(field: string, other: string | unknown): Condition {
   return typeof other === 'string' && other.includes('.')
     ? { field, op: 'eq', path: other }
     : { field, op: 'eq', value: other };
 }
 
-/** `contains` on an array field. Provide `O` to check the field path. */
-export function contains<O extends object = Record<string, unknown>>(
-  field: ObjectPath<O>,
-  value: unknown,
-): Condition {
+/** `contains` on an array field. */
+export function contains(field: string, value: unknown): Condition {
   return { field, op: 'contains', value };
 }
 
-/** A permit builder; `O` is the object type its conditions are checked against. */
-export interface PermitBuilder<O extends object = Record<string, unknown>> {
-  rules: readonly { when: readonly Condition[] }[];
-  fields(fieldRules: FieldRules): PermitBuilder<O>;
+/**
+ * A built permission. `rules` is always data; `fieldRules` is the data form of
+ * field rules, set by `.fields(...)`. `fields(...)` is a method, so it never
+ * reaches the matrix — `policy` reads `fieldRules` only.
+ */
+export interface PermitBuilder {
+  readonly rules: readonly Rule[];
+  fieldRules?: FieldRules;
+  fields(fieldRules: FieldRules): PermitBuilder;
 }
 
-/** Build one permission's allow rules. Provide `O` to check object paths. */
-export function permit<O extends object = Record<string, unknown>>(
-  ...conditions: readonly TypedCondition<O>[]
-): PermitBuilder<O> {
-  const base: { rules: { when: readonly Condition[] }[]; fields?: FieldRules } =
-    { rules: asRules(conditions), fields: undefined };
-  return {
-    get rules() {
-      return base.rules;
-    },
-    fields(fieldRules) {
-      base.fields = fieldRules;
-      return this;
+/** Build one permission's allow rules. */
+export function permit(
+  ...conditions: ConditionOrGroup[]
+): PermitBuilder {
+  const rules = asRules(conditions);
+  const builder: PermitBuilder = {
+    rules,
+    fields(fieldRules: FieldRules): PermitBuilder {
+      return { ...builder, fieldRules };
     },
   };
+  return builder;
 }
 
 export interface PolicyConfig {
@@ -124,7 +100,7 @@ export interface PolicyConfig {
  * });
  * ```
  */
-export function policy<S extends object = Record<string, unknown>>(
+export function policy(
   config: PolicyConfig,
   options: { version?: number } = {},
 ): Access {
@@ -135,8 +111,8 @@ export function policy<S extends object = Record<string, unknown>>(
         key: `${object}.${action}`,
         object,
         action,
-        rules: builder.rules as readonly Permission['rules'][number][],
-        fields: builder.fields,
+        rules: builder.rules,
+        fields: builder.fieldRules,
       });
     }
   }

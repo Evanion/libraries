@@ -8,15 +8,15 @@ type Comment = { authorId: string; status: 'draft' | 'published' };
 
 describe('authoring', () => {
   it('flattens the nested form to a canonical matrix', () => {
-    const access = policy<Subject>({
+    const access = policy({
       comment: {
-        update: permit<Comment>(
+        update: permit(
           and(
             eq('object.authorId', 'subject.id'),
             contains('subject.roles', 'editor'),
           ),
         ),
-        read: permit<Comment>(always),
+        read: permit(always),
       },
     }) as Access;
     expect(access.matrix[0]).toMatchObject({
@@ -31,9 +31,9 @@ describe('authoring', () => {
   });
 
   it('or produces separate rules', () => {
-    const access = policy<Subject>({
+    const access = policy({
       comment: {
-        update: permit<Comment>(
+        update: permit(
           or(
             eq('object.authorId', 'subject.id'),
             contains('subject.roles', 'editor'),
@@ -49,9 +49,9 @@ describe('authoring', () => {
   });
 
   it('policy produces a working access object', () => {
-    const access = policy<Subject>({
+    const access = policy({
       comment: {
-        update: permit<Comment>(eq('object.authorId', 'subject.id')),
+        update: permit(eq('object.authorId', 'subject.id')),
       },
     }) as Access;
     const d = access.can(
@@ -64,9 +64,9 @@ describe('authoring', () => {
   });
 
   it('fields() attaches field rules', () => {
-    const access = policy<Subject>({
+    const access = policy({
       comment: {
-        read: permit<Comment>(always).fields({ fields: ['*', '!status'] }),
+        read: permit(always).fields({ fields: ['*', '!status'] }),
       },
     }) as Access;
     const fd = access.canFields(
@@ -80,9 +80,9 @@ describe('authoring', () => {
   });
 
   it('a plain eq against a literal works', () => {
-    const access = policy<Subject>({
+    const access = policy({
       comment: {
-        read: permit<Comment>(eq('object.status', 'published')),
+        read: permit(eq('object.status', 'published')),
       },
     }) as Access;
     const d = access.can(

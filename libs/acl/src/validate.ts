@@ -66,6 +66,11 @@ function assertFieldRules(permission: Permission): void {
  */
 export function validateMatrix(matrix: Matrix): void {
   for (const permission of matrix) {
+    if (!permission.object || !permission.action) {
+      throw new Error(
+        `permission "${permission.key}" must define object and action`,
+      );
+    }
     for (const rule of [
       ...(permission.rules ?? []),
       ...(permission.denyRules ?? []),

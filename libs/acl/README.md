@@ -69,9 +69,14 @@ const access = policy<{ id: string; roles: string[] }>({
   },
 });
 
-access
-  .canFields({ id: 's1' }, 'comment', 'read', { status: 'draft' }, 'read')
-  .fields['status']; // -> 'denied'
+const fd = access.canFields(
+  { id: 's1' },
+  'comment',
+  'read',
+  { status: 'draft' },
+  'read',
+);
+fd.fields['status']; // -> 'denied'
 ```
 
 ## Foreign matrix
