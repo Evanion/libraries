@@ -59,6 +59,9 @@
     },
     {
       "path": "./libs/authorization"
+    },
+    {
+      "path": "./libs/react-authorization"
     }
   ],
   "compilerOptions": {
