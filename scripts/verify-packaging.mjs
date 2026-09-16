@@ -153,6 +153,11 @@ import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid
 import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
+import { createPolicy, parseMatrix, policy, permit, always, and, or, eq, contains, decide, decideFields, evaluateCondition, AuthorizationConfigError, UnknownPermissionError } from '@evanion/acl';
+import type { Access, AccessOptions, Authorized, Subject, Condition, Decision as AclDecision, EvaluationContext, FieldDecision, FieldState, Matrix, Permission } from '@evanion/acl';
+// The React binding, which is the only acl entry that may touch React.
+import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
+import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
 
 const widgetRegistry: CoreRegistry = defineWidgets({ hero: 'not-a-real-component' });
 const anyItems: CoreWidgetItem[] = [{ id: 'a', type: 'hero', props: { heading: 'ok' } }];
@@ -209,6 +214,50 @@ const cardRadius: string = radius.card;
 const gutter: string = space[4];
 const propertyName: string = customProperties[0]?.[0] ?? '';
 const tokensCss: string = renderTokensCss();
+// The access matrix. Every authoring helper and every evaluation entry is named,
+// so a symbol that stopped being exported or whose type stopped being reachable
+// fails here.
+const matrix: Matrix = [
+  {
+    key: 'comment.update',
+    object: 'comment',
+    action: 'update',
+    rules: [{ id: 'author', when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
+    fields: { fields: ['body'] },
+  },
+];
+const aclOptions: AccessOptions = { version: 1, closed: true };
+const access: Access = createPolicy(matrix, aclOptions);
+const subject: Subject = { id: 'u1', roles: ['editor'] };
+const aclDecision: AclDecision = access.can(subject, 'comment', 'update', { authorId: 'u1' });
+const aclDecisions: AclDecision[] = access.canMany(subject, 'comment', 'update', [{ authorId: 'u1' }]);
+const fieldDecision: FieldDecision = access.canFields(subject, 'comment', 'update', { authorId: 'u1' }, 'write', { body: 'x' });
+const capabilities: Record<string, AclDecision> = access.capabilities(subject);
+const authorized: Authorized = access.authorize(subject, { now: new Date() });
+const fieldState: FieldState = fieldDecision.fields['body'];
+const permission: Permission = access.matrix[0];
+// The foreign path: a matrix that arrived as JSON, adopted fail-closed.
+const adopted: Access = parseMatrix(JSON.parse(JSON.stringify(matrix)) as Matrix);
+const condition: Condition = eq('object.authorId', 'subject.id');
+const evaluationContext: EvaluationContext = { subject, object: { authorId: 'u1' }, now: new Date() };
+const conditionHolds: boolean = evaluateCondition(condition, evaluationContext);
+const authored: Access = policy({
+  comment: {
+    update: permit(and(condition, contains('subject.roles', 'editor'))).fields({ fields: ['body'] }),
+    read: permit(always),
+    flag: permit(or(condition, contains('subject.roles', 'moderator'))),
+  },
+});
+const decided: AclDecision = decide(permission, evaluationContext, new Map());
+const decidedFields: FieldDecision = decideFields(permission, evaluationContext, 'write', { body: 'x' });
+const aclError: AuthorizationConfigError = new UnknownPermissionError('comment.nope');
+// The React binding over an already-built matrix. Hooks are named, not called:
+// what has to hold is that their signatures and the provider's props resolve.
+const policyProvider: PolicyProviderProps = { access, subject, context: { now: new Date() } };
+const reactAccess: ReactAccess = access;
+const reactCan: (key: string, action: string, object?: Record<string, unknown>) => ReactDecision = useCan;
+const reactCanFields: typeof useCanFields = useCanFields;
+const reactFieldDecision: ReactFieldDecision = fieldDecision;
 void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       widgetRegistry, anyItems, coreProblems, notAList, reactRegistry, Region,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
@@ -218,7 +267,11 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
       AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip,
       Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp,
       felt, hueValue, stateValue, stopValue, tierName, rung, artStop, cardRadius, gutter, propertyName, tokensCss,
-      titleSize, statFigure];
+      titleSize, statFigure,
+      aclDecision, aclDecisions, capabilities, authorized, fieldState, adopted, conditionHolds,
+      authored, decided, decidedFields, aclError,
+      PolicyProvider, useCanMany, useCapabilities, policyProvider, reactAccess, reactCan,
+      reactCanFields, reactFieldDecision];
 `,
   );
 
@@ -267,6 +320,8 @@ import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
 import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
+import { createPolicy, parseMatrix, policy, permit, eq, decide, decideFields, evaluateCondition } from '@evanion/acl';
+import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
@@ -276,7 +331,36 @@ const missing = Object.entries({
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
   hueClass, ladderClass, paletteClass, stateClass,
+  createPolicy, parseMatrix, policy, permit, eq, decide, decideFields, evaluateCondition,
+  PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
+// react-acl pins the core exactly and externalises it, so the binding resolves
+// @evanion/acl from the consumer's own install: this call is the first thing
+// that crosses that boundary. An Access object built here is what the provider
+// is handed, so the two packages have to agree on its shape at runtime, not
+// only in the declarations.
+const aclAccess = createPolicy([
+  {
+    key: 'comment.update',
+    object: 'comment',
+    action: 'update',
+    rules: [{ when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
+  },
+]);
+if (!aclAccess.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1' }).allowed ||
+    aclAccess.can({ id: 'u2' }, 'comment', 'update', { authorId: 'u1' }).allowed) {
+  console.error('@evanion/acl does not evaluate an object-bound rule from its published build');
+  process.exit(1);
+}
+if (parseMatrix(JSON.parse(JSON.stringify(aclAccess.matrix))).matrix.length !== 1) {
+  console.error('@evanion/acl cannot round-trip its own serialized matrix');
+  process.exit(1);
+}
+if (!policy({ comment: { read: permit(eq('subject.id', 'object.authorId')) } })
+      .can({ id: 'u1' }, 'comment', 'read', { authorId: 'u1' }).allowed) {
+  console.error('@evanion/acl authoring helpers do not build a working policy from the published build');
+  process.exit(1);
+}
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
 // first thing that actually resolves the import.
@@ -632,6 +716,39 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     }
   }
   console.log('  ✓ feature exports both entries');
+
+  // The acl pair splits the same way @evanion/feature does, across two packages
+  // rather than two entries: @evanion/acl is the universal core and
+  // @evanion/react-acl is the client boundary, because a context provider is one.
+  // The directive is per-module and rolldown drops it on a config change without
+  // failing the build, so nothing in the repo notices -- react-acl keeps
+  // building, keeps testing green, and stops working in every RSC graph.
+  const aclDist = join(dir, 'node_modules', '@evanion', 'acl', 'dist');
+  const aclCoreFirstLine = readFileSync(join(aclDist, 'index.js'), 'utf8')
+    .split('\n')[0]
+    .trim();
+  if (/^["']use client["'];?$/.test(aclCoreFirstLine)) {
+    throw new Error(
+      "@evanion/acl dist/index.js must NOT carry a 'use client' directive: the " +
+        'core evaluates a matrix on any runtime, and a client boundary on it ' +
+        'would pull every consumer of it into the client bundle.',
+    );
+  }
+
+  const reactAclFirstLine = readFileSync(
+    join(dir, 'node_modules', '@evanion', 'react-acl', 'dist', 'index.js'),
+    'utf8',
+  )
+    .split('\n')[0]
+    .trim();
+  if (!/^["']use client["'];?$/.test(reactAclFirstLine)) {
+    throw new Error(
+      "@evanion/react-acl dist/index.js must carry a 'use client' directive as " +
+        'its first line: the package is a context provider, so every consumer ' +
+        'importing it from a Server Component fails at module evaluation without it.',
+    );
+  }
+  console.log("  ✓ acl core ships no 'use client'; react-acl ships one");
 
   // @evanion/baize-ui promises statelessness, and the packed entry is where a
   // promise kept in the source can still be broken: a bundler upgrade, a
