@@ -394,7 +394,9 @@ because they are. An action named `bypass-kyc` or a role named
 `internal-fraud-reviewer` is a disclosure the moment the page loads.
 
 The rest of the contract is the consumer's to own. A library that claimed to
-cover these would be lying about what an evaluator can see.
+cover these would be lying about what an evaluator can see. Each clause below
+is an entry in [SECURITY.md](./SECURITY.md), the register the adversarial suite
+in `src/security` is checked against.
 
 ### Subject authenticity
 
@@ -423,6 +425,30 @@ role, and the time window can close. Re-read the object and re-check inside the
 transaction, or write with a conditional predicate that fails when the state it
 was authorized against has moved. The library carries no freshness token and no
 way to detect the gap.
+
+### The clock a decision reads
+
+`now` is a parameter. Omitted, it is the wall clock; supplied, it is whatever
+the caller passed, and every `before`/`after` window moves with it. A `now` that
+reaches `can` from a client payload — a hydration blob, a request body, a query
+string — hands the client every time window in the matrix. Pass it only to make
+a server render and its rehydration agree, and resolve it server-side.
+
+A clock that does not parse fails every time condition it is read by, which is
+closed on an allow rule and open on a deny rule: a deny gated on a time window
+does not deny when the clock is `null` or unparseable. Supply an instant that
+parses, or none at all.
+
+### The bag a decision reads
+
+Conditions read `subject` and `object` live, field by field, as the decision
+walks the rules. The deny side is evaluated before the allow side, and each side
+reads the fields its own rules name. A bag whose properties are accessors — an
+ORM row, a lazy proxy, a memoised getter over a cache that can refill — can
+answer the two sides differently and pass the deny it should have matched. The
+matrix the engine evaluates is a frozen deep copy for exactly this reason; the
+subject and the object are not copied, because they are the app's data and
+copying them would hide the cost. Pass plain, already-resolved objects.
 
 ### What a condition may read
 

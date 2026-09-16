@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AclConfigError, ActionNotAllowedError } from './errors.js';
 import { pickAllowedFields } from './fields.js';
 import { parseMatrix } from './parse-matrix.js';
+import { Gen, rng } from './security/generator.js';
 import type { Access, Subject } from './create-policy.js';
 import type { Decision, FieldDecision, Matrix } from './types.js';
 
@@ -15,38 +16,6 @@ import type { Decision, FieldDecision, Matrix } from './types.js';
  * wrong type some of the time, plus nulls, prototype keys, deep nesting and
  * cycles. A seeded generator, so a counterexample is a seed rather than a rerun.
  */
-
-/** mulberry32: a small seeded PRNG, so every case here is reproducible. */
-function rng(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-class Gen {
-  constructor(private readonly next: () => number) {}
-
-  int(bound: number): number {
-    return Math.floor(this.next() * bound);
-  }
-
-  bool(chance = 0.5): boolean {
-    return this.next() < chance;
-  }
-
-  pick<T>(values: readonly T[]): T {
-    return values[this.int(values.length)] as T;
-  }
-
-  list<T>(max: number, make: (index: number) => T): T[] {
-    return Array.from({ length: this.int(max + 1) }, (_, i) => make(i));
-  }
-}
 
 const KEYS = [
   'comment',
