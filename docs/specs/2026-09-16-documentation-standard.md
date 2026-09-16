@@ -8,8 +8,9 @@ judgement into a rule), `tools/doc-examples` (the region loader and the
 and `src/doc-regions.test.ts` (the two guards this extends),
 `2026-09-13-versioned-docs.md` (the archive the page-presence guard must not
 fight), `2026-09-10-demo-apps.md` and `apps/storefront` (the board game shop the
-examples are set in, section 6), `2026-09-16-diagrams.md` (accepted and shipped;
-it owns the diagram mechanism this document only places on a page)
+examples are set in, section 6), `2026-09-16-diagrams.md` (accepted and shipped
+on `origin/feat/acl` with the docs app, not yet on `main`; it owns the diagram
+mechanism this document only places on a page)
 Measured against: `origin/feat/acl` at 62 pages, which is where the docs content
 lives. `main` carries `tools/` and the packages.
 Prior art, read for this document and marked VERIFIED or INFERRED in sections 3
@@ -56,14 +57,14 @@ Measured on `origin/feat/acl` on 2026-09-16, across 62 `.mdx` pages:
 
 405 code fences on the site. 58 of them execute — 14%. Four pages of 62 carry
 anything a reader can touch: `luhn/usage`, `token/usage`, `urn/components` and
-`react-widget/playground`. The other 59 are text.
+`react-widget/playground`. The other 58 are text.
 
 So the first defect is uniform and it is not distribution. `acl` is the only
 section that executes a meaningful fraction of its code and it still ships no
 interactive control; `compose`, `feature`, `astro-widget`,
 `nestjs-correlation-id` and `react-widget` execute nothing at all. A standard
 aimed at page counts would fix none of this. This one is aimed at the 347
-unexecuted fences and the 59 inert pages.
+unexecuted fences and the 58 inert pages.
 
 The site also carries almost no diagrams: one `mermaid` fence, on
 `acl/decisions`, and zero images across 62 pages. `2026-09-16-diagrams.md`
@@ -76,7 +77,7 @@ The second defect is navigation, and it is worse than it looks. Six of nine
 sections have no `_meta.ts`, so Nextra orders them by filename: `luhn` opens on
 `api`, then `dictionaries`, then `index`, then `migration`. `acl/_meta.ts`
 carries a paragraph explaining where `integrations/` belongs and does not list
-it, so the five platform guides are appended below the Reference band.
+it, so the five pages inside it are appended below the Reference band.
 `urn/_meta.ts` does not list `components`, which is the page carrying the URN
 probe. Every one of these is machine-detectable and nothing detects it.
 
@@ -175,9 +176,9 @@ The products are demonstrated in a shop the documentation never enters.
 19. Every section directory has a `_meta.ts` naming every page in it, in reading
     order. Under decision 2 that order is a claim about what a reader has met,
     so the file is load-bearing rather than a convenience. Section 8.
-20. Nothing runnable exists only on the front page. Every landing specimen has a
-    counterpart inside the section it advertises, and `AccessDemo` moves into
-    MDX. Section 9.
+20. Nothing runnable exists only on the front page. Every landing specimen is
+    mounted inside the section it advertises, the same component the landing
+    page uses, and `AccessDemo` moves into MDX. Section 9.
 21. An API reference's signature blocks are generated from the package's emitted
     declarations, not written. Until that generator exists they carry a
     `signature` tag and a guard holds the symbol each one documents, and any
@@ -185,11 +186,13 @@ The products are demonstrated in a shop the documentation never enters.
     the whole of what a guard can reach here. Section 3a, section 5.
 22. Nine guards in `tools/repo-checks` (section 12), beside the caption guard
     `2026-09-16-diagrams.md` already shipped. Seven of the nine fail today; the
-    other two have not been run. Section 12 ends with the list of what no guard
-    reaches — the teaching order and its fading, whether a teaching layer stands
-    alone, whether an H2 section survives being cut out of its page, whether a
-    diagram is still true, and six more — rather than letting the document read
-    as uniformly binding.
+    other two have not been run. Section 12's "What is enforced, and what rests
+    on a reviewer" names six rules no guard reaches — the teaching order and its
+    fading, whether a teaching layer stands alone, whether an H2 section
+    survives being cut out of its page, whether a diagram is still true, whether
+    a page that introduces a concept carries a control, and a page's single `# `
+    heading — and its judgement list names eleven more, rather than letting the
+    document read as uniformly binding.
 23. Nothing here is retrofitted in one pass. The order is section 13.
 
 Two of these rest on measured evidence and the rest are judgement. Which is
@@ -447,8 +450,8 @@ Liu, Snider, Lowdermilk, Truong, Cooper and Popović (CHI 2012) put tutorials in
 front of 45,318 players across three games and measured what happened. In
 Foldit the tutorial helped substantially — 75% more levels completed, 29% more
 play time, both p < 0.001. In Refraction it did nothing on any metric. In Hello
-Worlds the context-sensitive tutorial **lowered** the return rate by 3.5 points,
-17.96% against 21.60%, p < 0.001. That last result is narrower than it first
+Worlds the context-sensitive tutorial **lowered** the return rate, 17.96%
+against 21.60%, p < 0.001. That last result is narrower than it first
 reads: the same game's context-insensitive manual was not significantly
 different from no tutorial at all (20.59% against 21.60%, p = 0.356).
 
@@ -721,8 +724,8 @@ is what `compose` at 3 pages would become: `compose/tutorial`,
 Worse than the 3 pages it has.
 
 Hillel Wayne's missing conceptual overview is this site's `index.mdx`, which
-every section already has and which the compass has no quarter for. That is one
-ninth of the site's pages sitting outside a map its authors call complete, and
+every section already has and which the compass has no quarter for. That is nine
+of the site's pages sitting outside a map its authors call complete, and
 it is the reason overview is a fifth page type in section 4.
 
 So Diátaxis is kept, and kept in one direction only. It runs **after** the
@@ -923,7 +926,7 @@ behind it.
 
 A section has at most four bands. A band is a separator in `_meta.ts` with at
 least two pages under it. Below five pages a section has no bands at all and the
-the teaching order is the order.
+teaching order is the order.
 
 `acl` has three bands — Setup, Questions, Reference — plus a fourth grouping,
 `integrations/`, currently expressed as a folder. Under decision 18 that becomes
@@ -999,11 +1002,15 @@ prior art and already solved this:
 
 | Tag                | Means                                                                                                                          | Renders as                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| `signature`        | A type signature, not a call. Held against the emitted `.d.ts`.                                                                | nothing; it is already reference       |
+| `signature`        | A type signature, not a call. G5 holds its `##` heading symbol and its imports to the exports and reads nothing inside it.     | nothing; it is already reference       |
 | `no-run`           | Real code with no runner here: an HTTP server, a Nest module, an `.astro` component, a build config.                           | a quiet "not executed" mark            |
 | `anti-example`     | Deliberately wrong. The thing the page is telling the reader not to.                                                           | a red rule down the left edge          |
 | `fails-type-check` | Compiles nowhere and must not. Pulled from a `@ts-expect-error` assertion in a `*.test-d.ts` file, so the failure is asserted. | the same mark, plus the expected error |
 | `elided`           | An excerpt with `…` in it, for orientation only.                                                                               | a quiet "excerpt" mark                 |
+
+Holding a signature against the emitted `.d.ts` is what decision 21's generator
+would do, and that generator does not exist. Until it does, the tag marks the
+block and G5 checks two names in it; section 12 states the scope and the gap.
 
 `anti-example` and `no-run` are the two that will be abused, because they are
 the two a writer reaches for when the alternative is wiring doctest into a
@@ -1168,11 +1175,11 @@ memory:
   browser, so pagefind never sees it and a reader with no JavaScript gets the
   caption and nothing else. This is the sharpest reason for the rule two
   subsections down that a diagram never carries a fact the prose does not.
-- **It is not free.** Mermaid is about 500 kB, dynamically imported from inside
-  an `IntersectionObserver`, so a page with no fence fetches nothing and a page
-  with one fetches 203 kB gzipped. Cheaper than Sandpack's ~350 kB and paid only
-  where a diagram earns its place, which is what the rest of this subsection is
-  for.
+- **It is not free.** Mermaid is about 500 kB of JavaScript, dynamically
+  imported from inside an `IntersectionObserver`, so a page with no fence
+  fetches nothing and a page with one fetches it when the diagram is about to be
+  read. The cost lands per page, and it is paid only where a diagram earns its
+  place, which is what the rest of this subsection is for.
 
 A diagram is a `mermaid` fence rather than a PNG, an SVG asset or a screenshot,
 and the reasons are the ones this document gives everywhere else. A fence is
@@ -1183,9 +1190,11 @@ exists. Where the picture is a TypeScript type or a wire format, the diagrams
 spec sends it to Twoslash or to box-drawing characters instead, and that
 routing is its call rather than this document's.
 
-**Three rules about how the diagram sits on the page**, and unlike most of this
-document they carry effect sizes somebody else measured. Noetel, Griffith,
-Delaney, Harris, Sanders, Parker, del Pozo Cruz and Lonsdale ran an overview of
+**Four rules about how the diagram sits on the page**, three of which are
+decision 13 and the fourth a bound on motion this site does not use — and unlike
+most of this document they carry effect sizes somebody else measured. Noetel,
+Griffith, Delaney, Harris, Sanders, Parker, del Pozo Cruz and Lonsdale ran an
+overview of
 reviews: 29 reviews covering 1,189 studies and 78,177 participants, pooling 808
 effect sizes from the eleven largest. They did not extract effect sizes from the
 primary studies themselves, so every number below is a review's pooled estimate
@@ -1218,7 +1227,9 @@ outlining everything.
 Cutting decoration is the rule this document stated backwards before it was
 checked. The evidence for it is stronger than a null result, not weaker:
 removing material that is not carrying the explanation is worth g = 0.33, and
-g = 0.43 where the decoration persists on screen rather than appearing once. A
+g = 0.43 where the decoration persists on screen rather than appearing once —
+which is coherence's own pooled estimate for that case and not signalling's
+g = 0.43 above. The two principles share a digit and nothing else. A
 diagram that exists because the page looked dense is cut, and cutting it is a
 measured gain rather than a free tidy.
 
@@ -1290,7 +1301,7 @@ every package, because that spec predates `acl` and predates `widget`:
 | `astro-widget`          | **specimen**, built once    | `.astro` compiles at build time. The control is the storefront's own output, embedded. Section 11.       |
 | `nestjs-correlation-id` | none                        | The demonstrable unit is a running server. The demonstration page links `apps/` instead.                 |
 
-Eight of nine, against three today. The one exemption is
+Eight of nine, against four today. The one exemption is
 `nestjs-correlation-id`, and a section granted it must say so on its
 demonstration page rather than leaving the reader to notice nothing is
 clickable.
@@ -1697,13 +1708,17 @@ A page ships when all of these hold. This is the list an agent is handed.
 13. It is one kind of page from section 4, and the Diátaxis diagnostic in
     section 3 does not fire on it.
 14. If it is the demonstration page, it mounts the section's control.
-15. Every `@evanion/…` symbol it names is exported from that package's entry.
+15. Every `@evanion/…` name it imports in a fence, spells as a `signature`
+    fence's `##` heading, or puts in a diagram is exported from that package's
+    entry. Nothing inside a signature block is checked.
 16. Every internal link it makes resolves to a page that exists.
 
-Items 3 to 7 fail review rather than the build, and so does everything in item 8
-except the `mermaid` fence and its caption, and everything in item 13. The rest
-fail the build. Section 12 is where that split is set out in full, and it is
-worth reading before treating this list as one bar.
+Items 2 to 7 fail review rather than the build, and so does everything in item 8
+except the `mermaid` fence and its caption, and everything in item 13. Item 2 is
+the odd one on that side: it is mechanical and could be guarded, and none of the
+nine guards does, which section 12 records rather than letting it read as
+enforced. The rest fail the build. Section 12 is where that split is set out in
+full, and it is worth reading before treating this list as one bar.
 
 ## 8. Ordering: separators, not folders
 
@@ -1977,8 +1992,9 @@ actually turns on. It also cannot see the per-page rule in section 7 item 7 —
 that every page introducing a concept carries a control or a stated exemption —
 which is a convention and is listed as one below.
 
-**G5 — no doc names an unexported symbol.** Every `import { A, B } from
-'@evanion/x'` in a fence is checked against what `libs/x/src/index.ts` exports.
+**G5 — no fence imports a name the package does not export.** Every
+`import { A, B } from '@evanion/x'` in a fence is checked against what
+`libs/x/src/index.ts` exports.
 42 such statements today across the site. Cheap, because every package has a
 single `.` entry in its exports map, and it catches the failure that makes a
 copy-pasted example fail for a reader in the most confusing way. Two extensions,
@@ -2014,7 +2030,11 @@ types are right" is in the judgement list below.
 **G6 — every landing specimen is reachable from a section.** Every component
 under `components/landing/` that takes an interaction is in
 `mdx-components.js`'s map and appears in at least one `.mdx` page. Fails today
-on `AccessDemo` and `DataDemo`.
+on all five: `AccessDemo`, `DataDemo`, `LuhnSpecimen`, `TokenSpecimen` and
+`UrnSpecimen`. There is no existing-probe allowance in it. Section 9 is explicit
+that a probe is a different and smaller thing than the card, and the rule it
+states is the same component mounted in both places, so a section already
+carrying a probe does not discharge its specimen.
 
 **G7 — internal links resolve.** Every `](/…)` in `content/` names a page in the
 content tree or a route the app defines. Nextra does not check this and a
@@ -2040,9 +2060,9 @@ not been resolved by hand, and either could pass clean.
 
 Most of this document has machinery behind it. Executed examples have G3 and G5,
 the demonstration role has G2 and G4, the ordering files have G1, the domain has
-G9, the length has G8, the links have G7. Five things have nothing, and they are
+G9, the length has G8, the links have G7. Six things have nothing, and they are
 the ones a reader most needs to know are conventions. The judgement list after
-them is longer again; the difference is that these five read as rules.
+them is longer again; the difference is that these six read as rules.
 
 **The teaching order and its fading.** Decisions 1, 2 and 4 are a rule a writer
 follows and a reviewer checks, and a section whose order teaches badly will
@@ -2082,6 +2102,12 @@ introduces something and hands the reader nothing to work it with. This one is
 listed late because it was missing from this list entirely while G4 was
 described as covering it.
 
+**A page's single `# ` heading.** Section 7 item 2 — exactly one `# `, and not
+the package name unless the page is the overview — is the one entry on this list
+a guard could reach today, because it is a count and a string comparison. None
+of the nine does it, so it is a convention like the rest until one of them takes
+it on. It is listed here rather than left reading as enforced.
+
 So the honest statement of this standard's enforcement, and a reader should be
 able to tell these apart:
 
@@ -2099,11 +2125,12 @@ able to tell these apart:
 | Whether an H2 section survives being cut out | review    |
 | Whether a diagram is still true              | review    |
 | A control on each concept-introducing page   | review    |
+| A page's single `# ` heading                 | review    |
 | Diátaxis as a diagnostic                     | review    |
 | Whether a control teaches                    | review    |
 | Whether an example is set in the shop        | review    |
 
-The bottom eight are the ones that will quietly rot, and knowing which they are
+The bottom nine are the ones that will quietly rot, and knowing which they are
 is the point of writing them down this way.
 
 ### Judgement, and no guard should pretend otherwise
@@ -2170,18 +2197,21 @@ Nothing here is a single pass over 62 pages.
    else in this order creates, and because G2 and G4 were specified in section 12
    and then left out of this order entirely.
 5. **The two front-page demos into the shop** (section 6), then decision 20 and
-   G6: `AccessDemo` and `DataDemo` into `mdx-components.js`, mounted on
-   `acl/interface` and `react-widget/playground`. Re-theming first, so the
-   components are moved once. This is the largest gain per hour of work in the
-   document.
+   G6: all five landing specimens into `mdx-components.js`. `AccessDemo` and
+   `DataDemo` are the re-themed two and are mounted on `acl/interface` and
+   `react-widget/playground`; `LuhnSpecimen`, `TokenSpecimen` and `UrnSpecimen`
+   are mounted on `luhn/usage`, `token/usage` and `urn/components`, beside the
+   probes already there, which is what G6 needs before it can be turned on.
+   Re-theming first, so the components are moved once. This is the largest gain
+   per hour of work in the document.
 6. **Diagrams where the teaching layer has the hole** (section 5). `acl/security`,
    `acl/federation`, `feature/build-time`, `nestjs-correlation-id`, and a
    listing's draft-to-published lifecycle. The mechanism is already shipped by
    `2026-09-16-diagrams.md`, so the work is authoring five fences and five
    captions rather than building anything. It is early because those five pages
-   are the ones a playground cannot reach. It is not free at read time — 203 kB
-   gzipped on a page that has a fence — which is the reason it is five pages and
-   not every page.
+   are the ones a playground cannot reach. It is not free at read time — a page
+   with a fence fetches Mermaid — which is the reason it is five pages and not
+   every page.
 7. **The `.md` siblings** (section 5a). One route, generated after the region
    loader, one test asserting a fence is not empty. Cheap, and it is the only
    item here that changes what a non-human reader gets. Ordered before the
@@ -2430,15 +2460,15 @@ against it.
   step 4 describes generating markup from the storefront's build output at docs
   build time. I have not checked whether the storefront's Nx build output is
   reachable from the docs build, or whether the two builds can be ordered. If
-  they cannot, `astro-widget` takes the exemption and decision 15 covers eight of
-  nine packages rather than nine.
+  they cannot, `astro-widget` takes the exemption and decision 15 covers seven
+  of nine packages rather than eight.
 - **That `compose` can be doctested without a new test environment.**
   `libs/compose/src/test-setup.ts` exists and the package's own tests render
   React, so the pieces are there. Whether `docExamples()`'s vitest workspace
   picks that setup up for a README fence is not something I traced.
 - **The 1,200-word budget.** It is the median of the current pages rounded down,
   not a measurement of what a reader tolerates. It is the number in this
-  document I would most expect to be moved, and moving it changes which seven
+  document I would most expect to be moved, and moving it changes which nine
   pages fail rather than whether the rule is right.
 - **That four bands is the right ceiling** rather than three. Section 4 arrives
   at four by resolving `acl`'s own shape, which is reasoning from the one
