@@ -32,9 +32,34 @@ function put<T>(bag: Record<string, T>, key: string, value: T): void {
  * Whether a token names a field. `*` is the baseline and `!name` an exclusion:
  * authoring syntax that carries no field of its own, wherever it turns up —
  * including as a literal key of the object or of a proposed write.
+ *
+ * `__proto__` names no field either. `JSON.parse` yields it as an own key, and
+ * a decision that carried it would let `pickAllowedFields` hand back a value
+ * that `Object.assign` writes through the prototype setter rather than onto the
+ * row. A name that cannot survive being applied is not a writable field.
  */
 function isFieldName(token: string): boolean {
-  return token !== '*' && !token.startsWith('!');
+  return token !== '*' && token !== '__proto__' && !token.startsWith('!');
+}
+
+/**
+ * The transitions key a stored value names, or undefined when it names none.
+ *
+ * A state machine is keyed by the strings a serializer produces, so only a
+ * primitive names an edge. Every other value — an object, an array, a symbol —
+ * is a shape the machine was not written for.
+ */
+function edgeName(current: unknown): string | undefined {
+  switch (typeof current) {
+    case 'string':
+      return current;
+    case 'number':
+    case 'boolean':
+    case 'bigint':
+      return String(current);
+    default:
+      return current === null ? 'null' : undefined;
+  }
 }
 
 function nameList(rules: FieldRules): readonly string[] | undefined {
@@ -89,10 +114,15 @@ function decideConfig(
     return { state: 'unevaluable', reason: 'proposed-required' };
   }
   // The current value is attacker-controlled data, so only an own property of
-  // the transitions map is an edge. A prototype member names no edge.
-  const edges = hasOwn(config.transitions, String(current))
-    ? config.transitions[current as string]
-    : undefined;
+  // the transitions map is an edge. A prototype member names no edge, and a
+  // value that is not a primitive names no edge at all: coercing an object with
+  // a null prototype, a hostile `toString`, or a symbol throws, and a decision
+  // is not allowed to throw.
+  const edge = edgeName(current);
+  const edges =
+    edge !== undefined && hasOwn(config.transitions, edge)
+      ? config.transitions[edge]
+      : undefined;
   if (!Array.isArray(edges)) {
     return { state: 'denied', reason: 'transition-failed' };
   }
