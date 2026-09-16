@@ -152,23 +152,6 @@ document staying secret, and here it does not. It is an argument for naming
 things as if they will be read. Secrets and server-only predicates do not belong
 in the document at all.
 
-### Do not reach for `decide`, `decideFields` or `evaluateCondition`
-
-```ts
-decide(permission, ctx, new Map()); // -> { reason: 'dependency-off', … }
-access.can(subject, 'comment', 'publish', comment); // -> { reason: 'allow', … }
-```
-
-Those are the same permission and the same subject. `decide` takes the map of
-already-resolved dependencies the caller is expected to build, and an empty map
-silently means every `dependsOn` parent is off — so the low-level call refuses
-what the real one grants, and a matrix with no `dependsOn` hides the difference
-until somebody adds one.
-
-They exist for tooling that inspects a matrix. An application's guard is `can`,
-`canMany`, `canFields` or `authorize`, each of which resolves the cascade for
-itself.
-
 ## Around the call
 
 ### The subject is whatever you hand it

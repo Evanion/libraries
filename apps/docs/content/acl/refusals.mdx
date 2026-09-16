@@ -77,14 +77,19 @@ the permission however many rules read the object — not one round trip per rul
 - **Authoring.** An `unevaluable` that no refetch repairs is a bug in the
   document, almost always a mistyped field name. A `schema` turns that class
   into an `UnknownFieldError` at construction.
+- **Deciding before the row is loaded.** A caller in front of the fetch gets
+  `unevaluable` from every object-dependent permission, every time.
+  `access.readsObject(key, action)` tells that apart from a call that happened
+  to lack data — see
+  [Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
 
-Absence is undecidable for every operator, negative ones included. "It is not
+Absence is unevaluable for every operator, negative ones included. "It is not
 equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
-and `contains` over an absent path are as undecidable as `eq`.
+and `contains` over an absent path are as unevaluable as `eq`.
 
 ### Why only the object
 
-An absent `object.*` path is undecidable; an absent `subject.*` path is a plain
+An absent `object.*` path is unevaluable; an absent `subject.*` path is a plain
 miss. The object is a projection the caller chose, so a field it lacks says
 nothing about the row. The subject is resolved whole before the call and is
 never a projection, so a subject carrying no `roles` genuinely has none.
