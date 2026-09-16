@@ -411,3 +411,19 @@ html:not(.dark) [class*='baize-platform-'] {
   margin-top: var(--baize-space-2);
   text-align: center;
 }
+
+/*
+ * A Twoslash `^?` query renders its type in an absolutely positioned popup, so
+ * it takes no height of its own and the code block clips it. The query is the
+ * last line of its fence, which `tools/repo-checks/src/doc-twoslash.test.ts`
+ * holds, so the room a popup needs is room below the block's last line.
+ *
+ * Six rem covers a type printed over three lines. A longer one still clips:
+ * write the fence so the printed type is short, which is also what makes the
+ * query worth reading.
+ *
+ * `presisted` is Twoslash's own spelling of the class, not a typo here.
+ */
+pre:has(.twoslash-query-presisted) {
+  padding-bottom: 6rem;
+}

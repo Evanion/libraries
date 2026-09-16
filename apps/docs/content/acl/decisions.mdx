@@ -25,7 +25,7 @@ interface Cause {
 }
 ```
 
-What `can` hands back, and where `reason` comes from:
+What `can` hands back:
 
 ```ts twoslash
 import { policy } from '@evanion/acl';
@@ -41,15 +41,33 @@ const comment = { authorId: 's1', status: 'draft' };
 // ---cut---
 const decision = access.can({ id: 's1' }, 'comment', 'update', comment);
 //    ^?
-
-decision.reason;
-//       ^?
 ```
 
 `reason` is output only. Nothing in the library reads a reason back to decide
 anything, so stripping the field from a decision changes no outcome. That cuts
 both ways: gating on the reason string instead of on `allowed` grants what the
 engine refused.
+
+The seven it can hold are the seven rows below, and this build says so — a
+reason added to the package and not to the table leaves `NotInTheTable` with a
+member, and a type whose constraint is `never` cannot have one:
+
+```ts twoslash
+import type { Reason } from '@evanion/acl';
+
+const documented = [
+  'allow',
+  'no-rule-matched',
+  'denied',
+  'dependency-off',
+  'unknown-action',
+  'unevaluable',
+  'unusable-clock',
+] as const satisfies readonly Reason[];
+
+type Exhaustive<T extends never> = T;
+type NotInTheTable = Exhaustive<Exclude<Reason, (typeof documented)[number]>>;
+```
 
 | `reason`          | Meaning                                                            |
 | ----------------- | ------------------------------------------------------------------ |
