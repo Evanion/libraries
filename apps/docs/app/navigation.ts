@@ -270,7 +270,7 @@ export const packages: readonly DocumentedPackage[] = [
     familyId: 'acl',
     framework: 'universal',
     hue: 'coral',
-    documented: false,
+    documented: true,
     workshop: true,
   },
   {

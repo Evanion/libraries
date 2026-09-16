@@ -1,0 +1,199 @@
+# Decisions
+
+<WorkshopNotice slug="acl" />
+
+Every entry point answers with a decision. `allowed` is the answer and
+everything else is the explanation, so a UI can say why a button is disabled
+without a second call and a log line carries the reason a request was refused.
+
+```ts
+interface Decision {
+  key: string;
+  allowed: boolean;
+  reason: Reason;
+  rule?: string; // the rule that decided, on 'allow' | 'denied' | 'unevaluable'
+  blockedBy?: string; // the dependency edge, on 'dependency-off'
+  cause?: Cause; // the first ancestor off for a reason of its own
+  missing?: string[]; // the paths that did not read, on 'unevaluable'
+}
+
+interface Cause {
+  key: string;
+  reason: Reason;
+  rule?: string;
+  missing?: string[];
+}
+```
+
+`reason` is output only. Nothing in the library reads a reason back to decide
+anything, so stripping the field from a decision changes no outcome. That cuts
+both ways: gating on the reason string instead of on `allowed` grants what the
+engine refused.
+
+| `reason`          | Meaning                                                            |
+| ----------------- | ------------------------------------------------------------------ |
+| `allow`           | an allow rule matched; carries `rule`                              |
+| `no-rule-matched` | rules were present and none passed, or there were none             |
+| `denied`          | a deny rule matched; carries `rule`                                |
+| `dependency-off`  | a `dependsOn` parent resolved off; carries `blockedBy` and `cause` |
+| `unknown-action`  | the key is not in the matrix; the fail-closed path only            |
+| `unevaluable`     | a rule read a path the object did not carry; carries `missing`     |
+
+## Default deny, express allow, express deny wins
+
+Nothing is allowed without an allow rule that matched. No rules, an empty rule
+list, an unknown action, a parent that is off — each refuses. On top of that
+baseline, a deny that matched outranks an allow that also matched, and a deny
+the engine could not read refuses as well.
+
+```ts file=libs/acl/README.md region=four-outcomes
+
+```
+
+| Deny side   | Allow side  | Decision                         |
+| ----------- | ----------- | -------------------------------- |
+| matches     | anything    | `denied`                         |
+| fails       | matches     | `allow`                          |
+| fails       | fails       | `no-rule-matched`                |
+| undecidable | not failing | `unevaluable`, naming both sides |
+
+The full precedence order, which is defined once in the engine:
+
+1. a deny rule matches → `denied`
+2. a dependency resolved off → `dependency-off`
+3. the allow side definitely fails → `no-rule-matched`
+4. the deny side is undecidable → `unevaluable`, naming the deny rule
+5. an allow rule matches → `allow`
+6. the allow side is undecidable → `unevaluable`
+7. otherwise → `no-rule-matched`
+
+A definite outcome beats an undecidable one, and among definite outcomes deny
+beats allow. Step 3 sits above step 4 because an allow is required: a definite
+"no allow rule matched" cannot be repaired by fetching the object, and reporting
+`unevaluable` there would tell a UI to refetch and re-ask forever. Step 2 sits
+above step 4 for the same reason. Both branches refuse, so neither leaks.
+
+## `unevaluable` is a third state
+
+It is not an error and it is not a no. It means the decision cannot be reached
+with the data it was handed, and `missing` names exactly what to fetch.
+
+A caller sees it in two situations, and they are the same shortfall:
+
+- **No instance at all.** `access.can(subject, 'comment', 'create')` against a
+  permission whose rules read `object.*`. This is the create toggle: there is
+  nothing to compare against yet.
+- **A projection that does not carry the field.** A list query selected `id` and
+  `title`, and the rule reads `object.authorId`.
+
+```ts
+const decision = access.can(subject, 'comment', 'update', { status: 'draft' });
+// { key: 'comment.update', allowed: false, reason: 'unevaluable',
+//   missing: ['object.authorId'] }
+```
+
+What to do with one depends on where the call is:
+
+- **Server, enforcing.** Treat it as a refusal — `allowed` is already `false` —
+  and either fetch the named paths and re-ask, or return a 403. It is never a
+  grant.
+- **Client, rendering.** Render the control as pending rather than as forbidden,
+  fetch the paths in `missing`, and re-ask once. The union is deliberate: both
+  sides' unreadable paths come back together so one refetch settles the
+  permission rather than one round trip per rule.
+- **Authoring.** An `unevaluable` that no refetch repairs is a bug in the
+  matrix, usually a mistyped field name. A `schema` on the document turns that
+  class into an `UnknownFieldError` at construction.
+
+Absence is undecidable for every operator, negative ones included. "It is not
+equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
+and `contains` over an absent path are as undecidable as `eq`.
+
+### Why only the object
+
+An absent `object.*` path is undecidable; an absent `subject.*` path is a plain
+miss. The object is a projection the caller chose, so a field it lacks says
+nothing about the row in the database. The subject is resolved whole by the app
+before the call and is never a projection, so a subject carrying no `roles`
+genuinely has none.
+
+A condition with one operand in each scope follows the operand that failed: an
+absent subject comparand fails the condition outright, an absent object
+comparand leaves it undecidable.
+
+A rule that mixes object-dependent and object-independent branches is decided by
+the branch that does not need data. `p.or(p.eq('object.authorId',
+'subject.id'), p.always)` with no instance is `allow`, because `always` answers
+without the object.
+
+## Cascades
+
+`dependsOn` names permissions that must resolve on for this one to resolve on. A
+parent that is off takes its dependants with it, transitively, without anything
+being written back into the document.
+
+```ts
+const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+  p
+    .allow('update', p.eq('object.authorId', 'subject.id'))
+    .allow('publish', p.contains('subject.roles', 'editor'))
+    .dependsOn('comment.update'),
+);
+
+access.can(editor, 'comment', 'publish', someoneElsesComment);
+// { key: 'comment.publish', allowed: false, reason: 'dependency-off',
+//   blockedBy: 'comment.update',
+//   cause: { key: 'comment.update', reason: 'no-rule-matched' } }
+```
+
+`blockedBy` is the edge this permission died on — the graph view. `cause` walks
+to the first ancestor that is off for a reason of its own — what an operator has
+to fix. In a chain of three they are two different permissions, which is why
+both are carried.
+
+`cause` is flat rather than a nested decision: it answers which permission the
+cascade died on and why, `blockedBy` already names the edge, and the rest of the
+chain is walkable from the matrix. A repairable cause carries its `missing`
+paths down to the dependant, so a UI blocked three levels deep still knows what
+to fetch.
+
+Cycles are refused at construction with `FeatureCycleError`, and a cascade is
+resolved once per permission rather than once per edge.
+
+## Asking more than one question
+
+```ts
+access.canMany(subject, 'comment', 'update', rows); // one decision per row
+access.capabilities(subject); // every permission, keyed
+access.authorize(subject); // a handle with the subject bound
+```
+
+`canMany` settles the clock once for the whole list — the instances differ, the
+instant does not. `capabilities` resolves the whole matrix against one context
+and is what a client hydrates a UI from. Prefer either over a loop of `can`:
+each `can` resolves that permission's cascade for itself.
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+`authorize` binds the subject, and optionally the clock, so a middleware,
+loader, action or RSC server component evaluates without restating either. It is
+also the shape that makes the guarded path the short one to write.
+
+## The clock
+
+`now` is a parameter of every entry point. Omitted, it is the wall clock;
+supplied, it is whatever the caller passed, and it takes any `Instant` — an ISO
+8601 string, epoch milliseconds, or a `Date`. The string and number forms
+survive JSON, so a hydrated SSR payload passes straight through.
+
+```ts file=libs/acl/README.md region=clock
+
+```
+
+It is settled to a single epoch once per call, so a matrix with many time
+windows parses the clock once. An instant that does not parse never throws: the
+`before`/`after` conditions reading it fail. That is closed on an allow rule and
+open on a deny rule, which is a gap rather than a defence — [the security
+contract](/acl/security#the-clock-a-decision-reads) has it.
