@@ -16,95 +16,109 @@ import type { Matrix } from './types.js';
 
 /** A one-permission matrix carrying `when` verbatim, however malformed. */
 function withWhen(when: unknown): Matrix {
-  return [
-    {
-      key: 'comment.read',
-      object: 'comment',
-      action: 'read',
-      rules: [{ id: 'r', when }],
-    },
-  ] as unknown as Matrix;
+  return {
+    permissions: [
+      {
+        key: 'comment.read',
+        object: 'comment',
+        action: 'read',
+        rules: [{ id: 'r', when }],
+      },
+    ],
+  } as unknown as Matrix;
 }
 
 /** A one-permission matrix whose single deny rule holds `condition`. */
 function withCondition(condition: unknown): Matrix {
-  return [
-    {
-      key: 'comment.read',
-      object: 'comment',
-      action: 'read',
-      denyRules: [{ id: 'd', when: [condition] }],
-    },
-  ] as unknown as Matrix;
+  return {
+    permissions: [
+      {
+        key: 'comment.read',
+        object: 'comment',
+        action: 'read',
+        denyRules: [{ id: 'd', when: [condition] }],
+      },
+    ],
+  } as unknown as Matrix;
 }
 
 describe('validateMatrix', () => {
   it('rejects a bang without a baseline', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        fields: { fields: ['!status'] },
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          fields: { fields: ['!status'] },
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(DenyWithoutBaselineError);
   });
 
   it('rejects a bang mixed into an explicit allow-list', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        fields: { fields: ['body', '!status'] },
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          fields: { fields: ['body', '!status'] },
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(BangInAllowListError);
   });
 
   it('rejects targets and transitions on the same field', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        fields: {
-          status: {
-            targets: ['published'],
-            transitions: { draft: ['published'] },
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          fields: {
+            status: {
+              targets: ['published'],
+              transitions: { draft: ['published'] },
+            },
           },
         },
-      },
-    ];
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(
       TargetsTransitionsConflictError,
     );
   });
 
   it('rejects an unknown condition op', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        rules: [
-          { when: [{ field: 'subject.id', op: 'wat' as never, value: 1 }] },
-        ],
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [
+            { when: [{ field: 'subject.id', op: 'wat' as never, value: 1 }] },
+          ],
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(Error);
   });
 
   it('rejects a condition field outside the namespaces', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        rules: [{ when: [{ field: 'foo.bar', op: 'eq', value: 1 }] }],
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [{ when: [{ field: 'foo.bar', op: 'eq', value: 1 }] }],
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(Error);
   });
 
@@ -115,14 +129,16 @@ describe('validateMatrix', () => {
   });
 
   it('rejects a rule with no when at all', () => {
-    const matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        rules: [{ id: 'r' }],
-      },
-    ] as unknown as Matrix;
+    const matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [{ id: 'r' }],
+        },
+      ],
+    } as unknown as Matrix;
     expect(() => validateMatrix(matrix)).toThrow(InvalidRuleError);
   });
 
@@ -139,14 +155,16 @@ describe('validateMatrix', () => {
   });
 
   it('rejects a key that disagrees with its object and action', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'delete',
-        rules: [{ id: 'anyone', when: [] }],
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'delete',
+          rules: [{ id: 'anyone', when: [] }],
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).toThrow(KeyMismatchError);
   });
 
@@ -156,22 +174,26 @@ describe('validateMatrix', () => {
       ['a', 'b.c'],
     ];
     for (const [object, action] of collide) {
-      const matrix: Matrix = [
-        { key: `${object}.${action}`, object, action, rules: [] },
-      ];
+      const matrix: Matrix = {
+        permissions: [
+          { key: `${object}.${action}`, object, action, rules: [] },
+        ],
+      };
       expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
     }
   });
 
   it('accepts an object kind namespaced by origin', () => {
-    const matrix: Matrix = [
-      {
-        key: 'orders:invoice.read',
-        object: 'orders:invoice',
-        action: 'read',
-        rules: [{ id: 'all', when: [] }],
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'orders:invoice.read',
+          object: 'orders:invoice',
+          action: 'read',
+          rules: [{ id: 'all', when: [] }],
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).not.toThrow();
   });
 
@@ -279,25 +301,48 @@ describe('validateMatrix', () => {
 
   it('rejects a dependsOn that is not a list of keys', () => {
     for (const dependsOn of ['comment.read', 42, [null], [''], [{}]]) {
-      const matrix = [
-        { key: 'comment.read', object: 'comment', action: 'read', dependsOn },
-      ] as unknown as Matrix;
+      const matrix = {
+        permissions: [
+          { key: 'comment.read', object: 'comment', action: 'read', dependsOn },
+        ],
+      } as unknown as Matrix;
       expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
     }
   });
 
-  it('rejects a matrix that is not an array of permissions', () => {
-    for (const matrix of [null, undefined, {}, 'x', [null], [42]]) {
+  it('rejects anything that is not an envelope around a permission array', () => {
+    const cases: unknown[] = [
+      null,
+      undefined,
+      {},
+      'x',
+      42,
+      // The bare array is the old form; there is one shape, not two.
+      [],
+      [{ key: 'comment.read', object: 'comment', action: 'read' }],
+      { permissions: null },
+      { permissions: 'comment.read' },
+      { permissions: {} },
+      { permissions: [null] },
+      { permissions: [42] },
+    ];
+    for (const matrix of cases) {
       expect(() => validateMatrix(matrix as unknown as Matrix)).toThrow(
         InvalidMatrixError,
       );
     }
   });
 
+  it('accepts an envelope holding no permissions', () => {
+    expect(() => validateMatrix({ permissions: [] })).not.toThrow();
+  });
+
   it('rejects a rules or denyRules that is not an array', () => {
-    const matrix = [
-      { key: 'comment.read', object: 'comment', action: 'read', rules: {} },
-    ] as unknown as Matrix;
+    const matrix = {
+      permissions: [
+        { key: 'comment.read', object: 'comment', action: 'read', rules: {} },
+      ],
+    } as unknown as Matrix;
     expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
   });
 
@@ -310,9 +355,11 @@ describe('validateMatrix', () => {
       { status: { transitions: { draft: 'published' } } },
     ];
     for (const fields of cases) {
-      const matrix = [
-        { key: 'comment.read', object: 'comment', action: 'read', fields },
-      ] as unknown as Matrix;
+      const matrix = {
+        permissions: [
+          { key: 'comment.read', object: 'comment', action: 'read', fields },
+        ],
+      } as unknown as Matrix;
       expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
     }
   });
@@ -343,20 +390,22 @@ describe('validateMatrix', () => {
   });
 
   it('accepts a valid matrix', () => {
-    const matrix: Matrix = [
-      {
-        key: 'comment.read',
-        object: 'comment',
-        action: 'read',
-        fields: { fields: ['*', '!status'] },
-      },
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        fields: { status: { transitions: { draft: ['published'] } } },
-      },
-    ];
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          fields: { fields: ['*', '!status'] },
+        },
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          fields: { status: { transitions: { draft: ['published'] } } },
+        },
+      ],
+    };
     expect(() => validateMatrix(matrix)).not.toThrow();
   });
 });

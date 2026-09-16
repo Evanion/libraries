@@ -1,61 +1,69 @@
 import { describe, expect, it } from 'vitest';
 
 import { createPolicy } from './create-policy.js';
-import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
+import {
+  InvalidMatrixError,
+  UnknownObjectKeyError,
+  UnknownPermissionError,
+} from './errors.js';
 import { pickAllowedFields } from './fields.js';
 import type { Instant, Matrix } from './types.js';
 
-const matrix: Matrix = [
-  {
-    key: 'comment.read',
-    object: 'comment',
-    action: 'read',
-    rules: [
-      {
-        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-      },
-    ],
-  },
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      {
-        when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
-      },
-    ],
-  },
-];
+const matrix: Matrix = {
+  permissions: [
+    {
+      key: 'comment.read',
+      object: 'comment',
+      action: 'read',
+      rules: [
+        {
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    },
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        {
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+        },
+      ],
+    },
+  ],
+};
 
 const editor = { id: 's1', roles: ['editor'] };
 
 /** article.publish depends on article.update, which an editor holds. */
-const cascade: Matrix = [
-  {
-    key: 'article.update',
-    object: 'article',
-    action: 'update',
-    rules: [
-      {
-        id: 'editor',
-        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-      },
-    ],
-  },
-  {
-    key: 'article.publish',
-    object: 'article',
-    action: 'publish',
-    dependsOn: ['article.update'],
-    rules: [
-      {
-        id: 'editor-only',
-        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-      },
-    ],
-  },
-];
+const cascade: Matrix = {
+  permissions: [
+    {
+      key: 'article.update',
+      object: 'article',
+      action: 'update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    },
+    {
+      key: 'article.publish',
+      object: 'article',
+      action: 'publish',
+      dependsOn: ['article.update'],
+      rules: [
+        {
+          id: 'editor-only',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    },
+  ],
+};
 
 describe('createPolicy', () => {
   it('can evaluates a single decision', () => {
@@ -107,20 +115,62 @@ describe('createPolicy', () => {
     expect(round).toEqual(access.matrix);
   });
 
+  describe('version', () => {
+    it('is absent from the document when neither source states one', () => {
+      const access = createPolicy(matrix);
+      expect(access.version).toBeUndefined();
+      expect(Object.hasOwn(access.matrix, 'version')).toBe(false);
+    });
+
+    it('comes from the document', () => {
+      const access = createPolicy({ ...matrix, version: 'orders@7' });
+      expect(access.version).toBe('orders@7');
+      expect(access.matrix.version).toBe('orders@7');
+    });
+
+    it('comes from the options when the document states none', () => {
+      const access = createPolicy(matrix, { version: 7 });
+      expect(access.version).toBe(7);
+      expect(access.matrix.version).toBe(7);
+    });
+
+    it('takes the option over the document, and the document carries it', () => {
+      const access = createPolicy(
+        { ...matrix, version: 'orders@7' },
+        { version: 'orders@7+veto@41' },
+      );
+      expect(access.version).toBe('orders@7+veto@41');
+      // The frozen document carries the winner, so the version that decided is
+      // the version that crosses an SSR boundary.
+      expect(access.matrix.version).toBe('orders@7+veto@41');
+      expect(createPolicy(access.matrix).version).toBe('orders@7+veto@41');
+    });
+
+    it('is refused when the document states something that is neither', () => {
+      expect(() =>
+        createPolicy({ ...matrix, version: {} } as unknown as Matrix),
+      ).toThrow(InvalidMatrixError);
+    });
+  });
+
   it('canFields returns a field-level decision', () => {
-    const withFields = createPolicy([
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        rules: [
-          {
-            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-          },
-        ],
-        fields: { fields: ['*', '!status'] },
-      },
-    ]);
+    const withFields = createPolicy({
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+              ],
+            },
+          ],
+          fields: { fields: ['*', '!status'] },
+        },
+      ],
+    });
     const fd = withFields.canFields(
       editor,
       'comment',
@@ -132,19 +182,23 @@ describe('createPolicy', () => {
   });
 
   it('canFields is not allowed when the action is denied', () => {
-    const withFields = createPolicy([
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        rules: [
-          {
-            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
-          },
-        ],
-        fields: { fields: ['*'] },
-      },
-    ]);
+    const withFields = createPolicy({
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'object.authorId', op: 'eq', path: 'subject.id' },
+              ],
+            },
+          ],
+          fields: { fields: ['*'] },
+        },
+      ],
+    });
     const stranger = { id: 'OTHER' };
     const fd = withFields.canFields(
       stranger,
@@ -164,17 +218,19 @@ describe('createPolicy', () => {
   });
 
   it('canFields is not allowed when a dependency blocks the action', () => {
-    const withFields = createPolicy([
-      ...cascade,
-      {
-        key: 'article.retitle',
-        object: 'article',
-        action: 'retitle',
-        dependsOn: ['article.update'],
-        rules: [{ id: 'anyone', when: [] }],
-        fields: { fields: ['*'] },
-      },
-    ]);
+    const withFields = createPolicy({
+      permissions: [
+        ...cascade.permissions,
+        {
+          key: 'article.retitle',
+          object: 'article',
+          action: 'retitle',
+          dependsOn: ['article.update'],
+          rules: [{ id: 'anyone', when: [] }],
+          fields: { fields: ['*'] },
+        },
+      ],
+    });
     const reader = { id: 's2', roles: ['reader'] };
     const fd = withFields.canFields(
       reader,
@@ -191,19 +247,23 @@ describe('createPolicy', () => {
   });
 
   it('canFields is allowed when the action and every field are allowed', () => {
-    const withFields = createPolicy([
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        rules: [
-          {
-            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
-          },
-        ],
-        fields: { fields: ['*'] },
-      },
-    ]);
+    const withFields = createPolicy({
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'object.authorId', op: 'eq', path: 'subject.id' },
+              ],
+            },
+          ],
+          fields: { fields: ['*'] },
+        },
+      ],
+    });
     const fd = withFields.canFields(
       { id: 's1' },
       'comment',
@@ -216,17 +276,19 @@ describe('createPolicy', () => {
   });
 
   it('canFields decides a proposed key the object does not carry', () => {
-    const selfService = createPolicy([
-      {
-        key: 'user.update',
-        object: 'user',
-        action: 'update',
-        rules: [
-          { when: [{ field: 'object.id', op: 'eq', path: 'subject.id' }] },
-        ],
-        fields: { fields: ['*', '!role'] },
-      },
-    ]);
+    const selfService = createPolicy({
+      permissions: [
+        {
+          key: 'user.update',
+          object: 'user',
+          action: 'update',
+          rules: [
+            { when: [{ field: 'object.id', op: 'eq', path: 'subject.id' }] },
+          ],
+          fields: { fields: ['*', '!role'] },
+        },
+      ],
+    });
     const current = { id: 'u1', name: 'Ann' };
     const proposed = { name: 'Eve', role: 'admin' };
     const fd = selfService.canFields(
@@ -304,7 +366,7 @@ describe('createPolicy', () => {
     const access = createPolicy(cascade);
     for (const subject of [editor, { id: 's2', roles: ['reader'] }]) {
       const caps = access.capabilities(subject);
-      for (const permission of cascade) {
+      for (const permission of cascade.permissions) {
         expect(
           access.can(subject, permission.object, permission.action),
         ).toEqual(caps[permission.key]);
@@ -326,37 +388,43 @@ describe('createPolicy', () => {
     });
   });
   it('capabilities reports an object-scoped deny as unevaluable and cascades it', () => {
-    const objectScopedDeny: Matrix = [
-      {
-        key: 'article.update',
-        object: 'article',
-        action: 'update',
-        rules: [
-          {
-            id: 'editor',
-            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-          },
-        ],
-        denyRules: [
-          {
-            id: 'locked',
-            when: [{ field: 'object.locked', op: 'eq', value: true }],
-          },
-        ],
-      },
-      {
-        key: 'article.publish',
-        object: 'article',
-        action: 'publish',
-        dependsOn: ['article.update'],
-        rules: [
-          {
-            id: 'editor',
-            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-          },
-        ],
-      },
-    ];
+    const objectScopedDeny: Matrix = {
+      permissions: [
+        {
+          key: 'article.update',
+          object: 'article',
+          action: 'update',
+          rules: [
+            {
+              id: 'editor',
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+              ],
+            },
+          ],
+          denyRules: [
+            {
+              id: 'locked',
+              when: [{ field: 'object.locked', op: 'eq', value: true }],
+            },
+          ],
+        },
+        {
+          key: 'article.publish',
+          object: 'article',
+          action: 'publish',
+          dependsOn: ['article.update'],
+          rules: [
+            {
+              id: 'editor',
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     const caps = createPolicy(objectScopedDeny).capabilities(editor);
     expect(caps['article.update']).toMatchObject({
       allowed: false,
@@ -378,20 +446,22 @@ describe('createPolicy', () => {
 });
 
 /** Open from 2026-01-01; the clock decides every entry point below. */
-const timed: Matrix = [
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      {
-        id: 'window',
-        when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
-      },
-    ],
-    fields: { fields: ['body'] },
-  },
-];
+const timed: Matrix = {
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        {
+          id: 'window',
+          when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+        },
+      ],
+      fields: { fields: ['body'] },
+    },
+  ],
+};
 
 const OPEN = '2026-06-01T00:00:00Z';
 const SHUT = '2025-06-01T00:00:00Z';

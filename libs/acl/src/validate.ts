@@ -8,7 +8,14 @@ import {
   KeyMismatchError,
   TargetsTransitionsConflictError,
 } from './errors.js';
-import type { Condition, FieldConfig, Matrix, Permission } from './types.js';
+import { assertSchemaFit, assertSchemaShape } from './schema.js';
+import type {
+  Condition,
+  FieldConfig,
+  Matrix,
+  MatrixSchema,
+  Permission,
+} from './types.js';
 
 /** The operators that compare a namespaced path against a literal or a path. */
 const VALUE_OPS = new Set(['eq', 'ne', 'in', 'not-in', 'contains']);
@@ -333,21 +340,45 @@ function assertFieldRules(key: string, rules: unknown): void {
   }
 }
 
+const ENVELOPE = 'a matrix is an envelope: { version?, schema?, permissions }';
+
 /**
- * Validates a canonical matrix's shape, rules and field configs. The dependency
- * graph is validated separately by `buildGraph`.
+ * Validates a canonical matrix document: the envelope, then its permissions'
+ * shape, rules and field configs, then its conditions against a present schema.
+ * The dependency graph is validated separately by `buildGraph`.
  *
  * This is the whole gate between a foreign matrix and the engine: every entry
  * point passes through it, and everything it accepts evaluates without throwing.
  * Every rejection is an `AclConfigError` naming the permission key and the
  * offending field.
+ *
+ * The schema pass runs last, so a condition that is not evaluable at all is
+ * reported as that rather than as a schema fault.
  */
 export function validateMatrix(matrix: Matrix): void {
-  if (!Array.isArray(matrix)) {
-    throw new InvalidMatrixError('a matrix is an array of permissions');
+  if (!isNode(matrix)) {
+    throw new InvalidMatrixError(ENVELOPE);
   }
 
-  for (const [index, permission] of matrix.entries()) {
+  const node = matrix as Node;
+  const permissions = node['permissions'];
+  if (!Array.isArray(permissions)) {
+    throw new InvalidMatrixError(`"permissions" is not an array: ${ENVELOPE}`);
+  }
+
+  const version = node['version'];
+  if (
+    version !== undefined &&
+    typeof version !== 'string' &&
+    typeof version !== 'number'
+  ) {
+    throw new InvalidMatrixError('"version" is neither a string nor a number');
+  }
+
+  const schema = node['schema'];
+  if (schema !== undefined) assertSchemaShape(schema);
+
+  for (const [index, permission] of permissions.entries()) {
     if (!isNode(permission)) {
       throw new InvalidMatrixError(`permission [${index}] is not an object`);
     }
@@ -388,5 +419,12 @@ export function validateMatrix(matrix: Matrix): void {
     assertRules(key, 'denyRules', permission['denyRules']);
     assertDependsOn(key, permission['dependsOn']);
     assertFieldRules(key, permission['fields']);
+  }
+
+  if (schema !== undefined) {
+    assertSchemaFit(
+      schema as MatrixSchema,
+      permissions as readonly Permission[],
+    );
   }
 }

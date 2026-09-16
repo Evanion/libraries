@@ -178,9 +178,63 @@ function permission(gen: Gen, keys: readonly string[]): unknown {
   return node;
 }
 
+/** A schema slot of any shape, valid and not, over the kinds KEYS names. */
+function schema(gen: Gen): unknown {
+  return gen.pick([
+    null,
+    42,
+    'schema',
+    [],
+    {},
+    { subject: null },
+    { subject: 'string' },
+    { subject: { fields: { id: 'string', roles: 'string[]' } } },
+    { objects: 42 },
+    { objects: { comment: null } },
+    { objects: { comment: { fields: 'string' } } },
+    { objects: { comment: { fields: { authorId: 'nope' } } } },
+    {
+      objects: {
+        comment: { fields: { authorId: 'string', status: 'string' } },
+      },
+    },
+    {
+      subject: { fields: { id: 'string', roles: 'string[]' } },
+      objects: {
+        comment: { fields: { authorId: 'string', status: 'string' } },
+        post: {
+          fields: { authorId: 'string' },
+          relations: { comment: 'comment' },
+        },
+      },
+    },
+  ]);
+}
+
+/** An envelope of any shape: a bare array, a missing or non-array `permissions`. */
 function matrix(gen: Gen): Matrix {
   const keys = KEYS.flatMap((k) => ACTIONS.map((a) => `${k}.${a}`));
-  return gen.list(4, () => permission(gen, keys)) as unknown as Matrix;
+  const permissions = gen.list(4, () => permission(gen, keys));
+  if (gen.bool(0.1)) {
+    return gen.pick([
+      null,
+      undefined,
+      permissions,
+      'matrix',
+      42,
+    ]) as unknown as Matrix;
+  }
+  const node: Record<string, unknown> = {};
+  if (gen.bool(0.92)) {
+    node['permissions'] = gen.bool(0.92)
+      ? permissions
+      : gen.pick([null, {}, 'permissions', 42]);
+  }
+  if (gen.bool(0.4)) {
+    node['version'] = gen.pick([1, 'v1', 'orders@7+veto@41', null, {}, []]);
+  }
+  if (gen.bool(0.35)) node['schema'] = schema(gen);
+  return node as unknown as Matrix;
 }
 
 function context(gen: Gen): {
@@ -329,11 +383,49 @@ describe('totality', () => {
       } catch {
         continue;
       }
-      for (const permission of access.matrix) {
+      for (const permission of access.matrix.permissions) {
         expect(permission.key).toBe(
           `${permission.object}.${permission.action}`,
         );
       }
     }
+  });
+
+  it('a matrix round-tripped through JSON decides identically', () => {
+    let crossed = 0;
+
+    for (let seed = 1; seed <= 1000; seed++) {
+      const gen = new Gen(rng(seed));
+      let access: Access;
+      try {
+        access = parseMatrix(matrix(gen));
+      } catch {
+        continue;
+      }
+
+      const payload = JSON.parse(JSON.stringify(access.matrix)) as Matrix;
+      // The document is what crosses: version and schema included, nothing
+      // assembled around it.
+      expect(payload).toEqual(access.matrix);
+      const hydrated = parseMatrix(payload);
+      expect(hydrated.version).toEqual(access.version);
+      expect(hydrated.schema).toEqual(access.schema);
+      crossed++;
+
+      for (let round = 0; round < 3; round++) {
+        const { subject, object, now } = context(gen);
+        const key = gen.pick(KEYS);
+        const action = gen.pick(ACTIONS);
+        const clock = now as never;
+        expect(hydrated.can(subject, key, action, object, clock)).toEqual(
+          access.can(subject, key, action, object, clock),
+        );
+        expect(hydrated.capabilities(subject, clock)).toEqual(
+          access.capabilities(subject, clock),
+        );
+      }
+    }
+
+    expect(crossed).toBeGreaterThan(50);
   });
 });

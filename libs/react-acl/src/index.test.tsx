@@ -10,24 +10,26 @@ import {
   useCapabilities,
 } from './index.js';
 
-const access = createPolicy([
-  {
-    key: 'comment.read',
-    object: 'comment',
-    action: 'read',
-    rules: [
-      { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
-    ],
-  },
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-    ],
-  },
-]);
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.read',
+      object: 'comment',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
+      ],
+    },
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
 
 const HYDRATED = '2026-01-01T00:00:00Z';
 const SUBJECT = { id: 's1', roles: ['editor'] };
@@ -105,19 +107,23 @@ describe('react-acl', () => {
   });
 
   it('useCanFields returns the field-level decision', () => {
-    const withFields = createPolicy([
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        rules: [
-          {
-            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-          },
-        ],
-        fields: { fields: ['*', '!status'] },
-      },
-    ]);
+    const withFields = createPolicy({
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+              ],
+            },
+          ],
+          fields: { fields: ['*', '!status'] },
+        },
+      ],
+    });
     function Form() {
       const fd = useCanFields('comment', 'update', { status: 'x' }, 'write');
       return <div data-testid="status">{fd.fields['status']}</div>;
@@ -135,20 +141,22 @@ describe('react-acl', () => {
   });
 
   it('takes a hydrated string instant for `now`', () => {
-    const timed = createPolicy([
-      {
-        key: 'comment.update',
-        object: 'comment',
-        action: 'update',
-        rules: [
-          {
-            when: [
-              { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' },
-            ],
-          },
-        ],
-      },
-    ]);
+    const timed = createPolicy({
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     const hydrated = JSON.parse(
       JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),
     ) as { now: string };

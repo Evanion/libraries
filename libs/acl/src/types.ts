@@ -109,8 +109,80 @@ export interface Permission {
   fields?: FieldRules;
 }
 
-/** The canonical matrix: a flat list of permissions. */
-export type Matrix = readonly Permission[];
+/**
+ * The base of a declared field type.
+ *
+ * `instant` is a point in time carried as an ISO 8601 string or epoch
+ * milliseconds, the same two forms an `Instant` survives JSON in.
+ */
+export type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
+
+/**
+ * One field's declared type.
+ *
+ * A flat string, so the whole schema is JSON a producer in any language emits by
+ * reflection. `[]` is an array of the base type. A trailing `?` marks a field
+ * that may be absent from a complete instance; nullability is not an optionality
+ * axis, so a declared field that is present and `null` is present.
+ */
+export type FieldType =
+  | BaseFieldType
+  | `${BaseFieldType}[]`
+  | `${BaseFieldType}?`
+  | `${BaseFieldType}[]?`;
+
+/**
+ * One object kind's declared shape.
+ *
+ * `relations` names the kinds this one points at, one hop, without nesting. A
+ * condition reads one field of one scope, so a relation is not a value a
+ * condition compares; it is declared for the consumers that resolve it.
+ */
+export interface ObjectSchema {
+  readonly fields?: Readonly<Record<string, FieldType>>;
+  readonly relations?: Readonly<Record<string, ObjectKey>>;
+}
+
+/**
+ * The shapes a matrix's conditions are checked against.
+ *
+ * Optional for a producer and binding when present. Granularity is per object
+ * kind: a kind `objects` does not declare is unchecked, and `subject.*` paths
+ * are unchecked unless `subject` is declared.
+ *
+ * What a present schema checks, exactly:
+ *
+ * - a condition naming a field the declared kind does not declare is a
+ *   construction error (`UnknownFieldError`);
+ * - a condition whose operator does not fit the declared type is a construction
+ *   error (`FieldTypeMismatchError`).
+ *
+ * What it does not check: the field names in `FieldRules` (the `fields`
+ * allow-list, and the `targets`/`transitions` keys), and whether a permission
+ * can decide `unevaluable` for a complete instance. Both are unchecked whether
+ * or not a schema is present.
+ */
+export interface MatrixSchema {
+  readonly subject?: ObjectSchema;
+  readonly objects?: Readonly<Record<ObjectKey, ObjectSchema>>;
+}
+
+/**
+ * The canonical matrix document: an envelope over a flat list of permissions.
+ *
+ * There is no bare-array form. `version` and `schema` belong to the document, so
+ * a foreign producer emitting JSON states both, and one `access.matrix` crosses
+ * an SSR boundary without a wrapper assembled at the call site.
+ *
+ * `version` is what the fetch-and-revalidate contract compares with `!==`, so a
+ * string carries a content digest or a composite (`orders@7+veto@41`) where a
+ * number cannot.
+ */
+export interface Matrix {
+  readonly version?: string | number;
+  readonly schema?: MatrixSchema;
+  readonly permissions: readonly Permission[];
+}
 
 export type Reason =
   | 'allow'

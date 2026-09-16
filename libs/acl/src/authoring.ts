@@ -1,5 +1,11 @@
 import { createPolicy, type Access } from './create-policy.js';
-import type { Condition, FieldRules, Permission, Rule } from './types.js';
+import type {
+  Condition,
+  FieldRules,
+  MatrixSchema,
+  Permission,
+  Rule,
+} from './types.js';
 
 /** A condition that is always true; serializes to an empty `when` array. */
 export const always: readonly [] = [];
@@ -100,12 +106,12 @@ export interface PolicyConfig {
  */
 export function policy(
   config: PolicyConfig,
-  options: { version?: number } = {},
+  options: { version?: string | number; schema?: MatrixSchema } = {},
 ): Access {
-  const matrix: Permission[] = [];
+  const permissions: Permission[] = [];
   for (const [object, actions] of Object.entries(config)) {
     for (const [action, builder] of Object.entries(actions)) {
-      matrix.push({
+      permissions.push({
         key: `${object}.${action}`,
         object,
         action,
@@ -114,5 +120,8 @@ export function policy(
       });
     }
   }
-  return createPolicy(matrix, options);
+  // Both go into the document the builder flattens to rather than into
+  // construction options, so `JSON.stringify(access.matrix)` emits everything a
+  // foreign producer would emit.
+  return createPolicy({ ...options, permissions });
 }

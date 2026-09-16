@@ -14,6 +14,7 @@ import type {
   FieldDecision,
   Instant,
   Matrix,
+  MatrixSchema,
   Permission,
 } from './types.js';
 
@@ -58,12 +59,41 @@ function cloneNode(permission: Permission): Permission {
   }
 }
 
+/**
+ * Clones the declared shapes for the frozen document.
+ *
+ * Validation accepted a schema of strings, so the only way this refuses is a
+ * getter or a proxy the caller hung off the object it passed in.
+ */
+function cloneSchema(schema: MatrixSchema): MatrixSchema {
+  try {
+    return structuredClone(schema);
+  } catch {
+    throw new InvalidMatrixError(
+      'the schema holds a value that cannot be cloned: a function, a symbol, or a structure nested deeper than the clone walks',
+    );
+  }
+}
+
 /** A subject for a single call: the actor, a plain object of attributes. */
 export type Subject = Record<string, unknown>;
 
 export interface AccessOptions {
-  /** The matrix version, surfaced for the fetch-and-revalidate contract. */
-  version?: number;
+  /**
+   * Overrides the document's `version`.
+   *
+   * The document states the version a producer shipped. This states the version
+   * the construction site is actually running, which is not the same thing
+   * whenever the site composes the document with something else — a compliance
+   * deny overlay merged in before construction gives an effective version
+   * covering both inputs, and the authored document cannot know about it. The
+   * option wins for that reason, and the frozen `access.matrix` carries the
+   * winner, so what crosses an SSR boundary is the version that decided.
+   *
+   * A string or a number: the revalidate contract compares with `!==`, so a
+   * digest or a composite (`orders@7+veto@41`) works where a number cannot.
+   */
+  version?: string | number;
   /**
    * Fail closed on unknown permissions/objects (the foreign/untrusted mode).
    * Defaults to false: a local matrix throws on an unknown key.
@@ -89,8 +119,16 @@ export interface Authorized {
 }
 
 export interface Access {
+  /**
+   * The frozen document. It round-trips through JSON, so an SSR crossing is
+   * `createPolicy(JSON.parse(JSON.stringify(access.matrix)))` with nothing
+   * assembled around it.
+   */
   readonly matrix: Readonly<Matrix>;
-  readonly version: number | undefined;
+  /** The effective version: `access.matrix.version`, lifted for convenience. */
+  readonly version: string | number | undefined;
+  /** The declared shapes, when the document carries them. */
+  readonly schema: MatrixSchema | undefined;
   can(
     subject: Subject,
     key: string,
@@ -118,9 +156,11 @@ export interface Access {
   authorize(subject: Subject, opts?: { now?: Instant }): Authorized;
 }
 
-function buildIndex(matrix: Matrix): Map<string, Permission> {
+function buildIndex(
+  permissions: readonly Permission[],
+): Map<string, Permission> {
   const index = new Map<string, Permission>();
-  for (const permission of matrix) index.set(permission.key, permission);
+  for (const permission of permissions) index.set(permission.key, permission);
   return index;
 }
 
@@ -166,15 +206,25 @@ export function createPolicy(
   options: AccessOptions = {},
 ): Access {
   validateMatrix(matrix);
-  const frozen = deepFreeze(matrix.map(cloneNode)) as Matrix;
-  const graph = buildGraph(frozen);
-  const index = buildIndex(frozen);
+  const version = options.version ?? matrix.version;
+  // The envelope is rebuilt rather than cloned whole, so an absent version or
+  // schema stays absent through a JSON round trip instead of becoming a key
+  // holding undefined.
+  const frozen = deepFreeze({
+    ...(version === undefined ? {} : { version }),
+    ...(matrix.schema === undefined
+      ? {}
+      : { schema: cloneSchema(matrix.schema) }),
+    permissions: matrix.permissions.map(cloneNode),
+  }) as Matrix;
+  const permissions = frozen.permissions;
+  const graph = buildGraph(permissions);
+  const index = buildIndex(permissions);
   const closed = options.closed ?? false;
-  const version = options.version;
 
   const objectFor = (key: string): void => {
     if (closed) return;
-    if (!frozen.some((p) => p.object === key)) {
+    if (!permissions.some((p) => p.object === key)) {
       throw new UnknownObjectKeyError(key);
     }
   };
@@ -334,7 +384,10 @@ export function createPolicy(
       return frozen;
     },
     get version() {
-      return version;
+      return frozen.version;
+    },
+    get schema() {
+      return frozen.schema;
     },
     can,
     canMany,

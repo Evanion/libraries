@@ -16,16 +16,18 @@ import type {
   Subject,
 } from './index.js';
 
-const access: Access = createPolicy([
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-    ],
-  },
-]);
+const access: Access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
 
 const subject: Subject = { id: 'u1', roles: ['editor'] };
 
