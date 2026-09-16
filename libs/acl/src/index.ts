@@ -21,7 +21,7 @@ export { decide } from './evaluate.js';
 export { decideFields } from './fields.js';
 
 export {
-  AuthorizationConfigError,
+  AclConfigError,
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,

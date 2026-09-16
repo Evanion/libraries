@@ -68,7 +68,7 @@ function assertFieldRules(permission: Permission): void {
 
 /**
  * Validates a canonical matrix's rules and field configs. The dependency graph
- * is validated separately by `buildGraph`. Throws AuthorizationConfigError.
+ * is validated separately by `buildGraph`. Throws AclConfigError.
  */
 export function validateMatrix(matrix: Matrix): void {
   for (const permission of matrix) {
