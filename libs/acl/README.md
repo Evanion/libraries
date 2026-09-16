@@ -13,13 +13,13 @@ matrix, as server-side app-layer decisions.
 ## Installation
 
 ```bash
-npm install @evanion/authorization
+npm install @evanion/acl
 ```
 
 ## Quick start
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 
 const access = createPolicy([
   {
@@ -47,7 +47,7 @@ The typed path names the subject once and the object type per permission, so a
 typo in an `object.*` field is a compile error.
 
 ```ts @import.meta.vitest
-import { policy, permit, eq } from '@evanion/authorization';
+import { policy, permit, eq } from '@evanion/acl';
 
 const access = policy<{ id: string }>({
   comment: {
@@ -61,7 +61,7 @@ access.can({ id: 's1' }, 'comment', 'update', { authorId: 's1' }).allowed; // ->
 ## Field-level permissions
 
 ```ts @import.meta.vitest
-import { policy, permit, always } from '@evanion/authorization';
+import { policy, permit, always } from '@evanion/acl';
 
 const access = policy<{ id: string; roles: string[] }>({
   comment: {
@@ -85,7 +85,7 @@ A backend that uses its own ACL can expose its matrix as JSON and the frontend
 adopts it. A foreign matrix fails closed on unknown permissions.
 
 ```ts @import.meta.vitest
-import { parseMatrix } from '@evanion/authorization';
+import { parseMatrix } from '@evanion/acl';
 
 const access = parseMatrix([
   {
@@ -107,7 +107,7 @@ access.can({ id: 's1' }, 'comment', 'delete').reason; // -> 'unknown-action'
 component evaluates without restating it.
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 
 const access = createPolicy([
   {

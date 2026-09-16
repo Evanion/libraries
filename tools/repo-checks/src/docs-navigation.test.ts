@@ -38,6 +38,7 @@ interface DocumentedPackage {
   documented: boolean;
   workshop: boolean;
   group: string;
+  familyId?: string;
   framework: string;
   hue: string;
 }

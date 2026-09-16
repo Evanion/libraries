@@ -1,9 +1,9 @@
 /**
- * `@evanion/authorization` -- a declarative, serializable access-control
+ * `@evanion/acl` -- a declarative, serializable access-control
  * matrix evaluated locally on whatever JS runtime is running.
  *
  * This entry is the universal core and imports no framework. The React
- * provider and hooks live in `@evanion/react-authorization`.
+ * provider and hooks live in `@evanion/react-acl`.
  */
 
 export { createPolicy } from './create-policy.js';

@@ -58,10 +58,10 @@
       "path": "./libs/widget"
     },
     {
-      "path": "./libs/authorization"
+      "path": "./libs/acl"
     },
     {
-      "path": "./libs/react-authorization"
+      "path": "./libs/react-acl"
     }
   ],
   "compilerOptions": {

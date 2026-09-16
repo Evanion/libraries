@@ -6,7 +6,7 @@ import * as path from 'path';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/libs/react-authorization',
+  cacheDir: '../../node_modules/.vite/libs/react-acl',
   plugins: [
     react(),
     dts({
@@ -23,7 +23,7 @@ export default defineConfig(() => ({
     },
     lib: {
       entry: 'src/index.tsx',
-      name: '@evanion/react-authorization',
+      name: '@evanion/react-acl',
       fileName: 'index',
       formats: ['es' as const],
     },
@@ -35,12 +35,12 @@ export default defineConfig(() => ({
         'react',
         'react-dom',
         'react/jsx-runtime',
-        '@evanion/authorization',
+        '@evanion/acl',
       ],
     },
   },
   test: {
-    name: '@evanion/react-authorization',
+    name: '@evanion/react-acl',
     watch: false,
     globals: true,
     environment: 'jsdom',

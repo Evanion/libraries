@@ -3,20 +3,20 @@
 /**
  * The React adapter: a provider and hooks over an already-built access matrix.
  *
- * Evaluation lives in `@evanion/authorization`. Nothing here decides anything;
+ * Evaluation lives in `@evanion/acl`. Nothing here decides anything;
  * this layer supplies the context and reads decisions. It serves both an
  * RSC-style graph and a traditional Node server/client split from one surface.
  */
 
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { Access, Subject } from '@evanion/authorization';
+import type { Access, Subject } from '@evanion/acl';
 import type {
   Decision,
   FieldDecision,
-} from '@evanion/authorization';
+} from '@evanion/acl';
 
-export type { Access, Subject } from '@evanion/authorization';
+export type { Access, Subject } from '@evanion/acl';
 export type {
   Condition,
   Decision,
@@ -27,7 +27,7 @@ export type {
   Matrix,
   Permission,
   Reason,
-} from '@evanion/authorization';
+} from '@evanion/acl';
 
 interface PolicyContextValue {
   access: Access;
@@ -67,7 +67,7 @@ function usePolicy(): PolicyContextValue {
   const value = useContext(PolicyContext);
   if (!value) {
     throw new Error(
-      'useCan must be called inside a <PolicyProvider> (from @evanion/react-authorization)',
+      'useCan must be called inside a <PolicyProvider> (from @evanion/react-acl)',
     );
   }
   return value;

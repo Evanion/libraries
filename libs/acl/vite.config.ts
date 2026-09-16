@@ -5,10 +5,10 @@ import { docExampleSources, docExamples } from '@evanion/doc-examples';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/libs/authorization',
+  cacheDir: '../../node_modules/.vite/libs/acl',
   ...docExamples(),
   test: {
-    name: '@evanion/authorization',
+    name: '@evanion/acl',
     watch: false,
     globals: true,
     // node, not jsdom: nothing here touches a DOM, and the package's whole

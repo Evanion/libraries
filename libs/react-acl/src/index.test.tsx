@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 
 import {
   PolicyProvider,
@@ -34,7 +34,7 @@ function Row({ id }: { id: string }) {
   return <div data-testid={`row-${id}`}>{can.allowed ? 'editable' : 'readonly'}</div>;
 }
 
-describe('react-authorization', () => {
+describe('react-acl', () => {
   it('useCan returns a decision from the provider context', () => {
     render(
       <PolicyProvider

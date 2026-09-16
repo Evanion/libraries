@@ -1,8 +1,8 @@
 {
-  "name": "@evanion/react-authorization",
+  "name": "@evanion/react-acl",
   "version": "0.0.1",
   "private": true,
-  "description": "The React binding for @evanion/authorization: a provider and hooks over an already-built access matrix.",
+  "description": "The React binding for @evanion/acl: a provider and hooks over an already-built access matrix.",
   "keywords": [
     "react",
     "authorization",
@@ -12,14 +12,14 @@
     "hooks",
     "typescript"
   ],
-  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/react-authorization#readme",
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/react-acl#readme",
   "bugs": {
     "url": "https://github.com/Evanion/libraries/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Evanion/libraries.git",
-    "directory": "libs/react-authorization"
+    "directory": "libs/react-acl"
   },
   "license": "MIT",
   "author": "Mikael Pettersson",
@@ -55,7 +55,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/authorization": "0.0.1"
+    "@evanion/acl": "0.0.1"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

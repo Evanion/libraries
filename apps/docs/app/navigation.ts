@@ -111,6 +111,18 @@ export interface DocumentedPackage {
   /** Which entry of `groups` this package sits under. */
   group: string;
   /**
+   * The family a package belongs to, set only where several packages are one
+   * thing sold across runtimes.
+   *
+   * A core and its renderers are one family, so the landing shows them as one
+   * card carrying a chip per platform. `widget` names the widget core and both
+   * renderers; `acl` the access-control core and its binding. A
+   * standalone package is its own family and omits `familyId` — there is
+   * nothing to group it with. Adding a Svelte or Vue adapter to an existing
+   * family only adds a chip and a link, never a card.
+   */
+  familyId?: string;
+  /**
    * The stack the package runs in, as a chip on its card.
    *
    * `universal` is the answer for a package that imports no framework: it runs
@@ -146,6 +158,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'react-widget',
     title: 'React Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'React',
     hue: 'sky',
     documented: true,
@@ -157,6 +170,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'astro-widget',
     title: 'Astro Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'Astro',
     // The rendering group is one family, so its three packages share one hue —
     // the same way `feature` (universal + React) uses one. A reader who has
@@ -171,6 +185,7 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'widget',
     title: 'Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'universal',
     // One hue for the whole rendering family, including the framework-free core.
     hue: 'sky',
@@ -228,7 +243,7 @@ export const packages: readonly DocumentedPackage[] = [
     name: '@evanion/nestjs-correlation-id',
     root: 'nest/correlation-id',
     slug: 'nestjs-correlation-id',
-    title: 'NestJS Correlation ID',
+    title: 'Correlation ID',
     group: 'standalone',
     framework: 'NestJS',
     hue: 'mint',
@@ -239,7 +254,7 @@ export const packages: readonly DocumentedPackage[] = [
     name: '@evanion/feature',
     root: 'libs/feature',
     slug: 'feature',
-    title: 'Feature Toggles',
+    title: 'Feature',
     group: 'standalone',
     framework: 'universal + React',
     hue: 'amber',
@@ -247,22 +262,24 @@ export const packages: readonly DocumentedPackage[] = [
     workshop: true,
   },
   {
-    name: '@evanion/authorization',
-    root: 'libs/authorization',
-    slug: 'authorization',
+    name: '@evanion/acl',
+    root: 'libs/acl',
+    slug: 'acl',
     title: 'Authorization',
     group: 'standalone',
+    familyId: 'acl',
     framework: 'universal',
     hue: 'coral',
     documented: false,
     workshop: true,
   },
   {
-    name: '@evanion/react-authorization',
-    root: 'libs/react-authorization',
-    slug: 'react-authorization',
+    name: '@evanion/react-acl',
+    root: 'libs/react-acl',
+    slug: 'react-acl',
     title: 'React Authorization',
     group: 'standalone',
+    familyId: 'acl',
     framework: 'React',
     // `stone` is the unsaturated hue on the categorical scale, for a member
     // with no colour of its own. The React binding has no colour of its own

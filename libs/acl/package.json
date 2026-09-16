@@ -1,5 +1,5 @@
 {
-  "name": "@evanion/authorization",
+  "name": "@evanion/acl",
   "version": "0.0.1",
   "private": true,
   "description": "A declarative, serializable access-control matrix authored once and evaluated locally on whatever JS runtime is running: a Node backend, a frontend SSR graph, a browser SPA, or a hybrid JS platform.",
@@ -12,14 +12,14 @@
     "matrix",
     "typescript"
   ],
-  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/authorization#readme",
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/acl#readme",
   "bugs": {
     "url": "https://github.com/Evanion/libraries/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Evanion/libraries.git",
-    "directory": "libs/authorization"
+    "directory": "libs/acl"
   },
   "license": "MIT",
   "author": "Mikael Pettersson",

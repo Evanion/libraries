@@ -47,8 +47,8 @@ const LIBS = [
   ['libs/feature', '@evanion/feature'],
   ['libs/token', '@evanion/token'],
   ['libs/baize-ui', '@evanion/baize-ui'],
-  ['libs/authorization', '@evanion/authorization'],
-  ['libs/react-authorization', '@evanion/react-authorization'],
+  ['libs/acl', '@evanion/acl'],
+  ['libs/react-acl', '@evanion/react-acl'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -413,7 +413,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   }
   console.log('  ✓ widget core imports no framework');
 
-  // @evanion/authorization is the framework-free half of access control: its
+  // @evanion/acl is the framework-free half of access control: its
   // core evaluates a matrix locally and must import no framework, so it runs in
   // a Node backend, a frontend SSR graph, a browser SPA or a hybrid JS platform.
   // Same silent-breakage risk as the widget core, so the same check: every
@@ -422,7 +422,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     dir,
     'node_modules',
     '@evanion',
-    'authorization',
+    'acl',
     'dist',
   );
   const authzCoreModules = readdirSync(authzCoreDist, {
@@ -433,7 +433,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     .map((entry) => join(entry.parentPath, entry.name));
 
   if (authzCoreModules.length === 0) {
-    throw new Error('@evanion/authorization ships no modules at all');
+    throw new Error('@evanion/acl ships no modules at all');
   }
 
   const authzFrameworkImporters = authzCoreModules.filter((file) => {
@@ -446,14 +446,14 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   });
   if (authzFrameworkImporters.length) {
     throw new Error(
-      '@evanion/authorization imports a framework: ' +
+      '@evanion/acl imports a framework: ' +
         authzFrameworkImporters
           .map((file) => file.slice(authzCoreDist.length + 1))
           .join(', ') +
         '. The core is what every runtime shares, so nothing under it may import one.',
     );
   }
-  console.log('  ✓ authorization core imports no framework');
+  console.log('  ✓ acl core imports no framework');
 
 
   // Every adapter names the core at an exact version equal to the packed core's

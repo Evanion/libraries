@@ -1,6 +1,6 @@
 # React Authorization
 
-The React binding for `@evanion/authorization`. A provider and hooks over an
+The React binding for `@evanion/acl`. A provider and hooks over an
 already-built access matrix, for both an RSC-style graph and a traditional Node
 server/client split. Evaluation lives in the core; nothing here decides
 anything.
@@ -8,14 +8,14 @@ anything.
 ## Installation
 
 ```bash
-npm install @evanion/react-authorization
+npm install @evanion/react-acl
 ```
 
 ## Quick start
 
 ```tsx
-import { PolicyProvider, useCan } from '@evanion/react-authorization';
-import { createPolicy } from '@evanion/authorization';
+import { PolicyProvider, useCan } from '@evanion/react-acl';
+import { createPolicy } from '@evanion/acl';
 
 const access = createPolicy([
   {
