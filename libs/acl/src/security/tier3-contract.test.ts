@@ -196,23 +196,21 @@ describe('SEC-207 the clock is a parameter (CWE-807)', () => {
     );
   });
 
-  it('stops denying when a time-gated deny cannot read the clock', () => {
-    // No defence, and the direction matters: a condition that fails is a rule
-    // that does not match, and a deny rule that does not match does not deny.
+  it('moves a closed window for every entry point that takes a clock', () => {
     const access = foreign([
       permission('sale', 'buy', {
-        rules: [always],
-        denyRules: [when({ field: 'now', op: 'after', value: '2020-01-01' })],
+        rules: [when({ field: 'now', op: 'before', value: '2020-01-01' })],
       }),
     ]);
 
-    expect(access.can({}, 'sale', 'buy').allowed).toBe(false);
+    const early = '2019-06-01';
+    expect(access.canMany({}, 'sale', 'buy', [{}], early)[0]?.allowed).toBe(
+      true,
+    );
     expect(
-      access.can({}, 'sale', 'buy', undefined, 'not a date' as never).allowed,
+      access.authorize({}, { now: early }).can('sale', 'buy').allowed,
     ).toBe(true);
-    expect(
-      access.can({}, 'sale', 'buy', undefined, null as never).allowed,
-    ).toBe(true);
+    expect(access.capabilities({}, early)['sale.buy']?.allowed).toBe(true);
   });
 });
 

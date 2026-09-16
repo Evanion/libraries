@@ -161,24 +161,47 @@ describe('evaluateCondition', () => {
     }
   });
 
-  it('a now that does not parse fails the condition rather than throwing', () => {
+  it('a now that does not parse leaves the clock unusable rather than throwing', () => {
     const window: Condition = {
       field: 'now',
       op: 'after',
       value: '2020-01-01T00:00:00Z',
     };
-    for (const now of ['not a date', Number.NaN, new Date('not a date')]) {
-      expect(() => state(window, { ...ctx, now })).not.toThrow();
-      expect(state(window, { ...ctx, now })).toBe('fails');
-      expect(state({ ...window, op: 'before' }, { ...ctx, now })).toBe('fails');
+    const broken = [
+      'not a date',
+      '',
+      '01/02/2020 sometime',
+      Number.NaN,
+      new Date('not a date'),
+      null,
+    ];
+    for (const now of broken) {
+      const context = { ...ctx, now } as EvaluationContext;
+      expect(() => state(window, context)).not.toThrow();
+      expect(state(window, context)).toBe('unusable-clock');
+      expect(state({ ...window, op: 'before' }, context)).toBe(
+        'unusable-clock',
+      );
     }
   });
 
-  it('an absent now fails a time condition', () => {
+  it('a boundary that does not parse leaves the clock unusable', () => {
+    expect(state({ field: 'now', op: 'after', value: 'not a date' }, ctx)).toBe(
+      'unusable-clock',
+    );
+  });
+
+  it('an absent now reads the wall clock', () => {
     const clockless: EvaluationContext = { subject: ctx.subject };
     expect(
       state(
         { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
+        clockless,
+      ),
+    ).toBe('holds');
+    expect(
+      state(
+        { field: 'now', op: 'before', value: '2020-01-01T00:00:00Z' },
         clockless,
       ),
     ).toBe('fails');

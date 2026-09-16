@@ -8,6 +8,7 @@ import {
   KeyMismatchError,
   TargetsTransitionsConflictError,
 } from './errors.js';
+import { toEpoch } from './conditions.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
   Condition,
@@ -136,6 +137,17 @@ function assertCondition(
         where,
         named,
         'needs an instant value: an ISO string, epoch milliseconds, or a Date',
+      );
+    }
+    // The boundary comes from the document and is settled once, here. A window
+    // whose edge is not a point in time states nothing a decision could read,
+    // and the document is the party that can fix it.
+    if (Number.isNaN(toEpoch(value))) {
+      throw new InvalidConditionError(
+        key,
+        where,
+        named,
+        `carries an instant that does not parse: ${JSON.stringify(String(value))}`,
       );
     }
     return;

@@ -990,38 +990,130 @@ describe('SEC-017 a value of the wrong type is a miss, not a match (CWE-1287)', 
   });
 });
 
-describe('SEC-018 a clock that does not settle grants nothing (CWE-754)', () => {
-  const windowed = () =>
+describe('SEC-018 a clock that does not settle decides nothing (CWE-754)', () => {
+  /** Every shape a supplied clock arrives in that is not a point in time. */
+  const unusable = [
+    ['a string that is not a date', 'not a date'],
+    ['an empty string', ''],
+    ['a non-ISO string', '01/02/2020 sometime'],
+    ['NaN', Number.NaN],
+    ['an Invalid Date', new Date('nope')],
+    ['null', null],
+  ] as const;
+
+  const allowWindow = () =>
     foreign([
       permission('sale', 'buy', {
         rules: [when({ field: 'now', op: 'before', value: '2999-01-01' })],
       }),
     ]);
 
-  it('refuses when the caller clock does not parse', () => {
-    for (const clock of ['not a date', Number.NaN, new Date('nope')]) {
-      expect(
-        windowed().can({}, 'sale', 'buy', undefined, clock as never).allowed,
-      ).toBe(false);
-    }
-  });
-
-  it('refuses when the caller clock is null', () => {
-    expect(
-      windowed().can({}, 'sale', 'buy', undefined, null as never).allowed,
-    ).toBe(false);
-  });
-
-  it('refuses when the boundary does not parse', () => {
-    const access = foreign([
+  const denyWindow = () =>
+    foreign([
       permission('sale', 'buy', {
-        rules: [when({ field: 'now', op: 'before', value: 'not a date' })],
+        rules: [always],
+        denyRules: [when({ field: 'now', op: 'after', value: '2020-01-01' })],
       }),
     ]);
 
-    expect(access.can({}, 'sale', 'buy', undefined, Date.now()).allowed).toBe(
-      false,
+  for (const [name, clock] of unusable) {
+    it(`refuses a time-gated allow when the clock is ${name}`, () => {
+      const decision = allowWindow().can(
+        {},
+        'sale',
+        'buy',
+        undefined,
+        clock as never,
+      );
+      expect(decision.allowed).toBe(false);
+      expect(decision.reason).toBe('unusable-clock');
+    });
+
+    it(`refuses a time-gated deny when the clock is ${name}`, () => {
+      const decision = denyWindow().can(
+        {},
+        'sale',
+        'buy',
+        undefined,
+        clock as never,
+      );
+      expect(decision.allowed).toBe(false);
+      expect(decision.reason).toBe('unusable-clock');
+    });
+  }
+
+  it('denies the same permission under a clock that parses', () => {
+    expect(
+      denyWindow().can({}, 'sale', 'buy', undefined, '2026-01-01').reason,
+    ).toBe('denied');
+  });
+
+  it('refuses the deny side ahead of an allow rule that matched', () => {
+    const access = foreign([
+      permission('sale', 'buy', {
+        rules: [always, when({ field: 'subject.id', op: 'eq', value: 's1' })],
+        denyRules: [when({ field: 'now', op: 'after', value: '2020-01-01' })],
+      }),
+    ]);
+
+    const decision = access.can(
+      { id: 's1' },
+      'sale',
+      'buy',
+      undefined,
+      'not a date' as never,
     );
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toBe('unusable-clock');
+    expect(decision.rule).toBe('#0');
+  });
+
+  it('refuses ahead of an unevaluable object path rather than asking for a refetch', () => {
+    const access = foreign([
+      permission('sale', 'buy', {
+        rules: [always],
+        denyRules: [
+          when(
+            { field: 'now', op: 'after', value: '2020-01-01' },
+            { field: 'object.locked', op: 'eq', value: true },
+          ),
+        ],
+      }),
+    ]);
+
+    const decision = access.can({}, 'sale', 'buy', {}, 'not a date' as never);
+    expect(decision.reason).toBe('unusable-clock');
+    expect(decision.missing).toBeUndefined();
+  });
+
+  it('reads the wall clock when no clock is supplied', () => {
+    const open = allowWindow().can({}, 'sale', 'buy');
+    expect(open.allowed).toBe(true);
+    expect(open.reason).toBe('allow');
+    expect(denyWindow().can({}, 'sale', 'buy').reason).toBe('denied');
+  });
+
+  it('refuses a boundary that does not parse at construction', () => {
+    const build = () =>
+      foreign([
+        permission('sale', 'buy', {
+          rules: [when({ field: 'now', op: 'before', value: 'not a date' })],
+        }),
+      ]);
+
+    expect(build).toThrow(InvalidConditionError);
+    expect(build).toThrow(/does not parse/);
+  });
+
+  it('refuses a boundary that does not parse inside a deny rule', () => {
+    expect(() =>
+      foreign([
+        permission('sale', 'buy', {
+          rules: [always],
+          denyRules: [when({ field: 'now', op: 'after', value: '' })],
+        }),
+      ]),
+    ).toThrow(InvalidConditionError);
   });
 });
 

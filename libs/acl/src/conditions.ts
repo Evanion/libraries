@@ -17,10 +17,11 @@ export function toEpoch(value: Instant): number {
 }
 
 /**
- * A context whose clock is settled: `now` is epoch milliseconds, NaN when it is
- * absent or does not parse. The public `EvaluationContext` takes any `Instant`;
- * every entry point settles it once through `resolveContext` so a matrix with
- * many time conditions parses the clock once.
+ * A context whose clock is settled: `now` is epoch milliseconds, NaN when the
+ * caller supplied an instant that does not parse. The public
+ * `EvaluationContext` takes any `Instant`; every entry point settles it once
+ * through `resolveContext` so a matrix with many time conditions parses the
+ * clock once.
  */
 export interface ResolvedContext {
   subject: Record<string, unknown>;
@@ -28,9 +29,21 @@ export interface ResolvedContext {
   now: number;
 }
 
-/** The epoch a context `now` settles to. NaN when absent or unparseable. */
+/**
+ * The epoch a context `now` settles to.
+ *
+ * An absent clock is the wall clock: not supplying one asks the engine for the
+ * current time, and every entry point answers that the same way. A supplied one
+ * that does not parse — `null`, `NaN`, an `Invalid Date`, a string that is not a
+ * date — settles to NaN, the unusable clock, and no condition reading it
+ * decides anything.
+ */
 export function settleNow(now: Instant | null | undefined): number {
-  return now === null || now === undefined ? Number.NaN : toEpoch(now);
+  return now === undefined
+    ? Date.now()
+    : now === null
+      ? Number.NaN
+      : toEpoch(now);
 }
 
 /** Settles a caller's context into the form the engine evaluates against. */
@@ -48,10 +61,12 @@ export function resolveContext(ctx: EvaluationContext): ResolvedContext {
  * resolve. Returns undefined when the scope or field is absent.
  *
  * A bare "now" reads as the settled epoch, so an `eq`-family condition over it
- * compares numbers. A clock that did not settle reads as absent.
+ * compares numbers. `evaluateResolved` settles an unusable clock before any
+ * path is read, so the epoch this returns is always a number a comparison can
+ * use.
  */
 function readPath(ctx: ResolvedContext, path: string): unknown {
-  if (path === 'now') return Number.isNaN(ctx.now) ? undefined : ctx.now;
+  if (path === 'now') return ctx.now;
   const dot = path.indexOf('.');
   if (dot === -1) return undefined;
   const scope = path.slice(0, dot);
@@ -70,6 +85,7 @@ function readPath(ctx: ResolvedContext, path: string): unknown {
 
 const HOLDS: ConditionOutcome = { state: 'holds' };
 const FAILS: ConditionOutcome = { state: 'fails' };
+const UNUSABLE_CLOCK: ConditionOutcome = { state: 'unusable-clock' };
 
 function held(value: boolean): ConditionOutcome {
   return value ? HOLDS : FAILS;
@@ -116,25 +132,39 @@ export function conditionReadsObject(condition: Condition): boolean {
   return comparand !== undefined && isObjectPath(comparand);
 }
 
+/** Whether a condition reads the context clock, on either operand. */
+function readsClock(condition: Condition): boolean {
+  return condition.field === 'now' || comparandPathOf(condition) === 'now';
+}
+
 /**
  * How a condition stands against a settled context. Never throws.
  *
  * Absence is unevaluable for every operator, negative ones included: `ne` over
  * a path that does not read is not "true because it is not equal".
  *
- * A clock or a boundary that does not parse fails the condition. Neither is an
- * `object.*` projection the caller can fill in, so neither is unevaluable.
+ * A clock that does not parse is `unusable-clock`, which is neither a hold nor a
+ * fail: a comparison with no instant on one side decides nothing, and a fail
+ * here would let a time-gated deny stop denying. The state is terminal for the
+ * permission — the caller has to supply an instant that parses — so it is
+ * distinct from `unevaluable`, which one refetch repairs.
+ *
+ * `validateMatrix` refuses a `before`/`after` boundary that does not parse, so a
+ * constructed policy reaches the boundary guard only through a condition that
+ * did not come from a matrix. It lands in the same state for the same reason.
  */
 export function evaluateResolved(
   condition: Condition,
   ctx: ResolvedContext,
 ): ConditionOutcome {
+  if (readsClock(condition) && Number.isNaN(ctx.now)) return UNUSABLE_CLOCK;
+
   if (condition.op === 'before' || condition.op === 'after') {
-    const now = ctx.now;
-    if (Number.isNaN(now)) return FAILS;
     const boundary = toEpoch(condition.value);
-    if (Number.isNaN(boundary)) return FAILS;
-    return held(condition.op === 'before' ? now < boundary : now > boundary);
+    if (Number.isNaN(boundary)) return UNUSABLE_CLOCK;
+    return held(
+      condition.op === 'before' ? ctx.now < boundary : ctx.now > boundary,
+    );
   }
 
   const missing: string[] = [];
