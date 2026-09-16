@@ -59,8 +59,8 @@ enforce anything.
    (`MissingVetoSchemaError`), checked whether or not the overlay touches that
    key. § 4.
 6. The third refusal reuses `assertSchemaFit`'s checker rather than a second one.
-   `schema.ts` gains an exported `assertRulesFit(schema, permission, where,
-   rules)`; `assertSchemaFit` is now that function called twice. § 4.
+   `schema.ts` gains an exported `assertRulesFit`, and `assertSchemaFit` is now
+   that function called twice. § 4.
 7. The ordinary structural gate runs over the contribution too: `validate.ts`
    exports `assertRules`, and the overlay calls it with `where` of `overlay`. It
    is not a fourth refusal, it is the same gate the document already passes, run

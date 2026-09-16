@@ -31,7 +31,9 @@ const SCHEMA: MatrixSchema = {
     fields: { id: 'string', roles: 'string[]', tier: 'string' },
   },
   objects: {
-    comment: { fields: { authorId: 'string', status: 'string', score: 'number' } },
+    comment: {
+      fields: { authorId: 'string', status: 'string', score: 'number' },
+    },
     post: { fields: { authorId: 'string', status: 'string', score: 'number' } },
   },
 };
@@ -46,7 +48,9 @@ function base(): Matrix {
         object: 'comment',
         action: 'update',
         rules: [
-          { when: [{ field: 'subject.id', op: 'eq', path: 'object.authorId' }] },
+          {
+            when: [{ field: 'subject.id', op: 'eq', path: 'object.authorId' }],
+          },
         ],
       },
       {
@@ -70,15 +74,23 @@ const HOLD: Rule = {
 describe('applyDenyOverlay refuses at apply time, naming the key', () => {
   it('refuses a key the target does not define', () => {
     expect(() =>
-      applyDenyOverlay(base(), { 'invoice.void': [HOLD] }, {
-        vetoable: VETOABLE,
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'invoice.void': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      ),
     ).toThrow(UnknownPermissionError);
 
     expect(() =>
-      applyDenyOverlay(base(), { 'invoice.void': [HOLD] }, {
-        vetoable: VETOABLE,
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'invoice.void': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      ),
     ).toThrow(/"invoice\.void"/);
   });
 
@@ -90,15 +102,23 @@ describe('applyDenyOverlay refuses at apply time, naming the key', () => {
 
   it('refuses a key the target does not open for veto', () => {
     expect(() =>
-      applyDenyOverlay(base(), { 'post.read': [HOLD] }, {
-        vetoable: ['comment.update'],
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'post.read': [HOLD] },
+        {
+          vetoable: ['comment.update'],
+        },
+      ),
     ).toThrow(UnvetoablePermissionError);
 
     expect(() =>
-      applyDenyOverlay(base(), { 'post.read': [HOLD] }, {
-        vetoable: ['comment.update'],
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'post.read': [HOLD] },
+        {
+          vetoable: ['comment.update'],
+        },
+      ),
     ).toThrow(/"post\.read" is not vetoable/);
   });
 
@@ -207,13 +227,20 @@ describe('the schema obligation is scoped to the vetoable keys', () => {
   it('owes nothing for a kind no vetoable key names', () => {
     const matrix: Matrix = {
       ...base(),
-      schema: { subject: SCHEMA.subject, objects: { comment: SCHEMA.objects?.['comment'] ?? {} } },
+      schema: {
+        subject: SCHEMA.subject,
+        objects: { comment: SCHEMA.objects?.['comment'] ?? {} },
+      },
     };
 
     expect(() =>
-      applyDenyOverlay(matrix, { 'comment.update': [HOLD] }, {
-        vetoable: ['comment.update'],
-      }),
+      applyDenyOverlay(
+        matrix,
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: ['comment.update'],
+        },
+      ),
     ).not.toThrow();
   });
 
@@ -226,9 +253,13 @@ describe('the schema obligation is scoped to the vetoable keys', () => {
 describe('the structural gate runs over the contribution', () => {
   it('refuses a rule with no when', () => {
     expect(() =>
-      applyDenyOverlay(base(), { 'post.read': [{ id: 'x' } as Rule] }, {
-        vetoable: VETOABLE,
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'post.read': [{ id: 'x' } as Rule] },
+        {
+          vetoable: VETOABLE,
+        },
+      ),
     ).toThrow(InvalidRuleError);
   });
 });
@@ -236,16 +267,25 @@ describe('the structural gate runs over the contribution', () => {
 describe('a valid overlay narrows', () => {
   const overlaid = () =>
     createPolicy(
-      applyDenyOverlay(base(), { 'comment.update': [HOLD] }, {
-        vetoable: VETOABLE,
-      }),
+      applyDenyOverlay(
+        base(),
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      ),
     );
 
   const subject = { id: 'u1', roles: [], tier: 'sanctioned' };
   const object = { authorId: 'u1', status: 'open', score: 1 };
 
   it('a subject who could, now cannot', () => {
-    const before = createPolicy(base()).can(subject, 'comment', 'update', object);
+    const before = createPolicy(base()).can(
+      subject,
+      'comment',
+      'update',
+      object,
+    );
     expect(before.allowed).toBe(true);
 
     const after = overlaid().can(subject, 'comment', 'update', object);
@@ -259,7 +299,9 @@ describe('a valid overlay narrows', () => {
 
   it('leaves a subject the overlay does not name alone', () => {
     const clear = { id: 'u1', roles: [], tier: 'ordinary' };
-    expect(overlaid().can(clear, 'comment', 'update', object).allowed).toBe(true);
+    expect(overlaid().can(clear, 'comment', 'update', object).allowed).toBe(
+      true,
+    );
   });
 
   it('leaves the permissions it does not name alone', () => {
@@ -284,9 +326,13 @@ describe('a valid overlay narrows', () => {
       ),
     };
 
-    const result = applyDenyOverlay(authored, { 'comment.update': [HOLD] }, {
-      vetoable: VETOABLE,
-    });
+    const result = applyDenyOverlay(
+      authored,
+      { 'comment.update': [HOLD] },
+      {
+        vetoable: VETOABLE,
+      },
+    );
     const updated = result.permissions.find((p) => p.key === 'comment.update');
 
     expect(updated?.denyRules?.map((rule) => rule.id)).toEqual([
@@ -298,16 +344,24 @@ describe('a valid overlay narrows', () => {
   it('does not touch the matrix it was handed', () => {
     const authored = base();
     const snapshot = JSON.stringify(authored);
-    applyDenyOverlay(authored, { 'comment.update': [HOLD] }, {
-      vetoable: VETOABLE,
-    });
+    applyDenyOverlay(
+      authored,
+      { 'comment.update': [HOLD] },
+      {
+        vetoable: VETOABLE,
+      },
+    );
     expect(JSON.stringify(authored)).toBe(snapshot);
   });
 
   it('carries the version through unchanged', () => {
-    const result = applyDenyOverlay(base(), { 'comment.update': [HOLD] }, {
-      vetoable: VETOABLE,
-    });
+    const result = applyDenyOverlay(
+      base(),
+      { 'comment.update': [HOLD] },
+      {
+        vetoable: VETOABLE,
+      },
+    );
     expect(result.version).toBe('orders@7');
   });
 });
@@ -361,17 +415,25 @@ describe('an overlay deny that cannot be evaluated refuses', () => {
 
 describe('the result is still a document', () => {
   it('round-trips through JSON unchanged', () => {
-    const result = applyDenyOverlay(base(), { 'comment.update': [HOLD] }, {
-      vetoable: VETOABLE,
-    });
+    const result = applyDenyOverlay(
+      base(),
+      { 'comment.update': [HOLD] },
+      {
+        vetoable: VETOABLE,
+      },
+    );
 
     expect(JSON.parse(JSON.stringify(result))).toEqual(result);
   });
 
   it('constructs, and the access behaves', () => {
-    const result = applyDenyOverlay(base(), { 'comment.update': [HOLD] }, {
-      vetoable: VETOABLE,
-    });
+    const result = applyDenyOverlay(
+      base(),
+      { 'comment.update': [HOLD] },
+      {
+        vetoable: VETOABLE,
+      },
+    );
     const access = createPolicy(JSON.parse(JSON.stringify(result)) as Matrix);
 
     expect(access.version).toBe('orders@7');
@@ -407,9 +469,13 @@ describe('the authoring party can run it against a published subset', () => {
     ).toThrow(UnknownFieldError);
 
     expect(() =>
-      applyDenyOverlay(published, { 'comment.update': [HOLD] }, {
-        vetoable: ['comment.update'],
-      }),
+      applyDenyOverlay(
+        published,
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: ['comment.update'],
+        },
+      ),
     ).not.toThrow();
   });
 });
@@ -498,7 +564,8 @@ interface Case {
 
 function evaluationCase(gen: Gen): Case {
   const subject: Record<string, unknown> = { id: gen.pick(['u1', 'u2']) };
-  if (gen.bool(0.8)) subject['roles'] = gen.list(2, () => gen.pick(['admin', 'ops']));
+  if (gen.bool(0.8))
+    subject['roles'] = gen.list(2, () => gen.pick(['admin', 'ops']));
   if (gen.bool(0.8)) subject['tier'] = gen.pick(['gold', 'ordinary']);
 
   const item: Case = { subject };
@@ -548,13 +615,20 @@ describe('an overlay that matches nothing changes no decision', () => {
     const inert: DenyOverlay = Object.fromEntries(
       vetoable.map((key) => [
         key,
-        [{ id: 'inert', when: [{ field: 'subject.tier', op: 'eq', value: 'nobody' }] }],
+        [
+          {
+            id: 'inert',
+            when: [{ field: 'subject.tier', op: 'eq', value: 'nobody' }],
+          },
+        ],
       ]),
     );
 
     const overlaid = applyDenyOverlay(document, inert, { vetoable });
 
-    expect(decisionsFor(overlaid, cases)).toEqual(decisionsFor(document, cases));
+    expect(decisionsFor(overlaid, cases)).toEqual(
+      decisionsFor(document, cases),
+    );
   });
 });
 
