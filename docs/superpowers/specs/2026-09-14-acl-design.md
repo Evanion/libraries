@@ -142,10 +142,20 @@ does not parse. Failing, not undecidable: an unparseable instant is not an
 hold. The permission lands on `no-rule-matched`, and a deny rule over an
 unparseable clock does not deny.
 
-Construction validates that every condition field resolves within one of the
-three namespaces. For a foreign matrix the check is namespace-only (the engine
-has no types to check field names against); for the typed authoring path, field
-names are additionally checked at compile time against the declared types.
+Construction validates that every condition resolves and can decide something.
+The engine reads a path as a scope and one field of that scope, so a condition
+field is `now`, `subject.<field>` or `object.<field>` and nothing deeper: a path
+that nests below its scope never reads, and a condition that never reads inside a
+deny rule is a deny that does not deny. `condition.path` is held to the same rule
+as `condition.field`. The operator and its comparand are checked as a pair —
+`in` / `not-in` need an array `value`, `contains` needs a `value`, `eq` / `ne`
+need exactly one of `value` or `path`, `before` / `after` read `now` and need an
+instant — so no condition reaches the engine whose operand the engine would
+ignore.
+
+For a foreign matrix field names themselves are unchecked (the engine has no
+types to check them against); for the typed authoring path, field names are
+additionally checked at compile time against the declared types.
 
 ## Matrix format
 
@@ -195,7 +205,12 @@ A flat list with a `dependsOn` cascade, mirroring `@evanion/feature`.
   `key` string, so a permission whose `key` disagrees with its `object` and
   `action` is unreachable — a silent hole in the matrix rather than a visible
   failure. A typed object→action union is derived for the typed authoring path.
-- `rules` are OR-ed; the `when` conditions inside one rule are AND-ed.
+- `rules` are OR-ed; the `when` conditions inside one rule are AND-ed. `when` is
+  **required** on every rule. An empty `when` is the unconditional form
+  (`always`), so a rule that arrives without the key is indistinguishable from
+  one an author wrote as `always` — and the two differ by an unconditional
+  grant. Requiring the key separates them at no cost across a JSON boundary,
+  where `[]` survives and `undefined` does not.
 - `dependsOn` is a cascade. A permission whose dependency resolves off is off,
   transitively, carrying `blockedBy` and `cause` — the same shape as `feature`.
 - There is no `enabled` flag. A permission with no `rules` and no `dependsOn`
@@ -782,22 +797,54 @@ claim that context normalization is the hot cost.
 `createPolicy(matrix)` validates once and **freezes**, mirroring `luhn`,
 `token` and `feature`:
 
+A foreign matrix is untrusted input, so validation is structural before it is
+semantic: every node's type is checked before anything reads it, and a matrix
+validation accepts evaluates without throwing.
+
+- a matrix that is not an array, or a permission that is not an object
+- a permission with no `key`, `object` or `action`
 - duplicate keys
 - a `key` that is not `` `${object}.${action}` ``
-- `dependsOn` naming an unknown key
-- dependency cycles, with the path in the error
+- a `.` in `object` or in `action`. The key is the two parts joined on a dot,
+  and that join reverses only while neither part carries one: `{ object: 'a.b',
+action: 'c' }` and `{ object: 'a', action: 'b.c' }` are two permissions with
+  one key, and one silently shadows the other. With the key-equality rule, key
+  construction is total in both directions. A `:` stays legal: an object kind
+  namespaced by its origin is spelled `orders:invoice`, so
+  `orders:invoice.read` satisfies the key rule character for character
+- `rules` / `denyRules` that are not arrays, and a rule that is not an object
+- a rule with no `when`, or a `when` that is not an array
+- a condition that is not an object, or that names no field
 - an unknown op
-- a condition field that does not resolve within `subject.*` / `object.*` / `now`
-  (namespace check; field-name validity is a typed-path compile-time guarantee)
+- a condition field or `path` that does not resolve within `subject.<field>` /
+  `object.<field>` / `now` — including one nesting below its scope (field-name
+  validity itself is a typed-path compile-time guarantee)
+- an operator paired with a comparand it cannot use: a non-array `value` for
+  `in` / `not-in`, a missing `value` for `contains`, an `eq` / `ne` with both or
+  neither of `value` and `path`, a `path` on an operator that compares against a
+  literal, a `before` / `after` that does not read `now` or whose `value` is not
+  an instant
+- `dependsOn` that is not a list of keys, or naming an unknown key
+- dependency cycles, with the path in the error
+- field rules that are not the documented shape: a `fields` that is not an
+  object, a name list that is not an array of strings, a field config that is
+  not an object, a non-array `targets`, a non-object `transitions`
 - a deny with no `*` baseline in `fields()`
 - a bang mixed into an explicit allow-list in `fields()`
 - both `targets` and `transitions` on the same field
-- a rule node that cannot round-trip through JSON (a captured object reference,
-  a function, a `Date`, a `Map`)
+- a permission holding a value the structured clone algorithm refuses: a
+  function, a symbol, or a structure nested deeper than it walks
 
 The matrix is cloned and deeply frozen at construction (`structuredClone` +
 `deepFreeze`), so an instance you hold can never produce a decision its own
-config rejects, and a runtime object can never leak into it.
+config rejects, and a runtime object can never leak into it. A `Date` clones and
+is accepted as an `Instant`; a shape that refers back to itself clones and
+freezes. Cloning is per permission, so a value the clone refuses is reported
+against the permission holding it.
+
+Both walks over a matrix — the `dependsOn` order in `buildGraph` and the freeze —
+are iterative. Their depth is the foreign matrix's choice, and the depth a
+runtime gives a call stack is not the depth a matrix may declare.
 
 ### Construction errors
 
@@ -808,15 +855,40 @@ explain themselves:
 - `BangInAllowListError` — a `!` entry mixed into an explicit allow-list.
 - `TargetsTransitionsConflictError` — both `targets` and `transitions` on one
   field.
-- `KeyMismatchError` — `key` is not `` `${object}.${action}` ``.
+- `KeyMismatchError` — `key` is not `` `${object}.${action}` ``, naming all
+  three.
+- `InvalidMatrixError` — the matrix is not an array of permissions, a permission
+  has no key, or a permission holds a value that cannot be cloned.
+- `InvalidPermissionError` — a permission node's own shape: `object`, `action`,
+  `rules`, `denyRules`, `dependsOn` or `fields`. A `.` in `object` or `action`
+  raises this rather than a class of its own: the key still equals its parts, so
+  it is not a mismatch, and the part that carries the delimiter is a field of the
+  permission like any other.
+- `InvalidRuleError` — a rule that is not an object, or whose `when` is absent or
+  not an array.
+- `InvalidConditionError` — a condition's shape, namespace, path depth, or
+  operator/comparand pairing.
+
+Every message names the offending permission key and the offending field, and
+locates a rule or condition inside the permission (`denyRules[0].when[1]`), so
+the author of a foreign matrix can find it without a line number.
 
 The base class is `AclConfigError`, matching the `@evanion/acl` package name.
 The name is a public export, so it is fixed before the first publish.
 
-Evaluation is total: it never throws for a data-shape problem. Omitting
-`proposed` where a `targets` or `transitions` rule exists yields an
-`unevaluable` field decision with reason `proposed-required`, not a thrown
-error, keeping the repo's "evaluate is total" discipline.
+Evaluation is total: once a matrix is constructed, no entry point throws for any
+context. For any matrix and any context, `parseMatrix` either rejects the matrix
+with an `AclConfigError` or returns an access object whose `can`, `canMany`,
+`canFields` and `capabilities` answer with a decision — there is no third
+outcome. A property test over generated malformed matrices and generated
+contexts holds the claim. Omitting `proposed` where a `targets` or `transitions`
+rule exists yields an `unevaluable` field decision with reason
+`proposed-required`, not a thrown error.
+
+The runtime `UnknownObjectKeyError` / `UnknownPermissionError` throws are the one
+exception, and are the typed matrix's programmer-error backstop rather than a
+data-shape failure: the untrusted `parseMatrix` path is closed and answers
+`unknown-action`.
 
 `ActionNotAllowedError` is the one error raised outside construction, and it
 does not extend `AclConfigError`: it reports a decision, not a configuration
@@ -1045,8 +1117,16 @@ Mirrors `feature`'s discipline:
 - one unit test per condition op
 - the `dependsOn` cascade
 - validation errors (duplicate key, key/object.action mismatch, unknown
-  dependency, cycle, unknown op, namespace resolution, deny-without-baseline,
+  dependency, cycle, unknown op, namespace resolution, path depth,
+  operator/comparand pairing, rule and condition shape, deny-without-baseline,
   bang-in-allow-list, targets+transitions exclusivity)
+- a totality property: for a generated matrix — wrong types in every position,
+  nulls, prototype keys, deep nesting — and a generated context, construction
+  rejects with an `AclConfigError` or every entry point returns a decision. This
+  is the test that makes the totality claim true rather than aspirational, and a
+  seeded generator so a counterexample is a seed
+- a dependency chain and a nested value deeper than a call stack, which the
+  construction walks settle without a `RangeError`
 - a serializability round-trip (matrix → JSON → matrix → identical decisions)
 - a `reason`-is-output-only invariant (decide with reasons stripped, assert the
   same outcome)
