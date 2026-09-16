@@ -38,6 +38,7 @@ engine refused.
 | `dependency-off`  | a `dependsOn` parent resolved off; carries `blockedBy` and `cause` |
 | `unknown-action`  | the key is not in the matrix; the fail-closed path only            |
 | `unevaluable`     | a rule read a path the object did not carry; carries `missing`     |
+| `unusable-clock`  | a rule read a `now` that is not an instant; carries `rule`         |
 
 ## Default deny, express allow, express deny wins
 
@@ -220,7 +221,8 @@ survive JSON, so a hydrated SSR payload passes straight through.
 ```
 
 It is settled to a single epoch once per call, so a matrix with many time
-windows parses the clock once. An instant that does not parse never throws: the
-`before`/`after` conditions reading it fail. That is closed on an allow rule and
-open on a deny rule, which is a gap rather than a defence — [the security
+windows parses the clock once. An instant that does not parse never throws and
+never grants: every permission whose decision reads it answers
+`{ allowed: false, reason: 'unusable-clock' }`, allow side and deny side alike.
+What a caller supplies is still worth deciding deliberately — [the security
 contract](/acl/security#the-clock-a-decision-reads) has it.

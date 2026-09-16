@@ -20,9 +20,9 @@ if (decision.allowed) proceed(); // right
 ```
 
 `reason` is output only. Nothing in the library reads one back to decide
-anything, and the six values are not two buckets: `no-rule-matched`,
-`dependency-off`, `unknown-action` and `unevaluable` all refuse, and the first
-form proceeds through every one of them.
+anything, and the seven values are not two buckets: `no-rule-matched`,
+`dependency-off`, `unknown-action`, `unevaluable` and `unusable-clock` all
+refuse, and the first form proceeds through every one of them.
 
 ### `unevaluable` is not `denied`
 
@@ -194,26 +194,26 @@ moved.
 Both are real today and neither is guarded. They are stated rather than omitted
 because a caller can avoid both, and cannot avoid what nobody wrote down.
 
-### An unparseable `now` disarms a time-gated deny
+### A clock the caller supplies is the clock the windows move with
 
 ```ts
 access.can(subject, 'sale', 'buy', undefined, '2026-01-01T00:00:00Z');
 // -> { allowed: false, reason: 'denied' }
 
-access.can(subject, 'sale', 'buy', undefined, 'not a date');
+access.can(subject, 'sale', 'buy', undefined, '2019-06-01T00:00:00Z');
 // -> { allowed: true,  reason: 'allow' }
 ```
 
-A clock that does not parse fails every time condition that reads it. On an
-allow rule that is closed — the grant does not happen. On a deny rule it is
-open, because a condition that fails means the rule does not match, so a deny
-gated on a time window stops denying. Supply an instant that parses, or none at
-all.
-
 Supplying `now` at all is worth deciding deliberately: it slides every window in
-the matrix. Pass it only to make a server render and its rehydration agree, and
-resolve it server-side. A `now` arriving from a request body or a query string
-hands the client every time window there is.
+the matrix, and the engine has no channel to ask where the instant came from.
+Pass it only to make a server render and its rehydration agree, and resolve it
+server-side. A `now` arriving from a request body or a query string hands the
+client every time window there is.
+
+A clock that does not parse is a different case and is guarded:
+`{ allowed: false, reason: 'unusable-clock' }` on both sides of the permission,
+so a time-gated deny goes on denying when the instant is `null`, `NaN`, an
+`Invalid Date` or a string that is not a date.
 
 ### The subject and object bags are read live
 

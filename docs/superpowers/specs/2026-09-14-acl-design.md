@@ -134,13 +134,43 @@ Each entry point settles `now` to epoch milliseconds once, before any condition
 is evaluated, so a matrix with many time conditions parses the clock once. An
 omitted `now` is the wall clock at the entry point.
 
-An instant that does not parse — `'not a date'`, `NaN`, an `Invalid Date` — is
-not an error: evaluation is total. A `before`/`after` condition **fails** when
-its clock does not parse, which is what it already does when its boundary value
-does not parse. Failing, not unevaluable: an unparseable instant is not an
-`object.*` projection the caller can fill in, so nothing would make the rule
-hold. The permission lands on `no-rule-matched`, and a deny rule over an
-unparseable clock does not deny.
+An instant that does not parse — `'not a date'`, `NaN`, an `Invalid Date`,
+`null` — is not an error: evaluation is total. The two instants a time condition
+reads come from different parties and are settled in different places.
+
+**The boundary** is the `value` of a `before`/`after` condition. It comes from
+the matrix, which is validated once at construction, so a boundary that does not
+parse is an `InvalidConditionError` there. A window whose edge is not a point in
+time states nothing a decision could read, and the document is the party that
+can fix it. There is no runtime state for it, because a constructed policy
+cannot hold one.
+
+**The clock** is the caller's `now`, supplied per call. A `before`/`after`
+condition whose clock does not parse is **`unusable-clock`**: neither a hold nor
+a fail. The state propagates through the rule (AND-ed, so a definite fail still
+decides the rule first) and the side (OR-ed, so a matched rule still decides the
+side first) to a decision of
+`{ allowed: false, reason: 'unusable-clock' }`.
+
+An earlier revision of this spec made an unparseable clock **fail** its
+condition, on the argument that `unevaluable` means "fetch these paths and
+re-ask" and a refetch returns the same broken value. The argument holds for the
+allow side, where a fail refuses. It does not survive the deny side: a condition
+that fails makes a rule that does not match, and a deny rule that does not match
+does not deny, so a clock the caller could not parse **disarmed** every
+time-gated deny. One state cannot be fail-closed on one list and fail-open on
+the other, and a rule whose meaning depends on which list it sits in is not a
+rule anybody can hold in their head.
+
+`unusable-clock` is a reason of its own rather than `unevaluable` because the
+original objection was right about `unevaluable`: it is the repairable state,
+`missing` names what to fetch, and an unparseable clock names nothing and is
+repaired only by a different argument. Two undecided reasons, each with a
+caller's move attached, is the honest shape. Both are `allowed: false`, so
+neither leaks.
+
+An **absent** `now` is a separate case and is not a refusal: it is the wall
+clock, settled in `settleNow`, which every entry point goes through.
 
 Construction validates that every condition resolves and can decide something.
 The engine reads a path as a scope and one field of that scope, so a condition
@@ -359,7 +389,8 @@ type Reason =
   | 'denied'
   | 'dependency-off'
   | 'unknown-action'
-  | 'unevaluable';
+  | 'unevaluable'
+  | 'unusable-clock';
 ```
 
 `cause.missing` carries the same paths the causing decision carried, so a
@@ -385,6 +416,7 @@ decide anything, so stripping it changes no decision. A test asserts this.
 | `dependency-off`  | a dependency resolved off; carries `blockedBy` and `cause`                                                                                                                                                                                                                                     |
 | `unknown-action`  | the key is not in the matrix (fail-closed path only)                                                                                                                                                                                                                                           |
 | `unevaluable`     | an `object`-dependent condition could not read a path it needs — no instance at all (the "create" case) or an instance that does not carry the field; carries `missing`, the paths that did not read. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
+| `unusable-clock`  | a time condition read a `now` that is not an instant; carries `rule`, and no `missing`, because no fetch repairs it                                                                                                                                                                            |
 
 ## Deny
 
@@ -405,14 +437,20 @@ order in [the missing-data case](#the-missing-data-case)):
    `blockedBy`, `cause`).
 3. Else if the allow side **definitely fails**, deny (reason
    `no-rule-matched`).
-4. Else if the deny side is **unevaluable**, `unevaluable`.
-5. Else if an allow rule **matches**, allow (reason `allow`).
-6. Else if the allow side is **unevaluable**, `unevaluable`.
-7. Else deny (reason `no-rule-matched`).
+4. Else if the deny side read an **unusable clock**, deny (reason
+   `unusable-clock`, `rule`).
+5. Else if the deny side is **unevaluable**, `unevaluable`.
+6. Else if an allow rule **matches**, allow (reason `allow`).
+7. Else if the allow side read an **unusable clock**, deny (reason
+   `unusable-clock`, `rule`).
+8. Else if the allow side is **unevaluable**, `unevaluable`.
+9. Else deny (reason `no-rule-matched`).
 
-An unevaluable deny is not a deny, and it is not nothing either: the rule whose
-job is to refuse could not be read, so the permission is `unevaluable` (step 4)
-rather than a silent allow.
+A deny the engine could not decide is not a deny, and it is not nothing either:
+the rule whose job is to refuse could not be read or could not be timed, so the
+permission refuses (steps 4 and 5) rather than granting silently. Both sit above
+step 6 for that reason — the refusing side has to be settled before a grant is
+handed out.
 
 When both a deny and a dependency-off apply, `denied` wins; the result may still
 carry `blockedBy`/`cause`. A matched deny carries the same
@@ -469,41 +507,54 @@ comparand leaves it unevaluable.
 ### Rules and sides
 
 A **rule** MATCHES when every condition holds, FAILS when any condition
-definitely fails, and is UNDECIDABLE otherwise.
+definitely fails, and is UNDECIDABLE otherwise. An UNDECIDABLE rule carries one
+of two shapes: `unusable-clock` if any condition read a clock that does not
+parse, `unevaluable` with the unreadable paths otherwise.
 
 A **side** — the allow rules, or the deny rules — MATCHES if any of its rules
-matches, is UNDECIDABLE if no rule matches and at least one is unevaluable, and
-FAILS otherwise.
+matches, is UNDECIDABLE if no rule matches and at least one is, and FAILS
+otherwise. It takes the same two shapes, by the same precedence.
 
 A rule's `when` conditions are AND-ed, and one condition that is definitely
-false decides the rule whatever else is unevaluable: no reading of the absent
-paths could make the AND hold, so the rule FAILS rather than being unevaluable.
+false decides the rule whatever else is undecidable: no reading of the absent
+paths and no clock could make the AND hold, so the rule FAILS. Short of that,
+`unusable-clock` outranks `unevaluable` wherever both turn up, because it is the
+one a refetch does not settle: reporting `missing` there would send a UI back
+for data that changes nothing.
 
-### `unevaluable` in the precedence order
+### The undecidable states in the precedence order
 
-The governing rule: **a definite outcome beats an unevaluable one; among
-definite outcomes, deny beats allow.** An unevaluable deny only ever subtracts,
-so it can never turn a definite no-allow into something repairable.
+The governing rule: **a definite outcome beats an undecided one; among definite
+outcomes, deny beats allow.** A deny the engine could not decide only ever
+subtracts, so it can never turn a definite no-allow into something repairable.
 
 1. If a deny rule MATCHES, deny (`denied`, `rule` = that rule).
 2. Else if a dependency resolved off, deny (`dependency-off`, `blockedBy`,
    `cause`).
 3. Else if the allow side FAILS, deny (`no-rule-matched`).
-4. Else if the deny side is UNDECIDABLE, `unevaluable` with `allowed: false`,
-   `rule` = the unevaluable deny rule and `missing` = its unreadable paths,
-   unioned with the allow side's if that is also unevaluable.
-5. Else if an allow rule MATCHES, allow (`allow`).
-6. Else if the allow side is UNDECIDABLE, `unevaluable` with `missing` = the
-   union of the unevaluable allow rules' paths.
-7. Else deny (`no-rule-matched`). Unreachable given step 3; it is the default
+4. Else if the deny side is UNDECIDABLE on the clock, deny (`unusable-clock`,
+   `rule` = that deny rule).
+5. Else if the deny side is UNDECIDABLE on a path, `unevaluable` with
+   `allowed: false`, `rule` = the unevaluable deny rule and `missing` = its
+   unreadable paths, unioned with the allow side's if that is also unevaluable.
+6. Else if an allow rule MATCHES, allow (`allow`).
+7. Else if the allow side is UNDECIDABLE on the clock, deny (`unusable-clock`,
+   `rule` = that allow rule).
+8. Else if the allow side is UNDECIDABLE on a path, `unevaluable` with
+   `missing` = the union of the unevaluable allow rules' paths.
+9. Else deny (`no-rule-matched`). Unreachable given step 3; it is the default
    arm.
 
-Step 3 sits above step 4 because allow is required. A definite "no allow rule
+Steps 4 and 5 sit above step 6 because the side whose job is to refuse has to be
+settled before a grant is handed out: a deny nobody could decide is not a
+licence to allow.
+
+Step 3 sits above both because allow is required. A definite "no allow rule
 matched" cannot be repaired by fetching the object, so reporting `unevaluable`
-there would tell a UI to refetch and re-ask forever. Step 2 sits above step 4
-for the same reason: a parent that is definitely off is a definite answer, and
-an `unevaluable` in its place invites a pointless refetch. Both branches are
-`allowed: false`, so neither leaks.
+there would tell a UI to refetch and re-ask forever. Step 2 sits above them for
+the same reason: a parent that is definitely off is a definite answer, and an
+`unevaluable` in its place invites a pointless refetch. Every one of these
+branches is `allowed: false`, so none leaks.
 
 A rule that mixes `object`-dependent and `object`-independent branches with no
 instance is decided by the `object`-independent branch alone:
