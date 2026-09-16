@@ -6,6 +6,7 @@ import {
   type DocumentedPackage,
   type PackageGroup,
 } from '../../app/navigation';
+import AccessDemo from './AccessDemo';
 import DataDemo from './DataDemo';
 import { demoItems } from './demo';
 import { allFamilies, familiesOf, type Family } from './families';
@@ -278,6 +279,31 @@ export function Cards({ group: id }: { group: string }) {
 }
 
 /**
+ * A family demonstrated under the rows, for the one that has a demonstration.
+ *
+ * A row is a name and a line, which is all most of these packages need on an
+ * index. Authorization is worth a figure: what the package buys an application
+ * is an interface that rebuilds itself from a policy, and a sentence cannot show
+ * that where seven lines beside a working toolbar can.
+ *
+ * A family with nothing to demonstrate renders nothing rather than a
+ * placeholder, which is the rule `Specimen` follows.
+ */
+function Demonstration({ family }: { family: Family }) {
+  if (family.id !== 'acl') return null;
+  return (
+    <figure className={`landing-proof ${identity(family.lead)}`}>
+      <AccessDemo />
+      <figcaption className="landing-proof__caption">
+        That is the whole policy, and every control on the toolbar is one of its
+        answers. Change who is signed in, or take a role out of a grant, and the
+        interface is rebuilt around what is left.
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
  * On their own: a row each.
  *
  * Rows rather than cards, because the group's reason for existing is that its
@@ -287,6 +313,7 @@ export function Cards({ group: id }: { group: string }) {
  */
 export function Rows({ group: id }: { group: string }) {
   const group = groupById(id);
+  const families = familiesOf(group);
 
   return (
     <>
@@ -299,7 +326,7 @@ export function Rows({ group: id }: { group: string }) {
         aside={group.line}
       />
       <ul className="landing-rows" aria-label={group.title}>
-        {familiesOf(group).map((family) => (
+        {families.map((family) => (
           <li
             key={family.id}
             className={`landing-row ${identity(family.lead)}`}
@@ -312,6 +339,9 @@ export function Rows({ group: id }: { group: string }) {
           </li>
         ))}
       </ul>
+      {families.map((family) => (
+        <Demonstration key={family.id} family={family} />
+      ))}
     </>
   );
 }

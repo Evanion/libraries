@@ -671,6 +671,290 @@
   justify-content: flex-end;
 }
 
+/*
+ * Authorization: an interface that rebuilds itself, and the policy that did it.
+ *
+ * The interface leads and takes the wider column, because what sells this
+ * package is watching a product surface reconfigure rather than reading about
+ * it. The policy sits beside it in the quiet column, set in mono on the page's
+ * own material so the two halves never read as the same kind of thing: one is a
+ * product, the other is the source that produced it.
+ */
+.landing-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.landing-access__app {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+.landing-access__policy {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+  border-left: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-felt);
+}
+
+/* The app's own chrome: who is signed in, and the control that changes it. */
+.landing-access__chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
+  padding-bottom: var(--baize-space-3);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.landing-access__who {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+/*
+ * The segmented control. One track, three faces, the standing one lifted onto
+ * the package's hue: the only saturated field in the figure, because it is the
+ * control the whole demonstration turns on.
+ */
+.landing-seg {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+}
+
+.landing-seg__option {
+  display: block;
+}
+
+.landing-seg__face {
+  display: block;
+  padding: 3px var(--baize-space-3);
+  border-radius: 999px;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-seg__option:hover .landing-seg__face {
+  color: var(--baize-chalk);
+}
+
+.landing-seg input:checked + .landing-seg__face {
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+/* The input is off-screen, so its focus ring is drawn on the face beside it. */
+.landing .landing-seg input:focus-visible + .landing-seg__face {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+.landing-access__doc {
+  display: grid;
+  gap: var(--baize-space-3);
+  padding: var(--baize-space-4) 0;
+}
+
+.landing-access__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-3);
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-display, var(--baize-font-text));
+  font-size: var(--baize-text-md);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+/* Draft is the ground's own colour; published is the hue, because publishing is
+   the state change the policy reacts to. */
+.landing-access__status {
+  padding: 1px var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+.landing-access__status[data-status='published'] {
+  border-color: var(--baize-hue);
+  color: var(--baize-hue);
+}
+
+.landing-access__byline {
+  margin: calc(-1 * var(--baize-space-2)) 0 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+.landing-access__body {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  line-height: var(--baize-leading-normal);
+}
+
+/* A field the reader types in, on the interface's own terms: one hairline, the
+   hue when it has focus, no box inside a box. */
+.landing-access__field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font: inherit;
+  resize: none;
+}
+
+textarea.landing-access__field {
+  min-height: 5rem;
+}
+
+.landing .landing-access__field:focus-visible {
+  outline: none;
+  border-color: var(--baize-hue);
+}
+
+.landing-access__notes {
+  display: grid;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-access__notes li {
+  padding-left: var(--baize-space-3);
+  border-left: 2px solid var(--baize-rule);
+}
+
+.landing-access__note-by {
+  margin-right: var(--baize-space-2);
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.landing-access__composer {
+  display: flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+}
+
+.landing-access__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+  padding-top: var(--baize-space-3);
+  border-top: 1px solid var(--baize-rule);
+}
+
+/*
+ * A control that the policy has just granted rises into place; one it has
+ * withdrawn is gone on the same frame. Motion on the arrival only, so the eye is
+ * pulled to what appeared rather than to everything that held still.
+ */
+.landing-access__control {
+  display: inline-flex;
+  animation: landing-access-in var(--baize-motion-duration, 160ms)
+    var(--baize-motion-easing, ease-out) both;
+}
+
+@keyframes landing-access-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/*
+ * The policy, as it is written. A step below the interface's text and in the
+ * quiet colour, because the source is what answers for the product beside it and
+ * not the other way round.
+ */
+.landing-access__source {
+  margin: 0;
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  font-variant-ligatures: none;
+  line-height: 1.7;
+  color: var(--baize-moss);
+}
+
+/*
+ * A statement is one block however many visual lines it takes, so the lit band
+ * covers a call and its condition together. `pre-wrap` rather than `pre`,
+ * because a code block a reader has to drag sideways is one they do not read;
+ * the source breaks its own long calls, and the wrap is the backstop for a
+ * narrow screen.
+ */
+.landing-access__line {
+  display: block;
+  padding-inline: var(--baize-space-2);
+  border-left: 2px solid transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+/*
+ * The rule that answered for a control on the interface. Allows take the hue;
+ * the deny takes the ground's own quiet line, because it is the rule that took
+ * something away and colouring it like a grant would say the opposite.
+ */
+.landing-access__line[data-lit] {
+  color: var(--baize-chalk);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  border-left-color: var(--baize-hue);
+}
+
+.landing-access__line[data-lit][data-side='deny'] {
+  background: color-mix(in oklab, var(--baize-lichen) 14%, transparent);
+  border-left-color: var(--baize-lichen);
+}
+
+/* A role inside the policy is a control: press it to grant or withdraw it. */
+.landing-access__role {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted currentcolor;
+  background: none;
+  color: var(--baize-hue);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.landing-access__role[aria-pressed='false'] {
+  border-bottom-color: transparent;
+  color: var(--baize-moss);
+  text-decoration: line-through;
+}
+
 /* Where the rest of the project lives: a heading and the links in one row. */
 .landing-elsewhere {
   display: flex;
@@ -717,13 +1001,15 @@
 
 @media (max-width: 52rem) {
   .landing-demo,
+  .landing-access,
   .landing-cards,
   .landing-pair {
     grid-template-columns: minmax(0, 1fr);
   }
 
   /* Stacked, the preview sits under the editor rather than beside it. */
-  .landing-demo__preview {
+  .landing-demo__preview,
+  .landing-access__policy {
     border-left: 0;
     border-top: 1px solid
       color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
@@ -746,7 +1032,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-tile__link {
+  .landing-tile__link,
+  .landing-seg__face,
+  .landing-access__line {
     transition: none;
+  }
+
+  .landing-access__control {
+    animation: none;
   }
 }

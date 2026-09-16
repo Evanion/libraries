@@ -21,6 +21,7 @@
     "postbuild": "pagefind --site out --output-path out/_pagefind"
   },
   "dependencies": {
+    "@evanion/acl": "*",
     "@evanion/baize-ui": "*",
     "@evanion/luhn": "*",
     "@evanion/react-widget": "*",
