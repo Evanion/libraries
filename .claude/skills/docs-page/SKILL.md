@@ -51,6 +51,11 @@ that compiles.
 
 Then `npx prettier --check .`.
 
+The cache is trustworthy for the repo-checks guards: `nx.json`'s `repoChecks`
+named input hashes the workspace, so a docs edit runs them rather than replaying
+a pass over content the run never read. `--skip-nx-cache` is for measuring a
+build whose output you are reading, not for making a guard honest.
+
 ## Traps
 
 Each of these has cost a round trip. None of them shows up in the output of the
@@ -60,8 +65,18 @@ thing you were running.
 `@evanion/*` through published `exports` — the twoslash runner, the docs
 typecheck — reads `libs/<pkg>/dist`, not `src`. Against a stale build, a
 signature change looks like it did nothing, in either direction. Build the
-library first, and `--skip-nx-cache` when the result is the thing you are
-measuring.
+library first.
+
+**A stale `apps/docs/.next` serves the wrong page to the MDX loader.** The build
+fails with one page's content parsed as another's — `capabilities.mdx` receiving
+`feature/build-time.mdx`, across eight files at once — and every error names the
+page that is fine. `rm -rf apps/docs/.next`.
+
+**The stash is shared across every worktree.** `git stash` in a worktree writes
+to the same list as the main checkout and every other worktree, so a bare
+`git stash pop` can take an entry somebody else left there. Prefer a temporary
+WIP commit. If you do stash, `git stash push -u -m "<tag>"` and then `apply` the
+SHA you pushed, rather than `pop`.
 
 **Content fences are empty in the source.** A ` ```ts file=… region=… `
 block has no body in the `.mdx`; the region loader fills it at build. Anything
