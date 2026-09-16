@@ -10,14 +10,13 @@ export const always: readonly [] = [];
  * OR-ed — what `or(...)` produces).
  */
 export type RuleSpec =
-  | Condition
-  | readonly Condition[]
-  | readonly (readonly Condition[])[];
+  Condition | readonly Condition[] | readonly (readonly Condition[])[];
 
 function asRules(specs: readonly RuleSpec[]): readonly Rule[] {
   const rules: Rule[] = [];
   for (const spec of specs) {
-    const value = spec as Condition | readonly Condition[] | readonly (readonly Condition[])[];
+    const value = spec as
+      Condition | readonly Condition[] | readonly (readonly Condition[])[];
     if (Array.isArray(value) && Array.isArray(value[0])) {
       // A nested list (from `or(...)`) becomes separate rules.
       for (const inner of value as readonly (readonly Condition[])[]) {

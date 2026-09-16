@@ -3,7 +3,13 @@ import {
   DenyWithoutBaselineError,
   TargetsTransitionsConflictError,
 } from './errors.js';
-import type { Condition, FieldConfig, FieldRules, Matrix, Permission } from './types.js';
+import type {
+  Condition,
+  FieldConfig,
+  FieldRules,
+  Matrix,
+  Permission,
+} from './types.js';
 
 const OPS = new Set(['eq', 'ne', 'in', 'not-in', 'contains']);
 

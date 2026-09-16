@@ -58,7 +58,9 @@ describe('validateMatrix', () => {
         key: 'comment.read',
         object: 'comment',
         action: 'read',
-        rules: [{ when: [{ field: 'subject.id', op: 'wat' as never, value: 1 }] }],
+        rules: [
+          { when: [{ field: 'subject.id', op: 'wat' as never, value: 1 }] },
+        ],
       },
     ];
     expect(() => validateMatrix(matrix)).toThrow(Error);

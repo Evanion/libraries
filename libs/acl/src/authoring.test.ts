@@ -51,12 +51,7 @@ describe('authoring', () => {
         update: permit(eq('object.authorId', 'subject.id')),
       },
     }) as Access;
-    const d = access.can(
-      { id: 's1' },
-      'comment',
-      'update',
-      { authorId: 's1' },
-    );
+    const d = access.can({ id: 's1' }, 'comment', 'update', { authorId: 's1' });
     expect(d.allowed).toBe(true);
   });
 
@@ -82,12 +77,9 @@ describe('authoring', () => {
         read: permit(eq('object.status', 'published')),
       },
     }) as Access;
-    const d = access.can(
-      { id: 's1' },
-      'comment',
-      'read',
-      { status: 'published' },
-    );
+    const d = access.can({ id: 's1' }, 'comment', 'read', {
+      status: 'published',
+    });
     expect(d.allowed).toBe(true);
   });
 });

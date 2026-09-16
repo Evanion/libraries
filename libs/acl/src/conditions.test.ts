@@ -33,7 +33,10 @@ describe('evaluateCondition', () => {
       ),
     ).toBe(false);
     expect(
-      evaluateCondition({ field: 'object.status', op: 'eq', value: 'draft' }, ctx),
+      evaluateCondition(
+        { field: 'object.status', op: 'eq', value: 'draft' },
+        ctx,
+      ),
     ).toBe(true);
   });
 
@@ -85,10 +88,16 @@ describe('evaluateCondition', () => {
   it('an absent field never holds, including negative operators', () => {
     const absent: EvaluationContext = { subject: { id: 'x' } };
     expect(
-      evaluateCondition({ field: 'subject.missing', op: 'eq', value: 1 }, absent),
+      evaluateCondition(
+        { field: 'subject.missing', op: 'eq', value: 1 },
+        absent,
+      ),
     ).toBe(false);
     expect(
-      evaluateCondition({ field: 'subject.missing', op: 'ne', value: 1 }, absent),
+      evaluateCondition(
+        { field: 'subject.missing', op: 'ne', value: 1 },
+        absent,
+      ),
     ).toBe(false);
   });
 
@@ -98,7 +107,10 @@ describe('evaluateCondition', () => {
       object: Object.create({ status: 'x' }),
     };
     expect(
-      evaluateCondition({ field: 'object.status', op: 'eq', value: 'x' }, hostile),
+      evaluateCondition(
+        { field: 'object.status', op: 'eq', value: 'x' },
+        hostile,
+      ),
     ).toBe(false);
     expect(
       evaluateCondition({ field: 'object.toString', op: 'eq', value: 1 }, ctx),

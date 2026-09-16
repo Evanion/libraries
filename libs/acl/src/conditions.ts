@@ -63,9 +63,7 @@ export function evaluateCondition(
       }
       return actual !== condition.value;
     case 'in':
-      return (
-        Array.isArray(condition.value) && condition.value.includes(actual)
-      );
+      return Array.isArray(condition.value) && condition.value.includes(actual);
     case 'not-in':
       return (
         Array.isArray(condition.value) && !condition.value.includes(actual)

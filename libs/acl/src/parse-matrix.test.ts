@@ -10,9 +10,7 @@ const json: Matrix = [
     action: 'read',
     rules: [
       {
-        when: [
-          { field: 'subject.roles', op: 'contains', value: 'editor' },
-        ],
+        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
       },
     ],
   },
