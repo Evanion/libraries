@@ -181,9 +181,9 @@
 }
 
 /*
- * Rendering from data: the demo, then a route into each runtime.
+ * Rendering from data: the route into the family, then the demo.
  *
- * The demo is a figure in the flagship's hue: the editor on the left, what the
+ * The demo is a figure in the family's hue: the editor on the left, what the
  * library renders from it on the right, and one caption under both. The hue
  * on its edge and in its strings is what says "this is the widget library"
  * without a label.
@@ -365,8 +365,53 @@
 }
 
 /*
- * The two runtimes, level with the section's heading and above the demo, so
- * a reader has the names before the demonstration. The same tile as the
+ * Rendering from data: the title and line on the left, the family teasers on
+ * the right. The heading and the text share a column, so the text sits
+ * directly under the title; the teaser is a tall box and would otherwise
+ * stretch the header row and leave a gap below the title.
+ */
+.landing-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 24rem);
+  gap: var(--baize-space-5);
+  align-items: start;
+}
+
+.landing-pair__intro {
+  display: grid;
+  gap: var(--baize-space-3);
+}
+
+/*
+ * A family's title links in a row, separated so two members do not read as one
+ * run-on title.
+ *
+ * The gap alone does not separate them: a row's title column is narrow, so the
+ * members sit adjacent or wrap onto two lines, and `.landing-route__title`
+ * carries no underline until hover. Underlining them at rest is what says two
+ * destinations rather than one title that wrapped. A singleton keeps the plain
+ * title, because there is nothing to tell apart.
+ */
+.landing-family__links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2) var(--baize-space-4);
+}
+
+.landing-family__links .landing-route__title {
+  text-decoration: underline;
+  text-decoration-color: var(--baize-moss);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.landing-family__links .landing-route__title:hover {
+  text-decoration-color: var(--baize-lichen);
+}
+
+/*
+ * One teaser per family, level with the section's heading and above the demo,
+ * so a reader has the names before the demonstration. The same tile as the
  * index, which the reader has already learned is the way into a package: the
  * name, the stack, nothing to read twice.
  */
@@ -386,46 +431,6 @@
 
 .landing-teaser {
   padding: var(--baize-space-3) var(--baize-space-4);
-}
-
-/*
- * Rendering from data: one card for the whole family.
- *
- * Unlike the cards section's "one column per member", the family is one card
- * carrying a chip per platform, so it takes the single-column layout. The
- * member names are links in the card's foot, one per runtime, so a reader can
- * still reach each renderer's page.
- */
-.landing-family {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.landing-family__card .landing-marker {
-  justify-content: flex-end;
-}
-
-.landing-family__marker {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--baize-space-2) var(--baize-space-4);
-}
-
-.landing-family__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--baize-space-2) var(--baize-space-4);
-}
-
-.landing-family__link {
-  color: var(--baize-chalk);
-  text-decoration-color: var(--baize-moss);
-  text-underline-offset: 3px;
-}
-
-.landing-family__link:hover {
-  text-decoration-color: var(--baize-lichen);
 }
 
 /* Identifiers and codes: one column per member, however many there are. */
@@ -712,7 +717,8 @@
 
 @media (max-width: 52rem) {
   .landing-demo,
-  .landing-cards {
+  .landing-cards,
+  .landing-pair {
     grid-template-columns: minmax(0, 1fr);
   }
 
