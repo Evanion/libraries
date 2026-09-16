@@ -10,13 +10,12 @@ import { uncoveredRoots } from './docs-trigger';
  * The invariant: a change to a released package rebuilds the docs site.
  *
  * `.github/workflows/docs.yml` filters its push trigger by path, and the list is
- * written by hand. `nest/**` was missing from it, so a release of
- * `@evanion/nestjs-correlation-id` -- whose only files are under `nest/` --
- * deployed nothing. Nothing went red either: a push that matches no path filter
- * starts no run, so the evidence is a workflow run that does not exist, which no
- * check can look at after the fact and nobody notices in a list.
+ * written by hand. A released package under a directory the filter does not name
+ * deploys nothing on release, and nothing goes red either: a push that matches no
+ * path filter starts no run, so the evidence is a workflow run that does not
+ * exist, which no check can look at after the fact and nobody notices in a list.
  *
- * That is the same silent shape as the five undocumented packages
+ * That is the same silent shape as the undocumented packages
  * `docs-navigation.test.ts` exists for, and it takes the same answer: the
  * hand-written list is held against the thing it is supposed to track. Here the
  * thing is `release.projects` in `nx.json`, read through the project graph, so a
@@ -50,10 +49,20 @@ function docsPushPaths(): readonly string[] {
 /**
  * The roots of the projects `nx release` versions, which is what "a released
  * package" means here. Read from `nx.json` through the graph rather than
- * restated, so the one exclusion it carries -- the private design system -- is
- * honoured here too, and so a new package is picked up without editing this
- * file.
+ * restated, so a new package is picked up without editing this file.
  */
+const graph = createProjectGraphAsync({ exitOnError: false });
+
+async function rootsOf(names: readonly string[]): Promise<string[]> {
+  const nodes = (await graph).nodes;
+
+  return names.map((name) => {
+    const node = nodes[name];
+    if (!node) throw new Error(`${name} is not a project in the graph`);
+    return node.data.root;
+  });
+}
+
 const releasedRoots: Promise<string[]> = (async () => {
   const nxJson = parseJson<{ release?: { projects?: string | string[] } }>(
     readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
@@ -63,21 +72,15 @@ const releasedRoots: Promise<string[]> = (async () => {
 
   if (!patterns) throw new Error('nx.json must define release.projects');
 
-  const graph = await createProjectGraphAsync({ exitOnError: false });
   const names = findMatchingProjects(
     Array.isArray(patterns) ? patterns : [patterns],
-    graph.nodes,
+    (await graph).nodes,
   );
 
   if (names.length === 0)
     throw new Error('release.projects matched no projects');
 
-  return names.map((name) => {
-    const node = graph.nodes[name];
-    if (!node)
-      throw new Error(`${name} matched release.projects but is not a node`);
-    return node.data.root;
-  });
+  return rootsOf(names);
 })();
 
 describe('the docs workflow path filter', () => {
@@ -101,28 +104,26 @@ describe('the docs workflow path filter', () => {
 });
 
 describe('an uncovered root', () => {
-  const patterns = ['apps/docs/**', 'libs/**', 'nest/**', 'package.json'];
+  const patterns = ['apps/docs/**', 'libs/**', 'server/**', 'package.json'];
 
   it('is reported when no pattern names its directory', () => {
     expect(
-      uncoveredRoots({ roots: ['libs/luhn', 'server/gateway'], patterns }),
-    ).toEqual(['server/gateway']);
+      uncoveredRoots({ roots: ['libs/luhn', 'worker/queue'], patterns }),
+    ).toEqual(['worker/queue']);
   });
 
   it('is not reported when a pattern spans its subtree', () => {
-    expect(
-      uncoveredRoots({ roots: ['nest/correlation-id'], patterns }),
-    ).toEqual([]);
+    expect(uncoveredRoots({ roots: ['server/gateway'], patterns })).toEqual([]);
   });
 
-  /** The regression: `nest/**` absent is what shipped a release with no deploy. */
+  /** The shape that ships a release with no deploy: the root's directory unnamed. */
   it('is reported when the directory it sits under is missing', () => {
     expect(
       uncoveredRoots({
-        roots: ['libs/luhn', 'nest/correlation-id'],
+        roots: ['libs/luhn', 'server/gateway'],
         patterns: ['apps/docs/**', 'libs/**', 'package.json'],
       }),
-    ).toEqual(['nest/correlation-id']);
+    ).toEqual(['server/gateway']);
   });
 
   /** `libs` and `libs-extra` share a prefix and not a directory. */
@@ -135,23 +136,25 @@ describe('an uncovered root', () => {
   it('is not reported when its own directory is named exactly', () => {
     expect(
       uncoveredRoots({
-        roots: ['nest/correlation-id'],
-        patterns: ['nest/correlation-id/**'],
+        roots: ['server/gateway'],
+        patterns: ['server/gateway/**'],
       }),
     ).toEqual([]);
   });
 
   it('is not reported under a repository-wide pattern', () => {
-    expect(uncoveredRoots({ roots: ['nest/x'], patterns: ['**'] })).toEqual([]);
+    expect(uncoveredRoots({ roots: ['server/x'], patterns: ['**'] })).toEqual(
+      [],
+    );
   });
 
   it('reports every uncovered root, sorted', () => {
     expect(
       uncoveredRoots({
-        roots: ['tools/b', 'server/a', 'libs/luhn'],
+        roots: ['tools/b', 'worker/a', 'libs/luhn'],
         patterns,
       }),
-    ).toEqual(['server/a', 'tools/b']);
+    ).toEqual(['tools/b', 'worker/a']);
   });
 });
 
@@ -163,26 +166,26 @@ describe('an uncovered root', () => {
 describe('a pattern that is not a whole subtree', () => {
   it('does not cover a root when it stops at one segment', () => {
     expect(
-      uncoveredRoots({ roots: ['nest/correlation-id'], patterns: ['nest/*'] }),
-    ).toEqual(['nest/correlation-id']);
+      uncoveredRoots({ roots: ['server/gateway'], patterns: ['server/*'] }),
+    ).toEqual(['server/gateway']);
   });
 
   it('does not cover a root when it names a file', () => {
     expect(
       uncoveredRoots({
-        roots: ['nest/correlation-id'],
-        patterns: ['nest/correlation-id/package.json'],
+        roots: ['server/gateway'],
+        patterns: ['server/gateway/package.json'],
       }),
-    ).toEqual(['nest/correlation-id']);
+    ).toEqual(['server/gateway']);
   });
 
   it('does not cover a root when a glob sits inside its prefix', () => {
     expect(
       uncoveredRoots({
-        roots: ['nest/correlation-id'],
-        patterns: ['nest/*/src/**'],
+        roots: ['server/gateway'],
+        patterns: ['server/*/src/**'],
       }),
-    ).toEqual(['nest/correlation-id']);
+    ).toEqual(['server/gateway']);
   });
 });
 
@@ -220,7 +223,7 @@ describe('a negated pattern', () => {
     expect(
       uncoveredRoots({
         roots: ['libs/luhn'],
-        patterns: ['libs/**', '!libs/baize-ui/**'],
+        patterns: ['libs/**', '!libs/compose/**'],
       }),
     ).toEqual([]);
   });

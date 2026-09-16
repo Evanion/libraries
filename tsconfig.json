@@ -16,7 +16,7 @@
       "path": "./libs/compose"
     },
     {
-      "path": "./nest/correlation-id"
+      "path": "./libs/nestjs-correlation-id"
     },
     {
       "path": "./libs/astro-widget"
@@ -52,7 +52,7 @@
       "path": "./apps/admin"
     },
     {
-      "path": "./libs/baize-ui"
+      "path": "./internal/baize-ui"
     },
     {
       "path": "./libs/widget"

@@ -226,7 +226,7 @@ export const packages: readonly DocumentedPackage[] = [
   },
   {
     name: '@evanion/nestjs-correlation-id',
-    root: 'nest/correlation-id',
+    root: 'libs/nestjs-correlation-id',
     slug: 'nestjs-correlation-id',
     title: 'NestJS Correlation ID',
     group: 'standalone',

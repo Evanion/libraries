@@ -5,8 +5,8 @@
  * `paths` filter. A released package whose root is absent from that filter is
  * documented by a site that never rebuilds when it changes: no job runs, so
  * nothing is red, and the published page keeps describing the previous state.
- * `nest/**` was absent for exactly this reason, and the only signal was a
- * missing workflow run that nobody was looking for.
+ * The only signal such a gap gives is a workflow run that does not exist, which
+ * no check can look at after the fact.
  *
  * The filter is a list of globs and the release set is a list of globs, and
  * neither derives from the other -- `nx.json` matches project directories, the
@@ -50,7 +50,7 @@ function subtreePrefix(pattern: string): string | null {
 
 /**
  * The pattern read literally up to its first metacharacter: the shallowest
- * directory it can touch. `libs/baize-ui/**` and `libs/*` give `libs/baize-ui`
+ * directory it can touch. `libs/luhn/**` and `libs/*` give `libs/luhn`
  * and `libs`.
  */
 function literalPrefix(pattern: string): string {
@@ -74,7 +74,7 @@ function isWithin(path: string, directory: string): boolean {
 export interface TriggerCoverageInputs {
   /**
    * The roots of the projects the repository releases, as the project graph
-   * spells them: `libs/luhn`, `nest/correlation-id`.
+   * spells them: `libs/luhn`, `libs/nestjs-correlation-id`.
    */
   roots: readonly string[];
   /** The `paths` filter on the docs workflow's push trigger. */
