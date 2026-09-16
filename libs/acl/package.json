@@ -46,7 +46,9 @@
     "!src/**/*.spec.*",
     "!src/**/*.test-d.*",
     "!src/test-setup.ts",
+    "!src/security",
     "README.md",
+    "SECURITY.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
