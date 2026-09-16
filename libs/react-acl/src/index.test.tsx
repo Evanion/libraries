@@ -8,7 +8,7 @@ import {
   useCanFields,
   useCanMany,
   useCapabilities,
-} from './index';
+} from './index.js';
 
 const access = createPolicy([
   {
