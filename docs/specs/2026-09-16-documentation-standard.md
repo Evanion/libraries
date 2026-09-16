@@ -31,8 +31,9 @@ Lowdermilk, Truong, Cooper and Popović, "The Impact of Tutorials on Games of
 Varying Complexity", CHI 2012; Noetel, Griffith, Delaney, Harris, Sanders,
 Parker, del Pozo Cruz and Lonsdale, "Multimedia Design for Learning: An Overview
 of Reviews With Meta-Meta-Analysis", Review of Educational Research 92(3), 2022.
-Measured for this document: the documentation MCP servers of Cloudflare,
-Microsoft Learn, Sentry and AWS, by JSON-RPC (section 5a).
+Observed for this document, without a recorded method: the documentation MCP
+servers of Cloudflare, Microsoft Learn, Sentry and AWS, by JSON-RPC (section 5a,
+and the evidence ledger files it as asserted).
 
 ## What is actually wrong
 
@@ -179,8 +180,9 @@ The products are demonstrated in a shop the documentation never enters.
     MDX. Section 9.
 21. An API reference's signature blocks are generated from the package's emitted
     declarations, not written. Until that generator exists they carry a
-    `signature` tag and a guard holds every identifier in them to the package's
-    exports. Section 3a, section 5.
+    `signature` tag and a guard holds the symbol each one documents, and any
+    import in it, to the package's exports — the names, not the types, which is
+    the whole of what a guard can reach here. Section 3a, section 5.
 22. Nine guards in `tools/repo-checks` (section 12), beside the caption guard
     `2026-09-16-diagrams.md` already shipped. Seven of the nine fail today; the
     other two have not been run. Section 12 ends with the list of what no guard
@@ -190,7 +192,7 @@ The products are demonstrated in a shop the documentation never enters.
     as uniformly binding.
 23. Nothing here is retrofitted in one pass. The order is section 13.
 
-Three of these rest on measured evidence and the rest are judgement. Which is
+Two of these rest on measured evidence and the rest are judgement. Which is
 which is in "The evidence, and what it does not cover", below section 13, and it
 is written there rather than implied here.
 
@@ -295,6 +297,40 @@ That split is the whole of this section. It is cleaner than any content-type
 taxonomy, because it is answerable about a page in one question: _does a reader
 open this already knowing what they want out of it?_
 
+### What the split says about links, and it says it once
+
+Three later parts of this document rule on links and they are easy to read as
+contradicting each other: section 3 rejects Diátaxis partly because its remedy
+for mixing is a link; this section and section 4 then require reference pages,
+question pages and platform guides to link rather than re-teach; and the
+prerequisites rule below allows a structured box while forbidding a line of
+prose that sends the reader away. One rule generates all three, and it is the
+split above.
+
+**A link costs a reader a thread. Only a reader who has one can be charged for
+it.**
+
+- **On a teaching page, a link out is a cost.** The reader is mid-sequence and
+  following an argument that the page is building. Sending them elsewhere either
+  loses them — Basques's finding in section 3, that most readers do not click —
+  or interrupts them if they do. This is why the cumulative rule exists: on a
+  teaching page the explanation is not behind a link, it is the page before,
+  and the reader got there by continuing.
+- **On a lookup surface, a link is the point.** A reference page, a question
+  page and a platform guide are entered by someone who already has their answer
+  in mind and no thread to lose. They are navigating, and a link is the
+  affordance for navigating. Re-teaching a concept inline on one of these pages
+  is the real error — it makes the page longer for the reader who did not need
+  it and no better for the reader who did, who would rather be taken to the page
+  that teaches it properly.
+- **A structured prerequisites box is not body prose.** It sits before the
+  thread starts rather than interrupting it, which is why the box is allowed
+  below and a mid-paragraph _read this first_ is not.
+
+So section 3's objection and section 4's requirement are the same rule read from
+two ends, and nothing further down restates it. Where one of those sections
+mentions a link, it points here.
+
 ### Teaching is cumulative, not narrative
 
 A section's teaching pages are ordered the way a game teaches its own rules: the
@@ -382,7 +418,8 @@ use. The ordering work is load-bearing rather than tidying.
 MDN is the strongest working example of the split this section makes — a
 cumulative Learn track beside a reference track entered from anywhere — and its
 teaching pages carry Prerequisites boxes. The observed practice of the best
-example has to be reconciled with the rule rather than waved at, so:
+example has to be reconciled with the rule rather than waved at. The
+reconciliation is the link rule above, applied at the top of a teaching page:
 
 - **A structured prerequisites box is allowed.** It is page furniture, in the
   same class as the title and the sidebar, and it is a fade rather than a
@@ -504,7 +541,8 @@ Because the reader arrives already knowing what they want:
 - It assumes nothing about what has been read. Where a symbol needs a concept
   explained, the reference links to the teaching page that introduces it and
   does not repeat the explanation inline. That link is the only navigation a
-  reference page owes.
+  reference page owes, and it is free here for the reason the link rule above
+  gives: this reader has no thread to be taken out of.
 - It is exhaustive over its subject, which is the one place Diátaxis prescribes
   a structure and it is right to (section 3).
 
@@ -515,7 +553,8 @@ it after the teaching is over, which is exactly when a reference becomes useful.
 Question pages and platform guides are the interesting middle. A reader enters
 them with a goal already formed, which makes them reference by the arrival test,
 and section 4 places them off the sequence for that reason. Where one of them
-does have to teach, it links rather than re-teaches.
+does have to teach, it links rather than re-teaches — the same allowance, on the
+same grounds, and not an exception to section 3's objection.
 
 ### Between sections
 
@@ -644,6 +683,14 @@ framework that loses the material rather than organising it. A journey does not
 have that failure mode: the explanation is not behind a link, it is the next
 page, and the reader arrives at it by continuing.
 
+Read narrowly, because section 2 already drew this line and this is the same
+line seen from the framework's side. The objection is to a link on a **teaching**
+page, where the reader has a thread to lose. It is not an objection to links as
+such, and it does not touch the links this document requires of reference pages,
+question pages and platform guides, whose readers arrive with the answer already
+in mind and nothing to be interrupted out of. Section 2, "What the split says
+about links".
+
 The API-docs version of it, VERIFIED on HN 49141184: "Please do not make me
 click on 'reference' to get to 'API docs'. … it tends to turn 1-click docs into
 2-click docs", and 49143640: "Some projects, when they move to diataxis, will
@@ -728,7 +775,7 @@ export on GitHub Pages with no server and no per-reader state.
 | Stripe    | A `.md` sibling per page plus `llms.txt`                                 | **Half** — the `.md` sibling, yes. `llms.txt`, no. Section 5a   |
 | Stripe    | Your own test key and your own object ids interpolated into every curl   | **No.** Needs auth, an account and a test-mode data plane       |
 | Stripe    | Seven-language switcher, per-version SDK pinning, dated version trains   | **No.** One language, semver, and versioned docs is the ceiling |
-| react.dev | 600+ editable Sandpack sandboxes, roughly a third of all code blocks     | **No** at that price; the probe is the cheap third of it        |
+| react.dev | Editable Sandpack sandboxes as a large share of code blocks              | **No** at that price; the probe is the cheap third of it        |
 | react.dev | Fixed page skeleton: what you'll learn → body → recap → challenges       | **Yes** — section 4's floor is the same idea, smaller           |
 | react.dev | Reference pages are Reference → Usage → Troubleshooting                  | **Partly** — decision 8 takes the first, section 4 declines     |
 | react.dev | Troubleshooting headings phrased as the symptom                          | **Yes** — `acl/pitfalls` is already this and should say so      |
@@ -774,9 +821,12 @@ was written". What Rust has that this repo does not is the vocabulary for the
 examples that cannot run — `no_run`, `ignore`, `compile_fail` — and the visual
 mark on the listing that says so. Section 5 takes both.
 
-**react.dev's ratio is the target and its mechanism is not.** Counted on eight
-Learn sources, roughly a third of code blocks are the entry file of an editable
-sandbox. That is the number worth aiming at. Sandpack is not the way to get
+**react.dev's ratio is the target and its mechanism is not.** The only count
+behind this is eight Learn sources, on which roughly a third of code blocks are
+the entry file of an editable sandbox. Eight pages is a sample, not the site:
+there is no site-wide figure here, and an earlier draft's "600+ sandboxes" had
+nothing behind it and is gone. A third is the number worth aiming at with that
+caveat attached. Sandpack is not the way to get
 there: `2026-09-13-interactive-examples.md` § 4 measures it at ~350 kB plus an
 iframe plus a bundler resolving packages from npm rather than from the
 workspace, which breaks the one guarantee this site has that react.dev does not
@@ -854,7 +904,9 @@ this?", "What can they do at all?", "Which fields may they write?", "Why was
 this refused?", "A policy from another service". Earned when the answer is a
 method the reader cannot guess the name of. It assumes nothing about what has
 been read, because the reader arrived from search, and where it needs a concept
-explained it links to the teaching page that introduces it.
+explained it links to the teaching page that introduces it rather than teaching
+it again — section 2's link rule, which is what makes that a requirement here
+and a smell on a teaching page.
 
 **A format or contract page.** Outside the sequence, and reference by every test in section 2.
 `acl/matrix` (the document), `acl/security` (the trust boundary),
@@ -901,8 +953,8 @@ The budget is not a style preference. A page over it is two reader questions
 sharing a URL, which means the search result and the table of contents both
 point at the wrong half. It is also the countable version of the Diátaxis
 diagnostic in section 3 and of the one-concept rule in section 2: a teaching page
-over budget is usually a page that introduced two things. The five `acl` pages
-on the list are the clearest cases, and four of them are platform guides
+over budget is usually a page that introduced two things. The six `acl` pages
+on the list are the clearest cases, and three of them are platform guides
 carrying the framework tutorial Astro's scope fence would have cut.
 
 Reference pages are the exception the budget must not break: an exhaustive
@@ -1317,9 +1369,16 @@ a reader copies a paragraph, and a retrieval system takes a chunk whose
 boundaries the writer never chose. So the standing-alone requirement in section
 5 has to be restated at the size the fragment actually is.
 
-### What the retrieval systems do, measured
+### What the retrieval systems do, observed
 
-Queried by JSON-RPC against the documentation MCP servers as they run:
+These four servers were queried by JSON-RPC while writing this document and what
+came back is below. **No date, no tool names and no queries were recorded**, so
+unlike every other measurement here it cannot be re-run from what is written
+down, and a reader cannot check it. It is reported as observation rather than as
+measurement, and the evidence ledger files it as asserted for that reason.
+Re-running it properly is cheap — four servers, one round of `tools/list` and
+one call each — and is worth doing before decision 3 is leaned on any harder
+than it is here.
 
 | Server          | What comes back                                                             |
 | --------------- | --------------------------------------------------------------------------- |
@@ -1923,10 +1982,34 @@ which is a convention and is listed as one below.
 42 such statements today across the site. Cheap, because every package has a
 single `.` entry in its exports map, and it catches the failure that makes a
 copy-pasted example fail for a reader in the most confusing way. Two extensions,
-both free once the extraction exists: every identifier in a `signature` fence is
-an exported type or value, and every `@evanion/…` identifier in a `mermaid`
-fence is too, which catches a diagram left naming a renamed symbol. Neither
-extension sees whether a diagram is still true.
+both free once the extraction exists.
+
+The first is `mermaid` fences: every `@evanion/…` identifier in one is held to
+the same export list, which catches a diagram left naming a renamed symbol. It
+does not see whether the diagram is still true.
+
+The second is `signature` fences, and it needs its scope stated, because the
+obvious reading of it cannot be written. A signature is full of identifiers that
+are nobody's export — `string`, `Date`, `Promise`, a parameter called `now` —
+and a guard that held all of them to `libs/x/src/index.ts` would fail on every
+fence on the site. Separating a package type from a TypeScript lib type needs a
+list of every built-in, which is a second thing to maintain that goes stale in
+the direction that produces false failures. So the guard checks two strings and
+nothing else:
+
+- **Every `import { … } from '@evanion/…'` in the fence**, which is G5 unchanged.
+- **The symbol the fence documents**: the backticked text of the `##` heading it
+  sits under. Decision 8 requires that heading to be spelled as the export, so
+  this is a direct comparison against the export list with no parsing of the
+  signature body at all.
+
+What that leaves unchecked is everything inside the signature — the parameter
+types, the return type, the shape of an `interface`. Those are exactly the
+identifiers decision 21's generator removes the need to check, by emitting the
+block from the declarations rather than having someone type it. The gap is the
+argument for building it, and until it is built the gap is named here rather
+than covered by a rule that reads stronger than it is. "Whether a signature's
+types are right" is in the judgement list below.
 
 **G6 — every landing specimen is reachable from a section.** Every component
 under `components/landing/` that takes an interaction is in
@@ -2050,6 +2133,12 @@ is the point of writing them down this way.
 - **Whether an exemption tag is honest.** `no-run` on a fence that could run is
   invisible to a guard. G3's ratchet is a proxy: it makes the count visible and
   makes it go one way.
+- **Whether a signature's types are right.** G5 holds a `signature` fence's
+  heading symbol and its imports to the export list and reads nothing inside the
+  block, so a parameter that changed type, an argument that became optional and
+  a return type that gained a member all pass. This is the largest unchecked
+  surface in the document — every hand-written signature on every `api.mdx` —
+  and decision 21 exists to delete it rather than to guard it.
 
 ## 13. Order
 
@@ -2214,11 +2303,16 @@ premise rests on neither.
   across 137,000 domains, plus Google's own statement that Search ignores the
   file. Measurement of behaviour rather than of learning, which is a lower bar
   to clear and a narrower claim.
-- **Chunk shapes** (decision 3). Live JSON-RPC against four documentation MCP
-  servers. This measures what the systems do, not whether the three rules help;
-  the rules themselves are inference from the shapes.
 
 **What is not measured, and is asserted here anyway.**
+
+- **Chunk shapes** (decision 3). Four documentation MCP servers were queried by
+  JSON-RPC and section 5a reports what came back, but no date, tool names or
+  queries were recorded, so nobody can re-run it from this document. It was a
+  real observation and it is written down as one; it is not evidence a reader
+  can check, which is the line this section exists to draw. Even re-run, it
+  would measure what the systems do rather than whether decision 3's three rules
+  help, and those rules are inference from the shapes either way.
 
 - **Fading rather than silence** (decision 2). Carroll and van der Meij 1996
   report a design reversal, not a measurement: they shipped the rule this
@@ -2256,11 +2350,13 @@ premise rests on neither.
 
 The practical consequence: decisions 1, 2 and 4 are bets, decision 13's diagram
 rules are not, and the difference should show in how readily each is revised.
-The count moved while this document was being written — decisions 2 and 4 were
-in the measured column until their sources were read rather than relayed, and
-two of decision 13's four effect sizes were wrong in the same way. Three of the
-five measured claims did not survive checking, which is the argument for
-keeping this section rather than the argument against it.
+The count moved while this document was being written. Five claims started in
+the measured column and two finished there. Decisions 2 and 4 moved once their
+sources were read rather than relayed; decision 3 moved because the observation
+behind it has no recorded method; and two of decision 13's four effect sizes
+were wrong in the same way the two moved claims were. Three of five falling out
+under checking is the argument for keeping this section, not the argument
+against it.
 
 ## Where I am guessing
 
