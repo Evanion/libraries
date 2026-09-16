@@ -69,9 +69,13 @@ export function decideFields(
   // The matrix does not know the object's shape, so we consider every field the
   // object carries, every field named in the rules, and every name in the
   // allow-list (a write allow-list names the fields that may be written).
+  // `*` and `!name` are authoring syntax for a baseline and an exclusion. They
+  // are not field names, so they never key the decision maps.
   const objectFields = ctx.object ? Object.keys(ctx.object) : [];
   const ruleFields = Object.keys(rules).filter((k) => k !== 'fields');
-  const listed = names ?? [];
+  const listed = (names ?? []).filter(
+    (name) => name !== '*' && !name.startsWith('!'),
+  );
   const allFields = [...new Set([...objectFields, ...ruleFields, ...listed])];
 
   const fields: FieldDecision['fields'] = {};

@@ -83,4 +83,30 @@ describe('decideFields', () => {
     const d = decideFields(p, ctx, 'write', { status: 'draft' });
     expect(d.allowed).toBe(false);
   });
+
+  it('an unevaluable field fails the top-level allowed', () => {
+    const p = perm('comment.update', {
+      fields: ['*'],
+      status: { targets: ['published'] },
+    });
+    const d = decideFields(p, ctx, 'write');
+    expect(d.fields).toEqual({
+      authorId: 'allowed',
+      status: 'unevaluable',
+    });
+    expect(d.allowed).toBe(false);
+  });
+
+  it('the decision maps carry real field names, never * or !name', () => {
+    const p = perm('comment.update', { fields: ['*', '!status'] });
+    const d = decideFields(p, ctx, 'write');
+    expect(Object.keys(d.fields)).toEqual(['authorId', 'status']);
+    expect(Object.keys(d.reasons)).toEqual(['authorId', 'status']);
+  });
+
+  it('an allow-list names its fields without leaking the tokens', () => {
+    const p = perm('comment.update', { fields: ['body', 'title'] });
+    const d = decideFields(p, { subject: { id: 's1' } }, 'write');
+    expect(Object.keys(d.fields).sort()).toEqual(['body', 'title']);
+  });
 });

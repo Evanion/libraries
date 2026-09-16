@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createPolicy } from './create-policy.js';
-import {
-  UnknownObjectKeyError,
-  UnknownPermissionError,
-} from './errors.js';
+import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
 import type { Matrix } from './types.js';
 
 const matrix: Matrix = [
@@ -14,9 +11,7 @@ const matrix: Matrix = [
     action: 'read',
     rules: [
       {
-        when: [
-          { field: 'subject.roles', op: 'contains', value: 'editor' },
-        ],
+        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
       },
     ],
   },
@@ -26,15 +21,40 @@ const matrix: Matrix = [
     action: 'update',
     rules: [
       {
-        when: [
-          { field: 'object.authorId', op: 'eq', path: 'subject.id' },
-        ],
+        when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
       },
     ],
   },
 ];
 
 const editor = { id: 's1', roles: ['editor'] };
+
+/** article.publish depends on article.update, which an editor holds. */
+const cascade: Matrix = [
+  {
+    key: 'article.update',
+    object: 'article',
+    action: 'update',
+    rules: [
+      {
+        id: 'editor',
+        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+      },
+    ],
+  },
+  {
+    key: 'article.publish',
+    object: 'article',
+    action: 'publish',
+    dependsOn: ['article.update'],
+    rules: [
+      {
+        id: 'editor-only',
+        when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+      },
+    ],
+  },
+];
 
 describe('createPolicy', () => {
   it('can evaluates a single decision', () => {
@@ -94,9 +114,7 @@ describe('createPolicy', () => {
         action: 'update',
         rules: [
           {
-            when: [
-              { field: 'subject.roles', op: 'contains', value: 'editor' },
-            ],
+            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
           },
         ],
         fields: { fields: ['*', '!status'] },
@@ -123,5 +141,60 @@ describe('createPolicy', () => {
     const access = createPolicy(matrix);
     const forUser = access.authorize(editor);
     expect(forUser.can('comment', 'read').allowed).toBe(true);
+  });
+
+  it('can resolves the dependsOn cascade', () => {
+    const access = createPolicy(cascade);
+    expect(access.can(editor, 'article', 'publish')).toMatchObject({
+      allowed: true,
+      reason: 'allow',
+      rule: 'editor-only',
+    });
+  });
+
+  it('a dependency that is off blocks can, naming the real cause', () => {
+    const access = createPolicy(cascade);
+    const reader = { id: 's2', roles: ['reader'] };
+    expect(access.can(reader, 'article', 'publish')).toMatchObject({
+      allowed: false,
+      reason: 'dependency-off',
+      blockedBy: 'article.update',
+      cause: { key: 'article.update', reason: 'no-rule-matched' },
+    });
+  });
+
+  it('capabilities resolves the dependsOn cascade', () => {
+    const access = createPolicy(cascade);
+    const caps = access.capabilities(editor);
+    expect(caps['article.publish']).toMatchObject({
+      allowed: true,
+      reason: 'allow',
+    });
+  });
+
+  it('can and capabilities agree over a dependsOn chain', () => {
+    const access = createPolicy(cascade);
+    for (const subject of [editor, { id: 's2', roles: ['reader'] }]) {
+      const caps = access.capabilities(subject);
+      for (const permission of cascade) {
+        expect(
+          access.can(subject, permission.object, permission.action),
+        ).toEqual(caps[permission.key]);
+      }
+    }
+  });
+
+  it('canMany resolves the dependsOn cascade', () => {
+    const access = createPolicy(cascade);
+    const ds = access.canMany(editor, 'article', 'publish', [{ id: 'a1' }]);
+    expect(ds[0]).toMatchObject({ allowed: true, reason: 'allow' });
+  });
+
+  it('authorize resolves the dependsOn cascade', () => {
+    const access = createPolicy(cascade);
+    expect(access.authorize(editor).can('article', 'publish')).toMatchObject({
+      allowed: true,
+      reason: 'allow',
+    });
   });
 });
