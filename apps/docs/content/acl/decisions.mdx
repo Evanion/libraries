@@ -105,6 +105,33 @@ What to do with one depends on where the call is:
   matrix, usually a mistyped field name. A `schema` on the document turns that
   class into an `UnknownFieldError` at construction.
 
+### Deciding before the row is loaded
+
+A caller that runs in front of the fetch — an HTTP guard ahead of the handler
+that loads the row — gets `unevaluable` from every object-dependent permission,
+every time. That is correct and it is unhelpful: the guard cannot tell it apart
+from a call that happened to lack data, so it has to let the request through
+and trust that something downstream decides properly.
+
+`access.readsObject(key, action)` says which is which, from the document rather
+than from a call:
+
+```ts
+if (access.readsObject('article', 'update')) {
+  // Never decidable here. Refuse loudly, or record that the real decision is
+  // owed in the handler, instead of waving the request through.
+}
+```
+
+It is true when any allow rule or any deny rule names an `object.*` path, on
+either operand, or when any `dependsOn` ancestor does — an ancestor left
+unevaluable carries the child with it. It takes no subject: it is a fact about
+the matrix, so the answer is the same for everyone.
+
+Field rules do not count toward it. A `transitions` config reads the current
+value off the object, but only on the `canFields` write axis, where the caller
+holds the row already.
+
 Absence is unevaluable for every operator, negative ones included. "It is not
 equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
 and `contains` over an absent path are as unevaluable as `eq`.

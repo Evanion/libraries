@@ -88,6 +88,35 @@ function isObjectPath(path: string): boolean {
 }
 
 /**
+ * The second path a condition compares against, or undefined when it compares
+ * against a literal `value`.
+ *
+ * `path` is an `eq`/`ne` form, and `validateMatrix` refuses a document that
+ * carries one on any other operator, so no constructed policy holds the case
+ * this narrows away. Every pass over the operands goes through this, so the
+ * comparand rule is stated once and cannot drift between evaluation and
+ * inspection.
+ */
+export function comparandPathOf(condition: Condition): string | undefined {
+  return condition.op === 'eq' || condition.op === 'ne'
+    ? condition.path
+    : undefined;
+}
+
+/**
+ * Whether a condition reads the `object` scope, on either operand.
+ *
+ * This is the static question -- what the condition would read given any
+ * context -- as against `evaluateResolved`, which answers what one context
+ * actually yielded.
+ */
+export function conditionReadsObject(condition: Condition): boolean {
+  if (isObjectPath(condition.field)) return true;
+  const comparand = comparandPathOf(condition);
+  return comparand !== undefined && isObjectPath(comparand);
+}
+
+/**
  * How a condition stands against a settled context. Never throws.
  *
  * Absence is unevaluable for every operator, negative ones included: `ne` over
@@ -116,10 +145,7 @@ export function evaluateResolved(
     missing.push(condition.field);
   }
 
-  // A path comparand is an `eq`/`ne` form only; the other ops compare against a
-  // literal `value`.
-  const comparandPath =
-    condition.op === 'eq' || condition.op === 'ne' ? condition.path : undefined;
+  const comparandPath = comparandPathOf(condition);
   let other: unknown;
   if (comparandPath !== undefined) {
     other = readPath(ctx, comparandPath);

@@ -150,6 +150,8 @@ export interface BoundKind<Sub, Obj> {
     proposed?: Partial<Obj>,
     now?: Instant,
   ): FieldDecision;
+  /** `Access.readsObject` for this kind, with the key already bound. */
+  readsObject(action: string): boolean;
 }
 
 /**
@@ -204,6 +206,7 @@ export interface Policy<Sub, R> {
   capabilities(subject: Sub, now?: Instant): Record<string, Decision>;
   authorize(subject: Sub, options?: { now?: Instant }): Authorized;
   object<K extends keyof R & string>(key: K): BoundKind<Sub, R[K]>;
+  readsObject<K extends keyof R & string>(key: K, action: string): boolean;
   readonly matrix: Access['matrix'];
   readonly version: Access['version'];
   readonly schema: Access['schema'];
@@ -367,6 +370,7 @@ interface ErasedPolicy {
   capabilities(subject: unknown, now?: Instant): Record<string, Decision>;
   authorize(subject: unknown, options?: { now?: Instant }): Authorized;
   object(key: string): BoundKind<unknown, unknown>;
+  readsObject(key: string, action: string): boolean;
   readonly matrix: Access['matrix'];
   readonly version: Access['version'];
   readonly schema: Access['schema'];
@@ -447,7 +451,9 @@ export function policy<Sub>(
         self.canMany(subject, key, action, objects, now),
       canFields: (subject, action, object, axis, proposed, now) =>
         self.canFields(subject, key, action, object, axis, proposed, now),
+      readsObject: (action) => self.readsObject(key, action),
     }),
+    readsObject: (key, action) => access().readsObject(key, action),
     get matrix() {
       return access().matrix;
     },

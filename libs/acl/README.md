@@ -739,6 +739,62 @@ forUser.can('comment', 'read').allowed; // -> true
 
 <!-- #endregion server-authorize -->
 
+The handle carries decisions and nothing else — no `matrix`, no `version`. A
+caller that ships the document alongside the decisions holds the `access` it
+came from, which it already imports to call `authorize` at all. One frozen
+document is evaluated against many subjects, and offering it off a
+subject-bound handle would read as this subject's matrix, which is the
+per-subject snapshot the design exists to avoid.
+
+### Deciding before the row is loaded
+
+A caller that runs in front of the fetch — an HTTP guard ahead of the handler
+that loads the row — gets `unevaluable` from every object-dependent permission,
+every time. `unevaluable` is not a refusal, so the guard has to let the request
+through and trust that something downstream decides properly. Nothing in the
+decision tells it apart from a call that happened to lack data.
+
+`readsObject` answers that from the document rather than from a call.
+
+<!-- #region reads-object -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'article.read',
+      object: 'article',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'staff' }] },
+      ],
+    },
+    {
+      key: 'article.update',
+      object: 'article',
+      action: 'update',
+      rules: [{ when: [] }],
+      denyRules: [
+        { when: [{ field: 'object.locked', op: 'eq', value: true }] },
+      ],
+    },
+  ],
+});
+
+access.readsObject('article', 'read'); // -> false
+access.readsObject('article', 'update'); // -> true
+```
+
+<!-- #endregion reads-object -->
+
+True when any allow rule or any deny rule names an `object.*` path, on either
+operand, or when any `dependsOn` ancestor does — an ancestor left unevaluable
+carries the child with it. It takes no subject: the answer is a fact about the
+matrix. Field rules do not count, since a `transitions` config reads the object
+only on the `canFields` write axis, where the caller holds the row already.
+
 ## Security contract
 
 A decision counts where it is made. It is authoritative in a trusted
@@ -895,7 +951,8 @@ expiry and no way for a held matrix to notice that it is stale.
 | `access.canFields(...)`                                                                    | The field-level decision for one axis, plus the action decision gating it.                   |
 | `pickAllowedFields(decision, proposed)`                                                    | The subset of a proposed write the decision allows. The value to write.                      |
 | `access.capabilities(subject)`                                                             | Every action-level decision.                                                                 |
-| `access.authorize(subject)`                                                                | A bound handle for server-side evaluation.                                                   |
+| `access.readsObject(key, action)`                                                          | Whether the permission needs the object row at all. Takes no subject.                        |
+| `access.authorize(subject)`                                                                | A bound handle for server-side evaluation. Decisions only; the document stays on `access`.   |
 | `access.matrix`                                                                            | The frozen document. Round-trips through JSON; this is what crosses SSR.                     |
 | `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.               |
 
