@@ -156,7 +156,7 @@ describe('decide', () => {
       key: 'comment.create',
       rules: [
         {
-          id: 'undecidable',
+          id: 'unevaluable',
           when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
         },
         {
@@ -258,7 +258,7 @@ describe('decide', () => {
     });
   });
 
-  it('a definitely-false condition decides the rule however it is ordered against an undecidable one', () => {
+  it('a definitely-false condition decides the rule however it is ordered against an unevaluable one', () => {
     const perm = p({
       key: 'comment.update',
       rules: [
@@ -367,7 +367,7 @@ describe('decide', () => {
       blockedBy: 'article.update',
     });
   });
-  it('an undecidable deny outranks a matching allow', () => {
+  it('an unevaluable deny outranks a matching allow', () => {
     const perm = p({
       key: 'comment.update',
       rules: [
@@ -419,7 +419,7 @@ describe('decide', () => {
     });
   });
 
-  it('a definitely failing allow outranks an undecidable deny', () => {
+  it('a definitely failing allow outranks an unevaluable deny', () => {
     const perm = p({
       key: 'comment.update',
       rules: [
@@ -444,7 +444,7 @@ describe('decide', () => {
     expect(decision.missing).toBeUndefined();
   });
 
-  it('two undecidable sides report the union of their paths', () => {
+  it('two unevaluable sides report the union of their paths', () => {
     const perm = p({
       key: 'comment.update',
       rules: [
@@ -476,7 +476,7 @@ describe('decide', () => {
     ]);
   });
 
-  it('a matching deny outranks an undecidable one', () => {
+  it('a matching deny outranks an unevaluable one', () => {
     const perm = p({
       key: 'comment.update',
       rules: [
@@ -504,7 +504,7 @@ describe('decide', () => {
     });
   });
 
-  it('a definitely off parent outranks the child an undecidable deny would leave unevaluable', () => {
+  it('a definitely off parent outranks the child an unevaluable deny would leave unevaluable', () => {
     const parent: Permission = p({ key: 'article.update' });
     const child = p({
       key: 'article.publish',
@@ -604,7 +604,7 @@ describe('decide', () => {
     });
   });
 
-  it('a deny reading an absent subject path is a definite miss, not undecidable', () => {
+  it('a deny reading an absent subject path is a definite miss, not unevaluable', () => {
     const perm = p({
       key: 'comment.update',
       rules: [

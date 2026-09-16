@@ -77,7 +77,7 @@ function allowed(name: string, names: readonly string[]): boolean {
  * One field's write decision under a `targets` or `transitions` config, with the
  * reason it landed there.
  *
- * The two undecidable causes are distinct, and a `transitions` field can hit
+ * The two unevaluable causes are distinct, and a `transitions` field can hit
  * both at once. A missing current value outranks a missing proposed one: a
  * complete object is the first thing the caller has to supply, and the edge
  * cannot be read from either end without it.

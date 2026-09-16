@@ -138,7 +138,7 @@ export class InvalidSchemaError extends AclConfigError {
 /**
  * A condition naming a field the schema does not declare.
  *
- * Without a schema this is the typo class that evaluates to `undecidable`
+ * Without a schema this is the typo class that evaluates to `unevaluable`
  * forever on the foreign path, because an absent `object.*` path is a shortfall
  * the caller is told to fill in rather than a miss.
  */

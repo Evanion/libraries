@@ -76,10 +76,10 @@ function held(value: boolean): ConditionOutcome {
 }
 
 /**
- * Whether one operand's absence leaves the condition undecidable.
+ * Whether one operand's absence leaves the condition unevaluable.
  *
  * The `object` scope is a projection the caller chose: a partial instance and no
- * instance are the same shortfall, so an absent `object.*` path is undecidable.
+ * instance are the same shortfall, so an absent `object.*` path is unevaluable.
  * The subject is resolved whole by the app and is never a projection, so an
  * absent `subject.*` path is a definite miss.
  */
@@ -90,11 +90,11 @@ function isObjectPath(path: string): boolean {
 /**
  * How a condition stands against a settled context. Never throws.
  *
- * Absence is undecidable for every operator, negative ones included: `ne` over
+ * Absence is unevaluable for every operator, negative ones included: `ne` over
  * a path that does not read is not "true because it is not equal".
  *
  * A clock or a boundary that does not parse fails the condition. Neither is an
- * `object.*` projection the caller can fill in, so neither is undecidable.
+ * `object.*` projection the caller can fill in, so neither is unevaluable.
  */
 export function evaluateResolved(
   condition: Condition,
@@ -129,7 +129,7 @@ export function evaluateResolved(
     }
   }
 
-  if (missing.length > 0) return { state: 'undecidable', missing };
+  if (missing.length > 0) return { state: 'unevaluable', missing };
 
   switch (condition.op) {
     case 'eq':

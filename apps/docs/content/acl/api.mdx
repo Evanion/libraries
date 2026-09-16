@@ -217,7 +217,7 @@ interface EvaluationContext {
 type ConditionOutcome =
   | { state: 'holds' }
   | { state: 'fails' }
-  | { state: 'undecidable'; missing: readonly string[] };
+  | { state: 'unevaluable'; missing: readonly string[] };
 ```
 
 These evaluate one node against a context, without the document validation, the

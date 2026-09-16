@@ -16,7 +16,7 @@ export type Action = string;
  */
 export type Instant = string | number | Date;
 
-/** The result of a field-level decision: allowed, denied, or not decidable. */
+/** The result of a field-level decision: allowed, denied, or not evaluable. */
 export type FieldState = 'allowed' | 'denied' | 'unevaluable';
 
 /** Why a field decision landed where it did. Output only. */
@@ -47,14 +47,14 @@ export type Condition =
 /**
  * How one condition stands against a context.
  *
- * `undecidable` names the `object.*` paths that did not read, so a permission
+ * `unevaluable` names the `object.*` paths that did not read, so a permission
  * can report them as `missing`. Rule matching is AND-ed over these: a `fails`
- * decides the rule whatever else is undecidable.
+ * decides the rule whatever else is unevaluable.
  */
 export type ConditionOutcome =
   | { state: 'holds' }
   | { state: 'fails' }
-  | { state: 'undecidable'; missing: readonly string[] };
+  | { state: 'unevaluable'; missing: readonly string[] };
 
 /** The namespaced evaluation context. */
 export interface EvaluationContext {

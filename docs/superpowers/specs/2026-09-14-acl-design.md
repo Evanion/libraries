@@ -137,7 +137,7 @@ omitted `now` is the wall clock at the entry point.
 An instant that does not parse — `'not a date'`, `NaN`, an `Invalid Date` — is
 not an error: evaluation is total. A `before`/`after` condition **fails** when
 its clock does not parse, which is what it already does when its boundary value
-does not parse. Failing, not undecidable: an unparseable instant is not an
+does not parse. Failing, not unevaluable: an unparseable instant is not an
 `object.*` projection the caller can fill in, so nothing would make the rule
 hold. The permission lands on `no-rule-matched`, and a deny rule over an
 unparseable clock does not deny.
@@ -280,7 +280,7 @@ than as a schema fault. Two guarantees:
 
 1. **A condition names a declared field.** Naming one the schema does not
    declare is an `UnknownFieldError`. Without a schema this is the typo class
-   that evaluates to `undecidable` forever on the foreign path, because an absent
+   that evaluates to `unevaluable` forever on the foreign path, because an absent
    `object.*` path is a shortfall the caller is told to fill in. A relation name
    is refused the same way: a condition reads one field of one scope, and a
    relation is not a value it compares.
@@ -405,12 +405,12 @@ order in [the missing-data case](#the-missing-data-case)):
    `blockedBy`, `cause`).
 3. Else if the allow side **definitely fails**, deny (reason
    `no-rule-matched`).
-4. Else if the deny side is **undecidable**, `unevaluable`.
+4. Else if the deny side is **unevaluable**, `unevaluable`.
 5. Else if an allow rule **matches**, allow (reason `allow`).
-6. Else if the allow side is **undecidable**, `unevaluable`.
+6. Else if the allow side is **unevaluable**, `unevaluable`.
 7. Else deny (reason `no-rule-matched`).
 
-An undecidable deny is not a deny, and it is not nothing either: the rule whose
+An unevaluable deny is not a deny, and it is not nothing either: the rule whose
 job is to refuse could not be read, so the permission is `unevaluable` (step 4)
 rather than a silent allow.
 
@@ -436,7 +436,7 @@ are deliberate and documented, and both packages share the same default.
 ## The missing-data case
 
 An `object`-dependent condition that cannot read the path it needs is
-**undecidable**. There is one such case, not two: no instance at all (the
+**unevaluable**. There is one such case, not two: no instance at all (the
 "create" toggle, `useCan('comment', 'create')`) and a partial or projected
 instance that does not carry the field are the same shortfall, and both yield
 `unevaluable` carrying the paths in `missing`. Following `feature`'s discipline
@@ -451,20 +451,20 @@ access.can(subject, 'comment', 'update', { status: 'draft' }); // a projection
 // -> { allowed: false, reason: 'unevaluable', missing: ['object.authorId'] }
 ```
 
-Absence is undecidable for **every** operator, negative ones included: `ne`,
-`not-in` and `contains` over a path that did not read are as undecidable as
+Absence is unevaluable for **every** operator, negative ones included: `ne`,
+`not-in` and `contains` over a path that did not read are as unevaluable as
 `eq`. "It is not equal to `published`" is not a fact about a field nobody read.
 
 ### The subject/object asymmetry
 
-Absence is undecidable in an `object.*` path and a definite `false` in a
+Absence is unevaluable in an `object.*` path and a definite `false` in a
 `subject.*` path. The object is a projection the caller chose, so a field it
 lacks says nothing about the instance in the database. The subject is resolved
 whole by the app before the call and is never a projection, so a subject that
 lacks `roles` genuinely has none — an ordinary denial, not an unknown. A
 condition with one operand in each scope follows the operand that failed: an
 absent `subject.*` comparand fails the condition outright, an absent `object.*`
-comparand leaves it undecidable.
+comparand leaves it unevaluable.
 
 ### Rules and sides
 
@@ -472,17 +472,17 @@ A **rule** MATCHES when every condition holds, FAILS when any condition
 definitely fails, and is UNDECIDABLE otherwise.
 
 A **side** — the allow rules, or the deny rules — MATCHES if any of its rules
-matches, is UNDECIDABLE if no rule matches and at least one is undecidable, and
+matches, is UNDECIDABLE if no rule matches and at least one is unevaluable, and
 FAILS otherwise.
 
 A rule's `when` conditions are AND-ed, and one condition that is definitely
-false decides the rule whatever else is undecidable: no reading of the absent
-paths could make the AND hold, so the rule FAILS rather than being undecidable.
+false decides the rule whatever else is unevaluable: no reading of the absent
+paths could make the AND hold, so the rule FAILS rather than being unevaluable.
 
 ### `unevaluable` in the precedence order
 
-The governing rule: **a definite outcome beats an undecidable one; among
-definite outcomes, deny beats allow.** An undecidable deny only ever subtracts,
+The governing rule: **a definite outcome beats an unevaluable one; among
+definite outcomes, deny beats allow.** An unevaluable deny only ever subtracts,
 so it can never turn a definite no-allow into something repairable.
 
 1. If a deny rule MATCHES, deny (`denied`, `rule` = that rule).
@@ -490,11 +490,11 @@ so it can never turn a definite no-allow into something repairable.
    `cause`).
 3. Else if the allow side FAILS, deny (`no-rule-matched`).
 4. Else if the deny side is UNDECIDABLE, `unevaluable` with `allowed: false`,
-   `rule` = the undecidable deny rule and `missing` = its unreadable paths,
-   unioned with the allow side's if that is also undecidable.
+   `rule` = the unevaluable deny rule and `missing` = its unreadable paths,
+   unioned with the allow side's if that is also unevaluable.
 5. Else if an allow rule MATCHES, allow (`allow`).
 6. Else if the allow side is UNDECIDABLE, `unevaluable` with `missing` = the
-   union of the undecidable allow rules' paths.
+   union of the unevaluable allow rules' paths.
 7. Else deny (`no-rule-matched`). Unreachable given step 3; it is the default
    arm.
 
@@ -654,7 +654,7 @@ canFields(subject, key, action, object, axis, proposed?, now?)
 Decision rule for choosing between them: **know the current value → use
 `transitions`; setting a fresh field or not knowing the current value → use
 `targets`.** Both forms require `proposed`; an edge with no destination and a
-value allow-list with no candidate value are equally undecidable. When
+value allow-list with no candidate value are equally unevaluable. When
 `proposed` is omitted and either rule exists, the field decision is
 `unevaluable` with reason `proposed-required`, naming the field. That is a
 distinct condition from `missing-field`, which means the object lacks the field
@@ -692,7 +692,7 @@ supply:
 `missing-field` takes precedence when both are absent: a complete object is the
 first thing the caller has to fix, and the edge cannot be read from either end
 without it. A `targets` field has no current value to read, so its only
-undecidable cause is `proposed-required`.
+unevaluable cause is `proposed-required`.
 
 ## Authoring
 
@@ -1280,7 +1280,7 @@ must each fail if the step they cover is removed or reordered:
 - a matched deny and a matched allow, together: the reason is `denied`
 - a matched deny and a dependency that resolved off, together: the reason is
   `denied`, not `dependency-off`
-- a permission whose `object`-dependent rules are undecidable while an allow rule
+- a permission whose `object`-dependent rules are unevaluable while an allow rule
   would match: the reason is `allow`, so `unevaluable` ranks below allow
 - the same permission with no matching allow rule: the reason is `unevaluable`,
   not `no-rule-matched`, so `unevaluable` ranks above no-rule-matched
