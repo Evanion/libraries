@@ -1,0 +1,246 @@
+# API reference
+
+<WorkshopNotice slug="acl" />
+
+Every export of `@evanion/acl`. Node 20 or newer; the package is ESM only, and
+this entry imports no framework.
+
+## Construction
+
+```ts
+function createPolicy(matrix: Matrix, options?: AccessOptions): Access;
+function parseMatrix(json: Matrix, options?: AccessOptions): Access;
+function policy<Subject>(options?: PolicyOptions): Policy<Subject, {}>;
+
+interface AccessOptions {
+  version?: string | number; // overrides the document's own
+  closed?: boolean; // fail closed on unknown keys instead of throwing
+}
+
+type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
+```
+
+`parseMatrix` is `createPolicy` with `closed: true`. `policy()` returns a
+builder whose `.for<K, Obj>(key, block)` accumulates the key-to-type map; every
+query on it is checked against that map. See
+[Typed authoring](/acl/authoring).
+
+## Querying
+
+```ts
+interface Access {
+  readonly matrix: Readonly<Matrix>;
+  readonly version: string | number | undefined;
+  readonly schema: MatrixSchema | undefined;
+
+  can(subject, key, action, object?, now?): Decision;
+  canMany(subject, key, action, objects, now?): Decision[];
+  canFields(subject, key, action, object, axis, proposed?, now?): FieldDecision;
+  capabilities(subject, now?): Record<string, Decision>;
+  authorize(subject, options?: { now?: Instant }): Authorized;
+}
+```
+
+| Call           | Answers                                                            |
+| -------------- | ------------------------------------------------------------------ |
+| `can`          | one decision for one instance                                      |
+| `canMany`      | a decision per instance, one settled clock for the list            |
+| `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision |
+| `capabilities` | every permission in the matrix, keyed, in dependency order         |
+| `authorize`    | the same four with the subject and clock bound                     |
+
+`authorize(subject)` returns `Authorized`, which carries `can`, `canMany`,
+`canFields` and `capabilities` with the subject dropped from each signature.
+
+A typed policy adds `object(key)`, a handle binding one object kind:
+`BoundKind` carries `can`, `canMany` and `canFields` with the key dropped.
+
+## The write path
+
+```ts
+function pickAllowedFields<T extends Record<string, unknown>>(
+  decision: FieldDecision,
+  proposed: T,
+): Partial<T>;
+```
+
+The subset of `proposed` the decision marked `allowed`, and nothing else. Throws
+`ActionNotAllowedError` when the action is refused. This is [the write
+path](/acl/fields#writing); nothing else narrows a write.
+
+## The document
+
+```ts
+interface Matrix {
+  readonly version?: string | number;
+  readonly schema?: MatrixSchema;
+  readonly permissions: readonly Permission[];
+}
+
+interface Permission {
+  key: string;
+  object: string;
+  action: string;
+  rules?: readonly Rule[];
+  denyRules?: readonly Rule[];
+  dependsOn?: readonly string[];
+  fields?: FieldRules;
+}
+
+interface Rule {
+  id?: string;
+  when?: readonly Condition[];
+}
+
+type Condition =
+  | { field: 'now'; op: 'before' | 'after'; value: Instant }
+  | {
+      field: string;
+      op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
+      path?: string;
+      value?: unknown;
+    };
+
+interface FieldRules {
+  fields?: readonly string[];
+  [field: string]: readonly string[] | FieldConfig | undefined;
+}
+
+type FieldConfig =
+  | { targets: readonly unknown[] }
+  | { transitions: Record<string, readonly unknown[]> };
+
+type Instant = string | number | Date;
+```
+
+## The schema
+
+```ts
+interface MatrixSchema {
+  readonly subject?: ObjectSchema;
+  readonly objects?: Readonly<Record<string, ObjectSchema>>;
+}
+
+interface ObjectSchema {
+  readonly fields?: Readonly<Record<string, FieldType>>;
+  readonly relations?: Readonly<Record<string, string>>;
+}
+
+type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
+type FieldType =
+  | BaseFieldType
+  | `${BaseFieldType}[]`
+  | `${BaseFieldType}?`
+  | `${BaseFieldType}[]?`;
+```
+
+`relations` names the kinds one kind points at, one hop, without nesting. A
+condition reads one field of one scope, so a relation is never a value a
+condition compares; it is declared for the consumers that resolve it.
+
+## Decisions
+
+```ts
+interface Decision {
+  key: string;
+  allowed: boolean;
+  reason: Reason;
+  rule?: string;
+  blockedBy?: string;
+  cause?: Cause;
+  missing?: readonly string[];
+}
+
+interface Cause {
+  key: string;
+  reason: Reason;
+  rule?: string;
+  missing?: readonly string[];
+}
+
+type Reason =
+  | 'allow'
+  | 'no-rule-matched'
+  | 'denied'
+  | 'dependency-off'
+  | 'unknown-action'
+  | 'unevaluable';
+
+interface FieldDecision {
+  allowed: boolean;
+  action: Decision;
+  fields: Record<string, FieldState>;
+  reasons: Record<string, FieldReason>;
+}
+
+type FieldState = 'allowed' | 'denied' | 'unevaluable';
+type FieldReason =
+  | 'allow'
+  | 'not-listed'
+  | 'denied'
+  | 'targets-failed'
+  | 'transition-failed'
+  | 'missing-field'
+  | 'proposed-required';
+```
+
+What each reason means is in [Decisions](/acl/decisions) and
+[Field permissions](/acl/fields).
+
+## Lower-level entry points
+
+```ts
+function evaluateCondition(
+  condition: Condition,
+  ctx: EvaluationContext,
+): ConditionOutcome;
+
+function decide(
+  permission: Permission,
+  ctx: EvaluationContext,
+  resolved: ReadonlyMap<string, Decision>,
+): Decision;
+
+function decideFields(
+  permission: Permission,
+  ctx: EvaluationContext,
+  axis: 'read' | 'write',
+  proposed?: Record<string, unknown>,
+): FieldOutcome;
+
+interface EvaluationContext {
+  subject: Record<string, unknown>;
+  object?: Record<string, unknown>;
+  now?: Instant;
+}
+
+type ConditionOutcome =
+  | { state: 'holds' }
+  | { state: 'fails' }
+  | { state: 'undecidable'; missing: readonly string[] };
+```
+
+These evaluate one node against a context, without the document validation, the
+freezing, or the cascade an `Access` gives them. `decide` takes the map of
+already-resolved dependencies it should read; an empty map means every
+`dependsOn` parent counts as off. Tooling that inspects a matrix is what they
+are for, not an application's guard.
+
+## Errors
+
+Every construction failure extends `AclConfigError`, which extends `Error`:
+`InvalidMatrixError`, `InvalidSchemaError`, `InvalidPermissionError`,
+`InvalidRuleError`, `InvalidConditionError`, `KeyMismatchError`,
+`DuplicatePermissionError`, `UnknownDependencyError`, `FeatureCycleError`,
+`UnknownFieldError`, `FieldTypeMismatchError`, `BangInAllowListError`,
+`DenyWithoutBaselineError`, `TargetsTransitionsConflictError`. Each carries the
+keys, fields and locations it names in its message as properties —
+[the table](/acl/authoring#construction-errors) says what raises which.
+
+`UnknownObjectKeyError` and `UnknownPermissionError` share that base class but
+are raised by a query on the open path. Under `parseMatrix` the same key fails
+closed instead.
+
+`ActionNotAllowedError` extends `Error` directly and is raised only by
+`pickAllowedFields`, when the action the write was narrowed against is refused.
+It carries `key` and `reason`.

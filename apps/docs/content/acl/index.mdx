@@ -1,0 +1,90 @@
+# @evanion/acl
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    The implementation is complete and covered by the unit suite plus an
+    adversarial suite held against `libs/acl/SECURITY.md`, against the approved
+    spec at `docs/superpowers/specs/2026-09-14-acl-design.md`. Inside this
+    repository it resolves from source like any other workspace package.
+  </Text>
+</WorkshopNotice>
+
+An access-control matrix written once, serialized as JSON, and evaluated locally
+by whatever JS runtime holds it — a Node service, an SSR graph, a browser SPA,
+React Native, Electron. The matrix is a frozen document. There is no per-subject
+snapshot to build and no round trip to a policy server to make one decision.
+
+```ts file=libs/acl/README.md region=quick-start
+
+```
+
+`can` answers with a decision, not a boolean. `allowed` is the answer;
+`reason`, `rule`, `blockedBy`, `cause` and `missing` are why.
+
+<Panel heading="A decision counts where it is made">
+  <Text as="div" size="sm">
+    The same `can` call is authoritative in a trusted environment and advisory
+    in a browser, with the same signature and the same return type in both.
+    Nothing in the types separates them. Client-side evaluation toggles what a
+    user sees; enforcement happens server-side, in every layer, each one
+    deciding for itself. [The security contract](/acl/security) is the rest of
+    that sentence, and it is not optional reading.
+  </Text>
+</Panel>
+
+## When to reach for it
+
+- Permissions that depend on the row, not only on the role — "the author may
+  edit their own comment", "a draft may be deleted and a published one may not".
+- The same rules needed on a server and in a UI, without writing them twice and
+  without an endpoint per question. The document crosses an SSR boundary as
+  `access.matrix` and rebuilds on the other side.
+- A UI that has to explain a block rather than only enforce it: which rule
+  refused, which parent permission is off, which field is read-only, what is
+  still missing before the question can be answered at all.
+- A field-level write path, where the answer is "these keys of the write are
+  yours" rather than a single yes.
+
+## When not to
+
+- Anything the document cannot state in the open. The matrix ships to the
+  client in full, so every object kind, action, role string, field name and time
+  boundary in it is public. Opaque predicates stay server-side, outside the
+  matrix.
+- Filtering a collection in the database. A decision is per instance; there is
+  no row-scoping query language, and generating a `WHERE` clause from the matrix
+  is out of scope.
+- Rules that need to call a function. Conditions are declarative because the
+  matrix must survive `JSON.stringify` losslessly.
+- A non-JS backend. Only the JSON crosses; a .NET or Go service uses its own
+  evaluator.
+
+## What is in the package
+
+| Export                                  | What it is                                                        |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `createPolicy(matrix, options?)`        | the access object, from a document you trust                      |
+| `parseMatrix(json, options?)`           | the same, from a foreign document; fails closed on unknown keys   |
+| `policy<Subject>()`                     | the typed builder, one `.for()` block per object kind             |
+| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision   |
+| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                  |
+| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request       |
+| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                     |
+| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring) |
+
+The React provider and hooks are a separate package,
+[`@evanion/react-acl`](https://github.com/Evanion/libraries/tree/main/libs/react-acl#readme).
+This entry imports no framework.
+
+## Where to go next
+
+- [The matrix document](/acl/matrix) — the envelope, the version contract, the
+  schema, and adopting a foreign matrix
+- [Typed authoring](/acl/authoring) — the chained builder, paths versus
+  literals, and what construction refuses
+- [Decisions](/acl/decisions) — the decision shape, the precedence order, and
+  the `unevaluable` state
+- [Field permissions](/acl/fields) — the read and write axes, and the write path
+- [Security contract](/acl/security) — what the library prevents, what it hands
+  you, and what remains yours
+- [API reference](/acl/api) — every export, every type, every error
