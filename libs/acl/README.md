@@ -108,6 +108,133 @@ refetch settles the permission. An absent `object.*` path is undecidable for
 every operator, negative ones included; an absent `subject.*` path is an
 ordinary miss, because the app resolves the subject whole and never projects it.
 
+### Repairing one
+
+`missing` is a shopping list. Fetch what it names, ask again, and the permission
+settles. Both sides' unreadable paths come back together, so one refetch is
+enough however many rules read the object.
+
+<!-- #region refetch -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
+
+// The list query selected `id` and `title`; the rule reads `authorId`.
+const projection = { id: 'c1', title: 'Draft' };
+
+const first = access.can({ id: 's1' }, 'comment', 'update', projection);
+first.reason; // -> 'unevaluable'
+first.missing; // -> ['object.authorId']
+
+// Fetch exactly what `missing` names, then ask once more.
+const complete = { ...projection, authorId: 's1' };
+access.can({ id: 's1' }, 'comment', 'update', complete).allowed; // -> true
+```
+
+<!-- #endregion refetch -->
+
+A permission that stays `unevaluable` after a refetch is a bug in the document,
+almost always a mistyped field name. A `schema` turns that class into an
+`UnknownFieldError` at construction.
+
+## Asking more than one question
+
+`canMany` takes a list of instances and answers per instance. It settles the
+clock once and resolves the object kind once, where a loop of `can` pays both
+per row.
+
+<!-- #region can-many -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
+
+const rows = [
+  { id: 'c1', authorId: 's1' },
+  { id: 'c2', authorId: 's2' },
+  { id: 'c3' }, // the projection this row came back in lacks the field
+];
+
+const decisions = access.canMany({ id: 's1' }, 'comment', 'update', rows);
+const reasons = decisions.map((decision) => decision.reason);
+reasons; // -> ['allow', 'no-rule-matched', 'unevaluable']
+```
+
+<!-- #endregion can-many -->
+
+The array is parallel to the input, so the decision for `rows[i]` is
+`decisions[i]`. Nothing is filtered out: a refused row still has an entry, which
+is what lets a list render the refusal beside the row rather than dropping it.
+
+`capabilities` asks the other way — no instance, every permission in the
+document, resolved in dependency order against one subject.
+
+<!-- #region capabilities -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'report.read',
+      object: 'report',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'staff' }] },
+      ],
+    },
+    {
+      key: 'report.export',
+      object: 'report',
+      action: 'export',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
+      ],
+    },
+  ],
+});
+
+const caps = access.capabilities({ id: 'u1', roles: ['staff'] });
+
+Object.keys(caps); // -> ['report.read', 'report.export']
+caps['report.read']?.allowed; // -> true
+caps['report.export']?.reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion capabilities -->
+
+`capabilities` passes no object, so every permission whose rules read `object.*`
+decides `unevaluable` rather than `true` or `false`. That is the contract, not a
+shortfall: without an instance there is nothing to compare against. It answers
+definitely for the permissions that read only the subject, which is the half a
+navigation menu is built from.
+
 ## The matrix document
 
 A matrix is an envelope, never a bare array:
@@ -335,6 +462,50 @@ because the type declares the field is still an `UnknownFieldError` at
 construction when the schema does not declare it — the schema is binding
 wherever it is present.
 
+## Dependency cascades
+
+`dependsOn` names permissions that must resolve on for this one to resolve on. A
+parent that is off takes its dependants with it, transitively, and nothing is
+written back into the document.
+
+<!-- #region cascade -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Subject = { id: string; roles: string[] };
+type Comment = { authorId: string; status: string };
+
+const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+  p
+    .allow('update', p.eq('object.authorId', 'subject.id'))
+    .allow('publish', p.contains('subject.roles', 'editor'))
+    .dependsOn('comment.update')
+    .allow('feature', p.contains('subject.roles', 'editor'))
+    .dependsOn('comment.publish'),
+);
+
+const editor = { id: 's1', roles: ['editor'] };
+const theirs = { authorId: 's2', status: 'draft' };
+
+// Every rule on `feature` matched. It is off because `update` is.
+const decision = access.can(editor, 'comment', 'feature', theirs);
+decision.reason; // -> 'dependency-off'
+decision.blockedBy; // -> 'comment.publish'
+decision.cause; // -> { key: 'comment.update', reason: 'no-rule-matched' }
+```
+
+<!-- #endregion cascade -->
+
+`blockedBy` is the edge this permission died on. `cause` walks past it to the
+first ancestor that is off for a reason of its own — what an operator has to
+fix. In a chain of three they name two different permissions, which is why both
+are carried. A repairable cause keeps its `missing` paths on the way down, so a
+dependant three levels deep still knows what to fetch.
+
+Cycles are refused at construction with `FeatureCycleError`, and a cascade is
+resolved once per permission rather than once per edge.
+
 ## Field-level permissions
 
 <!-- #region field-permissions -->
@@ -434,6 +605,103 @@ access.can({ id: 's1' }, 'comment', 'delete').reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion foreign-matrix -->
+
+## One matrix per service
+
+Across a fleet of services, each service authors and evaluates only the matrix
+it owns. No service evaluates another's document to reach a decision, and there
+is no merged matrix anywhere.
+
+Object kinds are namespaced by origin — `orders:invoice`, `billing:invoice` —
+because two services that both say `invoice` mean different rows, with different
+fields, in different databases. The canonical key is unchanged:
+`orders:invoice.read` still equals `` `${object}.${action}` `` character for
+character. `.` is the key delimiter and is refused inside `object` and `action`
+at construction, which is what makes `:` safe as the namespace separator.
+
+A gateway or a BFF holds a map of policies rather than a merge. The map key is
+the origin, so routing is a lookup and two documents cannot collide even without
+naming discipline.
+
+<!-- #region federation -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+import type { Decision, Matrix } from '@evanion/acl';
+
+const ordersMatrix: Matrix = {
+  permissions: [
+    {
+      key: 'orders:invoice.read',
+      object: 'orders:invoice',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'ops' }] },
+      ],
+    },
+  ],
+};
+
+const billingMatrix: Matrix = {
+  permissions: [
+    {
+      key: 'billing:invoice.read',
+      object: 'billing:invoice',
+      action: 'read',
+      rules: [
+        {
+          when: [{ field: 'subject.roles', op: 'contains', value: 'finance' }],
+        },
+      ],
+    },
+  ],
+};
+
+// One Access per origin, every one of them closed.
+const policies = new Map([
+  ['orders', createPolicy(ordersMatrix, { closed: true })],
+  ['billing', createPolicy(billingMatrix, { closed: true })],
+]);
+
+const subject = { id: 'u1', roles: ['finance'] };
+
+// One advisory view for a UI. The namespaces are disjoint, so the fold is safe.
+const view: Record<string, Decision> = Object.assign(
+  {},
+  ...[...policies.values()].map((access) => access.capabilities(subject)),
+);
+
+Object.keys(view).sort(); // -> ['billing:invoice.read', 'orders:invoice.read']
+view['billing:invoice.read']?.allowed; // -> true
+view['orders:invoice.read']?.allowed; // -> false
+
+// An origin nobody registered answers nothing, with no flag to set.
+const absent = policies.get('orders')?.can(subject, 'shipping:parcel', 'read');
+absent?.reason; // -> 'unknown-action'
+```
+
+<!-- #endregion federation -->
+
+That view is advisory, in the same tier as a browser's. Every service behind the
+edge evaluates its own matrix for itself and never trusts the edge's answer.
+
+An unreachable upstream needs no special handling. Its origin is absent from the
+map, and under `closed: true` every key it would have answered is already
+`{ allowed: false, reason: 'unknown-action' }`.
+
+`dependsOn` does not cross an origin. `orders:order.ship` depending on
+`billing:invoice.paid` fails at construction with `UnknownDependencyError`,
+inside orders' own process, where the author can fix it. That is the right
+outcome rather than a limitation: resolving the edge would mean evaluating
+billing's `object.*` conditions against the order instance the caller passed,
+and returning a confident wrong answer. When one request genuinely touches two
+services, the fan-out is the caller's own `&&` — `a.can(…).allowed &&
+b.can(…).allowed` — written where somebody knows whether they meant AND or OR.
+
+A cross-cutting deny authored by another team is not expressible in a document
+this one does not own; a service that needs one authors it in its own matrix.
+Integrity of a document in transit belongs to the transport, the same way
+resolving a subject does: the library neither signs a matrix nor verifies one.
 
 ## Server-side `authorize`
 
@@ -573,6 +841,37 @@ client's copy in any case, since it evaluates its own.
 A document that states no `version` leaves `access.version` undefined, and a
 `!==` against undefined decides nothing. A producer that wants the contract to
 hold states a version — a content hash of the document is enough.
+
+The whole mechanism the library supplies is the comparison. Fetching, deciding
+what to do with a mismatch, and rebuilding are the consumer's:
+
+<!-- #region revalidate -->
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+import type { Access, Matrix } from '@evanion/acl';
+
+/** Rebuild when the served document moved; otherwise keep the one in hand. */
+function revalidate(current: Access, served: Matrix): Access {
+  return current.version === served.version ? current : createPolicy(served);
+}
+
+const served: Matrix = {
+  version: 'orders@8',
+  permissions: [
+    { key: 'comment.read', object: 'comment', action: 'read', rules: [] },
+  ],
+};
+
+let access = createPolicy({ ...served, version: 'orders@7' });
+access = revalidate(access, served);
+access.version; // -> 'orders@8'
+```
+
+<!-- #endregion revalidate -->
+
+Until that runs, the client grants what it last fetched. There is no push, no
+expiry and no way for a held matrix to notice that it is stale.
 
 ## API
 
