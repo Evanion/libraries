@@ -1,10 +1,10 @@
-# Integrations
+# Platforms
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    These four pages are wiring, not API. Every call they make is on the [API
-    reference](/acl/api); what changes per platform is where the authoritative
-    call sits and what leaves the trusted runtime.
+    The four guides in this band are wiring, not API. Every call they make is on
+    the [API reference](/acl/api); what changes per platform is where the
+    authoritative call sits and what leaves the trusted runtime.
   </Text>
 </WorkshopNotice>
 
@@ -27,17 +27,21 @@ that differs per platform.
 
 ## Where the boundary sits
 
-| Platform                                         | The call that decides                                   | What is not a boundary                          |
-| ------------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------- |
-| [Express](/acl/integrations/express)             | the request handler                                     | nothing crosses; the whole app is trusted       |
-| [NestJS](/acl/integrations/nestjs)               | the guard, then the service after the read              | the guard alone — it runs before the row exists |
-| [Next.js RSC](/acl/integrations/next-rsc)        | the server component, and each Server Action separately | the client component, and the action's caller   |
-| [React Router 8](/acl/integrations/react-router) | the loader, and each action separately                  | the component tree, and `clientLoader`          |
+| Platform                            | The call that decides                                   | What is not a boundary                          |
+| ----------------------------------- | ------------------------------------------------------- | ----------------------------------------------- |
+| [Express](/acl/express)             | the request handler                                     | nothing crosses; the whole app is trusted       |
+| [NestJS](/acl/nestjs)               | the guard, then the service after the read              | the guard alone — it runs before the row exists |
+| [Next.js RSC](/acl/next-rsc)        | the server component, and each Server Action separately | the client component, and the action's caller   |
+| [React Router 8](/acl/react-router) | the loader, and each action separately                  | the component tree, and `clientLoader`          |
 
 The two server-only platforms have one boundary and it is the request handler.
 The two React platforms have two: the render path and the write path, reached
 independently by a caller who never renders anything. A guide that made those
 read the same would be describing the wrong thing.
+
+[Many services](/acl/federation) closes this band on the one axis the four
+guides do not cover: a topology rather than a framework. Each service there
+authors and evaluates only the objects it owns, whichever platform it runs on.
 
 ## What crosses, on the platforms where something does
 
