@@ -142,7 +142,12 @@ describe('twoslash fences', () => {
 
       let produced: number[];
       try {
-        produced = twoslasher(code, lang).errors.map((error) => error.code);
+        // `code` is typed `string | number | undefined`. An absent one becomes
+        // NaN and matches no declared code, which is the direction this guard
+        // needs: a code that stopped being produced still has to fail.
+        produced = twoslasher(code, lang).errors.map((error) =>
+          Number(error.code),
+        );
       } catch (error) {
         failures.push(`${page} [${info}]: ${(error as Error).message}`);
         continue;
