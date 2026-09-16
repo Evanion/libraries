@@ -1,5 +1,6 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import Probe from './components/Probe';
+import Diagram from './components/diagram/Diagram';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
 import WorkshopNotice from './components/WorkshopNotice';
@@ -58,6 +59,10 @@ export function useMDXComponents(components) {
     Text,
     Title,
     Probe,
+    // Not a tag an author writes: `tools/remark-diagram.mjs` rewrites a
+    // ```mermaid fence into one, and the name has to be on this map for the
+    // rewritten element to resolve to anything.
+    Diagram,
     WorkshopNotice,
     WidgetPlayground,
     PlaygroundExamples,

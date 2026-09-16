@@ -179,6 +179,22 @@ to the first ancestor that is off for a reason of its own — what an operator h
 to fix. In a chain of three they are two different permissions, which is why
 both are carried.
 
+```mermaid caption="A chain of three. blockedBy names the edge comment.publish died on; cause walks past it to comment.read, the only one off for a reason of its own."
+flowchart TD
+  P["comment.publish<br>asked, refused"]
+  U["comment.update<br>off: dependency-off"]
+  R["comment.read<br>off: no-rule-matched"]:::accent
+
+  P -->|dependsOn| U
+  U -->|dependsOn| R
+  P -.->|blockedBy| U
+  P -.->|cause| R
+```
+
+`comment.update` is off, and fixing it is not a thing anyone can do: it is off
+because `comment.read` is. A UI that showed `blockedBy` to an operator would
+send them to the wrong permission.
+
 `cause` is flat rather than a nested decision: it answers which permission the
 cascade died on and why, `blockedBy` already names the edge, and the rest of the
 chain is walkable from the matrix. A repairable cause carries its `missing`
