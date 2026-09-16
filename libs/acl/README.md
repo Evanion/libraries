@@ -32,12 +32,9 @@ const access = createPolicy([
   },
 ]);
 
-const decision = access.can(
-  { id: 's1' },
-  'comment',
-  'update',
-  { authorId: 's1' },
-);
+const decision = access.can({ id: 's1' }, 'comment', 'update', {
+  authorId: 's1',
+});
 decision.allowed; // -> true
 ```
 
@@ -65,7 +62,9 @@ import { policy, permit, always } from '@evanion/acl';
 
 const access = policy<{ id: string; roles: string[] }>({
   comment: {
-    read: permit<{ status: string }>(always).fields({ fields: ['*', '!status'] }),
+    read: permit<{ status: string }>(always).fields({
+      fields: ['*', '!status'],
+    }),
   },
 });
 
@@ -114,7 +113,9 @@ const access = createPolicy([
     key: 'comment.read',
     object: 'comment',
     action: 'read',
-    rules: [{ when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] }],
+    rules: [
+      { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
+    ],
   },
 ]);
 
@@ -124,17 +125,17 @@ forUser.can('comment', 'read').allowed; // -> true
 
 ## API
 
-| Export | Purpose |
-| ------ | ------- |
-| `createPolicy(matrix, options?)` | Builds the access object from a canonical matrix. Validates, clones and freezes. |
-| `parseMatrix(json, options?)` | Adopts a foreign matrix; fails closed on unknown keys. |
-| `policy<S>(config)` | Typed authoring; flattens to the canonical matrix. |
-| `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules. |
-| `access.can(subject, key, action, object?, now?)` | One decision. |
-| `access.canMany(...)` | A decision array, parallel to the input. |
-| `access.canFields(...)` | The field-level decision for one axis. |
-| `access.capabilities(subject)` | Every action-level decision. |
-| `access.authorize(subject)` | A bound handle for server-side evaluation. |
+| Export                                                                   | Purpose                                                                          |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `createPolicy(matrix, options?)`                                         | Builds the access object from a canonical matrix. Validates, clones and freezes. |
+| `parseMatrix(json, options?)`                                            | Adopts a foreign matrix; fails closed on unknown keys.                           |
+| `policy<S>(config)`                                                      | Typed authoring; flattens to the canonical matrix.                               |
+| `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules.                                                      |
+| `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                    |
+| `access.canMany(...)`                                                    | A decision array, parallel to the input.                                         |
+| `access.canFields(...)`                                                  | The field-level decision for one axis.                                           |
+| `access.capabilities(subject)`                                           | Every action-level decision.                                                     |
+| `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                       |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `dependency-off`, `unknown-action`,

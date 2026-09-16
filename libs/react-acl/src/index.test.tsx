@@ -31,7 +31,9 @@ const access = createPolicy([
 
 function Row({ id }: { id: string }) {
   const can = useCan('comment', 'update', { authorId: id });
-  return <div data-testid={`row-${id}`}>{can.allowed ? 'editable' : 'readonly'}</div>;
+  return (
+    <div data-testid={`row-${id}`}>{can.allowed ? 'editable' : 'readonly'}</div>
+  );
 }
 
 describe('react-acl', () => {
@@ -100,9 +102,7 @@ describe('react-acl', () => {
         action: 'update',
         rules: [
           {
-            when: [
-              { field: 'subject.roles', op: 'contains', value: 'editor' },
-            ],
+            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
           },
         ],
         fields: { fields: ['*', '!status'] },

@@ -259,9 +259,9 @@ describe('the docs navigation', () => {
       const group = entry.group;
       byGroup.set(group, [...(byGroup.get(group) ?? []), entry.hue]);
     }
-    const acrossGroups = [...byGroup.values()].flatMap(
-      (hues) => [...new Set(hues)],
-    );
+    const acrossGroups = [...byGroup.values()].flatMap((hues) => [
+      ...new Set(hues),
+    ]);
     expect(
       acrossGroups,
       'Two packages in different groups sharing one colour teaches a reader ' +

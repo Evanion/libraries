@@ -190,11 +190,13 @@ export function Family({ group: id }: { group: string }) {
                     ))}
                   </span>
                   <span className="landing-marker">
-                    {platformsOfFamily(membersList).map(({ label, platform }) => (
-                      <Chip key={platform} platform={platform}>
-                        {label}
-                      </Chip>
-                    ))}
+                    {platformsOfFamily(membersList).map(
+                      ({ label, platform }) => (
+                        <Chip key={platform} platform={platform}>
+                          {label}
+                        </Chip>
+                      ),
+                    )}
                   </span>
                 </span>
               }
@@ -202,8 +204,8 @@ export function Family({ group: id }: { group: string }) {
               <figure className={`landing-proof ${identity(lead)}`}>
                 <DataDemo initial={listing(demoItems)} />
                 <figcaption className="landing-proof__caption">
-                  Edit the items and the preview follows. A type the map does not
-                  know is reported, not rendered. This page is itself a{' '}
+                  Edit the items and the preview follows. A type the map does
+                  not know is reported, not rendered. This page is itself a{' '}
                   {lead.title} region, built the same way.
                 </figcaption>
               </figure>

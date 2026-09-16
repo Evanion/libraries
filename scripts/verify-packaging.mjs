@@ -502,13 +502,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   // a Node backend, a frontend SSR graph, a browser SPA or a hybrid JS platform.
   // Same silent-breakage risk as the widget core, so the same check: every
   // emitted module is scanned for a framework import.
-  const authzCoreDist = join(
-    dir,
-    'node_modules',
-    '@evanion',
-    'acl',
-    'dist',
-  );
+  const authzCoreDist = join(dir, 'node_modules', '@evanion', 'acl', 'dist');
   const authzCoreModules = readdirSync(authzCoreDist, {
     recursive: true,
     withFileTypes: true,
@@ -538,7 +532,6 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
   }
   console.log('  ✓ acl core imports no framework');
-
 
   // Every adapter names the core at an exact version equal to the packed core's
   // own. A caret range is what lets a consumer with two adapters resolve two
