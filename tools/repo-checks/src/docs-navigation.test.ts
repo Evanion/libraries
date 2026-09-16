@@ -220,6 +220,97 @@ describe('the docs navigation', () => {
     ).toEqual([]);
   });
 
+  /**
+   * `familyId` is what merges a core and its adapters onto one card, and
+   * `apps/docs/components/landing/families.ts` groups within a `group` before
+   * it groups by `familyId`. Members spread across two groups are therefore two
+   * families carrying the same `id`, which the landing page renders as two
+   * cards keyed alike -- duplicate React keys and a family split in half, with
+   * no build failure.
+   */
+  it('keeps every family in one group', async () => {
+    const byFamily = new Map<string, Set<string>>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      byFamily.set(
+        entry.familyId,
+        (byFamily.get(entry.familyId) ?? new Set()).add(entry.group),
+      );
+    }
+
+    expect(
+      [...byFamily]
+        .filter(([, groups]) => groups.size > 1)
+        .map(([id, groups]) => `${id}: ${[...groups].sort().join(', ')}`),
+      'Every package sharing a `familyId` needs the same `group` in ' +
+        'apps/docs/app/navigation.ts. A family split across groups is two ' +
+        'cards under one key, not one card.',
+    ).toEqual([]);
+  });
+
+  /**
+   * A `familyId` only one package carries is a family of one, which is what
+   * omitting it already means. It is what a typo looks like -- `widgit` on one
+   * of three renderers takes that renderer off the family's card and gives it a
+   * card of its own, and every other check here still passes.
+   */
+  it('gives no package a `familyId` of its own', async () => {
+    const counts = new Map<string, string[]>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      counts.set(entry.familyId, [
+        ...(counts.get(entry.familyId) ?? []),
+        entry.slug,
+      ]);
+    }
+
+    expect(
+      [...counts]
+        .filter(([, slugs]) => slugs.length === 1)
+        .map(([id, slugs]) => `${slugs[0]}: ${id}`),
+      'A `familyId` naming one package groups it with nothing. Fix the ' +
+        'spelling so it matches the rest of the family, or drop the key.',
+    ).toEqual([]);
+  });
+
+  /**
+   * The lead is what the family's card is called, and `families.ts` picks the
+   * framework-free member as the lead so the card reads "Widget" rather than
+   * "React Widget". With no such member it falls back to whichever adapter
+   * `navigation.ts` happens to list first, so the card takes an adapter's name
+   * and reordering the list renames it. Two cores is the same ambiguity.
+   */
+  it('gives every family of several packages one framework-free core', async () => {
+    const byFamily = new Map<string, string[]>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      if (entry.framework !== 'universal') continue;
+      byFamily.set(entry.familyId, [
+        ...(byFamily.get(entry.familyId) ?? []),
+        entry.slug,
+      ]);
+    }
+
+    const families = new Set(
+      (await loadNavigation())
+        .map((entry) => entry.familyId)
+        .filter((id): id is string => id !== undefined),
+    );
+
+    expect(
+      [...families]
+        .map((id) => ({ id, cores: byFamily.get(id) ?? [] }))
+        .filter(({ cores }) => cores.length !== 1)
+        .map(({ id, cores }) => `${id}: ${cores.join(', ') || '(none)'}`),
+      'Every family in apps/docs/app/navigation.ts needs exactly one member ' +
+        'with `framework: universal`. That member names the family on the ' +
+        "landing page; without it the card takes an adapter's name.",
+    ).toEqual([]);
+  });
+
   /** The card says what stack a package runs in, so every card needs one. */
   it('says what stack every package runs in', async () => {
     expect(

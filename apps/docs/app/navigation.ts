@@ -32,12 +32,12 @@ export interface PackageGroup {
   /**
    * The group's own line on the landing page. The sidebar shows only the title.
    *
-   * For the rendering group this is the body of the one card both packages
-   * share -- so it has to name each runtime in words. A reader scanning for
-   * "astro" finds it here.
+   * For the rendering group this is the only prose the section carries -- the
+   * family's teaser is a name and a chip per runtime -- so it has to name each
+   * runtime in words. A reader scanning for "astro" finds it here.
    *
-   * Which shape a group takes on the landing page -- one card for the pair, a
-   * card each, a row each -- is the page's decision and lives in
+   * Which shape a group takes on the landing page -- a line beside the family
+   * teasers, a card each, a row each -- is the page's decision and lives in
    * `components/landing/items.ts`, where each group is an item of one type.
    */
   line: string;
