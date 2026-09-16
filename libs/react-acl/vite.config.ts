@@ -31,12 +31,7 @@ export default defineConfig(() => ({
       // React and the core are peers/dependencies, so they resolve to the
       // consumer's copies. Bundling them would put a second React in the graph
       // and inline the core into every adapter.
-      external: [
-        'react',
-        'react-dom',
-        'react/jsx-runtime',
-        '@evanion/acl',
-      ],
+      external: ['react', 'react-dom', 'react/jsx-runtime', '@evanion/acl'],
     },
   },
   test: {

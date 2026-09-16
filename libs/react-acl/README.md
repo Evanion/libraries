@@ -22,13 +22,19 @@ const access = createPolicy([
     key: 'comment.update',
     object: 'comment',
     action: 'update',
-    rules: [{ when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
+    rules: [
+      { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+    ],
   },
 ]);
 
 export function App({ user }: { user: { id: string } }) {
   return (
-    <PolicyProvider access={access} subject={user} context={{ now: new Date() }}>
+    <PolicyProvider
+      access={access}
+      subject={user}
+      context={{ now: new Date() }}
+    >
       <CommentList />
     </PolicyProvider>
   );

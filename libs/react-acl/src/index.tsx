@@ -11,10 +11,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Access, Subject } from '@evanion/acl';
-import type {
-  Decision,
-  FieldDecision,
-} from '@evanion/acl';
+import type { Decision, FieldDecision } from '@evanion/acl';
 
 export type { Access, Subject } from '@evanion/acl';
 export type {
