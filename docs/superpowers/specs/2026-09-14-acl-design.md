@@ -446,6 +446,20 @@ interface FieldDecision {
 There is no partial-allowed ambiguity: if any field is `denied` or
 `unevaluable`, the top-level `allowed` is `false`.
 
+#### Which fields are decided
+
+The decided set is every field the object carries, every field the rules
+configure, every real name the token list mentions, and — on the write axis —
+**every key of `proposed`**. A key present only in the write is decided by the
+same logic as every other field: `denied` with `not-listed` under an explicit
+allow-list or a matching bang entry, `allowed` under a `*` baseline that does not
+exclude it. A key nobody decided would be a key nobody denied, and a caller
+filtering a write on `state !== 'denied'` would carry it through.
+
+The read axis takes no `proposed`. Read is a projection of the object, and a key
+that exists only in a pending write is not part of any read, so a read decision
+is keyed on the object alone.
+
 `canFields` carries the **action** decision as well as the field maps, and
 `allowed` is gated on it. A field-level answer that ignored the action is a
 false allow: a UI gating a form on `canFields` would get a green light for an
@@ -490,7 +504,10 @@ array of field-name tokens or a per-field config object:
 in the token list; they are not field names. The canonical matrix resolves them
 at construction, and no field decision may key on them: `'*'` and `'!status'`
 must never appear in the `fields` or `reasons` maps of a `FieldDecision`, which
-carry real field names only.
+carry real field names only. That holds whichever source the token arrives
+from — an object or a proposed write that literally carries a `'*'` or
+`'!status'` key contributes no field, because the token is not a field name
+wherever it is read.
 
 Field rules stay **leaf-level**: they never cascade through `dependsOn`.
 
