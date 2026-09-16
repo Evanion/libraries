@@ -1,7 +1,11 @@
 import { decideResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
 import { buildGraph } from './graph.js';
-import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
+import {
+  InvalidMatrixError,
+  UnknownObjectKeyError,
+  UnknownPermissionError,
+} from './errors.js';
 import { validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
 import type { ResolvedContext } from './conditions.js';
@@ -13,11 +17,45 @@ import type {
   Permission,
 } from './types.js';
 
+/**
+ * Freezes a value and everything reachable from it.
+ *
+ * The walk is an explicit stack over a structure whose depth the matrix decides,
+ * and a seen-set carries it over a shape that refers back to itself, which a
+ * clone preserves.
+ */
 function deepFreeze<T>(value: T): T {
-  if (value === null || typeof value !== 'object') return value;
-  if (value instanceof Date) return Object.freeze(value);
-  for (const nested of Object.values(value)) deepFreeze(nested);
-  return Object.freeze(value);
+  const stack: unknown[] = [value];
+  const seen = new Set<unknown>();
+
+  while (stack.length > 0) {
+    const at = stack.pop();
+    if (at === null || typeof at !== 'object') continue;
+    if (seen.has(at)) continue;
+    seen.add(at);
+    Object.freeze(at);
+    if (at instanceof Date) continue;
+    for (const nested of Object.values(at)) stack.push(nested);
+  }
+
+  return value;
+}
+
+/**
+ * Clones one permission for the frozen matrix.
+ *
+ * Cloning is per permission so a value the structured clone algorithm refuses —
+ * a function, a symbol, a structure nested deeper than it walks — is reported
+ * against the permission holding it.
+ */
+function cloneNode(permission: Permission): Permission {
+  try {
+    return structuredClone(permission);
+  } catch {
+    throw new InvalidMatrixError(
+      `permission "${permission.key}" holds a value that cannot be cloned: a function, a symbol, or a structure nested deeper than the clone walks`,
+    );
+  }
 }
 
 /** A subject for a single call: the actor, a plain object of attributes. */
@@ -128,7 +166,7 @@ export function createPolicy(
   options: AccessOptions = {},
 ): Access {
   validateMatrix(matrix);
-  const frozen = deepFreeze(structuredClone(matrix)) as Matrix;
+  const frozen = deepFreeze(matrix.map(cloneNode)) as Matrix;
   const graph = buildGraph(frozen);
   const index = buildIndex(frozen);
   const closed = options.closed ?? false;
