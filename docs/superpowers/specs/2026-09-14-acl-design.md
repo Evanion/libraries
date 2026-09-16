@@ -208,6 +208,7 @@ type Cause = {
   key: string; // the first ancestor off for a reason of its own
   reason: Reason;
   rule?: string;
+  missing?: string[]; // the field paths, when reason is 'unevaluable'
 };
 
 type Decision = {
@@ -228,6 +229,10 @@ type Reason =
   | 'unknown-action'
   | 'unevaluable';
 ```
+
+`cause.missing` carries the same paths the causing decision carried, so a
+dependant blocked behind an `unevaluable` ancestor tells the caller what to
+fetch and not merely that the state is repairable.
 
 `cause` is a `Cause`, not a nested `Decision`. It answers one question — which
 permission the cascade actually died on, and why — and `blockedBy` already names
@@ -261,15 +266,21 @@ A permission may carry `rules` (allows) and/or `denyRules` (denies). Denies use
 the same `when`/`dependsOn` shape and are fully serializable.
 
 Deny is a stage in the single precedence order, defined once (see the full
-five-step order in [the missing-data case](#the-missing-data-case)):
+order in [the missing-data case](#the-missing-data-case)):
 
-1. If a deny rule matches, deny (reason `denied`).
+1. If a deny rule **matches**, deny (reason `denied`, `rule`).
 2. Else if a dependency resolved off, deny (reason `dependency-off`,
    `blockedBy`, `cause`).
-3. Else if an allow rule matches, allow (reason `allow`).
-4. Else if an `object`-dependent rule could not be evaluated for lack of an
-   instance or for lack of the paths it reads, `unevaluable`.
-5. Else deny (reason `no-rule-matched`).
+3. Else if the allow side **definitely fails**, deny (reason
+   `no-rule-matched`).
+4. Else if the deny side is **undecidable**, `unevaluable`.
+5. Else if an allow rule **matches**, allow (reason `allow`).
+6. Else if the allow side is **undecidable**, `unevaluable`.
+7. Else deny (reason `no-rule-matched`).
+
+An undecidable deny is not a deny, and it is not nothing either: the rule whose
+job is to refuse could not be read, so the permission is `unevaluable` (step 4)
+rather than a silent allow.
 
 When both a deny and a dependency-off apply, `denied` wins; the result may still
 carry `blockedBy`/`cause`. A matched deny carries the same
@@ -323,23 +334,44 @@ condition with one operand in each scope follows the operand that failed: an
 absent `subject.*` comparand fails the condition outright, an absent `object.*`
 comparand leaves it undecidable.
 
-### `unevaluable` in the precedence order
+### Rules and sides
 
-`unevaluable` is the result of a whole permission whose `object`-dependent rules
-cannot be decided. It ranks below `deny` and `dependency-off` but above
-`no-rule-matched`, and it is distinct from a definite deny:
+A **rule** MATCHES when every condition holds, FAILS when any condition
+definitely fails, and is UNDECIDABLE otherwise.
 
-1. If a deny rule matches, deny (`denied`).
-2. Else if a dependency resolved off, deny (`dependency-off`).
-3. Else if an allow rule matches, allow (`allow`).
-4. Else if an `object`-dependent rule could not be evaluated for lack of an
-   instance or for lack of the paths it reads, `unevaluable`.
-5. Else deny (`no-rule-matched`).
+A **side** — the allow rules, or the deny rules — MATCHES if any of its rules
+matches, is UNDECIDABLE if no rule matches and at least one is undecidable, and
+FAILS otherwise.
 
 A rule's `when` conditions are AND-ed, and one condition that is definitely
 false decides the rule whatever else is undecidable: no reading of the absent
-paths could make the AND hold, so the rule is **not matched** rather than
-undecidable.
+paths could make the AND hold, so the rule FAILS rather than being undecidable.
+
+### `unevaluable` in the precedence order
+
+The governing rule: **a definite outcome beats an undecidable one; among
+definite outcomes, deny beats allow.** An undecidable deny only ever subtracts,
+so it can never turn a definite no-allow into something repairable.
+
+1. If a deny rule MATCHES, deny (`denied`, `rule` = that rule).
+2. Else if a dependency resolved off, deny (`dependency-off`, `blockedBy`,
+   `cause`).
+3. Else if the allow side FAILS, deny (`no-rule-matched`).
+4. Else if the deny side is UNDECIDABLE, `unevaluable` with `allowed: false`,
+   `rule` = the undecidable deny rule and `missing` = its unreadable paths,
+   unioned with the allow side's if that is also undecidable.
+5. Else if an allow rule MATCHES, allow (`allow`).
+6. Else if the allow side is UNDECIDABLE, `unevaluable` with `missing` = the
+   union of the undecidable allow rules' paths.
+7. Else deny (`no-rule-matched`). Unreachable given step 3; it is the default
+   arm.
+
+Step 3 sits above step 4 because allow is required. A definite "no allow rule
+matched" cannot be repaired by fetching the object, so reporting `unevaluable`
+there would tell a UI to refetch and re-ask forever. Step 2 sits above step 4
+for the same reason: a parent that is definitely off is a definite answer, and
+an `unevaluable` in its place invites a pointless refetch. Both branches are
+`allowed: false`, so neither leaks.
 
 A rule that mixes `object`-dependent and `object`-independent branches with no
 instance is decided by the `object`-independent branch alone:
@@ -854,6 +886,15 @@ Hooks:
   instance (`transitions` needs a current value, and a name list is decided
   against the fields the object carries), and `capabilities()` has no instance,
   so a field-level answer belongs to `useCanFields` alone.
+
+### The `capabilities()` contract
+
+`capabilities()` runs without an object, so every permission carrying an
+`object`-scoped rule — a deny rule as much as an allow rule — is `unevaluable`
+there rather than `allow`. In `capabilities()`, `unevaluable` means **possible,
+needs an object**: a UI renders it as available-pending-object, not hidden. The
+paths in `missing` name what to fetch to get a definite answer, and `can(...)`
+with the instance gives one.
 
 The provider evaluates the full matrix against the current context; it does not
 ship or imply a per-subject snapshot. Evaluation is memoised on the tuple

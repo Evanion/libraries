@@ -116,6 +116,8 @@ export interface Cause {
   key: string;
   reason: Reason;
   rule?: string;
+  /** The paths to fetch when `reason` is `unevaluable`. */
+  missing?: readonly string[];
 }
 
 /** One action-level decision. */

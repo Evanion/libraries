@@ -367,4 +367,269 @@ describe('decide', () => {
       blockedBy: 'article.update',
     });
   });
+  it('an undecidable deny outranks a matching allow', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+    expect(decide(perm, partial, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      rule: 'locked',
+      missing: ['object.locked'],
+    });
+  });
+
+  it('a deny that definitely fails leaves the matching allow standing', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const full: EvaluationContext = {
+      ...ctx,
+      object: { authorId: 's1', locked: false },
+    };
+    expect(decide(perm, full, resolved)).toMatchObject({
+      allowed: true,
+      reason: 'allow',
+      rule: 'editor',
+    });
+  });
+
+  it('a definitely failing allow outranks an undecidable deny', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'admin',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+    const decision = decide(perm, partial, resolved);
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+    expect(decision.missing).toBeUndefined();
+  });
+
+  it('two undecidable sides report the union of their paths', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'author',
+          when: [
+            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
+            { field: 'object.locked', op: 'eq', value: false },
+          ],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [
+            { field: 'object.locked', op: 'eq', value: true },
+            { field: 'object.lockedBy', op: 'ne', path: 'subject.id' },
+          ],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
+    const decision = decide(perm, partial, resolved);
+    expect(decision).toMatchObject({ allowed: false, reason: 'unevaluable' });
+    expect([...(decision.missing ?? [])].sort()).toEqual([
+      'object.authorId',
+      'object.locked',
+      'object.lockedBy',
+    ]);
+  });
+
+  it('a matching deny outranks an undecidable one', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+        {
+          id: 'draft',
+          when: [{ field: 'object.status', op: 'eq', value: 'draft' }],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
+    expect(decide(perm, partial, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'denied',
+      rule: 'draft',
+    });
+  });
+
+  it('a definitely off parent outranks the child an undecidable deny would leave unevaluable', () => {
+    const parent: Permission = p({ key: 'article.update' });
+    const child = p({
+      key: 'article.publish',
+      dependsOn: ['article.update'],
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+    const withParent = new Map<string, Decision>([
+      ['article.update', decide(parent, partial, resolved)],
+    ]);
+    expect(decide(child, partial, withParent)).toMatchObject({
+      allowed: false,
+      reason: 'dependency-off',
+      blockedBy: 'article.update',
+      cause: { key: 'article.update', reason: 'no-rule-matched' },
+    });
+  });
+
+  it('a cause carries the paths that would settle an unevaluable parent', () => {
+    const parent = p({
+      key: 'article.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const child = p({
+      key: 'article.publish',
+      dependsOn: ['article.update'],
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    });
+    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+    const withParent = new Map<string, Decision>([
+      ['article.update', decide(parent, partial, resolved)],
+    ]);
+    expect(decide(child, partial, withParent)).toMatchObject({
+      allowed: false,
+      reason: 'dependency-off',
+      cause: {
+        key: 'article.update',
+        reason: 'unevaluable',
+        rule: 'locked',
+        missing: ['object.locked'],
+      },
+    });
+  });
+
+  it('an object-scoped deny with no instance is unevaluable, not an allow', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'locked',
+          when: [{ field: 'object.locked', op: 'eq', value: true }],
+        },
+      ],
+    });
+    const noObj: EvaluationContext = {
+      subject: { id: 's1', roles: ['editor'] },
+      now: ctx.now,
+    };
+    expect(decide(perm, noObj, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      rule: 'locked',
+      missing: ['object.locked'],
+    });
+  });
+
+  it('a deny reading an absent subject path is a definite miss, not undecidable', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        {
+          id: 'banned',
+          when: [{ field: 'subject.banned', op: 'eq', value: true }],
+        },
+        {
+          id: 'draft',
+          when: [{ field: 'object.status', op: 'eq', value: 'draft' }],
+        },
+      ],
+    });
+    const decision = decide(perm, ctx, resolved);
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: 'denied',
+      rule: 'draft',
+    });
+    expect(decision.missing).toBeUndefined();
+  });
 });

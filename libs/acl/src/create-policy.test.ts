@@ -296,4 +296,54 @@ describe('createPolicy', () => {
       reason: 'allow',
     });
   });
+  it('capabilities reports an object-scoped deny as unevaluable and cascades it', () => {
+    const objectScopedDeny: Matrix = [
+      {
+        key: 'article.update',
+        object: 'article',
+        action: 'update',
+        rules: [
+          {
+            id: 'editor',
+            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+          },
+        ],
+        denyRules: [
+          {
+            id: 'locked',
+            when: [{ field: 'object.locked', op: 'eq', value: true }],
+          },
+        ],
+      },
+      {
+        key: 'article.publish',
+        object: 'article',
+        action: 'publish',
+        dependsOn: ['article.update'],
+        rules: [
+          {
+            id: 'editor',
+            when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+          },
+        ],
+      },
+    ];
+    const caps = createPolicy(objectScopedDeny).capabilities(editor);
+    expect(caps['article.update']).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      rule: 'locked',
+      missing: ['object.locked'],
+    });
+    expect(caps['article.publish']).toMatchObject({
+      allowed: false,
+      reason: 'dependency-off',
+      blockedBy: 'article.update',
+      cause: {
+        key: 'article.update',
+        reason: 'unevaluable',
+        missing: ['object.locked'],
+      },
+    });
+  });
 });
