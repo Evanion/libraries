@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { decideFields } from './fields.js';
-import type { EvaluationContext, FieldRules, Permission } from './types.js';
+import { ActionNotAllowedError } from './errors.js';
+import { decideFields, pickAllowedFields } from './fields.js';
+import type {
+  Decision,
+  EvaluationContext,
+  FieldDecision,
+  FieldRules,
+  FieldState,
+  Permission,
+} from './types.js';
 
 const ctx: EvaluationContext = {
   subject: { id: 's1', roles: ['editor'] },
@@ -218,4 +226,115 @@ describe('decideFields', () => {
       expect(d.reasons['status']).toBe('transition-failed');
     },
   );
+});
+
+const allowedAction: Decision = {
+  key: 'user.update',
+  allowed: true,
+  reason: 'allow',
+};
+
+function decisionOf(
+  fields: Record<string, FieldState>,
+  action: Decision = allowedAction,
+): FieldDecision {
+  return {
+    allowed:
+      action.allowed && Object.values(fields).every((s) => s === 'allowed'),
+    action,
+    fields,
+    reasons: {},
+  };
+}
+
+describe('pickAllowedFields', () => {
+  it('keeps the allowed keys and drops every other state', () => {
+    const d = decisionOf({
+      name: 'allowed',
+      role: 'denied',
+      status: 'unevaluable',
+    });
+    expect(
+      pickAllowedFields(d, { name: 'Eve', role: 'admin', status: 'x' }),
+    ).toEqual({ name: 'Eve' });
+  });
+
+  it('drops a key the decision never decided', () => {
+    const d = decisionOf({ name: 'allowed' });
+    expect(pickAllowedFields(d, { name: 'Eve', role: 'admin' })).toEqual({
+      name: 'Eve',
+    });
+  });
+
+  it('narrows a real decision to the writable half', () => {
+    const p = perm('user.update', { fields: ['*', '!role'] });
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1', name: 'Ann' },
+    };
+    const proposed = { name: 'Eve', role: 'admin' };
+    const outcome = decideFields(p, self, 'write', proposed);
+    const d: FieldDecision = { ...outcome, action: allowedAction };
+    expect(pickAllowedFields(d, proposed)).toEqual({ name: 'Eve' });
+  });
+
+  it('throws when the action is refused', () => {
+    const d = decisionOf(
+      { name: 'allowed' },
+      { key: 'user.update', allowed: false, reason: 'no-rule-matched' },
+    );
+    expect(() => pickAllowedFields(d, { name: 'Eve' })).toThrow(
+      ActionNotAllowedError,
+    );
+  });
+
+  it('returns the allowed subset when only a field is denied', () => {
+    const d = decisionOf({ name: 'allowed', role: 'denied' });
+    expect(d.allowed).toBe(false);
+    expect(pickAllowedFields(d, { name: 'Eve', role: 'admin' })).toEqual({
+      name: 'Eve',
+    });
+  });
+
+  it('returns only keys the decision marks allowed, over generated input', () => {
+    // A deterministic sweep: the invariant is a property of the output, not of
+    // any one shape, and the names include the prototype members a field map
+    // keyed by data can carry.
+    const states: readonly FieldState[] = ['allowed', 'denied', 'unevaluable'];
+    const names = [
+      'id',
+      'name',
+      'role',
+      '__proto__',
+      'constructor',
+      'toString',
+    ];
+    let seed = 1;
+    const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+    const define = (bag: object, key: string, value: unknown) =>
+      Object.defineProperty(bag, key, {
+        value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+
+    for (let run = 0; run < 500; run += 1) {
+      const fields: Record<string, FieldState> = {};
+      const proposed: Record<string, unknown> = {};
+      for (const name of names) {
+        if (next() % 3 !== 0) {
+          define(fields, name, states[next() % states.length] as FieldState);
+        }
+        if (next() % 2 === 0) define(proposed, name, run);
+      }
+      const picked = pickAllowedFields(decisionOf(fields), proposed);
+      for (const key of Object.keys(picked)) {
+        expect(Object.getOwnPropertyDescriptor(fields, key)?.value).toBe(
+          'allowed',
+        );
+        expect(Object.getOwnPropertyDescriptor(proposed, key)?.value).toBe(run);
+      }
+    }
+  });
 });

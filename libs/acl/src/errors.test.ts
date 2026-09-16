@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AclConfigError,
+  ActionNotAllowedError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   FeatureCycleError,
@@ -12,7 +13,7 @@ import {
 } from './errors.js';
 
 describe('errors', () => {
-  it('all errors extend AclConfigError', () => {
+  it('every configuration error extends AclConfigError', () => {
     const cases: (() => Error)[] = [
       () => new DenyWithoutBaselineError('!status'),
       () => new DuplicatePermissionError('x'),
@@ -61,5 +62,13 @@ describe('errors', () => {
   it('a targets/transitions conflict error names the field', () => {
     const err = new TargetsTransitionsConflictError('status');
     expect(err.message).toContain('status');
+  });
+
+  it('an action-not-allowed error carries the key and the reason', () => {
+    const err = new ActionNotAllowedError('user.update', 'no-rule-matched');
+    expect(err.key).toBe('user.update');
+    expect(err.reason).toBe('no-rule-matched');
+    expect(err.message).toContain('user.update');
+    expect(err).not.toBeInstanceOf(AclConfigError);
   });
 });

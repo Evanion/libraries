@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPolicy } from './create-policy.js';
 import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
+import { pickAllowedFields } from './fields.js';
 import type { Instant, Matrix } from './types.js';
 
 const matrix: Matrix = [
@@ -212,6 +213,34 @@ describe('createPolicy', () => {
     );
     expect(fd.allowed).toBe(true);
     expect(fd.action).toMatchObject({ allowed: true, reason: 'allow' });
+  });
+
+  it('canFields decides a proposed key the object does not carry', () => {
+    const selfService = createPolicy([
+      {
+        key: 'user.update',
+        object: 'user',
+        action: 'update',
+        rules: [
+          { when: [{ field: 'object.id', op: 'eq', path: 'subject.id' }] },
+        ],
+        fields: { fields: ['*', '!role'] },
+      },
+    ]);
+    const current = { id: 'u1', name: 'Ann' };
+    const proposed = { name: 'Eve', role: 'admin' };
+    const fd = selfService.canFields(
+      { id: 'u1' },
+      'user',
+      'update',
+      current,
+      'write',
+      proposed,
+    );
+    expect(fd.action.allowed).toBe(true);
+    expect(fd.fields['role']).toBe('denied');
+    expect(fd.allowed).toBe(false);
+    expect(pickAllowedFields(fd, proposed)).toEqual({ name: 'Eve' });
   });
 
   it('canFields on an unknown action names the unknown action', () => {

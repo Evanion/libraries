@@ -1,6 +1,8 @@
+import { ActionNotAllowedError } from './errors.js';
 import type {
   EvaluationContext,
   FieldConfig,
+  FieldDecision,
   FieldOutcome,
   FieldReason,
   FieldRules,
@@ -189,4 +191,37 @@ export function decideFields(
 
   const allowedAll = Object.values(fields).every((s) => s === 'allowed');
   return { allowed: allowedAll, fields, reasons };
+}
+
+/**
+ * The subset of a proposed write the decision allows: every key whose state is
+ * `allowed`, and nothing else. This is the value to write.
+ *
+ * A key the decision does not carry is not written. Only `allowed` passes, so
+ * `denied` and `unevaluable` are both withheld, and so is a key that reached the
+ * decision under a different `proposed` object.
+ *
+ * Throws `ActionNotAllowedError` when the action is refused, because no field of
+ * a refused action is writable and an empty object would read as a lawful write
+ * of nothing. A field the action allows but the rules deny is a partial write,
+ * which is what filtering is for, so a `false` top-level `allowed` from the
+ * field maps alone returns the allowed subset.
+ */
+export function pickAllowedFields<T extends Record<string, unknown>>(
+  decision: FieldDecision,
+  proposed: T,
+): Partial<T> {
+  if (!decision.action.allowed) {
+    throw new ActionNotAllowedError(
+      decision.action.key,
+      decision.action.reason,
+    );
+  }
+  const writable: Record<string, unknown> = {};
+  for (const field of Object.keys(proposed)) {
+    if (!hasOwn(decision.fields, field)) continue;
+    if (decision.fields[field] !== 'allowed') continue;
+    put(writable, field, proposed[field]);
+  }
+  return writable as Partial<T>;
 }

@@ -85,6 +85,45 @@ true only when the action is allowed and every field is allowed. The field maps
 are filled in whatever the action says, so a blocked caller still sees which
 fields would be editable once the action is unblocked.
 
+### Writing
+
+A write passes the proposed object to `canFields` and writes what
+`pickAllowedFields` hands back. Every key of the proposed write is decided, and
+the returned object holds only the keys that decided `allowed` — that object is
+the value to write, and nothing else from the write is.
+
+```ts @import.meta.vitest
+import { policy, permit, eq, pickAllowedFields } from '@evanion/acl';
+
+const access = policy<{ id: string }>({
+  user: {
+    update: permit<{ id: string; name: string }>(
+      eq('object.id', 'subject.id'),
+    ).fields({ fields: ['*', '!role'] }),
+  },
+});
+
+const current = { id: 'u1', name: 'Ann' };
+const proposed = { name: 'Eve', role: 'admin' };
+
+const fd = access.canFields(
+  { id: 'u1' },
+  'user',
+  'update',
+  current,
+  'write',
+  proposed,
+);
+
+fd.fields['role']; // -> 'denied'
+JSON.stringify(pickAllowedFields(fd, proposed)); // -> '{"name":"Eve"}'
+```
+
+`pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
+refused: no field of a refused action is writable, and an empty object would
+read as a lawful write of nothing. A field the action allows but the field rules
+deny is a partial write, so that case returns the allowed subset.
+
 ## Foreign matrix
 
 A backend that uses its own ACL can expose its matrix as JSON and the frontend
@@ -220,6 +259,7 @@ case, since it evaluates its own.
 | `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                    |
 | `access.canMany(...)`                                                    | A decision array, parallel to the input.                                         |
 | `access.canFields(...)`                                                  | The field-level decision for one axis, plus the action decision gating it.       |
+| `pickAllowedFields(decision, proposed)`                                  | The subset of a proposed write the decision allows. The value to write.          |
 | `access.capabilities(subject)`                                           | Every action-level decision.                                                     |
 | `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                       |
 

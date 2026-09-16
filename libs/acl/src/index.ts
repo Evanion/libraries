@@ -18,10 +18,11 @@ export { policy, permit, always, and, or, eq, contains } from './authoring.js';
 export type { PermitBuilder, PolicyConfig } from './authoring.js';
 export { evaluateCondition } from './conditions.js';
 export { decide } from './evaluate.js';
-export { decideFields } from './fields.js';
+export { decideFields, pickAllowedFields } from './fields.js';
 
 export {
   AclConfigError,
+  ActionNotAllowedError,
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
