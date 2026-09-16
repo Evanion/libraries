@@ -33,6 +33,21 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * list of every TypeScript built-in, which goes stale in the direction that
  * produces false failures. § 12 names that gap and decision 21 is what closes
  * it, by emitting the block from the declarations.
+ *
+ * Two more things this reaches past, and both are wider than § 12 says:
+ *
+ * An entry point that is not TypeScript has no export list to hold anything to.
+ * `@evanion/astro-widget` publishes `./components/*` as `.astro` files, so a
+ * fence importing one is checked for the specifier resolving through the
+ * `exports` map and for nothing else. Five imports on the site are in that
+ * position today.
+ *
+ * The `mermaid` extension matches `@evanion/<package>` and an attached
+ * `.Symbol` or `#Symbol`, which is the only spelling that names both halves.
+ * § 12 does not say how a diagram spells a symbol, so a diagram naming one bare
+ * -- a node labelled `createPolicy` -- is invisible here. The site's one
+ * diagram names no symbol at all, so the extension catches nothing today and
+ * will keep catching nothing until the spelling is decided.
  */
 
 const CONTENT = join(workspaceRoot, 'apps/docs/content');
