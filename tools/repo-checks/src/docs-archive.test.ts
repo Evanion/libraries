@@ -37,7 +37,7 @@ const contentRoot = join(docsRoot, 'content');
 
 /**
  * Superseded majors that are deliberately not archived yet, each carrying the
- * reason, on the pattern of `!libs/baize-ui` in `nx.json`.
+ * reason next to it.
  *
  * Adding an entry means writing down why, in the same place the check lives.
  * That is the friction: the spec's answer to a failure is either the archive or

@@ -10,14 +10,14 @@
     "stateless",
     "typescript"
   ],
-  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/baize-ui#readme",
+  "homepage": "https://github.com/Evanion/libraries/tree/main/internal/baize-ui#readme",
   "bugs": {
     "url": "https://github.com/Evanion/libraries/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Evanion/libraries.git",
-    "directory": "libs/baize-ui"
+    "directory": "internal/baize-ui"
   },
   "license": "MIT",
   "author": "Mikael Pettersson",
@@ -67,7 +67,7 @@
   "nx": {
     "targets": {
       "generate-tokens": {
-        "command": "npx jiti libs/baize-ui/tools/generate-tokens.ts"
+        "command": "npx jiti internal/baize-ui/tools/generate-tokens.ts"
       }
     }
   },

@@ -17,10 +17,10 @@ import { uncoveredRoots } from './docs-trigger';
  *
  * That is the same silent shape as the undocumented packages
  * `docs-navigation.test.ts` exists for, and it takes the same answer: the
- * hand-written list is held against the thing it is supposed to track. Here the
- * thing is `release.projects` in `nx.json`, read through the project graph, so a
- * package added under a directory the filter does not name fails here before it
- * can ship a silent deploy.
+ * hand-written list is held against the thing it is supposed to track. Here that
+ * is two things read through the project graph: `release.projects` in `nx.json`,
+ * and what the `docs` project is built from. A project landing under a directory
+ * the filter does not name fails here before it can ship a silent deploy.
  *
  * `docs.yml` is the only workflow in the repository with a path filter. `ci.yml`
  * runs on every push and pull request, and `release.yml` is `workflow_dispatch`
@@ -83,6 +83,24 @@ const releasedRoots: Promise<string[]> = (async () => {
   return rootsOf(names);
 })();
 
+/**
+ * The roots of the in-workspace projects the docs site is built from, itself
+ * included. `@evanion/baize-ui` is one and is released by nothing, so the
+ * released set does not reach it, and a filter covering only released packages
+ * would deploy no rebuild when the design system the pages render in changes.
+ */
+const docsBuildRoots: Promise<string[]> = (async () => {
+  const dependencies = (await graph).dependencies['docs'];
+
+  if (!dependencies) throw new Error('docs is not a project in the graph');
+
+  const inWorkspace = dependencies
+    .map((dependency) => dependency.target)
+    .filter((target) => !target.startsWith('npm:'));
+
+  return rootsOf(['docs', ...new Set(inWorkspace)]);
+})();
+
 describe('the docs workflow path filter', () => {
   it('covers every released package', async () => {
     expect(
@@ -91,14 +109,17 @@ describe('the docs workflow path filter', () => {
   });
 
   /**
-   * The filter is what makes the site rebuild; the site itself is what makes the
-   * rebuild worth running. A filter that named the packages but not
-   * `apps/docs/**` would pass the assertion above and still not deploy a change
-   * to a page.
+   * The filter is what makes the site rebuild; the site and what it is built
+   * from are what make the rebuild worth running. A filter that named the
+   * released packages but not `apps/docs/**` would pass the assertion above and
+   * still not deploy a change to a page.
    */
-  it('covers the site itself', () => {
+  it('covers the site and what it is built from', async () => {
     expect(
-      uncoveredRoots({ roots: ['apps/docs'], patterns: docsPushPaths() }),
+      uncoveredRoots({
+        roots: await docsBuildRoots,
+        patterns: docsPushPaths(),
+      }),
     ).toEqual([]);
   });
 });
