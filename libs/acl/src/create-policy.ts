@@ -1,12 +1,14 @@
-import { decide } from './evaluate.js';
+import { decideResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
 import { buildGraph } from './graph.js';
 import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
 import { validateMatrix } from './validate.js';
+import { settleNow } from './conditions.js';
+import type { ResolvedContext } from './conditions.js';
 import type {
   Decision,
-  EvaluationContext,
   FieldDecision,
+  Instant,
   Matrix,
   Permission,
 } from './types.js';
@@ -56,14 +58,14 @@ export interface Access {
     key: string,
     action: string,
     object?: Record<string, unknown>,
-    now?: Date,
+    now?: Instant,
   ): Decision;
   canMany(
     subject: Subject,
     key: string,
     action: string,
     objects: readonly Record<string, unknown>[],
-    now?: Date,
+    now?: Instant,
   ): Decision[];
   canFields(
     subject: Subject,
@@ -72,10 +74,10 @@ export interface Access {
     object: Record<string, unknown>,
     axis: 'read' | 'write',
     proposed?: Record<string, unknown>,
-    now?: Date,
+    now?: Instant,
   ): FieldDecision;
-  capabilities(subject: Subject, now?: Date): Record<string, Decision>;
-  authorize(subject: Subject, opts?: { now?: Date }): Authorized;
+  capabilities(subject: Subject, now?: Instant): Record<string, Decision>;
+  authorize(subject: Subject, opts?: { now?: Instant }): Authorized;
 }
 
 function buildIndex(matrix: Matrix): Map<string, Permission> {
@@ -87,13 +89,13 @@ function buildIndex(matrix: Matrix): Map<string, Permission> {
 function resolve(
   index: Map<string, Permission>,
   order: readonly string[],
-  ctx: EvaluationContext,
+  ctx: ResolvedContext,
 ): Map<string, Decision> {
   const resolved = new Map<string, Decision>();
   for (const key of order) {
     const permission = index.get(key);
     if (!permission) continue;
-    resolved.set(key, decide(permission, ctx, resolved));
+    resolved.set(key, decideResolved(permission, ctx, resolved));
   }
   return resolved;
 }
@@ -164,20 +166,25 @@ export function createPolicy(
    */
   const decideCascaded = (
     permission: Permission,
-    ctx: EvaluationContext,
+    ctx: ResolvedContext,
   ): Decision => {
     const resolved = resolve(index, cascadeFor(permission.key), ctx);
     return resolved.get(permission.key) as Decision;
   };
 
+  /**
+   * The settled context for one call. `now` is parsed here and nowhere else, so
+   * a matrix with many time conditions reads one epoch. An omitted `now` is the
+   * wall clock; one that does not parse stays NaN and fails its conditions.
+   */
   const ctxWith = (
     subject: Subject,
     object: Record<string, unknown> | undefined,
-    now: Date | undefined,
-  ): EvaluationContext => ({
+    now: Instant | undefined,
+  ): ResolvedContext => ({
     subject,
     object,
-    now: now ?? new Date(),
+    now: now === undefined ? Date.now() : settleNow(now),
   });
 
   const can = (
@@ -185,7 +192,7 @@ export function createPolicy(
     key: string,
     action: string,
     object?: Record<string, unknown>,
-    now?: Date,
+    now?: Instant,
   ): Decision => {
     objectFor(key);
     const permission = permissionFor(key, action);
@@ -204,7 +211,7 @@ export function createPolicy(
     key: string,
     action: string,
     objects: readonly Record<string, unknown>[],
-    now?: Date,
+    now?: Instant,
   ): Decision[] => {
     objectFor(key);
     const permission = permissionFor(key, action);
@@ -215,8 +222,10 @@ export function createPolicy(
         reason: 'unknown-action',
       }));
     }
+    // One clock for the whole list: the objects differ, the instant does not.
+    const settled = ctxWith(subject, undefined, now).now;
     return objects.map((object) =>
-      decideCascaded(permission, ctxWith(subject, object, now)),
+      decideCascaded(permission, { subject, object, now: settled }),
     );
   };
 
@@ -227,7 +236,7 @@ export function createPolicy(
     object: Record<string, unknown>,
     axis: 'read' | 'write',
     proposed?: Record<string, unknown>,
-    now?: Date,
+    now?: Instant,
   ): FieldDecision => {
     objectFor(key);
     const permission = permissionFor(key, action);
@@ -259,15 +268,19 @@ export function createPolicy(
 
   const capabilities = (
     subject: Subject,
-    now?: Date,
+    now?: Instant,
   ): Record<string, Decision> => {
     const ctx = ctxWith(subject, undefined, now);
     const resolved = resolve(index, graph.order, ctx);
     return Object.fromEntries(resolved);
   };
 
-  const authorize = (subject: Subject, opts?: { now?: Date }): Authorized => {
-    const now = opts?.now ?? new Date();
+  const authorize = (
+    subject: Subject,
+    opts?: { now?: Instant },
+  ): Authorized => {
+    // Settled here so the bound handle carries an epoch every call reuses.
+    const now = opts?.now === undefined ? Date.now() : settleNow(opts.now);
     return {
       can: (key, action, object) => can(subject, key, action, object, now),
       canMany: (key, action, objects) =>

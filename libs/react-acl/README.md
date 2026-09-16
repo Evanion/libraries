@@ -60,6 +60,13 @@ function CommentList() {
 - `useCapabilities()` — every action-level decision for the current subject (no
   object, so no object-dependent decisions).
 
+## The clock
+
+`context.now` takes any `Instant`: an ISO 8601 string, epoch milliseconds, or a
+`Date`. Pass the string an SSR payload hydrates with rather than converting it —
+the hooks key their memo on `now`, so a string holds the memo across renders
+where a `Date` is a new object every render and re-evaluates the matrix.
+
 ## License
 
 MIT

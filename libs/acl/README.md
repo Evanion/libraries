@@ -147,6 +147,43 @@ A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `dependency-off`, `unknown-action`,
 `unevaluable`). Nothing in the library reads a `reason` back to decide anything.
 
+### The clock
+
+`now` is an `Instant` — an ISO 8601 string, epoch milliseconds, or a `Date` —
+wherever it is taken, which is the same type a `before`/`after` condition value
+takes. A context hydrated from JSON carries a string and is passed through as
+it stands:
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy([
+  {
+    key: 'sale.buy',
+    object: 'sale',
+    action: 'buy',
+    rules: [
+      { when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] },
+    ],
+  },
+]);
+
+const hydrated = JSON.parse(
+  JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),
+) as { now: string };
+
+const open = access.can({ id: 's1' }, 'sale', 'buy', undefined, hydrated.now);
+open.allowed; // -> true
+
+const early = Date.parse('2025-06-01T00:00:00Z');
+const shut = access.can({ id: 's1' }, 'sale', 'buy', undefined, early);
+shut.allowed; // -> false
+```
+
+Omitting `now` reads the wall clock. An instant that does not parse never
+throws: the `before`/`after` conditions reading it fail, the same as a condition
+value that does not parse.
+
 ## Non-goals
 
 - No .NET/Go/other-language evaluator. A non-JS backend uses its own ACL; only

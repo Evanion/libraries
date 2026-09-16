@@ -1,10 +1,13 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
+import type { Access } from './create-policy.js';
 import type {
   Condition,
   Decision,
+  EvaluationContext,
   FieldDecision,
   FieldState,
+  Instant,
   Matrix,
   Permission,
   Reason,
@@ -38,5 +41,29 @@ describe('public types', () => {
 
   it('the matrix is a flat permission list', () => {
     expectTypeOf<Matrix>().toEqualTypeOf<readonly Permission[]>();
+  });
+
+  it('a context clock takes every instant form a condition value takes', () => {
+    expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<
+      Instant | undefined
+    >();
+  });
+
+  it('every entry point takes the same instant as the context', () => {
+    expectTypeOf<Parameters<Access['can']>[4]>().toEqualTypeOf<
+      Instant | undefined
+    >();
+    expectTypeOf<Parameters<Access['canMany']>[4]>().toEqualTypeOf<
+      Instant | undefined
+    >();
+    expectTypeOf<Parameters<Access['canFields']>[6]>().toEqualTypeOf<
+      Instant | undefined
+    >();
+    expectTypeOf<Parameters<Access['capabilities']>[1]>().toEqualTypeOf<
+      Instant | undefined
+    >();
+    expectTypeOf<Parameters<Access['authorize']>[1]>().toEqualTypeOf<
+      { now?: Instant } | undefined
+    >();
   });
 });

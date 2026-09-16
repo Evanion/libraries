@@ -11,7 +11,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Access, Subject } from '@evanion/acl';
-import type { Decision, FieldDecision } from '@evanion/acl';
+import type { Decision, FieldDecision, Instant } from '@evanion/acl';
 
 export type { Access, Subject } from '@evanion/acl';
 export type {
@@ -21,6 +21,7 @@ export type {
   FieldDecision,
   FieldReason,
   FieldState,
+  Instant,
   Matrix,
   Permission,
   Reason,
@@ -29,7 +30,7 @@ export type {
 interface PolicyContextValue {
   access: Access;
   subject: Subject;
-  now: Date;
+  now: Instant;
 }
 
 const PolicyContext = createContext<PolicyContextValue | null>(null);
@@ -40,8 +41,12 @@ export interface PolicyProviderProps {
   /**
    * The evaluation context. Only `now` is read here; the subject is passed
    * separately. Pass a stable reference so memoisation on identity holds.
+   *
+   * A string or number `now` is compared by value in the hook memo keys, so a
+   * hydrated instant holds its memo across renders where a `Date` -- a fresh
+   * object every render -- does not.
    */
-  context?: { now?: Date };
+  context?: { now?: Instant };
   children?: ReactNode;
 }
 

@@ -1,4 +1,5 @@
-import { evaluateCondition } from './conditions.js';
+import { evaluateResolved, resolveContext } from './conditions.js';
+import type { ResolvedContext } from './conditions.js';
 import type {
   Cause,
   Decision,
@@ -28,12 +29,12 @@ type RuleOutcome =
 function ruleMatches(
   rule: Rule,
   index: number,
-  ctx: EvaluationContext,
+  ctx: ResolvedContext,
 ): RuleOutcome {
   const id = ruleId(rule, index);
   const missing: string[] = [];
   for (const condition of rule.when ?? []) {
-    const outcome = evaluateCondition(condition, ctx);
+    const outcome = evaluateResolved(condition, ctx);
     if (outcome.state === 'fails') return { state: 'not-matched', rule: id };
     if (outcome.state === 'undecidable') missing.push(...outcome.missing);
   }
@@ -56,7 +57,7 @@ type SideOutcome =
 
 function sideOutcome(
   rules: readonly Rule[] | undefined,
-  ctx: EvaluationContext,
+  ctx: ResolvedContext,
 ): SideOutcome {
   const missing = new Set<string>();
   let first: string | undefined;
@@ -140,9 +141,9 @@ function rootCause(
  * sits above step 4 for the same reason — a parent that is definitely off is a
  * definite answer. Both branches are `allowed: false`, so neither leaks.
  */
-export function decide(
+export function decideResolved(
   permission: Permission,
-  ctx: EvaluationContext,
+  ctx: ResolvedContext,
   resolved: ReadonlyMap<string, Decision>,
 ): Decision {
   const deny = sideOutcome(permission.denyRules, ctx);
@@ -202,4 +203,18 @@ export function decide(
     reason: 'unevaluable',
     missing: allow.missing,
   };
+}
+
+/**
+ * Decides one permission against a caller's context, settling the clock first.
+ *
+ * A cascade resolves many permissions against one context, so `createPolicy`
+ * settles once and calls `decideResolved` per permission.
+ */
+export function decide(
+  permission: Permission,
+  ctx: EvaluationContext,
+  resolved: ReadonlyMap<string, Decision>,
+): Decision {
+  return decideResolved(permission, resolveContext(ctx), resolved);
 }
