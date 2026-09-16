@@ -97,3 +97,32 @@ jobs:
       # reports on is the failing one.
       - run: npx nx fix-ci
         if: always()
+
+  # The only check that reads a package as npm publishes it. Everything in `main`
+  # resolves through `customConditions: ["@evanion/source"]`, which reaches a
+  # package's TypeScript source and never its exports map, emitted declarations or
+  # build output, so a package can pass every target there and still install into a
+  # consumer as nothing importable.
+  #
+  # Its own job rather than a step in `main`, because it shares no work with it:
+  # the script clears every `dist` and rebuilds with `--skip-nx-cache`, so `main`'s
+  # build buys it nothing and it runs beside `main` instead of behind it.
+  #
+  # Not an nx target either. It packs the whole workspace at once and installs the
+  # tarballs together, so it belongs to no project, and `run-many` orders tasks by
+  # the project graph rather than guaranteeing every package is built first.
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          filter: tree:0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run verify:packaging

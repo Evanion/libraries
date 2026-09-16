@@ -156,8 +156,8 @@ import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid
 import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
-import { createPolicy, parseMatrix, policy, permit, always, and, or, eq, contains, decide, decideFields, evaluateCondition, AuthorizationConfigError, UnknownPermissionError } from '@evanion/acl';
-import type { Access, AccessOptions, Authorized, Subject, Condition, Decision as AclDecision, EvaluationContext, FieldDecision, FieldState, Matrix, Permission } from '@evanion/acl';
+import { createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
+import type { Access, AccessOptions, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
@@ -217,19 +217,30 @@ const cardRadius: string = radius.card;
 const gutter: string = space[4];
 const propertyName: string = customProperties[0]?.[0] ?? '';
 const tokensCss: string = renderTokensCss();
-// The access matrix. Every authoring helper and every evaluation entry is named,
-// so a symbol that stopped being exported or whose type stopped being reachable
-// fails here.
-const matrix: Matrix = [
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [{ id: 'author', when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
-    fields: { fields: ['body'] },
-  },
-];
-const aclOptions: AccessOptions = { version: 1, closed: true };
+// The access matrix. Every entry point and every type on the public surface is
+// named, so a symbol that stopped being exported or whose type stopped being
+// reachable fails here.
+interface Actor { id: string; roles: string[] }
+interface Comment { id: string; authorId: string; body: string; status: string }
+const aclSchema: MatrixSchema = {
+  subject: { fields: { id: 'string', roles: 'string[]' } },
+  objects: { comment: { fields: { id: 'string', authorId: 'string', body: 'string', status: 'string' } } },
+};
+const condition: Condition = { field: 'object.authorId', op: 'eq', path: 'subject.id' };
+const matrix: Matrix = {
+  version: 1,
+  schema: aclSchema,
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [{ id: 'author', when: [condition] }],
+      fields: { fields: ['body'] },
+    },
+  ],
+};
+const aclOptions: AccessOptions = { version: 'comment@1', closed: true };
 const access: Access = createPolicy(matrix, aclOptions);
 const subject: Subject = { id: 'u1', roles: ['editor'] };
 const aclDecision: AclDecision = access.can(subject, 'comment', 'update', { authorId: 'u1' });
@@ -238,22 +249,41 @@ const fieldDecision: FieldDecision = access.canFields(subject, 'comment', 'updat
 const capabilities: Record<string, AclDecision> = access.capabilities(subject);
 const authorized: Authorized = access.authorize(subject, { now: new Date() });
 const fieldState: FieldState = fieldDecision.fields['body'];
-const permission: Permission = access.matrix[0];
-// The foreign path: a matrix that arrived as JSON, adopted fail-closed.
-const adopted: Access = parseMatrix(JSON.parse(JSON.stringify(matrix)) as Matrix);
-const condition: Condition = eq('object.authorId', 'subject.id');
+const permission: Permission = access.matrix.permissions[0];
+const aclVersion: string | number | undefined = access.version;
+const aclSchemaBack: MatrixSchema | undefined = access.schema;
+const needsObject: boolean = access.readsObject('comment', 'update');
+const writable: { body?: string; status?: string } = pickAllowedFields(fieldDecision, { body: 'x', status: 'hidden' });
 const evaluationContext: EvaluationContext = { subject, object: { authorId: 'u1' }, now: new Date() };
-const conditionHolds: boolean = evaluateCondition(condition, evaluationContext);
-const authored: Access = policy({
-  comment: {
-    update: permit(and(condition, contains('subject.roles', 'editor'))).fields({ fields: ['body'] }),
-    read: permit(always),
-    flag: permit(or(condition, contains('subject.roles', 'moderator'))),
-  },
-});
-const decided: AclDecision = decide(permission, evaluationContext, new Map());
-const decidedFields: FieldDecision = decideFields(permission, evaluationContext, 'write', { body: 'x' });
-const aclError: AuthorizationConfigError = new UnknownPermissionError('comment.nope');
+// The foreign path: a matrix that arrived as JSON, adopted fail-closed.
+const adopted: Access = parseMatrix(JSON.parse(JSON.stringify(access.matrix)) as Matrix);
+// The cross-team veto, applied by the owner before construction.
+const overlay: DenyOverlay = {
+  'comment.update': [{ id: 'locked', when: [{ field: 'object.status', op: 'eq', value: 'locked' }] }],
+};
+const overlayOptions: DenyOverlayOptions = { vetoable: ['comment.update'] };
+const vetoed: Matrix = applyDenyOverlay(matrix, overlay, overlayOptions);
+// The typed authoring path. The condition helpers reach the block parameter, so
+// a path neither Actor nor Comment declares is a compile error rather than a
+// string literal compared against a field.
+const aclOptionsTyped: PolicyOptions = { version: 2, schema: aclSchema };
+const ownComment = (p: Actions<Actor, Comment>): Cond =>
+  p.and(p.eq('object.authorId', 'subject.id'), p.contains('subject.roles', 'editor'));
+const typed = policy<Actor>(aclOptionsTyped).for<'comment', Comment>('comment', (p) =>
+  p.allow('update', ownComment(p)).fields(['body'])
+   .allow('read', p.always)
+   .deny('read', p.eq('object.status', 'hidden')),
+);
+const actor: Actor = { id: 'u1', roles: ['editor'] };
+// A projection is an argument: object parameters take Partial<Comment>, so a
+// list row carrying two of the four fields decides without being widened. The
+// subject stays complete.
+const projected: AclDecision = typed.can(actor, 'comment', 'update', { id: 'c1', authorId: 'u1' });
+const bound: BoundKind<Actor, Comment> = typed.object('comment');
+const boundDecision: AclDecision = bound.can(actor, 'update', { authorId: 'u1' });
+const typedFields: FieldDecision = typed.canFields(actor, 'comment', 'update', { authorId: 'u1' }, 'write', { body: 'x' });
+const typedMatrix: Matrix = typed.matrix;
+const aclError: AclConfigError = new UnknownPermissionError('comment.nope');
 // The React binding over an already-built matrix. Hooks are named, not called:
 // what has to hold is that their signatures and the provider's props resolve.
 const policyProvider: PolicyProviderProps = { access, subject, context: { now: new Date() } };
@@ -271,8 +301,9 @@ void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, Defaul
       Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp,
       felt, hueValue, stateValue, stopValue, tierName, rung, artStop, cardRadius, gutter, propertyName, tokensCss,
       titleSize, statFigure,
-      aclDecision, aclDecisions, capabilities, authorized, fieldState, adopted, conditionHolds,
-      authored, decided, decidedFields, aclError,
+      aclDecision, aclDecisions, capabilities, authorized, fieldState, permission, adopted,
+      aclVersion, aclSchemaBack, needsObject, writable, evaluationContext, vetoed,
+      projected, bound, boundDecision, typedFields, typedMatrix, aclError,
       PolicyProvider, useCanMany, useCapabilities, policyProvider, reactAccess, reactCan,
       reactCanFields, reactFieldDecision];
 `,
@@ -323,7 +354,7 @@ import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
 import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
-import { createPolicy, parseMatrix, policy, permit, eq, decide, decideFields, evaluateCondition } from '@evanion/acl';
+import { createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields } from '@evanion/acl';
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
@@ -334,7 +365,7 @@ const missing = Object.entries({
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
   hueClass, ladderClass, paletteClass, stateClass,
-  createPolicy, parseMatrix, policy, permit, eq, decide, decideFields, evaluateCondition,
+  createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields,
   PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // react-acl pins the core exactly and externalises it, so the binding resolves
@@ -342,25 +373,59 @@ const missing = Object.entries({
 // that crosses that boundary. An Access object built here is what the provider
 // is handed, so the two packages have to agree on its shape at runtime, not
 // only in the declarations.
-const aclAccess = createPolicy([
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [{ when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
+const aclMatrix = {
+  version: 1,
+  schema: {
+    objects: { comment: { fields: { id: 'string', authorId: 'string', body: 'string', status: 'string' } } },
   },
-]);
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [{ when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] }],
+      fields: { fields: ['body'] },
+    },
+  ],
+};
+const aclAccess = createPolicy(aclMatrix);
 if (!aclAccess.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1' }).allowed ||
     aclAccess.can({ id: 'u2' }, 'comment', 'update', { authorId: 'u1' }).allowed) {
   console.error('@evanion/acl does not evaluate an object-bound rule from its published build');
   process.exit(1);
 }
-if (parseMatrix(JSON.parse(JSON.stringify(aclAccess.matrix))).matrix.length !== 1) {
+if (parseMatrix(JSON.parse(JSON.stringify(aclAccess.matrix))).matrix.permissions.length !== 1) {
   console.error('@evanion/acl cannot round-trip its own serialized matrix');
   process.exit(1);
 }
-if (!policy({ comment: { read: permit(eq('subject.id', 'object.authorId')) } })
-      .can({ id: 'u1' }, 'comment', 'read', { authorId: 'u1' }).allowed) {
+// The field projection: the write axis allows 'body' and nothing else, so a
+// proposed patch carrying 'status' comes back without it.
+const aclWritable = pickAllowedFields(
+  aclAccess.canFields({ id: 'u1' }, 'comment', 'update', { authorId: 'u1' }, 'write', { body: 'new', status: 'hidden' }),
+  { body: 'new', status: 'hidden' },
+);
+if (aclWritable.body !== 'new' || Object.hasOwn(aclWritable, 'status')) {
+  console.error('@evanion/acl does not project a patch to the writable fields from its published build');
+  process.exit(1);
+}
+// A veto appended by a second party subtracts from what the authored matrix
+// allows and never adds to it.
+const aclVetoed = createPolicy(
+  applyDenyOverlay(
+    aclMatrix,
+    { 'comment.update': [{ id: 'locked', when: [{ field: 'object.status', op: 'eq', value: 'locked' }] }] },
+    { vetoable: ['comment.update'] },
+  ),
+);
+if (aclVetoed.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1', status: 'locked' }).allowed ||
+    !aclVetoed.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1', status: 'open' }).allowed) {
+  console.error('@evanion/acl does not apply a deny overlay from its published build');
+  process.exit(1);
+}
+// The typed authoring path, which flattens to the same canonical document.
+const aclTyped = policy().for('comment', (p) => p.allow('read', p.eq('object.authorId', 'subject.id')));
+if (!aclTyped.can({ id: 'u1' }, 'comment', 'read', { authorId: 'u1' }).allowed ||
+    aclTyped.matrix.permissions[0].key !== 'comment.read') {
   console.error('@evanion/acl authoring helpers do not build a working policy from the published build');
   process.exit(1);
 }
