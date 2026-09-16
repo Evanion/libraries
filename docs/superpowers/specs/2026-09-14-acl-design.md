@@ -757,17 +757,48 @@ access.can(subject, 'comment', 'create'); // no instance: reason 'unevaluable'
   methods, so the typed path spells everything the canonical JSON does —
   including explicit deny, which is [the reason](#deny) this library is more than
   a permission list.
-- `.fields()` attaches to the action most recently declared in the chain.
+- `.fields()` and `.dependsOn()` attach to the action most recently declared in
+  the chain. Either one before the first `allow` / `deny` of a block has no
+  action to attach to and is refused with an `AclConfigError`.
 - The condition helpers on the block parameter mirror the ops: `eq`, `ne`, `in`,
-  `not-in`, `contains`, plus `and`, `or`, and `always`. `always` serializes to an
-  empty `when` array (always true). A time condition is written with
-  `before` / `after` over the `now` namespace, e.g.
+  `notIn`, `contains`, plus `and`, `or`, and `always`. `not-in` is not an
+  identifier, so the helper is spelled `notIn` and serializes to the `not-in`
+  op. `always` serializes to an empty `when` array (always true). A time
+  condition is written with `before` / `after` over the `now` namespace, e.g.
   `p.after('now', '2026-10-01T00:00:00Z')`.
+- `and` and `or` nest freely. The builder flattens a condition tree to
+  disjunctive normal form: each OR branch becomes one rule, and the conditions
+  within a branch become that rule's AND-ed `when`. Several conditions passed to
+  one `allow` are one AND.
 - `eq` is symmetric: either operand may name a field path, and a path operand is
   checked against the type its namespace resolves to.
 - The builder **flattens** to the canonical flat JSON matrix at construction;
   `JSON.stringify(access.matrix)` emits the same document a foreign backend would
   produce, envelope included.
+- `version` and `schema` are document fields, so `policy<Sub>({ version, schema })`
+  takes them and the flattening puts them in the envelope. They are not
+  construction options and not chain methods: `.for()` exists to accumulate the
+  key-to-type map, and both facts are per-document and known before the first
+  block is written. An absent one omits its key, so the document a typed policy
+  emits is byte-identical to the one a foreign producer emits for the same policy.
+
+#### Schema on the typed path
+
+A `MatrixSchema` is written by hand. `.for<'comment', Comment>()` holds `Comment`
+at the type level, a schema is runtime JSON, and TypeScript types do not survive
+to runtime, so no schema can be derived from the type argument.
+
+This puts the field-existence guarantee on the typed path twice, which is
+deliberate rather than redundant. The typed path gets it from TypeScript, for the
+author, at compile time. The foreign path gets it from the schema, for the
+consumer, at construction. The document travels and the types do not: a consumer
+that adopts the emitted JSON with `parseMatrix` has no `Comment` to check against,
+and the schema is the only thing that carries the author's guarantee to it. A
+typed author who ships a document to nobody needs no schema.
+
+The two are checked independently and may disagree. A path TypeScript accepts
+because the object type declares the field is still an `UnknownFieldError` at
+construction when the schema does not declare it; a present schema is binding.
 
 #### Paths versus literals
 
@@ -865,7 +896,9 @@ comments.canMany(subject, 'read', commentList);
 
 `access.object(key)` narrows an existing `access` to one object kind. On a typed
 matrix the key is checked against the accumulated union and the bound handler
-keeps that key's object type on every call.
+keeps that key's object type on every call. It is on the typed builder today;
+`createPolicy` and `parseMatrix` have no key type to check against and do not
+carry it yet.
 
 This is class-free, keeps plain data, and gives close to class-key ergonomics
 without classes.

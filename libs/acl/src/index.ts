@@ -14,8 +14,18 @@ export type {
   Subject,
 } from './create-policy.js';
 export { parseMatrix } from './parse-matrix.js';
-export { policy, permit, always, and, or, eq, contains } from './authoring.js';
-export type { PermitBuilder, PolicyConfig } from './authoring.js';
+export { policy } from './authoring.js';
+export type {
+  Actions,
+  BoundKind,
+  Cond,
+  Operand,
+  Ops,
+  Paths,
+  Policy,
+  PolicyOptions,
+  Valid,
+} from './authoring.js';
 export { evaluateCondition } from './conditions.js';
 export { decide } from './evaluate.js';
 export { decideFields, pickAllowedFields } from './fields.js';
