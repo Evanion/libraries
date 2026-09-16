@@ -41,6 +41,11 @@ separate product. See [Consumption shapes](#consumption-shapes).
 - **Consequence:** because the matrix ships to the client in full, it cannot
   contain anything that must stay secret or be decided server-side. Opaque
   server checks live outside the matrix, as server-side app-layer decisions.
+  The disclosure is structural, not only about values: a reader of the shipped
+  matrix learns every object kind, action name, role string, field name, state
+  machine, time window and `dependsOn` edge in the privilege model. Security
+  does not rest on that staying secret, so the matrix ships anyway; names in it
+  are chosen knowing they are public.
 
 ```
 matrix (serializable, frozen, JSON round-trip) ─▶ one engine: can(subject, key, action, object?, now?) → Decision
@@ -819,6 +824,16 @@ already bound.
 
 `@evanion/react-acl` serves both runtime shapes from one surface.
 Neither is named to a framework; each is a supported usage pattern.
+
+In both shapes, a decision made on the server is authoritative and a decision
+made in the browser is non-authoritative. The browser evaluation exists to
+toggle what the user sees; it is never the access control. `can` has one
+signature and one return type in both places, and nothing in the types marks
+which one a given call is — the runtime it runs in is the whole difference.
+That cuts both ways for the consumer: every app in the chain evaluates for
+itself and trusts no earlier layer, so a gateway or a BFF that already decided
+does not excuse the service behind it from deciding again. There is no
+transitive trust in the model and no "already checked upstream" exemption.
 
 ### RSC-style
 
