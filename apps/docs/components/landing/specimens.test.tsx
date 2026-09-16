@@ -3,10 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import LuhnSpecimen from './LuhnSpecimen';
 import {
+  buildToken,
+  collisionAt,
   luhnBody,
+  shapeLabel,
   token,
+  tokenAlphabets,
+  tokenShapes,
   tokenSpecimen,
+  urnComponents,
   urnSpecimen,
+  urnWith,
   UserURN,
 } from './specimens';
 import TokenSpecimen from './TokenSpecimen';
@@ -132,23 +139,98 @@ describe('the Token card', () => {
     expect(visible?.textContent?.[4]).toBe('-');
     await waitFor(() => expect(visible).toHaveTextContent(minted));
   });
+
+  /**
+   * The shape control's options are labelled with their own chunks, so the
+   * label and the code the package mints for it have to agree.
+   */
+  it('mints a code shaped like the option that is standing', () => {
+    render(<TokenSpecimen initial={tokenSpecimen} />);
+
+    for (const [index, shape] of tokenShapes.entries()) {
+      const label = shapeLabel(shape);
+      fireEvent.click(screen.getByRole('radio', { name: label }));
+
+      const shown = screen.getByRole('status').textContent ?? '';
+      const attempt = buildToken(index, 0);
+      expect(attempt.kind).toBe('built');
+      if (attempt.kind !== 'built') return;
+
+      expect(attempt.token.validate(shown)).toMatchObject({ valid: true });
+      expect(
+        shown.split(attempt.token.separator).map((chunk) => chunk.length),
+      ).toEqual(label.split('-').map(Number));
+    }
+  });
+
+  /** The entropy the caption reports is the package's own. */
+  it('reports the entropy and the collision budget of the configuration', () => {
+    const { container } = render(<TokenSpecimen initial={tokenSpecimen} />);
+    const note = container.querySelector('.landing-spec__note');
+
+    for (const [index, alphabet] of tokenAlphabets.entries()) {
+      const attempt = buildToken(0, index);
+      if (attempt.kind !== 'built') continue;
+
+      fireEvent.click(screen.getByRole('radio', { name: alphabet.label }));
+      expect(note).toHaveTextContent(
+        `${Math.round(attempt.token.entropyBits)} bits`,
+      );
+      expect(note).toHaveTextContent(
+        collisionAt(attempt.token.entropyBits).toLocaleString('en-US'),
+      );
+    }
+  });
+
+  /**
+   * The alphabet of every lowercase letter and digit is the one the package
+   * refuses, and the card shows the characters the refusal named rather than
+   * a code it could not mint.
+   */
+  it('shows the characters the package refused, and no code', () => {
+    const refused = tokenAlphabets.findIndex(
+      (_, index) => buildToken(0, index).kind === 'refused',
+    );
+    const attempt = buildToken(0, refused);
+    expect(attempt.kind).toBe('refused');
+    if (attempt.kind !== 'refused') return;
+
+    render(<TokenSpecimen initial={tokenSpecimen} />);
+    fireEvent.click(
+      screen.getByRole('radio', {
+        name: (tokenAlphabets[refused] as { label: string }).label,
+      }),
+    );
+
+    for (const char of attempt.offending) {
+      expect(screen.getByText(char)).toBeInTheDocument();
+    }
+    expect(screen.getByRole('status')).toHaveTextContent(
+      attempt.offending.join(', '),
+    );
+    expect(screen.queryByRole('button', { name: 'Generate' })).toBeNull();
+  });
 });
 
 describe('the URN card', () => {
+  /** The parts of the identifier, in the order the card draws them. */
+  const segments = (container: HTMLElement): string[] =>
+    [...container.querySelectorAll('.landing-urn__part')].map(
+      (part) => part.textContent ?? '',
+    );
+
   it('shows the parts the package parses, in order', () => {
-    render(<UrnSpecimen value={urnSpecimen} />);
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
     const parsed = UserURN.parse(urnSpecimen);
 
-    expect(
-      screen.getAllByRole('button').map((part) => part.textContent),
-    ).toEqual([parsed.urn, parsed.nid, parsed.nss]);
+    expect(segments(container)).toEqual([parsed.urn, parsed.nid, parsed.nss]);
     expect(parsed).toMatchObject({ urn: 'urn', nid: 'user', nss: '1337' });
   });
 
   it('names an explanation for every part, and opens it on a tap', () => {
-    render(<UrnSpecimen value={urnSpecimen} />);
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
 
-    for (const part of screen.getAllByRole('button')) {
+    for (const part of container.querySelectorAll('.landing-urn__part')) {
       expect(part).toHaveAccessibleDescription(/./);
     }
 
@@ -157,5 +239,78 @@ describe('the URN card', () => {
     expect(namespace).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(namespace);
     expect(namespace).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  /** Opens on the three parts alone: nothing is attached until it is asked for. */
+  it('carries no component until one is attached', () => {
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
+
+    expect(segments(container)).toHaveLength(3);
+    expect(screen.getByRole('status')).toHaveTextContent(urnSpecimen);
+    for (const component of urnComponents) {
+      expect(
+        screen.getByRole('button', { name: component.label }),
+      ).toHaveAttribute('aria-pressed', 'false');
+    }
+  });
+
+  /**
+   * The identifier the card shows is the one `stringify` wrote, delimiters
+   * included, and each component segment is what `parse` gave back for it.
+   */
+  it('attaches each component the package writes, and explains it', () => {
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
+
+    for (const component of urnComponents) {
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+    }
+
+    const written = urnWith(
+      urnSpecimen,
+      urnComponents.map((component) => component.key),
+    );
+    const parsed = UserURN.parse(written);
+
+    expect(screen.getByRole('status')).toHaveTextContent(written);
+    expect(segments(container)).toEqual([
+      parsed.urn,
+      parsed.nid,
+      parsed.nss,
+      ...urnComponents.map((component) => parsed[component.key]),
+    ]);
+
+    // The card draws the delimiters between the parts; the parts and the
+    // delimiters together have to be the identifier the package wrote.
+    const drawn = [
+      ...container.querySelectorAll(
+        '.landing-urn__part, .landing-specimen__dim',
+      ),
+    ]
+      .map((piece) => piece.textContent)
+      .join('');
+    expect(drawn).toBe(written);
+
+    for (const part of container.querySelectorAll('.landing-urn__part')) {
+      expect(part).toHaveAccessibleDescription(/./);
+    }
+  });
+
+  /** The payoff: what is attached is not part of the name, and `equals` says so. */
+  it('says the name is unchanged, while the package says it is', () => {
+    render(<UrnSpecimen value={urnSpecimen} />);
+    expect(screen.queryByText(/Still the same name/)).toBeNull();
+
+    for (const component of urnComponents) {
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+      const written = urnWith(urnSpecimen, [component.key]);
+
+      expect(UserURN.equals(written, urnSpecimen)).toBe(true);
+      expect(screen.getByText(/Still the same name/)).toHaveTextContent(
+        urnSpecimen,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+      expect(screen.queryByText(/Still the same name/)).toBeNull();
+    }
   });
 });
