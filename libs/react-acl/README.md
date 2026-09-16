@@ -5,6 +5,34 @@ already-built access matrix, for both an RSC-style graph and a traditional Node
 server/client split. Evaluation lives in the core; nothing here decides
 anything.
 
+## What a decision here means
+
+Every decision these hooks return is a convenience, never an access control.
+`@evanion/acl` in a browser exists to toggle what the user sees — show or hide a
+button, enable or disable a field, render the read-only branch instead of the
+editable one. Hiding a control hides the control, not the data behind it, and
+not the request the control would have sent.
+
+Real access control happens in a trusted environment: a React Router 8 or
+Next.js server runtime, or the server side of an API boundary. `can` has the
+same signature and the same return type in both places, and is authoritative in
+one and advisory in the other. Nothing in the types tells them apart — the
+runtime the call runs in is the whole difference.
+
+Every app in the chain evaluates for itself and trusts no earlier layer. A
+gateway or a BFF that already allowed the request does not excuse the service
+behind it from deciding again, and a server-rendered page that hid the button
+does not excuse the handler the button posts to. There is no transitive trust
+and no "already checked upstream" exemption: a caller reaches the later layer
+directly whenever it wants to, without passing the earlier one.
+
+A matrix in a browser is a copy, as fresh as the fetch that delivered it. A
+client evaluating a stale one keeps granting a permission the server has since
+revoked, and the client has no way to know. Refetch on whatever cadence the
+app's revocation story needs, and let the server's answer be the one that
+counts. The core README's security contract covers the rest of what the
+consumer owns.
+
 ## Installation
 
 ```bash

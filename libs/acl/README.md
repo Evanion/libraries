@@ -8,7 +8,8 @@ snapshots, no backend roundtrip.
 
 The matrix ships to the client in full and evaluates locally, so it cannot
 contain secrets or server-side-only predicates. Opaque checks live outside the
-matrix, as server-side app-layer decisions.
+matrix, as server-side app-layer decisions. What that costs, and what each
+consumer owns, is the [security contract](#security-contract).
 
 ## Installation
 
@@ -128,6 +129,85 @@ const access = createPolicy([
 const forUser = access.authorize({ id: 's1', roles: ['editor'] });
 forUser.can('comment', 'read').allowed; // -> true
 ```
+
+## Security contract
+
+A decision counts where it is made. It is authoritative in a trusted
+environment — a React Router 8 or Next.js server runtime, a Node service, the
+server side of an API boundary — and advisory everywhere else. In
+a browser the same `can` call, with the same signature and the same return
+type, only toggles what the user sees. Nothing in the types separates the two;
+the runtime does.
+
+Every app in the chain evaluates for itself and trusts no earlier layer. A
+gateway or a BFF that already allowed the request does not excuse the service
+behind it from deciding again. There is no transitive trust and no "already
+checked upstream" exemption, because a caller reaches the later service
+directly whenever it wants to. Evaluating the same matrix twice is cheap: it is
+a local function call over a frozen object, with no roundtrip to pay for.
+
+The matrix is a public document in its names and structure, not only in its
+values. It ships to the client in full, so anyone who loads the page reads
+every object kind, every action name, every role string that appears in a
+condition, every field name including the ones the API never returns, every
+state machine and its terminal states, every time window and its boundaries,
+and the whole `dependsOn` graph. That is a map of the privilege model and of
+the server's internal vocabulary. It is not an argument against shipping the
+matrix — security must not rest on the document staying secret, and here it
+does not. It is an argument for naming things as if they were going to be read,
+because they are. An action named `bypass-kyc` or a role named
+`internal-fraud-reviewer` is a disclosure the moment the page loads.
+
+The rest of the contract is the consumer's to own. A library that claimed to
+cover these would be lying about what an evaluator can see.
+
+### Subject authenticity
+
+`can(subject, ...)` authorizes the bag it is handed. It has no way to ask where
+that bag came from. A subject derived from anything the client controls — a
+header, a query parameter, an unverified token body, a field the client posted
+— gets the attacker's claimed identity faithfully authorized. This is the
+confused deputy, and it cannot be fixed inside an evaluator. Resolve the
+subject from a verified session or a verified token, server-side, before the
+subject reaches `can`.
+
+### Complete mediation
+
+Nothing makes you call `can`. A new route, a new resolver, a background job, an
+admin script, a direct query — each is unguarded until someone guards it. The
+library can make the checked path the easy one, through `authorize(subject)`
+bound once in middleware; it cannot make the unchecked path impossible. Whether
+every path is covered is a property of the app, and the place to assert it is
+the app's tests.
+
+### Time of check to time of use
+
+A decision describes the snapshot it was given. Between `can` returning `true`
+and the write landing, the object can change owner, the subject can lose the
+role, and the time window can close. Re-read the object and re-check inside the
+transaction, or write with a conditional predicate that fails when the state it
+was authorized against has moved. The library carries no freshness token and no
+way to detect the gap.
+
+### What a condition may read
+
+A condition may read only fields the subject cannot write. A rule that keys on
+an object field within the subject's reach is self-authorizing: the subject
+edits the field, then passes the check the field controls.
+`contains('object.collaborators', 'subject.id')` is the obvious trap, allowing
+a user to add themselves to a document and be authorized for it. Either keep
+the field out of every write path the rule guards, or key the rule on something
+the subject cannot reach — ownership set at creation, a role on the subject, a
+field the server alone writes.
+
+### Matrix freshness
+
+A client holds the matrix it last fetched. When a permission is revoked, that
+client keeps granting it until it refetches, and it has no way to notice.
+`access.version` is a surface for detecting a mismatch, not a mechanism for
+resolving one: comparing it, failing closed, and forcing a refetch is the
+consumer's to implement. The server never depends on a client's copy in any
+case, since it evaluates its own.
 
 ## API
 
