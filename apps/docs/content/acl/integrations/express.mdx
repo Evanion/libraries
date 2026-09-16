@@ -1,0 +1,229 @@
+# Express
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Express is the one platform on these four pages with no app in this
+    repository exercising it. The code below is derived from the core's real
+    surface and from the middleware shape `nest/correlation-id` runs under the
+    Express adapter, but nothing here is executed by a test. Read it as a shape.
+  </Text>
+</WorkshopNotice>
+
+There is no Express adapter and there will not be one. `@evanion/acl` imports no
+framework, `authorize(subject)` returns a plain object of closures, and
+connect-style middleware is a function of three arguments — an adapter would be
+a re-export and a name.
+
+## The boundary is the request handler
+
+Express is trusted end to end. There is no client tree to hand anything to and
+no second runtime to keep honest: every decision this app makes is
+authoritative, and the only question is whether the decision happens at all.
+
+That makes complete mediation the whole security story here, and Express states
+it as registration order. `app.use` is positional — a route registered above the
+middleware that binds the subject never sees it, and nothing fails. Mount the
+binding on the router, not per route:
+
+```ts
+// Order is the enforcement. `requireSession` verifies; `bindAccess` binds what
+// it verified; every route under `api` is reached through both.
+const api = express.Router();
+
+api.use(requireSession);
+api.use(bindAccess);
+api.use('/orders', orders);
+```
+
+An unguarded path is a route file someone added, not a check someone forgot to
+write. The library cannot close that; the app's own route table can, and
+asserting it is the app's test.
+
+## Building the matrix
+
+Once, at module scope, for the life of the process:
+
+```ts
+// access.ts
+import { policy } from '@evanion/acl';
+
+export const access = policy<Session['user']>({ version: MATRIX_VERSION }).for<
+  'order',
+  Order
+>('order', (p) =>
+  p
+    .allow('read', p.eq('object.buyerId', 'subject.id'))
+    .allow('cancel', p.eq('object.buyerId', 'subject.id'))
+    .deny('cancel', p.eq('object.status', 'shipped')),
+);
+```
+
+Construction validates, deep-clones and deep-freezes the document; a query after
+that is a function call over the frozen copy. Rebuilding it per request pays the
+clone on every call for a document that did not change.
+
+## Binding the subject
+
+The subject comes from the verified session and nowhere else. `can` authorizes
+the bag it is handed and cannot ask where the bag came from, so a subject read
+off a header or a body is the attacker's claimed identity, faithfully
+authorized.
+
+```ts
+// bind-access.ts
+import type { RequestHandler } from 'express';
+import { access } from './access.js';
+
+declare module 'express-serve-static-core' {
+  interface Locals {
+    access: ReturnType<typeof access.authorize>;
+  }
+}
+
+export const bindAccess: RequestHandler = (req, res, next) => {
+  // req.user is what the session middleware above verified. Nothing from the
+  // request body, the query string or a header reaches this call.
+  res.locals.access = access.authorize(req.user, { now: new Date() });
+  next();
+};
+```
+
+`authorize` binds the subject and the clock once, so a handler asks
+`can(key, action, object)` without restating either:
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+Pinning `now` at bind time is deliberate: every `before`/`after` window in the
+matrix then reads one instant for the whole request, and two handlers in the
+same request cannot land on opposite sides of a boundary that closed between
+them.
+
+## Deciding on a row
+
+An object-dependent rule needs the row, so the decision follows the read rather
+than preceding it:
+
+```ts
+orders.get('/:id', async (req, res) => {
+  const order = await repository.find(req.params.id);
+  if (!order) return res.sendStatus(404);
+
+  const decision = res.locals.access.can('order', 'read', order);
+  if (!decision.allowed) return res.sendStatus(403);
+
+  res.json(order);
+});
+```
+
+Fetching before deciding is not a leak as long as nothing leaves the handler: an
+IDOR is the response, not the query. What it costs is a read for a request that
+gets a 403, which is the price of a rule that reads `object.buyerId`.
+
+`decision.allowed` is the gate. A decision can come back `unevaluable` — the
+projection did not carry a path some rule reads — and that is neither an error
+nor a yes. `missing` names the paths, so a thin projection is one refetch from
+an answer:
+
+```ts
+if (decision.reason === 'unevaluable') {
+  // decision.missing is e.g. ['object.status']
+  const full = await repository.find(req.params.id, {
+    fields: decision.missing,
+  });
+  // decide again against the complete row
+}
+```
+
+Gating on the reason string rather than on `allowed` grants what the engine
+refused. `allowed` is the only gate.
+
+## Writes
+
+A write decides on the field axis and writes what `pickAllowedFields` returns:
+
+```ts
+orders.patch('/:id', async (req, res) => {
+  const current = await repository.find(req.params.id);
+  if (!current) return res.sendStatus(404);
+
+  const fd = res.locals.access.canFields(
+    'order',
+    'update',
+    current,
+    'write',
+    req.body,
+  );
+
+  try {
+    await repository.update(current.id, pickAllowedFields(fd, req.body));
+  } catch (error) {
+    if (error instanceof ActionNotAllowedError) return res.sendStatus(403);
+    throw error;
+  }
+
+  res.sendStatus(204);
+});
+```
+
+`req.body` is the proposed write, and the write axis decides every key of it —
+including keys the row has never held, which is what closes mass assignment.
+Filtering the returned map by hand on `!== 'denied'` writes the `unevaluable`
+fields and every key the decision does not carry at all.
+
+`pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
+refused, so that case is a `catch`, not a branch. An empty object would have
+read as a lawful write of nothing.
+
+## Refusals as one handler
+
+A 403 written in every route drifts. An error the decision throws and one
+error-handling middleware catches does not:
+
+```ts
+export class Forbidden extends Error {
+  constructor(readonly decision: Decision) {
+    super(decision.reason);
+  }
+}
+
+// Four arguments, registered last: Express selects error middleware by arity.
+app.use((error, _req, res, next) => {
+  if (!(error instanceof Forbidden)) return next(error);
+  res.status(403).json({ reason: error.decision.reason });
+});
+```
+
+Send `reason` only when the caller may read it. The matrix is a public document
+in its structure, but a decision names the rule that refused, and on an API that
+serves parties who should not learn each other's privilege model, `blockedBy`
+and `rule` are more than the caller asked for.
+
+## Serving the matrix to a browser client
+
+An Express API in front of a browser app can hand the app its matrix, which is
+the document and nothing else:
+
+```ts
+app.get('/access', (req, res) => {
+  res.json({ matrix: access.matrix, subject: req.user });
+});
+```
+
+`access.matrix` carries its own `version` and `schema`, so nothing travels
+beside it. `access` itself does not serialize — it is closures over the frozen
+document, and `JSON.stringify` drops every method silently.
+
+The client that receives this evaluates for itself, and that evaluation decides
+nothing. It toggles what the user sees. This handler and every other one above
+it decides again on the next request, against the session it verifies itself,
+and never reads the client's copy of anything.
+
+## Where to go next
+
+- [Security contract](/acl/security) — subject authenticity, complete mediation,
+  and the rest of what the consumer owns
+- [Field permissions](/acl/fields) — the two axes and the write path
+- [NestJS](/acl/integrations/nestjs) — the same boundary, with a guard in front
+  of it
