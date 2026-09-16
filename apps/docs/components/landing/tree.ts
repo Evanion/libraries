@@ -63,7 +63,26 @@ export interface Row {
   /** React key: an item's own line and its closing line, kept apart. */
   key: string;
   text: string;
+  /**
+   * Which item's block this line belongs to, opening and closing lines alike.
+   *
+   * The listing is a flat list of lines and a subtree is a run within it, so
+   * this is what lets the caller light a container and everything nested under
+   * it: a line is in the block when the container's path is a prefix of this.
+   * Absent on the two lines that bracket the whole list, which belong to no
+   * item.
+   */
+  path?: number[];
   item?: { path: number[]; name: string; first: boolean; last: boolean };
+}
+
+/** Whether `path` names `candidate` or something nested inside it. */
+export function within(path: readonly number[], candidate?: number[]): boolean {
+  return (
+    candidate !== undefined &&
+    path.length <= candidate.length &&
+    path.every((step, at) => candidate[at] === step)
+  );
 }
 
 /**
@@ -82,6 +101,15 @@ export function rows(nodes: Node[]): Row[] {
   return out;
 }
 
+/**
+ * How wide an item's own object may be before the formatter folds it.
+ *
+ * One line per item is the whole readability claim, so this is set past the
+ * longest item here rather than to the column: the listing runs the width of
+ * the figure, and a folded item would read as four items.
+ */
+const ITEM = 96;
+
 function walk(nodes: Node[], path: number[], depth: number, out: Row[]): void {
   const pad = '  '.repeat(depth);
 
@@ -89,11 +117,9 @@ function walk(nodes: Node[], path: number[], depth: number, out: Row[]): void {
     const fields = [
       `"id": ${JSON.stringify(node.id)}`,
       `"type": ${JSON.stringify(node.type)}`,
+      `"props": ${listing(node.props, ITEM)}`,
     ];
-    if (Object.keys(node.props).length > 0) {
-      fields.push(`"props": ${listing(node.props)}`);
-    }
-    if (node.meta) fields.push(`"meta": ${listing(node.meta)}`);
+    if (node.meta) fields.push(`"meta": ${listing(node.meta, ITEM)}`);
 
     const tail = index === nodes.length - 1 ? '' : ',';
     const item = {
@@ -107,16 +133,22 @@ function walk(nodes: Node[], path: number[], depth: number, out: Row[]): void {
       out.push({
         key: node.id,
         text: `${pad}{ ${fields.join(', ')}, "children": [`,
+        path: item.path,
         item,
       });
       walk(node.children, item.path, depth + 1, out);
-      out.push({ key: `${node.id}/end`, text: `${pad}] }${tail}` });
+      out.push({
+        key: `${node.id}/end`,
+        text: `${pad}] }${tail}`,
+        path: item.path,
+      });
       return;
     }
 
     out.push({
       key: node.id,
       text: `${pad}{ ${fields.join(', ')} }${tail}`,
+      path: item.path,
       item,
     });
   });

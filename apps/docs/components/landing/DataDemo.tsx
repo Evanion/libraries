@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { Widgets } from './desk';
-import { moved, openingNodes, rows, type Node } from './tree';
+import { moved, openingNodes, rows, within, type Node } from './tree';
 
 type Items = Parameters<typeof Widgets>[0]['items'];
 
@@ -41,6 +41,7 @@ interface HandleProps {
   glyph: string;
   spent: boolean;
   onMove: () => void;
+  onAim: (aiming: boolean) => void;
 }
 
 /**
@@ -52,7 +53,7 @@ interface HandleProps {
  * gesture. Kept focusable, the control announces itself as dimmed and the
  * reader's next press is still theirs to make.
  */
-function Handle({ label, glyph, spent, onMove }: HandleProps) {
+function Handle({ label, glyph, spent, onMove, onAim }: HandleProps) {
   return (
     <button
       type="button"
@@ -60,6 +61,10 @@ function Handle({ label, glyph, spent, onMove }: HandleProps) {
       aria-label={label}
       aria-disabled={spent || undefined}
       onClick={spent ? undefined : onMove}
+      onPointerEnter={() => onAim(true)}
+      onPointerLeave={() => onAim(false)}
+      onFocus={() => onAim(true)}
+      onBlur={() => onAim(false)}
     >
       {glyph}
     </button>
@@ -88,6 +93,7 @@ function Handle({ label, glyph, spent, onMove }: HandleProps) {
 export default function DataDemo() {
   const [nodes, setNodes] = useState<Node[]>(openingNodes);
   const [notice, setNotice] = useState('');
+  const [aimed, setAimed] = useState<number[] | null>(null);
   const labelId = useId();
 
   function move(path: number[], delta: number, name: string) {
@@ -106,13 +112,23 @@ export default function DataDemo() {
       </div>
 
       <div className="landing-items">
-        <p className="landing-demo__label" id={labelId}>
-          items
+        {/* The listing is only worth reading if a reader touches it, and the
+            controls are quiet by design, so the invitation is said in words
+            rather than drawn louder. */}
+        <p className="landing-items__label" id={labelId}>
+          <span>items</span>
+          <span className="landing-items__hint">
+            Move one and the page is composed again
+          </span>
         </p>
         <pre className="landing-items__source" aria-labelledby={labelId}>
           <code>
             {rows(nodes).map((row) => (
-              <span key={row.key} className="landing-items__line">
+              <span
+                key={row.key}
+                className="landing-items__line"
+                data-aimed={aimed && within(aimed, row.path) ? '' : undefined}
+              >
                 <span className="landing-items__gutter">
                   {row.item ? (
                     <>
@@ -121,12 +137,14 @@ export default function DataDemo() {
                         glyph="↑"
                         spent={row.item.first}
                         onMove={() => move(row.item!.path, -1, row.item!.name)}
+                        onAim={(on) => setAimed(on ? row.item!.path : null)}
                       />
                       <Handle
                         label={`Move ${row.item.name} down`}
                         glyph="↓"
                         spent={row.item.last}
                         onMove={() => move(row.item!.path, 1, row.item!.name)}
+                        onAim={(on) => setAimed(on ? row.item!.path : null)}
                       />
                     </>
                   ) : null}

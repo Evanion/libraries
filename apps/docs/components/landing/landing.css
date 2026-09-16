@@ -347,6 +347,26 @@
   background: var(--baize-ink);
 }
 
+.landing-items__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
+  margin: 0;
+  color: var(--baize-moss);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.landing-items__hint {
+  color: var(--baize-lichen);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
 .landing-items__source {
   margin: 0;
   color: var(--baize-moss);
@@ -375,9 +395,16 @@
   border-radius: var(--baize-radius-button);
 }
 
-.landing-items__line:hover,
-.landing-items__line:focus-within {
-  background: color-mix(in oklab, var(--baize-hue) 10%, transparent);
+/*
+ * The block a control is about to move, lit while the control is under the
+ * pointer or holds focus.
+ *
+ * A container and everything nested under it, not the one line the pointer is
+ * on: what moving `desk` does to the page is the argument the figure is making,
+ * and this is where a reader sees it before pressing anything.
+ */
+.landing-items__line[data-aimed] {
+  background: color-mix(in oklab, var(--baize-hue) 12%, transparent);
 }
 
 .landing-items__code {
@@ -403,25 +430,20 @@
 }
 
 /*
- * A move control. Quiet until the line is under the pointer or holds focus,
- * because fourteen of these at full strength would be the loudest thing in the
- * figure and the page above it is the point.
+ * A move control. Legible at rest, because a reader who never notices it never
+ * sees the demonstration, and lifted onto the hue under the pointer so the one
+ * it will act on is never in doubt.
  */
 .landing-items__handle {
   padding: 0 var(--baize-space-2);
   border: 0;
   border-radius: var(--baize-radius-button);
   background: none;
-  color: var(--baize-moss);
+  color: var(--baize-lichen);
   font: inherit;
   line-height: 1.4;
   cursor: pointer;
   transition: color var(--baize-motion-duration) var(--baize-motion-easing);
-}
-
-.landing-items__line:hover .landing-items__handle,
-.landing-items__line:focus-within .landing-items__handle {
-  color: var(--baize-lichen);
 }
 
 .landing-items__handle:hover {
@@ -429,9 +451,8 @@
 }
 
 .landing-items__handle[aria-disabled],
-.landing-items__line:hover .landing-items__handle[aria-disabled],
-.landing-items__line:focus-within .landing-items__handle[aria-disabled] {
-  color: color-mix(in oklab, var(--baize-moss) 45%, transparent);
+.landing-items__handle[aria-disabled]:hover {
+  color: color-mix(in oklab, var(--baize-moss) 40%, transparent);
   cursor: default;
 }
 
@@ -1097,6 +1118,19 @@ textarea.landing-access__field {
     grid-column: auto;
   }
 
+  /* On one track a figure reads better on its side: three tall cards in a
+     column would push the boards, which are what the dashboard is for, off
+     the first screen. */
+  .landing-desk__metric {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--baize-space-3);
+    align-items: baseline;
+  }
+
+  .landing-desk__metric .baize-figure {
+    grid-row: span 2;
+  }
+
   .landing-row {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--baize-space-2);
@@ -1111,11 +1145,34 @@ textarea.landing-access__field {
   .landing-index {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  /*
+   * A phone's width is fewer characters than an item needs, so both the table
+   * and the listing step down a size. It buys about a fifth more per line,
+   * which is the difference between an item folding twice and folding once.
+   */
+  .landing-desk__table,
+  .landing-items__source {
+    font-size: var(--baize-text-xs);
+  }
+
+  .landing-desk__table td {
+    padding-right: var(--baize-space-2);
+  }
+
+  .landing-items__line {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+
+  .landing-items__handle {
+    padding: 0 var(--baize-space-1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .landing-tile__link,
   .landing-seg__face,
+  .landing-items__handle,
   .landing-access__line {
     transition: none;
   }
