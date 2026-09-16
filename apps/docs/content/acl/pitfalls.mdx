@@ -1,0 +1,263 @@
+# Caveats and pitfalls
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Every behaviour on this page was executed against `libs/acl/src` before it
+    was written down, including the two gaps at the bottom.
+  </Text>
+</WorkshopNotice>
+
+Each entry is a mistake, the form that is correct instead, and why the
+difference matters. Several of these have been made in this repository.
+
+## Reading a decision
+
+### Gate on `allowed`, not on `reason`
+
+```ts
+if (decision.reason !== 'denied') proceed(); // wrong
+if (decision.allowed) proceed(); // right
+```
+
+`reason` is output only. Nothing in the library reads one back to decide
+anything, and the six values are not two buckets: `no-rule-matched`,
+`dependency-off`, `unknown-action` and `unevaluable` all refuse, and the first
+form proceeds through every one of them.
+
+### `unevaluable` is not `denied`
+
+```ts
+if (!decision.allowed) return <ReadOnly />; // loses a repairable answer
+```
+
+`unevaluable` means the decision could not be reached with the data it was
+handed, and `missing` names exactly what to fetch. `allowed` is already `false`,
+so treating it as a refusal is safe on a server — but in a UI it hides something
+the user can have. Render the control as pending, fetch what `missing` names,
+ask once more. Treating it as permission is the other direction and is simply
+broken.
+
+An `unevaluable` that survives a refetch is a mistyped field name in the
+document. A `schema` turns that class into an `UnknownFieldError` at
+construction. [The refusal fields](/acl/refusals) has both halves.
+
+### A key the document does not carry is absent, not false
+
+```ts
+const caps = access.capabilities(subject);
+items.filter((item) => !caps[item.key]?.allowed); // shows every unknown key
+items.filter((item) => caps[item.key]?.allowed === true); // right
+```
+
+A capability map holds an entry per permission in the document. A key that is
+not in the document is `undefined`, and negating `undefined?.allowed` is `true`.
+A menu written the first way grows an item every time somebody renames a
+permission.
+
+## Writing fields
+
+### Never hand-filter the field map
+
+```ts
+// wrong
+Object.entries(proposed).filter(([key]) => decision.fields[key] !== 'denied');
+
+// right
+pickAllowedFields(decision, proposed);
+```
+
+`FieldState` has three values. A field whose `transitions` config could not be
+checked, because the object did not carry the current value, comes back
+`unevaluable` — and `'unevaluable' !== 'denied'` is `true`, so the first form
+writes a value the decision explicitly declined to approve. The same filter also
+passes any key the decision does not carry at all, since `undefined !== 'denied'`.
+
+`pickAllowedFields` keeps the keys that decided `allowed` and withholds
+everything else. That is one state to get right rather than two to enumerate,
+and it is the only narrowing in the package.
+
+### Read `allowed`, not `action.allowed`
+
+```ts
+const fd = access.canFields(
+  subject,
+  'user',
+  'update',
+  current,
+  'write',
+  proposed,
+);
+
+fd.action.allowed; // true  — the action is permitted
+fd.allowed; // false — a field in this write is not
+```
+
+`canFields` returns two booleans named `allowed`, one nested inside the other,
+and they disagree exactly when the narrowing is doing its job. `fd.allowed` is
+the composition: the action is allowed **and** every decided field is allowed.
+`fd.action.allowed` is the action alone.
+
+### Do not iterate `fields` without checking `allowed` first
+
+The field maps are filled in whatever the action decides. A subject refused the
+action still gets a complete map showing which fields would be editable once the
+action is unblocked — deliberately, so one call renders a form and explains a
+block.
+
+That is useful and it is a hazard. Reading the maps as the gate skips the action
+entirely, and the maps look identical either way.
+
+### A `targets` or `transitions` config is not an allow-list
+
+```ts
+p.fields({ status: { transitions: { draft: ['published'] } } }); // every other key is open
+p.fields({
+  fields: ['*', '!id'],
+  status: { transitions: { draft: ['published'] } },
+});
+```
+
+A per-field config restricts the field it names and no other. With no `fields`
+list, every unnamed key is writable. Reading the config as the writable-field
+list leaves the rest of the row open.
+
+## Authoring a policy
+
+### A condition may only read fields the subject cannot write
+
+```ts
+p.allow('read', p.contains('object.collaborators', 'subject.id')); // self-authorizing
+p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
+```
+
+If the subject can add themselves to `collaborators`, they can authorize
+themselves for the document. The engine cannot detect this: it does not know
+which object fields the subject can write, and the write that opens the door is
+a different action from the read it opens.
+
+Either keep the field out of every write path the rule guards, or key the rule
+on something out of reach — ownership set at creation, a role on the subject, a
+field only the server writes.
+
+### The matrix is public in its names, not only its values
+
+`bypass-kyc` as an action name, or `internal-fraud-reviewer` as a role string,
+is disclosed the moment a page loads. The document ships to the client in full,
+so a reader gets every object kind, every action, every role, every field name
+including the ones the API never returns, every state machine and its terminal
+states, every time window, and the whole `dependsOn` graph.
+
+That is not an argument against shipping it — security must not rest on the
+document staying secret, and here it does not. It is an argument for naming
+things as if they will be read. Secrets and server-only predicates do not belong
+in the document at all.
+
+### Do not reach for `decide`, `decideFields` or `evaluateCondition`
+
+```ts
+decide(permission, ctx, new Map()); // -> { reason: 'dependency-off', … }
+access.can(subject, 'comment', 'publish', comment); // -> { reason: 'allow', … }
+```
+
+Those are the same permission and the same subject. `decide` takes the map of
+already-resolved dependencies the caller is expected to build, and an empty map
+silently means every `dependsOn` parent is off — so the low-level call refuses
+what the real one grants, and a matrix with no `dependsOn` hides the difference
+until somebody adds one.
+
+They exist for tooling that inspects a matrix. An application's guard is `can`,
+`canMany`, `canFields` or `authorize`, each of which resolves the cascade for
+itself.
+
+## Around the call
+
+### The subject is whatever you hand it
+
+`can(subject, …)` authorizes the bag it receives and has no channel to ask where
+that bag came from. A subject derived from a header, a query parameter, an
+unverified token body, or a field the client posted gets the attacker's claimed
+identity faithfully authorized.
+
+This is the confused deputy, and it cannot be fixed inside an evaluator. Resolve
+the subject from a verified session or a verified token, server-side, before it
+reaches the call.
+
+### A browser decision enforces nothing, and every layer decides for itself
+
+In a browser `can` toggles what the user sees. Hiding a control hides the
+control, not the data behind it and not the request the control would have sent.
+The same call has the same signature and the same return type in both places;
+nothing in the types separates authoritative from advisory, and the runtime
+decides.
+
+There is no transitive trust either. A gateway or a BFF that already allowed the
+request does not excuse the service behind it, because a caller reaches that
+service directly whenever it wants to. Re-evaluating is a local function call
+over a frozen object, which is what makes "check again" a rule that can be kept.
+
+### Re-check inside the transaction
+
+A decision describes the snapshot it was given. Between `can` returning `true`
+and the write landing, the object can change owner, the subject can lose the
+role, and the time window can close. The library carries no freshness token and
+no way to detect the gap.
+
+Re-read the object and re-check inside the transaction, or write with a
+conditional predicate that fails when the state it was authorized against has
+moved.
+
+## Two gaps with no defence
+
+Both are real today and neither is guarded. They are stated rather than omitted
+because a caller can avoid both, and cannot avoid what nobody wrote down.
+
+### An unparseable `now` disarms a time-gated deny
+
+```ts
+access.can(subject, 'sale', 'buy', undefined, '2026-01-01T00:00:00Z');
+// -> { allowed: false, reason: 'denied' }
+
+access.can(subject, 'sale', 'buy', undefined, 'not a date');
+// -> { allowed: true,  reason: 'allow' }
+```
+
+A clock that does not parse fails every time condition that reads it. On an
+allow rule that is closed — the grant does not happen. On a deny rule it is
+open, because a condition that fails means the rule does not match, so a deny
+gated on a time window stops denying. Supply an instant that parses, or none at
+all.
+
+Supplying `now` at all is worth deciding deliberately: it slides every window in
+the matrix. Pass it only to make a server render and its rehydration agree, and
+resolve it server-side. A `now` arriving from a request body or a query string
+hands the client every time window there is.
+
+### The subject and object bags are read live
+
+```ts
+const lazy = {
+  get status() {
+    return reads++ === 0 ? 'draft' : 'locked'; // an ORM row, a refilling cache
+  },
+};
+access.can(subject, 'comment', 'update', lazy); // -> allowed: true
+access.can(subject, 'comment', 'update', { status: 'locked' }); // -> reason: 'denied'
+```
+
+Conditions read `subject` and `object` field by field as the decision walks the
+rules, and the deny side is evaluated before the allow side. A bag whose
+properties are accessors — an ORM row, a lazy proxy, a memoised getter over a
+cache that can refill — can answer the two sides differently and pass the deny it
+should have matched.
+
+The matrix the engine evaluates is a frozen deep copy for exactly this reason.
+The subject and the object are not copied, because they are the app's data and
+copying them would hide the cost. Pass plain, already-resolved objects.
+
+## Where this comes from
+
+The package holds itself to a register at
+[`libs/acl/SECURITY.md`](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md),
+one row per class of attack, each naming the test that proves it. It runs under
+`nx test @evanion/acl`. The [security contract](/acl/security) is the prose
+version of the same material.

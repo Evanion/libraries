@@ -1,0 +1,120 @@
+# Many services
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    The federation example on this page is a region of `libs/acl/README.md` and
+    runs under `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+One matrix per service, one `Access` per matrix. Each service authors and
+evaluates only what it owns, and no service evaluates another's document to
+reach a decision. There is no merged matrix anywhere in the topology.
+
+## Namespace the object kind by origin
+
+Two services that both say `invoice` mean different rows, with different fields,
+in different databases. The namespace says so: `orders:invoice`,
+`billing:invoice`.
+
+Nothing about the document format changes. `orders:invoice.read` still equals
+`` `${object}.${action}` `` character for character, so `KeyMismatchError` is
+satisfied by construction, and the typed builder takes the namespaced key
+directly:
+
+```ts
+policy<Subject>().for<'orders:invoice', Invoice>('orders:invoice', (p) =>
+  p.allow('read', p.eq('object.ownerId', 'subject.id')),
+);
+```
+
+`:` is safe as the separator because `.` is not available. It is the key
+delimiter, and a `.` inside `object` or `action` is refused at construction:
+
+```
+InvalidPermissionError: permission "orders.invoice.read": "object" carries the
+key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
+```
+
+## A gateway holds a map, not a merge
+
+```ts file=libs/acl/README.md region=federation
+
+```
+
+The map key is the origin, so routing a question is a lookup rather than a
+search. It is also why nothing collides even without naming discipline: two
+documents that both declare `invoice.read` are two entries under two different
+map keys, and neither can overwrite the other. A merged matrix has no such
+property — the second `invoice.read` wins, silently.
+
+The fold into one view is safe for the same reason. The namespaces are disjoint,
+so `Object.assign` over each origin's `capabilities` cannot lose an entry.
+
+<Panel heading="The edge view is advisory">
+  <Text as="div" size="sm">
+    It sits in the same tier as a browser's. Every service behind the gateway
+    evaluates its own matrix for itself and never trusts the edge's answer. A
+    gateway that already allowed the request does not excuse the service behind
+    it, because a caller reaches that service directly whenever it wants to.
+  </Text>
+</Panel>
+
+## An unreachable upstream needs no flag
+
+Its origin is absent from the map. Under `closed: true` every key it would have
+answered is already `{ allowed: false, reason: 'unknown-action' }`, so a
+degraded fleet fails closed by absence rather than by a code path somebody has
+to remember to write.
+
+This is the reason every entry in the map is constructed closed. On the open
+path the same key throws `UnknownPermissionError`, which at an edge means one
+unregistered origin takes down the request.
+
+## `dependsOn` does not cross an origin
+
+`orders:order.ship` declaring `dependsOn: ['billing:invoice.paid']` fails at
+construction:
+
+```
+UnknownDependencyError: permission "orders:order.ship" depends on
+"billing:invoice.paid", which is not configured
+```
+
+It fails inside orders' own process, at startup, where the author can fix it.
+That is the correct outcome rather than a limitation. Resolving that edge would
+mean evaluating billing's `object.*` conditions against the order instance the
+caller passed — a different kind, with different fields — and the engine would
+return a confident wrong answer instead of an error.
+
+When one request genuinely touches two services, the fan-out is the caller's
+own `&&`:
+
+```ts
+const ok =
+  orders.can(subject, 'orders:order', 'ship', order).allowed &&
+  billing.can(subject, 'billing:invoice', 'read', invoice).allowed;
+```
+
+Deny-overrides, written at a call site by somebody who knows whether they meant
+AND or OR. The library does not guess.
+
+## What this topology does not give you
+
+A cross-cutting deny authored by another team — a compliance hold that has to
+outrank what a service's own document says — is not expressible in a document
+that service does not own. A service needing one authors it in its own matrix
+today.
+
+Integrity of a document in transit belongs to the transport, the same way
+resolving a subject does. The library neither signs a matrix nor verifies one:
+a document that arrives over an unauthenticated channel is a document an
+attacker wrote.
+
+## Where to go next
+
+- [My policy came from another service](/acl/adopting) — `parseMatrix`, the
+  closed mode, and what construction refuses
+- [Caveats and pitfalls](/acl/pitfalls) — the layer-trust and subject-forgery
+  entries apply directly here
+- [Security contract](/acl/security) — every layer decides for itself

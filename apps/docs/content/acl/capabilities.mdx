@@ -1,0 +1,74 @@
+# What can they do at all?
+
+<WorkshopNotice slug="acl" />
+
+`capabilities(subject, now?)` resolves every permission in the document against
+one subject, keyed, in dependency order, in one pass.
+
+```ts file=libs/acl/README.md region=capabilities
+
+```
+
+## The no-object contract
+
+`capabilities` passes no object. That is the whole shape of the call, and it
+decides what the answer can mean:
+
+- A permission whose rules read only `subject.*` decides definitely. The subject
+  was resolved whole before the call, so a field it lacks is a field it does not
+  have.
+- A permission whose rules read any `object.*` path decides `unevaluable`, with
+  `missing` naming the paths. Not `false` — there is no instance to compare
+  against, so the question has not been asked yet.
+
+That second line is why `capabilities` is not "the user's permissions". It is
+the answer to every question that can be answered without a row.
+
+<Panel heading="`unevaluable` in a capability map is normal">
+  <Text as="div" size="sm">
+    On a matrix with object-dependent rules, most entries come back
+    `unevaluable`, and a `dependsOn` chain hanging off one of them comes back
+    `dependency-off` carrying that `cause`. Neither is a misconfiguration.
+    Reading the map as a list of `allowed === true` is correct; reading `allowed
+    === false` as "refused" is not.
+  </Text>
+</Panel>
+
+## Driving a menu from it
+
+A navigation menu is exactly the object-free question: "is there any point
+showing this section". One call at the top of a render, one lookup per item.
+
+```ts
+const caps = access.capabilities(subject);
+
+const items = [
+  { href: '/reports', label: 'Reports', key: 'report.read' },
+  { href: '/billing', label: 'Billing', key: 'invoice.read' },
+].filter((item) => caps[item.key]?.allowed === true);
+```
+
+`=== true` rather than truthiness, and `?.` rather than an index, because a key
+the document does not carry is simply absent from the map. A menu built on
+`!caps[key]?.allowed` shows every item the matrix has never heard of.
+
+Prefer this over a loop of `can` over every key. `capabilities` folds the whole
+graph once; a loop resolves each permission's cascade for itself.
+
+## What it does not replace
+
+A row-level control — an edit button on one comment — is a `can` with that
+comment, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
+rows. A capability map cannot answer it, and an entry that came back
+`unevaluable` is the map saying so.
+
+`capabilities` is also not a per-subject projection to ship to a client. The
+client gets `access.matrix` and evaluates it locally; that is the package's
+whole premise, and a projection would be a second thing to keep fresh.
+
+## Where to go next
+
+- [Can this user do this?](/acl/asking) — the per-instance question
+- [Why was this refused?](/acl/refusals) — reading `cause` out of a capability
+  map
+- [Many services](/acl/federation) — folding one view out of several origins

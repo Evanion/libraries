@@ -1,0 +1,105 @@
+# My policy came from another service
+
+<WorkshopNotice slug="acl" />
+
+A backend with its own ACL publishes its matrix as JSON; a frontend or a peer
+service adopts it. `parseMatrix` is the entry point for a document this process
+did not write.
+
+```ts file=libs/acl/README.md region=foreign-matrix
+
+```
+
+## The closed mode is the whole difference
+
+`parseMatrix(json, options?)` is `createPolicy(json, { closed: true, ...options })`.
+One flag, and it changes what an unknown key means.
+
+| Key the document does not carry | Open path (`createPolicy`)      | Closed path (`parseMatrix`)                    |
+| ------------------------------- | ------------------------------- | ---------------------------------------------- |
+| unknown object kind             | throws `UnknownObjectKeyError`  | `{ allowed: false, reason: 'unknown-action' }` |
+| unknown action                  | throws `UnknownPermissionError` | the same                                       |
+
+The difference is between a bug and a data problem. A key a local typed policy
+does not carry is a programmer error: the key universe is known at compile time,
+and throwing points at the line. A key a foreign document does not carry is a
+document that has moved on — the producer removed a permission, or this consumer
+was written against an older revision — and a throw there takes down a page over
+a permission nobody has.
+
+Neither path grants. `unknown-action` is `allowed: false`, so failing closed is
+failing, not shrugging.
+
+## Construction still validates
+
+Closed mode softens the _query_, not the document. Everything a local matrix is
+held to, a foreign one is held to, at adoption time:
+
+| Refused at construction    | When                                                    |
+| -------------------------- | ------------------------------------------------------- |
+| `InvalidMatrixError`       | not an envelope, no `permissions` array, bad `version`  |
+| `InvalidPermissionError`   | a malformed `object`, `action`, `rules`, `dependsOn`    |
+| `InvalidRuleError`         | a rule whose `when` is absent or not an array           |
+| `InvalidConditionError`    | an unusable shape, namespace, path depth, or operator   |
+| `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``        |
+| `DuplicatePermissionError` | two permissions share a key                             |
+| `UnknownDependencyError`   | a `dependsOn` names a permission that is not configured |
+| `FeatureCycleError`        | the dependency graph has a cycle                        |
+
+`InvalidRuleError` is the one worth understanding. `when` is required and must be
+an array, so a document that lost its conditions in transit — `null`, absent, a
+string — is a construction error rather than a permission that grants
+everything. The unconditional grant is spelled as an empty `when`, which is the
+form that survives a JSON round trip.
+
+**Adoption is a boundary, so handle the throw.** `parseMatrix` on a payload from
+the network can fail for reasons this process cannot fix. Catch `AclConfigError`,
+keep the last document that constructed, and alarm — a fresh document that will
+not build is not a reason to serve no policy at all.
+
+## Check the document against a schema
+
+A foreign consumer has no `Comment` type to check paths against. The producer's
+`schema` is what carries that guarantee across the wire:
+
+```ts file=libs/acl/README.md region=schema-binding
+
+```
+
+A condition naming an undeclared field is `UnknownFieldError` at construction.
+Without it, `object.authorld` is not an error — it is a path that never reads,
+so the permission decides `unevaluable` forever and a UI refetches forever.
+
+Granularity is per kind. A permission on an object kind absent from
+`schema.objects` is unchecked, so a partial schema checks part of the document.
+
+## Know which document you are running
+
+```ts file=libs/acl/README.md region=matrix-round-trip
+
+```
+
+`version` is a string or a number, compared with `!==`. `createPolicy(matrix, {
+version })` overrides the document's own: the document states what a producer
+shipped, the option states what this site is actually running. The option wins,
+and the frozen `access.matrix` carries the winner, so the version that decided is
+the version that crosses an SSR boundary.
+
+A document stating no version leaves `access.version` undefined, where a `!==`
+decides nothing. [Fetch and revalidate](/acl/advanced#end-of-the-tier-fetch-and-revalidate)
+is the contract; the library supplies the comparison and nothing else.
+
+## What adoption does not give you
+
+The library does not sign a document or verify one. A matrix arriving over an
+unauthenticated channel is a matrix an attacker wrote, and every construction
+check above is a check on shape rather than on provenance. Integrity belongs to
+the transport, the same way [resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it)
+belongs to the session layer.
+
+## Where to go next
+
+- [Many services](/acl/federation) — a map of adopted documents, one per origin
+- [The matrix document](/acl/matrix) — the reference: the envelope, the
+  conditions, the version
+- [Caveats and pitfalls](/acl/pitfalls) — what a foreign document cannot state

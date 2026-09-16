@@ -78,13 +78,37 @@ This entry imports no framework.
 
 ## Where to go next
 
-- [The matrix document](/acl/matrix) — the envelope, the version contract, the
-  schema, and adopting a foreign matrix
-- [Typed authoring](/acl/authoring) — the chained builder, paths versus
-  literals, and what construction refuses
-- [Decisions](/acl/decisions) — the decision shape, the precedence order, and
-  the `unevaluable` state
-- [Field permissions](/acl/fields) — the read and write axes, and the write path
+Start with a setup tier. They are staged by one decision — whether a condition
+reads the row — rather than by how much of the API they use.
+
+- [Simple](/acl/simple) — a handful of permissions, conditions on the subject
+  only, `can` and done
+- [Intermediate](/acl/intermediate) — object-dependent conditions, the typed
+  builder, field permissions and the write path
+- [Advanced](/acl/advanced) — `dependsOn` cascades, the schema, `capabilities`,
+  versioning and the revalidate contract
+- [Many services](/acl/federation) — one matrix per service, namespaced object
+  kinds, and what a gateway holds
+
+Then the question you arrived with:
+
+- [Can this user do this?](/acl/asking) — `can`, `canMany`, and why the answer
+  is not a boolean
+- [What can they do at all?](/acl/capabilities) — the no-object contract, and
+  driving a menu from it
+- [Which fields may they write?](/acl/writing) — `canFields` and
+  `pickAllowedFields`
+- [Why was this refused?](/acl/refusals) — the explanation fields, and the
+  repairable `unevaluable` state
+- [A policy from another service](/acl/adopting) — `parseMatrix` and the closed
+  mode
+
+The reference is below those, and one page of it is not optional:
+
+- [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
+  the two gaps it does not defend
 - [Security contract](/acl/security) — what the library prevents, what it hands
   you, and what remains yours
+- [The matrix document](/acl/matrix), [Typed authoring](/acl/authoring),
+  [Decisions](/acl/decisions), [Field permissions](/acl/fields) — the mechanisms
 - [API reference](/acl/api) — every export, every type, every error

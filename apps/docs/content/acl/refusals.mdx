@@ -1,0 +1,106 @@
+# Why was this refused?
+
+<WorkshopNotice slug="acl" />
+
+Five fields explain a decision, and each one tells a UI something different to
+render. All five are output only: `allowed` is the gate, and nothing else on the
+decision should ever reach an `if`.
+
+| `reason`          | Carries              | What the UI has                             |
+| ----------------- | -------------------- | ------------------------------------------- |
+| `allow`           | `rule`               | nothing to explain                          |
+| `no-rule-matched` | —                    | a plain no; this subject, this row          |
+| `denied`          | `rule`               | a plain no, and which rule to name in a log |
+| `dependency-off`  | `blockedBy`, `cause` | another permission to fix first             |
+| `unknown-action`  | —                    | the document has moved on; fail closed      |
+| `unevaluable`     | `missing`            | a refetch, not a refusal                    |
+
+## `rule` — which rule decided
+
+Defaults to `#0`, `#1`, … by position; a rule that states an `id` reports that
+instead. Give the rules a UI has to name an `id`, because a position moves the
+first time somebody reorders the list.
+
+It is a log line and a support answer — "denied by `locked-comment`" — not
+something to branch on. Two rules can grant the same thing, and which one
+matched is not a property the app should depend on.
+
+## `blockedBy` and `cause` — a cascade
+
+```ts file=libs/acl/README.md region=cascade
+
+```
+
+Every rule on `feature` matched. It is off because something upstream is, and
+the two fields answer two different questions:
+
+- **`blockedBy`** is the edge this permission died on. It is the graph view, and
+  it is what a developer tool draws.
+- **`cause`** walks past the edge to the first ancestor that is off for a reason
+  of its own. It is what an operator has to fix, and it is what a user-facing
+  message should name. In a chain of three they are two different permissions,
+  which is why both are carried.
+
+`cause` is flat rather than a nested decision, because the rest of the chain is
+walkable from the matrix and one level is what a message needs. A repairable
+cause keeps its `missing` paths, so a dependant three levels deep still knows
+what to fetch.
+
+## When the answer is `unevaluable`
+
+It is not an error and it is not a no. `allowed` is already `false`, so nothing
+leaks — but the answer is **repairable**, and `missing` names exactly what to
+fetch.
+
+A caller meets it in two situations, which are the same shortfall:
+
+- **No instance at all.** `can(subject, 'comment', 'create')` against a
+  permission whose rules read `object.*`. This is the create toggle: there is
+  nothing to compare against yet.
+- **A projection that does not carry the field.** The list query selected `id`
+  and `title`; the rule reads `object.authorId`.
+
+```ts file=libs/acl/README.md region=refetch
+
+```
+
+Both sides' unreadable paths come back in one `missing`, so one refetch settles
+the permission however many rules read the object — not one round trip per rule.
+
+### What to do with one
+
+- **Server, enforcing.** Treat it as a refusal. Fetch the named paths and
+  re-ask, or return a 403. It is never a grant.
+- **Client, rendering.** Render the control as _pending_, not as forbidden.
+  Fetch `missing`, ask once more. A UI that renders it as forbidden hides
+  something the user can have; one that renders it as permitted is broken.
+- **Authoring.** An `unevaluable` that no refetch repairs is a bug in the
+  document, almost always a mistyped field name. A `schema` turns that class
+  into an `UnknownFieldError` at construction.
+
+Absence is undecidable for every operator, negative ones included. "It is not
+equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
+and `contains` over an absent path are as undecidable as `eq`.
+
+### Why only the object
+
+An absent `object.*` path is undecidable; an absent `subject.*` path is a plain
+miss. The object is a projection the caller chose, so a field it lacks says
+nothing about the row. The subject is resolved whole before the call and is
+never a projection, so a subject carrying no `roles` genuinely has none.
+
+## Explaining a field, not an action
+
+A read-only input is a `FieldReason`, not a `Reason`. `not-listed` means the
+rules exclude the name; `targets-failed` and `transition-failed` mean the
+proposed value is the problem rather than the field; `missing-field` is the
+field-level `unevaluable` and wants the same refetch. [Which fields may they
+write?](/acl/writing) has the set.
+
+## Where to go next
+
+- [Decisions](/acl/decisions) — the reference: the full precedence order and why
+  it is in that order
+- [Caveats and pitfalls](/acl/pitfalls) — `unevaluable` is not `denied`, and
+  four other things to check
+- [Can this user do this?](/acl/asking) — where the decision came from
