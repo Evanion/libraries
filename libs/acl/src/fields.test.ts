@@ -6,6 +6,7 @@ import type {
   Decision,
   EvaluationContext,
   FieldDecision,
+  FieldReason,
   FieldRules,
   FieldState,
   Permission,
@@ -23,6 +24,49 @@ function perm(key: string, fields?: FieldRules): Permission {
 }
 
 describe('decideFields', () => {
+  it('emits every member of the FieldReason union', () => {
+    // `Record<FieldReason, ...>` forces the literal to name the whole union, so
+    // a member nothing emits fails here rather than becoming an unreachable arm
+    // in a consumer's switch.
+    const partial: EvaluationContext = { subject: { id: 's1' }, object: {} };
+    const cases: Record<
+      FieldReason,
+      readonly [Permission, EvaluationContext, Record<string, unknown>?]
+    > = {
+      allow: [perm('comment.update', { fields: ['status'] }), ctx],
+      'not-listed': [perm('comment.update', { fields: ['title'] }), ctx],
+      'targets-failed': [
+        perm('comment.update', { status: { targets: ['published'] } }),
+        ctx,
+        { status: 'draft' },
+      ],
+      'transition-failed': [
+        perm('comment.update', {
+          status: { transitions: { published: ['draft'] } },
+        }),
+        ctx,
+        { status: 'published' },
+      ],
+      'missing-field': [
+        perm('comment.update', {
+          status: { transitions: { draft: ['published'] } },
+        }),
+        partial,
+        { status: 'published' },
+      ],
+      'proposed-required': [
+        perm('comment.update', { status: { targets: ['published'] } }),
+        ctx,
+      ],
+    };
+
+    for (const [reason, [p, context, proposed]] of Object.entries(cases)) {
+      expect(
+        decideFields(p, context, 'write', proposed).reasons['status'],
+      ).toBe(reason);
+    }
+  });
+
   it('an allow-list allows only the listed fields', () => {
     const p = perm('comment.update', { fields: ['body', 'title'] });
     const d = decideFields(p, ctx, 'write');

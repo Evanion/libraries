@@ -19,11 +19,17 @@ export type Instant = string | number | Date;
 /** The result of a field-level decision: allowed, denied, or not evaluable. */
 export type FieldState = 'allowed' | 'denied' | 'unevaluable';
 
-/** Why a field decision landed where it did. Output only. */
+/**
+ * Why a field decision landed where it did. Output only.
+ *
+ * Every member is emitted, so an exhaustive switch over this union has no
+ * unreachable arm. A refusal is `not-listed`, `targets-failed` or
+ * `transition-failed`; the reason names which rule refused, and `FieldState`
+ * carries the plain `denied`.
+ */
 export type FieldReason =
   | 'allow'
   | 'not-listed'
-  | 'denied'
   | 'targets-failed'
   | 'transition-failed'
   | 'missing-field'
