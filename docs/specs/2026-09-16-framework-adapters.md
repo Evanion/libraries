@@ -285,18 +285,22 @@ The documented crossing is therefore data, not the `Access`:
 // server
 const payload = {
   matrix: access.matrix,
-  version: access.version,
   subject,
   decisions: access.capabilities(subject), // optional
 };
 
 // client
-const access = createPolicy(payload.matrix, { version: payload.version });
+const access = createPolicy(payload.matrix);
 ```
 
-`access.matrix` and `access.version` are already public readonly members of `Access`
-(`create-policy.ts:52-53`), and `version` is already described in `AccessOptions` as "the
-matrix version, surfaced for the fetch-and-revalidate contract" (lines 24-26). Nothing
+The matrix is an envelope carrying its own `version`, and `createPolicy` writes the
+version it constructed with into the frozen document it exposes. So `access.matrix`
+crosses losslessly on its own: a version composed at the construction site, from a
+document a producer shipped and an overlay the producer cannot know about, is the one
+that arrives. Carrying `version` beside the matrix would carry it twice and let the two
+disagree.
+
+`access.matrix` is a public readonly member of `Access`. Nothing
 new is exported; what is new is that this is written down as the contract every adapter
 implements identically.
 
@@ -308,24 +312,18 @@ already has: `libs/feature/src/react/index.tsx:49` takes `decisions?: Decisions<
 its docblock says supplied decisions are used as they are. Same word, same semantics,
 same reason.
 
-### The concrete break, and the fix
+### The clock crosses as data
 
-`Instant` is `string | number | Date` (`libs/acl/src/types.ts:13`) and it is what a `now`
-condition's `value` is typed as (line 35). Every entry point that accepts a `now`
-_argument_ types it `Date` and nothing else: `EvaluationContext.now?: Date`
-(`types.ts:47`), and `can`, `canMany`, `canFields`, `capabilities` and `authorize` on the
-`Access` interface (`create-policy.ts:59`, `:66`, `:75`, `:77`, `:78`).
+`Instant` is `string | number | Date`, and every entry point taking a `now` argument
+accepts it: `EvaluationContext.now`, and `can`, `canMany`, `canFields`, `capabilities`
+and `authorize` on the `Access` interface. A `now` that crossed JSON arrives as an ISO
+string and is passed straight through, so an adapter writes no `new Date(payload.now)`
+at a call site and reaches for no cast.
 
-So a `now` that crossed JSON is an ISO string. That string is a legal condition value and
-a type error as an argument, in the same library, for the same clock. A consumer doing
-the crossing above writes `new Date(payload.now)` at every call site or reaches for a
-cast.
-
-Widen `now` to `Instant` across those six positions before `@evanion/acl` first
-publishes. `ctxWith` already normalises with `now ?? new Date()`
-(`create-policy.ts:136`); the change is the parameter type plus a parse at that one
-point. Doing it after publication is a breaking change to the signature every adapter
-calls.
+The engine settles an instant once per call rather than per condition, and an
+unparseable one makes the conditions reading it fail rather than throw. So a hydrated
+clock is ordinary data on the same footing as the subject and the object, which is what
+lets an adapter forward it without knowing what it is.
 
 ## 8. `scripts/verify-packaging.mjs` splits its fixture per framework group
 
