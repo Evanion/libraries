@@ -21,6 +21,10 @@ export default withNextra({
   // and a renamed region fails this build. The loader carries the rest of the
   // reasoning.
   //
+  // The second rewrites a ```mermaid fence into the site's own `<Diagram>`,
+  // which has to happen before Nextra's own Mermaid plugin claims the fence.
+  // That loader carries why.
+  //
   // The rule goes under `turbopack` rather than in `webpack()`: Next 16 builds
   // with Turbopack, and never calls `webpack()`.
   turbopack: {
@@ -31,6 +35,7 @@ export default withNextra({
             loader: '@evanion/doc-examples/mdx-region-loader',
             options: { root: workspaceRoot },
           },
+          join(import.meta.dirname, 'tools/mdx-diagram-loader.mjs'),
         ],
       },
     },

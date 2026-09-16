@@ -361,3 +361,53 @@ html:not(.dark) [class*='baize-platform-'] {
 .docs-release > * {
   margin-block: 0;
 }
+
+/*
+ * A diagram and the sentence under it.
+ *
+ * The colours are not here. `components/diagram/palette.ts` binds every one of
+ * them to a `--baize-*` property inside the SVG, which is why the theme toggle
+ * recolours a diagram without re-running Mermaid, and why a diagram on an acl
+ * page accents in coral without this stylesheet knowing the page exists.
+ */
+.docs-diagram {
+  margin-block: var(--baize-space-6);
+}
+
+/*
+ * The frame scrolls rather than the page.
+ *
+ * Mermaid is told not to fit the SVG to its container: at 400px that fits by
+ * scaling a diagram down until its labels are illegible, which is a worse
+ * failure than a scrollbar. So the SVG keeps the width its text needs and this
+ * is the only element on the page allowed to scroll sideways.
+ */
+.docs-diagram__frame {
+  overflow-x: auto;
+  padding-block: var(--baize-space-2);
+}
+
+.docs-diagram__frame:focus-visible {
+  outline: 2px solid var(--baize-hue, var(--baize-lichen));
+  outline-offset: var(--baize-space-1);
+}
+
+.docs-diagram__frame > svg {
+  display: block;
+  height: auto;
+  margin-inline: auto;
+}
+
+/* What a render that threw falls back to: the fence's own text. */
+.docs-diagram__source {
+  font-size: var(--baize-text-sm);
+  white-space: pre;
+}
+
+.docs-diagram > figcaption {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  line-height: var(--baize-leading-normal);
+  margin-top: var(--baize-space-2);
+  text-align: center;
+}

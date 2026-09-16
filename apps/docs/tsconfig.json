@@ -51,6 +51,9 @@
     "components/**/*.jsx",
     "components/**/*.ts",
     "components/**/*.tsx",
+    // The MDX loaders this app configures under `turbopack.rules`. Listed so
+    // that the test importing one of them has it in the program.
+    "tools/**/*.mjs",
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "mdx-components.js",
