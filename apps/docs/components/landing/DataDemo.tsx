@@ -1,51 +1,20 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { demoItems, demoTypes, validateItems, Widgets } from './demo';
+import { Widgets } from './desk';
+import { moved, openingNodes, rows, type Node } from './tree';
 
 type Items = Parameters<typeof Widgets>[0]['items'];
 
 /**
- * What the text in the editor is, once read.
- *
- * Two kinds of wrong, kept apart because they have different fixes. Text that
- * is not JSON has no items in it at all -- a brace deleted a keystroke ago --
- * so `error` says where the parser stopped and the caller keeps the last list
- * that parsed. Text that is JSON but not a list the map can render is what
- * `validateItems` is for: `problems` names the item and the reason, and the
- * list still renders, minus that item, which is what the library does with a
- * bad item in production.
- */
-function read(text: string): {
-  items?: Items;
-  error?: string;
-  problems: string[];
-} {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (cause) {
-    return { error: (cause as Error).message, problems: [] };
-  }
-
-  const problems = validateItems(parsed).map(
-    (problem) =>
-      `${problem.index >= 0 ? `item ${problem.index + 1}` : 'the list'}: ${problem.message}`,
-  );
-
-  return { items: Array.isArray(parsed) ? (parsed as Items) : [], problems };
-}
-
-/**
  * The text as JSON tokens, each in the colour its kind takes.
  *
- * A tokenizer for JSON and nothing else: strings, numbers, the three
- * literals, punctuation. A string followed by a colon is a key. The site's
- * code blocks are highlighted by Shiki at build time; this field is edited,
- * so it is highlighted here, in the design's own colours -- keys in the
- * reading colour, strings in the package hue, the rest stepped back -- rather
- * than Shiki's, whose per-token colours are inlined into each block and are
- * not a stylesheet this can share.
+ * A tokenizer for JSON and nothing else: strings, numbers, the three literals,
+ * punctuation. A string followed by a colon is a key. The site's code blocks
+ * are highlighted by Shiki at build time; these lines are reassembled in the
+ * browser every time a reader moves an item, so they are highlighted here, in
+ * the design's own colours -- keys in the reading colour, strings in the
+ * package hue, the rest stepped back.
  */
 function Highlight({ text }: { text: string }) {
   const tokens = text.split(
@@ -60,100 +29,120 @@ function Highlight({ text }: { text: string }) {
         : 'string'
       : 'literal';
     return (
-      <span key={index} className={`landing-demo__token--${kind}`}>
+      <span key={index} className={`landing-items__token--${kind}`}>
         {token}
       </span>
     );
   });
 }
 
-interface DataDemoProps {
-  /** The items as the editor first shows them, serialised on the server. */
-  initial: string;
+interface HandleProps {
+  label: string;
+  glyph: string;
+  spent: boolean;
+  onMove: () => void;
 }
 
 /**
- * The items on one side and what the library renders from them on the other.
+ * One of an item's two move controls.
  *
- * The editor is a highlighted `<pre>` under a transparent `<textarea>` in the
- * same grid cell, sharing one class for every metric that places a glyph --
- * family, size, line height, padding, wrapping, tab size -- so the caret lands
- * on the character it is next to. Both layers wrap the same way, so a long
- * value never scrolls one layer past the other. The `<pre>` sets the height,
- * and carries a trailing newline when the text ends in one, because a
- * textarea shows that empty last line and a `<pre>` collapses it.
- *
- * A textarea rather than a code editor, because what a reader edits here is
- * data: the components are fixed and the data is the whole input. The
- * playground on the React Widget pages loads react-live for snippets that
- * define their own components; here that is a transpiler and a highlighter on
- * the landing page's critical path for twenty lines of JSON.
- *
- * State is the text and the last list that parsed. The preview only changes
- * when a parse succeeds; while the text is mid-edit it holds, and the parser's
- * message sits under the editor.
+ * `aria-disabled` and an inert handler rather than `disabled`, because the item
+ * a reader has just moved to the end of its list is the one holding focus: a
+ * real `disabled` takes the focus ring off the page in the middle of the
+ * gesture. Kept focusable, the control announces itself as dimmed and the
+ * reader's next press is still theirs to make.
  */
-export default function DataDemo({ initial }: DataDemoProps) {
-  const [text, setText] = useState(initial);
-  const [rendered, setRendered] = useState<Items>(demoItems);
-  const { error, problems } = read(text);
-  const editorId = useId();
+function Handle({ label, glyph, spent, onMove }: HandleProps) {
+  return (
+    <button
+      type="button"
+      className="landing-items__handle"
+      aria-label={label}
+      aria-disabled={spent || undefined}
+      onClick={spent ? undefined : onMove}
+    >
+      {glyph}
+    </button>
+  );
+}
 
-  function onChange(next: string) {
-    setText(next);
-    const { items } = read(next);
-    if (items) setRendered(items);
+/**
+ * A page a workshop would ship, and the data that composed it.
+ *
+ * The page comes first and takes the full width, because the claim is that this
+ * is a page and not a diagram of one. Under it are the items it was built from,
+ * short enough to read without scrolling, with a pair of controls in the gutter
+ * of every line that starts an item.
+ *
+ * Moving is the whole gesture and it is the right one: a layout is an order and
+ * a nesting, and neither is a thing anyone retypes. Move `desk` above `week`
+ * and two boards and three figures change places as blocks -- that is what a
+ * nested item list buys and what a flat list of components cannot describe.
+ * Move `stands` past `parts` and the wide side of the desk swaps, because
+ * `meta.span` belongs to the item and travels with it.
+ *
+ * Nothing is simulated. `Widgets` is the published renderer, the items are the
+ * items, and the page is rebuilt from them on every move. The server renders
+ * the same opening items, so nothing shifts at hydration.
+ */
+export default function DataDemo() {
+  const [nodes, setNodes] = useState<Node[]>(openingNodes);
+  const [notice, setNotice] = useState('');
+  const labelId = useId();
+
+  function move(path: number[], delta: number, name: string) {
+    setNodes(moved(nodes, path, delta));
+    setNotice(`${name} moved ${delta < 0 ? 'up' : 'down'}.`);
   }
 
   return (
-    <div className="landing-demo">
-      <div className="landing-demo__editor">
-        <label className="landing-demo__label" htmlFor={editorId}>
-          items
-        </label>
-        <div className="landing-demo__field">
-          <pre
-            className="landing-demo__layer landing-demo__highlight"
-            aria-hidden="true"
-          >
-            <code>
-              <Highlight text={text.endsWith('\n') ? `${text}\n` : text} />
-            </code>
-          </pre>
-          <textarea
-            id={editorId}
-            className="landing-demo__layer landing-demo__source"
-            value={text}
-            onChange={(event) => onChange(event.target.value)}
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            aria-describedby={error ? `${editorId}-error` : undefined}
-          />
+    <div className="landing-desk">
+      <div className="landing-desk__app">
+        <div className="landing-desk__chrome">
+          <span className="landing-desk__shop">Sundby Cykel</span>
+          <span className="landing-desk__week">Week 38</span>
         </div>
-        {error ? (
-          <p
-            id={`${editorId}-error`}
-            className="landing-demo__parse"
-            aria-live="polite"
-          >
-            Not JSON yet: {error}. The preview shows the last version that was.
-          </p>
-        ) : null}
+        <Widgets items={nodes as unknown as Items} />
       </div>
-      <div className="landing-demo__preview">
-        <p className="landing-demo__label">
-          {'<Widgets items={items} />'} with {demoTypes.join(', ')}
+
+      <div className="landing-items">
+        <p className="landing-demo__label" id={labelId}>
+          items
         </p>
-        <Widgets items={rendered} />
-        {problems.length > 0 ? (
-          <ul className="landing-demo__problems" aria-live="polite">
-            {problems.map((problem) => (
-              <li key={problem}>{problem}</li>
+        <pre className="landing-items__source" aria-labelledby={labelId}>
+          <code>
+            {rows(nodes).map((row) => (
+              <span key={row.key} className="landing-items__line">
+                <span className="landing-items__gutter">
+                  {row.item ? (
+                    <>
+                      <Handle
+                        label={`Move ${row.item.name} up`}
+                        glyph="↑"
+                        spent={row.item.first}
+                        onMove={() => move(row.item!.path, -1, row.item!.name)}
+                      />
+                      <Handle
+                        label={`Move ${row.item.name} down`}
+                        glyph="↓"
+                        spent={row.item.last}
+                        onMove={() => move(row.item!.path, 1, row.item!.name)}
+                      />
+                    </>
+                  ) : null}
+                </span>
+                <span className="landing-items__code">
+                  <Highlight text={row.text} />
+                </span>
+              </span>
             ))}
-          </ul>
-        ) : null}
+          </code>
+        </pre>
       </div>
+
+      <output className="landing-sr-only" aria-live="polite">
+        {notice}
+      </output>
     </div>
   );
 }
