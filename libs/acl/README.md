@@ -705,10 +705,86 @@ and returning a confident wrong answer. When one request genuinely touches two
 services, the fan-out is the caller's own `&&` — `a.can(…).allowed &&
 b.can(…).allowed` — written where somebody knows whether they meant AND or OR.
 
-A cross-cutting deny authored by another team is not expressible in a document
-this one does not own; a service that needs one authors it in its own matrix.
 Integrity of a document in transit belongs to the transport, the same way
 resolving a subject does: the library neither signs a matrix nor verifies one.
+
+## A cross-cutting deny
+
+A compliance or fraud team publishes deny rules for permissions it does not own.
+The owning service fetches them and applies them in its own process, before it
+constructs its policy:
+
+```
+authored matrix -> applyDenyOverlay -> createPolicy -> access
+```
+
+`applyDenyOverlay` appends each key's rules to that permission's `denyRules` and
+returns a new matrix. Nothing merges at an edge, nothing but the owner is
+authoritative, and the service that enforces the veto is the one that applies it.
+
+<!-- #region deny-overlay -->
+
+```ts @import.meta.vitest
+import { applyDenyOverlay, createPolicy } from '@evanion/acl';
+import type { DenyOverlay, Matrix } from '@evanion/acl';
+
+// The owner's document. `schema.objects.payout` is what opening `payout.send`
+// to a veto obliges it to declare.
+const authored: Matrix = {
+  version: 'payments@7',
+  schema: {
+    objects: { payout: { fields: { region: 'string', amount: 'number' } } },
+  },
+  permissions: [
+    {
+      key: 'payout.send',
+      object: 'payout',
+      action: 'send',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'ops' }] },
+      ],
+    },
+  ],
+};
+
+// What compliance publishes. A contribution is a `Rule[]`, so it can state a
+// deny and nothing else -- no allow, no dependency, no field rule.
+const overlay: DenyOverlay = {
+  'payout.send': [
+    {
+      id: 'sanctions-hold',
+      when: [{ field: 'object.region', op: 'eq', value: 'XX' }],
+    },
+  ],
+};
+
+const access = createPolicy(
+  applyDenyOverlay(authored, overlay, { vetoable: ['payout.send'] }),
+  { version: 'payments@7+veto@41' },
+);
+
+const operator = { id: 'u1', roles: ['ops'] };
+
+access.can(operator, 'payout', 'send', { region: 'SE', amount: 10 }).allowed; // -> true
+access.can(operator, 'payout', 'send', { region: 'XX', amount: 10 }).reason; // -> 'denied'
+```
+
+<!-- #endregion deny-overlay -->
+
+It refuses at apply time, naming the key: a key the target does not define, a key
+the target does not list in `vetoable`, and a condition that does not fit the
+target's schema for that key's object kind. The schema obligation is scoped to
+the kinds behind `vetoable`, so a service that opens no extension point owes no
+schema.
+
+`applyDenyOverlay` is pure `Matrix -> Matrix`, and it can only subtract:
+appending deny rules moves the deny side towards a match and never away, and
+every branch reached that way is `allowed: false`. A subject the overlaid matrix
+allows was allowed by the authored one, for every object and every instant.
+
+The authoring party runs the same call. A compliance team applies its overlay to
+the owner's published document in its own CI and finds its own mistake there
+rather than in the owner's next deploy.
 
 ## Server-side `authorize`
 

@@ -249,7 +249,15 @@ function assertRule(key: string, where: string, rule: unknown): void {
   }
 }
 
-function assertRules(key: string, side: string, rules: unknown): void {
+/**
+ * Validates one rule array's shape.
+ *
+ * `side` names the array inside the document, so a fault is located where the
+ * author wrote it. `validateMatrix` passes `rules` and `denyRules`; a deny
+ * overlay passes `overlay`, which is the same gate over a contribution that is
+ * not yet part of a permission.
+ */
+export function assertRules(key: string, side: string, rules: unknown): void {
   if (rules === undefined) return;
   if (!Array.isArray(rules)) {
     throw new InvalidPermissionError(key, side, 'is not an array');
