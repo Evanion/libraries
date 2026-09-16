@@ -76,6 +76,24 @@ passes any key the decision does not carry at all, since `undefined !== 'denied'
 everything else. That is one state to get right rather than two to enumerate,
 and it is the only narrowing in the package.
 
+### A name absent from `fields` is not a denial
+
+```ts
+const fd = access.canFields(subject, 'comment', 'update', projection, 'read');
+fd.fields['status']; // undefined — the projection did not carry it
+```
+
+The map is keyed by the union of the object's own keys, the proposed write's
+keys and the rule's field names. Hand `canFields` a projection and the map is
+smaller, and a key that is absent from it was never decided either way. A name
+in the map is a decision; a name missing from it is a question nobody asked.
+
+The safe direction is the one that happens by default: a form rendered from
+`fields` renders fewer inputs, and `pickAllowedFields` writes only keys that
+decided `allowed`. The unsafe direction is treating the gap as an answer —
+either as a denial in a UI, which hides a control the user can have, or as a
+permission in a filter, which is the entry above.
+
 ### Read `allowed`, not `action.allowed`
 
 ```ts

@@ -93,6 +93,21 @@ nothing about the one being added.
 The read axis takes no write, and per-field `targets`/`transitions` configs are
 write concepts: on `read` only the name list denies.
 
+### Passing a projection
+
+`canFields` takes a partial object, so a caller holding a projection can ask.
+The map shrinks with the input: a field the projection omits, that no rule names
+and that the write does not propose, appears in neither `fields` nor `reasons`.
+
+A name in the map is a decision. A name absent from it is not a denial, it is a
+question nobody asked, and `pickAllowedFields` withholds it for exactly that
+reason. Render inputs from the names the map carries, and treat an absent one as
+undecided rather than refused. [Caveats and pitfalls](/acl/pitfalls) has the
+filter that gets this wrong.
+
+`access.readsObject(key, action)` says whether the action behind the fields
+needs the row at all, which is the cheaper question to ask before fetching one.
+
 ## Writing
 
 Pass the proposed object to `canFields` on the `write` axis and write what

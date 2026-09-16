@@ -133,19 +133,33 @@ export interface Actions<Sub, Obj> extends Ops<Sub, Obj> {
   fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj>;
 }
 
-/** One object kind bound to a handle, so the key is named once. */
+/**
+ * One object kind bound to a handle, so the key is named once.
+ *
+ * Every object parameter takes `Partial<Obj>`. A caller holding a projection —
+ * a list row carrying `{ id, ownerId }` — is the case `unevaluable` and
+ * `missing` answer, and the engine reads every object field through an own-key
+ * guard. The subject stays complete: an absent `subject.*` path is a definite
+ * miss, so a projected subject refuses with `no-rule-matched` and names nothing
+ * to fetch.
+ */
 export interface BoundKind<Sub, Obj> {
-  can(subject: Sub, action: string, object?: Obj, now?: Instant): Decision;
+  can(
+    subject: Sub,
+    action: string,
+    object?: Partial<Obj>,
+    now?: Instant,
+  ): Decision;
   canMany(
     subject: Sub,
     action: string,
-    objects: readonly Obj[],
+    objects: readonly Partial<Obj>[],
     now?: Instant,
   ): Decision[];
   canFields(
     subject: Sub,
     action: string,
-    object: Obj,
+    object: Partial<Obj>,
     axis: 'read' | 'write',
     proposed?: Partial<Obj>,
     now?: Instant,
@@ -174,6 +188,10 @@ export type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 /**
  * The typed builder. `R` accumulates the key -> object-type map one `.for()` at
  * a time, and every query checks its key and its object against it.
+ *
+ * Queries take `Partial<R[K]>` for the object, so a projection is an argument
+ * and the field names stay checked. The subject stays complete; see
+ * `BoundKind`.
  */
 export interface Policy<Sub, R> {
   for<K extends string, Obj>(
@@ -184,21 +202,21 @@ export interface Policy<Sub, R> {
     subject: Sub,
     key: K,
     action: string,
-    object?: R[K],
+    object?: Partial<R[K]>,
     now?: Instant,
   ): Decision;
   canMany<K extends keyof R & string>(
     subject: Sub,
     key: K,
     action: string,
-    objects: readonly R[K][],
+    objects: readonly Partial<R[K]>[],
     now?: Instant,
   ): Decision[];
   canFields<K extends keyof R & string>(
     subject: Sub,
     key: K,
     action: string,
-    object: R[K],
+    object: Partial<R[K]>,
     axis: 'read' | 'write',
     proposed?: Partial<R[K]>,
     now?: Instant,

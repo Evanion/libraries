@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from 'vitest';
 
 import { policy } from './authoring.js';
 import type { Operand, Valid } from './authoring.js';
+import type { Decision } from './types.js';
 
 type Subject = { id: string; roles: string[] };
 type Comment = { authorId: string; status: 'draft' | 'published' };
@@ -18,6 +19,8 @@ const access = policy<Subject>()
 declare const subject: Subject;
 declare const comment: Comment;
 declare const media: Media;
+declare const projection: { authorId: string };
+declare const projectedSubject: { id: string };
 
 describe('typed authoring', () => {
   it('a mistyped path names the path', () => {
@@ -103,5 +106,49 @@ describe('typed authoring', () => {
   it('the subject is the one named once, on every entry point', () => {
     // @ts-expect-error -- a bag of attributes is not the named Subject
     access.can({ id: 's1' }, 'comment', 'update', comment);
+  });
+
+  it('a projected subject is refused on every entry point', () => {
+    // @ts-expect-error -- the subject is resolved whole by the app
+    access.can(projectedSubject, 'comment', 'update', comment);
+    // @ts-expect-error -- the subject is resolved whole by the app
+    access.canMany(projectedSubject, 'comment', 'update', [comment]);
+    // @ts-expect-error -- the subject is resolved whole by the app
+    access.canFields(projectedSubject, 'comment', 'update', comment, 'read');
+    // @ts-expect-error -- the subject is resolved whole by the app
+    access.object('comment').can(projectedSubject, 'update', comment);
+  });
+
+  it('a projection of the object compiles at every entry point', () => {
+    access.can(subject, 'comment', 'update', {});
+    access.can(subject, 'comment', 'update', { authorId: 's1' });
+    access.canMany(subject, 'comment', 'update', [{ authorId: 's1' }, {}]);
+    access.canFields(subject, 'comment', 'update', { authorId: 's1' }, 'read');
+    access.object('comment').can(subject, 'update', {});
+    access.object('comment').canMany(subject, 'update', [{}]);
+    access.object('comment').canFields(subject, 'update', {}, 'read');
+  });
+
+  it('a projection typed elsewhere compiles, and the field names stay checked', () => {
+    access.can(subject, 'comment', 'update', projection);
+    // @ts-expect-error -- 'authorIdd' is not a Comment field
+    access.can(subject, 'comment', 'update', { authorIdd: 's1' });
+    // @ts-expect-error -- 'statuss' is not a Comment field
+    access.can(subject, 'comment', 'update', { authorId: 's1', statuss: 'x' });
+    // @ts-expect-error -- 'draft' is the Comment field's type, 'x' is not
+    access.can(subject, 'comment', 'update', { status: 'x' });
+  });
+
+  it('a partial call still answers with a Decision, gated on a boolean', () => {
+    expectTypeOf(
+      access.can(subject, 'comment', 'update', {}),
+    ).toEqualTypeOf<Decision>();
+    expectTypeOf<Decision['allowed']>().toEqualTypeOf<boolean>();
+    expectTypeOf(
+      access.can(subject, 'comment', 'update', { authorId: 's1' }).allowed,
+    ).toEqualTypeOf<boolean>();
+    expectTypeOf(
+      access.canFields(subject, 'comment', 'update', {}, 'read').allowed,
+    ).toEqualTypeOf<boolean>();
   });
 });

@@ -39,6 +39,33 @@ Default deny is the floor — no rules, an empty rule list, an unknown action or
 parent that is off all refuse. Above it, a matched deny outranks a matching
 allow, and a deny the engine could not read refuses as well.
 
+## Asking with a projection
+
+The object parameter takes a partial. A list query that selected `id` and
+`ownerId` passes what it has, and the typed path checks those field names
+against the object type without demanding the rest of the row.
+
+```ts
+access.can(subject, 'comment', 'update', { authorId: 's1' });
+access.object('comment').can(subject, 'update', {});
+```
+
+A projection that carries a path some rule reads decides definitely. One that
+does not comes back `unevaluable`, with `missing` naming what to fetch. Both are
+`allowed: false`, so gating on `allowed` is correct either way — and gating on
+`reason` is where a projection turns into permission the engine never granted.
+[Caveats and pitfalls](/acl/pitfalls) has that one first.
+
+`access.readsObject(key, action)` answers, from the document, whether a
+permission needs the row at all. A permission that reads only the subject
+settles with no object, and a caller holding a projection is the caller that
+wants to know which kind it is asking about before it pays for a fetch.
+
+The subject has no partial form. An absent `subject.*` path is a definite miss
+rather than a shortfall, so a projected subject would refuse with
+`no-rule-matched` and name nothing to fetch. The app resolves the subject whole,
+and the type says so.
+
 ## Asking about a list
 
 `canMany` takes the instances and answers per instance:
