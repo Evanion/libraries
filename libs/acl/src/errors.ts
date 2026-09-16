@@ -1,15 +1,15 @@
 import type { ObjectKey } from './types.js';
 
 /** Base class for every error this library throws. All raised at construction. */
-export class AuthorizationConfigError extends Error {
+export class AclConfigError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AuthorizationConfigError';
+    this.name = 'AclConfigError';
   }
 }
 
 /** A dependency cycle. Rejected because resolution order is undefined. */
-export class FeatureCycleError extends AuthorizationConfigError {
+export class FeatureCycleError extends AclConfigError {
   readonly path: readonly string[];
   constructor(path: readonly string[]) {
     super(`permission dependency cycle: ${path.join(' -> ')}`);
@@ -19,7 +19,7 @@ export class FeatureCycleError extends AuthorizationConfigError {
 }
 
 /** A `dependsOn` naming a permission that is not configured. */
-export class UnknownDependencyError extends AuthorizationConfigError {
+export class UnknownDependencyError extends AclConfigError {
   readonly key: string;
   readonly dependency: string;
   constructor(key: string, dependency: string) {
@@ -33,7 +33,7 @@ export class UnknownDependencyError extends AuthorizationConfigError {
 }
 
 /** Two permissions with the same key. */
-export class DuplicatePermissionError extends AuthorizationConfigError {
+export class DuplicatePermissionError extends AclConfigError {
   readonly key: string;
   constructor(key: string) {
     super(`duplicate permission key "${key}"`);
@@ -43,7 +43,7 @@ export class DuplicatePermissionError extends AuthorizationConfigError {
 }
 
 /** A `!` entry in `fields()` has no `*` baseline. */
-export class DenyWithoutBaselineError extends AuthorizationConfigError {
+export class DenyWithoutBaselineError extends AclConfigError {
   constructor(field: string) {
     super(
       `field "${field}" has no baseline: a deny entry requires a '*' baseline (or an explicit allow-list) to say what is allowed`,
@@ -53,7 +53,7 @@ export class DenyWithoutBaselineError extends AuthorizationConfigError {
 }
 
 /** A `!` entry mixed into an explicit allow-list. */
-export class BangInAllowListError extends AuthorizationConfigError {
+export class BangInAllowListError extends AclConfigError {
   constructor(field: string) {
     super(
       `field "${field}" is denied inside an explicit allow-list, which already denies anything not listed`,
@@ -63,7 +63,7 @@ export class BangInAllowListError extends AuthorizationConfigError {
 }
 
 /** Both `targets` and `transitions` on one field. */
-export class TargetsTransitionsConflictError extends AuthorizationConfigError {
+export class TargetsTransitionsConflictError extends AclConfigError {
   constructor(field: string) {
     super(
       `field "${field}" configures both targets and transitions, which are mutually exclusive`,
@@ -73,7 +73,7 @@ export class TargetsTransitionsConflictError extends AuthorizationConfigError {
 }
 
 /** An unknown object kind at runtime on a typed (local) matrix. */
-export class UnknownObjectKeyError extends AuthorizationConfigError {
+export class UnknownObjectKeyError extends AclConfigError {
   readonly key: ObjectKey;
   constructor(key: ObjectKey) {
     super(`object kind "${key}" is not configured in this matrix`);
@@ -83,7 +83,7 @@ export class UnknownObjectKeyError extends AuthorizationConfigError {
 }
 
 /** An unknown permission key at runtime on a typed (local) matrix. */
-export class UnknownPermissionError extends AuthorizationConfigError {
+export class UnknownPermissionError extends AclConfigError {
   readonly key: string;
   constructor(key: string) {
     super(`permission "${key}" is not configured in this matrix`);

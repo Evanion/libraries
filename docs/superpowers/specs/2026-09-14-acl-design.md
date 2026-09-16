@@ -281,7 +281,7 @@ The open/closed behaviour is decided by how the matrix was built.
 
 - **Typed, locally-defined matrix** (`policy(...)`): the key universe is known.
   An unknown key at runtime is a programmer error and **throws** a typed error
-  (`UnknownPermissionError extends AuthorizationConfigError`), naming the key.
+  (`UnknownPermissionError extends AclConfigError`), naming the key.
 - **Foreign matrix** (`parseMatrix(...)`): the key universe is untrusted
   configuration data. An unknown key **fails closed** (`{ allowed: false,
 reason: 'unknown-action' }`) and never throws.
@@ -648,7 +648,7 @@ config rejects, and a runtime object can never leak into it.
 
 ### Construction errors
 
-Named classes, all extending `AuthorizationConfigError`, with messages that
+Named classes, all extending `AclConfigError`, with messages that
 explain themselves:
 
 - `DenyWithoutBaselineError` — a `!` entry in `fields()` has no `*` baseline.
@@ -657,9 +657,8 @@ explain themselves:
   field.
 - `KeyMismatchError` — `key` is not `` `${object}.${action}` ``.
 
-**Open question:** the error hierarchy is prefixed `Authorization` while the
-package is `@evanion/acl`. Renaming it to `AclConfigError` is a breaking change
-to a public export, so it belongs before the first publish or not at all.
+The base class is `AclConfigError`, matching the `@evanion/acl` package name.
+The name is a public export, so it is fixed before the first publish.
 
 Evaluation is total: it never throws for a data-shape problem. Omitting
 `proposed` where a `targets` or `transitions` rule exists yields an

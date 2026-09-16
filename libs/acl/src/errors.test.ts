@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  AuthorizationConfigError,
+  AclConfigError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   FeatureCycleError,
@@ -12,7 +12,7 @@ import {
 } from './errors.js';
 
 describe('errors', () => {
-  it('all errors extend AuthorizationConfigError', () => {
+  it('all errors extend AclConfigError', () => {
     const cases: (() => Error)[] = [
       () => new DenyWithoutBaselineError('!status'),
       () => new DuplicatePermissionError('x'),
@@ -24,7 +24,7 @@ describe('errors', () => {
     ];
     for (const make of cases) {
       const err = make();
-      expect(err).toBeInstanceOf(AuthorizationConfigError);
+      expect(err).toBeInstanceOf(AclConfigError);
       expect(err).toBeInstanceOf(Error);
     }
   });
