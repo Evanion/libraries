@@ -42,25 +42,43 @@ export function buildGraph(
   const order: string[] = [];
   const finished = new Set<string>();
   const onPath = new Set<string>();
-  const path: string[] = [];
 
-  const visit = (key: string): void => {
-    if (finished.has(key)) return;
-    if (onPath.has(key)) {
-      // Trim the walk to the cycle itself and close it, so the message shows
-      // the edge that closes the loop rather than the route taken to reach it.
-      const start = path.indexOf(key);
-      throw new FeatureCycleError([...path.slice(start), key]);
+  // An explicit stack rather than recursion: `dependsOn` comes from the matrix,
+  // so the walk is as deep as a foreign matrix says, and the depth a runtime
+  // gives a call stack is not the depth a matrix may declare. Each frame holds
+  // the key and how far through its parents the walk has got.
+  const visit = (root: string): void => {
+    if (finished.has(root)) return;
+    const stack: { key: string; at: number }[] = [{ key: root, at: 0 }];
+    onPath.add(root);
+
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1] as { key: string; at: number };
+      const dependsOn = parents.get(frame.key) ?? [];
+
+      if (frame.at < dependsOn.length) {
+        const parent = dependsOn[frame.at++] as string;
+        if (finished.has(parent)) continue;
+        if (onPath.has(parent)) {
+          // Trim the walk to the cycle itself and close it, so the message
+          // shows the edge that closes the loop rather than the route taken to
+          // reach it.
+          const start = stack.findIndex((f) => f.key === parent);
+          throw new FeatureCycleError([
+            ...stack.slice(start).map((f) => f.key),
+            parent,
+          ]);
+        }
+        onPath.add(parent);
+        stack.push({ key: parent, at: 0 });
+        continue;
+      }
+
+      stack.pop();
+      onPath.delete(frame.key);
+      finished.add(frame.key);
+      order.push(frame.key);
     }
-
-    onPath.add(key);
-    path.push(key);
-    for (const parent of parents.get(key) ?? []) visit(parent);
-    path.pop();
-    onPath.delete(key);
-
-    finished.add(key);
-    order.push(key);
   };
 
   for (const key of parents.keys()) visit(key);
@@ -79,7 +97,9 @@ export function buildGraph(
       const next = queue.shift() as string;
       if (seen.has(next)) continue;
       seen.add(next);
-      queue.push(...(children.get(next) ?? []));
+      // Pushed one at a time: a spread is an argument list, and a matrix wide
+      // enough makes that list longer than a call accepts.
+      for (const child of children.get(next) ?? []) queue.push(child);
     }
 
     return [...seen].sort(
