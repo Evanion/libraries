@@ -32,9 +32,10 @@ export interface PackageGroup {
   /**
    * The group's own line on the landing page. The sidebar shows only the title.
    *
-   * For the rendering group this is the only prose the section carries -- the
-   * family's teaser is a name and a chip per runtime -- so it has to name each
-   * runtime in words. A reader scanning for "astro" finds it here.
+   * For a group whose section is a teaser and a demonstration this is the only
+   * prose the section carries -- the teaser is a name and a chip per runtime --
+   * so it has to name each runtime in words. A reader scanning for "astro" or
+   * for "react" finds it here.
    *
    * Which shape a group takes on the landing page -- a line beside the family
    * teasers, a card each, a row each -- is the page's decision and lives in
@@ -55,12 +56,23 @@ export interface PackageGroup {
  * One axis, not two. Whether a package is on npm is a property of the package
  * and rides on its card next to the framework, rather than pulling it out of the
  * group a reader would look for it in.
+ *
+ * Ordered by how much of an application the group decides, widest first, with
+ * the catch-all last. Rendering and authorization each shape a whole interface
+ * and each is a core sold across runtimes, so they lead and they are the two
+ * sections that carry a working demonstration; identifiers and codes act on one
+ * string at a time and follow.
  */
 export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
     line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. One item shape, held in a framework-free core, rendered by React and by Astro.',
+  },
+  {
+    id: 'acl',
+    title: 'Authorization from one policy',
+    line: 'Write authorization down once: the objects, the actions, and the condition each one turns on. The policy builds to a frozen document that round-trips through JSON and is evaluated in place, so the rules guarding an endpoint are the same rules that decide which buttons a browser draws, with no round trip to ask and no per-subject snapshot to keep in step. One policy, held in a framework-free core, bound to React.',
   },
   {
     id: 'identifiers',
@@ -196,6 +208,33 @@ export const packages: readonly DocumentedPackage[] = [
     workshop: false,
   },
   {
+    name: '@evanion/acl',
+    root: 'libs/acl',
+    slug: 'acl',
+    title: 'Authorization',
+    group: 'acl',
+    familyId: 'acl',
+    framework: 'universal',
+    hue: 'coral',
+    documented: true,
+    workshop: true,
+  },
+  {
+    name: '@evanion/react-acl',
+    root: 'libs/react-acl',
+    slug: 'react-acl',
+    title: 'React Authorization',
+    group: 'acl',
+    familyId: 'acl',
+    framework: 'React',
+    // `stone` is the unsaturated hue on the categorical scale, for a member
+    // with no colour of its own. The React binding has no colour of its own
+    // either, and its core already took `coral`.
+    hue: 'stone',
+    documented: false,
+    workshop: true,
+  },
+  {
     name: '@evanion/urn',
     root: 'libs/urn',
     slug: 'urn',
@@ -259,33 +298,6 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'universal + React',
     hue: 'amber',
     documented: true,
-    workshop: true,
-  },
-  {
-    name: '@evanion/acl',
-    root: 'libs/acl',
-    slug: 'acl',
-    title: 'Authorization',
-    group: 'standalone',
-    familyId: 'acl',
-    framework: 'universal',
-    hue: 'coral',
-    documented: true,
-    workshop: true,
-  },
-  {
-    name: '@evanion/react-acl',
-    root: 'libs/react-acl',
-    slug: 'react-acl',
-    title: 'React Authorization',
-    group: 'standalone',
-    familyId: 'acl',
-    framework: 'React',
-    // `stone` is the unsaturated hue on the categorical scale, for a member
-    // with no colour of its own. The React binding has no colour of its own
-    // either, and its core already took `coral`.
-    hue: 'stone',
-    documented: false,
     workshop: true,
   },
 ];
