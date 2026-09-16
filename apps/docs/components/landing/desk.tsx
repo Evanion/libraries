@@ -94,7 +94,12 @@ function Jobs({ title }: { title: string }) {
         ['Hanna Lind', 'Crescent Elit', 'Wheel true', 'On the stand'],
         ['Otto Ruane', 'Monark cargo', 'Brake bleed', 'On the stand'],
         ['Sigrid Vall', 'Pelago Stavanger', 'Full service', 'Ready'],
-        ['Emil Norrby', 'Bianchi Via Nirone', 'Gear index', 'Waiting on a part'],
+        [
+          'Emil Norrby',
+          'Bianchi Via Nirone',
+          'Gear index',
+          'Waiting on a part',
+        ],
       ]}
     />
   );
@@ -157,6 +162,7 @@ export const deskItems = defineItems([
   {
     id: 'week',
     type: 'columns',
+    props: {},
     children: [
       {
         id: 'intake',
@@ -178,6 +184,7 @@ export const deskItems = defineItems([
   {
     id: 'desk',
     type: 'columns',
+    props: {},
     children: [
       {
         id: 'stands',

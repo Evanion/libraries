@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { listing } from './listing';
-import { moved, nameOf, openingNodes, rows, type Node } from './tree';
+import { moved, nameOf, openingNodes, rows, within, type Node } from './tree';
 
 /** The listing as one string, the way a reader would select and copy it. */
 function text(nodes: Node[]): string {
@@ -71,17 +71,41 @@ describe('moving an item', () => {
 
   it('carries the item its own width', () => {
     const next = moved(openingNodes, [1, 0], 1);
-    expect(next[1]!.children!.map((node) => [node.id, node.meta?.span])).toEqual(
-      [
-        ['parts', undefined],
-        ['stands', 2],
-      ],
-    );
+    expect(
+      next[1]!.children!.map((node) => [node.id, node.meta?.span]),
+    ).toEqual([
+      ['parts', undefined],
+      ['stands', 2],
+    ]);
   });
 
   it('refuses a move off either end', () => {
     expect(moved(openingNodes, [0], -1)).toBe(openingNodes);
     expect(moved(openingNodes, [1], 1)).toBe(openingNodes);
+  });
+});
+
+describe('lighting the block a control will move', () => {
+  it('covers the container, its nested items and its closing line', () => {
+    const lit = rows(openingNodes)
+      .filter((row) => within([1], row.path))
+      .map((row) => row.key);
+
+    expect(lit).toEqual(['desk', 'stands', 'parts', 'desk/end']);
+  });
+
+  it('covers one item alone when the item holds nothing', () => {
+    const lit = rows(openingNodes)
+      .filter((row) => within([0, 1], row.path))
+      .map((row) => row.key);
+
+    expect(lit).toEqual(['collected']);
+  });
+
+  it('leaves the lines bracketing the whole list out of every block', () => {
+    const brackets = rows(openingNodes).filter((row) => row.path === undefined);
+    expect(brackets.map((row) => row.key)).toEqual(['/open', '/close']);
+    expect(brackets.some((row) => within([0], row.path))).toBe(false);
   });
 });
 
