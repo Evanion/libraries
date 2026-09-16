@@ -8,6 +8,7 @@ import {
 } from './errors.js';
 import { validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
+import { buildReadsObject } from './reads-object.js';
 import type { ResolvedContext } from './conditions.js';
 import type {
   Decision,
@@ -153,6 +154,20 @@ export interface AccessOptions {
   closed?: boolean;
 }
 
+/**
+ * One subject's decisions, bound to that subject and one clock instant.
+ *
+ * Decisions only. It carries no `matrix`, `version` or `schema`, and a caller
+ * that needs the document alongside the handle holds the `Access` it came from
+ * -- which every such caller already imports, since that is where `authorize`
+ * comes from. The matrix is one frozen document evaluated against many
+ * subjects, and hanging it off a subject-bound handle would offer it as though
+ * it were this subject's matrix, which is the per-subject snapshot this library
+ * exists to avoid shipping.
+ *
+ * `readsObject` is absent for the same reason in reverse: it is a fact about
+ * the document, not about this subject.
+ */
 export interface Authorized {
   can(key: string, action: string, object?: Record<string, unknown>): Decision;
   canMany(
@@ -206,6 +221,31 @@ export interface Access {
   ): FieldDecision;
   capabilities(subject: Subject, now?: Instant): Record<string, Decision>;
   authorize(subject: Subject, opts?: { now?: Instant }): Authorized;
+  /**
+   * Whether this permission needs the object row to reach a decision at all.
+   *
+   * A caller that decides before it has the row -- an HTTP guard in front of
+   * the handler that loads it -- gets `unevaluable` from every object-dependent
+   * permission, and `unevaluable` is not a refusal: it means fetch the object
+   * and ask again. Without this, such a caller cannot tell that answer apart
+   * from "this particular call happened to lack data", so it has to wave the
+   * request through and trust that something downstream decides properly.
+   *
+   * This says which is which, from the document rather than from a call. A
+   * guard on a permission that reads the object can refuse loudly, or record
+   * that the real decision is owed further in, instead of hoping.
+   *
+   * True when any allow rule or any deny rule names an `object.*` path, on
+   * either operand, or when any `dependsOn` ancestor does -- an ancestor left
+   * unevaluable carries the child with it. Field rules are not counted: a
+   * `transitions` config reads the object, but only on the `canFields` write
+   * axis, where the caller holds the row already.
+   *
+   * Subject-independent, so it takes no subject. An unknown permission reads
+   * false: it decides `unknown-action` without a row. Unknown keys behave as
+   * they do for `can` -- open mode throws, `closed` mode answers.
+   */
+  readsObject(key: string, action: string): boolean;
 }
 
 function buildIndex(
@@ -278,6 +318,16 @@ export function createPolicy(
     if (permission) return permission;
     if (closed) return undefined;
     throw new UnknownPermissionError(`${key}.${action}`);
+  };
+
+  // Derived once over the frozen document: it is a fact about the matrix, not
+  // about a call or a subject.
+  const reads = buildReadsObject(permissions, graph.order);
+
+  const readsObject = (key: string, action: string): boolean => {
+    objectFor(key);
+    const permission = permissionFor(key, action);
+    return permission ? reads.get(permission.key) === true : false;
   };
 
   const cascades = new Map<string, readonly string[]>();
@@ -435,5 +485,6 @@ export function createPolicy(
     canFields,
     capabilities,
     authorize,
+    readsObject,
   };
 }

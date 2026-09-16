@@ -38,6 +38,7 @@ interface Access {
   canFields(subject, key, action, object, axis, proposed?, now?): FieldDecision;
   capabilities(subject, now?): Record<string, Decision>;
   authorize(subject, options?: { now?: Instant }): Authorized;
+  readsObject(key, action): boolean;
 }
 ```
 
@@ -48,12 +49,21 @@ interface Access {
 | `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision |
 | `capabilities` | every permission in the matrix, keyed, in dependency order         |
 | `authorize`    | the same four with the subject and clock bound                     |
+| `readsObject`  | whether the permission needs the object row at all                 |
 
 `authorize(subject)` returns `Authorized`, which carries `can`, `canMany`,
-`canFields` and `capabilities` with the subject dropped from each signature.
+`canFields` and `capabilities` with the subject dropped from each signature. It
+carries no `matrix`, `version` or `schema`: one frozen document is evaluated
+against many subjects, and a caller that needs both holds the `access` it got
+`authorize` from.
+
+`readsObject` takes no subject for the same reason in reverse — it is a fact
+about the document. See
+[Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
 
 A typed policy adds `object(key)`, a handle binding one object kind:
-`BoundKind` carries `can`, `canMany` and `canFields` with the key dropped.
+`BoundKind` carries `can`, `canMany`, `canFields` and `readsObject` with the key
+dropped.
 
 ## The write path
 
