@@ -157,33 +157,110 @@ Two things, both at construction, both an `AclConfigError`:
 
 ## Typed authoring
 
-The typed path names the subject once and the object type per permission, so a
-typo in an `object.*` field is a compile error.
+`policy<Subject>()` names the subject once and returns a builder. Each `.for()`
+call binds one object kind to its type and hands the condition helpers to a
+block, so a typo in an `object.*` or `subject.*` path is a compile error, and so
+is an unknown object kind or an object of the wrong kind at the call site.
 
 ```ts @import.meta.vitest
-import { policy, permit, eq } from '@evanion/acl';
+import { policy } from '@evanion/acl';
+
+type Subject = { id: string; roles: string[] };
+type Comment = { authorId: string; status: 'draft' | 'published' };
+
+const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+  p
+    .allow(
+      'update',
+      p.or(
+        p.eq('object.authorId', 'subject.id'),
+        p.contains('subject.roles', 'editor'),
+      ),
+    )
+    .allow('publish', p.contains('subject.roles', 'editor'))
+    .dependsOn('comment.update')
+    .deny('delete', p.eq('object.status', 'published')),
+);
+
+const subject = { id: 's1', roles: [] };
+const comment = { authorId: 's1', status: 'draft' } as const;
+const decision = access.can(subject, 'comment', 'update', comment);
+decision.allowed; // -> true
+```
+
+The block parameter carries the whole permission model: `allow` and `deny`
+declare an action's rules, `dependsOn` and `fields` attach to the action most
+recently declared in the chain, and the condition helpers are `eq`, `ne`, `in`,
+`notIn`, `contains`, `before`, `after`, `and`, `or` and `always`.
+
+An operand is read as a **path** when its type matches
+`` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
+otherwise. That shape is the only discriminator, and it is what makes
+`p.eq('object.status', 'published')` a comparison against a literal while
+`p.eq('object.authorId', 'subject.idd')` is a compile error naming the path.
+
+Action names, comparand value types, and `dependsOn` keys are not checked at
+compile time. A `dependsOn` naming no configured permission is refused at
+construction with `UnknownDependencyError`.
+
+The builder flattens to the canonical matrix on the first query, so
+`JSON.stringify(access.matrix)` emits the same document a foreign backend would
+produce.
+
+### The document a typed policy emits
+
+`version` and `schema` are document fields, so `policy()` takes them and puts
+them in the document it flattens to rather than holding them beside it:
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Comment = { authorId: string; status: string };
 
 const access = policy<{ id: string }>({
-  comment: {
-    update: permit<{ authorId: string }>(eq('object.authorId', 'subject.id')),
+  version: 'orders@7',
+  schema: {
+    subject: { fields: { id: 'string' } },
+    objects: {
+      comment: { fields: { authorId: 'string', status: 'string' } },
+    },
   },
-});
+}).for<'comment', Comment>('comment', (p) =>
+  p.allow('update', p.eq('object.authorId', 'subject.id')),
+);
 
-access.can({ id: 's1' }, 'comment', 'update', { authorId: 's1' }).allowed; // -> true
+JSON.stringify(access.matrix.version); // -> '"orders@7"'
 ```
+
+They sit on `policy()` rather than on a method at the end of the chain because
+neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
+and a version and a schema are known before the first block is written.
+
+A schema is written by hand. `.for<'comment', Comment>()` holds `Comment` at the
+type level only, and a schema is runtime JSON, so nothing can derive one from the
+type argument.
+
+That makes the field-existence guarantee available twice on the typed path, and
+the duplication is the point: TypeScript gives it to the author, and the schema
+gives it to everyone downstream. The document travels; the types do not. A
+consumer that adopts the emitted JSON with `parseMatrix` has no `Comment` to
+check against and gets the same guarantee from the schema. A typed author who
+ships a document to nobody needs no schema.
+
+The two are checked independently and can disagree. A path TypeScript accepts
+because the type declares the field is still an `UnknownFieldError` at
+construction when the schema does not declare it — the schema is binding
+wherever it is present.
 
 ## Field-level permissions
 
 ```ts @import.meta.vitest
-import { policy, permit, always } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string; roles: string[] }>({
-  comment: {
-    read: permit<{ status: string }>(always).fields({
-      fields: ['*', '!status'],
-    }),
-  },
-});
+const access = policy<{ id: string; roles: string[] }>().for<
+  'comment',
+  { status: string }
+>('comment', (p) => p.allow('read', p.always).fields(['*', '!status']));
 
 const fd = access.canFields(
   { id: 's1' },
@@ -209,15 +286,14 @@ the returned object holds only the keys that decided `allowed` — that object i
 the value to write, and nothing else from the write is.
 
 ```ts @import.meta.vitest
-import { policy, permit, eq, pickAllowedFields } from '@evanion/acl';
+import { policy, pickAllowedFields } from '@evanion/acl';
 
-const access = policy<{ id: string }>({
-  user: {
-    update: permit<{ id: string; name: string }>(
-      eq('object.id', 'subject.id'),
-    ).fields({ fields: ['*', '!role'] }),
-  },
-});
+const access = policy<{ id: string }>().for<
+  'user',
+  { id: string; name: string }
+>('user', (p) =>
+  p.allow('update', p.eq('object.id', 'subject.id')).fields(['*', '!role']),
+);
 
 const current = { id: 'u1', name: 'Ann' };
 const proposed = { name: 'Eve', role: 'admin' };
@@ -375,20 +451,22 @@ hold states a version — a content hash of the document is enough.
 
 ## API
 
-| Export                                                                   | Purpose                                                                         |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `createPolicy(matrix, options?)`                                         | Builds the access object from a matrix document. Validates, clones and freezes. |
-| `parseMatrix(json, options?)`                                            | Adopts a foreign matrix document; fails closed on unknown keys.                 |
-| `policy<S>(config)`                                                      | Typed authoring; flattens to the canonical matrix.                              |
-| `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules.                                                     |
-| `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                   |
-| `access.canMany(...)`                                                    | A decision array, parallel to the input.                                        |
-| `access.canFields(...)`                                                  | The field-level decision for one axis, plus the action decision gating it.      |
-| `pickAllowedFields(decision, proposed)`                                  | The subset of a proposed write the decision allows. The value to write.         |
-| `access.capabilities(subject)`                                           | Every action-level decision.                                                    |
-| `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                      |
-| `access.matrix`                                                          | The frozen document. Round-trips through JSON; this is what crosses SSR.        |
-| `access.version` / `access.schema`                                       | The effective version, and the declared shapes when the document carries them.  |
+| Export                                                                                     | Purpose                                                                                      |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `createPolicy(matrix, options?)`                                                           | Builds the access object from a matrix document. Validates, clones and freezes.              |
+| `parseMatrix(json, options?)`                                                              | Adopts a foreign matrix document; fails closed on unknown keys.                              |
+| `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind. Flattens to the canonical matrix. |
+| `p.allow` / `p.deny` / `p.dependsOn` / `p.fields`                                          | Declare one action inside a `.for()` block.                                                  |
+| `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                     |
+| `access.object(key)`                                                                       | A handle bound to one object kind, on a typed policy.                                        |
+| `access.can(subject, key, action, object?, now?)`                                          | One decision.                                                                                |
+| `access.canMany(...)`                                                                      | A decision array, parallel to the input.                                                     |
+| `access.canFields(...)`                                                                    | The field-level decision for one axis, plus the action decision gating it.                   |
+| `pickAllowedFields(decision, proposed)`                                                    | The subset of a proposed write the decision allows. The value to write.                      |
+| `access.capabilities(subject)`                                                             | Every action-level decision.                                                                 |
+| `access.authorize(subject)`                                                                | A bound handle for server-side evaluation.                                                   |
+| `access.matrix`                                                                            | The frozen document. Round-trips through JSON; this is what crosses SSR.                     |
+| `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.               |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `dependency-off`, `unknown-action`,
