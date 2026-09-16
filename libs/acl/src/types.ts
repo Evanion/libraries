@@ -88,6 +88,11 @@ export type FieldConfig =
  * `fields` holds the name allow-list / bang entries (`['*', '!status']` or
  * `['body', 'title']`). Every other key is a field name mapped to a
  * `FieldConfig` for the write axis.
+ *
+ * A field named `fields` therefore carries no config: the key is taken. It can
+ * still be allowed or denied by name through the allow-list, which is what a
+ * read-axis field needs in any case. A document that gives `fields` a config is
+ * refused at construction with an `InvalidPermissionError` naming the clash.
  */
 export interface FieldRules {
   fields?: readonly string[];

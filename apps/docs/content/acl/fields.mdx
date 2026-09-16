@@ -73,6 +73,12 @@ the current value: the key is the value the object holds now, the array is what
 it may become. The two are mutually exclusive on one field
 (`TargetsTransitionsConflictError`).
 
+The object form keys the configs by field name and takes `fields` for the name
+list, so `fields` is the one name a field cannot have — a field called `fields`
+has nowhere to put its `targets` or `transitions`. It can still be allowed or
+denied by name through the list. A matrix that gives it a config is refused at
+construction with an `InvalidPermissionError` naming the clash.
+
 ## Which fields are decided
 
 The matrix does not know the object's shape, so the decision covers every field

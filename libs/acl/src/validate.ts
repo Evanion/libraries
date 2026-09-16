@@ -310,8 +310,16 @@ function assertFieldRules(key: string, rules: unknown): void {
 
   const names = rules['fields'];
   if (names !== undefined) {
+    // `fields` is the allow-list key, so it is the one name a field cannot
+    // have: a field called `fields` has nowhere to put its `targets` or
+    // `transitions`. Naming that here, rather than only the type mismatch,
+    // is the whole statement of the limit a foreign producer gets.
     if (!Array.isArray(names)) {
-      throw new InvalidPermissionError(key, 'fields.fields', 'is not an array');
+      throw new InvalidPermissionError(
+        key,
+        'fields.fields',
+        'is not an array: "fields" is the name allow-list, so no field may be called "fields"',
+      );
     }
     for (const [index, name] of names.entries()) {
       if (!isNonEmptyString(name)) {

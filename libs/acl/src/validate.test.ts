@@ -364,6 +364,22 @@ describe('validateMatrix', () => {
     }
   });
 
+  it('rejects a config on a field named "fields", naming the clash', () => {
+    const matrix = {
+      permissions: [
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          fields: { fields: { targets: ['a'] } },
+        },
+      ],
+    } as unknown as Matrix;
+    expect(() => validateMatrix(matrix)).toThrow(
+      /no field may be called "fields"/,
+    );
+  });
+
   it('every rejection names the permission key and the offending field', () => {
     const cases: [Matrix, string][] = [
       [
