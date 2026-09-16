@@ -16,3 +16,8 @@
 # long box-shadow value onto a second line, which makes the formatter a second
 # producer of the file and fails the comparison.
 libs/baize-ui/src/tokens.generated.css
+# Written by `nx release` for every package it versions. Its renderer emits two
+# spaces after the breaking-change marker and before the commit link, and
+# prettier collapses both to one, which makes the formatter a second producer of
+# the file.
+**/CHANGELOG.md
