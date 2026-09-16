@@ -54,7 +54,7 @@
   ],
   "references": [
     {
-      "path": "../../libs/baize-ui"
+      "path": "../../internal/baize-ui"
     },
     {
       "path": "../../libs/react-widget"

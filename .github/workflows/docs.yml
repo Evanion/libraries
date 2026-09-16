@@ -5,13 +5,18 @@ on:
   push:
     branches: [main]
     paths:
-      # The site documents the libraries, so their source counts as an input.
-      # `tools/repo-checks/src/docs-trigger.test.ts` holds this list against the
-      # roots `nx.json` releases, because a released package missing from it
-      # deploys nothing and reports nothing.
+      # The site documents the libraries, so their source counts as an input, and
+      # `internal/baize-ui` is the design system it renders in, so its source
+      # changes what the pages look like. `tools/repo-checks/src/docs-trigger.ts`
+      # holds this list against the roots `nx.json` releases and against what the
+      # docs project depends on, because a root missing from it deploys nothing
+      # and reports nothing.
       - 'apps/docs/**'
       - 'libs/**'
-      - 'nest/**'
+      - 'internal/**'
+      # Inlines a README region into a page while the site prerenders, so what it
+      # extracts is part of what the page says.
+      - 'tools/doc-examples/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docs.yml'
@@ -43,7 +48,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: 'npm'
 
       - run: npm ci

@@ -57,7 +57,9 @@ This monorepo is built with [Nx](https://nx.dev) for efficient development and b
 
 ### Prerequisites
 
-- Node.js 20+ (CI runs 24; see `.nvmrc`)
+- Node.js, at the exact version in `.nvmrc` — every CI job reads that file, and
+  the npm bundled with a different patch release can disagree about whether the
+  lockfile is valid
 - npm
 
 ### Getting Started

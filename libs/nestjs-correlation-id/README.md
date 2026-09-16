@@ -176,7 +176,7 @@ this.correlationService.setCorrelationId('some_correlation_id');
 It throws outside a correlation context, rather than writing somewhere nothing
 will read.
 
-See the [specs on GitHub](https://github.com/Evanion/libraries/tree/main/nest/correlation-id/src)
+See the [specs on GitHub](https://github.com/Evanion/libraries/tree/main/libs/nestjs-correlation-id/src)
 for fully worked examples, including an end-to-end one that stands up a real
 Nest application.
 

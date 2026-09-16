@@ -94,7 +94,7 @@
       "path": "../../libs/luhn"
     },
     {
-      "path": "../../libs/baize-ui"
+      "path": "../../internal/baize-ui"
     }
   ]
 }

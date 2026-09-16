@@ -30,7 +30,10 @@ import { join, resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 
 /**
- * Every publishable package, as `[directory, package name]`.
+ * Every package whose packed output is checked, as `[directory, package name]`.
+ * That is `libs/*`, which npm publishes, plus `internal/baize-ui`, which it does
+ * not: the demo apps and the docs site consume it through its exports map, so a
+ * packed entry that does not resolve breaks them the same way.
  *
  * A package missing from this list is packed by nothing and checked by nothing;
  * the count is asserted after packing so a failed `npm pack` cannot pass as a
@@ -41,14 +44,14 @@ const LIBS = [
   ['libs/widget', '@evanion/widget'],
   ['libs/urn', '@evanion/urn'],
   ['libs/react-widget', '@evanion/react-widget'],
-  ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
+  ['libs/nestjs-correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
   ['libs/feature', '@evanion/feature'],
   ['libs/token', '@evanion/token'],
-  ['libs/baize-ui', '@evanion/baize-ui'],
   ['libs/acl', '@evanion/acl'],
   ['libs/react-acl', '@evanion/react-acl'],
+  ['internal/baize-ui', '@evanion/baize-ui'],
 ];
 
 const run = (cmd, args, cwd) =>
@@ -746,7 +749,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   // @evanion/baize-ui promises statelessness, and the packed entry is where a
   // promise kept in the source can still be broken: a bundler upgrade, a
   // transitive dependency or a generated helper can reintroduce an import the
-  // source does not show. libs/baize-ui/src/react-imports.test.ts applies the
+  // source does not show. internal/baize-ui/src/react-imports.test.ts applies the
   // same allowlist to the source, and catches the author instead.
   //
   // An allowlist rather than a denylist, because a denylist has to be maintained

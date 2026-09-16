@@ -12,6 +12,7 @@
   },
   "private": true,
   "overrides": {
+    "axios": "1.20.0",
     "dompurify": "^3.4.13",
     "nextra": {
       "zod": "4.3.0"
@@ -93,7 +94,7 @@
   "workspaces": [
     "libs/*",
     "apps/*",
-    "nest/*",
+    "internal/*",
     "tools/*"
   ],
   "dependencies": {

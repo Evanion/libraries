@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
  * This file is the other half, on the same pattern as
  * `commitlint-scope-enum.test.ts`: the static list is held against the project
  * graph here, where computing the graph is affordable. Adding a package under
- * `libs/` or `nest/` fails this test until the site says something about it.
+ * `libs/` fails this test until the site says something about it.
  *
  * The titles and the order are not checked. They are editorial -- nothing derives
  * "URN" from `urn` -- and they are the reason the list is not generated.
@@ -170,7 +170,7 @@ describe('the docs navigation', () => {
    * section on it has to be something that reader can install. A project the
    * repository does not release cannot be -- `@evanion/baize-ui` is `private:
    * true`, exists to style the demo apps in this workspace, and `npm install`
-   * does not resolve it. Its manual is `libs/baize-ui/README.md`, where a
+   * does not resolve it. Its manual is `internal/baize-ui/README.md`, where a
    * contributor is the audience.
    *
    * Widening this to the project graph admits every app, every tool and every

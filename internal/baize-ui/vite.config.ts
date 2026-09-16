@@ -43,7 +43,7 @@ function stylesheet(): Plugin {
 
 export default defineConfig(() => ({
   root: here,
-  cacheDir: '../../node_modules/.vite/libs/baize-ui',
+  cacheDir: '../../node_modules/.vite/internal/baize-ui',
   plugins: [
     react(),
     dts({
