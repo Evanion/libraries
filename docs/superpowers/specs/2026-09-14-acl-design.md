@@ -1,4 +1,4 @@
-# `@evanion/authorization` — Design
+# `@evanion/acl` — Design
 
 A declarative access-control matrix authored once and evaluated **locally** on
 whatever JS runtime is running: a Node backend, a frontend SSR graph (Next RSC,
@@ -14,10 +14,10 @@ per-subject capability snapshots and no backend roundtrip for a decision.
 Two packages, following the repo's universal-core + separate-platform convention
 (the `widget` → `react-widget` / `astro-widget` split):
 
-| Package | Role |
-| ------- | ---- |
-| `@evanion/authorization` | Universal core. Framework-free, runs in any JS runtime. No React, no DOM, no Node-only dependency. Carries the engine and the server-side `authorize(subject, ...)` util. |
-| `@evanion/react-authorization` | React binding. `PolicyProvider` + hooks. Depends on the core. |
+| Package              | Role                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@evanion/acl`       | Universal core. Framework-free, runs in any JS runtime. No React, no DOM, no Node-only dependency. Carries the engine and the server-side `authorize(subject, ...)` util. |
+| `@evanion/react-acl` | React binding. `PolicyProvider` + hooks. Depends on the core.                                                                                                             |
 
 There are no per-framework packages and no `/next` or `/react-router` exports.
 The React package serves both runtime shapes from one surface — an RSC-style
@@ -55,16 +55,16 @@ matrix (serializable, frozen, JSON round-trip) ─▶ one engine: can(subject, k
 
 Authorization has a standard vocabulary — **subject / object / action** — used
 by Casbin, Cedar and OWASP. This library adopts it, because "resource" is
-overloaded in every entry point: it names both the *kind* (`'comment'`) and the
-*instance* (`comment`). The split removes that collision before the API is
+overloaded in every entry point: it names both the _kind_ (`'comment'`) and the
+_instance_ (`comment`). The split removes that collision before the API is
 public, avoiding a v2 breaking rename.
 
-| Term | Means | Example |
-| ---- | ----- | ------- |
-| `subject` | the actor doing the action | a `User` |
-| `key` | the object kind | `'comment'` |
-| `action` | what they do | `'update'` |
-| `object` | the instance they act on, when one exists | a `Comment` |
+| Term      | Means                                     | Example     |
+| --------- | ----------------------------------------- | ----------- |
+| `subject` | the actor doing the action                | a `User`    |
+| `key`     | the object kind                           | `'comment'` |
+| `action`  | what they do                              | `'update'`  |
+| `object`  | the instance they act on, when one exists | a `Comment` |
 
 The canonical call order across every entry point is
 `(subject, key, action, object?, now?)`. It is the same order in `can`,
@@ -81,7 +81,7 @@ case; `now` is the optional clock instant. All examples and the hooks
 - One framework-free engine evaluating it in any JS runtime.
 - Authoring helpers with typed subject and object keys.
 - Matrix acquisition by fetch or by build-time bundling.
-- `@evanion/react-authorization`: provider and hooks.
+- `@evanion/react-acl`: provider and hooks.
 - The server-side `authorize(subject)` util, in the core.
 - Field-level permissions.
 - Bulk evaluation (`canMany`) in the core.
@@ -130,25 +130,46 @@ A flat list with a `dependsOn` cascade, mirroring `@evanion/feature`.
 [
   {
     "key": "article.update",
-    "object": "Article",
+    "object": "article",
     "action": "update",
     "rules": [
-      { "id": "author", "when": [{ "field": "object.authorId", "op": "eq", "path": "subject.id" }] },
-      { "id": "editor", "when": [{ "field": "subject.roles", "op": "contains", "value": "editor" }] }
+      {
+        "id": "author",
+        "when": [
+          { "field": "object.authorId", "op": "eq", "path": "subject.id" }
+        ]
+      },
+      {
+        "id": "editor",
+        "when": [
+          { "field": "subject.roles", "op": "contains", "value": "editor" }
+        ]
+      }
     ]
   },
   {
     "key": "article.publish",
-    "object": "Article",
+    "object": "article",
     "action": "publish",
     "dependsOn": ["article.update"],
-    "rules": [ { "id": "editor-only", "when": [{ "field": "subject.roles", "op": "contains", "value": "editor" }] } ]
+    "rules": [
+      {
+        "id": "editor-only",
+        "when": [
+          { "field": "subject.roles", "op": "contains", "value": "editor" }
+        ]
+      }
+    ]
   }
 ]
 ```
 
-- `key` = `object.action`. A typed object→action union is derived for the typed
-  authoring path.
+- `key` = `object.action`. Construction requires `key` to equal
+  `` `${object}.${action}` `` exactly, character for character, and rejects any
+  other permission with `KeyMismatchError` naming all three. Lookup is by the
+  `key` string, so a permission whose `key` disagrees with its `object` and
+  `action` is unreachable — a silent hole in the matrix rather than a visible
+  failure. A typed object→action union is derived for the typed authoring path.
 - `rules` are OR-ed; the `when` conditions inside one rule are AND-ed.
 - `dependsOn` is a cascade. A permission whose dependency resolves off is off,
   transitively, carrying `blockedBy` and `cause` — the same shape as `feature`.
@@ -167,11 +188,11 @@ itself an implicit deny path.
 
 Rules are declarative conditions only. No functions.
 
-| Form | Example | Meaning |
-| ---- | ------- | ------- |
-| subject path | `{ field: 'subject.roles', op: 'contains', value: 'editor' }` | a property of the subject |
-| subject↔object | `{ field: 'object.authorId', op: 'eq', path: 'subject.id' }` | compares two scopes |
-| time | `{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }` | a clock window |
+| Form           | Example                                                        | Meaning                   |
+| -------------- | -------------------------------------------------------------- | ------------------------- |
+| subject path   | `{ field: 'subject.roles', op: 'contains', value: 'editor' }`  | a property of the subject |
+| subject↔object | `{ field: 'object.authorId', op: 'eq', path: 'subject.id' }`   | compares two scopes       |
+| time           | `{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }` | a clock window            |
 
 Ops are `eq`, `ne`, `in`, `not-in`, `contains`. Field access uses an
 `Object.prototype.hasOwnProperty` guard: the subject and object are caller data,
@@ -183,14 +204,20 @@ prototype chain.
 Mirrors `feature`'s decision shape, renamed for authorization.
 
 ```ts
+type Cause = {
+  key: string; // the first ancestor off for a reason of its own
+  reason: Reason;
+  rule?: string;
+};
+
 type Decision = {
   key: string;
   allowed: boolean;
   reason: Reason;
-  blockedBy?: string;    // the dependency key, when reason is 'dependency-off'
-  cause?: Decision;      // the first ancestor off, for a reason of its own
-  rule?: string;         // the rule that decided, when reason is 'allow' | 'denied'
-  missing?: string[];    // the field paths, when reason is 'unevaluable'
+  blockedBy?: string; // the dependency key, when reason is 'dependency-off'
+  cause?: Cause; // the root of the cascade
+  rule?: string; // the rule that decided, when reason is 'allow' | 'denied'
+  missing?: string[]; // the field paths, when reason is 'unevaluable'
 };
 
 type Reason =
@@ -202,19 +229,25 @@ type Reason =
   | 'unevaluable';
 ```
 
+`cause` is a `Cause`, not a nested `Decision`. It answers one question — which
+permission the cascade actually died on, and why — and `blockedBy` already names
+the edge the cascade took, so a recursive decision would carry a second copy of
+the chain the caller can walk from the matrix. The narrow shape also keeps the
+decision flat enough to log.
+
 `reason` is **output only**. Nothing in the library reads a `reason` back to
 decide anything, so stripping it changes no decision. A test asserts this.
 
 ### Reasons
 
-| `reason` | meaning |
-| -------- | ------- |
-| `allow` | an allow rule matched; carries `rule` |
-| `no-rule-matched` | rules present, none passed |
-| `denied` | an explicit deny matched (see [Deny](#deny)); carries `rule` |
-| `dependency-off` | a dependency resolved off; carries `blockedBy` and `cause` |
-| `unknown-action` | the key is not in the matrix (fail-closed path only) |
-| `unevaluable` | an `object`-dependent condition had no instance (the "create" case); carries `missing`. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
+| `reason`          | meaning                                                                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`           | an allow rule matched; carries `rule`                                                                                                                                            |
+| `no-rule-matched` | rules present, none passed                                                                                                                                                       |
+| `denied`          | an explicit deny matched (see [Deny](#deny)); carries `rule`                                                                                                                     |
+| `dependency-off`  | a dependency resolved off; carries `blockedBy` and `cause`                                                                                                                       |
+| `unknown-action`  | the key is not in the matrix (fail-closed path only)                                                                                                                             |
+| `unevaluable`     | an `object`-dependent condition had no instance (the "create" case); carries `missing`. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
 
 ## Deny
 
@@ -251,7 +284,7 @@ The open/closed behaviour is decided by how the matrix was built.
   (`UnknownPermissionError extends AuthorizationConfigError`), naming the key.
 - **Foreign matrix** (`parseMatrix(...)`): the key universe is untrusted
   configuration data. An unknown key **fails closed** (`{ allowed: false,
-  reason: 'unknown-action' }`) and never throws.
+reason: 'unknown-action' }`) and never throws.
 
 The typed path also makes the object→action union exhaustive at compile time, so
 the runtime throw is a backstop, not the primary defence. The two behaviours
@@ -287,8 +320,9 @@ definite deny:
 5. Else deny (`no-rule-matched`).
 
 A rule that mixes `object`-dependent and `object`-independent branches with no
-instance is decided by the `object`-independent branch alone: `permit(or(eq('object.authorId','subject.id'), always))` with no instance is `allow`, because
-`always` does not need the object. Only a permission whose matching branches all
+instance is decided by the `object`-independent branch alone:
+`p.allow('create', p.or(p.eq('object.authorId', 'subject.id'), p.always))` with
+no instance is `allow`, because `always` does not need the object. Only a permission whose matching branches all
 need an absent object yields `unevaluable`.
 
 ## Field-level permissions
@@ -314,16 +348,16 @@ Each field decision is **tri-state**, because a missing field is not a deny:
 type FieldState = 'allowed' | 'denied' | 'unevaluable';
 
 type FieldReason =
-  | 'allow'                 // the field passed its allow-list / value rule
-  | 'not-listed'            // the field is not in the allow-list
-  | 'denied'                // the field matched a bang ('!') entry or a deny
-  | 'targets-failed'        // the proposed value is not in the targets allow-list
-  | 'transition-failed'     // the current->proposed edge is not allowed
-  | 'missing-field'         // the object lacks the field the rule reads
-  | 'proposed-required';     // a targets rule was evaluated without a proposed value
+  | 'allow' // the field passed its allow-list / value rule
+  | 'not-listed' // the field is not in the allow-list
+  | 'denied' // the field matched a bang ('!') entry or a deny
+  | 'targets-failed' // the proposed value is not in the targets allow-list
+  | 'transition-failed' // the current->proposed edge is not allowed
+  | 'missing-field' // the object lacks the field the rule reads
+  | 'proposed-required'; // a targets or transitions rule was evaluated without a proposed value
 
 interface FieldDecision {
-  allowed: boolean;            // true iff every field is 'allowed'
+  allowed: boolean; // true iff every field is 'allowed'
   fields: Record<string, FieldState>;
   reasons: Record<string, FieldReason>;
 }
@@ -334,7 +368,8 @@ There is no partial-allowed ambiguity: if any field is `denied` or
 
 ### `fields()`
 
-A permission's field rules attach through `fields()`, which accepts one of:
+A permission's field rules attach through `fields()`, which accepts either an
+array of field-name tokens or a per-field config object:
 
 - **Allow-list** — `fields(['body', 'title'])`: only these are allowed.
 - **Bang prefix** — `fields(['*', '!status'])`: everything except `status`. A
@@ -349,8 +384,14 @@ A permission's field rules attach through `fields()`, which accepts one of:
     written. Stateless: it does not depend on the current value.
   - `transitions: { draft: ['published'], published: [] }` — a static
     allowed-edge state machine over the field's **current** value. `published:
-    []` means no outgoing move, so a revert to `draft` is impossible.
+[]` means no outgoing move, so a revert to `draft` is impossible.
     `targets` and `transitions` are **mutually exclusive** per field.
+
+`*` and `!name` are **authoring syntax**. They name a baseline and an exclusion
+in the token list; they are not field names. The canonical matrix resolves them
+at construction, and no field decision may key on them: `'*'` and `'!status'`
+must never appear in the `fields` or `reasons` maps of a `FieldDecision`, which
+carry real field names only.
 
 Field rules stay **leaf-level**: they never cascade through `dependsOn`.
 
@@ -363,15 +404,22 @@ The write axis takes an optional proposed value, because `targets` and
 canFields(subject, key, action, object, axis, proposed?, now?)
 ```
 
-- `transitions` reads the field's **current** value off `object` and checks the
-  allowed edge. `canFields(subject, 'comment', 'update', currentComment, 'write')`.
-- `targets` checks a **proposed** value: `canFields(subject, 'comment', 'update',
-  currentComment, 'write', { status: 'published' })`.
+- `transitions` checks the edge from the field's **current** value on `object` to
+  its value in `proposed`. Both ends are required: `canFields(subject, 'comment',
+'update', currentComment, 'write', { status: 'published' })`.
+- `targets` checks a **proposed** value alone, ignoring the current one:
+  `canFields(subject, 'comment', 'update', currentComment, 'write', { status:
+'published' })`.
 
 Decision rule for choosing between them: **know the current value → use
 `transitions`; setting a fresh field or not knowing the current value → use
-`targets`.** If `proposed` is omitted but a `targets` rule exists, the decision
-is `unevaluable` naming the field.
+`targets`.** Both forms require `proposed`; an edge with no destination and a
+value allow-list with no candidate value are equally undecidable. When
+`proposed` is omitted and either rule exists, the field decision is
+`unevaluable` with reason `proposed-required`, naming the field. That is a
+distinct condition from `missing-field`, which means the object lacks the field
+a rule reads — the caller fixes one by passing a proposed state and the other by
+passing a complete object.
 
 The single `proposed` value is a whole-object write. It carries the proposed
 state of the object being written, so each field configured with `targets` is
@@ -399,70 +447,133 @@ The canonical, serialized, and engine-facing form is a flat array of string-key
 permissions (the JSON above). `parseMatrix(json)` adopts this form and validates
 it.
 
-### Typed path: `policy` + `permit`
+### Typed path: the chained builder
 
-A generic gives the subject type; the object type rides on the value where
-generics are legal.
+`policy<Subject>()` names the subject once and returns a builder. Each `.for()`
+call names one object kind, binds its object type, and hands a
+**contextually-typed parameter** to a block. The condition helpers are methods on
+that parameter, so they see both `Subject` and the block's object type.
 
 ```ts
-import { policy, permit, and, or, eq, contains, always } from '@evanion/authorization';
+import { policy } from '@evanion/acl';
 
 type Subject = { id: string; roles: string[] };
 type Comment = { authorId: string; status: 'draft' | 'published' };
+type Media = { ownerId: string; bytes: number };
 
-const access = policy<Subject>({
-  comment: {
-    update: permit<Comment>(
-      or(
-        eq('object.authorId', 'subject.id'),
-        contains('subject.roles', 'editor'),
-      ),
-    ).fields({
-      status: { transitions: { draft: ['published'], published: [] } },
-    }),
-    create: permit<Comment>(always),
-    read: permit<Comment>(always).fields(['*', '!status']),
-  },
-});
+const access = policy<Subject>()
+  .for<'comment', Comment>('comment', (p) =>
+    p
+      .allow(
+        'update',
+        p.or(
+          p.eq('object.authorId', 'subject.id'),
+          p.contains('subject.roles', 'editor'),
+        ),
+      )
+      .fields({
+        status: { transitions: { draft: ['published'], published: [] } },
+      })
+      .allow('publish', p.contains('subject.roles', 'editor'))
+      .dependsOn('comment.update')
+      .deny('delete', p.eq('object.status', 'published'))
+      .allow('create', p.always)
+      .allow('read', p.always)
+      .fields(['*', '!status']),
+  )
+  .for<'media', Media>('media', (p) =>
+    p.allow('read', p.eq('object.ownerId', 'subject.id')),
+  );
 
 access.can(subject, 'comment', 'update', comment);
 //    subject: Subject   key: 'comment'   action: 'update'   object: Comment — all type-checked
-access.can(subject, 'comment', 'create');       // no instance: reason 'unevaluable'
+access.can(subject, 'comment', 'create'); // no instance: reason 'unevaluable'
 ```
 
-- `policy<Subject>` names the subject once.
-- `permit<Comment>` carries the object type on the value, so a `type` alias
-  works and the matrix stays plain data.
-- `eq('object.authorId', 'subject.id')` is verified against
-  `Comment['authorId']` (string) and `Subject['id']` (string). A typo, a wrong
-  subject type, or a bad field path is a compile error.
-- The helpers `always`, `and` and `or` compose the rule DSL. `or` lets a rule
-  express alternatives (`isOwner OR isEditor`), which the array-level OR alone
-  cannot spell through `permit`.
-- `eq` is symmetric: both arguments are field paths resolved in the namespaced
-  context, and both are checked against their respective types regardless of
-  which scope they name. A field may also be compared to a **literal**
-  (`eq('object.status', 'published')`), matching the canonical condition DSL's
-  `value` form.
-- The full typed helper surface mirrors the ops: `eq`, `ne`, `in`, `not-in`,
-  `contains`, plus `and`, `or`, and `always`. `always` serializes to an empty
-  `when` array (always true). A time condition is written with
+- `policy<Subject>()` names the subject once. Every `.for()` block reads
+  `subject.*` paths against it.
+- `.for<'comment', Comment>('comment', ...)` binds the key and its object type
+  together and accumulates them into a key→object-type map. Chained `.for()`
+  calls each contribute, so the map covers every configured kind.
+- `access.can(subject, key, action, object?)` checks `key` against the
+  accumulated key union and `object` against that key's type. An unknown key and
+  a `Media` passed where a `Comment` is expected are both compile errors.
+- The block parameter exposes `allow`, `deny` and `dependsOn` as chained
+  methods, so the typed path spells everything the canonical JSON does —
+  including explicit deny, which is [the reason](#deny) this library is more than
+  a permission list.
+- `.fields()` attaches to the action most recently declared in the chain.
+- The condition helpers on the block parameter mirror the ops: `eq`, `ne`, `in`,
+  `not-in`, `contains`, plus `and`, `or`, and `always`. `always` serializes to an
+  empty `when` array (always true). A time condition is written with
   `before` / `after` over the `now` namespace, e.g.
-  `after('now', '2026-10-01T00:00:00Z')`.
-- The nested authoring form **flattens** to the canonical flat JSON matrix at
-  construction; `JSON.stringify(access.matrix)` emits the same document a foreign
-  backend would produce.
+  `p.after('now', '2026-10-01T00:00:00Z')`.
+- `eq` is symmetric: either operand may name a field path, and a path operand is
+  checked against the type its namespace resolves to.
+- The builder **flattens** to the canonical flat JSON matrix at construction;
+  `JSON.stringify(access.matrix)` emits the same document a foreign backend would
+  produce.
 
-The typed path's generic plumbing must produce **readable** errors — the
-message names the offending field or path, not an opaque `Type 'string' is not
-assignable`. `.test-d.ts` cases assert readable errors, not merely that a type
-error exists. Otherwise developers abandon the typed path for string keys and
-forfeit the safety it sells.
+#### Paths versus literals
 
-Only the canonical string-key form and the `permit<Object>` typed path are in
-v1. The constructor class-key path (`[Comment]:`) is not; it is the most magical
-of the authoring options and reintroduces "class is a runtime value" against the
-JSON round-trip. It can return in a later release if a consumer needs
+An operand is read as a **path** when its string type matches
+`` `subject.${string}` | `object.${string}` | 'now' ``, and as a **literal value**
+otherwise. That shape is the only discriminator:
+
+```ts
+p.eq('object.status', 'published'); // 'published' is a literal — compiles
+p.eq('object.authorId', 'subject.id'); // 'subject.id' is a path — checked
+p.eq('object.authorId', 'subject.idd'); // compile error: unknown path
+```
+
+The rule is load-bearing. Without it a mistyped path (`'subject.idd'`) is
+indistinguishable from a deliberate string literal, and the condition silently
+compares a field against the text `"subject.idd"` instead of the subject's id.
+
+#### What is checked
+
+Checked at compile time:
+
+- the object kind key, against the accumulated union of `.for()` keys
+- the `object` argument of `can` / `canFields` / `canMany`, against that key's
+  declared type
+- every path operand, per resource: `object.authorId` is valid inside the
+  `comment` block and a compile error inside the `media` block
+
+Not checked at compile time:
+
+- action names, which stay plain strings
+- the comparand's value type against the field's type
+- `dependsOn` keys, which are validated at construction instead
+
+Path errors name the offending path rather than failing as an opaque
+assignability mismatch:
+
+```
+Argument of type '"object.authrId"' is not assignable to parameter of type
+"unknown path 'object.authrId' on this resource"
+```
+
+`.test-d.ts` cases assert that message, not merely that a type error exists.
+Otherwise developers abandon the typed path for string keys and forfeit the
+safety it sells.
+
+#### Why not a nested object
+
+A nested form — `policy<Subject>({ comment: { update: permit<Comment>(eq(...)) } })` —
+reads better and cannot deliver the checking above. `eq(...)` is a free function
+call whose type arguments are resolved before `permit<Comment>` binds anything,
+so the helpers never see `Subject` or `Comment`; TypeScript has no partial
+type-argument inference that would let `permit<Comment>` supply the object type
+to an argument expression it merely receives. Written that way, the helpers
+degrade to `(a: string, b: string)` and every path typo compiles clean. Only a
+contextually-typed parameter puts the two types in scope where the operands are
+written.
+
+Only the canonical string-key form and the typed builder are in v1. The
+constructor class-key path (`[Comment]:`) is not; it is the most magical of the
+authoring options and reintroduces "class is a runtime value" against the JSON
+round-trip. It can return in a later release if a consumer needs
 instance-resolution.
 
 ### Construction entry points
@@ -472,8 +583,8 @@ Three constructors, one surface. Each returns the same `access` object —
 `.matrix`, `.version`:
 
 - `createPolicy(matrix)` — from a canonical matrix (array form).
-- `policy<Subject>(nested)` — from the typed nested authoring form; flattens to
-  the same canonical matrix.
+- `policy<Subject>()` — from the typed builder; flattens to the same canonical
+  matrix.
 - `parseMatrix(json)` — from foreign or emitted JSON; the untrusted path.
 
 All validate once and freeze. A locally-authored `policy(...)` has no foreign
@@ -486,13 +597,14 @@ author supplies as an option. Only a fetched matrix carries a meaningful
 To avoid repeating the key, a small handler binds it once:
 
 ```ts
-const comments = access.object('comment', {
-  update: permit<Comment>(...),
-  create: permit<Comment>(always),
-  read: permit<Comment>(always),
-});
+const comments = access.object('comment');
 comments.can(subject, 'update', comment);
+comments.canMany(subject, 'read', commentList);
 ```
+
+`access.object(key)` narrows an existing `access` to one object kind. On a typed
+matrix the key is checked against the accumulated union and the bound handler
+keeps that key's object type on every call.
 
 This is class-free, keeps plain data, and gives close to class-key ergonomics
 without classes.
@@ -518,6 +630,7 @@ claim that context normalization is the hot cost.
 `token` and `feature`:
 
 - duplicate keys
+- a `key` that is not `` `${object}.${action}` ``
 - `dependsOn` naming an unknown key
 - dependency cycles, with the path in the error
 - an unknown op
@@ -542,10 +655,16 @@ explain themselves:
 - `BangInAllowListError` — a `!` entry mixed into an explicit allow-list.
 - `TargetsTransitionsConflictError` — both `targets` and `transitions` on one
   field.
+- `KeyMismatchError` — `key` is not `` `${object}.${action}` ``.
+
+**Open question:** the error hierarchy is prefixed `Authorization` while the
+package is `@evanion/acl`. Renaming it to `AclConfigError` is a breaking change
+to a public export, so it belongs before the first publish or not at all.
 
 Evaluation is total: it never throws for a data-shape problem. Omitting
-`proposed` where a `targets` rule exists yields an `unevaluable` field decision,
-not a thrown error, keeping the repo's "evaluate is total" discipline.
+`proposed` where a `targets` or `transitions` rule exists yields an
+`unevaluable` field decision with reason `proposed-required`, not a thrown
+error, keeping the repo's "evaluate is total" discipline.
 
 ## Acquisition
 
@@ -569,14 +688,14 @@ action, or RSC server component evaluates against an `access` instance without
 restating the subject:
 
 ```ts
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 
 const access = createPolicy(matrix);
-const forUser = access.authorize(subject, { now });   // returns a bound handle
+const forUser = access.authorize(subject, { now }); // returns a bound handle
 
-forUser.can('comment', 'create');                    // -> Decision
-forUser.can('comment', 'update', comment);           // -> Decision
-forUser.canMany('comment', 'read', comments);        // -> Decision[]
+forUser.can('comment', 'create'); // -> Decision
+forUser.can('comment', 'update', comment); // -> Decision
+forUser.canMany('comment', 'read', comments); // -> Decision[]
 ```
 
 `authorize` lives in the core, not the React package, because it is plain Node
@@ -590,7 +709,7 @@ already bound.
 
 ## Consumption shapes
 
-`@evanion/react-authorization` serves both runtime shapes from one surface.
+`@evanion/react-acl` serves both runtime shapes from one surface.
 Neither is named to a framework; each is a supported usage pattern.
 
 ### RSC-style
@@ -601,16 +720,16 @@ framework.
 
 ```tsx
 // server component
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 const access = createPolicy(matrix);
-const subject = await getSubject();                     // app-supplied (cookies/session)
+const subject = await getSubject(); // app-supplied (cookies/session)
 const forUser = access.authorize(subject);
-const decision = forUser.can('comment', 'create');      // -> Decision
+const decision = forUser.can('comment', 'create'); // -> Decision
 // render conditionally, and pass subject to the provider:
 
 <PolicyProvider access={access} subject={subject} context={{ now }}>
   <CommentForm />
-</PolicyProvider>
+</PolicyProvider>;
 ```
 
 ### Traditional Node server / client split
@@ -620,14 +739,14 @@ Middleware, a loader, or an action resolves the subject and evaluates server-sid
 
 ```tsx
 // server (middleware / loader / action) — imports from the core, no React dep
-import { createPolicy } from '@evanion/authorization';
+import { createPolicy } from '@evanion/acl';
 const access = createPolicy(matrix);
 const subject = resolveSubject(req);                    // app-supplied
-const allowed = access.authorize(subject).can('comment', 'update', comment);
-if (!allowed) return redirect(...);
+const decision = access.authorize(subject).can('comment', 'update', comment);
+if (!decision.allowed) return redirect(...);
 
 // client provider, fed the server-resolved subject
-import { PolicyProvider } from '@evanion/react-authorization';
+import { PolicyProvider } from '@evanion/react-acl';
 <PolicyProvider access={access} subject={subject} context={{ now }}>
   <CommentList />
 </PolicyProvider>
@@ -639,17 +758,23 @@ supplies the evaluator, not the principal.
 
 ## React binding
 
-`@evanion/react-authorization` exposes:
+`@evanion/react-acl` exposes:
 
 ```tsx
-import { PolicyProvider, useCan, useCanFields, useCanMany } from '@evanion/react-authorization';
+import {
+  PolicyProvider,
+  useCan,
+  useCanFields,
+  useCanMany,
+} from '@evanion/react-acl';
 
 <PolicyProvider access={access} subject={subject} context={{ now }}>
   <App />
 </PolicyProvider>;
 
 function Row() {
-  if (!useCan('comment', 'update', comment)) return <ReadOnlyComment />;
+  const decision = useCan('comment', 'update', comment);
+  if (!decision.allowed) return <ReadOnlyComment reason={decision.reason} />;
   return <EditableComment />;
 }
 ```
@@ -680,7 +805,7 @@ avoid N memoised evaluations.
 
 ## React Native and Electron
 
-React Native and Electron consume the core (and the `react-authorization` hooks
+React Native and Electron consume the core (and the `react-acl` hooks
 where the rendering maps) directly; the engine has no Node or DOM dependency,
 so it runs on Hermes and in an Electron renderer unchanged.
 
@@ -705,34 +830,34 @@ evaluation model.
 ## Repo structure
 
 ```
-libs/authorization/                 # universal core
+libs/acl/                 # universal core
   src/
     index.ts          # createPolicy / policy, parseMatrix, can, canMany, canFields, capabilities, authorize
     types.ts          # Matrix, Permission, Rule, Condition, Decision, Reason, FieldState, FieldReason, FieldDecision
     evaluate.ts       # can(): (matrix, context) -> Decision
     conditions.ts     # declarative condition evaluator (namespaced paths + proto guard)
     graph.ts          # dependsOn cascade + cycle/unknown/duplicate validation
-    project.ts        # nested authoring form -> canonical flat matrix
+    project.ts        # typed builder -> canonical flat matrix
     parse-matrix.ts   # foreign JSON validation/adoption
     authorize.ts      # access.authorize(subject) -> bound Authorized handle
     errors.ts
     test-setup.ts
   README.md
-  package.json        # name: @evanion/authorization
+  package.json        # name: @evanion/acl
 
-libs/react-authorization/           # React binding, depends on @evanion/authorization
+libs/react-acl/           # React binding, depends on @evanion/acl
   src/
     index.tsx         # PolicyProvider + hooks; re-exports core types
     test-setup.ts
   README.md
-  package.json        # name: @evanion/react-authorization
+  package.json        # name: @evanion/react-acl
 ```
 
 Both follow `@evanion/source` file-per-entry packaging; the React package marks
 its client modules `'use client'`, re-exports the core's types so a consumer who
 never names the core never installs it by hand, and depends on a compatible
-range of `@evanion/authorization`. The two packages release in lockstep. When
-`react-authorization` is documented, `apps/docs`' `navigation.ts` gains an entry
+range of `@evanion/acl`. The two packages release in lockstep. When
+`react-acl` is documented, `apps/docs`' `navigation.ts` gains an entry
 and the repo-checks test passes.
 
 ## Testing
@@ -741,17 +866,45 @@ Mirrors `feature`'s discipline:
 
 - one unit test per condition op
 - the `dependsOn` cascade
-- validation errors (duplicate key, unknown dependency, cycle, unknown op,
-  namespace resolution, deny-without-baseline, bang-in-allow-list,
-  targets+transitions exclusivity)
+- validation errors (duplicate key, key/object.action mismatch, unknown
+  dependency, cycle, unknown op, namespace resolution, deny-without-baseline,
+  bang-in-allow-list, targets+transitions exclusivity)
 - a serializability round-trip (matrix → JSON → matrix → identical decisions)
 - a `reason`-is-output-only invariant (decide with reasons stripped, assert the
   same outcome)
 - field-level: allow-list, bang prefix, `targets`, `transitions`, exclusivity,
-  partial-object → `unevaluable`, `proposed`-omitted-with-`targets`
-- deny precedence (deny beats allow, and deny beats dependency-off)
+  partial-object → `unevaluable`, `proposed`-omitted → `proposed-required`
+- a field decision map that carries only real field names, never `*` or `!name`
 - the no-instance `unevaluable` case
-- typed `.test-d.ts` for the `policy`/`permit` authoring path, asserting
-  *readable* errors
 - README doctests (`@import.meta.vitest`)
-- a `react-authorization` smoke test (provider + hooks)
+- a `react-acl` smoke test (provider + hooks)
+
+### Precedence tests
+
+The five-step order is the whole engine, and a test suite that only asserts
+allow/deny outcomes passes whether or not the steps are in order. These cases
+must each fail if the step they cover is removed or reordered:
+
+- a matched deny and a matched allow, together: the reason is `denied`
+- a matched deny and a dependency that resolved off, together: the reason is
+  `denied`, not `dependency-off`
+- a permission whose `object`-dependent rules are undecidable while an allow rule
+  would match: the reason is `allow`, so `unevaluable` ranks below allow
+- the same permission with no matching allow rule: the reason is `unevaluable`,
+  not `no-rule-matched`, so `unevaluable` ranks above no-rule-matched
+- one field `unevaluable` and every other field `allowed`: the top-level
+  `allowed` is `false`
+- one rule whose `when` holds two conditions, the first true and the second
+  false: the rule does not match, so `when` is AND-ed and not OR-ed
+
+### Typed authoring tests
+
+`.test-d.ts` cases over the builder, asserting the **message**, not merely that
+an error exists:
+
+- a mistyped path names the path (`unknown path 'object.authrId' on this
+resource`)
+- a path valid on one resource is rejected inside another resource's block
+- an unknown object kind passed to `can` is rejected against the key union
+- an object of the wrong kind passed to `can` is rejected against the key's type
+- a literal comparand (`p.eq('object.status', 'published')`) compiles
