@@ -30,12 +30,18 @@ interface Post {
   status: 'draft' | 'published';
 }
 
-/** The three people the switch moves between. */
-export const people: readonly Viewer[] = [
-  { name: 'Sam Reyes', role: 'viewer' },
-  { name: 'Mika Persson', role: 'editor' },
-  { name: 'Jo Vainio', role: 'owner' },
-];
+/**
+ * The three people the switch moves between, by the role that names them.
+ *
+ * Keyed by role rather than listed, so the switch reads a person out of it with
+ * no lookup that can miss. `Mika Persson` wrote the post, which is why the
+ * byline says so whoever is signed in.
+ */
+export const people: Record<Role, Viewer> = {
+  viewer: { name: 'Sam Reyes', role: 'viewer' },
+  editor: { name: 'Mika Persson', role: 'editor' },
+  owner: { name: 'Jo Vainio', role: 'owner' },
+};
 
 /** The roles each action is granted to. The editable half of the policy. */
 export interface Grants {

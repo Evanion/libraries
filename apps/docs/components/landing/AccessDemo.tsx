@@ -32,7 +32,7 @@ const OPENING_NOTES: Note[] = [
 
 /** A role, as the interface names it. */
 function label(role: Role): string {
-  return role[0]!.toUpperCase() + role.slice(1);
+  return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
 interface RoleSwitchProps {
@@ -104,7 +104,7 @@ export default function AccessDemo() {
   const bodyId = useId();
 
   const access = useMemo(() => buildAccess(grants), [grants]);
-  const person = people.find((candidate) => candidate.role === role)!;
+  const person = people[role];
   const post = { status };
   const decisions = decisionsOf(access, person, post);
   const granted = controls.filter(

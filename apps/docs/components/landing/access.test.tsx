@@ -47,7 +47,7 @@ describe('the Authorization demonstration', () => {
     const { container } = render(<AccessDemo />);
     const access = buildAccess(openingGrants);
 
-    for (const person of people) {
+    for (const person of Object.values(people)) {
       signIn(person.role);
       const allowed = ['comment', 'edit', 'publish'].filter(
         (action) =>
