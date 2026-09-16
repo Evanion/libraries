@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { AclConfigError } from './errors.js';
+import { AclConfigError, ActionNotAllowedError } from './errors.js';
+import { pickAllowedFields } from './fields.js';
 import { parseMatrix } from './parse-matrix.js';
 import type { Access, Subject } from './create-policy.js';
 import type { Decision, FieldDecision, Matrix } from './types.js';
@@ -196,6 +197,10 @@ function context(gen: Gen): {
   };
 }
 
+function isNode(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function isDecision(value: unknown): value is Decision {
   if (typeof value !== 'object' || value === null) return false;
   const decision = value as Decision;
@@ -236,19 +241,33 @@ function exercise(access: Access, gen: Gen): void {
   )) {
     expect(isDecision(decision)).toBe(true);
   }
-  expect(
-    isFieldDecision(
-      access.canFields(
-        subject,
-        key,
-        action,
-        object,
-        gen.pick(['read', 'write'] as const),
-        gen.bool() ? (junk(gen) as Record<string, unknown>) : undefined,
-        clock,
-      ),
-    ),
-  ).toBe(true);
+  const proposed = junk(gen) as Record<string, unknown>;
+  const fieldDecision = access.canFields(
+    subject,
+    key,
+    action,
+    object,
+    gen.pick(['read', 'write'] as const),
+    gen.bool() ? proposed : undefined,
+    clock,
+  );
+  expect(isFieldDecision(fieldDecision)).toBe(true);
+
+  // The write path narrows a proposal against that decision. Its one throw is
+  // ActionNotAllowedError, which reports the decision rather than a shape.
+  try {
+    const writable = pickAllowedFields(
+      fieldDecision,
+      isNode(proposed) ? proposed : {},
+    );
+    expect(typeof writable).toBe('object');
+    for (const field of Object.keys(writable)) {
+      expect(fieldDecision.fields[field]).toBe('allowed');
+    }
+  } catch (error) {
+    expect(error).toBeInstanceOf(ActionNotAllowedError);
+  }
+
   for (const decision of Object.values(access.capabilities(subject, clock))) {
     expect(isDecision(decision)).toBe(true);
   }

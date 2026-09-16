@@ -881,12 +881,13 @@ context. For any matrix and any context, `parseMatrix` either rejects the matrix
 with an `AclConfigError` or returns an access object whose `can`, `canMany`,
 `canFields` and `capabilities` answer with a decision — there is no third
 outcome. A property test over generated malformed matrices and generated
-contexts holds the claim. Omitting `proposed` where a `targets` or `transitions`
-rule exists yields an `unevaluable` field decision with reason
-`proposed-required`, not a thrown error.
+contexts holds the claim, and covers `pickAllowedFields` under the one throw it
+declares. Omitting `proposed` where a `targets` or `transitions` rule exists
+yields an `unevaluable` field decision with reason `proposed-required`, not a
+thrown error.
 
-The runtime `UnknownObjectKeyError` / `UnknownPermissionError` throws are the one
-exception, and are the typed matrix's programmer-error backstop rather than a
+The runtime `UnknownObjectKeyError` / `UnknownPermissionError` throws sit outside
+that claim as the typed matrix's programmer-error backstop rather than a
 data-shape failure: the untrusted `parseMatrix` path is closed and answers
 `unknown-action`.
 
