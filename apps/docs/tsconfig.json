@@ -73,6 +73,9 @@
       "path": "../../tools/doc-examples"
     },
     {
+      "path": "../../libs/acl"
+    },
+    {
       "path": "../../libs/urn"
     },
     {
