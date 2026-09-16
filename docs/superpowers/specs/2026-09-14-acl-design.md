@@ -159,7 +159,50 @@ additionally checked at compile time against the declared types.
 
 ## Matrix format
 
-A flat list with a `dependsOn` cascade, mirroring `@evanion/feature`.
+An envelope over a flat list with a `dependsOn` cascade, the list itself
+mirroring `@evanion/feature`.
+
+```json
+{
+  "version": 3,
+  "schema": {
+    "subject": { "fields": { "id": "string", "roles": "string[]" } },
+    "objects": {
+      "article": {
+        "fields": { "authorId": "string", "status": "string" },
+        "relations": { "comments": "comment" }
+      }
+    }
+  },
+  "permissions": []
+}
+```
+
+There is no bare-array form. One shape, so a producer emitting JSON has one
+document to emit and a consumer has one document to validate.
+
+`version` and `schema` are properties of the document, not of the construction
+call. A `version` carried in `AccessOptions` alone is unreachable for a foreign
+producer, and forces every SSR crossing to hand-assemble `{ matrix, version }`
+and reconstruct with `createPolicy(payload.matrix, { version: payload.version })`.
+With the envelope the crossing is `const payload = access.matrix` and
+`createPolicy(payload)`.
+
+`version` is a **string or a number**. The revalidate contract is a `!==`, so a
+content digest or a composite (`orders@7+veto@41`) works unchanged, and a number
+cannot express a composite: a sum collides and a max ignores a rollback. Three
+things need the composite — a schema-bearing document whose content hash makes
+`access.version` always present and meaningful, a compliance deny overlay merged
+in before construction whose effective version must cover both inputs, and a
+published contract version covering the same composite.
+
+`AccessOptions.version` is an **override** of the document's value. The document
+states what a producer shipped; the option states what the construction site is
+actually running, which is a different thing whenever the site composes the
+document with something else. The option wins, and the frozen `access.matrix`
+carries the winner, so the version that decided is the version that crosses.
+
+The permissions themselves:
 
 ```json
 [
@@ -215,6 +258,55 @@ A flat list with a `dependsOn` cascade, mirroring `@evanion/feature`.
   transitively, carrying `blockedBy` and `cause` — the same shape as `feature`.
 - There is no `enabled` flag. A permission with no `rules` and no `dependsOn`
   denies; one with `rules` evaluates them.
+
+### The schema
+
+`schema` declares, per object kind, its field types and its one-hop relations,
+plus optionally the subject's. It is optional for a producer and binding when
+present.
+
+Field types are flat strings, so the whole schema is JSON a .NET producer emits
+by reflection: `string`, `number`, `boolean`, `instant`, a `[]` suffix for an
+array of one, a `?` suffix for a field that may be absent from a complete
+instance. A declared field that is present and `null` is present — nullability is
+not an optionality axis.
+
+Granularity is per object kind. A kind `objects` does not declare is unchecked,
+and `subject.*` paths are unchecked unless `subject` is declared.
+
+A present schema is checked at construction, after the per-condition structural
+checks, so a condition that is not evaluable at all is reported as that rather
+than as a schema fault. Two guarantees:
+
+1. **A condition names a declared field.** Naming one the schema does not
+   declare is an `UnknownFieldError`. Without a schema this is the typo class
+   that evaluates to `undecidable` forever on the foreign path, because an absent
+   `object.*` path is a shortfall the caller is told to fill in. A relation name
+   is refused the same way: a condition reads one field of one scope, and a
+   relation is not a value it compares.
+2. **The operator fits the declared type.** `FieldTypeMismatchError` covers
+   `contains` against a field that is not an array, an equality or a membership
+   test against an array field (both compare by identity, which no two arrays
+   satisfy), a literal of the wrong base type, and a `path` comparand whose two
+   sides disagree. `null` fits every base, and `instant` agrees with `string` and
+   `number` because those are the two forms it is carried in.
+
+A schema that is accepted but unenforced is a trap, so what is **not** checked is
+stated rather than inferred:
+
+- **Field-rule names.** The `fields` allow-list and the `targets` /
+  `transitions` keys of `FieldRules` are not checked against the schema. The
+  typo class there is unguarded whether or not a schema is present.
+- **Totality.** Proving that a permission naming no optional field cannot decide
+  `unevaluable` for a complete instance is not done. It is not a walk over the
+  conditions the way the two guarantees above are: it needs the `dependsOn`
+  cascade and the field rules folded in, and a definition of "complete instance"
+  the caller has not stated. The `?` suffix is carried in the document and read
+  by nothing today.
+- **`instant`, temporally.** `before` and `after` read the clock and nothing
+  else, so an `instant` field is comparable with `eq`, `ne`, `in` and `not-in`
+  only. A `before` against a non-`instant` field is already refused one step
+  earlier, by the structural check that pairs `before`/`after` with `now`.
 
 ### Cascade semantics in authorization terms
 
@@ -606,9 +698,9 @@ undecidable cause is `proposed-required`.
 
 ### Canonical form: structural string keys
 
-The canonical, serialized, and engine-facing form is a flat array of string-key
-permissions (the JSON above). `parseMatrix(json)` adopts this form and validates
-it.
+The canonical, serialized, and engine-facing form is the envelope above: a
+`permissions` array of string-key permissions, with an optional `version` and an
+optional `schema`. `parseMatrix(json)` adopts this form and validates it.
 
 ### Typed path: the chained builder
 
@@ -675,7 +767,7 @@ access.can(subject, 'comment', 'create'); // no instance: reason 'unevaluable'
   checked against the type its namespace resolves to.
 - The builder **flattens** to the canonical flat JSON matrix at construction;
   `JSON.stringify(access.matrix)` emits the same document a foreign backend would
-  produce.
+  produce, envelope included.
 
 #### Paths versus literals
 
@@ -743,11 +835,11 @@ instance-resolution.
 
 Three constructors, one surface. Each returns the same `access` object —
 `.can`, `.canFields`, `.canMany`, `.capabilities`, `.authorize`, `.object`,
-`.matrix`, `.version`:
+`.matrix`, `.version`, `.schema`:
 
-- `createPolicy(matrix)` — from a canonical matrix (array form).
+- `createPolicy(matrix)` — from a canonical matrix document.
 - `policy<Subject>()` — from the typed builder; flattens to the same canonical
-  matrix.
+  document, carrying the `version` and `schema` the author supplies.
 - `parseMatrix(json)` — from foreign or emitted JSON; the untrusted path.
 
 Alongside them, one free function completes the write path:
@@ -755,10 +847,11 @@ Alongside them, one free function completes the write path:
 - `pickAllowedFields(decision, proposed)` — the subset of a proposed write a
   `canFields` decision allows.
 
-All validate once and freeze. A locally-authored `policy(...)` has no foreign
-`version`; `access.version` for a typed matrix is `undefined`, or a value the
-author supplies as an option. Only a fetched matrix carries a meaningful
-`version` for the revalidate contract.
+All validate once and freeze. `access.version` is `access.matrix.version` lifted
+for convenience, and is `undefined` for a document that states none and a
+construction site that overrides none — a `!==` against `undefined` decides
+nothing, so a producer that wants the revalidate contract to hold states a
+version, and a content hash of the document is enough.
 
 ### Optional: bound object handler
 
@@ -857,8 +950,11 @@ explain themselves:
   field.
 - `KeyMismatchError` — `key` is not `` `${object}.${action}` ``, naming all
   three.
-- `InvalidMatrixError` — the matrix is not an array of permissions, a permission
-  has no key, or a permission holds a value that cannot be cloned.
+- `InvalidMatrixError` — the matrix is not an envelope around a `permissions`
+  array, its `version` is neither a string nor a number, a permission has no key,
+  or a permission holds a value that cannot be cloned.
+- `InvalidSchemaError` — a `schema` whose own shape is not the canonical one,
+  naming the path inside the document (`schema.objects.comment.fields.status`).
 - `InvalidPermissionError` — a permission node's own shape: `object`, `action`,
   `rules`, `denyRules`, `dependsOn` or `fields`. A `.` in `object` or `action`
   raises this rather than a class of its own: the key still equals its parts, so
@@ -868,6 +964,10 @@ explain themselves:
   not an array.
 - `InvalidConditionError` — a condition's shape, namespace, path depth, or
   operator/comparand pairing.
+- `UnknownFieldError` — a condition names a field, or a comparand path, that a
+  declared object kind does not declare. Only raised against a present schema.
+- `FieldTypeMismatchError` — a condition's operator or comparand does not fit
+  the declared type. Only raised against a present schema.
 
 Every message names the offending permission key and the offending field, and
 locates a rule or condition inside the permission (`denyRules[0].when[1]`), so
@@ -1084,7 +1184,7 @@ evaluation model.
 libs/acl/                 # universal core
   src/
     index.ts          # createPolicy / policy, parseMatrix, can, canMany, canFields, capabilities, authorize
-    types.ts          # Matrix, Permission, Rule, Condition, Decision, Reason, FieldState, FieldReason, FieldDecision
+    types.ts          # Matrix, MatrixSchema, ObjectSchema, FieldType, Permission, Rule, Condition, Decision, Reason, FieldState, FieldReason, FieldDecision
     evaluate.ts       # can(): (matrix, context) -> Decision
     conditions.ts     # declarative condition evaluator (namespaced paths + proto guard)
     graph.ts          # dependsOn cascade + cycle/unknown/duplicate validation

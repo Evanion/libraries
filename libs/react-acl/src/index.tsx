@@ -21,8 +21,11 @@ export type {
   FieldDecision,
   FieldReason,
   FieldState,
+  FieldType,
   Instant,
   Matrix,
+  MatrixSchema,
+  ObjectSchema,
   Permission,
   Reason,
 } from '@evanion/acl';

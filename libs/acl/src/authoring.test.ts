@@ -16,12 +16,12 @@ describe('authoring', () => {
         read: permit(always),
       },
     }) as Access;
-    expect(access.matrix[0]).toMatchObject({
+    expect(access.matrix.permissions[0]).toMatchObject({
       key: 'comment.update',
       object: 'comment',
       action: 'update',
     });
-    expect(access.matrix[1]).toMatchObject({
+    expect(access.matrix.permissions[1]).toMatchObject({
       key: 'comment.read',
       action: 'read',
     });
@@ -38,7 +38,9 @@ describe('authoring', () => {
         ),
       },
     }) as Access;
-    expect((access.matrix[0]!.rules as readonly unknown[]).length).toBe(2);
+    expect(
+      (access.matrix.permissions[0]!.rules as readonly unknown[]).length,
+    ).toBe(2);
   });
 
   it('always serializes to an empty when array', () => {

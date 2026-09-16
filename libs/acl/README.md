@@ -22,22 +22,138 @@ npm install @evanion/acl
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
-const access = createPolicy([
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-    ],
-  },
-]);
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
 
 const decision = access.can({ id: 's1' }, 'comment', 'update', {
   authorId: 's1',
 });
 decision.allowed; // -> true
 ```
+
+## The matrix document
+
+A matrix is an envelope, never a bare array:
+
+```json
+{ "version": 3, "schema": { "objects": {} }, "permissions": [] }
+```
+
+`version` and `schema` belong to the document, so a producer in any language
+states both in the JSON it emits, and one value crosses an SSR boundary with
+nothing assembled around it:
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+
+const access = createPolicy({
+  version: 'orders@7',
+  permissions: [
+    { key: 'comment.read', object: 'comment', action: 'read', rules: [] },
+  ],
+});
+
+// The server sends `access.matrix`; the client rebuilds from it.
+const payload = JSON.parse(
+  JSON.stringify(access.matrix),
+) as typeof access.matrix;
+createPolicy(payload).version; // -> 'orders@7'
+```
+
+`version` is a string or a number. The revalidate contract compares it with
+`!==`, so a content digest or a composite (`orders@7+veto@41`) works where a
+number cannot — and a composite is what an effective version needs when a
+construction site merges a document with something else, such as a compliance
+deny overlay applied before construction.
+
+`createPolicy(matrix, { version })` **overrides** the document's value. The
+document states what a producer shipped; the option states what the construction
+site is actually running, which the producer cannot know. The option wins, and
+the frozen `access.matrix` carries the winner, so the version that decided is the
+version that crosses.
+
+## The schema
+
+A document may declare the shapes its conditions read. The schema is optional
+for a producer and binding when present.
+
+```ts @import.meta.vitest
+import { createPolicy } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
+
+const matrix: Matrix = {
+  schema: {
+    subject: { fields: { id: 'string', roles: 'string[]' } },
+    objects: {
+      comment: {
+        fields: { authorId: 'string', status: 'string', tags: 'string[]' },
+        relations: { post: 'post' },
+      },
+    },
+  },
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      // `status` is a string, and contains tests an array.
+      rules: [
+        { when: [{ field: 'object.status', op: 'contains', value: 'draft' }] },
+      ],
+    },
+  ],
+};
+
+let refused = '';
+try {
+  createPolicy(matrix);
+} catch (error) {
+  refused = (error as Error).name;
+}
+refused; // -> 'FieldTypeMismatchError'
+```
+
+Field types are flat strings, so the whole schema is JSON a producer emits by
+reflection: `string`, `number`, `boolean`, `instant`, a `[]` suffix for an array
+of one, a `?` suffix for a field that may be absent from a complete instance. A
+declared field that is present and `null` is present — nullability is not an
+optionality axis.
+
+### What a present schema checks
+
+Two things, both at construction, both an `AclConfigError`:
+
+1. A condition naming a field the schema does not declare
+   (`UnknownFieldError`). Without a schema this is the typo class that decides
+   `unevaluable` forever on the foreign path.
+2. A condition whose operator or comparand does not fit the declared type
+   (`FieldTypeMismatchError`): `contains` against a field that is not an array,
+   an equality against an array field, a literal of the wrong type, or a `path`
+   comparand whose two sides disagree.
+
+### What it does not check
+
+- **Object kinds it does not declare.** Granularity is per kind: a permission on
+  a kind absent from `schema.objects` is unchecked, and `subject.*` paths are
+  unchecked unless `schema.subject` is declared.
+- **Field-rule names.** The `fields` allow-list and the `targets` /
+  `transitions` keys of `FieldRules` are not checked against the schema.
+- **Whether a permission can decide `unevaluable`.** Proving that a permission
+  naming no optional field always decides for a complete instance is not done;
+  the `?` suffix is carried in the document and read by nothing today.
+- **`instant` fields, temporally.** `before` and `after` read the clock and
+  nothing else, so an `instant` field is compared with `eq`, `ne`, `in` or
+  `not-in` only.
 
 ## Typed authoring
 
@@ -132,16 +248,18 @@ adopts it. A foreign matrix fails closed on unknown permissions.
 ```ts @import.meta.vitest
 import { parseMatrix } from '@evanion/acl';
 
-const access = parseMatrix([
-  {
-    key: 'comment.read',
-    object: 'comment',
-    action: 'read',
-    rules: [
-      { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
-    ],
-  },
-]);
+const access = parseMatrix({
+  permissions: [
+    {
+      key: 'comment.read',
+      object: 'comment',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
+      ],
+    },
+  ],
+});
 
 access.can({ id: 's1' }, 'comment', 'delete').reason; // -> 'unknown-action'
 ```
@@ -154,16 +272,18 @@ component evaluates without restating it.
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
-const access = createPolicy([
-  {
-    key: 'comment.read',
-    object: 'comment',
-    action: 'read',
-    rules: [
-      { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
-    ],
-  },
-]);
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.read',
+      object: 'comment',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
+      ],
+    },
+  ],
+});
 
 const forUser = access.authorize({ id: 's1', roles: ['editor'] });
 forUser.can('comment', 'read').allowed; // -> true
@@ -245,23 +365,30 @@ A client holds the matrix it last fetched. When a permission is revoked, that
 client keeps granting it until it refetches, and it has no way to notice.
 `access.version` is a surface for detecting a mismatch, not a mechanism for
 resolving one: comparing it, failing closed, and forcing a refetch is the
-consumer's to implement. The server never depends on a client's copy in any
-case, since it evaluates its own.
+consumer's to implement. The comparison is a `!==`, so a digest or a composite
+covering every input works as well as a counter. The server never depends on a
+client's copy in any case, since it evaluates its own.
+
+A document that states no `version` leaves `access.version` undefined, and a
+`!==` against undefined decides nothing. A producer that wants the contract to
+hold states a version — a content hash of the document is enough.
 
 ## API
 
-| Export                                                                   | Purpose                                                                          |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `createPolicy(matrix, options?)`                                         | Builds the access object from a canonical matrix. Validates, clones and freezes. |
-| `parseMatrix(json, options?)`                                            | Adopts a foreign matrix; fails closed on unknown keys.                           |
-| `policy<S>(config)`                                                      | Typed authoring; flattens to the canonical matrix.                               |
-| `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules.                                                      |
-| `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                    |
-| `access.canMany(...)`                                                    | A decision array, parallel to the input.                                         |
-| `access.canFields(...)`                                                  | The field-level decision for one axis, plus the action decision gating it.       |
-| `pickAllowedFields(decision, proposed)`                                  | The subset of a proposed write the decision allows. The value to write.          |
-| `access.capabilities(subject)`                                           | Every action-level decision.                                                     |
-| `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                       |
+| Export                                                                   | Purpose                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `createPolicy(matrix, options?)`                                         | Builds the access object from a matrix document. Validates, clones and freezes. |
+| `parseMatrix(json, options?)`                                            | Adopts a foreign matrix document; fails closed on unknown keys.                 |
+| `policy<S>(config)`                                                      | Typed authoring; flattens to the canonical matrix.                              |
+| `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules.                                                     |
+| `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                   |
+| `access.canMany(...)`                                                    | A decision array, parallel to the input.                                        |
+| `access.canFields(...)`                                                  | The field-level decision for one axis, plus the action decision gating it.      |
+| `pickAllowedFields(decision, proposed)`                                  | The subset of a proposed write the decision allows. The value to write.         |
+| `access.capabilities(subject)`                                           | Every action-level decision.                                                    |
+| `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                      |
+| `access.matrix`                                                          | The frozen document. Round-trips through JSON; this is what crosses SSR.        |
+| `access.version` / `access.schema`                                       | The effective version, and the declared shapes when the document carries them.  |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `dependency-off`, `unknown-action`,
@@ -277,16 +404,20 @@ it stands:
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
-const access = createPolicy([
-  {
-    key: 'sale.buy',
-    object: 'sale',
-    action: 'buy',
-    rules: [
-      { when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] },
-    ],
-  },
-]);
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'sale.buy',
+      object: 'sale',
+      action: 'buy',
+      rules: [
+        {
+          when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+        },
+      ],
+    },
+  ],
+});
 
 const hydrated = JSON.parse(
   JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),

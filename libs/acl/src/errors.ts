@@ -111,11 +111,61 @@ export class KeyMismatchError extends AclConfigError {
   }
 }
 
-/** A matrix that is not an array of permissions. */
+/** A matrix envelope whose own shape is not the canonical one. */
 export class InvalidMatrixError extends AclConfigError {
   constructor(detail: string) {
     super(`invalid matrix: ${detail}`);
     this.name = 'InvalidMatrixError';
+  }
+}
+
+/**
+ * A `schema` whose own shape is not the canonical one.
+ *
+ * `where` locates the fault inside the document
+ * (`schema.objects.comment.fields.status`), so a producer emitting a schema by
+ * reflection finds it without a line number.
+ */
+export class InvalidSchemaError extends AclConfigError {
+  readonly where: string;
+  constructor(where: string, detail: string) {
+    super(`invalid matrix: "${where}" ${detail}`);
+    this.name = 'InvalidSchemaError';
+    this.where = where;
+  }
+}
+
+/**
+ * A condition naming a field the schema does not declare.
+ *
+ * Without a schema this is the typo class that evaluates to `undecidable`
+ * forever on the foreign path, because an absent `object.*` path is a shortfall
+ * the caller is told to fill in rather than a miss.
+ */
+export class UnknownFieldError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+  constructor(key: string, where: string, field: string, detail: string) {
+    super(`permission "${key}": condition ${where} on "${field}" ${detail}`);
+    this.name = 'UnknownFieldError';
+    this.key = key;
+    this.field = field;
+    this.where = where;
+  }
+}
+
+/** A condition whose operator or comparand does not fit the declared type. */
+export class FieldTypeMismatchError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+  constructor(key: string, where: string, field: string, detail: string) {
+    super(`permission "${key}": condition ${where} on "${field}" ${detail}`);
+    this.name = 'FieldTypeMismatchError';
+    this.key = key;
+    this.field = field;
+    this.where = where;
   }
 }
 

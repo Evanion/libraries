@@ -45,16 +45,18 @@ npm install @evanion/react-acl
 import { PolicyProvider, useCan } from '@evanion/react-acl';
 import { createPolicy } from '@evanion/acl';
 
-const access = createPolicy([
-  {
-    key: 'comment.update',
-    object: 'comment',
-    action: 'update',
-    rules: [
-      { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-    ],
-  },
-]);
+const access = createPolicy({
+  permissions: [
+    {
+      key: 'comment.update',
+      object: 'comment',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
+  ],
+});
 
 export function App({ user }: { user: { id: string } }) {
   return (

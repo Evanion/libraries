@@ -1,14 +1,17 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type { Access } from './create-policy.js';
+import type { Access, AccessOptions } from './create-policy.js';
 import type {
   Condition,
   Decision,
   EvaluationContext,
   FieldDecision,
   FieldState,
+  FieldType,
   Instant,
   Matrix,
+  MatrixSchema,
+  ObjectSchema,
   Permission,
   Reason,
 } from './types.js';
@@ -39,8 +42,27 @@ describe('public types', () => {
     }>();
   });
 
-  it('the matrix is a flat permission list', () => {
-    expectTypeOf<Matrix>().toEqualTypeOf<readonly Permission[]>();
+  it('the matrix is an envelope over a flat permission list', () => {
+    expectTypeOf<Matrix['permissions']>().toEqualTypeOf<
+      readonly Permission[]
+    >();
+    expectTypeOf<Matrix['version']>().toEqualTypeOf<
+      string | number | undefined
+    >();
+    expectTypeOf<Matrix['schema']>().toEqualTypeOf<MatrixSchema | undefined>();
+  });
+
+  it('a version is a string or a number on both the document and the access object', () => {
+    expectTypeOf<Access['version']>().toEqualTypeOf<Matrix['version']>();
+    expectTypeOf<AccessOptions['version']>().toEqualTypeOf<Matrix['version']>();
+  });
+
+  it('a declared field type carries its array and optional suffixes', () => {
+    expectTypeOf<'string'>().toMatchTypeOf<FieldType>();
+    expectTypeOf<'instant[]?'>().toMatchTypeOf<FieldType>();
+    expectTypeOf<ObjectSchema['fields']>().toEqualTypeOf<
+      Readonly<Record<string, FieldType>> | undefined
+    >();
   });
 
   it('a context clock takes every instant form a condition value takes', () => {
