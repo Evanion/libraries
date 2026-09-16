@@ -4,6 +4,14 @@
  *
  * This entry is the universal core and imports no framework. The React
  * provider and hooks live in `@evanion/react-acl`.
+ *
+ * The engine's per-node functions -- `decide`, `decideFields`,
+ * `evaluateCondition` -- are not exported. Each one answers a fragment of a
+ * decision and leaves the rest to the caller: `decide` reads a resolved-parent
+ * map only `createPolicy` builds, `decideFields` returns an `allowed` that
+ * ignores the action-level gate, and a single condition outcome is not a
+ * decision. `createPolicy` and `parseMatrix` compose them, and one of those two
+ * is the entry point.
  */
 
 export { createPolicy } from './create-policy.js';
@@ -26,9 +34,7 @@ export type {
   PolicyOptions,
   Valid,
 } from './authoring.js';
-export { evaluateCondition } from './conditions.js';
-export { decide } from './evaluate.js';
-export { decideFields, pickAllowedFields } from './fields.js';
+export { pickAllowedFields } from './fields.js';
 
 export {
   AclConfigError,
@@ -56,12 +62,10 @@ export type {
   BaseFieldType,
   Cause,
   Condition,
-  ConditionOutcome,
   Decision,
   EvaluationContext,
   FieldConfig,
   FieldDecision,
-  FieldOutcome,
   FieldReason,
   FieldRules,
   FieldState,
