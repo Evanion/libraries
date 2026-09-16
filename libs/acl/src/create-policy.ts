@@ -231,13 +231,30 @@ export function createPolicy(
   ): FieldDecision => {
     objectFor(key);
     const permission = permissionFor(key, action);
-    if (!permission) return { allowed: false, fields: {}, reasons: {} };
-    return decideFields(
-      permission,
-      ctxWith(subject, object, now),
-      axis,
-      proposed,
-    );
+    if (!permission) {
+      return {
+        allowed: false,
+        action: {
+          key: `${key}.${action}`,
+          allowed: false,
+          reason: 'unknown-action',
+        },
+        fields: {},
+        reasons: {},
+      };
+    }
+    const ctx = ctxWith(subject, object, now);
+    // The field maps answer "what would be editable" and are computed whatever
+    // the action decides, so a caller can explain a block with the same result
+    // it renders a form from. Only `allowed` is gated on the action.
+    const decision = decideCascaded(permission, ctx);
+    const outcome = decideFields(permission, ctx, axis, proposed);
+    return {
+      allowed: decision.allowed && outcome.allowed,
+      action: decision,
+      fields: outcome.fields,
+      reasons: outcome.reasons,
+    };
   };
 
   const capabilities = (

@@ -354,7 +354,7 @@ separate entry point answers "which fields does this action touch":
 
 ```ts
 access.canFields(subject, 'comment', 'update', comment, 'write');
-// -> { allowed: false, fields: { body: 'allowed', title: 'allowed', status: 'denied' }, reasons: { body: 'allow', title: 'allow', status: 'denied' } }
+// -> { allowed: false, action: { key: 'comment.update', allowed: true, reason: 'allow', rule: 'author' }, fields: { body: 'allowed', title: 'allowed', status: 'denied' }, reasons: { body: 'allow', title: 'allow', status: 'denied' } }
 ```
 
 Read and write are separate axes. **Read is a projection hint, never a security
@@ -379,7 +379,8 @@ type FieldReason =
   | 'proposed-required'; // a targets or transitions rule was evaluated without a proposed value
 
 interface FieldDecision {
-  allowed: boolean; // true iff every field is 'allowed'
+  allowed: boolean; // the action is allowed AND every field is 'allowed'
+  action: Decision; // the action-level decision, cascade resolved
   fields: Record<string, FieldState>;
   reasons: Record<string, FieldReason>;
 }
@@ -387,6 +388,25 @@ interface FieldDecision {
 
 There is no partial-allowed ambiguity: if any field is `denied` or
 `unevaluable`, the top-level `allowed` is `false`.
+
+`canFields` carries the **action** decision as well as the field maps, and
+`allowed` is gated on it. A field-level answer that ignored the action is a
+false allow: a UI gating a form on `canFields` would get a green light for an
+action the engine refuses, for any deny reason — `no-rule-matched`, `denied`,
+`dependency-off`, `unevaluable`.
+
+The field maps are still computed whatever the action decides, and a blocked
+action does **not** force the fields to `denied` or empty the maps. `'denied'`
+already means "matched a bang entry or a deny rule" and `{}` already means an
+unknown action; overloading either would destroy the caller's ability to
+explain a block as "you cannot do this yet, and here is what would be editable".
+Field rules stay leaf-level and never cascade — it is the action gate that
+carries the cascade, and the two are composed at the entry point.
+
+On an unknown action (the fail-closed path) the result is
+`{ allowed: false, action: { key, allowed: false, reason: 'unknown-action' },
+fields: {}, reasons: {} }`. The empty maps are unambiguous because `action` is
+present.
 
 ### `fields()`
 
@@ -460,6 +480,21 @@ or projected object that lacks the field cannot answer. When a field-level
 decision needs a field the object does not carry, the decision is `unevaluable`
 and names the missing field — it never silently evaluates against `undefined`.
 This is the `feature` `plan()` "deferred / needs" precedent.
+
+The reason names the end that is missing, so the caller knows which half to
+supply:
+
+| current value on `object` | `proposed` value | reason              |
+| ------------------------- | ---------------- | ------------------- |
+| present                   | present          | decided on the edge |
+| present                   | absent           | `proposed-required` |
+| absent                    | present          | `missing-field`     |
+| absent                    | absent           | `missing-field`     |
+
+`missing-field` takes precedence when both are absent: a complete object is the
+first thing the caller has to fix, and the edge cannot be read from either end
+without it. A `targets` field has no current value to read, so its only
+undecidable cause is `proposed-required`.
 
 ## Authoring
 
@@ -815,7 +850,10 @@ Hooks:
   `Decision` per configured key, keyed as a record `Record<key, Decision>` —
   the same keyed shape `feature`'s `resolve()` uses. For an unconfigured key it
   matches the matrix's open/closed behaviour (throws for a typed matrix, fails
-  closed for a foreign one).
+  closed for a foreign one). It carries **no field state**: field rules read the
+  instance (`transitions` needs a current value, and a name list is decided
+  against the fields the object carries), and `capabilities()` has no instance,
+  so a field-level answer belongs to `useCanFields` alone.
 
 The provider evaluates the full matrix against the current context; it does not
 ship or imply a per-subject snapshot. Evaluation is memoised on the tuple

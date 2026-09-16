@@ -69,6 +69,32 @@ describe('decideFields', () => {
     ).toBe('unevaluable');
   });
 
+  it('transitions with a current value and no proposed one asks for the proposed one', () => {
+    const p = perm('comment.update', {
+      status: { transitions: { draft: ['published'] } },
+    });
+    const d = decideFields(p, ctx, 'write');
+    expect(d.fields['status']).toBe('unevaluable');
+    expect(d.reasons['status']).toBe('proposed-required');
+  });
+
+  it('transitions with neither end asks for the object first', () => {
+    const p = perm('comment.update', {
+      status: { transitions: { draft: ['published'] } },
+    });
+    const partial: EvaluationContext = { subject: { id: 's1' }, object: {} };
+    const d = decideFields(p, partial, 'write');
+    expect(d.fields['status']).toBe('unevaluable');
+    expect(d.reasons['status']).toBe('missing-field');
+  });
+
+  it('targets without a proposed value asks for the proposed one', () => {
+    const p = perm('comment.update', { status: { targets: ['published'] } });
+    expect(decideFields(p, ctx, 'write').reasons['status']).toBe(
+      'proposed-required',
+    );
+  });
+
   it('read axis ignores targets/transitions (projection only)', () => {
     const p = perm('comment.read', { status: { targets: ['published'] } });
     const d = decideFields(p, ctx, 'read');

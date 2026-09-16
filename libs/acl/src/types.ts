@@ -129,9 +129,24 @@ export interface Decision {
   missing?: readonly string[];
 }
 
-/** A decision over every field of an action. */
+/**
+ * A decision over every field of an action.
+ *
+ * The field maps are computed whatever `action` says, so a caller blocked at the
+ * action level still learns which fields would be editable once it is unblocked.
+ */
 export interface FieldDecision {
+  /** True only when the action is allowed and every field is allowed. */
   allowed: boolean;
+  /** The action-level decision the field maps hang off, cascade resolved. */
+  action: Decision;
   fields: Record<string, FieldState>;
   reasons: Record<string, FieldReason>;
 }
+
+/**
+ * The field half of a `FieldDecision`: the maps, and whether every field is
+ * allowed. Field rules are leaf-level, so the engine decides them without the
+ * action decision and the two are composed at the entry point.
+ */
+export type FieldOutcome = Omit<FieldDecision, 'action'>;

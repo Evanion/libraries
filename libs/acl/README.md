@@ -76,7 +76,13 @@ const fd = access.canFields(
   'read',
 );
 fd.fields['status']; // -> 'denied'
+fd.action.allowed; // -> true
 ```
+
+A field decision carries the action decision it hangs off, and `fd.allowed` is
+true only when the action is allowed and every field is allowed. The field maps
+are filled in whatever the action says, so a blocked caller still sees which
+fields would be editable once the action is unblocked.
 
 ## Foreign matrix
 
@@ -133,7 +139,7 @@ forUser.can('comment', 'read').allowed; // -> true
 | `permit<O>(...conditions)` / `eq` / `contains` / `and` / `or` / `always` | Build a permission's rules.                                                      |
 | `access.can(subject, key, action, object?, now?)`                        | One decision.                                                                    |
 | `access.canMany(...)`                                                    | A decision array, parallel to the input.                                         |
-| `access.canFields(...)`                                                  | The field-level decision for one axis.                                           |
+| `access.canFields(...)`                                                  | The field-level decision for one axis, plus the action decision gating it.       |
 | `access.capabilities(subject)`                                           | Every action-level decision.                                                     |
 | `access.authorize(subject)`                                              | A bound handle for server-side evaluation.                                       |
 

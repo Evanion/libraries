@@ -41,6 +41,7 @@ export type {
   EvaluationContext,
   FieldConfig,
   FieldDecision,
+  FieldOutcome,
   FieldReason,
   FieldRules,
   FieldState,
