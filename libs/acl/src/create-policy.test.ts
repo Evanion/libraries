@@ -130,6 +130,105 @@ describe('createPolicy', () => {
     expect(fd.fields['status']).toBe('denied');
   });
 
+  it('canFields is not allowed when the action is denied', () => {
+    const withFields = createPolicy([
+      {
+        key: 'comment.update',
+        object: 'comment',
+        action: 'update',
+        rules: [
+          {
+            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+        fields: { fields: ['*'] },
+      },
+    ]);
+    const stranger = { id: 'OTHER' };
+    const fd = withFields.canFields(
+      stranger,
+      'comment',
+      'update',
+      { authorId: 's1', body: 'hi' },
+      'write',
+    );
+    expect(fd.allowed).toBe(false);
+    expect(fd.action).toMatchObject({
+      key: 'comment.update',
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+    // The maps still say what would be editable once the action is unblocked.
+    expect(fd.fields).toEqual({ authorId: 'allowed', body: 'allowed' });
+  });
+
+  it('canFields is not allowed when a dependency blocks the action', () => {
+    const withFields = createPolicy([
+      ...cascade,
+      {
+        key: 'article.retitle',
+        object: 'article',
+        action: 'retitle',
+        dependsOn: ['article.update'],
+        rules: [{ id: 'anyone', when: [] }],
+        fields: { fields: ['*'] },
+      },
+    ]);
+    const reader = { id: 's2', roles: ['reader'] };
+    const fd = withFields.canFields(
+      reader,
+      'article',
+      'retitle',
+      { title: 't' },
+      'write',
+    );
+    expect(fd.allowed).toBe(false);
+    expect(fd.action).toMatchObject({
+      reason: 'dependency-off',
+      blockedBy: 'article.update',
+    });
+  });
+
+  it('canFields is allowed when the action and every field are allowed', () => {
+    const withFields = createPolicy([
+      {
+        key: 'comment.update',
+        object: 'comment',
+        action: 'update',
+        rules: [
+          {
+            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+        fields: { fields: ['*'] },
+      },
+    ]);
+    const fd = withFields.canFields(
+      { id: 's1' },
+      'comment',
+      'update',
+      { authorId: 's1' },
+      'write',
+    );
+    expect(fd.allowed).toBe(true);
+    expect(fd.action).toMatchObject({ allowed: true, reason: 'allow' });
+  });
+
+  it('canFields on an unknown action names the unknown action', () => {
+    const access = createPolicy(matrix, { closed: true });
+    const fd = access.canFields(editor, 'comment', 'delete', {}, 'write');
+    expect(fd).toEqual({
+      allowed: false,
+      action: {
+        key: 'comment.delete',
+        allowed: false,
+        reason: 'unknown-action',
+      },
+      fields: {},
+      reasons: {},
+    });
+  });
+
   it('capabilities returns every action-level decision', () => {
     const access = createPolicy(matrix);
     const caps = access.capabilities(editor);

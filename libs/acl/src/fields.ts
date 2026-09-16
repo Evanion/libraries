@@ -1,8 +1,10 @@
 import type {
   EvaluationContext,
   FieldConfig,
-  FieldDecision,
+  FieldOutcome,
+  FieldReason,
   FieldRules,
+  FieldState,
   Permission,
 } from './types.js';
 
@@ -21,19 +23,30 @@ function allowed(name: string, names: readonly string[]): boolean {
   return names.includes(name);
 }
 
+/**
+ * One field's write decision under a `targets` or `transitions` config, with the
+ * reason it landed there.
+ *
+ * The two undecidable causes are distinct, and a `transitions` field can hit
+ * both at once. A missing current value outranks a missing proposed one: a
+ * complete object is the first thing the caller has to supply, and the edge
+ * cannot be read from either end without it.
+ */
 function decideConfig(
   field: string,
   config: FieldConfig,
   ctx: EvaluationContext,
   proposed?: Record<string, unknown>,
-): 'allowed' | 'denied' | 'unevaluable' {
+): { state: FieldState; reason: FieldReason } {
   const next = proposed?.[field];
 
   if ('targets' in config) {
-    if (next === undefined) return 'unevaluable';
+    if (next === undefined) {
+      return { state: 'unevaluable', reason: 'proposed-required' };
+    }
     return (config.targets as readonly unknown[]).includes(next)
-      ? 'allowed'
-      : 'denied';
+      ? { state: 'allowed', reason: 'allow' }
+      : { state: 'denied', reason: 'targets-failed' };
   }
 
   // transitions: read the current value off the object, check the edge.
@@ -42,11 +55,19 @@ function decideConfig(
     object && hasOwn(object, field)
       ? (object as Record<string, unknown>)[field]
       : undefined;
-  if (current === undefined) return 'unevaluable';
-  if (next === undefined) return 'unevaluable';
+  if (current === undefined) {
+    return { state: 'unevaluable', reason: 'missing-field' };
+  }
+  if (next === undefined) {
+    return { state: 'unevaluable', reason: 'proposed-required' };
+  }
   const edges = config.transitions[current as string];
-  if (!Array.isArray(edges)) return 'denied';
-  return edges.includes(next) ? 'allowed' : 'denied';
+  if (!Array.isArray(edges)) {
+    return { state: 'denied', reason: 'transition-failed' };
+  }
+  return edges.includes(next)
+    ? { state: 'allowed', reason: 'allow' }
+    : { state: 'denied', reason: 'transition-failed' };
 }
 
 /**
@@ -56,13 +77,17 @@ function decideConfig(
  * so a read field is allowed unless denied by the name list. Write applies the
  * per-field config. Missing data yields `unevaluable`, never a silent allow or
  * deny.
+ *
+ * Field rules are leaf-level and never cascade, so this answers the fields
+ * alone. The action-level gate is composed on top at the entry point, which is
+ * what makes the returned `allowed` a field-only claim.
  */
 export function decideFields(
   permission: Permission,
   ctx: EvaluationContext,
   axis: 'read' | 'write',
   proposed?: Record<string, unknown>,
-): FieldDecision {
+): FieldOutcome {
   const rules = permission.fields ?? {};
   const names = nameList(rules);
 
@@ -78,8 +103,8 @@ export function decideFields(
   );
   const allFields = [...new Set([...objectFields, ...ruleFields, ...listed])];
 
-  const fields: FieldDecision['fields'] = {};
-  const reasons: FieldDecision['reasons'] = {};
+  const fields: FieldOutcome['fields'] = {};
+  const reasons: FieldOutcome['reasons'] = {};
 
   for (const field of allFields) {
     const config = rules[field] as FieldConfig | undefined;
@@ -96,18 +121,9 @@ export function decideFields(
 
     // write axis
     if (config && ('targets' in config || 'transitions' in config)) {
-      const state = decideConfig(field, config, ctx, proposed);
+      const { state, reason } = decideConfig(field, config, ctx, proposed);
       fields[field] = state;
-      reasons[field] =
-        state === 'allowed'
-          ? 'allow'
-          : state === 'denied'
-            ? 'targets' in config
-              ? 'targets-failed'
-              : 'transition-failed'
-            : 'targets' in config
-              ? 'proposed-required'
-              : 'missing-field';
+      reasons[field] = reason;
       continue;
     }
 
