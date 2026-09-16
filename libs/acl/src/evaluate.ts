@@ -1,6 +1,7 @@
 import { evaluateCondition } from './conditions.js';
 import type {
   Cause,
+  Condition,
   Decision,
   EvaluationContext,
   Permission,
@@ -11,13 +12,40 @@ function ruleId(rule: Rule, index: number): string {
   return rule.id ?? `#${index}`;
 }
 
-/** The field paths a rule reads that sit on the object scope. */
-function objectDependent(rule: Rule): readonly string[] {
+/**
+ * The object-scope paths one condition reads. A condition is object-dependent
+ * through either operand: the field it reads or the path it compares against.
+ * A literal comparand (`{ field: 'object.status', value: 'published' }`) is as
+ * object-dependent as a path comparand.
+ */
+function objectPaths(condition: Condition): readonly string[] {
+  const paths: string[] = [];
+  if (condition.field.startsWith('object.')) paths.push(condition.field);
+  if ('path' in condition && condition.path?.startsWith('object.')) {
+    paths.push(condition.path);
+  }
+  return paths;
+}
+
+/**
+ * The object paths a rule cannot decide without an instance.
+ *
+ * Empty when an object-independent condition of the same `when` is already
+ * false: the conditions are AND-ed, so no object could make the rule hold, and
+ * the rule is a definite miss rather than an undecidable one.
+ */
+function undecidablePaths(
+  rule: Rule,
+  ctx: EvaluationContext,
+): readonly string[] {
   const missing: string[] = [];
   for (const condition of rule.when ?? []) {
-    if (!('path' in condition)) continue;
-    if (condition.field.startsWith('object.')) missing.push(condition.field);
-    if (condition.path?.startsWith('object.')) missing.push(condition.path);
+    const paths = objectPaths(condition);
+    if (paths.length === 0) {
+      if (!evaluateCondition(condition, ctx)) return [];
+      continue;
+    }
+    missing.push(...paths);
   }
   return missing;
 }
@@ -58,19 +86,23 @@ function rulesAllow(
     }
   }
 
-  // Every rule depends on an absent object, and none matched: the permission
-  // is unevaluable for the create case, not a definite deny.
-  const allDependOnObject = rules.every((rule) => objectDependent(rule).length > 0);
-  const objectMissing = ctx.object === undefined;
-  if (allDependOnObject && objectMissing && rules.length > 0) {
-    return {
-      unevaluable: {
-        key: permission.key,
-        allowed: false,
-        reason: 'unevaluable',
-        missing: [...new Set(rules.flatMap(objectDependent))],
-      },
-    };
+  // No rule matched. A rule whose object-independent conditions all hold and
+  // whose remaining conditions read an absent object is undecidable, so the
+  // permission is unevaluable for the create case rather than a definite deny.
+  if (ctx.object === undefined) {
+    const missing = [
+      ...new Set(rules.flatMap((rule) => undecidablePaths(rule, ctx))),
+    ];
+    if (missing.length > 0) {
+      return {
+        unevaluable: {
+          key: permission.key,
+          allowed: false,
+          reason: 'unevaluable',
+          missing,
+        },
+      };
+    }
   }
 
   return {
@@ -106,7 +138,10 @@ function rootCause(
       decision.reason !== 'dependency-off' ||
       decision.blockedBy === undefined
     ) {
-      const cause: Cause = { key: at, reason: decision?.reason ?? 'no-rule-matched' };
+      const cause: Cause = {
+        key: at,
+        reason: decision?.reason ?? 'no-rule-matched',
+      };
       if (decision?.rule) cause.rule = decision.rule;
       return cause;
     }

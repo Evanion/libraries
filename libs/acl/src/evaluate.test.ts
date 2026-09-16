@@ -22,9 +22,7 @@ describe('decide', () => {
       key: 'comment.update',
       rules: [
         {
-          when: [
-            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
-          ],
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
         },
       ],
     });
@@ -39,9 +37,7 @@ describe('decide', () => {
       key: 'comment.update',
       rules: [
         {
-          when: [
-            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
-          ],
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
         },
       ],
     });
@@ -57,9 +53,7 @@ describe('decide', () => {
       key: 'comment.update',
       rules: [
         {
-          when: [
-            { field: 'subject.roles', op: 'contains', value: 'editor' },
-          ],
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
         },
       ],
       denyRules: [
@@ -70,6 +64,138 @@ describe('decide', () => {
     expect(decide(perm, ctx2, resolved)).toMatchObject({
       allowed: false,
       reason: 'denied',
+    });
+  });
+
+  it('deny wins over a dependency that resolved off', () => {
+    const perm = p({
+      key: 'comment.publish',
+      dependsOn: ['comment.update'],
+      rules: [
+        {
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+      denyRules: [
+        { when: [{ field: 'object.status', op: 'eq', value: 'published' }] },
+      ],
+    });
+    const parentOff = new Map<string, Decision>([
+      [
+        'comment.update',
+        {
+          key: 'comment.update',
+          allowed: false,
+          reason: 'no-rule-matched',
+        },
+      ],
+    ]);
+    const ctx2 = { ...ctx, object: { authorId: 's1', status: 'published' } };
+    expect(decide(perm, ctx2, parentOff)).toMatchObject({
+      allowed: false,
+      reason: 'denied',
+    });
+  });
+
+  it('the conditions of one rule are AND-ed', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'editor' },
+            { field: 'object.status', op: 'eq', value: 'published' },
+          ],
+        },
+      ],
+    });
+    expect(decide(perm, ctx, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+  });
+
+  it('an object condition comparing against a literal is unevaluable with no instance', () => {
+    const perm = p({
+      key: 'comment.create',
+      rules: [
+        { when: [{ field: 'object.status', op: 'eq', value: 'published' }] },
+      ],
+    });
+    const noObj: EvaluationContext = { subject: { id: 's1' } };
+    expect(decide(perm, noObj, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.status'],
+    });
+  });
+
+  it('a rule whose subject branch already failed is no-rule-matched, not unevaluable', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'editor' },
+            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
+          ],
+        },
+      ],
+    });
+    const reader: EvaluationContext = {
+      subject: { id: 's1', roles: ['reader'] },
+    };
+    expect(decide(perm, reader, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+  });
+
+  it('unevaluable ranks below a matching allow rule', () => {
+    const perm = p({
+      key: 'comment.create',
+      rules: [
+        {
+          id: 'undecidable',
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+        },
+        {
+          id: 'editor',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    });
+    const noObj: EvaluationContext = {
+      subject: { id: 's1', roles: ['editor'] },
+    };
+    expect(decide(perm, noObj, resolved)).toMatchObject({
+      allowed: true,
+      reason: 'allow',
+      rule: 'editor',
+    });
+  });
+
+  it('unevaluable ranks above no-rule-matched', () => {
+    const perm = p({
+      key: 'comment.create',
+      rules: [
+        {
+          id: 'admin',
+          when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }],
+        },
+        {
+          id: 'author',
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+        },
+      ],
+    });
+    const noObj: EvaluationContext = {
+      subject: { id: 's1', roles: ['editor'] },
+    };
+    expect(decide(perm, noObj, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.authorId'],
     });
   });
 
@@ -86,9 +212,7 @@ describe('decide', () => {
       key: 'comment.create',
       rules: [
         {
-          when: [
-            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
-          ],
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
         },
       ],
     });
@@ -106,13 +230,13 @@ describe('decide', () => {
       rules: [
         { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
         {
-          when: [
-            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
-          ],
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
         },
       ],
     });
-    const noObj: EvaluationContext = { subject: { id: 's1', roles: ['admin'] } };
+    const noObj: EvaluationContext = {
+      subject: { id: 's1', roles: ['admin'] },
+    };
     expect(decide(perm2, noObj, resolved)).toMatchObject({
       allowed: true,
       reason: 'allow',
@@ -126,9 +250,7 @@ describe('decide', () => {
       dependsOn: ['article.update'],
       rules: [
         {
-          when: [
-            { field: 'subject.roles', op: 'contains', value: 'editor' },
-          ],
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
         },
       ],
     });

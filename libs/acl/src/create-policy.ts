@@ -98,6 +98,29 @@ function resolve(
   return resolved;
 }
 
+/**
+ * The transitive dependencies of `key` plus `key` itself, in the graph's
+ * dependency order. Resolving this slice decides one permission's cascade
+ * without folding over the whole matrix.
+ */
+function cascadeOf(
+  index: Map<string, Permission>,
+  order: readonly string[],
+  key: string,
+): readonly string[] {
+  const needed = new Set<string>([key]);
+  const queue = [key];
+  while (queue.length) {
+    const at = queue.pop() as string;
+    for (const parent of index.get(at)?.dependsOn ?? []) {
+      if (needed.has(parent)) continue;
+      needed.add(parent);
+      queue.push(parent);
+    }
+  }
+  return order.filter((k) => needed.has(k));
+}
+
 export function createPolicy(
   matrix: Matrix,
   options: AccessOptions = {},
@@ -126,6 +149,27 @@ export function createPolicy(
     throw new UnknownPermissionError(`${key}.${action}`);
   };
 
+  const cascades = new Map<string, readonly string[]>();
+  const cascadeFor = (key: string): readonly string[] => {
+    const cached = cascades.get(key);
+    if (cached) return cached;
+    const slice = cascadeOf(index, graph.order, key);
+    cascades.set(key, slice);
+    return slice;
+  };
+
+  /**
+   * One permission's decision with its `dependsOn` cascade resolved against the
+   * same context, so every entry point answers what `capabilities` answers.
+   */
+  const decideCascaded = (
+    permission: Permission,
+    ctx: EvaluationContext,
+  ): Decision => {
+    const resolved = resolve(index, cascadeFor(permission.key), ctx);
+    return resolved.get(permission.key) as Decision;
+  };
+
   const ctxWith = (
     subject: Subject,
     object: Record<string, unknown> | undefined,
@@ -152,7 +196,7 @@ export function createPolicy(
         reason: 'unknown-action',
       };
     }
-    return decide(permission, ctxWith(subject, object, now), new Map());
+    return decideCascaded(permission, ctxWith(subject, object, now));
   };
 
   const canMany = (
@@ -172,7 +216,7 @@ export function createPolicy(
       }));
     }
     return objects.map((object) =>
-      decide(permission, ctxWith(subject, object, now), new Map()),
+      decideCascaded(permission, ctxWith(subject, object, now)),
     );
   };
 
@@ -188,7 +232,12 @@ export function createPolicy(
     objectFor(key);
     const permission = permissionFor(key, action);
     if (!permission) return { allowed: false, fields: {}, reasons: {} };
-    return decideFields(permission, ctxWith(subject, object, now), axis, proposed);
+    return decideFields(
+      permission,
+      ctxWith(subject, object, now),
+      axis,
+      proposed,
+    );
   };
 
   const capabilities = (
@@ -200,10 +249,7 @@ export function createPolicy(
     return Object.fromEntries(resolved);
   };
 
-  const authorize = (
-    subject: Subject,
-    opts?: { now?: Date },
-  ): Authorized => {
+  const authorize = (subject: Subject, opts?: { now?: Date }): Authorized => {
     const now = opts?.now ?? new Date();
     return {
       can: (key, action, object) => can(subject, key, action, object, now),
