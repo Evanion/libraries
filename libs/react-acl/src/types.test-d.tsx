@@ -11,6 +11,7 @@ import type {
   Access,
   Decision,
   FieldDecision,
+  Instant,
   PolicyProviderProps,
   Subject,
 } from './index.js';
@@ -34,10 +35,28 @@ describe('the provider', () => {
     expectTypeOf<PolicyProviderProps['subject']>().toEqualTypeOf<Subject>();
   });
 
-  it('reads only `now` off the context', () => {
+  it('reads only `now` off the context, in any instant form', () => {
     expectTypeOf<PolicyProviderProps['context']>().toEqualTypeOf<
-      { now?: Date } | undefined
+      { now?: Instant } | undefined
     >();
+  });
+
+  it('accepts a hydrated `now` that never was a Date', () => {
+    const iso = (
+      <PolicyProvider
+        access={access}
+        subject={subject}
+        context={{ now: '2026-01-01T00:00:00Z' }}
+      />
+    );
+    const epoch = (
+      <PolicyProvider
+        access={access}
+        subject={subject}
+        context={{ now: Date.parse('2026-01-01T00:00:00Z') }}
+      />
+    );
+    void [iso, epoch];
   });
 
   it('requires both the access object and the subject', () => {

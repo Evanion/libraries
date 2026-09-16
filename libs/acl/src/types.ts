@@ -7,8 +7,12 @@ export type ObjectKey = string;
 export type Action = string;
 
 /**
- * An instant, for a `now` condition. A string is parsed as ISO 8601, a number
- * as epoch milliseconds.
+ * An instant, for a `now` condition or a context clock. A string is parsed as
+ * ISO 8601, a number as epoch milliseconds. The string and number forms survive
+ * a JSON round trip, so an SSR hydration payload carries one unchanged.
+ *
+ * An instant that does not parse is not an error: the `before`/`after`
+ * conditions reading it fail.
  */
 export type Instant = string | number | Date;
 
@@ -56,7 +60,12 @@ export type ConditionOutcome =
 export interface EvaluationContext {
   subject: Record<string, unknown>;
   object?: Record<string, unknown>;
-  now?: Date;
+  /**
+   * The clock instant the `now` conditions read. Any `Instant` form, so a
+   * hydrated context needs no conversion at the call site. It is settled to a
+   * single epoch once per entry point, before any condition is evaluated.
+   */
+  now?: Instant;
 }
 
 /**

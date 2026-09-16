@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPolicy } from './create-policy.js';
 import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
-import type { Matrix } from './types.js';
+import type { Instant, Matrix } from './types.js';
 
 const matrix: Matrix = [
   {
@@ -345,5 +345,90 @@ describe('createPolicy', () => {
         missing: ['object.locked'],
       },
     });
+  });
+});
+
+/** Open from 2026-01-01; the clock decides every entry point below. */
+const timed: Matrix = [
+  {
+    key: 'comment.update',
+    object: 'comment',
+    action: 'update',
+    rules: [
+      {
+        id: 'window',
+        when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+      },
+    ],
+    fields: { fields: ['body'] },
+  },
+];
+
+const OPEN = '2026-06-01T00:00:00Z';
+const SHUT = '2025-06-01T00:00:00Z';
+
+/** Every entry point's answer for one instant, in one comparable shape. */
+function answers(now: Instant | undefined) {
+  const access = createPolicy(timed);
+  const object = { id: 'c1', body: 'hi' };
+  return {
+    can: access.can(editor, 'comment', 'update', object, now).allowed,
+    canMany: access
+      .canMany(editor, 'comment', 'update', [object], now)
+      .map((d) => d.allowed),
+    canFields: access.canFields(
+      editor,
+      'comment',
+      'update',
+      object,
+      'write',
+      { body: 'x' },
+      now,
+    ).allowed,
+    capabilities: access.capabilities(editor, now)['comment.update']!.allowed,
+    authorize: access.authorize(editor, { now }).can('comment', 'update')
+      .allowed,
+  };
+}
+
+describe('the context clock', () => {
+  it('takes a string, a number and a Date, and all three agree', () => {
+    const epoch = Date.parse(OPEN);
+    const open = [OPEN, epoch, new Date(epoch)].map(answers);
+    for (const answer of open) {
+      expect(answer).toEqual(answers(new Date(epoch)));
+      expect(answer.can).toBe(true);
+    }
+
+    const shut = [SHUT, Date.parse(SHUT), new Date(SHUT)].map(answers);
+    for (const answer of shut) {
+      expect(answer).toEqual(answers(new Date(SHUT)));
+      expect(answer.can).toBe(false);
+    }
+  });
+
+  it('accepts a now round-tripped through JSON', () => {
+    const hydrated = JSON.parse(JSON.stringify({ now: new Date(OPEN) })) as {
+      now: string;
+    };
+    expect(answers(hydrated.now)).toEqual(answers(new Date(OPEN)));
+    expect(answers(hydrated.now).can).toBe(true);
+  });
+
+  it('denies every entry point on a now that does not parse, without throwing', () => {
+    for (const now of ['not a date', Number.NaN, new Date('not a date')]) {
+      expect(() => answers(now)).not.toThrow();
+      expect(answers(now)).toEqual({
+        can: false,
+        canMany: [false],
+        canFields: false,
+        capabilities: false,
+        authorize: false,
+      });
+    }
+  });
+
+  it('defaults an omitted now to the wall clock', () => {
+    expect(answers(undefined).can).toBe(true);
   });
 });

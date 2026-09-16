@@ -138,6 +138,63 @@ describe('evaluateCondition', () => {
     );
   });
 
+  it('reads every instant form of now, and all three agree', () => {
+    const iso = '2026-01-01T00:00:00Z';
+    const epoch = Date.parse(iso);
+    const window: Condition = {
+      field: 'now',
+      op: 'after',
+      value: '2020-01-01T00:00:00Z',
+    };
+    const forms = [iso, epoch, new Date(epoch)];
+    for (const now of forms) {
+      expect(state(window, { ...ctx, now })).toBe('holds');
+      expect(
+        state(
+          { field: 'now', op: 'before', value: '2020-01-01T00:00:00Z' },
+          {
+            ...ctx,
+            now,
+          },
+        ),
+      ).toBe('fails');
+    }
+  });
+
+  it('a now that does not parse fails the condition rather than throwing', () => {
+    const window: Condition = {
+      field: 'now',
+      op: 'after',
+      value: '2020-01-01T00:00:00Z',
+    };
+    for (const now of ['not a date', Number.NaN, new Date('not a date')]) {
+      expect(() => state(window, { ...ctx, now })).not.toThrow();
+      expect(state(window, { ...ctx, now })).toBe('fails');
+      expect(state({ ...window, op: 'before' }, { ...ctx, now })).toBe('fails');
+    }
+  });
+
+  it('an absent now fails a time condition', () => {
+    const clockless: EvaluationContext = { subject: ctx.subject };
+    expect(
+      state(
+        { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
+        clockless,
+      ),
+    ).toBe('fails');
+  });
+
+  it('a context round-tripped through JSON still decides its time window', () => {
+    const hydrated = JSON.parse(JSON.stringify(ctx)) as EvaluationContext;
+    expect(typeof hydrated.now).toBe('string');
+    expect(
+      state(
+        { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
+        hydrated,
+      ),
+    ).toBe('holds');
+  });
+
   it('an absent object instance makes object-dependent conditions undecidable', () => {
     const noObj: EvaluationContext = { subject: { id: 's1' } };
     expect(

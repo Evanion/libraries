@@ -117,6 +117,26 @@ spreads subject and object into a single flat bag, because fields can collide
 (`id` on the subject and `id` on the object would silently overwrite) — a
 silent-allow or silent-deny bug. Namespacing is the load-bearing decision.
 
+### The clock
+
+`now` is an `Instant` — `string | number | Date` — everywhere it is accepted: on
+`EvaluationContext` and as the argument to `can`, `canMany`, `canFields`,
+`capabilities` and `authorize`. It is the same type a `before`/`after` condition
+value takes, so a context that crossed a JSON boundary (every SSR hydration
+payload) is passed straight through and no adapter converts at the call site.
+
+Each entry point settles `now` to epoch milliseconds once, before any condition
+is evaluated, so a matrix with many time conditions parses the clock once. An
+omitted `now` is the wall clock at the entry point.
+
+An instant that does not parse — `'not a date'`, `NaN`, an `Invalid Date` — is
+not an error: evaluation is total. A `before`/`after` condition **fails** when
+its clock does not parse, which is what it already does when its boundary value
+does not parse. Failing, not undecidable: an unparseable instant is not an
+`object.*` projection the caller can fill in, so nothing would make the rule
+hold. The permission lands on `no-rule-matched`, and a deny rule over an
+unparseable clock does not deny.
+
 Construction validates that every condition field resolves within one of the
 three namespaces. For a foreign matrix the check is namespace-only (the engine
 has no types to check field names against); for the typed authoring path, field

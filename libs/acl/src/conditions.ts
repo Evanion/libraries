@@ -5,19 +5,53 @@ import type {
   Instant,
 } from './types.js';
 
-function toEpoch(value: Instant): number {
+/**
+ * Epoch milliseconds for an instant. NaN for a string that does not parse and
+ * for an `Invalid Date`, which every caller reads as "this instant does not
+ * decide anything".
+ */
+export function toEpoch(value: Instant): number {
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'number') return value;
   return new Date(value).getTime();
 }
 
 /**
+ * A context whose clock is settled: `now` is epoch milliseconds, NaN when it is
+ * absent or does not parse. The public `EvaluationContext` takes any `Instant`;
+ * every entry point settles it once through `resolveContext` so a matrix with
+ * many time conditions parses the clock once.
+ */
+export interface ResolvedContext {
+  subject: Record<string, unknown>;
+  object?: Record<string, unknown>;
+  now: number;
+}
+
+/** The epoch a context `now` settles to. NaN when absent or unparseable. */
+export function settleNow(now: Instant | null | undefined): number {
+  return now === null || now === undefined ? Number.NaN : toEpoch(now);
+}
+
+/** Settles a caller's context into the form the engine evaluates against. */
+export function resolveContext(ctx: EvaluationContext): ResolvedContext {
+  return {
+    subject: ctx.subject,
+    object: ctx.object,
+    now: settleNow(ctx.now),
+  };
+}
+
+/**
  * Reads a namespaced path ("subject.id", "object.authorId") or the bare "now"
  * from a context, with a hasOwnProperty guard so prototype-chain fields never
  * resolve. Returns undefined when the scope or field is absent.
+ *
+ * A bare "now" reads as the settled epoch, so an `eq`-family condition over it
+ * compares numbers. A clock that did not settle reads as absent.
  */
-function readPath(ctx: EvaluationContext, path: string): unknown {
-  if (path === 'now') return ctx.now;
+function readPath(ctx: ResolvedContext, path: string): unknown {
+  if (path === 'now') return Number.isNaN(ctx.now) ? undefined : ctx.now;
   const dot = path.indexOf('.');
   if (dot === -1) return undefined;
   const scope = path.slice(0, dot);
@@ -54,25 +88,24 @@ function isObjectPath(path: string): boolean {
 }
 
 /**
- * How a condition stands against a context. Never throws.
+ * How a condition stands against a settled context. Never throws.
  *
  * Absence is undecidable for every operator, negative ones included: `ne` over
  * a path that does not read is not "true because it is not equal".
+ *
+ * A clock or a boundary that does not parse fails the condition. Neither is an
+ * `object.*` projection the caller can fill in, so neither is undecidable.
  */
-export function evaluateCondition(
+export function evaluateResolved(
   condition: Condition,
-  ctx: EvaluationContext,
+  ctx: ResolvedContext,
 ): ConditionOutcome {
   if (condition.op === 'before' || condition.op === 'after') {
     const now = ctx.now;
-    if (!(now instanceof Date) || Number.isNaN(now.getTime())) return FAILS;
+    if (Number.isNaN(now)) return FAILS;
     const boundary = toEpoch(condition.value);
     if (Number.isNaN(boundary)) return FAILS;
-    return held(
-      condition.op === 'before'
-        ? now.getTime() < boundary
-        : now.getTime() > boundary,
-    );
+    return held(condition.op === 'before' ? now < boundary : now > boundary);
   }
 
   const missing: string[] = [];
@@ -124,4 +157,17 @@ export function evaluateCondition(
     default:
       return FAILS;
   }
+}
+
+/**
+ * How one condition stands against a caller's context. Never throws.
+ *
+ * This is the single-condition entry point, so it settles the clock itself. The
+ * engine settles once per call and uses `evaluateResolved`.
+ */
+export function evaluateCondition(
+  condition: Condition,
+  ctx: EvaluationContext,
+): ConditionOutcome {
+  return evaluateResolved(condition, resolveContext(ctx));
 }
