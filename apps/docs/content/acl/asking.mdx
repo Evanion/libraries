@@ -1,0 +1,87 @@
+# Can this user do this?
+
+<WorkshopNotice slug="acl" />
+
+`can(subject, key, action, object?, now?)`. It answers with a decision.
+
+```ts file=libs/acl/README.md region=quick-start
+
+```
+
+## Why the answer is not a boolean
+
+A boolean is enough to enforce and not enough to render. Every UI that shows a
+disabled control eventually has to say why it is disabled, and the alternatives
+to carrying the reason are a second call that re-derives it or a string the app
+guesses from context.
+
+So `allowed` is the answer and four more fields are the explanation:
+
+| Field       | Present on                       | What it is                                  |
+| ----------- | -------------------------------- | ------------------------------------------- |
+| `rule`      | `allow`, `denied`, `unevaluable` | the rule that decided, by `id` or `#n`      |
+| `blockedBy` | `dependency-off`                 | the dependency edge this permission died on |
+| `cause`     | `dependency-off`                 | the first ancestor off for its own reason   |
+| `missing`   | `unevaluable`                    | the paths that did not read                 |
+
+All of them are output only. Nothing in the library reads a `reason` back to
+decide anything, which cuts both ways: **gate on `allowed`**, because gating on
+the reason string grants what the engine refused. [Why was this
+refused?](/acl/refusals) is what to do with the rest.
+
+## The four things that can come back
+
+```ts file=libs/acl/README.md region=four-outcomes
+
+```
+
+Default deny is the floor — no rules, an empty rule list, an unknown action or a
+parent that is off all refuse. Above it, a matched deny outranks a matching
+allow, and a deny the engine could not read refuses as well.
+
+## Asking about a list
+
+`canMany` takes the instances and answers per instance:
+
+```ts file=libs/acl/README.md region=can-many
+
+```
+
+The array is parallel to the input, so the decision for `rows[i]` is
+`decisions[i]`. Nothing is filtered out — a refused row keeps its entry, which
+is what lets a table render the refusal beside the row rather than dropping it
+and leaving a reader wondering what happened to the record they can see in
+search.
+
+### What it costs
+
+`canMany` is not a bulk optimisation. It resolves each instance's cascade
+separately, because a cascade reads the object and the objects differ. What it
+does save over a loop of `can` is paid once instead of per row:
+
+- **the clock.** `now` is parsed into a single epoch for the whole list. A loop
+  of `can` with no `now` reads `Date.now()` per row, so a time window can close
+  partway down the page.
+- **the object-kind lookup.** Each `can` scans the permission list to check the
+  object kind exists. `canMany` scans once.
+
+For a list of rows the clock is the reason to prefer it. One settled instant for
+one rendering is a correctness property, not a speed one.
+
+## Binding what does not change
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+`authorize(subject, { now })` binds the subject and the clock, and returns
+`can`, `canMany`, `canFields` and `capabilities` with both dropped from each
+signature. On a typed policy `access.object(key)` binds the other axis — one
+object kind, so the key is named once — and the two compose.
+
+## Where to go next
+
+- [Why was this refused?](/acl/refusals) — the explanation fields, and what a UI
+  does with each
+- [What can they do at all?](/acl/capabilities) — the no-object question
+- [Caveats and pitfalls](/acl/pitfalls) — starting with what `allowed` means

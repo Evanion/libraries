@@ -1,0 +1,93 @@
+# Simple setup
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Inside this repository the package resolves from source like any other
+    workspace package, so the example below runs as written.
+  </Text>
+</WorkshopNotice>
+
+The smallest thing that works: a handful of permissions, conditions that read
+only the subject, one process, and `can`. Five minutes.
+
+## What makes this tier the simple one
+
+A condition reads either the subject or the object. Reading only the subject is
+what keeps this tier small, and it is a real line rather than a teaching
+simplification:
+
+- The subject is resolved whole before the call, so no field of it is ever
+  missing by accident. Every permission answers `true` or `false` and nothing
+  answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+- No instance has to be fetched to ask a question, so `can` takes three
+  arguments and [`capabilities`](/acl/capabilities) answers the whole matrix at
+  once.
+
+Crossing that line — a rule such as "the author may edit their own comment" —
+is what [the intermediate tier](/acl/intermediate) is.
+
+## Install
+
+```bash
+npm install @evanion/acl
+```
+
+ESM only, Node 20 or newer, and no framework in the import graph.
+
+## Write the matrix
+
+A matrix is a JSON envelope over a flat list of permissions. Each permission
+carries a `key` of exactly `` `${object}.${action}` ``, and a list of allow
+rules whose conditions are AND-ed. At this tier `capabilities` answers the whole
+document at once, so the policy and every answer it gives fit in one block:
+
+```ts file=libs/acl/README.md region=capabilities
+
+```
+
+Nothing is allowed without an allow rule that matched. `report.export` has a
+rule, the rule did not match, and the decision is `no-rule-matched` — default
+deny is the floor, not something to configure.
+
+## Ask
+
+`can` returns a decision, not a boolean:
+
+```ts
+const decision = access.can({ id: 'u1', roles: ['staff'] }, 'report', 'read');
+// { key: 'report.read', allowed: true, reason: 'allow', rule: '#0' }
+```
+
+`allowed` is the answer. Gate on it and nothing else — `reason` is output only,
+and gating on the reason string grants what the engine refused.
+
+## Bind the subject once
+
+A server resolves the subject from the session and then asks many questions
+about it. `authorize` binds it so no handler restates it:
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+That handle carries `can`, `canMany`, `canFields` and `capabilities` with the
+subject dropped from each signature. It is also what makes the guarded path the
+short one to write, which is the only lever the library has on [complete
+mediation](/acl/security#complete-mediation).
+
+<Panel heading="This decision is authoritative only where it is made">
+  <Text as="div" size="sm">
+    The same call in a browser toggles what a user sees and enforces nothing.
+    Hiding a button hides the button, not the request the button would have
+    sent. Read [the security contract](/acl/security) before this reaches
+    production.
+  </Text>
+</Panel>
+
+## Where to go next
+
+- [Intermediate setup](/acl/intermediate) — conditions that read the row, the
+  typed builder, field permissions and the write path
+- [Can this user do this?](/acl/asking) — the decision shape, and asking about a
+  list
+- [What can they do at all?](/acl/capabilities) — driving a menu from one call

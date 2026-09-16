@@ -1,0 +1,127 @@
+# Advanced setup
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Every example on this page is a region of `libs/acl/README.md` and runs
+    under `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+What [the intermediate tier](/acl/intermediate) leaves out is everything that
+follows from the document outliving the process that wrote it: a permission
+graph, a declared shape a foreign consumer can check against, and a version that
+says which document decided.
+
+## Permissions that gate other permissions
+
+`dependsOn` names permissions that must resolve on for this one to resolve on.
+A parent that is off takes its dependants with it, transitively, and nothing is
+written back into the document.
+
+```ts file=libs/acl/README.md region=cascade
+
+```
+
+The graph is what stops a matrix becoming a copy-paste of the same condition on
+twelve permissions. Cycles are refused at construction with `FeatureCycleError`,
+and a cascade is resolved once per permission rather than once per edge.
+
+`blockedBy` is the edge; `cause` walks past it to the first ancestor off for a
+reason of its own. A repairable cause keeps its `missing` paths on the way down,
+so a dependant three levels deep still knows what to fetch.
+
+## Declare the shape
+
+A document may declare the shapes its conditions read. The schema is optional
+for a producer and binding when present.
+
+```ts file=libs/acl/README.md region=schema-binding
+
+```
+
+Field types are flat strings — `string`, `number`, `boolean`, `instant`, a `[]`
+suffix for an array, a `?` suffix for a field that may be absent — so a producer
+in any language emits the whole schema by reflection.
+
+Two checks, both at construction: a condition naming an undeclared field is
+`UnknownFieldError`; an operator or comparand that does not fit the declared
+type is `FieldTypeMismatchError`. Granularity is per kind, so a permission on a
+kind absent from `schema.objects` is unchecked.
+
+A typed author already has the field-existence guarantee from TypeScript. The
+schema is what carries it across the wire, because the document travels and the
+types do not:
+
+```ts file=libs/acl/README.md region=typed-document
+
+```
+
+The two are checked independently and can disagree. A path TypeScript accepts is
+still an `UnknownFieldError` when the schema does not declare it — the schema is
+binding wherever it is present.
+
+## Drive a UI from the whole matrix
+
+`capabilities` resolves every permission in the document against one subject, in
+dependency order, in a single pass:
+
+```ts file=libs/acl/README.md region=capabilities
+
+```
+
+It passes no object, so every permission whose rules read `object.*` decides
+`unevaluable` rather than true or false. That is the contract rather than a
+shortfall — without an instance there is nothing to compare against — and it is
+why [What can they do at all?](/acl/capabilities) is about the half of a matrix
+that reads only the subject.
+
+## Adopt a document somebody else wrote
+
+`parseMatrix` is `createPolicy` with `closed: true`. The key universe is
+untrusted, so an unknown object kind or action fails closed instead of throwing.
+
+```ts file=libs/acl/README.md region=foreign-matrix
+
+```
+
+The difference is between a bug and a data problem. A key the local typed policy
+does not carry is a programmer error and throws `UnknownPermissionError`. A key a
+foreign document does not carry is a document that has moved on, and throwing
+there would take down a page over a permission nobody has. [My policy came from
+another service](/acl/adopting) is the whole story.
+
+## Version the document, and revalidate against it
+
+`version` is a string or a number and the contract compares it with `!==`, so a
+content digest or a composite such as `orders@7+veto@41` works where a counter
+cannot. The document states what a producer shipped; `createPolicy(matrix, {
+version })` states what this construction site is actually running, which the
+producer cannot know. The option wins, and the frozen `access.matrix` carries the
+winner.
+
+```ts file=libs/acl/README.md region=matrix-round-trip
+
+```
+
+## End of the tier: fetch and revalidate
+
+A client holds the matrix it last fetched. When a permission is revoked, that
+client keeps granting it until it refetches, and it has no way to notice. The
+library supplies the comparison and nothing else:
+
+```ts file=libs/acl/README.md region=revalidate
+
+```
+
+There is no push, no expiry and no staleness flag. A document that states no
+`version` leaves `access.version` undefined, where a `!==` decides nothing — so
+a producer that wants the contract to hold states one. The server never depends
+on a client's copy in any case, because it evaluates its own.
+
+## Where to go next
+
+- [Many services](/acl/federation) — one matrix per service, namespaced kinds,
+  and what a gateway holds
+- [Caveats and pitfalls](/acl/pitfalls) — including the two gaps this tier is
+  most likely to walk into
+- [Security contract](/acl/security) — what remains yours

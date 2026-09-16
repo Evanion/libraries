@@ -1,0 +1,112 @@
+# Intermediate setup
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Every example on this page is a region of `libs/acl/README.md` and runs
+    under `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+One decision separates this tier from [the simple one](/acl/simple): a condition
+that reads the row. "The author may edit their own comment" cannot be answered
+from the subject alone, and everything below follows from that.
+
+## What crossing the line brings with it
+
+| Because a condition reads the object | You now need                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| the object can be a projection       | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) and one refetch      |
+| a path can be misspelled             | [the typed builder](/acl/authoring), which makes it a compile error                |
+| a list is many instances             | [`canMany`](/acl/asking#asking-about-a-list), one settled clock for the whole list |
+| a row has parts                      | [field permissions](/acl/writing) and `pickAllowedFields` on the write             |
+
+## Author with the typed builder
+
+`policy<Subject>()` names the subject once. Each `.for()` binds one object kind
+to its type and hands the condition helpers to a block, so a typo in an
+`object.*` or `subject.*` path is a compile error rather than a permission that
+never decides.
+
+```ts file=libs/acl/README.md region=typed-authoring
+
+```
+
+An operand is read as a path when its type matches
+`` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal
+otherwise. That shape is the only discriminator, which is what makes
+`p.eq('object.status', 'published')` a comparison against a string and
+`p.eq('object.authorId', 'subject.idd')` a compile error naming the path.
+
+The builder flattens to the canonical matrix on the first query, so
+`JSON.stringify(access.matrix)` emits the document a foreign producer would.
+
+## Read the decision, not just the boolean
+
+A rule that reads the row has four outcomes rather than two, and a UI wants all
+four:
+
+```ts file=libs/acl/README.md region=four-outcomes
+
+```
+
+Default deny is the floor. An allow rule grants, a matched deny outranks a
+matching allow, and a deny the engine could not read refuses too. The fourth
+line is the one that is new at this tier: a projection carrying neither field
+decides `unevaluable`, and `missing` names what to fetch.
+
+<Panel heading="`unevaluable` is not `denied`">
+  <Text as="div" size="sm">
+    `allowed` is already `false`, so nothing leaks. But the answer is
+    repairable: fetch what `missing` names and ask once more. A UI that renders
+    it as forbidden hides something the user can have. [Why was this
+    refused?](/acl/refusals) has both halves.
+  </Text>
+</Panel>
+
+## Explain a block
+
+Beyond `allowed`, a decision carries `reason`, `rule`, `blockedBy`, `cause` and
+`missing`. All five are output only — nothing in the library reads a reason back
+to decide anything, and gating on the reason string instead of on `allowed`
+grants what the engine refused.
+
+```ts file=libs/acl/README.md region=cascade
+
+```
+
+`dependsOn` is what makes one permission gate another. `blockedBy` is the edge
+this one died on, `cause` is the first ancestor off for a reason of its own —
+two different permissions in a chain of three, which is why both are carried.
+
+## Narrow the write
+
+An action-level decision answers "may this subject update this comment". A
+field-level one answers "which parts of it".
+
+```ts file=libs/acl/README.md region=field-permissions
+
+```
+
+`*` is the baseline and `!name` subtracts from it. The decision covers every key
+the object carries, every name in the rules, and — on the write axis — every key
+of the proposed write, including one the row has never held.
+
+## End of the tier: the write path
+
+```ts file=libs/acl/README.md region=write-path
+
+```
+
+`pickAllowedFields` is the write path. Pass its result to the ORM and pass only
+its result. Filtering the field map by hand is [the defect it
+exists to prevent](/acl/pitfalls#never-hand-filter-the-field-map): an
+`unevaluable` field is not a permitted one.
+
+## Where to go next
+
+- [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
+  what to write instead
+- [Advanced setup](/acl/advanced) — cascades, the schema, foreign documents,
+  versioning
+- [Which fields may they write?](/acl/writing) — the whole field axis, one task
+  at a time
