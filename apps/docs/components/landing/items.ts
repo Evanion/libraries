@@ -29,6 +29,12 @@ export const items = defineItems([
     props: { group: 'rendering' },
   },
   {
+    id: 'acl',
+    type: 'pair',
+    props: { group: 'acl' },
+    meta: { rule: true },
+  },
+  {
     id: 'identifiers',
     type: 'cards',
     props: { group: 'identifiers' },

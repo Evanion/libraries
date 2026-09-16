@@ -152,22 +152,76 @@ export function Hero({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * Rendering from data: the family, the concept, and the demo.
+ * The demonstration a section leads with: the demo, and the caption saying what
+ * the reader is looking at.
  *
- * The family comes first, level with the heading, so a reader has the name
- * before the demonstration. One teaser per family, carrying the name and a
- * chip per runtime the family reaches and nothing else: the section's own line
+ * Keyed by family the way `Specimen` is keyed by slug, and it draws its own
+ * figure, so a family with nothing to demonstrate renders nothing at all rather
+ * than an empty box in the family's hue. The caption belongs here and not in
+ * `Pair`, because what a reader has to be told is a property of the
+ * demonstration and not of the shape it sits in.
+ */
+function Showcase({ family }: { family: Family }) {
+  const body = demonstration(family);
+  if (!body) return null;
+  return (
+    <figure className={`landing-proof ${identity(family.lead)}`}>{body}</figure>
+  );
+}
+
+/** The demo and the caption for the families that have one. */
+function demonstration(family: Family) {
+  switch (family.id) {
+    // The concept is that a page is data and the library renders it, and the
+    // only thing that proves that is data a reader can change and a preview
+    // that follows. The editor opens on the same items the preview first
+    // renders, serialised here on the server, so nothing moves at hydration.
+    case 'widget':
+      return (
+        <>
+          <DataDemo initial={listing(demoItems)} />
+          <figcaption className="landing-proof__caption">
+            Edit the items and the preview follows. A type the map does not know
+            is reported, not rendered. This page is itself a {family.lead.title}{' '}
+            region, built the same way.
+          </figcaption>
+        </>
+      );
+    // What the package buys an application is an interface that rebuilds itself
+    // from a policy, and a sentence cannot show that where seven lines beside a
+    // working toolbar can.
+    case 'acl':
+      return (
+        <>
+          <AccessDemo />
+          <figcaption className="landing-proof__caption">
+            That is the whole policy, and every control on the toolbar is one of
+            its answers. Change who is signed in, or take a role out of a grant,
+            and the interface is rebuilt around what is left.
+          </figcaption>
+        </>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * A family, level with the group's own argument, and the demonstration under
+ * both.
+ *
+ * The shape the two flagship families take: the title and line on the left, the
+ * teaser on the right so a reader has the name before the demonstration, and the
+ * demonstration full width below. One teaser per family, carrying the name and a
+ * chip per runtime the family reaches and nothing else -- the section's own line
  * explains the concept once, and a paragraph each would say it twice more.
  *
- * The demo is the section. The concept is that a page is data and the library
- * renders it, and the only thing that proves that is data a reader can change
- * and a preview that follows. The editor opens on the same items the preview
- * first renders, serialised here on the server, so nothing moves at hydration.
+ * The demonstration is the section. Which one a family gets is `Showcase`'s
+ * decision, so this component is the shape and nothing else.
  */
 export function Pair({ group: id }: { group: string }) {
   const group = groupById(id);
   const families = familiesOf(group);
-  const lead = families[0]?.lead;
   return (
     <>
       <div className="landing-pair">
@@ -193,16 +247,9 @@ export function Pair({ group: id }: { group: string }) {
           ))}
         </ul>
       </div>
-      {lead ? (
-        <figure className={`landing-proof ${identity(lead)}`}>
-          <DataDemo initial={listing(demoItems)} />
-          <figcaption className="landing-proof__caption">
-            Edit the items and the preview follows. A type the map does not know
-            is reported, not rendered. This page is itself a {lead.title}{' '}
-            region, built the same way.
-          </figcaption>
-        </figure>
-      ) : null}
+      {families.map((family) => (
+        <Showcase key={family.id} family={family} />
+      ))}
     </>
   );
 }
@@ -279,31 +326,6 @@ export function Cards({ group: id }: { group: string }) {
 }
 
 /**
- * A family demonstrated under the rows, for the one that has a demonstration.
- *
- * A row is a name and a line, which is all most of these packages need on an
- * index. Authorization is worth a figure: what the package buys an application
- * is an interface that rebuilds itself from a policy, and a sentence cannot show
- * that where seven lines beside a working toolbar can.
- *
- * A family with nothing to demonstrate renders nothing rather than a
- * placeholder, which is the rule `Specimen` follows.
- */
-function Demonstration({ family }: { family: Family }) {
-  if (family.id !== 'acl') return null;
-  return (
-    <figure className={`landing-proof ${identity(family.lead)}`}>
-      <AccessDemo />
-      <figcaption className="landing-proof__caption">
-        That is the whole policy, and every control on the toolbar is one of its
-        answers. Change who is signed in, or take a role out of a grant, and the
-        interface is rebuilt around what is left.
-      </figcaption>
-    </figure>
-  );
-}
-
-/**
  * On their own: a row each.
  *
  * Rows rather than cards, because the group's reason for existing is that its
@@ -339,9 +361,6 @@ export function Rows({ group: id }: { group: string }) {
           </li>
         ))}
       </ul>
-      {families.map((family) => (
-        <Demonstration key={family.id} family={family} />
-      ))}
     </>
   );
 }
