@@ -8,9 +8,7 @@ import {
 } from '../../app/navigation';
 import AccessDemo from './AccessDemo';
 import DataDemo from './DataDemo';
-import { demoItems } from './demo';
 import { allFamilies, familiesOf, type Family } from './families';
-import { listing } from './listing';
 import { description } from './manifest';
 import LuhnSpecimen from './LuhnSpecimen';
 import { luhnBody, tokenSpecimen, urnSpecimen } from './specimens';
@@ -172,18 +170,19 @@ function Showcase({ family }: { family: Family }) {
 /** The demo and the caption for the families that have one. */
 function demonstration(family: Family) {
   switch (family.id) {
-    // The concept is that a page is data and the library renders it, and the
-    // only thing that proves that is data a reader can change and a preview
-    // that follows. The editor opens on the same items the preview first
-    // renders, serialised here on the server, so nothing moves at hydration.
+    // The concept is that the shape of a page is data, and what proves it is a
+    // page worth shipping next to the short list of items it came from, with
+    // the order and the nesting in the reader's hands.
     case 'widget':
       return (
         <>
-          <DataDemo initial={listing(demoItems)} />
+          <DataDemo />
           <figcaption className="landing-proof__caption">
-            Edit the items and the preview follows. A type the map does not know
-            is reported, not rendered. This page is itself a {family.lead.title}{' '}
-            region, built the same way.
+            Every block is a component somebody wrote once. The items decide
+            which blocks the page has, what sits inside what, and how wide each
+            one is — so a row moves on a CMS save rather than a deploy. Move a
+            container and everything nested under it goes with it. This page is
+            itself a {family.lead.title} region, built the same way.
           </figcaption>
         </>
       );
