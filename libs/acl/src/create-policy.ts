@@ -354,7 +354,8 @@ export function createPolicy(
   /**
    * The settled context for one call. `now` is parsed here and nowhere else, so
    * a matrix with many time conditions reads one epoch. An omitted `now` is the
-   * wall clock; one that does not parse stays NaN and fails its conditions.
+   * wall clock; one that does not parse stays NaN, and every permission whose
+   * decision reads it refuses with `unusable-clock`.
    */
   const ctxWith = (
     subject: Subject,
@@ -363,7 +364,7 @@ export function createPolicy(
   ): ResolvedContext => ({
     subject,
     object,
-    now: now === undefined ? Date.now() : settleNow(now),
+    now: settleNow(now),
   });
 
   const can = (
@@ -459,7 +460,7 @@ export function createPolicy(
     opts?: { now?: Instant },
   ): Authorized => {
     // Settled here so the bound handle carries an epoch every call reuses.
-    const now = opts?.now === undefined ? Date.now() : settleNow(opts.now);
+    const now = settleNow(opts?.now);
     return {
       can: (key, action, object) => can(subject, key, action, object, now),
       canMany: (key, action, objects) =>

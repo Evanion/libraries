@@ -11,8 +11,10 @@ export type Action = string;
  * ISO 8601, a number as epoch milliseconds. The string and number forms survive
  * a JSON round trip, so an SSR hydration payload carries one unchanged.
  *
- * An instant that does not parse is not an error: the `before`/`after`
- * conditions reading it fail.
+ * A condition boundary must parse: `validateMatrix` refuses a `before`/`after`
+ * value that does not. A context clock that does not parse is not an error
+ * either — it refuses. Every permission whose decision reads it lands on
+ * `unusable-clock`.
  */
 export type Instant = string | number | Date;
 
@@ -66,10 +68,14 @@ export type Condition =
  * `unevaluable` names the `object.*` paths that did not read, so a permission
  * can report them as `missing`. Rule matching is AND-ed over these: a `fails`
  * decides the rule whatever else is unevaluable.
+ *
+ * `unusable-clock` is the third non-answer: the condition reads the clock and
+ * the clock does not parse. It names no paths, because no fetch repairs it.
  */
 export type ConditionOutcome =
   | { state: 'holds' }
   | { state: 'fails' }
+  | { state: 'unusable-clock' }
   | { state: 'unevaluable'; missing: readonly string[] };
 
 /** The namespaced evaluation context. */
@@ -205,13 +211,23 @@ export interface Matrix {
   readonly permissions: readonly Permission[];
 }
 
+/**
+ * Why a decision landed where it did. Output only.
+ *
+ * `unevaluable` and `unusable-clock` both refuse and both mean "the engine could
+ * not reach an answer", and they are two reasons because the caller's move
+ * differs: `unevaluable` names paths in `missing` and one refetch settles it,
+ * `unusable-clock` says the instant the call supplied does not parse and only a
+ * different argument settles it.
+ */
 export type Reason =
   | 'allow'
   | 'no-rule-matched'
   | 'denied'
   | 'dependency-off'
   | 'unknown-action'
-  | 'unevaluable';
+  | 'unevaluable'
+  | 'unusable-clock';
 
 /** The root cause of a cascade: the first ancestor off for a non-dependency reason. */
 export interface Cause {
