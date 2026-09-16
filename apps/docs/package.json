@@ -23,6 +23,7 @@
   "dependencies": {
     "@evanion/acl": "*",
     "@evanion/baize-ui": "*",
+    "@evanion/compose": "*",
     "@evanion/luhn": "*",
     "@evanion/react-widget": "*",
     "@evanion/token": "*",

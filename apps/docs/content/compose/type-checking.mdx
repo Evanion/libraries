@@ -9,25 +9,61 @@ whether the check runs at all.
 
 ### Inline in JSX
 
-```tsx
+```tsx twoslash
+// @errors: 2322
+import * as React from 'react';
+import { ComposeProvider } from '@evanion/compose';
+
+const ThemeProvider = ({
+  children,
+}: React.PropsWithChildren<{
+  theme: 'light' | 'dark';
+  primaryColor: string;
+}>) => <div>{children}</div>;
+
+const App = () => <div />;
+// ---cut---
 <ComposeProvider
   providers={[
-    ThemeProvider, // ✗ ThemeProvider requires props
-    [ThemeProvider, { theme: 'dark' }], // ✗ missing primaryColor
-    [ThemeProvider, { theme: 'blue', primaryColor: '#fff' }], // ✗ 'blue'
-    [ThemeProvider, { theme: 'dark', primaryColor: '#fff', typo: 1 }], // ✗ typo
+    ThemeProvider,
+    [ThemeProvider, { theme: 'dark' }],
+    [ThemeProvider, { theme: 'blue', primaryColor: '#fff' }],
+    [ThemeProvider, { theme: 'dark', primaryColor: '#fff', typo: 1 }],
   ]}
 >
   <App />
-</ComposeProvider>
+</ComposeProvider>;
 ```
 
 A JSX attribute is a contextually typed position, so TypeScript infers the array
-as a literal tuple and every entry is checked.
+as a literal tuple and every entry is checked. The four diagnostics above are
+the compiler's, produced when this page was built;
+`libs/compose/src/Compose.test-d.tsx` asserts the same four under
+`@ts-expect-error`.
 
 ### Through `provider()`
 
-```tsx
+```tsx twoslash
+import * as React from 'react';
+import { provider } from '@evanion/compose';
+
+const ThemeProvider = ({
+  children,
+}: React.PropsWithChildren<{
+  theme: 'light' | 'dark';
+  primaryColor: string;
+}>) => <div>{children}</div>;
+
+const CacheProvider = ({
+  children,
+}: React.PropsWithChildren<{ value: string }>) => <div>{children}</div>;
+
+const ErrorBoundary = ({ children }: React.PropsWithChildren) => (
+  <div>{children}</div>
+);
+
+const emotionCache = 'cache';
+// ---cut---
 const providers = [
   ErrorBoundary,
   provider(CacheProvider, { value: emotionCache }),
@@ -41,21 +77,41 @@ while you are typing the object, which a bare tuple cannot offer.
 
 ### In a variable, unannotated
 
-```tsx
-const entry = [ThemeProvider, { theme: 'dark' }]; // no error here
+```tsx twoslash
+import * as React from 'react';
+
+const ThemeProvider = ({
+  children,
+}: React.PropsWithChildren<{
+  theme: 'light' | 'dark';
+  primaryColor: string;
+}>) => <div>{children}</div>;
+// ---cut---
+const entry = [ThemeProvider, { theme: 'dark' }];
+//    ^?
 ```
 
-TypeScript widens this to `(typeof ThemeProvider | { theme: string })[]`. The
-pairing between the component and its props is gone before `ComposeProvider`
-ever sees it. Two ways out:
+The pairing between the component and its props is gone before
+`ComposeProvider` ever sees it — the element type is a union, not a tuple. Two
+ways out:
 
-```tsx
-const providers = [
+```tsx twoslash
+import * as React from 'react';
+import { provider } from '@evanion/compose';
+import type { ProviderArray } from '@evanion/compose';
+
+const ThemeProvider = ({
+  children,
+}: React.PropsWithChildren<{
+  theme: 'light' | 'dark';
+  primaryColor: string;
+}>) => <div>{children}</div>;
+// ---cut---
+const viaHelper = [
   provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
 ];
 
-// or
-const providers = [
+const viaSatisfies = [
   [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }],
 ] satisfies ProviderArray;
 ```
@@ -96,7 +152,11 @@ there is nothing left to check entry by entry. `ValidatedProviders` detects that
 and resolves to plain `ProviderArray`, which is what lets a wrapper component
 compile:
 
-```tsx
+```tsx twoslash
+import * as React from 'react';
+import { ComposeProvider } from '@evanion/compose';
+import type { ProviderArray } from '@evanion/compose';
+// ---cut---
 function AppProviders({
   providers,
   children,

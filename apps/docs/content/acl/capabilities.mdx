@@ -5,7 +5,7 @@
 `capabilities(subject, now?)` resolves every permission in the document against
 one subject, keyed, in dependency order, in one pass.
 
-```ts file=libs/acl/README.md region=capabilities
+```ts twoslash file=libs/acl/README.md region=capabilities
 
 ```
 
@@ -39,8 +39,18 @@ the answer to every question that can be answered without a row.
 A navigation menu is exactly the object-free question: "is there any point
 showing this section". One call at the top of a render, one lookup per item.
 
-```ts
+```ts twoslash
+import { policy } from '@evanion/acl';
+
+const access = policy<{ id: string }>().for<'report', { ownerId: string }>(
+  'report',
+  (p) => p.allow('read', p.always),
+);
+
+const subject = { id: 's1' };
+// ---cut---
 const caps = access.capabilities(subject);
+//    ^?
 
 const items = [
   { href: '/reports', label: 'Reports', key: 'report.read' },
