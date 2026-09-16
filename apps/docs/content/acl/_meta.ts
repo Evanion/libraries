@@ -9,7 +9,10 @@ import type { MetaRecord } from 'nextra';
  * subject-only conditions, where nothing can decide `unevaluable`; intermediate
  * is the moment a condition reads the row, which brings projections, the typed
  * builder and the field axis with it; advanced is what follows from the
- * document outliving the process that wrote it.
+ * document outliving the process that wrote it. `interface` closes Setup as the
+ * section's demonstration: it is where the three tiers' answers land in a
+ * rendered screen, and it is the last step of learning rather than the first
+ * step of looking something up.
  *
  * Questions are titled as the question, not as the method, because that is what
  * a reader searches for. The method is in the first line of each.
@@ -42,6 +45,7 @@ export default {
   simple: 'Simple',
   intermediate: 'Intermediate',
   advanced: 'Advanced',
+  interface: 'One Policy, One Screen',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
   platforms: 'Overview',

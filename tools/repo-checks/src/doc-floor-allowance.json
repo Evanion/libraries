@@ -1,0 +1,7 @@
+{
+  "acl": ["getting-started"],
+  "compose": ["getting-started", "demo"],
+  "feature": ["getting-started"],
+  "luhn": ["getting-started"],
+  "token": ["getting-started"]
+}

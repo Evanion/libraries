@@ -1,0 +1,75 @@
+# One policy behind a screen
+
+Every control on a screen is one `can`, and the policy is the only place the
+rule behind it is written. This page works one shop screen end to end: a game
+listing, three people who might be looking at it, and an action bar whose
+buttons are decisions rather than markup.
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Every example on this page is a region of `libs/acl/README.md` and runs
+    under `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+The three setup tiers built policies and read decisions out of them. What
+changes here is only where the answers go: into an interface, one control at a
+time, with nothing between the policy and the pixel.
+
+## The shop's listing policy, in four statements
+
+A listing is a game the shop sells. A customer can review it, a bookseller can
+edit it, the owner can publish it, and a published listing is closed to edits
+whoever asks:
+
+```ts file=libs/acl/README.md region=listing-bar
+
+```
+
+Four statements, three controls, three roles. The typed builder binds `Listing`
+to the key `listing`, so `object.status` in the deny is checked against the
+interface as it is written — the same binding [the intermediate
+tier](/acl/intermediate) introduced, here carrying an interface rather than a
+test.
+
+## What the bar draws for each shopper
+
+The action bar renders one button per action and asks `access.can` for each. A
+`Decision` is what decides whether the button is drawn, and `reason` is what
+decides what it says when it is drawn and disabled.
+
+For the bookseller above, `review` and `edit` come back `allowed`, `publish`
+comes back `no-rule-matched`. Three answers, three controls, and the component
+holds no condition of its own — it holds a list of actions.
+
+That is the property worth taking away: adding a fourth control to the bar is a
+statement in the policy and a row in the list. It is never a branch in the
+component, because a branch in the component is a rule written somewhere the
+policy cannot see.
+
+## A status change moves the bar without touching the policy
+
+Press Publish and `object.status` becomes `published`. The deny in the shop's
+listing policy now matches, `edit` comes back `denied`, and the Edit button
+leaves the bar for every role — the bookseller's and the owner's alike, because
+a deny outranks a matching allow.
+
+Nothing was recomputed by hand and no second rule was written for the published
+case. One row changed and four statements produced a different screen.
+
+## The browser's copy of the shop's policy decides nothing
+
+The decisions this screen renders are convenience. The same `can` runs again in
+the shop's server runtime, over a subject that runtime resolved itself, before
+any listing is edited or published. A screen that hid the button does not excuse
+the handler the button posts to. [The security contract](/acl/security) is the
+long form, and [Platforms](/acl/platforms) is where the second call sits on each
+stack.
+
+## Where a refused control gets its wording
+
+`Decision` carries `reason`, `blockedBy`, `cause` and `missing` beside
+`allowed`, and a bar that greys a control out rather than removing it reads
+them. What each key means, and which of them are repairable, is [Why was this
+refused?](/acl/refusals); the shape itself is in the [API
+reference](/acl/api#decisions).

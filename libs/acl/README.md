@@ -235,6 +235,51 @@ shortfall: without an instance there is nothing to compare against. It answers
 definitely for the permissions that read only the subject, which is the half a
 navigation menu is built from.
 
+## One policy behind a screen
+
+A rendered interface is a set of controls, and each control is one `can`. The
+policy is the only place a rule is written; the interface reads answers and
+draws.
+
+<!-- #region listing-bar -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+/** Who is signed in. `role` is what the policy reads. */
+interface Shopper {
+  role: 'customer' | 'bookseller' | 'owner';
+}
+
+/** A game listing in the shop. A status, because that is all a rule reads. */
+interface Listing {
+  status: 'draft' | 'published';
+}
+
+const access = policy<Shopper>().for<'listing', Listing>('listing', (p) =>
+  p
+    .allow('review', p.always)
+    .allow('edit', p.in('subject.role', ['bookseller', 'owner']))
+    .allow('publish', p.in('subject.role', ['owner']))
+    .deny('edit', p.eq('object.status', 'published')),
+);
+
+const bookseller: Shopper = { role: 'bookseller' };
+const draft: Listing = { status: 'draft' };
+
+access.can(bookseller, 'listing', 'review', draft).allowed; // -> true
+access.can(bookseller, 'listing', 'edit', draft).allowed; // -> true
+access.can(bookseller, 'listing', 'publish', draft).reason; // -> 'no-rule-matched'
+access.can(bookseller, 'listing', 'edit', { status: 'published' }).reason; // -> 'denied'
+```
+
+<!-- #endregion listing-bar -->
+
+Four statements decide three controls for every role the shop has. Publishing a
+listing changes the fourth answer without anything else moving: the deny reads
+`object.status`, so the same bookseller who could edit the draft cannot edit the
+listing once it is published.
+
 ## The matrix document
 
 A matrix is an envelope, never a bare array:

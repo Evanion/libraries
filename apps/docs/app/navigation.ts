@@ -161,6 +161,29 @@ export interface DocumentedPackage {
    * and on a name the scale does not carry.
    */
   hue: CategoricalHue;
+  /**
+   * The page filling the section's demonstration role, as a `_meta` key.
+   *
+   * The demonstration is a role rather than a filename — `usage`, `examples`,
+   * `components`, `playground`, `validation`, `interface` — so nothing derives
+   * it from the content tree and it is written here. A section of five pages or
+   * fewer may name `getting-started`, which is what keeps a small section from
+   * owing a fourth file; `compose` takes that allowance.
+   *
+   * `tools/repo-checks/src/doc-floor.test.ts` holds it to a page that exists,
+   * and `doc-control.test.ts` holds that page to a mounted control.
+   */
+  demo?: string;
+  /**
+   * Why this section's demonstration page carries no control.
+   *
+   * A running server, a compile step with no browser runtime, a trust boundary:
+   * the cases where a control is not achievable are named in the documentation
+   * standard § 5. The reason is recorded here and the page says the same thing
+   * to the reader, so nobody arrives looking for a control that is deliberately
+   * absent.
+   */
+  demoExempt?: string;
 }
 
 export const packages: readonly DocumentedPackage[] = [
@@ -173,6 +196,7 @@ export const packages: readonly DocumentedPackage[] = [
     familyId: 'widget',
     framework: 'React',
     hue: 'sky',
+    demo: 'playground',
     documented: true,
     workshop: false,
   },
@@ -188,6 +212,7 @@ export const packages: readonly DocumentedPackage[] = [
     // the same way `feature` (universal + React) uses one. A reader who has
     // been in the React Widget pages recognises the family by colour.
     hue: 'sky',
+    demo: 'validation',
     documented: true,
     workshop: false,
   },
@@ -216,6 +241,7 @@ export const packages: readonly DocumentedPackage[] = [
     familyId: 'acl',
     framework: 'universal',
     hue: 'coral',
+    demo: 'interface',
     documented: true,
     workshop: true,
   },
@@ -242,6 +268,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'periwinkle',
+    demo: 'components',
     documented: true,
     workshop: false,
   },
@@ -253,6 +280,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'citron',
+    demo: 'usage',
     documented: true,
     workshop: false,
   },
@@ -264,6 +292,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'teal',
+    demo: 'usage',
     documented: true,
     workshop: false,
   },
@@ -275,6 +304,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'standalone',
     framework: 'React',
     hue: 'orchid',
+    demo: 'getting-started',
     documented: true,
     workshop: false,
   },
@@ -286,6 +316,11 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'standalone',
     framework: 'NestJS',
     hue: 'mint',
+    demo: 'getting-started',
+    demoExempt:
+      'The demonstrable unit is two running services and one header between ' +
+      'them. Nothing in a page can be the second process, and a simulated one ' +
+      'proves nothing about the real one.',
     documented: true,
     workshop: false,
   },
@@ -297,6 +332,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'standalone',
     framework: 'universal + React',
     hue: 'amber',
+    demo: 'rollouts',
     documented: true,
     workshop: true,
   },
