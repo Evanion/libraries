@@ -90,6 +90,84 @@ export class ActionNotAllowedError extends Error {
   }
 }
 
+/**
+ * A `key` that is not `` `${object}.${action}` ``.
+ *
+ * Lookup is by `key` alone, so a permission whose key disagrees with its
+ * `object` and `action` answers for a pair it was never written for.
+ */
+export class KeyMismatchError extends AclConfigError {
+  readonly key: string;
+  readonly object: string;
+  readonly action: string;
+  constructor(key: string, object: string, action: string) {
+    super(
+      `permission key "${key}" is not "${object}.${action}": a key must be exactly \`\${object}.\${action}\``,
+    );
+    this.name = 'KeyMismatchError';
+    this.key = key;
+    this.object = object;
+    this.action = action;
+  }
+}
+
+/** A matrix that is not an array of permissions. */
+export class InvalidMatrixError extends AclConfigError {
+  constructor(detail: string) {
+    super(`invalid matrix: ${detail}`);
+    this.name = 'InvalidMatrixError';
+  }
+}
+
+/** A permission node whose own shape is not the canonical one. */
+export class InvalidPermissionError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  constructor(key: string, field: string, detail: string) {
+    super(`permission "${key}": "${field}" ${detail}`);
+    this.name = 'InvalidPermissionError';
+    this.key = key;
+    this.field = field;
+  }
+}
+
+/**
+ * A rule node that is not an object, or whose `when` is absent or not an array.
+ *
+ * `field` locates the rule inside the permission (`rules[2]`), so an author of a
+ * foreign matrix can find it without a line number.
+ */
+export class InvalidRuleError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  constructor(key: string, field: string, detail: string) {
+    super(`permission "${key}": rule "${field}" ${detail}`);
+    this.name = 'InvalidRuleError';
+    this.key = key;
+    this.field = field;
+  }
+}
+
+/**
+ * A condition whose shape, namespace, path depth, or operator/value pairing
+ * leaves it unevaluable.
+ *
+ * `field` is the condition's own `field` where that is readable, and otherwise
+ * the condition's position inside the permission.
+ */
+export class InvalidConditionError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+  constructor(key: string, where: string, field: string, detail: string) {
+    super(`permission "${key}": condition ${where} on "${field}" ${detail}`);
+    this.name = 'InvalidConditionError';
+    this.key = key;
+    this.field = field;
+    this.where = where;
+  }
+}
+
 /** An unknown object kind at runtime on a typed (local) matrix. */
 export class UnknownObjectKeyError extends AclConfigError {
   readonly key: ObjectKey;
