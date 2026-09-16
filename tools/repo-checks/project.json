@@ -1,0 +1,9 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@evanion/repo-checks",
+  "targets": {
+    "test": {
+      "inputs": ["repoChecks"]
+    }
+  }
+}
