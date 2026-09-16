@@ -1,3 +1,32 @@
+## 0.3.0 (2026-09-13)
+
+### 🩹 Fixes
+
+- **widget:** report an item whose props are missing, not only malformed ([0f164d46](https://github.com/Evanion/libraries/commit/0f164d46))
+- **repo:** look up a caller-supplied type as an own key, not through the prototype chain ([fe4e7ada](https://github.com/Evanion/libraries/commit/fe4e7ada))
+- **astro-widget:** keep tsc's typecheck emit out of the build output ([#96](https://github.com/Evanion/libraries/issues/96))
+
+### 💅 Refactors
+
+- ⚠️  **astro-widget:** adopt the widget vocabulary and the unified item shape ([39986394](https://github.com/Evanion/libraries/commit/39986394))
+- **react-widget:** move the package to libs/react-widget ([9de64acd](https://github.com/Evanion/libraries/commit/9de64acd))
+
+### ⚠️  Breaking Changes
+
+- **astro-widget:** adopt the widget vocabulary and the unified item shape  ([39986394](https://github.com/Evanion/libraries/commit/39986394))
+  defineBlocks is defineWidgets, validateBlocks is validateItems,
+  BlockItem is AnyWidgetItem, BlockRegistry is WidgetRegistry and BlockProblem is
+  WidgetProblem. A problem object gains `id`, and two messages changed: 'unknown
+  block type' is 'unknown widget type' and 'blocks is not a list' is 'items is not
+  a list'. An item's props move under `props`, `id` is required, and chrome.item
+  no longer receives the item's props. libs/astro-widget/README.md carries the
+  transform for existing CMS data.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 ## 0.2.0 (2026-09-10)
 
 ### 🩹 Fixes

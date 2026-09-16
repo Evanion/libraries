@@ -1,3 +1,29 @@
+## 0.3.0 (2026-09-13)
+
+### 🩹 Fixes
+
+- **widget:** report an item whose props are missing, not only malformed ([0f164d46](https://github.com/Evanion/libraries/commit/0f164d46))
+
+### 💅 Refactors
+
+- ⚠️  **react-widget:** build on @evanion/widget and hand the wrapper its items ([bb2d1218](https://github.com/Evanion/libraries/commit/bb2d1218))
+- **react-widget:** move the package to libs/react-widget ([9de64acd](https://github.com/Evanion/libraries/commit/9de64acd))
+
+### ⚠️  Breaking Changes
+
+- **react-widget:** build on @evanion/widget and hand the wrapper its items  ([bb2d1218](https://github.com/Evanion/libraries/commit/bb2d1218))
+  WidgetComponentMap is now WidgetRegistry<AnyWidgetComponent>,
+  WidgetItemProblem is WidgetProblem, and WidgetProps is AnyWidgetItem -- the last
+  because it differed from WidgetsProps by one character and meant something else.
+  chrome.wrapper is handed an `items` prop; it is optional, so an existing wrapper
+  keeps compiling, but one that spreads its props onto a DOM element has to drop
+  it the way DefaultWrapper does. No data change.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 ## 0.2.0 (2026-09-10)
 
 ### 🚀 Features
