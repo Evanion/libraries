@@ -299,6 +299,68 @@ describe('authoring', () => {
   });
 });
 
+describe('a projection through the typed path', () => {
+  const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    p
+      .allow('update', p.eq('object.authorId', 'subject.id'))
+      .deny('update', p.eq('object.status', 'published')),
+  );
+  const untyped = createPolicy(access.matrix);
+
+  it('answers what the untyped path answers for the same projection', () => {
+    const projections: readonly Partial<Comment>[] = [
+      {},
+      { authorId: 's1' },
+      { status: 'draft' },
+    ];
+    for (const object of projections)
+      expect(access.can(subject, 'comment', 'update', object)).toEqual(
+        untyped.can(subject, 'comment', 'update', object),
+      );
+  });
+
+  it('names the paths it could not read', () => {
+    const decision = access.can(subject, 'comment', 'update', {});
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toBe('unevaluable');
+    expect(decision.missing).toEqual(
+      expect.arrayContaining(['object.authorId', 'object.status']),
+    );
+  });
+
+  it('settles once the projection carries what missing named', () => {
+    const settled = access.can(subject, 'comment', 'update', {
+      authorId: 's1',
+      status: 'draft',
+    });
+    expect(settled.allowed).toBe(true);
+  });
+
+  it('answers per row through canMany', () => {
+    expect(
+      access
+        .canMany(subject, 'comment', 'update', [
+          { authorId: 's1', status: 'draft' },
+          { authorId: 's2', status: 'draft' },
+          {},
+        ])
+        .map((decision) => decision.reason),
+    ).toEqual(['allow', 'no-rule-matched', 'unevaluable']);
+  });
+
+  it('keys canFields by what the projection carries', () => {
+    const decision = access.canFields(
+      subject,
+      'comment',
+      'update',
+      { authorId: 's1' },
+      'read',
+    );
+    expect(Object.keys(decision.fields)).toEqual(['authorId']);
+    expect(decision.action.reason).toBe('unevaluable');
+  });
+});
+
 describe('the built matrix against the hand-written one', () => {
   const built = policy<Subject>({ version: 3 })
     .for<'comment', Comment>('comment', (p) =>

@@ -513,10 +513,10 @@ resolved once per permission rather than once per edge.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string; roles: string[] }>().for<
+const access = policy<{ id: string }>().for<'comment', { status: string }>(
   'comment',
-  { status: string }
->('comment', (p) => p.allow('read', p.always).fields(['*', '!status']));
+  (p) => p.allow('read', p.always).fields(['*', '!status']),
+);
 
 const fd = access.canFields(
   { id: 's1' },
