@@ -40,6 +40,18 @@ export type Condition =
       value?: unknown;
     };
 
+/**
+ * How one condition stands against a context.
+ *
+ * `undecidable` names the `object.*` paths that did not read, so a permission
+ * can report them as `missing`. Rule matching is AND-ed over these: a `fails`
+ * decides the rule whatever else is undecidable.
+ */
+export type ConditionOutcome =
+  | { state: 'holds' }
+  | { state: 'fails' }
+  | { state: 'undecidable'; missing: readonly string[] };
+
 /** The namespaced evaluation context. */
 export interface EvaluationContext {
   subject: Record<string, unknown>;

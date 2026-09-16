@@ -36,6 +36,7 @@ export type {
   Action,
   Cause,
   Condition,
+  ConditionOutcome,
   Decision,
   EvaluationContext,
   FieldConfig,

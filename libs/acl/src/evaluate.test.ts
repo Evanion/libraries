@@ -199,6 +199,110 @@ describe('decide', () => {
     });
   });
 
+  it('a projection lacking the path a rule reads is unevaluable, not no-rule-matched', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+        },
+      ],
+    });
+    const projection: EvaluationContext = {
+      subject: { id: 's1' },
+      object: { status: 'draft' },
+    };
+    expect(decide(perm, projection, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.authorId'],
+    });
+  });
+
+  it('an absent subject path is a definite deny, not unevaluable', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
+        },
+      ],
+    });
+    const roleless: EvaluationContext = { subject: { id: 's1' }, object: {} };
+    expect(decide(perm, roleless, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+  });
+
+  it('a negative operator over an absent object path is unevaluable, not an allow', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [{ field: 'object.status', op: 'ne', value: 'published' }],
+        },
+        {
+          when: [{ field: 'object.status', op: 'not-in', value: ['archived'] }],
+        },
+      ],
+    });
+    const projection: EvaluationContext = {
+      subject: { id: 's1' },
+      object: { authorId: 's1' },
+    };
+    expect(decide(perm, projection, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.status'],
+    });
+  });
+
+  it('a definitely-false condition decides the rule however it is ordered against an undecidable one', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [
+            { field: 'object.authorId', op: 'eq', path: 'subject.id' },
+            { field: 'subject.roles', op: 'contains', value: 'editor' },
+          ],
+        },
+      ],
+    });
+    const reader: EvaluationContext = {
+      subject: { id: 's1', roles: ['reader'] },
+      object: { status: 'draft' },
+    };
+    expect(decide(perm, reader, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'no-rule-matched',
+    });
+  });
+
+  it('missing names a literal-comparand object condition', () => {
+    const perm = p({
+      key: 'comment.update',
+      rules: [
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'editor' },
+            { field: 'object.status', op: 'eq', value: 'published' },
+          ],
+        },
+      ],
+    });
+    const projection: EvaluationContext = {
+      subject: { id: 's1', roles: ['editor'] },
+      object: { authorId: 's1' },
+    };
+    expect(decide(perm, projection, resolved)).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.status'],
+    });
+  });
+
   it('a permission with no rules denies', () => {
     const perm = p({ key: 'comment.update' });
     expect(decide(perm, ctx, resolved)).toMatchObject({
