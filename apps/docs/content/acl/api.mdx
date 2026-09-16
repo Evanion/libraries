@@ -186,44 +186,26 @@ type FieldReason =
 What each reason means is in [Decisions](/acl/decisions) and
 [Field permissions](/acl/fields).
 
-## Lower-level entry points
+## The evaluation context
 
 ```ts
-function evaluateCondition(
-  condition: Condition,
-  ctx: EvaluationContext,
-): ConditionOutcome;
-
-function decide(
-  permission: Permission,
-  ctx: EvaluationContext,
-  resolved: ReadonlyMap<string, Decision>,
-): Decision;
-
-function decideFields(
-  permission: Permission,
-  ctx: EvaluationContext,
-  axis: 'read' | 'write',
-  proposed?: Record<string, unknown>,
-): FieldOutcome;
-
 interface EvaluationContext {
   subject: Record<string, unknown>;
   object?: Record<string, unknown>;
   now?: Instant;
 }
-
-type ConditionOutcome =
-  | { state: 'holds' }
-  | { state: 'fails' }
-  | { state: 'unevaluable'; missing: readonly string[] };
 ```
 
-These evaluate one node against a context, without the document validation, the
-freezing, or the cascade an `Access` gives them. `decide` takes the map of
-already-resolved dependencies it should read; an empty map means every
-`dependsOn` parent counts as off. Tooling that inspects a matrix is what they
-are for, not an application's guard.
+The entry points assemble this from their arguments; it is the shape a decision
+is taken against.
+
+The engine's per-node functions are not exported. Each answers a fragment of a
+decision and leaves the rest to the caller: the permission-level one reads a
+map of already-resolved dependencies that only `createPolicy` builds, and an
+empty map means every `dependsOn` parent counts as off; the field-level one
+returns an `allowed` that ignores the action-level gate. `createPolicy` and
+`parseMatrix` compose them, and one of those two is the entry point — for an
+application and for a tool inspecting a matrix alike.
 
 ## Errors
 

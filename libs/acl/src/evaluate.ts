@@ -210,6 +210,11 @@ export function decideResolved(
  *
  * A cascade resolves many permissions against one context, so `createPolicy`
  * settles once and calls `decideResolved` per permission.
+ *
+ * Internal. `resolved` has to carry a decision for every `dependsOn` ancestor
+ * already, and a map that does not reads as every parent off — a silent deny
+ * with a `dependency-off` reason. Only `createPolicy` builds that map, so this
+ * is not a guard an application can hold. `access.can` is.
  */
 export function decide(
   permission: Permission,
