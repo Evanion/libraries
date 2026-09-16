@@ -8,6 +8,7 @@ import type {
   MatrixSchema,
   ObjectSchema,
   Permission,
+  Rule,
 } from './types.js';
 
 /** The bases a `FieldType` is built from. */
@@ -330,6 +331,33 @@ function assertConditionFits(
 }
 
 /**
+ * Checks one rule array's conditions against a present schema.
+ *
+ * `where` names the array inside the document the conditions came from, so the
+ * error locates a fault the way the reader reached it. `assertSchemaFit` passes
+ * `rules` and `denyRules`; a deny overlay passes its own contribution and gets
+ * `overlay[0].when[1]` rather than a position in a permission it did not write.
+ */
+export function assertRulesFit(
+  schema: MatrixSchema,
+  permission: Permission,
+  where: string,
+  rules: readonly Rule[] | undefined,
+): void {
+  if (rules === undefined) return;
+  for (const [index, rule] of rules.entries()) {
+    for (const [at, condition] of (rule.when ?? []).entries()) {
+      assertConditionFits(
+        schema,
+        permission,
+        `${where}[${index}].when[${at}]`,
+        condition,
+      );
+    }
+  }
+}
+
+/**
  * Checks every condition of every permission against a present schema.
  *
  * Runs after the per-condition structural checks, so a condition that is not
@@ -343,18 +371,7 @@ export function assertSchemaFit(
 ): void {
   for (const permission of permissions) {
     for (const side of ['rules', 'denyRules'] as const) {
-      const rules = permission[side];
-      if (rules === undefined) continue;
-      for (const [index, rule] of rules.entries()) {
-        for (const [at, condition] of (rule.when ?? []).entries()) {
-          assertConditionFits(
-            schema,
-            permission,
-            `${side}[${index}].when[${at}]`,
-            condition,
-          );
-        }
-      }
+      assertRulesFit(schema, permission, side, permission[side]);
     }
   }
 }

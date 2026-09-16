@@ -21,6 +21,8 @@ export type {
   Authorized,
   Subject,
 } from './create-policy.js';
+export { applyDenyOverlay } from './deny-overlay.js';
+export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
 export { policy } from './authoring.js';
 export type {
@@ -50,11 +52,13 @@ export {
   InvalidRuleError,
   InvalidSchemaError,
   KeyMismatchError,
+  MissingVetoSchemaError,
   TargetsTransitionsConflictError,
   UnknownDependencyError,
   UnknownFieldError,
   UnknownObjectKeyError,
   UnknownPermissionError,
+  UnvetoablePermissionError,
 } from './errors.js';
 
 export type {

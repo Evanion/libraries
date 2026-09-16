@@ -218,6 +218,45 @@ export class InvalidConditionError extends AclConfigError {
   }
 }
 
+/**
+ * A deny overlay contributing to a key the target does not open for veto.
+ *
+ * `vetoable` is the target's whole statement of where another team may append a
+ * deny. A key outside it is a permission whose owner has said nothing, and an
+ * overlay that reached it would be a team editing rules it does not own.
+ */
+export class UnvetoablePermissionError extends AclConfigError {
+  readonly key: string;
+  constructor(key: string) {
+    super(
+      `permission "${key}" is not vetoable: an overlay appends deny rules only to the keys the target lists`,
+    );
+    this.name = 'UnvetoablePermissionError';
+    this.key = key;
+  }
+}
+
+/**
+ * A vetoable key whose object kind the target's schema does not declare.
+ *
+ * The obligation is scoped to the kinds behind `vetoable`, so a matrix that
+ * opens nothing owes no schema. Opening a key without declaring its kind leaves
+ * every contribution to it unchecked, which is the one state an extension point
+ * may not be in.
+ */
+export class MissingVetoSchemaError extends AclConfigError {
+  readonly key: string;
+  readonly object: ObjectKey;
+  constructor(key: string, object: ObjectKey) {
+    super(
+      `permission "${key}" is vetoable and its object kind "${object}" is not declared in "schema.objects": a key opened for veto owes the shape its contributions are checked against`,
+    );
+    this.name = 'MissingVetoSchemaError';
+    this.key = key;
+    this.object = object;
+  }
+}
+
 /** An unknown object kind at runtime on a typed (local) matrix. */
 export class UnknownObjectKeyError extends AclConfigError {
   readonly key: ObjectKey;

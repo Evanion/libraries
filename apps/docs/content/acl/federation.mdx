@@ -2,8 +2,8 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    The federation example on this page is a region of `libs/acl/README.md` and
-    runs under `nx test @evanion/acl`.
+    The examples on this page are regions of `libs/acl/README.md` and run under
+    `nx test @evanion/acl`.
   </Text>
 </WorkshopNotice>
 
@@ -99,12 +99,71 @@ const ok =
 Deny-overrides, written at a call site by somebody who knows whether they meant
 AND or OR. The library does not guess.
 
-## What this topology does not give you
+## A cross-cutting deny is an overlay the owner applies
 
-A cross-cutting deny authored by another team — a compliance hold that has to
-outrank what a service's own document says — is not expressible in a document
-that service does not own. A service needing one authors it in its own matrix
-today.
+A compliance or fraud team publishes deny rules for permissions it does not own.
+The owning service fetches them and applies them in its own process, before it
+constructs its policy:
+
+```
+authored matrix  →  applyDenyOverlay  →  createPolicy  →  access
+```
+
+```ts file=libs/acl/README.md region=deny-overlay
+
+```
+
+`applyDenyOverlay(matrix, overlay, { vetoable })` appends each key's rules to
+that permission's `denyRules` and returns a new matrix. It is pure
+`Matrix → Matrix`, so it composes with anything by ordinary function
+composition, and it changes nothing about the topology above: nothing merges at
+an edge, nothing but the owner is authoritative, and the service that enforces
+the veto is the one that applies it.
+
+### Deny-only is the parameter type, not a check
+
+A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
+`dependsOn` and `fields` live on `Permission`, and an allow rule is a member of
+a different array. So a contribution cannot express an allow, a dependency or a
+field rule — there is nothing to prohibit, because the shape states none of them.
+
+That is what makes the overlay safe to accept from another team. It can only
+subtract: appending deny rules moves the deny side towards a match and never
+away, and every decision reached that way is `allowed: false`. A subject the
+overlaid matrix allows was allowed by the authored one, for every object and
+every instant.
+
+### Three refusals, all at apply time
+
+<Panel heading="Each one names the offending key">
+  <Text as="div" size="sm">
+    A key the target matrix does not define. A key the target does not list in
+    `vetoable`. A condition that does not validate against the target's schema
+    for that key's object kind — the same `UnknownFieldError` and
+    `FieldTypeMismatchError` construction raises, run over the contribution.
+  </Text>
+</Panel>
+
+The schema obligation is scoped: a matrix owes a schema for the object kinds of
+the keys it lists as `vetoable`, and for nothing else. Opening a key whose kind
+has no `schema.objects` entry is itself a refusal, because the contributions to
+it would be unchecked. A single-service consumer that opens nothing owes no
+schema and never sees any of this — `createPolicy(matrix)` takes no overlay, no
+`vetoable` list, and no schema.
+
+### The compliance team runs the same call
+
+`applyDenyOverlay(ordersContract, myOverlay, { vetoable })` in compliance's own
+CI, against the document orders publishes, catches compliance's mistake before
+the owner's deploy breaks. Nothing in the function reads private state or needs
+the full authored matrix: a published subset carrying the vetoable keys and
+their schema entries is enough.
+
+Applying comes before serializing. Publishing the authored matrix omits the veto,
+and a veto is a deny rule, so omitting one publishes a document that allows what
+the owner refuses.
+
+## What this topology does not give you
 
 Integrity of a document in transit belongs to the transport, the same way
 resolving a subject does. The library neither signs a matrix nor verifies one:
