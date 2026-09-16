@@ -133,6 +133,35 @@ async function metaFiles(): Promise<
   return found;
 }
 
+/** Every directory under `content/` that holds a page or a subdirectory. */
+function contentDirectories(): string[] {
+  const walk = (directory: string): string[] => [
+    directory,
+    ...readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => walk(join(directory, entry.name))),
+  ];
+
+  return walk(contentRoot);
+}
+
+/**
+ * The `_meta` keys one directory needs: a key per page and a key per
+ * subdirectory. A page's key is its filename without the extension; a
+ * subdirectory's key is its name, and the `index` inside it belongs to that
+ * subdirectory's own `_meta`.
+ */
+function pagesIn(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() ||
+        ((entry.name.endsWith('.mdx') || entry.name.endsWith('.md')) &&
+          !entry.name.startsWith('_')),
+    )
+    .map((entry) => entry.name.replace(/\.mdx?$/, ''));
+}
+
 /** Whether a `_meta` key resolves to a page Nextra will find. */
 function pageExists(directory: string, name: string): boolean {
   return ['.mdx', '.md'].some(
@@ -450,5 +479,61 @@ describe('every _meta file', () => {
     }
 
     expect(dangling).toEqual([]);
+  });
+
+  /**
+   * The other direction, and the one the documentation standard § 12 calls G1.
+   *
+   * Nextra appends a page no `_meta` key names, after the ordered ones, in
+   * filename order. Nothing fails, so a page lands in the sidebar in a position
+   * nobody chose and the section's reading order stops being the order the
+   * section teaches. The standard's § 2 asks for a cumulative order; an order
+   * that is not written down cannot be one.
+   */
+  it('names every page in its directory', async () => {
+    const ordered = new Map(
+      (await metaFiles()).map(({ directory, meta }) => [
+        directory,
+        new Set(Object.keys(meta)),
+      ]),
+    );
+    const unlisted: string[] = [];
+
+    for (const directory of contentDirectories()) {
+      const keys = ordered.get(directory);
+      if (!keys) continue;
+
+      for (const page of pagesIn(directory)) {
+        if (!keys.has(page)) {
+          unlisted.push(`${relative(workspaceRoot, directory)}: ${page}`);
+        }
+      }
+    }
+
+    expect(
+      unlisted.sort(),
+      'Add these to the `_meta` file of their directory. A page no `_meta` ' +
+        'key names is appended in filename order, so the section teaches in an ' +
+        'order nobody chose.',
+    ).toEqual([]);
+  });
+
+  /**
+   * A directory with no `_meta` file is ordered entirely by filename, which puts
+   * `advanced` first and `index` in the middle.
+   */
+  it('exists for every directory under content/', () => {
+    const missing = contentDirectories().filter(
+      (directory) =>
+        !readdirSync(directory).some((name) =>
+          /^_meta\.(js|jsx|ts|tsx)$/.test(name),
+        ),
+    );
+
+    expect(
+      missing.map((directory) => relative(workspaceRoot, directory)).sort(),
+      'Every directory under apps/docs/content needs a `_meta` file. Without ' +
+        'one Nextra orders the directory by filename.',
+    ).toEqual([]);
   });
 });
