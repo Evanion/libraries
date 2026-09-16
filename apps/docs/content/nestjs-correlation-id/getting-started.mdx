@@ -186,3 +186,16 @@ CorrelationIdMiddleware, or wrap the work in CorrelationService.run().
 
 Note that this changes the id the rest of the request sees, and not the response
 header — that was already set by the middleware.
+
+## Why `@evanion/nestjs-correlation-id` has nothing to click
+
+Every other section on this site puts a control under the reader's hand on its
+demonstration page. This one does not, and the reason is the package rather than
+the budget: the demonstrable unit is two running services and one header between
+them, and nothing inside a documentation page can be the second process. A
+simulated caller would prove something about the simulation.
+
+`apps/shop-api` in this repository is the real pair. It applies
+`CorrelationIdMiddleware` to every route, and the shop's storefront reads the
+id back off the response, so the runnable version of this page is the shop with
+both processes up.
