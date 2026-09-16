@@ -22,12 +22,14 @@ import type { MetaRecord } from 'nextra';
  * a folder puts one more click between a reader and every page inside it, and a
  * collapsed group hides the page they came for.
  *
- * `integrations/` belongs between Many Services and the Questions band -- a
- * platform guide is the last step of setup. Its key is added here by whoever
- * lands that directory: Nextra throws on a `_meta` key naming a page it cannot
- * find, and `tools/repo-checks/src/docs-navigation.test.ts` fails first. A page
- * not listed here is appended after these, so an unlisted section is reachable
- * but lands at the bottom.
+ * `integrations` closes the Setup band: a platform guide is the last step of
+ * setup, and each one is wiring over the same API rather than a further tier.
+ * It is the one folder here, and `content/acl/integrations/_meta.ts` orders the
+ * platforms inside it.
+ *
+ * A page not listed here is appended after these, so adding one is not a
+ * requirement. Renaming one is: Nextra throws on a `_meta` key naming a page it
+ * cannot find, and `tools/repo-checks/src/docs-navigation.test.ts` fails first.
  */
 export default {
   index: 'Overview',
@@ -37,6 +39,7 @@ export default {
   intermediate: 'Intermediate',
   advanced: 'Advanced',
   federation: 'Many Services',
+  integrations: 'Integrations',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   asking: 'Can this user do this?',
