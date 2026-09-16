@@ -74,7 +74,7 @@ describe('evaluateCondition', () => {
     ).toBe('fails');
   });
 
-  it('an absent subject comparand is a definite miss, not undecidable', () => {
+  it('an absent subject comparand is a definite miss, not unevaluable', () => {
     expect(
       state(
         { field: 'object.authorId', op: 'eq', path: 'subject.missing' },
@@ -83,7 +83,7 @@ describe('evaluateCondition', () => {
     ).toBe('fails');
   });
 
-  it('an absent object field is undecidable, naming the path it could not read', () => {
+  it('an absent object field is unevaluable, naming the path it could not read', () => {
     const projection: EvaluationContext = {
       subject: { id: 's1' },
       object: { authorId: 's1' },
@@ -93,26 +93,26 @@ describe('evaluateCondition', () => {
         { field: 'object.status', op: 'eq', value: 'draft' },
         projection,
       ),
-    ).toEqual({ state: 'undecidable', missing: ['object.status'] });
+    ).toEqual({ state: 'unevaluable', missing: ['object.status'] });
   });
 
-  it('an absent object field is undecidable for negative operators too', () => {
+  it('an absent object field is unevaluable for negative operators too', () => {
     const projection: EvaluationContext = {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
     expect(
       state({ field: 'object.status', op: 'ne', value: 'draft' }, projection),
-    ).toBe('undecidable');
+    ).toBe('unevaluable');
     expect(
       state(
         { field: 'object.status', op: 'not-in', value: ['archived'] },
         projection,
       ),
-    ).toBe('undecidable');
+    ).toBe('unevaluable');
   });
 
-  it('an absent object comparand is undecidable', () => {
+  it('an absent object comparand is unevaluable', () => {
     const projection: EvaluationContext = {
       subject: { id: 's1' },
       object: { authorId: 's1' },
@@ -122,7 +122,7 @@ describe('evaluateCondition', () => {
         { field: 'subject.id', op: 'eq', path: 'object.ownerId' },
         projection,
       ),
-    ).toEqual({ state: 'undecidable', missing: ['object.ownerId'] });
+    ).toEqual({ state: 'unevaluable', missing: ['object.ownerId'] });
   });
 
   it('never resolves prototype-chain fields', () => {
@@ -132,9 +132,9 @@ describe('evaluateCondition', () => {
     };
     expect(
       state({ field: 'object.status', op: 'eq', value: 'x' }, hostile),
-    ).toBe('undecidable');
+    ).toBe('unevaluable');
     expect(state({ field: 'object.toString', op: 'eq', value: 1 }, ctx)).toBe(
-      'undecidable',
+      'unevaluable',
     );
   });
 
@@ -195,13 +195,13 @@ describe('evaluateCondition', () => {
     ).toBe('holds');
   });
 
-  it('an absent object instance makes object-dependent conditions undecidable', () => {
+  it('an absent object instance makes object-dependent conditions unevaluable', () => {
     const noObj: EvaluationContext = { subject: { id: 's1' } };
     expect(
       evaluateCondition(
         { field: 'object.authorId', op: 'eq', path: 'subject.id' },
         noObj,
       ),
-    ).toEqual({ state: 'undecidable', missing: ['object.authorId'] });
+    ).toEqual({ state: 'unevaluable', missing: ['object.authorId'] });
   });
 });

@@ -13,17 +13,17 @@ function ruleId(rule: Rule, index: number): string {
 }
 
 /**
- * How one rule stands: matched, a definite miss, or undecidable for the object
+ * How one rule stands: matched, a definite miss, or unevaluable for the object
  * paths it could not read.
  */
 type RuleOutcome =
   | { state: 'matched'; rule: string }
   | { state: 'not-matched'; rule: string }
-  | { state: 'undecidable'; rule: string; missing: readonly string[] };
+  | { state: 'unevaluable'; rule: string; missing: readonly string[] };
 
 /**
  * A rule's `when` conditions are AND-ed, so one condition that definitely fails
- * decides the rule however many of the others are undecidable: no reading of the
+ * decides the rule however many of the others are unevaluable: no reading of the
  * absent paths could make the AND hold.
  */
 function ruleMatches(
@@ -36,24 +36,24 @@ function ruleMatches(
   for (const condition of rule.when ?? []) {
     const outcome = evaluateResolved(condition, ctx);
     if (outcome.state === 'fails') return { state: 'not-matched', rule: id };
-    if (outcome.state === 'undecidable') missing.push(...outcome.missing);
+    if (outcome.state === 'unevaluable') missing.push(...outcome.missing);
   }
-  if (missing.length > 0) return { state: 'undecidable', rule: id, missing };
+  if (missing.length > 0) return { state: 'unevaluable', rule: id, missing };
   return { state: 'matched', rule: id };
 }
 
 /**
  * How one side of a permission stands: its rules are OR-ed, so a match decides
- * the side. With no match, one rule left undecidable leaves the side
- * undecidable — the absent paths could still have made it match.
+ * the side. With no match, one rule left unevaluable leaves the side
+ * unevaluable — the absent paths could still have made it match.
  *
- * `rule` names the first undecidable rule; `missing` unions the paths of all of
+ * `rule` names the first unevaluable rule; `missing` unions the paths of all of
  * them, so one refetch settles the side rather than one rule at a time.
  */
 type SideOutcome =
   | { state: 'matched'; rule: string }
   | { state: 'fails' }
-  | { state: 'undecidable'; rule: string; missing: readonly string[] };
+  | { state: 'unevaluable'; rule: string; missing: readonly string[] };
 
 function sideOutcome(
   rules: readonly Rule[] | undefined,
@@ -67,14 +67,14 @@ function sideOutcome(
     if (outcome.state === 'matched') {
       return { state: 'matched', rule: outcome.rule };
     }
-    if (outcome.state === 'undecidable') {
+    if (outcome.state === 'unevaluable') {
       first ??= outcome.rule;
       for (const path of outcome.missing) missing.add(path);
     }
   }
 
   if (first !== undefined) {
-    return { state: 'undecidable', rule: first, missing: [...missing] };
+    return { state: 'unevaluable', rule: first, missing: [...missing] };
   }
   return { state: 'fails' };
 }
@@ -122,17 +122,17 @@ function rootCause(
 /**
  * Decides one permission. Pure in `(permission, ctx, resolved)`.
  *
- * A definite outcome beats an undecidable one; among definite outcomes, deny
- * beats allow. An undecidable deny only ever subtracts, so it can never turn a
+ * A definite outcome beats an unevaluable one; among definite outcomes, deny
+ * beats allow. An unevaluable deny only ever subtracts, so it can never turn a
  * definite no-allow into something repairable.
  *
  * Precedence, defined once:
  * 1. a deny rule matches -> denied
  * 2. a dependency resolved off -> dependency-off
  * 3. the allow side definitely fails -> no-rule-matched
- * 4. the deny side is undecidable -> unevaluable, naming the deny rule
+ * 4. the deny side is unevaluable -> unevaluable, naming the deny rule
  * 5. an allow rule matches -> allow
- * 6. the allow side is undecidable -> unevaluable
+ * 6. the allow side is unevaluable -> unevaluable
  * 7. otherwise -> no-rule-matched
  *
  * Step 3 sits above step 4 because allow is required: a definite "no allow rule
@@ -172,11 +172,11 @@ export function decideResolved(
     return { key: permission.key, allowed: false, reason: 'no-rule-matched' };
   }
 
-  if (deny.state === 'undecidable') {
+  if (deny.state === 'unevaluable') {
     // The rule whose job is to refuse could not be read. Both sides' paths go
     // out together so one refetch settles the permission.
     const missing = new Set(deny.missing);
-    if (allow.state === 'undecidable') {
+    if (allow.state === 'unevaluable') {
       for (const path of allow.missing) missing.add(path);
     }
     return {

@@ -104,7 +104,7 @@ partial.missing; // -> ['object.status', 'object.authorId']
 
 `unevaluable` is a third state, not an error and not a no: the object the caller
 passed did not carry a path some rule reads. `missing` names those paths, so one
-refetch settles the permission. An absent `object.*` path is undecidable for
+refetch settles the permission. An absent `object.*` path is unevaluable for
 every operator, negative ones included; an absent `subject.*` path is an
 ordinary miss, because the app resolves the subject whole and never projects it.
 

@@ -309,7 +309,7 @@ describe('a matrix with no schema', () => {
     ],
   };
 
-  it('behaves exactly as before: a mistyped field decides undecidable', () => {
+  it('behaves exactly as before: a mistyped field decides unevaluable', () => {
     const access = createPolicy(matrix);
     const decision = access.can({ id: 's1' }, 'comment', 'update', {
       authorId: 's1',

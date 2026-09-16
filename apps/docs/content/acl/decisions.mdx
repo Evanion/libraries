@@ -55,19 +55,19 @@ the engine could not read refuses as well.
 | matches     | anything    | `denied`                         |
 | fails       | matches     | `allow`                          |
 | fails       | fails       | `no-rule-matched`                |
-| undecidable | not failing | `unevaluable`, naming both sides |
+| unevaluable | not failing | `unevaluable`, naming both sides |
 
 The full precedence order, which is defined once in the engine:
 
 1. a deny rule matches → `denied`
 2. a dependency resolved off → `dependency-off`
 3. the allow side definitely fails → `no-rule-matched`
-4. the deny side is undecidable → `unevaluable`, naming the deny rule
+4. the deny side is unevaluable → `unevaluable`, naming the deny rule
 5. an allow rule matches → `allow`
-6. the allow side is undecidable → `unevaluable`
+6. the allow side is unevaluable → `unevaluable`
 7. otherwise → `no-rule-matched`
 
-A definite outcome beats an undecidable one, and among definite outcomes deny
+A definite outcome beats an unevaluable one, and among definite outcomes deny
 beats allow. Step 3 sits above step 4 because an allow is required: a definite
 "no allow rule matched" cannot be repaired by fetching the object, and reporting
 `unevaluable` there would tell a UI to refetch and re-ask forever. Step 2 sits
@@ -105,13 +105,13 @@ What to do with one depends on where the call is:
   matrix, usually a mistyped field name. A `schema` on the document turns that
   class into an `UnknownFieldError` at construction.
 
-Absence is undecidable for every operator, negative ones included. "It is not
+Absence is unevaluable for every operator, negative ones included. "It is not
 equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
-and `contains` over an absent path are as undecidable as `eq`.
+and `contains` over an absent path are as unevaluable as `eq`.
 
 ### Why only the object
 
-An absent `object.*` path is undecidable; an absent `subject.*` path is a plain
+An absent `object.*` path is unevaluable; an absent `subject.*` path is a plain
 miss. The object is a projection the caller chose, so a field it lacks says
 nothing about the row in the database. The subject is resolved whole by the app
 before the call and is never a projection, so a subject carrying no `roles`
@@ -119,7 +119,7 @@ genuinely has none.
 
 A condition with one operand in each scope follows the operand that failed: an
 absent subject comparand fails the condition outright, an absent object
-comparand leaves it undecidable.
+comparand leaves it unevaluable.
 
 A rule that mixes object-dependent and object-independent branches is decided by
 the branch that does not need data. `p.or(p.eq('object.authorId',

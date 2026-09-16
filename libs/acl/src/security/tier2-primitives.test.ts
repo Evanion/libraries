@@ -216,7 +216,7 @@ describe('SEC-103 ownership is a condition the caller has to supply data for (CW
   });
 });
 
-describe('SEC-104 an undecidable decision is a refusal with a repair (CWE-863)', () => {
+describe('SEC-104 an unevaluable decision is a refusal with a repair (CWE-863)', () => {
   const access = () =>
     foreign([
       permission('doc', 'read', {

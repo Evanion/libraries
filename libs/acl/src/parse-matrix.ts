@@ -13,7 +13,7 @@ import type { Matrix } from './types.js';
  *
  * How far field names are checked depends on the document. Without a `schema`,
  * shape and namespace are all that are validated, and a mistyped `object.*`
- * field decides `undecidable` forever — the engine has nothing to check the name
+ * field decides `unevaluable` forever — the engine has nothing to check the name
  * against. With a `schema`, every condition over a declared kind is checked for
  * a name the kind declares and for an operator that fits the declared type. A
  * kind the schema does not declare stays unchecked.
