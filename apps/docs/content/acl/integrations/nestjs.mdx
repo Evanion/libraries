@@ -176,12 +176,23 @@ controller when it fails. A permission with an `object.*` condition is
 _undecided_ here, and passing it on is correct only because the service decides
 it next.
 
-There is no way to ask the matrix which of the two a given permission is.
-`capabilities(subject)` returns `unevaluable` for every object-dependent
-permission rather than distinguishing "cannot decide without a row" from "this
-row is missing a field", and the declared `schema` binds conditions rather than
-classifying permissions. Until it does, "every `@Requires` route also decides in
-its service" is an invariant the app asserts in its own tests.
+`access.readsObject(key, action)` tells the guard which of the two it is
+holding. It is a fact about the document, not about a subject or a call: true
+when any rule or deny rule of that permission, or of anything it depends on,
+reads an `object.*` path. So a guard can refuse loudly on a permission it was
+never going to be able to decide, and pass on only the ones the service is
+expected to finish:
+
+```ts
+const decision = access.can(subject, key, action);
+if (decision.allowed) return true;
+if (!access.readsObject(key, action)) throw new ForbiddenException();
+return true; // undecidable here by construction; the service decides on the row
+```
+
+Without that check, a permission the guard can never decide and a permission the
+guard just refused look the same, and "every `@Requires` route also decides in
+its service" stays an invariant the app asserts in its own tests.
 
 ## The service decides on the row
 
