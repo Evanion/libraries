@@ -662,6 +662,102 @@
 }
 
 /*
+ * A specimen with decisions under it: the thing itself, then a row per
+ * decision, then one line saying what the decisions cost. A card is about
+ * 20rem of content at the widest the grid goes, so two rows and a line is the
+ * ceiling -- past that the card stops being a peer of the ones beside it.
+ */
+.landing-spec {
+  display: grid;
+  gap: var(--baize-space-2);
+}
+
+.landing-spec__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-1) var(--baize-space-2);
+}
+
+.landing-spec__label {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+/*
+ * What the standing configuration costs, or why the package refused it.
+ * Reserved two lines high, so moving a control does not shift the rest of the
+ * card up and down under the reader's hand.
+ */
+.landing-spec__note {
+  margin: 0;
+  min-height: calc(2 * var(--baize-text-xs) * 1.4);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.4;
+}
+
+/*
+ * The characters the package would not draw from, struck where a code would
+ * otherwise be. Spaced apart, because they are being named one at a time
+ * rather than read as a string.
+ */
+.landing-token__refused {
+  display: flex;
+  gap: var(--baize-space-3);
+  color: var(--baize-hue);
+}
+
+.landing-token__offending {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/*
+ * The independent toggles. The same face as a segmented option, without the
+ * track: these are three separate yes-or-no answers, not one choice of three,
+ * and a shared track would say otherwise.
+ */
+.landing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1);
+}
+
+.landing-chip {
+  padding: 3px var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+  color: var(--baize-lichen);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-chip:hover {
+  color: var(--baize-chalk);
+}
+
+.landing-chip[aria-pressed='true'] {
+  border-color: var(--baize-hue);
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+.landing .landing-chip:focus-visible {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+/*
  * The URN's parts. Each is a button set as plain text with a dotted
  * underline, the same hint the Luhn field gives, and its explanation is a
  * tooltip under the whole specimen: full width of the box, so it can never
@@ -672,8 +768,13 @@
   position: relative;
 }
 
+/*
+ * Inline-block, so a narrow card breaks between one part and the next rather
+ * than through a part: a component and the delimiter that introduces it are
+ * one thing, and `?=` stranded at the end of a line is not.
+ */
 .landing-urn__segment {
-  display: inline;
+  display: inline-block;
 }
 
 .landing-urn__part {
@@ -695,6 +796,16 @@
 
 .landing-urn__part--nid {
   color: var(--baize-hue);
+}
+
+/*
+ * An attached component, set behind the name rather than beside it: it is
+ * carried by the identifier and is not part of what the identifier names,
+ * which is the whole reason the parser splits it off.
+ */
+.landing-urn__part--component {
+  color: var(--baize-lichen);
+  font-weight: 400;
 }
 
 .landing .landing-urn__part:focus-visible {
@@ -1173,6 +1284,7 @@ textarea.landing-access__field {
   .landing-tile__link,
   .landing-seg__face,
   .landing-items__handle,
+  .landing-chip,
   .landing-access__line {
     transition: none;
   }
