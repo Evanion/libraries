@@ -455,6 +455,23 @@ The read axis takes no `proposed`. Read is a projection of the object, and a key
 that exists only in a pending write is not part of any read, so a read decision
 is keyed on the object alone.
 
+#### The write path
+
+A caller narrows a write through one exported function rather than reading the
+maps by hand:
+
+```ts
+pickAllowedFields(decision, proposed); // -> the subset to write
+```
+
+It returns the keys of `proposed` whose state is `allowed`, and nothing else —
+so `denied`, `unevaluable`, and a key the decision does not carry are all
+withheld. It throws `ActionNotAllowedError` when `decision.action.allowed` is
+false, because no field of a refused action is writable and an empty object is
+indistinguishable from a lawful write of nothing. A false top-level `allowed`
+that comes from the field maps alone is a partial write, which is what the
+narrowing is for, so that case returns the allowed subset.
+
 `canFields` carries the **action** decision as well as the field maps, and
 `allowed` is gated on it. A field-level answer that ignored the action is a
 false allow: a UI gating a form on `canFields` would get a green light for an
@@ -713,6 +730,11 @@ Three constructors, one surface. Each returns the same `access` object —
   matrix.
 - `parseMatrix(json)` — from foreign or emitted JSON; the untrusted path.
 
+Alongside them, one free function completes the write path:
+
+- `pickAllowedFields(decision, proposed)` — the subset of a proposed write a
+  `canFields` decision allows.
+
 All validate once and freeze. A locally-authored `policy(...)` has no foreign
 `version`; `access.version` for a typed matrix is `undefined`, or a value the
 author supplies as an option. Only a fetched matrix carries a meaningful
@@ -790,6 +812,10 @@ Evaluation is total: it never throws for a data-shape problem. Omitting
 `proposed` where a `targets` or `transitions` rule exists yields an
 `unevaluable` field decision with reason `proposed-required`, not a thrown
 error, keeping the repo's "evaluate is total" discipline.
+
+`ActionNotAllowedError` is the one error raised outside construction, and it
+does not extend `AclConfigError`: it reports a decision, not a configuration
+fault. `pickAllowedFields` raises it, and no evaluation entry point does.
 
 ## Acquisition
 

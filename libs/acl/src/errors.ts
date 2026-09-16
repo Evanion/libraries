@@ -1,6 +1,6 @@
-import type { ObjectKey } from './types.js';
+import type { ObjectKey, Reason } from './types.js';
 
-/** Base class for every error this library throws. All raised at construction. */
+/** Base class for the configuration errors. All raised at construction. */
 export class AclConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -69,6 +69,24 @@ export class TargetsTransitionsConflictError extends AclConfigError {
       `field "${field}" configures both targets and transitions, which are mutually exclusive`,
     );
     this.name = 'TargetsTransitionsConflictError';
+  }
+}
+
+/**
+ * A write was narrowed against a decision whose action is refused.
+ *
+ * The only error this library raises outside construction. A refused action has
+ * no writable field, so the narrowing has no answer to return: an empty object
+ * would be indistinguishable from a lawful write of nothing.
+ */
+export class ActionNotAllowedError extends Error {
+  readonly key: string;
+  readonly reason: Reason;
+  constructor(key: string, reason: Reason) {
+    super(`action "${key}" is not allowed (${reason}); no field is writable`);
+    this.name = 'ActionNotAllowedError';
+    this.key = key;
+    this.reason = reason;
   }
 }
 
