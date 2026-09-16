@@ -1,0 +1,122 @@
+# Integrations
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    These four pages are wiring, not API. Every call they make is on the [API
+    reference](/acl/api); what changes per platform is where the authoritative
+    call sits and what leaves the trusted runtime.
+  </Text>
+</WorkshopNotice>
+
+The library imports no framework, so integrating it is three decisions: where
+the matrix is built, where the subject comes from, and which call is the one
+that actually decides. Only the third is a security question, and it is the one
+that differs per platform.
+
+<Panel heading="Browser evaluation is a convenience, never an access control">
+  <Text as="div" size="sm">
+    In a browser, `can` toggles what the user sees. Real enforcement happens in
+    a trusted environment: a React Router 8 or Next.js server runtime, or the
+    server side of an API boundary. Every app in the chain does its own
+    evaluation and trusts no earlier layer — a page that hid the button does not
+    excuse the handler the button posts to, and a gateway that allowed the
+    request does not excuse the service behind it. [The security
+    contract](/acl/security) is the long form.
+  </Text>
+</Panel>
+
+## Where the boundary sits
+
+| Platform                                         | The call that decides                                   | What is not a boundary                          |
+| ------------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------- |
+| [Express](/acl/integrations/express)             | the request handler                                     | nothing crosses; the whole app is trusted       |
+| [NestJS](/acl/integrations/nestjs)               | the guard, then the service after the read              | the guard alone — it runs before the row exists |
+| [Next.js RSC](/acl/integrations/next-rsc)        | the server component, and each Server Action separately | the client component, and the action's caller   |
+| [React Router 8](/acl/integrations/react-router) | the loader, and each action separately                  | the component tree, and `clientLoader`          |
+
+The two server-only platforms have one boundary and it is the request handler.
+The two React platforms have two: the render path and the write path, reached
+independently by a caller who never renders anything. A guide that made those
+read the same would be describing the wrong thing.
+
+## What crosses, on the platforms where something does
+
+`Access` is a set of closures over a frozen document. It does not serialize —
+`structuredClone` throws on the functions and `JSON.stringify` silently drops
+every method — so the value that crosses a server/client boundary is the
+document, and the client rebuilds:
+
+```ts file=libs/acl/README.md region=matrix-round-trip
+
+```
+
+The matrix is an envelope carrying its own `version` and `schema`, so nothing
+travels beside it. A payload of `{ matrix, version, subject }` states the
+version twice; `access.matrix` already carries the effective one, including a
+version supplied as `createPolicy(doc, { version })` rather than authored into
+the document.
+
+The subject still has to cross, because the client needs it to evaluate, and it
+is the same bag the server decided against. It is not a credential and it is not
+read back: the server resolves the subject from its own session on the next
+request and never reads the client's copy.
+
+## Building the matrix once
+
+A matrix is validated, deep-cloned and deep-frozen at construction, and every
+decision after that is a local function call over the frozen copy. The cost is
+the construction, not the query, so build it once per process and hold it at
+module scope:
+
+```ts
+// access.ts — imported by the server runtime, never by a browser bundle.
+import { policy } from '@evanion/acl';
+
+export const access = policy<Subject>({ version: MATRIX_VERSION }).for<
+  'order',
+  Order
+>('order', (p) => p.allow('read', p.eq('object.buyerId', 'subject.id')));
+```
+
+Inside `apps/shop-api` in this repository the equivalent shape is
+`GAMES_CATALOGUE` — a frozen module constant with a read-only `@Injectable()`
+accessor over it. A matrix fits the same slot for the same reason: it is static,
+serializable data that no request mutates.
+
+Rebuilding per request costs the clone and the freeze on every call and buys
+nothing, because the document does not change between them. When it does change
+— a matrix fetched from a policy service rather than authored in the app —
+rebuild on the fetch, not on the request, and let `access.version` be what
+tells a client its copy is stale.
+
+## Resolving the subject
+
+`can(subject, …)` authorizes the bag it is handed and has no channel to ask
+where the bag came from. Each guide resolves it from that platform's own
+verified session primitive, server-side, before the first decision. A subject
+assembled from a header, a query parameter or a posted field is the confused
+deputy, and no evaluator can detect it.
+
+## Deciding twice is the design
+
+Evaluating the same matrix on the server and again in the browser is not
+duplicated work to be optimised away. The browser copy answers "what should this
+page look like" and the server copy answers "may this happen", and the second
+question is asked by callers who never loaded the page. Both calls have the same
+signature and the same return type; nothing in the types separates them.
+
+## The write path
+
+Three of the four platforms have a write, and all three write what
+`pickAllowedFields` returns rather than filtering a field map by hand:
+
+```ts file=libs/acl/README.md region=write-path
+
+```
+
+Reading the map yourself on `!== 'denied'` writes the `unevaluable` fields too,
+and writes every key the decision does not carry at all. `pickAllowedFields`
+keeps only what the decision marked `allowed`, and throws
+`ActionNotAllowedError` when the action itself is refused — no field of a
+refused action is writable, and an empty object would read as a lawful write of
+nothing. [Field permissions](/acl/fields#writing) has the rest.
