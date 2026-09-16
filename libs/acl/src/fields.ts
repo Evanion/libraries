@@ -12,6 +12,29 @@ function hasOwn(bag: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(bag, key);
 }
 
+/**
+ * Writes one own data property, keyed by a field name that comes from data.
+ * `__proto__` is a field name like any other here, and plain assignment would
+ * hand it to the prototype setter instead of the map.
+ */
+function put<T>(bag: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(bag, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
+ * Whether a token names a field. `*` is the baseline and `!name` an exclusion:
+ * authoring syntax that carries no field of its own, wherever it turns up —
+ * including as a literal key of the object or of a proposed write.
+ */
+function isFieldName(token: string): boolean {
+  return token !== '*' && !token.startsWith('!');
+}
+
 function nameList(rules: FieldRules): readonly string[] | undefined {
   return rules['fields'] as readonly string[] | undefined;
 }
@@ -38,7 +61,9 @@ function decideConfig(
   ctx: EvaluationContext,
   proposed?: Record<string, unknown>,
 ): { state: FieldState; reason: FieldReason } {
-  const next = proposed?.[field];
+  // Only an own property of the write is a proposed value.
+  const next =
+    proposed && hasOwn(proposed, field) ? proposed[field] : undefined;
 
   if ('targets' in config) {
     if (next === undefined) {
@@ -61,7 +86,11 @@ function decideConfig(
   if (next === undefined) {
     return { state: 'unevaluable', reason: 'proposed-required' };
   }
-  const edges = config.transitions[current as string];
+  // The current value is attacker-controlled data, so only an own property of
+  // the transitions map is an edge. A prototype member names no edge.
+  const edges = hasOwn(config.transitions, String(current))
+    ? config.transitions[current as string]
+    : undefined;
   if (!Array.isArray(edges)) {
     return { state: 'denied', reason: 'transition-failed' };
   }
@@ -94,47 +123,67 @@ export function decideFields(
   // The matrix does not know the object's shape, so we consider every field the
   // object carries, every field named in the rules, and every name in the
   // allow-list (a write allow-list names the fields that may be written).
+  //
+  // A write also considers every key of `proposed`. A key the caller intends to
+  // write is decided by the same allow-list logic as every other field, so a key
+  // that exists nowhere but the write still carries a state a caller can gate
+  // on. The read axis is a projection of the object and takes no write, so
+  // `proposed` names nothing it decides.
+  //
   // `*` and `!name` are authoring syntax for a baseline and an exclusion. They
-  // are not field names, so they never key the decision maps.
+  // are not field names, so they never key the decision maps, whichever source
+  // they arrive from.
   const objectFields = ctx.object ? Object.keys(ctx.object) : [];
+  const proposedFields =
+    axis === 'write' && proposed ? Object.keys(proposed) : [];
   const ruleFields = Object.keys(rules).filter((k) => k !== 'fields');
-  const listed = (names ?? []).filter(
-    (name) => name !== '*' && !name.startsWith('!'),
-  );
-  const allFields = [...new Set([...objectFields, ...ruleFields, ...listed])];
+  const allFields = [
+    ...new Set(
+      [
+        ...objectFields,
+        ...proposedFields,
+        ...ruleFields,
+        ...(names ?? []),
+      ].filter(isFieldName),
+    ),
+  ];
 
   const fields: FieldOutcome['fields'] = {};
   const reasons: FieldOutcome['reasons'] = {};
 
   for (const field of allFields) {
-    const config = rules[field] as FieldConfig | undefined;
+    // Only an own rule key configures a field; a field named after a prototype
+    // member carries no config.
+    const config = hasOwn(rules, field)
+      ? (rules[field] as FieldConfig | undefined)
+      : undefined;
 
     if (axis === 'read') {
       // Read is projection only. Per-field `targets`/`transitions` configs are
       // write concepts and do not restrict reads; only the name allow-list /
       // bang list denies a read field.
       const isAllowed = names ? allowed(field, names) : true;
-      fields[field] = isAllowed ? 'allowed' : 'denied';
-      reasons[field] = isAllowed ? 'allow' : 'not-listed';
+      put(fields, field, isAllowed ? 'allowed' : 'denied');
+      put(reasons, field, isAllowed ? 'allow' : 'not-listed');
       continue;
     }
 
     // write axis
     if (config && ('targets' in config || 'transitions' in config)) {
       const { state, reason } = decideConfig(field, config, ctx, proposed);
-      fields[field] = state;
-      reasons[field] = reason;
+      put(fields, field, state);
+      put(reasons, field, reason);
       continue;
     }
 
     if (names) {
       const isAllowed = allowed(field, names);
-      fields[field] = isAllowed ? 'allowed' : 'denied';
-      reasons[field] = isAllowed ? 'allow' : 'not-listed';
+      put(fields, field, isAllowed ? 'allowed' : 'denied');
+      put(reasons, field, isAllowed ? 'allow' : 'not-listed');
     } else {
       // No name list, no config: not restricted on write.
-      fields[field] = 'allowed';
-      reasons[field] = 'allow';
+      put(fields, field, 'allowed');
+      put(reasons, field, 'allow');
     }
   }
 

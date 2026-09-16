@@ -135,4 +135,87 @@ describe('decideFields', () => {
     const d = decideFields(p, { subject: { id: 's1' } }, 'write');
     expect(Object.keys(d.fields).sort()).toEqual(['body', 'title']);
   });
+
+  it('a bang denies a proposed key the object does not carry', () => {
+    const p = perm('user.update', { fields: ['*', '!role'] });
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1', name: 'Ann' },
+    };
+    const d = decideFields(p, self, 'write', { name: 'Eve', role: 'admin' });
+    expect(d.fields['role']).toBe('denied');
+    expect(d.reasons['role']).toBe('not-listed');
+    expect(d.allowed).toBe(false);
+  });
+
+  it('an allow-list denies a proposed key the object does not carry', () => {
+    const p = perm('user.update', { fields: ['name'] });
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1', name: 'Ann' },
+    };
+    const d = decideFields(p, self, 'write', { name: 'Eve', role: 'admin' });
+    expect(d.fields['role']).toBe('denied');
+    expect(d.reasons['role']).toBe('not-listed');
+    expect(d.allowed).toBe(false);
+  });
+
+  it('a proposed key the list allows still decides allowed', () => {
+    const p = perm('user.update', { fields: ['*', '!role'] });
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1' },
+    };
+    const d = decideFields(p, self, 'write', { name: 'Eve' });
+    expect(d.fields['name']).toBe('allowed');
+    expect(d.allowed).toBe(true);
+  });
+
+  it('a proposed key is allowed when no name list restricts the action', () => {
+    const p = perm('user.update');
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1' },
+    };
+    const d = decideFields(p, self, 'write', { name: 'Eve' });
+    expect(d.fields['name']).toBe('allowed');
+    expect(d.allowed).toBe(true);
+  });
+
+  it('the read axis decides the object, not a proposed write', () => {
+    const p = perm('user.read', { fields: ['*', '!role'] });
+    const self: EvaluationContext = {
+      subject: { id: 'u1' },
+      object: { id: 'u1', name: 'Ann' },
+    };
+    const d = decideFields(p, self, 'read', { role: 'admin' });
+    expect(Object.keys(d.fields).sort()).toEqual(['id', 'name']);
+  });
+
+  it('an object carrying a * or !name key never keys the decision maps', () => {
+    const p = perm('comment.update', { fields: ['*', '!status'] });
+    const odd: EvaluationContext = {
+      subject: { id: 's1' },
+      object: { '*': 1, '!status': 2, body: 'hi' },
+    };
+    const d = decideFields(p, odd, 'write', { '*': 3, '!status': 4 });
+    expect(Object.keys(d.fields)).toEqual(['body']);
+    expect(Object.keys(d.reasons)).toEqual(['body']);
+  });
+
+  it.each(['constructor', 'toString', '__proto__', 'valueOf'])(
+    'a transitions config does not resolve the prototype member %s',
+    (current) => {
+      const p = perm('comment.update', {
+        status: { transitions: { draft: ['published'] } },
+      });
+      const odd: EvaluationContext = {
+        subject: { id: 's1' },
+        object: { status: current },
+      };
+      const d = decideFields(p, odd, 'write', { status: 'published' });
+      expect(d.fields['status']).toBe('denied');
+      expect(d.reasons['status']).toBe('transition-failed');
+    },
+  );
 });
