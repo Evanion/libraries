@@ -889,7 +889,7 @@ expiry and no way for a held matrix to notice that it is stale.
 | `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind. Flattens to the canonical matrix. |
 | `p.allow` / `p.deny` / `p.dependsOn` / `p.fields`                                          | Declare one action inside a `.for()` block.                                                  |
 | `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                     |
-| `access.object(key)`                                                                       | A handle bound to one object kind, on a typed policy.                                        |
+| `policy(...).object(key)`                                                                  | A handle bound to one object kind. Typed policies only; `createPolicy` has no `object`.      |
 | `access.can(subject, key, action, object?, now?)`                                          | One decision.                                                                                |
 | `access.canMany(...)`                                                                      | A decision array, parallel to the input.                                                     |
 | `access.canFields(...)`                                                                    | The field-level decision for one axis, plus the action decision gating it.                   |

@@ -16,7 +16,17 @@ export type Action = string;
  */
 export type Instant = string | number | Date;
 
-/** The result of a field-level decision: allowed, denied, or not evaluable. */
+/**
+ * The result of a field-level decision: allowed, denied, or not evaluable.
+ *
+ * `unevaluable` is a write-axis state. Read is projection only -- the name
+ * allow-list is the whole of it, and a name either is on the list or is not --
+ * so a read decision's map holds `allowed` and `denied` and nothing else. The
+ * type stays three-valued because `axis` is a runtime argument: narrowing the
+ * read path would mean a type parameter on `FieldDecision` and an overload pair
+ * on every entry point, and it would still widen back wherever a caller passes
+ * an `axis` it computed.
+ */
 export type FieldState = 'allowed' | 'denied' | 'unevaluable';
 
 /**
