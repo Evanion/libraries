@@ -379,12 +379,39 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
 });
 
 describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', () => {
-  it('surfaces the version the matrix was built with', () => {
-    const access = foreign([permission('post', 'read', { rules: [always] })], {
-      version: 7,
-    });
+  it('surfaces the version the document was built with', () => {
+    const access = foreign(
+      [permission('post', 'read', { rules: [always] })],
+      undefined,
+      { version: 7 },
+    );
 
     expect(access.version).toBe(7);
+    expect(access.matrix.version).toBe(7);
+  });
+
+  it('carries a digest or a composite, which a counter cannot express', () => {
+    // The revalidate contract compares with `!==`, so the version a consumer
+    // fails closed on can name every input that went into the document.
+    const access = foreign(
+      [permission('post', 'read', { rules: [always] })],
+      undefined,
+      { version: 'orders@7+veto@41' },
+    );
+
+    expect(access.version).toBe('orders@7+veto@41');
+  });
+
+  it('lets the construction site state the version that actually decided', () => {
+    // A site that composed the document knows something the producer did not.
+    const access = foreign(
+      [permission('post', 'read', { rules: [always] })],
+      { version: 'composed@9' },
+      { version: 7 },
+    );
+
+    expect(access.version).toBe('composed@9');
+    expect(access.matrix.version).toBe('composed@9');
   });
 
   it('keeps granting what a revoked matrix granted until it is replaced', () => {

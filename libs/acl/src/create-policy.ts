@@ -121,10 +121,7 @@ function rebuild(
  * A value that is not an envelope is handed to the gate as it arrived, which
  * owns the message for that and throws before anything evaluates.
  */
-function adopt(
-  matrix: Matrix,
-  override: string | number | undefined,
-): Matrix {
+function adopt(matrix: Matrix, override: string | number | undefined): Matrix {
   const frozen = isEnvelope(matrix) ? rebuild(matrix, override) : matrix;
   validateMatrix(frozen);
   return frozen;

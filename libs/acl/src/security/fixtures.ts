@@ -41,31 +41,47 @@ export function raw(node: Record<string, unknown>): Permission {
   return node as unknown as Permission;
 }
 
-/** The matrix value the entry points take. */
-export function matrix(...permissions: readonly Permission[]): Matrix {
-  return permissions;
+/** The envelope members a document carries around its permissions. */
+export type Envelope = Omit<Matrix, 'permissions'>;
+
+/** The document the entry points take. */
+export function matrix(
+  permissions: readonly Permission[],
+  envelope: Envelope = {},
+): Matrix {
+  return { ...envelope, permissions };
+}
+
+/**
+ * A document whose envelope is exactly what the attack needs, valid or not.
+ * The one way a malformed envelope enters the suite.
+ */
+export function rawMatrix(node: Record<string, unknown>): Matrix {
+  return node as unknown as Matrix;
 }
 
 /**
  * An access object over untrusted configuration: the `parseMatrix` path, which
- * fails closed on a key the matrix does not carry.
+ * fails closed on a key the document does not carry.
  */
 export function foreign(
   permissions: readonly Permission[],
   options?: AccessOptions,
+  envelope?: Envelope,
 ): Access {
-  return parseMatrix(matrix(...permissions), options);
+  return parseMatrix(matrix(permissions, envelope), options);
 }
 
 /**
- * An access object over an authored, local matrix: the `createPolicy` path,
- * which throws on a key the matrix does not carry.
+ * An access object over an authored, local document: the `createPolicy` path,
+ * which throws on a key the document does not carry.
  */
 export function local(
   permissions: readonly Permission[],
   options?: AccessOptions,
+  envelope?: Envelope,
 ): Access {
-  return createPolicy(matrix(...permissions), options);
+  return createPolicy(matrix(permissions, envelope), options);
 }
 
 /** The unconditional rule: an empty `when`, which is what `always` emits. */

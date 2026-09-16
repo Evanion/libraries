@@ -19,7 +19,9 @@ import {
   KeyMismatchError,
   UnknownPermissionError,
 } from '../errors.js';
+import { createPolicy } from '../create-policy.js';
 import { pickAllowedFields } from '../fields.js';
+import { parseMatrix } from '../parse-matrix.js';
 import {
   always,
   countingSubject,
@@ -28,6 +30,7 @@ import {
   local,
   permission,
   raw,
+  rawMatrix,
   when,
 } from './fixtures.js';
 import { Gen, rng } from './generator.js';
@@ -313,6 +316,70 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
     expect((row as { isAdmin?: unknown }).isAdmin).toBeUndefined();
     expect(row).toEqual({ id: 'u1', name: 'Grace' });
   });
+
+  it('carries no __proto__ key even where a schema declares one', () => {
+    // A schema is binding over the conditions and states nothing about the
+    // writable set, so declaring the name does not make it a field.
+    const declared = foreign(
+      [
+        permission('user', 'update', {
+          rules: [always],
+          fields: { fields: ['*', '!role'] },
+        }),
+      ],
+      undefined,
+      {
+        schema: {
+          objects: {
+            user: fromJson(
+              '{"fields": {"__proto__": "string", "name": "string"}}',
+            ),
+          },
+        },
+      },
+    );
+    const proposed = fromJson(
+      '{"__proto__": {"isAdmin": true}, "name": "Grace"}',
+    );
+    const decision = declared.canFields(
+      { id: 'u1' },
+      'user',
+      'update',
+      {},
+      'write',
+      proposed,
+    );
+
+    expect(Object.keys(decision.fields)).toEqual(['name']);
+    expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
+  });
+
+  it('reads a declared __proto__ path as data, never as a prototype', () => {
+    // The schema makes the condition constructible; `readPath` is own-property
+    // guarded, so the value it reads is whatever the bag carries under that
+    // own key and nothing off the chain.
+    const access = foreign(
+      [
+        permission('user', 'read', {
+          rules: [when({ field: 'object.__proto__', op: 'eq', value: 'yes' })],
+        }),
+      ],
+      undefined,
+      {
+        schema: {
+          objects: { user: fromJson('{"fields": {"__proto__": "string"}}') },
+        },
+      },
+    );
+
+    expect(access.can({}, 'user', 'read', { name: 'Ada' }).reason).toBe(
+      'unevaluable',
+    );
+    expect(
+      access.can({}, 'user', 'read', fromJson('{"__proto__": "yes"}')).allowed,
+    ).toBe(true);
+    expect(({} as Record<string, unknown>)['isAdmin']).toBeUndefined();
+  });
 });
 
 describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
@@ -516,7 +583,7 @@ describe('SEC-012 the evaluated matrix is beyond the caller reach (CWE-913)', ()
 
   it('refuses a mutation of the matrix it exposes', () => {
     const access = foreign([permission('post', 'read', { rules: [] })]);
-    const exposed = access.matrix[0] as { rules?: unknown };
+    const exposed = access.matrix.permissions[0] as { rules?: unknown };
 
     expect(() => {
       exposed.rules = [always];
@@ -591,11 +658,72 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
         },
       }),
     ]);
-    const adopted = access.matrix[0] as Permission;
+    const adopted = access.matrix.permissions[0] as Permission;
 
     expect(adopted.key).toBe(`${adopted.object}.${adopted.action}`);
     expect(access.can({}, 'comment', 'read').allowed).toBe(true);
     expect(() => access.can({}, 'post', 'read')).toThrow(AclConfigError);
+  });
+
+  it('cannot swap the whole permission list after it is checked', () => {
+    const gated = permission('post', 'read', {
+      rules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
+    });
+    const face = twoFaced<readonly Permission[]>(
+      [gated],
+      [permission('post', 'read', { rules: [always] })],
+    );
+    const access = createPolicy(
+      rawMatrix({
+        get permissions() {
+          return face.get();
+        },
+      }),
+    );
+
+    expect(access.can({ role: 'nobody' }, 'post', 'read').allowed).toBe(false);
+    expect(access.matrix.permissions).toEqual([gated]);
+  });
+
+  it('cannot narrow a schema after its conditions are checked against it', () => {
+    // The declared shapes bind the conditions, so a schema that shrinks after
+    // the check leaves a matrix that was never validated against what it
+    // carries.
+    const face = twoFaced(
+      { objects: { post: { fields: { secret: 'string' as const } } } },
+      { objects: { post: { fields: { other: 'number' as const } } } },
+    );
+    const access = createPolicy(
+      rawMatrix({
+        permissions: [
+          permission('post', 'read', {
+            rules: [when({ field: 'object.secret', op: 'eq', value: 'x' })],
+          }),
+        ],
+        get schema() {
+          return face.get();
+        },
+      }),
+    );
+
+    expect(access.schema).toEqual({
+      objects: { post: { fields: { secret: 'string' } } },
+    });
+  });
+
+  it('cannot replace the version the document was frozen with', () => {
+    const face = twoFaced<unknown>('v1', { evil: true });
+    const access = createPolicy(
+      rawMatrix({
+        permissions: [],
+        get version() {
+          return face.get();
+        },
+      }),
+    );
+
+    expect(access.version).toBe('v1');
+    expect(access.matrix.version).toBe('v1');
   });
 });
 
@@ -894,6 +1022,57 @@ describe('SEC-018 a clock that does not settle grants nothing (CWE-754)', () => 
     expect(access.can({}, 'sale', 'buy', undefined, Date.now()).allowed).toBe(
       false,
     );
+  });
+});
+
+describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
+  const malformed: readonly (readonly [string, Record<string, unknown>])[] = [
+    ['a document with no permissions', { version: 1 }],
+    ['a null permissions list', { permissions: null }],
+    ['a permissions object', { permissions: { 'post.read': {} } }],
+    ['a permissions string', { permissions: 'post.read' }],
+    [
+      'a version that is neither a string nor a number',
+      { permissions: [], version: {} },
+    ],
+    ['a version list', { permissions: [], version: [1] }],
+    ['a schema that is not an object', { permissions: [], schema: 'post' }],
+    ['a schema list', { permissions: [], schema: [] }],
+    [
+      'a declared type that is not one',
+      {
+        permissions: [],
+        schema: { objects: { post: { fields: { at: 'timestamp' } } } },
+      },
+    ],
+  ];
+
+  for (const [name, node] of malformed) {
+    it(`refuses ${name}`, () => {
+      expect(() => parseMatrix(rawMatrix(node))).toThrow(AclConfigError);
+    });
+  }
+
+  it('refuses a bare list of permissions, which carries no envelope at all', () => {
+    expect(() =>
+      parseMatrix([
+        permission('post', 'read', { rules: [always] }),
+      ] as unknown as Parameters<typeof parseMatrix>[0]),
+    ).toThrow(AclConfigError);
+  });
+
+  it('refuses a condition the declared shape cannot evaluate', () => {
+    expect(() =>
+      foreign(
+        [
+          permission('post', 'read', {
+            rules: [when({ field: 'object.ghost', op: 'eq', value: 'x' })],
+          }),
+        ],
+        undefined,
+        { schema: { objects: { post: { fields: { title: 'string' } } } } },
+      ),
+    ).toThrow(AclConfigError);
   });
 });
 
