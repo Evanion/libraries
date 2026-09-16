@@ -14,6 +14,18 @@ import { readRegion } from './regions.mjs';
  * between directories — a docs page's own depth is not something an example
  * reference should depend on.
  *
+ * Whatever else the info string carries is kept and handed to Shiki, so a
+ * region block can also be a Twoslash block:
+ *
+ *     ```ts twoslash file=libs/acl/README.md region=quick-start
+ *     ```
+ *
+ * Nextra injects the `Popup` component only for a fence whose meta is exactly
+ * `twoslash` (nextra/dist/server/rehype-plugins/rehype-twoslash-popup.js),
+ * while Twoslash itself triggers on `/\btwoslash\b/`. A fence combining
+ * `twoslash` with any other meta word renders hover markup with no component
+ * behind it, so `twoslash` is the only meta a region block may carry.
+ *
  * A webpack loader rather than the remark plugin the demo-apps spec called
  * for. Nextra hands `mdxOptions.remarkPlugins` straight to unified, which
  * requires plugin *functions*, while Next 16 requires every loader option to
@@ -76,9 +88,13 @@ export function expandRegions(source, root, file) {
       }
 
       const region = readRegion(contents, path, name);
-      const lang = info.replace(REFERENCE, '').trim() || region.lang || 'ts';
+      // The reference is the only part consumed here; the language and any
+      // meta around it belong to Shiki. A block that names neither takes the
+      // language the region's own fence carried.
+      const rest = info.replace(REFERENCE, '').trim();
+      const emitted = rest || region.lang || 'ts';
 
-      out.push(`${indent}${ticks}${lang}`);
+      out.push(`${indent}${ticks}${emitted}`);
       for (const body of region.code.split('\n')) out.push(indent + body);
       continue;
     }

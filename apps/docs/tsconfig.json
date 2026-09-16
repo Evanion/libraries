@@ -73,10 +73,10 @@
   ],
   "references": [
     {
-      "path": "../../tools/doc-examples"
+      "path": "../../libs/compose"
     },
     {
-      "path": "../../libs/acl"
+      "path": "../../tools/doc-examples"
     },
     {
       "path": "../../libs/urn"
@@ -86,6 +86,9 @@
     },
     {
       "path": "../../libs/react-widget"
+    },
+    {
+      "path": "../../libs/acl"
     },
     {
       "path": "../../libs/luhn"
