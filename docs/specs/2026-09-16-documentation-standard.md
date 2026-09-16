@@ -126,9 +126,11 @@ The products are demonstrated in a shop the documentation never enters.
    good page into four thin ones, and no guard enforces it. Section 3.
 6. Every section has four page types and may have four more kinds of page, from
    a closed vocabulary. Nothing else is a page. Section 4.
-7. A section's ceiling is four bands and `acl` at 22 pages is at it. The ceiling
-   is named as the maximum legal shape, not as a target, and page count is not
-   the defect this document was called to fix. Section 4.
+7. There is no maximum page count and no maximum number of bands. Page count is
+   not the defect this document was called to fix, and a limit read off the
+   section that happens to be largest is a number, not a rule. What bounds a
+   section is decision 6's closed vocabulary — a page exists because it is a
+   kind, not because a section has room. Section 4.
 8. An API reference page has one heading per exported symbol, spelled as the
    symbol. Task-shaped headings belong on question pages. Section 4.
 9. Prose budget: 1,200 words a page. Over that the page is two questions.
@@ -171,8 +173,9 @@ The products are demonstrated in a shop the documentation never enters.
     example. This is what makes `compose` documentable under decision 10.
     Section 10.
 18. Separators, never folders, at every level. `acl/integrations/` is the one
-    folder on the site and it is wrong; it becomes five pages under a
-    `Platforms` separator. Section 8.
+    folder on the site and it is wrong; its five pages move up under a
+    `Platforms` separator, which Many Services joins to make a band of six.
+    Section 8.
 19. Every section directory has a `_meta.ts` naming every page in it, in reading
     order. Under decision 2 that order is a claim about what a reader has met,
     so the file is load-bearing rather than a convenience. Section 8.
@@ -185,14 +188,14 @@ The products are demonstrated in a shop the documentation never enters.
     import in it, to the package's exports — the names, not the types, which is
     the whole of what a guard can reach here. Section 3a, section 5.
 22. Nine guards in `tools/repo-checks` (section 12), beside the caption guard
-    `2026-09-16-diagrams.md` already shipped. Seven of the nine fail today; the
-    other two have not been run. Section 12's "What is enforced, and what rests
-    on a reviewer" names six rules no guard reaches — the teaching order and its
+    `2026-09-16-diagrams.md` already shipped. Six are written: G1, G5 and G7
+    pass; G2, G4 and G8 ratchet. The other three fail today. Section 12's "What
+    is enforced, and what rests on a reviewer" names six rules no guard reaches — the teaching order and its
     fading, whether a teaching layer stands alone, whether an H2 section
     survives being cut out of its page, whether a diagram is still true, whether
     a page that introduces a concept carries a control, and a page's single `# `
-    heading — and its judgement list names eleven more, rather than letting the
-    document read as uniformly binding.
+    heading — and its judgement list names thirteen more, rather than letting
+    the document read as uniformly binding.
 23. Nothing here is retrofitted in one pass. The order is section 13.
 
 Two of these rest on measured evidence and the rest are judgement. Which is
@@ -810,8 +813,8 @@ reader left on the page before.
 **Generate the reference from the types.** Stripe's own account of how its docs
 stay correct is that the API description is the source of truth and the docs,
 the SDKs and the CLI are all generated from it. The analogue here is exact: each
-package has one `.` entry in its exports map and emits declarations. An
-`api.mdx` that hand-writes `can(subject, key, action, object?, now?): Decision`
+package's `exports` map names its entry points and each entry emits
+declarations. An `api.mdx` that hand-writes `can(subject, key, action, object?, now?): Decision`
 is a second copy of a signature the compiler already knows, and section 5's
 `signature` tag is a weaker answer than generating the block. The `signature`
 tag stays in the standard as the fallback, and the guessing section says so.
@@ -922,43 +925,62 @@ type with the strongest bound on it: no adapter, no guide. A guide for a
 framework the repo does not test against is a maintenance liability with no test
 behind it.
 
-### The ceiling
+### Size
 
-A section has at most four bands. A band is a separator in `_meta.ts` with at
-least two pages under it. Below five pages a section has no bands at all and the
-teaching order is the order.
+There is no maximum page count. One was written into an earlier draft — 22, on
+the reasoning that `acl` has 22 — and it is withdrawn. That reasoning is
+circular: it counts the pages one section happens to have and calls the number a
+law. Nothing about what a reader tolerates or what a maintainer can keep true
+produced it, and the draft that stated it conceded as much in the same breath. A
+section has the pages its floor roles and its earned page types give it, and
+that count is a count rather than a rule. What holds a section's size down is
+the list above — four kinds of page and nothing else — which bounds what may be
+added rather than how much there may be.
+
+`acl` at 22 pages is therefore not at a limit and not over one. Section 13 step
+4 gives it `acl/interface` because the floor requires a demonstration page, and
+23 is then the number of pages `acl` has.
+
+### Bands
+
+A band is a separator in `_meta.ts` with at least two pages under it. Below five
+pages a section has no bands at all and the teaching order is the order. There
+is no cap on how many a section may have, for the reason above: the earlier
+draft said four because `acl` has four.
 
 `acl` has three bands — Setup, Questions, Reference — plus a fourth grouping,
 `integrations/`, currently expressed as a folder. Under decision 18 that becomes
 a `Platforms` band: Simple, Intermediate and Advanced stay under Setup, and
-Many Services joins the four platform guides under Platforms, which is where a
-topology belongs anyway. Four bands, 22 pages, at the ceiling.
+Many Services joins the four platform guides and the overview they sit under,
+which is where a topology belongs anyway. Six pages under Platforms.
 
-The bands are also where the teaching ends. `acl` teaches through `index` →
-Setup's three tiers → its demonstration; Questions, Platforms and Reference are
-entered sideways by a reader who already knows what they want. A section whose
-bands do not resolve into that shape has a grouping rather than an order.
-
-The honest statement is that `acl` defines the ceiling rather than being
-measured against one that existed first. That is acceptable and it is worth
-being explicit about: 22 pages is the largest section this site may have, and a
-tenth package arriving with 25 pages is a review conversation, not a merge.
+The bands are where the teaching ends, and this is the part of the shape that is
+a claim rather than a count. `acl` teaches through `index` → Setup's three tiers
+→ its demonstration; Questions, Platforms and Reference are entered sideways by
+a reader who already knows what they want, which is section 2's arrival test
+applied to a whole band. A section whose bands do not resolve into that shape —
+one run a reader walks, and the rest entered from outside — has a grouping
+rather than an order. That is what a band is for, and it is what a reviewer
+holds a `_meta.ts` to.
 
 ### The prose budget
 
-1,200 words a page. Nine pages exceed it today: `react-widget/api` (1,920),
-`acl/pitfalls` (1,567), `urn/api` (1,561), `acl/integrations/react-router`
-(1,560), `acl/decisions` (1,557), `acl/integrations/nestjs` (1,451),
-`acl/integrations/next-rsc` (1,393), `acl/security` (1,393),
-`react-widget/advanced` (1,388).
+1,200 words a page. Four pages exceed it today: `react-widget/api`,
+`acl/pitfalls`, `acl/decisions` and `acl/security`. The numbers are not written
+here. A prose count moves with every edit of the page, and a number in this
+document that disagrees with the guard is worse than no number:
+`tools/repo-checks/src/doc-prose-budget.json` carries the allowance G8 reads,
+and that file is the one place to look up what a page is currently allowed.
 
 The budget is not a style preference. A page over it is two reader questions
 sharing a URL, which means the search result and the table of contents both
 point at the wrong half. It is also the countable version of the Diátaxis
 diagnostic in section 3 and of the one-concept rule in section 2: a teaching page
-over budget is usually a page that introduced two things. The six `acl` pages
-on the list are the clearest cases, and three of them are platform guides
-carrying the framework tutorial Astro's scope fence would have cut.
+over budget is usually a page that introduced two things. The three `acl` pages
+on the list are the clearest cases. The platform guides under
+`acl/integrations/` are not on it: they are long files whose length is mostly
+fences, so whether one of them carries the framework tutorial Astro's scope
+fence would have cut is a reading rather than a count.
 
 Reference pages are the exception the budget must not break: an exhaustive
 reference over a 55-export package is long because the package is wide, and
@@ -1254,7 +1276,7 @@ untested code sample rots, and section 5's entire argument is that this repo
 refuses untested code samples for that reason. The asymmetry is real and it is
 the one place this standard tolerates what it forbids elsewhere.
 
-Two things make it survivable, and neither is a guard:
+One thing makes it survivable, and it is not a guard:
 
 - **A diagram never carries information the prose does not.** This is decision
   13 and it is the load-bearing half. A stale diagram can then mislead, which is
@@ -1262,15 +1284,22 @@ Two things make it survivable, and neither is a guard:
   It also follows from the two-layer rule rather than being a separate
   restriction: a diagram is a second presentation of the teaching layer, and a
   reader who cannot see it loses nothing.
-- **A diagram whose nodes are the code's identifiers is partly checkable.** G5
-  already extracts `@evanion/…` identifiers from fences and holds them to the
-  package's exports; running the same extraction over `mermaid` fences catches a
-  diagram naming a symbol that no longer exists. That is an extension of an
-  existing guard rather than new machinery, and it is worth having because it is
-  free. It catches renames and nothing else.
 
-What neither addresses is a diagram that is structurally wrong — an arrow that
-points the wrong way now, a boundary in the wrong place. That is caught by
+Holding a diagram's symbols to the code was considered and rejected. G5 extracts
+`@evanion/…` identifiers from fences and holds them to the package's exports,
+and the same extraction over a `mermaid` fence would catch a diagram naming a
+symbol that no longer exists. The only spellings it can match without guessing
+are `@evanion/acl.createPolicy` and `@evanion/acl#createPolicy`, and nothing in
+this document says how a diagram spells a symbol. Requiring the qualified form
+makes the picture worse to read — a node labelled `createPolicy` is what a
+reader wants — for one narrow class of rot, on a page where decision 13 has
+already given up on the diagram being load-bearing. The site's one diagram names
+no symbol at all. G5 carries the check because it costs nothing and is right
+where a diagram happens to be spelled that way; nothing here rests on it, and
+section 12 lists it with the things a reviewer holds.
+
+What none of this addresses is a diagram that is structurally wrong — an arrow
+that points the wrong way now, a boundary in the wrong place. That is caught by
 review or it is not caught. A writer reaching for a diagram is choosing to
 maintain it, and that choice is worth making deliberately rather than by
 reflex.
@@ -1708,9 +1737,12 @@ A page ships when all of these hold. This is the list an agent is handed.
 13. It is one kind of page from section 4, and the Diátaxis diagnostic in
     section 3 does not fire on it.
 14. If it is the demonstration page, it mounts the section's control.
-15. Every `@evanion/…` name it imports in a fence, spells as a `signature`
-    fence's `##` heading, or puts in a diagram is exported from that package's
-    entry. Nothing inside a signature block is checked.
+15. Every `@evanion/…` specifier it imports in a fence resolves through that
+    package's `exports` map, and every name it binds from one, or spells as a
+    `signature` fence's `##` heading, is exported from the entry the specifier
+    resolves to. Nothing inside a signature block is checked, nothing is checked
+    behind an entry point that is not TypeScript, and nothing requires a diagram
+    to spell a symbol at all.
 16. Every internal link it makes resolves to a page that exists.
 
 Items 2 to 7 fail review rather than the build, and so does everything in item 8
@@ -1752,7 +1784,9 @@ is allowed to assume.
 
 So: separators at every level, and `content/acl/integrations/*.mdx` moves to
 `content/acl/` under a `Platforms` separator. `acl/integrations/index.mdx`
-becomes `acl/platforms.mdx`, the band's overview.
+becomes `acl/platforms.mdx`, the band's overview. `federation` — Many Services —
+joins them out of Setup, so the band is six pages: the overview, the four
+platform guides and the topology.
 
 The URL changes, from `/acl/integrations/nestjs` to `/acl/nestjs`. Nothing
 external links to these yet — the section is on a branch and the package is
@@ -1956,8 +1990,9 @@ fail with a message naming the file and the fix.
 **G1 — every section has a `_meta.ts` listing every page in it.** Both
 directions. `docs-navigation.test.ts` already checks that every `_meta` key
 resolves to a page; the missing direction is that every page is a `_meta` key.
-Fails today on six sections with no `_meta.ts`, on `acl/integrations`, and on
-`urn/components`. This is the highest-value guard in the list and the cheapest:
+It failed on six sections with no `_meta.ts`, on `acl/integrations`, and on
+`urn/components`; section 13 step 1 wrote those files and it passes now. This is
+the highest-value guard in the list and the cheapest:
 about fifteen lines in the existing file. Under decision 2 it is also the
 closest thing the journey has to enforcement: it cannot check that the order
 teaches, but it can guarantee that the order exists and that no page is outside
@@ -1970,9 +2005,13 @@ is a field on the `navigation.ts` entry — `demo: 'usage'` — which also gives
 its target. The field may name `getting-started` in a section of five pages or
 fewer, which is section 4's rule and is what keeps the guard from forcing a
 fourth file on a section that does not want one; `compose` uses that allowance.
-Fails today on all nine sections: `compose` has no getting-started, and no
-section has a `demo:` field yet because the field does not exist until this
-guard is written.
+Five sections have no getting-started page — `acl`, `compose`, `feature`, `luhn`
+and `token` — and `compose` has no page its `demo:` field can name, because the
+page that would fill the role is the getting-started page it does not have. So
+the guard ratchets rather than passing: it records the unfilled roles per
+section, and a section may only lose one. Of the five, `luhn` and `token` appear
+nowhere in section 13's content steps, so nothing currently scheduled writes
+their getting-started page and their allowances have no step that retires them.
 
 **G3 — no unexplained fence.** Every fence in `content/` is `file=`-bearing,
 one of the shell languages, or carries a tag from the closed list. Fails today
@@ -1983,9 +2022,11 @@ recorded count per section and fails when a section's count goes up.
 **G4 — every section has a control.** The page named by G2's `demo:` field
 mounts one of `Probe`, `WidgetPlayground`, `PlaygroundExamples`, or a registered
 landing specimen, unless `navigation.ts` carries an explicit
-`demoExempt: 'reason'`. Fails today on five sections — `acl`, `feature`,
-`compose`, `astro-widget` and `nestjs-correlation-id`, of which the last is the
-one expected to take the exemption. It holds the section floor only, and it
+`demoExempt: 'reason'`. Five sections mount no control. `nestjs-correlation-id`
+takes the exemption; the other four — `acl`, `feature`, `compose` and
+`astro-widget` — are each blocked on a later step of section 13, so the guard
+ratchets on a recorded allowance per section, each one naming the step that
+retires it. It holds the section floor only, and it
 says nothing about the two layers: a guard can see that a control is mounted and
 cannot see whether the prose around it teaches, which is the half decision 12
 actually turns on. It also cannot see the per-page rule in section 7 item 7 —
@@ -1993,31 +2034,39 @@ that every page introducing a concept carries a control or a stated exemption �
 which is a convention and is listed as one below.
 
 **G5 — no fence imports a name the package does not export.** Every
-`import { A, B } from '@evanion/x'` in a fence is checked against what
-`libs/x/src/index.ts` exports.
-42 such statements today across the site. Cheap, because every package has a
-single `.` entry in its exports map, and it catches the failure that makes a
-copy-pasted example fail for a reader in the most confusing way. Two extensions,
-both free once the extraction exists.
+`import { A, B } from '@evanion/x'` in a fence, after the region loader has
+filled the `file=` fences in, is checked against the entry the specifier
+resolves to. Resolution is the package's own `exports` map under the
+`@evanion/source` condition, which is the condition every package in this
+workspace maps to its own `src/`, because the packages are not all one entry:
+`@evanion/feature` publishes `./react` beside `.`, `@evanion/astro-widget`
+publishes `./components/*`, and `@evanion/react-acl` enters at `index.tsx`. A
+specifier the map does not carry fails on its own, before any name is looked up.
+42 such statements today across the site. It catches the failure that makes a
+copy-pasted example fail for a reader in the most confusing way.
 
-The first is `mermaid` fences: every `@evanion/…` identifier in one is held to
-the same export list, which catches a diagram left naming a renamed symbol. It
-does not see whether the diagram is still true.
+An entry point that is not TypeScript has no export list to hold a name to.
+`@evanion/astro-widget`'s `./components/*` are `.astro` files, so a fence
+importing one is checked for the specifier resolving and for nothing else; five
+imports on the site are in that position today. That gap is in the judgement
+list below rather than covered by a rule that reads stronger than it is.
 
-The second is `signature` fences, and it needs its scope stated, because the
-obvious reading of it cannot be written. A signature is full of identifiers that
-are nobody's export — `string`, `Date`, `Promise`, a parameter called `now` —
-and a guard that held all of them to `libs/x/src/index.ts` would fail on every
-fence on the site. Separating a package type from a TypeScript lib type needs a
-list of every built-in, which is a second thing to maintain that goes stale in
-the direction that produces false failures. So the guard checks two strings and
-nothing else:
+One extension, and it needs its scope stated, because the obvious reading of it
+cannot be written. A `signature` fence is full of identifiers that are nobody's
+export — `string`, `Date`, `Promise`, a parameter called `now` — and a guard
+that held all of them to an export list would fail on every fence on the site.
+Separating a package type from a TypeScript lib type needs a list of every
+built-in, which is a second thing to maintain that goes stale in the direction
+that produces false failures. So the guard checks two strings and nothing else:
 
 - **Every `import { … } from '@evanion/…'` in the fence**, which is G5 unchanged.
 - **The symbol the fence documents**: the backticked text of the `##` heading it
-  sits under. Decision 8 requires that heading to be spelled as the export, so
-  this is a direct comparison against the export list with no parsing of the
-  signature body at all.
+  sits under, taken up to the first `(`, `<` or space, so that
+  `provider(component, props)` and `Policy<Schema>` each name a symbol. Decision
+  8 requires that heading to be spelled as the export, so this is a string
+  comparison with no parsing of the signature body at all. The list it is held
+  to is the section's own package plus every package the page imports from,
+  which is what lets an `acl` page document a `@evanion/react-acl` hook.
 
 What that leaves unchecked is everything inside the signature — the parameter
 types, the return type, the shape of an `interface`. Those are exactly the
@@ -2037,13 +2086,24 @@ states is the same component mounted in both places, so a section already
 carrying a probe does not discharge its specimen.
 
 **G7 — internal links resolve.** Every `](/…)` in `content/` names a page in the
-content tree or a route the app defines. Nextra does not check this and a
-renamed page leaves a 404 behind. Cheap, and it is what makes decision 18's URL
-move safe.
+content tree or a route `apps/docs/app` defines. The `[...mdxPath]` catch-all is
+excluded from that route set: it matches every path, so counting it as a route
+would make the guard pass on every link. What is checked is the path. The
+fragment is not — a heading's anchor is produced by Nextra's slugger during the
+build, and reproducing it here is a second implementation of somebody else's
+function — and a link written as an `<a href>` in JSX is outside the pattern
+entirely. Both gaps are in the judgement list below. Nextra does not check any
+of this and a renamed page leaves a 404 behind. Cheap, and it is what makes
+decision 18's URL move safe.
 
-**G8 — the word budget.** A word count per page, over the prose only. Fails
-today on nine pages. Trivial to compute, and the least valuable of the nine:
-over-length is a symptom and the guard cannot say which half to move.
+**G8 — the word budget.** A word count per page, over the prose only:
+frontmatter, fenced blocks, the `import` and `export` lines of MDX module scope,
+JSX tags, comments and the URL half of a link all come out before the count, so
+what is counted is what a reader reads as sentences. Fails today on four pages,
+and those four carry their current counts as the allowance in
+`tools/repo-checks/src/doc-prose-budget.json`, which ratchets the way G3 does.
+Trivial to compute, and the least valuable of the nine: over-length is a symptom
+and the guard cannot say which half to move.
 
 **G9 — the abandoned domain stays abandoned.** No fence in `content/` and no
 region a page renders names `post`, `comment`, `invoice`, `article` or `blog` as
@@ -2052,9 +2112,12 @@ today on `acl` most of all. It is a ratchet like G3 and its limit is honest: a
 deny list can prove an example left the old domain and can never prove it
 arrived in the new one. Whether an example is set in the shop is a reading.
 
-G1, G2, G3, G4, G6, G8 and G9 fail on the current content, counted. G5 and
-G7 have not been run — the site's 42 package imports and its internal links have
-not been resolved by hand, and either could pass clean.
+G1, G2, G4, G5, G7 and G8 are written. G1, G5 and G7 pass on the current
+content: G5 resolves every package import in a fence, G7 every internal link.
+G8, G2 and G4 land as ratchets — G8 recording the four pages over budget, G2 the
+five sections with no getting-started page and `compose`'s unfilled
+demonstration role, G4 the four sections with no control. G3, G6 and G9 are not
+written, and each fails on the current content, counted.
 
 ### What is enforced, and what rests on a reviewer
 
@@ -2087,13 +2150,25 @@ cannot read the paragraph above it, so "try changing the value" in place of an
 explanation builds clean. This is the test decision 12 actually turns on and it
 is a reading every time.
 
-**Whether a diagram is still true.** G5's extension catches a renamed symbol in
-a `mermaid` fence, and `diagram-captions.test.ts` catches a missing caption.
-Nothing catches an arrow pointing the wrong way. Decision 13 — a diagram never
-carries information the prose does not — is what keeps that failure from being
-load-bearing, and the fact that the picture is invisible to search and to a
-reader without JavaScript is what makes decision 13 a rule rather than a
-preference.
+**Whether a diagram is still true.** `diagram-captions.test.ts` catches a
+missing caption and nothing else about a diagram is enforced. Nothing catches an
+arrow pointing the wrong way, and nothing catches a node naming a symbol that
+was renamed. The second of those was specified as an extension of G5 and is
+withdrawn here. G5 can only match a spelling that names both halves —
+`@evanion/acl.createPolicy` or `@evanion/acl#createPolicy` — and this document
+nowhere says how a diagram spells a symbol, so enforcing it would mean adding
+that spelling as a rule. A node labelled `createPolicy` is what a reader wants
+to read; the qualified form is worse to read, and the site's one `mermaid` fence
+names no symbol at all, so the check fires on nothing today. That is a cost to
+the artefact for a fraction of something this list has already given up. G5
+carries the check anyway, because it costs nothing to keep and is right on a
+diagram that happens to be spelled that way, and nothing in this document relies
+on it. Decision 13 — a diagram never carries information the prose does not — is
+what keeps a stale diagram from being load-bearing, and `apps/docs/AGENTS.md`
+already tells a writer the same thing: a diagram is not verified and must never
+be the only place a fact is written. The fact that the picture is invisible to
+search and to a reader without JavaScript is what makes decision 13 a rule
+rather than a preference.
 
 **Whether a page that introduces a concept carries a control.** Section 7 item 7
 is a per-page rule and G4 is a per-section guard: G4 sees that a section has one
@@ -2160,6 +2235,13 @@ is the point of writing them down this way.
 - **Whether an exemption tag is honest.** `no-run` on a fence that could run is
   invisible to a guard. G3's ratchet is a proxy: it makes the count visible and
   makes it go one way.
+- **Whether a fence importing an `.astro` component names a real one.** G5
+  resolves `@evanion/astro-widget/components/…` through the `exports` map and
+  stops. An `.astro` entry point carries no export list a TypeScript program can
+  read, so the named bindings of those five imports are unchecked.
+- **Whether a link's fragment resolves.** G7 checks the path and not the anchor
+  after the `#`, which Nextra's slugger produces during the build. A link
+  written as an `<a href>` in JSX rather than as markdown is not seen at all.
 - **Whether a signature's types are right.** G5 holds a `signature` fence's
   heading symbol and its imports to the export list and reads nothing inside the
   block, so a parameter that changed type, an argument that became optional and
@@ -2180,8 +2262,8 @@ Nothing here is a single pass over 62 pages.
    before the next step rather than after it: section 12 says G7 is what makes
    decision 18's URL move safe, and a link guard that lands after the move has
    watched nothing. G8 arrives here with a recorded per-page allowance on the
-   nine pages that fail today, ratcheting the way G3 does, because the budget is
-   worth holding from the start and none of those nine is fixed by a guard.
+   four pages that fail today, ratcheting the way G3 does, because the budget is
+   worth holding from the start and none of those four is fixed by a guard.
 3. **Decision 18**: `acl/integrations/` becomes a `Platforms` band. Before
    `@evanion/acl` publishes, which is what makes the URL change free, and behind
    G7, which is what makes it checkable.
@@ -2196,6 +2278,31 @@ Nothing here is a single pass over 62 pages.
    them. This step exists because step 5 mounts components on pages that nothing
    else in this order creates, and because G2 and G4 were specified in section 12
    and then left out of this order entirely.
+
+   Neither guard goes green here, and both land the way step 2 lands G8: with a
+   recorded per-section allowance that only ever shrinks. G4 cannot: four
+   sections have no control and none is fixable at this step — `acl` waits for
+   step 5, which is where `AccessDemo` is re-themed and mounted; `compose` for
+   step 9; `feature` for step 10, because its `Probe` reads a doctested region at
+   build time and the region has to be wired first; `astro-widget` for step 13,
+   which is where its control gets designed. G2 cannot: five sections have no
+   getting-started page — `acl`, `compose`, `feature`, `luhn` and `token` — and
+   `compose` has no demonstration role filled either, since the page its `demo:`
+   field would point at is the getting-started page it does not have. The
+   content work that writes one is step 9 for `compose`, step 10 for `feature`
+   and step 11 for `acl`. `luhn` and `token` appear in no content step, so their
+   two allowances are the ones this order does not retire, and closing them is a
+   step somebody has to add.
+
+   A demonstration page created here is written in the shop domain and carries
+   its own region. Step 11 is where `acl`'s nineteen regions leave the blog CMS,
+   so every existing `acl` region names `comment` or `payout` today, and a new
+   page citing one would carry the abandoned domain into fresh content and then
+   need re-theming twice. So a page this step creates writes a new region rather
+   than referencing one that has not been re-themed — `acl/interface` gets
+   `listing-bar` in `libs/acl/README.md` — which is also what keeps G9's ratchet
+   moving one way when it arrives.
+
 5. **The two front-page demos into the shop** (section 6), then decision 20 and
    G6: all five landing specimens into `mdx-components.js`. `AccessDemo` and
    `DataDemo` are the re-themed two and are mounted on `acl/interface` and
@@ -2249,12 +2356,15 @@ Nothing here is a single pass over 62 pages.
 - G3's ratchet fails when a fixture section's untagged-fence count rises and
   passes when it falls.
 - G5 fails on a fence importing a name the package's entry does not export, and
-  passes on a name it exports only as a type.
+  passes on a name it exports only as a type. It fails on a specifier no
+  package's `exports` map carries, and passes on a subpath entry one does —
+  `@evanion/feature/react`.
 - G7 fails on a link to a page that does not exist and passes on a link to a
   heading anchor within a page that does.
-- G5's `mermaid` extension fails on a diagram naming an `@evanion/…` symbol the
+- G5's `mermaid` check fails on a diagram naming an `@evanion/…` symbol the
   package no longer exports, and passes on a diagram whose nodes are the shop's
-  own nouns.
+  own nouns. It is asserted because the guard carries it, and no rule in this
+  document rests on it; section 12 says why.
 - The `.md` sibling of a page carrying a `file=… region=…` fence contains the
   region's code. This is the assertion the whole route exists for: the failure
   it prevents is serving an agent a page whose every TypeScript example is an
@@ -2394,8 +2504,8 @@ against it.
   against nothing. `acl` is the only section long enough for an order to matter,
   its Setup band is the one stretch of the site that already teaches
   cumulatively, and the other 19 pages were written without one. Whether they
-  resolve into a teaching run plus three sideways bands, or into something a
-  fourth band cannot express, is not known until someone writes the `_meta.ts`.
+  resolve into a teaching run plus sideways bands at all is not known until
+  someone writes the `_meta.ts`.
 - **That an unenforced rule holds.** Decisions 1, 2 and 4, the teaching layer's
   completeness, an H2 section's self-containment and a diagram's truth are
   conventions, by section 12. Every other convention this repo has kept has a
@@ -2468,11 +2578,14 @@ against it.
   picks that setup up for a README fence is not something I traced.
 - **The 1,200-word budget.** It is the median of the current pages rounded down,
   not a measurement of what a reader tolerates. It is the number in this
-  document I would most expect to be moved, and moving it changes which nine
-  pages fail rather than whether the rule is right.
-- **That four bands is the right ceiling** rather than three. Section 4 arrives
-  at four by resolving `acl`'s own shape, which is reasoning from the one
-  example, and the one example was written without a standard.
+  document I would most expect to be moved, and moving it changes which pages
+  fail rather than whether the rule is right.
+- **That a band is worth naming as a structure at all.** Section 4 arrives at
+  what a band is by resolving `acl`'s own shape, which is reasoning from the one
+  example, and the one example was written without a standard. The counts that
+  came out of that reasoning — four bands, 22 pages — are removed; what is left
+  is the claim that one band is the run a reader walks and the rest are entered
+  sideways, and that is untested on any section but `acl`.
 - **Decision 21's generator.** `acl`'s API reference fences are grouped
   signatures — a whole `interface Access` in one block — rather than calls, and
   a signature is not a doctest. Stripe generates the equivalent from OpenAPI and
