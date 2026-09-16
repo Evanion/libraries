@@ -75,6 +75,61 @@ function cloneSchema(schema: MatrixSchema): MatrixSchema {
   }
 }
 
+/** Whether a value is shaped like a document at all, before anything reads it. */
+function isEnvelope(matrix: Matrix): boolean {
+  return (
+    typeof matrix === 'object' && matrix !== null && !Array.isArray(matrix)
+  );
+}
+
+/**
+ * The frozen document, rebuilt from one read of each envelope member.
+ *
+ * The envelope is rebuilt rather than cloned whole, so an absent version or
+ * schema stays absent through a JSON round trip instead of becoming a key
+ * holding undefined. The option wins over the document's version, and the
+ * winner is what freezes, so what crosses an SSR boundary is the version that
+ * decided.
+ *
+ * Every member is read once, into this copy. Nothing downstream reads the
+ * caller's object again.
+ */
+function rebuild(
+  matrix: Matrix,
+  override: string | number | undefined,
+): Matrix {
+  const { schema, permissions } = matrix;
+  const version = override ?? matrix.version;
+  return deepFreeze({
+    ...(version === undefined ? {} : { version }),
+    ...(schema === undefined ? {} : { schema: cloneSchema(schema) }),
+    permissions: Array.isArray(permissions)
+      ? permissions.map(cloneNode)
+      : permissions,
+  }) as Matrix;
+}
+
+/**
+ * The document the engine evaluates: a frozen deep copy, validated as the copy.
+ *
+ * Validation and evaluation have to read the same bytes. A caller's document is
+ * a live object, and an accessor or a proxy on it answers a second read however
+ * it likes — a `when` that validates as a condition and clones as the empty,
+ * unconditional form is an open grant the gate approved. Taking the copy first
+ * and checking the copy leaves nothing between the two reads.
+ *
+ * A value that is not an envelope is handed to the gate as it arrived, which
+ * owns the message for that and throws before anything evaluates.
+ */
+function adopt(
+  matrix: Matrix,
+  override: string | number | undefined,
+): Matrix {
+  const frozen = isEnvelope(matrix) ? rebuild(matrix, override) : matrix;
+  validateMatrix(frozen);
+  return frozen;
+}
+
 /** A subject for a single call: the actor, a plain object of attributes. */
 export type Subject = Record<string, unknown>;
 
@@ -205,18 +260,7 @@ export function createPolicy(
   matrix: Matrix,
   options: AccessOptions = {},
 ): Access {
-  validateMatrix(matrix);
-  const version = options.version ?? matrix.version;
-  // The envelope is rebuilt rather than cloned whole, so an absent version or
-  // schema stays absent through a JSON round trip instead of becoming a key
-  // holding undefined.
-  const frozen = deepFreeze({
-    ...(version === undefined ? {} : { version }),
-    ...(matrix.schema === undefined
-      ? {}
-      : { schema: cloneSchema(matrix.schema) }),
-    permissions: matrix.permissions.map(cloneNode),
-  }) as Matrix;
+  const frozen = adopt(matrix, options.version);
   const permissions = frozen.permissions;
   const graph = buildGraph(permissions);
   const index = buildIndex(permissions);
