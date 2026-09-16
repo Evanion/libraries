@@ -20,7 +20,15 @@ and its engineering posts on Markdoc and on generating everything from OpenAPI;
 react.dev's launch post, contributing guide and Learn/Reference page anatomy;
 the Rust book's publishing chapter, the rustdoc documentation-tests reference
 and the Rust API Guidelines; Tailwind's utility pages; Astro's contributor
-writing-style and code-sample guides; Svelte's tutorial.
+writing-style and code-sample guides; Svelte's tutorial; MDN's Learn track
+beside its reference.
+Studies cited, with their weight and their limits set out in "The evidence, and
+what it does not cover": Carroll and van der Meij, "Ten Misconceptions about
+Minimalism", IEEE Transactions on Professional Communication 39(2), 1996;
+Andersen, O'Rourke, Liu, Snider, Lowdermilk, Truong, Cooper and Popović, CHI
+2012; Noetel, Griffith, Delaney, Harris, Sanders, Parker, del Pozo Cruz and
+Lonsdale, 2021. Measured for this document: the documentation MCP servers of
+Cloudflare, Microsoft Learn, Sentry and AWS, by JSON-RPC (section 5a).
 
 ## What is actually wrong
 
@@ -92,41 +100,52 @@ The products are demonstrated in a shop the documentation never enters.
    page** is entered by someone learning, in sequence. A **reference page** is
    entered by someone who already has the thing in mind and wants the detail.
    Everything in section 2 follows from that one split.
-2. Teaching is cumulative. A teaching page may build freely on every teaching
-   page before it in `_meta.ts` order, and may not silently require anything
-   introduced after it. The order is what states the prerequisites; a page that
-   lists its own is in the wrong place. Section 2.
-3. A reference page is outside the sequence. It may use any concept in the
-   section, assumes nothing about what the reader has read, and links to the
-   teaching page that introduces a concept rather than re-teaching it. Section 2.
-4. Diátaxis is a diagnostic applied to a page someone already decided to write.
+2. Teaching is cumulative and support fades rather than stopping. A teaching
+   page may build on every teaching page before it in `_meta.ts` order and may
+   not require anything introduced after it, and a concept carries a reminder
+   on the page after it is introduced, a shorter one on the page after that,
+   and none thereafter. A page's structured prerequisites are page furniture
+   and are allowed; a line of body prose telling the reader to go and read
+   something else is not. Section 2.
+3. A reference page is outside the sequence, and self-containment is a property
+   of an H2 section rather than of a page: no pronoun whose referent is in an
+   earlier section, a heading that names the package as well as the operation,
+   and every fact adjacent to the sentence that uses it. Section 2, section 5a.
+4. A staged sequence is built only where prior knowledge does not transfer.
+   Where a package resembles things a reader already knows, tiers cost more
+   than they return and the floor is the whole of it. Section 2.
+5. Diátaxis is a diagnostic applied to a page someone already decided to write.
    It is not a template that generates pages, it does not license splitting one
    good page into four thin ones, and no guard enforces it. Section 3.
-5. Every section has four page types and may have four more kinds of page, from
+6. Every section has four page types and may have four more kinds of page, from
    a closed vocabulary. Nothing else is a page. Section 4.
-6. A section's ceiling is four bands and `acl` at 22 pages is at it. The ceiling
+7. A section's ceiling is four bands and `acl` at 22 pages is at it. The ceiling
    is named as the maximum legal shape, not as a target, and page count is not
    the defect this document was called to fix. Section 4.
-7. An API reference page has one heading per exported symbol, spelled as the
+8. An API reference page has one heading per exported symbol, spelled as the
    symbol. Task-shaped headings belong on question pages. Section 4.
-8. Prose budget: 1,200 words a page. Over that the page is two questions.
+9. Prose budget: 1,200 words a page. Over that the page is two questions.
    Section 4.
-9. A code fence executes unless it falls in one of five named exemptions, and
-   the exemption is written on the fence rather than left to inference.
-   Section 5.
-10. `file=… region=…` is the only way a TypeScript example reaches a page. A
+10. A code fence executes unless it falls in one of five named exemptions, and
+    the exemption is written on the fence rather than left to inference.
+    Section 5.
+11. `file=… region=…` is the only way a TypeScript example reaches a page. A
     hand-written `ts` fence in `content/` is a defect, including in an API
     reference. Section 5.
-11. A teaching page has two layers. Prose, diagrams and code blocks teach the
+12. A teaching page has two layers. Prose, diagrams and code blocks teach the
     concept and show how to work it, and stand complete on their own. The
     playground makes it practical: the reader takes what was taught and feels
     it. The playground is additive and never substitutive, so a page whose
     prose says only "try changing the value" has failed at teaching. Section 5.
-12. A diagram is a `mermaid` fence, never an image file, and it never carries
-    information the prose does not. Nothing holds it to the code it describes,
-    which is the one place this standard tolerates a rot it refuses everywhere
-    else. Section 5.
-13. Every section ships at least one control a reader can operate, on the
+13. A diagram is a `mermaid` fence, never an image file. It sits inside the
+    block that refers to it, carries its labels in the graphic rather than in a
+    caption, and is cut if it is decorative. It never carries information the
+    prose does not, which is what keeps it from being load-bearing, because
+    nothing holds it to the code it describes. Section 5.
+14. The agent surface is a `.md` sibling per page, generated after region
+    inlining so its fences are not empty. `llms.txt` is not published. It is the
+    same prose as the page, not a second artifact. Section 5a.
+15. Every section ships at least one control a reader can operate, on the
     demonstration page named in section 4, and the choice between a probe, live code and a specimen
     is made by what the reader's question is — not by what is easiest to build.
     A demo leads with the consequence and shows the code second; its editable
@@ -134,38 +153,43 @@ The products are demonstrated in a shop the documentation never enters.
     read without scrolling; and it renders the package's own return shape only
     where that shape is the thing the reader came for. Otherwise it is a
     diagnostic and belongs on a reference page. Section 5.
-14. One domain across all nine sections: the board game shop the demo apps
+16. One domain across all nine sections: the board game shop the demo apps
     already run. Both front-page demos are re-themed into it. A package may
     record an exemption with a reason; `compose` takes the only one. Section 6.
-15. The region loader learns `// #region` markers in `.ts`/`.tsx` sources, so a
+17. The region loader learns `// #region` markers in `.ts`/`.tsx` sources, so a
     type-level claim asserted in a `*.test-d.ts` file can be rendered as the
-    example. This is what makes `compose` documentable under decision 9.
+    example. This is what makes `compose` documentable under decision 10.
     Section 10.
-16. Separators, never folders, at every level. `acl/integrations/` is the one
+18. Separators, never folders, at every level. `acl/integrations/` is the one
     folder on the site and it is wrong; it becomes five pages under a
     `Platforms` separator. Section 8.
-17. Every section directory has a `_meta.ts` naming every page in it, in reading
+19. Every section directory has a `_meta.ts` naming every page in it, in reading
     order. Under decision 2 that order is a claim about what a reader has met,
     so the file is load-bearing rather than a convenience. Section 8.
-18. Nothing runnable exists only on the front page. Every landing specimen has a
+20. Nothing runnable exists only on the front page. Every landing specimen has a
     counterpart inside the section it advertises, and `AccessDemo` moves into
     MDX. Section 9.
-19. An API reference's signature blocks are generated from the package's emitted
+21. An API reference's signature blocks are generated from the package's emitted
     declarations, not written. Until that generator exists they carry a
     `signature` tag and a guard holds every identifier in them to the package's
     exports. Section 3a, section 5.
-20. Nine guards in `tools/repo-checks` (section 12). Seven of them fail today;
-    the other two have not been run. Three rules here have no guard behind them
-    — the teaching order, whether a teaching layer stands alone, and whether a
+22. Nine guards in `tools/repo-checks` (section 12). Seven of them fail today;
+    the other two have not been run. Four rules here have no guard behind them
+    — the teaching order and its fading, whether a teaching layer stands alone,
+    whether an H2 section survives being cut out of its page, and whether a
     diagram is still true — and section 12 names them rather than letting the
     document read as uniformly binding.
-21. Nothing here is retrofitted in one pass. The order is section 13.
+23. Nothing here is retrofitted in one pass. The order is section 13.
 
-Decision 14 is the expensive one: it re-themes nineteen doctested regions, a
+Five of these rest on measured evidence and the rest are judgement. Which is
+which is in "The evidence, and what it does not cover", below section 13, and it
+is written there rather than implied here.
+
+Decision 16 is the expensive one: it re-themes nineteen doctested regions, a
 22-page section and two front-page demos, one of which the owner has said he
-loves. Decision 10 is the one this document was originally written to argue.
-Decision 6 is the one most likely to be disputed, because it declines to call 22
-pages a defect. Decision 15 is the only one that needs code outside `apps/docs`.
+loves. Decision 11 is the one this document was originally written to argue.
+Decision 7 is the one most likely to be disputed, because it declines to call 22
+pages a defect. Decision 17 is the only one that needs code outside `apps/docs`.
 
 ## 1. What runnable means here, and the four mechanisms
 
@@ -279,45 +303,129 @@ scenario carried for its own sake. A teaching page is not a chapter. What the
 rule gives and takes is one permission and one obligation:
 
 - **The permission:** a teaching page may use anything an earlier teaching page
-  introduced, without reintroducing it, without an aside, and without a link.
-  That is what makes a section shorter than nine independent pages.
-- **The obligation:** a teaching page may not silently require anything a later
-  teaching page introduces. A concept that arrives on page four cannot be used
-  casually on page two to explain something else.
+  introduced. That is what makes a section shorter than nine independent pages.
+- **The obligation:** a teaching page may not require anything a later teaching
+  page introduces. A concept that arrives on page four cannot be used casually
+  on page two to explain something else.
 
 Everything else about order — how long each page is, how many there are, how
 they read — is section 4's business and not this rule's.
 
-### The order is the prerequisite
+### Support fades, it does not stop
 
-`_meta.ts` order is the sequence, which is why decision 17 makes that file
+The permission has a limit, and it is the one piece of this document that is
+settled by somebody else's experiment rather than by argument.
+
+The obvious reading of the permission is that a concept introduced on page three
+may be used bare on page four: no reminder, no aside, no link. Carroll's group
+shipped exactly that rule in a minimal manual and tested it. From Carroll and
+van der Meij, "Ten Misconceptions about Minimalism", _IEEE Transactions on
+Professional Communication_ 39(2), 1996:
+
+> in an early version of our minimal manual for Wordperfect we asked users
+> merely to achieve a given goal if the procedure for that goal had been
+> presented in an earlier chapter. Testing revealed that this assumed too much
+> learning, leading to mistakes and look backs by some of the users. We
+> therefore decided to fade the information more gradually, adding reminders,
+> but making successive reminders less complete.
+
+Their Figure 3 degrades one task across five presentations, from three literal
+keystrokes down to `Open file x.`
+
+So the rule here is fading, not silence. A concept introduced on page N appears
+on N+1 with a short reminder — a clause, a parenthesis, the argument named
+again — on N+2 with a shorter one, and bare from N+3. The reminder is not a
+re-explanation and it is not a link: it is the smallest amount of the earlier
+page that lets a reader who half-remembers carry on without leaving.
+
+**This costs more than the rule it replaces.** Silence is free and fading is
+three passes over the same concept, each one written to be less than the last,
+and it has to be redone whenever the order changes. It is bought anyway, because
+the alternative was measured and it produced mistakes and look-backs.
+
+The failure this guards against is the one it was measured on: a reader who
+cannot continue and goes back, which costs them the page they were on. A
+reminder that is too complete is a smaller failure — some redundancy — and the
+gradient is the answer to both.
+
+### The order is the prerequisite, and the box is furniture
+
+`_meta.ts` order is the sequence, which is why decision 19 makes that file
 mandatory rather than convenient. `index.mdx` is the entry point: the one page
 that may assume nothing, and the only page a reader can be expected to arrive at
 cold.
-
-A teaching page does not list its prerequisites. If a page needs a line saying
-_read X first_, either the order is wrong or the page is in the wrong band, and
-the line is covering for it. This is the difference between a journey and a pile
-of pages with cross-references: in a sequence the position is the statement, and
-an annotation restating it is a smell rather than a service.
 
 The consequence is that moving a teaching page in `_meta.ts` is a real change.
 It changes what every page after it may assume and what every page before it may
 use. The ordering work is load-bearing rather than tidying.
 
+MDN is the strongest working example of the split this section makes — a
+cumulative Learn track beside a reference track entered from anywhere — and its
+teaching pages carry Prerequisites boxes. The observed practice of the best
+example has to be reconciled with the rule rather than waved at, so:
+
+- **A structured prerequisites box is allowed.** It is page furniture, in the
+  same class as the title and the sidebar, and it is a fade rather than a
+  contradiction: it states what the page assumes at the smallest size that can
+  state it. It exists for the reader who arrived from search rather than from
+  the page above, and that reader is most of them.
+- **A line of body prose telling the reader to go and read something else is
+  not.** _Read the Intermediate tier before continuing_ in the middle of a
+  paragraph is the smell: it interrupts the reader who did walk the path and
+  gives up on the one who did not.
+- **The box has a size limit, and exceeding it is the real signal.** It names
+  the one or two pages immediately before. If it needs four, the order is wrong
+  or the page is in the wrong band, which is what the original rule was reaching
+  for.
+
 The floor's teaching sequence is fixed: `index` → `getting-started` → the
 demonstration. A setup tier extends it — `acl`'s Simple → Intermediate →
-Advanced is exactly this and is the model for the rest of the site.
+Advanced is exactly this and is the model for the rest of the site, subject to
+the test in the next subsection.
+
+### Whether a staged sequence is worth building at all
+
+A tiered sequence is not free and it is not always positive. Andersen, O'Rourke,
+Liu, Snider, Lowdermilk, Truong, Cooper and Popović (CHI 2012) put tutorials in
+front of more than 45,000 players across three games and measured what happened.
+The tutorial helped substantially in one, did nothing in the second, and in the
+third **lowered** the return rate by 3.5 points.
+
+What predicted it was not how motivated the players were. It was whether prior
+knowledge transferred. The game the tutorial helped resembled nothing the
+players had seen. The two it did not help resembled a thousand games they
+already knew, and the sequence was making them walk through what they could have
+worked out.
+
+That is a sharper test than any documentation framework supplies, and it applies
+per package:
+
+**Build a staged sequence where prior knowledge does not transfer. Where the
+package resembles things a reader already knows, the floor is the whole of it.**
+
+- `acl` earns its three tiers. A subject-only condition and a condition that
+  reads the row are a distinction nothing else the reader has used makes, and
+  getting it wrong changes whether `unevaluable` can occur at all. This is the
+  case the evidence supports.
+- `compose` does not. Nesting React providers is a thing every reader of it has
+  already done by hand, and its one real surprise is a type relationship, which
+  is one page rather than a ramp. Section 10 gives it four pages and no tier,
+  and this is the reason. It is the same property that exempted it from the
+  domain in section 6: the package has no world of its own to be taught.
+- The rest sit between and take the floor until something argues otherwise.
+
+The cost of getting this wrong is not neutral. The third game's readers did not
+merely waste the tutorial; fewer of them came back.
 
 ### Familiarity before the next concept
 
-A concept introduced on one page is used again on the next without being
-re-explained. That is what "let the player get familiar with it" means in a
-document: the second appearance is the practice, and it is why the setup tiers
-are worth three pages while three tiers named Beginner, Intermediate and
-Advanced would not be. `acl`'s tiers are staged by one decision — whether a
-condition reads the object — and each tier uses the previous tier's answer
-rather than restating it.
+A concept introduced on one page is used again on the next, under a reminder
+rather than an explanation. That is what "let the player get familiar with it"
+means in a document: the second appearance is the practice, and it is why the
+setup tiers are worth three pages while three tiers named Beginner,
+Intermediate and Advanced would not be. `acl`'s tiers are staged by one decision
+— whether a condition reads the object — and each tier uses the previous tier's
+answer at one reminder less than the tier before.
 
 The converse is a real cut: a concept introduced once and never used again did
 not need a page. It needed a paragraph on the page that would have used it.
@@ -446,7 +554,7 @@ VERIFIED, `/how-to-use-diataxis/`, and it is blunt:
 
 The one place it does prescribe a tree is reference: "the structure of the
 documentation should mirror the structure of the product" (`/reference/`,
-`/start-here/`). That is decision 7 — an API reference page whose headings are
+`/start-here/`). That is decision 8 — an API reference page whose headings are
 the exported symbols — and it arrives from the framework rather than from taste.
 It is also the one part of the framework this document treats as binding, and
 that is not a coincidence: reference is the one page type with no journey in it
@@ -495,7 +603,7 @@ The API-docs version of it, VERIFIED on HN 49141184: "Please do not make me
 click on 'reference' to get to 'API docs'. … it tends to turn 1-click docs into
 2-click docs", and 49143640: "Some projects, when they move to diataxis, will
 create a top level section called 'reference' and have a single item under it
-called 'API'." That is decision 16's argument arriving from outside this repo.
+called 'API'." That is decision 18's argument arriving from outside this repo.
 
 Hillel Wayne's essay (hillelwayne.com, 2023-07-05) is the substantive written
 critique: the model is designed for tools rather than for frameworks or
@@ -572,17 +680,17 @@ export on GitHub Pages with no server and no per-reader state.
 | Stripe    | Reference generated from OpenAPI, the one source of truth                | **Yes** — the TypeScript types are the equivalent. Section 5    |
 | Stripe    | Request and response stacked in a persistent right rail                  | **Yes, at small scale** — this is what a probe already is       |
 | Stripe    | Snippets copy-pasteable with no placeholders                             | **Yes** — an authoring rule, costs nothing                      |
-| Stripe    | A `.md` sibling per page plus `llms.txt`                                 | Yes, cheap, out of scope here                                   |
+| Stripe    | A `.md` sibling per page plus `llms.txt`                                 | **Half** — the `.md` sibling, yes. `llms.txt`, no. Section 5a   |
 | Stripe    | Your own test key and your own object ids interpolated into every curl   | **No.** Needs auth, an account and a test-mode data plane       |
 | Stripe    | Seven-language switcher, per-version SDK pinning, dated version trains   | **No.** One language, semver, and versioned docs is the ceiling |
 | react.dev | 600+ editable Sandpack sandboxes, roughly a third of all code blocks     | **No** at that price; the probe is the cheap third of it        |
 | react.dev | Fixed page skeleton: what you'll learn → body → recap → challenges       | **Yes** — section 4's floor is the same idea, smaller           |
-| react.dev | Reference pages are Reference → Usage → Troubleshooting                  | **Partly** — decision 7 takes the first, section 4 declines     |
+| react.dev | Reference pages are Reference → Usage → Troubleshooting                  | **Partly** — decision 8 takes the first, section 4 declines     |
 | react.dev | Troubleshooting headings phrased as the symptom                          | **Yes** — `acl/pitfalls` is already this and should say so      |
 | Rust      | Examples in doc comments are tests, run by the normal test command       | **Already shipped**, and it is this repo's best asset           |
 | Rust      | Named escape hatches: `ignore`, `no_run`, `compile_fail`, `should_panic` | **Yes** — this is where section 5's tag list comes from         |
 | Rust      | Ferris icons marking a listing that does not compile                     | **Yes, and required** — section 5's rendered marks              |
-| Rust      | API Guidelines C-EXAMPLE: every public item has an example               | **Yes** — decision 10 applied to `api.mdx`                      |
+| Rust      | API Guidelines C-EXAMPLE: every public item has an example               | **Yes** — decision 11 applied to `api.mdx`                      |
 | Tailwind  | A lookup table above the prose, answering "which do I type"              | **Yes** for `api.mdx`; scanning and reading in separate blocks  |
 | Tailwind  | Algolia DocSearch                                                        | No — this site is pagefind, and that is fine                    |
 | Astro     | A written style guide: no "we", no "let's", imperatives, neutral prose   | Yes, and this repo already writes that way                      |
@@ -653,7 +761,7 @@ whatever else it has. The first three are the teaching sequence.
 
 The demonstration page is the one that does not exist today for six sections.
 Its name is the package's own: `usage`, `examples`, `components`, `playground`,
-`validation`. It is where decision 13 lands, and it comes before
+`validation`. It is where decision 15 lands, and it comes before
 the reference because it is the last step of learning rather than the first step
 of looking something up.
 
@@ -666,14 +774,17 @@ the constraint. What the floor does is make `compose` at three pages illegal and
 Four kinds, and nothing else. The first is teaching; the other three are
 entered with a goal already formed and sit outside the sequence.
 
-**A setup tier.** Teaching, and the clearest case of section 2's shape.
-Only when the package has one decision that changes the meaning of the rest of
-the API. `acl` has exactly one — whether a condition reads the object — and it
-is worth three pages because the answer changes whether `unevaluable` can occur,
-whether an instance must be fetched, and how many arguments `can` takes. Each
-tier uses the previous tier's answer rather than restating it. Cap: three tiers.
-A fourth tier means the tiers are tracking difficulty rather than a decision,
-and difficulty is not a document boundary.
+**A setup tier.** Teaching, and the clearest case of section 2's shape. Two
+conditions, and both have to hold. The package must have one decision that
+changes the meaning of the rest of the API, and under decision 4 the reader's
+prior knowledge must not already answer it. `acl` passes both — whether a
+condition reads the object changes whether `unevaluable` can occur, whether an
+instance must be fetched and how many arguments `can` takes, and no library the
+reader has used draws that line. Each tier uses the previous tier's answer under
+a shorter reminder than the tier before. Cap: three tiers. A fourth tier means
+the tiers are tracking difficulty rather than a decision, and difficulty is not
+a document boundary. A package failing the second condition gets no tiers at
+all, whatever its API looks like.
 
 **A question page.** Outside the sequence. Titled as the question a reader types, not
 as the method. `acl` has five and all five pass the test: "Can this user do
@@ -701,7 +812,7 @@ least two pages under it. Below five pages a section has no bands at all and the
 the teaching order is the order.
 
 `acl` has three bands — Setup, Questions, Reference — plus a fourth grouping,
-`integrations/`, currently expressed as a folder. Under decision 16 that becomes
+`integrations/`, currently expressed as a folder. Under decision 18 that becomes
 a `Platforms` band: Simple, Intermediate and Advanced stay under Setup, and
 Many Services joins the four platform guides under Platforms, which is where a
 topology belongs anyway. Four bands, 22 pages, at the ceiling.
@@ -734,7 +845,7 @@ carrying the framework tutorial Astro's scope fence would have cut.
 
 Reference pages are the exception the budget must not break: an exhaustive
 reference over a 55-export package is long because the package is wide, and
-under decision 19 most of its length is generated rather than written. The
+under decision 21 most of its length is generated rather than written. The
 budget counts prose, not generated signatures.
 
 ### Headings
@@ -762,7 +873,7 @@ Every fence in `apps/docs/content/` is one of:
 3. A fence carrying an exemption tag from the closed list below.
 
 There is no fourth case. A hand-written `ts` fence with no `file=` and no
-exemption tag is a defect, and decision 10 means that includes API reference
+exemption tag is a defect, and decision 11 means that includes API reference
 pages, which today hold 100% hand-written signatures for `acl`, `feature`,
 `luhn`, `token`, `react-widget`, `astro-widget`, `compose` and
 `nestjs-correlation-id`.
@@ -803,7 +914,7 @@ no equivalent and needs one before the exemptions are safe to grant.
 | Format/contract | at least 1, or link to one | no                  | **yes**           |
 | Platform guide  | at least 1                 | no                  | no                |
 
-The three requirements are decision 11's playground layer. A section is not
+The three requirements are decision 12's playground layer. A section is not
 obliged to build three separate controls — one control that a later page
 re-enters with a different seed is the same control and counts. What a page may
 not do is introduce a concept, leave the reader nothing to work it with, and say
@@ -843,11 +954,12 @@ using the control. The instruction is a confession that the text was never
 written: the meaning was left in a widget and the page is hoping the reader
 reconstructs it. That failure is nameable in review.
 
-This also settles what a chunk of this site is worth on its own. An agent, a
-search result, a copied paragraph, an RSS reader, a `.md` sibling — each gets
-the teaching layer and each gets the complete explanation, because the teaching
-layer was required to stand alone in the first place. No second surface is built
-for them and none is needed.
+It also settles what a fragment of this site is worth on its own. A search
+result, a copied paragraph, an RSS reader, an agent's retrieved chunk — each
+gets the teaching layer, and no second artifact is written for any of them.
+What that does not settle is the unit: a page standing alone is not the same
+claim as an H2 section standing alone, and the second is what a retrieval
+system actually takes. Section 5a.
 
 Which mechanism serves which layer, because the repo already has both and a
 writer needs to know which to reach for:
@@ -934,6 +1046,38 @@ binary blob; it is searched by pagefind; it re-themes with the site instead of
 shipping one palette into both; and it cannot silently be a screenshot of an API
 that no longer exists.
 
+**Three rules about how the diagram sits on the page**, and unlike most of this
+document they carry measured effect sizes. Noetel, Griffith, Delaney, Harris,
+Sanders, Parker, del Pozo Cruz and Lonsdale meta-analysed multimedia learning
+across 1,189 studies and 78,177 participants:
+
+| Rule                                                | Effect    |
+| --------------------------------------------------- | --------- |
+| The figure sits inside the block that refers to it  | g = 0.63  |
+| Labels go in the graphic, not in a caption or a key | g = 0.43  |
+| Motion only where the motion is the content         | g = 0.40  |
+| Decorative graphics                                 | g = −0.05 |
+
+Spatial contiguity is the largest of them and it is the one a Markdown file gets
+wrong by default: a diagram at the top of a section, with the three paragraphs
+that explain it below, is the arrangement the number argues against. The figure
+goes between the sentence that sets it up and the sentence that reads it.
+
+Labels in the graphic rather than a caption is the same principle at a smaller
+scale, and Mermaid gives it for free — node text is in the node.
+
+Decorative graphics are null, measured. Not weakly positive: g = −0.05, which is
+nothing. A diagram that exists because the page looked dense is cut.
+
+The effects are larger on complex material (g = 0.70) than on simple (g = 0.20),
+which is the quantitative version of the "where a diagram earns its place" list
+below: the topology and the trust boundary are where the number is, and a
+diagram of a two-step flow is where it is not.
+
+These rules are asserted elsewhere without evidence — Horn's Information Mapping
+stated the same things in 1993 — and they are taken here from Noetel because
+Noetel measured them.
+
 **What that does not fix, stated rather than papered over.** Nothing holds a
 diagram to the thing it describes. A `mermaid` fence rots exactly the way an
 untested code sample rots, and section 5's entire argument is that this repo
@@ -943,7 +1087,7 @@ the one place this standard tolerates what it forbids elsewhere.
 Two things make it survivable, and neither is a guard:
 
 - **A diagram never carries information the prose does not.** This is decision
-  12 and it is the load-bearing half. A stale diagram can then mislead, which is
+  13 and it is the load-bearing half. A stale diagram can then mislead, which is
   bad, but it can never be the only statement of a fact, which would be worse.
   It also follows from the two-layer rule rather than being a separate
   restriction: a diagram is a second presentation of the teaching layer, and a
@@ -1014,7 +1158,7 @@ strike `'bookseller'` out of a grant and the corresponding control disappears
 while you watch. A second beat on Publish — the status flips, a deny rule fires,
 and Edit leaves every role's bar.
 
-Three rules follow, and they bind every control added under decisions 11 and 13.
+Three rules follow, and they bind every control added under decisions 12 and 15.
 They govern the inside of a control and not the page around it: the teaching
 layer has already done its work by the time a reader reaches one.
 
@@ -1050,6 +1194,88 @@ report about something else, the demo shows the something else.
 
 `acl`'s section already places its diagnostics correctly: `acl/refusals` and
 `acl/api` render `Decision` key for key, which is where that belongs.
+
+## 5a. What survives being taken apart
+
+A page is not the unit anything downstream keeps. Search returns a heading,
+a reader copies a paragraph, and a retrieval system takes a chunk whose
+boundaries the writer never chose. So the standing-alone requirement in section
+5 has to be restated at the size the fragment actually is.
+
+### What the retrieval systems do, measured
+
+Queried by JSON-RPC against the documentation MCP servers as they run:
+
+| Server          | What comes back                                                             |
+| --------------- | --------------------------------------------------------------------------- |
+| Cloudflare      | Chunks only. There is no tool to fetch the whole page.                      |
+| Microsoft Learn | Chunks capped at 500 tokens, each with the page's H1 prepended to it        |
+| Sentry          | A snippet first, and tool prose telling the model when to take a second hop |
+| AWS             | The same shape, and the same second-hop instruction                         |
+
+Two things follow. Microsoft prepends the H1 because a chunk without it cannot
+say what product it is about; that is a workaround for pages whose sections do
+not name their subject. Sentry and AWS spend tool-description prose on when to
+fetch more, which is a workaround for a first hop that is not reliably complete.
+Both workarounds exist because source documents were written as pages.
+
+### Self-containment is a property of an H2 section
+
+This is decision 3's second half, and it is three rules a reviewer can apply in
+one reading:
+
+1. **No pronoun whose referent is in an earlier section.** "It returns
+   `unevaluable` when the row is absent" is broken the moment the chunk starts
+   at that heading. Name the thing: "`can` returns `unevaluable`…".
+2. **A heading names the package as well as the operation.** `## Configure acl
+timeouts`, not `## Configure timeouts`. This is what makes Microsoft's H1
+   prepending unnecessary, and it costs one word.
+3. **A fact sits next to the sentence that uses it.** A caveat three sections
+   above the code it applies to is a caveat the chunk does not carry. This is
+   Kapa.ai's proximity principle and the reasoning is mechanical: nobody can
+   predict where a chunk boundary falls, so proximity in the source is the only
+   property that survives it.
+
+None of the three costs anything at writing time and all three are invisible to
+a guard. They are in section 7's list and they fail review, not the build.
+
+The one place they pull against something else in this document is the fading
+rule: a reminder on page N+1 is exactly the kind of proximity that makes a
+chunk stand alone, so the two agree more often than not. Where they disagree —
+a bare mention on page N+3 that a chunk cannot resolve — the naming rule wins,
+because naming a symbol is not re-teaching it.
+
+### The agent surface is a `.md` sibling, and it is not `llms.txt`
+
+`llms.txt` is measured non-consumption. Across 83 sites over twelve weeks GPTBot
+fetched `robots.txt` 3,990 times and `llms.txt` 7; ClaudeBot 3,120 against 9.
+Dries Buytaert's January 2026 logs record every `llms.txt` request as coming
+from an SEO audit tool, while the same sites' `.md` fetches ran Amazonbot 1,840,
+OAI-SearchBot 1,300 and GPTBot 1,177. Astro removed its `llms.txt` files in
+April 2026 on its own traffic data.
+
+So this site publishes no `llms.txt`. It publishes a `.md` sibling per page:
+the same prose, one more route, no second document to keep current.
+
+**The generation order is the part that is easy to get wrong here.** Content
+fences on this site are **empty in source**. `apps/docs/content/**/*.mdx` holds
+
+````mdx
+```ts file=libs/urn/README.md region=equality
+
+```
+````
+
+and the `@evanion/doc-examples/mdx-region-loader` Turbopack rule fills it at
+build time. Serving raw MDX the way react.dev serves its sources would hand
+every agent a page whose TypeScript examples are blank — the exact failure this
+whole document is written against, delivered to the reader least able to notice
+it. The `.md` route is generated **after** region inlining, from the same
+content the HTML page renders, and a test asserts that a `.md` sibling of a page
+with a `file=` fence contains the region's code.
+
+This is the one piece of machinery this section adds. It is small: one route,
+one generation step ordered after the loader, one test.
 
 ## 6. One domain: the shop
 
@@ -1254,32 +1480,41 @@ A page ships when all of these hold. This is the list an agent is handed.
    editorial title.
 2. It has exactly one `# ` heading, and it is not the package name unless the
    page is the overview.
-3. If it teaches, it introduces one concept, named in its first two sentences,
-   and it does not list its prerequisites — its position in `_meta.ts` is the
-   statement.
+3. If it teaches, it introduces one concept, named in its first two sentences.
+   Its prerequisites, if it states them, are a structured box naming the one or
+   two pages before it, never a line of body prose sending the reader away.
 4. If it teaches, it uses no symbol, option or concept a later teaching page
-   introduces. This is the item with no guard behind it (section 12) and it is
-   checked by whoever reviews the page.
+   introduces, and it reminds the reader of each concept the page before it
+   introduced, at less length than that page used.
 5. Its teaching layer is complete on its own: read with every control removed,
    the prose, diagrams and fences still explain the concept and show how to work
    it. No sentence directs the reader to a control for a meaning the text does
    not state.
-6. If it introduces a concept, it carries a control, or it carries one of
+6. Every H2 section in it stands alone when cut out: no pronoun reaching back
+   past its own heading, a heading naming the package as well as the operation,
+   and every fact beside the sentence that uses it.
+7. If it introduces a concept, it carries a control, or it carries one of
    section 5's named exemptions, stated on the page.
-7. Every diagram in it is a `mermaid` fence and says nothing the prose does not.
-8. Every example in it is set in the shop, or the section carries a recorded
+8. Every diagram in it is a `mermaid` fence, sits inside the block that refers
+   to it, carries its labels in the graphic, is not decorative, and says nothing
+   the prose does not.
+9. Every example in it is set in the shop, or the section carries a recorded
    `domainExempt`, or it is a reference page taking section 6's minimal-example
    allowance.
-9. Every TypeScript fence is a `file=… region=…` reference or carries an
-   exemption tag.
-10. Every region it references exists and executes in the package's test run.
-11. It is under 1,200 words of prose, counting neither fences nor generated
+10. Every TypeScript fence is a `file=… region=…` reference or carries an
+    exemption tag.
+11. Every region it references exists and executes in the package's test run,
+    and its `.md` sibling carries the region's code rather than an empty fence.
+12. It is under 1,200 words of prose, counting neither fences nor generated
     signatures.
-12. It is one kind of page from section 4, and the Diátaxis diagnostic in
+13. It is one kind of page from section 4, and the Diátaxis diagnostic in
     section 3 does not fire on it.
-13. If it is the demonstration page, it mounts the section's control.
-14. Every `@evanion/…` symbol it names is exported from that package's entry.
-15. Every internal link it makes resolves to a page that exists.
+14. If it is the demonstration page, it mounts the section's control.
+15. Every `@evanion/…` symbol it names is exported from that package's entry.
+16. Every internal link it makes resolves to a page that exists.
+
+Items 3 to 6 fail review rather than the build, and section 12 says which of
+everything here does which.
 
 ## 8. Ordering: separators, not folders
 
@@ -1351,7 +1586,7 @@ a question no section can answer.
 **Belongs in the section only:** installation, every API detail, every caveat,
 anything with a version on it.
 
-**Must appear in both:** every runnable control. This is decision 18 and it is
+**Must appear in both:** every runnable control. This is decision 20 and it is
 the one the current site breaks worst.
 
 `AccessDemo` is the best thing on the site, and the only control anyone has
@@ -1380,7 +1615,7 @@ What this costs: `AccessDemo` is a `'use client'` component importing
 map entry and a tag. `DataDemo` is the same. The landing CSS is imported by
 `app/page.tsx` rather than by the components, so the two that are mounted
 outside the landing page need their styles to follow them — that is the only
-real work in decision 18.
+real work in decision 20.
 
 ## 10. `compose`, concretely
 
@@ -1400,7 +1635,7 @@ What it needs, in order:
    blocking item. Either the doctest environment gains
    `@testing-library/react` — `libs/compose/src/test-setup.ts` already has it —
    or `compose`'s regions come from `Compose.test.tsx` rather than from the
-   README under decision 15.
+   README under decision 17.
 3. **`getting-started.mdx`**: install, the flat-array-to-nested-tree conversion
    the overview currently opens with, one executed region, and one concept — that
    a list becomes a tree in the order written. Nothing about types.
@@ -1426,7 +1661,7 @@ What it needs, in order:
    a nested box that visibly reorders answers it in one move. The same spec's
    objection that "a type error is not renderable" is answered by step 5.
 
-5. **`type-checking.mdx` under decision 15.** This is the interesting one, and
+5. **`type-checking.mdx` under decision 17.** This is the interesting one, and
    under section 2 it is the second concept rather than an appendix: the reader
    has a working tree from step 3 and now learns what the compiler holds it to.
    `libs/compose/src/Compose.test-d.tsx` already asserts eight distinct type
@@ -1439,7 +1674,7 @@ What it needs, in order:
    the one part of the section with a working test right next to it and no link
    between them.
 
-   Decision 15 closes that: the region parser learns `// #region name` and
+   Decision 17 closes that: the region parser learns `// #region name` and
    `// #endregion name` in `.ts`/`.tsx` sources, taking the lines between the
    markers rather than requiring a fence, and `type-checking.mdx` renders
    `file=libs/compose/src/Compose.test-d.tsx region=missing-prop` with the
@@ -1486,7 +1721,7 @@ components and nothing in this repo executes an `.astro` fence.
 
    If the cheap option is judged too clever, the fallback is a link to the
    deployed storefront with a screenshot, and `astro-widget` becomes the second
-   section exempt from decision 13. That is a real possibility and the guard
+   section exempt from decision 15. That is a real possibility and the guard
    in section 12 must take an explicit per-section exemption rather than
    special-casing a slug.
 
@@ -1534,7 +1769,7 @@ landing specimen, unless `navigation.ts` carries an explicit
 `demoExempt: 'reason'`. Fails today on six sections. It holds the section floor
 only. It says nothing about the two layers: a guard can see that a control is
 mounted and cannot see whether the prose around it teaches, which is the half
-decision 11 actually turns on.
+decision 12 actually turns on.
 
 **G5 — no doc names an unexported symbol.** Every `import { A, B } from
 '@evanion/x'` in a fence is checked against what `libs/x/src/index.ts` exports.
@@ -1553,7 +1788,7 @@ on `AccessDemo` and `DataDemo`.
 
 **G7 — internal links resolve.** Every `](/…)` in `content/` names a page in the
 content tree or a route the app defines. Nextra does not check this and a
-renamed page leaves a 404 behind. Cheap, and it is what makes decision 16's URL
+renamed page leaves a 404 behind. Cheap, and it is what makes decision 18's URL
 move safe.
 
 **G8 — the word budget.** A word count per page, over the prose only. Fails
@@ -1575,48 +1810,58 @@ not been resolved by hand, and either could pass clean.
 
 Most of this document has machinery behind it. Executed examples have G3 and G5,
 a demonstration page has G2 and G4, the ordering files have G1, the domain has
-G9, the length has G8, the links have G7. Three things have nothing, and they
-are the three a reader most needs to know are conventions.
+G9, the length has G8, the links have G7. Four things have nothing, and they are
+the four a reader most needs to know are conventions.
 
-**The teaching order.** Decisions 1 to 3 are a rule a writer follows and a
-reviewer checks, and a section whose order teaches badly will build clean. A
-guard over it was considered and rejected. The obvious shape is a term list per
-teaching page, checked so that no page uses a term or an API no earlier page
-introduced. It was ruled out as too noisy to be worth having: a term list is a
-second document to maintain beside every page, it drifts the moment prose is
-edited, and a check that fires on ordinary writing trains people to silence it.
-A bad guard is worse than none, because it converts a rule people follow into a
-rule people route around.
+**The teaching order and its fading.** Decisions 1 to 4 are a rule a writer
+follows and a reviewer checks, and a section whose order teaches badly will
+build clean. A guard over it was considered and rejected. The obvious shape is a
+term list per teaching page, checked so that no page uses a term or an API no
+earlier page introduced. It was ruled out as too noisy to be worth having: a
+term list is a second document to maintain beside every page, it drifts the
+moment prose is edited, and a check that fires on ordinary writing trains people
+to silence it. A bad guard is worse than none, because it converts a rule people
+follow into a rule people route around. Fading is worse still for a guard: the
+rule is that each reminder is _shorter than the last_, and no count knows what
+counts as the same reminder.
+
+**Whether an H2 section survives being cut out.** Decision 3's three rules are
+each a reading. A pronoun's referent is a parse this repo is not going to write,
+a heading naming its package is a judgement about what the package is called in
+prose, and proximity has no threshold. They are cheap for a reviewer and
+invisible to a check.
 
 **Whether the teaching layer stands alone.** G4 sees a control mounted. It
 cannot read the paragraph above it, so "try changing the value" in place of an
-explanation builds clean. This is the test decision 11 actually turns on and it
+explanation builds clean. This is the test decision 12 actually turns on and it
 is a reading every time.
 
 **Whether a diagram is still true.** G5's extension catches a renamed symbol in
-a `mermaid` fence. Nothing catches an arrow pointing the wrong way. Decision 12
+a `mermaid` fence. Nothing catches an arrow pointing the wrong way. Decision 13
 — a diagram never carries information the prose does not — is what keeps that
 failure from being load-bearing.
 
 So the honest statement of this standard's enforcement, and a reader should be
 able to tell these apart:
 
-| Rule                                    | Fails     |
-| --------------------------------------- | --------- |
-| Ordering files, page-type presence      | the build |
-| Executed fences, exemption tags         | the build |
-| A control per section, specimen reach   | the build |
-| Exported symbols, internal links        | the build |
-| Prose budget, the abandoned domain      | the build |
-| Cumulative order, one concept a page    | review    |
-| Whether the teaching layer stands alone | review    |
-| Whether a diagram is still true         | review    |
-| Diátaxis as a diagnostic                | review    |
-| Whether a control teaches               | review    |
-| Whether an example is set in the shop   | review    |
+| Rule                                         | Fails     |
+| -------------------------------------------- | --------- |
+| Ordering files, page-type presence           | the build |
+| Executed fences, exemption tags              | the build |
+| A `.md` sibling carrying its inlined regions | the build |
+| A control per section, specimen reach        | the build |
+| Exported symbols, internal links             | the build |
+| Prose budget, the abandoned domain           | the build |
+| Cumulative order, fading, one concept a page | review    |
+| Whether the teaching layer stands alone      | review    |
+| Whether an H2 section survives being cut out | review    |
+| Whether a diagram is still true              | review    |
+| Diátaxis as a diagnostic                     | review    |
+| Whether a control teaches                    | review    |
+| Whether an example is set in the shop        | review    |
 
-The bottom six are the ones that will quietly rot, and knowing which they are is
-the point of writing them down this way.
+The bottom seven are the ones that will quietly rot, and knowing which they are
+is the point of writing them down this way.
 
 ### Judgement, and no guard should pretend otherwise
 
@@ -1632,7 +1877,7 @@ the point of writing them down this way.
   teaches the reader the matrix.
 - **Whether a page leaves its meaning in a widget.** The failure is a sentence
   that instructs rather than explains, and it is invisible to every count.
-- **Whether a diagram says more than the prose.** Decision 12 forbids it and no
+- **Whether a diagram says more than the prose.** Decision 13 forbids it and no
   extraction compares the two.
 - **Whether an example is in the shop.** G9 sees the nouns that left. Naming a
   variable `game` proves nothing.
@@ -1655,9 +1900,9 @@ Nothing here is a single pass over 63 pages.
    everything in section 2: an order that is not written down cannot be
    cumulative, and nothing else in this document can be reviewed against it.
    Independent of everything else.
-2. **Decision 16**: `acl/integrations/` becomes a `Platforms` band. Before
+2. **Decision 18**: `acl/integrations/` becomes a `Platforms` band. Before
    `@evanion/acl` publishes, which is what makes the URL change free.
-3. **The two front-page demos into the shop** (section 6), then decision 18 and
+3. **The two front-page demos into the shop** (section 6), then decision 20 and
    G6: `AccessDemo` and `DataDemo` into `mdx-components.js`, mounted on `acl`'s
    and `react-widget`'s demonstration pages. Re-theming first, so the components
    are moved once. This is the largest gain per hour of work in the document.
@@ -1668,23 +1913,28 @@ Nothing here is a single pass over 63 pages.
    listing's draft-to-published lifecycle. Nothing is built: Nextra renders a
    `mermaid` fence today. The cheapest teaching-layer gain in the document, and
    it is early because those five pages are the ones a playground cannot reach.
-6. **Decision 15**: `// #region` in source files. One parser change in
+6. **The `.md` siblings** (section 5a). One route, generated after the region
+   loader, one test asserting a fence is not empty. Cheap, and it is the only
+   item here that changes what a non-human reader gets. Ordered before the
+   content work so that every page rewritten after it is checked on both
+   surfaces.
+7. **Decision 17**: `// #region` in source files. One parser change in
    `tools/doc-examples/src/regions.mjs`, plus the `fails-type-check` tag.
-7. **`compose`** (section 10), as the pilot for the whole standard. It is the
+8. **`compose`** (section 10), as the pilot for the whole standard. It is the
    smallest section, it exercises every new mechanism, and being the one
    domain-exempt package it separates the journey work from the re-theming work.
-8. **Doctest wiring** for `feature`, then `astro-widget`, then `react-widget`,
+9. **Doctest wiring** for `feature`, then `astro-widget`, then `react-widget`,
    each one moved into the shop as it is wired, because a region is cheaper to
    write in the right domain than to rewrite. G3's ratchet starts here, per
    section, as each one lands.
-9. **`acl` into the shop**, and G9 behind it. Nineteen regions and 22 pages,
-   and the largest single job in this document. It is late because it is
-   mechanical and because everything before it teaches what the rename should
-   look like.
-10. **Decision 19**: pick a declaration-to-MDX generator and put `acl`'s API
+10. **`acl` into the shop**, and G9 behind it. Nineteen regions and 22 pages,
+    and the largest single job in this document. It is late because it is
+    mechanical and because everything before it teaches what the rename should
+    look like.
+11. **Decision 21**: pick a declaration-to-MDX generator and put `acl`'s API
     reference on it, which is the single largest movement of the site-wide 14%
     and the one item here that is an evaluation before it is a task.
-11. **`astro-widget`** (section 11), last, because its control is the one that
+12. **`astro-widget`** (section 11), last, because its control is the one that
     needs a mechanism designed.
 
 ## Testing
@@ -1706,6 +1956,11 @@ Nothing here is a single pass over 63 pages.
 - G5's `mermaid` extension fails on a diagram naming an `@evanion/…` symbol the
   package no longer exports, and passes on a diagram whose nodes are the shop's
   own nouns.
+- The `.md` sibling of a page carrying a `file=… region=…` fence contains the
+  region's code. This is the assertion the whole route exists for: the failure
+  it prevents is serving an agent a page whose every TypeScript example is an
+  empty fence, which is what raw MDX would do.
+- No route serves `llms.txt`.
 - A `mermaid` fence in an MDX page renders under `output: 'export'` and reads in
   both themes, which is the one thing about the mechanism that has not been
   looked at.
@@ -1723,6 +1978,87 @@ Nothing here is a single pass over 63 pages.
 - Every page passing section 7's list is asserted for one real page per section
   before the guard for that item is turned on.
 
+## What this standard declines, and why
+
+Four things were considered and rejected. Each is rejected for a stated reason
+rather than by omission, so that proposing one again is a conversation with an
+argument in it.
+
+**Minimalism as "independent of sequence".** The formulation that every unit of
+documentation should stand free of any order is attributed to Carroll and is not
+his. It comes from Kearsley's paraphrase at instructionaldesign.org, which is a
+summary of a summary, and it is the source of the folklore that minimalism is
+anti-tutorial. Carroll's own text says the opposite of the strong version:
+section 2 quotes him fading support across chapters, which presupposes a
+sequence to fade along. The primary source supports this document's premise and
+the tertiary paraphrase contradicts it.
+
+**Information Mapping's block typing.** Its evidence base is vendor-curated,
+with documented exclusion of null results, which is the shape of an evidence
+base that cannot be relied on. The granularity is also wrong for this site: a
+typed block per paragraph is an accounting overhead that pays at thousands of
+pages with a documentation team, and this is 63 pages with one maintainer.
+Section 5a takes the part that is independently measured — proximity, and a
+heading that names its subject — and leaves the taxonomy.
+
+**DITA.** Topic typing, specialisation, a build toolchain and a content
+management story, to deliver a static export of nine package sections. The
+machinery is larger than the problem, and this repo's equivalent of
+single-sourcing already exists: the doctested region, which is smaller and
+already shipped.
+
+**`llms.txt` as the agent surface.** Rejected on traffic data rather than on
+taste. The numbers and the alternative are section 5a.
+
+## The evidence, and what it does not cover
+
+A standard that reads as uniformly grounded is misleading about itself. Most of
+this document is judgement; a few parts rest on measurement; and the central
+premise rests on neither.
+
+**What is measured.**
+
+- **Fading rather than silence** (decision 2). Carroll and van der Meij 1996,
+  reporting a tested design change in the Wordperfect minimal manual. One study,
+  one manual, and the cleanest evidence in this document because it is a
+  reversal: they shipped the rule this document would otherwise have adopted,
+  measured it failing, and replaced it.
+- **A staged sequence only where prior knowledge does not transfer** (decision
+  4). Andersen et al., CHI 2012, three games and more than 45,000 players, with
+  one negative result. The domain is games rather than documentation, and the
+  transfer of the finding to a docs section is itself an inference.
+- **The three diagram rules** (decision 13). Noetel et al. 2021, 1,189 studies
+  and 78,177 participants. The strongest evidence here by a wide margin, and the
+  only place this document can state an effect size.
+- **`llms.txt` is not fetched** (decision 14). Server logs across 83 sites over
+  twelve weeks, plus Astro's removal on its own data. Measurement of behaviour
+  rather than of learning, which is a lower bar to clear and a narrower claim.
+- **Chunk shapes** (decision 3). Live JSON-RPC against four documentation MCP
+  servers. This measures what the systems do, not whether the three rules help;
+  the rules themselves are inference from the shapes.
+
+**What is not measured, and is asserted here anyway.**
+
+- **Diátaxis has no empirical evaluation.** None, in either direction. Its own
+  site concedes it offers principles rather than a formula (section 3). It is
+  kept in this document as a diagnostic, which is the weakest role it could
+  have, and that is partly why.
+- **Minimalism has one study and no meta-analysis in thirty-five years.**
+  Carroll's original, four small replications, one partial non-replication. The
+  fading result above is drawn from it and inherits its narrowness.
+- **EPPO has no study at all.** It is a practice with a name.
+- **The premise of this whole document is unmeasured.** There is no published
+  evidence that sequenced developer documentation outperforms standalone pages,
+  and no citable public figure for where readers actually enter a documentation
+  site. Baker's claim that most readers arrive from search rather than at the
+  front door is asserted, not measured — and so is the counter-claim that a
+  journey is what they want. This document takes the owner's judgement on that
+  and says so rather than dressing it as a finding.
+
+The practical consequence: decisions 1 and 2's ordering is a bet, decision 13's
+diagram rules are not, and the difference should show in how readily each is
+revised.
+
 ## Where I am guessing
 
 - **That the teaching order survives contact with `acl`.** Section 2 is tested
@@ -1731,13 +2067,28 @@ Nothing here is a single pass over 63 pages.
   cumulatively, and the other 19 pages were written without one. Whether they
   resolve into a teaching run plus three sideways bands, or into something a
   fourth band cannot express, is not known until someone writes the `_meta.ts`.
-- **That an unenforced rule holds.** Decisions 1 to 3, the teaching layer's
-  completeness and a diagram's truth are conventions, by section 12. Every other
-  convention this repo has kept has a guard behind it, and the ones that do not
-  have historically drifted. The mitigation is that the teaching order is
-  visible in one file per section, so that review at least is a file
-  read rather than a site read — which is a reason to expect it to hold and not
-  evidence that it will.
+- **That an unenforced rule holds.** Decisions 1 to 4, the teaching layer's
+  completeness, an H2 section's self-containment and a diagram's truth are
+  conventions, by section 12. Every other convention this repo has kept has a
+  guard behind it, and the ones that do not have historically drifted. The
+  mitigation is that the teaching order is visible in one file per section, so
+  that review at least is a file read rather than a site read — which is a
+  reason to expect it to hold and not evidence that it will.
+- **That fading is maintainable at three passes a concept.** Carroll's group
+  did it for one manual with a research team. This repo would do it across nine
+  sections with one maintainer and some agents, and every reorder invalidates the
+  gradient of every concept that moved. The rule is right and the upkeep is the
+  part I cannot cost.
+- **That the transfer test generalises from games to packages.** Andersen's
+  predictor is whether prior knowledge transfers, measured on people playing
+  games. Applying it to `acl` and `compose` is a judgement about how familiar
+  each package's ideas are, made by someone who already knows both — which is
+  the exact position from which familiarity is hardest to estimate.
+- **That the `.md` route can be ordered after the loader.** The region loader is
+  a Turbopack rule and runs in the bundler. Whether a route handler or a build
+  step can read the same inlined output, rather than re-running the region
+  parser itself, is not something I traced. Re-running the parser is the
+  fallback and it duplicates a mechanism rather than reusing one.
 - **That a control on every concept-introducing page is affordable.** Section 5
   raises the floor from nine controls to somewhere between fifteen and twenty-
   five, and the site has four. The named exemptions are an attempt to keep that
@@ -1754,7 +2105,7 @@ Nothing here is a single pass over 63 pages.
   instead is not decided here, because no page has hit the limit yet.
 - **That diagrams will be maintained at all.** The site has zero today, so the
   standard is asking for a kind of content nobody here has yet had to keep
-  current, held to a weaker bar than everything around it. Decision 12 bounds
+  current, held to a weaker bar than everything around it. Decision 13 bounds
   the damage and does not make the upkeep happen.
 - **That the `acl` re-theme is as mechanical as section 6 claims.** `comment`
   appears 32 times in nineteen regions and the field-permission story is built on
@@ -1773,7 +2124,7 @@ Nothing here is a single pass over 63 pages.
   step 4 describes generating markup from the storefront's build output at docs
   build time. I have not checked whether the storefront's Nx build output is
   reachable from the docs build, or whether the two builds can be ordered. If
-  they cannot, `astro-widget` takes the exemption and decision 13 covers eight of
+  they cannot, `astro-widget` takes the exemption and decision 15 covers eight of
   nine packages rather than nine.
 - **That `compose` can be doctested without a new test environment.**
   `libs/compose/src/test-setup.ts` exists and the package's own tests render
@@ -1786,7 +2137,7 @@ Nothing here is a single pass over 63 pages.
 - **That four bands is the right ceiling** rather than three. Section 4 arrives
   at four by resolving `acl`'s own shape, which is reasoning from the one
   example, and the one example was written without a standard.
-- **Decision 19's generator.** `acl`'s API reference fences are grouped
+- **Decision 21's generator.** `acl`'s API reference fences are grouped
   signatures — a whole `interface Access` in one block — rather than calls, and
   a signature is not a doctest. Stripe generates the equivalent from OpenAPI and
   Diátaxis asks for the same thing in different words ("the structure of the
@@ -1794,7 +2145,7 @@ Nothing here is a single pass over 63 pages.
   not in doubt. What is: whether TypeDoc or api-extractor can emit blocks that
   drop into MDX without dragging their own page layout in, and what that does to
   the docs build. I have not evaluated either. Until one is chosen, the
-  `signature` tag plus G5 is the fallback, and it is weaker than decision 10
+  `signature` tag plus G5 is the fallback, and it is weaker than decision 11
   claims — it checks the names, not the types.
 - **That the four demo rules generalise.** They are extracted from one artifact
   and two of its discards. `AccessDemo` is a policy engine configuring a UI,
