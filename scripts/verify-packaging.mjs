@@ -41,7 +41,7 @@ const LIBS = [
   ['libs/widget', '@evanion/widget'],
   ['libs/urn', '@evanion/urn'],
   ['libs/react-widget', '@evanion/react-widget'],
-  ['nest/correlation-id', '@evanion/nestjs-correlation-id'],
+  ['libs/nestjs-correlation-id', '@evanion/nestjs-correlation-id'],
   ['libs/astro-widget', '@evanion/astro-widget'],
   ['libs/luhn', '@evanion/luhn'],
   ['libs/feature', '@evanion/feature'],

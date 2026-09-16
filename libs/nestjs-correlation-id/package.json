@@ -11,14 +11,14 @@
     "observability",
     "typescript"
   ],
-  "homepage": "https://github.com/Evanion/libraries/tree/main/nest/correlation-id#readme",
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/nestjs-correlation-id#readme",
   "bugs": {
     "url": "https://github.com/Evanion/libraries/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Evanion/libraries.git",
-    "directory": "nest/correlation-id"
+    "directory": "libs/nestjs-correlation-id"
   },
   "license": "MIT",
   "author": "Mikael Pettersson",
@@ -69,7 +69,7 @@
           "{projectRoot}/dist"
         ],
         "options": {
-          "cwd": "nest/correlation-id",
+          "cwd": "libs/nestjs-correlation-id",
           "command": "tsc --build tsconfig.lib.json"
         }
       }

@@ -93,7 +93,6 @@
   "workspaces": [
     "libs/*",
     "apps/*",
-    "nest/*",
     "tools/*"
   ],
   "dependencies": {
