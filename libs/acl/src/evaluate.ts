@@ -41,51 +41,41 @@ function ruleMatches(
   return { state: 'matched', rule: id };
 }
 
-function rulesAllow(
-  permission: Permission,
-  ctx: EvaluationContext,
-): { decision: Decision } | { unevaluable: Decision } {
-  const rules = permission.rules ?? [];
-  const missing = new Set<string>();
+/**
+ * How one side of a permission stands: its rules are OR-ed, so a match decides
+ * the side. With no match, one rule left undecidable leaves the side
+ * undecidable — the absent paths could still have made it match.
+ *
+ * `rule` names the first undecidable rule; `missing` unions the paths of all of
+ * them, so one refetch settles the side rather than one rule at a time.
+ */
+type SideOutcome =
+  | { state: 'matched'; rule: string }
+  | { state: 'fails' }
+  | { state: 'undecidable'; rule: string; missing: readonly string[] };
 
-  for (const [index, rule] of rules.entries()) {
+function sideOutcome(
+  rules: readonly Rule[] | undefined,
+  ctx: EvaluationContext,
+): SideOutcome {
+  const missing = new Set<string>();
+  let first: string | undefined;
+
+  for (const [index, rule] of (rules ?? []).entries()) {
     const outcome = ruleMatches(rule, index, ctx);
     if (outcome.state === 'matched') {
-      return {
-        decision: {
-          key: permission.key,
-          allowed: true,
-          reason: 'allow',
-          rule: outcome.rule,
-        },
-      };
+      return { state: 'matched', rule: outcome.rule };
     }
     if (outcome.state === 'undecidable') {
+      first ??= outcome.rule;
       for (const path of outcome.missing) missing.add(path);
     }
   }
 
-  // No rule matched, and at least one could not be decided for the paths it
-  // reads. The permission is unevaluable rather than a definite deny, whether
-  // the object is absent entirely or carries only a projection of its fields.
-  if (missing.size > 0) {
-    return {
-      unevaluable: {
-        key: permission.key,
-        allowed: false,
-        reason: 'unevaluable',
-        missing: [...missing],
-      },
-    };
+  if (first !== undefined) {
+    return { state: 'undecidable', rule: first, missing: [...missing] };
   }
-
-  return {
-    decision: {
-      key: permission.key,
-      allowed: false,
-      reason: 'no-rule-matched',
-    },
-  };
+  return { state: 'fails' };
 }
 
 function blockingParent(
@@ -117,6 +107,9 @@ function rootCause(
         reason: decision?.reason ?? 'no-rule-matched',
       };
       if (decision?.rule) cause.rule = decision.rule;
+      // An `unevaluable` cause is repairable, so the cascade carries the paths
+      // to fetch down to the dependant that reports it.
+      if (decision?.missing) cause.missing = decision.missing;
       return cause;
     }
     at = decision.blockedBy;
@@ -128,32 +121,38 @@ function rootCause(
 /**
  * Decides one permission. Pure in `(permission, ctx, resolved)`.
  *
- * Precedence, defined once:
- * 1. deny rule matches -> denied
- * 2. dependency resolved off -> dependency-off
- * 3. allow rule matches -> allow
- * 4. a rule undecidable for lack of an instance or of the paths it reads ->
- *    unevaluable
- * 5. no rule matched -> no-rule-matched
+ * A definite outcome beats an undecidable one; among definite outcomes, deny
+ * beats allow. An undecidable deny only ever subtracts, so it can never turn a
+ * definite no-allow into something repairable.
  *
- * A deny rule that is undecidable does not deny: step 1 asks whether a deny
- * matched.
+ * Precedence, defined once:
+ * 1. a deny rule matches -> denied
+ * 2. a dependency resolved off -> dependency-off
+ * 3. the allow side definitely fails -> no-rule-matched
+ * 4. the deny side is undecidable -> unevaluable, naming the deny rule
+ * 5. an allow rule matches -> allow
+ * 6. the allow side is undecidable -> unevaluable
+ * 7. otherwise -> no-rule-matched
+ *
+ * Step 3 sits above step 4 because allow is required: a definite "no allow rule
+ * matched" cannot be repaired by fetching the object, and reporting
+ * `unevaluable` there would tell a UI to refetch and re-ask forever. Step 2
+ * sits above step 4 for the same reason — a parent that is definitely off is a
+ * definite answer. Both branches are `allowed: false`, so neither leaks.
  */
 export function decide(
   permission: Permission,
   ctx: EvaluationContext,
   resolved: ReadonlyMap<string, Decision>,
 ): Decision {
-  for (const [index, deny] of (permission.denyRules ?? []).entries()) {
-    const outcome = ruleMatches(deny, index, ctx);
-    if (outcome.state === 'matched') {
-      return {
-        key: permission.key,
-        allowed: false,
-        reason: 'denied',
-        rule: outcome.rule,
-      };
-    }
+  const deny = sideOutcome(permission.denyRules, ctx);
+  if (deny.state === 'matched') {
+    return {
+      key: permission.key,
+      allowed: false,
+      reason: 'denied',
+      rule: deny.rule,
+    };
   }
 
   const blocked = blockingParent(permission, resolved);
@@ -167,7 +166,40 @@ export function decide(
     };
   }
 
-  const allow = rulesAllow(permission, ctx);
-  if ('unevaluable' in allow) return allow.unevaluable;
-  return allow.decision;
+  const allow = sideOutcome(permission.rules, ctx);
+  if (allow.state === 'fails') {
+    return { key: permission.key, allowed: false, reason: 'no-rule-matched' };
+  }
+
+  if (deny.state === 'undecidable') {
+    // The rule whose job is to refuse could not be read. Both sides' paths go
+    // out together so one refetch settles the permission.
+    const missing = new Set(deny.missing);
+    if (allow.state === 'undecidable') {
+      for (const path of allow.missing) missing.add(path);
+    }
+    return {
+      key: permission.key,
+      allowed: false,
+      reason: 'unevaluable',
+      rule: deny.rule,
+      missing: [...missing],
+    };
+  }
+
+  if (allow.state === 'matched') {
+    return {
+      key: permission.key,
+      allowed: true,
+      reason: 'allow',
+      rule: allow.rule,
+    };
+  }
+
+  return {
+    key: permission.key,
+    allowed: false,
+    reason: 'unevaluable',
+    missing: allow.missing,
+  };
 }
