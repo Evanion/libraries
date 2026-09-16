@@ -124,6 +124,32 @@ npm run commit
 
 This will guide you through creating a properly formatted commit message.
 
+### Dependency overrides
+
+Root `package.json` carries an `overrides` block. `package.json` is strict
+JSON and cannot hold comments, so every entry is explained here.
+
+- **`axios`** -- `nx` declares `axios` as an exact `1.18.1` runtime
+  dependency, and `apps/shop-api` needs a newer one. Without the override npm
+  installs two copies, one hoisted at nx's version and one nested under
+  `apps/shop-api`. `@nestjs/axios` resolves the hoisted copy while `shop-api`
+  resolves the nested one, so `@evanion/shop-api:typecheck` fails on
+  `AxiosResponse` types that come from two different `axios` installs. The
+  override pins one hoisted copy that both resolve. Raise it together with
+  `apps/shop-api`'s range.
+- **`dompurify`** -- floors every transitive copy at `^3.4.13`, which is where
+  four advisories are cleared. Drop it once nothing pulls in an older one.
+- **`zod`**, scoped to `nextra` and `nextra-theme-docs` -- `nextra-theme-docs`
+  declares `^4.1.12`, and zod 4.4.0 tightened `z.custom()` so its `Layout`
+  schema rejects the `children` key it destructures away, failing every page
+  prerender. 4.3.0 is the last version that passes. Scoped to the two nextra
+  packages so nothing else is held back. Remove once nextra fixes it upstream.
+- **`@nestjs/common`**, **`@nestjs/core`**, **`@nestjs/platform-express`** --
+  `@nx/nest@23.1.1` peers Nest at `>=10.0.0 <12.0.0` while
+  `@evanion/nestjs-correlation-id@2.0.0` requires `^12.0.0`. The override
+  forces 12.0.1, asserting a compatibility upstream denies. Remove once
+  `@nx/nest` widens its peer range (nrwl/nx#36938).
+
 ### A note on `typecheck` and `check`
 
 `nx run-many -t typecheck` covers the libraries. The docs app has no separate
