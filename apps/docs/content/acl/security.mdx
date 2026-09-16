@@ -66,8 +66,9 @@ through a key only the write carries, an absent or null `when` failing open, a
 key that disagrees with its object and action, a deny rule that cannot be
 evaluated, prototype pollution reaching a decision or a narrowed write, authoring
 tokens arriving as literal field names, a document that answers validation and
-evaluation differently, type confusion across a JSON boundary, and matrix shapes
-that exhaust the process.
+evaluation differently, type confusion across a JSON boundary, an instant that
+does not parse on either side of a permission, and matrix shapes that exhaust
+the process.
 
 Tier 2 is where the primitive exists and using it is the consumer's move:
 [`pickAllowedFields`](/acl/fields#writing) for a write, `allowed` rather than the
@@ -113,11 +114,12 @@ reaches `can` from a client payload — a hydration blob, a request body, a quer
 string — hands the client every time window in the matrix. Pass it only to make
 a server render and its rehydration agree, and resolve it server-side.
 
-A clock that does not parse fails every time condition it is read by. On an
-allow rule that is closed: the grant does not happen. On a deny rule it is open,
-because a condition that fails means the rule does not match — so a deny gated
-on a time window stops denying when the clock is `null` or unparseable. That is
-an undefended gap, not a defence. Supply an instant that parses, or none at all.
+A clock that does not parse — `null`, `NaN`, an `Invalid Date`, a string that is
+not a date — refuses rather than deciding. Every permission whose decision reads
+it answers `{ allowed: false, reason: 'unusable-clock' }`, so a deny gated on a
+time window goes on denying. Supply an instant that parses, or none at all. A
+`before`/`after` boundary that does not parse is refused earlier still, at
+construction.
 
 ## The bag a decision reads
 

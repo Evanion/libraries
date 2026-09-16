@@ -864,10 +864,11 @@ reaches `can` from a client payload — a hydration blob, a request body, a quer
 string — hands the client every time window in the matrix. Pass it only to make
 a server render and its rehydration agree, and resolve it server-side.
 
-A clock that does not parse fails every time condition it is read by, which is
-closed on an allow rule and open on a deny rule: a deny gated on a time window
-does not deny when the clock is `null` or unparseable. Supply an instant that
-parses, or none at all.
+A clock that parses is taken as given. A clock that does not — `null`, `NaN`,
+an `Invalid Date`, a string that is not a date — refuses instead: every
+permission whose decision reads it answers
+`{ allowed: false, reason: 'unusable-clock' }`, on the allow side and the deny
+side alike. Supply an instant that parses, or none at all.
 
 ### The bag a decision reads
 
@@ -957,8 +958,9 @@ expiry and no way for a held matrix to notice that it is stale.
 | `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.               |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
-`no-rule-matched`, `denied`, `dependency-off`, `unknown-action`,
-`unevaluable`). Nothing in the library reads a `reason` back to decide anything.
+`no-rule-matched`, `denied`, `dependency-off`, `unknown-action`, `unevaluable`,
+`unusable-clock`). Nothing in the library reads a `reason` back to decide
+anything.
 
 ### The clock
 
@@ -1001,9 +1003,11 @@ shut.allowed; // -> false
 
 <!-- #endregion clock -->
 
-Omitting `now` reads the wall clock. An instant that does not parse never
-throws: the `before`/`after` conditions reading it fail, the same as a condition
-value that does not parse.
+Omitting `now` reads the wall clock. A clock that does not parse never throws:
+the permission refuses with `reason: 'unusable-clock'`, which is not repairable
+by a refetch and carries no `missing`. A condition **value** that does not parse
+is a construction error instead — the boundary comes from the document, and the
+document is checked once.
 
 ## Non-goals
 
