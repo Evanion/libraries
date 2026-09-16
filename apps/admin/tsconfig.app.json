@@ -43,7 +43,7 @@
       "path": "../../libs/react-widget/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/baize-ui/tsconfig.lib.json"
+      "path": "../../internal/baize-ui/tsconfig.lib.json"
     }
   ]
 }

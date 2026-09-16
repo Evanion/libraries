@@ -771,7 +771,7 @@ twelve gradients against the real stylesheet. Build first, then open it:
 
 ```sh
 npx nx build baize-ui
-open libs/baize-ui/src/visual-check.html
+open internal/baize-ui/src/visual-check.html
 ```
 
 It is excluded from the packed files: it is a page for a reviewer, not part of
