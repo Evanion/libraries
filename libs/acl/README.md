@@ -19,6 +19,8 @@ npm install @evanion/acl
 
 ## Quick start
 
+<!-- #region quick-start -->
+
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
@@ -41,6 +43,71 @@ const decision = access.can({ id: 's1' }, 'comment', 'update', {
 decision.allowed; // -> true
 ```
 
+<!-- #endregion quick-start -->
+
+## A decision explains itself
+
+`allowed` is the answer. `reason`, `rule`, `blockedBy`, `cause` and `missing`
+are the explanation, and they are output only — nothing in the library reads a
+`reason` back to decide anything.
+
+Default deny, an allow rule grants, a matched deny outranks a matching allow,
+and a deny the engine could not read refuses too:
+
+<!-- #region four-outcomes -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Comment = { authorId: string; status: string };
+
+const access = policy<{ id: string }>().for<'comment', Comment>(
+  'comment',
+  (p) =>
+    p
+      .allow('update', p.eq('object.authorId', 'subject.id'))
+      .deny('update', p.eq('object.status', 'locked')),
+);
+
+const subject = { id: 's1' };
+
+// An allow rule matched, and no deny did.
+const mine = access.can(subject, 'comment', 'update', {
+  authorId: 's1',
+  status: 'draft',
+});
+mine.reason; // -> 'allow'
+
+// Somebody else's comment: no allow rule matched.
+const theirs = access.can(subject, 'comment', 'update', {
+  authorId: 's2',
+  status: 'draft',
+});
+theirs.reason; // -> 'no-rule-matched'
+
+// A matched deny outranks the allow that also matched.
+const locked = access.can(subject, 'comment', 'update', {
+  authorId: 's1',
+  status: 'locked',
+});
+locked.reason; // -> 'denied'
+
+// A projection carrying neither field. The deny side could not be read, so the
+// permission is not answerable yet — and the answer names what to fetch.
+const partial = access.can(subject, 'comment', 'update', {});
+partial.allowed; // -> false
+partial.reason; // -> 'unevaluable'
+partial.missing; // -> ['object.status', 'object.authorId']
+```
+
+<!-- #endregion four-outcomes -->
+
+`unevaluable` is a third state, not an error and not a no: the object the caller
+passed did not carry a path some rule reads. `missing` names those paths, so one
+refetch settles the permission. An absent `object.*` path is undecidable for
+every operator, negative ones included; an absent `subject.*` path is an
+ordinary miss, because the app resolves the subject whole and never projects it.
+
 ## The matrix document
 
 A matrix is an envelope, never a bare array:
@@ -52,6 +119,8 @@ A matrix is an envelope, never a bare array:
 `version` and `schema` belong to the document, so a producer in any language
 states both in the JSON it emits, and one value crosses an SSR boundary with
 nothing assembled around it:
+
+<!-- #region matrix-round-trip -->
 
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
@@ -70,6 +139,8 @@ const payload = JSON.parse(
 createPolicy(payload).version; // -> 'orders@7'
 ```
 
+<!-- #endregion matrix-round-trip -->
+
 `version` is a string or a number. The revalidate contract compares it with
 `!==`, so a content digest or a composite (`orders@7+veto@41`) works where a
 number cannot — and a composite is what an effective version needs when a
@@ -86,6 +157,8 @@ version that crosses.
 
 A document may declare the shapes its conditions read. The schema is optional
 for a producer and binding when present.
+
+<!-- #region schema-binding -->
 
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
@@ -122,6 +195,8 @@ try {
 }
 refused; // -> 'FieldTypeMismatchError'
 ```
+
+<!-- #endregion schema-binding -->
 
 Field types are flat strings, so the whole schema is JSON a producer emits by
 reflection: `string`, `number`, `boolean`, `instant`, a `[]` suffix for an array
@@ -162,6 +237,8 @@ call binds one object kind to its type and hands the condition helpers to a
 block, so a typo in an `object.*` or `subject.*` path is a compile error, and so
 is an unknown object kind or an object of the wrong kind at the call site.
 
+<!-- #region typed-authoring -->
+
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
@@ -188,6 +265,8 @@ const decision = access.can(subject, 'comment', 'update', comment);
 decision.allowed; // -> true
 ```
 
+<!-- #endregion typed-authoring -->
+
 The block parameter carries the whole permission model: `allow` and `deny`
 declare an action's rules, `dependsOn` and `fields` attach to the action most
 recently declared in the chain, and the condition helpers are `eq`, `ne`, `in`,
@@ -212,6 +291,8 @@ produce.
 `version` and `schema` are document fields, so `policy()` takes them and puts
 them in the document it flattens to rather than holding them beside it:
 
+<!-- #region typed-document -->
+
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
@@ -231,6 +312,8 @@ const access = policy<{ id: string }>({
 
 JSON.stringify(access.matrix.version); // -> '"orders@7"'
 ```
+
+<!-- #endregion typed-document -->
 
 They sit on `policy()` rather than on a method at the end of the chain because
 neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
@@ -254,6 +337,8 @@ wherever it is present.
 
 ## Field-level permissions
 
+<!-- #region field-permissions -->
+
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
@@ -273,6 +358,8 @@ fd.fields['status']; // -> 'denied'
 fd.action.allowed; // -> true
 ```
 
+<!-- #endregion field-permissions -->
+
 A field decision carries the action decision it hangs off, and `fd.allowed` is
 true only when the action is allowed and every field is allowed. The field maps
 are filled in whatever the action says, so a blocked caller still sees which
@@ -284,6 +371,8 @@ A write passes the proposed object to `canFields` and writes what
 `pickAllowedFields` hands back. Every key of the proposed write is decided, and
 the returned object holds only the keys that decided `allowed` — that object is
 the value to write, and nothing else from the write is.
+
+<!-- #region write-path -->
 
 ```ts @import.meta.vitest
 import { policy, pickAllowedFields } from '@evanion/acl';
@@ -311,6 +400,8 @@ fd.fields['role']; // -> 'denied'
 JSON.stringify(pickAllowedFields(fd, proposed)); // -> '{"name":"Eve"}'
 ```
 
+<!-- #endregion write-path -->
+
 `pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
 refused: no field of a refused action is writable, and an empty object would
 read as a lawful write of nothing. A field the action allows but the field rules
@@ -320,6 +411,8 @@ deny is a partial write, so that case returns the allowed subset.
 
 A backend that uses its own ACL can expose its matrix as JSON and the frontend
 adopts it. A foreign matrix fails closed on unknown permissions.
+
+<!-- #region foreign-matrix -->
 
 ```ts @import.meta.vitest
 import { parseMatrix } from '@evanion/acl';
@@ -340,10 +433,14 @@ const access = parseMatrix({
 access.can({ id: 's1' }, 'comment', 'delete').reason; // -> 'unknown-action'
 ```
 
+<!-- #endregion foreign-matrix -->
+
 ## Server-side `authorize`
 
 `authorize` binds a subject so a middleware, loader, action, or RSC server
 component evaluates without restating it.
+
+<!-- #region server-authorize -->
 
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
@@ -364,6 +461,8 @@ const access = createPolicy({
 const forUser = access.authorize({ id: 's1', roles: ['editor'] });
 forUser.can('comment', 'read').allowed; // -> true
 ```
+
+<!-- #endregion server-authorize -->
 
 ## Security contract
 
@@ -505,6 +604,8 @@ wherever it is taken, which is the same type a `before`/`after` condition value
 takes. A context hydrated from JSON carries a string and is passed through as
 it stands:
 
+<!-- #region clock -->
+
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
@@ -534,6 +635,8 @@ const early = Date.parse('2025-06-01T00:00:00Z');
 const shut = access.can({ id: 's1' }, 'sale', 'buy', undefined, early);
 shut.allowed; // -> false
 ```
+
+<!-- #endregion clock -->
 
 Omitting `now` reads the wall clock. An instant that does not parse never
 throws: the `before`/`after` conditions reading it fail, the same as a condition
