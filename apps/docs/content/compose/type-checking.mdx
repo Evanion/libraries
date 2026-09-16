@@ -36,10 +36,15 @@ const App = () => <div />;
 ```
 
 A JSX attribute is a contextually typed position, so TypeScript infers the array
-as a literal tuple and every entry is checked. The four diagnostics above are
-the compiler's, produced when this page was built;
-`libs/compose/src/Compose.test-d.tsx` asserts the same four under
+as a literal tuple and every entry is checked. Those diagnostics are the
+compiler's, rendered when this page was built;
+`libs/compose/src/Compose.test-d.tsx` asserts the same four entries under
 `@ts-expect-error`.
+
+The wrong-value entry is the one that reads badly: it reports twice, against
+`never`, because the attribute position has already narrowed the tuple. Through
+`provider()` the same mistake reports once and names both sides — see [reading
+the errors](#reading-the-errors).
 
 ### Through `provider()`
 
@@ -80,12 +85,12 @@ while you are typing the object, which a bare tuple cannot offer.
 ```tsx twoslash
 import * as React from 'react';
 
-const ThemeProvider = ({
-  children,
-}: React.PropsWithChildren<{
+type ThemeProps = React.PropsWithChildren<{
   theme: 'light' | 'dark';
   primaryColor: string;
-}>) => <div>{children}</div>;
+}>;
+
+declare const ThemeProvider: React.FC<ThemeProps>;
 // ---cut---
 const entry = [ThemeProvider, { theme: 'dark' }];
 //    ^?
@@ -120,15 +125,10 @@ const viaSatisfies = [
 
 A failing entry has to resolve to some type your value is not assignable to, and
 whatever that type is ends up quoted in the diagnostic. For a failure that is
-not simply a wrong value, the explanation is carried in a property key, so
-TypeScript prints it in the first line instead of burying it under a structural
-walk:
-
-```
-Property '"ComposeError: unknown prop 'typo'"' is missing in type
-'[ThemeProvider, { theme: "dark"; primaryColor: "#fff"; typo: 1; }]'
-but required in type 'ComposeError<"unknown prop 'typo'">'.
-```
+not simply a wrong value, the explanation is carried in a property key, so it
+reads as a missing property rather than as a structural walk you have to
+decode. The last diagnostic on the first fence of this page is that shape:
+`Property '"ComposeError: unknown prop 'typo'"' is missing in type …`.
 
 The messages you can get:
 
@@ -141,9 +141,23 @@ The messages you can get:
 | `not a valid provider`                                                                         | the entry is neither a component nor a two-element tuple    |
 
 A missing or mistyped prop value does not get a carrier. It resolves to the
-shape the entry should have had, because
-`Type '"blue"' is not assignable to type '"light" | "dark"'` already says
-everything a message could.
+shape the entry should have had, because the assignability message already says
+everything a message could:
+
+```tsx twoslash
+// @errors: 2322
+import * as React from 'react';
+import { provider } from '@evanion/compose';
+
+const ThemeProvider = ({
+  children,
+}: React.PropsWithChildren<{
+  theme: 'light' | 'dark';
+  primaryColor: string;
+}>) => <div>{children}</div>;
+// ---cut---
+provider(ThemeProvider, { theme: 'blue', primaryColor: '#fff' });
+```
 
 ## Forwarding an array through a wrapper
 

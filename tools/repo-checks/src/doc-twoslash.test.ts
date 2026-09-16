@@ -32,6 +32,7 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const FENCE = /^(\s*)(`{3,})(.*)$/;
 const ERRORS = /^\s*\/\/\s*@errors:\s*(.+)$/m;
+const QUERY = /^\s*\/\/\s*\^\?\s*$/;
 
 interface Fence {
   page: string;
@@ -113,6 +114,21 @@ describe('twoslash fences', () => {
         ({ info }) => info.split(/\s+/).slice(1).join(' ') !== 'twoslash',
       ),
     ).toEqual([]);
+  });
+
+  it('ends a fence on its `^?` query', () => {
+    // The theme draws a persisted query in a `position: absolute` popup
+    // (`.twoslash-popup-container` in nextra-theme-docs' stylesheet), so it
+    // covers whatever line follows it rather than pushing it down. Last line,
+    // and therefore one query per fence.
+    const covered = fences.filter(({ code }) => {
+      const lines = code.trimEnd().split('\n');
+      return lines.some(
+        (line, index) => QUERY.test(line) && index !== lines.length - 1,
+      );
+    });
+
+    expect(covered.map(({ page, info }) => `${page} [${info}]`)).toEqual([]);
   });
 
   it('compiles, and still produces every error it declares', () => {
