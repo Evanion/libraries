@@ -240,14 +240,14 @@ decide anything, so stripping it changes no decision. A test asserts this.
 
 ### Reasons
 
-| `reason`          | meaning                                                                                                                                                                          |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `allow`           | an allow rule matched; carries `rule`                                                                                                                                            |
-| `no-rule-matched` | rules present, none passed                                                                                                                                                       |
-| `denied`          | an explicit deny matched (see [Deny](#deny)); carries `rule`                                                                                                                     |
-| `dependency-off`  | a dependency resolved off; carries `blockedBy` and `cause`                                                                                                                       |
-| `unknown-action`  | the key is not in the matrix (fail-closed path only)                                                                                                                             |
-| `unevaluable`     | an `object`-dependent condition had no instance (the "create" case); carries `missing`. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
+| `reason`          | meaning                                                                                                                                                                                                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`           | an allow rule matched; carries `rule`                                                                                                                                                                                                                                                          |
+| `no-rule-matched` | rules present, none passed                                                                                                                                                                                                                                                                     |
+| `denied`          | an explicit deny matched (see [Deny](#deny)); carries `rule`                                                                                                                                                                                                                                   |
+| `dependency-off`  | a dependency resolved off; carries `blockedBy` and `cause`                                                                                                                                                                                                                                     |
+| `unknown-action`  | the key is not in the matrix (fail-closed path only)                                                                                                                                                                                                                                           |
+| `unevaluable`     | an `object`-dependent condition could not read a path it needs — no instance at all (the "create" case) or an instance that does not carry the field; carries `missing`, the paths that did not read. (A field-level decision needing a field the object did not carry is also `unevaluable`.) |
 
 ## Deny
 
@@ -261,14 +261,14 @@ A permission may carry `rules` (allows) and/or `denyRules` (denies). Denies use
 the same `when`/`dependsOn` shape and are fully serializable.
 
 Deny is a stage in the single precedence order, defined once (see the full
-five-step order in [the no-instance case](#the-no-instance-case)):
+five-step order in [the missing-data case](#the-missing-data-case)):
 
 1. If a deny rule matches, deny (reason `denied`).
 2. Else if a dependency resolved off, deny (reason `dependency-off`,
    `blockedBy`, `cause`).
 3. Else if an allow rule matches, allow (reason `allow`).
 4. Else if an `object`-dependent rule could not be evaluated for lack of an
-   instance, `unevaluable`.
+   instance or for lack of the paths it reads, `unevaluable`.
 5. Else deny (reason `no-rule-matched`).
 
 When both a deny and a dependency-off apply, `denied` wins; the result may still
@@ -290,40 +290,62 @@ The typed path also makes the object→action union exhaustive at compile time, 
 the runtime throw is a backstop, not the primary defence. The two behaviours
 are deliberate and documented, and both packages share the same default.
 
-## The no-instance case
+## The missing-data case
 
-An `object` instance is not always available. The most common view toggle is
-"can I create one" — `useCan('comment', 'create')` with no instance. Following
-`feature`'s discipline ("a condition over a field the context does not carry
-never holds"), an `object`-dependent rule with no instance is `unevaluable`,
-not a fabricated `false`:
+An `object`-dependent condition that cannot read the path it needs is
+**undecidable**. There is one such case, not two: no instance at all (the
+"create" toggle, `useCan('comment', 'create')`) and a partial or projected
+instance that does not carry the field are the same shortfall, and both yield
+`unevaluable` carrying the paths in `missing`. Following `feature`'s discipline
+("a condition over a field the context does not carry never holds"), the engine
+never evaluates an absent field against `undefined`:
 
 ```ts
 access.can(subject, 'comment', 'create');
 // -> { allowed: false, reason: 'unevaluable', missing: ['object.authorId'] }
+
+access.can(subject, 'comment', 'update', { status: 'draft' }); // a projection
+// -> { allowed: false, reason: 'unevaluable', missing: ['object.authorId'] }
 ```
 
-The engine never evaluates an absent object's fields against `undefined`.
+Absence is undecidable for **every** operator, negative ones included: `ne`,
+`not-in` and `contains` over a path that did not read are as undecidable as
+`eq`. "It is not equal to `published`" is not a fact about a field nobody read.
+
+### The subject/object asymmetry
+
+Absence is undecidable in an `object.*` path and a definite `false` in a
+`subject.*` path. The object is a projection the caller chose, so a field it
+lacks says nothing about the instance in the database. The subject is resolved
+whole by the app before the call and is never a projection, so a subject that
+lacks `roles` genuinely has none — an ordinary denial, not an unknown. A
+condition with one operand in each scope follows the operand that failed: an
+absent `subject.*` comparand fails the condition outright, an absent `object.*`
+comparand leaves it undecidable.
 
 ### `unevaluable` in the precedence order
 
 `unevaluable` is the result of a whole permission whose `object`-dependent rules
-cannot be decided for lack of an instance. It ranks below `deny` and
-`dependency-off` but above `no-rule-matched`, and it is distinct from a
-definite deny:
+cannot be decided. It ranks below `deny` and `dependency-off` but above
+`no-rule-matched`, and it is distinct from a definite deny:
 
 1. If a deny rule matches, deny (`denied`).
 2. Else if a dependency resolved off, deny (`dependency-off`).
 3. Else if an allow rule matches, allow (`allow`).
 4. Else if an `object`-dependent rule could not be evaluated for lack of an
-   instance, `unevaluable`.
+   instance or for lack of the paths it reads, `unevaluable`.
 5. Else deny (`no-rule-matched`).
+
+A rule's `when` conditions are AND-ed, and one condition that is definitely
+false decides the rule whatever else is undecidable: no reading of the absent
+paths could make the AND hold, so the rule is **not matched** rather than
+undecidable.
 
 A rule that mixes `object`-dependent and `object`-independent branches with no
 instance is decided by the `object`-independent branch alone:
 `p.allow('create', p.or(p.eq('object.authorId', 'subject.id'), p.always))` with
 no instance is `allow`, because `always` does not need the object. Only a permission whose matching branches all
-need an absent object yields `unevaluable`.
+need data the context did not carry yields `unevaluable`.
 
 ## Field-level permissions
 
