@@ -531,6 +531,13 @@ fd.action.allowed; // -> true
 
 <!-- #endregion field-permissions -->
 
+The object form of `fields` keys the per-field configs by field name and takes
+`fields` for the name allow-list, so `fields` is the one name a field cannot
+have: a field called `fields` has nowhere to put its `targets` or `transitions`.
+It can still be allowed or denied by name through the list. A matrix that gives
+it a config is refused at construction with an `InvalidPermissionError` naming
+the clash.
+
 A field decision carries the action decision it hangs off, and `fd.allowed` is
 true only when the action is allowed and every field is allowed. The field maps
 are filled in whatever the action says, so a blocked caller still sees which
