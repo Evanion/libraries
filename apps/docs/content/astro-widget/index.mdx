@@ -10,14 +10,20 @@ import { registry } from '../registry';
 import page from '../data/page.json';
 ---
 
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'example.com' }} />
+<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
 ```
 
 Where `page.json` is whatever your CMS writes:
 
 ```json
 {
-  "sections": [{ "id": "top", "type": "hero", "props": { "heading": "Hello" } }]
+  "sections": [
+    {
+      "id": "header",
+      "type": "listing-header",
+      "props": { "title": "Brass: Birmingham" }
+    }
+  ]
 }
 ```
 

@@ -12,6 +12,12 @@
   // some other target to have emitted it first; compiling the sources checks
   // the tests against the real types and needs nothing built.
   "include": ["src/**/*.ts", "vite.config.ts"],
+  // `vite.config.ts` imports `@evanion/doc-examples`, which tsconfig.base.json
+  // path-maps to that project's source. Without this reference tsc compiles
+  // those files into this program instead of reading its declarations, and
+  // their `.ts` import specifiers are errors here because
+  // `allowImportingTsExtensions` is that project's option and not this one's.
+  "references": [{ "path": "../../tools/doc-examples" }],
   // The container tests import .astro modules. tsc has no loader for those and
   // `astro check` -- which does -- would then type-check Widgets.astro through
   // this project rather than the library one, where its deliberate `as never`

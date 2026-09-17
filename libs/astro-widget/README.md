@@ -28,10 +28,13 @@ Astro `>=7.3.1` is a peer dependency.
 ```ts
 // src/registry.ts
 import { defineWidgets } from '@evanion/astro-widget';
-import Hero from './widgets/Hero.astro';
-import Cards from './widgets/Cards.astro';
+import ListingHeader from './widgets/ListingHeader.astro';
+import GameGrid from './widgets/GameGrid.astro';
 
-export const registry = defineWidgets({ hero: Hero, cards: Cards });
+export const registry = defineWidgets({
+  'listing-header': ListingHeader,
+  'game-grid': GameGrid,
+});
 ```
 
 ```astro
@@ -40,14 +43,20 @@ import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 import page from '../data/page.json';
 ---
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'example.com' }} />
+<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
 ```
 
 Where `page.json` is whatever your CMS writes:
 
 ```json
 {
-  "sections": [{ "id": "top", "type": "hero", "props": { "heading": "Hello" } }]
+  "sections": [
+    {
+      "id": "header",
+      "type": "listing-header",
+      "props": { "title": "Brass: Birmingham" }
+    }
+  ]
 }
 ```
 
@@ -74,10 +83,80 @@ away from every payload already written.
 `console.warn`, so a bad CMS save can never break a render. Catch them loudly at
 build time instead:
 
-```js
+<!-- #region validate -->
+
+```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-const problems = validateItems(page.sections, registry, { hero: ['heading'] });
+const sections = [
+  {
+    id: 'header',
+    type: 'listing-header',
+    props: { title: 'Brass: Birmingham' },
+  },
+  { id: 'price', type: 'price-box', props: {} },
+  { id: 'questions', type: 'answer-wall', props: {} },
+];
+
+const required = { 'listing-header': ['title'] };
+const problems = validateItems(
+  sections,
+  ['listing-header', 'price-box'],
+  required,
+);
+
+problems; // -> [{ index: 2, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+```
+
+<!-- #endregion validate -->
+
+A `required` map names the props a widget type cannot render without. Blank
+counts as missing, which is what a text field an editor opened and left alone
+arrives as:
+
+<!-- #region required-fields -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const blank = [
+  { id: 'header', type: 'listing-header', props: { title: '   ' } },
+];
+
+validateItems(blank, ['listing-header'], { 'listing-header': ['title'] }); // -> [{ index: 0, id: 'header', type: 'listing-header', message: 'missing field title' }]
+```
+
+<!-- #endregion required-fields -->
+
+`index` is the position within an item's own sibling list, so a problem at the
+top level and one inside `children` can both report `index: 0`. `id` is what
+tells them apart:
+
+<!-- #region nested-index -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const nested = [
+  {
+    id: 'grid',
+    type: 'game-grid',
+    props: {},
+    children: [{ id: 'questions', type: 'answer-wall', props: {} }],
+  },
+];
+
+validateItems(nested, ['game-grid']); // -> [{ index: 0, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+```
+
+<!-- #endregion nested-index -->
+
+Run it over the CMS payload before the build renders it:
+
+```js
+const problems = validateItems(page.sections, registry, {
+  'listing-header': ['title'],
+});
 if (problems.length) {
   for (const p of problems)
     console.error(`section ${p.index} (${p.id}, ${p.type}): ${p.message}`);
@@ -111,7 +190,7 @@ render its own nested sections must do so itself:
 
 ```astro
 ---
-// Cards.astro
+// GameGrid.astro
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 const { children } = Astro.props;
@@ -165,7 +244,7 @@ problem on a payload that passed yesterday:
 | `children is not a list`  | `children` is present and not an array      |
 
 `duplicate sibling id` is the one to check first. A CMS that emits a constant id
-per section type — `"hero"` on every hero — or an empty string where an editor
+per section type — `"listing-header"` on every listing header — or an empty string where an
 left the field alone now fails a build that passed before. Ids only have to be
 unique within one sibling list, so the same id at two depths is still fine.
 
