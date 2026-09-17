@@ -5,14 +5,23 @@ Packages: adds `@evanion/vue-widget` and `@evanion/svelte-widget` now, then
 `@evanion/vue-acl` and `@evanion/svelte-acl` once `@evanion/acl` publishes. Nine to
 twelve packages were asked for; four are specified here and the other eight carry the
 evidence that would start them.
-Depends on: `docs/specs/2026-09-13-widget-api-unification.md` (approved, not
-implemented — the core-plus-adapters shape, the exact core pin, and its decision 9 are
-load-bearing here), `docs/superpowers/specs/2026-09-14-acl-design.md` (the acl core and
-`@evanion/react-acl` exist in the workspace and neither is published),
-`scripts/verify-packaging.mjs`, `tools/repo-checks/src/adapter-parity.astro.test.ts`
+Depends on: `docs/specs/2026-09-13-widget-api-unification.md`, shipped. `@evanion/widget`
+0.1.0 is in `libs/widget`, `@evanion/react-widget` and `@evanion/astro-widget` both name
+it `"0.1.0"` in `dependencies`, and `scripts/verify-packaging.mjs:417-444` holds the pin.
+The core-plus-adapters shape, the exact core pin, and its decision 9 are load-bearing
+here. Also `docs/specs/2026-09-16-documentation-standard.md` (decision 14, item 8),
+`docs/superpowers/specs/2026-09-14-acl-design.md` (the acl core and `@evanion/react-acl`
+are unpublished workspace packages), `scripts/verify-packaging.mjs`,
+`tools/repo-checks/src/adapter-parity.astro.test.ts`
 Related: `docs/specs/2026-09-11-feature-toggles.md` (whose `@evanion/feature/react`
 subpath is repackaged by decision 6, and only if a second `feature` framework ever
 appears)
+Read against: `main` at `6b256c5`, except where a citation names `libs/acl`,
+`libs/react-acl`, `apps/docs/app/navigation.ts`'s family comment, or a row marked
+`feat/acl` in § 8's table. Those read `feat/acl`, which carries the acl packages, the
+acl packaging checks and 122 commits `main` does not have. Where a line number here
+differs from the one a reader finds, `main` is the tree this spec is written to merge
+into and `feat/acl` is the tree the acl half of it describes.
 Prior art: TanStack Query's per-framework packages, already measured in
 `2026-09-13-widget-api-unification.md` § 2. Read from the registry on 2026-09-13 it
 ships `react-query`, `vue-query`, `solid-query`, `svelte-query` and
@@ -32,9 +41,13 @@ eight that are not built, because that is the part that is not obvious from the 
 ## Decisions
 
 1. Naming stays `{framework}-{package}`: `@evanion/svelte-widget`, `@evanion/vue-acl`.
-   The folder basename equals the unscoped package name, so `libs/svelte-widget` — the
-   rule `nx.json`'s `release.projects` globs (`["libs/*", "nest/*", "!libs/baize-ui"]`,
-   `nx.json:135`) and `commitlint.config.js`'s `scope-enum` both already assume.
+   The folder basename equals the unscoped package name, so `libs/svelte-widget`. That
+   is the rule `nx.json`'s `release.projects` glob and `commitlint.config.js`'s
+   `scope-enum` both already assume, and the glob now reads `["libs/*"]` at
+   `nx.json:135`. `cb9acb7` moved `nestjs-correlation-id` out of `nest/` into `libs/`
+   and `4726c5a` moved `baize-ui` into `internal/`, so the one negation the glob carried
+   is gone and the directory a package sits in decides whether it is released.
+   `tools/repo-checks/src/project-folder-name.test.ts` holds the basename half.
 2. An adapter has one of exactly two roles. A **renderer** resolves a type to a
    component, spreads `props` and answers the framework's nesting question — that is
    `widget`. A **distributor** puts one root object into the framework's context and
@@ -60,11 +73,13 @@ eight that are not built, because that is the part that is not obvious from the 
     through a `svelte` export condition. No `svelte-package`. § 5.
 11. A Vue adapter ships no `.vue` file. The renderer is a functional component written
     with `h()`, so a Vue package builds on the existing tsc pipeline unchanged. § 6.
-12. `@evanion/acl` needs a serialization contract before any non-React adapter, and one
-    concrete type error fixed before its first publish. § 7.
+12. `@evanion/acl` needs a serialization contract before any non-React adapter, and it
+    has one. The envelope, `access.matrix` and the `Instant` widening all shipped on
+    `feat/acl`; what this spec adds is that every adapter forwards them identically. § 7.
 13. `scripts/verify-packaging.mjs` splits its single consumer fixture into one throwaway
     project per framework group. The family-wide assertions stay global. § 8.
-14. An adapter is done when it carries seven things. § 9.
+14. An adapter is done when it carries eight things, one of which is a documentation
+    section at the floor `docs/specs/2026-09-16-documentation-standard.md` sets. § 9.
 15. Built now: `@evanion/vue-widget`, then `@evanion/svelte-widget`. Then, after `acl`
     publishes and its field contract settles, `@evanion/vue-acl` and
     `@evanion/svelte-acl`. § 10.
@@ -178,7 +193,7 @@ carry Vue, and the harness is the only place in the workspace where every adapte
 legitimate dependency at once.
 
 The cost is a vitest project per framework that needs its own compiler.
-`tools/repo-checks/vitest.config.ts:36-49` already carries a `projects` array, and
+`tools/repo-checks/vitest.config.ts:37-50` already carries a `projects` array, and
 `vitest.astro.config.ts` is already a second project existing because "compiling an
 `.astro` module needs Astro's own vite plugin" and loading it for the filesystem checks
 costs a second per run. Vue and Svelte each add one more entry on that pattern. That is
@@ -265,13 +280,19 @@ framework in this whole document, which is exactly why it goes first.
 
 Nuxt gets no package of its own. § 11 has the argument.
 
-## 7. `@evanion/acl` needs a serialization contract before any non-React adapter
+## 7. The serialization contract every adapter implements identically
 
-`createPolicy` (`libs/acl/src/create-policy.ts:101`) validates the matrix, deep-freezes a
-`structuredClone` of it (line 106), builds a graph and an index, and returns an object of
-closures over all of it. `Access` (lines 51-79) is that closure set. It does not
-serialize. `structuredClone` of it throws on the functions; `JSON.stringify` of it yields
-`{"matrix":…,"version":…}` and silently drops every method.
+This section records a crossing that has shipped. `Matrix` is an envelope,
+`access.matrix` is a readonly member of `Access`, and every entry point takes an
+`Instant`, all three on `feat/acl` today. What is specified here is that every adapter
+forwards the same two values in the same shape.
+
+`createPolicy` (`libs/acl/src/create-policy.ts:296`) adopts the matrix through `adopt`
+(line 125), which rebuilds the envelope and deep-freezes it (`deepFreeze`, line 29),
+then builds a graph and an index and returns an object of closures over all of it.
+`Access` (lines 188-249) is that closure set. It does not serialize. `structuredClone`
+of it throws on the functions; `JSON.stringify` of it yields `{"matrix":…,"version":…}`
+and silently drops every method.
 
 That is fine for React today, because both consumption shapes in the acl design build the
 `Access` on whichever side needs it. It stops being fine the moment a framework wants to
@@ -279,7 +300,7 @@ hand a server-built value to the client through its own transport: Angular's
 `TransferState`, Nuxt's payload, and SvelteKit's `data` are all serialize-on-the-server,
 deserialize-on-the-client channels, and all three would receive an object with no `can`.
 
-The documented crossing is therefore data, not the `Access`:
+So the crossing carries data and the far side rebuilds the `Access` from it:
 
 ```ts
 // server
@@ -293,6 +314,13 @@ const payload = {
 const access = createPolicy(payload.matrix);
 ```
 
+`createPolicy` is the name on `feat/acl`. #220 decision 22 renames it `hydratePolicy`,
+on the argument that after that PR's part B the call creates no policy and takes a
+document that already exists. This section assumes neither outcome, because neither
+touches it: the contract is `access.matrix` in and an `Access` out, and the identifier
+between them is one token an adapter changes with a rename if #220 lands. Read every
+`createPolicy` in this document as `hydratePolicy` once it does.
+
 The matrix is an envelope carrying its own `version`, and `createPolicy` writes the
 version it constructed with into the frozen document it exposes. So `access.matrix`
 crosses losslessly on its own: a version composed at the construction site, from a
@@ -300,14 +328,15 @@ document a producer shipped and an overlay the producer cannot know about, is th
 that arrives. Carrying `version` beside the matrix would carry it twice and let the two
 disagree.
 
-`access.matrix` is a public readonly member of `Access`. Nothing
+`access.matrix` is a public readonly member of `Access` (`create-policy.ts:194`). Nothing
 new is exported; what is new is that this is written down as the contract every adapter
 implements identically.
 
 The optional `decisions` field is the server-resolved snapshot from
-`capabilities(subject, now)`, which returns `Record<string, Decision>` — and `Decision`
-(`libs/acl/src/types.ts:110-118`) is seven plain fields with no function among them, so
-it is JSON by construction. It carries the same meaning `feature`'s `decisions` prop
+`capabilities(subject, now)`, which returns `Record<string, Decision>`, and `Decision`
+(`libs/acl/src/types.ts:242-250`) is plain fields with no function among them, so
+it is JSON by construction. #220 part A removes two of those fields and the rest stay
+plain, so the JSON claim holds either way. It carries the same meaning `feature`'s `decisions` prop
 already has: `libs/feature/src/react/index.tsx:49` takes `decisions?: Decisions<F>` and
 its docblock says supplied decisions are used as they are. Same word, same semantics,
 same reason.
@@ -328,10 +357,10 @@ lets an adapter forward it without knowing what it is.
 ## 8. `scripts/verify-packaging.mjs` splits its fixture per framework group
 
 The script packs every publishable library, installs every tarball into **one**
-`mkdtempSync` directory (line 57), writes **one** `consumer.ts` naming every public
-export of every package (lines 129-223), and typechecks it with **one** plain
-`npx tsc -p tsconfig.json` (line 247) against a tsconfig whose `include` is exactly
-`['consumer.ts']` (line 122).
+`mkdtempSync` directory (line 58), writes **one** `consumer.ts` naming every public
+export of every package (lines 130-224), and typechecks it with **one** plain
+`npx tsc -p tsconfig.json` (line 248) against a tsconfig whose `include` is exactly
+`['consumer.ts']` (line 123).
 
 That breaks on the second framework family, not the twelfth package. The count is
 irrelevant: what matters is that `tsc` is the only compiler in the directory.
@@ -355,24 +384,27 @@ once and installed into each group that names them.
 The family-wide assertions stay global, over the packed tarballs rather than inside any
 one fixture project:
 
-| Assertion                                       | Lines today | Change                                                                                                                   |
-| ----------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Every adapter pins the core exactly             | 465-486     | The adapter list at line 471 is hardcoded `['react-widget', 'astro-widget']` and becomes a loop over the packed adapters |
-| `@evanion/widget` imports no framework          | 396-414     | Unchanged; the framework list at line 396 already names svelte and vue                                                   |
-| `@evanion/acl` imports no framework             | 439-456     | Unchanged; same list inline at line 441                                                                                  |
-| `@evanion/feature` core imports no react        | 582-596     | Unchanged                                                                                                                |
-| `'use client'` placement, react-widget          | 507-513     | Unchanged                                                                                                                |
-| `'use client'` placement, feature's two entries | 598-620     | Unchanged                                                                                                                |
-| tslib declared by exactly the importers         | 795-833     | Unchanged; already loops `LIBS`                                                                                          |
+| Assertion                                       | Lines today          | Change                                                                                                                   |
+| ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Every adapter pins the core exactly             | 417-444              | The adapter list at line 426 is hardcoded `['react-widget', 'astro-widget']` and becomes a loop over the packed adapters |
+| `@evanion/widget` imports no framework          | 372-415              | Unchanged; the framework list at line 397 already names svelte and vue                                                   |
+| `@evanion/acl` imports no framework             | 568-602 (`feat/acl`) | Unchanged; same list inline at line 587                                                                                  |
+| `@evanion/feature` core imports no react        | 510-554              | Unchanged                                                                                                                |
+| `'use client'` placement, react-widget          | 446-471              | Unchanged                                                                                                                |
+| `'use client'` placement, feature's two entries | 556-578              | Unchanged                                                                                                                |
+| tslib declared by exactly the importers         | 743-788              | Unchanged; already loops `LIBS`                                                                                          |
 
-The hardcoded adapter list at line 471 is the only one that must change to add a package,
+Every row reads `main` except the `acl` one, which reads `feat/acl`, where the acl
+packages and this check exist. `feat/acl` also carries the same rows at higher line
+numbers, the pin loop among them at line 616.
+
+The hardcoded adapter list at line 426 is the only one that must change to add a package,
 and it is the reason it must: a new adapter that nx failed to re-pin would be checked by
 nothing.
 
 ## 9. What "done" means for an adapter
 
-Seven things. A missing one is a CI failure rather than tribal knowledge, except where
-noted.
+Eight things. A missing one fails CI, except where noted.
 
 1. A row in the parity harness table (§ 3).
 2. A `.test-d.ts` inside the package's typecheck include — `libs/acl/tsconfig.lib.json`
@@ -394,6 +426,27 @@ noted.
    has no scope, and `docs-navigation.test.ts` holds the nav against the manifests.
 7. The framework-free assertion on its core, which already exists for `@evanion/widget`
    and `@evanion/acl` and does not change when an adapter is added.
+8. A documentation section at the floor in
+   `docs/specs/2026-09-16-documentation-standard.md` § 4, under that document's
+   decisions 15, 16 and 19. The standard states what the floor is and this list does not
+   restate it: four page roles, the demonstration role filled and named in `_meta.ts`, a
+   control on the page that fills it, the shop domain, and the prose budget.
+
+   Three parts of it bind an adapter specifically. A section of five pages or fewer may
+   carry the demonstration role on `getting-started`, which is the shape a first adapter
+   section takes. The adapter's platform guide is one of the standard's four extra page
+   types and the bound on it is "no adapter, no guide", so the guide ships in the same
+   release as the adapter and never ahead of it. And the section's control is the
+   adapter's own renderer or provider driving the shop items, so the parity row in item 1
+   and the control assert the same thing at two altitudes.
+
+   The two branches carry different halves of this, which matters for planning. `main`
+   carries the standard and almost none of its implementation:
+   `doc-floor.test.ts`, `doc-control.test.ts` and the rest of
+   decision 22's nine are in `tools/repo-checks/src/` on `feat/acl`, 122 commits ahead. A
+   `vue-widget` branched from `main` today passes `nx test repo-checks` with a one-page
+   section and fails it the day `feat/acl` merges, so the section is built to the floor
+   from the first commit of the package.
 
 ## 10. What gets built
 
@@ -413,10 +466,11 @@ Four packages, in this order.
 decision shape, and the field-level half of that shape is the most recently changed part
 of the library. An adapter written against a moving contract is a rewrite.
 
-Nothing here requires a change to `nx.json`: `release.projects` is a glob and each new
-package matches `libs/*`. Nothing requires a change to the docs landing either, per
-`apps/docs/app/navigation.ts:113-124` — "Adding a Svelte or Vue adapter to an existing
-family only adds a chip and a link, never a card."
+Nothing here requires a change to `nx.json`: `release.projects` is `["libs/*"]` and each
+new package matches it. Nothing requires a change to the docs landing either, per
+`apps/docs/app/navigation.ts:134` on `feat/acl`: "Adding a Svelte or Vue adapter to an
+existing family only adds a chip and a link, never a card." That comment arrived with the
+landing-families work and is not on `main` yet.
 
 ## 11. What does not get built
 
@@ -516,7 +570,7 @@ The release mechanism does not degrade with the adapter count. Two things do.
 pin, and republishes every adapter in one `nx release` run. That is one run at two
 adapters and one run at twelve; `updateDependents` iterates, and iteration is what
 computers are for. The exact-pin argument in `2026-09-13-widget-api-unification.md` § 3
-holds unchanged, and `scripts/verify-packaging.mjs:465-486` is the check that catches a
+holds unchanged, and `scripts/verify-packaging.mjs:417-444` is the check that catches a
 pin the run missed.
 
 What actually degrades:
