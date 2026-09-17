@@ -18,43 +18,43 @@
   ]}
 />
 
-**The concept.** You bought Brass: Birmingham and left a review. So did Jo. You
+**The concept.** You left a comment on the Brass: Birmingham listing. So did Jo. You
 can edit yours. You cannot edit Jo's.
 
 Everyone knows that rule. The interesting part is that no role can express it.
 You and Jo are both customers, with exactly the same permissions. What tells you
-apart is which review is yours.
+apart is which comment is yours.
 
-So the rule has to read the review. That is the whole of this tier.
+So the rule has to read the comment. That is the whole of this tier.
 
-**What you will have.** A policy that knows whose review is whose, and a save
+**What you will have.** A policy that knows whose comment is whose, and a save
 that writes only the fields you are allowed to change.
 
 **Why you would want it.** The alternative is the check by hand. It goes in the
 handler, as an `if`, next to the code that does the work. It reads fine the day
 you write it. Six months later there are forty of them, three are subtly
-different, one is missing, and the moderation job that edits reviews in bulk
+different, one is missing, and the moderation job that edits comments in bulk
 never had one at all.
 
-**How the library gets you there.** One condition reads the review. That single
+**How the library gets you there.** One condition reads the comment. That single
 change costs you four things, and they arrive in this order: a type that catches
 a misspelled path, a fourth answer for when you only loaded half the row, a
 decision that tells you why it said no, and a field map you hand to the ORM.
 
 Work through them in that order and you have the tier.
 
-## What reading the review costs you
+## What reading the comment costs you
 
-| What changes                    | What you need                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| you name a path into the review | [the typed builder](/acl/authoring), so a typo is a compile error              |
-| the review may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
-| a page shows forty reviews      | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
-| a review has parts              | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
+| What changes                   | What you need                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| you name a path into a comment | [the typed builder](/acl/authoring), so a typo is a compile error              |
+| a comment may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
+| a page shows forty comments    | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
+| a comment has parts            | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
 
-## Naming the row, so acl can check the paths
+## Naming the comment, so acl can check the paths
 
-Start at the top of that table. To ask whether this review is yours, you name a
+Start at the top of that table. To ask whether this comment is yours, you name a
 path into it: `object.authorId`. That is a string, and strings take typos.
 
 Write `object.authorld` with an L and nothing complains. The matrix builds. The
@@ -83,10 +83,10 @@ would. Nothing about the typed path changes what ships.
 
 ## The four answers an acl decision can give
 
-All of that assumes you have the listing in hand. Often you do not.
+All of that assumes you have the comment in hand. Often you do not.
 
-The listing page loads forty reviews and takes two columns from each: an id and
-an author. Now ask whether you may edit one. The rule also reads
+The listing page loads forty comments and takes two columns from each: an id
+and an author. Now ask whether you may edit one. The rule also reads
 `object.status`, the row you loaded has no status, and the honest answer is
 neither yes nor no.
 
@@ -129,12 +129,12 @@ All five are output only. Read them to build an error message, log them, show
 them in a tooltip. Never branch on them. Gate on `allowed` and nothing else. A
 handler that checks `reason !== 'denied'` grants everything the engine refused.
 
-## Which parts of the row acl will let you write
+## Which parts of a comment acl will let you write
 
 Last line of the table, and the one that changes your UI.
 
-You may edit your own review. Fine. May you change the rating after the shop has
-replied to it? May you edit the text but not the score? "May you edit this" was
+You may edit your own comment. Fine. May you still edit it once it is locked?
+May you change the text and not the status? "May you edit this" was
 never the question the form needed answering. "Which of these inputs do I render"
 was.
 
@@ -142,11 +142,11 @@ was.
 
 ```
 
-`*` means every field, and `!price` takes one back out.
+`*` means every field, and `!status` takes one back out.
 
-The map covers every key on the review and every name your rules mention. On a
+The map covers every key on the comment and every name your rules mention. On a
 write it also covers every key of whatever the caller sent you, including one the
-review has never had. That last case is the one people forget, and it is why the
+comment has never had. That last case is the one people forget, and it is why the
 map is computed for each call, not read off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
@@ -165,7 +165,7 @@ avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
 every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
 and those are fields nobody said you could write.
 
-That is the tier. You edit your review, Jo edits hers, and nobody wrote an `if`.
+That is the tier. You edit your comment, Jo edits hers, and nobody wrote an `if`.
 
 ## Where to go next
 
