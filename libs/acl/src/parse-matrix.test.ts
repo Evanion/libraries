@@ -8,7 +8,7 @@ import {
   KeyMismatchError,
 } from './errors.js';
 import { parseMatrix } from './parse-matrix.js';
-import type { Matrix, Permission } from './types.js';
+import type { Matrix } from './types.js';
 
 const json: Matrix = {
   permissions: [
@@ -160,23 +160,6 @@ describe('parseMatrix', () => {
       ],
     };
     expect(() => parseMatrix(notIn)).toThrow(InvalidConditionError);
-  });
-
-  it('adopts a dependency chain deeper than a call stack', () => {
-    const depth = 20000;
-    const permissions: Permission[] = [];
-    for (let i = depth - 1; i >= 0; i--) {
-      permissions.push({
-        key: `k${i}.a`,
-        object: `k${i}`,
-        action: 'a',
-        rules: [{ id: 'all', when: [] }],
-        dependsOn: i === 0 ? [] : [`k${i - 1}.a`],
-      });
-    }
-
-    const access = parseMatrix({ permissions });
-    expect(access.can({}, `k${depth - 1}`, 'a').allowed).toBe(true);
   });
 
   it('refuses a value nested deeper than the clone walks', () => {

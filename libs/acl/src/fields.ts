@@ -139,7 +139,7 @@ function decideConfig(
  * per-field config. Missing data yields `unevaluable`, never a silent allow or
  * deny.
  *
- * Field rules are leaf-level and never cascade, so this answers the fields
+ * Field rules are leaf-level, so this answers the fields
  * alone. The action-level gate is composed on top at the entry point, which is
  * what makes the returned `allowed` a field-only claim.
  */

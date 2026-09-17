@@ -12,7 +12,6 @@ import { describe, expect, it } from 'vitest';
 import {
   AclConfigError,
   ActionNotAllowedError,
-  FeatureCycleError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidRuleError,
@@ -521,20 +520,6 @@ describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () 
       'unknown-action',
     );
   });
-
-  it('refuses a dependant whose parent is off', () => {
-    const access = foreign([
-      permission('billing', 'view', { rules: [] }),
-      permission('billing', 'edit', {
-        rules: [always],
-        dependsOn: ['billing.view'],
-      }),
-    ]);
-    const decision = access.can({ id: 'u1' }, 'billing', 'edit');
-
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe('dependency-off');
-  });
 });
 
 describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
@@ -784,23 +769,6 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
 });
 
 describe('SEC-015 a matrix cannot exhaust the walk that adopts it (CWE-674)', () => {
-  it('refuses a dependency cycle', () => {
-    expect(() =>
-      foreign([
-        permission('a', 'read', { rules: [always], dependsOn: ['b.read'] }),
-        permission('b', 'read', { rules: [always], dependsOn: ['a.read'] }),
-      ]),
-    ).toThrow(FeatureCycleError);
-  });
-
-  it('refuses a permission that depends on itself', () => {
-    expect(() =>
-      foreign([
-        permission('a', 'read', { rules: [always], dependsOn: ['a.read'] }),
-      ]),
-    ).toThrow(FeatureCycleError);
-  });
-
   it('refuses a value nested deeper than the copy walks', () => {
     let deep: Record<string, unknown> = {};
     const root = deep;
@@ -818,66 +786,15 @@ describe('SEC-015 a matrix cannot exhaust the walk that adopts it (CWE-674)', ()
       ]),
     ).toThrow(InvalidMatrixError);
   });
-
-  it('adopts and decides a dependency chain deeper than a call stack', () => {
-    const chain = Array.from({ length: 10_000 }, (_, i) =>
-      permission(`c${i}`, 'read', {
-        rules: [always],
-        ...(i > 0 ? { dependsOn: [`c${i - 1}.read`] } : {}),
-      }),
-    );
-    const access = foreign(chain);
-
-    expect(access.can({ id: 'u1' }, 'c9999', 'read').allowed).toBe(true);
-  });
 });
 
-describe('SEC-016 the cost of a decision is bounded by the cascade (CWE-400)', () => {
+describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', () => {
   const chainOf = (depth: number) =>
     Array.from({ length: depth }, (_, i) =>
       permission(`c${i}`, 'read', {
         rules: [when({ field: 'subject.id', op: 'eq', value: 'u1' })],
-        ...(i > 0 ? { dependsOn: [`c${i - 1}.read`] } : {}),
       }),
     );
-
-  it('reads the subject once per permission in the cascade', () => {
-    for (const depth of [4, 40, 400]) {
-      const access = foreign(chainOf(depth));
-      const { subject, reads, reset } = countingSubject({ id: 'u1' });
-      reset();
-      access.can(subject, `c${depth - 1}`, 'read');
-
-      expect(reads()).toBe(depth);
-    }
-  });
-
-  it('decides a shared ancestor once, not once per path to it', () => {
-    // A diamond: two dependants of one base, and a top that needs both. A walk
-    // that re-resolved per edge would read the base twice.
-    const access = foreign([
-      permission('d', 'base', {
-        rules: [when({ field: 'subject.id', op: 'eq', value: 'u1' })],
-      }),
-      permission('d', 'left', {
-        rules: [when({ field: 'subject.id', op: 'eq', value: 'u1' })],
-        dependsOn: ['d.base'],
-      }),
-      permission('d', 'right', {
-        rules: [when({ field: 'subject.id', op: 'eq', value: 'u1' })],
-        dependsOn: ['d.base'],
-      }),
-      permission('d', 'top', {
-        rules: [when({ field: 'subject.id', op: 'eq', value: 'u1' })],
-        dependsOn: ['d.left', 'd.right'],
-      }),
-    ]);
-    const { subject, reads, reset } = countingSubject({ id: 'u1' });
-    reset();
-    access.can(subject, 'd', 'top');
-
-    expect(reads()).toBe(4);
-  });
 
   it('reads the subject once per permission across the whole matrix', () => {
     const access = foreign(
@@ -901,7 +818,7 @@ describe('SEC-016 the cost of a decision is bounded by the cascade (CWE-400)', (
     reset();
     access.canMany(subject, 'c2', 'read', objects);
 
-    expect(reads()).toBe(3 * objects.length);
+    expect(reads()).toBe(objects.length);
   });
 
   it('reads the subject once however wide the list a condition tests', () => {

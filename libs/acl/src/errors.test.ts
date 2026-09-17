@@ -5,14 +5,12 @@ import {
   ActionNotAllowedError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
-  FeatureCycleError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
   TargetsTransitionsConflictError,
-  UnknownDependencyError,
   UnknownObjectKeyError,
   UnknownPermissionError,
 } from './errors.js';
@@ -22,14 +20,12 @@ describe('errors', () => {
     const cases: (() => Error)[] = [
       () => new DenyWithoutBaselineError('!status'),
       () => new DuplicatePermissionError('x'),
-      () => new FeatureCycleError(['a', 'b']),
       () => new TargetsTransitionsConflictError('status'),
-      () => new UnknownDependencyError('b', 'a'),
       () => new UnknownObjectKeyError('unknown'),
       () => new UnknownPermissionError('comment.red'),
       () => new KeyMismatchError('comment.read', 'comment', 'delete'),
       () => new InvalidMatrixError('a matrix is an array of permissions'),
-      () => new InvalidPermissionError('comment.read', 'dependsOn', 'is bad'),
+      () => new InvalidPermissionError('comment.read', 'fields', 'is bad'),
       () => new InvalidRuleError('comment.read', 'rules[0]', 'is bad'),
       () =>
         new InvalidConditionError(
@@ -44,18 +40,6 @@ describe('errors', () => {
       expect(err).toBeInstanceOf(AclConfigError);
       expect(err).toBeInstanceOf(Error);
     }
-  });
-
-  it('a cycle error carries the closed path', () => {
-    const err = new FeatureCycleError(['a', 'b', 'a']);
-    expect(err.path).toEqual(['a', 'b', 'a']);
-    expect(err.message).toContain('a -> b -> a');
-  });
-
-  it('an unknown dependency error names both keys', () => {
-    const err = new UnknownDependencyError('b', 'a');
-    expect(err.key).toBe('b');
-    expect(err.dependency).toBe('a');
   });
 
   it('an unknown permission error names the key', () => {
@@ -99,11 +83,7 @@ describe('errors', () => {
 
   it('a shape error names the permission key and the offending field', () => {
     const cases = [
-      new InvalidPermissionError(
-        'comment.read',
-        'dependsOn',
-        'is not an array',
-      ),
+      new InvalidPermissionError('comment.read', 'fields', 'is not an object'),
       new InvalidRuleError('comment.read', 'rules[0]', 'has no when'),
       new InvalidConditionError(
         'comment.read',

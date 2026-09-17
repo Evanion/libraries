@@ -123,12 +123,6 @@ export interface Ops<Sub, Obj> {
 export interface Actions<Sub, Obj> extends Ops<Sub, Obj> {
   allow(action: string, ...conditions: Cond[]): Actions<Sub, Obj>;
   deny(action: string, ...conditions: Cond[]): Actions<Sub, Obj>;
-  /**
-   * Permissions that must resolve on for the action most recently declared in
-   * the chain. Keys are canonical `${object}.${action}` strings, checked against
-   * the whole matrix at construction by `UnknownDependencyError`.
-   */
-  dependsOn(...keys: string[]): Actions<Sub, Obj>;
   /** Field rules for the action most recently declared in the chain. */
   fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj>;
 }
@@ -234,7 +228,6 @@ interface Draft {
   action: string;
   rules: { when: readonly Condition[] }[];
   denyRules: { when: readonly Condition[] }[];
-  dependsOn: string[];
   fields?: FieldRules;
 }
 
@@ -251,7 +244,7 @@ function blockBuilder(
   const draftFor = (action: string): Draft => {
     const existing = drafts.find((draft) => draft.action === action);
     if (existing) return existing;
-    const draft: Draft = { action, rules: [], denyRules: [], dependsOn: [] };
+    const draft: Draft = { action, rules: [], denyRules: [] };
     drafts.push(draft);
     return draft;
   };
@@ -297,10 +290,6 @@ function blockBuilder(
       current.denyRules.push(...toRules(conditions));
       return chain;
     },
-    dependsOn(...keys) {
-      attachTo('dependsOn').dependsOn.push(...keys);
-      return chain;
-    },
     fields(rules) {
       attachTo('fields').fields = Array.isArray(rules)
         ? { fields: rules }
@@ -317,8 +306,8 @@ function blockBuilder(
  * and the action here and nowhere else, which is what satisfies `KeyMismatchError`
  * by construction.
  *
- * An empty `rules`, `denyRules` or `dependsOn` is omitted rather than emitted as
- * `[]`, because the canonical document a foreign backend produces omits them and
+ * An empty `rules` or `denyRules` is omitted rather than emitted as `[]`,
+ * because the canonical document a foreign backend produces omits them and
  * `JSON.stringify` of the two must match.
  */
 function toPermission(kind: string, draft: Draft): Permission {
@@ -328,7 +317,6 @@ function toPermission(kind: string, draft: Draft): Permission {
     action: draft.action,
     ...(draft.rules.length > 0 ? { rules: draft.rules } : {}),
     ...(draft.denyRules.length > 0 ? { denyRules: draft.denyRules } : {}),
-    ...(draft.dependsOn.length > 0 ? { dependsOn: draft.dependsOn } : {}),
     ...(draft.fields ? { fields: draft.fields } : {}),
   };
 }
@@ -408,8 +396,8 @@ const maybeBag = (value: unknown): SubjectBag | undefined =>
  * too. The extra call is what lets `Sub` be explicit while each `.for()` infers
  * its own object type.
  *
- * Flattening is deferred to the first query, so a `dependsOn` may name a key a
- * later `.for()` contributes and validation runs once over the whole matrix.
+ * Flattening is deferred to the first query, so validation runs once over the
+ * whole matrix.
  *
  * @example
  * ```ts
@@ -441,8 +429,9 @@ export function policy<Sub>(
       const drafts: Draft[] = [];
       kinds.push([key, drafts]);
       build(blockBuilder(key, drafts));
-      // A later block may contribute a key an earlier dependsOn names, so the
-      // matrix built before this call no longer answers for the whole policy.
+      // A query reads the matrix the blocks so far describe, and a later block
+      // adds to it, so the evaluator built before this call no longer answers
+      // for the whole policy.
       built = undefined;
       return self;
     },

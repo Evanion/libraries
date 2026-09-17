@@ -47,9 +47,9 @@ decision.allowed; // -> true
 
 ## A decision explains itself
 
-`allowed` is the answer. `reason`, `rule`, `blockedBy`, `cause` and `missing`
-are the explanation, and they are output only — nothing in the library reads a
-`reason` back to decide anything.
+`allowed` is the answer. `reason`, `rule` and `missing` are the explanation,
+and they are output only — nothing in the library reads a `reason` back to
+decide anything.
 
 Default deny, an allow rule grants, a matched deny outranks a matching allow,
 and a deny the engine could not read refuses too:
@@ -443,7 +443,6 @@ const access = policy<Subject>()
         ),
       )
       .allow('publish', p.contains('subject.roles', 'editor'))
-      .dependsOn('comment.update')
       .deny('delete', p.eq('object.status', 'published')),
   )
   .for<'listing', Listing>('listing', (p) =>
@@ -460,9 +459,9 @@ access.can(subject, 'listing', 'update', { sellerId: 's2' }).allowed; // -> fals
 <!-- #endregion typed-authoring -->
 
 The block parameter carries the whole permission model: `allow` and `deny`
-declare an action's rules, `dependsOn` and `fields` attach to the action most
-recently declared in the chain, and the condition helpers are `eq`, `ne`, `in`,
-`notIn`, `contains`, `before`, `after`, `and`, `or` and `always`.
+declare an action's rules, `fields` attaches to the action most recently
+declared in the chain, and the condition helpers are `eq`, `ne`, `in`, `notIn`,
+`contains`, `before`, `after`, `and`, `or` and `always`.
 
 An operand is read as a **path** when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
@@ -470,9 +469,23 @@ otherwise. That shape is the only discriminator, and it is what makes
 `p.eq('object.status', 'published')` a comparison against a literal while
 `p.eq('object.authorId', 'subject.idd')` is a compile error naming the path.
 
-Action names, comparand value types, and `dependsOn` keys are not checked at
-compile time. A `dependsOn` naming no configured permission is refused at
-construction with `UnknownDependencyError`.
+Action names and comparand value types are not checked at compile time. An
+action the matrix does not carry is a legitimate question with a
+`unknown-action` answer, so nothing refuses it.
+
+One permission never gates another. An author who means "publish requires
+update" writes update's condition into publish, where a reader of publish sees
+it. `Cond` is a plain value, so the shared half is a local `const` named once
+in the same block:
+
+```ts
+const access = policy<Subject>().for<'comment', Comment>('comment', (p) => {
+  const isAuthor = p.eq('object.authorId', 'subject.id');
+  return p
+    .allow('update', isAuthor)
+    .allow('publish', p.and(p.contains('subject.roles', 'editor'), isAuthor));
+});
+```
 
 The builder flattens to the canonical matrix on the first query, so
 `JSON.stringify(access.matrix)` emits the same document a foreign backend would
@@ -526,50 +539,6 @@ The two are checked independently and can disagree. A path TypeScript accepts
 because the type declares the field is still an `UnknownFieldError` at
 construction when the schema does not declare it — the schema is binding
 wherever it is present.
-
-## Dependency cascades
-
-`dependsOn` names permissions that must resolve on for this one to resolve on. A
-parent that is off takes its dependants with it, transitively, and nothing is
-written back into the document.
-
-<!-- #region cascade -->
-
-```ts @import.meta.vitest
-import { policy } from '@evanion/acl';
-
-type Subject = { id: string; roles: string[] };
-type Comment = { authorId: string; status: string };
-
-const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-  p
-    .allow('update', p.eq('object.authorId', 'subject.id'))
-    .allow('publish', p.contains('subject.roles', 'editor'))
-    .dependsOn('comment.update')
-    .allow('feature', p.contains('subject.roles', 'editor'))
-    .dependsOn('comment.publish'),
-);
-
-const editor = { id: 's1', roles: ['editor'] };
-const theirs = { authorId: 's2', status: 'draft' };
-
-// Every rule on `feature` matched. It is off because `update` is.
-const decision = access.can(editor, 'comment', 'feature', theirs);
-decision.reason; // -> 'dependency-off'
-decision.blockedBy; // -> 'comment.publish'
-decision.cause; // -> { key: 'comment.update', reason: 'no-rule-matched' }
-```
-
-<!-- #endregion cascade -->
-
-`blockedBy` is the edge this permission died on. `cause` walks past it to the
-first ancestor that is off for a reason of its own — what an operator has to
-fix. In a chain of three they name two different permissions, which is why both
-are carried. A repairable cause keeps its `missing` paths on the way down, so a
-dependant three levels deep still knows what to fetch.
-
-Cycles are refused at construction with `FeatureCycleError`, and a cascade is
-resolved once per permission rather than once per edge.
 
 ## Field-level permissions
 
@@ -761,14 +730,10 @@ An unreachable upstream needs no special handling. Its origin is absent from the
 map, and under `closed: true` every key it would have answered is already
 `{ allowed: false, reason: 'unknown-action' }`.
 
-`dependsOn` does not cross an origin. `orders:order.ship` depending on
-`billing:invoice.paid` fails at construction with `UnknownDependencyError`,
-inside orders' own process, where the author can fix it. That is the right
-outcome rather than a limitation: resolving the edge would mean evaluating
-billing's `object.*` conditions against the order instance the caller passed,
-and returning a confident wrong answer. When one request genuinely touches two
-services, the fan-out is the caller's own `&&` — `a.can(…).allowed &&
-b.can(…).allowed` — written where somebody knows whether they meant AND or OR.
+One permission never gates another, inside one origin or across two. When a
+request touches two services, the fan-out is the caller's own `&&` —
+`a.can(…).allowed && b.can(…).allowed` — written where somebody knows whether
+they meant AND or OR.
 
 Integrity of a document in transit belongs to the transport, the same way
 resolving a subject does: the library neither signs a matrix nor verifies one.
@@ -930,10 +895,9 @@ access.readsObject('article', 'update'); // -> true
 
 <!-- #endregion reads-object -->
 
-True when any allow rule or any deny rule names an `object.*` path, on either
-operand, or when any `dependsOn` ancestor does — an ancestor left unevaluable
-carries the child with it. It takes no subject: the answer is a fact about the
-matrix. Field rules do not count, since a `transitions` config reads the object
+True when any allow rule or any deny rule of this permission names an
+`object.*` path, on either operand. It takes no subject: the answer is a fact
+about the matrix. Field rules do not count, since a `transitions` config reads the object
 only on the `canFields` write axis, where the caller holds the row already.
 
 ## Security contract
@@ -956,8 +920,8 @@ The matrix is a public document in its names and structure, not only in its
 values. It ships to the client in full, so anyone who loads the page reads
 every object kind, every action name, every role string that appears in a
 condition, every field name including the ones the API never returns, every
-state machine and its terminal states, every time window and its boundaries,
-and the whole `dependsOn` graph. That is a map of the privilege model and of
+state machine and its terminal states, and every time window and its
+boundaries. That is a map of the privilege model and of
 the server's internal vocabulary. It is not an argument against shipping the
 matrix — security must not rest on the document staying secret, and here it
 does not. It is an argument for naming things as if they were going to be read,
@@ -1085,7 +1049,7 @@ expiry and no way for a held matrix to notice that it is stale.
 | `createPolicy(matrix, options?)`                                                           | Builds the access object from a matrix document. Validates, clones and freezes.              |
 | `parseMatrix(json, options?)`                                                              | Adopts a foreign matrix document; fails closed on unknown keys.                              |
 | `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind. Flattens to the canonical matrix. |
-| `p.allow` / `p.deny` / `p.dependsOn` / `p.fields`                                          | Declare one action inside a `.for()` block.                                                  |
+| `p.allow` / `p.deny` / `p.fields`                                                          | Declare one action inside a `.for()` block.                                                  |
 | `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                     |
 | `policy(...).object(key)`                                                                  | A handle bound to one object kind. Typed policies only; `createPolicy` has no `object`.      |
 | `access.can(subject, key, action, object?, now?)`                                          | One decision.                                                                                |
@@ -1099,7 +1063,7 @@ expiry and no way for a held matrix to notice that it is stale.
 | `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.               |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
-`no-rule-matched`, `denied`, `dependency-off`, `unknown-action`, `unevaluable`,
+`no-rule-matched`, `denied`, `unknown-action`, `unevaluable`,
 `unusable-clock`). Nothing in the library reads a `reason` back to decide
 anything.
 

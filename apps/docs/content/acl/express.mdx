@@ -203,8 +203,8 @@ app.use((error, _req, res, next) => {
 
 Send `reason` only when the caller may read it. The matrix is a public document
 in its structure, but a decision names the rule that refused, and on an API that
-serves parties who should not learn each other's privilege model, `blockedBy`
-and `rule` are more than the caller asked for.
+serves parties who should not learn each other's privilege model, `rule` is
+more than the caller asked for.
 
 ## Serving the matrix to a browser client
 

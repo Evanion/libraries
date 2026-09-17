@@ -27,10 +27,9 @@ the answer to every question that can be answered without a row.
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
     On a matrix with object-dependent rules, most entries come back
-    `unevaluable`, and a `dependsOn` chain hanging off one of them comes back
-    `dependency-off` carrying that `cause`. Neither is a misconfiguration.
-    Reading the map as a list of `allowed === true` is correct; reading `allowed
-    === false` as "refused" is not.
+    `unevaluable`. That is not a misconfiguration. Reading the map as a list of
+    `allowed === true` is correct; reading `allowed === false` as "refused" is
+    not.
   </Text>
 </Panel>
 
@@ -78,8 +77,8 @@ const items = [
 the document does not carry is simply absent from the map. A menu built on
 `!caps[key]?.allowed` shows every item the matrix has never heard of.
 
-Prefer this over a loop of `can` over every key. `capabilities` folds the whole
-graph once; a loop resolves each permission's cascade for itself.
+Prefer this over a loop of `can` over every key. `capabilities` settles the
+clock once for the whole document; a loop settles it per permission.
 
 ## What it does not replace
 

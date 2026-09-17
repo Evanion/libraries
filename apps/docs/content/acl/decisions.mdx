@@ -12,16 +12,7 @@ interface Decision {
   allowed: boolean;
   reason: Reason;
   rule?: string; // the rule that decided, on 'allow' | 'denied' | 'unevaluable'
-  blockedBy?: string; // the dependency edge, on 'dependency-off'
-  cause?: Cause; // the first ancestor off for a reason of its own
   missing?: string[]; // the paths that did not read, on 'unevaluable'
-}
-
-interface Cause {
-  key: string;
-  reason: Reason;
-  rule?: string;
-  missing?: string[];
 }
 ```
 
@@ -59,7 +50,6 @@ const documented = [
   'allow',
   'no-rule-matched',
   'denied',
-  'dependency-off',
   'unknown-action',
   'unevaluable',
   'unusable-clock',
@@ -69,21 +59,19 @@ type Exhaustive<T extends never> = T;
 type NotInTheTable = Exhaustive<Exclude<Reason, (typeof documented)[number]>>;
 ```
 
-| `reason`          | Meaning                                                            |
-| ----------------- | ------------------------------------------------------------------ |
-| `allow`           | an allow rule matched; carries `rule`                              |
-| `no-rule-matched` | rules were present and none passed, or there were none             |
-| `denied`          | a deny rule matched; carries `rule`                                |
-| `dependency-off`  | a `dependsOn` parent resolved off; carries `blockedBy` and `cause` |
-| `unknown-action`  | the key is not in the matrix; the fail-closed path only            |
-| `unevaluable`     | a rule read a path the object did not carry; carries `missing`     |
-| `unusable-clock`  | a rule read a `now` that is not an instant; carries `rule`         |
+| `reason`          | Meaning                                                        |
+| ----------------- | -------------------------------------------------------------- |
+| `allow`           | an allow rule matched; carries `rule`                          |
+| `no-rule-matched` | rules were present and none passed, or there were none         |
+| `denied`          | a deny rule matched; carries `rule`                            |
+| `unknown-action`  | the key is not in the matrix; the fail-closed path only        |
+| `unevaluable`     | a rule read a path the object did not carry; carries `missing` |
+| `unusable-clock`  | a rule read a `now` that is not an instant; carries `rule`     |
 
 ## Default deny, express allow, express deny wins
 
 Nothing is allowed without an allow rule that matched. No rules, an empty rule
-list, an unknown action, a parent that is off — each refuses. On top of that
-baseline, a deny that matched outranks an allow that also matched, and a deny
+list, an unknown action — each refuses. On top of that baseline, a deny that matched outranks an allow that also matched, and a deny
 the engine could not read refuses as well.
 
 ```ts file=libs/acl/README.md region=four-outcomes
@@ -100,18 +88,42 @@ the engine could not read refuses as well.
 The full precedence order, which is defined once in the engine:
 
 1. a deny rule matches → `denied`
-2. a dependency resolved off → `dependency-off`
-3. the allow side definitely fails → `no-rule-matched`
-4. the deny side is unevaluable → `unevaluable`, naming the deny rule
-5. an allow rule matches → `allow`
-6. the allow side is unevaluable → `unevaluable`
-7. otherwise → `no-rule-matched`
+2. the allow side definitely fails → `no-rule-matched`
+3. the deny side is unevaluable → `unevaluable`, naming the deny rule
+4. an allow rule matches → `allow`
+5. the allow side is unevaluable → `unevaluable`
+6. otherwise → `no-rule-matched`
+
+```mermaid caption="The six steps as one chain. The deny side is read first and settled first; the single branch that reaches allow is the one where the deny side definitely fails and an allow rule matched."
+flowchart TD
+  D{"a deny rule<br>matched?"}
+  A{"the allow side<br>definitely fails?"}
+  U{"the deny side<br>unevaluable?"}
+  M{"an allow rule<br>matched?"}
+  V{"the allow side<br>unevaluable?"}
+
+  DENIED["denied"]
+  NONE["no-rule-matched"]
+  UNEV["unevaluable"]
+  OK["allow"]:::accent
+
+  D -->|yes| DENIED
+  D -->|no| A
+  A -->|yes| NONE
+  A -->|no| U
+  U -->|yes| UNEV
+  U -->|no| M
+  M -->|yes| OK
+  M -->|no| V
+  V -->|yes| UNEV
+  V -->|no| NONE
+```
 
 A definite outcome beats an unevaluable one, and among definite outcomes deny
-beats allow. Step 3 sits above step 4 because an allow is required: a definite
+beats allow. Step 2 sits above step 3 because an allow is required: a definite
 "no allow rule matched" cannot be repaired by fetching the object, and reporting
-`unevaluable` there would tell a UI to refetch and re-ask forever. Step 2 sits
-above step 4 for the same reason. Both branches refuse, so neither leaks.
+`unevaluable` there would tell a UI to refetch and re-ask forever. Both branches
+refuse, so neither leaks.
 
 ## `unevaluable` is a third state
 
@@ -163,9 +175,8 @@ if (access.readsObject('article', 'update')) {
 }
 ```
 
-It is true when any allow rule or any deny rule names an `object.*` path, on
-either operand, or when any `dependsOn` ancestor does — an ancestor left
-unevaluable carries the child with it. It takes no subject: it is a fact about
+It is true when any allow rule or any deny rule of this permission names an
+`object.*` path, on either operand. It takes no subject: it is a fact about
 the matrix, so the answer is the same for everyone.
 
 Field rules do not count toward it. A `transitions` config reads the current
@@ -193,56 +204,6 @@ the branch that does not need data. `p.or(p.eq('object.authorId',
 'subject.id'), p.always)` with no instance is `allow`, because `always` answers
 without the object.
 
-## Cascades
-
-`dependsOn` names permissions that must resolve on for this one to resolve on. A
-parent that is off takes its dependants with it, transitively, without anything
-being written back into the document.
-
-```ts
-const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-  p
-    .allow('update', p.eq('object.authorId', 'subject.id'))
-    .allow('publish', p.contains('subject.roles', 'editor'))
-    .dependsOn('comment.update'),
-);
-
-access.can(editor, 'comment', 'publish', someoneElsesComment);
-// { key: 'comment.publish', allowed: false, reason: 'dependency-off',
-//   blockedBy: 'comment.update',
-//   cause: { key: 'comment.update', reason: 'no-rule-matched' } }
-```
-
-`blockedBy` is the edge this permission died on — the graph view. `cause` walks
-to the first ancestor that is off for a reason of its own — what an operator has
-to fix. In a chain of three they are two different permissions, which is why
-both are carried.
-
-```mermaid caption="A chain of three. blockedBy names the edge comment.publish died on; cause walks past it to comment.read, the only one off for a reason of its own."
-flowchart TD
-  P["comment.publish<br>asked, refused"]
-  U["comment.update<br>off: dependency-off"]
-  R["comment.read<br>off: no-rule-matched"]:::accent
-
-  P -->|dependsOn| U
-  U -->|dependsOn| R
-  P -.->|blockedBy| U
-  P -.->|cause| R
-```
-
-`comment.update` is off, and fixing it is not a thing anyone can do: it is off
-because `comment.read` is. A UI that showed `blockedBy` to an operator would
-send them to the wrong permission.
-
-`cause` is flat rather than a nested decision: it answers which permission the
-cascade died on and why, `blockedBy` already names the edge, and the rest of the
-chain is walkable from the matrix. A repairable cause carries its `missing`
-paths down to the dependant, so a UI blocked three levels deep still knows what
-to fetch.
-
-Cycles are refused at construction with `FeatureCycleError`, and a cascade is
-resolved once per permission rather than once per edge.
-
 ## Asking more than one question
 
 ```ts
@@ -252,9 +213,9 @@ access.authorize(subject); // a handle with the subject bound
 ```
 
 `canMany` settles the clock once for the whole list — the instances differ, the
-instant does not. `capabilities` resolves the whole matrix against one context
+instant does not. `capabilities` decides the whole matrix against one context
 and is what a client hydrates a UI from. Prefer either over a loop of `can`:
-each `can` resolves that permission's cascade for itself.
+each `can` settles the clock again.
 
 ```ts file=libs/acl/README.md region=server-authorize
 

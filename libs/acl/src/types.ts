@@ -130,8 +130,6 @@ export interface Permission {
   rules?: readonly Rule[];
   /** Deny rules, OR-ed. A matched deny wins over an allow. */
   denyRules?: readonly Rule[];
-  /** Permissions that must resolve on for this one to resolve on. */
-  dependsOn?: readonly string[];
   /** Field-level rules, write and/or read axis. */
   fields?: FieldRules;
 }
@@ -224,19 +222,9 @@ export type Reason =
   | 'allow'
   | 'no-rule-matched'
   | 'denied'
-  | 'dependency-off'
   | 'unknown-action'
   | 'unevaluable'
   | 'unusable-clock';
-
-/** The root cause of a cascade: the first ancestor off for a non-dependency reason. */
-export interface Cause {
-  key: string;
-  reason: Reason;
-  rule?: string;
-  /** The paths to fetch when `reason` is `unevaluable`. */
-  missing?: readonly string[];
-}
 
 /** One action-level decision. */
 export interface Decision {
@@ -244,8 +232,6 @@ export interface Decision {
   allowed: boolean;
   reason: Reason;
   rule?: string;
-  blockedBy?: string;
-  cause?: Cause;
   missing?: readonly string[];
 }
 
@@ -258,7 +244,7 @@ export interface Decision {
 export interface FieldDecision {
   /** True only when the action is allowed and every field is allowed. */
   allowed: boolean;
-  /** The action-level decision the field maps hang off, cascade resolved. */
+  /** The action-level decision the field maps hang off. */
   action: Decision;
   fields: Record<string, FieldState>;
   reasons: Record<string, FieldReason>;

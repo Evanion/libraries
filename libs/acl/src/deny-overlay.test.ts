@@ -522,10 +522,6 @@ function matrix(gen: Gen): { document: Matrix; vetoable: readonly string[] } {
       if (gen.bool(0.3)) {
         permission.denyRules = gen.list(2, (i) => rule(gen, 10 + i));
       }
-      // Only ever backwards, so the graph is acyclic by construction.
-      if (keys.length > 0 && gen.bool(0.3)) {
-        permission.dependsOn = [gen.pick(keys)];
-      }
       permissions.push(permission);
       keys.push(key);
     }

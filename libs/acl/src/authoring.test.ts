@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { policy } from './authoring.js';
 import { createPolicy } from './create-policy.js';
-import {
-  AclConfigError,
-  UnknownDependencyError,
-  UnknownFieldError,
-} from './errors.js';
+import { AclConfigError, UnknownFieldError } from './errors.js';
 import type { Matrix, MatrixSchema } from './types.js';
 
 type Subject = { id: string; roles: string[] };
@@ -20,8 +16,7 @@ describe('authoring', () => {
     const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
       p
         .allow('update', p.eq('object.authorId', 'subject.id'))
-        .allow('publish', p.contains('subject.roles', 'editor'))
-        .dependsOn('comment.update'),
+        .allow('publish', p.contains('subject.roles', 'editor')),
     );
 
     expect(access.matrix).toEqual({
@@ -49,7 +44,6 @@ describe('authoring', () => {
               ],
             },
           ],
-          dependsOn: ['comment.update'],
         },
       ],
     });
@@ -246,30 +240,12 @@ describe('authoring', () => {
     });
   });
 
-  it('dependsOn before any action is refused', () => {
+  it('fields before any action is refused', () => {
     expect(() =>
       policy<Subject>().for<'comment', Comment>('comment', (p) =>
-        p.dependsOn('comment.update'),
+        p.fields(['*']),
       ),
     ).toThrow(AclConfigError);
-  });
-
-  it('a dependsOn naming no configured key is refused at construction', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-      p.allow('publish', p.always).dependsOn('comment.updaet'),
-    );
-    expect(() => access.matrix).toThrow(UnknownDependencyError);
-  });
-
-  it('a dependsOn may name a key a later for() contributes', () => {
-    const access = policy<Subject>()
-      .for<'comment', Comment>('comment', (p) =>
-        p.allow('publish', p.always).dependsOn('media.read'),
-      )
-      .for<'media', Media>('media', (p) => p.allow('read', p.always));
-    expect(
-      access.matrix.permissions.map((permission) => permission.key),
-    ).toEqual(['comment.publish', 'media.read']);
   });
 
   it('chained for calls accumulate every kind', () => {
@@ -374,7 +350,6 @@ describe('the built matrix against the hand-written one', () => {
         )
         .fields(['*', '!status'])
         .allow('publish', p.contains('subject.roles', 'editor'))
-        .dependsOn('comment.update')
         .deny('publish', p.eq('object.status', 'published')),
     )
     .for<'media', Media>('media', (p) => p.allow('read', p.always));
@@ -408,7 +383,6 @@ describe('the built matrix against the hand-written one', () => {
         denyRules: [
           { when: [{ field: 'object.status', op: 'eq', value: 'published' }] },
         ],
-        dependsOn: ['comment.update'],
       },
       {
         key: 'media.read',
@@ -429,8 +403,8 @@ describe('the built matrix against the hand-written one', () => {
 
   it('emits the envelope the hand-written document states', () => {
     // The envelope omits an absent `schema` and `media.read` omits its absent
-    // `denyRules` and `dependsOn`; the two omissions have to compose for the
-    // byte comparison above to mean anything.
+    // `denyRules`; the two omissions have to compose for the byte comparison
+    // above to mean anything.
     expect(Object.keys(built.matrix)).toEqual(['version', 'permissions']);
     expect(Object.keys(built.matrix.permissions[2]!)).toEqual([
       'key',

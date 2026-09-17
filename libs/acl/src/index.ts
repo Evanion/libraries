@@ -7,11 +7,11 @@
  *
  * The engine's per-node functions -- `decide`, `decideFields`,
  * `evaluateCondition` -- are not exported. Each one answers a fragment of a
- * decision and leaves the rest to the caller: `decide` reads a resolved-parent
- * map only `createPolicy` builds, `decideFields` returns an `allowed` that
- * ignores the action-level gate, and a single condition outcome is not a
- * decision. `createPolicy` and `parseMatrix` compose them, and one of those two
- * is the entry point.
+ * decision and leaves the rest to the caller: `decide` takes a permission node
+ * the gate never checked, `decideFields` returns an `allowed` that ignores the
+ * action-level gate, and a single condition outcome is not a decision.
+ * `createPolicy` and `parseMatrix` compose them, and one of those two is the
+ * entry point.
  */
 
 export { createPolicy } from './create-policy.js';
@@ -44,7 +44,6 @@ export {
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
-  FeatureCycleError,
   FieldTypeMismatchError,
   InvalidConditionError,
   InvalidMatrixError,
@@ -54,7 +53,6 @@ export {
   KeyMismatchError,
   MissingVetoSchemaError,
   TargetsTransitionsConflictError,
-  UnknownDependencyError,
   UnknownFieldError,
   UnknownObjectKeyError,
   UnknownPermissionError,
@@ -64,7 +62,6 @@ export {
 export type {
   Action,
   BaseFieldType,
-  Cause,
   Condition,
   Decision,
   EvaluationContext,

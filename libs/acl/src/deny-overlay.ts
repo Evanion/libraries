@@ -22,7 +22,7 @@ import type { Matrix, MatrixSchema, Permission, Rule } from './types.js';
  * Deny rules contributed per permission key.
  *
  * A contribution is a `readonly Rule[]`, and that is the whole soundness
- * argument. `Rule` is `{ id?, when? }`: `dependsOn` and `fields` live on
+ * argument. `Rule` is `{ id?, when? }`: `fields` lives on
  * `Permission`, and an allow rule is a member of a different array. So a
  * contribution cannot express an allow, a dependency or a field rule. There is
  * no prohibition to enforce because the shape states none of them.

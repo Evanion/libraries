@@ -49,7 +49,7 @@ No round trip to a policy server, and no per-subject snapshot to build.
 ```
 
 `can` answers with a decision, not a boolean. `allowed` is the answer;
-`reason`, `rule`, `blockedBy`, `cause` and `missing` are why.
+`reason`, `rule` and `missing` are why.
 
 <Panel heading="A decision counts where it is made">
   <Text as="div" size="sm">
@@ -126,7 +126,7 @@ come into it.
   only, `can` and done
 - [Intermediate](/acl/intermediate) — object-dependent conditions, the typed
   builder, field permissions and the guarded save
-- [Advanced](/acl/advanced) — `dependsOn` cascades, the schema, `capabilities`,
+- [Advanced](/acl/advanced) — the schema, `capabilities`,
   versioning and the revalidate contract
 - [Many services](/acl/federation) — one matrix per service, namespaced object
   kinds, and what a gateway holds

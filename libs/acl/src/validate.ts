@@ -1,6 +1,7 @@
 import {
   BangInAllowListError,
   DenyWithoutBaselineError,
+  DuplicatePermissionError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidPermissionError,
@@ -267,19 +268,32 @@ export function assertRules(key: string, side: string, rules: unknown): void {
   }
 }
 
-function assertDependsOn(key: string, dependsOn: unknown): void {
-  if (dependsOn === undefined) return;
-  if (!Array.isArray(dependsOn)) {
-    throw new InvalidPermissionError(key, 'dependsOn', 'is not an array');
-  }
-  for (const [index, dependency] of dependsOn.entries()) {
-    if (!isNonEmptyString(dependency)) {
-      throw new InvalidPermissionError(
-        key,
-        `dependsOn[${index}]`,
-        'is not a permission key',
-      );
-    }
+/** Every member the canonical permission node carries. */
+const PERMISSION_MEMBERS = new Set([
+  'key',
+  'object',
+  'action',
+  'rules',
+  'denyRules',
+  'fields',
+]);
+
+/**
+ * Refuses a permission carrying a member the canonical node does not have.
+ *
+ * A member nothing reads is a rule the author wrote and the engine never
+ * applies, and `dependsOn` is the instance that matters: a document written for
+ * the cascade states a deny this engine has no step for, so accepting it
+ * silently would grant what its author refused.
+ */
+function assertMembers(key: string, permission: Node): void {
+  for (const member of Object.keys(permission)) {
+    if (PERMISSION_MEMBERS.has(member)) continue;
+    throw new InvalidPermissionError(
+      key,
+      member,
+      'is not a member of a permission',
+    );
   }
 }
 
@@ -373,7 +387,10 @@ const ENVELOPE = 'a matrix is an envelope: { version?, schema?, permissions }';
 /**
  * Validates a canonical matrix document: the envelope, then its permissions'
  * shape, rules and field configs, then its conditions against a present schema.
- * The dependency graph is validated separately by `buildGraph`.
+ *
+ * Keys are unique. Lookup is a map, so a second permission under a key already
+ * taken decides every call the first was written to answer, and the winner is
+ * whichever the array put last.
  *
  * This is the whole gate between a foreign matrix and the engine: every entry
  * point passes through it, and everything it accepts evaluates without throwing.
@@ -405,6 +422,8 @@ export function validateMatrix(matrix: Matrix): void {
 
   const schema = node['schema'];
   if (schema !== undefined) assertSchemaShape(schema);
+
+  const keys = new Set<string>();
 
   for (const [index, permission] of permissions.entries()) {
     if (!isNode(permission)) {
@@ -443,9 +462,12 @@ export function validateMatrix(matrix: Matrix): void {
       throw new KeyMismatchError(key, object, action);
     }
 
+    if (keys.has(key)) throw new DuplicatePermissionError(key);
+    keys.add(key);
+
+    assertMembers(key, permission);
     assertRules(key, 'rules', permission['rules']);
     assertRules(key, 'denyRules', permission['denyRules']);
-    assertDependsOn(key, permission['dependsOn']);
     assertFieldRules(key, permission['fields']);
   }
 

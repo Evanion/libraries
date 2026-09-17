@@ -1,6 +1,5 @@
 import { decideResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
-import { buildGraph } from './graph.js';
 import {
   InvalidMatrixError,
   UnknownObjectKeyError,
@@ -8,7 +7,7 @@ import {
 } from './errors.js';
 import { validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
-import { buildReadsObject } from './reads-object.js';
+import { permissionReadsObject } from './reads-object.js';
 import type { ResolvedContext } from './conditions.js';
 import type {
   Decision,
@@ -235,9 +234,8 @@ export interface Access {
    * guard on a permission that reads the object can refuse loudly, or record
    * that the real decision is owed further in, instead of hoping.
    *
-   * True when any allow rule or any deny rule names an `object.*` path, on
-   * either operand, or when any `dependsOn` ancestor does -- an ancestor left
-   * unevaluable carries the child with it. Field rules are not counted: a
+   * True when any allow rule or any deny rule of this permission names an
+   * `object.*` path, on either operand. Field rules are not counted: a
    * `transitions` config reads the object, but only on the `canFields` write
    * axis, where the caller holds the row already.
    *
@@ -256,50 +254,12 @@ function buildIndex(
   return index;
 }
 
-function resolve(
-  index: Map<string, Permission>,
-  order: readonly string[],
-  ctx: ResolvedContext,
-): Map<string, Decision> {
-  const resolved = new Map<string, Decision>();
-  for (const key of order) {
-    const permission = index.get(key);
-    if (!permission) continue;
-    resolved.set(key, decideResolved(permission, ctx, resolved));
-  }
-  return resolved;
-}
-
-/**
- * The transitive dependencies of `key` plus `key` itself, in the graph's
- * dependency order. Resolving this slice decides one permission's cascade
- * without folding over the whole matrix.
- */
-function cascadeOf(
-  index: Map<string, Permission>,
-  order: readonly string[],
-  key: string,
-): readonly string[] {
-  const needed = new Set<string>([key]);
-  const queue = [key];
-  while (queue.length) {
-    const at = queue.pop() as string;
-    for (const parent of index.get(at)?.dependsOn ?? []) {
-      if (needed.has(parent)) continue;
-      needed.add(parent);
-      queue.push(parent);
-    }
-  }
-  return order.filter((k) => needed.has(k));
-}
-
 export function createPolicy(
   matrix: Matrix,
   options: AccessOptions = {},
 ): Access {
   const frozen = adopt(matrix, options.version);
   const permissions = frozen.permissions;
-  const graph = buildGraph(permissions);
   const index = buildIndex(permissions);
   const closed = options.closed ?? false;
 
@@ -320,35 +280,10 @@ export function createPolicy(
     throw new UnknownPermissionError(`${key}.${action}`);
   };
 
-  // Derived once over the frozen document: it is a fact about the matrix, not
-  // about a call or a subject.
-  const reads = buildReadsObject(permissions, graph.order);
-
   const readsObject = (key: string, action: string): boolean => {
     objectFor(key);
     const permission = permissionFor(key, action);
-    return permission ? reads.get(permission.key) === true : false;
-  };
-
-  const cascades = new Map<string, readonly string[]>();
-  const cascadeFor = (key: string): readonly string[] => {
-    const cached = cascades.get(key);
-    if (cached) return cached;
-    const slice = cascadeOf(index, graph.order, key);
-    cascades.set(key, slice);
-    return slice;
-  };
-
-  /**
-   * One permission's decision with its `dependsOn` cascade resolved against the
-   * same context, so every entry point answers what `capabilities` answers.
-   */
-  const decideCascaded = (
-    permission: Permission,
-    ctx: ResolvedContext,
-  ): Decision => {
-    const resolved = resolve(index, cascadeFor(permission.key), ctx);
-    return resolved.get(permission.key) as Decision;
+    return permission ? permissionReadsObject(permission) : false;
   };
 
   /**
@@ -383,7 +318,7 @@ export function createPolicy(
         reason: 'unknown-action',
       };
     }
-    return decideCascaded(permission, ctxWith(subject, object, now));
+    return decideResolved(permission, ctxWith(subject, object, now));
   };
 
   const canMany = (
@@ -405,7 +340,7 @@ export function createPolicy(
     // One clock for the whole list: the objects differ, the instant does not.
     const settled = ctxWith(subject, undefined, now).now;
     return objects.map((object) =>
-      decideCascaded(permission, { subject, object, now: settled }),
+      decideResolved(permission, { subject, object, now: settled }),
     );
   };
 
@@ -436,7 +371,7 @@ export function createPolicy(
     // The field maps answer "what would be editable" and are computed whatever
     // the action decides, so a caller can explain a block with the same result
     // it renders a form from. Only `allowed` is gated on the action.
-    const decision = decideCascaded(permission, ctx);
+    const decision = decideResolved(permission, ctx);
     const outcome = decideFields(permission, ctx, axis, proposed);
     return {
       allowed: decision.allowed && outcome.allowed,
@@ -451,8 +386,12 @@ export function createPolicy(
     now?: Instant,
   ): Record<string, Decision> => {
     const ctx = ctxWith(subject, undefined, now);
-    const resolved = resolve(index, graph.order, ctx);
-    return Object.fromEntries(resolved);
+    return Object.fromEntries(
+      permissions.map((permission) => [
+        permission.key,
+        decideResolved(permission, ctx),
+      ]),
+    );
   };
 
   const authorize = (

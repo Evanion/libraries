@@ -8,27 +8,9 @@
 </WorkshopNotice>
 
 What [the intermediate tier](/acl/intermediate) leaves out is everything that
-follows from the document outliving the process that wrote it: a permission
-graph, a declared shape a foreign consumer can check against, and a version that
-says which document decided.
-
-## Permissions that gate other permissions
-
-`dependsOn` names permissions that must resolve on for this one to resolve on.
-A parent that is off takes its dependants with it, transitively, and nothing is
-written back into the document.
-
-```ts file=libs/acl/README.md region=cascade
-
-```
-
-The graph is what stops a matrix becoming a copy-paste of the same condition on
-twelve permissions. Cycles are refused at construction with `FeatureCycleError`,
-and a cascade is resolved once per permission rather than once per edge.
-
-`blockedBy` is the edge; `cause` walks past it to the first ancestor off for a
-reason of its own. A repairable cause keeps its `missing` paths on the way down,
-so a dependant three levels deep still knows what to fetch.
+follows from the document outliving the process that wrote it: a declared shape
+a foreign consumer can check against, and a version that says which document
+decided.
 
 ## Declare the shape
 

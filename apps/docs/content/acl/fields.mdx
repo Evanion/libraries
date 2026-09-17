@@ -15,7 +15,7 @@ which is a projection, and `write`, which is what a form submits.
 ```ts
 interface FieldDecision {
   allowed: boolean; // the action is allowed AND every field is allowed
-  action: Decision; // the action-level decision, cascade resolved
+  action: Decision; // the action-level decision the field maps hang off
   fields: Record<string, FieldState>; // 'allowed' | 'denied' | 'unevaluable'
   reasons: Record<string, FieldReason>;
 }
