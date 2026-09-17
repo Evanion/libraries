@@ -1034,6 +1034,53 @@ Holding a signature against the emitted `.d.ts` is what decision 21's generator
 would do, and that generator does not exist. Until it does, the tag marks the
 block and G5 checks two names in it; section 12 states the scope and the gap.
 
+**Section 13 step 12 evaluated the generator and did not adopt one.** The
+finding is recorded here rather than left as a step somebody repeats:
+
+- **TypeDoc with `typedoc-plugin-markdown`, and api-extractor with
+  api-documenter, both own the page.** Their unit of output is a file per
+  module, per kind or per API item; `typedoc-plugin-markdown`'s file options are
+  `router`, `flattenOutputFiles`, `entryFileName` and `mergeReadme`, every one
+  of them about which files land where. Neither has a mode that emits one
+  symbol's block into a position an author chose. An `api.mdx` here is not a
+  generated page with prose added; it is prose with signatures in it —
+  `acl/api.mdx` groups eleven exports under seven `##` headings a reader can
+  scan, each with a table and a paragraph saying which call answers which
+  question. Adopting either tool replaces that page rather than filling it.
+- **Emitting the declaration verbatim makes the page worse, measured.**
+  `libs/acl/dist/hydrate-policy.d.ts` spells `Access` in 47 lines, of which 22
+  are `readsObject`'s TSDoc comment restating what `acl/decisions` already
+  teaches, and `can` is one 118-character line carrying
+  `<K extends keyof R & string>`. The page's block is 15 lines and drops the
+  constraint on purpose, because the constraint is what `acl/authoring` is for.
+  A generator faithful to the declarations produces the long one; a generator
+  that abridges is making the editorial decision the block already makes.
+- **What the compiler could actually settle is narrower than the block.** The
+  rot decision 21 is about is a parameter renamed or dropped, and `^?` under
+  `twoslash` already emits the compiler's own inferred type into a page and
+  cannot go stale. That covers a call's shape where the page teaches one call;
+  it does not cover an interface listed whole, which is where the remaining risk
+  sits.
+- **The shape that would fit is the region loader.** Decision 17 already fills
+  an empty fence from a named region of a source file, so a build step emitting
+  `// #region <symbol>` blocks from the `.d.ts` would need no change on the page
+  side at all. That is a generator to write, not one to pick, and writing it
+  means owning the abridging rule above — which is the part no tool has.
+
+So the reference stays hand-written, the `signature` tag stays the answer, and
+decision 21 is open with its cost now stated: the gap is an interface block
+whose member list the compiler knows and this site does not check.
+
+One thing that evaluation turned up and this order does not schedule.
+`acl/api.mdx` cannot take the `signature` tag as it stands: G5's extension reads
+the symbol out of the `##` heading the block sits under, and the page's seven
+headings are `Construction`, `Querying`, `The document` and so on, grouping
+eleven exports by the question a reader arrives with. Tagging its ten blocks
+fails G5 ten times. Taking the tag means re-spelling every heading as its export,
+which is decision 8 applied to the page and is a rewrite of the page's whole
+shape — thirty headings where there are seven — rather than a tag. Whichever way
+that goes, it is a step somebody has to add.
+
 `anti-example` and `no-run` are the two that will be abused, because they are
 the two a writer reaches for when the alternative is wiring doctest into a
 package. The guard in section 12 counts them per section and fails a section
