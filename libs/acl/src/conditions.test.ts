@@ -172,6 +172,10 @@ describe('evaluateCondition', () => {
       '',
       '01/02/2020 sometime',
       Number.NaN,
+      // A number reaches the comparison without being parsed, so an infinite
+      // one would satisfy every window in one direction and none in the other.
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
       new Date('not a date'),
       null,
     ];
@@ -189,6 +193,17 @@ describe('evaluateCondition', () => {
     expect(state({ field: 'now', op: 'after', value: 'not a date' }, ctx)).toBe(
       'unusable-clock',
     );
+  });
+
+  it('an infinite boundary decides nothing', () => {
+    for (const value of [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(state({ field: 'now', op: 'before', value }, ctx)).toBe(
+        'unusable-clock',
+      );
+      expect(state({ field: 'now', op: 'after', value }, ctx)).toBe(
+        'unusable-clock',
+      );
+    }
   });
 
   it('an absent now reads the wall clock', () => {

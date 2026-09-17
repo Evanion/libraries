@@ -6,13 +6,21 @@ import type {
 } from './types.js';
 
 /**
- * Epoch milliseconds for an instant. NaN for a string that does not parse and
- * for an `Invalid Date`, which every caller reads as "this instant does not
- * decide anything".
+ * Epoch milliseconds for an instant. NaN for a string that does not parse, for
+ * an `Invalid Date`, and for a number that is not finite, which every caller
+ * reads as "this instant does not decide anything".
+ *
+ * The finite check carries weight in both directions. `Infinity` as a caller's
+ * `now` makes every `before` condition hold, and `Infinity` as a document's
+ * boundary makes every `before` condition hold for every caller. `-Infinity`
+ * does the same to `after`. A number is the one instant that reaches the
+ * comparison without being parsed, so it is the one that has to be checked
+ * here.
  */
 export function toEpoch(value: Instant): number {
   if (value instanceof Date) return value.getTime();
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : Number.NaN;
   return new Date(value).getTime();
 }
 
