@@ -1325,3 +1325,77 @@ textarea.landing-access__field {
     animation: none;
   }
 }
+
+/*
+ * The compose specimen: the tree `ComposeProvider` built, over the array that
+ * built it.
+ *
+ * `landing-specimen` gives it the card; everything here is the two halves
+ * inside. The tree is padded rather than bordered at its outer edge, because
+ * the outermost provider draws a border of its own and two rules a pixel apart
+ * read as a mistake.
+ */
+.landing-compose {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  font-size: var(--baize-text-sm);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+.landing-compose__tree {
+  padding: var(--baize-space-4);
+}
+
+/*
+ * One provider's box. The inset on the nested one is what makes the nesting
+ * legible without a connector: each layer steps in from the one outside it.
+ */
+.landing-compose__layer {
+  display: grid;
+  gap: var(--baize-space-2);
+  padding: var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+}
+
+.landing-compose__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  color: var(--baize-hue);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.landing-compose__note {
+  color: var(--baize-moss);
+  font-family: var(--baize-font-text);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+/* What the providers wrap: the shop page they are there for. */
+.landing-compose__page {
+  margin: 0;
+  padding: var(--baize-space-3);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-base);
+}
+
+/*
+ * The array's own lines. The two that are not entries carry no move controls,
+ * so they are indented past the gutter by hand rather than left to sit under
+ * it.
+ */
+.landing-compose__line {
+  padding-left: 3.25rem;
+}
+
+.landing-compose .landing-items__line {
+  padding-left: 0;
+}

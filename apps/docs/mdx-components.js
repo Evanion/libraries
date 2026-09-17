@@ -1,5 +1,6 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import AccessDemo from './components/landing/AccessDemo';
+import ComposeSpecimen from './components/landing/ComposeSpecimen';
 import DataDemo from './components/landing/DataDemo';
 import LuhnSpecimen from './components/landing/LuhnSpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
@@ -84,6 +85,7 @@ export function useMDXComponents(components) {
     WidgetPlayground,
     PlaygroundExamples,
     AccessDemo,
+    ComposeSpecimen,
     DataDemo,
     LuhnSpecimen,
     TokenSpecimen,
