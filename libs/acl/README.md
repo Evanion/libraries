@@ -61,13 +61,13 @@ import { policy } from '@evanion/acl';
 
 type Comment = { authorId: string; status: string };
 
-const access = policy<{ id: string }>().for<'comment', Comment>(
-  'comment',
-  (p) =>
+const access = policy<{ id: string }>()
+  .for<'comment', Comment>('comment', (p) =>
     p
       .allow('update', p.eq('object.authorId', 'subject.id'))
       .deny('update', p.eq('object.status', 'locked')),
-);
+  )
+  .build();
 
 const subject = { id: 's1' };
 
@@ -267,13 +267,15 @@ interface Listing {
   status: 'draft' | 'published';
 }
 
-const access = policy<Shopper>().for<'listing', Listing>('listing', (p) =>
-  p
-    .allow('review', p.always)
-    .allow('edit', p.in('subject.role', ['bookseller', 'owner']))
-    .allow('publish', p.in('subject.role', ['owner']))
-    .deny('edit', p.eq('object.status', 'published')),
-);
+const access = policy<Shopper>()
+  .for<'listing', Listing>('listing', (p) =>
+    p
+      .allow('review', p.always)
+      .allow('edit', p.in('subject.role', ['bookseller', 'owner']))
+      .allow('publish', p.in('subject.role', ['owner']))
+      .deny('edit', p.eq('object.status', 'published')),
+  )
+  .build();
 
 const bookseller: Shopper = { role: 'bookseller' };
 const draft: Listing = { status: 'draft' };
@@ -447,7 +449,8 @@ const access = policy<Subject>()
   )
   .for<'listing', Listing>('listing', (p) =>
     p.allow('update', p.eq('object.sellerId', 'subject.id')),
-  );
+  )
+  .build();
 
 const subject = { id: 's1', roles: [] };
 const comment = { authorId: 's1', status: 'draft' } as const;
@@ -479,17 +482,21 @@ it. `Cond` is a plain value, so the shared half is a local `const` named once
 in the same block:
 
 ```ts
-const access = policy<Subject>().for<'comment', Comment>('comment', (p) => {
-  const isAuthor = p.eq('object.authorId', 'subject.id');
-  return p
-    .allow('update', isAuthor)
-    .allow('publish', p.and(p.contains('subject.roles', 'editor'), isAuthor));
-});
+const access = policy<Subject>()
+  .for<'comment', Comment>('comment', (p) => {
+    const isAuthor = p.eq('object.authorId', 'subject.id');
+    return p
+      .allow('update', isAuthor)
+      .allow('publish', p.and(p.contains('subject.roles', 'editor'), isAuthor));
+  })
+  .build();
 ```
 
-The builder flattens to the canonical matrix on the first query, so
-`JSON.stringify(access.matrix)` emits the same document a foreign backend would
-produce.
+`build()` is the terminal. It flattens the blocks to the canonical matrix and
+hands back an `Access` carrying the subject type and the key -> object-type map,
+so every query checks its key and its object against what the blocks declared.
+`.matrix` is the document on its own, for a caller that wants to overlay or ship
+it. `JSON.stringify(access.matrix)` emits what a foreign backend would produce.
 
 ### The document a typed policy emits
 
@@ -511,9 +518,11 @@ const access = policy<{ id: string }>({
       comment: { fields: { authorId: 'string', status: 'string' } },
     },
   },
-}).for<'comment', Comment>('comment', (p) =>
-  p.allow('update', p.eq('object.authorId', 'subject.id')),
-);
+})
+  .for<'comment', Comment>('comment', (p) =>
+    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  )
+  .build();
 
 JSON.stringify(access.matrix.version); // -> '"orders@7"'
 ```
@@ -547,10 +556,11 @@ wherever it is present.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>().for<'comment', { status: string }>(
-  'comment',
-  (p) => p.allow('read', p.always).fields(['*', '!status']),
-);
+const access = policy<{ id: string }>()
+  .for<'comment', { status: string }>('comment', (p) =>
+    p.allow('read', p.always).fields(['*', '!status']),
+  )
+  .build();
 
 const fd = access.canFields(
   { id: 's1' },
@@ -589,12 +599,11 @@ the value to write, and nothing else from the write is.
 ```ts @import.meta.vitest
 import { policy, pickAllowedFields } from '@evanion/acl';
 
-const access = policy<{ id: string }>().for<
-  'user',
-  { id: string; name: string }
->('user', (p) =>
-  p.allow('update', p.eq('object.id', 'subject.id')).fields(['*', '!role']),
-);
+const access = policy<{ id: string }>()
+  .for<'user', { id: string; name: string }>('user', (p) =>
+    p.allow('update', p.eq('object.id', 'subject.id')).fields(['*', '!role']),
+  )
+  .build();
 
 const current = { id: 'u1', name: 'Ann' };
 const proposed = { name: 'Eve', role: 'admin' };
@@ -1044,23 +1053,23 @@ expiry and no way for a held matrix to notice that it is stale.
 
 ## API
 
-| Export                                                                                     | Purpose                                                                                      |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `createPolicy(matrix, options?)`                                                           | Builds the access object from a matrix document. Validates, clones and freezes.              |
-| `parseMatrix(json, options?)`                                                              | Adopts a foreign matrix document; fails closed on unknown keys.                              |
-| `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind. Flattens to the canonical matrix. |
-| `p.allow` / `p.deny` / `p.fields`                                                          | Declare one action inside a `.for()` block.                                                  |
-| `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                     |
-| `policy(...).object(key)`                                                                  | A handle bound to one object kind. Typed policies only; `createPolicy` has no `object`.      |
-| `access.can(subject, key, action, object?, now?)`                                          | One decision.                                                                                |
-| `access.canMany(...)`                                                                      | A decision array, parallel to the input.                                                     |
-| `access.canFields(...)`                                                                    | The field-level decision for one axis, plus the action decision gating it.                   |
-| `pickAllowedFields(decision, proposed)`                                                    | The subset of a proposed write the decision allows. The value to write.                      |
-| `access.capabilities(subject)`                                                             | Every action-level decision.                                                                 |
-| `access.readsObject(key, action)`                                                          | Whether the permission needs the object row at all. Takes no subject.                        |
-| `access.authorize(subject)`                                                                | A bound handle for server-side evaluation. Decisions only; the document stays on `access`.   |
-| `access.matrix`                                                                            | The frozen document. Round-trips through JSON; this is what crosses SSR.                     |
-| `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.               |
+| Export                                                                                     | Purpose                                                                                    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `createPolicy(matrix, options?)`                                                           | Builds the access object from a matrix document. Validates, clones and freezes.            |
+| `parseMatrix(json, options?)`                                                              | Adopts a foreign matrix document; fails closed on unknown keys.                            |
+| `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind, `.build()` for the evaluator.   |
+| `p.allow` / `p.deny` / `p.fields`                                                          | Declare one action inside a `.for()` block.                                                |
+| `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                   |
+| `access.object(key)`                                                                       | A handle bound to one object kind, so the key is named once.                               |
+| `access.can(subject, key, action, object?, now?)`                                          | One decision.                                                                              |
+| `access.canMany(...)`                                                                      | A decision array, parallel to the input.                                                   |
+| `access.canFields(...)`                                                                    | The field-level decision for one axis, plus the action decision gating it.                 |
+| `pickAllowedFields(decision, proposed)`                                                    | The subset of a proposed write the decision allows. The value to write.                    |
+| `access.capabilities(subject)`                                                             | Every action-level decision.                                                               |
+| `access.readsObject(key, action)`                                                          | Whether the permission needs the object row at all. Takes no subject.                      |
+| `access.authorize(subject)`                                                                | A bound handle for server-side evaluation. Decisions only; the document stays on `access`. |
+| `access.matrix`                                                                            | The frozen document. Round-trips through JSON; this is what crosses SSR.                   |
+| `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.             |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `unknown-action`, `unevaluable`,

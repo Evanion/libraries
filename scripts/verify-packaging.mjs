@@ -273,7 +273,7 @@ const typed = policy<Actor>(aclOptionsTyped).for<'comment', Comment>('comment', 
   p.allow('update', ownComment(p)).fields(['body'])
    .allow('read', p.always)
    .deny('read', p.eq('object.status', 'hidden')),
-);
+).build();
 const actor: Actor = { id: 'u1', roles: ['editor'] };
 // A projection is an argument: object parameters take Partial<Comment>, so a
 // list row carrying two of the four fields decides without being widened. The
@@ -283,6 +283,7 @@ const bound: BoundKind<Actor, Comment> = typed.object('comment');
 const boundDecision: AclDecision = bound.can(actor, 'update', { authorId: 'u1' });
 const typedFields: FieldDecision = typed.canFields(actor, 'comment', 'update', { authorId: 'u1' }, 'write', { body: 'x' });
 const typedMatrix: Matrix = typed.matrix;
+const typedBound: Authorized<{ comment: Comment }> = typed.authorize(actor);
 const aclError: AclConfigError = new UnknownPermissionError('comment.nope');
 // The React binding over an already-built matrix. Hooks are named, not called:
 // what has to hold is that their signatures and the provider's props resolve.
@@ -291,7 +292,7 @@ const reactAccess: ReactAccess = access;
 const reactCan: (key: string, action: string, object?: Record<string, unknown>) => ReactDecision = useCan;
 const reactCanFields: typeof useCanFields = useCanFields;
 const reactFieldDecision: ReactFieldDecision = fieldDecision;
-void [ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
+void [typedBound, ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       widgetRegistry, anyItems, coreProblems, notAList, reactRegistry, Region,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
@@ -423,7 +424,7 @@ if (aclVetoed.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1', status: '
   process.exit(1);
 }
 // The typed authoring path, which flattens to the same canonical document.
-const aclTyped = policy().for('comment', (p) => p.allow('read', p.eq('object.authorId', 'subject.id')));
+const aclTyped = policy().for('comment', (p) => p.allow('read', p.eq('object.authorId', 'subject.id'))).build();
 if (!aclTyped.can({ id: 'u1' }, 'comment', 'read', { authorId: 'u1' }).allowed ||
     aclTyped.matrix.permissions[0].key !== 'comment.read') {
   console.error('@evanion/acl authoring helpers do not build a working policy from the published build');

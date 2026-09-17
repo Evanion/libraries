@@ -45,15 +45,14 @@ Module scope in a `.server.ts` module. That suffix is load-bearing in this app:
 // app/access.server.ts
 import { policy } from '@evanion/acl';
 
-export const access = policy<Subject>({ version: MATRIX_VERSION }).for<
-  'title',
-  Title
->('title', (p) =>
-  p
-    .allow('read', p.always)
-    .allow('declare', p.contains('subject.roles', 'operator'))
-    .deny('declare', p.eq('object.status', 'archived')),
-);
+export const access = policy<Subject>({ version: MATRIX_VERSION })
+  .for<'title', Title>('title', (p) =>
+    p
+      .allow('read', p.always)
+      .allow('declare', p.contains('subject.roles', 'operator'))
+      .deny('declare', p.eq('object.status', 'archived')),
+  )
+  .build();
 ```
 
 Construction validates, clones and freezes once per process; a decision after

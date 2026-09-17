@@ -55,8 +55,8 @@ describe('authoring', () => {
     );
     expect(Object.keys(access.matrix)).toEqual(['permissions']);
     expect(JSON.stringify(access.matrix)).not.toContain('version');
-    expect(access.version).toBeUndefined();
-    expect(access.schema).toBeUndefined();
+    expect(access.matrix.version).toBeUndefined();
+    expect(access.matrix.schema).toBeUndefined();
   });
 
   it('a version and a schema go into the document, not around it', () => {
@@ -69,9 +69,11 @@ describe('authoring', () => {
     const access = policy<Subject>({
       version: 'orders@7+veto@41',
       schema,
-    }).for<'comment', Comment>('comment', (p) =>
-      p.allow('update', p.eq('object.authorId', 'subject.id')),
-    );
+    })
+      .for<'comment', Comment>('comment', (p) =>
+        p.allow('update', p.eq('object.authorId', 'subject.id')),
+      )
+      .build();
     expect(access.matrix.version).toBe('orders@7+veto@41');
     expect(access.matrix.schema).toEqual(schema);
     expect(access.version).toBe('orders@7+veto@41');
@@ -85,17 +87,19 @@ describe('authoring', () => {
   });
 
   it('a schema in the document binds the conditions the builder emitted', () => {
-    expect(
-      () =>
-        policy<Subject>({
-          schema: {
-            objects: { comment: { fields: { authorId: 'string' } } },
-          },
-        }).for<'comment', Comment>('comment', (p) =>
+    expect(() =>
+      policy<Subject>({
+        schema: {
+          objects: { comment: { fields: { authorId: 'string' } } },
+        },
+      })
+        .for<'comment', Comment>('comment', (p) =>
           // `status` is a Comment field, so TypeScript accepts the path; the
-          // schema does not declare it, so construction refuses the document.
+          // schema does not declare it, so construction refuses the
+          // document.
           p.allow('read', p.eq('object.status', 'published')),
-        ).matrix,
+        )
+        .build(),
     ).toThrow(UnknownFieldError);
   });
 
@@ -209,11 +213,13 @@ describe('authoring', () => {
   });
 
   it('deny authoring produces denyRules', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-      p
-        .allow('delete', p.contains('subject.roles', 'editor'))
-        .deny('delete', p.eq('object.status', 'published')),
-    );
+    const access = policy<Subject>()
+      .for<'comment', Comment>('comment', (p) =>
+        p
+          .allow('delete', p.contains('subject.roles', 'editor'))
+          .deny('delete', p.eq('object.status', 'published')),
+      )
+      .build();
     expect(access.matrix.permissions).toHaveLength(1);
     expect(access.matrix.permissions[0]!.denyRules).toHaveLength(1);
     expect(
@@ -255,7 +261,8 @@ describe('authoring', () => {
       )
       .for<'media', Media>('media', (p) =>
         p.allow('read', p.eq('object.ownerId', 'subject.id')),
-      );
+      )
+      .build();
     expect(
       access.matrix.permissions.map((permission) => permission.key),
     ).toEqual(['comment.update', 'media.read']);
@@ -265,9 +272,11 @@ describe('authoring', () => {
   });
 
   it('a bound kind decides what the key form decides', () => {
-    const access = policy<Subject>().for<'media', Media>('media', (p) =>
-      p.allow('read', p.eq('object.ownerId', 'subject.id')),
-    );
+    const access = policy<Subject>()
+      .for<'media', Media>('media', (p) =>
+        p.allow('read', p.eq('object.ownerId', 'subject.id')),
+      )
+      .build();
     const media = access.object('media');
     expect(media.can(subject, 'read', { ownerId: 's1', bytes: 1 })).toEqual(
       access.can(subject, 'media', 'read', { ownerId: 's1', bytes: 1 }),
@@ -276,11 +285,13 @@ describe('authoring', () => {
 });
 
 describe('a projection through the typed path', () => {
-  const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-    p
-      .allow('update', p.eq('object.authorId', 'subject.id'))
-      .deny('update', p.eq('object.status', 'published')),
-  );
+  const access = policy<Subject>()
+    .for<'comment', Comment>('comment', (p) =>
+      p
+        .allow('update', p.eq('object.authorId', 'subject.id'))
+        .deny('update', p.eq('object.status', 'published')),
+    )
+    .build();
   const untyped = createPolicy(access.matrix);
 
   it('answers what the untyped path answers for the same projection', () => {
@@ -352,7 +363,8 @@ describe('the built matrix against the hand-written one', () => {
         .allow('publish', p.contains('subject.roles', 'editor'))
         .deny('publish', p.eq('object.status', 'published')),
     )
-    .for<'media', Media>('media', (p) => p.allow('read', p.always));
+    .for<'media', Media>('media', (p) => p.allow('read', p.always))
+    .build();
 
   const hand: Matrix = {
     version: 3,

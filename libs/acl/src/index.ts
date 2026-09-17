@@ -18,7 +18,9 @@ export { createPolicy } from './create-policy.js';
 export type {
   Access,
   AccessOptions,
+  AnyObjects,
   Authorized,
+  BoundKind,
   Subject,
 } from './create-policy.js';
 export { applyDenyOverlay } from './deny-overlay.js';
@@ -27,7 +29,6 @@ export { parseMatrix } from './parse-matrix.js';
 export { policy } from './authoring.js';
 export type {
   Actions,
-  BoundKind,
   Cond,
   Operand,
   Ops,

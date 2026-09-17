@@ -23,10 +23,11 @@ import { policy } from '@evanion/acl';
 
 type Comment = { authorId: string; status: string };
 
-const access = policy<{ id: string }>().for<'comment', Comment>(
-  'comment',
-  (p) => p.allow('update', p.eq('object.authorId', 'subject.id')),
-);
+const access = policy<{ id: string }>()
+  .for<'comment', Comment>('comment', (p) =>
+    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  )
+  .build();
 
 const comment = { authorId: 's1', status: 'draft' };
 // ---cut---

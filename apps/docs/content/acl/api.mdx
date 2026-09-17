@@ -8,9 +8,18 @@ this entry imports no framework.
 ## Construction
 
 ```ts
-function createPolicy(matrix: Matrix, options?: AccessOptions): Access;
+function createPolicy<Sub, R>(
+  matrix: Matrix,
+  options?: AccessOptions,
+): Access<Sub, R>;
 function parseMatrix(json: Matrix, options?: AccessOptions): Access;
 function policy<Subject>(options?: PolicyOptions): Policy<Subject, {}>;
+
+interface Policy<Sub, R> {
+  for<K extends string, Obj>(key: K, block): Policy<Sub, R & Record<K, Obj>>;
+  readonly matrix: Readonly<Matrix>;
+  build(options?: AccessOptions): Access<Sub, R>;
+}
 
 interface AccessOptions {
   version?: string | number; // overrides the document's own
@@ -21,14 +30,17 @@ type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 ```
 
 `parseMatrix` is `createPolicy` with `closed: true`. `policy()` returns a
-builder whose `.for<K, Obj>(key, block)` accumulates the key-to-type map; every
-query on it is checked against that map. See
-[Typed authoring](/acl/authoring).
+builder whose `.for<K, Obj>(key, block)` accumulates the key-to-type map, and
+`build()` hands that map to the evaluator, so every query on the result is
+checked against it. See [Typed authoring](/acl/authoring).
+
+`Sub` and `R` default to the open bags a JSON document carries, so a call that
+names neither gets exactly the untyped signatures.
 
 ## Querying
 
 ```ts
-interface Access {
+interface Access<Sub, R> {
   readonly matrix: Readonly<Matrix>;
   readonly version: string | number | undefined;
   readonly schema: MatrixSchema | undefined;
@@ -37,7 +49,8 @@ interface Access {
   canMany(subject, key, action, objects, now?): Decision[];
   canFields(subject, key, action, object, axis, proposed?, now?): FieldDecision;
   capabilities(subject, now?): Record<string, Decision>;
-  authorize(subject, options?: { now?: Instant }): Authorized;
+  authorize(subject, options?: { now?: Instant }): Authorized<R>;
+  object(key): BoundKind<Sub, R[K]>;
   readsObject(key, action): boolean;
 }
 ```
@@ -47,12 +60,14 @@ interface Access {
 | `can`          | one decision for one instance                                      |
 | `canMany`      | a decision per instance, one settled clock for the list            |
 | `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision |
-| `capabilities` | every permission in the matrix, keyed, in dependency order         |
+| `capabilities` | every permission in the matrix, keyed, in document order           |
 | `authorize`    | the same four with the subject and clock bound                     |
+| `object`       | the same three with the object kind bound                          |
 | `readsObject`  | whether the permission needs the object row at all                 |
 
-`authorize(subject)` returns `Authorized`, which carries `can`, `canMany`,
-`canFields` and `capabilities` with the subject dropped from each signature. It
+`authorize(subject)` returns `Authorized<R>`, which carries `can`, `canMany`,
+`canFields` and `capabilities` with the subject dropped from each signature and
+the key map kept. It
 carries no `matrix`, `version` or `schema`: one frozen document is evaluated
 against many subjects, and a caller that needs both holds the `access` it got
 `authorize` from.
@@ -61,9 +76,8 @@ against many subjects, and a caller that needs both holds the `access` it got
 about the document. See
 [Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
 
-A typed policy adds `object(key)`, a handle binding one object kind:
-`BoundKind` carries `can`, `canMany`, `canFields` and `readsObject` with the key
-dropped.
+`object(key)` is a handle binding one object kind: `BoundKind` carries `can`,
+`canMany`, `canFields` and `readsObject` with the key dropped.
 
 ## The write path
 

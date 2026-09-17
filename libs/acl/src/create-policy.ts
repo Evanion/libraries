@@ -154,7 +154,17 @@ export interface AccessOptions {
 }
 
 /**
+ * The default object map: any key, any bag. What a document whose shapes
+ * nothing declared at the type level answers for.
+ */
+export type AnyObjects = Record<string, Record<string, unknown>>;
+
+/**
  * One subject's decisions, bound to that subject and one clock instant.
+ *
+ * `R` is the key -> object-type map the `Access` it came from carries, so the
+ * binding survives the member that hands it back. Only `R` appears, because
+ * `authorize` already took the subject and checked it there.
  *
  * Decisions only. It carries no `matrix`, `version` or `schema`, and a caller
  * that needs the document alongside the handle holds the `Access` it came from
@@ -167,27 +177,76 @@ export interface AccessOptions {
  * `readsObject` is absent for the same reason in reverse: it is a fact about
  * the document, not about this subject.
  */
-export interface Authorized {
-  can(key: string, action: string, object?: Record<string, unknown>): Decision;
-  canMany(
-    key: string,
+export interface Authorized<R = AnyObjects> {
+  can<K extends keyof R & string>(
+    key: K,
     action: string,
-    objects: readonly Record<string, unknown>[],
+    object?: Partial<R[K]>,
+  ): Decision;
+  canMany<K extends keyof R & string>(
+    key: K,
+    action: string,
+    objects: readonly Partial<R[K]>[],
   ): Decision[];
-  canFields(
-    key: string,
+  canFields<K extends keyof R & string>(
+    key: K,
     action: string,
-    object: Record<string, unknown>,
+    object: Partial<R[K]>,
     axis: 'read' | 'write',
-    proposed?: Record<string, unknown>,
+    proposed?: Partial<R[K]>,
   ): FieldDecision;
   capabilities(): Record<string, Decision>;
 }
 
-export interface Access {
+/**
+ * One object kind bound to a handle, so the key is named once.
+ *
+ * Every object parameter takes `Partial<Obj>`. A caller holding a projection --
+ * a list row carrying `{ id, ownerId }` -- is the case `unevaluable` and
+ * `missing` answer, and the engine reads every object field through an own-key
+ * guard. The subject stays complete: an absent `subject.*` path is a definite
+ * miss, so a projected subject refuses with `no-rule-matched` and names nothing
+ * to fetch.
+ */
+export interface BoundKind<Sub, Obj> {
+  can(
+    subject: Sub,
+    action: string,
+    object?: Partial<Obj>,
+    now?: Instant,
+  ): Decision;
+  canMany(
+    subject: Sub,
+    action: string,
+    objects: readonly Partial<Obj>[],
+    now?: Instant,
+  ): Decision[];
+  canFields(
+    subject: Sub,
+    action: string,
+    object: Partial<Obj>,
+    axis: 'read' | 'write',
+    proposed?: Partial<Obj>,
+    now?: Instant,
+  ): FieldDecision;
+  /** `Access.readsObject` for this kind, with the key already bound. */
+  readsObject(action: string): boolean;
+}
+
+/**
+ * The evaluator over one frozen document.
+ *
+ * `Sub` is the subject the matrix was written against and `R` is the key ->
+ * object-type map. Both default to the open bags a JSON document carries, and
+ * at the defaults `keyof R & string` is `string` and `Partial<R[K]>` is a bag
+ * of unknowns, so a foreign document accepts any key and any object. A typed
+ * author names both, and every query checks its key and its object against
+ * them.
+ */
+export interface Access<Sub = Subject, R = AnyObjects> {
   /**
    * The frozen document. It round-trips through JSON, so an SSR crossing is
-   * `createPolicy(JSON.parse(JSON.stringify(access.matrix)))` with nothing
+   * `hydratePolicy(JSON.parse(JSON.stringify(access.matrix)))` with nothing
    * assembled around it.
    */
   readonly matrix: Readonly<Matrix>;
@@ -195,31 +254,33 @@ export interface Access {
   readonly version: string | number | undefined;
   /** The declared shapes, when the document carries them. */
   readonly schema: MatrixSchema | undefined;
-  can(
-    subject: Subject,
-    key: string,
+  can<K extends keyof R & string>(
+    subject: Sub,
+    key: K,
     action: string,
-    object?: Record<string, unknown>,
+    object?: Partial<R[K]>,
     now?: Instant,
   ): Decision;
-  canMany(
-    subject: Subject,
-    key: string,
+  canMany<K extends keyof R & string>(
+    subject: Sub,
+    key: K,
     action: string,
-    objects: readonly Record<string, unknown>[],
+    objects: readonly Partial<R[K]>[],
     now?: Instant,
   ): Decision[];
-  canFields(
-    subject: Subject,
-    key: string,
+  canFields<K extends keyof R & string>(
+    subject: Sub,
+    key: K,
     action: string,
-    object: Record<string, unknown>,
+    object: Partial<R[K]>,
     axis: 'read' | 'write',
-    proposed?: Record<string, unknown>,
+    proposed?: Partial<R[K]>,
     now?: Instant,
   ): FieldDecision;
-  capabilities(subject: Subject, now?: Instant): Record<string, Decision>;
-  authorize(subject: Subject, opts?: { now?: Instant }): Authorized;
+  capabilities(subject: Sub, now?: Instant): Record<string, Decision>;
+  authorize(subject: Sub, opts?: { now?: Instant }): Authorized<R>;
+  /** A handle with one object kind bound, so the key is named once. */
+  object<K extends keyof R & string>(key: K): BoundKind<Sub, R[K]>;
   /**
    * Whether this permission needs the object row to reach a decision at all.
    *
@@ -243,7 +304,7 @@ export interface Access {
    * false: it decides `unknown-action` without a row. Unknown keys behave as
    * they do for `can` -- open mode throws, `closed` mode answers.
    */
-  readsObject(key: string, action: string): boolean;
+  readsObject<K extends keyof R & string>(key: K, action: string): boolean;
 }
 
 function buildIndex(
@@ -254,10 +315,18 @@ function buildIndex(
   return index;
 }
 
-export function createPolicy(
+/**
+ * The evaluator over a matrix document.
+ *
+ * `Sub` and `R` are the compile-time surface; the engine underneath takes plain
+ * bags and string keys, so the body is written against the erased form and cast
+ * once at the end. Naming neither is the foreign path, where the defaults make
+ * every signature the untyped one.
+ */
+export function createPolicy<Sub = Subject, R = AnyObjects>(
   matrix: Matrix,
   options: AccessOptions = {},
-): Access {
+): Access<Sub, R> {
   const frozen = adopt(matrix, options.version);
   const permissions = frozen.permissions;
   const index = buildIndex(permissions);
@@ -410,7 +479,19 @@ export function createPolicy(
     };
   };
 
-  return {
+  const object = (
+    key: string,
+  ): BoundKind<Subject, Record<string, unknown>> => ({
+    can: (subject, action, object, now) =>
+      can(subject, key, action, object, now),
+    canMany: (subject, action, objects, now) =>
+      canMany(subject, key, action, objects, now),
+    canFields: (subject, action, object, axis, proposed, now) =>
+      canFields(subject, key, action, object, axis, proposed, now),
+    readsObject: (action) => readsObject(key, action),
+  });
+
+  const access = {
     get matrix() {
       return frozen;
     },
@@ -425,6 +506,9 @@ export function createPolicy(
     canFields,
     capabilities,
     authorize,
+    object,
     readsObject,
   };
+
+  return access as unknown as Access<Sub, R>;
 }

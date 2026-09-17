@@ -2,7 +2,9 @@ import { describe, expectTypeOf, it } from 'vitest';
 
 import { policy } from './authoring.js';
 import type { Operand, Valid } from './authoring.js';
-import type { Decision } from './types.js';
+import { createPolicy } from './create-policy.js';
+import { parseMatrix } from './parse-matrix.js';
+import type { Decision, Matrix } from './types.js';
 
 type Subject = { id: string; roles: string[] };
 type Comment = { authorId: string; status: 'draft' | 'published' };
@@ -14,13 +16,15 @@ const access = policy<Subject>()
   )
   .for<'media', Media>('media', (p) =>
     p.allow('read', p.eq('object.ownerId', 'subject.id')),
-  );
+  )
+  .build();
 
 declare const subject: Subject;
 declare const comment: Comment;
 declare const media: Media;
 declare const projection: { authorId: string };
 declare const projectedSubject: { id: string };
+declare const json: Matrix;
 
 describe('typed authoring', () => {
   it('a mistyped path names the path', () => {
@@ -137,6 +141,26 @@ describe('typed authoring', () => {
     access.can(subject, 'comment', 'update', { authorId: 's1', statuss: 'x' });
     // @ts-expect-error -- 'draft' is the Comment field's type, 'x' is not
     access.can(subject, 'comment', 'update', { status: 'x' });
+  });
+
+  it('a bound handle carries the key map the builder accumulated', () => {
+    const bound = access.authorize(subject);
+    expectTypeOf(
+      bound.can('comment', 'update', comment).allowed,
+    ).toEqualTypeOf<boolean>();
+    // @ts-expect-error -- 'commnt' is not a configured key
+    bound.can('commnt', 'update', comment);
+    // @ts-expect-error -- Media is not the object type of 'comment'
+    bound.can('comment', 'update', media);
+    // @ts-expect-error -- 'authorIdd' is not a Comment field
+    bound.canMany('comment', 'update', [{ authorIdd: 's1' }]);
+  });
+
+  it('a document arriving at runtime accepts any key and any bag', () => {
+    const foreign = parseMatrix(json);
+    foreign.can({ anything: 1 }, 'whatever', 'at-all', { any: 'bag' });
+    foreign.authorize({ anything: 1 }).can('whatever', 'at-all', { any: 1 });
+    createPolicy(json).can({ anything: 1 }, 'whatever', 'at-all');
   });
 
   it('a partial call still answers with a Decision, gated on a boolean', () => {
