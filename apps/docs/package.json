@@ -18,7 +18,7 @@
     }
   },
   "scripts": {
-    "postbuild": "pagefind --site out --output-path out/_pagefind"
+    "postbuild": "node tools/md-siblings.mjs && pagefind --site out --output-path out/_pagefind"
   },
   "dependencies": {
     "@evanion/acl": "*",
