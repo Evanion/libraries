@@ -2084,9 +2084,9 @@ Five sections have no getting-started page — `acl`, `compose`, `feature`, `luh
 and `token` — and `compose` has no page its `demo:` field can name, because the
 page that would fill the role is the getting-started page it does not have. So
 the guard ratchets rather than passing: it records the unfilled roles per
-section, and a section may only lose one. Of the five, `luhn` and `token` appear
-nowhere in section 13's content steps, so nothing currently scheduled writes
-their getting-started page and their allowances have no step that retires them.
+section, and a section may only lose one. Of the five, `luhn` and `token` are
+reached by no content step before section 13's step 14, which is the step that
+writes their page and retires their allowances.
 
 **G3 — no unexplained fence.** Every fence in `content/` is `file=`-bearing,
 one of the shell languages, or carries a tag from the closed list. Fails today
@@ -2365,9 +2365,8 @@ Nothing here is a single pass over 62 pages.
    `compose` has no demonstration role filled either, since the page its `demo:`
    field would point at is the getting-started page it does not have. The
    content work that writes one is step 9 for `compose`, step 10 for `feature`
-   and step 11 for `acl`. `luhn` and `token` appear in no content step, so their
-   two allowances are the ones this order does not retire, and closing them is a
-   step somebody has to add.
+   and step 11 for `acl`. `luhn` and `token` appear in no content step above,
+   and step 14 is the step that closes them.
 
    A demonstration page created here is written in the shop domain and carries
    its own region. Step 11 is where `acl`'s nineteen regions leave the blog CMS,
@@ -2424,6 +2423,23 @@ Nothing here is a single pass over 62 pages.
     and the one item here that is an evaluation before it is a task.
 13. **`astro-widget`** (section 11), last, because its control is the one that
     needs a mechanism designed.
+14. **A getting-started page for `luhn` and for `token`**, which retires the two
+    entries step 4 could not and which nothing above reaches. Both sections put
+    the install and the first call on the overview and everything else on
+    `usage`, so the page to write is a split of `usage` rather than new
+    material: `luhn/getting-started` takes `generate`, `validate` and the
+    filtering rule over one order code, and `usage` keeps the empty-input
+    error, case folding and the sign-and-verify helper; `token/getting-started`
+    takes `createToken`, `generate` and `validate` over one pickup code, and
+    `usage` keeps the option table, the prefix and the chunking rules. Both
+    sections keep the demonstration role on `usage`, where the specimen is
+    mounted, so G4 is untouched and only `doc-floor-allowance.json` moves.
+
+    It is last because the split is only worth doing once: `luhn/usage` signs
+    `order-2026-0042` and `token` mints `ORD-a4kp-9mxa`, which section 6 already
+    counts as the shop, but both pages still carry `inv0ice`, `4a7f2c9` and
+    `cafe` beside them. Splitting before those are renamed writes the leftovers
+    into a second page and then asks for them back.
 
 ## Testing
 
