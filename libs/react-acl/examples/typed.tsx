@@ -21,13 +21,17 @@
 'use client';
 
 import { policy } from '@evanion/acl';
+import type { Action } from '@evanion/acl';
 import { createPolicyContext } from '@evanion/react-acl';
 
 type Shopper = { id: string; role: 'customer' | 'bookseller' | 'owner' };
 type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
 
-export const shop = policy<Shopper>()
-  .for<'listing', Listing>('listing', (p) =>
+type ShopObjects = { listing: Listing };
+type ShopVerbs = { listing: Action | 'edit' };
+
+export const shop = policy<Shopper, ShopObjects, ShopVerbs>()
+  .for('listing', (p) =>
     p
       .allow('read', p.always)
       .allow('edit', p.eq('object.sellerId', 'subject.id'))

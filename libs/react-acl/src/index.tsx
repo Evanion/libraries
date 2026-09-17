@@ -10,11 +10,12 @@
 
 import { createContext, useContext, useMemo } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
-import type { Access, AnyObjects, Subject } from '@evanion/acl';
+import type { Access, ActionOf, AnyObjects, Subject } from '@evanion/acl';
 import type { Decision, FieldDecision, Instant } from '@evanion/acl';
 
 export type { Access, Subject } from '@evanion/acl';
 export type {
+  ActionOf,
   AnyObjects,
   Condition,
   Decision,
@@ -47,8 +48,17 @@ interface PolicyContextValue {
 
 const SharedContext = createContext<PolicyContextValue | null>(null);
 
-export interface PolicyProviderProps {
-  access: Access;
+/**
+ * Props of the shared provider.
+ *
+ * `Keys` is the permission-key union the access object carries, and it is read
+ * off the prop rather than named at the call site. The default is the open
+ * union a rehydrated document carries, so `PolicyProviderProps` with no type
+ * argument is the erased form, and a policy whose keys are declared reaches the
+ * same prop.
+ */
+export interface PolicyProviderProps<Keys extends string = string> {
+  access: Access<Subject, AnyObjects, Keys>;
   subject: Subject;
   /**
    * The evaluation context. Only `now` is read here; the subject is passed
@@ -62,14 +72,18 @@ export interface PolicyProviderProps {
   children?: ReactNode;
 }
 
-export function PolicyProvider({
+export function PolicyProvider<Keys extends string = string>({
   access,
   subject,
   context,
   children,
-}: PolicyProviderProps) {
+}: PolicyProviderProps<Keys>) {
   const value = useMemo<PolicyContextValue>(
-    () => ({ access, subject, now: context?.now ?? new Date() }),
+    () => ({
+      access: access as Access,
+      subject,
+      now: context?.now ?? new Date(),
+    }),
     [access, subject, context],
   );
   return (
@@ -192,29 +206,41 @@ export function useCapabilities(): Record<string, Decision> {
  * common one. Pass it to decide against a different document with the same
  * shape -- a per-tenant matrix, or the copy a browser rebuilt from JSON.
  */
-export interface BoundPolicyProviderProps<Sub, R> {
-  access?: Access<Sub, R>;
+export interface BoundPolicyProviderProps<
+  Sub,
+  R,
+  Keys extends string = string,
+> {
+  access?: Access<Sub, R, Keys>;
   subject: Sub;
   context?: { now?: Instant };
   children?: ReactNode;
 }
 
-/** A provider and hooks bound to one policy's subject and object map. */
-export interface PolicyContext<Sub, R> {
-  PolicyProvider(props: BoundPolicyProviderProps<Sub, R>): ReactElement;
+/**
+ * A provider and hooks bound to one policy's subject, object map and keys.
+ *
+ * `Keys` carries the permission keys the policy declares, so an action is
+ * checked against the ones its object kind declares and `useCapabilities`
+ * answers under those keys. A policy that leaves its actions open carries the
+ * open union, where every action parameter is `string` and the capability
+ * record is keyed by `string`.
+ */
+export interface PolicyContext<Sub, R, Keys extends string = string> {
+  PolicyProvider(props: BoundPolicyProviderProps<Sub, R, Keys>): ReactElement;
   useCan<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object?: Partial<R[K]>,
   ): Decision;
   useCanMany<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     objects: readonly Partial<R[K]>[],
   ): Decision[];
   useCanFields<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object: Partial<R[K]>,
     axis: 'read' | 'write',
     proposed?: Partial<R[K]>,
@@ -223,16 +249,17 @@ export interface PolicyContext<Sub, R> {
    * Every action-level decision for the current subject.
    *
    * Keyed by permission key, `'listing.update'`, where `R` holds object kinds,
-   * `'listing'`. Actions stay plain strings that no builder collects, so there
-   * is nothing to narrow this against.
+   * `'listing'`. A policy whose blocks name their action vocabulary narrows
+   * this to the keys it declares, so a reader names one and a misspelled name
+   * is a compile error.
    */
-  useCapabilities(): Record<string, Decision>;
+  useCapabilities(): Record<Keys, Decision>;
 }
 
 /**
  * Binds a policy's subject and object map to a provider and a set of hooks.
  *
- * `policy<Shopper>().for<'listing', Listing>(…).build()` returns an
+ * `policy<Shopper, ShopObjects>().for('listing', …).build()` returns an
  * `Access<Shopper, Record<'listing', Listing>>`, and the keys and rows it checks
  * are lost the moment the value reaches a context: `createContext` fixes its
  * type when the context is made, and `useContext` hands a hook that fixed type
@@ -240,10 +267,10 @@ export interface PolicyContext<Sub, R> {
  * and the hooks together is where the two parameters can be held, so this is a
  * factory rather than a generic provider.
  *
- * Both parameters come from the argument. Nothing is restated at the call site,
- * and an `Access` with no parameters of its own -- what `hydratePolicy` returns
- * for a matrix that crossed JSON -- yields the wide hooks, which are the ones
- * {@link useCan} and its siblings already export.
+ * All three parameters come from the argument. Nothing is restated at the call
+ * site, and an `Access` with no parameters of its own -- what `hydratePolicy`
+ * returns for a matrix that crossed JSON -- yields the wide hooks, which are
+ * the ones {@link useCan} and its siblings already export.
  *
  * Each call makes its own context, so two policies nest and each set of hooks
  * reads its own provider. The returned provider also publishes to the shared
@@ -256,21 +283,24 @@ export interface PolicyContext<Sub, R> {
  *
  * @example
  * ```tsx
- * const shop = policy<Shopper>()
- *   .for<'listing', Listing>('listing', (p) =>
+ * const shop = policy<Shopper, { listing: Listing }>()
+ *   .for('listing', (p) =>
  *     p.allow('update', p.eq('object.sellerId', 'subject.id')),
  *   )
  *   .build();
  *
- * const { PolicyProvider, useCan } = createPolicyContext(shop);
+ * const { PolicyProvider, useCan, useCapabilities } = createPolicyContext(shop);
  *
  * <PolicyProvider subject={shopper}>…</PolicyProvider>;
  * useCan('listing', 'update', row);  // 'lsiting' is a compile error
+ * useCapabilities()['listing.update'];  // 'listing.updte' is a compile error
  * ```
  */
-export function createPolicyContext<Sub = Subject, R = AnyObjects>(
-  access: Access<Sub, R>,
-): PolicyContext<Sub, R> {
+export function createPolicyContext<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+>(access: Access<Sub, R, Keys>): PolicyContext<Sub, R, Keys> {
   const BoundContext = createContext<PolicyContextValue | null>(null);
   const bound = access as Access;
 
