@@ -19,17 +19,23 @@ parameter: annotating the same object as `WidgetRegistry` widens its keys to
 `string`, and the key union is what an editor completes on and what
 `validateItems` narrows a `required` map against.
 
-```ts
-const registry = defineWidgets({
-  'listing-header': ListingHeader,
-  'game-grid': GameGrid,
-});
-//    ^? { 'listing-header': AstroComponentFactory; 'game-grid': AstroComponentFactory }
+Only the keys are read, so the helper is shown here over stand-ins for the two
+`.astro` modules — what it returns is the object it was handed:
+
+```ts file=libs/astro-widget/README.md region=registry
+
 ```
 
 ## Rendering
 
-```astro
+Every `.astro` block on this page carries a mark saying nothing executed it,
+and that is the package rather than the budget: an `.astro` module is compiled
+by Astro's own compiler against a project, there is no runtime for one in a
+browser, and no bundler in scope produces one. The half of this package that is
+plain TypeScript — the registry, the item shape, the validator — runs under
+`nx test @evanion/astro-widget` and the pages cite those runs.
+
+```astro no-run
 ---
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
@@ -84,7 +90,7 @@ widget should know.
 
 ## `ctx`
 
-```astro
+```astro no-run
 <Widgets items={sections} registry={registry} ctx={{ site: Astro.site, locale }} />
 ```
 
@@ -98,14 +104,14 @@ so a widget ported between the two reads the same field.
 
 Wrap every widget without each widget reimplementing section markup:
 
-```astro
+```astro no-run
 <Widgets items={items} registry={registry} chrome={{ item: Section }} />
 ```
 
 `Section` receives the item's `type`, `id` and `meta` — never its `props`, which
 are the widget's own business — and it must render `<slot />`:
 
-```astro
+```astro no-run
 ---
 // Section.astro
 interface Props {
@@ -148,7 +154,7 @@ to pass nested items into.
 
 A widget that wants nested sections renders them itself:
 
-```astro
+```astro no-run
 ---
 // GameGrid.astro
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
