@@ -2,9 +2,9 @@
 
 <WorkshopNotice slug="react-acl">
   <Text as="div" size="sm">
-    The provider and the four hooks are complete and covered by
-    `libs/react-acl/src`. Every example in this section is a region of
-    `libs/react-acl/examples/` and runs under `nx test @evanion/react-acl`.
+    The provider, the four hooks and the typed-policy factory are complete and
+    covered by `libs/react-acl/src`. Every example in this section is a region
+    of `libs/react-acl/examples/` and runs under `nx test @evanion/react-acl`.
     Inside this repository the package resolves from source like any other
     workspace package.
   </Text>
@@ -64,8 +64,8 @@ on it.
 
 ## When to reach for react-acl
 
-The package is a provider and four hooks, so whether it suits you is a short
-question:
+The package is a provider, four hooks and a factory that binds them to a typed
+policy, so whether it suits you is a short question:
 
 - A client tree that asks about permissions at more than one depth, where
   `access` and `subject` have started arriving as props in components that do
@@ -117,8 +117,8 @@ the package is ESM only.
   decision, and drive a tree from the role switch
 - [Which side decides](/react-acl/boundary) — what crosses a server render, and
   what a hook is allowed to be trusted for
-- [API reference](/react-acl/api) — the provider, the four hooks, and what each
-  one memoises on
+- [API reference](/react-acl/api) — the provider, the four hooks, the factory
+  that keeps a typed policy's keys, and what each one memoises on
 
 The rules themselves are the core's:
 
