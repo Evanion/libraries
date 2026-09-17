@@ -404,6 +404,16 @@ describe('fences that name a package export', () => {
    * The list a heading is held to is the section's own package plus every
    * package the page imports from, which is what lets `acl` document a
    * `@evanion/react-acl` hook on a page in the `acl` section.
+   *
+   * `acl/api.mdx` is decision 8's one exemption and takes the tag on nothing,
+   * so this assertion reads none of its ten fences. Each of those is a group of
+   * declarations read whole -- `Construction` carries `hydratePolicy` through
+   * `PolicyOptions`, because `policy()` returns the builder whose `build()`
+   * takes the options under it -- and the tag documents the one symbol in the
+   * heading. Section 13 of the standard carries the argument and states what
+   * the exemption costs: those ten fences stay inside `acl`'s entry in
+   * `doc-fence-allowance.json`, and nothing holds their declarations to the
+   * package's exports until decision 21's generator lands.
    */
   it('documents a symbol the package exports in a signature fence', async () => {
     const bySlug = new Map((await packages()).map((it) => [it.slug, it.name]));

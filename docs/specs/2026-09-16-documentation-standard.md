@@ -1071,15 +1071,31 @@ So the reference stays hand-written, the `signature` tag stays the answer, and
 decision 21 is open with its cost now stated: the gap is an interface block
 whose member list the compiler knows and this site does not check.
 
-One thing that evaluation turned up and this order does not schedule.
-`acl/api.mdx` cannot take the `signature` tag as it stands: G5's extension reads
-the symbol out of the `##` heading the block sits under, and the page's seven
-headings are `Construction`, `Querying`, `The document` and so on, grouping
-eleven exports by the question a reader arrives with. Tagging its ten blocks
-fails G5 ten times. Taking the tag means re-spelling every heading as its export,
-which is decision 8 applied to the page and is a rewrite of the page's whole
-shape — thirty headings where there are seven — rather than a tag. Whichever way
-that goes, it is a step somebody has to add.
+One thing that evaluation turned up, now settled. `acl/api.mdx` does not take
+the `signature` tag, and it is the one API reference page exempt from decision 8. G5's extension reads the symbol out of the `##` heading the block sits under,
+and the page's eleven headings are `Construction`, `Querying`, `The document`
+and so on, grouping the exports by the question a reader arrives with, so
+tagging its ten blocks fails G5 ten times.
+
+What blocks the tag is not the headings but the blocks. The tag documents one
+symbol, and every fence on that page is a group of declarations that has to be
+read whole: `Construction` carries `hydratePolicy`, `parseMatrix`, `policy`,
+`Policy`, `AccessOptions` and `PolicyOptions` in one fence, because `policy()`
+returns the builder whose `build()` takes the options, and a reader given
+`Policy` alone has been handed the middle of a sentence. `The document` is
+`Matrix` down through `Instant` — seven declarations that are one JSON shape.
+Splitting the page into one symbol per heading splits those groups too, and the
+groups are what make it readable: `@evanion/acl` exports eleven callables, some
+forty types and twenty-two error classes, so decision 8 applied literally is
+about seventy headings, most of them a type alias with a line under it.
+
+The cost of the exemption is stated rather than hidden. Ten fences on that page
+stay unexplained, they sit inside `acl`'s allowance in
+`doc-fence-allowance.json`, and nothing holds their declarations to the
+package's exports. Decision 21 — a generator emitting the block from the `.d.ts`
+— is what would close that, and it closes it for this page without any heading
+changing, because a generator keyed on a region name has no opinion about how
+many symbols a region holds.
 
 `anti-example` and `no-run` are the two that will be abused, because they are
 the two a writer reaches for when the alternative is wiring doctest into a
