@@ -14,10 +14,9 @@ export const registry = defineWidgets({
 });
 ```
 
-`defineWidgets` returns the object unchanged. Its only job is the generic
-parameter: annotating the same object as `WidgetRegistry` widens its keys to
-`string`, and the key union is what an editor completes on and what
-`validateItems` narrows a `required` map against.
+`defineWidgets` comes from `@evanion/widget` and returns the object unchanged;
+[the core's entry](/widget/api#definewidgets) is where it is written down. What
+it buys is the key union an editor completes on.
 
 Only the keys are read, so the helper is shown here over stand-ins for the two
 `.astro` modules — what it returns is the object it was handed:
@@ -56,20 +55,14 @@ An `items` that is not an array renders nothing rather than throwing.
 
 ## The data shape
 
-```ts
-interface AnyWidgetItem<Type extends string = string, Props = object> {
-  id: string; // required: the key, and the handle in a warning
-  type: Type; // must be a key in the registry
-  props: Props; // spread into the component
-  meta?: Record<string, unknown>;
-  children?: AnyWidgetItem[];
-}
-```
+An item is `id`, `type`, `props`, and optional `meta` and `children`.
+[Getting started](/widget/getting-started#write-the-widget-item-array) in the
+widget core teaches the four fields and
+[the core's reference](/widget/api#anywidgetitem) carries the interface. The
+same item an `@evanion/react-widget` consumer writes, which is what makes one
+payload render through both.
 
-`props` is a named field rather than "every key the renderer does not claim for
-itself". The renderer's own fields would otherwise be reserved words in the
-CMS's vocabulary, and adding one later would take a prop away from every payload
-already written. So a CMS that writes
+What this renderer does with it: a CMS that writes
 
 ```json
 {
@@ -79,14 +72,11 @@ already written. So a CMS that writes
 }
 ```
 
-renders `<ListingHeader title="Brass: Birmingham" mechanism="New" id="top" ctx={ctx} />`.
+renders `<ListingHeader title="Brass: Birmingham" mechanism="Economic" id="header" ctx={ctx} />`.
 
-This is the same item an `@evanion/react-widget` consumer writes, which is what
-makes one payload render through both.
-
-`id` reaches the widget as well as the chrome, because a widget often wants it
-as an anchor target. `meta` does not: where a widget sits is not something the
-widget should know.
+`props` is spread. `id` reaches the widget as well as the chrome, because a
+widget often wants it as an anchor target. `meta` does not: where a widget sits
+is not something the widget should know.
 
 ## `ctx`
 
