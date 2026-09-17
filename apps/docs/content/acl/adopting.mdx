@@ -35,16 +35,14 @@ failing, not shrugging.
 Closed mode softens the _query_, not the document. Everything a local matrix is
 held to, a foreign one is held to, at adoption time:
 
-| Refused at construction    | When                                                    |
-| -------------------------- | ------------------------------------------------------- |
-| `InvalidMatrixError`       | not an envelope, no `permissions` array, bad `version`  |
-| `InvalidPermissionError`   | a malformed `object`, `action`, `rules`, `dependsOn`    |
-| `InvalidRuleError`         | a rule whose `when` is absent or not an array           |
-| `InvalidConditionError`    | an unusable shape, namespace, path depth, or operator   |
-| `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``        |
-| `DuplicatePermissionError` | two permissions share a key                             |
-| `UnknownDependencyError`   | a `dependsOn` names a permission that is not configured |
-| `FeatureCycleError`        | the dependency graph has a cycle                        |
+| Refused at construction    | When                                                   |
+| -------------------------- | ------------------------------------------------------ |
+| `InvalidMatrixError`       | not an envelope, no `permissions` array, bad `version` |
+| `InvalidPermissionError`   | a malformed `object`, `action`, `rules` or `fields`    |
+| `InvalidRuleError`         | a rule whose `when` is absent or not an array          |
+| `InvalidConditionError`    | an unusable shape, namespace, path depth, or operator  |
+| `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``       |
+| `DuplicatePermissionError` | two permissions share a key                            |
 
 `InvalidRuleError` is the one worth understanding. `when` is required and must be
 an array, so a document that lost its conditions in transit — `null`, absent, a

@@ -8,31 +8,13 @@ export class AclConfigError extends Error {
   }
 }
 
-/** A dependency cycle. Rejected because resolution order is undefined. */
-export class FeatureCycleError extends AclConfigError {
-  readonly path: readonly string[];
-  constructor(path: readonly string[]) {
-    super(`permission dependency cycle: ${path.join(' -> ')}`);
-    this.name = 'FeatureCycleError';
-    this.path = path;
-  }
-}
-
-/** A `dependsOn` naming a permission that is not configured. */
-export class UnknownDependencyError extends AclConfigError {
-  readonly key: string;
-  readonly dependency: string;
-  constructor(key: string, dependency: string) {
-    super(
-      `permission "${key}" depends on "${dependency}", which is not configured`,
-    );
-    this.name = 'UnknownDependencyError';
-    this.key = key;
-    this.dependency = dependency;
-  }
-}
-
-/** Two permissions with the same key. */
+/**
+ * Two permissions with the same key.
+ *
+ * Lookup is by key into one map, so a second entry under a key already taken
+ * decides for every call the first was written to answer. Which of the two wins
+ * is a fact about array order, and neither author stated it.
+ */
 export class DuplicatePermissionError extends AclConfigError {
   readonly key: string;
   constructor(key: string) {

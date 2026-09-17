@@ -1,12 +1,6 @@
 import { evaluateResolved, resolveContext } from './conditions.js';
 import type { ResolvedContext } from './conditions.js';
-import type {
-  Cause,
-  Decision,
-  EvaluationContext,
-  Permission,
-  Rule,
-} from './types.js';
+import type { Decision, EvaluationContext, Permission, Rule } from './types.js';
 
 function ruleId(rule: Rule, index: number): string {
   return rule.id ?? `#${index}`;
@@ -98,79 +92,38 @@ function sideOutcome(
   return { state: 'fails' };
 }
 
-function blockingParent(
-  permission: Permission,
-  resolved: ReadonlyMap<string, { readonly allowed: boolean }>,
-): string | undefined {
-  for (const parent of permission.dependsOn ?? []) {
-    const decision = resolved.get(parent);
-    if (!decision || !decision.allowed) return parent;
-  }
-  return undefined;
-}
-
-function rootCause(
-  parent: string,
-  resolved: ReadonlyMap<string, Decision>,
-): Cause {
-  let at = parent;
-  const seen = new Set<string>([at]);
-  for (;;) {
-    const decision = resolved.get(at);
-    if (
-      !decision ||
-      decision.reason !== 'dependency-off' ||
-      decision.blockedBy === undefined
-    ) {
-      const cause: Cause = {
-        key: at,
-        reason: decision?.reason ?? 'no-rule-matched',
-      };
-      if (decision?.rule) cause.rule = decision.rule;
-      // An `unevaluable` cause is repairable, so the cascade carries the paths
-      // to fetch down to the dependant that reports it.
-      if (decision?.missing) cause.missing = decision.missing;
-      return cause;
-    }
-    at = decision.blockedBy;
-    if (seen.has(at)) return { key: at, reason: decision.reason };
-    seen.add(at);
-  }
-}
-
 /**
- * Decides one permission. Pure in `(permission, ctx, resolved)`.
+ * Decides one permission. Pure in `(permission, ctx)`.
  *
  * A definite outcome beats an undecided one; among definite outcomes, deny beats
  * allow. A deny the engine could not decide only ever subtracts, so it can never
  * turn a definite no-allow into something repairable.
  *
+ * Every step reads `permission.rules`, `permission.denyRules` and the context,
+ * so one decision is answerable from the permission a reader has in hand.
+ *
  * Precedence, defined once:
  * 1. a deny rule matches -> denied
- * 2. a dependency resolved off -> dependency-off
- * 3. the allow side definitely fails -> no-rule-matched
- * 4. the deny side reads an unusable clock -> unusable-clock, naming the rule
- * 5. the deny side is unevaluable -> unevaluable, naming the deny rule
- * 6. an allow rule matches -> allow
- * 7. the allow side reads an unusable clock -> unusable-clock
- * 8. the allow side is unevaluable -> unevaluable
- * 9. otherwise -> no-rule-matched
+ * 2. the allow side definitely fails -> no-rule-matched
+ * 3. the deny side reads an unusable clock -> unusable-clock, naming the rule
+ * 4. the deny side is unevaluable -> unevaluable, naming the deny rule
+ * 5. an allow rule matches -> allow
+ * 6. the allow side reads an unusable clock -> unusable-clock
+ * 7. the allow side is unevaluable -> unevaluable
+ * 8. otherwise -> no-rule-matched
  *
- * Steps 4 and 5 sit above step 6 because a deny the engine could not decide
+ * Steps 3 and 4 sit above step 5 because a deny the engine could not decide
  * outranks an allow that matched: the side whose job is to refuse has to be
  * decided before a grant is handed out.
  *
- * Step 3 sits above both because allow is required: a definite "no allow rule
+ * Step 2 sits above both because allow is required: a definite "no allow rule
  * matched" cannot be repaired by fetching the object, and reporting
- * `unevaluable` there would tell a UI to refetch and re-ask forever. Step 2
- * sits above them for the same reason — a parent that is definitely off is a
- * definite answer. Every one of these branches is `allowed: false`, so none
- * leaks.
+ * `unevaluable` there would tell a UI to refetch and re-ask forever. Every one
+ * of these branches is `allowed: false`, so none leaks.
  */
 export function decideResolved(
   permission: Permission,
   ctx: ResolvedContext,
-  resolved: ReadonlyMap<string, Decision>,
 ): Decision {
   const deny = sideOutcome(permission.denyRules, ctx);
   if (deny.state === 'matched') {
@@ -179,17 +132,6 @@ export function decideResolved(
       allowed: false,
       reason: 'denied',
       rule: deny.rule,
-    };
-  }
-
-  const blocked = blockingParent(permission, resolved);
-  if (blocked !== undefined) {
-    return {
-      key: permission.key,
-      allowed: false,
-      reason: 'dependency-off',
-      blockedBy: blocked,
-      cause: rootCause(blocked, resolved),
     };
   }
 
@@ -254,18 +196,17 @@ export function decideResolved(
 /**
  * Decides one permission against a caller's context, settling the clock first.
  *
- * A cascade resolves many permissions against one context, so `createPolicy`
- * settles once and calls `decideResolved` per permission.
+ * `capabilities` decides many permissions against one context, so the entry
+ * point settles once and calls `decideResolved` per permission.
  *
- * Internal. `resolved` has to carry a decision for every `dependsOn` ancestor
- * already, and a map that does not reads as every parent off — a silent deny
- * with a `dependency-off` reason. Only `createPolicy` builds that map, so this
- * is not a guard an application can hold. `access.can` is.
+ * Internal. It answers for the permission handed to it and checks nothing about
+ * the document that permission came from, so a caller holding a node the gate
+ * never saw gets a decision over unvalidated rules. `access.can` is the guard
+ * an application holds.
  */
 export function decide(
   permission: Permission,
   ctx: EvaluationContext,
-  resolved: ReadonlyMap<string, Decision>,
 ): Decision {
-  return decideResolved(permission, resolveContext(ctx), resolved);
+  return decideResolved(permission, resolveContext(ctx));
 }

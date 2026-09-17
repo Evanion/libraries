@@ -121,43 +121,23 @@ describe('readsObject', () => {
     ).toThrow(InvalidConditionError);
   });
 
-  it('is true for a child whose parent reads the object', () => {
-    const parent = allow('article.update', {
-      field: 'object.authorId',
-      op: 'eq',
-      value: 's1',
-    });
-    const child: Permission = {
-      ...allow('article.publish'),
-      dependsOn: ['article.update'],
-    };
-    const a = access(parent, child);
-    expect(a.readsObject('article', 'publish')).toBe(true);
-  });
-
-  it('is true through a grandparent', () => {
+  it('answers for one permission whatever the rest of the document reads', () => {
+    // Every permission answers from its own rules. A document where another
+    // permission reads the row says nothing about this one.
     const a = access(
-      allow('article.read', {
-        field: 'object.status',
+      allow('article.update', {
+        field: 'object.authorId',
         op: 'eq',
-        value: 'public',
+        value: 's1',
       }),
-      { ...allow('article.update'), dependsOn: ['article.read'] },
-      { ...allow('article.publish'), dependsOn: ['article.update'] },
-    );
-    expect(a.readsObject('article', 'publish')).toBe(true);
-  });
-
-  it('stays false for a child whose parents all read the subject alone', () => {
-    const a = access(
-      allow('article.read', {
+      allow('article.publish', {
         field: 'subject.role',
         op: 'eq',
-        value: 'staff',
+        value: 'editor',
       }),
-      { ...allow('article.update'), dependsOn: ['article.read'] },
     );
-    expect(a.readsObject('article', 'update')).toBe(false);
+    expect(a.readsObject('article', 'update')).toBe(true);
+    expect(a.readsObject('article', 'publish')).toBe(false);
   });
 
   it('matches what the permission actually decides without an object', () => {

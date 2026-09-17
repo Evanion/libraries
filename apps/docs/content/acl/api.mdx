@@ -93,7 +93,6 @@ interface Permission {
   action: string;
   rules?: readonly Rule[];
   denyRules?: readonly Rule[];
-  dependsOn?: readonly string[];
   fields?: FieldRules;
 }
 
@@ -156,15 +155,6 @@ interface Decision {
   allowed: boolean;
   reason: Reason;
   rule?: string;
-  blockedBy?: string;
-  cause?: Cause;
-  missing?: readonly string[];
-}
-
-interface Cause {
-  key: string;
-  reason: Reason;
-  rule?: string;
   missing?: readonly string[];
 }
 
@@ -172,7 +162,6 @@ type Reason =
   | 'allow'
   | 'no-rule-matched'
   | 'denied'
-  | 'dependency-off'
   | 'unknown-action'
   | 'unevaluable'
   | 'unusable-clock';
@@ -211,10 +200,9 @@ The entry points assemble this from their arguments; it is the shape a decision
 is taken against.
 
 The engine's per-node functions are not exported. Each answers a fragment of a
-decision and leaves the rest to the caller: the permission-level one reads a
-map of already-resolved dependencies that only `createPolicy` builds, and an
-empty map means every `dependsOn` parent counts as off; the field-level one
-returns an `allowed` that ignores the action-level gate. `createPolicy` and
+decision and leaves the rest to the caller: the permission-level one takes a
+permission node the gate never checked; the field-level one returns an
+`allowed` that ignores the action-level gate. `createPolicy` and
 `parseMatrix` compose them, and one of those two is the entry point — for an
 application and for a tool inspecting a matrix alike.
 
@@ -223,8 +211,7 @@ application and for a tool inspecting a matrix alike.
 Every construction failure extends `AclConfigError`, which extends `Error`:
 `InvalidMatrixError`, `InvalidSchemaError`, `InvalidPermissionError`,
 `InvalidRuleError`, `InvalidConditionError`, `KeyMismatchError`,
-`DuplicatePermissionError`, `UnknownDependencyError`, `FeatureCycleError`,
-`UnknownFieldError`, `FieldTypeMismatchError`, `BangInAllowListError`,
+`DuplicatePermissionError`, `UnknownFieldError`, `FieldTypeMismatchError`, `BangInAllowListError`,
 `DenyWithoutBaselineError`, `TargetsTransitionsConflictError`. Each carries the
 keys, fields and locations it names in its message as properties —
 [the table](/acl/authoring#construction-errors) says what raises which.

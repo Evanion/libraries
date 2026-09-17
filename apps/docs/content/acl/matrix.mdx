@@ -23,7 +23,6 @@ interface Permission {
   action: string;
   rules?: Rule[]; // allows, OR-ed
   denyRules?: Rule[]; // denies, OR-ed; a matched deny wins
-  dependsOn?: string[]; // permission keys that must resolve on
   fields?: FieldRules; // the field axis
 }
 

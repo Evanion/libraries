@@ -4,6 +4,7 @@ import {
   AclConfigError,
   BangInAllowListError,
   DenyWithoutBaselineError,
+  DuplicatePermissionError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidPermissionError,
@@ -299,15 +300,27 @@ describe('validateMatrix', () => {
     }
   });
 
-  it('rejects a dependsOn that is not a list of keys', () => {
-    for (const dependsOn of ['comment.read', 42, [null], [''], [{}]]) {
+  it('rejects a member the canonical permission does not carry', () => {
+    for (const member of ['dependsOn', 'requires', 'enabled']) {
       const matrix = {
         permissions: [
-          { key: 'comment.read', object: 'comment', action: 'read', dependsOn },
+          {
+            key: 'comment.read',
+            object: 'comment',
+            action: 'read',
+            [member]: ['comment.write'],
+          },
         ],
       } as unknown as Matrix;
       expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
     }
+  });
+
+  it('rejects two permissions under one key', () => {
+    const node = { key: 'comment.read', object: 'comment', action: 'read' };
+    expect(() => validateMatrix({ permissions: [node, node] })).toThrow(
+      DuplicatePermissionError,
+    );
   });
 
   it('rejects anything that is not an envelope around a permission array', () => {

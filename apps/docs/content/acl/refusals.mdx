@@ -2,19 +2,18 @@
 
 <WorkshopNotice slug="acl" />
 
-Five fields explain a decision, and each one tells a UI something different to
-render. All five are output only: `allowed` is the gate, and nothing else on the
-decision should ever reach an `if`.
+Three fields explain a decision, and each one tells a UI something different to
+render. All three are output only: `allowed` is the gate, and nothing else on
+the decision should ever reach an `if`.
 
-| `reason`          | Carries              | What the UI has                              |
-| ----------------- | -------------------- | -------------------------------------------- |
-| `allow`           | `rule`               | nothing to explain                           |
-| `no-rule-matched` | —                    | a plain no; this subject, this row           |
-| `denied`          | `rule`               | a plain no, and which rule to name in a log  |
-| `dependency-off`  | `blockedBy`, `cause` | another permission to fix first              |
-| `unknown-action`  | —                    | the document has moved on; fail closed       |
-| `unevaluable`     | `missing`            | a refetch, not a refusal                     |
-| `unusable-clock`  | `rule`               | the `now` this call passed is not an instant |
+| `reason`          | Carries   | What the UI has                              |
+| ----------------- | --------- | -------------------------------------------- |
+| `allow`           | `rule`    | nothing to explain                           |
+| `no-rule-matched` | —         | a plain no; this subject, this row           |
+| `denied`          | `rule`    | a plain no, and which rule to name in a log  |
+| `unknown-action`  | —         | the document has moved on; fail closed       |
+| `unevaluable`     | `missing` | a refetch, not a refusal                     |
+| `unusable-clock`  | `rule`    | the `now` this call passed is not an instant |
 
 `unevaluable` and `unusable-clock` both mean the engine could not reach an
 answer, and they are two reasons because the repair differs. `unevaluable` names
@@ -30,27 +29,6 @@ first time somebody reorders the list.
 It is a log line and a support answer — "denied by `locked-comment`" — not
 something to branch on. Two rules can grant the same thing, and which one
 matched is not a property the app should depend on.
-
-## `blockedBy` and `cause` — a cascade
-
-```ts file=libs/acl/README.md region=cascade
-
-```
-
-Every rule on `feature` matched. It is off because something upstream is, and
-the two fields answer two different questions:
-
-- **`blockedBy`** is the edge this permission died on. It is the graph view, and
-  it is what a developer tool draws.
-- **`cause`** walks past the edge to the first ancestor that is off for a reason
-  of its own. It is what an operator has to fix, and it is what a user-facing
-  message should name. In a chain of three they are two different permissions,
-  which is why both are carried.
-
-`cause` is flat rather than a nested decision, because the rest of the chain is
-walkable from the matrix and one level is what a message needs. A repairable
-cause keeps its `missing` paths, so a dependant three levels deep still knows
-what to fetch.
 
 ## When the answer is `unevaluable`
 

@@ -71,21 +71,11 @@ This is the reason every entry in the map is constructed closed. On the open
 path the same key throws `UnknownPermissionError`, which at an edge means one
 unregistered origin takes down the request.
 
-## `dependsOn` does not cross an origin
+## One permission never gates another
 
-`orders:order.ship` declaring `dependsOn: ['billing:invoice.paid']` fails at
-construction:
-
-```
-UnknownDependencyError: permission "orders:order.ship" depends on
-"billing:invoice.paid", which is not configured
-```
-
-It fails inside orders' own process, at startup, where the author can fix it.
-That is the correct outcome rather than a limitation. Resolving that edge would
-mean evaluating billing's `object.*` conditions against the order instance the
-caller passed — a different kind, with different fields — and the engine would
-return a confident wrong answer instead of an error.
+No permission in this document declares a dependency on another, inside one
+origin or across two. A subject who may ship an order and may not pay the
+invoice is two questions, and the caller asks both.
 
 When one request genuinely touches two services, the fan-out is the caller's
 own `&&`:
@@ -123,9 +113,9 @@ the veto is the one that applies it.
 ### Deny-only is the parameter type, not a check
 
 A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
-`dependsOn` and `fields` live on `Permission`, and an allow rule is a member of
-a different array. So a contribution cannot express an allow, a dependency or a
-field rule — there is nothing to prohibit, because the shape states none of them.
+`fields` lives on `Permission`, and an allow rule is a member of a different
+array. So a contribution cannot express an allow or a field rule — there is
+nothing to prohibit, because the shape states none of them.
 
 That is what makes the overlay safe to accept from another team. It can only
 subtract: appending deny rules moves the deny side towards a match and never

@@ -78,8 +78,8 @@ The block declares two kinds of rule. `.allow` is the kind you wrote in the
 simple tier: the action is granted when the rule's conditions hold. `.deny` is
 the kind this page adds. Nobody may delete a published comment, so the block
 says so once, and a deny that matches outranks every allow that matched with it.
-`.dependsOn` chains one permission to another, and it comes back below, when a
-decision has to explain itself.
+No permission gates another: a rule that publish shares with update is written
+into publish, where a reader of publish sees it.
 
 The typing is smaller than it looks. A helper reads a string beginning
 `subject.` or `object.` as a path into that thing, and reads any other string as
@@ -126,17 +126,9 @@ ask again, and you get a real answer.
 ## Asking an acl decision why
 
 Four answers only help if you can tell which one you got. The decision carries
-five more fields for that: `reason`, `rule`, `blockedBy`, `cause` and `missing`.
+three more fields for that: `reason`, `rule` and `missing`.
 
-```ts file=libs/acl/README.md region=cascade
-
-```
-
-`blockedBy` is the edge this permission died on. `cause` is the first one in the
-chain that failed on its own account. In a chain of three those are two
-different permissions, which is why you get both.
-
-All five are output only. Read them to build an error message, log them, show
+All three are output only. Read them to build an error message, log them, show
 them in a tooltip. Never branch on them. Gate on `allowed` and nothing else. A
 handler that checks `reason !== 'denied'` grants everything the engine refused.
 
@@ -181,7 +173,6 @@ That is the tier. You edit your comment, Jo edits hers, and nobody wrote an `if`
 
 - [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
   what to write instead
-- [Advanced setup](/acl/advanced) — cascades, the schema, foreign documents,
-  versioning
+- [Advanced setup](/acl/advanced) — the schema, foreign documents, versioning
 - [Which fields may they write?](/acl/writing) — the whole field axis, one task
   at a time

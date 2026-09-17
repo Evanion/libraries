@@ -83,7 +83,7 @@ and they can disagree.
 | Read                | Means                                                |
 | ------------------- | ---------------------------------------------------- |
 | `fd.allowed`        | the action is allowed **and** every field is allowed |
-| `fd.action.allowed` | only the action-level decision, cascade resolved     |
+| `fd.action.allowed` | only the action-level decision                       |
 
 The field maps are filled in whatever the action says, deliberately: a blocked
 caller still learns which fields would be editable once the action is unblocked,

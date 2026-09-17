@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { createPolicy } from './create-policy.js';
 import {
+  DuplicatePermissionError,
   InvalidMatrixError,
+  InvalidPermissionError,
   UnknownObjectKeyError,
   UnknownPermissionError,
 } from './errors.js';
 import { pickAllowedFields } from './fields.js';
-import type { Instant, Matrix } from './types.js';
+import { parseMatrix } from './parse-matrix.js';
+import type { Instant, Matrix, Permission } from './types.js';
 
 const matrix: Matrix = {
   permissions: [
@@ -35,35 +38,6 @@ const matrix: Matrix = {
 };
 
 const editor = { id: 's1', roles: ['editor'] };
-
-/** article.publish depends on article.update, which an editor holds. */
-const cascade: Matrix = {
-  permissions: [
-    {
-      key: 'article.update',
-      object: 'article',
-      action: 'update',
-      rules: [
-        {
-          id: 'editor',
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-    },
-    {
-      key: 'article.publish',
-      object: 'article',
-      action: 'publish',
-      dependsOn: ['article.update'],
-      rules: [
-        {
-          id: 'editor-only',
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-    },
-  ],
-};
 
 describe('createPolicy', () => {
   it('can evaluates a single decision', () => {
@@ -217,35 +191,6 @@ describe('createPolicy', () => {
     expect(fd.fields).toEqual({ authorId: 'allowed', body: 'allowed' });
   });
 
-  it('canFields is not allowed when a dependency blocks the action', () => {
-    const withFields = createPolicy({
-      permissions: [
-        ...cascade.permissions,
-        {
-          key: 'article.retitle',
-          object: 'article',
-          action: 'retitle',
-          dependsOn: ['article.update'],
-          rules: [{ id: 'anyone', when: [] }],
-          fields: { fields: ['*'] },
-        },
-      ],
-    });
-    const reader = { id: 's2', roles: ['reader'] };
-    const fd = withFields.canFields(
-      reader,
-      'article',
-      'retitle',
-      { title: 't' },
-      'write',
-    );
-    expect(fd.allowed).toBe(false);
-    expect(fd.action).toMatchObject({
-      reason: 'dependency-off',
-      blockedBy: 'article.update',
-    });
-  });
-
   it('canFields is allowed when the action and every field are allowed', () => {
     const withFields = createPolicy({
       permissions: [
@@ -333,115 +278,47 @@ describe('createPolicy', () => {
     expect(forUser.can('comment', 'read').allowed).toBe(true);
   });
 
-  it('can resolves the dependsOn cascade', () => {
-    const access = createPolicy(cascade);
-    expect(access.can(editor, 'article', 'publish')).toMatchObject({
-      allowed: true,
-      reason: 'allow',
-      rule: 'editor-only',
-    });
+  it('refuses a document that states a member a permission does not have', () => {
+    expect(() =>
+      createPolicy({
+        permissions: [
+          {
+            key: 'article.publish',
+            object: 'article',
+            action: 'publish',
+            rules: [{ when: [] }],
+            dependsOn: ['article.update'],
+          } as unknown as Permission,
+        ],
+      }),
+    ).toThrow(InvalidPermissionError);
   });
 
-  it('a dependency that is off blocks can, naming the real cause', () => {
-    const access = createPolicy(cascade);
-    const reader = { id: 's2', roles: ['reader'] };
-    expect(access.can(reader, 'article', 'publish')).toMatchObject({
-      allowed: false,
-      reason: 'dependency-off',
-      blockedBy: 'article.update',
-      cause: { key: 'article.update', reason: 'no-rule-matched' },
-    });
-  });
-
-  it('capabilities resolves the dependsOn cascade', () => {
-    const access = createPolicy(cascade);
-    const caps = access.capabilities(editor);
-    expect(caps['article.publish']).toMatchObject({
-      allowed: true,
-      reason: 'allow',
-    });
-  });
-
-  it('can and capabilities agree over a dependsOn chain', () => {
-    const access = createPolicy(cascade);
-    for (const subject of [editor, { id: 's2', roles: ['reader'] }]) {
-      const caps = access.capabilities(subject);
-      for (const permission of cascade.permissions) {
-        expect(
-          access.can(subject, permission.object, permission.action),
-        ).toEqual(caps[permission.key]);
-      }
-    }
-  });
-
-  it('canMany resolves the dependsOn cascade', () => {
-    const access = createPolicy(cascade);
-    const ds = access.canMany(editor, 'article', 'publish', [{ id: 'a1' }]);
-    expect(ds[0]).toMatchObject({ allowed: true, reason: 'allow' });
-  });
-
-  it('authorize resolves the dependsOn cascade', () => {
-    const access = createPolicy(cascade);
-    expect(access.authorize(editor).can('article', 'publish')).toMatchObject({
-      allowed: true,
-      reason: 'allow',
-    });
-  });
-  it('capabilities reports an object-scoped deny as unevaluable and cascades it', () => {
-    const objectScopedDeny: Matrix = {
+  it('refuses two permissions under one key, in either order', () => {
+    const duplicate = (first: boolean): Matrix => ({
       permissions: [
         {
-          key: 'article.update',
+          key: 'article.publish',
           object: 'article',
-          action: 'update',
-          rules: [
-            {
-              id: 'editor',
-              when: [
-                { field: 'subject.roles', op: 'contains', value: 'editor' },
-              ],
-            },
-          ],
-          denyRules: [
-            {
-              id: 'locked',
-              when: [{ field: 'object.locked', op: 'eq', value: true }],
-            },
-          ],
+          action: 'publish',
+          rules: first ? [{ when: [] }] : [],
         },
         {
           key: 'article.publish',
           object: 'article',
           action: 'publish',
-          dependsOn: ['article.update'],
-          rules: [
-            {
-              id: 'editor',
-              when: [
-                { field: 'subject.roles', op: 'contains', value: 'editor' },
-              ],
-            },
-          ],
+          rules: first ? [] : [{ when: [] }],
         },
       ],
-    };
-    const caps = createPolicy(objectScopedDeny).capabilities(editor);
-    expect(caps['article.update']).toMatchObject({
-      allowed: false,
-      reason: 'unevaluable',
-      rule: 'locked',
-      missing: ['object.locked'],
     });
-    expect(caps['article.publish']).toMatchObject({
-      allowed: false,
-      reason: 'dependency-off',
-      blockedBy: 'article.update',
-      cause: {
-        key: 'article.update',
-        reason: 'unevaluable',
-        missing: ['object.locked'],
-      },
-    });
+    for (const first of [true, false]) {
+      expect(() => createPolicy(duplicate(first))).toThrow(
+        DuplicatePermissionError,
+      );
+      expect(() => parseMatrix(duplicate(first))).toThrow(
+        DuplicatePermissionError,
+      );
+    }
   });
 });
 

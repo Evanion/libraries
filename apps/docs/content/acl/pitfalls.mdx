@@ -20,9 +20,9 @@ if (decision.allowed) proceed(); // right
 ```
 
 `reason` is output only. Nothing in the library reads one back to decide
-anything, and the seven values are not two buckets: `no-rule-matched`,
-`dependency-off`, `unknown-action`, `unevaluable` and `unusable-clock` all
-refuse, and the first form proceeds through every one of them.
+anything, and the six values are not two buckets: `no-rule-matched`,
+`unknown-action`, `unevaluable` and `unusable-clock` all refuse, and the first
+form proceeds through every one of them.
 
 ### `unevaluable` is not `denied`
 
@@ -163,7 +163,7 @@ field only the server writes.
 is disclosed the moment a page loads. The document ships to the client in full,
 so a reader gets every object kind, every action, every role, every field name
 including the ones the API never returns, every state machine and its terminal
-states, every time window, and the whole `dependsOn` graph.
+states, and every time window.
 
 That is not an argument against shipping it — security must not rest on the
 document staying secret, and here it does not. It is an argument for naming

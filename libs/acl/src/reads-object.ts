@@ -25,33 +25,3 @@ export function permissionReadsObject(permission: Permission): boolean {
     rulesReadObject(permission.rules) || rulesReadObject(permission.denyRules)
   );
 }
-
-/**
- * Whether each permission needs the object row to reach a decision, keyed by
- * permission key.
- *
- * Transitive over `dependsOn`: a child whose parent reads `object.*` cannot be
- * decided without the row either, because the cascade evaluates the ancestor
- * against the same context and an ancestor left unevaluable carries the child
- * with it. `order` is the graph's dependency order, so every parent is settled
- * before the child reads it and one forward pass closes the transitive set.
- */
-export function buildReadsObject(
-  permissions: readonly Permission[],
-  order: readonly string[],
-): ReadonlyMap<string, boolean> {
-  const index = new Map(permissions.map((p) => [p.key, p]));
-  const reads = new Map<string, boolean>();
-  for (const key of order) {
-    const permission = index.get(key);
-    if (!permission) continue;
-    reads.set(
-      key,
-      permissionReadsObject(permission) ||
-        (permission.dependsOn ?? []).some(
-          (parent) => reads.get(parent) === true,
-        ),
-    );
-  }
-  return reads;
-}

@@ -7,10 +7,10 @@ import * as api from './index.js';
  * deliberate edit to this list and not a side effect of a barrel edit.
  *
  * The engine's per-node functions stay off it. Each answers a fragment of a
- * decision and leaves the rest to the caller -- `decide` reads a
- * resolved-parent map only `createPolicy` builds, `decideFields` returns an
- * `allowed` that ignores the action-level gate -- so exporting one hands a
- * consumer a guard that refuses or grants on data it never supplied.
+ * decision and leaves the rest to the caller -- `decide` takes a permission
+ * node the gate never checked, `decideFields` returns an `allowed` that ignores
+ * the action-level gate -- so exporting one hands a consumer a guard that
+ * refuses or grants on data it never supplied.
  */
 const RUNTIME_EXPORTS = [
   'AclConfigError',
@@ -18,7 +18,6 @@ const RUNTIME_EXPORTS = [
   'BangInAllowListError',
   'DenyWithoutBaselineError',
   'DuplicatePermissionError',
-  'FeatureCycleError',
   'FieldTypeMismatchError',
   'InvalidConditionError',
   'InvalidMatrixError',
@@ -28,7 +27,6 @@ const RUNTIME_EXPORTS = [
   'KeyMismatchError',
   'MissingVetoSchemaError',
   'TargetsTransitionsConflictError',
-  'UnknownDependencyError',
   'UnknownFieldError',
   'UnknownObjectKeyError',
   'UnknownPermissionError',

@@ -13,28 +13,27 @@ so is an unknown object kind, or an object of the wrong kind, at the call site.
 
 The builder flattens to the canonical matrix on the first query, so
 `JSON.stringify(access.matrix)` emits the same document a foreign backend would
-produce. Flattening is deferred rather than immediate because a `dependsOn` may
-name a key a later `.for()` block contributes.
+produce. Flattening is deferred to the first query, so validation runs once
+over every block.
 
 ## The block parameter
 
 The block receives one object carrying the whole permission model.
 
-| Call                             | What it does                                                       |
-| -------------------------------- | ------------------------------------------------------------------ |
-| `p.allow(action, ...conditions)` | adds an allow rule to that action                                  |
-| `p.deny(action, ...conditions)`  | adds a deny rule to that action                                    |
-| `p.dependsOn(...keys)`           | attaches parents to the action most recently declared in the chain |
-| `p.fields(rules)`                | attaches field rules to that same action                           |
-| `p.eq` `p.ne` `p.in` `p.notIn`   | comparisons                                                        |
-| `p.contains`                     | the field is an array holding the value                            |
-| `p.before` `p.after`             | time windows, over the bare `now`                                  |
-| `p.and` `p.or`                   | grouping                                                           |
-| `p.always`                       | the unconditional rule                                             |
+| Call                             | What it does                             |
+| -------------------------------- | ---------------------------------------- |
+| `p.allow(action, ...conditions)` | adds an allow rule to that action        |
+| `p.deny(action, ...conditions)`  | adds a deny rule to that action          |
+| `p.fields(rules)`                | attaches field rules to that same action |
+| `p.eq` `p.ne` `p.in` `p.notIn`   | comparisons                              |
+| `p.contains`                     | the field is an array holding the value  |
+| `p.before` `p.after`             | time windows, over the bare `now`        |
+| `p.and` `p.or`                   | grouping                                 |
+| `p.always`                       | the unconditional rule                   |
 
-`dependsOn` and `fields` attach to the most recently declared action, which is
-what makes the chain read as one statement per action. Calling either before any
-`allow` or `deny` in the block is an `AclConfigError` naming the object kind.
+`fields` attaches to the most recently declared action, which is what makes the
+chain read as one statement per action. Calling it before any `allow` or `deny`
+in the block is an `AclConfigError` naming the object kind.
 
 Conditions passed to one `allow` are AND-ed, and `p.or` inside them is flattened
 to disjunctive normal form — one rule per branch. Two separate `allow` calls for
@@ -62,11 +61,9 @@ TypeScript checks the field half of every condition against the bound types, the
 object key against the accumulated key map, and the object passed to a query
 against the type that key was bound to.
 
-It does not check action names, comparand value types, or `dependsOn` keys — all
-three are strings. A `dependsOn` naming no configured permission is caught at
-construction with `UnknownDependencyError`; an action name is not caught
-anywhere, because an action the matrix does not carry is a legitimate question
-on the foreign path.
+It does not check action names or comparand value types — both are strings. An
+action name is not caught anywhere, because an action the matrix does not carry
+is a legitimate question on the foreign path.
 
 ## The document a typed policy emits
 
@@ -116,13 +113,11 @@ built, which is startup for a local matrix and adoption time for a foreign one.
 | --------------------------------- | --------------------------------------------------------------------------------- |
 | `InvalidMatrixError`              | the envelope is not one: no `permissions` array, a `version` of the wrong type    |
 | `InvalidSchemaError`              | the schema's own shape is wrong; `where` locates it inside the document           |
-| `InvalidPermissionError`          | a permission's `object`, `action`, `rules`, `dependsOn` or `fields` is malformed  |
+| `InvalidPermissionError`          | a permission's `object`, `action`, `rules` or `fields` is malformed               |
 | `InvalidRuleError`                | a rule is not an object, or its `when` is absent or not an array                  |
 | `InvalidConditionError`           | a condition's shape, namespace, path depth, or operator/value pairing is unusable |
 | `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                  |
 | `DuplicatePermissionError`        | two permissions share a key                                                       |
-| `UnknownDependencyError`          | a `dependsOn` names a permission that is not configured                           |
-| `FeatureCycleError`               | the dependency graph has a cycle; `path` carries it                               |
 | `UnknownFieldError`               | a condition names a field the declared schema does not carry                      |
 | `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                           |
 | `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies          |

@@ -15,14 +15,12 @@ disabled control eventually has to say why it is disabled, and the alternatives
 to carrying the reason are a second call that re-derives it or a string the app
 guesses from context.
 
-So `allowed` is the answer and four more fields are the explanation:
+So `allowed` is the answer and two more fields are the explanation:
 
-| Field       | Present on                       | What it is                                  |
-| ----------- | -------------------------------- | ------------------------------------------- |
-| `rule`      | `allow`, `denied`, `unevaluable` | the rule that decided, by `id` or `#n`      |
-| `blockedBy` | `dependency-off`                 | the dependency edge this permission died on |
-| `cause`     | `dependency-off`                 | the first ancestor off for its own reason   |
-| `missing`   | `unevaluable`                    | the paths that did not read                 |
+| Field     | Present on                       | What it is                             |
+| --------- | -------------------------------- | -------------------------------------- |
+| `rule`    | `allow`, `denied`, `unevaluable` | the rule that decided, by `id` or `#n` |
+| `missing` | `unevaluable`                    | the paths that did not read            |
 
 All of them are output only. Nothing in the library reads a `reason` back to
 decide anything, which cuts both ways: **gate on `allowed`**, because gating on
@@ -82,9 +80,9 @@ search.
 
 ### What it costs
 
-`canMany` is not a bulk optimisation. It resolves each instance's cascade
-separately, because a cascade reads the object and the objects differ. What it
-does save over a loop of `can` is paid once instead of per row:
+`canMany` is not a bulk optimisation. It decides each instance separately,
+because a rule reads the object and the objects differ. What it does save over
+a loop of `can` is paid once instead of per row:
 
 - **the clock.** `now` is parsed into a single epoch for the whole list. A loop
   of `can` with no `now` reads `Date.now()` per row, so a time window can close

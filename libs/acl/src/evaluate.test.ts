@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { decide } from './evaluate.js';
-import type { Decision, EvaluationContext, Permission } from './types.js';
+import type { EvaluationContext, Permission } from './types.js';
 
 const ctx: EvaluationContext = {
   subject: { id: 's1', roles: ['editor'] },
@@ -14,8 +14,6 @@ function p(partial: Partial<Permission> & { key: string }): Permission {
   return { object: object ?? '', action: action ?? '', ...partial };
 }
 
-const resolved = new Map<string, Decision>();
-
 describe('decide', () => {
   it('allows when a rule matches', () => {
     const perm = p({
@@ -26,7 +24,7 @@ describe('decide', () => {
         },
       ],
     });
-    expect(decide(perm, ctx, resolved)).toMatchObject({
+    expect(decide(perm, ctx)).toMatchObject({
       allowed: true,
       reason: 'allow',
     });
@@ -42,7 +40,7 @@ describe('decide', () => {
       ],
     });
     const other = { ...ctx, object: { authorId: 'OTHER' } };
-    expect(decide(perm, other, resolved)).toMatchObject({
+    expect(decide(perm, other)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -61,37 +59,7 @@ describe('decide', () => {
       ],
     });
     const ctx2 = { ...ctx, object: { authorId: 's1', status: 'published' } };
-    expect(decide(perm, ctx2, resolved)).toMatchObject({
-      allowed: false,
-      reason: 'denied',
-    });
-  });
-
-  it('deny wins over a dependency that resolved off', () => {
-    const perm = p({
-      key: 'comment.publish',
-      dependsOn: ['comment.update'],
-      rules: [
-        {
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-      denyRules: [
-        { when: [{ field: 'object.status', op: 'eq', value: 'published' }] },
-      ],
-    });
-    const parentOff = new Map<string, Decision>([
-      [
-        'comment.update',
-        {
-          key: 'comment.update',
-          allowed: false,
-          reason: 'no-rule-matched',
-        },
-      ],
-    ]);
-    const ctx2 = { ...ctx, object: { authorId: 's1', status: 'published' } };
-    expect(decide(perm, ctx2, parentOff)).toMatchObject({
+    expect(decide(perm, ctx2)).toMatchObject({
       allowed: false,
       reason: 'denied',
     });
@@ -109,7 +77,7 @@ describe('decide', () => {
         },
       ],
     });
-    expect(decide(perm, ctx, resolved)).toMatchObject({
+    expect(decide(perm, ctx)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -123,7 +91,7 @@ describe('decide', () => {
       ],
     });
     const noObj: EvaluationContext = { subject: { id: 's1' } };
-    expect(decide(perm, noObj, resolved)).toMatchObject({
+    expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.status'],
@@ -145,7 +113,7 @@ describe('decide', () => {
     const reader: EvaluationContext = {
       subject: { id: 's1', roles: ['reader'] },
     };
-    expect(decide(perm, reader, resolved)).toMatchObject({
+    expect(decide(perm, reader)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -168,7 +136,7 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['editor'] },
     };
-    expect(decide(perm, noObj, resolved)).toMatchObject({
+    expect(decide(perm, noObj)).toMatchObject({
       allowed: true,
       reason: 'allow',
       rule: 'editor',
@@ -192,7 +160,7 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['editor'] },
     };
-    expect(decide(perm, noObj, resolved)).toMatchObject({
+    expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.authorId'],
@@ -212,7 +180,7 @@ describe('decide', () => {
       subject: { id: 's1' },
       object: { status: 'draft' },
     };
-    expect(decide(perm, projection, resolved)).toMatchObject({
+    expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.authorId'],
@@ -229,7 +197,7 @@ describe('decide', () => {
       ],
     });
     const roleless: EvaluationContext = { subject: { id: 's1' }, object: {} };
-    expect(decide(perm, roleless, resolved)).toMatchObject({
+    expect(decide(perm, roleless)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -251,7 +219,7 @@ describe('decide', () => {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
-    expect(decide(perm, projection, resolved)).toMatchObject({
+    expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.status'],
@@ -274,7 +242,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['reader'] },
       object: { status: 'draft' },
     };
-    expect(decide(perm, reader, resolved)).toMatchObject({
+    expect(decide(perm, reader)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -296,7 +264,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['editor'] },
       object: { authorId: 's1' },
     };
-    expect(decide(perm, projection, resolved)).toMatchObject({
+    expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.status'],
@@ -305,7 +273,7 @@ describe('decide', () => {
 
   it('a permission with no rules denies', () => {
     const perm = p({ key: 'comment.update' });
-    expect(decide(perm, ctx, resolved)).toMatchObject({
+    expect(decide(perm, ctx)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
     });
@@ -321,7 +289,7 @@ describe('decide', () => {
       ],
     });
     const noObj: EvaluationContext = { subject: { id: 's1' } };
-    expect(decide(perm, noObj, resolved)).toMatchObject({
+    expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       missing: ['object.authorId'],
@@ -341,32 +309,12 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['admin'] },
     };
-    expect(decide(perm2, noObj, resolved)).toMatchObject({
+    expect(decide(perm2, noObj)).toMatchObject({
       allowed: true,
       reason: 'allow',
     });
   });
 
-  it('a dependency that is off blocks the dependant', () => {
-    const parent: Permission = p({ key: 'article.update' });
-    const child = p({
-      key: 'article.publish',
-      dependsOn: ['article.update'],
-      rules: [
-        {
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-    });
-    const withParent = new Map<string, Decision>([
-      ['article.update', decide(parent, ctx, resolved)],
-    ]);
-    expect(decide(child, ctx, withParent)).toMatchObject({
-      allowed: false,
-      reason: 'dependency-off',
-      blockedBy: 'article.update',
-    });
-  });
   it('an unevaluable deny outranks a matching allow', () => {
     const perm = p({
       key: 'comment.update',
@@ -384,7 +332,7 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
-    expect(decide(perm, partial, resolved)).toMatchObject({
+    expect(decide(perm, partial)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       rule: 'locked',
@@ -412,7 +360,7 @@ describe('decide', () => {
       ...ctx,
       object: { authorId: 's1', locked: false },
     };
-    expect(decide(perm, full, resolved)).toMatchObject({
+    expect(decide(perm, full)).toMatchObject({
       allowed: true,
       reason: 'allow',
       rule: 'editor',
@@ -436,7 +384,7 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
-    const decision = decide(perm, partial, resolved);
+    const decision = decide(perm, partial);
     expect(decision).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -467,7 +415,7 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
-    const decision = decide(perm, partial, resolved);
+    const decision = decide(perm, partial);
     expect(decision).toMatchObject({ allowed: false, reason: 'unevaluable' });
     expect([...(decision.missing ?? [])].sort()).toEqual([
       'object.authorId',
@@ -497,82 +445,10 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
-    expect(decide(perm, partial, resolved)).toMatchObject({
+    expect(decide(perm, partial)).toMatchObject({
       allowed: false,
       reason: 'denied',
       rule: 'draft',
-    });
-  });
-
-  it('a definitely off parent outranks the child an unevaluable deny would leave unevaluable', () => {
-    const parent: Permission = p({ key: 'article.update' });
-    const child = p({
-      key: 'article.publish',
-      dependsOn: ['article.update'],
-      rules: [
-        {
-          id: 'editor',
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-      denyRules: [
-        {
-          id: 'locked',
-          when: [{ field: 'object.locked', op: 'eq', value: true }],
-        },
-      ],
-    });
-    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
-    const withParent = new Map<string, Decision>([
-      ['article.update', decide(parent, partial, resolved)],
-    ]);
-    expect(decide(child, partial, withParent)).toMatchObject({
-      allowed: false,
-      reason: 'dependency-off',
-      blockedBy: 'article.update',
-      cause: { key: 'article.update', reason: 'no-rule-matched' },
-    });
-  });
-
-  it('a cause carries the paths that would settle an unevaluable parent', () => {
-    const parent = p({
-      key: 'article.update',
-      rules: [
-        {
-          id: 'editor',
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-      denyRules: [
-        {
-          id: 'locked',
-          when: [{ field: 'object.locked', op: 'eq', value: true }],
-        },
-      ],
-    });
-    const child = p({
-      key: 'article.publish',
-      dependsOn: ['article.update'],
-      rules: [
-        {
-          id: 'editor',
-          when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }],
-        },
-      ],
-    });
-    const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
-    const withParent = new Map<string, Decision>([
-      ['article.update', decide(parent, partial, resolved)],
-    ]);
-    expect(decide(child, partial, withParent)).toMatchObject({
-      allowed: false,
-      reason: 'dependency-off',
-      cause: {
-        key: 'article.update',
-        reason: 'unevaluable',
-        rule: 'locked',
-        missing: ['object.locked'],
-      },
     });
   });
 
@@ -596,7 +472,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['editor'] },
       now: ctx.now,
     };
-    expect(decide(perm, noObj, resolved)).toMatchObject({
+    expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
       rule: 'locked',
@@ -624,7 +500,7 @@ describe('decide', () => {
         },
       ],
     });
-    const decision = decide(perm, ctx, resolved);
+    const decision = decide(perm, ctx);
     expect(decision).toMatchObject({
       allowed: false,
       reason: 'denied',
