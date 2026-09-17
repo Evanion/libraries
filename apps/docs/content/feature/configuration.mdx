@@ -8,7 +8,7 @@ returns the store.
 
 ```ts
 const features = createFeatures([
-  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
 ]);
 ```
 
@@ -125,7 +125,7 @@ A rule with neither `when` nor `rollout` matches unconditionally.
 ```ts
 { field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
 { field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
-{ field: 'plan', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'pro' }
+{ field: 'role', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'bookseller' }
 ```
 
 | `op`          | Holds when                                                  |
@@ -168,9 +168,9 @@ A condition over a field the context does not carry never holds, including the
 negative operators:
 
 ```ts
-features.resolve({}); // context carries no `plan`
+features.resolve({}); // context carries no `role`
 // { reason: 'no-rule-matched', rules: [{ rule: 'r', matched: false,
-//   failed: { field: 'plan', op: 'ne', value: 'free' } }] }
+//   failed: { field: 'role', op: 'ne', value: 'customer' } }] }
 ```
 
 `ne` on an absent field is not "true because it is not equal"; it is
@@ -185,12 +185,12 @@ name is configuration; neither is trusted with the prototype chain.
 ## Typed keys
 
 ```ts
-type Flag = 'payments-v3' | 'checkout-v2';
+type Flag = 'new-checkout' | 'express-pickup';
 
 const features = createFeatures<Flag>(config);
 
-features.resolve()['checkout-v2'].enabled; // Decision, not Decision | undefined
-features.isEnabled('checkout-v3'); // compile error: not a Flag
+features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
+features.isEnabled('express-delivery'); // compile error: not a Flag
 ```
 
 Passing a literal key union makes the decision record exact, so a typo is a

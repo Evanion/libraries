@@ -1,6 +1,5 @@
 {
   "acl": ["getting-started"],
-  "feature": ["getting-started"],
   "luhn": ["getting-started"],
   "token": ["getting-started"]
 }

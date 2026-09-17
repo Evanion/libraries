@@ -6,7 +6,7 @@
 
 ```ts
 features.resolve(context); // every feature, with its explanation
-features.isEnabled('checkout-v2', context); // one boolean
+features.isEnabled('express-pickup', context); // one boolean
 ```
 
 Both are pure functions of `(config, context, now)` and write nothing. `context`
@@ -16,11 +16,11 @@ is optional; `now` defaults to `new Date()` at the call.
 a record whose keys are exactly the configured ones, in dependency order.
 
 ```ts
-features.resolve({ now: novemberFirst, targetingKey: 'acct-2' });
+features.resolve({ now: novemberFirst, targetingKey: 'cust-0101' });
 // {
-//   'payments-v3': { key: 'payments-v3', enabled: true,
-//                    reason: 'rule-match', rule: 'window-q4' },
-//   'checkout-v2': { key: 'checkout-v2', enabled: true, reason: 'default-on' },
+//   'new-checkout': { key: 'new-checkout', enabled: true,
+//                    reason: 'rule-match', rule: 'after-launch' },
+//   'express-pickup': { key: 'express-pickup', enabled: true, reason: 'default-on' },
 // }
 ```
 
@@ -86,10 +86,10 @@ one rule to blame, and the full breakdown sits on that ancestor's own decision.
 ## Why a rule did not match
 
 ```ts
-features.resolve({ plan: 'free' });
+features.resolve({ role: 'customer' });
 // { key: 'k', enabled: false, reason: 'no-rule-matched', rules: [
 //   { rule: '#0', matched: false,
-//     failed: { field: 'plan', op: 'eq', value: 'pro' } },
+//     failed: { field: 'role', op: 'eq', value: 'bookseller' } },
 // ] }
 ```
 
@@ -97,7 +97,7 @@ features.resolve({ plan: 'free' });
 rollout is why the rule did not match, `rollout` carries the numbers instead:
 
 ```ts
-// { rule: 'window-q4', matched: false,
+// { rule: 'after-launch', matched: false,
 //   rollout: { percent: 25, by: 'targetingKey', bucket: 0.9875, member: false } }
 ```
 
@@ -109,15 +109,14 @@ Rule ids default to `#0`, `#1` and so on. Name them.
 
 ## `toggle`
 
-```ts
-features.toggle('payments-v3', false, context);
-// { ok: true, key: 'payments-v3', enabled: false,
-//   willDisable: ['checkout-v2'] }
+```ts file=libs/feature/README.md region=toggle
+
 ```
 
 The only writer. It sets `enabled` on the stored definition and reports which
 dependants go off with it — transitive, in dependency order, and only the ones
-that resolve on now and will not after.
+that resolve on now and will not after. Turning the new checkout off takes
+express pickup with it, and demo night booking behind that.
 
 Both sides of that comparison are evaluated against one context, so
 `willDisable` is not an artefact of the clock moving between the two
@@ -143,8 +142,8 @@ the information that upward blocking would have provided is kept, in
 ```ts
 features.keys; // every key, in configuration order
 features.config; // the stored intent, deeply frozen
-features.definition('checkout-v2'); // one definition, or undefined
-features.dependants('payments-v3'); // ['checkout-v2'] — transitive, in dependency order
+features.definition('express-pickup'); // one definition, or undefined
+features.dependants('new-checkout'); // ['express-pickup'] — transitive, in dependency order
 ```
 
 `config` is a deep clone of what you passed, frozen, so an attempt to edit it

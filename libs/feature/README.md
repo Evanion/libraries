@@ -14,30 +14,39 @@ Feature toggles where one flag can depend on another. A parent that resolves off
 takes its dependants with it, transitively, and it does that without writing
 anything back into the configuration.
 
-```ts
+<!-- #region quick-start -->
+
+```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
 const features = createFeatures([
   {
-    key: 'payments-v3',
+    key: 'new-checkout',
     enabled: true,
     rules: [
       {
-        id: 'window-q4',
+        id: 'after-launch',
         when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
         rollout: { percent: 25, by: 'targetingKey' },
       },
     ],
   },
-  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
 ]);
 
-features.isEnabled('checkout-v2', { targetingKey: 'acct-42' });
+const now = new Date('2026-11-01T00:00:00Z');
+
+features.isEnabled('express-pickup', { targetingKey: 'cust-0042', now }); // -> true
+features.isEnabled('express-pickup', { targetingKey: 'cust-0107', now }); // -> false
 ```
 
-`checkout-v2` is on only when `payments-v3` resolves on for that same account.
-Without the cascade, a 25% rollout on the parent would leak to 100% of the
-dependant's users.
+<!-- #endregion quick-start -->
+
+Express pickup is offered only to a customer the new checkout is already on
+for. `cust-0042` and `cust-0107` differ because the 25% rollout put them in
+different buckets, and the answer for each is the same on every request.
+Without the cascade, a quarter of customers would get the new checkout and all
+of them would get its pickup option.
 
 ## Installation
 
@@ -84,7 +93,7 @@ only; it is not a force-on.
 ```ts
 { field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
 { field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
-{ field: 'plan', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'pro' }
+{ field: 'role', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'bookseller' }
 ```
 
 `now` comes from the evaluation context and defaults to `new Date()` at the
@@ -110,15 +119,29 @@ everything else explains it.
 | `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
 | `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
 
-```ts
-{
-  key: 'checkout-v2',
-  enabled: false,
-  reason: 'dependency-off',
-  blockedBy: 'payments-v3',
-  cause: { key: 'payments-v3', reason: 'no-rule-matched', rule: 'window-q4' },
-}
+<!-- #region dependency-off -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'staff-first',
+        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+      },
+    ],
+  },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+
+features.resolve({ role: 'customer' })['express-pickup']; // -> { key: 'express-pickup', enabled: false, reason: 'dependency-off', blockedBy: 'new-checkout', cause: { key: 'new-checkout', reason: 'no-rule-matched', rule: 'staff-first' } }
 ```
+
+<!-- #endregion dependency-off -->
 
 `blockedBy` is the edge, for a graph view. `cause` is the first ancestor off for
 a reason of its own, for an operator who wants to know what to fix.
@@ -129,8 +152,52 @@ anything, so deleting it changes no decision.
 ## Rollouts
 
 ```ts
-{ rollout: { percent: 25, by: 'targetingKey', seed: 'q4-cohort' } }
+{ rollout: { percent: 25, by: 'targetingKey', seed: 'holiday-cohort' } }
 ```
+
+The primitive under it is exported, and it is the whole of what a rollout
+decides:
+
+<!-- #region rollout -->
+
+```ts @import.meta.vitest
+import { inRollout } from '@evanion/feature';
+
+inRollout('cust-0101', 10, 'new-checkout'); // -> true
+inRollout('cust-0042', 10, 'new-checkout'); // -> false
+```
+
+<!-- #endregion rollout -->
+
+The bucket behind it is a pure hash of the seed and the bucketing value. No
+randomness, no clock, no process state, so every process agrees and a customer
+who saw the new checkout at 10% still sees it at 25%:
+
+<!-- #region bucket-stable -->
+
+```ts @import.meta.vitest
+import { bucketOf, inRollout } from '@evanion/feature';
+
+bucketOf('cust-0101', 'new-checkout'); // -> 0.04385687271133065
+inRollout('cust-0101', 25, 'new-checkout'); // -> true
+inRollout('cust-0007', 25, 'new-checkout'); // -> false
+```
+
+<!-- #endregion bucket-stable -->
+
+The seed defaults to the feature key, which is what puts one customer in
+different places in two rollouts:
+
+<!-- #region bucket-decorrelated -->
+
+```ts @import.meta.vitest
+import { bucketOf } from '@evanion/feature';
+
+bucketOf('cust-0007', 'new-checkout'); // -> 0.912969104712829
+bucketOf('cust-0007', 'express-pickup'); // -> 0.007160091772675514
+```
+
+<!-- #endregion bucket-decorrelated -->
 
 The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
 2^32 buckets. The seed defaults to the feature key, which is what decorrelates a
@@ -159,10 +226,21 @@ that was awake, and destroy the difference between "someone turned this off" and
 
 ## Toggling
 
-```ts
-features.toggle('payments-v3', false);
-// { ok: true, key: 'payments-v3', enabled: false, willDisable: ['checkout-v2', 'checkout-express'] }
+<!-- #region toggle -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+]);
+
+features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night-booking'] }
 ```
+
+<!-- #endregion toggle -->
 
 Dependencies cascade one way only -- a dependant never blocks its parent -- but
 the information that blocking existed to provide is kept. `willDisable` lists
@@ -174,10 +252,23 @@ throwing.
 
 ## Static and runtime evaluation
 
-```ts
-features.plan({ now: new Date() });
-// { 'checkout-v2': { resolved: 'deferred', needs: ['targetingKey'] }, … }
+<!-- #region plan -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [{ id: 'a-share', rollout: { percent: 10, by: 'targetingKey' } }],
+  },
+]);
+
+features.plan({ now: new Date('2026-11-01T00:00:00Z') }); // -> { 'new-checkout': { key: 'new-checkout', resolved: 'deferred', needs: ['targetingKey'] } }
 ```
+
+<!-- #endregion plan -->
 
 `plan()` partitions rules by the context they require. A rule needing only `now`
 is resolvable for a known instant; a rule needing `targetingKey` is not. A static
@@ -217,7 +308,7 @@ const context = { targetingKey: user.id, now: new Date() };
 </FeatureProvider>;
 
 function Checkout() {
-  if (!useFeatureEnabled('checkout-v2')) return <LegacyCheckout />;
+  if (!useFeatureEnabled('express-pickup')) return <LegacyCheckout />;
   return <NewCheckout />;
 }
 ```
@@ -235,11 +326,11 @@ elsewhere -- a server render, or a `plan()` snapshot.
 ## Typed keys
 
 ```ts
-type Flag = 'payments-v3' | 'checkout-v2';
+type Flag = 'new-checkout' | 'express-pickup';
 const features = createFeatures<Flag>(config);
 
-features.resolve()['checkout-v2'].enabled; // Decision, not Decision | undefined
-features.isEnabled('checkout-v3'); // compile error: not a Flag
+features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
+features.isEnabled('express-delivery'); // compile error: not a Flag
 ```
 
 Passing a literal key union makes the decision record exact, so a typo is a

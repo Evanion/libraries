@@ -73,7 +73,7 @@
   ],
   "references": [
     {
-      "path": "../../libs/compose"
+      "path": "../../libs/feature"
     },
     {
       "path": "../../tools/doc-examples"
@@ -92,6 +92,9 @@
     },
     {
       "path": "../../libs/luhn"
+    },
+    {
+      "path": "../../libs/compose"
     },
     {
       "path": "../../internal/baize-ui"

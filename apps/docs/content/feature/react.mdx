@@ -77,7 +77,7 @@ server render, and for the settled half of a
 
 ```tsx
 function Checkout() {
-  if (!useFeatureEnabled('checkout-v2')) return <LegacyCheckout />;
+  if (!useFeatureEnabled('express-pickup')) return <LegacyCheckout />;
   return <NewCheckout />;
 }
 ```
@@ -94,7 +94,7 @@ package.
 `useFeature` also throws for a key that is not configured in that provider:
 
 ```
-feature "checkout-v3" is not configured in this <FeatureProvider>
+feature "express-delivery" is not configured in this <FeatureProvider>
 ```
 
 A silent `false` would make a typo indistinguishable from a feature that is off.
@@ -102,7 +102,7 @@ A silent `false` would make a typo indistinguishable from a feature that is off.
 why a flag is off:
 
 ```tsx
-const decision = useFeature('checkout-v2');
+const decision = useFeature('express-pickup');
 // { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
 ```
 
@@ -113,10 +113,10 @@ a decision object.
 ## Typing the keys
 
 ```tsx
-type Flag = 'payments-v3' | 'checkout-v2';
+type Flag = 'new-checkout' | 'express-pickup';
 
 const decisions = useFeatures<Flag>();
-const enabled = useFeatureEnabled<Flag>('checkout-v2');
+const enabled = useFeatureEnabled<Flag>('express-pickup');
 ```
 
 The hooks take the key union as a type parameter, defaulting to `string`. Pass
