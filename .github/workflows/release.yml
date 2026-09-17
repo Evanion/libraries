@@ -83,8 +83,29 @@ jobs:
         # Same target list as CI, including `check`. storefront's
         # inferred typecheck target is a disabled no-op (Astro's config sets
         # noEmit), so `astro check` is what actually typechecks it. The release
-        # gate must not be weaker than the pull request gate.
-        run: npx nx run-many -t lint test build typecheck check
+        # gate must not be weaker than the pull request gate, and
+        # tools/repo-checks/src/release-verify-gate.test.ts holds the two target
+        # lists against each other.
+        #
+        # Scoped to the release's blast radius: the released packages, what they
+        # are compiled against, and every project that depends on them. The
+        # resolve step above computes that closure from the project graph, and
+        # its comment says why each of the three groups belongs. A project
+        # outside the closure is untouched by the run -- `nx release` writes
+        # package.json versions and changelogs, and only inside it -- so running
+        # that project's targets proves nothing about the release.
+        #
+        # An explicit list, never `--affected`. This workflow is
+        # workflow_dispatch on main, where an affected comparison has the same
+        # commit on both sides, so the affected set is empty and a gate scoped to
+        # it reports success having verified nothing.
+        env:
+          VERIFY_PROJECTS: ${{ steps.projects.outputs.verify-projects }}
+        run: |
+          args=()
+          if [ -n "$VERIFY_PROJECTS" ]; then args+=(--projects "$VERIFY_PROJECTS"); fi
+          echo "Running: nx run-many -t lint test build typecheck check ${args[*]}"
+          npx nx run-many -t lint test build typecheck check "${args[@]}"
 
       # Catches problems that only exist once the package is packed -- notably
       # emitted .d.ts files that a nodenext consumer cannot resolve. Everything
