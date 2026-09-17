@@ -1,6 +1,7 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { hydratePolicy } from '@evanion/acl';
+import { hydratePolicy, policy } from '@evanion/acl';
 import {
+  createPolicyContext,
   PolicyProvider,
   useCan,
   useCanFields,
@@ -12,6 +13,7 @@ import type {
   Decision,
   FieldDecision,
   Instant,
+  Matrix,
   PolicyProviderProps,
   Subject,
 } from './index.js';
@@ -123,5 +125,115 @@ describe('the hooks', () => {
       Record<string, Decision>
     >();
     expectTypeOf(useCapabilities).parameters.toEqualTypeOf<[]>();
+  });
+});
+
+interface Shopper extends Subject {
+  tier: 'bronze' | 'gold';
+}
+
+interface Listing {
+  id: string;
+  sellerId: string;
+  price: number;
+}
+
+const shop = policy<Shopper>()
+  .for<'listing', Listing>('listing', (p) =>
+    p.allow('update', p.eq('object.sellerId', 'subject.id')),
+  )
+  .build();
+
+const shopper: Shopper = { id: 'u1', roles: ['seller'], tier: 'gold' };
+
+describe('a bound policy context', () => {
+  it('reads the subject and the object map off the argument', () => {
+    // No type argument. `Shopper` and the object map are named once, at
+    // `policy()`, and this call site restates neither.
+    const bound = createPolicyContext(shop);
+
+    bound.useCan('listing', 'update', { sellerId: 'u1' });
+    bound.useCanMany('listing', 'update', [{ id: 'l1' }]);
+    bound.useCanFields('listing', 'update', { id: 'l1' }, 'write');
+  });
+
+  it('refuses a key the policy does not declare', () => {
+    const { useCan: can } = createPolicyContext(shop);
+
+    // @ts-expect-error 'lsiting' is not a key of this policy
+    can('lsiting', 'update');
+  });
+
+  it('resolves a key the policy declares', () => {
+    const { useCan: can } = createPolicyContext(shop);
+
+    expectTypeOf(can('listing', 'update')).toEqualTypeOf<Decision>();
+  });
+
+  it('refuses a field the object does not carry', () => {
+    const { useCan: can } = createPolicyContext(shop);
+
+    // @ts-expect-error `sellerid` is not a field of Listing
+    can('listing', 'update', { sellerid: 'u1' });
+  });
+
+  it('checks no field on an object declared with an index signature', () => {
+    interface Loose extends Record<string, unknown> {
+      id: string;
+    }
+    const loose = policy<Shopper>()
+      .for<'listing', Loose>('listing', (p) => p.allow('update', p.always))
+      .build();
+
+    // An index signature accepts every key, so the row is unchecked. The check
+    // the factory adds is over the object type the consumer wrote.
+    createPolicyContext(loose).useCan('listing', 'update', { anything: 1 });
+  });
+
+  it('takes a row that carries only some of the object', () => {
+    const { useCan: can } = createPolicyContext(shop);
+
+    // A list row with two of three fields is the `unevaluable` case, not a
+    // type error.
+    can('listing', 'update', { id: 'l1', sellerId: 'u1' });
+  });
+
+  it('binds the subject to the one the policy names', () => {
+    const { PolicyProvider: Bound } = createPolicyContext(shop);
+
+    const ok = <Bound subject={shopper} />;
+    // @ts-expect-error a subject without `tier` is not a Shopper
+    const wrong = <Bound subject={{ id: 'u1', roles: [] }} />;
+    void [ok, wrong];
+  });
+
+  it('takes the access as a prop or from the factory', () => {
+    const { PolicyProvider: Bound } = createPolicyContext(shop);
+
+    const implicit = <Bound subject={shopper} />;
+    const explicit = <Bound access={shop} subject={shopper} />;
+    void [implicit, explicit];
+  });
+
+  it('takes the wide access a rehydrated matrix produces', () => {
+    const { PolicyProvider: Bound } = createPolicyContext(shop);
+    const rebuilt = hydratePolicy(
+      JSON.parse(JSON.stringify(shop.matrix)) as Matrix,
+    );
+
+    // The browser's copy crossed JSON and lost its parameters. It reaches the
+    // prop because `Access` declares its members as methods, which compare
+    // bivariantly.
+    const crossed = <Bound access={rebuilt} subject={shopper} />;
+    void crossed;
+  });
+
+  it('keeps every key open when the access carries no types', () => {
+    const wide = createPolicyContext(hydratePolicy({ permissions: [] }));
+
+    wide.useCan('anything', 'at-all');
+    expectTypeOf(wide.useCapabilities).returns.toEqualTypeOf<
+      Record<string, Decision>
+    >();
   });
 });

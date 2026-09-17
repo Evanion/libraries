@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { hydratePolicy } from '@evanion/acl';
+import { hydratePolicy, policy } from '@evanion/acl';
+import type { Subject } from '@evanion/acl';
 
 import {
+  createPolicyContext,
   PolicyProvider,
   useCan,
   useCanFields,
@@ -202,6 +204,110 @@ describe('react-acl', () => {
   it('useCan throws outside a provider', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => render(<Row id="s1" />)).toThrow(/PolicyProvider/);
+    spy.mockRestore();
+  });
+});
+
+const shop = policy<Subject>()
+  .for<'listing', { sellerId: string }>('listing', (p) =>
+    p.allow('update', p.eq('object.sellerId', 'subject.id')),
+  )
+  .build();
+
+const backoffice = policy<Subject>()
+  .for<'ticket', { id: string }>('ticket', (p) =>
+    p.allow('close', p.contains('subject.roles', 'support')),
+  )
+  .build();
+
+const shopContext = createPolicyContext(shop);
+const backofficeContext = createPolicyContext(backoffice);
+
+/** Reads the bound hooks of the shop policy. */
+function Listing() {
+  const can = shopContext.useCan('listing', 'update', { sellerId: 's1' });
+  return <div data-testid="listing">{can.allowed ? 'y' : 'n'}</div>;
+}
+
+/** Reads the bound hooks of the back-office policy. */
+function Ticket() {
+  const can = backofficeContext.useCan('ticket', 'close', { id: 't1' });
+  return <div data-testid="ticket">{can.allowed ? 'y' : 'n'}</div>;
+}
+
+/** Reads the package's own hooks, which know no keys. */
+function Untyped() {
+  const can = useCan('listing', 'update', { sellerId: 's1' });
+  return <div data-testid="untyped">{can.allowed ? 'y' : 'n'}</div>;
+}
+
+describe('a bound policy context', () => {
+  it('decides against the access the factory was given', () => {
+    const { PolicyProvider: Shop } = shopContext;
+    render(
+      <Shop subject={SUBJECT}>
+        <Listing />
+      </Shop>,
+    );
+
+    expect(screen.getByTestId('listing')).toHaveTextContent('y');
+  });
+
+  it('decides against the access a mount passes instead', () => {
+    const { PolicyProvider: Shop } = shopContext;
+    const stricter = hydratePolicy({
+      permissions: [
+        { key: 'listing.update', object: 'listing', action: 'update' },
+      ],
+    });
+
+    render(
+      <Shop access={stricter} subject={SUBJECT}>
+        <Listing />
+      </Shop>,
+    );
+
+    expect(screen.getByTestId('listing')).toHaveTextContent('n');
+  });
+
+  it('feeds the package hooks, so a component that took them still reads', () => {
+    const { PolicyProvider: Shop } = shopContext;
+    render(
+      <Shop subject={SUBJECT}>
+        <Untyped />
+      </Shop>,
+    );
+
+    expect(screen.getByTestId('untyped')).toHaveTextContent('y');
+  });
+
+  it('keeps two policies apart when their providers nest', () => {
+    const { PolicyProvider: Shop } = shopContext;
+    const { PolicyProvider: Backoffice } = backofficeContext;
+
+    render(
+      <Shop subject={SUBJECT}>
+        <Backoffice subject={{ id: 's1', roles: ['support'] }}>
+          <Listing />
+          <Ticket />
+        </Backoffice>
+      </Shop>,
+    );
+
+    // The inner provider does not answer for the outer policy's keys.
+    expect(screen.getByTestId('listing')).toHaveTextContent('y');
+    expect(screen.getByTestId('ticket')).toHaveTextContent('y');
+  });
+
+  it('throws outside its own provider, even under the shared one', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect(() =>
+      render(
+        <PolicyProvider access={shop} subject={SUBJECT}>
+          <Listing />
+        </PolicyProvider>,
+      ),
+    ).toThrow(/PolicyProvider/);
     spy.mockRestore();
   });
 });

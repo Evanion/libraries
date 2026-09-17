@@ -8,6 +8,11 @@ import { ListingTable } from '../examples/many.js';
 import { ShopMenu } from '../examples/menu.js';
 import { ShopAccess } from '../examples/mount.js';
 import { ListingPage } from '../examples/server.js';
+import {
+  EditControl as TypedEditControl,
+  ShopAccess as TypedAccess,
+  shop,
+} from '../examples/typed.js';
 
 /**
  * What `apps/docs/content/react-acl/` shows a reader is what this suite runs.
@@ -163,5 +168,33 @@ describe('the server component', () => {
     expect(
       screen.getByRole('heading', { name: 'brass-birmingham' }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('the typed policy', () => {
+  it('builds the document the other five examples run against', () => {
+    expect(shop.matrix).toEqual(MATRIX);
+  });
+
+  it('decides through hooks that know the policy keys', () => {
+    render(
+      <TypedAccess subject={SHOPPER}>
+        <TypedEditControl listing={OWN_DRAFT} />
+      </TypedAccess>,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Edit listing' }),
+    ).toBeInTheDocument();
+  });
+
+  it('draws no control once the deny rule matches', () => {
+    render(
+      <TypedAccess subject={SHOPPER}>
+        <TypedEditControl listing={OWN_PUBLISHED} />
+      </TypedAccess>,
+    );
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
