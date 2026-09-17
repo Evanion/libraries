@@ -235,10 +235,12 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'universal',
     // One hue for the whole rendering family, including the framework-free core.
     hue: 'sky',
-    // The section this package wants is the shared half of the two renderers'
-    // pages, which is a docs restructure rather than part of a migration. Until
-    // it is written the sidebar links to the README.
-    documented: false,
+    // Four pages, so the demonstration role sits on getting-started under the
+    // documentation standard § 4's allowance. The control is `DataDemo`, the
+    // rendering family's own specimen: what a reader moves there is the item
+    // array, which this package owns, and the pixels are the React renderer's.
+    demo: 'getting-started',
+    documented: true,
     workshop: false,
   },
   {
