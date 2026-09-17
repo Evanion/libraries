@@ -12,7 +12,11 @@
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": [],
+  "references": [
+    {
+      "path": "../../tools/doc-examples"
+    }
+  ],
   "exclude": [
     "vite.config.ts",
     "vite.config.mts",
