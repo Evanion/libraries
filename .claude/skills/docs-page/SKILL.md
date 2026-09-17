@@ -27,7 +27,7 @@ Three specs govern this area and they defer to each other rather than repeat:
 
 ## Pick the work from § 13, not from the page list
 
-The retrofit is thirteen ordered steps over 62 pages, and the order is load
+The retrofit is fourteen ordered steps over 62 pages, and the order is load
 bearing: several steps exist because a later step mounts something an earlier
 one has to create first. Taking a page because it looks easy produces work that
 step 5 or step 11 then rewrites.
@@ -61,16 +61,33 @@ build whose output you are reading, not for making a guard honest.
 Each of these has cost a round trip. None of them shows up in the output of the
 thing you were running.
 
+**A stale `apps/docs/.next` serves the wrong page to the MDX loader.** This is
+the first thing to suspect and the most expensive one to diagnose, because the
+error never names the file that is wrong. Two symptoms, and either alone is
+enough:
+
+- The build fails with one page's content parsed as another's —
+  `capabilities.mdx` receiving `feature/build-time.mdx`, across eight files at
+  once — and every error names the page that is fine.
+- An error, a warning or a build artefact names an absolute path inside a
+  worktree you are not in.
+
+`rm -rf apps/docs/.next` and build again. If the second symptom persists,
+`rm -rf .nx/cache` too.
+
+**The nx cache is shared across every worktree on the machine.** `.nx/cache` and
+the local cache directory are keyed on content, not on checkout, so a task another
+worktree ran can replay into yours — which is how `apps/docs/.next` acquires a
+build that resolved a different tree, and why a `docs:build` you never ran can
+print paths from `/private/tmp/<somebody-else>`. The nx daemon is per workspace
+and does not separate them. Treat a foreign path in the output as a cache hit
+rather than as a bug in the code you just changed.
+
 **A stale `dist/` reports the old signatures.** Anything that resolves
 `@evanion/*` through published `exports` — the twoslash runner, the docs
 typecheck — reads `libs/<pkg>/dist`, not `src`. Against a stale build, a
 signature change looks like it did nothing, in either direction. Build the
 library first.
-
-**A stale `apps/docs/.next` serves the wrong page to the MDX loader.** The build
-fails with one page's content parsed as another's — `capabilities.mdx` receiving
-`feature/build-time.mdx`, across eight files at once — and every error names the
-page that is fine. `rm -rf apps/docs/.next`.
 
 **The stash is shared across every worktree.** `git stash` in a worktree writes
 to the same list as the main checkout and every other worktree, so a bare
