@@ -90,6 +90,43 @@ function CommentList() {
 - `useCapabilities()` — every action-level decision for the current subject (no
   object, so no object-dependent decisions).
 
+## A policy written in TypeScript
+
+The hooks above take the key as a string, which is what a matrix that crossed
+JSON can offer. A policy authored with the core's `policy` builder knows its
+keys and its row types, and `createPolicyContext` binds them to a provider and
+the same four hooks:
+
+```tsx
+import { policy } from '@evanion/acl';
+import { createPolicyContext } from '@evanion/react-acl';
+
+type Shopper = { id: string; role: 'customer' | 'bookseller' };
+type Listing = { id: string; sellerId: string };
+
+const shop = policy<Shopper>()
+  .for<'listing', Listing>('listing', (p) =>
+    p.allow('edit', p.eq('object.sellerId', 'subject.id')),
+  )
+  .build();
+
+const { PolicyProvider, useCan } = createPolicyContext(shop);
+
+function EditControl({ listing }: { listing: Listing }) {
+  // 'lsiting' does not compile; the imported useCan would pass it through.
+  return useCan('listing', 'edit', listing).allowed ? <EditButton /> : null;
+}
+```
+
+Both types come off the argument, so the call site names neither. It is a
+factory because `createContext` fixes its type where the context is made and
+`useContext` hands a hook that fixed type whatever the provider above it was
+given, so a generic provider has nowhere to put the binding.
+
+Each call makes its own context, and the provider it returns feeds the shared
+one too, so a component holding the imported `useCan` reads the same decision
+underneath it.
+
 ## The clock
 
 `context.now` takes any `Instant`: an ISO 8601 string, epoch milliseconds, or a
