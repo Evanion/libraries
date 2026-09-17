@@ -1,10 +1,5 @@
 import { EmptyInputError, Luhn } from '@evanion/luhn';
-import {
-  createToken,
-  DEFAULT_DICTIONARY,
-  InvalidAlphabetError,
-  type Token,
-} from '@evanion/token';
+import { createToken, DEFAULT_DICTIONARY, type Token } from '@evanion/token';
 import { URN, type ParsedURN } from '@evanion/urn';
 
 /**
@@ -86,51 +81,36 @@ export interface TokenAlphabet {
 /**
  * The alphabets the Token card offers.
  *
- * The last is every lowercase letter and digit, which `createToken` refuses,
- * and the refusal is the reason the control is here: the package names the
- * characters it will not draw rather than leaving the reader to trust that it
- * avoids them.
+ * Both are accepted, and the control is here to move the entropy the caption
+ * reports. An alphabet the package refuses was offered here once and taken
+ * out: a control that breaks the card teaches the reader that the demo is
+ * broken, whatever the caption under it says. What the package will not draw
+ * from belongs in the prose, where it can be read rather than triggered.
  */
 export const tokenAlphabets: readonly TokenAlphabet[] = [
   { label: 'no lookalikes', dictionary: DEFAULT_DICTIONARY },
   { label: 'hex', dictionary: '0123456789abcdef' },
-  { label: 'all 36', dictionary: '0123456789abcdefghijklmnopqrstuvwxyz' },
 ];
 
-/** A configuration the package accepted, or the characters it refused. */
-export type TokenAttempt =
-  | { kind: 'built'; token: Token }
-  | { kind: 'refused'; offending: readonly string[] };
-
 /**
- * `createToken` for the shape and the alphabet standing at those positions,
- * with its refusal caught.
+ * `createToken` for the shape and the alphabet standing at those positions.
  *
  * Positions rather than values, because the card holds what its two controls
  * point at; an index past either list falls back to the first entry, which is
  * the configuration the README states.
  *
- * Only `InvalidAlphabetError` is caught, because only a dictionary the card
- * offers can raise one; every shape the card offers is well formed, so a
- * shape error would be a fault in this file and is left to surface.
+ * Nothing is caught. Every combination the card offers is one `createToken`
+ * accepts, so a throw here is a fault in this file rather than a configuration
+ * a reader reached, and it should surface as one. What the package refuses is
+ * documented on `token/alphabet`, where it can be read rather than triggered.
  */
-export function buildToken(shape: number, alphabet: number): TokenAttempt {
+export function buildToken(shape: number, alphabet: number): Token {
   const { length, chunkSize } =
     tokenShapes[shape] ?? (tokenShapes[0] as TokenShape);
   const { dictionary } =
     tokenAlphabets[alphabet] ?? (tokenAlphabets[0] as TokenAlphabet);
 
-  try {
-    return {
-      kind: 'built',
-      token: createToken({ length, chunkSize, dictionary }),
-    };
-  } catch (error) {
-    if (error instanceof InvalidAlphabetError) {
-      return { kind: 'refused', offending: error.offending };
-    }
-    throw error;
-  }
+  return createToken({ length, chunkSize, dictionary });
 }
 
 /**
