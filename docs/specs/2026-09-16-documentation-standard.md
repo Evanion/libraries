@@ -1933,9 +1933,9 @@ What it needs, in order:
    Decision 17 closes that: the region parser learns `// #region name` and
    `// #endregion name` in `.ts`/`.tsx` sources, taking the lines between the
    markers rather than requiring a fence, and `type-checking.mdx` renders
-   `file=libs/compose/src/Compose.test-d.tsx region=missing-prop` with the
-   `fails-type-check` tag. The page then shows the eight failures the compiler
-   is asserted to produce. Under section 5 this is evidence rather than
+   `twoslash file=libs/compose/src/Compose.test-d.tsx region=missing-prop`. The
+   region declares `// @errors:` and the page then shows the eight failures the
+   compiler is held to producing. Under section 5 this is evidence rather than
    interaction, and the page says so.
 
    This is the general answer to "a type error is not renderable", and it
@@ -2337,7 +2337,14 @@ Nothing here is a single pass over 62 pages.
    content work so that every page rewritten after it is checked on both
    surfaces.
 8. **Decision 17**: `// #region` in source files. One parser change in
-   `tools/doc-examples/src/regions.mjs`, plus the `fails-type-check` tag.
+   `tools/doc-examples/src/regions.mjs`. The `fails-type-check` tag is no part
+   of it. A `twoslash` fence declaring `// @errors:` is checked in both
+   directions: twoslash throws on an error the fence produces and does not
+   declare, and `doc-twoslash.test.ts` fails on a declared error the compiler
+   stopped producing. The tag marks a block and compiles nothing, so on a region
+   cited out of a `*.test-d.ts` file it is strictly weaker than the fence the
+   same region can carry. It keeps the use section 5 gives it, on a block no
+   compiler here runs.
 9. **`compose`** (section 10), as the pilot for the whole standard. It is the
    smallest section, it exercises every new mechanism, and being the one
    domain-exempt package it separates the journey work from the re-theming work.
@@ -2361,8 +2368,10 @@ Nothing here is a single pass over 62 pages.
   `.tsx` source, returns the lines between them with no marker lines, and
   throws on the same malformed cases `parseRegions` already throws on:
   unclosed, mismatched name, defined twice, nested.
-- A `fails-type-check` fence whose source region holds no `@ts-expect-error`
-  fails the build.
+- A region cited out of a `*.test-d.ts` file renders as a `twoslash` fence, and
+  `doc-twoslash.test.ts` holds its `// @errors:` list in both directions.
+  Section 13 step 8 says why no `fails-type-check` guard is written for that
+  case.
 - G1 fails on a fixture section with a page missing from `_meta.ts`, and on one
   with no `_meta.ts`.
 - G3's ratchet fails when a fixture section's untagged-fence count rises and
