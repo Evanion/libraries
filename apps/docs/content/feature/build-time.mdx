@@ -101,6 +101,15 @@ appears in `needs`. The static build emits the rule and the request resolves it.
 
 The two halves go to different places.
 
+```mermaid caption="plan() splits every feature in two. The settled half ships with the build as a decisions record; the deferred half ships as rules the request resolves, and the union of their needs is the context the request has to assemble."
+flowchart LR
+  F["features"] --> P["plan({ now })"]:::accent
+  P -->|"resolved: true or false"| S["a decisions record"]
+  P -->|"resolved: 'deferred'"| D["a key list, plus needs"]
+  S --> B["the build<br>FeatureProvider decisions={…}"]
+  D --> R["the request<br>resolve(context)"]
+```
+
 ```ts
 const plan = features.plan({ now: new Date() });
 

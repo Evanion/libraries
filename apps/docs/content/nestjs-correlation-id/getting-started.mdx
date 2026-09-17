@@ -120,6 +120,14 @@ axios request interceptor that reads the current context at the moment the
 request is made, rather than being baked into the options object when the
 factory runs.
 
+```mermaid caption="One id across two processes. The middleware reuses the header the caller sent or mints one, and runs the rest of the request inside that context; the interceptor withCorrelation() installs reads the same context when HttpService calls the next service, which reuses the id in turn."
+flowchart LR
+  C["caller"] -->|"X-Correlation-Id,<br>or no header"| M["CorrelationIdMiddleware<br>reuses it, or mints one"]:::accent
+  M --> H["the handler<br>getCorrelationId()"]
+  H --> X["HttpService<br>withCorrelation()"]
+  X -->|"X-Correlation-Id"| N["the next service<br>reuses the same id"]
+```
+
 That keeps the whole chain singleton-scoped. Options
 computed at factory time would have to come from a request-scoped provider, and
 `HttpService` — and every provider holding it — would become request-scoped with

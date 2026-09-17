@@ -75,7 +75,15 @@ writable-field list, and reading it as one leaves every other key open.
 
 `targets` allow-lists the proposed value. `transitions` is a state machine over
 the current value: the key is what the object holds now, the array is what it
-may become. The two are mutually exclusive on one field.
+may become. An empty array is a terminal state, so the `published: []` above
+refuses every write that moves `status` out of `published`. The two are mutually
+exclusive on one field.
+
+```mermaid caption="The state machine the status config above declares. Moving from draft to published is the one write it allows; published names an empty array, so every write out of it is refused. A call that carried no current status decides unevaluable instead of either."
+flowchart LR
+  D["draft"] -->|"the one allowed write"| P["published"]:::accent
+  P -. "refused" .-> A["any other value"]
+```
 
 ## The action gate
 
