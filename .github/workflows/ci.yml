@@ -84,6 +84,17 @@ jobs:
 
       - run: npm ci
 
+      # A step in this job rather than a job of its own: it needs the install
+      # and nothing else, and it costs about two seconds against the minute that
+      # `npm ci` already costs. Ahead of `run-many` so a dead file or a new copy
+      # of an existing block reports in seconds instead of behind a full build.
+      #
+      # `dead-code` is scoped by .fallowrc.jsonc to reachability, resolution and
+      # dependency wiring. The unused-export rules are off there, because a
+      # published package's entry point exports an API this repository is not the
+      # consumer of.
+      - run: npx fallow dead-code --fail-on-issues && npx fallow dupes
+
       # `check` is listed alongside `typecheck`, not instead of it. Nx infers a
       # typecheck target from tsconfig.json but disables it -- replacing the
       # command with an echo -- whenever the resolved config sets `noEmit: true`,
