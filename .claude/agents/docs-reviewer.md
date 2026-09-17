@@ -56,6 +56,22 @@ Three shapes, each of which has shipped here:
 When they disagree, say which one you believe and why. Usually the fence is
 right, because it executes.
 
+**A claim about behaviour is checked against `libs/*/src`.** Not only against
+the fence under it. A sentence naming a field, a parameter, a count or an
+ordering is a claim the source settles, and most of them have no fence to
+disagree with: "resolved in dependency order", "the builder flattens on the
+first query", "it carries three members", "the seven reasons". Open the source
+and count. Grep the identifier. A prose-only paragraph is where a stale claim
+survives longest, because every guard in the repo reads fences.
+
+**After a breaking change, sweep for the removed feature's residue.** Deleting
+a field from the package does not delete the four pages that taught it, and
+nothing fails: the prose still parses, the fences never named it. Grep the whole
+content directory for the removed name and for the words the docs used to
+describe it — a deleted `dependsOn` left "in dependency order", "anything it
+depends on" and "a parent that is off" on four pages. The paraphrase outlives
+the identifier, so grep for both.
+
 **Every sentence has somebody or something in it.** A sentence built from
 abstract nouns says nothing a reader can picture and reads as machine-written.
 
