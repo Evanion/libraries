@@ -18,48 +18,50 @@
   ]}
 />
 
-**The concept.** A permission that depends on the row. Not "a bookseller may
-edit" but "the bookseller who listed it may edit it" — one condition reads the
-thing being acted on, and everything here follows from that single change.
+**The concept.** Two booksellers work your shop. Mika and Otto, both with the
+`bookseller` role, both looking at the same listing for Brass: Birmingham. Mika
+wrote it. Otto did not.
 
-**What you will have.** A policy that answers ownership questions on its own, and
-a write path that carries the answer down to the ORM without you filtering
-anything by hand.
+You want Mika to be able to edit it and Otto not to. Their roles are identical,
+so no rule about roles can separate them. The only thing that tells them apart is
+the listing itself, and that is what this page teaches you to read.
 
-**Why you would want it.** Role-only rules run out fast. The moment two people
-hold the same role and one of them owns the thing, the role cannot tell them
-apart — so the check moves into your handler as an `if`, where nobody finds it
-again and no second service repeats it. This is where that `if` goes back into
-the policy.
+**What you will have.** A policy that knows who owns what, and a write path that
+carries the answer from the policy to the database without you filtering
+anything in between.
 
-**How the library gets you there.** Reading the row costs four things, and they
-arrive in order: a type that checks your paths at compile time, a fourth answer
-for when the row is not fully loaded, a decision that explains itself, and a
-field map you hand to the database rather than apply by hand.
+**Why you would want it.** Without it you write the check by hand. It goes in the
+handler, as an `if`, next to the code that does the work. It reads fine the day
+you write it. Six months later there are forty of them, three are subtly
+different, one is missing, and the service that was supposed to repeat the check
+never did.
 
-In the simple tier every answer came from the subject. "A bookseller may edit" is
-true before you have looked at anything, so the policy could answer without being
-handed a listing at all. "The bookseller who listed it may edit it" cannot.
-Someone has to fetch the row — and everything below is what that costs.
+**How the library gets you there.** One condition reads the listing. That single
+change costs you four things, and they arrive in this order: a type that catches
+a misspelled path, a fourth answer for when you only loaded half the row, a
+decision that tells you why it said no, and a field map you hand to the ORM.
 
-## What reading the row costs you
+Work through them in that order and you have the tier.
 
-| Because a condition reads the object | You now need                                                                       |
-| ------------------------------------ | ---------------------------------------------------------------------------------- |
-| a path can be misspelled             | [the typed builder](/acl/authoring), which makes it a compile error                |
-| the object can be a projection       | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) and one refetch      |
-| a list is many instances             | [`canMany`](/acl/asking#asking-about-a-list), one settled clock for the whole list |
-| a row has parts                      | [field permissions](/acl/writing) and `pickAllowedFields` on the write             |
+## What reading the listing costs you
 
-Work down that column and you have this page.
+| What changes                     | What you need                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| you name a path into the listing | [the typed builder](/acl/authoring), so a typo is a compile error              |
+| the listing may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
+| a page shows forty listings      | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
+| a listing has parts              | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
 
 ## Naming the row, so acl can check the paths
 
-The first line of the table bites first. A condition that reads the object names
-a path into it — `object.ownerId` — and a string is a string. Misspell it and
-nothing complains. The permission simply never decides.
+Start at the top of that table. To ask whether Mika wrote the listing, you name a
+path into it: `object.ownerId`. That is a string, and strings take typos.
 
-So name the shape once, and let the compiler hold you to it:
+Write `object.ownerld` with an L and nothing complains. The matrix builds. The
+tests pass. The permission just never says yes, to anybody, and you find out from
+a bug report.
+
+So name the shape once and let the compiler hold you to it:
 
 ```ts file=libs/acl/README.md region=typed-authoring
 
@@ -81,20 +83,24 @@ would. Nothing about the typed path changes what ships.
 
 ## The four answers an acl decision can give
 
-Naming the row assumes you have it. Often you do not: a list view holds
-`{ id, ownerId }` and little else, and a condition reading `object.status` has
-nothing to read.
+All of that assumes you have the listing in hand. Often you do not.
 
-That is why a decision at this tier has four outcomes rather than two:
+Your shelf page loads forty listings and takes two columns from each: an id and
+an owner. Now ask whether Mika may publish one. The rule wants `object.status`,
+the row you loaded has no status, and the honest answer is neither yes nor no.
+
+So a decision here has four outcomes, not two:
 
 ```ts file=libs/acl/README.md region=four-outcomes
 
 ```
 
-Three of them came with you from the simple tier. Default deny is the floor, an
-allow rule grants, and a matched deny outranks a matching allow. The fourth is
-new here — a projection carrying neither field decides `unevaluable`, and
-`missing` names exactly what to fetch.
+You already know three of them. Nothing matched, so no. A rule allowed it, so
+yes. A deny matched, so no, and a deny always wins.
+
+The fourth is the new one. The engine could not tell. It says `unevaluable`, and
+`missing` lists the columns to go and fetch. Fetch them, ask again, and you get a
+real answer.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
@@ -107,56 +113,58 @@ new here — a projection carrying neither field decides `unevaluable`, and
 
 ## Asking an acl decision why
 
-Four answers are only useful if you can tell them apart, and that is what the
-rest of the decision is for. Beyond `allowed` it carries `reason`, `rule`,
-`blockedBy`, `cause` and `missing`.
+Four answers only help if you can tell which one you got. The decision carries
+five more fields for that: `reason`, `rule`, `blockedBy`, `cause` and `missing`.
 
 ```ts file=libs/acl/README.md region=cascade
 
 ```
 
-`blockedBy` is the edge this permission died on. `cause` is the first ancestor
-off for a reason of its own. In a chain of three those are two different
-permissions, which is why both are carried rather than one.
+`blockedBy` is the edge this permission died on. `cause` is the first one in the
+chain that failed on its own account. In a chain of three those are two
+different permissions, which is why you get both.
 
-One rule covers all five: they are output only. Nothing in the library reads a
-reason back to decide anything, and neither should you. Gating on the reason
-string instead of on `allowed` grants what the engine refused.
+All five are output only. Read them to build an error message, log them, show
+them in a tooltip. Never branch on them. Gate on `allowed` and nothing else — a
+handler that checks `reason !== 'denied'` grants everything the engine refused.
 
 ## Which parts of the row acl will let you write
 
-The last line of the table, and the one that changes the most. Once a condition
-can read the row it can read one field of it, and "may this bookseller update
-this listing" stops being the only question worth asking. "Which parts of it" is
-the one that shapes a form.
+Last line of the table, and the one that changes your UI.
+
+Mika may edit her listing. Fine. May she change its price after it has sold? May
+she edit the title, or only the description? "May she edit this" was never the
+question a form needed answering. "Which fields do I render as inputs" was.
 
 ```ts file=libs/acl/README.md region=field-permissions
 
 ```
 
-`*` is the baseline and `!name` subtracts from it. The map covers every key the
-object carries, every name the rules mention, and — on the write axis — every key
-of the proposed write, including one the row has never held. That last case is
-the one people forget, and it is why the map is computed rather than looked up.
+`*` means every field, and `!price` takes one back out.
+
+The map covers every key on the listing and every name your rules mention. On a
+write it also covers every key of what the caller sent you, including one the
+listing has never had. That last case is the one people forget, and it is why the
+map is computed for each call rather than read off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
 
-Holding the map is not the same as applying it correctly, so the package closes
-that gap itself rather than leaving it to each caller:
+Having the map is not the same as applying it. The package does that part for
+you, and you should let it:
 
 ```ts file=libs/acl/README.md region=write-path
 
 ```
 
-Pass its result to the ORM, and pass only its result. Filtering the map by hand
-is [the defect it exists to prevent](/acl/pitfalls#never-hand-filter-the-field-map):
-an `unevaluable` field is not a permitted one, and a hand-written filter that
-checks for `denied` lets it through.
+Pass what it returns to the ORM. Pass only that.
 
-That is the tier. One condition read the row, and four things followed — a type
-to check the paths, an answer that can be repaired rather than refused, a
-decision that says why, and a write that carries the field map all the way to
-the database.
+Filtering the map yourself is [the one mistake this page most wants you to
+avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
+every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
+and those are fields nobody said you could write.
+
+That is the tier. Mika may edit her listing, Otto may not, and the shop never had
+to write an `if`.
 
 ## Where to go next
 
