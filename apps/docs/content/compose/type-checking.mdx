@@ -212,10 +212,11 @@ through.
 `ValidateProvider` tests for an unknown key before it tests assignability, and
 the order matters for a component whose props are all optional. Such a
 component is a weak type: an object of only unrelated keys is not assignable to
-it. Checking assignability first sends that case down the repaired-shape
-branch, where comparing your mutable tuple against a constructed `readonly`
-tuple makes TypeScript report the variance of `Array.prototype.every` rather
-than the prop nobody declared.
+it. Checking assignability first sends that case down the other branch, the one
+that resolves a failing entry to the shape it should have had. There, comparing
+your mutable tuple against a constructed `readonly` tuple makes TypeScript
+report the variance of `Array.prototype.every` rather than the prop nobody
+declared.
 
 ## What compose does at runtime
 
