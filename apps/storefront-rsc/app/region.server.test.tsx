@@ -20,7 +20,24 @@ import { Widgets, items } from './widgets';
  * supported in React Server Components". Awaiting a component is what React's
  * server renderer does with the promise it returns, and the fetches have
  * happened by the time the tree exists -- which is the assertion.
+ *
+ * The access layer is stubbed here. What each widget does with a decision is
+ * `access.server.test.tsx`'s subject, and a real one in this file would put a
+ * `GET /api/policy` in the middle of the request lists below, where the point is
+ * which endpoint each widget goes to for its own data.
  */
+
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
+
+vi.mock('./access', () => ({
+  authorized: async () => ({
+    can: (_key: string, action: string) => ({ allowed: action === 'read' }),
+    canMany: (_key: string, _action: string, objects: readonly unknown[]) =>
+      objects.map(() => ({ allowed: false })),
+  }),
+}));
 
 type Element = React.ReactElement<Record<string, unknown>>;
 
