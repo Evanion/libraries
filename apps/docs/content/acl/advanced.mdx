@@ -13,7 +13,7 @@
   hands={30}
   requires={[['Rules that read the object', '/acl/intermediate']]}
   unlocks={[
-    ['One policy, one screen', '/acl/interface'],
+    ['One policy behind a screen', '/acl/interface'],
     ['Many services', '/acl/federation'],
   ]}
 />
@@ -29,22 +29,23 @@ conditions read, a version string a reader can compare, and a `parseMatrix` that
 takes somebody else's document without throwing on a permission you have never
 heard of.
 
-**Why you would want it.** Without the schema, Priya renames `buyerId` to
-`customerId` in `orders` on a Tuesday, and the storefront goes on asking about a
-path that no longer reads: the permission answers `unevaluable` forever, the
-screen refetches forever, and nothing anywhere raises an error. Without the
-version, a bookseller is handed an Edit button for a permission the owner
-revoked an hour ago, and the browser holding the old document has no way to
-notice.
+**Why you would want it.** Without the schema, Priya, who maintains Baize's
+`orders` service, publishes a rule that tests `object.status` with `contains`,
+the operator for an array, against a field holding a string. Nothing refuses the
+document. The condition never holds, the storefront draws that control for
+nobody, and the first report of it is a shopper's. Without the version, a
+bookseller is handed an Edit button for a permission the owner revoked an hour
+ago, and the browser holding the old document has no way to notice.
 
-**How the library gets you there.** A `schema` on the document turns a mistyped
-path into an `UnknownFieldError` at construction. `version` gives the client one
+**How the library gets you there.** A `schema` on the document refuses an
+undeclared path with an `UnknownFieldError` and an ill-fitting operator with a
+`FieldTypeMismatchError`, both at construction. `version` gives the client one
 value to compare with `!==`. `parseMatrix` fails closed on a key the document
 does not carry, so a producer that moved on cannot take a page down.
 
 ## Declare the shape
 
-The typed builder held you to `object.authorId` while you were writing the
+The typed builder held you to `object.askedBy` while you were writing the
 policy. That type stays in your editor and the document leaves without it, so a
 document that travels may declare the shapes its conditions read. The schema is
 optional for a producer and binding wherever it is present.
@@ -53,50 +54,41 @@ optional for a producer and binding wherever it is present.
 
 ```
 
-Field types are flat strings — `string`, `number`, `boolean`, `instant`, a `[]`
-suffix for an array, a `?` suffix for a field that may be absent — so a producer
-in any language emits the whole schema by reflection.
+Field types are flat strings: `string`, `number`, `boolean`, `instant`, a `[]`
+suffix for an array, a `?` suffix for a field that may be absent. A producer in
+any language emits the whole schema by reflection.
 
 Two checks, both at construction: a condition naming an undeclared field is
 `UnknownFieldError`; an operator or comparand that does not fit the declared
 type is `FieldTypeMismatchError`. Granularity is per kind, so a permission on a
 kind absent from `schema.objects` is unchecked.
 
-Priya authors against the TypeScript types and ships the schema beside them:
+Priya authors `orders` against the TypeScript types and writes the schema beside
+them:
 
 ```ts file=libs/acl/README.md region=typed-document
 
 ```
 
 The two are checked independently and can disagree. A path TypeScript accepts is
-still an `UnknownFieldError` when the schema does not declare it — the schema is
-binding wherever it is present.
+still an `UnknownFieldError` when the schema does not declare it, because the
+schema is binding wherever it is present.
 
-## Drive a UI from the whole matrix
+## What `capabilities` answers on a travelling document
 
-`capabilities` answered the whole policy at once while every condition read the
-subject, and it goes on doing that once conditions read the object too: every
-permission in the document against one subject, in document order, in a single
-pass.
-
-```ts file=libs/acl/README.md region=capabilities
-
-```
-
-Two kinds, three permissions, every condition on `subject.roles`, so all three
-come back decided. A permission whose rules read `object.*` is the other case.
-The call passes no object, so that permission decides `unevaluable`: with no
-listing in hand there is nothing for `object.status` to be compared against, and
-the engine says so. [What can they do at all?](/acl/capabilities) is about the
-half of a matrix that reads only the subject, which is the half this call
-answers outright.
+[Rules that read the subject](/acl/simple#write-the-acl-policy) built the shop's
+report policy and read every permission out of it with one `capabilities` call.
+That call works the same on a document `orders` wrote: every permission in it,
+against one subject, in document order, in a single pass. It passes no object,
+so a permission whose rules read `object.*` decides `unevaluable`.
+[What can they do at all?](/acl/capabilities) has the contract.
 
 ## Adopt a document somebody else wrote
 
 Every document so far is one this process built, and the storefront builds
 none: `orders` does. `parseMatrix` is `hydratePolicy` with `closed: true` for
 exactly that case. The key universe is untrusted, so an unknown object kind or
-action fails closed instead of throwing.
+action fails closed and throws nothing.
 
 ```ts file=libs/acl/README.md region=foreign-matrix
 
@@ -105,7 +97,7 @@ action fails closed instead of throwing.
 The difference is between a bug and a data problem. A key the local typed policy
 does not carry is a programmer error and throws `UnknownPermissionError`. A key a
 foreign document does not carry is a document that has moved on, and throwing
-there would take down a page over a permission nobody has. [My policy came from
+there would take down a page over a permission nobody has. [A policy from
 another service](/acl/adopting) is the whole story.
 
 ## Version the document, and revalidate against it
@@ -113,10 +105,10 @@ another service](/acl/adopting) is the whole story.
 A foreign document now evaluates without throwing. The question left is which
 foreign document arrived. `version` is a string or a number and the contract
 compares it with `!==`, so a content digest or a composite such as
-`orders@7+veto@41` works where a counter cannot. The document states what a producer shipped; `hydratePolicy(matrix, {
-version })` states what this construction site is actually running, which the
-producer cannot know. The option wins, and the frozen `access.matrix` carries the
-winner.
+`orders@7+veto@41` works where a counter cannot. The document states what the
+producer published. `hydratePolicy(matrix, { version })` states what this
+construction site is actually running, which the producer cannot know. The
+option wins, and the frozen `access.matrix` carries the winner.
 
 ```ts file=libs/acl/README.md region=matrix-round-trip
 
@@ -133,16 +125,22 @@ library supplies the comparison and leaves the fetch to you:
 
 ```
 
-There is no push, no expiry and no staleness flag. A document that states no
-`version` leaves `access.version` undefined, where a `!==` decides nothing, so a
-producer who wants the contract to hold states one. The `orders` service never
+The library never pushes an update and never expires a copy. A document that
+states no `version` leaves `access.version` undefined, where a `!==` decides
+nothing, so a producer who wants the contract to hold states one. The `orders` service never
 depends on the storefront's copy in any case: it evaluates its own before it
 writes anything.
 
 ## Where to go next
 
-- [Many services](/acl/federation) — one matrix per service, namespaced kinds,
-  and what a gateway holds
-- [Caveats and pitfalls](/acl/pitfalls) — including the two gaps a travelling
-  document is most likely to walk into
-- [Security contract](/acl/security) — what remains yours
+The storefront now holds a document it did not write, checks its version and
+evaluates it without throwing. Nothing on the screen has changed yet. Drawing
+that screen from it is the last page of Setup.
+
+- [One policy behind a screen](/acl/interface). The fetched document turned into
+  an action bar, and the wording of a control it refuses.
+- [Many services](/acl/federation). One matrix per service, namespaced kinds,
+  and what a gateway holds.
+- [Caveats and pitfalls](/acl/pitfalls). The two gaps a travelling document is
+  most likely to walk into.
+- [Security contract](/acl/security). What remains yours.

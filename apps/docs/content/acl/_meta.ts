@@ -13,9 +13,9 @@ import type { MetaRecord } from 'nextra';
  * the process that wrote it, which brings the schema, the version and a
  * foreign document. The difficulty ladder is on each page's `<PageSheet>`, and
  * a title that repeated it would say less than the sheet does. `interface`
- * closes Setup as the section's demonstration: it is where the three answers
- * land in a rendered screen, and it is the last step of learning rather than
- * the first step of looking something up.
+ * closes Setup: the storefront `advanced` leaves holding a fetched, version
+ * checked document draws a screen from it, so the page takes the three
+ * preceding pages as read and adds the rendering.
  *
  * The slugs stay `simple`, `intermediate` and `advanced`. A URL a reader has
  * bookmarked or a search engine has indexed costs more to move than the titles
@@ -41,6 +41,16 @@ import type { MetaRecord } from 'nextra';
  * enforcing. Many Services closes the band — a topology spans the four rather
  * than being a fifth of them.
  *
+ * `resolution` follows `decisions`, and it is the only Reference title phrased
+ * as a question. It carries the whole of the precedence order, so `decisions`
+ * describes the object a caller holds and `resolution` argues how that object
+ * came out the way it did. A reader meets the decision before the order behind
+ * it, and no other page restates the seven steps.
+ *
+ * `register` follows `security`. The contract argues the trust boundary and the
+ * register is the ledger a reader checks a class of attack against, so the
+ * argument comes first and the rows a reader scans come after it.
+ *
  * A page not listed here is appended after these, so adding one is not a
  * requirement. Renaming one is: Nextra throws on a `_meta` key naming a page it
  * cannot find, and `tools/repo-checks/src/docs-navigation.test.ts` fails first.
@@ -52,7 +62,7 @@ export default {
   simple: 'Rules that read the subject',
   intermediate: 'Rules that read the object',
   advanced: 'Rules that outlive the process',
-  interface: 'One Policy, One Screen',
+  interface: 'One policy behind a screen',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
   platforms: 'Overview',
@@ -75,7 +85,9 @@ export default {
   matrix: 'The Matrix Document',
   authoring: 'Typed Authoring',
   decisions: 'Decisions',
+  resolution: 'Why deny, then allow, then deny?',
   fields: 'Field Permissions',
   security: 'Security Contract',
+  register: 'Security Register',
   api: 'API Reference',
 } satisfies MetaRecord;

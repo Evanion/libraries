@@ -2,14 +2,38 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    The examples on this page are regions of `libs/acl/README.md` and run under
-    `nx test @evanion/acl`.
+    The executed examples on this page are regions of `libs/acl/README.md` and
+    run under `nx test @evanion/acl`. No app in this repository runs a federated
+    view: `apps/shop-api` is one origin and the three frontends adopt its
+    document.
   </Text>
 </WorkshopNotice>
 
-One matrix per service, one `Access` per matrix. Each service authors and
-evaluates only what it owns, and no service evaluates another's document to
-reach a decision. There is no merged matrix anywhere in the topology.
+<PageSheet
+  difficulty={5}
+  read={9}
+  requires={[['A policy from another service', '/acl/adopting']]}
+  unlocks={[
+    ['Giving my rules to another service', '/acl/publishing'],
+    ['Security contract', '/acl/security'],
+  ]}
+/>
+
+**The concept.** One matrix per service, one `Access` per matrix. Each service
+authors and evaluates only what it owns, no service evaluates another's document
+to reach a decision, and there is no merged matrix anywhere in the topology.
+
+**What you will have.** A gateway holding one `Access` per origin behind a view
+that routes a question to the single origin whose keys carry it, plus the
+overlay an owner applies when another team publishes a veto.
+
+**Why you would want it.** Baize's storefront and its stock service both hold
+rows they call a listing, in two databases with two field sets. A merged view
+would answer about a row that does not exist.
+
+**How the library gets you there.** `federatedPolicies` composes the members and
+routes by canonical key. `applyDenyOverlay` is pure `Matrix → Matrix` and runs
+inside the owner, before it builds its policy.
 
 ## Namespace the object kind by origin
 
@@ -19,13 +43,13 @@ in different databases. The namespace says so: `storefront:listing`,
 
 Nothing about the document format changes. `storefront:listing.read` still equals
 `` `${object}.${action}` `` character for character, so `KeyMismatchError` is
-satisfied by construction, and the typed builder takes the namespaced key
-directly:
+satisfied by construction and the typed builder takes the namespaced key
+directly. The ownership axis is the one Baize already uses:
 
-```ts
-policy<Subject>()
-  .for<'storefront:listing', Listing>('storefront:listing', (p) =>
-    p.allow('read', p.eq('object.sellerId', 'subject.id')),
+```ts no-run
+policy<Subject, { 'storefront:listing': Listing }>()
+  .for('storefront:listing', (p) =>
+    p.allow('read', p.eq('object.shop', 'subject.shop')),
   )
   .build();
 ```
@@ -50,7 +74,7 @@ whole. It carries three members: `can`, `capabilities` and `get`.
 `can` routes by the canonical key. The origin that answers
 `can(subject, 'storefront:listing', 'read')` is the one origin whose key set holds
 `storefront:listing.read`. A key no origin holds answers
-`{ allowed: false, reason: 'unknown-action' }` and reaches no member at all.
+`{ key, allowed: false, reason: 'unknown-action' }` and reaches no member at all.
 
 ```mermaid caption="One Access per origin, each document whole, behind one view. A key goes to the single origin whose key set holds it; a key no origin holds is refused by the view itself and reaches no member."
 flowchart LR
@@ -61,13 +85,12 @@ flowchart LR
 ```
 
 `capabilities(subject, now?)` settles one instant and hands that instant to
-every origin. A view over five origins reads one clock, so a `before` or
-`after` boundary falls on the same side of every answer in the view.
+every origin. A view over five origins reads one clock, so a `before` boundary
+falls on the same side of every answer in it.
 
 `get(origin)` returns the `Access` that origin was registered with, unchanged.
-`canMany`, `canFields`, `readsObject` and `authorize` are reached through it.
-Each of the four answers about one permission or one object kind, so the caller
-already holds the key, and the key names the origin.
+`canMany`, `canFields`, `readsObject` and `authorize` are reached through it,
+because each of the four answers about one key and the key names the origin.
 
 ### Two origins claiming one key refuse at construction
 
@@ -79,13 +102,12 @@ hold both
 
 Each document is valid on its own, and two services can each declare
 `{ object: 'listing', action: 'read' }` with no namespace anywhere. The
-collision exists only in the process holding both documents, which is the edge,
-so the edge is where the check runs. A lint has nowhere to sit: the two
-documents live in two repositories and arrive over HTTP at startup, and no build
-step in the topology ever holds both.
+collision exists only in the process holding both documents, so the edge is
+where the check runs. A lint has nowhere to sit: the two documents live in two
+repositories and arrive over HTTP at startup.
 
-The message names both origins. The fix is a pull request against one of two
-repositories, and the key alone does not say which.
+The message names both origins, because the fix is a pull request against one of
+two repositories and the key alone does not say which.
 
 The check reads `permission.key`. A deny rule carries none, so a key one origin
 declares and another only vetoes is no collision.
@@ -93,40 +115,38 @@ declares and another only vetoes is no collision.
 <Panel heading="The edge view is advisory">
   <Text as="div" size="sm">
     It sits in the same tier as a browser's. Every service behind the gateway
-    evaluates its own matrix for itself and never trusts the edge's answer. A
-    gateway that already allowed the request does not excuse the service behind
-    it, because a caller reaches that service directly whenever it wants to.
+    evaluates its own matrix and never trusts the edge's answer. A gateway that
+    allowed the request does not excuse the service behind it, which a caller
+    reaches directly whenever it wants to.
   </Text>
 </Panel>
 
 ## An unreachable upstream needs no flag
 
-Its origin is absent from the record. Under `closed: true` every key it would have
-answered is already `{ allowed: false, reason: 'unknown-action' }`, so a
-degraded fleet fails closed by absence rather than by a code path somebody has
-to remember to write.
+Its origin is absent from the record, so every key it would have answered is
+already `{ key, allowed: false, reason: 'unknown-action' }` from the view
+itself, and a degraded fleet fails closed by absence.
 
-This is the reason every entry in the record is constructed closed. On the open
-path the same key throws `UnknownPermissionError`, which at an edge means one
-unregistered origin takes down the request.
+Each member is still built with `parseMatrix`, for the reason
+[A policy from another service](/acl/adopting) gives: every document in the
+record arrived from a process that is not this one, and the closed mode is what
+makes a key its owner has dropped a refusal.
 
 ## One permission never gates another
 
-No permission in this document declares a dependency on another, inside one
-origin or across two. A subject who may read the storefront copy of a listing and
-may not read the stock copy is two questions, and the caller asks both.
+No permission declares a dependency on another, inside one origin or across two.
+A subject who may read the storefront copy of a listing and may not read the
+stock copy is two questions, and the caller asks both over the `fleet` built
+above:
 
-When one request genuinely touches two services, the fan-out is the caller's
-own `&&` over the `fleet` built above:
-
-```ts
+```ts no-run
 const ok =
   fleet.can(subject, 'storefront:listing', 'read').allowed &&
   fleet.can(subject, 'stock:listing', 'read').allowed;
 ```
 
-Deny-overrides, written at a call site by somebody who knows whether they meant
-AND or OR. The library does not guess.
+Deny-overrides, written where somebody knows whether they meant AND or OR. The
+library does not guess.
 
 ## A cross-cutting deny is an overlay the owner applies
 
@@ -143,24 +163,21 @@ authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
 ```
 
 `applyDenyOverlay(matrix, overlay, { vetoable })` appends each key's rules to
-that permission's `denyRules` and returns a new matrix. It is pure
-`Matrix → Matrix`, so it composes, and it changes nothing about the topology
-above: nothing merges at
-an edge, nothing but the owner is authoritative, and the service that enforces
-the veto is the one that applies it.
+that permission's `denyRules` and returns a new matrix. It changes nothing about
+the topology above: nothing merges at an edge, nothing but the owner is
+authoritative, and the service that enforces the veto is the one that applies
+it.
 
-### Deny-only is the parameter type, not a check
+### A contribution can only subtract
 
 A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
 `fields` lives on `Permission`, and an allow rule is a member of a different
-array. So a contribution cannot express an allow or a field rule — there is
-nothing to prohibit, because the shape states none of them.
+array, so a contribution has no way to express an allow or a field rule.
 
-That is what makes the overlay safe to accept from another team. It can only
-subtract: appending deny rules moves the deny side towards a match and never
-away, and every decision reached that way is `allowed: false`. A subject the
-overlaid matrix allows was allowed by the authored one, for every object and
-every instant.
+That is what makes the overlay safe to accept from another team. Appending deny
+rules moves the deny side towards a match and never away. A subject the overlaid
+matrix allows was allowed by the authored one, for every object and every
+instant.
 
 ### Three refusals, all at apply time
 
@@ -173,42 +190,36 @@ every instant.
   </Text>
 </Panel>
 
-The schema obligation is scoped: a matrix owes a schema for the object kinds of
-the keys it lists as `vetoable`, and for nothing else. Opening a key whose kind
-has no `schema.objects` entry is itself a refusal, because the contributions to
-it would be unchecked. A single-service consumer that opens nothing owes no
-schema and never sees any of this — `hydratePolicy(matrix)` takes no overlay, no
-`vetoable` list, and no schema.
+A matrix owes a schema for the object kinds of its `vetoable` keys and nothing
+else. Opening a key whose kind has no `schema.objects` entry is itself a
+refusal, because contributions to it would be unchecked. A consumer that opens
+nothing owes no schema.
 
-### The compliance team runs the same call
-
-`applyDenyOverlay(ordersContract, myOverlay, { vetoable })` in compliance's own
-CI catches the mistake before the owner's deploy breaks. The function reads no
-private state: a published subset carrying the vetoable keys and their schema
-entries is enough.
-
-Apply before serializing. A veto is a deny rule, so publishing the authored
-matrix instead would publish a document that allows what the owner refuses.
+The contributing team runs the same call in its own CI, over the owner's
+published subset, and finds its own mistake there. Apply before serializing: a
+veto is a deny rule, and publishing the authored matrix would publish a document
+allowing what the owner refuses.
 
 ## Publishing the rules to a consumer
 
 `serialize(access, 'reduced')` emits the permissions marked
 `visibility: 'public'`, each kept whole, and the consumer adopts the result with
-`parseMatrix`. The topology above is unchanged: the consumer decides
-locally, and the owner decides again when the call arrives.
+`parseMatrix`. `apps/shop-api` serves exactly that at `GET /api/policy`. The
+topology above is unchanged: the consumer decides locally, and the owner decides
+again when the call arrives.
 
 ## What this topology does not give you
 
 Integrity of a document in transit belongs to the transport, the same way
-resolving a subject does. The library neither signs a matrix nor verifies one:
-a document that arrives over an unauthenticated channel is a document an
-attacker wrote.
+resolving a subject does. The library neither signs a matrix nor verifies one, so
+a document arriving over an unauthenticated channel is a document an attacker
+wrote.
 
 ## Where to go next
 
 - [Giving my rules to another service](/acl/publishing) — `serialize`,
   `visibility` and the freshness budget
-- [My policy came from another service](/acl/adopting) — `parseMatrix`, the
+- [A policy from another service](/acl/adopting) — `parseMatrix`, the
   closed mode, and what construction refuses
 - [Caveats and pitfalls](/acl/pitfalls) — the layer-trust and subject-forgery
   entries apply directly here

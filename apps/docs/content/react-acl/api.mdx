@@ -7,17 +7,10 @@
   </Text>
 </WorkshopNotice>
 
-<PageSheet
-  difficulty={2}
-  read={6}
-  requires={[['Getting started', '/react-acl/getting-started']]}
-/>
-
 One provider, four hooks, a factory that binds them to a policy, and three
-interfaces. Every type named below —
-`Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the
-rest — is re-exported from `@evanion/acl` under the same name and documented in
-[the core's reference](/acl/api).
+interfaces. Every type named below is re-exported from `@evanion/acl` under the
+same name and documented in [the core's reference](/acl/api): `Decision`,
+`FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the rest.
 
 A hook throws if it is called outside a `PolicyProvider`, and the message names
 the provider and the package.
@@ -28,13 +21,15 @@ Holds one evaluator, one subject and one clock for the tree under it. Renders
 its children and nothing else.
 
 ```tsx signature
-function PolicyProvider(props: PolicyProviderProps): ReactElement;
+function PolicyProvider<Keys extends string = string>(
+  props: PolicyProviderProps<Keys>,
+): ReactElement;
 ```
 
 The context value is memoised on the identity of `access`, `subject` and
 `context`, so all three want stable references. `context.now` defaults to
 `new Date()` when it is left off, which is a fresh instant on every provider
-remount — pass the value the server rendered with instead.
+remount. Pass the value the server rendered with.
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
@@ -43,8 +38,8 @@ remount — pass the value the server rendered with instead.
 ## `PolicyProviderProps`
 
 ```tsx signature
-interface PolicyProviderProps {
-  access: Access;
+interface PolicyProviderProps<Keys extends string = string> {
+  access: Access<Subject, AnyObjects, Keys>;
   subject: Subject;
   context?: { now?: Instant };
   children?: ReactNode;
@@ -52,16 +47,16 @@ interface PolicyProviderProps {
 ```
 
 `access` is any `Access`, whether the core's `hydratePolicy` returned it or
-`policy<Subject>().build()` did. The subject and object types a typed policy
+`policy<Subject, Objects>().build()` did. The types a typed policy
 carries stop here: the hooks below take `key: string`, so a key this provider's
 document never declared reaches them, and the engine throws
 `UnknownObjectKeyError` at render unless the matrix was hydrated with
 `closed: true`. [`createPolicyContext`](#createpolicycontext) is what keeps
 those types.
 
-Only `now` is read off `context`. The subject is a prop of its own rather than a
-key of the context, so the two are memoised separately and a re-render that
-changes who is signed in does not re-key the clock.
+Only `now` is read off `context`. `PolicyProvider` takes the subject as its own
+prop, so it memoises the two separately, and a re-render that changes who is
+signed in leaves the clock's key alone.
 
 ## `useCan`
 
@@ -81,7 +76,7 @@ that reads the row and is asked without one answers
 
 Memoised on `access`, `subject`, `key`, `action`, `object` and `now`. The row's
 identity is part of that key, so a component handed a rebuilt row object
-re-evaluates rather than returning a stale answer.
+evaluates again and the stale answer never reaches it.
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 
@@ -145,8 +140,8 @@ function useCapabilities(): Record<string, Decision>;
 ```
 
 No object is passed, so a rule that reads one cannot be decided here. This is
-the hook for a menu or a navigation bar, where the question is what the shopper
-may reach rather than what they may do to a particular thing.
+the hook for a menu or a navigation bar, where the question is which actions the
+shopper may reach at all. A question about one particular row goes to `useCan`.
 [What can they do at all?](/acl/capabilities) sets out the no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
@@ -158,9 +153,11 @@ may reach rather than what they may do to a particular thing.
 Binds one policy's subject and object types to a provider and a set of hooks.
 
 ```tsx signature
-function createPolicyContext<Sub = Subject, R = AnyObjects>(
-  access: Access<Sub, R>,
-): PolicyContext<Sub, R>;
+function createPolicyContext<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+>(access: Access<Sub, R, Keys>): PolicyContext<Sub, R, Keys>;
 ```
 
 [`policy`](/acl/authoring) names a subject type once and binds a row type per
@@ -170,14 +167,18 @@ and their row against the type bound to the kind. Both come off the argument, so
 the call site writes neither.
 
 A React context fixes its type when it is created, and `useContext` hands a hook
-that fixed type whatever the provider above it was given. That is why this is a
-function returning hooks rather than a generic `PolicyProvider`: the two
-parameters have nowhere else to live.
+that fixed type whatever the provider above it was given. `Sub` and `R` have
+nowhere else to live, which is why this is a function returning hooks and why a
+generic `PolicyProvider` cannot do the job.
 
-Each call makes its own context, so two policies nest and each set of hooks
-reads its own provider. The returned provider also feeds the shared context, so
-a component calling `useCan` from the package root underneath it reads the same
-decision.
+One policy holds every object kind an app has. Chain a `.for()` per kind and the
+listing and the stock report sit in the same document, where one
+`createPolicyContext` call covers both. You do not make a context per resource.
+
+Each call does make its own context, so two separate policy documents nest and
+each set of hooks reads its own provider. The returned provider also feeds the
+shared context, so a component calling `useCan` from the package root underneath
+it reads the same decision.
 
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 
@@ -189,44 +190,47 @@ What `createPolicyContext` returns: the same provider and four hooks, at the
 types the policy carries.
 
 ```tsx signature
-interface PolicyContext<Sub, R> {
-  PolicyProvider(props: BoundPolicyProviderProps<Sub, R>): ReactElement;
+interface PolicyContext<Sub, R, Keys extends string = string> {
+  PolicyProvider(props: BoundPolicyProviderProps<Sub, R, Keys>): ReactElement;
   useCan<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object?: Partial<R[K]>,
   ): Decision;
   useCanMany<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     objects: readonly Partial<R[K]>[],
   ): Decision[];
   useCanFields<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object: Partial<R[K]>,
     axis: 'read' | 'write',
     proposed?: Partial<R[K]>,
   ): FieldDecision;
-  useCapabilities(): Record<string, Decision>;
+  useCapabilities(): Record<Keys, Decision>;
 }
 ```
 
 `Partial<R[K]>` for the row, because a list row carrying two of five fields is
-the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case rather
-than a type error. A row type declared `extends Record<string, unknown>` accepts
+the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case, and the
+compiler has no business calling it a type error. A row type declared
+`extends Record<string, unknown>` accepts
 every key and gives the check nothing to hold, so declare the row's fields and
 nothing more.
 
-`useCapabilities` stays keyed by `string`. It answers by permission key,
-`listing.edit`, where `R` holds the object kinds, `listing`, and the actions
-that complete the key are plain strings no builder collects.
+`useCapabilities` answers by permission key, `listing.edit`, where `R` holds the
+object kinds, `listing`. A policy whose blocks
+[declare their actions](/acl/authoring#declaring-the-actions-of-a-block) narrows
+those keys to the ones it declares, so `listing.edti` is a compile error. A
+policy that leaves one block's actions open stays keyed by `string`.
 
 ## `BoundPolicyProviderProps`
 
 ```tsx signature
-interface BoundPolicyProviderProps<Sub, R> {
-  access?: Access<Sub, R>;
+interface BoundPolicyProviderProps<Sub, R, Keys extends string = string> {
+  access?: Access<Sub, R, Keys>;
   subject: Sub;
   context?: { now?: Instant };
   children?: ReactNode;

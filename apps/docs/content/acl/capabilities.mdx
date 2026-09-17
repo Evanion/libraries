@@ -2,6 +2,33 @@
 
 <WorkshopNotice slug="acl" />
 
+<PageSheet
+  difficulty={2}
+  read={5}
+  hands={15}
+  requires={[['Rules that read the subject', '/acl/simple']]}
+  unlocks={[
+    ['Can this user do this?', '/acl/asking'],
+    ['Many services', '/acl/federation'],
+  ]}
+/>
+
+**The concept.** Baize's sidebar has six entries on it. Jo signs in and should
+see two. The sidebar renders before any listing, order or report has been
+fetched, so it has to draw itself from the subject alone.
+
+**What you will have.** One call at the top of a render that answers every
+permission in the document at once, and a map the menu filters.
+
+**Why you would want it.** A menu that calls `can` once per entry asks the
+clock six times and scans the permission list six times. Worse, it grows a
+hand-written list of keys that nobody updates when a permission is added, so the
+new section is invisible until somebody notices.
+
+**How the library gets you there.** `capabilities` resolves the whole document
+against one subject in one pass and keys the answers by permission. Every entry
+is a full decision, so an entry that could not be settled says so.
+
 `capabilities(subject, now?)` resolves every permission in the document against
 one subject, keyed, in document order, in one pass.
 
@@ -9,7 +36,11 @@ one subject, keyed, in document order, in one pass.
 
 ```
 
-## The no-object contract
+One policy holds every object kind the app has. That one chains a `.for()` for
+`report` and another for `listing`, and `capabilities` answers across both,
+which is what makes it one call and not one per resource.
+
+## The no-object contract in acl
 
 `capabilities` passes no object. That is the whole shape of the call, and it
 decides what the answer can mean:
@@ -18,11 +49,13 @@ decides what the answer can mean:
   was resolved whole before the call, so a field it lacks is a field it does not
   have.
 - A permission whose rules read any `object.*` path decides `unevaluable`, with
-  `missing` naming the paths. Not `false` — there is no instance to compare
-  against, so the question has not been asked yet.
+  `missing` naming the paths. There is no instance to compare against, so the
+  question has not been asked yet, and `false` would overstate what the engine
+  knows.
 
-That second line is why `capabilities` is not "the user's permissions". It is
-the answer to every question that can be answered without a row.
+So read the map as the answer to every question that can be answered without a
+row. It falls short of "the user's permissions" by exactly the permissions that
+need one.
 
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
@@ -34,20 +67,22 @@ the answer to every question that can be answered without a row.
   </Text>
 </Panel>
 
-## Driving a menu from it
+## Driving a menu from an acl capability map
 
 A navigation menu is exactly the object-free question: "is there any point
 showing this section". One call at the top of a render, one lookup per item.
+
+The policy below declares `report` and stops there, to keep the fence short.
+Chain the app's other kinds onto the same `policy()` call and the map grows the
+keys with it; the menu code does not change.
 
 One call answers for every key in the document at once:
 
 ```ts twoslash
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>()
-  .for<'report', { ownerId: string }>('report', (p) =>
-    p.allow('read', p.always),
-  )
+const access = policy<{ id: string }, { report: { ownerId: string } }>()
+  .for('report', (p) => p.allow('read', p.always))
   .build();
 
 const subject = { id: 's1' };
@@ -59,14 +94,11 @@ const caps = access.capabilities(subject);
 so the menu is a filter over it:
 
 ```ts twoslash
-import { policy } from '@evanion/acl';
+import { parseMatrix } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
 
-const access = policy<{ id: string }>()
-  .for<'report', { ownerId: string }>('report', (p) =>
-    p.allow('read', p.always),
-  )
-  .build();
-
+declare const document: Matrix;
+const access = parseMatrix(document);
 const subject = { id: 's1' };
 const caps = access.capabilities(subject);
 // ---cut---
@@ -76,16 +108,20 @@ const items = [
 ].filter((item) => caps[item.key]?.allowed === true);
 ```
 
-`=== true` rather than truthiness, and `?.` rather than an index, because a key
-the document does not carry is simply absent from the map. A menu built on
-`!caps[key]?.allowed` shows every item the matrix has never heard of.
+Compare with `=== true`, and reach the entry with `?.`. A key the document does
+not carry is absent from the map, and `listing.read` above is that case. A menu
+built on `!caps[key]?.allowed` shows every item the matrix has never heard of.
+
+This document arrived as JSON, so its keys are `string` and the miss happens at
+runtime. A policy the builder authored carries its keys in the type, and
+`caps['listing.read']` is then a compile error rather than an absent entry.
 
 Prefer this over a loop of `can` over every key. `capabilities` settles the
 clock once for the whole document; a loop settles it per permission.
 
-## What it does not replace
+## What an acl capability map does not replace
 
-A row-level control — an edit button on one question — is a `can` with that
+A row-level control (the edit button on one question) is a `can` with that
 question, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
 rows. A capability map cannot answer it, and an entry that came back
 `unevaluable` is the map saying so.

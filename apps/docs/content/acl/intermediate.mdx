@@ -21,19 +21,19 @@
 **The concept.** You left a question on the Brass: Birmingham listing. So did Jo. You
 can edit yours. You cannot edit Jo's.
 
-Everyone knows that rule. The interesting part is that no role can express it.
-You and Jo are both customers, with exactly the same permissions. What tells you
-apart is which question is yours.
+Everyone knows that rule, and no role can express it. You and Jo are both
+customers with exactly the same permissions, and what tells you apart is which
+question is yours.
 
 So the rule has to read the question. That is the whole of this page.
 
 **What you will have.** A policy that knows whose question is whose, and a save
 that writes only the fields you are allowed to change.
 
-**Why you would want it.** The alternative is the check by hand. It goes in the
-handler, as an `if`, next to the code that does the work. It reads fine the day
-you write it. Six months later there are forty of them, three are subtly
-different, one is missing, and the bulk close job never had one at all.
+**Why you would want it.** The alternative is the check by hand, in the handler,
+as an `if`, next to the code that does the work. It reads fine the day you write
+it. Six months later there are forty of them, three are subtly different, and the
+bulk close job never had one at all.
 
 **How the library gets you there.** One condition reads the question, and that one
 change brings four things with it: a type that catches a misspelled path, a
@@ -42,21 +42,22 @@ why it said no, and a field map you hand to the ORM.
 
 ## Four things you now need
 
-| What changes                    | What you need                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| you name a path into a question | [the typed builder](/acl/authoring), so a typo is a compile error              |
-| a question may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
-| a page shows forty questions    | [`canMany`](/acl/asking#asking-about-a-list), one decision per question        |
-| a question has fields           | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
+- You name a path into a question, so the typed builder makes a typo a compile
+  error.
+- A question may be half-loaded, so a decision gains a fourth answer,
+  `unevaluable`, and you refetch and ask again.
+- A page shows forty questions, so `canMany` decides the array in one call.
+- A question has fields, so a decision names which you may write and
+  `pickAllowedFields` applies it.
 
 ## Naming the question, so acl can check the paths
 
 To ask whether this question is yours, you name a path into it:
 `object.askedBy`. That is a string, and strings take typos.
 
-Write `object.askedBv` with a v and nothing complains. The matrix builds. The
-tests pass. The permission just never says yes, to anybody, and you find out from
-a bug report.
+Write `object.askedBv` with a v and nothing complains. The matrix builds, the
+tests pass, the permission never says yes to anybody, and you find out from a bug
+report.
 
 So name the shape once and let the compiler hold you to it:
 
@@ -64,12 +65,10 @@ So name the shape once and let the compiler hold you to it:
 
 ```
 
-`policy<Subject>()` names the subject once. Each `.for()` binds one object kind
-to its type and hands the condition helpers to a block.
-
-Chain a `.for()` for every kind your app has, so one policy covers the whole
-app. A policy per resource is the `if` you came here to delete, in another
-file.
+`policy<Subject, Objects, Verbs>()` names the subject, the object kinds, and any
+verbs beyond the default four. Each `.for()` hands the condition helpers to a
+block. Chain one per kind your app has, so one policy covers the whole app. A
+policy per resource is the `if` you came here to delete, in another file.
 
 The block declares two kinds of rule. `.allow` is the kind you wrote against the
 subject alone: the action is granted when the rule's conditions hold. `.deny` is
@@ -107,9 +106,9 @@ So a decision here has four outcomes:
 Three of them you have already met. Nothing matched, so no. An allow rule
 matched, so yes. A deny matched, so no, and the deny wins.
 
-The fourth is the new one. The engine could not tell. It says `unevaluable`, and
-`missing` names the paths it could not read. Fetch the fields those paths name,
-ask again, and you get a real answer.
+The fourth is the new one. The engine could not tell, so it says `unevaluable`
+and `missing` names the paths it could not read. Fetch those fields, ask again,
+and you get a real answer.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
@@ -125,59 +124,59 @@ ask again, and you get a real answer.
 Four answers only help if you can tell which one you got. The decision carries
 three more fields for that: `reason`, `rule` and `missing`.
 
-All three are output only. Read them to build an error message, log them, show
-them in a tooltip. Never branch on them. Gate on `allowed` and nothing else. A
-handler that checks `reason !== 'denied'` grants everything the engine refused.
+All three are output only. Build an error message from them, log them, show them
+in a tooltip. Never branch on them: gate on `allowed` and nothing else. A handler
+that checks `reason !== 'denied'` grants everything the engine refused.
 
-## Which parts of a question acl will let you write
+## Which fields of a question acl will let you write
 
-Last line of the table, and the one that changes your UI.
+Last line of the list, and the one that changes your UI.
 
-You may edit your own question. Fine. May you still edit it once it is locked?
-May you change the text and not the status? "May you edit this" was
-never the question the form needed answering. "Which of these inputs do I render"
-was.
+You may edit your own question. Fine. May you change the body and leave the
+status alone? The form draws itself from one answer: which of these inputs do I
+render.
 
-```ts file=libs/acl/README.md region=field-permissions
-
-```
-
-`*` means every field, and `!status` takes one back out.
-
-The fifth argument is the axis. `'read'` asks which fields of the question you
-may see; `'write'` asks which you may set, and takes the proposed question after
-it. The call above names `read` twice, once as the action and once as the axis,
-and they are different arguments.
-
-The map covers every field on the question and every field your rules name. On a
-write it also covers every field of whatever the caller sent you, including one
-the question has never had. That last case is why the engine computes the map for
-each call rather than reading it off the matrix.
-
-## Applying the field map with `pickAllowedFields`
-
-You have the map. The package applies it for you, and you should let it. A
-customer edits their own question; the shop's lock on `status` is not theirs:
+`canFields` answers it. It decides the action and every field of the write in one
+pass, and the shop's lock on `status` is not the customer's:
 
 ```ts file=libs/acl/README.md region=write-path
 
 ```
 
+`*` means every field, and `!status` takes one back out.
+
+The fifth argument is the axis. `'write'` asks which fields you may set and takes
+the proposed question after it. `'read'` asks which you may see and takes nothing
+more. The call above names `update` as the action and `write` as the axis, and
+they are different arguments.
+
+The map covers every field on the question, every field your rules name, and on a
+write every key the caller sent you, including one the question has never had.
+That last case is why the engine computes the map on every call: the matrix
+cannot hold a field nobody has declared yet.
+
+## Applying an acl field map with `pickAllowedFields`
+
+A field decision is a map, and a map is not a write. `pickAllowedFields` takes
+the decision and the proposed question and returns the keys that decided
+`allowed`.
+
 Pass what it returns to the ORM. Pass only that.
 
 Never filter the map yourself. That is [the one mistake this page most wants you
 to avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
-every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
-and those are fields nobody said you could write.
+every field that is not `denied`, which keeps the `unevaluable` ones too, and
+nobody said those were writable.
 
 That is the page. You edit your question, Jo edits hers, and nobody wrote an
 `if`.
 
 ## Where to go next
 
-- [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
-  what to write instead
-- [Rules that outlive the process](/acl/advanced) — the schema, foreign
-  documents, versioning
-- [Which fields may they write?](/acl/writing) — the whole field axis, one task
-  at a time
+- [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
+  what to write in their place.
+- [Rules that outlive the process](/acl/advanced). The schema, foreign
+  documents, versioning.
+- [Can this user do this?](/acl/asking). `canMany`, and asking about a list.
+- [Which fields may they write?](/acl/writing). The whole field axis, one task
+  at a time.

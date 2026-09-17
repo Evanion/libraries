@@ -2,10 +2,15 @@
 
 <WorkshopNotice slug="acl" />
 
-`policy<Subject>()` names the subject once and returns a builder. Each `.for()`
-call binds one object kind to its type and hands the condition helpers to a
-block, so a typo in an `object.*` or `subject.*` path is a compile error — and
-so is an unknown object kind, or an object of the wrong kind, at the call site.
+`policy<Subject, Objects, Verbs>()` names the subject, the object kinds and the
+actions each kind answers for, then returns a builder. Each `.for()` names its
+kind as a value and hands the condition helpers to a block, so a typo in an
+`object.*` or `subject.*` path is a compile error. So is an unknown object kind,
+an action the kind never declared, or an object of the wrong kind at the call
+site.
+
+Chain a `.for()` per kind and one policy covers the whole app: `question`,
+`listing` and `report` accumulate into the same key map and the same document.
 
 ```ts twoslash file=libs/acl/README.md region=typed-authoring
 
@@ -13,31 +18,35 @@ so is an unknown object kind, or an object of the wrong kind, at the call site.
 
 `build()` is the terminal call, and it is where the blocks flatten to the
 canonical matrix, so `JSON.stringify(access.matrix)` emits the same document a
-foreign backend would produce. Deferring the flatten to the end of the chain
-runs validation once over every block rather than once per `.for()`.
+foreign backend would produce. The flatten waits for the end of the chain, so
+validation runs once over every block and not once per `.for()`.
 
 ## The block parameter
 
 The block receives one object carrying the whole permission model.
 
-| Call                             | What it does                             |
-| -------------------------------- | ---------------------------------------- |
-| `p.allow(action, ...conditions)` | adds an allow rule to that action        |
-| `p.deny(action, ...conditions)`  | adds a deny rule to that action          |
-| `p.fields(rules)`                | attaches field rules to that same action |
-| `p.eq` `p.ne` `p.in` `p.notIn`   | comparisons                              |
-| `p.contains`                     | the field is an array holding the value  |
-| `p.before` `p.after`             | time windows, over the bare `now`        |
-| `p.and` `p.or`                   | grouping                                 |
-| `p.always`                       | the unconditional rule                   |
+| Call                                  | What it does                              |
+| ------------------------------------- | ----------------------------------------- |
+| `p.allow(action, ...conditions)`      | adds an allow rule to that action         |
+| `p.deny(action, ...conditions)`       | adds a deny rule to that action           |
+| `p.allowEach(actions, ...conditions)` | adds that allow rule to each action named |
+| `p.denyEach(actions, ...conditions)`  | adds that deny rule to each action named  |
+| `p.fields(rules)`                     | attaches field rules to that same action  |
+| `p.visibility(visibility)`            | marks that same action for publication    |
+| `p.eq` `p.ne` `p.in` `p.notIn`        | comparisons                               |
+| `p.contains`                          | the field is an array holding the value   |
+| `p.before` `p.after`                  | time windows, over the bare `now`         |
+| `p.and` `p.or`                        | grouping                                  |
+| `p.always`                            | the unconditional rule                    |
 
-`fields` attaches to the most recently declared action, which is what makes the
-chain read as one statement per action. Calling it before any `allow` or `deny`
-in the block is an `AclConfigError` naming the object kind.
+`fields` and `visibility` attach to the most recently declared action, which is
+what makes the chain read as one statement per action. Calling either before any
+`allow` or `deny`, or after a batch that named several actions, is an
+`AclConfigError` naming the object kind.
 
-Conditions passed to one `allow` are AND-ed, and `p.or` inside them is flattened
-to disjunctive normal form — one rule per branch. Two separate `allow` calls for
-the same action are two rules, which is the same OR.
+Conditions passed to one `allow` are AND-ed, and `p.or` inside them flattens to
+disjunctive normal form, one rule per branch. Two separate `allow` calls for the
+same action are two rules, which is the same OR.
 
 ## Paths versus literals
 
@@ -61,9 +70,56 @@ TypeScript checks the field half of every condition against the bound types, the
 object key against the accumulated key map, and the object passed to a query
 against the type that key was bound to.
 
-It does not check action names or comparand value types — both are strings. An
-action name is not caught anywhere, because an action the matrix does not carry
-is a legitimate question on the foreign path.
+It checks action names against the vocabulary the kind declares, and it never
+checks comparand value types. A kind whose vocabulary is `string` takes any
+action, because an action the matrix does not carry is a legitimate question on
+the foreign path.
+
+## The vocabulary of a kind
+
+`policy()` takes a third map, kind to the actions that kind answers for. A kind
+the map leaves out may declare the four `Action` verbs and nothing else:
+
+```ts twoslash
+// @errors: 2345 2551
+import { policy } from '@evanion/acl';
+import type { Action } from '@evanion/acl';
+
+type Subject = { id: string };
+type Question = { askedBy: string };
+type Objects = { question: Question };
+type Verbs = { question: Action | 'answer' };
+
+const subject: Subject = { id: 's1' };
+// ---cut---
+const access = policy<Subject, Objects, Verbs>()
+  .for('question', (p) =>
+    p
+      .allow('read', p.always)
+      .allow('answer', p.eq('object.askedBy', 'subject.id')),
+  )
+  .build();
+
+access.can(subject, 'question', 'answer');
+access.can(subject, 'question', 'answr');
+
+const caps = access.capabilities(subject);
+caps['question.read'];
+caps['question.raed'];
+```
+
+The vocabulary says what a kind may do; the block says what it does. Only the
+second reaches the keys, so a `'reprice'` the vocabulary lists and no block
+allows puts no `question.reprice` in `capabilities()`.
+
+The keys accumulate one `.for()` at a time, and `build()` hands them to the
+evaluator. A block whose body is a statement with no return hands back no chain
+to read the actions off, so its document answers `Record<string, Decision>`.
+
+`allowEach(actions, ...conditions)` and `denyEach` write one rule across several
+actions, one ordinary permission each, so the document names every action it
+grants. `CRUD_ACTIONS` is the four default verbs at runtime, which is what an
+author hands `allowEach` to open all four at once.
 
 ## The document a typed policy emits
 
@@ -74,21 +130,21 @@ them in the document it flattens to:
 
 ```
 
-They sit on `policy()` rather than on a method at the end of the chain because
-neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
-and both are known before the first block is written.
+They sit on `policy()` and not on a method at the end of the chain, because
+neither is a per-kind fact: `.for()` exists to write one kind's rules, and both
+are known before the first block is written.
 
-A schema is written by hand. `.for<'question', Question>()` holds `Question` at the
-type level only, and a schema is runtime JSON, so nothing can derive one from the
-type argument. The duplication is the point: TypeScript gives the
+A schema is written by hand. The object map holds `Question` at the type level
+only, and a schema is runtime JSON, so nothing can derive one from the type
+argument. The duplication is the point: TypeScript gives the
 field-existence guarantee to the author, the schema gives it to everyone
 downstream. The document travels; the types do not. A consumer adopting the
 emitted JSON with `parseMatrix` has no `Question` to check against.
 
 The two are checked independently and can disagree. A path TypeScript accepts
 because the type declares the field is still an `UnknownFieldError` at
-construction when the schema does not declare it — the schema is binding
-wherever it is present.
+construction when the schema does not declare it. The schema is binding wherever
+it is present.
 
 ## A bound handle
 
@@ -100,11 +156,10 @@ questions.can(subject, 'update', question);
 questions.canFields(subject, 'update', question, 'write', proposed);
 ```
 
-It carries `can`, `canMany`, `canFields` and `readsObject`.
-`authorize(subject)` is the other axis — it binds the subject instead — and the
-two compose. `authorize` carries `can`, `canMany`, `canFields` and
-`capabilities`: `readsObject` takes no subject, so there is nothing for it to
-drop.
+It carries `can`, `canMany`, `canFields` and `readsObject`. `authorize(subject)`
+is the other axis, binding the subject, and the two compose. `authorize` carries
+`can`, `canMany`, `canFields` and `capabilities`: `readsObject` takes no subject,
+so there is nothing for it to drop.
 
 ## Construction errors
 
@@ -126,9 +181,8 @@ built, which is startup for a local matrix and adoption time for a foreign one.
 | `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                              |
 | `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                             |
 
-Two more carry the same base class but are raised by a query rather than by
-construction, and only on the open path: `UnknownObjectKeyError` and
-`UnknownPermissionError`. A local typed matrix knows its key universe, so an
+Two more carry the same base class and are raised by a query on the open path,
+not by construction: `UnknownObjectKeyError` and `UnknownPermissionError`. A local typed matrix knows its key universe, so an
 unknown key there is a programmer error. Under `parseMatrix` the same key fails
 closed with `reason: 'unknown-action'` and nothing throws.
 

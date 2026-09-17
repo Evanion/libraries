@@ -2,24 +2,49 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    `apps/admin` in this repository is a React Router 8 framework-mode app with
-    `ssr: true`, stable route `middleware`, `createContext`, and a `.server.ts`
-    convention. Every shape below follows that app's files. It does not run
-    `@evanion/acl` today.
+    `apps/admin` in this repository is Baize's back office: a React Router 8
+    framework-mode app with `ssr: true`, stable route `middleware` and a
+    `.server.ts` convention. It adopts `apps/shop-api`'s document, enforces it
+    in loaders and actions, and toggles the tree with `@evanion/react-acl`.
+    Every fence below is a region of that app and runs under `nx test admin`.
   </Text>
 </WorkshopNotice>
 
-The core in the loader, [`@evanion/react-acl`](/react-acl)
-in the component tree. The loader is the trusted side. The tree is not.
+<PageSheet
+  difficulty={4}
+  read={8}
+  requires={[['A policy from another service', '/acl/adopting']]}
+  unlocks={[
+    ['Next.js RSC', '/acl/next-rsc'],
+    ['Field permissions', '/acl/fields'],
+  ]}
+/>
+
+**The concept.** A React Router route has two server entry points, the loader
+and the action, with a browser tree between them that is neither. A
+`<Form method="post">` reaches the action. So does `curl`, and the loader that
+decided what to render never ran for that caller.
+
+**What you will have.** What `apps/admin` runs: middleware binding the subject
+and deferring the contract read, loaders deciding what a page returns, the action
+deciding again on the row, and `useCan` picking the form or the sentence.
+
+**Why you would want it.** Baize grants `game.declare` to an operator whose own
+shop lists the title. Ines works in Stockholm, so the availability form is drawn
+on Wingspan and withheld on Azul, which Gothenburg lists. The URL resolves
+either way.
+
+**How the library gets you there.** `parseMatrix` adopts the fetched document in
+this process, so the loader, the action and the browser tree evaluate the same
+rules and none of them asks shop-api a question.
 
 ## Two boundaries, not one
 
 <Panel heading="An action is reached without a loader ever running">
   <Text as="div" size="sm">
-    A `<Form method="post">` posts to the route's action. So does `curl`. The
-    loader that decided what to render did not run for that caller, and the
-    action carries none of its conclusions. Every action re-resolves the subject
-    and decides again.
+    The loader that decided what to render did not run for the caller reaching
+    the action, and the action carries none of its conclusions. Every action
+    re-resolves the subject and decides again.
   </Text>
 </Panel>
 
@@ -31,299 +56,162 @@ in the component tree. The loader is the trusted side. The tree is not.
 | `action`        | server  | yes, independently, for what it writes |
 | `clientLoader`  | browser | never                                  |
 
-`apps/admin` has no `clientLoader` anywhere and loads everything server-side,
-which is the shape this page assumes. Where one exists, it runs in the browser
-and is not a trust boundary, whatever it fetches from.
+A `clientLoader` runs in the browser and is no trust boundary, whatever it
+fetches from. `apps/admin` has none and loads everything server-side, which is
+the shape this page assumes.
 
-## Building the matrix
+## Adopting the document shop-api published
 
-Module scope in a `.server.ts` module. That suffix is load-bearing in this app:
-`apps/admin/app/shop-api.server.ts` notes that the Vite plugin makes importing a
-`.server` module from client-reachable code a build error. `Subject` and `Title`
-are the app's own types, and `MATRIX_VERSION` is a string the build stamps in —
-the document revision a client compares its copy against.
+`apps/admin` authors no rules. `AdminSubject` carries `id`, `roles` and `shop`,
+`AdminObjects` maps each key to the row shape it decides over, and `adoptMatrix`
+turns a fetched document into an evaluator:
 
-```ts
-// app/access.server.ts
-import { policy } from '@evanion/acl';
+```ts file=apps/admin/app/access.ts region=adopt-matrix
 
-import type { Subject, Title } from './types.js';
-
-/** Stamped at build time; `access.version` is what a client compares. */
-const MATRIX_VERSION = process.env.MATRIX_VERSION;
-
-export const access = policy<Subject>({ version: MATRIX_VERSION })
-  .for<'title', Title>('title', (p) =>
-    p
-      .allow('read', p.always)
-      .allow('declare', p.contains('subject.roles', 'operator'))
-      .deny('declare', p.eq('object.status', 'archived')),
-  )
-  .build();
 ```
 
-Construction validates, clones and freezes once per process; a decision after
-that is a function call over the frozen copy.
+`parseMatrix` and never `hydratePolicy`: the document is foreign input, and the
+closed mode makes an unknown permission a refusal where `hydratePolicy` throws
+inside a loader. The version keys the memo, because `parseMatrix` validates,
+deep-clones and deep-freezes, and none of that changes between requests over one
+document.
+
+`access.ts` is deliberately not a `.server` module. The server evaluates the
+matrix to enforce and the browser evaluates it to toggle, and the fetch is the
+server's alone: it lives in `access.server.ts`, which the Vite plugin keeps out
+of the browser bundle. A request that cannot reach shop-api falls back to
+`NO_ACCESS`, a parsed document carrying no permissions, so every key answers
+`unknown-action` and the page draws its chrome and writes nothing.
 
 ## Middleware binds, loaders decide
 
 React Router 8's stable `middleware` plus `createContext` is where the subject
-is resolved. `apps/admin` uses exactly this pair for its correlation id and its
-shelf snapshot:
+is resolved. `demoSubject()` is this app's whole identity story, `newCorrelationId`
+mints the page view's id, and `readAccess` and `readShelf` are the two fetches
+the contexts below defer:
 
-```ts
-// app/page-context.ts — not `.server`, so route modules can import the keys.
-import { createContext } from 'react-router';
-
-export const subjectContext = createContext<Subject | null>(null);
-```
-
-```ts
-// app/authorize.server.ts
-import type { MiddlewareFunction } from 'react-router';
-
-export const bindSubject: MiddlewareFunction<Response> = async ({
-  request,
-  context,
-}) => {
-  // Resolved from the session cookie this middleware verifies itself.
-  context.set(subjectContext, await verifySession(request));
-};
-```
-
-Mounted on the pathless layout that wraps every route, the way `apps/admin`
-mounts `loadPageView` on `app/shell.tsx`:
-
-```ts
-export const middleware: Route.MiddlewareFunction[] = [bindSubject];
-```
-
-The subject goes into the context directly, not behind a memo function.
-`apps/admin` installs its shelf as `() => (pending ??= readShelf(id))` rather
-than as data, and the reason it gives is the request order: middleware runs
-before the action, and revalidating loaders run after it, so middleware that
-fetched the shelf itself would hand revalidated loaders pre-action state.
-
-A subject is not that kind of value. It is the identity the request arrived
-with, and an action does not change it — except in the one case where it does. A
-route action that alters the current user's own roles leaves every revalidating
-loader in that request holding the pre-action subject, and the page renders
-against permissions the user no longer has. Redirect out of such an action
-rather than falling through to revalidation.
-
-## The loader is the decision
-
-```tsx
-// app/routes/title.tsx
-import type { Route } from './+types/title';
-
-export async function loader({ context, params }: Route.LoaderArgs) {
-  const subject = context.get(subjectContext);
-  if (!subject) throw new Response('Unauthorized', { status: 401 });
-
-  const title = await readTitle(params.urn);
-  if (!title) throw new Response('Not Found', { status: 404 });
-
-  const forUser = access.authorize(subject, { now: new Date() });
-  if (!forUser.can('title', 'read', title).allowed) {
-    throw new Response('Not Found', { status: 404 });
-  }
-
-  return {
-    title,
-    canDeclare: forUser.can('title', 'declare', title).allowed,
-  };
-}
-```
-
-`throw new Response(...)` is how this app signals a genuine refusal —
-`apps/admin/app/routes/title.tsx` throws a 404 the same way — and the root
-`ErrorBoundary` renders it through `isRouteErrorResponse`. A degraded but
-renderable page returns a field instead; `apps/admin` returns `unavailable?:
-string` for that case.
-
-`authorize` binds the subject, and optionally the clock, for the whole loader.
-The region below binds the subject alone; pass `{ now }` beside it to pin the
-instant too:
-
-```ts file=libs/acl/README.md region=server-authorize
+```ts file=apps/admin/app/page-view.server.ts region=bind-subject
 
 ```
 
-Pinning `now` at bind time keeps every `before`/`after` window in one loader
-reading one instant.
+`subjectContext` takes a value and `accessContext` and `shelfContext` take
+functions. React Router runs middleware, then the action, then the revalidating
+loaders, so a memo cell the first caller fills keeps a page view to one fetch and
+makes it happen after any action.
+
+```ts file=apps/admin/app/page-context.ts region=subject-context
+
+```
+
+The default is a subject with no roles and no shop, so a loader reached without
+the middleware having run decides against an actor Baize's matrix refuses
+everywhere. A `Subject | null` default with a 401 at every read is the other
+defensible choice; this app declines it, because a roles-less subject reaches
+the same refusal through the rules the page is already about.
+
+## The loader decides what a page returns
+
+`allows` reads one permission out of a capability map, and `telemetry.read`
+belongs to a manager:
+
+```tsx file=apps/admin/app/routes/orders.tsx region=loader-decides
+
+```
+
+The nav entry pointing here is hidden from every other subject, and it is still
+a URL, so this loader decides before it reads anything.
+
+A thrown `Response` is a genuine refusal, which the root `ErrorBoundary` renders
+through `isRouteErrorResponse`. A degraded page returns a field:
+`unavailable?: string`.
 
 ## What crosses to the tree
 
 Loader return values are the serialization boundary, and `Access` is a set of
-closures — it does not survive it. What returns is the document:
+closures that does not survive it. What crosses is the document:
 
 ```ts file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
-`hydratePolicy` is the other half of that crossing. Return the document from
-the layout loader that already returns the session, once for the whole tree
-rather than per route:
+`apps/admin`'s shell loader returns `access.matrix`, the subject and a `now`
+string once for the whole tree. The matrix is an envelope carrying its own
+`version` and `schema`, so nothing travels beside it. The subject is no
+credential: the server resolves its own on the next request.
 
-```tsx
-// app/shell.tsx
-export async function loader({ context }: Route.LoaderArgs) {
-  const subject = context.get(subjectContext);
+The shell component adopts that document with the same `adoptMatrix` the server
+used, and composes the providers with `ComposeProvider` from `@evanion/compose`:
 
-  return {
-    session: { operator: subject?.name, roles: subject?.roles },
-    matrix: access.matrix,
-    subject,
-    now: new Date().toISOString(),
-  };
-}
+```tsx file=apps/admin/app/shell.tsx region=mount-provider
+
 ```
 
-The matrix is an envelope carrying its own `version` and `schema`, so nothing
-travels beside it. The subject crosses because the client needs it to evaluate;
-it is not a credential, and the server resolves its own on the next request
-rather than reading this copy back.
-
-## Mounting the provider
-
-`apps/admin` composes its providers in the shell component with
-`ComposeProvider` from `@evanion/compose`, fed entirely by that loader:
-
-```tsx
-export default function Shell({ loaderData }: Route.ComponentProps) {
-  const { session, matrix, subject, now } = loaderData;
-
-  // Rebuilt when the document changes, not on every render: hydratePolicy
-  // validates, deep-clones and deep-freezes.
-  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
-  const context = useMemo(() => ({ now }), [now]);
-
-  return (
-    <ComposeProvider
-      providers={[
-        provider(PolicyProvider, { access, subject, context }),
-        provider(SessionProvider, { session }),
-      ]}
-    >
-      <Outlet />
-    </ComposeProvider>
-  );
-}
-```
-
-`now` crosses as a string and stays one. The hooks key their memos on it, so a
-string holds the memo across renders where a `Date` — a new object each time —
-re-evaluates the matrix.
-
-Components read `loaderData` through props rather than `useLoaderData`, which is
-this app's convention throughout.
+`now` crosses as a string, because the hooks key their memos on it by value and a
+`Date` is a new object each render. The document crosses on every server render,
+so a navigation replaces what the browser holds.
 
 ## The tree toggles, and enforces nothing
 
-```tsx
-import { useCan } from '@evanion/react-acl';
+`useCan` comes from `createPolicyContext<AdminSubject, AdminObjects>`, so the
+key and the row are both checked where the call is written:
 
-function DeclareForm({ title }: { title: Title }) {
-  if (!useCan('title', 'declare', title).allowed) return <ReadOnlyState />;
-  return (
-    <Form method="post">
-      <button name="intent" value="declare">
-        Declare
-      </button>
-    </Form>
-  );
-}
+```tsx file=apps/admin/app/routes/title.tsx region=tree-toggles
+
 ```
 
-Rendering `<ReadOnlyState />` hides a form. The action behind it is a URL, and
-the URL is still there.
+`mayDeclare` picks the availability form or a sentence naming the shop that
+declares this title. The action behind the form is a URL, and the URL is still
+there.
 
 ## Every action decides again
 
-```tsx
-export async function action({ request, context, params }: Route.ActionArgs) {
-  const subject = context.get(subjectContext);
-  if (!subject) throw new Response('Unauthorized', { status: 401 });
-
-  const title = await readTitle(params.urn);
-  if (!title) throw new Response('Not Found', { status: 404 });
-
-  const form = await request.formData();
-  const proposed = Object.fromEntries(form);
-
-  const fd = access.canFields(
-    subject,
-    'title',
-    'declare',
-    title,
-    'write',
-    proposed,
-  );
-
-  try {
-    await setTitle(title.urn, pickAllowedFields(fd, proposed));
-  } catch (error) {
-    if (error instanceof ActionNotAllowedError) {
-      return { error: 'Not yours to declare.' };
-    }
-    throw error;
-  }
-
-  return { declared: true };
-}
-```
-
-The row is re-read inside the action, not carried from the loader. Between the
-render that showed the button and this action landing, the title can be archived
-and the deny rule can start matching — the library carries no freshness token
-and cannot detect the gap.
-
-`apps/admin` returns action errors as a union the component narrows with `in`
-rather than throwing them, which suits a refusal the user can act on. A refusal
-that means "you should not have seen this control" is a thrown `Response`
-instead.
-
-Write what `pickAllowedFields` returns:
-
-```ts file=libs/acl/README.md region=write-path
+```tsx file=apps/admin/app/routes/title.tsx region=action-decides
 
 ```
 
-The write axis decides every key of the submitted form, including keys the row
-has never held. A `formData` bag is exactly the mass-assignment shape — whatever
-the client typed into a `name` attribute arrives in it — so filtering the
-returned map by hand on `!== 'denied'` writes the `unevaluable` fields and every
-key the decision does not carry.
+`decision.action.allowed` is checked first, so a refusal returns the union
+member the component narrows with `in`, and `pickAllowedFields` is reached only
+on an allowed action. That call throws `ActionNotAllowedError` on a refused one,
+so the check keeps the refusal off the exception path.
 
-## Freshness
+A `formData` bag is the mass-assignment shape: whatever the sender put a `name`
+on arrives in it, including keys the title has never held. Filtering the returned
+map by hand on `!== 'denied'` would write the `unevaluable` fields.
 
-The document crosses on every server render, so a navigation or a revalidation
-after a policy change replaces the client's copy. Between those, the client
-evaluates what it last received and has no way to know it is stale.
-`access.version` is the surface for detecting that; failing closed and forcing a
-refetch is the app's to implement.
-
-The server never depends on the client's copy, because every loader and every
-action evaluates its own.
+The row is re-read inside the action. Between the render that showed the button
+and this action landing, the title can move to another shop and the ownership
+rule can stop matching.
 
 ## Testing it
 
-`apps/admin` does not test loaders directly — no `createRoutesStub`, no
-request-level test. It tests the pure transform modules the loaders call, with
-fixtures typed against the server module's exported types.
+`apps/admin/tests/access.spec.tsx` calls the action directly, with a
+`RouterContextProvider` holding what the middleware would have set:
 
-An acl decision fits that shape: a permission is decided by `access.can` over a
-plain subject and a plain row, and both are values a test supplies. Build the
-real matrix rather than stubbing decisions. A stubbed decision asserts that the
-loader called something; a real matrix asserts that the rules say what the app
-thinks they say, and a construction failure — an unknown field, a type mismatch
-— surfaces in the test rather than on the first request.
+```tsx file=apps/admin/tests/access.spec.tsx region=calling-the-action
+
+```
+
+A `curl` at that URL reaches the same function with the same arguments, so the
+load-bearing case is where the tree and the action disagree:
+
+```tsx file=apps/admin/tests/access.spec.tsx region=refusing-the-post
+
+```
+
+Every case decides on a real document, because a stubbed decision only asserts
+that the action called something.
+
+The browser half needs a data router, because `<Form>` reads its submit:
+
+```tsx file=apps/admin/tests/access.spec.tsx region=routes-stub
+
+```
 
 ## Where to go next
 
-- [Next.js RSC](/acl/next-rsc) — the same split with a server
-  component as the trusted side
+- [Next.js RSC](/acl/next-rsc) — the same split with a server component as the
+  trusted side
+- [What can they do at all?](/acl/capabilities) — the map a loader reads
 - [Field permissions](/acl/fields) — the write axis an action decides on
 - [Security contract](/acl/security) — time of check to time of use, and matrix
   freshness

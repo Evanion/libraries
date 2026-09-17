@@ -45,15 +45,19 @@ One package, and nothing else comes with it:
 npm install @evanion/acl
 ```
 
-ESM only, Node 20 or newer, and no framework in the import graph.
+ESM only, Node 20 or newer. No framework reaches the import graph.
 
 ## Write the acl policy
 
 With the package installed, the first thing to write is the policy.
-`policy<Subject>()` names the subject once, `.for<K, Obj>(key, block)` declares
-one object kind, and `.build()` hands back the evaluator. A block holds allow
+`policy<Subject, Objects>()` names the subject and the object kinds,
+`.for(key, block)` writes one kind's rules, and `.build()` hands back the
+evaluator. A block holds allow
 rules, a rule holds conditions, and the conditions are AND-ed: the rule matches
-when every condition in it holds. While every condition reads the subject,
+when every condition in it holds. `p` is the condition helper the block hands
+you, and `p.contains(path, value)` is the one this policy needs: it reads the
+array at `subject.roles` and asks whether the role is in it. While every
+condition reads the subject,
 `capabilities` answers the whole document at once, so the policy and every
 answer it gives fit in one block:
 
@@ -95,18 +99,18 @@ and a handler that branches on the reason string grants what the engine refused.
 ## Bind the subject to one acl handle
 
 Every `can` above restated the subject. A server resolves it from the session
-once and then asks many questions about it, so `authorize` takes it once — here
-over a question policy, because binding the subject is the same move whatever the
-document holds:
+once and then asks many questions about it, so `authorize` takes it once, over
+the same report-and-listing policy:
 
 ```ts file=libs/acl/README.md region=server-authorize
 
 ```
 
-That handle carries `can`, `canMany`, `canFields` and `capabilities` with the
-subject dropped from each signature. It also makes the guarded call the shortest
-one to write, which is the only lever the library has on [complete
-mediation](/acl/security#complete-mediation).
+The bookseller reads the report and does not export it, and neither call named
+who was asking. That handle carries `can`, `canMany`, `canFields` and
+`capabilities` with the subject dropped from each signature. It also makes the
+guarded call the shortest one to write, which is the only lever the library has
+on [complete mediation](/acl/security#complete-mediation).
 
 <Panel heading="This decision is authoritative only where it is made">
   <Text as="div" size="sm">
@@ -135,8 +139,9 @@ with it, is [Rules that read the object](/acl/intermediate).
 
 ## Where to go next
 
-- [Rules that read the object](/acl/intermediate) — the typed builder, field
-  permissions and the guarded save
-- [Can this user do this?](/acl/asking) — the decision shape, and asking about a
-  list
-- [What can they do at all?](/acl/capabilities) — driving a menu from one call
+- [Rules that read the object](/acl/intermediate). The typed builder, field
+  permissions and the guarded save.
+- [Can this user do this?](/acl/asking). The decision shape, and asking about a
+  list.
+- [What can they do at all?](/acl/capabilities). How a menu draws itself from
+  one call.

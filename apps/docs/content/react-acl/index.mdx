@@ -10,31 +10,21 @@
   </Text>
 </WorkshopNotice>
 
-<PageSheet
-  difficulty={2}
-  read={5}
-  hands={5}
-  requires={[['Authorization overview', '/acl']]}
-  unlocks={[
-    ['Getting started', '/react-acl/getting-started'],
-    ['Which side decides', '/react-acl/boundary'],
-  ]}
-/>
-
 **The concept.** Baize's listing page draws an Edit button four components below
 the route. [`@evanion/acl`](/acl) will tell that button whether to draw itself,
-and the call takes three things: the evaluator `policy()` built, the subject —
-the signed-in shopper, as the rest of this section calls them — and the instant
+and the call takes three things: the evaluator `policy()` built, the subject
+(the signed-in shopper, as the rest of this section calls them), and the instant
 a rule with a time window in it is read against. None of those three belong to a
-button, so they arrive as props, through `ShopPage`, through `ListingView`,
-through `ActionBar`, none of which asks a question of its own.
+button, so they arrive as props. They pass through `ShopPage`, `ListingView` and
+`ActionBar`, and not one of those components asks a question of its own.
 
 **What you will have.** One provider at the top of the tree holding the
 evaluator, the shopper and the instant, and a button four levels down that asks
 with three strings and the row it is drawing.
 
-**Why you would want it.** The props survive the first component that needs
-them. Then a sibling needs the shopper too, then a third one is added by
+**Why you would want it.** You thread the three props to the first component
+that needs them and nothing objects. Then a sibling needs the shopper too, then
+a third one is added by
 somebody who threads `access` but forgets `now`, and a rule with a time window
 in it starts answering against a different instant on one branch of the page.
 
@@ -75,14 +65,15 @@ policy, so whether it suits you is a short question:
   component.
 - A screen whose shape is the answer: a form whose inputs are separately
   writable, a menu whose entries are whatever the shopper may reach, a table of
-  rows each with its own answer.
+  rows each with its own answer, an action bar that changes when the row
+  changes.
 
 ## When react-acl is the wrong tool
 
 - A server component, a loader or a Server Action. Those call
   [`access.can`](/acl/asking) directly. The package carries `'use client'` at
-  the top of its entry point, so importing it into a React Server Component
-  graph puts a client boundary where you did not want one.
+  the top of its entry point and calls `createContext`, so it cannot run in a
+  React Server Component at all.
 - One component asking one question. A provider for a single call site is a
   context you have to keep mounted, and `access.can(subject, key, action, row)`
   is the same answer in one line.
@@ -90,9 +81,9 @@ policy, so whether it suits you is a short question:
   as fresh as the render that delivered it, and a browser evaluating a stale one
   keeps granting what the server has revoked.
 
-## What ships in the react-acl package
+## What the react-acl package exports
 
-The entry point is small enough to list whole:
+The entry point is small enough to list whole. Six values and three types:
 
 | Export                                               | What it is                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------- |
@@ -101,12 +92,16 @@ The entry point is small enough to list whole:
 | `useCanMany(key, action, objects)`                   | a decision per row, parallel to the array                     |
 | `useCanFields(key, action, object, axis, proposed?)` | the field-level decision on one axis                          |
 | `useCapabilities()`                                  | every action-level decision for the current subject           |
+| `createPolicyContext(access)`                        | a provider and the same four hooks, at a typed policy's types |
 | `PolicyProviderProps`                                | the provider's props, for a wrapper that names them           |
+| `PolicyContext`                                      | what `createPolicyContext` returns                            |
+| `BoundPolicyProviderProps`                           | the typed provider's props, where `access` is optional        |
 
-Every type a hook returns — `Decision`, `FieldDecision`, `Access`, `Subject`,
-`Matrix` and the rest — is re-exported from `@evanion/acl` under the same name,
-so a component that names one does not install the core by hand. The values are
-not: `hydratePolicy` and `policy` are the core's and are imported from it.
+Every core type these signatures name is re-exported from `@evanion/acl` under
+the same name: `Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix` and
+the rest. A component that names one does not install the core by hand. The
+core's values are not re-exported. `hydratePolicy` and `policy` stay in
+`@evanion/acl`, and you import them from there.
 
 React 18 or 19 is the only peer dependency, `@evanion/acl` is a dependency, and
 the package is ESM only.
@@ -122,7 +117,8 @@ the package is ESM only.
 
 The rules themselves are the core's:
 
-- [Simple setup](/acl/simple) — writing a policy, and what a decision is
+- [Rules that read the subject](/acl/simple) — writing a policy, and what a
+  decision is
 - [Can this user do this?](/acl/asking) — the decision shape `useCan` hands back
 - [Security contract](/acl/security) — the trust boundary this package sits on
   the wrong side of

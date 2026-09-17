@@ -27,13 +27,14 @@ it names none of them.
 policy, with a role switch at the top that changes every control on it and no
 component in between that knows a permission exists.
 
-**Why you would want it.** Threading `access` and `subject` costs nothing on the
-first component and compounds after that. The component that has to carry them
-and does not read them is the one that gets refactored by somebody who does not
-know why they are there, and the branch they drop them from is the branch where
-the button stays lit.
+**Why you would want it.** You thread `access` and `subject` through one
+component and nothing objects. Thread them through five and four carry values
+they never read. One of those four is the component somebody refactors without
+knowing why the props are there, and the branch they drop them from is the branch
+where the button stays lit.
 
-**How the library gets you there.** One provider, one hook, three arguments.
+**How the library gets you there.** One provider and one hook, and the hook
+takes three arguments.
 
 ## Install react-acl
 
@@ -52,20 +53,20 @@ is signed in, and `context` carries the instant every time window in the policy
 is read against.
 
 A browser is rarely handed an evaluator. It is handed
-[the matrix](/acl/matrix) — the JSON document the server rendered with — and
+[the matrix](/acl/matrix), the JSON document the server rendered with, and
 `hydratePolicy` turns that back into one:
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
 ```
 
-Three things in that listing are worth naming.
+That listing settles three things.
 
-`'use client'` is on the file because `useMemo` is. The package itself carries
-the same directive, so `PolicyProvider` is a client component wherever it is
-imported; what this directive settles is which side `ShopAccess` runs on.
+`'use client'` is on the file because `useMemo` is. The package carries the same
+directive, so `PolicyProvider` is a client component wherever you import it.
+This one settles which side `ShopAccess` runs on.
 
-Both `useMemo` calls are load-bearing rather than tidy. `hydratePolicy`
+Both `useMemo` calls are load-bearing. `hydratePolicy`
 validates the document, deep-clones it and deep-freezes it, so it belongs once
 per matrix. The provider memoises its context value on the identity of `access`,
 `subject` and `context`, and a value rebuilt during render is a new identity on
@@ -93,16 +94,16 @@ where there is no instance yet. A rule that reads the row and is asked without
 one answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which
 has `allowed: false` on it and means something a reader can act on.
 
-Calling `useCan` outside a `PolicyProvider` throws, naming the provider. There
-is no default policy and no silent deny: a tree that lost its provider is a bug
-rather than a screen where everything is quietly forbidden.
+Call `useCan` outside a `PolicyProvider` and it throws, naming the provider.
+There is no default policy and no silent deny. A tree that lost its provider is
+a bug, and the throw is how you find it.
 
 ## Watch one react-acl provider drive a whole tree
 
-`ShopAccess` and `EditControl` are three components apart, and what sits between
-them carries nothing. That is the claim, and the absence of a prop is not
-something a listing can show — so here is the tree with each component's whole
-hook call written on it.
+`PolicyProvider` and the controls that read it are three components apart, and
+`ShopPage`, `ListingView` and `ActionBar` in between carry nothing. A listing
+cannot show the absence of a prop, so here is the tree with every hook call
+written on it.
 
 Sign in as somebody else and the provider's `subject` changes. Three boxes down,
 the badges change with it, and `ShopPage`, `ListingView` and `ActionBar` were
@@ -110,17 +111,17 @@ not re-plumbed:
 
 <PolicySpecimen />
 
-Publishing the listing does the other half. The provider is untouched; what
+Publish the listing and the other half happens. The provider is untouched. What
 changed is the row `useCan` was asked about, and only `EditControl` moves,
-because one rule in the shop's policy reads the row: a deny rule, which closes
-`edit` once the listing is published and outranks every allow that matched with
-it. [The intermediate tier](/acl/intermediate) is where denies are written.
-`no-rule-matched` and `denied` are both refusals and the badge says which,
-because the reason is what a tooltip would tell the shopper.
+because one rule in the shop's policy reads the row: a deny that closes `edit`
+once the listing is published and outranks every allow that matched with it.
+[Rules that read the object](/acl/intermediate) is where denies are written.
+`no-rule-matched` and `denied` are both refusals, and the badge says which,
+because that reason is what a tooltip would tell the shopper.
 
-`PolicyProvider` and `useCan` here are the published ones, and the policy is the
-shop policy behind [One policy, one screen](/acl/interface). A rule that changed
-there changes what these badges say.
+`PolicyProvider` and `useCan` here are the published ones, on the shop policy
+behind [One policy behind a screen](/acl/interface). A rule that changed there
+changes what these badges say.
 
 ## Ask react-acl about a list, a menu and a form
 
@@ -144,9 +145,9 @@ It passes no object, so a rule that reads one cannot be decided and the menu
 draws nothing for it. That is the no-object contract, and
 [What can they do at all?](/acl/capabilities) is where it is set out.
 
-A form needs an answer per input. `useCanFields` takes the axis — `'read'` for
-which fields may be shown, `'write'` for which may be set — and returns a map
-over every field name:
+A form needs an answer per input. `useCanFields` takes the axis and returns a map
+over every field name. `'read'` asks which fields may be shown and `'write'` asks
+which may be set:
 
 ```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
 
@@ -172,6 +173,10 @@ policy and their row against the object type:
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 
 ```
+
+That policy declares one object kind because this page works one screen. One
+policy holds every kind your app has: chain a `.for()` per kind. You do not
+build a policy, or a context, per resource.
 
 `useCan('lsiting', 'edit', listing)` is a compile error there. The imported
 `useCan` compiles the same call, and the engine throws `UnknownObjectKeyError`

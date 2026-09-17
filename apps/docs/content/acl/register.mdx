@@ -1,0 +1,88 @@
+# Security register
+
+<WorkshopNotice slug="acl" />
+
+Thirty-six classes of attack, and what `@evanion/acl` does about each. The
+suite in `libs/acl/src/security` is checked against this register: one entry per
+class, one identifier, one test, run by `nx test @evanion/acl`.
+
+[The security contract](/acl/security) argues the same material in prose.
+
+## The three tiers
+
+Each entry sits in one tier, and the tier decides what its test may claim.
+
+In tier 1 the library prevents the attack, and the test asserts that it raises a
+construction error or reaches a refusal. In tier 2 the primitive exists and the
+consumer calls it, and the test asserts that the primitive is correct and that
+the idiom it replaces is wrong on the same decision. In tier 3 the class is
+structurally out of scope and the test asserts nothing: the contract clause
+exists, and where the behaviour reads like a defence, the test pins what the
+engine really does.
+
+A tier 3 test asserts no defence; a passing one would imply one.
+
+## Tier 1, prevented
+
+Twenty entries, tested in `tier1-prevented.test.ts` under each ID.
+
+| ID      | Class                                        | CWE / OWASP        | Mechanism                                                                   |
+| ------- | -------------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
+| SEC-001 | Mass assignment through a proposed-only key  | CWE-915, API3:2023 | The write axis decides every key of `proposed`, held or not                 |
+| SEC-002 | Fail-open on an absent or null `when`        | CWE-1188, CWE-276  | `when` is required and a list; an empty one is the open grant               |
+| SEC-003 | A key disagreeing with its object and action | CWE-566            | `key` must equal `object.action`, and neither half carries a dot            |
+| SEC-004 | A deny rule reading a path the row lacks     | CWE-863, A01:2021  | An unreadable deny outranks an allow: `unevaluable`, naming the paths       |
+| SEC-005 | Prototype pollution reaching a decision      | CWE-1321           | Every path read is own-property guarded; maps use `defineProperty`          |
+| SEC-006 | A prototype member naming a transition edge  | CWE-1321           | The transitions map is read as own properties only                          |
+| SEC-007 | A narrowed write carrying `__proto__`        | CWE-1321           | `__proto__` names no field, so `pickAllowedFields` never returns it         |
+| SEC-008 | `*` and `!name` arriving as literal keys     | CWE-915            | Both are syntax in the rules, on the row and in the write                   |
+| SEC-009 | Operator and value confusion in a condition  | CWE-20             | An operand the engine would ignore is refused at construction               |
+| SEC-010 | Incorrect default permissions                | CWE-276, A01:2021  | No rules, an empty rule list and an unknown action all refuse               |
+| SEC-011 | Bypass through a user-controlled key         | CWE-566, API1:2023 | The untrusted path fails closed on an unknown key; the authored throws      |
+| SEC-012 | Mutating the matrix after adoption           | CWE-913            | The matrix is a deep-frozen copy, and so is the exposed one                 |
+| SEC-013 | A document validating and evaluating apart   | CWE-367            | The envelope is rebuilt from one read, frozen, validated as that copy       |
+| SEC-014 | Object data that cannot be coerced           | CWE-754, CWE-248   | Only a primitive names an edge; a hostile `toString` denies                 |
+| SEC-015 | Exhaustion through matrix shape              | CWE-674, CWE-400   | The freeze walk is iterative; a value nested past it is refused             |
+| SEC-016 | Decision cost growing with the matrix        | CWE-400            | A decision reads its own permission; the bound counts subject reads         |
+| SEC-017 | Type confusion across a JSON boundary        | CWE-1287           | Comparisons are strict: `'1'` is not `1`, and `null` is not absence         |
+| SEC-018 | A clock or boundary that does not parse      | CWE-754            | `unusable-clock` outranks an allow, so a timed deny keeps denying           |
+| SEC-019 | A write escaping the decision behind it      | CWE-915            | Property tests over generated writes: every picked key was marked `allowed` |
+| SEC-020 | A non-envelope document reaching the engine  | CWE-20             | A missing `permissions`, a bad version and a bare list all refuse           |
+
+## Tier 2, the primitive exists and the consumer calls it
+
+Eight entries, tested in `tier2-primitives.test.ts` under each ID.
+
+| ID      | Class                                        | CWE / OWASP        | Primitive                                                                    |
+| ------- | -------------------------------------------- | ------------------ | ---------------------------------------------------------------------------- |
+| SEC-101 | Mass assignment when applying a write        | CWE-915, API3:2023 | `pickAllowedFields` keeps what decided `allowed`; `!== 'denied'` does not    |
+| SEC-102 | A field config read as the writable list     | CWE-915            | A `targets` or `transitions` config binds one field; `fields.fields` the set |
+| SEC-103 | Object-level authorization: IDOR and BOLA    | CWE-639, API1:2023 | A condition over `object.*` plus a projection carrying the field             |
+| SEC-104 | An unevaluable decision read as a grant      | CWE-863            | `allowed` is the gate; `missing` names what a refetch brings                 |
+| SEC-105 | Unicode and key-shape attacks on a name      | CWE-176            | Names match byte for byte, so an explicit allow-list closes the question     |
+| SEC-106 | `in` and `eq` disagreeing about NaN          | CWE-1077           | `includes` is SameValueZero and `===` is not; spell "never" as an equality   |
+| SEC-107 | A stale matrix granting a revoked permission | CWE-672            | `access.version` detects the mismatch; refetching is the consumer's          |
+| SEC-108 | The field maps read as the gate              | CWE-863            | The maps answer whatever the action decides; `allowed` composes both         |
+
+## Tier 3, out of scope and documented
+
+Eight entries, tested in `tier3-contract.test.ts` under each ID. Each asserts
+the clause is still written down; SEC-207 and SEC-208 also pin the gap.
+
+| ID      | Class                                     | CWE / OWASP       | Why no defence exists                                                     |
+| ------- | ----------------------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| SEC-201 | Confused deputy: a forged subject         | CWE-441, A01:2021 | `can` authorizes the bag it is handed. Resolve it from a verified session |
+| SEC-202 | Complete mediation                        | CWE-862, A01:2021 | `authorize(subject)` makes the checked path easy; nothing bars the other  |
+| SEC-203 | TOCTOU between the decision and the write | CWE-367           | A decision describes its snapshot. Re-check inside the transaction        |
+| SEC-204 | A self-authorizing condition              | CWE-639           | The engine cannot know which object fields the subject writes             |
+| SEC-205 | Client-side enforcement                   | CWE-602           | One call answers alike in a browser and a server; the runtime decides     |
+| SEC-206 | Disclosure through the matrix itself      | CWE-200           | Every key, role string and window ships. Name things to be read           |
+| SEC-207 | A caller-supplied clock                   | CWE-807, CWE-367  | A clock that parses is taken as given, sliding every window               |
+| SEC-208 | The subject and object are read live      | CWE-367           | The matrix is frozen; the app's data is not. Pass resolved objects        |
+
+## Where the suite lives
+
+`libs/acl/src/security`, matched by the package's own `src/**/*.{test,spec}.ts`
+include, so CI runs it with no project to forget. It sits apart from the unit
+tests: a unit test asserts what a function does, these assert that an attack
+fails.
