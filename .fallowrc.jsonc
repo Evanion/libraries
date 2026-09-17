@@ -79,6 +79,14 @@
   // arise.
   "ignoreExports": [
     { "file": "apps/docs/components/probes/*.ts", "exports": ["probes"] },
+
+    // An `examples/` file is one illustration, cut into a region and rendered
+    // on a page. Two of them showing the same component two ways name it the
+    // same thing on purpose, and no barrel re-exports either.
+    {
+      "file": "libs/*/examples/*.{ts,tsx}",
+      "exports": ["EditControl", "ShopAccess"],
+    },
   ],
 
   // 30 tokens rather than the default 50: `toEpoch`, duplicated between
