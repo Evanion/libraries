@@ -156,8 +156,9 @@ each call rather than reading it off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
 
-You have the map. The package applies it for you, and you should let it — here
-on a user record, because the two calls narrow every kind alike:
+You have the map. The package applies it for you, and you should let it. A
+customer edits their own question; the shop's lock on `status` is not theirs to
+turn:
 
 ```ts file=libs/acl/README.md region=write-path
 
