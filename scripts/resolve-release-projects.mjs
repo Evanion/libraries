@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Resolves the release workflow's free-text `projects` input against the
-// project graph, and writes the result to $GITHUB_OUTPUT as `projects`.
+// project graph, and writes two lists to $GITHUB_OUTPUT: `projects`, the set to
+// release, and `verify-projects`, the set to run the verify gate over.
 //
 // Both `nx release` and `nx release publish` read that one output rather than
 // the raw input, so the set that gets versioned and the set that gets published
@@ -31,13 +32,77 @@ function fail(message) {
   process.exit(1);
 }
 
+/**
+ * Every project reachable from `seeds` by following `edges`, seeds included.
+ */
+function closure(seeds, edges) {
+  const reached = new Set(seeds);
+  const queue = [...seeds];
+
+  while (queue.length > 0) {
+    for (const next of edges.get(queue.pop()) ?? []) {
+      if (reached.has(next)) continue;
+      reached.add(next);
+      queue.push(next);
+    }
+  }
+
+  return reached;
+}
+
+/**
+ * The projects the verify gate has to cover for a release of `released`.
+ *
+ * Three groups, and each is in the published artifact's blast radius:
+ *
+ * - the released packages themselves;
+ * - what they depend on, because the tarball is compiled against that source
+ *   and carries its types;
+ * - what depends on them, transitively. `version.updateDependents` is `always`,
+ *   so a dependent is versioned and republished by the same run whether or not
+ *   the input named it, and a dependent outside `libs/` is the thing a broken
+ *   release breaks first.
+ *
+ * A dependent's own unrelated dependencies are outside all three. Nx still
+ * builds them, because `build` orders `^build` ahead of itself, so a dependent
+ * that cannot compile is red here either way.
+ */
+function verifyScope(released, graph) {
+  const dependencies = new Map();
+  const dependents = new Map();
+
+  for (const [source, edges] of Object.entries(graph.dependencies)) {
+    for (const { target } of edges) {
+      // `dependencies` also carries edges to npm packages, which are nodes in
+      // `externalNodes` and have no targets to run.
+      if (!graph.nodes[target]) continue;
+
+      if (!dependencies.has(source)) dependencies.set(source, new Set());
+      dependencies.get(source).add(target);
+
+      if (!dependents.has(target)) dependents.set(target, new Set());
+      dependents.get(target).add(source);
+    }
+  }
+
+  return [
+    ...new Set([
+      ...closure(released, dependencies),
+      ...closure(released, dependents),
+    ]),
+  ].sort();
+}
+
 const raw = (process.env.PROJECTS ?? '').trim();
 
 // An empty input is the default: release everything nx finds affected. The
 // workflow omits `--projects` entirely in that case, because `--projects ""` is
-// a filter matching nothing.
+// a filter matching nothing. The verify gate is unscoped for the same reason and
+// for one more: the release set is decided later, by `nx release` reading
+// conventional commits, so nothing here knows what to scope to.
 if (!raw) {
   writeOutput('projects', '');
+  writeOutput('verify-projects', '');
   process.exit(0);
 }
 
@@ -110,4 +175,11 @@ if (unknown.length > 0) {
 console.log(`Releasing ${resolved.length} of ${releasable.length} projects:`);
 for (const name of resolved) console.log(`  ${name}`);
 
+const verify = verifyScope(resolved, graph);
+
+const total = Object.keys(graph.nodes).length;
+console.log(`\nVerifying ${verify.length} of ${total} projects:`);
+for (const name of verify) console.log(`  ${name}`);
+
 writeOutput('projects', resolved.join(','));
+writeOutput('verify-projects', verify.join(','));

@@ -172,6 +172,14 @@ a name that is not released here fails the run immediately and prints the
 releasable names. The same resolved list drives both the version step and the
 publish step, so what gets tagged is what gets published.
 
+The verify gate follows the same resolved list. It runs `lint`, `test`, `build`,
+`typecheck` and `check` — the target list CI runs on a pull request — over the
+released packages, what they are compiled against, and every project that
+depends on them, transitively. `projects: luhn` verifies 4 of 18 projects,
+`projects: react-widget` verifies 6, and an empty `projects` verifies all 18,
+because the release set is decided later by `nx release` reading conventional
+commits.
+
 Deferring a package loses nothing. Tags are per project, so a package left out
 of a run has its commits read on the next run that includes it.
 
