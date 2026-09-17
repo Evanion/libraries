@@ -11,13 +11,15 @@ import {
   type CartLine,
 } from '../lib/cart.js';
 import { formatPrice } from '../lib/catalogue.js';
+import { decide, refusalText } from '../lib/policy.js';
 import type { Order } from '../lib/shop-api.js';
 
-const { api } = Astro.locals;
+const { access, api, subject } = Astro.locals;
 
 let lines: CartLine[] = Astro.locals.cart;
 let order: Order | undefined;
 let checkoutError: string | undefined;
+let refusal: string | undefined;
 
 /**
  * Only a path on this site. A `back` field is form data, so an absolute URL
@@ -46,7 +48,23 @@ function persist(next: CartLine[]) {
 
 // The cart is written by POST and read by GET, in the same page, because the app
 // is server-rendered. A prerendered build could not accept the form at all.
-if (Astro.request.method === 'POST') {
+//
+// Every intent is decided against `order.create` before anything is written,
+// including the three that only edit the cookie: a cart is the draft of an
+// order, and a visitor the matrix refuses an order has nothing to draft. The
+// decision happens here rather than in the markup that renders the buttons,
+// because the buttons are a convenience and this handler is what a script
+// posting to `/cart` with curl reaches.
+//
+// One decision per request, read by the handler below and by the checkout button
+// further down, so the page and the write path answer to the same verdict.
+const decision = decide(access, subject, 'order', 'create');
+const mayOrder = decision?.allowed === true;
+
+if (Astro.request.method === 'POST' && !mayOrder) {
+  Astro.response.status = 403;
+  refusal = refusalText(decision);
+} else if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const intent = form.get('intent');
   const urn = String(form.get('urn') ?? '');
@@ -158,6 +176,20 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
   }
 
   {
+    refusal && (
+      <div class="section" data-first="true" data-refused="order.create">
+        <h1 class="baize-title baize-title--size-lg">Not from this account</h1>
+        <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
+          {refusal}
+        </p>
+        <a class="baize-button baize-button--variant-standard" href="/session">
+          Who am I?
+        </a>
+      </div>
+    )
+  }
+
+  {
     checkoutError && (
       <div class="section" data-first="true">
         <h1 class="baize-title baize-title--size-lg">That did not go through</h1>
@@ -236,8 +268,11 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
             <div class="cart__actions">
               <form method="post" action="/cart">
                 <input type="hidden" name="intent" value="checkout" />
-                <button class="baize-button baize-button--variant-primary">
-                  Place the order
+                <button
+                  class="baize-button baize-button--variant-primary"
+                  disabled={!mayOrder}
+                >
+                  {mayOrder ? 'Place the order' : 'Sign in to order'}
                 </button>
               </form>
               <a class="baize-button baize-button--variant-standard" href="/">

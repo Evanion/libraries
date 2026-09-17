@@ -2,6 +2,7 @@
 import { classNames } from '@evanion/baize-ui/tokens';
 
 import { formatPrice, gameLadderClass } from '../lib/catalogue.js';
+import { mayPlaceOrder } from '../lib/policy.js';
 import type { Game } from '../lib/shop-api.js';
 import AddToCart from './AddToCart.astro';
 import AvailabilityPill from './AvailabilityPill.astro';
@@ -16,8 +17,23 @@ interface Props {
 }
 
 const { game, back } = Astro.props;
+
+// Two separate questions, and the control needs both answered yes. Availability
+// is a fact about the shop's shelf and belongs to the catalogue; `order.create`
+// is a fact about this visitor and belongs to the matrix. A card that folded one
+// into the other would tell a signed-out shopper a title is out of print.
+//
+// Read off `Astro.locals` rather than taken as a prop: the subject and the
+// matrix are request state, and the four layers of region chrome between a page
+// and this card hold no permission of their own to pass along.
 const sellable =
   game.availability === 'in-stock' || game.availability === 'preorder';
+const mayOrder = mayPlaceOrder(Astro.locals.access, Astro.locals.subject);
+const label = !mayOrder
+  ? 'Sign in to order'
+  : sellable
+    ? 'Add to cart'
+    : 'Not orderable';
 ---
 
 {/* The library's `Card` with its media, head and foot slots filled, as Astro.
@@ -74,8 +90,8 @@ const sellable =
   <div class="baize-card__foot">
     <AddToCart
       back={back}
-      disabled={!sellable}
-      label={sellable ? 'Add to cart' : 'Not orderable'}
+      disabled={!sellable || !mayOrder}
+      label={label}
       urn={game.urn}
     />
     {

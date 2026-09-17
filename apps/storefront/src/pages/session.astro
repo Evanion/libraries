@@ -1,0 +1,78 @@
+---
+import Page from '../layouts/Page.astro';
+import { CUSTOMER_SUBJECT, SUBJECT_COOKIE } from '../lib/subject.js';
+
+/**
+ * Only a path on this site, screened the way `/cart` screens its own `back`: the
+ * field is form data, so an absolute or protocol-relative URL here would make
+ * this page an open redirect.
+ */
+function safeBack(value: unknown): string {
+  const path = typeof value === 'string' ? value : '';
+  return path.startsWith('/') && !path.startsWith('//') ? path : '/session';
+}
+
+// Who the visitor is, as a POST. The identity lives in an httpOnly cookie, which
+// only a response can set, and a GET that changed it would let a link or a
+// prefetch change who a reader is.
+//
+// No permission gates this handler. Choosing an identity is not an action the
+// matrix decides over: the matrix decides what an identity may do, and it is
+// asked once this page has said which one is in play.
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+
+  if (form.get('intent') === 'signin') {
+    Astro.cookies.set(SUBJECT_COOKIE, JSON.stringify(CUSTOMER_SUBJECT), {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+  } else {
+    Astro.cookies.delete(SUBJECT_COOKIE, { path: '/' });
+  }
+
+  return Astro.redirect(safeBack(form.get('back')), 303);
+}
+
+const { subject } = Astro.locals;
+const signedIn = subject.roles.includes('customer');
+---
+
+<Page title="Who you are">
+  <div class="section" data-first="true">
+    <h1 class="baize-title baize-title--size-lg">Who you are</h1>
+
+    {/* The demo's identity switch. Nothing here signs or verifies anything: the
+        cookie states a role and this app believes it, which is the one thing a
+        real deployment replaces. The rules it is measured against come from the
+        shop-api and are the same rules the shop-api enforces. */}
+    <p
+      class="baize-text baize-text--tone-lichen baize-text--size-base baize-text--measured"
+    >
+      This shop decides what you may do from an access matrix it fetches from the
+      shop-api and evaluates here, on the server. Sign in and the buying controls
+      appear; sign out and they refuse, in the page and again in the handler the
+      page posts to.
+    </p>
+
+    <p class="baize-text baize-text--tone-moss baize-text--size-sm">
+      Acting as <span class="trace__id">{subject.id}</span>, roles{' '}
+      <span class="trace__id">
+        {subject.roles.length === 0 ? 'none' : subject.roles.join(', ')}
+      </span>
+    </p>
+
+    <form method="post" action="/session">
+      <input
+        type="hidden"
+        name="intent"
+        value={signedIn ? 'signout' : 'signin'}
+      />
+      <input type="hidden" name="back" value="/session" />
+      <button class="baize-button baize-button--variant-primary">
+        {signedIn ? 'Sign out' : 'Sign in as a customer'}
+      </button>
+    </form>
+  </div>
+</Page>
