@@ -1,4 +1,4 @@
-# Advanced setup
+# Rules that outlive the process
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -11,28 +11,31 @@
   difficulty={4}
   read={10}
   hands={30}
-  requires={[['Intermediate setup', '/acl/intermediate']]}
+  requires={[['Rules that read the object', '/acl/intermediate']]}
   unlocks={[
     ['One policy, one screen', '/acl/interface'],
     ['Many services', '/acl/federation'],
   ]}
 />
 
-**The concept.** Baize's orders service writes the matrix. The storefront and
-the admin app read it, and neither one imports the file it was written in. The
-document has outlived the process that wrote it, and every question on this page
-follows from that.
+**The concept.** Baize's `orders` service writes the matrix. The storefront
+fetches it and evaluates it, and nobody on the storefront ever imports the file
+it was written in. By the time the storefront asks a question, the process that
+wrote the answer has exited, and every question on this page follows from
+that.
 
 **What you will have.** A document that states the field shapes its own
 conditions read, a version string a reader can compare, and a `parseMatrix` that
 takes somebody else's document without throwing on a permission you have never
 heard of.
 
-**Why you would want it.** Without the schema, the orders team renames
-`askedBy` and the storefront keeps asking about a path that no longer reads: the
-permission answers `unevaluable` forever, the UI refetches forever, and nothing
-anywhere raises an error. Without the version, the admin app grants a permission
-that was revoked an hour ago and has no way to notice.
+**Why you would want it.** Without the schema, Priya renames `buyerId` to
+`customerId` in `orders` on a Tuesday, and the storefront goes on asking about a
+path that no longer reads: the permission answers `unevaluable` forever, the
+screen refetches forever, and nothing anywhere raises an error. Without the
+version, a bookseller is handed an Edit button for a permission the owner
+revoked an hour ago, and the browser holding the old document has no way to
+notice.
 
 **How the library gets you there.** A `schema` on the document turns a mistyped
 path into an `UnknownFieldError` at construction. `version` gives the client one
@@ -41,8 +44,10 @@ does not carry, so a producer that moved on cannot take a page down.
 
 ## Declare the shape
 
-A document may declare the shapes its conditions read. The schema is optional
-for a producer and binding when present.
+The typed builder held you to `object.authorId` while you were writing the
+policy. That type stays in your editor and the document leaves without it, so a
+document that travels may declare the shapes its conditions read. The schema is
+optional for a producer and binding wherever it is present.
 
 ```ts file=libs/acl/README.md region=schema-binding
 
@@ -57,9 +62,7 @@ Two checks, both at construction: a condition naming an undeclared field is
 type is `FieldTypeMismatchError`. Granularity is per kind, so a permission on a
 kind absent from `schema.objects` is unchecked.
 
-A typed author already has the field-existence guarantee from TypeScript. The
-schema is what carries it across the wire, because the document travels and the
-types do not:
+Priya authors against the TypeScript types and ships the schema beside them:
 
 ```ts file=libs/acl/README.md region=typed-document
 
@@ -71,23 +74,29 @@ binding wherever it is present.
 
 ## Drive a UI from the whole matrix
 
-`capabilities` resolves every permission in the document against one subject, in
-document order, in a single pass:
+`capabilities` answered the whole policy at once while every condition read the
+subject, and it goes on doing that once conditions read the object too: every
+permission in the document against one subject, in document order, in a single
+pass.
 
 ```ts file=libs/acl/README.md region=capabilities
 
 ```
 
-It passes no object, so every permission whose rules read `object.*` decides
-`unevaluable` rather than true or false. That is the contract rather than a
-shortfall — without an instance there is nothing to compare against — and it is
-why [What can they do at all?](/acl/capabilities) is about the half of a matrix
-that reads only the subject.
+Two kinds, three permissions, every condition on `subject.roles`, so all three
+come back decided. A permission whose rules read `object.*` is the other case.
+The call passes no object, so that permission decides `unevaluable`: with no
+listing in hand there is nothing for `object.status` to be compared against, and
+the engine says so. [What can they do at all?](/acl/capabilities) is about the
+half of a matrix that reads only the subject, which is the half this call
+answers outright.
 
 ## Adopt a document somebody else wrote
 
-`parseMatrix` is `hydratePolicy` with `closed: true`. The key universe is
-untrusted, so an unknown object kind or action fails closed instead of throwing.
+Every document so far is one this process built, and the storefront builds
+none: `orders` does. `parseMatrix` is `hydratePolicy` with `closed: true` for
+exactly that case. The key universe is untrusted, so an unknown object kind or
+action fails closed instead of throwing.
 
 ```ts file=libs/acl/README.md region=foreign-matrix
 
@@ -101,9 +110,10 @@ another service](/acl/adopting) is the whole story.
 
 ## Version the document, and revalidate against it
 
-`version` is a string or a number and the contract compares it with `!==`, so a
-content digest or a composite such as `orders@7+veto@41` works where a counter
-cannot. The document states what a producer shipped; `hydratePolicy(matrix, {
+A foreign document now evaluates without throwing. The question left is which
+foreign document arrived. `version` is a string or a number and the contract
+compares it with `!==`, so a content digest or a composite such as
+`orders@7+veto@41` works where a counter cannot. The document states what a producer shipped; `hydratePolicy(matrix, {
 version })` states what this construction site is actually running, which the
 producer cannot know. The option wins, and the frozen `access.matrix` carries the
 winner.
@@ -112,25 +122,27 @@ winner.
 
 ```
 
-## End of the tier: fetch and revalidate
+## Refetch when the version moves
 
-A client holds the matrix it last fetched. When a permission is revoked, that
-client keeps granting it until it refetches, and it has no way to notice. The
-library supplies the comparison and nothing else:
+You can compare the two version strings. Nothing compares them for you: the
+storefront holds the matrix it last fetched, and when the owner revokes a
+permission that copy goes on granting it until somebody fetches again. The
+library supplies the comparison and leaves the fetch to you:
 
 ```ts file=libs/acl/README.md region=revalidate
 
 ```
 
 There is no push, no expiry and no staleness flag. A document that states no
-`version` leaves `access.version` undefined, where a `!==` decides nothing — so
-a producer that wants the contract to hold states one. The server never depends
-on a client's copy in any case, because it evaluates its own.
+`version` leaves `access.version` undefined, where a `!==` decides nothing, so a
+producer who wants the contract to hold states one. The `orders` service never
+depends on the storefront's copy in any case: it evaluates its own before it
+writes anything.
 
 ## Where to go next
 
 - [Many services](/acl/federation) — one matrix per service, namespaced kinds,
   and what a gateway holds
-- [Caveats and pitfalls](/acl/pitfalls) — including the two gaps this tier is
-  most likely to walk into
+- [Caveats and pitfalls](/acl/pitfalls) — including the two gaps a travelling
+  document is most likely to walk into
 - [Security contract](/acl/security) — what remains yours
