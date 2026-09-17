@@ -8,7 +8,7 @@ this entry imports no framework.
 ## Construction
 
 ```ts
-function createPolicy<Sub, R>(
+function hydratePolicy<Sub, R>(
   matrix: Matrix,
   options?: AccessOptions,
 ): Access<Sub, R>;
@@ -29,7 +29,7 @@ interface AccessOptions {
 type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 ```
 
-`parseMatrix` is `createPolicy` with `closed: true`. `policy()` returns a
+`parseMatrix` is `hydratePolicy` with `closed: true`. `policy()` returns a
 builder whose `.for<K, Obj>(key, block)` accumulates the key-to-type map, and
 `build()` hands that map to the evaluator, so every query on the result is
 checked against it. See [Typed authoring](/acl/authoring).
@@ -216,7 +216,7 @@ is taken against.
 The engine's per-node functions are not exported. Each answers a fragment of a
 decision and leaves the rest to the caller: the permission-level one takes a
 permission node the gate never checked; the field-level one returns an
-`allowed` that ignores the action-level gate. `createPolicy` and
+`allowed` that ignores the action-level gate. `hydratePolicy` and
 `parseMatrix` compose them, and one of those two is the entry point — for an
 application and for a tool inspecting a matrix alike.
 

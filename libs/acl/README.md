@@ -19,23 +19,32 @@ npm install @evanion/acl
 
 ## Quick start
 
+Three entry points, split by where the document came from:
+
+| Entry            | The document is           | An unknown key |
+| ---------------- | ------------------------- | -------------- |
+| `policy().build` | one you are writing now   | throws         |
+| `hydratePolicy`  | yours, arriving back      | throws         |
+| `parseMatrix`    | somebody else's, arriving | fails closed   |
+
+`policy()` is where a policy is written. `hydratePolicy` takes a document that
+already exists and returns an evaluator over it, which is what a server's
+matrix reaching a client is. `parseMatrix` is the same call with `closed: true`
+preset, because a document whose author you are not should refuse an unknown
+key rather than throw.
+
 <!-- #region quick-start -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'comment.update',
-      object: 'comment',
-      action: 'update',
-      rules: [
-        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-      ],
-    },
-  ],
-});
+type Comment = { id: string; authorId: string };
+
+const access = policy<{ id: string }>()
+  .for<'comment', Comment>('comment', (p) =>
+    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  )
+  .build();
 
 const decision = access.can({ id: 's1' }, 'comment', 'update', {
   authorId: 's1',
@@ -117,20 +126,15 @@ enough however many rules read the object.
 <!-- #region refetch -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'comment.update',
-      object: 'comment',
-      action: 'update',
-      rules: [
-        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-      ],
-    },
-  ],
-});
+type Comment = { id: string; authorId: string };
+
+const access = policy<{ id: string }>()
+  .for<'comment', Comment>('comment', (p) =>
+    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  )
+  .build();
 
 // The list query selected `id` and `title`; the rule reads `authorId`.
 const projection = { id: 'c1', title: 'Draft' };
@@ -159,20 +163,15 @@ per row.
 <!-- #region can-many -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'comment.update',
-      object: 'comment',
-      action: 'update',
-      rules: [
-        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-      ],
-    },
-  ],
-});
+type Comment = { id: string; authorId: string };
+
+const access = policy<{ id: string }>()
+  .for<'comment', Comment>('comment', (p) =>
+    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  )
+  .build();
 
 const rows = [
   { id: 'c1', authorId: 's1' },
@@ -197,38 +196,22 @@ document, resolved in dependency order against one subject.
 <!-- #region capabilities -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-// One matrix, every object kind the app has. A permission names its own
-// object, so `report` and `invoice` live in the same flat list.
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'report.read',
-      object: 'report',
-      action: 'read',
-      rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'staff' }] },
-      ],
-    },
-    {
-      key: 'report.export',
-      object: 'report',
-      action: 'export',
-      rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
-      ],
-    },
-    {
-      key: 'invoice.read',
-      object: 'invoice',
-      action: 'read',
-      rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
-      ],
-    },
-  ],
-});
+type Staffer = { id: string; roles: string[] };
+
+// One policy, every object kind the app has. A `.for()` per kind, and the
+// permissions they flatten to live in the same flat list.
+const access = policy<Staffer>()
+  .for<'report', { id: string }>('report', (p) =>
+    p
+      .allow('read', p.contains('subject.roles', 'staff'))
+      .allow('export', p.contains('subject.roles', 'admin')),
+  )
+  .for<'invoice', { id: string }>('invoice', (p) =>
+    p.allow('read', p.contains('subject.roles', 'admin')),
+  )
+  .build();
 
 const caps = access.capabilities({ id: 'u1', roles: ['staff'] });
 
@@ -308,9 +291,9 @@ nothing assembled around it:
 <!-- #region matrix-round-trip -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 
-const access = createPolicy({
+const access = hydratePolicy({
   version: 'orders@7',
   permissions: [
     { key: 'comment.read', object: 'comment', action: 'read', rules: [] },
@@ -321,7 +304,7 @@ const access = createPolicy({
 const payload = JSON.parse(
   JSON.stringify(access.matrix),
 ) as typeof access.matrix;
-createPolicy(payload).version; // -> 'orders@7'
+hydratePolicy(payload).version; // -> 'orders@7'
 ```
 
 <!-- #endregion matrix-round-trip -->
@@ -332,7 +315,7 @@ number cannot — and a composite is what an effective version needs when a
 construction site merges a document with something else, such as a compliance
 deny overlay applied before construction.
 
-`createPolicy(matrix, { version })` **overrides** the document's value. The
+`hydratePolicy(matrix, { version })` **overrides** the document's value. The
 document states what a producer shipped; the option states what the construction
 site is actually running, which the producer cannot know. The option wins, and
 the frozen `access.matrix` carries the winner, so the version that decided is the
@@ -346,7 +329,7 @@ for a producer and binding when present.
 <!-- #region schema-binding -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 import type { Matrix } from '@evanion/acl';
 
 const matrix: Matrix = {
@@ -374,7 +357,7 @@ const matrix: Matrix = {
 
 let refused = '';
 try {
-  createPolicy(matrix);
+  hydratePolicy(matrix);
 } catch (error) {
   refused = (error as Error).name;
 }
@@ -631,7 +614,13 @@ deny is a partial write, so that case returns the allowed subset.
 ## Foreign matrix
 
 A backend that uses its own ACL can expose its matrix as JSON and the frontend
-adopts it. A foreign matrix fails closed on unknown permissions.
+adopts it. The split is provenance: `hydratePolicy` is your own document coming
+back, `parseMatrix` is somebody else's arriving, and only the second fails
+closed on an unknown key.
+
+The preset earns its five lines. A foreign document whose adopter forgot the
+flag would throw on an unknown key instead of refusing, and which of the two a
+document gets is the one thing these names have to make obvious.
 
 <!-- #region foreign-matrix -->
 
@@ -676,7 +665,7 @@ naming discipline.
 <!-- #region federation -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { parseMatrix } from '@evanion/acl';
 import type { Decision, Matrix } from '@evanion/acl';
 
 const ordersMatrix: Matrix = {
@@ -707,10 +696,11 @@ const billingMatrix: Matrix = {
   ],
 };
 
-// One Access per origin, every one of them closed.
+// One Access per origin. Each document belongs to the service that emitted it,
+// so each arrives through `parseMatrix` and fails closed.
 const policies = new Map([
-  ['orders', createPolicy(ordersMatrix, { closed: true })],
-  ['billing', createPolicy(billingMatrix, { closed: true })],
+  ['orders', parseMatrix(ordersMatrix)],
+  ['billing', parseMatrix(billingMatrix)],
 ]);
 
 const subject = { id: 'u1', roles: ['finance'] };
@@ -736,8 +726,8 @@ That view is advisory, in the same tier as a browser's. Every service behind the
 edge evaluates its own matrix for itself and never trusts the edge's answer.
 
 An unreachable upstream needs no special handling. Its origin is absent from the
-map, and under `closed: true` every key it would have answered is already
-`{ allowed: false, reason: 'unknown-action' }`.
+map, and `parseMatrix` fails closed, so every key it would have answered is
+already `{ allowed: false, reason: 'unknown-action' }`.
 
 One permission never gates another, inside one origin or across two. When a
 request touches two services, the fan-out is the caller's own `&&` —
@@ -754,17 +744,22 @@ The owning service fetches them and applies them in its own process, before it
 constructs its policy:
 
 ```
-authored matrix -> applyDenyOverlay -> createPolicy -> access
+authored matrix -> applyDenyOverlay -> hydratePolicy -> access
 ```
 
 `applyDenyOverlay` appends each key's rules to that permission's `denyRules` and
 returns a new matrix. Nothing merges at an edge, nothing but the owner is
 authoritative, and the service that enforces the veto is the one that applies it.
 
+The document at the end of that arrow is the one case the names do not divide
+cleanly: the owner composed it in this process, so nothing was serialized and
+nothing is foreign. It takes `hydratePolicy` because that is the open-mode
+entry, and there the name is wider than its word.
+
 <!-- #region deny-overlay -->
 
 ```ts @import.meta.vitest
-import { applyDenyOverlay, createPolicy } from '@evanion/acl';
+import { applyDenyOverlay, hydratePolicy } from '@evanion/acl';
 import type { DenyOverlay, Matrix } from '@evanion/acl';
 
 // The owner's document. `schema.objects.payout` is what opening `payout.send`
@@ -797,7 +792,7 @@ const overlay: DenyOverlay = {
   ],
 };
 
-const access = createPolicy(
+const access = hydratePolicy(
   applyDenyOverlay(authored, overlay, { vetoable: ['payout.send'] }),
   { version: 'payments@7+veto@41' },
 );
@@ -833,20 +828,15 @@ component evaluates without restating it.
 <!-- #region server-authorize -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'comment.read',
-      object: 'comment',
-      action: 'read',
-      rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
-      ],
-    },
-  ],
-});
+type Subject = { id: string; roles: string[] };
+
+const access = policy<Subject>()
+  .for<'comment', { id: string }>('comment', (p) =>
+    p.allow('read', p.contains('subject.roles', 'editor')),
+  )
+  .build();
 
 const forUser = access.authorize({ id: 's1', roles: ['editor'] });
 forUser.can('comment', 'read').allowed; // -> true
@@ -874,29 +864,18 @@ decision tells it apart from a call that happened to lack data.
 <!-- #region reads-object -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'article.read',
-      object: 'article',
-      action: 'read',
-      rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'staff' }] },
-      ],
-    },
-    {
-      key: 'article.update',
-      object: 'article',
-      action: 'update',
-      rules: [{ when: [] }],
-      denyRules: [
-        { when: [{ field: 'object.locked', op: 'eq', value: true }] },
-      ],
-    },
-  ],
-});
+type Article = { id: string; locked: boolean };
+
+const access = policy<{ id: string; roles: string[] }>()
+  .for<'article', Article>('article', (p) =>
+    p
+      .allow('read', p.contains('subject.roles', 'staff'))
+      .allow('update', p.always)
+      .deny('update', p.eq('object.locked', true)),
+  )
+  .build();
 
 access.readsObject('article', 'read'); // -> false
 access.readsObject('article', 'update'); // -> true
@@ -974,9 +953,10 @@ way to detect the gap.
 
 `now` is a parameter. Omitted, it is the wall clock; supplied, it is whatever
 the caller passed, and every `before`/`after` window moves with it. A `now` that
-reaches `can` from a client payload — a hydration blob, a request body, a query
-string — hands the client every time window in the matrix. Pass it only to make
-a server render and its rehydration agree, and resolve it server-side.
+reaches `can` from a client payload — a request body, a query string, anything
+the browser sent — hands the client every time window in the matrix. Pass it
+only to make a server render and the client's first render agree, and resolve
+it server-side.
 
 In a browser the wall clock belongs to the subject. Setting the system clock
 back re-opens a window that has closed, and the library cannot detect it,
@@ -1033,12 +1013,12 @@ what to do with a mismatch, and rebuilding are the consumer's:
 <!-- #region revalidate -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 import type { Access, Matrix } from '@evanion/acl';
 
 /** Rebuild when the served document moved; otherwise keep the one in hand. */
 function revalidate(current: Access, served: Matrix): Access {
-  return current.version === served.version ? current : createPolicy(served);
+  return current.version === served.version ? current : hydratePolicy(served);
 }
 
 const served: Matrix = {
@@ -1048,7 +1028,7 @@ const served: Matrix = {
   ],
 };
 
-let access = createPolicy({ ...served, version: 'orders@7' });
+let access = hydratePolicy({ ...served, version: 'orders@7' });
 access = revalidate(access, served);
 access.version; // -> 'orders@8'
 ```
@@ -1062,9 +1042,9 @@ expiry and no way for a held matrix to notice that it is stale.
 
 | Export                                                                                     | Purpose                                                                                    |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `createPolicy(matrix, options?)`                                                           | Builds the access object from a matrix document. Validates, clones and freezes.            |
-| `parseMatrix(json, options?)`                                                              | Adopts a foreign matrix document; fails closed on unknown keys.                            |
 | `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind, `.build()` for the evaluator.   |
+| `hydratePolicy(matrix, options?)`                                                          | An evaluator over a document you already have. Validates, clones and freezes.              |
+| `parseMatrix(json, options?)`                                                              | Adopts somebody else's document; fails closed on unknown keys.                             |
 | `p.allow` / `p.deny` / `p.fields`                                                          | Declare one action inside a `.for()` block.                                                |
 | `p.eq` / `ne` / `in` / `notIn` / `contains` / `before` / `after` / `and` / `or` / `always` | Build a permission's conditions, path-checked against the block's types.                   |
 | `access.object(key)`                                                                       | A handle bound to one object kind, so the key is named once.                               |
@@ -1087,34 +1067,25 @@ anything.
 
 `now` is an `Instant` — an ISO 8601 string, epoch milliseconds, or a `Date` —
 wherever it is taken, which is the same type a `before`/`after` condition value
-takes. A context hydrated from JSON carries a string and is passed through as
+takes. A context that crossed JSON carries a string and is passed through as
 it stands:
 
 <!-- #region clock -->
 
 ```ts @import.meta.vitest
-import { createPolicy } from '@evanion/acl';
+import { policy } from '@evanion/acl';
 
-const access = createPolicy({
-  permissions: [
-    {
-      key: 'sale.buy',
-      object: 'sale',
-      action: 'buy',
-      rules: [
-        {
-          when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
-        },
-      ],
-    },
-  ],
-});
+const access = policy<{ id: string }>()
+  .for<'sale', { id: string }>('sale', (p) =>
+    p.allow('buy', p.after('now', '2026-01-01T00:00:00Z')),
+  )
+  .build();
 
-const hydrated = JSON.parse(
+const crossed = JSON.parse(
   JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),
 ) as { now: string };
 
-const open = access.can({ id: 's1' }, 'sale', 'buy', undefined, hydrated.now);
+const open = access.can({ id: 's1' }, 'sale', 'buy', undefined, crossed.now);
 open.allowed; // -> true
 
 const early = Date.parse('2025-06-01T00:00:00Z');

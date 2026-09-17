@@ -43,9 +43,9 @@ npm install @evanion/react-acl
 
 ```tsx
 import { PolicyProvider, useCan } from '@evanion/react-acl';
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 
-const access = createPolicy({
+const access = hydratePolicy({
   permissions: [
     {
       key: 'comment.update',
@@ -93,9 +93,9 @@ function CommentList() {
 ## The clock
 
 `context.now` takes any `Instant`: an ISO 8601 string, epoch milliseconds, or a
-`Date`. Pass the string an SSR payload hydrates with rather than converting it —
-the hooks key their memo on `now`, so a string holds the memo across renders
-where a `Date` is a new object every render and re-evaluates the matrix.
+`Date`. Pass the string an SSR payload carries and leave it as it stands — the
+hooks key their memo on `now`, so a string holds the memo across renders where
+a `Date` is a new object every render and re-evaluates the matrix.
 
 ## License
 

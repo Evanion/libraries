@@ -32,7 +32,7 @@ const RUNTIME_EXPORTS = [
   'UnknownPermissionError',
   'UnvetoablePermissionError',
   'applyDenyOverlay',
-  'createPolicy',
+  'hydratePolicy',
   'parseMatrix',
   'pickAllowedFields',
   'policy',

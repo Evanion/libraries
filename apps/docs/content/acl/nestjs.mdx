@@ -50,7 +50,7 @@ export class AclModule {
   static forRoot(matrix: Matrix): DynamicModule {
     const accessProvider: Provider = {
       provide: ACL_ACCESS,
-      useValue: createPolicy(matrix),
+      useValue: hydratePolicy(matrix),
     };
 
     return {
@@ -69,7 +69,7 @@ is registered in a global module where a bare string collides silently, and a
 symbol is identity-based, so two copies of the package mint two tokens and Nest
 fails to resolve one.
 
-`createPolicy` runs once, at `forRoot()`, and the frozen document it returns is
+`hydratePolicy` runs once, at `forRoot()`, and the frozen document it returns is
 a singleton for the life of the process.
 
 ## Resolving the subject
@@ -263,7 +263,7 @@ const module = await Test.createTestingModule({
   controllers: [OrdersController],
   providers: [
     OrdersService,
-    { provide: ACL_ACCESS, useValue: createPolicy(matrix) },
+    { provide: ACL_ACCESS, useValue: hydratePolicy(matrix) },
     { provide: SubjectService, useValue: { current: () => subject } },
   ],
 }).compile();

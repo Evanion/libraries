@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
-import type { Access, AccessOptions } from './create-policy.js';
+import type { Access, AccessOptions } from './hydrate-policy.js';
 import type {
   Condition,
   Decision,

@@ -39,8 +39,8 @@ can say who may edit a locked comment without reading four files, and the UI
 greys out a button the API would have accepted.
 
 **How the library gets you there.** The rules are a JSON document called the
-matrix. `createPolicy` turns the matrix into an access object. `can` answers one
-question and carries the reasons with the answer. `capabilities` answers every
+matrix. `policy()` writes one and hands back an access object over it. `can`
+answers one question and carries the reasons with the answer. `capabilities` answers every
 question at once, and `authorize` binds a subject for the length of a request.
 No round trip to a policy server, and no per-subject snapshot to build.
 
@@ -98,19 +98,19 @@ straight out:
 
 ## What ships in the acl package
 
-You have met `createPolicy` and `can`. This is the rest of what the entry point
+You have met `policy()` and `can`. This is the rest of what the entry point
 gives you:
 
-| Export                                  | What it is                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------- |
-| `createPolicy(matrix, options?)`        | the access object, from a document you trust                              |
-| `parseMatrix(json, options?)`           | the same, from a foreign document; fails closed on a key it does not know |
-| `policy<Subject>()`                     | the typed builder, one `.for()` block per object kind                     |
-| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision           |
-| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                          |
-| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request               |
-| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                             |
-| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)         |
+| Export                                  | What it is                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| `policy<Subject>()`                     | the typed builder; one `.for()` block per kind, `.build()` at the end          |
+| `hydratePolicy(matrix, options?)`       | an evaluator over a document you already have                                  |
+| `parseMatrix(json, options?)`           | the same, for somebody else's document; fails closed on a key it does not know |
+| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision                |
+| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                               |
+| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request                    |
+| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                                  |
+| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)              |
 
 The React provider and hooks are a separate package,
 [`@evanion/react-acl`](https://github.com/Evanion/libraries/tree/main/libs/react-acl#readme).

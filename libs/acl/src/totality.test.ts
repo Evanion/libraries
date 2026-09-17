@@ -4,7 +4,7 @@ import { AclConfigError, ActionNotAllowedError } from './errors.js';
 import { pickAllowedFields } from './fields.js';
 import { parseMatrix } from './parse-matrix.js';
 import { Gen, rng } from './security/generator.js';
-import type { Access, Subject } from './create-policy.js';
+import type { Access, Subject } from './hydrate-policy.js';
 import type { Decision, FieldDecision, Matrix } from './types.js';
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 import {
   PolicyProvider,
   useCan,
@@ -16,7 +16,7 @@ import type {
   Subject,
 } from './index.js';
 
-const access: Access = createPolicy({
+const access: Access = hydratePolicy({
   permissions: [
     {
       key: 'comment.update',

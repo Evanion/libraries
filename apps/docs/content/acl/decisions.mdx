@@ -231,7 +231,7 @@ also the shape that makes the guarded path the short one to write.
 `now` is a parameter of every entry point. Omitted, it is the wall clock;
 supplied, it is whatever the caller passed, and it takes any `Instant` — an ISO
 8601 string, epoch milliseconds, or a `Date`. The string and number forms
-survive JSON, so a hydrated SSR payload passes straight through.
+survive JSON, so a client-supplied instant passes straight through.
 
 ```ts file=libs/acl/README.md region=clock
 

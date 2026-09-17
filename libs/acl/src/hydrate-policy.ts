@@ -323,7 +323,7 @@ function buildIndex(
  * once at the end. Naming neither is the foreign path, where the defaults make
  * every signature the untyped one.
  */
-export function createPolicy<Sub = Subject, R = AnyObjects>(
+export function hydratePolicy<Sub = Subject, R = AnyObjects>(
   matrix: Matrix,
   options: AccessOptions = {},
 ): Access<Sub, R> {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { policy } from './authoring.js';
-import { createPolicy } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { AclConfigError, UnknownFieldError } from './errors.js';
 import type { Matrix, MatrixSchema } from './types.js';
 
@@ -79,7 +79,7 @@ describe('authoring', () => {
     expect(access.version).toBe('orders@7+veto@41');
     // The whole document crosses an SSR boundary on its own, with nothing
     // assembled around it.
-    const crossed = createPolicy(
+    const crossed = hydratePolicy(
       JSON.parse(JSON.stringify(access.matrix)) as Matrix,
     );
     expect(crossed.matrix).toEqual(access.matrix);
@@ -292,7 +292,7 @@ describe('a projection through the typed path', () => {
         .deny('update', p.eq('object.status', 'published')),
     )
     .build();
-  const untyped = createPolicy(access.matrix);
+  const untyped = hydratePolicy(access.matrix);
 
   it('answers what the untyped path answers for the same projection', () => {
     const projections: readonly Partial<Comment>[] = [
@@ -405,7 +405,7 @@ describe('the built matrix against the hand-written one', () => {
     ],
   };
 
-  const written = createPolicy(hand);
+  const written = hydratePolicy(hand);
   const comment: Comment = { authorId: 's1', status: 'published' };
 
   it('emits the same document', () => {

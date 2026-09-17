@@ -1,6 +1,6 @@
 import { AclConfigError } from './errors.js';
-import { createPolicy } from './create-policy.js';
-import type { Access, AccessOptions } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
+import type { Access, AccessOptions } from './hydrate-policy.js';
 import type {
   Condition,
   FieldRules,
@@ -324,7 +324,7 @@ export function policy<Sub>(
       return document();
     },
     build(accessOptions?: AccessOptions) {
-      return createPolicy(document(), accessOptions);
+      return hydratePolicy(document(), accessOptions);
     },
   };
 

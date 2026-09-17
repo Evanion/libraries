@@ -81,7 +81,7 @@ authored document with something else before building.
 
 ```
 
-`createPolicy(matrix, { version })` overrides the document's value. The document
+`hydratePolicy(matrix, { version })` overrides the document's value. The document
 states what a producer shipped; the option states what this site is actually
 running, which the producer cannot know. The option wins, and the frozen
 `access.matrix` carries the winner — so the version that decided is the version
@@ -127,7 +127,7 @@ permission reports `unevaluable` forever and a UI refetches forever.
 ## Adopting a foreign matrix
 
 A backend with its own ACL can publish its matrix as JSON, and the frontend
-adopts it. `parseMatrix` is `createPolicy` with `closed: true`: the key universe
+adopts it. `parseMatrix` is `hydratePolicy` with `closed: true`: the key universe
 is untrusted, so an unknown object kind or action fails closed instead of
 throwing.
 
@@ -143,7 +143,7 @@ permission nobody has.
 
 ## What construction does to the document
 
-`createPolicy` does not keep your object. It rebuilds the envelope from one read
+`hydratePolicy` does not keep your object. It rebuilds the envelope from one read
 of each member, deep-clones every permission, freezes the result, and validates
 that copy.
 

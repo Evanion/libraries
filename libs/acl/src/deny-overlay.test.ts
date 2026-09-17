@@ -9,7 +9,7 @@ import {
   UnknownPermissionError,
   UnvetoablePermissionError,
 } from './errors.js';
-import { createPolicy } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { Gen, rng } from './security/generator.js';
 import type { DenyOverlay } from './deny-overlay.js';
 import type {
@@ -266,7 +266,7 @@ describe('the structural gate runs over the contribution', () => {
 
 describe('a valid overlay narrows', () => {
   const overlaid = () =>
-    createPolicy(
+    hydratePolicy(
       applyDenyOverlay(
         base(),
         { 'comment.update': [HOLD] },
@@ -280,7 +280,7 @@ describe('a valid overlay narrows', () => {
   const object = { authorId: 'u1', status: 'open', score: 1 };
 
   it('a subject who could, now cannot', () => {
-    const before = createPolicy(base()).can(
+    const before = hydratePolicy(base()).can(
       subject,
       'comment',
       'update',
@@ -377,16 +377,16 @@ describe('an overlay deny that cannot be evaluated refuses', () => {
       ],
     };
 
-    const access = createPolicy(
+    const access = hydratePolicy(
       applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
     );
 
     // `post.read` allows unconditionally, so before the overlay this subject is
     // allowed with no object at all. The overlay's deny reads one the caller did
     // not pass.
-    expect(createPolicy(base()).can({ id: 'u1' }, 'post', 'read').allowed).toBe(
-      true,
-    );
+    expect(
+      hydratePolicy(base()).can({ id: 'u1' }, 'post', 'read').allowed,
+    ).toBe(true);
 
     const decision = access.can({ id: 'u1' }, 'post', 'read');
     expect(decision.allowed).toBe(false);
@@ -396,7 +396,7 @@ describe('an overlay deny that cannot be evaluated refuses', () => {
   });
 
   it('turns an object-independent permission into one that reads the object', () => {
-    const access = createPolicy(
+    const access = hydratePolicy(
       applyDenyOverlay(
         base(),
         {
@@ -408,7 +408,7 @@ describe('an overlay deny that cannot be evaluated refuses', () => {
       ),
     );
 
-    expect(createPolicy(base()).readsObject('post', 'read')).toBe(false);
+    expect(hydratePolicy(base()).readsObject('post', 'read')).toBe(false);
     expect(access.readsObject('post', 'read')).toBe(true);
   });
 });
@@ -434,7 +434,7 @@ describe('the result is still a document', () => {
         vetoable: VETOABLE,
       },
     );
-    const access = createPolicy(JSON.parse(JSON.stringify(result)) as Matrix);
+    const access = hydratePolicy(JSON.parse(JSON.stringify(result)) as Matrix);
 
     expect(access.version).toBe('orders@7');
     expect(access.schema).toEqual(SCHEMA);
@@ -583,7 +583,7 @@ function evaluationCase(gen: Gen): Case {
 }
 
 function decisionsFor(document: Matrix, cases: readonly Case[]): Decision[] {
-  const access = createPolicy(document);
+  const access = hydratePolicy(document);
   return cases.flatMap((item) =>
     document.permissions.map((permission) =>
       access.can(
@@ -701,6 +701,6 @@ describe('an overlaid matrix is still a document', () => {
 
     const cloned = JSON.parse(JSON.stringify(overlaid)) as Matrix;
     expect(cloned).toEqual(overlaid);
-    expect(() => createPolicy(cloned)).not.toThrow();
+    expect(() => hydratePolicy(cloned)).not.toThrow();
   });
 });

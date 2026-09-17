@@ -1,8 +1,8 @@
 import {
-  createPolicy,
+  hydratePolicy,
   type Access,
   type AccessOptions,
-} from './create-policy.js';
+} from './hydrate-policy.js';
 import type { Matrix } from './types.js';
 
 /**
@@ -22,5 +22,5 @@ export function parseMatrix(
   matrix: Matrix,
   options: AccessOptions = {},
 ): Access {
-  return createPolicy(matrix, { ...options, closed: true });
+  return hydratePolicy(matrix, { ...options, closed: true });
 }

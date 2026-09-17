@@ -45,9 +45,9 @@ export interface PolicyProviderProps {
    * The evaluation context. Only `now` is read here; the subject is passed
    * separately. Pass a stable reference so memoisation on identity holds.
    *
-   * A string or number `now` is compared by value in the hook memo keys, so a
-   * hydrated instant holds its memo across renders where a `Date` -- a fresh
-   * object every render -- does not.
+   * A string or number `now` is compared by value in the hook memo keys, so an
+   * instant that crossed JSON holds its memo across renders where a `Date` -- a
+   * fresh object every render -- does not.
    */
   context?: { now?: Instant };
   children?: ReactNode;
