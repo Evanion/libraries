@@ -144,6 +144,17 @@ function permission(gen: Gen, keys: readonly string[]): unknown {
       : gen.pick(['comment.read', 42, {}]);
   }
   if (gen.bool(0.35)) node['fields'] = fieldRules(gen);
+  if (gen.bool(0.4)) {
+    node['visibility'] = gen.pick([
+      'public',
+      'internal',
+      'PUBLIC',
+      '',
+      null,
+      42,
+      {},
+    ]);
+  }
   return node;
 }
 
@@ -201,6 +212,18 @@ function matrix(gen: Gen): Matrix {
   }
   if (gen.bool(0.4)) {
     node['version'] = gen.pick([1, 'v1', 'orders@7+veto@41', null, {}, []]);
+  }
+  if (gen.bool(0.4)) {
+    node['maxStale'] = gen.pick([
+      0,
+      60_000,
+      -1,
+      Number.NaN,
+      Infinity,
+      '60000',
+      null,
+      {},
+    ]);
   }
   if (gen.bool(0.35)) node['schema'] = schema(gen);
   return node as unknown as Matrix;

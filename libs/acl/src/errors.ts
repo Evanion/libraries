@@ -261,6 +261,58 @@ export class MissingVetoSchemaError extends AclConfigError {
   }
 }
 
+/**
+ * A vetoable key a reduced serialization would drop.
+ *
+ * The party that authors an overlay checks its contribution by running
+ * `applyDenyOverlay` against the target's published contract. An internal
+ * vetoable key is absent from that contract, and the schema entry for its object
+ * kind goes with it, so the check refuses every contribution it was written to
+ * accept and the veto lands for the first time in the target's deploy.
+ */
+export class UnpublishedVetoableError extends AclConfigError {
+  readonly key: string;
+  constructor(key: string) {
+    super(
+      `permission "${key}" is vetoable and is not public: a key opened for veto ships in the contract the overlay's author checks against. Mark "${key}" public, or drop it from "vetoable"`,
+    );
+    this.name = 'UnpublishedVetoableError';
+    this.key = key;
+  }
+}
+
+/**
+ * A holder reporting `fetchedAt` against a document that states no `maxStale`.
+ *
+ * Reporting the instant is a request for a freshness budget, and the budget is
+ * the owner's to state. Reading the absent field as zero would expire every key
+ * for the life of the process, which is indistinguishable from the origin being
+ * down and is arrived at through a field nobody set.
+ */
+export class MissingFreshnessBudgetError extends AclConfigError {
+  constructor() {
+    super(
+      '"fetchedAt" was supplied and the document states no "maxStale": a holder that reports when it last validated needs the owner to state how long that validation lasts',
+    );
+    this.name = 'MissingFreshnessBudgetError';
+  }
+}
+
+/**
+ * A freshness bound that is not a span of milliseconds a decision can compare.
+ *
+ * Both halves settle once at construction and are read on every call, so a value
+ * the comparison cannot use silently answers "fresh" forever.
+ */
+export class InvalidFreshnessError extends AclConfigError {
+  readonly field: string;
+  constructor(field: string, why: string) {
+    super(`"${field}" ${why}`);
+    this.name = 'InvalidFreshnessError';
+    this.field = field;
+  }
+}
+
 /** An unknown object kind at runtime on a typed (local) matrix. */
 export class UnknownObjectKeyError extends AclConfigError {
   readonly key: ObjectKey;

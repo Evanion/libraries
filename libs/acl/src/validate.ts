@@ -276,7 +276,11 @@ const PERMISSION_MEMBERS = new Set([
   'rules',
   'denyRules',
   'fields',
+  'visibility',
 ]);
+
+/** The two markings a permission may carry. Absent is `internal`. */
+const VISIBILITIES = new Set(['public', 'internal']);
 
 /**
  * Refuses a permission carrying a member the canonical node does not have.
@@ -293,6 +297,18 @@ function assertMembers(key: string, permission: Node): void {
       key,
       member,
       'is not a member of a permission',
+    );
+  }
+
+  // A misspelled marking is what an author reaches for when they meant to
+  // publish, and every spelling except `public` would otherwise read as
+  // internal and publish nothing without saying so.
+  const visibility = permission['visibility'];
+  if (visibility !== undefined && !VISIBILITIES.has(visibility as string)) {
+    throw new InvalidPermissionError(
+      key,
+      'visibility',
+      'is neither "public" nor "internal"',
     );
   }
 }
@@ -382,7 +398,8 @@ function assertFieldRules(key: string, rules: unknown): void {
   }
 }
 
-const ENVELOPE = 'a matrix is an envelope: { version?, schema?, permissions }';
+const ENVELOPE =
+  'a matrix is an envelope: { version?, maxStale?, schema?, permissions }';
 
 /**
  * Validates a canonical matrix document: the envelope, then its permissions'
@@ -418,6 +435,18 @@ export function validateMatrix(matrix: Matrix): void {
     typeof version !== 'number'
   ) {
     throw new InvalidMatrixError('"version" is neither a string nor a number');
+  }
+
+  // A bound the comparison cannot use answers "fresh" on every call, so the
+  // refusal is here and not at the first decision that reads it.
+  const maxStale = node['maxStale'];
+  if (
+    maxStale !== undefined &&
+    (typeof maxStale !== 'number' || !Number.isFinite(maxStale) || maxStale < 0)
+  ) {
+    throw new InvalidMatrixError(
+      '"maxStale" is not a finite, non-negative number of milliseconds',
+    );
   }
 
   const schema = node['schema'];

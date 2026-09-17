@@ -823,6 +823,116 @@ The authoring party runs the same call. A compliance team applies its overlay to
 the owner's published document in its own CI and finds its own mistake there
 rather than in the owner's next deploy.
 
+## Publishing the rules to a consumer
+
+A BFF in front of an orders service needs to know whether to render a refund
+button. Without an artifact to read, it writes its own matrix for somebody else's
+rules, and that copy diverges on the first change nobody propagates. Divergence
+this way is quiet: the orders service keeps refusing correctly, so nothing is
+breached and no alert fires, and the button stays hidden against a server that
+would have allowed the call.
+
+`serialize(access, 'reduced')` gives the owner an artifact to hand over. Each
+permission carries `visibility`, the reduced form keeps the `public` ones and
+drops the rest, and an unmarked permission is internal, so an older document and
+an author who forgot both publish nothing.
+
+<!-- #region contract -->
+
+```ts @import.meta.vitest
+import { hydratePolicy, parseMatrix, serialize } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
+
+const authored: Matrix = {
+  version: 'orders@7',
+  maxStale: 300_000,
+  schema: {
+    objects: {
+      'orders:invoice': { fields: { ownerId: 'string' } },
+      'orders:ledger': { fields: { period: 'string' } },
+    },
+  },
+  permissions: [
+    {
+      key: 'orders:invoice.refund',
+      object: 'orders:invoice',
+      action: 'refund',
+      visibility: 'public',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'agent' }] },
+      ],
+      denyRules: [
+        { when: [{ field: 'subject.tier', op: 'eq', value: 'probation' }] },
+      ],
+    },
+    {
+      key: 'orders:ledger.reconcile',
+      object: 'orders:ledger',
+      action: 'reconcile',
+      visibility: 'internal',
+      rules: [{ when: [] }],
+    },
+  ],
+};
+
+const orders = hydratePolicy(authored);
+const contract = serialize(orders, 'reduced');
+
+contract.permissions.map((p) => p.key); // -> ['orders:invoice.refund']
+Object.keys(contract.schema?.objects ?? {}); // -> ['orders:invoice']
+'visibility' in (contract.permissions[0] ?? {}); // -> false
+
+// The consumer adopts it the way it adopts any foreign document, and reports
+// when it last checked the contract was current.
+const bff = parseMatrix(contract, { fetchedAt: Date.now() });
+const agent = { id: 'u1', roles: ['agent'], tier: 'staff' };
+
+bff.can(agent, 'orders:invoice', 'refund').allowed; // -> true
+bff.can(agent, 'orders:ledger', 'reconcile').reason; // -> 'unknown-action'
+```
+
+<!-- #endregion contract -->
+
+A kept permission ships whole. Dropping one of its deny rules would turn a
+refusal into an allow, and dropping an allow rule or a field config would move
+the answer the other way, so a permission goes out with its refusals attached or
+it stays internal. That cost lands on the owner: the deny rule above publishes
+`subject.tier` and the word `probation` to every consumer.
+
+The contract's decisions equal the owner's, key for key, which is the property
+that makes it worth holding. Answering more conservatively would be a second copy
+again, and a button hidden by caution looks exactly like a button hidden by a
+rule.
+
+A contract is terminal. Its permissions arrive unmarked, so a consumer's own
+reduced serialization is empty and nobody re-publishes another team's rules.
+
+### How long a consumer may keep deciding on it
+
+`maxStale` is the owner's ceiling, in milliseconds, measured from the holder's
+last successful freshness check. The holder reports that instant as `fetchedAt`
+and may tighten the bound with its own `maxStale`, never extend it. Past
+`fetchedAt + min(the two)` every key answers
+`{ allowed: false, reason: 'stale-contract' }`, and the remedy is a fetch of the
+document.
+
+Measuring from the last check is what expires a consumer whose poll silently
+stopped: such a consumer believes it is fresh and would never start a clock of
+its own. A holder that reports no `fetchedAt` claims no freshness and runs under
+no bound, which is every matrix a service authors in its own process.
+
+A stale contract is stale-permissive, and that is survivable for one reason: the
+owner re-evaluates on its own matrix on every call and refuses. A stale consumer
+over-shows and never over-grants.
+
+### A key another team may veto has to ship
+
+`serialize(access, 'reduced', { vetoable })` refuses a listed key the reduction
+would drop. Compliance checks its contribution by running `applyDenyOverlay`
+against the published contract, and an internal vetoable key is absent from it,
+taking its object kind's schema entry along, so that check would refuse every
+contribution it was written to accept.
+
 ## Server-side `authorize`
 
 `authorize` binds a subject so a middleware, loader, action, or RSC server

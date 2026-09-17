@@ -6,13 +6,16 @@ import {
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   InvalidConditionError,
+  InvalidFreshnessError,
   InvalidMatrixError,
+  MissingFreshnessBudgetError,
   InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
   TargetsTransitionsConflictError,
   UnknownObjectKeyError,
   UnknownPermissionError,
+  UnpublishedVetoableError,
 } from './errors.js';
 
 describe('errors', () => {
@@ -24,6 +27,9 @@ describe('errors', () => {
       () => new UnknownObjectKeyError('unknown'),
       () => new UnknownPermissionError('comment.red'),
       () => new KeyMismatchError('comment.read', 'comment', 'delete'),
+      () => new UnpublishedVetoableError('ledger.reconcile'),
+      () => new MissingFreshnessBudgetError(),
+      () => new InvalidFreshnessError('fetchedAt', 'is not an instant'),
       () => new InvalidMatrixError('a matrix is an array of permissions'),
       () => new InvalidPermissionError('comment.read', 'fields', 'is bad'),
       () => new InvalidRuleError('comment.read', 'rules[0]', 'is bad'),

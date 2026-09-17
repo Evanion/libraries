@@ -20,17 +20,20 @@ const RUNTIME_EXPORTS = [
   'DuplicatePermissionError',
   'FieldTypeMismatchError',
   'InvalidConditionError',
+  'InvalidFreshnessError',
   'InvalidMatrixError',
   'InvalidPermissionError',
   'InvalidRuleError',
   'InvalidSchemaError',
   'KeyMismatchError',
+  'MissingFreshnessBudgetError',
   'MissingVetoSchemaError',
   'OriginCollisionError',
   'TargetsTransitionsConflictError',
   'UnknownFieldError',
   'UnknownObjectKeyError',
   'UnknownPermissionError',
+  'UnpublishedVetoableError',
   'UnvetoablePermissionError',
   'applyDenyOverlay',
   'federatedPolicies',
@@ -38,6 +41,7 @@ const RUNTIME_EXPORTS = [
   'parseMatrix',
   'pickAllowedFields',
   'policy',
+  'serialize',
 ];
 
 describe('the package entry', () => {

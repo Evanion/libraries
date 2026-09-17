@@ -61,6 +61,7 @@ export default {
   writing: 'Which fields may they write?',
   refusals: 'Why was this refused?',
   adopting: 'A policy from another service',
+  publishing: 'Giving my rules to another service',
 
   'group-reference': { type: 'separator', title: 'Reference' },
   pitfalls: 'Caveats & Pitfalls',

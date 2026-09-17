@@ -1,7 +1,9 @@
 import { decideResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
 import {
+  InvalidFreshnessError,
   InvalidMatrixError,
+  MissingFreshnessBudgetError,
   UnknownObjectKeyError,
   UnknownPermissionError,
 } from './errors.js';
@@ -98,10 +100,11 @@ function rebuild(
   matrix: Matrix,
   override: string | number | undefined,
 ): Matrix {
-  const { schema, permissions } = matrix;
+  const { schema, permissions, maxStale } = matrix;
   const version = override ?? matrix.version;
   return deepFreeze({
     ...(version === undefined ? {} : { version }),
+    ...(maxStale === undefined ? {} : { maxStale }),
     ...(schema === undefined ? {} : { schema: cloneSchema(schema) }),
     permissions: Array.isArray(permissions)
       ? permissions.map(cloneNode)
@@ -151,6 +154,54 @@ export interface AccessOptions {
    * Defaults to false: a local matrix throws on an unknown key.
    */
   closed?: boolean;
+  /**
+   * When this holder last validated the document's freshness.
+   *
+   * A successful validation is a response that confirms a version, whether or
+   * not the version changed, so the instant moves on a matching version as much
+   * as on a completed refetch. Measuring the budget from here and not from the
+   * moment a mismatch is noticed is what expires a holder whose poll silently
+   * stopped: such a holder believes it is fresh and never starts a clock.
+   *
+   * Supplying it obliges the document to state `maxStale`. Omitting it claims no
+   * freshness, which is what every matrix authored in one process does.
+   */
+  fetchedAt?: Instant;
+  /**
+   * A shorter local ceiling on staleness, in milliseconds.
+   *
+   * `min` with the document's `maxStale`, so a holder may tighten the owner's
+   * bound and never extend it. The owner knows how fast a revocation has to take
+   * effect and a holder choosing its own bound optimises for its own
+   * availability, which is the wrong party's interest.
+   */
+  maxStale?: number;
+}
+
+/**
+ * The instant past which every decision answers `stale-contract`, settled once.
+ *
+ * Both halves are constant for the life of the `Access`, so the per-call check
+ * is one comparison against the epoch `ctxWith` already settled. `undefined` is
+ * a holder that reported no `fetchedAt` and therefore claimed no freshness.
+ */
+function expiryOf(matrix: Matrix, options: AccessOptions): number | undefined {
+  const { fetchedAt, maxStale: local } = options;
+  if (fetchedAt === undefined) return undefined;
+
+  const validated = settleNow(fetchedAt);
+  if (Number.isNaN(validated)) {
+    throw new InvalidFreshnessError('fetchedAt', 'is not an instant');
+  }
+  if (local !== undefined && (!Number.isFinite(local) || local < 0)) {
+    throw new InvalidFreshnessError(
+      'maxStale',
+      'is not a finite, non-negative number of milliseconds',
+    );
+  }
+  if (matrix.maxStale === undefined) throw new MissingFreshnessBudgetError();
+
+  return validated + Math.min(matrix.maxStale, local ?? Infinity);
 }
 
 /**
@@ -322,6 +373,13 @@ function buildIndex(
  * bags and string keys, so the body is written against the erased form and cast
  * once at the end. Naming neither is the foreign path, where the defaults make
  * every signature the untyped one.
+ *
+ * A holder that reports `fetchedAt` gets a freshness budget out of the
+ * document's `maxStale`. Past `fetchedAt + min(maxStale, options.maxStale)`,
+ * `can`, `canMany`, `canFields` and `capabilities` answer `stale-contract` for
+ * every key. `readsObject` keeps answering, because whether a permission names
+ * an `object.*` path is a fact about the document and no claim about the
+ * present.
  */
 export function hydratePolicy<Sub = Subject, R = AnyObjects>(
   matrix: Matrix,
@@ -331,6 +389,23 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
   const permissions = frozen.permissions;
   const index = buildIndex(permissions);
   const closed = options.closed ?? false;
+  const expiresAt = expiryOf(frozen, options);
+
+  /**
+   * Whether the document has run out of budget at this settled instant.
+   *
+   * A `now` that does not parse is NaN and the comparison is false, so the call
+   * proceeds and lands on `unusable-clock` at every permission that reads the
+   * clock. An unusable clock cannot judge staleness either.
+   */
+  const stale = (settled: number): boolean =>
+    expiresAt !== undefined && settled > expiresAt;
+
+  const staleDecision = (key: string): Decision => ({
+    key,
+    allowed: false,
+    reason: 'stale-contract',
+  });
 
   const objectFor = (key: string): void => {
     if (closed) return;
@@ -378,6 +453,10 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
     object?: Record<string, unknown>,
     now?: Instant,
   ): Decision => {
+    // Ahead of the key lookup: a document past its budget carries no claim
+    // about the present, and that includes its claim about which keys it holds.
+    const ctx = ctxWith(subject, object, now);
+    if (stale(ctx.now)) return staleDecision(`${key}.${action}`);
     objectFor(key);
     const permission = permissionFor(key, action);
     if (!permission) {
@@ -387,7 +466,7 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
         reason: 'unknown-action',
       };
     }
-    return decideResolved(permission, ctxWith(subject, object, now));
+    return decideResolved(permission, ctx);
   };
 
   const canMany = (
@@ -397,6 +476,11 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
     objects: readonly Record<string, unknown>[],
     now?: Instant,
   ): Decision[] => {
+    // One clock for the whole list: the objects differ, the instant does not.
+    const settled = ctxWith(subject, undefined, now).now;
+    if (stale(settled)) {
+      return objects.map(() => staleDecision(`${key}.${action}`));
+    }
     objectFor(key);
     const permission = permissionFor(key, action);
     if (!permission) {
@@ -406,8 +490,6 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
         reason: 'unknown-action',
       }));
     }
-    // One clock for the whole list: the objects differ, the instant does not.
-    const settled = ctxWith(subject, undefined, now).now;
     return objects.map((object) =>
       decideResolved(permission, { subject, object, now: settled }),
     );
@@ -422,6 +504,15 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
     proposed?: Record<string, unknown>,
     now?: Instant,
   ): FieldDecision => {
+    const ctx = ctxWith(subject, object, now);
+    if (stale(ctx.now)) {
+      return {
+        allowed: false,
+        action: staleDecision(`${key}.${action}`),
+        fields: {},
+        reasons: {},
+      };
+    }
     objectFor(key);
     const permission = permissionFor(key, action);
     if (!permission) {
@@ -436,7 +527,6 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
         reasons: {},
       };
     }
-    const ctx = ctxWith(subject, object, now);
     // The field maps answer "what would be editable" and are computed whatever
     // the action decides, so a caller can explain a block with the same result
     // it renders a form from. Only `allowed` is gated on the action.
@@ -458,7 +548,9 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
     return Object.fromEntries(
       permissions.map((permission) => [
         permission.key,
-        decideResolved(permission, ctx),
+        stale(ctx.now)
+          ? staleDecision(permission.key)
+          : decideResolved(permission, ctx),
       ]),
     );
   };
