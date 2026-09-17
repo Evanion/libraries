@@ -28,6 +28,10 @@
   "ignoreDependencies": [
     "@evanion/astro-widget",
     "@evanion/baize-ui",
+    // A package's own README fences import it by its published name, which is
+    // what makes them a consumer's view of it. The package cannot declare
+    // itself, so every package whose README doctests are compiled lands here.
+    "@evanion/feature",
     "@evanion/react-widget",
     "@evanion/widget",
     "@nx/devkit",
@@ -61,6 +65,13 @@
     "unused-types": "off",
     "unused-dependencies": "off",
     "unused-dev-dependencies": "off",
+
+    // `@evanion/urn`'s extension point is a static field a subclass sets and
+    // the base class reads: `static override readonly nid = 'game'`. Every
+    // report this rule makes here is one of those, six across four apps and
+    // the docs, and a tool comment on each would put the analyser's vocabulary
+    // into a library's documented API.
+    "unused-class-members": "off",
   },
 
   // `probes` is exported from a luhn file and a token file under apps/docs. No
