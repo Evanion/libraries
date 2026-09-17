@@ -184,6 +184,15 @@ export interface DocumentedPackage {
    * absent.
    */
   demoExempt?: string;
+  /**
+   * Why this section's examples are not set in the game shop.
+   *
+   * One domain across the site is documentation standard § 6's decision 16,
+   * and the exemption is the escape it names for a package whose subject has
+   * no shop object in it. The reason is recorded here rather than argued again
+   * on each page, and G9 reads it.
+   */
+  domainExempt?: string;
 }
 
 export const packages: readonly DocumentedPackage[] = [
@@ -305,6 +314,8 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'React',
     hue: 'orchid',
     demo: 'getting-started',
+    domainExempt:
+      'the subject is the provider tree; a shop object appears nowhere in it',
     documented: true,
     workshop: false,
   },

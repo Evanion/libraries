@@ -1,11 +1,31 @@
 # Where the check happens
 
-`ComposeProvider` checks each entry of `providers` against the component in that
-entry. The check is entirely at the type level — nothing is validated at
-runtime beyond `providers` being an array — so where you write the array decides
-whether the check runs at all.
+<PageSheet
+  difficulty={3}
+  read={8}
+  requires={[['Getting started', '/compose/getting-started']]}
+  unlocks={[['API reference', '/compose/api']]}
+/>
 
-## Three positions
+**The concept.** You have an array of entries — a bare component, a
+`provider()` call, a `[component, props]` tuple — and all three are checked
+against the component in them. This page is about the position that is not: the
+same tuple, assigned to a variable first, compiles with a missing prop and says
+nothing.
+
+**What you will have.** A reason to write the array where you use it, and the
+two annotations that buy the check back when you cannot.
+
+**Why you would want it.** The failure is silent. The props go unchecked, the
+app builds, and the provider renders with `undefined` where a colour was meant
+to be. Nothing in the type system points at the line; the line is the one where
+you named the array.
+
+**How the library gets you there.** `ComposeProvider` checks each entry at the
+type level and does nothing at runtime beyond looking at whether `providers` is
+an array. So where you write the array decides whether the check runs at all.
+
+## Three positions compose reads differently
 
 ### Inline in JSX
 
@@ -35,16 +55,17 @@ const App = () => <div />;
 </ComposeProvider>;
 ```
 
-A JSX attribute is a contextually typed position, so TypeScript infers the array
-as a literal tuple and every entry is checked. Those diagnostics are the
-compiler's, rendered when this page was built;
-`libs/compose/src/Compose.test-d.tsx` asserts the same four entries under
-`@ts-expect-error`.
+A JSX attribute is a contextually typed position, so TypeScript infers the
+array as a literal tuple and checks every entry. Those diagnostics are the
+compiler's own, produced when this page was built, and
+`tools/repo-checks/src/doc-twoslash.test.ts` holds them both ways round: an
+error this listing produces and does not declare fails the build, and so does a
+declared error the compiler has stopped reporting.
 
-The wrong-value entry is the one that reads badly: it reports twice, against
+The wrong-value entry is the one that reads badly. It reports twice, against
 `never`, because the attribute position has already narrowed the tuple. Through
-`provider()` the same mistake reports once and names both sides — see [reading
-the errors](#reading-the-errors).
+`provider()` the same mistake reports once and names both sides — see
+[reading a compose error](#reading-a-compose-error).
 
 ### Through `provider()`
 
@@ -76,9 +97,9 @@ const providers = [
 ];
 ```
 
-`provider()` infers the component type from its own first argument, so the props
-object is checked at the call. That also means the editor knows the prop names
-while you are typing the object, which a bare tuple cannot offer.
+`provider()` infers the component type from its own first argument, so the
+props object is checked at the call. That also means the editor knows the prop
+names while you are typing the object, which a bare tuple cannot offer.
 
 ### In a variable, unannotated
 
@@ -121,14 +142,14 @@ const viaSatisfies = [
 ] satisfies ProviderArray;
 ```
 
-## Reading the errors
+## Reading a compose error
 
-A failing entry has to resolve to some type your value is not assignable to, and
-whatever that type is ends up quoted in the diagnostic. For a failure that is
-not simply a wrong value, the explanation is carried in a property key, so it
-reads as a missing property rather than as a structural walk you have to
-decode. The last diagnostic on the first fence of this page is that shape:
-`Property '"ComposeError: unknown prop 'typo'"' is missing in type …`.
+A failing entry has to resolve to some type your value is not assignable to,
+and whatever that type is ends up quoted in the diagnostic. For a failure that
+is not simply a wrong value, `compose` carries the explanation in a property
+key, so it reads as a missing property rather than as a structural walk you
+have to decode. The last diagnostic on the first listing of this page is that
+shape: `Property '"ComposeError: unknown prop 'typo'"' is missing in type …`.
 
 The messages you can get:
 
@@ -140,8 +161,8 @@ The messages you can get:
 | `second tuple element must be props, not another component`                                    | two components in one tuple                                 |
 | `not a valid provider`                                                                         | the entry is neither a component nor a two-element tuple    |
 
-A missing or mistyped prop value does not get a carrier. It resolves to the
-shape the entry should have had, because the assignability message already says
+A missing or mistyped prop value gets no carrier. It resolves to the shape the
+entry should have had, because the assignability message already says
 everything a message could:
 
 ```tsx twoslash
@@ -159,12 +180,12 @@ const ThemeProvider = ({
 provider(ThemeProvider, { theme: 'blue', primaryColor: '#fff' });
 ```
 
-## Forwarding an array through a wrapper
+## Forwarding a compose array through a wrapper
 
 A value already typed `ProviderArray` has lost the identity of its elements, so
-there is nothing left to check entry by entry. `ValidatedProviders` detects that
-and resolves to plain `ProviderArray`, which is what lets a wrapper component
-compile:
+there is nothing left to check entry by entry. `ValidatedProviders` detects
+that and resolves to plain `ProviderArray`, which is what lets a wrapper
+component compile:
 
 ```tsx twoslash
 import * as React from 'react';
@@ -182,20 +203,21 @@ function AppProviders({
 }
 ```
 
-The entries are unchecked at that boundary. Build the array where the components
-are known if you want the per-entry errors, and pass the built array through.
+The entries are unchecked at that boundary. Build the array where the
+components are known if you want the per-entry errors, and pass the built array
+through.
 
-## Why the excess-key check runs first
+## Why compose checks for an excess key first
 
 `ValidateProvider` tests for an unknown key before it tests assignability, and
-the order matters for a component whose props are all optional. Such a component
-is a weak type: an object of only unrelated keys is not assignable to it.
-Checking assignability first sends that case down the repaired-shape branch,
-where comparing your mutable tuple against a constructed `readonly` tuple makes
-TypeScript report the variance of `Array.prototype.every` rather than the prop
-nobody declared.
+the order matters for a component whose props are all optional. Such a
+component is a weak type: an object of only unrelated keys is not assignable to
+it. Checking assignability first sends that case down the repaired-shape
+branch, where comparing your mutable tuple against a constructed `readonly`
+tuple makes TypeScript report the variance of `Array.prototype.every` rather
+than the prop nobody declared.
 
-## Runtime behaviour
+## What compose does at runtime
 
 Three things happen at runtime, and only three:
 
@@ -209,3 +231,7 @@ Three things happen at runtime, and only three:
 
 Nothing else is inspected. `provider()` builds a tuple and returns it; the type
 parameters do the rest.
+
+## Where to go next
+
+- [API reference](/compose/api) — every export, and the types this page named
