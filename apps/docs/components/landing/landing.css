@@ -722,6 +722,25 @@
   opacity: 0.45;
 }
 
+/*
+ * The package's answer on the code as typed back. It carries its own colour
+ * rather than an icon, because it changes on every keystroke and a shape that
+ * swaps under a moving cursor is harder to read than a word that does.
+ */
+.landing-luhn__verdict {
+  font-size: var(--baize-text-sm);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.landing-luhn__verdict--accepted {
+  color: var(--baize-lichen);
+}
+
+.landing-luhn__verdict--rejected {
+  color: var(--baize-hue);
+}
+
 .landing-token__offending {
   text-decoration: line-through;
   text-decoration-thickness: 1px;

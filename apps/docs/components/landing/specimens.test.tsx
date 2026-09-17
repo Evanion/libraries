@@ -1,6 +1,6 @@
 import { Luhn } from '@evanion/luhn';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import LuhnSpecimen from './LuhnSpecimen';
 import {
   buildToken,
@@ -30,80 +30,66 @@ import UrnSpecimen from './UrnSpecimen';
  * one `validate` accepts, and the URN's parts are `parse`'s.
  */
 describe('the Luhn card', () => {
-  it('opens on the README specimen and its check character', () => {
+  /** The code as issued: the README specimen with the package's check character. */
+  const issued = `${luhnBody}${Luhn.generate(luhnBody).checksum}`;
+
+  it('opens on the issued code, and the package accepts it', () => {
     render(<LuhnSpecimen initial={luhnBody} />);
 
-    expect(screen.getByRole('textbox')).toHaveValue('foo');
-    expect(screen.getByRole('status')).toHaveTextContent(
-      Luhn.generate('foo').checksum,
-    );
-  });
-
-  it('recomputes the check character as the text changes', () => {
-    render(<LuhnSpecimen initial={luhnBody} />);
-
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'FoO-ö-baz' },
-    });
-
-    expect(screen.getByRole('status')).toHaveTextContent(
-      Luhn.generate('foobaz').checksum,
-    );
-  });
-
-  it('shows no check character for text with nothing from the alphabet', () => {
-    render(<LuhnSpecimen initial={luhnBody} />);
-
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '!!' } });
-
-    expect(screen.getByRole('status')).toHaveTextContent('');
-    expect(screen.getByText(/nothing from the alphabet/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue(issued);
+    expect(Luhn.validate(issued)).toMatchObject({ isValid: true });
+    expect(screen.getByText('accepted')).toBeInTheDocument();
   });
 
   /**
-   * The visible character turns through the dictionary before it lands. The
-   * `status` above is what a screen reader gets and never turns, which is
-   * why the assertions above read it at once; the visible mark is read here,
-   * and waited for.
+   * The catch is the demonstration. One character replaced is the error a
+   * check character always catches, and the card has to say so rather than
+   * leaving the reader to read the code back themselves.
    */
-  it('turns the visible character through the dictionary, then lands it', async () => {
-    const { container } = render(<LuhnSpecimen initial={luhnBody} />);
-    const mark = container.querySelector('.landing-specimen__mark');
+  it('rejects the code once a character changes', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
 
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'bar' } });
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'brass' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
 
-    // Every frame is a dictionary character, including the ones a fast
-    // typist interrupts, and the one that stays is the real one.
-    const frames = new Set<string>();
-    await waitFor(() => {
-      frames.add(mark?.textContent ?? '');
-      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
-    });
-    for (const seen of frames) expect(Luhn.dictionary).toContain(seen);
+    const typed = (screen.getByRole('textbox') as HTMLInputElement).value;
+    expect(typed).not.toBe(issued);
+    expect(Luhn.validate(typed)).toMatchObject({ isValid: false });
+    expect(screen.getByText('rejected')).toBeInTheDocument();
   });
 
-  it('lands the visible character at once under reduced motion', () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('prefers-reduced-motion'),
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-    try {
-      const { container } = render(<LuhnSpecimen initial={luhnBody} />);
-      const mark = container.querySelector('.landing-specimen__mark');
+  /** A transposition is the error people make reading a code aloud. */
+  it('rejects the code once two characters swap', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
 
-      fireEvent.change(screen.getByRole('textbox'), {
-        target: { value: 'brass' },
-      });
+    fireEvent.click(screen.getByRole('button', { name: 'Swap two' }));
 
-      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    const typed = (screen.getByRole('textbox') as HTMLInputElement).value;
+    expect(typed).not.toBe(issued);
+    expect(
+      screen.getByText(Luhn.validate(typed).isValid ? 'accepted' : 'rejected'),
+    ).toBeInTheDocument();
+  });
+
+  it('puts the issued code back', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(screen.getByRole('textbox')).toHaveValue(issued);
+    expect(screen.getByText('accepted')).toBeInTheDocument();
+  });
+
+  /** What a screen reader gets is the verdict, not the styling that carries it. */
+  it('announces the verdict', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `${issued} is accepted.`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
+    expect(screen.getByRole('status')).toHaveTextContent('is rejected');
   });
 });
 
@@ -152,14 +138,12 @@ describe('the Token card', () => {
       fireEvent.click(screen.getByRole('radio', { name: label }));
 
       const shown = screen.getByRole('status').textContent ?? '';
-      const attempt = buildToken(index, 0);
-      expect(attempt.kind).toBe('built');
-      if (attempt.kind !== 'built') return;
+      const built = buildToken(index, 0);
 
-      expect(attempt.token.validate(shown)).toMatchObject({ valid: true });
-      expect(
-        shown.split(attempt.token.separator).map((chunk) => chunk.length),
-      ).toEqual(label.split('-').map(Number));
+      expect(built.validate(shown)).toMatchObject({ valid: true });
+      expect(shown.split(built.separator).map((chunk) => chunk.length)).toEqual(
+        label.split('-').map(Number),
+      );
     }
   });
 
@@ -169,49 +153,14 @@ describe('the Token card', () => {
     const note = container.querySelector('.landing-spec__note');
 
     for (const [index, alphabet] of tokenAlphabets.entries()) {
-      const attempt = buildToken(0, index);
-      if (attempt.kind !== 'built') continue;
+      const built = buildToken(0, index);
 
       fireEvent.click(screen.getByRole('radio', { name: alphabet.label }));
+      expect(note).toHaveTextContent(`${Math.round(built.entropyBits)} bits`);
       expect(note).toHaveTextContent(
-        `${Math.round(attempt.token.entropyBits)} bits`,
-      );
-      expect(note).toHaveTextContent(
-        collisionAt(attempt.token.entropyBits).toLocaleString('en-US'),
+        collisionAt(built.entropyBits).toLocaleString('en-US'),
       );
     }
-  });
-
-  /**
-   * The alphabet of every lowercase letter and digit is the one the package
-   * refuses. The card names the refused characters under the code it last
-   * minted, and holds that code: emptying itself reads as a fault rather than
-   * as the guardrail this control is here to show. Generate is disabled rather
-   * than removed, so the card does not reflow under the reader.
-   */
-  it('names the refused characters and keeps the code it last minted', () => {
-    const refused = tokenAlphabets.findIndex(
-      (_, index) => buildToken(0, index).kind === 'refused',
-    );
-    const attempt = buildToken(0, refused);
-    expect(attempt.kind).toBe('refused');
-    if (attempt.kind !== 'refused') return;
-
-    render(<TokenSpecimen initial={tokenSpecimen} />);
-    fireEvent.click(
-      screen.getByRole('radio', {
-        name: (tokenAlphabets[refused] as { label: string }).label,
-      }),
-    );
-
-    for (const char of attempt.offending) {
-      expect(screen.getByText(char)).toBeInTheDocument();
-    }
-    expect(screen.getByRole('status')).toHaveTextContent(
-      attempt.offending.join(', '),
-    );
-    expect(screen.getByRole('status')).toHaveTextContent(tokenSpecimen);
-    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled();
   });
 });
 
