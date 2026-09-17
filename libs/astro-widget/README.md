@@ -60,6 +60,31 @@ Where `page.json` is whatever your CMS writes:
 }
 ```
 
+## The registry
+
+`defineWidgets` returns the object it is handed. Its whole job is the generic
+parameter: annotating the same object as `WidgetRegistry` widens its keys to
+`string`, and the key union is what an editor completes on and what
+`validateItems` narrows a `required` map against.
+
+<!-- #region registry -->
+
+```ts @import.meta.vitest
+import { defineWidgets, validateItems } from '@evanion/astro-widget';
+
+// In a project these are `.astro` modules; the helper reads their keys and
+// nothing else, so a stand-in is enough to show what it returns.
+const registry = defineWidgets({
+  'listing-header': () => null,
+  'game-grid': () => null,
+});
+
+Object.keys(registry); // -> ['listing-header', 'game-grid']
+validateItems([], Object.keys(registry)); // -> []
+```
+
+<!-- #endregion registry -->
+
 ## Data shape
 
 ```ts
@@ -150,6 +175,69 @@ validateItems(nested, ['game-grid']); // -> [{ index: 0, id: 'questions', type: 
 ```
 
 <!-- #endregion nested-index -->
+
+The five structural rules run over every payload, whatever the registry holds.
+Each one is a save a CMS can make and a build should not ship:
+
+<!-- #region structural-rules -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const saved = [
+  null,
+  { type: 'listing-header', props: { title: 'Root' } },
+  { id: 'grid', type: 'game-grid', props: {}, children: 'none' },
+  { id: 'grid', type: 'game-grid' },
+];
+
+validateItems(saved, ['listing-header', 'game-grid']).map((p) => p.message); // -> ['item is not an object', 'item id is not a string', 'children is not a list', 'duplicate sibling id', 'props is not an object']
+```
+
+<!-- #endregion structural-rules -->
+
+An `items` that is not a list is one problem rather than none, because a CMS
+that wrote an object where the schema said array has broken the page and a
+clean run would say it had not:
+
+<!-- #region not-a-list -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+validateItems({ sections: [] }, ['listing-header']); // -> [{ index: -1, id: '-', type: '-', message: 'items is not a list' }]
+```
+
+<!-- #endregion not-a-list -->
+
+A payload with nothing wrong reports nothing. `validateItems` returns a list,
+never throws, and never short-circuits, so one run over the whole page is one
+build failure with every fault in it:
+
+<!-- #region clean-payload -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const page = [
+  { id: 'header', type: 'listing-header', props: { title: 'Root' } },
+  {
+    id: 'grid',
+    type: 'game-grid',
+    props: {},
+    children: [
+      { id: 'azul', type: 'listing-header', props: { title: 'Azul' } },
+    ],
+  },
+];
+
+const required = { 'listing-header': ['title'] };
+const problems = validateItems(page, ['listing-header', 'game-grid'], required);
+
+problems; // -> []
+```
+
+<!-- #endregion clean-payload -->
 
 Run it over the CMS payload before the build renders it:
 

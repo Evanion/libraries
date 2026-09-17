@@ -1,0 +1,39 @@
+/*
+ * The mark on a fence that documentation standard § 5 let out of the executed
+ * rule.
+ *
+ * Every value is a `--baize-*` property from `@evanion/baize-ui/styles.css`,
+ * bound per theme in `app/global.css`. No colour, radius or size of its own.
+ *
+ * The mark sits under the block rather than over it, so the code is still the
+ * first thing read and the sentence is what the eye lands on afterwards. A
+ * warning tone adds a rule down the left edge, which is § 5's own description of
+ * what an `anti-example` should look like; a quiet tone does not, because a
+ * signature or an excerpt is ordinary and a rule on every one of them is the
+ * wash the diagram spec argues against elsewhere.
+ */
+
+.docs-listing {
+  margin-block: var(--baize-space-4);
+  margin-inline: 0;
+}
+
+.docs-listing > :first-child {
+  margin-block-end: 0;
+}
+
+.docs-listing__mark {
+  color: var(--baize-lichen);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  padding-block-start: var(--baize-space-2);
+}
+
+.docs-listing--warning {
+  border-inline-start: 2px solid var(--baize-hue);
+  padding-inline-start: var(--baize-space-3);
+}
+
+.docs-listing--warning .docs-listing__mark {
+  color: var(--baize-hue);
+}

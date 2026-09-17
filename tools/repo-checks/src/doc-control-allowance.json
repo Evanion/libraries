@@ -1,3 +1,3 @@
 {
-  "astro-widget": "The control is the storefront's own build output, embedded. Step 13."
+  "astro-widget": "The control is the storefront's rendered output embedded beside the data that produced it, generated at docs build time. Step 13 designed it and did not build it: an .astro component compiles against a project, so the markup has to be produced by a build step outside apps/docs and handed over as an artifact."
 }

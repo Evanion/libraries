@@ -7,6 +7,7 @@ import TokenSpecimen from './components/landing/TokenSpecimen';
 import UrnSpecimen from './components/landing/UrnSpecimen';
 import Probe from './components/Probe';
 import Diagram from './components/diagram/Diagram';
+import Listing from './components/listing/Listing';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
 import PageSheet from './components/PageSheet';
@@ -80,6 +81,9 @@ export function useMDXComponents(components) {
     // ```mermaid fence into one, and the name has to be on this map for the
     // rewritten element to resolve to anything.
     Diagram,
+    // Not a tag an author writes either: `tools/mdx-listing-loader.mjs` wraps a
+    // fence carrying one of documentation standard § 5's exemption tags in one.
+    Listing,
     PageSheet,
     WorkshopNotice,
     WidgetPlayground,

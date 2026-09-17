@@ -3,6 +3,14 @@
 `Widgets.astro` skips an unknown widget type with a dev-only warning, so a bad
 CMS save can never break a render. Catch them loudly at build time instead.
 
+This page is the section's demonstration and it has nothing to click. The thing
+worth operating here is a rendered Astro page, and an `.astro` component is
+compiled against a project rather than in a browser, so the honest version of
+that control is the storefront's own build output embedded beside the data that
+produced it. That is not built. Until it is, every example below is executed —
+by `nx test @evanion/astro-widget`, over the real validator — and the reader
+gets evidence rather than a knob.
+
 `validateItems` takes the sections, the widget types the registry holds, and a
 map of the props each type cannot render without. It returns one problem per
 fault, in order, and throws nothing:
@@ -63,7 +71,27 @@ interface WidgetProblem {
 
 `id` and `type` are `'-'` when the item has none usable. Problems accumulate
 rather than short-circuiting, and nothing throws, so one run reports
-everything.
+everything. Five of the nine are structural and run whatever the registry
+holds:
+
+```ts file=libs/astro-widget/README.md region=structural-rules
+
+```
+
+The root itself is the ninth, and it reports one problem rather than none: a
+CMS that wrote an object where the schema said array has broken the page, and
+a clean run would say it had not.
+
+```ts file=libs/astro-widget/README.md region=not-a-list
+
+```
+
+A payload with nothing wrong reports nothing, which is the case a build gate
+runs on every deploy:
+
+```ts file=libs/astro-widget/README.md region=clean-payload
+
+```
 
 ## Required fields
 
@@ -121,10 +149,8 @@ read, so a CI script that does not want to pull `.astro` modules into a plain
 Node process can hand it a bare list of names — `validateItems` lives in
 `@evanion/widget` and imports no framework at all:
 
-```js
-validateItems(page.sections, ['listing-header', 'game-grid'], {
-  'listing-header': ['title'],
-});
+```ts file=libs/astro-widget/README.md region=registry
+
 ```
 
 The real registry is the better argument where it is already imported, since the
