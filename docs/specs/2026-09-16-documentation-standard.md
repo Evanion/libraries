@@ -1495,12 +1495,24 @@ and the `@evanion/doc-examples/mdx-region-loader` Turbopack rule fills it at
 build time. Serving raw MDX the way react.dev serves its sources would hand
 every agent a page whose TypeScript examples are blank — the exact failure this
 whole document is written against, delivered to the reader least able to notice
-it. The `.md` route is generated **after** region inlining, from the same
-content the HTML page renders, and a test asserts that a `.md` sibling of a page
-with a `file=` fence contains the region's code.
+it. All 54 `file=` fences on the site are empty in source, which is every
+TypeScript example a package page shows. The sibling is generated **after** region
+inlining, from the same content the HTML page renders, and
+`tools/repo-checks/src/doc-md-siblings.test.ts` asserts that no fence naming a
+region reaches a sibling empty.
 
-This is the one piece of machinery this section adds. It is small: one route,
-one generation step ordered after the loader, one test.
+**Not a Next route, and `output: 'export'` is why.** `app/[...mdxPath]/page.tsx`
+is a required catch-all and owns every path on this site, so a `route.ts` beside
+it fails the build with "Conflicting route and page at /[...mdxPath]", and no
+other segment can produce a path that ends in `.md`. Under a static export the
+deployed site is the contents of `out/`, so writing the file is what serving it
+means: `apps/docs/tools/md-siblings.mjs` walks `content/`, runs the loader's own
+`expandRegions`, and writes `out/urn/api.md` beside `out/urn/api/index.html`.
+It runs from the docs app's `postbuild`, ahead of Pagefind, because nx invokes
+`next build` directly and npm's lifecycle never fires.
+
+This is the one piece of machinery this section adds. It is small: one
+generation step ordered after the loader, one test.
 
 ## 6. One domain: the shop
 
