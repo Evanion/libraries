@@ -1,0 +1,288 @@
+# Next.js RSC
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    `apps/storefront-rsc` in this repository is a Next 16 App Router app with no
+    `'use client'` file in it at all, and `apps/docs` is the Nextra site you are
+    reading. The server shapes below follow the first; the server-to-island
+    hand-off follows the `Probe` / `ProbeIsland` pair in the second. Neither app
+    runs `@evanion/acl` today.
+  </Text>
+</WorkshopNotice>
+
+The core on the server, [`@evanion/react-acl`](/react-acl)
+at the client boundary. The server component decides; the result crosses as
+data; the client component re-renders and enforces nothing.
+
+## Two boundaries, not one
+
+<Panel heading="A Server Action is a public endpoint the page did not guard">
+  <Text as="div" size="sm">
+    The server component that hid the button and the Server Action the button
+    posts to are reached independently. A caller invokes the action's endpoint
+    directly, without rendering anything. The action re-resolves the subject and
+    decides again, or it is unguarded.
+  </Text>
+</Panel>
+
+This is the point that separates RSC from a server-only platform. There are two
+trusted entry points into the same app — the render and the action — and a
+decision made at one does not carry to the other. The client component sits
+between them and is neither.
+
+| Where                     | Runtime | Decides?                               |
+| ------------------------- | ------- | -------------------------------------- |
+| Server component          | trusted | yes, for what it renders               |
+| `'use client'` component  | browser | never; it toggles what the user sees   |
+| Server Action             | trusted | yes, independently, for what it writes |
+| Route handler / API route | trusted | yes, independently                     |
+
+## Building the matrix
+
+Module scope in a server-only module, the way `apps/storefront-rsc` calls
+`createWidgets` at module scope in `app/widgets.tsx`. `Subject` and `Order` are
+the app's own types, and `MATRIX_VERSION` is a string the build stamps in — the
+document revision a client compares its copy against:
+
+```ts
+// app/access.ts
+import 'server-only';
+import { policy } from '@evanion/acl';
+
+import type { Order, Subject } from './types.js';
+
+/** Stamped at build time; `access.version` is what a client compares. */
+const MATRIX_VERSION = process.env.MATRIX_VERSION;
+
+export const access = policy<Subject>({ version: MATRIX_VERSION })
+  .for<'order', Order>('order', (p) =>
+    p
+      .allow('read', p.eq('object.buyerId', 'subject.id'))
+      .allow('cancel', p.eq('object.buyerId', 'subject.id'))
+      .deny('cancel', p.eq('object.status', 'shipped')),
+  )
+  .build();
+```
+
+`import 'server-only'` is what makes a client component importing this a build
+error rather than a matrix-shaped hole in the browser bundle. The document
+itself is public — it ships to the client anyway, deliberately — but the module
+that builds it is server code, and the boundary should fail loudly rather than
+quietly duplicate it.
+
+## Resolving the subject
+
+From the verified session, once per request, through React's `cache` so every
+server component in the tree reads the same bag:
+
+```ts
+// app/session.ts
+import 'server-only';
+import { cache } from 'react';
+
+export const currentSubject = cache(async (): Promise<Subject | null> => {
+  const session = await verifySession(await cookies());
+  return session?.user ?? null;
+});
+```
+
+`cache` is per request, not global, which is the property that matters: two
+server components in one render see one subject, and two concurrent requests see
+their own. A module-level variable would be shared across requests on the same
+server instance.
+
+## The server component decides
+
+```tsx
+// app/orders/[id]/page.tsx
+export default async function OrderPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const subject = await currentSubject();
+  if (!subject) notFound();
+
+  const order = await repository.find(id);
+  if (!order) notFound();
+
+  const forUser = access.authorize(subject);
+  if (!forUser.can('order', 'read', order).allowed) notFound();
+
+  return <OrderView order={order} />;
+}
+```
+
+A refusal is `notFound()` rather than a 403 here on purpose: a page that says
+"forbidden" for an order that exists and "not found" for one that does not is an
+existence oracle. Which of the two an app wants is an app decision; the one
+thing that is not is leaking the difference by accident.
+
+## What crosses to the client
+
+`Access` is a closure set over a frozen document. It does not serialize —
+`structuredClone` throws on the functions, `JSON.stringify` silently drops every
+method — so a server component cannot pass `access` as a prop. It passes the
+document:
+
+```ts file=libs/acl/README.md region=matrix-round-trip
+
+```
+
+The matrix is an envelope carrying its own `version` and `schema`, so nothing
+travels beside it. `hydratePolicy` is the other half of that crossing: the
+island takes the document the server sent and gets an evaluator back over it.
+
+```tsx
+// app/access-boundary.tsx
+'use client';
+
+import { useMemo } from 'react';
+import { hydratePolicy } from '@evanion/acl';
+import { PolicyProvider } from '@evanion/react-acl';
+
+export default function AccessBoundary({
+  matrix,
+  subject,
+  now,
+  children,
+}: {
+  matrix: Matrix;
+  subject: Subject;
+  now: string;
+  children: ReactNode;
+}) {
+  // hydratePolicy validates, deep-clones and deep-freezes. Once per matrix,
+  // not once per render.
+  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
+  const context = useMemo(() => ({ now }), [now]);
+
+  return (
+    <PolicyProvider access={access} subject={subject} context={context}>
+      {children}
+    </PolicyProvider>
+  );
+}
+```
+
+Mounted from a server component, which is the only side that has the document:
+
+```tsx
+// app/layout.tsx
+const subject = await currentSubject();
+
+return (
+  <AccessBoundary
+    matrix={access.matrix}
+    subject={subject}
+    now={new Date().toISOString()}
+  >
+    {children}
+  </AccessBoundary>
+);
+```
+
+`now` crosses as an ISO string, not a `Date`. The hooks key their memos on it,
+and a `Date` is a fresh object every render, so a string holds the memo where a
+`Date` re-evaluates the matrix on each pass. Resolve it on the server so the
+server render and the client's first render agree — a `now` that reaches `can`
+from a client payload hands the client every time window in the matrix.
+
+## Why a provider at all, when `react-widget` removed one
+
+`@evanion/react-widget` is server-renderable in this repository because it has
+no context: React's `react-server` export condition omits `createContext`,
+`useContext` and every stateful hook, so the package's answer was to need none
+of them. That answer is not available here. A client tree asks `useCan` at
+arbitrary depth, and a context is what stops every one of those call sites
+taking the subject and the policy as props.
+
+So the split is the one `@evanion/react-acl` ships: `'use client'` at the top of
+the package, the provider and hooks behind it, and the framework-free core on
+both sides. A server component never calls a hook; it calls `access.can`
+directly.
+
+If the island is dynamically imported, import it from a client module rather
+than a server one — `next/dynamic` code-splits only where the importing module
+is itself on the client, which is why `apps/docs` puts its dispatch table in
+`components/probes/islands.tsx` behind `'use client'` rather than in the server
+`Probe.tsx` above it.
+
+## The client re-renders and enforces nothing
+
+```tsx
+'use client';
+
+import { useCan } from '@evanion/react-acl';
+
+export function CancelButton({ order }: { order: Order }) {
+  const decision = useCan('order', 'cancel', order);
+  if (!decision.allowed) return null;
+  return (
+    <form action={cancelOrder}>
+      <button>Cancel</button>
+    </form>
+  );
+}
+```
+
+That `return null` hides a button. It does not stop anyone posting to
+`cancelOrder`, and it was never meant to. The decision here exists to make the
+page honest about what will work.
+
+## Every Server Action decides again
+
+```ts
+// app/orders/actions.ts
+'use server';
+
+export async function cancelOrder(formData: FormData) {
+  const subject = await currentSubject();
+  if (!subject) throw new Error('unauthenticated');
+
+  const id = String(formData.get('id'));
+  const order = await repository.find(id);
+  if (!order) throw new Error('not found');
+
+  if (!access.authorize(subject).can('order', 'cancel', order).allowed) {
+    throw new Error('forbidden');
+  }
+
+  await repository.cancel(order.id);
+  revalidatePath(`/orders/${id}`);
+}
+```
+
+Nothing in this function reads what the page decided, and it must not: the page
+did not run for this caller. The subject is re-resolved from the cookie, the
+order is re-read, and the decision is made again against both. The row is
+re-read for the same reason — between the render that allowed the cancel and
+this action landing, the order can ship and the deny rule can start matching.
+
+A write on the field axis is the same, with `pickAllowedFields` deciding which
+keys of the submitted form actually land:
+
+```ts file=libs/acl/README.md region=write-path
+
+```
+
+## Freshness
+
+The client holds the matrix the last render sent it. When a permission is
+revoked, that copy keeps granting until something replaces it, and it has no way
+to notice. `access.version` is the surface for detecting that, not a mechanism
+for fixing it — compare it, fail closed, refetch.
+
+In an App Router app the cheap version of "refetch" is already there: the
+document crosses on every server render, so `revalidatePath` after a policy
+change replaces it. The server never depends on the client's copy in any case,
+because every server component and every action evaluates its own.
+
+## Where to go next
+
+- [React Router 8](/acl/react-router) — the same split with the
+  loader as the trusted side
+- [Security contract](/acl/security) — matrix freshness, the clock, and the
+  public document
+- [The matrix document](/acl/matrix) — the envelope and the version contract

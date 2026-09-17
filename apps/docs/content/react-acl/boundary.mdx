@@ -1,0 +1,128 @@
+# Which side decides
+
+<WorkshopNotice slug="react-acl">
+  <Text as="div" size="sm">
+    The example on this page is a region of `libs/react-acl/examples/` and runs
+    under `nx test @evanion/react-acl`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={3}
+  read={7}
+  requires={[['Getting started', '/react-acl/getting-started']]}
+  unlocks={[
+    ['Security contract', '/acl/security'],
+    ['API reference', '/react-acl/api'],
+  ]}
+/>
+
+**The concept.** A React Router loader and the route component it renders both
+ask whether this shopper may edit this listing. They get the same answer from
+the same rules. One of the two answers is worth something to an attacker and the
+other is worth nothing, and no line of either file says which is which.
+
+**What you will have.** A clear line through your app: the side that fetches and
+writes decides, the side that renders toggles, and a hook never appears on the
+first side.
+
+**Why you would want it.** Both calls compile. Both return a `Decision`. The
+component that hid the Edit button reads as a permission check to the next
+person who opens it, and the action it posts to is a URL that never ran a
+loader.
+
+**How the library gets you there.** The package makes the split hard to blur:
+`'use client'` sits at the top of its entry point, so a hook cannot be called on
+the trusted side at all, and the trusted side calls the core.
+
+## What the two calls have in common, and what they do not
+
+`useCan('listing', 'edit', listing)` and
+`access.can(shopper, 'listing', 'edit', listing)` evaluate the same rules over
+the same document and return the same `Decision`. The library draws no
+distinction between them and cannot: the rules are a JSON document, evaluation
+is a function over it, and the function does not know where it is running.
+
+What separates them is the runtime. One ran where the shopper could not reach
+the code, and one ran in the shopper's browser, over a document the shopper can
+read, against a subject the shopper's own page supplied.
+
+| Where                                | Runtime | Decides?                                |
+| ------------------------------------ | ------- | --------------------------------------- |
+| Loader or server component           | trusted | yes, for what it returns or renders     |
+| `PolicyProvider` and its tree        | browser | never; it toggles what the shopper sees |
+| Action, Server Action, route handler | trusted | yes, independently, for what it writes  |
+
+A caller reaches the last row directly. `curl` posts to the action without
+rendering anything, so the row re-resolves the subject from the session, re-reads
+the row from the database, and decides again. There is no "already checked
+upstream": a gateway that allowed the request does not excuse the service behind
+it, and a page that hid the button does not excuse the handler the button posts
+to.
+
+## What a server component calls instead
+
+Nothing on the trusted side imports `@evanion/react-acl`. A loader or a server
+component already holds an evaluator and a subject, so it asks the core:
+
+```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
+
+```
+
+`ListingPage` takes `access` as a prop here so the example runs under a test.
+An app builds the evaluator at module scope in a server-only module and calls
+`access.authorize(shopper)` once per request, which drops the subject from every
+signature after it. [React Router 8](/acl/react-router) and
+[Next.js RSC](/acl/next-rsc) each work that through against a real app's file
+layout.
+
+Importing `@evanion/react-acl` into a React Server Component graph is not a
+subtle failure. The package's entry point carries `'use client'`, so the import
+opens a client boundary around whatever imported it, and the component you meant
+to keep on the server ships to the browser.
+
+## What crosses the render
+
+`Access` is a set of closures over a frozen document. It does not survive
+serialization — `JSON.stringify` drops every method silently — so no loader
+return value and no server component prop can carry one.
+
+What crosses is [the matrix](/acl/matrix): a JSON envelope carrying its own
+`version` and `schema`, which is why nothing has to travel beside it. The client
+calls `hydratePolicy` on it and gets its own evaluator back, which is the
+`access` prop [Getting started](/react-acl/getting-started) mounts.
+
+The subject crosses too, because the browser needs it to evaluate. It is not a
+credential and nothing reads it back: the server resolves its own subject from
+the session on the next request rather than trusting the copy it sent.
+
+`now` crosses as a string. Resolve it on the server so the server render and the
+client's first render agree on the instant, and so a time window in the policy is
+not read against a clock the shopper's machine sets.
+
+## What the browser's copy is worth
+
+The matrix in the browser is as fresh as the render that delivered it. Revoke a
+permission and that copy keeps granting until something replaces it, and it has
+no way to notice. `access.version` — the revision stamped on
+[the matrix](/acl/matrix) — is the surface for detecting the gap; failing closed
+and refetching is the app's to write.
+
+The server never depends on that copy, which is what makes the staleness
+survivable. Every loader, every action and every handler evaluates its own.
+
+None of this is a weakness in the browser's answer, because the browser's answer
+was never load-bearing. It is there so the page is honest about what will work:
+a shopper who is shown an Edit button that 403s has been misled by the page, and
+that is the failure the hooks exist to prevent.
+
+## Where to go next
+
+- [Security contract](/acl/security) — the whole trust boundary, time of check
+  to time of use, and what remains yours
+- [React Router 8](/acl/react-router) — middleware, loader, action, and the
+  provider in the shell
+- [Next.js RSC](/acl/next-rsc) — the server component, the client boundary, and
+  the Server Action behind the button
+- [API reference](/react-acl/api) — the provider, the four hooks and the typed
+  policy factory

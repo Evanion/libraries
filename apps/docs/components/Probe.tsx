@@ -1,4 +1,5 @@
 import { seedOf } from './probes/claims';
+import { probes as feature } from './probes/feature';
 import ProbeIsland, { type ProbePackage } from './probes/islands';
 import { probes as luhn } from './probes/luhn';
 import { probes as token } from './probes/token';
@@ -13,6 +14,7 @@ import { probes as urn } from './probes/urn';
  * file read the argument out of.
  */
 const catalogue: Record<ProbePackage, Record<string, ProbeDefinition>> = {
+  feature,
   luhn,
   token,
   urn,

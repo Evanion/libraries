@@ -1,0 +1,102 @@
+# What can they do at all?
+
+<WorkshopNotice slug="acl" />
+
+`capabilities(subject, now?)` resolves every permission in the document against
+one subject, keyed, in document order, in one pass.
+
+```ts twoslash file=libs/acl/README.md region=capabilities
+
+```
+
+## The no-object contract
+
+`capabilities` passes no object. That is the whole shape of the call, and it
+decides what the answer can mean:
+
+- A permission whose rules read only `subject.*` decides definitely. The subject
+  was resolved whole before the call, so a field it lacks is a field it does not
+  have.
+- A permission whose rules read any `object.*` path decides `unevaluable`, with
+  `missing` naming the paths. Not `false` — there is no instance to compare
+  against, so the question has not been asked yet.
+
+That second line is why `capabilities` is not "the user's permissions". It is
+the answer to every question that can be answered without a row.
+
+<Panel heading="`unevaluable` in a capability map is normal">
+  <Text as="div" size="sm">
+    All three rules above read `subject.roles`, so all three entries decide
+    definitely. Add one rule reading `object.*` and its entry comes back
+    `unevaluable` on every call, however the subject is shaped. That is not a
+    misconfiguration. Reading the map as a list of `allowed === true` is
+    correct; reading `allowed === false` as "refused" is not.
+  </Text>
+</Panel>
+
+## Driving a menu from it
+
+A navigation menu is exactly the object-free question: "is there any point
+showing this section". One call at the top of a render, one lookup per item.
+
+One call answers for every key in the document at once:
+
+```ts twoslash
+import { policy } from '@evanion/acl';
+
+const access = policy<{ id: string }>()
+  .for<'report', { ownerId: string }>('report', (p) =>
+    p.allow('read', p.always),
+  )
+  .build();
+
+const subject = { id: 's1' };
+// ---cut---
+const caps = access.capabilities(subject);
+//    ^?
+```
+
+so the menu is a filter over it:
+
+```ts twoslash
+import { policy } from '@evanion/acl';
+
+const access = policy<{ id: string }>()
+  .for<'report', { ownerId: string }>('report', (p) =>
+    p.allow('read', p.always),
+  )
+  .build();
+
+const subject = { id: 's1' };
+const caps = access.capabilities(subject);
+// ---cut---
+const items = [
+  { href: '/reports', label: 'Reports', key: 'report.read' },
+  { href: '/listings', label: 'Listings', key: 'listing.read' },
+].filter((item) => caps[item.key]?.allowed === true);
+```
+
+`=== true` rather than truthiness, and `?.` rather than an index, because a key
+the document does not carry is simply absent from the map. A menu built on
+`!caps[key]?.allowed` shows every item the matrix has never heard of.
+
+Prefer this over a loop of `can` over every key. `capabilities` settles the
+clock once for the whole document; a loop settles it per permission.
+
+## What it does not replace
+
+A row-level control — an edit button on one question — is a `can` with that
+question, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
+rows. A capability map cannot answer it, and an entry that came back
+`unevaluable` is the map saying so.
+
+`capabilities` is also not a per-subject projection to ship to a client. The
+client gets `access.matrix` and evaluates it locally; that is the package's
+whole premise, and a projection would be a second thing to keep fresh.
+
+## Where to go next
+
+- [Can this user do this?](/acl/asking) — the per-instance question
+- [Why was this refused?](/acl/refusals) — reading `reason` and `missing` out of
+  a capability map
+- [Many services](/acl/federation) — folding one view out of several origins

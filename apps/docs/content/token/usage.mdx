@@ -52,6 +52,14 @@ random part alone, before the check character and before chunking.
 
 `generate` never retries and never checks for collisions.
 
+Mint a pickup code below. The shape control is the `length` and `chunkSize`
+pair, offered only in combinations `createToken` accepts, and the alphabet
+control is the one this package exists for: the third option is every lowercase
+letter and digit, which `createToken` refuses, and the card shows the characters
+the refusal named rather than a code it could not have minted.
+
+<TokenSpecimen initial="a4kp-9mxa" />
+
 ## `validate`
 
 ```ts file=libs/token/README.md region=validate

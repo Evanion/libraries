@@ -13,7 +13,23 @@
     // Part of every target's hash, so a change to the workflow that runs the
     // targets invalidates the cache instead of replaying results produced under
     // the previous one.
-    "sharedGlobals": ["{workspaceRoot}/.github/workflows/ci.yml"]
+    "sharedGlobals": ["{workspaceRoot}/.github/workflows/ci.yml"],
+    // What `@evanion/repo-checks` reads: the repository. Its tests hold the
+    // docs content against `apps/docs/app/navigation.ts`, every project's
+    // manifest and tsconfig against the project graph, the commitlint scope
+    // list against this file, and the package READMEs against a compiler. None
+    // of that sits under `tools/repo-checks`, so the default `{projectRoot}/**/*`
+    // hashes none of it and a docs edit replays a cached pass over content the
+    // run never read.
+    //
+    // A glob over the workspace rather than a list of the directories those
+    // tests reach into: a list is a second place a new package has to be
+    // written down, which is what this repository does not do. Nx hashes the
+    // git-tracked files, so `node_modules`, `dist` and `.next` are already out.
+    //
+    // The cost is that any tracked file invalidates this target. That is what a
+    // whole-repository check is: its verdict depends on the repository.
+    "repoChecks": ["{workspaceRoot}/**/*"]
   },
   "nxCloudId": "68bf338daff9c334d6ac12a1",
   "plugins": [

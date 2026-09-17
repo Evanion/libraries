@@ -38,6 +38,7 @@ interface DocumentedPackage {
   documented: boolean;
   workshop: boolean;
   group: string;
+  familyId?: string;
   framework: string;
   hue: string;
 }
@@ -132,6 +133,35 @@ async function metaFiles(): Promise<
   return found;
 }
 
+/** Every directory under `content/` that holds a page or a subdirectory. */
+function contentDirectories(): string[] {
+  const walk = (directory: string): string[] => [
+    directory,
+    ...readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => walk(join(directory, entry.name))),
+  ];
+
+  return walk(contentRoot);
+}
+
+/**
+ * The `_meta` keys one directory needs: a key per page and a key per
+ * subdirectory. A page's key is its filename without the extension; a
+ * subdirectory's key is its name, and the `index` inside it belongs to that
+ * subdirectory's own `_meta`.
+ */
+function pagesIn(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() ||
+        ((entry.name.endsWith('.mdx') || entry.name.endsWith('.md')) &&
+          !entry.name.startsWith('_')),
+    )
+    .map((entry) => entry.name.replace(/\.mdx?$/, ''));
+}
+
 /** Whether a `_meta` key resolves to a page Nextra will find. */
 function pageExists(directory: string, name: string): boolean {
   return ['.mdx', '.md'].some(
@@ -219,6 +249,97 @@ describe('the docs navigation', () => {
     ).toEqual([]);
   });
 
+  /**
+   * `familyId` is what merges a core and its adapters onto one card, and
+   * `apps/docs/components/landing/families.ts` groups within a `group` before
+   * it groups by `familyId`. Members spread across two groups are therefore two
+   * families carrying the same `id`, which the landing page renders as two
+   * cards keyed alike -- duplicate React keys and a family split in half, with
+   * no build failure.
+   */
+  it('keeps every family in one group', async () => {
+    const byFamily = new Map<string, Set<string>>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      byFamily.set(
+        entry.familyId,
+        (byFamily.get(entry.familyId) ?? new Set()).add(entry.group),
+      );
+    }
+
+    expect(
+      [...byFamily]
+        .filter(([, groups]) => groups.size > 1)
+        .map(([id, groups]) => `${id}: ${[...groups].sort().join(', ')}`),
+      'Every package sharing a `familyId` needs the same `group` in ' +
+        'apps/docs/app/navigation.ts. A family split across groups is two ' +
+        'cards under one key, not one card.',
+    ).toEqual([]);
+  });
+
+  /**
+   * A `familyId` only one package carries is a family of one, which is what
+   * omitting it already means. It is what a typo looks like -- `widgit` on one
+   * of three renderers takes that renderer off the family's card and gives it a
+   * card of its own, and every other check here still passes.
+   */
+  it('gives no package a `familyId` of its own', async () => {
+    const counts = new Map<string, string[]>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      counts.set(entry.familyId, [
+        ...(counts.get(entry.familyId) ?? []),
+        entry.slug,
+      ]);
+    }
+
+    expect(
+      [...counts]
+        .filter(([, slugs]) => slugs.length === 1)
+        .map(([id, slugs]) => `${slugs[0]}: ${id}`),
+      'A `familyId` naming one package groups it with nothing. Fix the ' +
+        'spelling so it matches the rest of the family, or drop the key.',
+    ).toEqual([]);
+  });
+
+  /**
+   * The lead is what the family's card is called, and `families.ts` picks the
+   * framework-free member as the lead so the card reads "Widget" rather than
+   * "React Widget". With no such member it falls back to whichever adapter
+   * `navigation.ts` happens to list first, so the card takes an adapter's name
+   * and reordering the list renames it. Two cores is the same ambiguity.
+   */
+  it('gives every family of several packages one framework-free core', async () => {
+    const byFamily = new Map<string, string[]>();
+
+    for (const entry of await loadNavigation()) {
+      if (!entry.familyId) continue;
+      if (entry.framework !== 'universal') continue;
+      byFamily.set(entry.familyId, [
+        ...(byFamily.get(entry.familyId) ?? []),
+        entry.slug,
+      ]);
+    }
+
+    const families = new Set(
+      (await loadNavigation())
+        .map((entry) => entry.familyId)
+        .filter((id): id is string => id !== undefined),
+    );
+
+    expect(
+      [...families]
+        .map((id) => ({ id, cores: byFamily.get(id) ?? [] }))
+        .filter(({ cores }) => cores.length !== 1)
+        .map(({ id, cores }) => `${id}: ${cores.join(', ') || '(none)'}`),
+      'Every family in apps/docs/app/navigation.ts needs exactly one member ' +
+        'with `framework: universal`. That member names the family on the ' +
+        "landing page; without it the card takes an adapter's name.",
+    ).toEqual([]);
+  });
+
   /** The card says what stack a package runs in, so every card needs one. */
   it('says what stack every package runs in', async () => {
     expect(
@@ -233,22 +354,39 @@ describe('the docs navigation', () => {
    * packages sharing one is worse than neither having one: the reader learns a
    * colour that means two things. A hue the scale does not carry resolves to an
    * undefined custom property and renders as the ground, silently.
+   *
+   * One sharing is allowed: within a group. The rendering group's three
+   * packages are one family, so they carry one hue to say so — the same way
+   * `feature` (universal + React) uses one. A hue must still be distinct across
+   * groups, or a reader scanning the cards learns one colour for two unrelated
+   * packages.
    */
-  it('gives every package a distinct hue from the scale', async () => {
+  it('gives every package a hue from the scale, distinct across groups', async () => {
     const navigation = await loadNavigation();
-    const hues = navigation.map((entry) => entry.hue);
 
     expect(
-      hues.filter((hue) => !(hue in categorical)),
+      navigation
+        .map((entry) => entry.hue)
+        .filter((hue) => !(hue in categorical)),
       `Every \`hue\` in apps/docs/app/navigation.ts has to name one of ` +
         `\`categorical\` in @evanion/baize-ui/tokens.`,
     ).toEqual([]);
 
+    // Within one group a hue may repeat (a family); across groups it may not.
+    // Dedupe each group's hues first, so a family's shared hue counts once.
+    const byGroup = new Map<string, string[]>();
+    for (const entry of navigation) {
+      const group = entry.group;
+      byGroup.set(group, [...(byGroup.get(group) ?? []), entry.hue]);
+    }
+    const acrossGroups = [...byGroup.values()].flatMap((hues) => [
+      ...new Set(hues),
+    ]);
     expect(
-      hues,
-      'Two packages in one colour teaches a reader a colour that means two ' +
-        'things. The scale carries nine.',
-    ).toEqual([...new Set(hues)]);
+      acrossGroups,
+      'Two packages in different groups sharing one colour teaches a reader ' +
+        'a colour that means two unrelated things.',
+    ).toEqual([...new Set(acrossGroups)]);
   });
 
   it('lists every package once', async () => {
@@ -341,5 +479,61 @@ describe('every _meta file', () => {
     }
 
     expect(dangling).toEqual([]);
+  });
+
+  /**
+   * The other direction, and the one the documentation standard § 12 calls G1.
+   *
+   * Nextra appends a page no `_meta` key names, after the ordered ones, in
+   * filename order. Nothing fails, so a page lands in the sidebar in a position
+   * nobody chose and the section's reading order stops being the order the
+   * section teaches. The standard's § 2 asks for a cumulative order; an order
+   * that is not written down cannot be one.
+   */
+  it('names every page in its directory', async () => {
+    const ordered = new Map(
+      (await metaFiles()).map(({ directory, meta }) => [
+        directory,
+        new Set(Object.keys(meta)),
+      ]),
+    );
+    const unlisted: string[] = [];
+
+    for (const directory of contentDirectories()) {
+      const keys = ordered.get(directory);
+      if (!keys) continue;
+
+      for (const page of pagesIn(directory)) {
+        if (!keys.has(page)) {
+          unlisted.push(`${relative(workspaceRoot, directory)}: ${page}`);
+        }
+      }
+    }
+
+    expect(
+      unlisted.sort(),
+      'Add these to the `_meta` file of their directory. A page no `_meta` ' +
+        'key names is appended in filename order, so the section teaches in an ' +
+        'order nobody chose.',
+    ).toEqual([]);
+  });
+
+  /**
+   * A directory with no `_meta` file is ordered entirely by filename, which puts
+   * `advanced` first and `index` in the middle.
+   */
+  it('exists for every directory under content/', () => {
+    const missing = contentDirectories().filter(
+      (directory) =>
+        !readdirSync(directory).some((name) =>
+          /^_meta\.(js|jsx|ts|tsx)$/.test(name),
+        ),
+    );
+
+    expect(
+      missing.map((directory) => relative(workspaceRoot, directory)).sort(),
+      'Every directory under apps/docs/content needs a `_meta` file. Without ' +
+        'one Nextra orders the directory by filename.',
+    ).toEqual([]);
   });
 });

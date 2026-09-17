@@ -83,6 +83,27 @@ describe('doc region references', () => {
     );
   });
 
+  it('carries the fence meta through to the expanded block', () => {
+    const source = [
+      '```ts twoslash file=libs/urn/README.md region=equality',
+      '```',
+    ].join('\n');
+
+    expect(expandRegions(source, workspaceRoot, 'test.mdx')).toContain(
+      '```ts twoslash\n',
+    );
+  });
+
+  it('takes the language from the region when the block names none', () => {
+    const source = ['```file=libs/urn/README.md region=equality', '```'].join(
+      '\n',
+    );
+
+    expect(expandRegions(source, workspaceRoot, 'test.mdx')).toContain(
+      '```ts\n',
+    );
+  });
+
   it('leaves an ordinary code block alone', () => {
     const source = ['```ts', 'const x = 1;', '```'].join('\n');
 

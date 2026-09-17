@@ -1,0 +1,167 @@
+# Security contract
+
+<WorkshopNotice slug="acl" />
+
+<Panel heading="Browser evaluation is never an access control">
+  <Text as="div" size="sm">
+    In a browser, `can` exists to toggle what the user sees: show or hide a
+    button, enable or disable a field, render the read-only branch instead of
+    the editable one. Hiding a control hides the control — not the data behind
+    it, and not the request the control would have sent. Enforcement happens in
+    a trusted environment, and a page that hid the button does not excuse the
+    handler the button posts to.
+  </Text>
+</Panel>
+
+A decision counts where it is made. It is authoritative in a trusted
+environment — a React Router 8 or Next.js server runtime, a Node service, the
+server side of an API boundary — and advisory everywhere else. The call has the
+same signature and the same return type in both places, and nothing in the types
+separates them. The runtime does.
+
+## Every layer decides for itself
+
+Every app in the chain evaluates for itself and trusts no earlier layer. A
+gateway or a BFF that already allowed the request does not excuse the service
+behind it from deciding again. There is no transitive trust, because a caller
+reaches the later service directly whenever it wants to.
+
+```mermaid caption="One matrix, evaluated once per process. The browser's answer draws the interface, the gateway's answer does not excuse the service, and the service's answer is the one guarding the write — because a caller reaches the service directly whenever it wants to."
+flowchart LR
+  B["browser<br>can(subject, …)"] --> G["gateway or BFF<br>can(subject, …)"]
+  G --> S["service<br>can(subject, …)"]:::accent
+  S --> W[("the write")]
+  B -. "reaches the service directly" .-> S
+```
+
+Evaluating the same matrix twice is cheap. It is a local function call over a
+frozen object, with no round trip to pay for, which is what makes "check again"
+a rule that can actually be kept.
+
+## The matrix is a public document
+
+It ships to the client in full, in its names and structure as well as its
+values. Anyone who loads the page reads every object kind, every action name,
+every role string that appears in a condition, every field name including the
+ones the API never returns, every state machine and its terminal states, every
+time window and its boundaries. That is a map
+of the privilege model and of the server's internal vocabulary.
+
+This is not an argument against shipping the matrix — security must not rest on
+the document staying secret, and here it does not. It is an argument for naming
+things as if they were going to be read, because they are. An action named
+`bypass-kyc` or a role named `internal-fraud-reviewer` is a disclosure the
+moment the page loads. Secrets and server-only predicates do not belong in the
+document at all; they are app-layer decisions outside the matrix.
+
+## Three tiers
+
+The package holds itself to a register at
+[`libs/acl/SECURITY.md`](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md),
+one row per class of attack, each row naming the test that proves it. The suite
+runs under `nx test @evanion/acl`, so it is checked on every change rather than
+once.
+
+| Tier | What it means                                                |
+| ---- | ------------------------------------------------------------ |
+| 1    | The library prevents it — a construction error or a refusal  |
+| 2    | The library supplies the primitive; the consumer must use it |
+| 3    | Structurally out of scope; the contract clause is the answer |
+
+Tier 1 runs from mass assignment through a key only the write carries to matrix
+shapes that exhaust the process; the register names each row and its test. Tier
+2 is where the primitive exists and using it is the consumer's move:
+[`pickAllowedFields`](/acl/fields#writing) for a write, and `allowed` rather
+than the reason string or the field maps for a gate. Tier 3 is the rest of this
+page.
+
+## Subject authenticity
+
+`can(subject, …)` authorizes the bag it is handed. It has no channel to ask
+where that bag came from. A subject derived from anything the client controls —
+a header, a query parameter, an unverified token body, a field the client posted
+— gets the attacker's claimed identity faithfully authorized.
+
+This is the confused deputy, and it cannot be fixed inside an evaluator. Resolve
+the subject from a verified session or a verified token, server-side, before it
+reaches `can`.
+
+## Complete mediation
+
+Nothing makes you call `can`. A new route, a new resolver, a background job, an
+admin script, a direct query — each is unguarded until someone guards it. The
+library can make the checked path the easy one, through `authorize(subject)`
+bound once in middleware; it cannot make the unchecked path impossible. Whether
+every path is covered is a property of the app, and the place to assert it is
+the app's own tests.
+
+## Time of check to time of use
+
+A decision describes the snapshot it was given. Between `can` returning true and
+the write landing, the object can change owner, the subject can lose the role,
+and the time window can close. Re-read the object and re-check inside the
+transaction, or write with a conditional predicate that fails when the state it
+was authorized against has moved. The library carries no freshness token and no
+way to detect the gap.
+
+## The clock a decision reads
+
+`now` is a parameter. Omitted, it is the wall clock; supplied, it is whatever
+the caller passed, and every `before`/`after` window moves with it. A `now` that
+reaches `can` from a client payload — a request body, a query string, anything
+the browser sent — hands the client every time window in the matrix. Pass it
+only to make a server render and the client's first render agree, and resolve
+it on the server.
+
+In a browser the wall clock belongs to the subject. Setting it back re-opens a
+window that has closed, and the library cannot detect that, because the clock is
+an argument. So the two condition kinds are not equally trustworthy on one page,
+advisory though both are: a role condition reads the subject a server resolved,
+a time condition reads what the subject's machine produced. A server passing its
+own `now` is unaffected.
+
+A clock that does not parse — `null`, `NaN`, an `Invalid Date`, a string that is
+not a date — refuses rather than deciding: every permission whose decision reads
+it answers `{ allowed: false, reason: 'unusable-clock' }`, so a deny gated on a
+time window goes on denying. A `before`/`after` boundary that does not parse is
+refused earlier still, at construction.
+
+## The bag a decision reads
+
+Conditions read `subject` and `object` live, field by field, as the decision
+walks the rules. The deny side is evaluated before the allow side, and each side
+reads the fields its own rules name. A bag whose properties are accessors — an
+ORM row, a lazy proxy, a memoised getter over a cache that can refill — can
+answer the two sides differently and pass the deny it should have matched.
+
+The matrix the engine evaluates is a frozen deep copy for exactly this reason.
+The subject and the object are not copied, because they are the app's data and
+copying them would hide the cost. Pass plain, already-resolved objects.
+
+## What a condition may read
+
+A condition may read only fields the subject cannot write. A rule that keys on
+an object field within the subject's reach is self-authorizing: the subject
+edits the field, then passes the check the field controls.
+`eq('object.sharedWith', 'subject.id')` is the obvious trap — a user puts their
+own id in the share field and is authorized for it.
+
+The engine cannot detect this. It does not know which fields the subject can
+write, and the write that opens the door is a different action from the read it
+opens. Either keep the field out of every write path the rule guards, or key the
+rule on something the subject cannot reach: ownership set at creation, a role on
+the subject, a field the server alone writes.
+
+## Matrix freshness
+
+A client holds the matrix it last fetched. When a permission is revoked, that
+client keeps granting it until it refetches, and it has no way to notice.
+
+`access.version` is a surface for detecting a mismatch, not a mechanism for
+resolving one. Comparing it, failing closed, and forcing a refetch is the
+consumer's to implement. The comparison is a `!==`, so a digest or a composite
+covering every input works as well as a counter — and a document that states no
+version leaves `access.version` undefined, where a `!==` decides nothing.
+
+The server never depends on a client's copy in any case, because it evaluates
+its own.

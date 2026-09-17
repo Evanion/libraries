@@ -5,18 +5,13 @@
 `plan()` partitions every feature into resolvable now and deferred, for a build
 that does not have the whole evaluation context.
 
-```ts
-features.plan({ now: new Date() });
-// {
-//   'payments-v3': { key: 'payments-v3', resolved: 'deferred',
-//                    needs: ['now', 'targetingKey'] },
-//   'checkout-v2': { key: 'checkout-v2', resolved: 'deferred',
-//                    needs: ['now', 'targetingKey'] },
-// }
+```ts file=libs/feature/README.md region=plan
+
 ```
 
-A static site emits only the deferred set and resolves that per request; an API
-calls `resolve()` per request. The resolvable cases go through the same `decide`
+The new checkout is deferred because its rollout reads `targetingKey`, which a
+build does not have. A static site emits only the deferred set and resolves
+that per request; an API calls `resolve()` per request. The resolvable cases go through the same `decide`
 as `resolve` does.
 
 ## A plan entry
@@ -44,8 +39,8 @@ A rule whose fields are all present in the context can be decided now; one that
 still needs a field cannot.
 
 ```ts
-features.plan({ targetingKey: 'acct-2' });
-// payments-v3: { resolved: 'deferred', needs: ['now'] }
+features.plan({ targetingKey: 'cust-0101' });
+// new-checkout: { resolved: 'deferred', needs: ['now'] }
 ```
 
 The rollout resolved — `targetingKey` was there — and the time window did not.
@@ -53,12 +48,17 @@ The rollout resolved — `targetingKey` was there — and the time window did no
 ```ts
 createFeatures([
   {
-    key: 'pro-only',
+    key: 'staff-only',
     enabled: true,
-    rules: [{ id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] }],
+    rules: [
+      {
+        id: 'staff-first',
+        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+      },
+    ],
   },
 ]).plan({});
-// { 'pro-only': { key: 'pro-only', resolved: 'deferred', needs: ['plan'] } }
+// { 'staff-only': { key: 'staff-only', resolved: 'deferred', needs: ['role'] } }
 ```
 
 A feature with `enabled: false` is `resolved: false` immediately, whatever its
@@ -100,6 +100,15 @@ appears in `needs`. The static build emits the rule and the request resolves it.
 ## Using a plan
 
 The two halves go to different places.
+
+```mermaid caption="plan() splits every feature in two. The settled half ships with the build as a decisions record; the deferred half ships as rules the request resolves, and the union of their needs is the context the request has to assemble."
+flowchart LR
+  F["features"] --> P["plan({ now })"]:::accent
+  P -->|"resolved: true or false"| S["a decisions record"]
+  P -->|"resolved: 'deferred'"| D["a key list, plus needs"]
+  S --> B["the build<br>FeatureProvider decisions={…}"]
+  D --> R["the request<br>resolve(context)"]
+```
 
 ```ts
 const plan = features.plan({ now: new Date() });

@@ -1,0 +1,295 @@
+# NestJS
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    There is no `@evanion/nestjs-acl`. The shapes below use `@evanion/acl`
+    directly and follow the module, token and request-context idioms
+    `nest/correlation-id` and `apps/shop-api` already run in this repository. No
+    guard exists anywhere in this repo yet, so the guard below is derived from
+    the middleware that does — read it as a shape.
+  </Text>
+</WorkshopNotice>
+
+Nest is server-side end to end, so the trust boundary is the request handler,
+the same as [Express](/acl/express). What Nest adds is a second
+seat in front of the handler, and the two seats can answer different questions.
+
+## Two seats, and only one of them can decide
+
+A `CanActivate` guard runs **before** the controller method, which means before
+the row is fetched. So a guard can ask whether this subject has this action at
+all, and cannot ask whether it has it on this order. An object-dependent rule
+called with no instance does not come back `false` — it comes back
+`unevaluable`, naming the paths it could not read.
+
+<Panel heading="A guard is an early refusal, never the enforcement point">
+  <Text as="div" size="sm">
+    The row-level decision belongs in the service, after the read. A guard that
+    passed is a guard that could not decide, and treating that as a grant is how
+    an object-dependent permission ends up unenforced. Keep both.
+  </Text>
+</Panel>
+
+That split is the whole Nest-specific content of this page. Everything else is
+wiring.
+
+## The module
+
+The registration idiom this repository already runs is `forRoot()` returning a
+`global: true` `DynamicModule` with a `useValue` config provider under a
+package-namespaced string token — `CorrelationModule` in
+`nest/correlation-id/src/correlation.module.ts`. A matrix fits it unchanged,
+because a matrix is static serializable data that no request mutates, the same
+slot `GAMES_CATALOGUE` fills in `apps/shop-api`.
+
+```ts
+export const ACL_ACCESS = '@your-org/app:ACL_ACCESS';
+
+@Module({})
+export class AclModule {
+  static forRoot(matrix: Matrix): DynamicModule {
+    const accessProvider: Provider = {
+      provide: ACL_ACCESS,
+      useValue: hydratePolicy(matrix),
+    };
+
+    return {
+      global: true,
+      module: AclModule,
+      providers: [accessProvider],
+      exports: [accessProvider],
+    };
+  }
+}
+```
+
+A namespaced string rather than a `Symbol()`, for the reason
+`nest/correlation-id/src/constants.ts` states about its own token: the provider
+is registered in a global module where a bare string collides silently, and a
+symbol is identity-based, so two copies of the package mint two tokens and Nest
+fails to resolve one.
+
+`hydratePolicy` runs once, at `forRoot()`, and the frozen document it returns is
+a singleton for the life of the process.
+
+## Resolving the subject
+
+This repository's answer to per-request context is an `AsyncLocalStorage`
+singleton, not `Scope.REQUEST` — `CorrelationService` and the middleware that
+runs it. The rationale in that file applies here without change: request scope
+propagates _upward_ through the injection graph, so every dependent of a
+request-scoped provider becomes request-scoped too, is rebuilt per request, and
+never receives `onModuleInit`. A subject provider is depended on by services,
+which are depended on by controllers, so `Scope.REQUEST` on it re-scopes the
+application.
+
+```ts
+@Injectable()
+export class SubjectService {
+  private readonly store = new AsyncLocalStorage<Subject>();
+
+  run(subject: Subject, next: () => void) {
+    this.store.run(subject, next);
+  }
+
+  /** The verified subject for the request in flight, or undefined outside one. */
+  current(): Subject | undefined {
+    return this.store.getStore();
+  }
+}
+```
+
+The middleware that fills it runs after whatever verifies the session and types
+its arguments against `node:http` rather than Express, so the same class works
+under either adapter — the portability idiom
+`CorrelationIdMiddleware` already follows:
+
+```ts
+@Injectable()
+export class SubjectMiddleware implements NestMiddleware {
+  constructor(private readonly subjects: SubjectService) {}
+
+  use(req: IncomingMessage, _res: ServerResponse, next: () => void) {
+    // Whatever verified the session put this here. Nothing is read off a
+    // header, a query parameter or a body.
+    const subject = (req as { user?: Subject }).user;
+    if (!subject) return next();
+    this.subjects.run(subject, next);
+  }
+}
+```
+
+Registered the way `AppModule` in `apps/shop-api` registers its own:
+
+```ts
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SubjectMiddleware).forRoutes('*');
+  }
+}
+```
+
+## The guard
+
+The guard reads the required permission off metadata and decides what it can
+decide without a row:
+
+```ts
+export const REQUIRES = '@your-org/app:REQUIRES';
+export const Requires = (key: string, action: string) =>
+  SetMetadata(REQUIRES, { key, action });
+
+@Injectable()
+export class AclGuard implements CanActivate {
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly subjects: SubjectService,
+    @Inject(ACL_ACCESS) private readonly access: Access,
+  ) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const required = this.reflector.getAllAndOverride<{
+      key: string;
+      action: string;
+    }>(REQUIRES, [context.getHandler(), context.getClass()]);
+
+    if (!required) return true;
+
+    const subject = this.subjects.current();
+    if (!subject) throw new UnauthorizedException();
+
+    const decision = this.access.can(subject, required.key, required.action);
+
+    // `unevaluable` means the rules read fields of a row this guard does not
+    // have. It is not a grant: the service decides it after the read.
+    if (decision.allowed || decision.reason === 'unevaluable') return true;
+
+    throw new ForbiddenException(decision.reason);
+  }
+}
+```
+
+The `unevaluable` branch is the load-bearing line, and it is the one that makes
+this guard safe only in company. A permission whose rules are entirely
+subject-side — a role check — is fully decided here and never reaches the
+controller when it fails. A permission with an `object.*` condition is
+_undecided_ here, and passing it on is correct only because the service decides
+it next.
+
+`access.readsObject(key, action)` tells the guard which of the two it is
+holding. It is a fact about the document, not about a subject or a call: true
+when any allow rule or any deny rule of that permission reads an `object.*`
+path, on either operand. So a guard can refuse loudly on a permission it was
+never going to be able to decide, and pass on only the ones the service is
+expected to finish:
+
+```ts
+const decision = access.can(subject, key, action);
+if (decision.allowed) return true;
+if (!access.readsObject(key, action)) throw new ForbiddenException();
+return true; // undecidable here by construction; the service decides on the row
+```
+
+Without that check, a permission the guard can never decide and a permission the
+guard just refused look the same, and "every `@Requires` route also decides in
+its service" stays an invariant the app asserts in its own tests.
+
+## The service decides on the row
+
+`SubjectService` is the request-scoped provider above; `OrderRepository` is
+whatever this app loads orders with, and `ACL_ACCESS` is the token the module
+binds the built matrix to.
+
+```ts
+@Injectable()
+export class OrdersService {
+  constructor(
+    private readonly subjects: SubjectService,
+    private readonly repository: OrderRepository,
+    @Inject(ACL_ACCESS) private readonly access: Access,
+  ) {}
+
+  private forRequest() {
+    const subject = this.subjects.current();
+    if (!subject) throw new UnauthorizedException();
+    return this.access.authorize(subject, { now: new Date() });
+  }
+
+  async read(id: string) {
+    const order = await this.repository.find(id);
+    if (!order) throw new NotFoundException();
+
+    if (!this.forRequest().can('order', 'read', order).allowed) {
+      throw new ForbiddenException();
+    }
+
+    return order;
+  }
+}
+```
+
+`authorize` binds the subject, and optionally the clock. `forRequest` above
+passes both, so the rest of the method restates neither — the region below binds
+the subject alone:
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+Binding `now` per call rather than per request is a choice this shape makes
+deliberately: a Nest service method can be invoked by a queue consumer or a
+scheduled job with no request around it, and a clock pinned in middleware would
+not exist there. Where every caller is an HTTP request, pin it alongside the
+subject in `SubjectService` and read both together.
+
+## Writes
+
+The write axis and `pickAllowedFields`, the same as everywhere:
+
+```ts file=libs/acl/README.md region=write-path
+
+```
+
+In a Nest controller the proposed write is the `@Body()`, and the write axis
+decides every key of it — including keys the row has never held. A DTO with a
+whitelisting `ValidationPipe` and a field decision answer different questions: a
+pipe says the key is a legal field of this endpoint, and a decision says this
+subject may set it on this row. Keep both; neither substitutes.
+
+Never filter the returned map by hand on `!== 'denied'`. That writes the
+`unevaluable` fields and every key the decision does not carry.
+
+## Testing it
+
+The idiom `apps/shop-api` uses for a request-context fake is `useValue` on the
+class token, which is what stubs a subject here:
+
+```ts
+const module = await Test.createTestingModule({
+  controllers: [OrdersController],
+  providers: [
+    OrdersService,
+    { provide: ACL_ACCESS, useValue: hydratePolicy(matrix) },
+    { provide: SubjectService, useValue: { current: () => subject } },
+  ],
+}).compile();
+```
+
+The matrix is real, not a mock. A stubbed decision asserts that the controller
+calls something; a real matrix asserts that the rules say what the app thinks
+they say, and construction failures — an unknown field, a type mismatch, two
+permissions sharing a key — surface in the test rather than at boot.
+
+`apps/shop-api` declares throwaway `@Controller()` and `@Module()` classes
+inline in its e2e specs; that is where "every guarded route is also decided in
+its service" gets asserted, because it is a property of the route table rather
+than of any one class.
+
+## Where to go next
+
+- [Express](/acl/express) — the same boundary without the guard
+  seat
+- [Decisions](/acl/decisions) — the precedence order and the `unevaluable` state
+  the guard turns on
+- [Security contract](/acl/security) — complete mediation, and why the guard is
+  not it

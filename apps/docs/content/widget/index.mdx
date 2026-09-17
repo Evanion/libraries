@@ -1,0 +1,117 @@
+# @evanion/widget
+
+<PageSheet
+  difficulty={1}
+  read={5}
+  unlocks={[
+    ['Getting started', '/widget/getting-started'],
+    ['What it reports', '/widget/problems'],
+  ]}
+/>
+
+**The concept.** A shop page written as data: a list of items, each one naming
+a component by `type` and carrying the props that component takes.
+`@evanion/widget` holds the half of that idea no framework owns. It defines the
+item, it names the registry that maps a type to a component, and it checks a
+payload before anything renders it. It draws nothing at all.
+
+**What you will have.** One item array that renders the same widgets in the
+same order through React and through Astro, and a check you can run over a CMS
+payload in CI, in a webhook handler or in a build script, with no renderer
+installed anywhere near it.
+
+**Why you would want it.** Both renderers re-export everything below, so most
+readers already have this package and never type its name. What the core is
+worth reading for is the part that does not move when you swap runtimes: a shop
+whose listing pages are Astro and whose counter is React writes one payload,
+and this package is where the rules that payload answers to are written down.
+
+**How the library gets you there.** Three names carry it. `AnyWidgetItem` is
+the shape. `defineWidgets` keeps a registry's keys literal so an editor
+completes on them. `validateItems` walks a payload and hands back a list of
+what is wrong with it.
+
+```ts file=libs/widget/README.md region=shape
+
+```
+
+Two items, one of them nested. `validateItems` found nothing to report, so the
+array is one a renderer can draw.
+
+## Who opens the widget core's pages
+
+The core's own README opens with "install a renderer, not this", and that is
+true for the reader building a page. Four people have a reason to be here
+anyway, and the pages are written for them.
+
+**Someone choosing between the two renderers.** The differences between
+`@evanion/react-widget` and `@evanion/astro-widget` are easier to see once you
+know what they share, and what they share is this package. The item shape, the
+registry and the validation rules are identical across both, so anything either
+section teaches that is not on these pages is a difference you are choosing
+between.
+
+**Someone running the check without a renderer.** `validateItems` imports no
+framework, so a webhook that accepts a CMS save, a build script that fails on a
+bad payload, or a Nest service that stores one can call it directly. That
+reader installs `@evanion/widget` and never installs a renderer at all.
+
+**Someone writing a third renderer.** Svelte, Vue, a template engine: the core
+is the contract to implement. `warnOnce` and `resetWarnings` exist for exactly
+that seam and reach nobody else, and neither adapter re-exports them.
+
+**Someone reading a warning an adapter printed.** `Unknown widget type "…" for
+widget ID "…"` is built in this package, not in the renderer that printed it,
+which is why grepping the renderer for that sentence turns up nothing.
+
+## When to install the widget core yourself
+
+- A payload arrives from a CMS and you want it rejected at the door rather than
+  drawn as a gap in a page.
+- A build step should fail on a stale widget type, before the page ships.
+- You are writing a renderer, and you want the item shape and the warnings the
+  other renderers already agree on.
+
+## When a renderer is the package you want
+
+- You are drawing a page. Install `@evanion/react-widget` or
+  `@evanion/astro-widget`; each one pins this package exactly and re-exports
+  the item model, so adding the core by hand buys a second version to keep in
+  step.
+- You want a component's props checked against its item at compile time. That
+  check belongs to the React renderer, which knows what a component is. The
+  core deliberately does not.
+
+## What ships in the widget package
+
+The entry point is small enough to list whole:
+
+| Export                           | What it is                                                      |
+| -------------------------------- | --------------------------------------------------------------- |
+| `AnyWidgetItem`                  | one item: `id`, `type`, `props`, optional `meta` and `children` |
+| `WidgetRegistry`                 | a map from a type name to whatever a renderer draws for it      |
+| `WidgetMeta`                     | the placement object an item carries for the markup around it   |
+| `KnownWidgetTypes`               | a registry, or a plain list of type names                       |
+| `WidgetProblem`                  | one line of the report `validateItems` returns                  |
+| `defineWidgets(registry)`        | returns the registry, keys kept literal                         |
+| `validateItems(items, known, …)` | walks a payload and returns every problem in it                 |
+| `VALIDATION_MESSAGES`            | the message text `validateItems` reports                        |
+| `ERROR_MESSAGES`                 | the message text a renderer warns with                          |
+| `warnOnce`, `resetWarnings`      | the renderer's warning seam, for adapter authors                |
+
+Node 20 or newer, ESM only, and no dependencies. The exports map carries no
+`require` condition.
+
+## Where to go next
+
+- [Getting started](/widget/getting-started) — write one payload, name the
+  types it may use, and check it before anything renders it
+- [What it reports](/widget/problems) — every message `validateItems` returns
+  and the payload that produces it
+- [API reference](/widget/api) — every export and every type
+
+## Related
+
+[`@evanion/react-widget`](/react-widget) draws these items in React, Server
+Components included. [`@evanion/astro-widget`](/astro-widget) draws them in
+Astro at build time. Both re-export the item model from here.

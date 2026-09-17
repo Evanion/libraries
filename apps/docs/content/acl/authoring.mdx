@@ -1,0 +1,137 @@
+# Typed authoring
+
+<WorkshopNotice slug="acl" />
+
+`policy<Subject>()` names the subject once and returns a builder. Each `.for()`
+call binds one object kind to its type and hands the condition helpers to a
+block, so a typo in an `object.*` or `subject.*` path is a compile error — and
+so is an unknown object kind, or an object of the wrong kind, at the call site.
+
+```ts twoslash file=libs/acl/README.md region=typed-authoring
+
+```
+
+`build()` is the terminal call, and it is where the blocks flatten to the
+canonical matrix, so `JSON.stringify(access.matrix)` emits the same document a
+foreign backend would produce. Deferring the flatten to the end of the chain
+runs validation once over every block rather than once per `.for()`.
+
+## The block parameter
+
+The block receives one object carrying the whole permission model.
+
+| Call                             | What it does                             |
+| -------------------------------- | ---------------------------------------- |
+| `p.allow(action, ...conditions)` | adds an allow rule to that action        |
+| `p.deny(action, ...conditions)`  | adds a deny rule to that action          |
+| `p.fields(rules)`                | attaches field rules to that same action |
+| `p.eq` `p.ne` `p.in` `p.notIn`   | comparisons                              |
+| `p.contains`                     | the field is an array holding the value  |
+| `p.before` `p.after`             | time windows, over the bare `now`        |
+| `p.and` `p.or`                   | grouping                                 |
+| `p.always`                       | the unconditional rule                   |
+
+`fields` attaches to the most recently declared action, which is what makes the
+chain read as one statement per action. Calling it before any `allow` or `deny`
+in the block is an `AclConfigError` naming the object kind.
+
+Conditions passed to one `allow` are AND-ed, and `p.or` inside them is flattened
+to disjunctive normal form — one rule per branch. Two separate `allow` calls for
+the same action are two rules, which is the same OR.
+
+## Paths versus literals
+
+An operand is read as a path when its type matches
+`` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
+otherwise. The shape is the only discriminator, and it is load-bearing:
+
+```ts
+p.eq('object.status', 'locked'); // compares against the string 'locked'
+p.eq('object.askedBy', 'subject.id'); // compares two paths
+p.eq('object.askedBy', 'subject.idd'); // compile error naming the path
+```
+
+Without that rule a mistyped `'subject.idd'` is indistinguishable from a
+deliberate string literal, and the condition silently compares a field against
+that text.
+
+## What is checked, and what is not
+
+TypeScript checks the field half of every condition against the bound types, the
+object key against the accumulated key map, and the object passed to a query
+against the type that key was bound to.
+
+It does not check action names or comparand value types — both are strings. An
+action name is not caught anywhere, because an action the matrix does not carry
+is a legitimate question on the foreign path.
+
+## The document a typed policy emits
+
+`version` and `schema` are document fields, so `policy()` takes them and puts
+them in the document it flattens to:
+
+```ts file=libs/acl/README.md region=typed-document
+
+```
+
+They sit on `policy()` rather than on a method at the end of the chain because
+neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
+and both are known before the first block is written.
+
+A schema is written by hand. `.for<'question', Question>()` holds `Question` at the
+type level only, and a schema is runtime JSON, so nothing can derive one from the
+type argument. The duplication is the point: TypeScript gives the
+field-existence guarantee to the author, the schema gives it to everyone
+downstream. The document travels; the types do not. A consumer adopting the
+emitted JSON with `parseMatrix` has no `Question` to check against.
+
+The two are checked independently and can disagree. A path TypeScript accepts
+because the type declares the field is still an `UnknownFieldError` at
+construction when the schema does not declare it — the schema is binding
+wherever it is present.
+
+## A bound handle
+
+`access.object(key)` binds one object kind so the key is named once:
+
+```ts
+const questions = access.object('question');
+questions.can(subject, 'update', question);
+questions.canFields(subject, 'update', question, 'write', proposed);
+```
+
+It carries `can`, `canMany`, `canFields` and `readsObject`.
+`authorize(subject)` is the other axis — it binds the subject instead — and the
+two compose. `authorize` carries `can`, `canMany`, `canFields` and
+`capabilities`: `readsObject` takes no subject, so there is nothing for it to
+drop.
+
+## Construction errors
+
+Every one of these is an `AclConfigError` subclass thrown while the policy is
+built, which is startup for a local matrix and adoption time for a foreign one.
+
+| Error                             | Raised when                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------- |
+| `InvalidMatrixError`              | the envelope is not one: no `permissions` array, a `version` of the wrong type    |
+| `InvalidSchemaError`              | the schema's own shape is wrong; `where` locates it inside the document           |
+| `InvalidPermissionError`          | a permission's `object`, `action`, `rules` or `fields` is malformed               |
+| `InvalidRuleError`                | a rule is not an object, or its `when` is absent or not an array                  |
+| `InvalidConditionError`           | a condition's shape, namespace, path depth, or operator/value pairing is unusable |
+| `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                  |
+| `DuplicatePermissionError`        | two permissions share a key                                                       |
+| `UnknownFieldError`               | a condition names a field the declared schema does not carry                      |
+| `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                           |
+| `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies          |
+| `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                              |
+| `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                             |
+
+Two more carry the same base class but are raised by a query rather than by
+construction, and only on the open path: `UnknownObjectKeyError` and
+`UnknownPermissionError`. A local typed matrix knows its key universe, so an
+unknown key there is a programmer error. Under `parseMatrix` the same key fails
+closed with `reason: 'unknown-action'` and nothing throws.
+
+`ActionNotAllowedError` is the only error the library raises outside
+construction on either path; it belongs to [the write
+path](/acl/fields#writing).

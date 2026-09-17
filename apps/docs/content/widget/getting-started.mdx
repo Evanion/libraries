@@ -1,0 +1,146 @@
+# Getting started
+
+<PageSheet
+  difficulty={1}
+  read={6}
+  hands={15}
+  requires={[['Overview', '/widget']]}
+  unlocks={[
+    ['What it reports', '/widget/problems'],
+    ['API reference', '/widget/api'],
+  ]}
+/>
+
+**The concept.** The overview showed a page written as an item array. This page
+is where you write one and put it through the check. The one thing to take from
+it is that an item is four fields and a renderer reads all four the same way:
+`id` names it, `type` picks the component, `props` is the component's data, and
+`children` holds the items under it.
+
+**What you will have.** A payload for a listing page in the Baize shop, a
+registry naming the types it may use, and a check that fails your build when a
+bookseller saves a widget type nothing draws.
+
+**Why you would want it.** A CMS lets someone rename a section type on a
+Tuesday afternoon. Nothing stops them, and the renderer that meets the new name
+skips the item and writes one line to a log nobody reads. The page goes out with
+a hole in it. The check is where that turns into a failed build instead.
+
+**How the library gets you there.** One install, one array, one call.
+
+## Install the widget core
+
+```bash
+npm install @evanion/widget
+```
+
+Node 20 or newer, ESM only, no dependencies. If you are also installing
+`@evanion/react-widget` or `@evanion/astro-widget`, stop here: each renderer
+pins this package exactly and re-exports everything below, so you would be
+adding a second copy to keep in step.
+
+## Write the widget item array
+
+An item names a component and carries its data. Nothing here is a class, a
+builder or a call: a payload is JSON your CMS can write and your tests can
+paste.
+
+```ts file=libs/widget/README.md region=shape
+
+```
+
+Four fields, and each one has a reason to be separate from the others.
+
+`id` is required. A renderer lists the item under it, a warning names the item
+by it, and the duplicate check below is about it. A CMS with no per-section id
+has to supply one; a value derived from the index is fine as long as the same
+item keeps it between saves.
+
+`type` is the component's name in the registry, and the next section is where
+the registry comes from.
+
+`props` is a named field rather than every key the renderer leaves alone. Were
+it the leftovers, the renderer's own field names would be reserved words in the
+CMS's vocabulary, and adding one later would take a prop away from every payload
+already saved.
+
+`meta` is placement. `span: 2` puts the listing across two columns of whatever
+holds it. It goes to the chrome, which is the markup a renderer wraps each item
+in, and never into the item's own props, because where a widget sits is not
+something the widget should know.
+
+`children` is the items under this one. `tonight` carries one listing, and
+moving `tonight` moves that listing with it, which is the property a flat array
+of sections cannot express.
+
+## Name the types the payload may use
+
+`validateItems` took a list of names above. In an app that list is usually a
+registry, because the renderer needs one anyway:
+
+```ts file=libs/widget/README.md region=registry
+
+```
+
+`defineWidgets` returns the object it was handed. The generic parameter is the
+whole of it: annotate the same object as `WidgetRegistry` and TypeScript widens
+its keys to `string`, which takes away the key union an editor completes on and
+the union a renderer types a component against.
+
+The core never calls a registry value. It reads the keys, so a plain list of
+names does the same job wherever the components are somewhere else entirely, in
+a CI script or a webhook.
+
+Lookup is by own key. A bookseller who types `constructor` or `__proto__` into
+the type field gets an unknown type rather than a function off
+`Object.prototype`, and that rule is written here once and applied by every
+renderer.
+
+## Check the payload before anything renders it
+
+`validateItems` walks the array and the items nested in it, and returns
+everything it found. It throws nothing:
+
+```ts file=libs/widget/README.md region=unknown
+
+```
+
+One problem, and it carries enough to act on: `index` is the item's position in
+its own sibling list, `id` and `type` are the item's own, and `message` is the
+text. A bookseller reading that line knows which listing to fix.
+
+Where you call it is the decision that matters. No renderer calls it for you.
+Each renderer stays defensive, skipping an item it cannot draw so that one bad
+save never takes a page down mid-render, and this is the loud gate you run
+yourself: at ingestion, when the CMS posts; in CI, over the committed payload;
+or in a build script, before the pages are written.
+
+Run it nowhere and the failure is silent. That is the whole argument for
+running it.
+
+## Move an item and watch the page recompose
+
+The array is the page, which is a claim you can put your hands on. Below is a
+second payload and the page it composes: the shop counter's back-office view,
+seven items, with the items themselves listed underneath and a pair of move
+controls in the gutter of every line that starts one.
+
+<DataDemo />
+
+The seven items are two top-level ones and their children: `week` holds three
+figures, `counter` holds the two boards. Move `counter` above `week` and both
+boards travel as one block, because they are its `children`. Move `tables` past
+`reprints` and the wide side of the counter changes sides, because `meta.span`
+travels with the item it sits on. Those are the two facts the item shape is
+built around, and the control is the same component the front page carries.
+
+What is drawing that page is `@evanion/react-widget`. The core supplies the
+array and the rules the array answers to, and it puts no pixel on the screen.
+The same array handed to `@evanion/astro-widget` produces the same widgets in
+the same order, which is the claim the two renderers are built to keep.
+
+## Where to go next
+
+- [What it reports](/widget/problems) — every message `validateItems` returns,
+  and the payload that produces it
+- [API reference](/widget/api) — every export and every type

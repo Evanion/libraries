@@ -1,5 +1,26 @@
 # Playground
 
+## A page the shop would ship
+
+The counter's view of Baize below is one `Widgets` region: a figures row and
+two boards, composed from the seven items printed under it. Every block is a
+component somebody wrote once, and the items decide which blocks the page has,
+what sits inside what and how wide each one is.
+
+Move an item with the controls in the gutter and the page is composed again.
+Moving `counter` above `week` carries two boards and three figures as one
+block, which is what a nested item list buys and what a flat `items.map` cannot
+describe; moving `tables` past `reprints` swaps the wide side, because
+`meta.span` belongs to the item and travels with it.
+
+<DataDemo />
+
+The same demonstration opens the front page. What is on screen is the published
+renderer over the items printed beside it — nothing here is a picture of a
+page.
+
+## Your own items
+
 The editors below run the published `@evanion/react-widget` build.
 
 <PlaygroundExamples />

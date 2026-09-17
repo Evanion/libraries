@@ -120,6 +120,14 @@ axios request interceptor that reads the current context at the moment the
 request is made, rather than being baked into the options object when the
 factory runs.
 
+```mermaid caption="One id across two processes. The middleware reuses the header the caller sent or mints one, and runs the rest of the request inside that context; the interceptor withCorrelation() installs reads the same context when HttpService calls the next service, which reuses the id in turn."
+flowchart LR
+  C["caller"] -->|"X-Correlation-Id,<br>or no header"| M["CorrelationIdMiddleware<br>reuses it, or mints one"]:::accent
+  M --> H["the handler<br>getCorrelationId()"]
+  H --> X["HttpService<br>withCorrelation()"]
+  X -->|"X-Correlation-Id"| N["the next service<br>reuses the same id"]
+```
+
 That keeps the whole chain singleton-scoped. Options
 computed at factory time would have to come from a request-scoped provider, and
 `HttpService` — and every provider holding it — would become request-scoped with
@@ -167,7 +175,7 @@ await this.correlation.run(
 
 Validate a payload-supplied id the same way the middleware validates a
 header-supplied one — see
-[the validator](/correlation-id/configuration#validating-an-incoming-id). An id
+[the validator](/nestjs-correlation-id/configuration#validating-an-incoming-id). An id
 from a queue reaches the same log lines a header-supplied one does.
 
 ## Replacing the id
@@ -186,3 +194,16 @@ CorrelationIdMiddleware, or wrap the work in CorrelationService.run().
 
 Note that this changes the id the rest of the request sees, and not the response
 header — that was already set by the middleware.
+
+## Why `@evanion/nestjs-correlation-id` has nothing to click
+
+Every other section on this site puts a control under the reader's hand on its
+demonstration page. This one does not, and the reason is the package rather than
+the budget: the demonstrable unit is two running services and one header between
+them, and nothing inside a documentation page can be the second process. A
+simulated caller would prove something about the simulation.
+
+`apps/shop-api` in this repository is the real pair. It applies
+`CorrelationIdMiddleware` to every route, and the shop's storefront reads the
+id back off the response, so the runnable version of this page is the shop with
+both processes up.

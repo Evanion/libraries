@@ -1,0 +1,114 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+
+  // Files that are runtime roots no manifest declares. Without them the
+  // reachability walk reports the whole docs content tree, every type test and
+  // every repo-check as unreachable.
+  "entry": [
+    "apps/docs/content/**/*.{mdx,ts}",
+    "**/*.test-d.{ts,tsx}",
+    "**/vitest.astro.config.ts",
+    "internal/baize-ui/tools/generate-tokens.ts",
+    "tools/**/src/**/*.{ts,mts,mjs}",
+    "scripts/*.mjs",
+  ],
+
+  // The stylesheet resolves through `@evanion/baize-ui`'s exports map to
+  // `dist/styles.css`, which the design system's build emits. Source analysis
+  // runs before any build, so the specifier resolves to nothing here.
+  "ignoreUnresolvedImports": [
+    "@evanion/baize-ui/styles.css",
+    "@evanion/baize-ui/styles.css?url",
+    "../dist/styles.css",
+  ],
+
+  // Every workspace resolves these from the root manifest, which is where the
+  // repository declares shared tooling. fallow attributes an import to the
+  // workspace that writes it and reports the package as undeclared there.
+  "ignoreDependencies": [
+    "@evanion/astro-widget",
+    "@evanion/baize-ui",
+    // A package's own README fences import it by its published name, which is
+    // what makes them a consumer's view of it. The package cannot declare
+    // itself, so every package whose README doctests are compiled lands here.
+    "@evanion/feature",
+    "@evanion/react-widget",
+    "@evanion/widget",
+    "@nx/devkit",
+    "@nx/eslint-plugin",
+    "@testing-library/jest-dom",
+    "@testing-library/react",
+    "axios",
+    "eslint-config-next",
+    "jsonc-eslint-parser",
+    "jsonc-parser",
+    "nextra",
+    "nextra-theme-docs",
+    "prism-react-renderer",
+    "react",
+    "react-dom",
+    "react-live",
+    "tinyglobby",
+    "twoslash",
+    "vite-plugin-doctest",
+    "vite-plugin-dts",
+    "yaml",
+  ],
+
+  // Off rather than warn. Every package here ships an API to consumers outside
+  // the repository, so an export no workspace imports is the normal state of a
+  // published entry point and a gate on it reports the API itself. The sweep
+  // that does read those exports is `fallow dead-code --include-entry-exports`,
+  // run by hand against one package before its release.
+  "rules": {
+    "unused-exports": "off",
+    "unused-types": "off",
+    "unused-dependencies": "off",
+    "unused-dev-dependencies": "off",
+
+    // `@evanion/urn`'s extension point is a static field a subclass sets and
+    // the base class reads: `static override readonly nid = 'game'`. Every
+    // report this rule makes here is one of those, six across four apps and
+    // the docs, and a tool comment on each would put the analyser's vocabulary
+    // into a library's documented API.
+    "unused-class-members": "off",
+  },
+
+  // `probes` is exported from a luhn file and a token file under apps/docs. No
+  // barrel re-exports either, so the ambiguity the rule guards against cannot
+  // arise.
+  "ignoreExports": [
+    { "file": "apps/docs/components/probes/*.ts", "exports": ["probes"] },
+
+    // An `examples/` file is one illustration, cut into a region and rendered
+    // on a page. Two of them showing the same component two ways name it the
+    // same thing on purpose, and no barrel re-exports either.
+    {
+      "file": "libs/*/examples/*.{ts,tsx}",
+      "exports": ["EditControl", "ShopAccess"],
+    },
+  ],
+
+  // 30 tokens rather than the default 50: `toEpoch`, duplicated between
+  // `@evanion/acl` and `@evanion/feature`, is 4 lines and 34 tokens, and a
+  // five-line copy across two published packages is the size this is for.
+  // Config files are excluded because a per-project vite or eslint config is
+  // meant to read the same as its neighbours.
+  "duplicates": {
+    "minTokens": 30,
+    "minLines": 3,
+
+    // Today's figure is 3.6%. The ceiling is a ratchet, not a target: it fails
+    // the run that adds the next copy and is lowered whenever a clone group is
+    // consolidated.
+    "threshold": 4.0,
+
+    "ignore": [
+      "**/vite.config.*",
+      "**/vitest.config.*",
+      "**/eslint.config.*",
+      "**/*.test-d.*",
+      "**/*.test.*",
+    ],
+  },
+}

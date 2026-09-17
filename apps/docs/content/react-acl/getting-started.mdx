@@ -1,0 +1,192 @@
+# Getting started
+
+<WorkshopNotice slug="react-acl">
+  <Text as="div" size="sm">
+    Every example on this page is a region of `libs/react-acl/examples/` and
+    runs under `nx test @evanion/react-acl`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={2}
+  read={8}
+  hands={20}
+  requires={[['Overview', '/react-acl']]}
+  unlocks={[
+    ['Which side decides', '/react-acl/boundary'],
+    ['API reference', '/react-acl/api'],
+  ]}
+/>
+
+**The concept.** The overview showed a button asking whether to draw itself.
+This page is where you mount the thing it asks. The one thing to take from it is
+that the provider holds three values for the whole tree, and a component under
+it names none of them.
+
+**What you will have.** A shop listing whose action bar is drawn from the
+policy, with a role switch at the top that changes every control on it and no
+component in between that knows a permission exists.
+
+**Why you would want it.** Threading `access` and `subject` costs nothing on the
+first component and compounds after that. The component that has to carry them
+and does not read them is the one that gets refactored by somebody who does not
+know why they are there, and the branch they drop them from is the branch where
+the button stays lit.
+
+**How the library gets you there.** One provider, one hook, three arguments.
+
+## Install react-acl
+
+```bash
+npm install @evanion/react-acl @evanion/acl
+```
+
+Both, because the core is where the rules are written and read: the hooks return
+its `Decision`, and `hydratePolicy` below is its function. React 18 or 19 is the
+only peer dependency, and the package is ESM only.
+
+## Mount the react-acl provider
+
+The provider takes three props. `access` is an evaluator, `subject` is whoever
+is signed in, and `context` carries the instant every time window in the policy
+is read against.
+
+A browser is rarely handed an evaluator. It is handed
+[the matrix](/acl/matrix) — the JSON document the server rendered with — and
+`hydratePolicy` turns that back into one:
+
+```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
+
+```
+
+Three things in that listing are worth naming.
+
+`'use client'` is on the file because `useMemo` is. The package itself carries
+the same directive, so `PolicyProvider` is a client component wherever it is
+imported; what this directive settles is which side `ShopAccess` runs on.
+
+Both `useMemo` calls are load-bearing rather than tidy. `hydratePolicy`
+validates the document, deep-clones it and deep-freezes it, so it belongs once
+per matrix. The provider memoises its context value on the identity of `access`,
+`subject` and `context`, and a value rebuilt during render is a new identity on
+every pass.
+
+`now` is a string, and it stays one. The hooks key their memos on it, and a
+`Date` is a fresh object every render, so a string holds the memo across renders
+where a `Date` re-evaluates the matrix on each.
+
+## Ask react-acl for one decision
+
+`useCan` takes the object kind, the action and the row. It returns the
+`Decision` that [`can`](/acl/asking) returns, with the same `allowed`, `reason`,
+`rule` and `missing` on it:
+
+```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
+
+```
+
+Gate on `allowed` and nothing else. `reason` is output only, and a component
+that branches on the reason string draws a control the engine refused.
+
+The row is the third argument and is optional. Leave it off for the create case,
+where there is no instance yet. A rule that reads the row and is asked without
+one answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which
+has `allowed: false` on it and means something a reader can act on.
+
+Calling `useCan` outside a `PolicyProvider` throws, naming the provider. There
+is no default policy and no silent deny: a tree that lost its provider is a bug
+rather than a screen where everything is quietly forbidden.
+
+## Watch one react-acl provider drive a whole tree
+
+`ShopAccess` and `EditControl` are three components apart, and what sits between
+them carries nothing. That is the claim, and the absence of a prop is not
+something a listing can show — so here is the tree with each component's whole
+hook call written on it.
+
+Sign in as somebody else and the provider's `subject` changes. Three boxes down,
+the badges change with it, and `ShopPage`, `ListingView` and `ActionBar` were
+not re-plumbed:
+
+<PolicySpecimen />
+
+Publishing the listing does the other half. The provider is untouched; what
+changed is the row `useCan` was asked about, and only `EditControl` moves,
+because one rule in the shop's policy reads the row: a deny rule, which closes
+`edit` once the listing is published and outranks every allow that matched with
+it. [The intermediate tier](/acl/intermediate) is where denies are written.
+`no-rule-matched` and `denied` are both refusals and the badge says which,
+because the reason is what a tooltip would tell the shopper.
+
+`PolicyProvider` and `useCan` here are the published ones, and the policy is the
+shop policy behind [One policy, one screen](/acl/interface). A rule that changed
+there changes what these badges say.
+
+## Ask react-acl about a list, a menu and a form
+
+Three hooks remain, and each answers a question the shape of a screen.
+
+A table of rows needs one decision per row, and React forbids a hook in a loop.
+`useCanMany` decides the array in the parent and hands each row its answer:
+
+```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
+
+```
+
+A menu needs everything at once. `useCapabilities` returns every action-level
+decision for the current subject, keyed by `` `${object}.${action}` ``:
+
+```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
+
+```
+
+It passes no object, so a rule that reads one cannot be decided and the menu
+draws nothing for it. That is the no-object contract, and
+[What can they do at all?](/acl/capabilities) is where it is set out.
+
+A form needs an answer per input. `useCanFields` takes the axis — `'read'` for
+which fields may be shown, `'write'` for which may be set — and returns a map
+over every field name:
+
+```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
+
+```
+
+`!== 'allowed'` is the comparison to write. The obvious one, `!== 'denied'`,
+leaves the `unevaluable` fields editable, and those are fields nobody said the
+shopper could write. The server applies the same map with
+[`pickAllowedFields`](/acl/writing) when the form is posted, because this one
+decided nothing.
+
+## Keep the policy's keys through react-acl
+
+The hooks so far take the key as a plain string, because the document arrived as
+JSON. An application that writes its policy in TypeScript has more:
+[`policy`](/acl/authoring) names the subject once and binds an object type per
+block, so `'listing'` is a key the compiler knows.
+
+`createPolicyContext` carries that to the hooks. Hand it the built policy and it
+returns a provider and the same four hooks, checking their key against the
+policy and their row against the object type:
+
+```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
+
+```
+
+`useCan('lsiting', 'edit', listing)` is a compile error there. The imported
+`useCan` compiles the same call, and the engine throws `UnknownObjectKeyError`
+when the component renders, or answers `unknown-action` where the matrix was
+hydrated with `closed: true`.
+
+`Shopper` and `Listing` are named at `policy` and read back off the argument, so
+the `createPolicyContext` call writes neither. It is a factory because
+`createContext` fixes its type where the context is made, and a hook four
+components down reads that fixed type whatever the provider was handed.
+
+## Where to go next
+
+- [Which side decides](/react-acl/boundary) — what a hook is for, and what has
+  to happen on the other side of the render
+- [API reference](/react-acl/api) — every export, and what each hook memoises on
+- [Which fields may they write?](/acl/writing) — the whole field axis, and the
+  write path the form above posts to

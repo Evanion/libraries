@@ -1,0 +1,59 @@
+{
+  "name": "@evanion/acl",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A declarative, serializable access-control matrix authored once and evaluated locally on whatever JS runtime is running: a Node backend, a frontend SSR graph, a browser SPA, or a hybrid JS platform.",
+  "keywords": [
+    "authorization",
+    "acl",
+    "permissions",
+    "access-control",
+    "policy",
+    "matrix",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/acl#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/acl"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "!src/security",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

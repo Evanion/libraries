@@ -22,24 +22,33 @@ A page described as data: a list of items, each naming a component by `type` and
 carrying the props it takes. The renderer resolves the type against a registry
 and renders it.
 
-```ts
-import { defineWidgets, validateItems } from '@evanion/widget';
+<!-- #region shape -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/widget';
 import type { AnyWidgetItem } from '@evanion/widget';
 
-const registry = defineWidgets({ hero: Hero, prose: Prose });
-
-const items: AnyWidgetItem[] = [
+const page: AnyWidgetItem[] = [
   {
-    id: 'top',
-    type: 'hero',
-    props: { heading: 'Hello' },
-    meta: { width: 'full' },
+    id: 'brass-birmingham',
+    type: 'listing',
+    props: { title: 'Brass: Birmingham', complexity: 4 },
+    meta: { span: 2 },
   },
-  { id: 'about', type: 'prose', props: { body: '…' } },
+  {
+    id: 'tonight',
+    type: 'shelf',
+    props: { heading: 'On the table tonight' },
+    children: [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
+  },
 ];
 
-validateItems(items, registry, { hero: ['heading'] }); // -> []
+const problems = validateItems(page, ['listing', 'shelf']);
+
+problems; // -> []
 ```
+
+<!-- #endregion shape -->
 
 The same array renders through every adapter and produces the same sequence of
 widgets.
@@ -80,7 +89,7 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
   id: string;
   type: Type;
   props: Props;
-  meta?: Record<string, unknown>;
+  meta?: WidgetMeta;
   children?: AnyWidgetItem[];
 }
 ```
@@ -114,14 +123,31 @@ to open its own region over.
 
 Returns the registry unchanged, typed as the literal object passed in.
 
-```ts
-const registry = defineWidgets({ hero: Hero, text: Text });
-//    ^? { hero: typeof Hero; text: typeof Text }
+<!-- #region registry -->
+
+```ts @import.meta.vitest
+import { defineWidgets, validateItems } from '@evanion/widget';
+
+// Whatever your renderer resolves a type to. The core reads the keys and never
+// calls a value, so a stand-in is enough to show what the keys do.
+const Listing = () => null;
+const Shelf = () => null;
+
+const registry = defineWidgets({ listing: Listing, shelf: Shelf });
+
+const problems = validateItems(
+  [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
+  registry,
+);
+
+problems; // -> []
 ```
 
+<!-- #endregion registry -->
+
 Annotating the same object as `WidgetRegistry` would widen its keys to `string`,
-and the key union is what an editor completes on and what a `required` map is
-checked against.
+and the key union is what an editor completes on and what a renderer types a
+component against.
 
 ## `validateItems(items, known, required?)`
 
@@ -129,10 +155,20 @@ Checks a list against the set of known types and returns `WidgetProblem[]`.
 Problems rather than an exception, and accumulated rather than short-circuited,
 so a caller can print all of them at once.
 
-```ts
-validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
-// -> [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
+<!-- #region unknown -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/widget';
+
+const problems = validateItems(
+  [{ id: 'root', type: 'listting', props: { title: 'Root' } }],
+  ['listing', 'shelf'],
+);
+
+problems; // -> [{ index: 0, id: 'root', type: 'listting', message: 'unknown widget type' }]
 ```
+
+<!-- #endregion unknown -->
 
 `known` is a registry or a plain list of names, so a CI script can validate a
 payload without importing components it will never render.
@@ -141,12 +177,56 @@ payload without importing components it will never render.
 blank means `undefined`, `null` or whitespace only — which is what a CMS text
 field that was opened and left empty arrives as.
 
-```ts
-validateItems([{ id: 'a', type: 'hero', props: {} }], registry, {
-  hero: ['heading'],
-});
-// -> [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
+<!-- #region required -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/widget';
+
+const problems = validateItems(
+  [{ id: 'root', type: 'listing', props: { title: '   ' } }],
+  ['listing'],
+  { listing: ['title'] },
+);
+
+problems; // -> [{ index: 0, id: 'root', type: 'listing', message: 'missing field title' }]
 ```
+
+<!-- #endregion required -->
+
+`required` takes plain strings for its keys, so a widget type misspelled there
+is a map entry nothing ever reads rather than a compile error.
+
+One pass reports every problem it finds, in the order it walks the list, and it
+walks `children` as it goes:
+
+<!-- #region sweep -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/widget';
+
+const payload = [
+  { id: 'root', type: 'listing' },
+  { id: 'root', type: 'listing', props: { title: 'Root' } },
+  {
+    id: 'tonight',
+    type: 'shelf',
+    props: {},
+    children: [{ id: 'hive', type: 'listting', props: {} }],
+  },
+];
+
+const problems = validateItems(payload, ['listing', 'shelf']).map(
+  (problem) => problem.message,
+);
+
+problems; // -> ['props is not an object', 'duplicate sibling id', 'unknown widget type']
+```
+
+<!-- #endregion sweep -->
+
+`index` is the item's position in its own sibling list, so the nested item above
+reports index 0 rather than 3. An id repeated at two depths is fine; a renderer
+scopes its keys per list, and only a repeat between siblings is a collision.
 
 No renderer calls this. Each one stays defensive — an item it cannot render is
 skipped and warned about — and validation is the loud gate you run at ingestion
@@ -155,6 +235,29 @@ or build time.
 A type is looked up as an own key of the registry, so a CMS item typed
 `constructor`, `toString` or `__proto__` is unknown rather than resolving to
 something off `Object.prototype`.
+
+## The warning an adapter prints
+
+A renderer that meets an item it cannot draw skips it and warns. The warning
+text is built here, so the same stale CMS type reads the same way whether React
+or Astro drew the page:
+
+<!-- #region warning -->
+
+```ts @import.meta.vitest
+import { ERROR_MESSAGES } from '@evanion/widget';
+
+const warning = ERROR_MESSAGES.UNKNOWN_WIDGET('listting', 'root');
+
+warning; // -> 'Unknown widget type "listting" for widget ID "root". Skipping render.'
+```
+
+<!-- #endregion warning -->
+
+`warnOnce` prints each distinct message once per process and prints nothing
+when `NODE_ENV` is `production`. Every message carries the offending item's
+`type` and `id`, which is what makes the text a usable key: a second bad item
+is still reported.
 
 ## Exports
 

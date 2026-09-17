@@ -1,13 +1,20 @@
 import { Luhn } from '@evanion/luhn';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import LuhnSpecimen from './LuhnSpecimen';
 import {
+  buildToken,
+  collisionAt,
   luhnBody,
+  shapeLabel,
   token,
+  tokenAlphabets,
+  tokenShapes,
   tokenSpecimen,
+  urnComponents,
   urnSpecimen,
-  UserURN,
+  urnWith,
+  GameURN,
 } from './specimens';
 import TokenSpecimen from './TokenSpecimen';
 import UrnSpecimen from './UrnSpecimen';
@@ -23,80 +30,66 @@ import UrnSpecimen from './UrnSpecimen';
  * one `validate` accepts, and the URN's parts are `parse`'s.
  */
 describe('the Luhn card', () => {
-  it('opens on the README specimen and its check character', () => {
+  /** The code as issued: the README specimen with the package's check character. */
+  const issued = `${luhnBody}${Luhn.generate(luhnBody).checksum}`;
+
+  it('opens on the issued code, and the package accepts it', () => {
     render(<LuhnSpecimen initial={luhnBody} />);
 
-    expect(screen.getByRole('textbox')).toHaveValue('foo');
-    expect(screen.getByRole('status')).toHaveTextContent(
-      Luhn.generate('foo').checksum,
-    );
-  });
-
-  it('recomputes the check character as the text changes', () => {
-    render(<LuhnSpecimen initial={luhnBody} />);
-
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'FoO-ö-baz' },
-    });
-
-    expect(screen.getByRole('status')).toHaveTextContent(
-      Luhn.generate('foobaz').checksum,
-    );
-  });
-
-  it('shows no check character for text with nothing from the alphabet', () => {
-    render(<LuhnSpecimen initial={luhnBody} />);
-
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '!!' } });
-
-    expect(screen.getByRole('status')).toHaveTextContent('');
-    expect(screen.getByText(/nothing from the alphabet/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue(issued);
+    expect(Luhn.validate(issued)).toMatchObject({ isValid: true });
+    expect(screen.getByText('accepted')).toBeInTheDocument();
   });
 
   /**
-   * The visible character turns through the dictionary before it lands. The
-   * `status` above is what a screen reader gets and never turns, which is
-   * why the assertions above read it at once; the visible mark is read here,
-   * and waited for.
+   * The catch is the demonstration. One character replaced is the error a
+   * check character always catches, and the card has to say so rather than
+   * leaving the reader to read the code back themselves.
    */
-  it('turns the visible character through the dictionary, then lands it', async () => {
-    const { container } = render(<LuhnSpecimen initial={luhnBody} />);
-    const mark = container.querySelector('.landing-specimen__mark');
+  it('rejects the code once a character changes', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
 
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'bar' } });
-    fireEvent.change(screen.getByRole('textbox'), {
-      target: { value: 'brass' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
 
-    // Every frame is a dictionary character, including the ones a fast
-    // typist interrupts, and the one that stays is the real one.
-    const frames = new Set<string>();
-    await waitFor(() => {
-      frames.add(mark?.textContent ?? '');
-      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
-    });
-    for (const seen of frames) expect(Luhn.dictionary).toContain(seen);
+    const typed = (screen.getByRole('textbox') as HTMLInputElement).value;
+    expect(typed).not.toBe(issued);
+    expect(Luhn.validate(typed)).toMatchObject({ isValid: false });
+    expect(screen.getByText('rejected')).toBeInTheDocument();
   });
 
-  it('lands the visible character at once under reduced motion', () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: query.includes('prefers-reduced-motion'),
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-    try {
-      const { container } = render(<LuhnSpecimen initial={luhnBody} />);
-      const mark = container.querySelector('.landing-specimen__mark');
+  /** A transposition is the error people make reading a code aloud. */
+  it('rejects the code once two characters swap', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
 
-      fireEvent.change(screen.getByRole('textbox'), {
-        target: { value: 'brass' },
-      });
+    fireEvent.click(screen.getByRole('button', { name: 'Swap two' }));
 
-      expect(mark).toHaveTextContent(Luhn.generate('brass').checksum);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    const typed = (screen.getByRole('textbox') as HTMLInputElement).value;
+    expect(typed).not.toBe(issued);
+    expect(
+      screen.getByText(Luhn.validate(typed).isValid ? 'accepted' : 'rejected'),
+    ).toBeInTheDocument();
+  });
+
+  it('puts the issued code back', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(screen.getByRole('textbox')).toHaveValue(issued);
+    expect(screen.getByText('accepted')).toBeInTheDocument();
+  });
+
+  /** What a screen reader gets is the verdict, not the styling that carries it. */
+  it('announces the verdict', () => {
+    render(<LuhnSpecimen initial={luhnBody} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `${issued} is accepted.`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change a character' }));
+    expect(screen.getByRole('status')).toHaveTextContent('is rejected');
   });
 });
 
@@ -132,30 +125,148 @@ describe('the Token card', () => {
     expect(visible?.textContent?.[4]).toBe('-');
     await waitFor(() => expect(visible).toHaveTextContent(minted));
   });
+
+  /**
+   * The shape control's options are labelled with their own chunks, so the
+   * label and the code the package mints for it have to agree.
+   */
+  it('mints a code shaped like the option that is standing', () => {
+    render(<TokenSpecimen initial={tokenSpecimen} />);
+
+    for (const [index, shape] of tokenShapes.entries()) {
+      const label = shapeLabel(shape);
+      fireEvent.click(screen.getByRole('radio', { name: label }));
+
+      const shown = screen.getByRole('status').textContent ?? '';
+      const built = buildToken(index, 0);
+
+      expect(built.validate(shown)).toMatchObject({ valid: true });
+      expect(shown.split(built.separator).map((chunk) => chunk.length)).toEqual(
+        label.split('-').map(Number),
+      );
+    }
+  });
+
+  /** The entropy the caption reports is the package's own. */
+  it('reports the entropy and the collision budget of the configuration', () => {
+    const { container } = render(<TokenSpecimen initial={tokenSpecimen} />);
+    const note = container.querySelector('.landing-spec__note');
+
+    for (const [index, alphabet] of tokenAlphabets.entries()) {
+      const built = buildToken(0, index);
+
+      fireEvent.click(screen.getByRole('radio', { name: alphabet.label }));
+      expect(note).toHaveTextContent(`${Math.round(built.entropyBits)} bits`);
+      expect(note).toHaveTextContent(
+        collisionAt(built.entropyBits).toLocaleString('en-US'),
+      );
+    }
+  });
 });
 
 describe('the URN card', () => {
-  it('shows the parts the package parses, in order', () => {
-    render(<UrnSpecimen value={urnSpecimen} />);
-    const parsed = UserURN.parse(urnSpecimen);
+  /** The parts of the identifier, in the order the card draws them. */
+  const segments = (container: HTMLElement): string[] =>
+    [...container.querySelectorAll('.landing-urn__part')].map(
+      (part) => part.textContent ?? '',
+    );
 
-    expect(
-      screen.getAllByRole('button').map((part) => part.textContent),
-    ).toEqual([parsed.urn, parsed.nid, parsed.nss]);
-    expect(parsed).toMatchObject({ urn: 'urn', nid: 'user', nss: '1337' });
+  it('shows the parts the package parses, in order', () => {
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
+    const parsed = GameURN.parse(urnSpecimen);
+
+    expect(segments(container)).toEqual([parsed.urn, parsed.nid, parsed.nss]);
+    expect(parsed).toMatchObject({
+      urn: 'urn',
+      nid: 'game',
+      nss: 'brass-birmingham',
+    });
   });
 
   it('names an explanation for every part, and opens it on a tap', () => {
-    render(<UrnSpecimen value={urnSpecimen} />);
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
 
-    for (const part of screen.getAllByRole('button')) {
+    for (const part of container.querySelectorAll('.landing-urn__part')) {
       expect(part).toHaveAccessibleDescription(/./);
     }
 
-    const namespace = screen.getByRole('button', { name: 'user' });
+    const namespace = screen.getByRole('button', { name: 'game' });
     fireEvent.click(namespace);
     expect(namespace).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(namespace);
     expect(namespace).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  /** Opens on the three parts alone: nothing is attached until it is asked for. */
+  it('carries no component until one is attached', () => {
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
+
+    expect(segments(container)).toHaveLength(3);
+    expect(screen.getByRole('status')).toHaveTextContent(urnSpecimen);
+    for (const component of urnComponents) {
+      expect(
+        screen.getByRole('button', { name: component.label }),
+      ).toHaveAttribute('aria-pressed', 'false');
+    }
+  });
+
+  /**
+   * The identifier the card shows is the one `stringify` wrote, delimiters
+   * included, and each component segment is what `parse` gave back for it.
+   */
+  it('attaches each component the package writes, and explains it', () => {
+    const { container } = render(<UrnSpecimen value={urnSpecimen} />);
+
+    for (const component of urnComponents) {
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+    }
+
+    const written = urnWith(
+      urnSpecimen,
+      urnComponents.map((component) => component.key),
+    );
+    const parsed = GameURN.parse(written);
+
+    expect(screen.getByRole('status')).toHaveTextContent(written);
+    expect(segments(container)).toEqual([
+      parsed.urn,
+      parsed.nid,
+      parsed.nss,
+      ...urnComponents.map((component) => parsed[component.key]),
+    ]);
+
+    // The card draws the delimiters between the parts; the parts and the
+    // delimiters together have to be the identifier the package wrote.
+    const drawn = [
+      ...container.querySelectorAll(
+        '.landing-urn__part, .landing-specimen__dim',
+      ),
+    ]
+      .map((piece) => piece.textContent)
+      .join('');
+    expect(drawn).toBe(written);
+
+    for (const part of container.querySelectorAll('.landing-urn__part')) {
+      expect(part).toHaveAccessibleDescription(/./);
+    }
+  });
+
+  /** The payoff: what is attached is not part of the name, and `equals` says so. */
+  it('says the name is unchanged, while the package says it is', () => {
+    render(<UrnSpecimen value={urnSpecimen} />);
+    expect(screen.queryByText(/names nothing new/)).toBeNull();
+
+    for (const component of urnComponents) {
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+      const written = urnWith(urnSpecimen, [component.key]);
+
+      expect(GameURN.equals(written, urnSpecimen)).toBe(true);
+      expect(screen.getByText(/names nothing new/)).toHaveTextContent(
+        urnSpecimen,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: component.label }));
+      expect(screen.queryByText(/names nothing new/)).toBeNull();
+    }
   });
 });

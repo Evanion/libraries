@@ -3,10 +3,16 @@ import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import * as path from 'path';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+
+const examples = docExamples();
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/astro-widget',
+  ...examples,
   plugins: [
+    ...examples.plugins,
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
@@ -54,6 +60,11 @@ export default defineConfig(() => ({
           name: '@evanion/astro-widget',
           include: ['src/**/*.test.ts'],
           exclude: ['src/**/*.astro.test.ts'],
+          // The README's documented examples. `Widgets.astro` is not among
+          // them and cannot be: an `.astro` module is compiled by Astro's own
+          // vite plugin, in a consumer's project rather than here. What runs
+          // is the half of the surface that is plain TypeScript.
+          includeSource: docExampleSources(),
         },
       },
       './vitest.astro.config.ts',

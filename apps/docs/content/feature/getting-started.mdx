@@ -1,0 +1,89 @@
+# Getting started
+
+<WorkshopNotice slug="feature">
+  <Text as="div" size="sm">
+    The examples on this page are regions of `libs/feature/README.md` and run
+    under `nx test @evanion/feature`.
+  </Text>
+</WorkshopNotice>
+
+Baize is rolling out a new checkout, and express pickup is an option that only
+exists inside it. This page writes both down, resolves them for one customer,
+and turns the parent off.
+
+```bash
+npm install @evanion/feature
+```
+
+## Write the flags down
+
+A feature is stored intent: `enabled` is what the shop wants, and `rules`
+decide whether that intent reaches a given customer. `dependsOn` names the
+flags that have to resolve on first.
+
+```ts file=libs/feature/README.md region=quick-start
+
+```
+
+`createFeatures` validates the graph and returns a store. `isEnabled` resolves
+one flag for one context: `targetingKey` is the customer the rollout buckets on,
+and `now` is the instant the time window is read against.
+
+`cust-0042` and `cust-0107` get different answers because the 25% rollout put
+them in different buckets. Neither answer moves on the next request.
+
+## Ask which tenth a customer is in
+
+The rollout is a hash rather than a draw, so one customer's answer is the same
+everywhere and forever. That is the property a shop needs and a coin flip does
+not have.
+
+```ts file=libs/feature/README.md region=rollout
+
+```
+
+<Probe package="feature" probe="rollout" />
+
+Retype the id. Roughly one id in ten is in, a neighbouring id lands anywhere,
+and the same id always comes back the same. [Rollouts](/feature/rollouts) has
+the bucket behind it and what happens when the percentage moves.
+
+## Read why a flag is off
+
+`isEnabled` answers with a boolean. `resolve` answers with one decision per
+flag, and the decision explains itself: `reason` says which of the five cases
+this is, and `dependency-off` carries the parent that blocked it.
+
+```ts file=libs/feature/README.md region=dependency-off
+
+```
+
+Here the new checkout is on for booksellers first, so for a customer it never
+matched a rule — and express pickup is off with `blockedBy` naming the flag to
+look at. [Decisions](/feature/decisions) has the other four reasons.
+
+## Turn the parent off
+
+`toggle` is the only call that writes. It sets `enabled` on the stored
+definition and reports which dependants go off with it, before anything is
+applied.
+
+```ts file=libs/feature/README.md region=toggle
+
+```
+
+`willDisable` is transitive and in dependency order: demo night booking is
+behind express pickup, which is behind the new checkout. A confirmation dialog
+can show that list; a script can ignore it.
+
+Nothing else writes. `resolve` and `plan` are pure functions of the
+configuration, the context and the clock, so a window closing changes an answer
+without changing anything stored.
+
+## Where to go next
+
+- [Configuration](/feature/configuration) — every field of a definition, and the precedence between them
+- [Rollouts](/feature/rollouts) — the bucket, the seed, and why raising a percentage only adds members
+- [Decisions](/feature/decisions) — the five reasons, and `capabilities` over the whole set
+- [React](/feature/react) — the provider and the three hooks
+- [Build-time planning](/feature/build-time) — `plan()` for a static build

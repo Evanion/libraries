@@ -2,6 +2,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+
+const examples = docExamples();
+
 // No `build` section on purpose. The package is built by `tsc`
 // (tsconfig.lib.json), not bundled: a bundle is one module and cannot carry a
 // per-module `'use client'` directive, which `src/react/index.tsx` needs and
@@ -10,7 +14,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/feature',
-  plugins: [react()],
+  ...examples,
+  // `react()` after the doc-example plugins: `expectComments` is `enforce: 'pre'`
+  // and doctest reads what it wrote, so neither one's position here moves them.
+  plugins: [...examples.plugins, react()],
   test: {
     watch: false,
     reporters: ['default'],
@@ -26,6 +33,10 @@ export default defineConfig(() => ({
           globals: true,
           environment: 'node',
           include: ['src/lib/**/*.{test,spec}.ts'],
+          // The README's documented examples, executed. The core suite is the
+          // one that runs them: every region is a `@evanion/feature` call and
+          // none of them touches a DOM.
+          includeSource: docExampleSources(),
         },
       },
       // The React adapter is the only part that needs a DOM. Kept as its own

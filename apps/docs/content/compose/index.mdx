@@ -1,124 +1,96 @@
 # @evanion/compose
 
-`ComposeProvider` takes a flat array of providers and nests them for you, so
-this:
-
-```tsx
-<ThemeProvider theme="dark" primaryColor="#007acc">
-  <AuthProvider user={user} token={token}>
-    <QueryProvider>
-      <App />
-    </QueryProvider>
-  </AuthProvider>
-</ThemeProvider>
-```
-
-becomes this:
-
-```tsx
-import { ComposeProvider, provider } from '@evanion/compose';
-
-<ComposeProvider
-  providers={[
-    provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }),
-    provider(AuthProvider, { user, token }),
-    QueryProvider,
+<PageSheet
+  difficulty={1}
+  read={4}
+  unlocks={[
+    ['Getting started', '/compose/getting-started'],
+    ['Where the check happens', '/compose/type-checking'],
   ]}
->
-  <App />
-</ComposeProvider>;
+/>
+
+**The concept.** A React app wraps its tree in providers: a cart, a theme, a
+currency, an error boundary. Written by hand they nest, one inside the next,
+and the file that holds them is a staircase eight levels deep whose closing
+tags you count on your fingers. Adding a provider reindents everything under
+it.
+
+**What you will have.** The same tree, written as an array. One entry per
+provider, first entry outermost, and a diff that adds a provider is one line.
+
+**Why you would want it.** The staircase is not hard to read once. It is hard
+to change. Moving a provider means moving its closing tag too, and the two are
+forty lines apart; a reviewer reading the diff sees indentation and cannot tell
+whether the order changed. An array puts the order on screen in three lines,
+and moving an entry is moving a line.
+
+**How the library gets you there.** `ComposeProvider` takes the array on a prop
+called `providers` and nests it for you. `provider()` pairs a component with
+its props, so TypeScript checks the pair where you write it. There is no
+context, no hook and no runtime configuration: the package is a component and a
+helper.
+
+```tsx twoslash file=libs/compose/examples/shop.tsx region=stack
+
 ```
 
-The first entry is the outermost, so the array reads in the same order the
-nested version did.
+`Shop` renders `CartProvider` outermost, `ThemeProvider` inside it and
+`CurrencyProvider` inside that, with whatever `Shop` was given at the centre.
+That is the array read top to bottom.
 
-## Installation
+## When to reach for compose
 
-```bash
-npm install @evanion/compose
-```
+The whole package is one component and one helper, so whether it suits you is a
+short question:
 
-React 18 or 19 is a peer dependency. The package is ESM only — there is no
-`require` condition, so a CommonJS consumer (Jest without ESM support, a
-`require()` in a `.cjs` file) gets `ERR_REQUIRE_ESM`.
+- Three or more providers at the root of an app, where the staircase has
+  stopped being readable.
+- A provider list that changes — a feature adds one, a platform needs a
+  different one — and you want that change to be a line rather than a reindent.
+- A tree that has to compile inside a React Server Component graph.
+  `ComposeProvider` uses no hook, no `createContext` and no class, so it
+  imports into a Next.js root `app/layout.tsx` without a `'use client'`
+  boundary of its own. The providers you hand it are a separate matter: one
+  built on `createContext` is client code and carries its own directive.
 
-## Two ways to write an entry
+## When compose is the wrong tool
 
-A bare component is an entry on its own, as long as every prop it declares is
-optional:
+- One or two providers. Two levels of nesting read fine written out, and an
+  array of two is a dependency you did not need.
+- Providers that have to be reordered while the app runs. React reconciles by
+  position, so changing the array's order or its length remounts everything
+  under it and loses the state in it.
+- Anything that is not a provider. `ComposeProvider` wraps its children in each
+  entry in turn; it does not render a list, a route or a layout.
 
-```tsx
-<ComposeProvider providers={[QueryProvider]}>
-  <App />
-</ComposeProvider>
-```
+## What ships in the compose package
 
-`provider()` pairs a component with its props and is checked where you call it,
-so the editor completes on the component's prop names while you type the object:
+The entry point is small enough to list whole:
 
-```tsx
-provider(ThemeProvider, { theme: 'dark', primaryColor: '#007acc' });
-```
+| Export                       | What it is                                                      |
+| ---------------------------- | --------------------------------------------------------------- |
+| `ComposeProvider`            | the component; takes `providers` and `children`                 |
+| `provider(component, props)` | pairs a component with its props, checked at the call           |
+| `Provider`, `ProviderArray`  | one entry, and the array of them                                |
+| `PropsWithoutChildren<T>`    | what an entry has to supply, which is `T`'s props less children |
+| `ValidateProvider<T>`        | the check applied to one entry                                  |
+| `ValidateProviders<T>`       | that check across a tuple, positions preserved                  |
+| `ValidatedProviders<T>`      | the type of the `providers` prop                                |
+| `ComposeProviderProps<T>`    | the props interface, for a wrapper that needs to name it        |
 
-A plain tuple is the same thing without the call, and is checked when the array
-reaches `ComposeProvider`:
+React 18 or 19 is the only peer dependency, and the package is ESM only: there
+is no `require` condition, so a CommonJS consumer gets `ERR_REQUIRE_ESM`.
 
-```tsx
-<ComposeProvider
-  providers={[[ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }]]}
->
-  <App />
-</ComposeProvider>
-```
+## Where to go next
 
-All three forms reject a missing prop, a wrong value, and a prop the component
-does not declare. `children` is excluded from what an entry supplies —
-`ComposeProvider` fills it in with the next provider down, or with your own
-children at the innermost level.
-
-Where the check happens is the difference. A tuple only knows what it should be
-once it reaches `ComposeProvider`, so a bare
-`[ThemeProvider, { theme: 'dark' }]` assigned to a variable is widened by
-TypeScript and will not error. Write the array inline, use `provider()` for
-those entries, or annotate the array `satisfies ProviderArray`.
-
-[Where the check happens](/compose/type-checking) covers the rest of that, and
-[the API reference](/compose/api) has the full export list.
-
-## The array's shape is part of the tree
-
-React reconciles by position, so changing the length or the order of the array
-unmounts and remounts everything below it:
-
-```tsx
-// Every piece of state under this is lost on login.
-<ComposeProvider
-  providers={[...(isAuthed ? [AuthProvider] : []), ThemeProvider]}
->
-  <App />
-</ComposeProvider>
-```
-
-Keep the array a fixed length and let the providers themselves handle the
-conditional case. This is not something the library can detect for you: it sees
-an array of a different length and has no way to tell a deliberate change from
-an accidental one.
-
-## Server components
-
-`ComposeProvider` is hook-free and uses no `createContext`, so it imports
-cleanly into a React Server Component graph — a Next.js root `app/layout.tsx`,
-for instance — with no `'use client'` boundary of its own. The providers you
-pass it are a different matter: a provider built on `createContext` is client
-code and carries its own directive.
-
-The same constraint is why the development-mode warnings are keyed on a
-module-level set rather than a `useEffect`. React's `react-server` export
-condition leaves every stateful hook `undefined`, so a hook here would throw on
-first render in a Server Component.
+- [Getting started](/compose/getting-started) — install it, write the array,
+  and move an entry to watch the tree move with it
+- [Where the check happens](/compose/type-checking) — why the same entry is
+  checked where you write it and silently unchecked one line away
+- [API reference](/compose/api) — every export and every type
 
 ## Related
 
-`@evanion/react-widget` renders a region of components from data with no
-provider and no context at all, so that it stays importable from a Server
-Component.
+[`@evanion/react-widget`](/react-widget) renders a region of components from
+data, with no provider and no context at all, which is the other way to keep a
+tree importable from a Server Component.

@@ -27,6 +27,9 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
+      "path": "../../tools/doc-examples"
+    },
+    {
       "path": "../widget/tsconfig.lib.json"
     }
   ]

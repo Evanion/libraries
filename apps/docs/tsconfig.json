@@ -51,6 +51,9 @@
     "components/**/*.jsx",
     "components/**/*.ts",
     "components/**/*.tsx",
+    // The MDX loaders this app configures under `turbopack.rules`. Listed so
+    // that the test importing one of them has it in the program.
+    "tools/**/*.mjs",
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "mdx-components.js",
@@ -70,6 +73,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/feature"
+    },
+    {
       "path": "../../tools/doc-examples"
     },
     {
@@ -82,7 +88,16 @@
       "path": "../../libs/react-widget"
     },
     {
+      "path": "../../libs/acl"
+    },
+    {
+      "path": "../../libs/react-acl"
+    },
+    {
       "path": "../../libs/luhn"
+    },
+    {
+      "path": "../../libs/compose"
     },
     {
       "path": "../../internal/baize-ui"

@@ -95,12 +95,30 @@ function valueOf(literal: string): string {
   return value;
 }
 
-/** The one argument of `f(x)`, when there is exactly one and it is a string. */
-function soleStringArgument(statement: string): string | null {
+/**
+ * The leading string argument of `f(x, …)`, when the call opens with one.
+ *
+ * Only the first argument is read, because only the first is what a probe
+ * makes editable: `inRollout(customerId, 10, 'new-checkout')` holds the
+ * percentage and the flag key fixed and hands the reader the customer id. The
+ * rest of the list is not parsed and does not need to be — `claimsOf` renders
+ * the value it found back through `probe.source` and keeps the line only when
+ * the result is the call the README wrote, character for character, so a probe
+ * pointed at a call the region does not make still finds nothing.
+ */
+function leadingStringArgument(statement: string): string | null {
   const call = statement.match(/^[\w.]+\((.*)\)$/s);
-  if (!call || !STRING_LITERAL.test(call[1] as string)) return null;
+  if (!call) return null;
 
-  return valueOf(call[1] as string);
+  const args = call[1] as string;
+  const first = args.match(/^(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/);
+
+  if (!first || !STRING_LITERAL.test(first[0])) return null;
+
+  const rest = args.slice(first[0].length);
+  if (rest !== '' && !rest.startsWith(',')) return null;
+
+  return valueOf(first[0]);
 }
 
 /**
@@ -117,7 +135,7 @@ export function claimsOf(probe: Probe, code: string): ProbeClaim[] {
     const claim = readValueClaim(line);
     if (claim === null) return [];
 
-    const input = soleStringArgument(claim.statement);
+    const input = leadingStringArgument(claim.statement);
     if (input === null || probe.source(input) !== claim.statement) return [];
 
     return [{ input, claimed: claim.expected }];

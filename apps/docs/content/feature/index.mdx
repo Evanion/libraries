@@ -1,7 +1,7 @@
 # @evanion/feature
 
 <WorkshopNotice slug="feature">
-  <Text size="sm">
+  <Text as="div" size="sm">
     The implementation is complete and covered by 83 passing tests, against the
     approved spec at `docs/specs/2026-09-11-feature-toggles.md`. Inside this
     repository it resolves from source like any other workspace package.
@@ -12,30 +12,14 @@ Feature toggles where one flag can depend on another. A parent that resolves off
 takes its dependants with it, transitively, and it does that without writing
 anything back into the configuration.
 
-```ts
-import { createFeatures } from '@evanion/feature';
+```ts file=libs/feature/README.md region=quick-start
 
-const features = createFeatures([
-  {
-    key: 'payments-v3',
-    enabled: true,
-    rules: [
-      {
-        id: 'window-q4',
-        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
-        rollout: { percent: 25, by: 'targetingKey' },
-      },
-    ],
-  },
-  { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
-]);
-
-features.isEnabled('checkout-v2', { targetingKey: 'acct-2' });
 ```
 
-`checkout-v2` is on only when `payments-v3` resolves on for that same account.
-Without the cascade, a 25% rollout on the parent leaks to 100% of the
-dependant's users.
+Express pickup is offered only to a customer the new checkout is already on
+for. `cust-0042` and `cust-0107` differ because the 25% rollout put them in
+different buckets. Without the cascade, a quarter of customers would get the
+new checkout and all of them would get its pickup option.
 
 ## Two entry points
 
@@ -55,13 +39,11 @@ directive and any React import.
 ## The shape of a decision
 
 `resolve` returns one decision per feature. `enabled` is the answer; everything
-else explains it:
+else explains it. Here the new checkout is on for booksellers first, so a
+customer's express pickup is off with the parent named:
 
-```ts
-features.resolve({ targetingKey: 'acct-2' })['checkout-v2'];
-// { key: 'checkout-v2', enabled: false, reason: 'dependency-off',
-//   blockedBy: 'payments-v3',
-//   cause: { key: 'payments-v3', reason: 'no-rule-matched', rule: 'window-q4' } }
+```ts file=libs/feature/README.md region=dependency-off
+
 ```
 
 `reason` is output only. Nothing in this library reads it back to decide

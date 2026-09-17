@@ -1,0 +1,142 @@
+# Rules that read the subject
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Inside this repository the package resolves from source like any other
+    workspace package, so the example below runs as written.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={1}
+  read={5}
+  hands={15}
+  requires={[['Overview', '/acl']]}
+  unlocks={[
+    ['Rules that read the object', '/acl/intermediate'],
+    ['Can this user do this?', '/acl/asking'],
+  ]}
+/>
+
+**The concept.** Baize keeps a stock report. Any bookseller may read it. Only
+the owner may export it. To answer either question you need to know who is
+asking, and you need nothing else: no listing is fetched, no question is loaded,
+nothing goes to the database first.
+
+**What you will have.** A matrix holding both permissions, a server that resolves
+the subject once per request, and a call that answers yes or no for any
+permission in the document.
+
+**Why you would want it.** The two role checks you write today are fine. The
+twentieth is the problem. By then one handler tests `roles.includes('owner')`,
+another tests `user.isOwner`, a third was copied before the role was renamed,
+and the export endpoint somebody added last month tests nothing at all.
+
+**How the library gets you there.** `policy()` writes the matrix and hands back
+an access object over it. `can` answers one question with a decision. `authorize`
+binds the subject, so no handler restates it. `capabilities` answers
+every question at once, which is how a menu knows what to draw.
+
+## Install acl
+
+One package, and nothing else comes with it:
+
+```bash
+npm install @evanion/acl
+```
+
+ESM only, Node 20 or newer, and no framework in the import graph.
+
+## Write the acl policy
+
+With the package installed, the first thing to write is the policy.
+`policy<Subject>()` names the subject once, `.for<K, Obj>(key, block)` declares
+one object kind, and `.build()` hands back the evaluator. A block holds allow
+rules, a rule holds conditions, and the conditions are AND-ed: the rule matches
+when every condition in it holds. While every condition reads the subject,
+`capabilities` answers the whole document at once, so the policy and every
+answer it gives fit in one block:
+
+```ts file=libs/acl/README.md region=capabilities
+
+```
+
+One policy holds every object kind your app has. Chain a `.for()` per kind and
+the report and the listing sit side by side in the same document. You do not
+build a policy per resource.
+
+Nothing is allowed without an allow rule that matched. `report.export` has a
+rule, the rule did not match, and the decision is `no-rule-matched`. Default
+deny is the floor of the engine and there is nothing to configure.
+
+`access.matrix` is what the blocks flattened to: a JSON envelope over a flat
+list of permissions, each carrying a `key` of exactly
+`` `${object}.${action}` ``. That document is what crosses to a client, where
+`hydratePolicy` turns it back into an evaluator.
+
+## Ask acl a question
+
+`capabilities` answered everything at once. When you want one answer, `can`
+takes the subject, the object kind (`report`) and the action (`read`), and
+returns a decision:
+
+```ts
+const decision = access.can(
+  { id: 'u1', roles: ['bookseller'] },
+  'report',
+  'read',
+);
+// { key: 'report.read', allowed: true, reason: 'allow', rule: '#0' }
+```
+
+`allowed` is the answer. Gate on it and nothing else. `reason` is output only,
+and a handler that branches on the reason string grants what the engine refused.
+
+## Bind the subject to one acl handle
+
+Every `can` above restated the subject. A server resolves it from the session
+once and then asks many questions about it, so `authorize` takes it once — here
+over a question policy, because binding the subject is the same move whatever the
+document holds:
+
+```ts file=libs/acl/README.md region=server-authorize
+
+```
+
+That handle carries `can`, `canMany`, `canFields` and `capabilities` with the
+subject dropped from each signature. It also makes the guarded call the shortest
+one to write, which is the only lever the library has on [complete
+mediation](/acl/security#complete-mediation).
+
+<Panel heading="This decision is authoritative only where it is made">
+  <Text as="div" size="sm">
+    The same call in a browser toggles what a user sees and enforces nothing.
+    Hiding a button hides the button, not the request the button would have
+    sent. Read [the security contract](/acl/security) before this reaches
+    production.
+  </Text>
+</Panel>
+
+## Where subject-only rules stop
+
+You now have a working policy, and every condition in it reads the subject. That
+is the line this page sits on, and it is a real line in the engine:
+
+- The server resolves the subject whole before the call, so no field of it is
+  ever missing by accident. Every permission answers `true` or `false`, and
+  nothing answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+- Nothing has to be fetched to ask a question, so `can` takes three arguments
+  and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
+
+Now write one rule that reads the object: the customer who asked may edit their
+own question.
+Both of those bullets stop holding at once. That rule, and everything it brings
+with it, is [Rules that read the object](/acl/intermediate).
+
+## Where to go next
+
+- [Rules that read the object](/acl/intermediate) — the typed builder, field
+  permissions and the guarded save
+- [Can this user do this?](/acl/asking) — the decision shape, and asking about a
+  list
+- [What can they do at all?](/acl/capabilities) — driving a menu from one call

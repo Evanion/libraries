@@ -1,0 +1,144 @@
+# @evanion/acl
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    The implementation is complete and covered by the unit suite plus an
+    adversarial suite held against `libs/acl/SECURITY.md`, against the approved
+    spec at `docs/superpowers/specs/2026-09-14-acl-design.md`. Inside this
+    repository it resolves from source like any other workspace package.
+  </Text>
+</WorkshopNotice>
+
+**The concept.** Baize is a board game shop. A customer leaves a question under
+its Brass: Birmingham listing, and they may edit that question. A bookseller may
+edit anybody's. Once the shop locks a question, nobody may edit it at all. Those
+three sentences are Baize's authorization rules, and today they are written out
+again in the handler, again in the loader, and again in the component that greys
+out the button.
+
+**What you will have.** One document that holds every rule your app has, and one
+call that reads it: may this subject take this action on this object? The
+subject is whoever is asking, and the object is the one thing they want to
+touch. The document is JSON, and the call runs wherever the JSON is, so the
+server that enforces the answer and the screen that renders it read the same
+rules.
+
+**Why you would want it.** Copies drift. You tighten the handler and forget the
+loader. The next endpoint ships with three of the four checks. A year in, nobody
+can say who may edit a locked question without reading four files, and the UI
+greys out a button the API would have accepted.
+
+**How the library gets you there.** The rules are a JSON document called the
+matrix. `policy()` writes one and hands back an access object over it. `can`
+answers one question and carries the reasons with the answer. `capabilities` answers every
+question at once, and `authorize` binds a subject for the length of a request.
+No round trip to a policy server, and no per-subject snapshot to build.
+
+```ts twoslash file=libs/acl/README.md region=quick-start
+
+```
+
+`can` answers with a decision, not a boolean. `allowed` is the answer;
+`reason`, `rule` and `missing` are why.
+
+<Panel heading="A decision counts where it is made">
+  <Text as="div" size="sm">
+    The same `can` call is authoritative in a trusted environment and advisory
+    in a browser, with the same signature and the same return type in both.
+    Nothing in the types separates them. Client-side evaluation toggles what a
+    user sees; enforcement happens server-side, in every layer, each one
+    deciding for itself. [The security contract](/acl/security) is the rest of
+    that sentence, and it is not optional reading.
+  </Text>
+</Panel>
+
+## When to reach for acl
+
+One document and one call is the whole shape. Whether it suits you comes down to
+what your rules have to look at:
+
+- Permissions that turn on which object is in front of the user as well as on
+  the role — "the customer who asked may edit their own question", "an open
+  question may be deleted and a locked one may not".
+- The same rules needed on a server and in a UI, without writing them twice and
+  without an endpoint per question. The document crosses an SSR boundary as
+  `access.matrix` and rebuilds on the other side.
+- A UI that has to explain a block as well as enforce it: which rule refused,
+  which deny rule matched, which field is read-only, what is still
+  missing before the question can be answered at all.
+- A field-level write, where the answer names which fields of the write are
+  yours.
+
+## When acl is the wrong tool
+
+The same two properties, a public document and a local answer, rule some jobs
+straight out:
+
+- Anything the document cannot state in the open. The matrix ships to the
+  client in full, so every object kind, action, role string, field name and time
+  boundary in it is public. Opaque predicates stay server-side, outside the
+  matrix.
+- Filtering a collection in the database. A decision is per instance; there is
+  no row-scoping query language, and generating a `WHERE` clause from the matrix
+  is out of scope.
+- Rules that need to call a function. Conditions are declarative because the
+  matrix must survive `JSON.stringify` losslessly.
+- A non-JS backend. Only the JSON crosses; a .NET or Go service uses its own
+  evaluator.
+
+## What ships in the acl package
+
+You have met `policy()` and `can`. This is the rest of what the entry point
+gives you:
+
+| Export                                  | What it is                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| `policy<Subject>()`                     | the typed builder; one `.for()` block per kind, `.build()` at the end          |
+| `hydratePolicy(matrix, options?)`       | an evaluator over a document you already have                                  |
+| `parseMatrix(json, options?)`           | the same, for somebody else's document; fails closed on a key it does not know |
+| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision                |
+| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                               |
+| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request                    |
+| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                                  |
+| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)              |
+
+The React provider and hooks are a separate package,
+[`@evanion/react-acl`](/react-acl).
+This entry imports no framework.
+
+## Where to go next
+
+That table is the map. Setup is three pages, and what separates them is what a
+rule is allowed to look at:
+
+- [Rules that read the subject](/acl/simple) — a handful of permissions, `can`
+  and done
+- [Rules that read the object](/acl/intermediate) — the typed builder, field
+  permissions and the guarded save
+- [Rules that outlive the process](/acl/advanced) — the schema, `capabilities`,
+  versioning and the revalidate contract
+- [Many services](/acl/federation) — one matrix per service, namespaced object
+  kinds, and what a gateway holds
+
+Then the question you arrived with:
+
+- [Can this user do this?](/acl/asking) — `can`, `canMany`, and why the answer
+  is not a boolean
+- [What can they do at all?](/acl/capabilities) — the no-object contract, and
+  driving a menu from it
+- [Which fields may they write?](/acl/writing) — `canFields` and
+  `pickAllowedFields`
+- [Why was this refused?](/acl/refusals) — the explanation fields, and the
+  repairable `unevaluable` state
+- [A policy from another service](/acl/adopting) — `parseMatrix` and the closed
+  mode
+
+The reference is below those, and one page of it is not optional:
+
+- [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
+  the two gaps it does not defend
+- [Security contract](/acl/security) — what the library prevents, what it hands
+  you, and what remains yours
+- [The matrix document](/acl/matrix), [Typed authoring](/acl/authoring),
+  [Decisions](/acl/decisions), [Field permissions](/acl/fields) — the mechanisms
+- [API reference](/acl/api) — every export, every type, every error

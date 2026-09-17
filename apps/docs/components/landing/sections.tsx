@@ -2,17 +2,15 @@ import { Card, Chip, SectionHeader, Text, Title } from '@evanion/baize-ui';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import {
   groups,
-  packages,
   readmeUrl,
   type DocumentedPackage,
   type PackageGroup,
 } from '../../app/navigation';
+import AccessDemo from './AccessDemo';
 import DataDemo from './DataDemo';
-import { demoItems } from './demo';
-import { listing } from './listing';
+import { allFamilies, familiesOf, type Family } from './families';
 import { description } from './manifest';
 import LuhnSpecimen from './LuhnSpecimen';
-import { platformsOf } from './platforms';
 import { luhnBody, tokenSpecimen, urnSpecimen } from './specimens';
 import TokenSpecimen from './TokenSpecimen';
 import UrnSpecimen from './UrnSpecimen';
@@ -29,11 +27,6 @@ function groupById(id: string): PackageGroup {
   return group;
 }
 
-/** The packages under a group, in `navigation.ts` order. */
-function members(group: PackageGroup): DocumentedPackage[] {
-  return packages.filter((entry) => entry.group === group.id);
-}
-
 /** The class that binds a package's colour to everything inside an element. */
 function identity(entry: DocumentedPackage): string {
   return `docs-identity ${categoricalClass(entry.hue)}`;
@@ -43,26 +36,59 @@ function identity(entry: DocumentedPackage): string {
  * The two facts a reader needs before opening anything: the published name,
  * and the stack it runs in, as a chip in that platform's own colour.
  *
- * `status` is where the unreleased mark goes. On a tile or a card it is the
+ * One marker renders every section's name-and-stack line, so a family's chips
+ * (union across its members) and a singleton's are produced the same way. The
+ * `status` is where the unreleased mark goes: on a tile or a card it is the
  * ribbon across the corner, drawn by the tile, so the marker carries nothing;
  * in a row there is no corner to drape it over, so it is a chip here.
  */
-function Marker({
-  entry,
+function FamilyMarker({
+  family,
   status = 'ribbon',
 }: {
-  entry: DocumentedPackage;
+  family: Family;
   status?: 'ribbon' | 'chip';
 }) {
   return (
     <span className="landing-marker">
-      <span className="landing-marker__name">{entry.name}</span>
-      {platformsOf(entry.framework).map(({ label, platform }) => (
+      <span className="landing-marker__name">{family.lead.name}</span>
+      {family.platforms.map(({ label, platform }) => (
         <Chip key={platform} platform={platform}>
           {label}
         </Chip>
       ))}
-      {entry.workshop && status === 'chip' ? <Chip>unreleased</Chip> : null}
+      {family.lead.workshop && status === 'chip' ? (
+        <Chip>unreleased</Chip>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * A family's title as links: one link per member, or a single link.
+ *
+ * A family with several members (a core and its adapters) links each; a
+ * singleton links once. This is the one place that shape is decided.
+ */
+function FamilyTitle({ family }: { family: Family }) {
+  if (family.members.length === 1) {
+    return (
+      <a className="landing-route__title" href={href(family.lead)}>
+        {family.lead.title}
+      </a>
+    );
+  }
+  return (
+    <span className="landing-family__links">
+      {family.members.map((member) => (
+        <a
+          key={member.name}
+          className="landing-route__title"
+          href={href(member)}
+        >
+          {member.title}
+        </a>
+      ))}
     </span>
   );
 }
@@ -104,15 +130,18 @@ export function Hero({ title, line }: { title: string; line: string }) {
         </Text>
       </div>
       <ul className="landing-index" aria-label="Packages">
-        {packages.map((entry) => (
-          <li key={entry.name} className={`landing-tile ${identity(entry)}`}>
-            <a className="landing-tile__link" href={href(entry)}>
+        {allFamilies().map((family) => (
+          <li
+            key={family.id}
+            className={`landing-tile ${identity(family.lead)}`}
+          >
+            <a className="landing-tile__link" href={href(family.lead)}>
               <Title as="h2" size="md">
-                {entry.title}
+                {family.lead.title}
               </Title>
-              <Marker entry={entry} />
+              <FamilyMarker family={family} />
             </a>
-            <Ribbon entry={entry} />
+            <Ribbon entry={family.lead} />
           </li>
         ))}
       </ul>
@@ -121,59 +150,105 @@ export function Hero({ title, line }: { title: string; line: string }) {
 }
 
 /**
- * Rendering from data: the two packages, the concept, and the demo.
+ * The demonstration a section leads with: the demo, and the caption saying what
+ * the reader is looking at.
  *
- * The packages come first, level with the heading, so a reader has the names
- * before the demonstration. One model in two runtimes, so the teasers carry
- * the name and the stack and nothing else: the section's own line explains
- * the concept once, and a paragraph each would say it twice more.
+ * Keyed by family the way `Specimen` is keyed by slug, and it draws its own
+ * figure, so a family with nothing to demonstrate renders nothing at all rather
+ * than an empty box in the family's hue. The caption belongs here and not in
+ * `Pair`, because what a reader has to be told is a property of the
+ * demonstration and not of the shape it sits in.
+ */
+function Showcase({ family }: { family: Family }) {
+  const body = demonstration(family);
+  if (!body) return null;
+  return (
+    <figure className={`landing-proof ${identity(family.lead)}`}>{body}</figure>
+  );
+}
+
+/** The demo and the caption for the families that have one. */
+function demonstration(family: Family) {
+  switch (family.id) {
+    // The concept is that the shape of a page is data, and what proves it is a
+    // page worth shipping next to the short list of items it came from, with
+    // the order and the nesting in the reader's hands.
+    case 'widget':
+      return (
+        <>
+          <DataDemo />
+          <figcaption className="landing-proof__caption">
+            Every block is a component somebody wrote once. The items decide
+            which blocks the page has, what sits inside what, and how wide each
+            one is — so a row moves on a CMS save rather than a deploy. Move a
+            container and everything nested under it goes with it. This page is
+            itself a {family.lead.title} region, built the same way.
+          </figcaption>
+        </>
+      );
+    // What the package buys an application is an interface that rebuilds itself
+    // from a policy, and a sentence cannot show that where seven lines beside a
+    // working toolbar can.
+    case 'acl':
+      return (
+        <>
+          <AccessDemo />
+          <figcaption className="landing-proof__caption">
+            That is the whole policy, and every control on the toolbar is one of
+            its answers. Change who is signed in, or take a role out of a grant,
+            and the interface is rebuilt around what is left.
+          </figcaption>
+        </>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * A family, level with the group's own argument, and the demonstration under
+ * both.
  *
- * The demo is the section. The concept is that a page is data and the library
- * renders it, and the only thing that proves that is data a reader can change
- * and a preview that follows. The editor opens on the same items the preview
- * first renders, serialised here on the server, so nothing moves at hydration.
+ * The shape the two flagship families take: the title and line on the left, the
+ * teaser on the right so a reader has the name before the demonstration, and the
+ * demonstration full width below. One teaser per family, carrying the name and a
+ * chip per runtime the family reaches and nothing else -- the section's own line
+ * explains the concept once, and a paragraph each would say it twice more.
+ *
+ * The demonstration is the section. Which one a family gets is `Showcase`'s
+ * decision, so this component is the shape and nothing else.
  */
 export function Pair({ group: id }: { group: string }) {
   const group = groupById(id);
-  const lead = members(group)[0];
-
+  const families = familiesOf(group);
   return (
     <>
-      <SectionHeader
-        heading={
+      <div className="landing-pair">
+        <div className="landing-pair__intro">
           <Title as="h2" size="lg">
             {group.title}
           </Title>
-        }
-        aside={
-          <ul className="landing-teasers" aria-label={group.title}>
-            {members(group).map((entry) => (
-              <li key={entry.name} className={identity(entry)}>
-                <a
-                  className="landing-tile__link landing-teaser"
-                  href={href(entry)}
-                >
-                  <Title as="h3" size="md">
-                    {entry.title}
-                  </Title>
-                  <Marker entry={entry} status="chip" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        }
-      />
-      <Text measured>{group.line}</Text>
-      {lead ? (
-        <figure className={`landing-proof ${identity(lead)}`}>
-          <DataDemo initial={listing(demoItems)} />
-          <figcaption className="landing-proof__caption">
-            Edit the items and the preview follows. A type the map does not know
-            is reported, not rendered. This page is itself a {lead.title}{' '}
-            region, built the same way.
-          </figcaption>
-        </figure>
-      ) : null}
+          <Text measured>{group.line}</Text>
+        </div>
+        <ul className="landing-teasers" aria-label={group.title}>
+          {families.map((family) => (
+            <li key={family.id} className={identity(family.lead)}>
+              <a
+                className="landing-tile__link landing-teaser"
+                href={href(family.lead)}
+              >
+                <Title as="h3" size="md">
+                  {family.lead.title}
+                </Title>
+                <FamilyMarker family={family} status="chip" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {families.map((family) => (
+        <Showcase key={family.id} family={family} />
+      ))}
     </>
   );
 }
@@ -209,7 +284,7 @@ function Specimen({ slug }: { slug: string }) {
  */
 export function Cards({ group: id }: { group: string }) {
   const group = groupById(id);
-  const entries = members(group);
+  const families = familiesOf(group);
 
   return (
     <>
@@ -224,24 +299,24 @@ export function Cards({ group: id }: { group: string }) {
       <ul
         className="landing-cards"
         aria-label={group.title}
-        style={{ '--landing-columns': entries.length } as React.CSSProperties}
+        style={{ '--landing-columns': families.length } as React.CSSProperties}
       >
-        {entries.map((entry) => (
-          <li key={entry.name} className={identity(entry)}>
+        {families.map((family) => (
+          <li key={family.id} className={identity(family.lead)}>
             <Card
               head={
                 <Title as="h3" size="md">
-                  <a className="landing-route__title" href={href(entry)}>
-                    {entry.title}
+                  <a className="landing-route__title" href={href(family.lead)}>
+                    {family.lead.title}
                   </a>
                 </Title>
               }
-              foot={<Marker entry={entry} />}
+              foot={<FamilyMarker family={family} />}
             >
-              <Specimen slug={entry.slug} />
-              <Text size="sm">{description(entry.root)}</Text>
+              <Specimen slug={family.lead.slug} />
+              <Text size="sm">{description(family.lead.root)}</Text>
             </Card>
-            <Ribbon entry={entry} />
+            <Ribbon entry={family.lead} />
           </li>
         ))}
       </ul>
@@ -259,6 +334,7 @@ export function Cards({ group: id }: { group: string }) {
  */
 export function Rows({ group: id }: { group: string }) {
   const group = groupById(id);
+  const families = familiesOf(group);
 
   return (
     <>
@@ -271,15 +347,16 @@ export function Rows({ group: id }: { group: string }) {
         aside={group.line}
       />
       <ul className="landing-rows" aria-label={group.title}>
-        {members(group).map((entry) => (
-          <li key={entry.name} className={`landing-row ${identity(entry)}`}>
+        {families.map((family) => (
+          <li
+            key={family.id}
+            className={`landing-row ${identity(family.lead)}`}
+          >
             <Title as="h3" size="md">
-              <a className="landing-route__title" href={href(entry)}>
-                {entry.title}
-              </a>
+              <FamilyTitle family={family} />
             </Title>
-            <Text size="sm">{description(entry.root)}</Text>
-            <Marker entry={entry} status="chip" />
+            <Text size="sm">{description(family.lead.root)}</Text>
+            <FamilyMarker family={family} status="chip" />
           </li>
         ))}
       </ul>

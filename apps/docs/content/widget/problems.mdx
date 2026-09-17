@@ -1,0 +1,106 @@
+# What validateItems reports
+
+Every message `validateItems` can return, what produces it, and what to do
+about it. Nothing here assumes you have read the pages before it;
+[Getting started](/widget/getting-started) is where the item shape is taught,
+and this page links to it rather than teaching it again.
+
+## One widget problem, field by field
+
+`validateItems` returns a `WidgetProblem[]`. One entry per thing it found, in
+the order it walked the payload, and an empty array when it found nothing.
+
+Two of its arguments are named throughout this page. `known` is the set of
+types the payload may use, either a registry or a plain list of names.
+`required` is a widget type mapped to the props that must carry something.
+
+| Field     | What it holds                                                                    |
+| --------- | -------------------------------------------------------------------------------- |
+| `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list |
+| `id`      | the item's `id`, or `-` when the item has none a reader could use                |
+| `type`    | the item's `type`, or `-` when the item has none a reader could use              |
+| `message` | one of the strings below                                                         |
+
+`index` is per sibling list rather than per payload, so a nested item three
+items into a page reports the index it has among its own siblings. That is the
+number a CMS editor can act on, because it is the position they see in the
+section they opened.
+
+## The messages validateItems returns
+
+The strings are exported as `VALIDATION_MESSAGES`, so a caller can group,
+count or translate a report without matching on prose.
+
+| Constant           | Message                     | What produced it                                         |
+| ------------------ | --------------------------- | -------------------------------------------------------- |
+| `NOT_A_LIST`       | `items is not a list`       | the payload itself is not an array                       |
+| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is a string, a number, `null` or an array       |
+| `INVALID_ID`       | `item id is not a string`   | `id` is absent, or is something other than a string      |
+| `INVALID_TYPE`     | `item type is not a string` | `type` is absent, or is something other than a string    |
+| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set                |
+| `INVALID_PROPS`    | `props is not an object`    | `props` is absent, or is an array, `null` or a primitive |
+| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and is not an array                |
+| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`        |
+| `MISSING_FIELD`    | `missing field <name>`      | a prop `required` demands is absent or blank             |
+
+`MISSING_FIELD` is a function of the field name, because the name is the whole
+of the report: an editor who reads `missing field title` knows which box to
+fill.
+
+## A payload with several problems in it
+
+One call reports everything, so a bookseller fixing a page fixes it once:
+
+```ts file=libs/widget/README.md region=sweep
+
+```
+
+Three items in, three problems out. The first has no `props`, the second
+repeats the first item's `id`, and the third is fine until the walk reaches its
+one child, whose type nothing draws. The nested problem carries index 0,
+because it is the first item in its own sibling list.
+
+## Why an item with no props is reported
+
+`props is not an object` fires on an item that left `props` out entirely, and
+that is deliberate. A widget's data lives under that key and nowhere else, so
+an item without it is one whose props the payload put somewhere no renderer
+reads. That is exactly what a payload written against a flat item shape looks
+like, and a renderer handed one draws an empty widget and logs nothing.
+
+## Required props, and what blank means
+
+`required` maps a widget type to the props that must be present and carry
+something. Blank is `undefined`, `null`, or a string of whitespace, which is
+what a CMS text field that was opened and left empty arrives as:
+
+```ts file=libs/widget/README.md region=required
+
+```
+
+A plain presence check passes that payload. `title` is there, it is a string,
+and it renders as a listing with no name on it.
+
+Two bounds on the map are worth knowing before you rely on it. Its keys are
+plain strings with no relation to the registry, so a widget type misspelled
+there is an entry nothing reads rather than a compile error. And a type the
+known set does not carry is reported once as an unknown type and its required
+fields are never counted, because listing the props of a widget nothing draws
+adds nothing to the first problem.
+
+## Why a type is looked up as an own key
+
+`type` is matched with `Object.prototype.hasOwnProperty` rather than with `in`
+or a bare index, and so is `required`'s own lookup. Items are CMS data, so any
+string is reachable, and both of the looser forms walk the prototype chain: an
+item typed `constructor`, `toString` or `__proto__` would otherwise pass as a
+registered type, and the value that came back would be a function off
+`Object.prototype`.
+
+Both renderers apply the rule in their own registry lookups. It is written down
+here because it is one decision about untrusted data rather than two
+coincidences.
+
+[Getting started](/widget/getting-started#check-the-payload-before-anything-renders-it)
+is where to call `validateItems` from: at ingestion, in CI, or in a build
+script.

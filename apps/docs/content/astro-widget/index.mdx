@@ -3,21 +3,27 @@
 Render CMS-driven Astro sections from structured widget data. Build-time only —
 no runtime, no hydration, nothing shipped to the browser.
 
-```astro
+```astro no-run
 ---
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 import page from '../data/page.json';
 ---
 
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'example.com' }} />
+<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
 ```
 
 Where `page.json` is whatever your CMS writes:
 
 ```json
 {
-  "sections": [{ "id": "top", "type": "hero", "props": { "heading": "Hello" } }]
+  "sections": [
+    {
+      "id": "header",
+      "type": "listing-header",
+      "props": { "title": "Brass: Birmingham" }
+    }
+  ]
 }
 ```
 

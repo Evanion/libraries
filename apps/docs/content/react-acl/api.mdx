@@ -1,0 +1,252 @@
+# API reference
+
+<WorkshopNotice slug="react-acl">
+  <Text as="div" size="sm">
+    Every region on this page is a file under `libs/react-acl/examples/` and
+    runs under `nx test @evanion/react-acl`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={2}
+  read={6}
+  requires={[['Getting started', '/react-acl/getting-started']]}
+/>
+
+One provider, four hooks, a factory that binds them to a policy, and three
+interfaces. Every type named below —
+`Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the
+rest — is re-exported from `@evanion/acl` under the same name and documented in
+[the core's reference](/acl/api).
+
+A hook throws if it is called outside a `PolicyProvider`, and the message names
+the provider and the package.
+
+## `PolicyProvider`
+
+Holds one evaluator, one subject and one clock for the tree under it. Renders
+its children and nothing else.
+
+```tsx signature
+function PolicyProvider(props: PolicyProviderProps): ReactElement;
+```
+
+The context value is memoised on the identity of `access`, `subject` and
+`context`, so all three want stable references. `context.now` defaults to
+`new Date()` when it is left off, which is a fresh instant on every provider
+remount — pass the value the server rendered with instead.
+
+```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
+
+```
+
+## `PolicyProviderProps`
+
+```tsx signature
+interface PolicyProviderProps {
+  access: Access;
+  subject: Subject;
+  context?: { now?: Instant };
+  children?: ReactNode;
+}
+```
+
+`access` is any `Access`, whether the core's `hydratePolicy` returned it or
+`policy<Subject>().build()` did. The subject and object types a typed policy
+carries stop here: the hooks below take `key: string`, so a key this provider's
+document never declared reaches them, and the engine throws
+`UnknownObjectKeyError` at render unless the matrix was hydrated with
+`closed: true`. [`createPolicyContext`](#createpolicycontext) is what keeps
+those types.
+
+Only `now` is read off `context`. The subject is a prop of its own rather than a
+key of the context, so the two are memoised separately and a re-render that
+changes who is signed in does not re-key the clock.
+
+## `useCan`
+
+One decision for one action on one row.
+
+```tsx signature
+function useCan(
+  key: string,
+  action: string,
+  object?: Record<string, unknown>,
+): Decision;
+```
+
+`object` is optional for the create case, where there is no instance yet. A rule
+that reads the row and is asked without one answers
+[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+
+Memoised on `access`, `subject`, `key`, `action`, `object` and `now`. The row's
+identity is part of that key, so a component handed a rebuilt row object
+re-evaluates rather than returning a stale answer.
+
+```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
+
+```
+
+## `useCanMany`
+
+One decision per row, in the order the rows were given.
+
+```tsx signature
+function useCanMany(
+  key: string,
+  action: string,
+  objects: readonly Record<string, unknown>[],
+): Decision[];
+```
+
+The returned array is parallel to the input, so a row's answer is at the row's
+index. This is the hook for a list: React forbids a hook inside a loop, so a row
+component calling `useCan` for itself breaks the first time the list is filtered
+or reordered.
+
+```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
+
+```
+
+## `useCanFields`
+
+The field-level decision for one action on one axis.
+
+```tsx signature
+function useCanFields(
+  key: string,
+  action: string,
+  object: Record<string, unknown>,
+  axis: 'read' | 'write',
+  proposed?: Record<string, unknown>,
+): FieldDecision;
+```
+
+`axis` is `'read'` for which fields may be shown and `'write'` for which may be
+set. `proposed` is the write the caller intends, and on the write axis the map
+covers its keys too, including keys the row has never held.
+
+`fields` maps every field name to `'allowed'`, `'denied'` or `'unevaluable'`.
+Compare against `'allowed'`; comparing against `'denied'` treats the
+unevaluable fields as writable, which is
+[the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
+
+```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
+
+```
+
+## `useCapabilities`
+
+Every action-level decision for the current subject, keyed by
+`` `${object}.${action}` ``.
+
+```tsx signature
+function useCapabilities(): Record<string, Decision>;
+```
+
+No object is passed, so a rule that reads one cannot be decided here. This is
+the hook for a menu or a navigation bar, where the question is what the shopper
+may reach rather than what they may do to a particular thing.
+[What can they do at all?](/acl/capabilities) sets out the no-object contract.
+
+```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
+
+```
+
+## `createPolicyContext`
+
+Binds one policy's subject and object types to a provider and a set of hooks.
+
+```tsx signature
+function createPolicyContext<Sub = Subject, R = AnyObjects>(
+  access: Access<Sub, R>,
+): PolicyContext<Sub, R>;
+```
+
+[`policy`](/acl/authoring) names a subject type once and binds a row type per
+object kind, and `build()` returns an `Access` carrying both. Pass that here and
+the hooks that come back check their key against the kinds the policy declared
+and their row against the type bound to the kind. Both come off the argument, so
+the call site writes neither.
+
+A React context fixes its type when it is created, and `useContext` hands a hook
+that fixed type whatever the provider above it was given. That is why this is a
+function returning hooks rather than a generic `PolicyProvider`: the two
+parameters have nowhere else to live.
+
+Each call makes its own context, so two policies nest and each set of hooks
+reads its own provider. The returned provider also feeds the shared context, so
+a component calling `useCan` from the package root underneath it reads the same
+decision.
+
+```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
+
+```
+
+## `PolicyContext`
+
+What `createPolicyContext` returns: the same provider and four hooks, at the
+types the policy carries.
+
+```tsx signature
+interface PolicyContext<Sub, R> {
+  PolicyProvider(props: BoundPolicyProviderProps<Sub, R>): ReactElement;
+  useCan<K extends keyof R & string>(
+    key: K,
+    action: string,
+    object?: Partial<R[K]>,
+  ): Decision;
+  useCanMany<K extends keyof R & string>(
+    key: K,
+    action: string,
+    objects: readonly Partial<R[K]>[],
+  ): Decision[];
+  useCanFields<K extends keyof R & string>(
+    key: K,
+    action: string,
+    object: Partial<R[K]>,
+    axis: 'read' | 'write',
+    proposed?: Partial<R[K]>,
+  ): FieldDecision;
+  useCapabilities(): Record<string, Decision>;
+}
+```
+
+`Partial<R[K]>` for the row, because a list row carrying two of five fields is
+the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case rather
+than a type error. A row type declared `extends Record<string, unknown>` accepts
+every key and gives the check nothing to hold, so declare the row's fields and
+nothing more.
+
+`useCapabilities` stays keyed by `string`. It answers by permission key,
+`listing.edit`, where `R` holds the object kinds, `listing`, and the actions
+that complete the key are plain strings no builder collects.
+
+## `BoundPolicyProviderProps`
+
+```tsx signature
+interface BoundPolicyProviderProps<Sub, R> {
+  access?: Access<Sub, R>;
+  subject: Sub;
+  context?: { now?: Instant };
+  children?: ReactNode;
+}
+```
+
+`access` is optional here and required on `PolicyProvider`, because
+`createPolicyContext` was already handed a document. Pass it to decide against a
+different one of the same shape: a per-tenant matrix, or the copy the browser
+rebuilt with `hydratePolicy`, which crossed JSON and carries no types of its
+own.
+
+`subject` is the subject type the policy was authored against, so a value
+missing a field that type declares is a compile error at the mount.
+
+## Where to go next
+
+- [Which side decides](/react-acl/boundary) — what these answers are worth, and
+  what has to happen on the other side of the render
+- [Core API reference](/acl/api) — every type above, and the functions a server
+  calls
+- [Decisions](/acl/decisions) — the `Decision` shape, its reasons, and its
+  explanation fields

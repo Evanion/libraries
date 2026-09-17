@@ -1,0 +1,148 @@
+# Field permissions
+
+<WorkshopNotice slug="acl" />
+
+An action-level decision answers "may this subject update this question". A
+field-level decision answers "which parts of it", on one of two axes: `read`,
+which is a projection, and `write`, which is what a form submits.
+
+```ts file=libs/acl/README.md region=field-permissions
+
+```
+
+`canFields` returns the field maps plus the action decision they hang off.
+
+```ts
+interface FieldDecision {
+  allowed: boolean; // the action is allowed AND every field is allowed
+  action: Decision; // the action-level decision the field maps hang off
+  fields: Record<string, FieldState>; // 'allowed' | 'denied' | 'unevaluable'
+  reasons: Record<string, FieldReason>;
+}
+```
+
+The field maps are filled in whatever the action says, so a blocked caller still
+learns which fields would be editable once the action is unblocked — one call
+renders the form and explains the block. Only the top-level `allowed` is gated
+on the action, and it is the composition of both halves. Reading the maps as the
+gate skips the action entirely.
+
+| `FieldState`  | Meaning                                            |
+| ------------- | -------------------------------------------------- |
+| `allowed`     | this field may be read, or written with this value |
+| `denied`      | the rules refuse it                                |
+| `unevaluable` | the decision needs data the call did not carry     |
+
+| `FieldReason`       | Emitted when                                                       |
+| ------------------- | ------------------------------------------------------------------ |
+| `allow`             | nothing refused it                                                 |
+| `not-listed`        | the name list does not carry it, or excludes it                    |
+| `targets-failed`    | the proposed value is not in the field's `targets`                 |
+| `transition-failed` | the current value has no edge to the proposed one                  |
+| `missing-field`     | a `transitions` field whose current value the object did not carry |
+| `proposed-required` | a configured field with no proposed value in the write             |
+
+## Naming the fields
+
+`fields` takes either a name list or an object carrying one plus the per-field
+configs.
+
+```ts
+p.fields(['*', '!status']); // everything except status
+p.fields(['title', 'price']); // exactly these two
+p.fields({
+  fields: ['*', '!id'],
+  status: { transitions: { draft: ['published'], published: [] } },
+  visibility: { targets: ['public', 'private'] },
+});
+```
+
+`*` is the baseline and `!name` subtracts from it. Both are authoring syntax and
+never field names, wherever they turn up — in the rules, on the object, or in a
+proposed write. A `!name` with no `*` baseline is `DenyWithoutBaselineError`, and
+a `!name` inside an explicit allow-list is `BangInAllowListError`: a list that
+names what is allowed already denies everything else, so a bang in it means the
+author expected one of the two spellings to be the other.
+
+With no name list at all, every unnamed key is writable. A `targets` or
+`transitions` config restricts the field it names and no other — it is not a
+writable-field list, and mistaking it for one leaves every other key open.
+
+`targets` allow-lists the proposed value. `transitions` is a state machine over
+the current value: the key is the value the object holds now, the array is what
+it may become. The two are mutually exclusive on one field
+(`TargetsTransitionsConflictError`).
+
+The object form keys the configs by field name and takes `fields` for the name
+list, so `fields` is the one name a field cannot have — a field called `fields`
+has nowhere to put its `targets` or `transitions`. It can still be allowed or
+denied by name through the list. A matrix that gives it a config is refused at
+construction with an `InvalidPermissionError` naming the clash.
+
+## Which fields are decided
+
+The matrix does not know the object's shape, so the decision covers every field
+the object carries, every field named in the rules, every name in the list, and
+— on the write axis — every key of the proposed write.
+
+That last one is the mass-assignment case. A key that exists nowhere but the
+write still gets a state, so an exclusion applies to a column the row has never
+held. A decision that only covered the keys already on the object would say
+nothing about the one being added.
+
+The read axis takes no write, and per-field `targets`/`transitions` configs are
+write concepts: on `read` only the name list denies.
+
+### Passing a projection
+
+`canFields` takes a partial object, so a caller holding a projection can ask.
+The map shrinks with the input: a field the projection omits, that no rule names
+and that the write does not propose, appears in neither `fields` nor `reasons`.
+
+A name in the map is a decision. A name absent from it is not a denial, it is a
+question nobody asked, and `pickAllowedFields` withholds it for exactly that
+reason. Render inputs from the names the map carries, and treat an absent one as
+undecided rather than refused. [Caveats and pitfalls](/acl/pitfalls) has the
+filter that gets this wrong.
+
+`access.readsObject(key, action)` says whether the action behind the fields
+needs the row at all, which is the cheaper question to ask before fetching one.
+
+## Writing
+
+Pass the proposed object to `canFields` on the `write` axis and write what
+`pickAllowedFields` hands back.
+
+```ts twoslash file=libs/acl/README.md region=write-path
+
+```
+
+That returned object is the value to write, and nothing else from the write is.
+Every key it carries was marked `allowed` by the decision; `denied` and
+`unevaluable` are both withheld, and so is any key the decision does not carry.
+
+This is the whole write path. Filtering the field map by hand is the defect it
+exists to prevent: an `unevaluable` field is not a permitted one, and a key the
+decision never saw has no state to test at all, so a filter written against the
+map instead of against `pickAllowedFields` writes both. Pass the result to the
+ORM, and pass only the result.
+
+`pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
+refused. No field of a refused action is writable, and returning an empty object
+would be indistinguishable from a lawful write of nothing. A field the action
+allows but the field rules deny is a partial write, which is what the narrowing
+is for, so that case returns the allowed subset rather than throwing.
+
+The narrowed result is safe to spread onto a row: `__proto__` names no field, so
+it never enters a decision map and never comes back out of the narrowing.
+
+## Reading
+
+```ts
+const view = access.canFields(subject, 'question', 'read', question, 'read');
+```
+
+The `read` axis answers which fields of an instance this subject may see, and a
+server uses it to shape a response the same way the client uses it to shape a
+form. It is a projection decision, not a query: the row was already fetched, and
+a field decided `denied` here was still read out of the database.

@@ -7,7 +7,7 @@ export const metadata = {
   // Absolute, so the tab does not read "Evanion Libraries | Evanion Libraries".
   title: { absolute: 'Evanion Libraries' },
   description:
-    'Small TypeScript libraries, one problem each: rendering from data, identifiers and codes, and three that stand on their own.',
+    'Small TypeScript libraries, one problem each: rendering from data, authorization from one policy, identifiers and codes, and three that stand on their own.',
 };
 
 /**

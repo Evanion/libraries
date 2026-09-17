@@ -32,12 +32,13 @@ export interface PackageGroup {
   /**
    * The group's own line on the landing page. The sidebar shows only the title.
    *
-   * For the rendering group this is the body of the one card both packages
-   * share -- so it has to name each runtime in words. A reader scanning for
-   * "astro" finds it here.
+   * For a group whose section is a teaser and a demonstration this is the only
+   * prose the section carries -- the teaser is a name and a chip per runtime --
+   * so it has to name each runtime in words. A reader scanning for "astro" or
+   * for "react" finds it here.
    *
-   * Which shape a group takes on the landing page -- one card for the pair, a
-   * card each, a row each -- is the page's decision and lives in
+   * Which shape a group takes on the landing page -- a line beside the family
+   * teasers, a card each, a row each -- is the page's decision and lives in
    * `components/landing/items.ts`, where each group is an item of one type.
    */
   line: string;
@@ -55,12 +56,23 @@ export interface PackageGroup {
  * One axis, not two. Whether a package is on npm is a property of the package
  * and rides on its card next to the framework, rather than pulling it out of the
  * group a reader would look for it in.
+ *
+ * Ordered by how much of an application the group decides, widest first, with
+ * the catch-all last. Rendering and authorization each shape a whole interface
+ * and each is a core sold across runtimes, so they lead and they are the two
+ * sections that carry a working demonstration; identifiers and codes act on one
+ * string at a time and follow.
  */
 export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
     line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. One item shape, held in a framework-free core, rendered by React and by Astro.',
+  },
+  {
+    id: 'acl',
+    title: 'Authorization from one policy',
+    line: 'Write authorization down once: the objects, the actions, and the condition each one turns on. The policy builds to a frozen document that round-trips through JSON and is evaluated in place, so the rules guarding an endpoint are the same rules that decide which buttons a browser draws, with no round trip to ask and no per-subject snapshot to keep in step. One policy, held in a framework-free core, bound to React.',
   },
   {
     id: 'identifiers',
@@ -111,6 +123,18 @@ export interface DocumentedPackage {
   /** Which entry of `groups` this package sits under. */
   group: string;
   /**
+   * The family a package belongs to, set only where several packages are one
+   * thing sold across runtimes.
+   *
+   * A core and its renderers are one family, so the landing shows them as one
+   * card carrying a chip per platform. `widget` names the widget core and both
+   * renderers; `acl` the access-control core and its binding. A
+   * standalone package is its own family and omits `familyId` — there is
+   * nothing to group it with. Adding a Svelte or Vue adapter to an existing
+   * family only adds a chip and a link, never a card.
+   */
+  familyId?: string;
+  /**
    * The stack the package runs in, as a chip on its card.
    *
    * `universal` is the answer for a package that imports no framework: it runs
@@ -137,6 +161,38 @@ export interface DocumentedPackage {
    * and on a name the scale does not carry.
    */
   hue: CategoricalHue;
+  /**
+   * The page filling the section's demonstration role, as a `_meta` key.
+   *
+   * The demonstration is a role rather than a filename — `usage`, `examples`,
+   * `components`, `playground`, `validation`, `interface` — so nothing derives
+   * it from the content tree and it is written here. A section of five pages or
+   * fewer may name `getting-started`, which is what keeps a small section from
+   * owing a fourth file; `compose` takes that allowance.
+   *
+   * `tools/repo-checks/src/doc-floor.test.ts` holds it to a page that exists,
+   * and `doc-control.test.ts` holds that page to a mounted control.
+   */
+  demo?: string;
+  /**
+   * Why this section's demonstration page carries no control.
+   *
+   * A running server, a compile step with no browser runtime, a trust boundary:
+   * the cases where a control is not achievable are named in the documentation
+   * standard § 5. The reason is recorded here and the page says the same thing
+   * to the reader, so nobody arrives looking for a control that is deliberately
+   * absent.
+   */
+  demoExempt?: string;
+  /**
+   * Why this section's examples are not set in the game shop.
+   *
+   * One domain across the site is documentation standard § 6's decision 16,
+   * and the exemption is the escape it names for a package whose subject has
+   * no shop object in it. The reason is recorded here rather than argued again
+   * on each page, and G9 reads it.
+   */
+  domainExempt?: string;
 }
 
 export const packages: readonly DocumentedPackage[] = [
@@ -146,8 +202,10 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'react-widget',
     title: 'React Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'React',
     hue: 'sky',
+    demo: 'playground',
     documented: true,
     workshop: false,
   },
@@ -157,8 +215,13 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'astro-widget',
     title: 'Astro Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'Astro',
-    hue: 'coral',
+    // The rendering group is one family, so its three packages share one hue —
+    // the same way `feature` (universal + React) uses one. A reader who has
+    // been in the React Widget pages recognises the family by colour.
+    hue: 'sky',
+    demo: 'validation',
     documented: true,
     workshop: false,
   },
@@ -168,17 +231,50 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'widget',
     title: 'Widget',
     group: 'rendering',
+    familyId: 'widget',
     framework: 'universal',
-    // `stone` is the unsaturated hue on the categorical scale, for a member
-    // with no colour of its own. The core belongs to no framework, so it takes
-    // the hue that belongs to no category, and each renderer keeps the colour a
-    // reader already associates with its runtime.
-    hue: 'stone',
-    // The section this package wants is the shared half of the two renderers'
-    // pages, which is a docs restructure rather than part of a migration. Until
-    // it is written the sidebar links to the README.
-    documented: false,
+    // One hue for the whole rendering family, including the framework-free core.
+    hue: 'sky',
+    // Four pages, so the demonstration role sits on getting-started under the
+    // documentation standard § 4's allowance. The control is `DataDemo`, the
+    // rendering family's own specimen: what a reader moves there is the item
+    // array, which this package owns, and the pixels are the React renderer's.
+    demo: 'getting-started',
+    documented: true,
     workshop: false,
+  },
+  {
+    name: '@evanion/acl',
+    root: 'libs/acl',
+    slug: 'acl',
+    title: 'Authorization',
+    group: 'acl',
+    familyId: 'acl',
+    framework: 'universal',
+    hue: 'coral',
+    demo: 'interface',
+    documented: true,
+    workshop: true,
+  },
+  {
+    name: '@evanion/react-acl',
+    root: 'libs/react-acl',
+    slug: 'react-acl',
+    title: 'React Authorization',
+    group: 'acl',
+    familyId: 'acl',
+    framework: 'React',
+    // `stone` is the unsaturated hue on the categorical scale, for a member
+    // with no colour of its own. The React binding has no colour of its own
+    // either, and its core already took `coral`.
+    hue: 'stone',
+    documented: true,
+    // The binding's own section, not the core's: the provider, the four hooks
+    // and which side of a render a decision counts on. Everything a rule is
+    // made of belongs to `acl`, and these pages link to the page that owns it
+    // rather than teaching it twice.
+    demo: 'getting-started',
+    workshop: true,
   },
   {
     name: '@evanion/urn',
@@ -188,6 +284,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'periwinkle',
+    demo: 'components',
     documented: true,
     workshop: false,
   },
@@ -199,6 +296,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'citron',
+    demo: 'usage',
     documented: true,
     workshop: false,
   },
@@ -210,6 +308,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'identifiers',
     framework: 'universal',
     hue: 'teal',
+    demo: 'usage',
     documented: true,
     workshop: false,
   },
@@ -221,6 +320,9 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'standalone',
     framework: 'React',
     hue: 'orchid',
+    demo: 'getting-started',
+    domainExempt:
+      'the subject is the provider tree; a shop object appears nowhere in it',
     documented: true,
     workshop: false,
   },
@@ -228,10 +330,15 @@ export const packages: readonly DocumentedPackage[] = [
     name: '@evanion/nestjs-correlation-id',
     root: 'libs/nestjs-correlation-id',
     slug: 'nestjs-correlation-id',
-    title: 'NestJS Correlation ID',
+    title: 'Correlation ID',
     group: 'standalone',
     framework: 'NestJS',
     hue: 'mint',
+    demo: 'getting-started',
+    demoExempt:
+      'The demonstrable unit is two running services and one header between ' +
+      'them. Nothing in a page can be the second process, and a simulated one ' +
+      'proves nothing about the real one.',
     documented: true,
     workshop: false,
   },
@@ -239,10 +346,11 @@ export const packages: readonly DocumentedPackage[] = [
     name: '@evanion/feature',
     root: 'libs/feature',
     slug: 'feature',
-    title: 'Feature Toggles',
+    title: 'Feature',
     group: 'standalone',
     framework: 'universal + React',
     hue: 'amber',
+    demo: 'rollouts',
     documented: true,
     workshop: true,
   },

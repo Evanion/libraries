@@ -28,10 +28,13 @@ Astro `>=7.3.1` is a peer dependency.
 ```ts
 // src/registry.ts
 import { defineWidgets } from '@evanion/astro-widget';
-import Hero from './widgets/Hero.astro';
-import Cards from './widgets/Cards.astro';
+import ListingHeader from './widgets/ListingHeader.astro';
+import GameGrid from './widgets/GameGrid.astro';
 
-export const registry = defineWidgets({ hero: Hero, cards: Cards });
+export const registry = defineWidgets({
+  'listing-header': ListingHeader,
+  'game-grid': GameGrid,
+});
 ```
 
 ```astro
@@ -40,16 +43,47 @@ import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 import page from '../data/page.json';
 ---
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'example.com' }} />
+<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
 ```
 
 Where `page.json` is whatever your CMS writes:
 
 ```json
 {
-  "sections": [{ "id": "top", "type": "hero", "props": { "heading": "Hello" } }]
+  "sections": [
+    {
+      "id": "header",
+      "type": "listing-header",
+      "props": { "title": "Brass: Birmingham" }
+    }
+  ]
 }
 ```
+
+## The registry
+
+`defineWidgets` returns the object it is handed. Its whole job is the generic
+parameter: annotating the same object as `WidgetRegistry` widens its keys to
+`string`, and the key union is what an editor completes on. `validateItems`
+reads its `required` map by plain string, so the union does not reach it.
+
+<!-- #region registry -->
+
+```ts @import.meta.vitest
+import { defineWidgets, validateItems } from '@evanion/astro-widget';
+
+// In a project these are `.astro` modules; the helper reads their keys and
+// nothing else, so a stand-in is enough to show what it returns.
+const registry = defineWidgets({
+  'listing-header': () => null,
+  'game-grid': () => null,
+});
+
+Object.keys(registry); // -> ['listing-header', 'game-grid']
+validateItems([], Object.keys(registry)); // -> []
+```
+
+<!-- #endregion registry -->
 
 ## Data shape
 
@@ -74,10 +108,143 @@ away from every payload already written.
 `console.warn`, so a bad CMS save can never break a render. Catch them loudly at
 build time instead:
 
-```js
+<!-- #region validate -->
+
+```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-const problems = validateItems(page.sections, registry, { hero: ['heading'] });
+const sections = [
+  {
+    id: 'header',
+    type: 'listing-header',
+    props: { title: 'Brass: Birmingham' },
+  },
+  { id: 'price', type: 'price-box', props: {} },
+  { id: 'questions', type: 'answer-wall', props: {} },
+];
+
+const required = { 'listing-header': ['title'] };
+const problems = validateItems(
+  sections,
+  ['listing-header', 'price-box'],
+  required,
+);
+
+problems; // -> [{ index: 2, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+```
+
+<!-- #endregion validate -->
+
+A `required` map names the props a widget type cannot render without. Blank
+counts as missing, which is what a text field an editor opened and left alone
+arrives as:
+
+<!-- #region required-fields -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const blank = [
+  { id: 'header', type: 'listing-header', props: { title: '   ' } },
+];
+
+validateItems(blank, ['listing-header'], { 'listing-header': ['title'] }); // -> [{ index: 0, id: 'header', type: 'listing-header', message: 'missing field title' }]
+```
+
+<!-- #endregion required-fields -->
+
+`index` is the position within an item's own sibling list, so a problem at the
+top level and one inside `children` can both report `index: 0`. `id` is what
+tells them apart:
+
+<!-- #region nested-index -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const nested = [
+  {
+    id: 'grid',
+    type: 'game-grid',
+    props: {},
+    children: [{ id: 'questions', type: 'answer-wall', props: {} }],
+  },
+];
+
+validateItems(nested, ['game-grid']); // -> [{ index: 0, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+```
+
+<!-- #endregion nested-index -->
+
+The five structural rules run over every payload, whatever the registry holds.
+Each one is a save a CMS can make and a build should not ship:
+
+<!-- #region structural-rules -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const saved = [
+  null,
+  { type: 'listing-header', props: { title: 'Root' } },
+  { id: 'grid', type: 'game-grid', props: {}, children: 'none' },
+  { id: 'grid', type: 'game-grid' },
+];
+
+validateItems(saved, ['listing-header', 'game-grid']).map((p) => p.message); // -> ['item is not an object', 'item id is not a string', 'children is not a list', 'duplicate sibling id', 'props is not an object']
+```
+
+<!-- #endregion structural-rules -->
+
+An `items` that is not a list is one problem rather than none, because a CMS
+that wrote an object where the schema said array has broken the page and a
+clean run would say it had not:
+
+<!-- #region not-a-list -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+validateItems({ sections: [] }, ['listing-header']); // -> [{ index: -1, id: '-', type: '-', message: 'items is not a list' }]
+```
+
+<!-- #endregion not-a-list -->
+
+A payload with nothing wrong reports nothing. `validateItems` returns a list,
+never throws, and never short-circuits, so one run over the whole page is one
+build failure with every fault in it:
+
+<!-- #region clean-payload -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+const page = [
+  { id: 'header', type: 'listing-header', props: { title: 'Root' } },
+  {
+    id: 'grid',
+    type: 'game-grid',
+    props: {},
+    children: [
+      { id: 'azul', type: 'listing-header', props: { title: 'Azul' } },
+    ],
+  },
+];
+
+const required = { 'listing-header': ['title'] };
+const problems = validateItems(page, ['listing-header', 'game-grid'], required);
+
+problems; // -> []
+```
+
+<!-- #endregion clean-payload -->
+
+Run it over the CMS payload before the build renders it:
+
+```js
+const problems = validateItems(page.sections, registry, {
+  'listing-header': ['title'],
+});
 if (problems.length) {
   for (const p of problems)
     console.error(`section ${p.index} (${p.id}, ${p.type}): ${p.message}`);
@@ -111,7 +278,7 @@ render its own nested sections must do so itself:
 
 ```astro
 ---
-// Cards.astro
+// GameGrid.astro
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 const { children } = Astro.props;
@@ -165,7 +332,7 @@ problem on a payload that passed yesterday:
 | `children is not a list`  | `children` is present and not an array      |
 
 `duplicate sibling id` is the one to check first. A CMS that emits a constant id
-per section type — `"hero"` on every hero — or an empty string where an editor
+per section type — `"listing-header"` on every listing header — or an empty string where an
 left the field alone now fails a build that passed before. Ids only have to be
 unique within one sibling list, so the same id at two depths is still fine.
 

@@ -1,0 +1,93 @@
+# Giving my rules to another service
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    The examples on this page are regions of `libs/acl/README.md` and run under
+    `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+`serialize(access, 'reduced')` turns the policy a service already evaluates into
+a document its consumers evaluate. Mark each permission `visibility: 'public'`
+or leave it unmarked; the reduced form keeps the marked ones and drops the rest.
+
+## Why the artifact exists
+
+A BFF in front of an orders service that cannot read orders' rules writes its
+own. That copy is orders' permission logic maintained by a team that does not own
+it, and it diverges the first time orders changes a rule nobody thinks to
+propagate.
+
+Orders keeps refusing correctly, so nothing is breached and no alert fires. The
+refund button is hidden against a server that would have allowed the call, and it
+stays hidden, in a UI bug on a different team's backlog.
+
+## Marking and serializing
+
+An unmarked permission is internal. An older document, a producer that emits no
+such field, and an author who forgot all publish nothing.
+
+```ts file=libs/acl/README.md region=contract
+
+```
+
+The consumer holds one contract per origin and evaluates each against its own
+subject. Nothing merges them, and the doctrine on
+[Many services](/acl/federation) is unchanged: every layer decides for itself,
+and orders decides again on its own matrix when the refund call arrives.
+
+## A published permission ships whole
+
+Dropping one of a kept permission's deny rules would turn a refusal into an
+allow. Dropping an allow rule or a field config would move the answer the other
+way. So a permission goes out with its refusals attached or it stays internal,
+and a permission whose deny rules read an internal concept either discloses that
+concept or does not publish.
+
+The cost lands on the owner, by the owner's choice. The deny rule in the example
+above publishes `subject.tier` and the word `probation` to every consumer.
+
+The contract's decisions equal orders' own, key for key, which is what makes it
+worth holding. A contract that answered more conservatively would be a second
+copy again, and a button hidden by caution looks exactly like a button hidden by
+a rule.
+
+<Panel heading="A contract is terminal">
+  <Text as="div" size="sm">
+    Its permissions arrive unmarked, so a consumer's own reduced serialization
+    is empty. Re-publishing another team's rules is the failure this removes.
+  </Text>
+</Panel>
+
+## How long a consumer may keep deciding on it
+
+`maxStale` is the owner's ceiling, in milliseconds, measured from the consumer's
+last successful freshness check. The consumer reports that instant as
+`fetchedAt` and may tighten the bound with its own `maxStale`, never extend it.
+Past `fetchedAt + min(the two)` every key answers `stale-contract`, and the
+remedy is a fetch of the document.
+
+Measuring from the last check is what expires a consumer whose poll silently
+stopped: that consumer believes it is fresh and never starts a clock of its own.
+A consumer that reports no `fetchedAt` claims no freshness and runs under no
+bound, which is every matrix a service authors in its own process.
+
+A stale contract is stale-permissive, and that survives for one reason: orders
+re-evaluates on its own matrix on every call and refuses. A stale consumer
+over-shows and never over-grants.
+
+## A key another team may veto has to ship
+
+`serialize(access, 'reduced', { vetoable })` refuses a listed key the reduction
+would drop. Compliance checks its own contribution by running `applyDenyOverlay`
+against the published contract, and an internal vetoable key is absent from it,
+taking its object kind's schema entry along, so that check would refuse every
+contribution it was written to accept.
+
+## Where to go next
+
+- [Many services](/acl/federation) — the topology this publishes across, and the
+  deny overlay a compliance team applies
+- [A policy from another service](/acl/adopting) — the same crossing from the
+  consumer's side
+- [Why was this refused?](/acl/refusals) — what `stale-contract` tells a UI

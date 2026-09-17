@@ -1,8 +1,8 @@
 /**
- * Named regions in a markdown file, so the docs app can render the same
- * example the package's README ships rather than a copy of it.
+ * Named regions in a markdown file or a TypeScript source, so the docs app can
+ * render the same example the package ships rather than a copy of it.
  *
- * A region is a pair of HTML comments around a fenced code block:
+ * In markdown a region is a pair of HTML comments around a fenced code block:
  *
  *     <!-- #region quick-start -->
  *     ```ts @import.meta.vitest
@@ -15,12 +15,28 @@
  * than inside it so that the extracted text is code, with no marker lines to
  * strip and no marker visible in the README's own rendering.
  *
- * The extracted block is executed, because the README it comes from is
- * executed — the docs app inherits that guarantee rather than adding one.
+ * In a `.ts` or `.tsx` source a region is a pair of line comments, and the code
+ * between them is the example:
+ *
+ *     // #region widen
+ *     expectTypeOf(widen(listing)).toEqualTypeOf<Listing>();
+ *     // #endregion widen
+ *
+ * `// #region` is TypeScript's and VS Code's own folding marker, so the markers
+ * fold in an editor and mean nothing to the compiler. This is what puts a
+ * type-level claim on a docs page: `expectTypeOf` and `@ts-expect-error` live in
+ * a `*.test-d.ts` file, which has no README fence to sit in, and the claim the
+ * page renders is then the one `tsc` checked.
+ *
+ * The extracted block is executed, because the file it comes from is executed —
+ * the docs app inherits that guarantee rather than adding one.
  */
 
 const REGION = /<!--\s*#region\s+([\w-]+)\s*-->/;
 const ENDREGION = /<!--\s*#endregion\s+([\w-]+)\s*-->/;
+const SOURCE_REGION = /^\s*\/\/\s*#region\s+([\w-]+)\s*$/;
+const SOURCE_ENDREGION = /^\s*\/\/\s*#endregion\s+([\w-]+)\s*$/;
+const SOURCE_FILE = /\.tsx?$/;
 const FENCE = /^\s*(`{3,})(.*)$/;
 
 /** A malformed or missing region, with the file and line in its message. */
@@ -32,14 +48,110 @@ export class RegionError extends Error {
 }
 
 /**
- * Reads every named region out of a markdown source.
+ * Reads every named region out of a source, markdown or TypeScript.
+ *
+ * The file extension picks the marker syntax. A caller passes the path it read
+ * the source from, which every caller already has, so nothing has to name the
+ * two modes at a call site.
+ */
+export function parseRegions(source, file) {
+  return SOURCE_FILE.test(file)
+    ? parseSourceRegions(source, file)
+    : parseMarkdownRegions(source, file);
+}
+
+/**
+ * The region body, with the indentation its enclosing block gave it removed.
+ *
+ * A type-level claim sits inside a `describe` or an `it`, so the lines carry
+ * two or four spaces that belong to the test file and not to the example. The
+ * blank lines the markers usually stand apart from go with them.
+ */
+function body(lines) {
+  const trimmed = [...lines];
+  while (trimmed.length && !trimmed[0].trim()) trimmed.shift();
+  while (trimmed.length && !trimmed[trimmed.length - 1].trim()) trimmed.pop();
+
+  const indents = trimmed
+    .filter((line) => line.trim())
+    .map((line) => line.length - line.trimStart().length);
+  const width = indents.length ? Math.min(...indents) : 0;
+
+  return trimmed.map((line) => line.slice(width)).join('\n');
+}
+
+/**
+ * Every named region in a `.ts` or `.tsx` source.
+ *
+ * No fence to delimit the block, so the region is the lines between the
+ * markers. The language is the extension: a `.tsx` example renders as `tsx`,
+ * which is what Shiki needs to highlight the JSX in it.
+ */
+function parseSourceRegions(source, file) {
+  const regions = new Map();
+
+  let open = null;
+  let lines = [];
+
+  source.split('\n').forEach((line, index) => {
+    const start = line.match(SOURCE_REGION);
+    if (start) {
+      if (open) {
+        throw new RegionError(
+          `${file}:${index + 1}: region '${start[1]}' opens inside region '${open.name}'`,
+        );
+      }
+      open = { name: start[1], at: index + 1 };
+      lines = [];
+      return;
+    }
+
+    const end = line.match(SOURCE_ENDREGION);
+    if (end) {
+      if (!open) {
+        throw new RegionError(
+          `${file}:${index + 1}: #endregion '${end[1]}' closes nothing`,
+        );
+      }
+      if (end[1] !== open.name) {
+        throw new RegionError(
+          `${file}:${index + 1}: #endregion '${end[1]}' closes region '${open.name}'`,
+        );
+      }
+      if (regions.has(open.name)) {
+        throw new RegionError(
+          `${file}:${index + 1}: region '${open.name}' is defined twice`,
+        );
+      }
+      regions.set(open.name, {
+        lang: file.endsWith('.tsx') ? 'tsx' : 'ts',
+        code: body(lines),
+      });
+      open = null;
+      return;
+    }
+
+    if (open) lines.push(line);
+  });
+
+  if (open) {
+    throw new RegionError(
+      `${file}:${open.at}: region '${open.name}' is never closed`,
+    );
+  }
+
+  return regions;
+}
+
+/**
+ * Every named region in a markdown source.
  *
  * A region must contain exactly one fenced block. Anything else — prose
  * between the markers, two blocks, none — is an error rather than a
  * best-effort extraction, because the failure it prevents is a docs page
  * quietly rendering the wrong thing.
  */
-export function parseRegions(source, file) {
+function parseMarkdownRegions(source, file) {
   const lines = source.split('\n');
   const regions = new Map();
 

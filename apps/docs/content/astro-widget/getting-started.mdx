@@ -5,25 +5,36 @@
 ```ts
 // src/registry.ts
 import { defineWidgets } from '@evanion/astro-widget';
-import Hero from './widgets/Hero.astro';
-import Cards from './widgets/Cards.astro';
+import ListingHeader from './widgets/ListingHeader.astro';
+import GameGrid from './widgets/GameGrid.astro';
 
-export const registry = defineWidgets({ hero: Hero, cards: Cards });
+export const registry = defineWidgets({
+  'listing-header': ListingHeader,
+  'game-grid': GameGrid,
+});
 ```
 
-`defineWidgets` returns the object unchanged. Its only job is the generic
-parameter: annotating the same object as `WidgetRegistry` widens its keys to
-`string`, and the key union is what an editor completes on and what
-`validateItems` narrows a `required` map against.
+`defineWidgets` comes from `@evanion/widget` and returns the object unchanged;
+[the core's entry](/widget/api#definewidgets) is where it is written down. What
+it buys is the key union an editor completes on.
 
-```ts
-const registry = defineWidgets({ hero: Hero, cards: Cards });
-//    ^? { hero: AstroComponentFactory; cards: AstroComponentFactory }
+Only the keys are read, so the helper is shown here over stand-ins for the two
+`.astro` modules — what it returns is the object it was handed:
+
+```ts file=libs/astro-widget/README.md region=registry
+
 ```
 
 ## Rendering
 
-```astro
+Every `.astro` block on this page carries a mark saying nothing executed it,
+and that is the package rather than the budget: an `.astro` module is compiled
+by Astro's own compiler against a project, there is no runtime for one in a
+browser, and no bundler in scope produces one. The half of this package that is
+plain TypeScript — the registry, the item shape, the validator — runs under
+`nx test @evanion/astro-widget` and the pages cite those runs.
+
+```astro no-run
 ---
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
@@ -44,41 +55,32 @@ An `items` that is not an array renders nothing rather than throwing.
 
 ## The data shape
 
-```ts
-interface AnyWidgetItem<Type extends string = string, Props = object> {
-  id: string; // required: the key, and the handle in a warning
-  type: Type; // must be a key in the registry
-  props: Props; // spread into the component
-  meta?: Record<string, unknown>;
-  children?: AnyWidgetItem[];
-}
-```
+An item is `id`, `type`, `props`, and optional `meta` and `children`.
+[Getting started](/widget/getting-started#write-the-widget-item-array) in the
+widget core teaches the four fields and
+[the core's reference](/widget/api#anywidgetitem) carries the interface. The
+same item an `@evanion/react-widget` consumer writes, which is what makes one
+payload render through both.
 
-`props` is a named field rather than "every key the renderer does not claim for
-itself". The renderer's own fields would otherwise be reserved words in the
-CMS's vocabulary, and adding one later would take a prop away from every payload
-already written. So a CMS that writes
+What this renderer does with it: a CMS that writes
 
 ```json
 {
-  "id": "top",
-  "type": "hero",
-  "props": { "heading": "Hello", "eyebrow": "New" }
+  "id": "header",
+  "type": "listing-header",
+  "props": { "title": "Brass: Birmingham", "mechanism": "Economic" }
 }
 ```
 
-renders `<Hero heading="Hello" eyebrow="New" id="top" ctx={ctx} />`.
+renders `<ListingHeader title="Brass: Birmingham" mechanism="Economic" id="header" ctx={ctx} />`.
 
-This is the same item an `@evanion/react-widget` consumer writes, which is what
-makes one payload render through both.
-
-`id` reaches the widget as well as the chrome, because a widget often wants it
-as an anchor target. `meta` does not: where a widget sits is not something the
-widget should know.
+`props` is spread. `id` reaches the widget as well as the chrome, because a
+widget often wants it as an anchor target. `meta` does not: where a widget sits
+is not something the widget should know.
 
 ## `ctx`
 
-```astro
+```astro no-run
 <Widgets items={sections} registry={registry} ctx={{ site: Astro.site, locale }} />
 ```
 
@@ -92,14 +94,14 @@ so a widget ported between the two reads the same field.
 
 Wrap every widget without each widget reimplementing section markup:
 
-```astro
+```astro no-run
 <Widgets items={items} registry={registry} chrome={{ item: Section }} />
 ```
 
 `Section` receives the item's `type`, `id` and `meta` — never its `props`, which
 are the widget's own business — and it must render `<slot />`:
 
-```astro
+```astro no-run
 ---
 // Section.astro
 interface Props {
@@ -142,17 +144,17 @@ to pass nested items into.
 
 A widget that wants nested sections renders them itself:
 
-```astro
+```astro no-run
 ---
-// Cards.astro
+// GameGrid.astro
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 import { registry } from '../registry';
 
-const { children = [], heading } = Astro.props;
+const { children = [], title } = Astro.props;
 ---
 
 <section>
-  <h2>{heading}</h2>
+  <h2>{title}</h2>
   <Widgets items={children} registry={registry} />
 </section>
 ```

@@ -23,6 +23,7 @@ export interface IslandProps {
  * value before any of this is fetched.
  */
 export const islands = {
+  feature: dynamic(() => import('./feature-probe')),
   luhn: dynamic(() => import('./luhn-probe')),
   token: dynamic(() => import('./token-probe')),
   urn: dynamic(() => import('./urn-probe')),

@@ -1,0 +1,102 @@
+# Why was this refused?
+
+<WorkshopNotice slug="acl" />
+
+Three fields explain a decision, and each one tells a UI something different to
+render. All three are output only: `allowed` is the gate, and nothing else on
+the decision should ever reach an `if`.
+
+| `reason`          | Carries   | What the UI has                              |
+| ----------------- | --------- | -------------------------------------------- |
+| `allow`           | `rule`    | nothing to explain                           |
+| `no-rule-matched` | —         | a plain no; this subject, this row           |
+| `denied`          | `rule`    | a plain no, and which rule to name in a log  |
+| `unknown-action`  | —         | the document has moved on; fail closed       |
+| `unevaluable`     | `missing` | a refetch, not a refusal                     |
+| `unusable-clock`  | `rule`    | the `now` this call passed is not an instant |
+| `stale-contract`  | —         | fetch the document again; this copy is old   |
+
+`unevaluable` and `unusable-clock` both mean the engine could not reach an
+answer, and they are two reasons because the repair differs. `unevaluable` names
+paths in `missing`, and one refetch settles it. `unusable-clock` says the `now`
+the call passed is not an instant, which no refetch changes: fix the argument.
+
+`stale-contract` is the third repairable one, and the thing to fetch is the
+document. A holder that tells `parseMatrix` when it last validated its copy, with
+`fetchedAt`, gets this for every key once the copy is older than the `maxStale`
+the document states. A holder that reports no `fetchedAt` never sees it.
+
+## `rule` — which rule decided
+
+Defaults to `#0`, `#1`, … by position; a rule that states an `id` reports that
+instead. Give the rules a UI has to name an `id`, because a position moves the
+first time somebody reorders the list.
+
+It is a log line and a support answer — "denied by `locked-question`" — not
+something to branch on. Two rules can grant the same thing, and which one
+matched is not a property the app should depend on.
+
+## When the answer is `unevaluable`
+
+It is not an error and it is not a no. `allowed` is already `false`, so nothing
+leaks — but the answer is **repairable**, and `missing` names exactly what to
+fetch.
+
+A caller meets it in two situations, which are the same shortfall:
+
+- **No instance at all.** `can(subject, 'question', 'create')` against a
+  permission whose rules read `object.*`. This is the create toggle: there is
+  nothing to compare against yet.
+- **A projection that does not carry the field.** The list query selected `id`
+  and `body`; the rule reads `object.askedBy`.
+
+```ts file=libs/acl/README.md region=refetch
+
+```
+
+Both sides' unreadable paths come back in one `missing`, so one refetch settles
+the permission however many rules read the object — not one round trip per rule.
+
+### What to do with one
+
+- **Server, enforcing.** Treat it as a refusal. Fetch the named paths and
+  re-ask, or return a 403. It is never a grant.
+- **Client, rendering.** Render the control as _pending_, not as forbidden.
+  Fetch `missing`, ask once more. A UI that renders it as forbidden hides
+  something the user can have; one that renders it as permitted is broken.
+- **Authoring.** An `unevaluable` that no refetch repairs is a bug in the
+  document, almost always a mistyped field name. A `schema` turns that class
+  into an `UnknownFieldError` at construction.
+- **Deciding before the row is loaded.** A caller in front of the fetch gets
+  `unevaluable` from every object-dependent permission, every time.
+  `access.readsObject(key, action)` tells that apart from a call that happened
+  to lack data — see
+  [Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
+
+Absence is unevaluable for every operator, negative ones included. "It is not
+equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
+and `contains` over an absent path are as unevaluable as `eq`.
+
+### Why only the object
+
+An absent `object.*` path is unevaluable; an absent `subject.*` path is a plain
+miss. The object is a projection the caller chose, so a field it lacks says
+nothing about the row. The subject is resolved whole before the call and is
+never a projection, so a subject carrying no `roles` genuinely has none.
+
+## Explaining a field, not an action
+
+A read-only input is a `FieldReason`, not a `Reason`. `not-listed` means the
+rules exclude the name; `targets-failed` and `transition-failed` mean the
+proposed value is the problem rather than the field; `missing-field` is the
+field-level `unevaluable` and wants the same refetch. [Field
+permissions](/acl/fields) has every `FieldReason` in one table, including
+`proposed-required`, which the four above leave out.
+
+## Where to go next
+
+- [Decisions](/acl/decisions) — the reference: the full precedence order and why
+  it is in that order
+- [Caveats and pitfalls](/acl/pitfalls) — `unevaluable` is not `denied`, and
+  four other things to check
+- [Can this user do this?](/acl/asking) — where the decision came from

@@ -181,12 +181,11 @@
 }
 
 /*
- * Rendering from data: the demo, then a route into each runtime.
+ * Rendering from data: the route into the family, then the demo.
  *
- * The demo is a figure in the flagship's hue: the editor on the left, what the
- * library renders from it on the right, and one caption under both. The hue
- * on its edge and in its strings is what says "this is the widget library"
- * without a label.
+ * The demo is a figure in the family's hue: a page above, the items it was
+ * composed from below, and one caption under both. The hue on its edge and in
+ * its strings is what says "this is the widget library" without a label.
  */
 .landing-proof {
   margin: var(--baize-space-5) 0 0;
@@ -204,31 +203,156 @@
   font-size: var(--baize-text-sm);
 }
 
-.landing-demo {
+/*
+ * The demo: a page above, full width, and the items it was composed from
+ * below.
+ *
+ * Stacked rather than side by side, because the thing on show is a dashboard
+ * and a dashboard needs the width to read as one rather than as a column of
+ * boxes. The listing gets that width back, which is what keeps every item on
+ * one line.
+ */
+.landing-counter {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.landing-demo__editor,
-.landing-demo__preview {
-  display: grid;
-  align-content: start;
-  gap: var(--baize-space-3);
-  min-width: 0;
+/* The application around the region. The shell is the app's; the page inside
+   it is the data's, and the line between them is where that changes hands. */
+.landing-counter__app {
   padding: var(--baize-space-4);
 }
 
-/* The preview is the page the items describe, so it sits on the page's own
-   material, raised off the editor beside it. */
-.landing-demo__preview {
-  border-left: 1px solid
-    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
-  background: var(--baize-felt);
+.landing-counter__chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
+  padding-bottom: var(--baize-space-3);
+  border-bottom: 1px solid var(--baize-rule);
 }
 
-/* What each side is, in the quiet colour: the variable on one, the call that
-   renders it on the other. */
-.landing-demo__label {
+.landing-counter__shop {
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-md);
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+.landing-counter__week {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+/* The region: top-level items down the page. */
+.landing-counter__stage {
+  display: grid;
+  gap: var(--baize-space-4);
+  padding-top: var(--baize-space-4);
+}
+
+/* A nested row. Three tracks, and each item takes as many as its own meta
+   asked for, so a width travels with the item that carries it. */
+.landing-counter__columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--baize-space-3);
+}
+
+.landing-counter__cell {
+  grid-column: span var(--counter-span, 1);
+  min-width: 0;
+}
+
+.landing-counter__metric,
+.landing-counter__board {
+  height: 100%;
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: var(--baize-felt);
+  box-shadow: var(--baize-elevation-card);
+}
+
+/* The figures are the one bright thing in the dashboard; everything around
+   them is the quiet colour, so the eye lands on the numbers first. */
+.landing-counter__metric {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.landing-counter__delta {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-counter__board {
+  display: grid;
+  gap: var(--baize-space-3);
+  align-content: start;
+}
+
+.landing-counter__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--baize-text-sm);
+  text-align: left;
+}
+
+.landing-counter__table th {
+  padding-bottom: var(--baize-space-2);
+  border-bottom: 1px solid var(--baize-rule);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.landing-counter__table td {
+  padding: var(--baize-space-2) var(--baize-space-3) var(--baize-space-2) 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--baize-rule) 60%, transparent);
+  color: var(--baize-lichen);
+  vertical-align: top;
+}
+
+.landing-counter__table tr > :last-child {
+  padding-right: 0;
+}
+
+.landing-counter__table td:first-child {
+  color: var(--baize-chalk);
+}
+
+.landing-counter__table tr:last-child td {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/*
+ * The items, sunk below the page they built.
+ *
+ * Plain ink under the figure's own tinted ground: the page floats and the data
+ * is the well under it. Real JSON, one line per item, indented by nesting --
+ * what is on the screen parses back to what rendered.
+ */
+.landing-items {
+  display: grid;
+  gap: var(--baize-space-3);
+  padding: var(--baize-space-4);
+  border-top: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-ink);
+}
+
+.landing-items__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
   margin: 0;
   color: var(--baize-moss);
   font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
@@ -236,137 +360,150 @@
   letter-spacing: var(--baize-tracking-loose);
 }
 
-/*
- * The editor: a highlighted `<pre>` under a transparent `<textarea>`, both in
- * the one grid cell.
- *
- * `.landing-demo__layer` is every property that decides where a glyph goes,
- * set once for both so the caret in the field lands on the character drawn
- * underneath it. Both wrap, at the same width, so a long value folds the same
- * way in each and neither scrolls past the other. The `<pre>` is the layer
- * with a height; the field stretches to it. No border of its own: the
- * figure's edge is its edge, and a box inside a box is what a textarea looks
- * like when nobody styled it.
- */
-.landing-demo__field {
-  display: grid;
-  min-height: 12rem;
+.landing-items__hint {
+  color: var(--baize-lichen);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-normal);
 }
 
-.landing-demo__layer {
-  grid-area: 1 / 1;
-  box-sizing: border-box;
-  width: 100%;
+.landing-items__source {
   margin: 0;
-  padding: 0;
-  border: 0;
+  color: var(--baize-moss);
   font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
   font-size: var(--baize-text-sm);
   font-variant-ligatures: none;
-  line-height: 1.55;
-  letter-spacing: normal;
+  line-height: 1.7;
   tab-size: 2;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow: hidden;
 }
 
-.landing-demo__highlight {
-  color: var(--baize-moss);
-  pointer-events: none;
-}
-
-.landing-demo__highlight code {
+.landing-items__source code {
+  display: grid;
   font: inherit;
 }
 
-.landing-demo__token--key {
+/*
+ * One line: the move controls in a fixed gutter, the code in the rest.
+ *
+ * A grid rather than an inline run, so a line that wraps at a narrow width
+ * folds under itself and not back under the controls.
+ */
+.landing-items__line {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  align-items: baseline;
+  border-radius: var(--baize-radius-button);
+}
+
+/*
+ * The block a control is about to move, lit while the control is under the
+ * pointer or holds focus.
+ *
+ * A container and everything nested under it, not the one line the pointer is
+ * on: what moving `counter` does to the page is the argument the figure is making,
+ * and this is where a reader sees it before pressing anything.
+ */
+.landing-items__line[data-aimed] {
+  background: color-mix(in oklab, var(--baize-hue) 12%, transparent);
+}
+
+.landing-items__code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.landing-items__token--key {
   color: var(--baize-chalk);
 }
 
-.landing-demo__token--string {
+.landing-items__token--string {
   color: var(--baize-hue);
 }
 
-.landing-demo__token--literal {
+.landing-items__token--literal {
   color: var(--baize-lichen);
 }
 
-.landing-demo__source {
-  height: 100%;
+.landing-items__gutter {
+  display: flex;
+  gap: 2px;
+}
+
+/*
+ * A move control. Legible at rest, because a reader who never notices it never
+ * sees the demonstration, and lifted onto the hue under the pointer so the one
+ * it will act on is never in doubt.
+ */
+.landing-items__handle {
+  padding: 0 var(--baize-space-2);
+  border: 0;
+  border-radius: var(--baize-radius-button);
   background: none;
-  color: transparent;
-  caret-color: var(--baize-chalk);
-  resize: none;
-}
-
-.landing-demo__source::selection {
-  background: color-mix(in oklab, var(--baize-hue) 30%, transparent);
-}
-
-/* Focus is shown on the editor's edge, not as a ring around the field: the
-   field has no box of its own to ring. */
-.landing .landing-demo__source:focus-visible {
-  outline: none;
-}
-
-.landing-demo__editor:focus-within {
-  box-shadow: inset 3px 0 0 var(--baize-hue);
-}
-
-/* What the parser said, under the field it is about. Quiet, because it is
-   true for as long as it takes to type the next character. */
-.landing-demo__parse {
-  margin: 0;
   color: var(--baize-lichen);
-  font-size: var(--baize-text-xs);
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color var(--baize-motion-duration) var(--baize-motion-easing);
 }
 
-/* The rendered region: two columns, each item spanning what its meta says. */
-.landing-demo__stage {
+.landing-items__handle:hover {
+  color: var(--baize-hue);
+}
+
+.landing-items__handle[aria-disabled],
+.landing-items__handle[aria-disabled]:hover {
+  color: color-mix(in oklab, var(--baize-moss) 40%, transparent);
+  cursor: default;
+}
+
+/*
+ * Rendering from data: the title and line on the left, the family teasers on
+ * the right. The heading and the text share a column, so the text sits
+ * directly under the title; the teaser is a tall box and would otherwise
+ * stretch the header row and leave a gap below the title.
+ */
+.landing-pair {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 24rem);
+  gap: var(--baize-space-5);
+  align-items: start;
+}
+
+.landing-pair__intro {
+  display: grid;
   gap: var(--baize-space-3);
 }
 
-.landing-demo__cell {
-  min-width: 0;
-  padding: var(--baize-space-3);
-  border: 1px dashed
-    color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
-  border-radius: var(--baize-radius-button);
-}
-
-.landing-demo__stat {
-  display: grid;
-  gap: var(--baize-space-1);
-  margin: 0;
-}
-
 /*
- * What the validator said. Nextra's own red, as the playground uses: the
- * design system has no error role, and a broken item reads like every other
- * warning on the site.
+ * A family's title links in a row, separated so two members do not read as one
+ * run-on title.
+ *
+ * The gap alone does not separate them: a row's title column is narrow, so the
+ * members sit adjacent or wrap onto two lines, and `.landing-route__title`
+ * carries no underline until hover. Underlining them at rest is what says two
+ * destinations rather than one title that wrapped. A singleton keeps the plain
+ * title, because there is nothing to tell apart.
  */
-.landing-demo__problems {
-  margin: 0;
-  padding: var(--baize-space-2) var(--baize-space-3);
-  border: 1px solid var(--x-color-red-600);
-  border-radius: var(--baize-radius-button);
-  background: color-mix(
-    in oklab,
-    var(--x-color-red-600) 12%,
-    var(--baize-felt)
-  );
-  color: var(--x-color-red-600);
-  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
-  font-size: var(--baize-text-xs);
-  list-style: none;
+.landing-family__links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2) var(--baize-space-4);
+}
+
+.landing-family__links .landing-route__title {
+  text-decoration: underline;
+  text-decoration-color: var(--baize-moss);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.landing-family__links .landing-route__title:hover {
+  text-decoration-color: var(--baize-lichen);
 }
 
 /*
- * The two runtimes, level with the section's heading and above the demo, so
- * a reader has the names before the demonstration. The same tile as the
+ * One teaser per family, level with the section's heading and above the demo,
+ * so a reader has the names before the demonstration. The same tile as the
  * index, which the reader has already learned is the way into a package: the
  * name, the stack, nothing to read twice.
  */
@@ -525,6 +662,134 @@
 }
 
 /*
+ * A specimen with decisions under it: the thing itself, then a row per
+ * decision, then one line saying what the decisions cost. A card is about
+ * 20rem of content at the widest the grid goes, so two rows and a line is the
+ * ceiling -- past that the card stops being a peer of the ones beside it.
+ */
+.landing-spec {
+  display: grid;
+  gap: var(--baize-space-2);
+}
+
+.landing-spec__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-1) var(--baize-space-2);
+}
+
+.landing-spec__label {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+/*
+ * What the standing configuration costs, or why the package refused it.
+ * Reserved two lines high, so moving a control does not shift the rest of the
+ * card up and down under the reader's hand.
+ */
+.landing-spec__note {
+  margin: 0;
+  min-height: calc(2 * var(--baize-text-xs) * 1.4);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.4;
+}
+
+/*
+ * The characters the package would not draw from, named under the code rather
+ * than in place of it. Spaced apart, because they are being named one at a
+ * time rather than read as a string.
+ */
+.landing-token__refused {
+  align-items: baseline;
+  color: var(--baize-hue);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--baize-text-sm);
+  gap: var(--baize-space-2);
+  margin-block: var(--baize-space-2) 0;
+}
+
+/*
+ * The code a refused alphabet did not replace. It was minted from the alphabet
+ * the control no longer points at, so it is held at the weight of something no
+ * longer on offer: a card that empties itself reads as a fault.
+ */
+.landing-token__stale {
+  opacity: 0.45;
+}
+
+/*
+ * The package's answer on the code as typed back. It carries its own colour
+ * rather than an icon, because it changes on every keystroke and a shape that
+ * swaps under a moving cursor is harder to read than a word that does.
+ */
+.landing-luhn__verdict {
+  font-size: var(--baize-text-sm);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.landing-luhn__verdict--accepted {
+  color: var(--baize-lichen);
+}
+
+.landing-luhn__verdict--rejected {
+  color: var(--baize-hue);
+}
+
+.landing-token__offending {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/*
+ * The independent toggles. The same face as a segmented option, without the
+ * track: these are three separate yes-or-no answers, not one choice of three,
+ * and a shared track would say otherwise.
+ */
+.landing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1);
+}
+
+.landing-chip {
+  padding: 3px var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+  color: var(--baize-lichen);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-chip:hover {
+  color: var(--baize-chalk);
+}
+
+.landing-chip[aria-pressed='true'] {
+  border-color: var(--baize-hue);
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+.landing .landing-chip:focus-visible {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+/*
  * The URN's parts. Each is a button set as plain text with a dotted
  * underline, the same hint the Luhn field gives, and its explanation is a
  * tooltip under the whole specimen: full width of the box, so it can never
@@ -535,8 +800,13 @@
   position: relative;
 }
 
+/*
+ * Inline-block, so a narrow card breaks between one part and the next rather
+ * than through a part: a component and the delimiter that introduces it are
+ * one thing, and `?=` stranded at the end of a line is not.
+ */
 .landing-urn__segment {
-  display: inline;
+  display: inline-block;
 }
 
 .landing-urn__part {
@@ -558,6 +828,16 @@
 
 .landing-urn__part--nid {
   color: var(--baize-hue);
+}
+
+/*
+ * An attached component, set behind the name rather than beside it: it is
+ * carried by the identifier and is not part of what the identifier names,
+ * which is the whole reason the parser splits it off.
+ */
+.landing-urn__part--component {
+  color: var(--baize-lichen);
+  font-weight: 400;
 }
 
 .landing .landing-urn__part:focus-visible {
@@ -626,6 +906,290 @@
   justify-content: flex-end;
 }
 
+/*
+ * Authorization: an interface that rebuilds itself, and the policy that did it.
+ *
+ * The interface leads and takes the wider column, because what sells this
+ * package is watching a product surface reconfigure rather than reading about
+ * it. The policy sits beside it in the quiet column, set in mono on the page's
+ * own material so the two halves never read as the same kind of thing: one is a
+ * product, the other is the source that produced it.
+ */
+.landing-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.landing-access__app {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+.landing-access__policy {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+  border-left: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-felt);
+}
+
+/* The app's own chrome: who is signed in, and the control that changes it. */
+.landing-access__chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--baize-space-2) var(--baize-space-3);
+  padding-bottom: var(--baize-space-3);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.landing-access__who {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+/*
+ * The segmented control. One track, three faces, the standing one lifted onto
+ * the package's hue: the only saturated field in the figure, because it is the
+ * control the whole demonstration turns on.
+ */
+.landing-seg {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+}
+
+.landing-seg__option {
+  display: block;
+}
+
+.landing-seg__face {
+  display: block;
+  padding: 3px var(--baize-space-3);
+  border-radius: 999px;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-seg__option:hover .landing-seg__face {
+  color: var(--baize-chalk);
+}
+
+.landing-seg input:checked + .landing-seg__face {
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+/* The input is off-screen, so its focus ring is drawn on the face beside it. */
+.landing .landing-seg input:focus-visible + .landing-seg__face {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+.landing-access__doc {
+  display: grid;
+  gap: var(--baize-space-3);
+  padding: var(--baize-space-4) 0;
+}
+
+.landing-access__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-3);
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-display, var(--baize-font-text));
+  font-size: var(--baize-text-md);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+/* Draft is the ground's own colour; published is the hue, because publishing is
+   the state change the policy reacts to. */
+.landing-access__status {
+  padding: 1px var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+.landing-access__status[data-status='published'] {
+  border-color: var(--baize-hue);
+  color: var(--baize-hue);
+}
+
+.landing-access__byline {
+  margin: calc(-1 * var(--baize-space-2)) 0 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+.landing-access__body {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+  line-height: var(--baize-leading-normal);
+}
+
+/* A field the reader types in, on the interface's own terms: one hairline, the
+   hue when it has focus, no box inside a box. */
+.landing-access__field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font: inherit;
+  resize: none;
+}
+
+textarea.landing-access__field {
+  min-height: 5rem;
+}
+
+.landing .landing-access__field:focus-visible {
+  outline: none;
+  border-color: var(--baize-hue);
+}
+
+.landing-access__notes {
+  display: grid;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-access__notes li {
+  padding-left: var(--baize-space-3);
+  border-left: 2px solid var(--baize-rule);
+}
+
+.landing-access__note-by {
+  margin-right: var(--baize-space-2);
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.landing-access__composer {
+  display: flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+}
+
+.landing-access__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+  padding-top: var(--baize-space-3);
+  border-top: 1px solid var(--baize-rule);
+}
+
+/*
+ * A control that the policy has just granted rises into place; one it has
+ * withdrawn is gone on the same frame. Motion on the arrival only, so the eye is
+ * pulled to what appeared rather than to everything that held still.
+ */
+.landing-access__control {
+  display: inline-flex;
+  animation: landing-access-in var(--baize-motion-duration, 160ms)
+    var(--baize-motion-easing, ease-out) both;
+}
+
+@keyframes landing-access-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/*
+ * The policy, as it is written. A step below the interface's text and in the
+ * quiet colour, because the source is what answers for the product beside it and
+ * not the other way round.
+ */
+.landing-access__source {
+  margin: 0;
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  font-variant-ligatures: none;
+  line-height: 1.7;
+  color: var(--baize-moss);
+}
+
+/*
+ * A statement is one block however many visual lines it takes, so the lit band
+ * covers a call and its condition together. `pre-wrap` rather than `pre`,
+ * because a code block a reader has to drag sideways is one they do not read;
+ * the source breaks its own long calls, and the wrap is the backstop for a
+ * narrow screen.
+ */
+.landing-access__line {
+  display: block;
+  padding-inline: var(--baize-space-2);
+  border-left: 2px solid transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+/*
+ * The rule that answered for a control on the interface. Allows take the hue;
+ * the deny takes the ground's own quiet line, because it is the rule that took
+ * something away and colouring it like a grant would say the opposite.
+ */
+.landing-access__line[data-lit] {
+  color: var(--baize-chalk);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  border-left-color: var(--baize-hue);
+}
+
+.landing-access__line[data-lit][data-side='deny'] {
+  background: color-mix(in oklab, var(--baize-lichen) 14%, transparent);
+  border-left-color: var(--baize-lichen);
+}
+
+/* A role inside the policy is a control: press it to grant or withdraw it. */
+.landing-access__role {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted currentcolor;
+  background: none;
+  color: var(--baize-hue);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.landing-access__role[aria-pressed='false'] {
+  border-bottom-color: transparent;
+  color: var(--baize-moss);
+  text-decoration: line-through;
+}
+
 /* Where the rest of the project lives: a heading and the links in one row. */
 .landing-elsewhere {
   display: flex;
@@ -671,16 +1235,43 @@
 }
 
 @media (max-width: 52rem) {
-  .landing-demo,
-  .landing-cards {
+  .landing-access,
+  .landing-cards,
+  .landing-pair {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Stacked, the preview sits under the editor rather than beside it. */
-  .landing-demo__preview {
+  /* Stacked, the policy sits under the app rather than beside it. */
+  .landing-access__policy {
     border-left: 0;
     border-top: 1px solid
       color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  }
+
+  /*
+   * The dashboard's rows stack. The span each item carries is a width in a
+   * three-track row and means nothing in a single track, so it is dropped here
+   * rather than opening a second, empty column.
+   */
+  .landing-counter__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landing-counter__cell {
+    grid-column: auto;
+  }
+
+  /* On one track a figure reads better on its side: three tall cards in a
+     column would push the boards, which are what the dashboard is for, off
+     the first screen. */
+  .landing-counter__metric {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--baize-space-3);
+    align-items: baseline;
+  }
+
+  .landing-counter__metric .baize-figure {
+    grid-row: span 2;
   }
 
   .landing-row {
@@ -697,10 +1288,260 @@
   .landing-index {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  /*
+   * A phone's width is fewer characters than an item needs, so both the table
+   * and the listing step down a size. It buys about a fifth more per line,
+   * which is the difference between an item folding twice and folding once.
+   */
+  .landing-counter__table,
+  .landing-items__source {
+    font-size: var(--baize-text-xs);
+  }
+
+  .landing-counter__table td {
+    padding-right: var(--baize-space-2);
+  }
+
+  .landing-items__line {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+
+  .landing-items__handle {
+    padding: 0 var(--baize-space-1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-tile__link {
+  .landing-tile__link,
+  .landing-seg__face,
+  .landing-items__handle,
+  .landing-chip,
+  .landing-access__line {
     transition: none;
+  }
+
+  .landing-access__control {
+    animation: none;
+  }
+}
+
+/*
+ * The compose specimen: the tree `ComposeProvider` built, over the array that
+ * built it.
+ *
+ * `landing-specimen` gives it the card; everything here is the two halves
+ * inside. The tree is padded rather than bordered at its outer edge, because
+ * the outermost provider draws a border of its own and two rules a pixel apart
+ * read as a mistake.
+ */
+.landing-compose {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  font-size: var(--baize-text-sm);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+.landing-compose__tree {
+  padding: var(--baize-space-4);
+}
+
+/*
+ * One provider's box. The inset on the nested one is what makes the nesting
+ * legible without a connector: each layer steps in from the one outside it.
+ */
+.landing-compose__layer {
+  display: grid;
+  gap: var(--baize-space-2);
+  padding: var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+}
+
+.landing-compose__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  color: var(--baize-hue);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.landing-compose__note {
+  color: var(--baize-moss);
+  font-family: var(--baize-font-text);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+/* What the providers wrap: the shop page they are there for. */
+.landing-compose__page {
+  margin: 0;
+  padding: var(--baize-space-3);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-base);
+}
+
+/*
+ * The array's own lines. The two that are not entries carry no move controls,
+ * so they are indented past the gutter by hand rather than left to sit under
+ * it.
+ */
+.landing-compose__line {
+  padding-left: 3.25rem;
+}
+
+.landing-compose .landing-items__line {
+  padding-left: 0;
+}
+
+/*
+ * The React Authorization specimen: a component tree under one provider.
+ *
+ * Two columns on the same grid as `landing-access`, because the pair is the
+ * same shape -- the thing on the left, and what it is reading on the right.
+ */
+.landing-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+}
+
+.landing-policy__tree {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+.landing-policy__aside {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+  border-left: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-felt);
+}
+
+.landing-policy__chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-3);
+}
+
+.landing-policy__status {
+  padding: var(--baize-space-1) var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+  background: transparent;
+  color: var(--baize-chalk);
+  font: inherit;
+  cursor: pointer;
+}
+
+.landing-policy__status[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--baize-hue) 22%, transparent);
+}
+
+/*
+ * One box per component. The nesting is the point, so each box is indented
+ * inside its parent rather than laid out in a row.
+ */
+.landing-policy__node {
+  display: grid;
+  gap: var(--baize-space-2);
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 28%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+}
+
+.landing-policy__node .landing-policy__node {
+  background: color-mix(in oklab, var(--baize-hue) 8%, transparent);
+}
+
+.landing-policy__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  margin: 0;
+}
+
+.landing-policy__name {
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-policy__call {
+  color: var(--baize-moss);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-xs);
+}
+
+/*
+ * The answer, in the one place a reader is looking. `denied` and
+ * `no-rule-matched` are both refusals and read alike; the allowed state is the
+ * one that is marked, because it is the one that changes as the reader presses.
+ */
+.landing-policy__badge {
+  margin-left: auto;
+  padding: 0 var(--baize-space-2);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(in oklab, var(--baize-hue) 16%, transparent);
+  color: var(--baize-moss);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-xs);
+}
+
+.landing-policy__badge[data-allowed] {
+  background: color-mix(in oklab, var(--baize-hue) 45%, transparent);
+  color: var(--baize-chalk);
+}
+
+.landing-policy__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-policy__bar li {
+  padding: var(--baize-space-1) var(--baize-space-3);
+  border: 1px dashed
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-policy__note {
+  margin: 0;
+  color: var(--baize-moss);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+@media (max-width: 52rem) {
+  .landing-policy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked, the aside sits under the tree rather than beside it. */
+  .landing-policy__aside {
+    border-left: 0;
+    border-top: 1px solid
+      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
   }
 }

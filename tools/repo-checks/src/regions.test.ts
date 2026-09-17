@@ -116,6 +116,100 @@ describe('parseRegions', () => {
   });
 });
 
+/**
+ * Decision 17 of `docs/specs/2026-09-16-documentation-standard.md`: a region in
+ * a `.ts` or `.tsx` source, so a type-level claim asserted in a `*.test-d.ts`
+ * file can be the example a page renders.
+ *
+ * The markers are line comments and the extension picks them, so one
+ * `parseRegions` serves both and a page's `file=` reference says which by
+ * naming the file.
+ */
+const typeClaims = [
+  "import { expectTypeOf } from 'vitest';",
+  '',
+  "describe('widen', () => {",
+  '  // #region widen',
+  '  expectTypeOf(widen(listing)).toEqualTypeOf<Listing>();',
+  '',
+  '  // @ts-expect-error -- a draft has no price',
+  '  widen(draft).price;',
+  '  // #endregion widen',
+  '});',
+].join('\n');
+
+describe('parseRegions in a source file', () => {
+  it('reads the lines between the markers, without the block indent', () => {
+    expect(parseRegions(typeClaims, 'compose.test-d.ts').get('widen')?.code)
+      .toBe(`expectTypeOf(widen(listing)).toEqualTypeOf<Listing>();
+
+// @ts-expect-error -- a draft has no price
+widen(draft).price;`);
+  });
+
+  it('takes the language from the extension', () => {
+    expect(
+      parseRegions(typeClaims, 'compose.test-d.ts').get('widen')?.lang,
+    ).toBe('ts');
+    expect(
+      parseRegions(typeClaims, 'widget.test-d.tsx').get('widen')?.lang,
+    ).toBe('tsx');
+  });
+
+  it('ignores an HTML comment marker in a source file', () => {
+    const html = ['<!-- #region x -->', 'a();', '<!-- #endregion x -->'].join(
+      '\n',
+    );
+
+    expect(parseRegions(html, 'a.ts').size).toBe(0);
+  });
+
+  it('rejects a region that is never closed', () => {
+    expect(() => parseRegions('// #region x\na();', 'a.ts')).toThrow(
+      /a\.ts:1: region 'x' is never closed/,
+    );
+  });
+
+  it('rejects a mismatched #endregion name', () => {
+    const crossed = ['// #region x', 'a();', '// #endregion y'].join('\n');
+
+    expect(() => parseRegions(crossed, 'a.ts')).toThrow(RegionError);
+  });
+
+  it('rejects a nested region', () => {
+    const nested = [
+      '// #region x',
+      '// #region y',
+      'a();',
+      '// #endregion y',
+      '// #endregion x',
+    ].join('\n');
+
+    expect(() => parseRegions(nested, 'a.ts')).toThrow(
+      /region 'y' opens inside region 'x'/,
+    );
+  });
+
+  it('rejects an #endregion that closes nothing', () => {
+    expect(() => parseRegions('// #endregion x', 'a.ts')).toThrow(
+      /closes nothing/,
+    );
+  });
+
+  it('rejects a duplicate region name', () => {
+    const twice = [
+      '// #region x',
+      'a();',
+      '// #endregion x',
+      '// #region x',
+      'b();',
+      '// #endregion x',
+    ].join('\n');
+
+    expect(() => parseRegions(twice, 'a.ts')).toThrow(/defined twice/);
+  });
+});
+
 describe('readRegion', () => {
   it('reads one region', () => {
     expect(readRegion(source, 'README.md', 'hex').code).toContain('createLuhn');

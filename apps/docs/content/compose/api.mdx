@@ -1,10 +1,14 @@
 # API reference
 
-Everything `@evanion/compose` exports.
+Everything `@evanion/compose` exports, one heading per symbol. Nothing here
+assumes you have read the pages before it;
+[Where the check happens](/compose/type-checking) is where the type
+relationship is taught, and this page links to it rather than teaching it
+again.
 
 ## `ComposeProvider`
 
-```tsx
+```signature
 function ComposeProvider<const T extends ProviderArray>(
   props: ComposeProviderProps<T>,
 ): React.ReactElement;
@@ -19,50 +23,57 @@ A generic function rather than a `React.FC`. The `const T` parameter is what
 infers the array as a literal tuple, and a `React.FC` annotation would widen it
 and take the per-entry checking with it.
 
-Renders a fragment containing the nested tree. An entry that is a bare component
-is rendered with no props; a tuple entry is rendered with its second element
-spread as props.
+`ComposeProvider` renders a fragment containing the nested tree. An entry that
+is a bare component is rendered with no props; a tuple entry is rendered with
+its second element spread as props:
 
-Throws `TypeError` when `providers` is not an array, and when a `components`
-prop is supplied without `providers`. In development it also warns once on an
-empty array.
+```tsx twoslash file=libs/compose/examples/shop.tsx region=stack
+
+```
+
+`ComposeProvider` throws `TypeError` when `providers` is not an array, and when
+a `components` prop is supplied without `providers`. In development it also
+warns once on an empty array.
 
 ## `provider(component, props)`
 
-```tsx
+```signature
 function provider<T extends AnyComponent, P extends PropsWithoutChildren<T>>(
   component: T,
   props: P & Record<Exclude<keyof P, keyof PropsWithoutChildren<T>>, never>,
 ): readonly [T, PropsWithoutChildren<T>];
 ```
 
-Returns the `[component, props]` tuple, and nothing else happens at runtime. `T`
-is inferred from `component` in the same expression, so `props` is checked and
-completed against that component.
+`provider` returns the `[component, props]` tuple, and nothing else happens at
+runtime. `T` is inferred from `component` in the same expression, so `props` is
+checked and completed against that component. It is one of three ways to write
+an entry, beside a bare component and a plain tuple:
+
+```tsx twoslash file=libs/compose/examples/entries.tsx region=entries
+
+```
 
 The `Record<Exclude<…>, never>` intersection is what rejects an excess key.
 Plain assignability would not: TypeScript's excess-property check fires on a
 fresh object literal and is skipped for a props object that arrives through a
 variable.
 
-## Types
+## `AnyComponent`
 
-### `AnyComponent`
-
-```tsx
+```signature
 type AnyComponent = ComponentType<any>;
 ```
 
 For use in a generic constraint. `ComponentType<unknown>` would reject a
 component with concrete props — component props are contravariant, so a
 `ComponentType<{ theme: string }>` is not assignable to a
-`ComponentType<unknown>` — and TypeScript has no "some component, props unknown"
-type for this position. Inference is unaffected: every check below resolves
-against the component actually passed.
+`ComponentType<unknown>` — and TypeScript has no "some component, props
+unknown" type for this position. Inference is unaffected: every check below
+resolves against the component actually passed.
 
-### `PropsWithoutChildren<T>`
+## `PropsWithoutChildren<T>`
 
-```tsx
+```signature
 type PropsWithoutChildren<T extends AnyComponent> = Omit<
   ComponentProps<T>,
   'children'
@@ -70,38 +81,42 @@ type PropsWithoutChildren<T extends AnyComponent> = Omit<
 ```
 
 What an entry has to supply. `children` is excluded because `ComposeProvider`
-provides it.
+provides it: the next provider down, or the caller's own children at the
+innermost level.
 
-### `Provider`
+## `Provider`
 
-```tsx
+```signature
 type Provider = AnyComponent | readonly [AnyComponent, unknown];
 ```
 
-### `ProviderArray`
+One entry of the array: a component, or a component paired with its props.
 
-```tsx
+## `ProviderArray`
+
+```signature
 type ProviderArray = readonly Provider[];
 ```
 
 `readonly`, so an array written `as const` is assignable. Annotating a value
 with this type widens away its element identity — see
-[forwarding through a wrapper](/compose/type-checking).
+[forwarding a compose array through a wrapper](/compose/type-checking).
 
-### `ValidateProvider<T>`
+## `ValidateProvider<T>`
 
 Checks one entry. A valid entry maps to itself; a failing one maps to a carrier
 type naming what is wrong, except for a missing or mistyped prop value, which
 maps to the shape the entry should have had.
+[Reading a compose error](/compose/type-checking) lists the carriers.
 
-### `ValidateProviders<T>`
+## `ValidateProviders<T>`
 
 `ValidateProvider` applied across a tuple, positions preserved, so the error
 points at the offending element.
 
-### `ValidatedProviders<T>`
+## `ValidatedProviders<T>`
 
-```tsx
+```signature
 type ValidatedProviders<T extends ProviderArray> = number extends T['length']
   ? ProviderArray
   : T & ValidateProviders<T>;
@@ -118,7 +133,7 @@ report the variance of a predicate before mentioning the real mismatch.
 non-homomorphic mapped type and therefore not an inference site: TypeScript
 would fall back to the constraint and check nothing.
 
-### `ComposeProviderProps<T>`
+## `ComposeProviderProps<T>`
 
 The props interface above, exported for a wrapper that needs to name it.
 
