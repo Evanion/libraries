@@ -79,6 +79,26 @@ about the document. See
 `object(key)` is a handle binding one object kind: `BoundKind` carries `can`,
 `canMany`, `canFields` and `readsObject` with the key dropped.
 
+## Many origins
+
+```ts
+function federatedPolicies(
+  policies: Readonly<Record<string, Access>>,
+): FederatedAccess;
+
+interface FederatedAccess {
+  can(subject, key, action, object?, now?): Decision;
+  capabilities(subject, now?): Record<string, Decision>;
+  get(origin: string): Access | undefined;
+}
+```
+
+One `Access` per origin, composed with no document merged. `can` routes to the
+origin holding `` `${key}.${action}` ``, `capabilities` settles one instant for
+every origin, and `get` hands back the member the caller passed. Two origins
+claiming one key throw `OriginCollisionError` at construction, naming the key
+and both origins. See [Many services](/acl/federation).
+
 ## The write path
 
 ```ts
@@ -233,6 +253,9 @@ keys, fields and locations it names in its message as properties —
 `UnknownObjectKeyError` and `UnknownPermissionError` share that base class but
 are raised by a query on the open path. Under `parseMatrix` the same key fails
 closed instead.
+
+`OriginCollisionError` shares it too. `federatedPolicies` raises it while
+composing several documents, and it carries `key` and `origins`.
 
 `ActionNotAllowedError` extends `Error` directly and is raised only by
 `pickAllowedFields`, when the action the write was narrowed against is refused.

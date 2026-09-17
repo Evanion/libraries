@@ -38,20 +38,49 @@ InvalidPermissionError: permission "orders.invoice.read": "object" carries the
 key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
 ```
 
-## A gateway holds a map, not a merge
+## A gateway composes one policy per origin
 
 ```ts file=libs/acl/README.md region=federation
 
 ```
 
-The map key is the origin, so routing a question is a lookup rather than a
-search. It is also why nothing collides even without naming discipline: two
-documents that both declare `invoice.read` are two entries under two different
-map keys, and neither can overwrite the other. A merged matrix has no such
-property — the second `invoice.read` wins, silently.
+`federatedPolicies` takes one `Access` per origin and keeps every document
+whole. It carries three members: `can`, `capabilities` and `get`.
 
-The fold into one view is safe for the same reason. The namespaces are disjoint,
-so `Object.assign` over each origin's `capabilities` cannot lose an entry.
+`can` routes by the canonical key. The origin that answers
+`can(subject, 'orders:invoice', 'read')` is the one origin whose key set holds
+`orders:invoice.read`. A key no origin holds answers
+`{ allowed: false, reason: 'unknown-action' }` and reaches no member at all.
+
+`capabilities(subject, now?)` settles one instant and hands that instant to
+every origin. A view over five origins reads one clock, so a `before` or
+`after` boundary falls on the same side of every answer in the view.
+
+`get(origin)` returns the `Access` that origin was registered with, unchanged.
+`canMany`, `canFields`, `readsObject` and `authorize` are reached through it.
+Each of the four answers about one permission or one object kind, so the caller
+already holds the key, and the key names the origin.
+
+### Two origins claiming one key refuse at construction
+
+```
+OriginCollisionError: permission key "invoice.read" is claimed by two origins,
+"orders" and "billing": each origin's keys must be disjoint for one view to
+hold both
+```
+
+Each document is valid on its own, and two services can each declare
+`{ object: 'invoice', action: 'read' }` with no namespace anywhere. The
+collision exists only in the process holding both documents, which is the edge,
+so the edge is where the check runs. A lint has nowhere to sit: the two
+documents live in two repositories and arrive over HTTP at startup, and no build
+step in the topology ever holds both.
+
+The message names both origins. The fix is a pull request against one of two
+repositories, and the key alone does not say which.
+
+The check reads `permission.key`. A deny rule carries none, so a key one origin
+declares and another only vetoes is no collision.
 
 <Panel heading="The edge view is advisory">
   <Text as="div" size="sm">
@@ -64,12 +93,12 @@ so `Object.assign` over each origin's `capabilities` cannot lose an entry.
 
 ## An unreachable upstream needs no flag
 
-Its origin is absent from the map. Under `closed: true` every key it would have
+Its origin is absent from the record. Under `closed: true` every key it would have
 answered is already `{ allowed: false, reason: 'unknown-action' }`, so a
 degraded fleet fails closed by absence rather than by a code path somebody has
 to remember to write.
 
-This is the reason every entry in the map is constructed closed. On the open
+This is the reason every entry in the record is constructed closed. On the open
 path the same key throws `UnknownPermissionError`, which at an edge means one
 unregistered origin takes down the request.
 
