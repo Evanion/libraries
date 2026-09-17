@@ -157,9 +157,11 @@ function readsClock(condition: Condition): boolean {
  * permission — the caller has to supply an instant that parses — so it is
  * distinct from `unevaluable`, which one refetch repairs.
  *
- * `validateMatrix` refuses a `before`/`after` boundary that does not parse, so a
- * constructed policy reaches the boundary guard only through a condition that
- * did not come from a matrix. It lands in the same state for the same reason.
+ * The boundary of a `before`/`after` is not checked here. `validateMatrix`
+ * refuses one that does not parse, `assertRules` runs the same check over a
+ * deny overlay's contribution, and `evaluateCondition` is not exported, so
+ * every rule array reaching this function had its boundary parsed at
+ * construction.
  */
 export function evaluateResolved(
   condition: Condition,
@@ -169,7 +171,6 @@ export function evaluateResolved(
 
   if (condition.op === 'before' || condition.op === 'after') {
     const boundary = toEpoch(condition.value);
-    if (Number.isNaN(boundary)) return UNUSABLE_CLOCK;
     return held(
       condition.op === 'before' ? ctx.now < boundary : ctx.now > boundary,
     );
