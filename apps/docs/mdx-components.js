@@ -3,6 +3,7 @@ import AccessDemo from './components/landing/AccessDemo';
 import ComposeSpecimen from './components/landing/ComposeSpecimen';
 import DataDemo from './components/landing/DataDemo';
 import LuhnSpecimen from './components/landing/LuhnSpecimen';
+import PolicySpecimen from './components/landing/PolicySpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
 import UrnSpecimen from './components/landing/UrnSpecimen';
 import Probe from './components/Probe';
@@ -43,7 +44,7 @@ const themeComponents = getThemeComponents();
  * components, so a caller can override a theme element and cannot shadow one of
  * these with it.
  *
- * The five landing specimens are here for decision 20 of
+ * The landing specimens are here for decision 20 of
  * `docs/specs/2026-09-16-documentation-standard.md` § 9: a control a reader can
  * operate belongs both on the front page, where it sells the package, and on
  * the section's demonstration page, where the reader has the explanation around
@@ -92,6 +93,7 @@ export function useMDXComponents(components) {
     ComposeSpecimen,
     DataDemo,
     LuhnSpecimen,
+    PolicySpecimen,
     TokenSpecimen,
     UrnSpecimen,
   };

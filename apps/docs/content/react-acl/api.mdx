@@ -1,0 +1,159 @@
+# API reference
+
+<WorkshopNotice slug="react-acl">
+  <Text as="div" size="sm">
+    Every region on this page is a file under `libs/react-acl/examples/` and
+    runs under `nx test @evanion/react-acl`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={2}
+  read={6}
+  requires={[['Getting started', '/react-acl/getting-started']]}
+/>
+
+One provider, four hooks, one props interface. Every type named below —
+`Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the
+rest — is re-exported from `@evanion/acl` under the same name and documented in
+[the core's reference](/acl/api).
+
+A hook throws if it is called outside a `PolicyProvider`, and the message names
+the provider and the package.
+
+## `PolicyProvider`
+
+Holds one evaluator, one subject and one clock for the tree under it. Renders
+its children and nothing else.
+
+```tsx signature
+function PolicyProvider(props: PolicyProviderProps): ReactElement;
+```
+
+The context value is memoised on the identity of `access`, `subject` and
+`context`, so all three want stable references. `context.now` defaults to
+`new Date()` when it is left off, which is a fresh instant on every provider
+remount — pass the value the server rendered with instead.
+
+```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
+
+```
+
+## `PolicyProviderProps`
+
+```tsx signature
+interface PolicyProviderProps {
+  access: Access;
+  subject: Subject;
+  context?: { now?: Instant };
+  children?: ReactNode;
+}
+```
+
+`access` is the untyped `Access` the core's `hydratePolicy` returns.
+`policy<Subject>()` returns a narrower `Access` bound to the subject and object
+types it was built with, which does not satisfy this prop; hydrate the built
+policy's `matrix` to cross that, which is what a browser does in any case.
+
+Only `now` is read off `context`. The subject is a prop of its own rather than a
+key of the context, so the two are memoised separately and a re-render that
+changes who is signed in does not re-key the clock.
+
+## `useCan`
+
+One decision for one action on one row.
+
+```tsx signature
+function useCan(
+  key: string,
+  action: string,
+  object?: Record<string, unknown>,
+): Decision;
+```
+
+`object` is optional for the create case, where there is no instance yet. A rule
+that reads the row and is asked without one answers
+[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+
+Memoised on `access`, `subject`, `key`, `action`, `object` and `now`. The row's
+identity is part of that key, so a component handed a rebuilt row object
+re-evaluates rather than returning a stale answer.
+
+```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
+
+```
+
+## `useCanMany`
+
+One decision per row, in the order the rows were given.
+
+```tsx signature
+function useCanMany(
+  key: string,
+  action: string,
+  objects: readonly Record<string, unknown>[],
+): Decision[];
+```
+
+The returned array is parallel to the input, so a row's answer is at the row's
+index. This is the hook for a list: React forbids a hook inside a loop, so a row
+component calling `useCan` for itself breaks the first time the list is filtered
+or reordered.
+
+```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
+
+```
+
+## `useCanFields`
+
+The field-level decision for one action on one axis.
+
+```tsx signature
+function useCanFields(
+  key: string,
+  action: string,
+  object: Record<string, unknown>,
+  axis: 'read' | 'write',
+  proposed?: Record<string, unknown>,
+): FieldDecision;
+```
+
+`axis` is `'read'` for which fields may be shown and `'write'` for which may be
+set. `proposed` is the write the caller intends, and on the write axis the map
+covers its keys too, including keys the row has never held.
+
+`fields` maps every field name to `'allowed'`, `'denied'` or `'unevaluable'`.
+Compare against `'allowed'`; comparing against `'denied'` treats the
+unevaluable fields as writable, which is
+[the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
+
+```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
+
+```
+
+## `useCapabilities`
+
+Every action-level decision for the current subject, keyed by
+`` `${object}.${action}` ``.
+
+```tsx signature
+function useCapabilities(): Record<string, Decision>;
+```
+
+No object is passed, so a rule that reads one cannot be decided here. This is
+the hook for a menu or a navigation bar, where the question is what the shopper
+may reach rather than what they may do to a particular thing.
+[What can they do at all?](/acl/capabilities) sets out the no-object contract.
+
+```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
+
+```
+
+## Where to go next
+
+- [Which side decides](/react-acl/boundary) — what these answers are worth, and
+  what has to happen on the other side of the render
+- [Core API reference](/acl/api) — every type above, and the functions a server
+  calls
+- [Decisions](/acl/decisions) — the `Decision` shape, its reasons, and its
+  explanation fields

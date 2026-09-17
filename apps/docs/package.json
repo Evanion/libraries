@@ -25,6 +25,7 @@
     "@evanion/baize-ui": "*",
     "@evanion/compose": "*",
     "@evanion/luhn": "*",
+    "@evanion/react-acl": "*",
     "@evanion/react-widget": "*",
     "@evanion/token": "*",
     "@evanion/urn": "*",
