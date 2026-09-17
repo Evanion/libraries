@@ -1,11 +1,11 @@
-import { deskItems, type DeskMeta } from './desk';
+import { counterItems, type CounterMeta } from './counter';
 import { listing } from './listing';
 
 /**
  * An item as the demo walks it.
  *
  * The widget set's own `WidgetItem` union is discriminated on `type`, which is
- * what makes `deskItems` checked where it is written. Walking it is a different
+ * what makes `counterItems` checked where it is written. Walking it is a different
  * job: the walk reads `children` and swaps siblings without caring which
  * component an item names, and narrowing the union at every step to learn
  * nothing from it costs a cast per branch. So it is widened here, once, and
@@ -15,12 +15,12 @@ export interface Node {
   id: string;
   type: string;
   props: Record<string, string>;
-  meta?: DeskMeta;
+  meta?: CounterMeta;
   children?: Node[];
 }
 
 /** The page the demo opens on, as the walk sees it. */
-export const openingNodes = deskItems as unknown as Node[];
+export const openingNodes = counterItems as unknown as Node[];
 
 /** What the interface calls an item: the title it carries, or its id. */
 export function nameOf(node: Node): string {

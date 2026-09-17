@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Widgets } from './desk';
+import { Widgets } from './counter';
 import { moved, openingNodes, rows, within, type Node } from './tree';
 
 type Items = Parameters<typeof Widgets>[0]['items'];
@@ -72,7 +72,7 @@ function Handle({ label, glyph, spent, onMove, onAim }: HandleProps) {
 }
 
 /**
- * A page a workshop would ship, and the data that composed it.
+ * A page the shop would ship, and the data that composed it.
  *
  * The page comes first and takes the full width, because the claim is that this
  * is a page and not a diagram of one. Under it are the items it was built from,
@@ -80,11 +80,11 @@ function Handle({ label, glyph, spent, onMove, onAim }: HandleProps) {
  * of every line that starts an item.
  *
  * Moving is the whole gesture and it is the right one: a layout is an order and
- * a nesting, and neither is a thing anyone retypes. Move `desk` above `week`
- * and two boards and three figures change places as blocks -- that is what a
- * nested item list buys and what a flat list of components cannot describe.
- * Move `stands` past `parts` and the wide side of the desk swaps, because
- * `meta.span` belongs to the item and travels with it.
+ * a nesting, and neither is a thing anyone retypes. Move `counter` above
+ * `week` and two boards and three figures change places as blocks -- that is
+ * what a nested item list buys and what a flat list of components cannot
+ * describe. Move `tables` past `reprints` and the wide side of the counter
+ * swaps, because `meta.span` belongs to the item and travels with it.
  *
  * Nothing is simulated. `Widgets` is the published renderer, the items are the
  * items, and the page is rebuilt from them on every move. The server renders
@@ -102,11 +102,11 @@ export default function DataDemo() {
   }
 
   return (
-    <div className="landing-desk">
-      <div className="landing-desk__app">
-        <div className="landing-desk__chrome">
-          <span className="landing-desk__shop">Sundby Cykel</span>
-          <span className="landing-desk__week">Week 38</span>
+    <div className="landing-counter">
+      <div className="landing-counter__app">
+        <div className="landing-counter__chrome">
+          <span className="landing-counter__shop">Baize</span>
+          <span className="landing-counter__week">Week 38</span>
         </div>
         <Widgets items={nodes as unknown as Items} />
       </div>

@@ -23,12 +23,12 @@ describe('the items listing', () => {
     const withItem = rows(openingNodes).filter((row) => row.item);
     expect(withItem.map((row) => row.item!.name)).toEqual([
       'week',
-      'Bikes in',
-      'Collected',
+      'Games in',
+      'Sold',
       'Turnaround',
-      'desk',
-      'On the stands',
-      'Parts on order',
+      'counter',
+      'Tonight at the tables',
+      'Reprints on order',
     ]);
   });
 
@@ -52,10 +52,10 @@ describe('the items listing', () => {
 describe('moving an item', () => {
   it('carries a container and everything nested under it', () => {
     const next = moved(openingNodes, [1], -1);
-    expect(next.map((node) => node.id)).toEqual(['desk', 'week']);
+    expect(next.map((node) => node.id)).toEqual(['counter', 'week']);
     expect(next[0]!.children!.map((node) => node.id)).toEqual([
-      'stands',
-      'parts',
+      'tables',
+      'reprints',
     ]);
   });
 
@@ -64,7 +64,7 @@ describe('moving an item', () => {
     expect(next[0]!.children!.map((node) => node.id)).toEqual([
       'intake',
       'turnaround',
-      'collected',
+      'sold',
     ]);
     expect(next[1]).toBe(openingNodes[1]);
   });
@@ -74,8 +74,8 @@ describe('moving an item', () => {
     expect(
       next[1]!.children!.map((node) => [node.id, node.meta?.span]),
     ).toEqual([
-      ['parts', undefined],
-      ['stands', 2],
+      ['reprints', undefined],
+      ['tables', 2],
     ]);
   });
 
@@ -91,7 +91,7 @@ describe('lighting the block a control will move', () => {
       .filter((row) => within([1], row.path))
       .map((row) => row.key);
 
-    expect(lit).toEqual(['desk', 'stands', 'parts', 'desk/end']);
+    expect(lit).toEqual(['counter', 'tables', 'reprints', 'counter/end']);
   });
 
   it('covers one item alone when the item holds nothing', () => {
@@ -99,7 +99,7 @@ describe('lighting the block a control will move', () => {
       .filter((row) => within([0, 1], row.path))
       .map((row) => row.key);
 
-    expect(lit).toEqual(['collected']);
+    expect(lit).toEqual(['sold']);
   });
 
   it('leaves the lines bracketing the whole list out of every block', () => {
@@ -111,11 +111,11 @@ describe('lighting the block a control will move', () => {
 
 describe('naming an item', () => {
   it('prefers the title it carries, then its label, then its id', () => {
-    expect(nameOf({ id: 'a', type: 'jobs', props: { title: 'Stands' } })).toBe(
-      'Stands',
-    );
-    expect(nameOf({ id: 'b', type: 'metric', props: { label: 'Bikes' } })).toBe(
-      'Bikes',
+    expect(
+      nameOf({ id: 'a', type: 'tables', props: { title: 'Tables' } }),
+    ).toBe('Tables');
+    expect(nameOf({ id: 'b', type: 'metric', props: { label: 'Sold' } })).toBe(
+      'Sold',
     );
     expect(nameOf({ id: 'c', type: 'columns', props: {} })).toBe('c');
   });

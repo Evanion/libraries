@@ -212,17 +212,17 @@
  * boxes. The listing gets that width back, which is what keeps every item on
  * one line.
  */
-.landing-desk {
+.landing-counter {
   display: grid;
 }
 
 /* The application around the region. The shell is the app's; the page inside
    it is the data's, and the line between them is where that changes hands. */
-.landing-desk__app {
+.landing-counter__app {
   padding: var(--baize-space-4);
 }
 
-.landing-desk__chrome {
+.landing-counter__chrome {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -232,20 +232,20 @@
   border-bottom: 1px solid var(--baize-rule);
 }
 
-.landing-desk__shop {
+.landing-counter__shop {
   color: var(--baize-chalk);
   font-family: var(--baize-font-title);
   font-size: var(--baize-text-md);
   letter-spacing: var(--baize-tracking-snug);
 }
 
-.landing-desk__week {
+.landing-counter__week {
   color: var(--baize-moss);
   font-size: var(--baize-text-xs);
 }
 
 /* The region: top-level items down the page. */
-.landing-desk__stage {
+.landing-counter__stage {
   display: grid;
   gap: var(--baize-space-4);
   padding-top: var(--baize-space-4);
@@ -253,19 +253,19 @@
 
 /* A nested row. Three tracks, and each item takes as many as its own meta
    asked for, so a width travels with the item that carries it. */
-.landing-desk__columns {
+.landing-counter__columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--baize-space-3);
 }
 
-.landing-desk__cell {
-  grid-column: span var(--desk-span, 1);
+.landing-counter__cell {
+  grid-column: span var(--counter-span, 1);
   min-width: 0;
 }
 
-.landing-desk__metric,
-.landing-desk__board {
+.landing-counter__metric,
+.landing-counter__board {
   height: 100%;
   padding: var(--baize-space-3) var(--baize-space-4);
   border: 1px solid var(--baize-rule);
@@ -276,32 +276,32 @@
 
 /* The figures are the one bright thing in the dashboard; everything around
    them is the quiet colour, so the eye lands on the numbers first. */
-.landing-desk__metric {
+.landing-counter__metric {
   display: grid;
   gap: 2px;
   align-content: start;
 }
 
-.landing-desk__delta {
+.landing-counter__delta {
   color: var(--baize-moss);
   font-size: var(--baize-text-xs);
   font-variant-numeric: tabular-nums;
 }
 
-.landing-desk__board {
+.landing-counter__board {
   display: grid;
   gap: var(--baize-space-3);
   align-content: start;
 }
 
-.landing-desk__table {
+.landing-counter__table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--baize-text-sm);
   text-align: left;
 }
 
-.landing-desk__table th {
+.landing-counter__table th {
   padding-bottom: var(--baize-space-2);
   border-bottom: 1px solid var(--baize-rule);
   color: var(--baize-moss);
@@ -310,7 +310,7 @@
   letter-spacing: var(--baize-tracking-loose);
 }
 
-.landing-desk__table td {
+.landing-counter__table td {
   padding: var(--baize-space-2) var(--baize-space-3) var(--baize-space-2) 0;
   border-bottom: 1px solid
     color-mix(in oklab, var(--baize-rule) 60%, transparent);
@@ -318,15 +318,15 @@
   vertical-align: top;
 }
 
-.landing-desk__table tr > :last-child {
+.landing-counter__table tr > :last-child {
   padding-right: 0;
 }
 
-.landing-desk__table td:first-child {
+.landing-counter__table td:first-child {
   color: var(--baize-chalk);
 }
 
-.landing-desk__table tr:last-child td {
+.landing-counter__table tr:last-child td {
   padding-bottom: 0;
   border-bottom: 0;
 }
@@ -400,7 +400,7 @@
  * pointer or holds focus.
  *
  * A container and everything nested under it, not the one line the pointer is
- * on: what moving `desk` does to the page is the argument the figure is making,
+ * on: what moving `counter` does to the page is the argument the figure is making,
  * and this is where a reader sees it before pressing anything.
  */
 .landing-items__line[data-aimed] {
@@ -1221,24 +1221,24 @@ textarea.landing-access__field {
    * three-track row and means nothing in a single track, so it is dropped here
    * rather than opening a second, empty column.
    */
-  .landing-desk__columns {
+  .landing-counter__columns {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .landing-desk__cell {
+  .landing-counter__cell {
     grid-column: auto;
   }
 
   /* On one track a figure reads better on its side: three tall cards in a
      column would push the boards, which are what the dashboard is for, off
      the first screen. */
-  .landing-desk__metric {
+  .landing-counter__metric {
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: var(--baize-space-3);
     align-items: baseline;
   }
 
-  .landing-desk__metric .baize-figure {
+  .landing-counter__metric .baize-figure {
     grid-row: span 2;
   }
 
@@ -1262,12 +1262,12 @@ textarea.landing-access__field {
    * and the listing step down a size. It buys about a fifth more per line,
    * which is the difference between an item folding twice and folding once.
    */
-  .landing-desk__table,
+  .landing-counter__table,
   .landing-items__source {
     font-size: var(--baize-text-xs);
   }
 
-  .landing-desk__table td {
+  .landing-counter__table td {
     padding-right: var(--baize-space-2);
   }
 
