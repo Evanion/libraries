@@ -81,6 +81,7 @@ export class OrdersService {
       items: request.items,
       correlationId: this.correlationService.getCorrelationId(),
       inventoryCorrelationIds: checks.map(({ stock }) => stock.correlationId),
+      inventorySubjectIds: checks.map(({ stock }) => stock.subjectId),
     };
   }
 
@@ -92,7 +93,7 @@ export class OrdersService {
    */
   private async checkStock(
     item: CartItem,
-  ): Promise<{ quantity: number; correlationId?: string }> {
+  ): Promise<{ quantity: number; correlationId?: string; subjectId?: string }> {
     try {
       return await this.inventoryClient.getStock(item.urn);
     } catch (error) {

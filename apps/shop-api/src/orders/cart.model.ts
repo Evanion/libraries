@@ -23,4 +23,12 @@ export interface OrderResult {
   correlationId: string | undefined;
   /** The correlation id the inventory hop reported back, one per cart item. */
   inventoryCorrelationIds: (string | undefined)[];
+  /**
+   * The subject id the inventory endpoint saw, one per cart item.
+   *
+   * It matches the actor who placed the order, because InventoryClient sends
+   * the subject header on the hop and the inventory route decides against it
+   * on its own.
+   */
+  inventorySubjectIds: (string | undefined)[];
 }

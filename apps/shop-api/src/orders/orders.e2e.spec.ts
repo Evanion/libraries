@@ -44,6 +44,19 @@ describe('shop-api end to end: the correlation-id hop', () => {
   let app: INestApplication;
   let base = '';
   const HEADER = 'X-Correlation-Id';
+  // Reading telemetry is a manager's permission, so the e2e requests that ask
+  // for it state a manager. Everything else runs as the anonymous customer the
+  // middleware falls back to.
+  const OPERATOR = JSON.stringify({
+    id: 'staff:ada',
+    roles: ['customer', 'operator'],
+    shop: 'stockholm',
+  });
+  const MANAGER = JSON.stringify({
+    id: 'staff:bo',
+    roles: ['manager'],
+    shop: 'stockholm',
+  });
   const PORT = 34599;
   let HEADER_PREFIX = '';
   // Imported dynamically inside beforeAll, after process.env.PORT is set.
@@ -92,6 +105,30 @@ describe('shop-api end to end: the correlation-id hop', () => {
     expect(result.inventoryCorrelationIds).toEqual([correlationId]);
   });
 
+  /**
+   * AclGuard runs on the inbound POST /orders and again on the
+   * GET /inventory/:urn this process dials for each cart line. The inner
+   * evaluation is the point: the inventory route is reachable from outside too,
+   * so it decides for itself rather than trusting the order handler that called
+   * it. InventoryClient sends the subject header, and the id the endpoint
+   * reports back is what proves the inner decision was made about the actor who
+   * placed the order.
+   */
+  it('carries the subject across the loopback hop, so the inventory route decides about the same actor', async () => {
+    const wingspan = GameURN.stringify('wingspan');
+    const { status, body } = await request(
+      'POST',
+      `${base}/${HEADER_PREFIX}/orders`,
+      {
+        headers: { [HEADER]: 'e2e-subject-hop', 'X-Shop-Subject': OPERATOR },
+        body: { items: [{ urn: wingspan, quantity: 1 }] },
+      },
+    );
+
+    expect(status).toBe(201);
+    expect(JSON.parse(body).inventorySubjectIds).toEqual(['staff:ada']);
+  });
+
   it('shows the trace: querying telemetry by that id returns events from both orders and inventory', async () => {
     const wingspan = GameURN.stringify('wingspan');
     const correlationId = 'e2e-hop-2';
@@ -103,6 +140,7 @@ describe('shop-api end to end: the correlation-id hop', () => {
     const { status, body } = await request(
       'GET',
       `${base}/${HEADER_PREFIX}/telemetry?correlationId=${correlationId}`,
+      { headers: { 'X-Shop-Subject': MANAGER } },
     );
 
     expect(status).toBe(200);

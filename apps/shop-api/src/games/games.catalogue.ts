@@ -13,6 +13,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 2.4,
     price: 59900,
     availability: 'in-stock',
+    shop: 'stockholm',
     expansions: [
       {
         urn: ExpansionURN.forGame('wingspan', 'europe'),
@@ -35,6 +36,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 3.9,
     price: 74900,
     availability: 'reprint-pending',
+    shop: 'stockholm',
     expansions: [],
   },
   {
@@ -46,6 +48,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 3.9,
     price: 149900,
     availability: 'in-stock',
+    shop: 'gothenburg',
     expansions: [
       {
         urn: ExpansionURN.forGame('gloomhaven', 'forgotten-circles'),
@@ -63,6 +66,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 1.8,
     price: 34900,
     availability: 'in-stock',
+    shop: 'stockholm',
     expansions: [],
   },
   {
@@ -74,6 +78,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 2.9,
     price: 64900,
     availability: 'in-stock',
+    shop: 'gothenburg',
     expansions: [
       {
         urn: ExpansionURN.forGame('viticulture', 'tuscany'),
@@ -91,6 +96,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 2.4,
     price: 44900,
     availability: 'in-stock',
+    shop: 'stockholm',
     expansions: [
       {
         urn: ExpansionURN.forGame('dominion', 'intrigue'),
@@ -113,6 +119,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 3.8,
     price: 69900,
     availability: 'preorder',
+    shop: 'gothenburg',
     expansions: [
       {
         urn: ExpansionURN.forGame('root', 'riverfolk'),
@@ -130,6 +137,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 3.8,
     price: 79900,
     availability: 'reprint-pending',
+    shop: 'stockholm',
     expansions: [],
   },
   {
@@ -141,6 +149,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 1.7,
     price: 39900,
     availability: 'in-stock',
+    shop: 'gothenburg',
     expansions: [],
   },
   {
@@ -152,6 +161,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 1.1,
     price: 119900,
     availability: 'in-stock',
+    shop: 'gothenburg',
     expansions: [],
   },
   {
@@ -163,6 +173,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 4.0,
     price: 84900,
     availability: 'in-stock',
+    shop: 'stockholm',
     expansions: [
       {
         urn: ExpansionURN.forGame('spirit-island', 'jagged-earth'),
@@ -180,6 +191,7 @@ export const GAMES_CATALOGUE: readonly Game[] = [
     complexity: 3.6,
     price: 59900,
     availability: 'out-of-print',
+    shop: 'gothenburg',
     expansions: [],
   },
 ] as const;

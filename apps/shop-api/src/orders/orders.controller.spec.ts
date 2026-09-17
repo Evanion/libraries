@@ -11,6 +11,7 @@ describe('OrdersController', () => {
       items: [{ urn: 'urn:game:wingspan', quantity: 1 }],
       correlationId: 'req-1',
       inventoryCorrelationIds: ['req-1'],
+      inventorySubjectIds: ['anonymous'],
     };
     const createOrder = vi.fn().mockResolvedValue(result);
     const module = await Test.createTestingModule({
