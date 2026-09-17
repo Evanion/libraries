@@ -101,17 +101,17 @@ way to detect the gap.
 
 `now` is a parameter. Omitted, it is the wall clock; supplied, it is whatever
 the caller passed, and every `before`/`after` window moves with it. A `now` that
-reaches `can` from a client payload — a hydration blob, a request body, a query
-string — hands the client every time window in the matrix. Pass it only to make
-a server render and its rehydration agree, and resolve it server-side.
+reaches `can` from a client payload — a request body, a query string, anything
+the browser sent — hands the client every time window in the matrix. Pass it
+only to make a server render and the client's first render agree, and resolve
+it on the server.
 
-In a browser the wall clock belongs to the subject. Setting the system clock
-back re-opens a window that has closed, and the library cannot detect it,
-because the clock is an argument. So the two condition kinds are not equally
-trustworthy on the same page even though both are advisory there: a role
-condition reads the subject a server resolved, and a time condition reads a
-value the subject's machine produced. A server passing its own `now` is
-unaffected.
+In a browser the wall clock belongs to the subject. Setting it back re-opens a
+window that has closed, and the library cannot detect that, because the clock is
+an argument. So the two condition kinds are not equally trustworthy on one page,
+advisory though both are: a role condition reads the subject a server resolved,
+a time condition reads what the subject's machine produced. A server passing its
+own `now` is unaffected.
 
 A clock that does not parse — `null`, `NaN`, an `Invalid Date`, a string that is
 not a date — refuses rather than deciding: every permission whose decision reads

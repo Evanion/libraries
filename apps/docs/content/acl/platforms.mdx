@@ -57,7 +57,7 @@ document, and the client rebuilds:
 The matrix is an envelope carrying its own `version` and `schema`, so nothing
 travels beside it. A payload of `{ matrix, version, subject }` states the
 version twice; `access.matrix` already carries the effective one, including a
-version supplied as `createPolicy(doc, { version })` rather than authored into
+version supplied as `hydratePolicy(doc, { version })` rather than authored into
 the document.
 
 The subject still has to cross, because the client needs it to evaluate, and it

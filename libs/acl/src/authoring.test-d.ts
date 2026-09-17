@@ -2,7 +2,7 @@ import { describe, expectTypeOf, it } from 'vitest';
 
 import { policy } from './authoring.js';
 import type { Operand, Valid } from './authoring.js';
-import { createPolicy } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { parseMatrix } from './parse-matrix.js';
 import type { Decision, Matrix } from './types.js';
 
@@ -160,7 +160,7 @@ describe('typed authoring', () => {
     const foreign = parseMatrix(json);
     foreign.can({ anything: 1 }, 'whatever', 'at-all', { any: 'bag' });
     foreign.authorize({ anything: 1 }).can('whatever', 'at-all', { any: 1 });
-    createPolicy(json).can({ anything: 1 }, 'whatever', 'at-all');
+    hydratePolicy(json).can({ anything: 1 }, 'whatever', 'at-all');
   });
 
   it('a partial call still answers with a Decision, gated on a boolean', () => {

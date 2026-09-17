@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { createPolicy } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { InvalidConditionError, UnknownPermissionError } from './errors.js';
 import type { Condition, Matrix, Permission } from './types.js';
 
 function access(...permissions: Permission[]) {
-  return createPolicy({ permissions });
+  return hydratePolicy({ permissions });
 }
 
 function allow(key: string, ...when: Condition[]): Permission {
@@ -167,7 +167,7 @@ describe('readsObject', () => {
 
   it('answers false for an unknown action in closed mode', () => {
     const matrix: Matrix = { permissions: [allow('article.read')] };
-    const a = createPolicy(matrix, { closed: true });
+    const a = hydratePolicy(matrix, { closed: true });
     expect(a.readsObject('article', 'destroy')).toBe(false);
   });
 

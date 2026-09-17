@@ -153,8 +153,9 @@ closures — it does not survive it. What returns is the document:
 
 ```
 
-Return it from the layout loader that already returns the session, once for the
-whole tree rather than per route:
+`hydratePolicy` is the other half of that crossing. Return the document from
+the layout loader that already returns the session, once for the whole tree
+rather than per route:
 
 ```tsx
 // app/shell.tsx
@@ -184,9 +185,9 @@ rather than reading this copy back.
 export default function Shell({ loaderData }: Route.ComponentProps) {
   const { session, matrix, subject, now } = loaderData;
 
-  // Rebuilt when the document changes, not on every render: createPolicy
+  // Rebuilt when the document changes, not on every render: hydratePolicy
   // validates, deep-clones and deep-freezes.
-  const access = useMemo(() => createPolicy(matrix), [matrix]);
+  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
   const context = useMemo(() => ({ now }), [now]);
 
   return (

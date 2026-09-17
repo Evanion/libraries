@@ -12,10 +12,12 @@ did not write.
 
 ## The closed mode is the whole difference
 
-`parseMatrix(json, options?)` is `createPolicy(json, { closed: true, ...options })`.
-One flag, and it changes what an unknown key means.
+`parseMatrix(json, options?)` is `hydratePolicy(json, { closed: true, ...options })`.
+One flag, and it changes what an unknown key means. Which of the two a document
+gets is a question of provenance: `hydratePolicy` for your own document coming
+back, `parseMatrix` for somebody else's arriving.
 
-| Key the document does not carry | Open path (`createPolicy`)      | Closed path (`parseMatrix`)                    |
+| Key the document does not carry | Open path (`hydratePolicy`)     | Closed path (`parseMatrix`)                    |
 | ------------------------------- | ------------------------------- | ---------------------------------------------- |
 | unknown object kind             | throws `UnknownObjectKeyError`  | `{ allowed: false, reason: 'unknown-action' }` |
 | unknown action                  | throws `UnknownPermissionError` | the same                                       |
@@ -77,7 +79,7 @@ Granularity is per kind. A permission on an object kind absent from
 
 ```
 
-`version` is a string or a number, compared with `!==`. `createPolicy(matrix, {
+`version` is a string or a number, compared with `!==`. `hydratePolicy(matrix, {
 version })` overrides the document's own: the document states what a producer
 shipped, the option states what this site is actually running. The option wins,
 and the frozen `access.matrix` carries the winner, so the version that decided is

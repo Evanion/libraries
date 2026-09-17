@@ -32,8 +32,8 @@ twentieth is the problem. By then one handler tests `roles.includes('admin')`,
 another tests `user.isAdmin`, a third was copied before the role was renamed,
 and the export endpoint somebody added last month tests nothing at all.
 
-**How the library gets you there.** `createPolicy` reads the matrix and hands
-back an access object. `can` answers one question with a decision. `authorize`
+**How the library gets you there.** `policy()` writes the matrix and hands back
+an access object over it. `can` answers one question with a decision. `authorize`
 binds the subject, so no handler restates it. `capabilities` answers
 every question at once, which is how a menu knows what to draw.
 
@@ -47,27 +47,32 @@ npm install @evanion/acl
 
 ESM only, Node 20 or newer, and no framework in the import graph.
 
-## Write the acl matrix
+## Write the acl policy
 
-With the package installed, the first thing to write is the document it reads. A
-matrix is a JSON envelope over a flat list of permissions. Each permission
-carries a `key` of exactly `` `${object}.${action}` `` and a list of allow
-rules. A rule holds conditions, each one a comparison the engine can run against
-the subject, and they are AND-ed: the rule matches when every condition in it
-holds. At this tier `capabilities` answers the whole document at once, so the
+With the package installed, the first thing to write is the policy.
+`policy<Subject>()` names the subject once, `.for<K, Obj>(key, block)` declares
+one object kind, and `.build()` hands back the evaluator. A block holds allow
+rules, a rule holds conditions, and the conditions are AND-ed: the rule matches
+when every condition in it holds. At this tier `capabilities` answers the whole
+document at once, so the
 policy and every answer it gives fit in one block:
 
 ```ts file=libs/acl/README.md region=capabilities
 
 ```
 
-One matrix holds every object kind your app has. The list is flat and each
-permission names its own object, so the report and the invoice sit side by side
-in the same document. You do not build a policy per resource.
+One policy holds every object kind your app has. Chain a `.for()` per kind and
+the report and the invoice sit side by side in the same document. You do not
+build a policy per resource.
 
 Nothing is allowed without an allow rule that matched. `report.export` has a
 rule, the rule did not match, and the decision is `no-rule-matched`. Default
 deny is the floor of the engine and there is nothing to configure.
+
+`access.matrix` is what the blocks flattened to: a JSON envelope over a flat
+list of permissions, each carrying a `key` of exactly
+`` `${object}.${action}` ``. That document is what crosses to a client, where
+`hydratePolicy` turns it back into an evaluator.
 
 ## Ask acl a question
 

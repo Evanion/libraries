@@ -10,11 +10,11 @@
  * decision and leaves the rest to the caller: `decide` takes a permission node
  * the gate never checked, `decideFields` returns an `allowed` that ignores the
  * action-level gate, and a single condition outcome is not a decision.
- * `createPolicy` and `parseMatrix` compose them, and one of those two is the
+ * `hydratePolicy` and `parseMatrix` compose them, and one of those two is the
  * entry point.
  */
 
-export { createPolicy } from './create-policy.js';
+export { hydratePolicy } from './hydrate-policy.js';
 export type {
   Access,
   AccessOptions,
@@ -22,7 +22,7 @@ export type {
   Authorized,
   BoundKind,
   Subject,
-} from './create-policy.js';
+} from './hydrate-policy.js';
 export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';

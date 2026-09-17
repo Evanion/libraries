@@ -98,7 +98,7 @@ The owning service fetches them and applies them in its own process, before it
 constructs its policy:
 
 ```
-authored matrix  →  applyDenyOverlay  →  createPolicy  →  access
+authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
 ```
 
 ```ts file=libs/acl/README.md region=deny-overlay
@@ -140,7 +140,7 @@ The schema obligation is scoped: a matrix owes a schema for the object kinds of
 the keys it lists as `vetoable`, and for nothing else. Opening a key whose kind
 has no `schema.objects` entry is itself a refusal, because the contributions to
 it would be unchecked. A single-service consumer that opens nothing owes no
-schema and never sees any of this — `createPolicy(matrix)` takes no overlay, no
+schema and never sees any of this — `hydratePolicy(matrix)` takes no overlay, no
 `vetoable` list, and no schema.
 
 ### The compliance team runs the same call

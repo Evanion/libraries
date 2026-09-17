@@ -9,10 +9,10 @@
 import { readFileSync } from 'node:fs';
 
 import {
-  createPolicy,
+  hydratePolicy,
   type Access,
   type AccessOptions,
-} from '../create-policy.js';
+} from '../hydrate-policy.js';
 import { parseMatrix } from '../parse-matrix.js';
 import type { Condition, Matrix, Permission, Rule } from '../types.js';
 
@@ -73,7 +73,7 @@ export function foreign(
 }
 
 /**
- * An access object over an authored, local document: the `createPolicy` path,
+ * An access object over an authored, local document: the `hydratePolicy` path,
  * which throws on a key the document does not carry.
  */
 export function local(
@@ -81,7 +81,7 @@ export function local(
   options?: AccessOptions,
   envelope?: Envelope,
 ): Access {
-  return createPolicy(matrix(permissions, envelope), options);
+  return hydratePolicy(matrix(permissions, envelope), options);
 }
 
 /** The unconditional rule: an empty `when`, which is what `always` emits. */

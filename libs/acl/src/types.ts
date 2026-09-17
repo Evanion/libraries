@@ -9,7 +9,7 @@ export type Action = string;
 /**
  * An instant, for a `now` condition or a context clock. A string is parsed as
  * ISO 8601, a number as epoch milliseconds. The string and number forms survive
- * a JSON round trip, so an SSR hydration payload carries one unchanged.
+ * a JSON round trip, so an SSR payload carries one unchanged.
  *
  * A condition boundary must parse: `validateMatrix` refuses a `before`/`after`
  * value that does not. A context clock that does not parse is not an error
@@ -84,7 +84,7 @@ export interface EvaluationContext {
   object?: Record<string, unknown>;
   /**
    * The clock instant the `now` conditions read. Any `Instant` form, so a
-   * hydrated context needs no conversion at the call site. It is settled to a
+   * context that crossed JSON needs no conversion at the call site. It is settled to a
    * single epoch once per entry point, before any condition is evaluated.
    */
   now?: Instant;

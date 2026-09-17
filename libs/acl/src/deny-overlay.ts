@@ -6,7 +6,7 @@
  * Nothing merges at an edge, nothing but the owner is authoritative, and the
  * service that enforces the veto is the service that applies it.
  *
- *     authored matrix -> applyDenyOverlay -> createPolicy -> access
+ *     authored matrix -> applyDenyOverlay -> hydratePolicy -> access
  */
 
 import {

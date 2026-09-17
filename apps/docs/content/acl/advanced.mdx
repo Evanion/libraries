@@ -59,7 +59,7 @@ that reads only the subject.
 
 ## Adopt a document somebody else wrote
 
-`parseMatrix` is `createPolicy` with `closed: true`. The key universe is
+`parseMatrix` is `hydratePolicy` with `closed: true`. The key universe is
 untrusted, so an unknown object kind or action fails closed instead of throwing.
 
 ```ts file=libs/acl/README.md region=foreign-matrix
@@ -76,7 +76,7 @@ another service](/acl/adopting) is the whole story.
 
 `version` is a string or a number and the contract compares it with `!==`, so a
 content digest or a composite such as `orders@7+veto@41` works where a counter
-cannot. The document states what a producer shipped; `createPolicy(matrix, {
+cannot. The document states what a producer shipped; `hydratePolicy(matrix, {
 version })` states what this construction site is actually running, which the
 producer cannot know. The option wins, and the frozen `access.matrix` carries the
 winner.

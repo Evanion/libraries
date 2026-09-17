@@ -156,7 +156,7 @@ import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid
 import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
-import { createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
+import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
 import type { Access, AccessOptions, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
@@ -241,7 +241,7 @@ const matrix: Matrix = {
   ],
 };
 const aclOptions: AccessOptions = { version: 'comment@1', closed: true };
-const access: Access = createPolicy(matrix, aclOptions);
+const access: Access = hydratePolicy(matrix, aclOptions);
 const subject: Subject = { id: 'u1', roles: ['editor'] };
 const aclDecision: AclDecision = access.can(subject, 'comment', 'update', { authorId: 'u1' });
 const aclDecisions: AclDecision[] = access.canMany(subject, 'comment', 'update', [{ authorId: 'u1' }]);
@@ -355,7 +355,7 @@ import { FeatureProvider, useFeature } from '@evanion/feature/react';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
 import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
-import { createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields } from '@evanion/acl';
+import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields } from '@evanion/acl';
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
@@ -366,7 +366,7 @@ const missing = Object.entries({
   createToken, InvalidAlphabetError, TokenError,
   Card, StatLine, BoxArtPlaceholder,
   hueClass, ladderClass, paletteClass, stateClass,
-  createPolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields,
+  hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields,
   PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // react-acl pins the core exactly and externalises it, so the binding resolves
@@ -389,7 +389,7 @@ const aclMatrix = {
     },
   ],
 };
-const aclAccess = createPolicy(aclMatrix);
+const aclAccess = hydratePolicy(aclMatrix);
 if (!aclAccess.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1' }).allowed ||
     aclAccess.can({ id: 'u2' }, 'comment', 'update', { authorId: 'u1' }).allowed) {
   console.error('@evanion/acl does not evaluate an object-bound rule from its published build');
@@ -411,7 +411,7 @@ if (aclWritable.body !== 'new' || Object.hasOwn(aclWritable, 'status')) {
 }
 // A veto appended by a second party subtracts from what the authored matrix
 // allows and never adds to it.
-const aclVetoed = createPolicy(
+const aclVetoed = hydratePolicy(
   applyDenyOverlay(
     aclMatrix,
     { 'comment.update': [{ id: 'locked', when: [{ field: 'object.status', op: 'eq', value: 'locked' }] }] },

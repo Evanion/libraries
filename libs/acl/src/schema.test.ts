@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createPolicy } from './create-policy.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import {
   FieldTypeMismatchError,
   InvalidSchemaError,
@@ -310,7 +310,7 @@ describe('a matrix with no schema', () => {
   };
 
   it('behaves exactly as before: a mistyped field decides unevaluable', () => {
-    const access = createPolicy(matrix);
+    const access = hydratePolicy(matrix);
     const decision = access.can({ id: 's1' }, 'comment', 'update', {
       authorId: 's1',
     });
@@ -320,7 +320,7 @@ describe('a matrix with no schema', () => {
   });
 
   it('carries no schema on the access object or the document', () => {
-    const access = createPolicy(matrix);
+    const access = hydratePolicy(matrix);
     expect(access.schema).toBeUndefined();
     expect(access.matrix.schema).toBeUndefined();
     expect(Object.hasOwn(access.matrix, 'schema')).toBe(false);
@@ -332,7 +332,7 @@ describe('a schema on the frozen document', () => {
     const source: MatrixSchema = {
       objects: { comment: { fields: { authorId: 'string' } } },
     };
-    const access = createPolicy({
+    const access = hydratePolicy({
       schema: source,
       permissions: [
         {
@@ -357,6 +357,6 @@ describe('a schema on the frozen document', () => {
 
     const round = JSON.parse(JSON.stringify(access.matrix)) as Matrix;
     expect(round).toEqual(access.matrix);
-    expect(createPolicy(round).schema).toEqual(source);
+    expect(hydratePolicy(round).schema).toEqual(source);
   });
 });

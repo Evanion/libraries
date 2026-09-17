@@ -18,7 +18,7 @@ import {
   KeyMismatchError,
   UnknownPermissionError,
 } from '../errors.js';
-import { createPolicy } from '../create-policy.js';
+import { hydratePolicy } from '../hydrate-policy.js';
 import { pickAllowedFields } from '../fields.js';
 import { parseMatrix } from '../parse-matrix.js';
 import {
@@ -658,7 +658,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
       [gated],
       [permission('post', 'read', { rules: [always] })],
     );
-    const access = createPolicy(
+    const access = hydratePolicy(
       rawMatrix({
         get permissions() {
           return face.get();
@@ -678,7 +678,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
       { objects: { post: { fields: { secret: 'string' as const } } } },
       { objects: { post: { fields: { other: 'number' as const } } } },
     );
-    const access = createPolicy(
+    const access = hydratePolicy(
       rawMatrix({
         permissions: [
           permission('post', 'read', {
@@ -698,7 +698,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
 
   it('cannot replace the version the document was frozen with', () => {
     const face = twoFaced<unknown>('v1', { evil: true });
-    const access = createPolicy(
+    const access = hydratePolicy(
       rawMatrix({
         permissions: [],
         get version() {

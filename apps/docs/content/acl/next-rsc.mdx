@@ -124,14 +124,15 @@ document:
 ```
 
 The matrix is an envelope carrying its own `version` and `schema`, so nothing
-travels beside it. The island rebuilds:
+travels beside it. `hydratePolicy` is the other half of that crossing: the
+island takes the document the server sent and gets an evaluator back over it.
 
 ```tsx
 // app/access-boundary.tsx
 'use client';
 
 import { useMemo } from 'react';
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 import { PolicyProvider } from '@evanion/react-acl';
 
 export default function AccessBoundary({
@@ -145,9 +146,9 @@ export default function AccessBoundary({
   now: string;
   children: ReactNode;
 }) {
-  // createPolicy validates, deep-clones and deep-freezes. Once per matrix,
+  // hydratePolicy validates, deep-clones and deep-freezes. Once per matrix,
   // not once per render.
-  const access = useMemo(() => createPolicy(matrix), [matrix]);
+  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
   const context = useMemo(() => ({ now }), [now]);
 
   return (
@@ -178,8 +179,8 @@ return (
 `now` crosses as an ISO string, not a `Date`. The hooks key their memos on it,
 and a `Date` is a fresh object every render, so a string holds the memo where a
 `Date` re-evaluates the matrix on each pass. Resolve it on the server so the
-server render and its hydration agree — a `now` that reaches `can` from a client
-payload hands the client every time window in the matrix.
+server render and the client's first render agree — a `now` that reaches `can`
+from a client payload hands the client every time window in the matrix.
 
 ## Why a provider at all, when `react-widget` removed one
 

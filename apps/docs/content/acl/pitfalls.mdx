@@ -224,9 +224,9 @@ access.can(subject, 'sale', 'buy', undefined, '2019-06-01T00:00:00Z');
 
 Supplying `now` at all is worth deciding deliberately: it slides every window in
 the matrix, and the engine has no channel to ask where the instant came from.
-Pass it only to make a server render and its rehydration agree, and resolve it
-server-side. A `now` arriving from a request body or a query string hands the
-client every time window there is.
+Pass it only to make a server render and the client's first render agree, and
+resolve it server-side. A `now` from a request body or a query string hands
+over every time window there is.
 
 A clock that does not parse is a different case and is guarded:
 `{ allowed: false, reason: 'unusable-clock' }` on both sides of the permission,

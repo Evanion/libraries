@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createPolicy } from '@evanion/acl';
+import { hydratePolicy } from '@evanion/acl';
 
 import {
   PolicyProvider,
@@ -10,7 +10,7 @@ import {
   useCapabilities,
 } from './index.js';
 
-const access = createPolicy({
+const access = hydratePolicy({
   permissions: [
     {
       key: 'comment.read',
@@ -107,7 +107,7 @@ describe('react-acl', () => {
   });
 
   it('useCanFields returns the field-level decision', () => {
-    const withFields = createPolicy({
+    const withFields = hydratePolicy({
       permissions: [
         {
           key: 'comment.update',
@@ -141,7 +141,7 @@ describe('react-acl', () => {
   });
 
   it('takes a hydrated string instant for `now`', () => {
-    const timed = createPolicy({
+    const timed = hydratePolicy({
       permissions: [
         {
           key: 'comment.update',

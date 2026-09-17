@@ -45,7 +45,7 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * The `mermaid` extension matches `@evanion/<package>` and an attached
  * `.Symbol` or `#Symbol`, which is the only spelling that names both halves.
  * § 12 does not say how a diagram spells a symbol, so a diagram naming one bare
- * -- a node labelled `createPolicy` -- is invisible here. The site's one
+ * -- a node labelled `hydratePolicy` -- is invisible here. The site's one
  * diagram names no symbol at all, so the extension catches nothing today and
  * will keep catching nothing until the spelling is decided.
  */
