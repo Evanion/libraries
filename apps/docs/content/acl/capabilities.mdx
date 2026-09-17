@@ -72,7 +72,7 @@ const caps = access.capabilities(subject);
 // ---cut---
 const items = [
   { href: '/reports', label: 'Reports', key: 'report.read' },
-  { href: '/billing', label: 'Billing', key: 'invoice.read' },
+  { href: '/listings', label: 'Listings', key: 'listing.read' },
 ].filter((item) => caps[item.key]?.allowed === true);
 ```
 
@@ -85,8 +85,8 @@ clock once for the whole document; a loop settles it per permission.
 
 ## What it does not replace
 
-A row-level control — an edit button on one comment — is a `can` with that
-comment, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
+A row-level control — an edit button on one question — is a `can` with that
+question, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
 rows. A capability map cannot answer it, and an entry that came back
 `unevaluable` is the map saying so.
 

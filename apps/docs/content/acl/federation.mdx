@@ -13,19 +13,19 @@ reach a decision. There is no merged matrix anywhere in the topology.
 
 ## Namespace the object kind by origin
 
-Two services that both say `invoice` mean different rows, with different fields,
-in different databases. The namespace says so: `orders:invoice`,
-`billing:invoice`.
+Two services that both say `listing` mean different rows, with different fields,
+in different databases. The namespace says so: `storefront:listing`,
+`stock:listing`.
 
-Nothing about the document format changes. `orders:invoice.read` still equals
+Nothing about the document format changes. `storefront:listing.read` still equals
 `` `${object}.${action}` `` character for character, so `KeyMismatchError` is
 satisfied by construction, and the typed builder takes the namespaced key
 directly:
 
 ```ts
 policy<Subject>()
-  .for<'orders:invoice', Invoice>('orders:invoice', (p) =>
-    p.allow('read', p.eq('object.ownerId', 'subject.id')),
+  .for<'storefront:listing', Listing>('storefront:listing', (p) =>
+    p.allow('read', p.eq('object.sellerId', 'subject.id')),
   )
   .build();
 ```
@@ -34,7 +34,7 @@ policy<Subject>()
 delimiter, and a `.` inside `object` or `action` is refused at construction:
 
 ```
-InvalidPermissionError: permission "orders.invoice.read": "object" carries the
+InvalidPermissionError: permission "storefront.listing.read": "object" carries the
 key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
 ```
 
@@ -48,15 +48,15 @@ key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
 whole. It carries three members: `can`, `capabilities` and `get`.
 
 `can` routes by the canonical key. The origin that answers
-`can(subject, 'orders:invoice', 'read')` is the one origin whose key set holds
-`orders:invoice.read`. A key no origin holds answers
+`can(subject, 'storefront:listing', 'read')` is the one origin whose key set holds
+`storefront:listing.read`. A key no origin holds answers
 `{ allowed: false, reason: 'unknown-action' }` and reaches no member at all.
 
 ```mermaid caption="One Access per origin, each document whole, behind one view. A key goes to the single origin whose key set holds it; a key no origin holds is refused by the view itself and reaches no member."
 flowchart LR
   C["fleet.can(subject, key, action)"] --> R{"which origin's key set<br>holds this key?"}:::accent
-  R -->|"orders:…"| O["orders<br>its own Access"]
-  R -->|"billing:…"| B["billing<br>its own Access"]
+  R -->|"storefront:…"| O["storefront<br>its own Access"]
+  R -->|"stock:…"| B["stock<br>its own Access"]
   R -->|"no origin"| U["unknown-action"]
 ```
 
@@ -72,13 +72,13 @@ already holds the key, and the key names the origin.
 ### Two origins claiming one key refuse at construction
 
 ```
-OriginCollisionError: permission key "invoice.read" is claimed by two origins,
-"orders" and "billing": each origin's keys must be disjoint for one view to
+OriginCollisionError: permission key "listing.read" is claimed by two origins,
+"storefront" and "stock": each origin's keys must be disjoint for one view to
 hold both
 ```
 
 Each document is valid on its own, and two services can each declare
-`{ object: 'invoice', action: 'read' }` with no namespace anywhere. The
+`{ object: 'listing', action: 'read' }` with no namespace anywhere. The
 collision exists only in the process holding both documents, which is the edge,
 so the edge is where the check runs. A lint has nowhere to sit: the two
 documents live in two repositories and arrive over HTTP at startup, and no build
@@ -113,16 +113,16 @@ unregistered origin takes down the request.
 ## One permission never gates another
 
 No permission in this document declares a dependency on another, inside one
-origin or across two. A subject who may read the orders copy of an invoice and
-may not read the billing copy is two questions, and the caller asks both.
+origin or across two. A subject who may read the storefront copy of a listing and
+may not read the stock copy is two questions, and the caller asks both.
 
 When one request genuinely touches two services, the fan-out is the caller's
 own `&&` over the `fleet` built above:
 
 ```ts
 const ok =
-  fleet.can(subject, 'orders:invoice', 'read').allowed &&
-  fleet.can(subject, 'billing:invoice', 'read').allowed;
+  fleet.can(subject, 'storefront:listing', 'read').allowed &&
+  fleet.can(subject, 'stock:listing', 'read').allowed;
 ```
 
 Deny-overrides, written at a call site by somebody who knows whether they meant

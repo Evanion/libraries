@@ -18,7 +18,7 @@
   ]}
 />
 
-**The concept.** Baize's checkout service writes the matrix. The storefront and
+**The concept.** Baize's orders service writes the matrix. The storefront and
 the admin app read it, and neither one imports the file it was written in. The
 document has outlived the process that wrote it, and every question on this page
 follows from that.
@@ -28,8 +28,8 @@ conditions read, a version string a reader can compare, and a `parseMatrix` that
 takes somebody else's document without throwing on a permission you have never
 heard of.
 
-**Why you would want it.** Without the schema, the checkout team renames
-`buyerId` and the storefront keeps asking about a path that no longer reads: the
+**Why you would want it.** Without the schema, the orders team renames
+`askedBy` and the storefront keeps asking about a path that no longer reads: the
 permission answers `unevaluable` forever, the UI refetches forever, and nothing
 anywhere raises an error. Without the version, the admin app grants a permission
 that was revoked an hour ago and has no way to notice.

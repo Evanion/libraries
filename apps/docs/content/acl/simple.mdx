@@ -18,9 +18,9 @@
   ]}
 />
 
-**The concept.** Baize keeps a stock report. Anyone on staff may read it. Only
-an admin may export it. To answer either question you need to know who is
-asking, and you need nothing else: no listing is fetched, no comment is loaded,
+**The concept.** Baize keeps a stock report. Any bookseller may read it. Only
+the owner may export it. To answer either question you need to know who is
+asking, and you need nothing else: no listing is fetched, no question is loaded,
 nothing goes to the database first.
 
 **What you will have.** A matrix holding both permissions, a server that resolves
@@ -28,8 +28,8 @@ the subject once per request, and a call that answers yes or no for any
 permission in the document.
 
 **Why you would want it.** The two role checks you write today are fine. The
-twentieth is the problem. By then one handler tests `roles.includes('admin')`,
-another tests `user.isAdmin`, a third was copied before the role was renamed,
+twentieth is the problem. By then one handler tests `roles.includes('owner')`,
+another tests `user.isOwner`, a third was copied before the role was renamed,
 and the export endpoint somebody added last month tests nothing at all.
 
 **How the library gets you there.** `policy()` writes the matrix and hands back
@@ -62,7 +62,7 @@ policy and every answer it gives fit in one block:
 ```
 
 One policy holds every object kind your app has. Chain a `.for()` per kind and
-the report and the invoice sit side by side in the same document. You do not
+the report and the listing sit side by side in the same document. You do not
 build a policy per resource.
 
 Nothing is allowed without an allow rule that matched. `report.export` has a
@@ -81,7 +81,11 @@ takes the subject, the object kind (`report`) and the action (`read`), and
 returns a decision:
 
 ```ts
-const decision = access.can({ id: 'u1', roles: ['staff'] }, 'report', 'read');
+const decision = access.can(
+  { id: 'u1', roles: ['bookseller'] },
+  'report',
+  'read',
+);
 // { key: 'report.read', allowed: true, reason: 'allow', rule: '#0' }
 ```
 
@@ -92,7 +96,7 @@ and a handler that branches on the reason string grants what the engine refused.
 
 Every `can` above restated the subject. A server resolves it from the session
 once and then asks many questions about it, so `authorize` takes it once — here
-over a comment policy, because binding the subject is the same move whatever the
+over a question policy, because binding the subject is the same move whatever the
 document holds:
 
 ```ts file=libs/acl/README.md region=server-authorize
@@ -124,7 +128,8 @@ is the line this tier sits on, and it is a real line in the engine:
 - Nothing has to be fetched to ask a question, so `can` takes three arguments
   and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
 
-Now write one rule that reads the object: the author may edit their own comment.
+Now write one rule that reads the object: the customer who asked may edit their
+own question.
 Both of those bullets stop holding at once. That rule, and everything it brings
 with it, is [the intermediate tier](/acl/intermediate).
 

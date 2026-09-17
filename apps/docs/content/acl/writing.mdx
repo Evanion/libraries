@@ -55,7 +55,7 @@ the one being added.
 
 ```ts
 p.fields(['*', '!status']); // everything except status
-p.fields(['title', 'body']); // exactly these two
+p.fields(['title', 'price']); // exactly these two
 p.fields({
   fields: ['*', '!id'],
   status: { transitions: { draft: ['published'], published: [] } },
@@ -111,7 +111,7 @@ that returns the allowed subset.
 ## Reading
 
 ```ts
-const view = access.canFields(subject, 'comment', 'read', comment, 'read');
+const view = access.canFields(subject, 'question', 'read', question, 'read');
 ```
 
 The `read` axis takes no proposed write, and per-field `targets`/`transitions`

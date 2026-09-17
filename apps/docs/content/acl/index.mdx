@@ -19,9 +19,9 @@
   ]}
 />
 
-**The concept.** Baize is a board game shop. A customer leaves a comment under
-its Brass: Birmingham listing, and they may edit that comment. A bookseller may
-edit anybody's. Once the shop locks a comment, nobody may edit it at all. Those
+**The concept.** Baize is a board game shop. A customer leaves a question under
+its Brass: Birmingham listing, and they may edit that question. A bookseller may
+edit anybody's. Once the shop locks a question, nobody may edit it at all. Those
 three sentences are Baize's authorization rules, and today they are written out
 again in the handler, again in the loader, and again in the component that greys
 out the button.
@@ -35,7 +35,7 @@ rules.
 
 **Why you would want it.** Copies drift. You tighten the handler and forget the
 loader. The next endpoint ships with three of the four checks. A year in, nobody
-can say who may edit a locked comment without reading four files, and the UI
+can say who may edit a locked question without reading four files, and the UI
 greys out a button the API would have accepted.
 
 **How the library gets you there.** The rules are a JSON document called the
@@ -68,13 +68,13 @@ One document and one call is the whole shape. Whether it suits you comes down to
 what your rules have to look at:
 
 - Permissions that turn on which object is in front of the user as well as on
-  the role — "the author may edit their own comment", "a draft may be deleted and a
-  published one may not".
+  the role — "the customer who asked may edit their own question", "an open
+  question may be deleted and a locked one may not".
 - The same rules needed on a server and in a UI, without writing them twice and
   without an endpoint per question. The document crosses an SSR boundary as
   `access.matrix` and rebuilds on the other side.
 - A UI that has to explain a block as well as enforce it: which rule refused,
-  which parent permission is off, which field is read-only, what is still
+  which deny rule matched, which field is read-only, what is still
   missing before the question can be answered at all.
 - A field-level write, where the answer names which fields of the write are
   yours.

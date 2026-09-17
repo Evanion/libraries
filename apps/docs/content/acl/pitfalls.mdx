@@ -79,7 +79,7 @@ only narrowing in the package.
 ### A name absent from `fields` is not a denial
 
 ```ts
-const fd = access.canFields(subject, 'comment', 'update', projection, 'read');
+const fd = access.canFields(subject, 'question', 'update', projection, 'read');
 fd.fields['status']; // undefined — the projection did not carry it
 ```
 
@@ -237,8 +237,8 @@ const lazy = {
     return reads++ === 0 ? 'draft' : 'locked'; // an ORM row, a refilling cache
   },
 };
-access.can(subject, 'comment', 'update', lazy); // -> allowed: true
-access.can(subject, 'comment', 'update', { status: 'locked' }); // -> reason: 'denied'
+access.can(subject, 'question', 'update', lazy); // -> allowed: true
+access.can(subject, 'question', 'update', { status: 'locked' }); // -> reason: 'denied'
 ```
 
 Conditions read `subject` and `object` field by field as the decision walks the
