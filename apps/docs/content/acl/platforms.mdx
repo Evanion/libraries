@@ -76,10 +76,11 @@ module scope:
 // access.ts — imported by the server runtime, never by a browser bundle.
 import { policy } from '@evanion/acl';
 
-export const access = policy<Subject>({ version: MATRIX_VERSION }).for<
-  'order',
-  Order
->('order', (p) => p.allow('read', p.eq('object.buyerId', 'subject.id')));
+export const access = policy<Subject>({ version: MATRIX_VERSION })
+  .for<'order', Order>('order', (p) =>
+    p.allow('read', p.eq('object.buyerId', 'subject.id')),
+  )
+  .build();
 ```
 
 Inside `apps/shop-api` in this repository the equivalent shape is

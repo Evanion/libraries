@@ -1,14 +1,8 @@
 import { AclConfigError } from './errors.js';
-import {
-  createPolicy,
-  type Access,
-  type Authorized,
-  type Subject as SubjectBag,
-} from './create-policy.js';
+import { createPolicy } from './create-policy.js';
+import type { Access, AccessOptions } from './create-policy.js';
 import type {
   Condition,
-  Decision,
-  FieldDecision,
   FieldRules,
   Instant,
   Matrix,
@@ -128,41 +122,6 @@ export interface Actions<Sub, Obj> extends Ops<Sub, Obj> {
 }
 
 /**
- * One object kind bound to a handle, so the key is named once.
- *
- * Every object parameter takes `Partial<Obj>`. A caller holding a projection —
- * a list row carrying `{ id, ownerId }` — is the case `unevaluable` and
- * `missing` answer, and the engine reads every object field through an own-key
- * guard. The subject stays complete: an absent `subject.*` path is a definite
- * miss, so a projected subject refuses with `no-rule-matched` and names nothing
- * to fetch.
- */
-export interface BoundKind<Sub, Obj> {
-  can(
-    subject: Sub,
-    action: string,
-    object?: Partial<Obj>,
-    now?: Instant,
-  ): Decision;
-  canMany(
-    subject: Sub,
-    action: string,
-    objects: readonly Partial<Obj>[],
-    now?: Instant,
-  ): Decision[];
-  canFields(
-    subject: Sub,
-    action: string,
-    object: Partial<Obj>,
-    axis: 'read' | 'write',
-    proposed?: Partial<Obj>,
-    now?: Instant,
-  ): FieldDecision;
-  /** `Access.readsObject` for this kind, with the key already bound. */
-  readsObject(action: string): boolean;
-}
-
-/**
  * The document-level facts the builder emits alongside the permissions.
  *
  * They are document fields rather than construction options, so
@@ -180,48 +139,27 @@ export interface BoundKind<Sub, Obj> {
 export type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 
 /**
- * The typed builder. `R` accumulates the key -> object-type map one `.for()` at
- * a time, and every query checks its key and its object against it.
+ * The typed builder: `for`, `matrix` and `build`, and nothing else.
  *
- * Queries take `Partial<R[K]>` for the object, so a projection is an argument
- * and the field names stay checked. The subject stays complete; see
- * `BoundKind`.
+ * `R` accumulates the key -> object-type map one `.for()` at a time, and
+ * `build()` hands both parameters to the evaluator, so a query checks its key
+ * and its object against the blocks that were written.
+ *
+ * Nothing here forwards a query. `build()` calls the shared constructor once
+ * and returns its result, which is the same `Access` a document arriving at
+ * runtime produces.
+ *
+ * `matrix` stays alongside `build()` because a caller sometimes wants the
+ * document without an evaluator: `applyDenyOverlay` takes a `Matrix`, so an
+ * owner overlaying a typed-authored policy needs the document first.
  */
 export interface Policy<Sub, R> {
   for<K extends string, Obj>(
     key: K,
     build: (p: Actions<Sub, Obj>) => unknown,
   ): Policy<Sub, R & Record<K, Obj>>;
-  can<K extends keyof R & string>(
-    subject: Sub,
-    key: K,
-    action: string,
-    object?: Partial<R[K]>,
-    now?: Instant,
-  ): Decision;
-  canMany<K extends keyof R & string>(
-    subject: Sub,
-    key: K,
-    action: string,
-    objects: readonly Partial<R[K]>[],
-    now?: Instant,
-  ): Decision[];
-  canFields<K extends keyof R & string>(
-    subject: Sub,
-    key: K,
-    action: string,
-    object: Partial<R[K]>,
-    axis: 'read' | 'write',
-    proposed?: Partial<R[K]>,
-    now?: Instant,
-  ): FieldDecision;
-  capabilities(subject: Sub, now?: Instant): Record<string, Decision>;
-  authorize(subject: Sub, options?: { now?: Instant }): Authorized;
-  object<K extends keyof R & string>(key: K): BoundKind<Sub, R[K]>;
-  readsObject<K extends keyof R & string>(key: K, action: string): boolean;
-  readonly matrix: Access['matrix'];
-  readonly version: Access['version'];
-  readonly schema: Access['schema'];
+  readonly matrix: Readonly<Matrix>;
+  build(options?: AccessOptions): Access<Sub, R>;
 }
 
 interface Draft {
@@ -341,52 +279,6 @@ function toMatrix(
 }
 
 /**
- * The runtime shape behind `Policy`. The generics are a compile-time surface
- * over these calls; the engine underneath takes plain bags and string keys, so
- * the runtime is written against the erased form and cast once at the end.
- */
-interface ErasedPolicy {
-  for(
-    key: string,
-    build: (p: Actions<unknown, unknown>) => unknown,
-  ): ErasedPolicy;
-  can(
-    subject: unknown,
-    key: string,
-    action: string,
-    object?: unknown,
-    now?: Instant,
-  ): Decision;
-  canMany(
-    subject: unknown,
-    key: string,
-    action: string,
-    objects: readonly unknown[],
-    now?: Instant,
-  ): Decision[];
-  canFields(
-    subject: unknown,
-    key: string,
-    action: string,
-    object: unknown,
-    axis: 'read' | 'write',
-    proposed?: unknown,
-    now?: Instant,
-  ): FieldDecision;
-  capabilities(subject: unknown, now?: Instant): Record<string, Decision>;
-  authorize(subject: unknown, options?: { now?: Instant }): Authorized;
-  object(key: string): BoundKind<unknown, unknown>;
-  readsObject(key: string, action: string): boolean;
-  readonly matrix: Access['matrix'];
-  readonly version: Access['version'];
-  readonly schema: Access['schema'];
-}
-
-const bag = (value: unknown): SubjectBag => value as SubjectBag;
-const maybeBag = (value: unknown): SubjectBag | undefined =>
-  value as SubjectBag | undefined;
-
-/**
  * The typed authoring path. Names the subject once, binds one object type per
  * `.for()` block, and flattens to the canonical matrix.
  *
@@ -396,79 +288,43 @@ const maybeBag = (value: unknown): SubjectBag | undefined =>
  * too. The extra call is what lets `Sub` be explicit while each `.for()` infers
  * its own object type.
  *
- * Flattening is deferred to the first query, so validation runs once over the
- * whole matrix.
+ * Flattening is deferred to `matrix` and `build()`, so validation runs once
+ * over every block.
  *
  * @example
  * ```ts
- * const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
- *   p.allow('update', p.eq('object.authorId', 'subject.id')),
- * );
+ * const access = policy<Subject>()
+ *   .for<'comment', Comment>('comment', (p) =>
+ *     p.allow('update', p.eq('object.authorId', 'subject.id')),
+ *   )
+ *   .build();
  * ```
  */
 export function policy<Sub>(
   options: PolicyOptions = {},
 ): Policy<Sub, Record<never, never>> {
   const kinds: [string, Draft[]][] = [];
-  let built: Access | undefined;
 
-  const access = (): Access => {
-    built ??= createPolicy(
-      toMatrix(
-        kinds.flatMap(([kind, drafts]) =>
-          drafts.map((draft) => toPermission(kind, draft)),
-        ),
-        options,
+  const document = (): Matrix =>
+    toMatrix(
+      kinds.flatMap(([kind, drafts]) =>
+        drafts.map((draft) => toPermission(kind, draft)),
       ),
+      options,
     );
-    return built;
-  };
 
-  const self: ErasedPolicy = {
-    for(key, build) {
+  const self = {
+    for(key: string, build: (p: Actions<unknown, unknown>) => unknown) {
       const drafts: Draft[] = [];
       kinds.push([key, drafts]);
       build(blockBuilder(key, drafts));
-      // A query reads the matrix the blocks so far describe, and a later block
-      // adds to it, so the evaluator built before this call no longer answers
-      // for the whole policy.
-      built = undefined;
       return self;
     },
-    can: (subject, key, action, object, now) =>
-      access().can(bag(subject), key, action, maybeBag(object), now),
-    canMany: (subject, key, action, objects, now) =>
-      access().canMany(bag(subject), key, action, objects.map(bag), now),
-    canFields: (subject, key, action, object, axis, proposed, now) =>
-      access().canFields(
-        bag(subject),
-        key,
-        action,
-        bag(object),
-        axis,
-        maybeBag(proposed),
-        now,
-      ),
-    capabilities: (subject, now) => access().capabilities(bag(subject), now),
-    authorize: (subject, opts) => access().authorize(bag(subject), opts),
-    object: (key) => ({
-      can: (subject, action, object, now) =>
-        self.can(subject, key, action, object, now),
-      canMany: (subject, action, objects, now) =>
-        self.canMany(subject, key, action, objects, now),
-      canFields: (subject, action, object, axis, proposed, now) =>
-        self.canFields(subject, key, action, object, axis, proposed, now),
-      readsObject: (action) => self.readsObject(key, action),
-    }),
-    readsObject: (key, action) => access().readsObject(key, action),
-    get matrix() {
-      return access().matrix;
+    get matrix(): Readonly<Matrix> {
+      return document();
     },
-    get version() {
-      return access().version;
-    },
-    get schema() {
-      return access().schema;
+    build(accessOptions?: AccessOptions) {
+      return createPolicy(document(), accessOptions);
     },
   };
 

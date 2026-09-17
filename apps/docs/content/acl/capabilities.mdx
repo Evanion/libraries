@@ -43,10 +43,11 @@ One call answers for every key in the document at once:
 ```ts twoslash
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>().for<'report', { ownerId: string }>(
-  'report',
-  (p) => p.allow('read', p.always),
-);
+const access = policy<{ id: string }>()
+  .for<'report', { ownerId: string }>('report', (p) =>
+    p.allow('read', p.always),
+  )
+  .build();
 
 const subject = { id: 's1' };
 // ---cut---
@@ -59,10 +60,11 @@ so the menu is a filter over it:
 ```ts twoslash
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>().for<'report', { ownerId: string }>(
-  'report',
-  (p) => p.allow('read', p.always),
-);
+const access = policy<{ id: string }>()
+  .for<'report', { ownerId: string }>('report', (p) =>
+    p.allow('read', p.always),
+  )
+  .build();
 
 const subject = { id: 's1' };
 const caps = access.capabilities(subject);

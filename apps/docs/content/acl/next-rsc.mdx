@@ -47,15 +47,14 @@ Module scope in a server-only module, the way `apps/storefront-rsc` calls
 import 'server-only';
 import { policy } from '@evanion/acl';
 
-export const access = policy<Subject>({ version: MATRIX_VERSION }).for<
-  'order',
-  Order
->('order', (p) =>
-  p
-    .allow('read', p.eq('object.buyerId', 'subject.id'))
-    .allow('cancel', p.eq('object.buyerId', 'subject.id'))
-    .deny('cancel', p.eq('object.status', 'shipped')),
-);
+export const access = policy<Subject>({ version: MATRIX_VERSION })
+  .for<'order', Order>('order', (p) =>
+    p
+      .allow('read', p.eq('object.buyerId', 'subject.id'))
+      .allow('cancel', p.eq('object.buyerId', 'subject.id'))
+      .deny('cancel', p.eq('object.status', 'shipped')),
+  )
+  .build();
 ```
 
 `import 'server-only'` is what makes a client component importing this a build

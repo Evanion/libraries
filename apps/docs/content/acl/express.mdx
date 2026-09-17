@@ -53,15 +53,14 @@ Once, at module scope, for the life of the process:
 // access.ts
 import { policy } from '@evanion/acl';
 
-export const access = policy<Session['user']>({ version: MATRIX_VERSION }).for<
-  'order',
-  Order
->('order', (p) =>
-  p
-    .allow('read', p.eq('object.buyerId', 'subject.id'))
-    .allow('cancel', p.eq('object.buyerId', 'subject.id'))
-    .deny('cancel', p.eq('object.status', 'shipped')),
-);
+export const access = policy<Session['user']>({ version: MATRIX_VERSION })
+  .for<'order', Order>('order', (p) =>
+    p
+      .allow('read', p.eq('object.buyerId', 'subject.id'))
+      .allow('cancel', p.eq('object.buyerId', 'subject.id'))
+      .deny('cancel', p.eq('object.status', 'shipped')),
+  )
+  .build();
 ```
 
 Construction validates, deep-clones and deep-freezes the document; a query after

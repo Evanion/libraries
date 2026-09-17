@@ -69,13 +69,15 @@ export const openingGrants: Grants = {
  * nothing worth caching.
  */
 export function buildAccess(grants: Grants) {
-  return policy<Shopper>().for<'listing', Listing>('listing', (p) =>
-    p
-      .allow('review', p.always)
-      .allow('edit', p.in('subject.role', grants.edit))
-      .allow('publish', p.in('subject.role', grants.publish))
-      .deny('edit', p.eq('object.status', 'published')),
-  );
+  return policy<Shopper>()
+    .for<'listing', Listing>('listing', (p) =>
+      p
+        .allow('review', p.always)
+        .allow('edit', p.in('subject.role', grants.edit))
+        .allow('publish', p.in('subject.role', grants.publish))
+        .deny('edit', p.eq('object.status', 'published')),
+    )
+    .build();
 }
 
 /** The built policy, as the demonstration holds it. */
@@ -167,7 +169,7 @@ export const source: readonly SourceLine[] = [
     ],
     rule: { action: 'edit', side: 'deny' },
   },
-  { segments: [{ text: '  );' }] },
+  { segments: [{ text: '  )\n  .build();' }] },
 ];
 
 /** Whether a line's rule is the one that decided its action. */

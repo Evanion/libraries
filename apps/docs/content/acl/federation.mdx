@@ -23,9 +23,11 @@ satisfied by construction, and the typed builder takes the namespaced key
 directly:
 
 ```ts
-policy<Subject>().for<'orders:invoice', Invoice>('orders:invoice', (p) =>
-  p.allow('read', p.eq('object.ownerId', 'subject.id')),
-);
+policy<Subject>()
+  .for<'orders:invoice', Invoice>('orders:invoice', (p) =>
+    p.allow('read', p.eq('object.ownerId', 'subject.id')),
+  )
+  .build();
 ```
 
 `:` is safe as the separator because `.` is not available. It is the key
