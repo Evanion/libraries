@@ -199,6 +199,8 @@ document, resolved in dependency order against one subject.
 ```ts @import.meta.vitest
 import { createPolicy } from '@evanion/acl';
 
+// One matrix, every object kind the app has. A permission names its own
+// object, so `report` and `invoice` live in the same flat list.
 const access = createPolicy({
   permissions: [
     {
@@ -217,14 +219,23 @@ const access = createPolicy({
         { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
       ],
     },
+    {
+      key: 'invoice.read',
+      object: 'invoice',
+      action: 'read',
+      rules: [
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }] },
+      ],
+    },
   ],
 });
 
 const caps = access.capabilities({ id: 'u1', roles: ['staff'] });
 
-Object.keys(caps); // -> ['report.read', 'report.export']
+Object.keys(caps); // -> ['report.read', 'report.export', 'invoice.read']
 caps['report.read']?.allowed; // -> true
 caps['report.export']?.reason; // -> 'no-rule-matched'
+caps['invoice.read']?.reason; // -> 'no-rule-matched'
 ```
 
 <!-- #endregion capabilities -->
@@ -416,25 +427,34 @@ import { policy } from '@evanion/acl';
 
 type Subject = { id: string; roles: string[] };
 type Comment = { authorId: string; status: 'draft' | 'published' };
+type Listing = { sellerId: string };
 
-const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
-  p
-    .allow(
-      'update',
-      p.or(
-        p.eq('object.authorId', 'subject.id'),
-        p.contains('subject.roles', 'editor'),
-      ),
-    )
-    .allow('publish', p.contains('subject.roles', 'editor'))
-    .dependsOn('comment.update')
-    .deny('delete', p.eq('object.status', 'published')),
-);
+// One policy, every object kind the shop has. Each `.for()` adds a kind and
+// keeps the ones before it, so `access` answers for comments and listings
+// alike and there is one document to ship.
+const access = policy<Subject>()
+  .for<'comment', Comment>('comment', (p) =>
+    p
+      .allow(
+        'update',
+        p.or(
+          p.eq('object.authorId', 'subject.id'),
+          p.contains('subject.roles', 'editor'),
+        ),
+      )
+      .allow('publish', p.contains('subject.roles', 'editor'))
+      .dependsOn('comment.update')
+      .deny('delete', p.eq('object.status', 'published')),
+  )
+  .for<'listing', Listing>('listing', (p) =>
+    p.allow('update', p.eq('object.sellerId', 'subject.id')),
+  );
 
 const subject = { id: 's1', roles: [] };
 const comment = { authorId: 's1', status: 'draft' } as const;
-const decision = access.can(subject, 'comment', 'update', comment);
-decision.allowed; // -> true
+access.can(subject, 'comment', 'update', comment).allowed; // -> true
+access.can(subject, 'listing', 'update', { sellerId: 's1' }).allowed; // -> true
+access.can(subject, 'listing', 'update', { sellerId: 's2' }).allowed; // -> false
 ```
 
 <!-- #endregion typed-authoring -->

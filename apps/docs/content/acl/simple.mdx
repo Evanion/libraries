@@ -61,6 +61,10 @@ policy and every answer it gives fit in one block:
 
 ```
 
+One matrix holds every object kind your app has. The list is flat and each
+permission names its own object, so the report and the invoice sit side by side
+in the same document. You do not build a policy per resource.
+
 Nothing is allowed without an allow rule that matched. `report.export` has a
 rule, the rule did not match, and the decision is `no-rule-matched`. Default
 deny is the floor of the engine and there is nothing to configure.

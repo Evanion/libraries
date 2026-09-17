@@ -67,8 +67,12 @@ So name the shape once and let the compiler hold you to it:
 
 ```
 
-`policy<Subject>()` names the subject. Each `.for()` binds one object kind to its
-type and hands the condition helpers to a block.
+`policy<Subject>()` names the subject once. Each `.for()` binds one object kind
+to its type and hands the condition helpers to a block.
+
+Chain a `.for()` for every kind your app has, so one policy covers the whole
+app. A policy per resource is the `if` you came here to delete, in another
+file.
 
 The block declares two kinds of rule. `.allow` is the kind you wrote in the
 simple tier: the action is granted when the rule's conditions hold. `.deny` is
