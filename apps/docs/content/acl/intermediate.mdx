@@ -18,49 +18,47 @@
   ]}
 />
 
-**The concept.** Mika is halfway through a listing for Brass: Birmingham. She has
-the box in front of her, she has written two lines about the canals, and she has
-not decided on a price. It is a draft.
+**The concept.** You bought Brass: Birmingham and left a review. So did Jo. You
+can edit yours. You cannot edit Jo's.
 
-Otto is a bookseller too. Same role, same permissions, same everything — and he
-should not be able to touch Mika's draft while she is still writing it. Once she
-publishes it, it belongs to the shop and any bookseller can pick it up.
+Everyone knows that rule. The interesting part is that no role can express it.
+You and Jo are both customers, with exactly the same permissions, and the thing
+that separates you is not who you are but which review is on the screen.
 
-Nothing about their roles tells you that. The draft does: it knows who started
-it. Reading that is what this page is for.
+So the rule has to read the review. That is the whole of this tier.
 
-**What you will have.** A policy that knows whose draft is whose, and a write
+**What you will have.** A policy that knows whose review is whose, and a write
 path that carries the answer from the policy to the database without you
 filtering anything in between.
 
 **Why you would want it.** The alternative is the check by hand. It goes in the
 handler, as an `if`, next to the code that does the work. It reads fine the day
 you write it. Six months later there are forty of them, three are subtly
-different, one is missing, and the background job that republishes stale listings
+different, one is missing, and the moderation job that edits reviews in bulk
 never had one at all.
 
-**How the library gets you there.** One condition reads the draft. That single
+**How the library gets you there.** One condition reads the review. That single
 change costs you four things, and they arrive in this order: a type that catches
 a misspelled path, a fourth answer for when you only loaded half the row, a
 decision that tells you why it said no, and a field map you hand to the ORM.
 
 Work through them in that order and you have the tier.
 
-## What reading the listing costs you
+## What reading the review costs you
 
-| What changes                     | What you need                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| you name a path into the listing | [the typed builder](/acl/authoring), so a typo is a compile error              |
-| the listing may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
-| a page shows forty listings      | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
-| a listing has parts              | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
+| What changes                    | What you need                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| you name a path into the review | [the typed builder](/acl/authoring), so a typo is a compile error              |
+| the review may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
+| a page shows forty reviews      | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
+| a review has parts              | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
 
 ## Naming the row, so acl can check the paths
 
-Start at the top of that table. To ask whether Mika started this draft, you name
-a path into it: `object.startedBy`. That is a string, and strings take typos.
+Start at the top of that table. To ask whether this review is yours, you name a
+path into it: `object.authorId`. That is a string, and strings take typos.
 
-Write `object.startedBv` and nothing complains. The matrix builds. The
+Write `object.authorld` with an L and nothing complains. The matrix builds. The
 tests pass. The permission just never says yes, to anybody, and you find out from
 a bug report.
 
@@ -88,8 +86,8 @@ would. Nothing about the typed path changes what ships.
 
 All of that assumes you have the listing in hand. Often you do not.
 
-The drafts page loads forty listings and takes two columns from each: an id and
-whoever started it. Now ask whether Mika may publish one. The rule wants
+The listing page loads forty reviews and takes two columns from each: an id and
+an author. Now ask whether you may edit one. The rule also reads
 `object.status`, the row you loaded has no status, and the honest answer is
 neither yes nor no.
 
@@ -136,9 +134,10 @@ handler that checks `reason !== 'denied'` grants everything the engine refused.
 
 Last line of the table, and the one that changes your UI.
 
-Mika may edit her own draft. Fine. Once it is published, may she still change
-the price? The title? "May she edit this" was never the question the form needed
-answering. "Which of these eight inputs do I render" was.
+You may edit your own review. Fine. May you change the rating after the shop has
+replied to it? May you edit the text but not the score? "May you edit this" was
+never the question the form needed answering. "Which of these inputs do I render"
+was.
 
 ```ts file=libs/acl/README.md region=field-permissions
 
@@ -146,9 +145,9 @@ answering. "Which of these eight inputs do I render" was.
 
 `*` means every field, and `!price` takes one back out.
 
-The map covers every key on the listing and every name your rules mention. On a
+The map covers every key on the review and every name your rules mention. On a
 write it also covers every key of whatever the caller sent you, including one the
-listing has never had. That last case is the one people forget, and it is why the
+review has never had. That last case is the one people forget, and it is why the
 map is computed for each call rather than read off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
@@ -167,8 +166,7 @@ avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
 every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
 and those are fields nobody said you could write.
 
-That is the tier. Mika finishes her draft, Otto leaves it alone until she
-publishes it, and nobody wrote an `if`.
+That is the tier. You edit your review, Jo edits hers, and nobody wrote an `if`.
 
 ## Where to go next
 
