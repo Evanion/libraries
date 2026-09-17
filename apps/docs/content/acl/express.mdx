@@ -23,11 +23,17 @@ authoritative, and the only question is whether the decision happens at all.
 That makes complete mediation the whole security story here, and Express states
 it as registration order. `app.use` is positional — a route registered above the
 middleware that binds the subject never sees it, and nothing fails. Mount the
-binding on the router, not per route:
+binding on the router, not per route.
+
+Two middlewares do this, and neither is part of `@evanion/acl`. `requireSession`
+is whatever your app already uses to verify a caller and put them on `req.user` —
+Passport, a JWT check, your own cookie code. `bindAccess` is about twenty lines
+you write once, and Binding the subject below is the whole of it. The order they
+run in is the enforcement:
 
 ```ts
-// Order is the enforcement. `requireSession` verifies; `bindAccess` binds what
-// it verified; every route under `api` is reached through both.
+// `requireSession` verifies the caller; `bindAccess` binds what it verified.
+// Every route under `api` is reached through both.
 const api = express.Router();
 
 api.use(requireSession);
