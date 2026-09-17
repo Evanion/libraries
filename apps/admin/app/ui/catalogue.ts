@@ -49,6 +49,30 @@ const AVAILABILITY: Record<Availability, BaizeAvailability> = {
   'out of print': 'outOfPrint',
 };
 
+/**
+ * The shop's wording, as shop-api spells the same four states.
+ *
+ * The access matrix restricts a written `availability` to the catalogue's own
+ * tokens through a `targets` list, and the catalogue hyphenates where the back
+ * office prints a space. A proposed write is therefore translated before a
+ * decision reads it, or every declaration a merchant makes lands as
+ * `targets-failed`.
+ *
+ * Written out for the reason `AVAILABILITY` is: a state either side renames is a
+ * type error here rather than a refusal a merchant reads as a permissions bug.
+ */
+const CATALOGUE_AVAILABILITY: Record<Availability, string> = {
+  'in stock': 'in-stock',
+  preorder: 'preorder',
+  'reprint pending': 'reprint-pending',
+  'out of print': 'out-of-print',
+};
+
+/** The catalogue token for a state the availability form posts. */
+export function catalogueAvailability(availability: Availability): string {
+  return CATALOGUE_AVAILABILITY[availability];
+}
+
 /** The state token a pill takes. */
 export function availabilityToken(
   availability: Availability,

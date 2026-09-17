@@ -11,6 +11,8 @@
  * module from anything that reaches the browser bundle is a build error, which
  * is what keeps the API base URL and the fetch calls out of client code.
  */
+import type { Matrix } from '@evanion/acl';
+import type { AdminSubject } from './access.js';
 
 /** One entry of the games catalogue, as `GET /games` returns it. */
 export interface Game {
@@ -21,6 +23,8 @@ export interface Game {
   playtime: string;
   /** Complexity, 1 (light) to 5 (heavy). */
   complexity: number;
+  /** Slug of the shop that lists this title, e.g. `stockholm`. */
+  shop: string;
 }
 
 /** Stock for one game, as `GET /inventory/:urn` returns it. */
@@ -61,6 +65,26 @@ function baseUrl(): string {
 export const CORRELATION_HEADER = 'x-correlation-id';
 
 /**
+ * The header shop-api's `SubjectMiddleware` reads, carrying the subject as JSON.
+ *
+ * Demo-grade on both ends: the back office states who it is and shop-api
+ * believes it, because real authentication is out of scope for this chain. A
+ * request that sends nothing usable runs there as an anonymous customer, so an
+ * omitted header refuses rather than escalates.
+ *
+ * Sending it does not hand shop-api's answer any authority here. This app
+ * fetches the contract and re-decides every loader and every action against it,
+ * and shop-api re-decides the same request on its own copy.
+ */
+export const SUBJECT_HEADER = 'x-shop-subject';
+
+/** The body `GET /policy` answers with: the contract, and its revision. */
+export interface PolicyDocument {
+  version: string | number | undefined;
+  matrix: Matrix;
+}
+
+/**
  * Raised when shop-api cannot be reached or answers with a non-2xx.
  *
  * A distinct class, because a back office whose API is down has to render an
@@ -77,11 +101,22 @@ export class ShopApiUnavailable extends Error {
   }
 }
 
-async function get<T>(path: string, correlationId: string): Promise<T> {
+/**
+ * The one place a request to shop-api is made, and therefore the one place the
+ * correlation id and the subject are written onto it.
+ */
+async function get<T>(
+  path: string,
+  correlationId: string,
+  subject: AdminSubject,
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${baseUrl()}${path}`, {
-      headers: { [CORRELATION_HEADER]: correlationId },
+      headers: {
+        [CORRELATION_HEADER]: correlationId,
+        [SUBJECT_HEADER]: JSON.stringify(subject),
+      },
     });
   } catch (cause) {
     throw new ShopApiUnavailable(
@@ -96,13 +131,35 @@ async function get<T>(path: string, correlationId: string): Promise<T> {
 }
 
 /** The whole catalogue. */
-export function listGames(correlationId: string): Promise<Game[]> {
-  return get<Game[]>('/games', correlationId);
+export function listGames(
+  correlationId: string,
+  subject: AdminSubject,
+): Promise<Game[]> {
+  return get<Game[]>('/games', correlationId, subject);
 }
 
 /** Stock for one game. */
-export function getStock(urn: string, correlationId: string): Promise<Stock> {
-  return get<Stock>(`/inventory/${urn}`, correlationId);
+export function getStock(
+  urn: string,
+  correlationId: string,
+  subject: AdminSubject,
+): Promise<Stock> {
+  return get<Stock>(`/inventory/${urn}`, correlationId, subject);
+}
+
+/**
+ * The access matrix shop-api publishes.
+ *
+ * The document alone. What comes back is adopted with `parseMatrix` and
+ * evaluated here; the answers shop-api would give are never asked for, because
+ * an app that asked would have made a decision into a network call and would be
+ * trusting the layer in front of it.
+ */
+export function getPolicy(
+  correlationId: string,
+  subject: AdminSubject,
+): Promise<PolicyDocument> {
+  return get<PolicyDocument>('/policy', correlationId, subject);
 }
 
 /**
@@ -116,8 +173,9 @@ export function getStock(urn: string, correlationId: string): Promise<Stock> {
 export function getStockFor(
   urns: string[],
   correlationId: string,
+  subject: AdminSubject,
 ): Promise<Stock[]> {
-  return Promise.all(urns.map((urn) => getStock(urn, correlationId)));
+  return Promise.all(urns.map((urn) => getStock(urn, correlationId, subject)));
 }
 
 /**
@@ -125,12 +183,13 @@ export function getStockFor(
  */
 export function listTelemetry(
   correlationId: string,
+  subject: AdminSubject,
   forCorrelationId?: string,
 ): Promise<TelemetryEvent[]> {
   const query = forCorrelationId
     ? `?correlationId=${encodeURIComponent(forCorrelationId)}`
     : '';
-  return get<TelemetryEvent[]>(`/telemetry${query}`, correlationId);
+  return get<TelemetryEvent[]>(`/telemetry${query}`, correlationId, subject);
 }
 
 /**

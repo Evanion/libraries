@@ -38,6 +38,14 @@ export interface ShelfRow {
   availability: Availability;
   /** True when a merchant set the availability rather than stock implying it. */
   declared: boolean;
+  /**
+   * Slug of the shop that lists this title, e.g. `stockholm`.
+   *
+   * The access matrix compares it against the subject's own shop, so a row
+   * carries it for the same reason the catalogue does: an operator declares on a
+   * title their shop lists and is refused on a title another shop lists.
+   */
+  shop: string;
 }
 
 /**
@@ -66,6 +74,7 @@ export function buildShelf(
       quantity,
       availability: availabilityOf(game.urn, quantity, policy),
       declared: policy[game.urn] !== undefined,
+      shop: game.shop,
     };
   });
 }

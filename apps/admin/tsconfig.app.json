@@ -44,6 +44,12 @@
     },
     {
       "path": "../../internal/baize-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/react-acl/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/acl/tsconfig.lib.json"
     }
   ]
 }

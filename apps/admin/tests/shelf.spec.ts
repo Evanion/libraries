@@ -21,6 +21,7 @@ const games: Game[] = [
     players: '1-5',
     playtime: '40-70 min',
     complexity: 2.4,
+    shop: 'stockholm',
   },
   {
     urn: 'urn:game:brass-birmingham',
@@ -29,6 +30,7 @@ const games: Game[] = [
     players: '2-4',
     playtime: '60-120 min',
     complexity: 3.9,
+    shop: 'gothenburg',
   },
 ];
 
