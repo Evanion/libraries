@@ -511,12 +511,21 @@
   list-style: none;
 }
 
+/*
+ * Each teaser takes an equal share of the row, so a group of two fills the
+ * same width as a group of three and the sections line up down the page. The
+ * minimum is what wraps them rather than squeezing them.
+ */
 .landing-teasers > li {
   display: flex;
+  flex: 1;
   min-width: 12rem;
 }
 
+/* Fills the item, so the card's edge is the column's edge and the ribbon,
+   which is drawn on the item, lands on the card rather than beside it. */
 .landing-teaser {
+  flex: 1;
   padding: var(--baize-space-3) var(--baize-space-4);
 }
 

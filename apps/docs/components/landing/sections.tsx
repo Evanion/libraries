@@ -232,7 +232,10 @@ export function Pair({ group: id }: { group: string }) {
         </div>
         <ul className="landing-teasers" aria-label={group.title}>
           {families.map((family) => (
-            <li key={family.id} className={identity(family.lead)}>
+            <li
+              key={family.id}
+              className={`landing-tile ${identity(family.lead)}`}
+            >
               <a
                 className="landing-tile__link landing-teaser"
                 href={href(family.lead)}
@@ -240,8 +243,9 @@ export function Pair({ group: id }: { group: string }) {
                 <Title as="h3" size="md">
                   {family.lead.title}
                 </Title>
-                <FamilyMarker family={family} status="chip" />
+                <FamilyMarker family={family} />
               </a>
+              <Ribbon entry={family.lead} />
             </li>
           ))}
         </ul>
