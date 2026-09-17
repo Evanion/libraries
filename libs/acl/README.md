@@ -658,14 +658,15 @@ fields, in different databases. The canonical key is unchanged:
 character. `.` is the key delimiter and is refused inside `object` and `action`
 at construction, which is what makes `:` safe as the namespace separator.
 
-A gateway or a BFF holds a map of policies rather than a merge. The map key is
-the origin, so routing is a lookup and two documents cannot collide even without
-naming discipline.
+A gateway or a BFF holds one `Access` per origin and merges no document.
+`federatedPolicies` composes them: it refuses at construction when two origins
+claim one permission key, routes each question to the one origin holding that
+key, and settles a single instant for the view.
 
 <!-- #region federation -->
 
 ```ts @import.meta.vitest
-import { parseMatrix } from '@evanion/acl';
+import { federatedPolicies, parseMatrix } from '@evanion/acl';
 import type { Decision, Matrix } from '@evanion/acl';
 
 const ordersMatrix: Matrix = {
@@ -697,27 +698,29 @@ const billingMatrix: Matrix = {
 };
 
 // One Access per origin. Each document belongs to the service that emitted it,
-// so each arrives through `parseMatrix` and fails closed.
-const policies = new Map([
-  ['orders', parseMatrix(ordersMatrix)],
-  ['billing', parseMatrix(billingMatrix)],
-]);
+// so each arrives through `parseMatrix` and fails closed. Two origins claiming
+// one key throw `OriginCollisionError` on this line, naming both.
+const fleet = federatedPolicies({
+  orders: parseMatrix(ordersMatrix),
+  billing: parseMatrix(billingMatrix),
+});
 
 const subject = { id: 'u1', roles: ['finance'] };
 
-// One advisory view for a UI. The namespaces are disjoint, so the fold is safe.
-const view: Record<string, Decision> = Object.assign(
-  {},
-  ...[...policies.values()].map((access) => access.capabilities(subject)),
-);
+// One advisory view for a UI, over one instant every origin reads.
+const view: Record<string, Decision> = fleet.capabilities(subject);
 
 Object.keys(view).sort(); // -> ['billing:invoice.read', 'orders:invoice.read']
 view['billing:invoice.read']?.allowed; // -> true
 view['orders:invoice.read']?.allowed; // -> false
 
-// An origin nobody registered answers nothing, with no flag to set.
-const absent = policies.get('orders')?.can(subject, 'shipping:parcel', 'read');
-absent?.reason; // -> 'unknown-action'
+// The origin holding the key answers it. A key nobody holds reaches no origin.
+fleet.can(subject, 'billing:invoice', 'read').allowed; // -> true
+fleet.can(subject, 'shipping:parcel', 'read').reason; // -> 'unknown-action'
+
+// The member itself, with `canMany`, `canFields`, `readsObject` and `authorize`
+// on it, plus the document that origin published.
+fleet.get('orders')?.matrix.permissions.length; // -> 1
 ```
 
 <!-- #endregion federation -->
@@ -726,8 +729,8 @@ That view is advisory, in the same tier as a browser's. Every service behind the
 edge evaluates its own matrix for itself and never trusts the edge's answer.
 
 An unreachable upstream needs no special handling. Its origin is absent from the
-map, and `parseMatrix` fails closed, so every key it would have answered is
-already `{ allowed: false, reason: 'unknown-action' }`.
+record, so every key it would have answered is already
+`{ allowed: false, reason: 'unknown-action' }`.
 
 One permission never gates another, inside one origin or across two. When a
 request touches two services, the fan-out is the caller's own `&&` —

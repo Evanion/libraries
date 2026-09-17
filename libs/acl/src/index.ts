@@ -26,6 +26,8 @@ export type {
 export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
+export { federatedPolicies } from './federated-policies.js';
+export type { FederatedAccess } from './federated-policies.js';
 export { policy } from './authoring.js';
 export type {
   Actions,
@@ -53,6 +55,7 @@ export {
   InvalidSchemaError,
   KeyMismatchError,
   MissingVetoSchemaError,
+  OriginCollisionError,
   TargetsTransitionsConflictError,
   UnknownFieldError,
   UnknownObjectKeyError,

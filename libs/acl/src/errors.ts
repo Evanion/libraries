@@ -24,6 +24,28 @@ export class DuplicatePermissionError extends AclConfigError {
   }
 }
 
+/**
+ * Two origins of a federated set claiming one permission key.
+ *
+ * A federated set routes a question by its canonical key, so one key held by
+ * two members has two answers and the set would have to pick one of them. Each
+ * document is valid on its own and the two sit in two repositories, so the key
+ * alone leaves an operator short of the fact that decides which one to fix.
+ * Both origin names are carried for that reason.
+ */
+export class OriginCollisionError extends AclConfigError {
+  readonly key: string;
+  readonly origins: readonly [string, string];
+  constructor(key: string, first: string, second: string) {
+    super(
+      `permission key "${key}" is claimed by two origins, "${first}" and "${second}": each origin's keys must be disjoint for one view to hold both`,
+    );
+    this.name = 'OriginCollisionError';
+    this.key = key;
+    this.origins = [first, second];
+  }
+}
+
 /** A `!` entry in `fields()` has no `*` baseline. */
 export class DenyWithoutBaselineError extends AclConfigError {
   constructor(field: string) {
