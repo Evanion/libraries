@@ -22,8 +22,8 @@
 can edit yours. You cannot edit Jo's.
 
 Everyone knows that rule. The interesting part is that no role can express it.
-You and Jo are both customers, with exactly the same permissions, and the thing
-that separates you is not who you are but which review is on the screen.
+You and Jo are both customers, with exactly the same permissions. What tells you
+apart is which review is yours.
 
 So the rule has to read the review. That is the whole of this tier.
 
@@ -127,7 +127,7 @@ chain that failed on its own account. In a chain of three those are two
 different permissions, which is why you get both.
 
 All five are output only. Read them to build an error message, log them, show
-them in a tooltip. Never branch on them. Gate on `allowed` and nothing else — a
+them in a tooltip. Never branch on them. Gate on `allowed` and nothing else. A
 handler that checks `reason !== 'denied'` grants everything the engine refused.
 
 ## Which parts of the row acl will let you write
@@ -148,7 +148,7 @@ was.
 The map covers every key on the review and every name your rules mention. On a
 write it also covers every key of whatever the caller sent you, including one the
 review has never had. That last case is the one people forget, and it is why the
-map is computed for each call rather than read off the matrix.
+map is computed for each call, not read off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
 
