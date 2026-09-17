@@ -11,9 +11,10 @@ into `assertRulesFit` so the overlay's conditions run through the same checker,
 § 4); `libs/acl/src/validate.ts` (`assertRules`, exported for the same reason);
 `libs/acl/src/types.ts` (`Rule` being `{ id?, when? }` is what makes the design
 sound — § 1); `docs/specs/2026-09-16-published-policy-contracts.md`, which is on
-`spec/published-policy-contracts` and not on `feat/acl`: its § 12 names this
-function and fixes the pipeline order, and its decision 11 depends on this
-document existing. § 7 is that cross-reference from this side.
+`spec/published-policy-contracts` and not on `feat/acl`: its § 10 names this
+function and fixes the pipeline order, its § 11 decides that a vetoable key is
+published, and both depend on this document existing. § 7 is that cross-reference
+from this side.
 Prior art: Apollo Federation's composition step (`rover supergraph compose`) —
 several teams contribute to one schema, and a composition run tells a contributor
 whether its contribution is admissible before anything deploys. § 6 says what
@@ -302,29 +303,33 @@ layer decides for itself, and a gateway holds a map rather than a merge.
 
 ## 7. Where this sits in the publishing pipeline
 
-`docs/specs/2026-09-16-published-policy-contracts.md` § 12 fixes the order:
+`docs/specs/2026-09-16-published-policy-contracts.md` § 10 fixes the order:
 
 ```
-authored matrix -> applyDenyOverlay -> serialize(reduced) -> contract
+authored matrix -> applyDenyOverlay -> hydratePolicy -> serialize(reduced) -> contract
 ```
 
 Serializing before applying publishes a contract with the vetoes omitted. A veto
-is a deny rule, so omitting one is removing a refusal, which is § 6 of that
+is a deny rule, so omitting one is removing a refusal, which is § 7 of that
 document's unsound direction — the published contract would allow what the owner
 refuses, for exactly the permissions compliance cared most about. Consumers would
 render the button, press it, and get a refusal from the owner, which is the
 divergence both documents exist to remove.
 
-That document carries the ordering in its types: `serialize` takes an `Access`,
-and the only `Access` in a publishing path is the one built from the overlaid
-matrix. Nothing in this document is needed to enforce it. What this document
-owes the other one is that `applyDenyOverlay` returns a `Matrix` and not
-something else, so `createPolicy` can be the next step.
+The types hold one half of that order and no more. `serialize` reads
+`access.matrix`, so a contract equals the frozen document its `Access` evaluates,
+and the owner enforces on that same `Access`. `hydratePolicy(authoredMatrix)` is
+one call, so nothing stands between an authored matrix and an `Access` that
+skipped this function. § 10 of that document carries the rest, as a release gate
+over the composed `version` this function deliberately does not invent.
+
+What this document owes the other one is that `applyDenyOverlay` returns a
+`Matrix` and no other shape, so `hydratePolicy` can be the next step.
 
 That specification is on the `spec/published-policy-contracts` branch and not on
-`feat/acl`, so nothing in it is built yet. This document does not depend on it
-being built — the overlay is useful to a service that publishes no contract at
-all — and the only thing that lands with it is `serialize`.
+`feat/acl`. This document does not depend on it being built — the overlay is
+useful to a service that publishes no contract at all — and what lands with it is
+`serialize`, `Permission.visibility` and the freshness budget.
 
 ### Version
 

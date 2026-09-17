@@ -1,0 +1,313 @@
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-async-generators@7.8.4
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-async-generators@7.8.4
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-async-generators
+npm warn   @babel/plugin-syntax-async-generators@"^7.8.4" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-async-generators@7.8.4
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-async-generators
+npm warn     @babel/plugin-syntax-async-generators@"^7.8.4" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-bigint@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-bigint@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-bigint
+npm warn   @babel/plugin-syntax-bigint@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-bigint@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-bigint
+npm warn     @babel/plugin-syntax-bigint@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-class-properties@7.12.13
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-class-properties@7.12.13
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-class-properties
+npm warn   @babel/plugin-syntax-class-properties@"^7.12.13" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-class-properties@7.12.13
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-class-properties
+npm warn     @babel/plugin-syntax-class-properties@"^7.12.13" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-class-static-block@7.14.5
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-class-static-block@7.14.5
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-class-static-block
+npm warn   @babel/plugin-syntax-class-static-block@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-class-static-block@7.14.5
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-class-static-block
+npm warn     @babel/plugin-syntax-class-static-block@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-import-attributes@7.29.7
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-import-attributes@7.29.7
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-import-attributes
+npm warn   @babel/plugin-syntax-import-attributes@"^7.24.7" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-import-attributes@7.29.7
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-import-attributes
+npm warn     @babel/plugin-syntax-import-attributes@"^7.24.7" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-import-meta@7.10.4
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-import-meta@7.10.4
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-import-meta
+npm warn   @babel/plugin-syntax-import-meta@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-import-meta@7.10.4
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-import-meta
+npm warn     @babel/plugin-syntax-import-meta@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-json-strings@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-json-strings@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-json-strings
+npm warn   @babel/plugin-syntax-json-strings@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-json-strings@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-json-strings
+npm warn     @babel/plugin-syntax-json-strings@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-logical-assignment-operators@7.10.4
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-logical-assignment-operators@7.10.4
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-logical-assignment-operators
+npm warn   @babel/plugin-syntax-logical-assignment-operators@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-logical-assignment-operators@7.10.4
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-logical-assignment-operators
+npm warn     @babel/plugin-syntax-logical-assignment-operators@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-nullish-coalescing-operator@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-nullish-coalescing-operator@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-nullish-coalescing-operator
+npm warn   @babel/plugin-syntax-nullish-coalescing-operator@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-nullish-coalescing-operator@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-nullish-coalescing-operator
+npm warn     @babel/plugin-syntax-nullish-coalescing-operator@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-numeric-separator@7.10.4
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-numeric-separator@7.10.4
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-numeric-separator
+npm warn   @babel/plugin-syntax-numeric-separator@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-numeric-separator@7.10.4
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-numeric-separator
+npm warn     @babel/plugin-syntax-numeric-separator@"^7.10.4" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-object-rest-spread@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-object-rest-spread@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-object-rest-spread
+npm warn   @babel/plugin-syntax-object-rest-spread@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-object-rest-spread@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-object-rest-spread
+npm warn     @babel/plugin-syntax-object-rest-spread@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-optional-catch-binding@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-optional-catch-binding@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-optional-catch-binding
+npm warn   @babel/plugin-syntax-optional-catch-binding@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-optional-catch-binding@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-optional-catch-binding
+npm warn     @babel/plugin-syntax-optional-catch-binding@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-optional-chaining@7.8.3
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-optional-chaining@7.8.3
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-optional-chaining
+npm warn   @babel/plugin-syntax-optional-chaining@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-optional-chaining@7.8.3
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-optional-chaining
+npm warn     @babel/plugin-syntax-optional-chaining@"^7.8.3" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-private-property-in-object@7.14.5
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-private-property-in-object@7.14.5
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-private-property-in-object
+npm warn   @babel/plugin-syntax-private-property-in-object@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-private-property-in-object@7.14.5
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-private-property-in-object
+npm warn     @babel/plugin-syntax-private-property-in-object@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @babel/plugin-syntax-top-level-await@7.14.5
+npm warn Found: @babel/core@8.0.5
+npm warn node_modules/@babel/core
+npm warn   dev @babel/core@"^8.0.5" from the root project
+npm warn   10 more (@babel/helper-plugin-utils, ...)
+npm warn
+npm warn Could not resolve dependency:
+npm warn peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-top-level-await@7.14.5
+npm warn node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-top-level-await
+npm warn   @babel/plugin-syntax-top-level-await@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn   node_modules/babel-preset-current-node-syntax
+npm warn
+npm warn Conflicting peer dependency: @babel/core@7.29.7
+npm warn node_modules/@babel/core
+npm warn   peer @babel/core@"^7.0.0-0" from @babel/plugin-syntax-top-level-await@7.14.5
+npm warn   node_modules/babel-preset-current-node-syntax/node_modules/@babel/plugin-syntax-top-level-await
+npm warn     @babel/plugin-syntax-top-level-await@"^7.14.5" from babel-preset-current-node-syntax@1.2.0
+npm warn     node_modules/babel-preset-current-node-syntax
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@8.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated whatwg-encoding@2.0.0: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+npm warn deprecated @xmldom/xmldom@0.9.10: this version has critical issues, please update to the latest version
+npm warn deprecated uuid@8.3.2: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated eslint@9.39.5: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+npm warn deprecated mathjax-full@3.2.2: Version 4 replaces this package with the scoped package @mathjax/src
+
+> @evanion/open-source@0.0.0 prepare
+> husky
+
+
+added 2714 packages, and audited 2735 packages in 23s
+
+619 packages are looking for funding
+  run `npm fund` for details
+
+35 vulnerabilities (10 moderate, 25 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
