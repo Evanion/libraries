@@ -3,12 +3,26 @@
 `Widgets.astro` skips an unknown widget type with a dev-only warning, so a bad
 CMS save can never break a render. Catch them loudly at build time instead.
 
+`validateItems` takes the sections, the widget types the registry holds, and a
+map of the props each type cannot render without. It returns one problem per
+fault, in order, and throws nothing:
+
+```ts file=libs/astro-widget/README.md region=validate
+
+```
+
+The answer wall is not a type this registry holds, so the section would have
+rendered as a gap on the listing page. Run the same call over the payload before
+the build touches it:
+
 ```js
 import { validateItems } from '@evanion/astro-widget';
 import { registry } from './src/registry';
 import page from './src/data/page.json';
 
-const problems = validateItems(page.sections, registry, { hero: ['heading'] });
+const problems = validateItems(page.sections, registry, {
+  'listing-header': ['title'],
+});
 
 if (problems.length) {
   for (const problem of problems) {
@@ -55,8 +69,8 @@ everything.
 
 ```ts
 validateItems(sections, registry, {
-  hero: ['heading'],
-  cards: ['heading', 'items'],
+  'listing-header': ['title'],
+  'game-grid': ['title', 'games'],
 });
 ```
 
@@ -65,20 +79,8 @@ non-blank on `item.props`. Blank means `undefined`, `null`, or a string that is 
 — a CMS text field that was opened and left empty arrives as the last of those,
 and is exactly the case a plain presence check misses.
 
-```ts
-validateItems(
-  [{ id: 'a', type: 'hero', props: {} }],
-  { hero: Hero },
-  { hero: ['heading'] },
-);
-// [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
+```ts file=libs/astro-widget/README.md region=required-fields
 
-validateItems(
-  [{ id: 'a', type: 'hero', props: { heading: '   ' } }],
-  { hero: Hero },
-  { hero: ['heading'] },
-);
-// [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
 ```
 
 Required props are only checked for a widget whose type is in the registry. An
@@ -91,19 +93,8 @@ The validator recurses into `children`, and `index` is the position within the
 item's own sibling list. A problem in a top-level section and a problem in one
 of its `children` can both report `index: 0`, meaning different things.
 
-```ts
-validateItems(
-  [
-    {
-      id: 'a',
-      type: 'cards',
-      props: {},
-      children: [{ id: 'b', type: 'nope', props: {} }],
-    },
-  ],
-  { cards: Cards },
-);
-// [{ index: 0, id: 'b', type: 'nope', message: 'unknown widget type' }]
+```ts file=libs/astro-widget/README.md region=nested-index
+
 ```
 
 `id` is what tells the two apart. The problem list is flat.
@@ -131,7 +122,9 @@ Node process can hand it a bare list of names — `validateItems` lives in
 `@evanion/widget` and imports no framework at all:
 
 ```js
-validateItems(page.sections, ['hero', 'cards'], { hero: ['heading'] });
+validateItems(page.sections, ['listing-header', 'game-grid'], {
+  'listing-header': ['title'],
+});
 ```
 
 The real registry is the better argument where it is already imported, since the
