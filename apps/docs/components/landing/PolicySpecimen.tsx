@@ -7,11 +7,11 @@ import { PolicyProvider, useCan } from '@evanion/react-acl';
 
 import { buildAccess, openingGrants, roles, type Role } from './access';
 import {
-  controls,
+  treeControls,
   listings,
   now,
   subjects,
-  type Control,
+  type TreeControl,
   type Status,
 } from './policy-tree';
 
@@ -85,7 +85,7 @@ function Node({ name, call, answer, children }: NodeProps) {
 }
 
 interface ControlNodeProps {
-  control: Control;
+  control: TreeControl;
   listing: Record<string, unknown>;
 }
 
@@ -174,7 +174,7 @@ export default function PolicySpecimen() {
             <Node name="ShopPage">
               <Node name="ListingView">
                 <Node name="ActionBar">
-                  {controls.map((control) => (
+                  {treeControls.map((control) => (
                     <ControlNode
                       key={control.action}
                       control={control}
@@ -191,7 +191,7 @@ export default function PolicySpecimen() {
       <div className="landing-policy__aside">
         <p className="landing-demo__label">what the controls draw</p>
         <ul className="landing-policy__bar">
-          {controls.map((control) => (
+          {treeControls.map((control) => (
             <li key={control.action}>{control.label}</li>
           ))}
         </ul>

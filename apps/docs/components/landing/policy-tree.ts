@@ -51,7 +51,7 @@ export type Status = keyof typeof listings;
 export const now = '2026-09-17T09:00:00.000Z';
 
 /** One control on the bar, and the action that decides whether it is drawn. */
-export interface Control {
+export interface TreeControl {
   action: string;
   label: string;
   /** The component that asks, as the tree names it. */
@@ -59,7 +59,7 @@ export interface Control {
 }
 
 /** The three controls, in the order they sit in the tree. */
-export const controls: readonly Control[] = [
+export const treeControls: readonly TreeControl[] = [
   { action: 'review', label: 'Review', component: 'ReviewControl' },
   { action: 'edit', label: 'Edit', component: 'EditControl' },
   { action: 'publish', label: 'Publish', component: 'PublishControl' },
