@@ -5,6 +5,10 @@ import { ComposeProvider, provider } from './index.js';
 // Imported from the module rather than the barrel: it is internal, not public API.
 import { __resetWarningsForTests } from './Compose.js';
 import type { ComposeProviderProps, ProviderArray } from './index.js';
+// The documentation's own listings, rendered here so a page cannot claim a tree
+// the components do not build.
+import { Shop } from '../examples/shop.js';
+import { Counter } from '../examples/entries.js';
 
 /**
  * `ComposeProvider` is generic and overloaded, so props built dynamically (a
@@ -538,5 +542,43 @@ describe('ComposeProvider', () => {
       children: null,
     };
     expect(withProviders.providers).toHaveLength(1);
+  });
+});
+
+/**
+ * The listings the documentation renders, run.
+ *
+ * `apps/docs/content/compose/` cites `examples/` by region, so a page shows
+ * whatever these files say. Rendering them here is what makes a page's claim
+ * about the tree a claim something can fail on: the pages state the nesting as
+ * markup, and the markup is asserted below.
+ */
+describe('the documented examples', () => {
+  it('nests the shop stack in the order the array is written', () => {
+    const { container } = render(
+      <Shop>
+        <p>Brass: Birmingham</p>
+      </Shop>,
+    );
+
+    expect(container.innerHTML).toBe(
+      '<div id="cart"><div id="dark"><div id="currency">' +
+        '<p>Brass: Birmingham</p>' +
+        '</div></div></div>',
+    );
+  });
+
+  it('gives the three entry forms one tree', () => {
+    const { container } = render(
+      <Counter>
+        <p>3 in the basket</p>
+      </Counter>,
+    );
+
+    expect(container.innerHTML).toBe(
+      '<div id="currency"><div id="dark"><div id="light">' +
+        '<p>3 in the basket</p>' +
+        '</div></div></div>',
+    );
   });
 });
