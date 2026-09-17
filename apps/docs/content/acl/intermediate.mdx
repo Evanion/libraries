@@ -7,6 +7,17 @@
   </Text>
 </WorkshopNotice>
 
+<PageSheet
+  difficulty={2}
+  read={9}
+  hands={20}
+  requires={[['Simple setup', '/acl/simple']]}
+  unlocks={[
+    ['Advanced setup', '/acl/advanced'],
+    ['Which fields may they write?', '/acl/writing'],
+  ]}
+/>
+
 **The concept.** A permission that depends on the row. Not "a bookseller may
 edit" but "the bookseller who listed it may edit it" — one condition reads the
 thing being acted on, and everything here follows from that single change.

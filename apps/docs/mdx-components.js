@@ -8,6 +8,7 @@ import Probe from './components/Probe';
 import Diagram from './components/diagram/Diagram';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
+import PageSheet from './components/PageSheet';
 import WorkshopNotice from './components/WorkshopNotice';
 import './components/landing/landing.css';
 import {
@@ -78,6 +79,7 @@ export function useMDXComponents(components) {
     // ```mermaid fence into one, and the name has to be on this map for the
     // rewritten element to resolve to anything.
     Diagram,
+    PageSheet,
     WorkshopNotice,
     WidgetPlayground,
     PlaygroundExamples,

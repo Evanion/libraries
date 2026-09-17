@@ -427,3 +427,148 @@ html:not(.dark) [class*='baize-platform-'] {
 pre:has(.twoslash-query-presisted) {
   padding-bottom: 6rem;
 }
+
+/*
+ * The page's scorecard: which tier, how long, what it assumes, what it opens.
+ *
+ * Laid on the felt as a card is, with the package's hue on the filled pips and
+ * nothing else coloured. The frame is the game's; every field on it is one a
+ * reader would have asked for, because material carried for tone costs
+ * comprehension rather than adding to it.
+ */
+.page-sheet {
+  background: var(--baize-felt);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-md, 6px);
+  display: grid;
+  gap: var(--baize-space-2);
+  margin-block: var(--baize-space-5);
+  padding: var(--baize-space-4);
+}
+
+/*
+ * Wide enough for the brief to read beside it rather than under it.
+ *
+ * The card answers questions a reader has before they start, so it wants to be
+ * in view while they read the opening rather than scrolled past. Floated, the
+ * first paragraphs wrap around it and both are on screen at once. Below this
+ * width there is no room for two columns and it goes back to a block, which is
+ * also what a reader on a phone gets.
+ */
+@media (min-width: 60rem) {
+  .page-sheet {
+    float: right;
+    margin-block-start: 0;
+    margin-inline-start: var(--baize-space-5);
+    max-width: 22rem;
+  }
+
+  /* One grid for every row, so the four readings line up down the card. */
+  .page-sheet__stat,
+  .page-sheet__row {
+    align-items: baseline;
+    display: grid;
+    gap: var(--baize-space-2);
+    grid-template-columns: 5rem 1fr;
+  }
+
+  .page-sheet__stat-label {
+    flex: none;
+  }
+
+  .page-sheet__stat .page-sheet__bar {
+    grid-column: 2;
+  }
+
+  /* A grid item will not shrink below its content without this, so a long
+     value pushes its column wide instead of wrapping inside it. */
+  .page-sheet__row > * {
+    min-width: 0;
+  }
+}
+
+.page-sheet__stat,
+.page-sheet__row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+  margin: 0;
+}
+
+.page-sheet__stat-label {
+  color: var(--baize-lichen);
+  flex: 0 0 5.5rem;
+  font-size: var(--baize-text-sm);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.page-sheet__stat-reading {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+/* Pips rather than a continuous track: both stats are counted, not measured. */
+.page-sheet__bar {
+  display: inline-flex;
+  gap: var(--baize-space-1);
+}
+
+.page-sheet__pip {
+  background: var(--baize-rule);
+  border-radius: 1px;
+  display: block;
+  height: 0.5rem;
+  width: 1.25rem;
+}
+
+/*
+ * The rarity ladder: common, uncommon, rare, epic, legendary.
+ *
+ * Difficulty is the only place on the site that reaches outside the package
+ * hues, and it does so because the ladder is a language a reader already has --
+ * the colour says the same thing the fill count says, which is what lets the
+ * card drop the word. The five are held away from the informational reds and
+ * greens the theme uses for callouts, and each is set per theme rather than
+ * mixed, because a loot colour that drifts is not the colour any more.
+ */
+.page-sheet__bar {
+  --rung: var(--baize-lichen);
+}
+
+.page-sheet__bar[data-rung='2'] {
+  --rung: #3f9a5c;
+}
+
+.page-sheet__bar[data-rung='3'] {
+  --rung: #3d7fc4;
+}
+
+.page-sheet__bar[data-rung='4'] {
+  --rung: #8a5cc4;
+}
+
+.page-sheet__bar[data-rung='5'] {
+  --rung: #c2802f;
+}
+
+html.dark .page-sheet__bar[data-rung='2'] {
+  --rung: #5cc47f;
+}
+
+html.dark .page-sheet__bar[data-rung='3'] {
+  --rung: #5fa3e0;
+}
+
+html.dark .page-sheet__bar[data-rung='4'] {
+  --rung: #ac86dd;
+}
+
+html.dark .page-sheet__bar[data-rung='5'] {
+  --rung: #e0a54a;
+}
+
+.page-sheet__pip--filled {
+  background: var(--rung);
+}
