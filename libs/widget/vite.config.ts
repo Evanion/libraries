@@ -1,9 +1,12 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/widget',
+  ...docExamples(),
   test: {
     name: '@evanion/widget',
     watch: false,
@@ -12,6 +15,10 @@ export default defineConfig(() => ({
     // claim is that it runs wherever TypeScript does.
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
+    // The README's marked blocks, and the `@example` blocks in `src/`. The
+    // pages under `apps/docs/content/widget/` render these regions, so a page
+    // shows code this run executed rather than a copy of it.
+    includeSource: docExampleSources(),
     // Without an explicit tsconfig, vitest falls back to the solution-style
     // tsconfig.json (files: [], include: []), so it typechecks nothing and
     // every expectTypeOf assertion silently passes.
