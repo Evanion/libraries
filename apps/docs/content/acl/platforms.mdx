@@ -2,7 +2,7 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    The four guides in this band are wiring, not API. Every call they make is on
+    The five guides in this band are wiring, not API. Every call they make is on
     the [API reference](/acl/api); what changes per platform is where the
     authoritative call sits and what leaves the trusted runtime.
   </Text>
@@ -31,17 +31,24 @@ that differs per platform.
 | ----------------------------------- | ------------------------------------------------------- | ----------------------------------------------- |
 | [Express](/acl/express)             | the request handler                                     | nothing crosses; the whole app is trusted       |
 | [NestJS](/acl/nestjs)               | the guard, then the service after the read              | the guard alone — it runs before the row exists |
+| Astro SSR                           | the page's frontmatter, once per request                | the rendered markup, and the form posting back  |
 | [Next.js RSC](/acl/next-rsc)        | the server component, and each Server Action separately | the client component, and the action's caller   |
 | [React Router 8](/acl/react-router) | the loader, and each action separately                  | the component tree, and `clientLoader`          |
 
-The two server-only platforms have one boundary and it is the request handler.
-The two React platforms have two: the render path and the write path, reached
-independently by a caller who never renders anything. A guide that made those
-read the same would be describing the wrong thing.
+The two server-only platforms have one boundary, the request handler. The two
+React platforms have two: the render path and the write path, reached
+independently by a caller who never renders anything.
 
-[Many services](/acl/federation) closes this band on the one axis the four
-guides do not cover: a topology rather than a framework. Each service there
-authors and evaluates only the objects it owns, whichever platform it runs on.
+Astro is the fifth shape. An `.astro` page's frontmatter is the loader and the
+action in one module, so `apps/storefront`'s `cart.astro` reaches one
+`order.create` decision at the top and both gates read it: the `POST` branch
+answers 403, and the checkout button below draws from the same verdict. A script
+that never loaded the page still reaches that URL, and the frontmatter meets
+it.
+
+[Many services](/acl/federation) closes this band on a topology, the one axis
+the guides do not cover. Each service there authors and evaluates only the
+objects it owns, whichever platform it runs on.
 
 ## What crosses, on the platforms where something does
 
@@ -56,81 +63,111 @@ document, and the client rebuilds:
 
 The matrix is an envelope carrying its own `version` and `schema`, so nothing
 travels beside it. A payload of `{ matrix, version, subject }` states the
-version twice; `access.matrix` already carries the effective one, including a
-version supplied as `hydratePolicy(doc, { version })` rather than authored into
-the document.
+version twice; `access.matrix` carries the effective one.
 
-The subject still has to cross, because the client needs it to evaluate, and it
-is the same bag the server decided against. It is not a credential and it is not
-read back: the server resolves the subject from its own session on the next
-request and never reads the client's copy.
+The subject crosses too, because the client needs it to evaluate, and it is the
+same bag the server decided against. It is no credential: the server resolves
+the subject from its own session on the next request and never reads the
+client's copy.
+
+### Which function rebuilds depends on where the document came from
+
+The round trip above rebuilds with `hydratePolicy`, and that is right for a
+document the same process authored and sent to its own client. Reach for
+`parseMatrix` the moment the document came from somewhere else. It is
+`hydratePolicy` in closed mode: a key the document does not carry answers
+`denied`, where `hydratePolicy` throws `UnknownPermissionError`.
+
+When the owner removes a permission, `parseMatrix` refuses the action and keeps
+serving, and `hydratePolicy` throws on a page nobody's permission was ever
+about. The three frontends here fetch `apps/shop-api`'s matrix and adopt it
+closed.
+
+### Narrow a subject before you forward it
+
+A layer that resolves a subject and passes it to the next service decides what
+that service is willing to believe. `apps/storefront` reads an unsigned cookie
+and sends `X-Shop-Subject` to `apps/shop-api`, so it screens the roles it will
+forward down to the one a shopper can hold:
+
+```ts file=apps/storefront/src/lib/subject.ts region=storefront-roles
+
+```
+
+A cookie claiming `manager` reaches the API as nothing. That hop is the last
+place that knows which roles this surface may assert.
 
 ## Building the matrix once
 
 A matrix is validated, deep-cloned and deep-frozen at construction, and every
-decision after that is a local function call over the frozen copy. The cost is
-the construction, not the query, so build it once per process and hold it at
-module scope. `Subject` and `Order` below are the app's own types, and
-`MATRIX_VERSION` is a string the build stamps in — the document revision a
-client compares its copy against:
+decision after that is a local function call over the frozen copy. Build it once
+per process and hold it at module scope. `apps/shop-api` does that at boot, over
+the document `SHOP_MATRIX` and the row map `ShopObjects` its builder produced:
 
-```ts
-// access.ts — imported by the server runtime, never by a browser bundle.
-import { policy } from '@evanion/acl';
+```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
 
-import type { Order, Subject } from './types.js';
-
-/** Stamped at build time; `access.version` is what a client compares. */
-const MATRIX_VERSION = process.env.MATRIX_VERSION;
-
-export const access = policy<Subject>({ version: MATRIX_VERSION })
-  .for<'order', Order>('order', (p) =>
-    p.allow('read', p.eq('object.buyerId', 'subject.id')),
-  )
-  .build();
 ```
 
-Inside `apps/shop-api` in this repository the equivalent shape is
-`GAMES_CATALOGUE` — a frozen module constant with a read-only `@Injectable()`
-accessor over it. A matrix fits the same slot for the same reason: it is static,
-serializable data that no request mutates.
+## Holding a document you fetched
 
-Rebuilding per request costs the clone and the freeze on every call and buys
-nothing, because the document does not change between them. When it does change
-— a matrix fetched from a policy service rather than authored in the app —
-rebuild on the fetch, not on the request, and let `access.version` be what
-tells a client its copy is stale.
+A consumer has no boot-time document, so it holds what it last fetched and
+decides how long for. `HeldPolicy` pairs a parsed document with its revision and
+`ShopApi` is the typed client; `apps/storefront` states the window as a constant
+and asks only when it has closed:
+
+```ts file=apps/storefront/src/lib/policy.ts region=policy-cache
+
+```
+
+`POLICY_REVALIDATE_MS` is the ceiling on how long a rule change takes to reach
+this app's gates. One minute is safe because shop-api re-decides every request on
+its own copy, so a storefront a minute behind hides a control it should show or
+shows one that is then refused. The in-flight promise keeps renders piling up
+on an expired window to one fetch.
+
+```ts file=apps/storefront/src/lib/policy.ts region=policy-refresh
+
+```
+
+A version that matches re-uses the adopted object, so the validate, clone and
+freeze are skipped on a poll that changed nothing. A failed response leaves the
+held document in place and the window open, so the next request asks again:
+refusing every shopper while the policy service is down would be a second
+outage. A document that fails validation replaces nothing.
+
+No `fetchedAt` reaches `parseMatrix` here, deliberately: supplying it obliges the
+document to state `maxStale`, and shop-api's does not, so the call would throw
+`MissingFreshnessBudgetError` at adoption. Where an owner does state a budget,
+`fetchedAt` makes every decision past
+`fetchedAt + min(maxStale, options.maxStale)` answer `stale-contract`.
 
 ## Resolving the subject
 
-`can(subject, …)` authorizes the bag it is handed and has no channel to ask
-where the bag came from. Each guide resolves it from that platform's own
-verified session primitive, server-side, before the first decision. A subject
-assembled from a header, a query parameter or a posted field is the confused
-deputy, and no evaluator can detect it.
+`can(subject, …)` authorizes the bag it is handed and cannot ask where the bag
+came from. Each guide resolves it from that platform's own verified session
+primitive, server-side, before the first decision. A subject assembled from a
+header, a query parameter or a posted field is the confused deputy, and no
+evaluator detects it.
 
 ## Deciding twice is the design
 
 A reader who sees the same `can` run on the server and again in the browser will
-want to delete one of them. Keep both. The browser copy answers "what should
-this page look like", and the person it answers for is looking at the page. The
-server copy answers "may this happen", and it answers for a script posting to
-the same URL with curl, which never loaded the page and never ran the browser
-copy. The two calls have the same signature and the same return type, and
-nothing in the types tells them apart.
+want to delete one. Keep both. The browser copy answers "what should this page
+look like", for a person looking at it. The server copy answers "may this
+happen", for a script posting to the same URL with curl.
 
 ## The write path
 
-Three of the four platforms have a write, and all three write what
-`pickAllowedFields` returns rather than filtering a field map by hand:
+An action-level permission carries no field rules, so the whole write stands or
+falls on one `can` call, which is `apps/storefront`'s checkout. A permission
+carrying field rules needs the second call, and the value to write is what
+`pickAllowedFields` returns:
 
 ```ts file=libs/acl/README.md region=write-path
 
 ```
 
-Reading the map yourself on `!== 'denied'` writes the `unevaluable` fields too,
-and writes every key the decision does not carry at all. `pickAllowedFields`
-keeps only what the decision marked `allowed`, and throws
-`ActionNotAllowedError` when the action itself is refused — no field of a
-refused action is writable, and an empty object would read as a lawful write of
-nothing. [Field permissions](/acl/fields#writing) has the rest.
+Check `decision.action.allowed` first. `pickAllowedFields` throws
+`ActionNotAllowedError` on a refused action, so the check keeps the refusal off
+the exception path, and what it returns is only the keys the decision marked
+`allowed`. [Field permissions](/acl/fields#writing) has the rest.

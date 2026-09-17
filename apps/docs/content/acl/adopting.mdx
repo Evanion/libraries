@@ -1,6 +1,37 @@
-# My policy came from another service
+# A policy from another service
 
 <WorkshopNotice slug="acl" />
+
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={20}
+  requires={[['Rules that outlive the process', '/acl/advanced']]}
+  unlocks={[
+    ['Many services', '/acl/federation'],
+    ['The matrix document', '/acl/matrix'],
+  ]}
+/>
+
+**The concept.** Baize's orders service owns the rules about refunds. The
+storefront has to grey out the refund button, and it has no copy of those rules
+and no business writing one. So orders publishes its matrix as JSON and the
+storefront adopts the document it is handed.
+
+**What you will have.** An evaluator over a document this process did not write,
+which answers for the keys the document carries and refuses every key it does
+not.
+
+**Why you would want it.** Write the rules a second time in the storefront and
+they are right until orders changes one. Orders keeps refusing correctly, so no
+alarm fires, and the refund button stays hidden against a server that would have
+allowed the call.
+
+**How the library gets you there.** `parseMatrix` builds an evaluator from JSON
+and validates the document on the way in. It runs closed, so a key the document
+does not carry answers `unknown-action` and the page stays up. A `schema` in the
+document checks the paths the rules name, which is the guarantee a local
+`Question` type gives you and a foreign document otherwise cannot.
 
 A backend with its own ACL publishes its matrix as JSON; a frontend or a peer
 service adopts it. `parseMatrix` is the entry point for a document this process
@@ -10,32 +41,39 @@ did not write.
 
 ```
 
-## The closed mode is the whole difference
+The `permissions` array there holds one entry, so one key answers. A real
+document holds every key the producer publishes across every object kind it
+owns, and that whole list arrives in one document and builds one evaluator.
+
+## Closed mode is the whole difference
 
 `parseMatrix(json, options?)` is `hydratePolicy(json, { closed: true, ...options })`.
 One flag, and it changes what an unknown key means. Which of the two a document
 gets is a question of provenance: `hydratePolicy` for your own document coming
 back, `parseMatrix` for somebody else's arriving.
 
-| Key the document does not carry | Open path (`hydratePolicy`)     | Closed path (`parseMatrix`)                    |
-| ------------------------------- | ------------------------------- | ---------------------------------------------- |
-| unknown object kind             | throws `UnknownObjectKeyError`  | `{ allowed: false, reason: 'unknown-action' }` |
-| unknown action                  | throws `UnknownPermissionError` | the same                                       |
+Ask a key the document does not carry, on the open path, and `hydratePolicy`
+throws: `UnknownObjectKeyError` for an object kind it has never heard of,
+`UnknownPermissionError` for an action it has not got. Ask the same key on the
+closed path and `parseMatrix` answers
+`{ allowed: false, reason: 'unknown-action' }` for both.
 
-The difference is between a bug and a data problem. A key a local typed policy
-does not carry is a programmer error: the key universe is known at compile time,
-and throwing points at the line. A key a foreign document does not carry is a
-document that has moved on — the producer removed a permission, or this consumer
-was written against an older revision — and a throw there takes down a page over
-a permission nobody has.
+The open path treats that key as a bug and the closed path treats it as data,
+and each is right about its own case. A key a local typed policy does not carry
+is a programmer error: the compiler knows the whole key universe, and the throw
+points at the line. A key a foreign document does not carry means the document
+has moved on. The producer removed a permission, or this consumer was written
+against an older revision, and a throw there takes down a page over a permission
+nobody has.
 
-Neither path grants. `unknown-action` is `allowed: false`, so failing closed is
-failing, not shrugging.
+Neither path grants. `unknown-action` is `allowed: false`, so the closed path
+refuses the call it could not decide.
 
-## Construction still validates
+## Adopting a document still validates it
 
-Closed mode softens the _query_, not the document. Everything a local matrix is
-held to, a foreign one is held to, at adoption time:
+Closed mode softens the _query_ and leaves the document under every check.
+Everything a local matrix is held to, a foreign one is held to, at adoption
+time:
 
 | Refused at construction    | When                                                   |
 | -------------------------- | ------------------------------------------------------ |
@@ -47,17 +85,17 @@ held to, a foreign one is held to, at adoption time:
 | `DuplicatePermissionError` | two permissions share a key                            |
 
 `InvalidRuleError` is the one worth understanding. `when` is required and must be
-an array, so a document that lost its conditions in transit — `null`, absent, a
-string — is a construction error rather than a permission that grants
+an array. A document that lost its conditions in transit (`null`, absent, a
+string) fails construction, and it never becomes a permission that grants
 everything. The unconditional grant is spelled as an empty `when`, which is the
 form that survives a JSON round trip.
 
-**Adoption is a boundary, so handle the throw.** `parseMatrix` on a payload from
-the network can fail for reasons this process cannot fix. Catch `AclConfigError`,
-keep the last document that constructed, and alarm — a fresh document that will
-not build is not a reason to serve no policy at all.
+Adoption is a boundary, so handle the throw. `parseMatrix` on a payload from the
+network can fail for reasons this process cannot fix. Catch `AclConfigError`,
+keep the last document that constructed, and alarm. A fresh document that will
+not build still leaves you a policy to serve.
 
-## Check the document against a schema
+## Check a foreign document against a schema
 
 A foreign consumer has no `Question` type to check paths against. The producer's
 `schema` is what carries that guarantee across the wire:
@@ -70,13 +108,16 @@ The document above declares `status` as a string and then tests it with
 `contains`, which tests an array, so `hydratePolicy` refuses it with
 `FieldTypeMismatchError`. A condition naming a field the schema does not declare
 at all is `UnknownFieldError`, raised the same way. Without a schema,
-`object.askedBt` is not an error — it is a path that never reads, so the
+`object.askedBt` raises nothing. It is a path that never reads, so the
 permission decides `unevaluable` forever and a UI refetches forever.
 
-Granularity is per kind. A permission on an object kind absent from
-`schema.objects` is unchecked, so a partial schema checks part of the document.
+`schema.objects` declares one entry per object kind, and that document declares
+`question`. A producer publishing four kinds declares four, in the same schema,
+and `hydratePolicy` checks the rules of each against its own entry. A permission
+on an object kind absent from `schema.objects` is unchecked, so a partial schema
+checks part of the document.
 
-## Know which document you are running
+## Know which document acl is running
 
 ```ts file=libs/acl/README.md region=matrix-round-trip
 
@@ -93,13 +134,14 @@ decides nothing. [Refetch when the version
 moves](/acl/advanced#refetch-when-the-version-moves) is the contract; the
 library supplies the comparison and nothing else.
 
-## What adoption does not give you
+## What adopting a document does not give you
 
 The library does not sign a document or verify one. A matrix arriving over an
 unauthenticated channel is a matrix an attacker wrote, and every construction
-check above is a check on shape rather than on provenance. Integrity belongs to
-the transport, the same way [resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it)
-belongs to the session layer.
+check above reads the shape and says nothing about where the bytes came from.
+Integrity belongs to the transport, the same way [resolving a
+subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it) belongs to the
+session layer.
 
 ## Where to go next
 

@@ -2,47 +2,119 @@
 
 <WorkshopNotice slug="acl" />
 
-Every export of `@evanion/acl`. Node 20 or newer; the package is ESM only, and
-this entry imports no framework.
+Every export of `@evanion/acl`, one heading each. Node 20 or newer, ESM only.
+The React provider and hooks are [`@evanion/react-acl`](/react-acl/api).
 
-## Construction
+## `hydratePolicy`
 
-```ts
-function hydratePolicy<Sub, R>(
-  matrix: Matrix,
-  options?: AccessOptions,
-): Access<Sub, R>;
-function parseMatrix(json: Matrix, options?: AccessOptions): Access;
-function policy<Subject>(options?: PolicyOptions): Policy<Subject, {}>;
+Builds an evaluator over a matrix document.
 
-interface Policy<Sub, R> {
-  for<K extends string, Obj>(key: K, block): Policy<Sub, R & Record<K, Obj>>;
+```ts signature
+function hydratePolicy<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+>(matrix: Matrix, options?: AccessOptions): Access<Sub, R, Keys>;
+```
+
+It copies the document, freezes and validates the copy, and throws on an unknown
+key. All three parameters default to the open forms JSON carries.
+
+## `parseMatrix`
+
+`hydratePolicy` with `closed: true`, for a document another service published.
+
+```ts signature
+function parseMatrix<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+>(matrix: Matrix, options?: AccessOptions): Access<Sub, R, Keys>;
+```
+
+An unknown object kind or action answers `unknown-action` and nothing throws.
+`Keys` is the union the consumer expects, unchecked against the document. See
+[Adopting a foreign matrix](/acl/matrix#adopting-a-foreign-matrix).
+
+## `policy`
+
+The typed builder, one `.for()` per object kind. See
+[Typed authoring](/acl/authoring).
+
+```ts signature
+function policy<
+  Sub,
+  Objects,
+  Vocabs extends Partial<Record<keyof Objects, string>> = Record<never, never>,
+>(
+  options?: PolicyOptions,
+): Policy<Sub, Objects, Vocabs, Record<never, never>, never>;
+```
+
+`Objects` maps each kind to its row type and `Vocabs` maps a kind to the actions
+it answers for; a kind `Vocabs` omits takes `Action`.
+
+## `Policy`
+
+```ts signature
+interface Policy<
+  Sub,
+  Objects,
+  Vocabs extends Partial<Record<keyof Objects, string>>,
+  R,
+  Keys extends string = string,
+> {
+  for<K extends keyof Objects & string, Act extends string = string>(
+    key: K,
+    build: (
+      p: Actions<Sub, Objects[K], never, VocabularyOf<Vocabs, K>>,
+    ) => Actions<Sub, Objects[K], Act, VocabularyOf<Vocabs, K>> | void,
+  ): Policy<
+    Sub,
+    Objects,
+    Vocabs,
+    R & Record<K, Objects[K]>,
+    Keys | PermissionKeys<K, Act>
+  >;
   readonly matrix: Readonly<Matrix>;
-  build(options?: AccessOptions): Access<Sub, R>;
+  build(options?: AccessOptions): Access<Sub, R, Keys>;
 }
+```
 
-interface AccessOptions {
-  version?: string | number; // overrides the document's own
-  closed?: boolean; // fail closed on unknown keys instead of throwing
-  fetchedAt?: Instant; // when this holder last validated the document
-  maxStale?: number; // a shorter local ceiling, in milliseconds
-}
+`for` takes no type arguments, reading the object type out of `Objects`, the
+vocabulary out of `Vocabs` and `Act` off the chain its block returns. `matrix`
+flattens the blocks without building one.
 
+## `PolicyOptions`
+
+```ts signature
 type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 ```
 
-`parseMatrix` is `hydratePolicy` with `closed: true`. `policy()` returns a
-builder whose `.for<K, Obj>(key, block)` accumulates the key-to-type map, and
-`build()` hands that map to the evaluator, so every query on the result is
-checked against it. See [Typed authoring](/acl/authoring).
+Both are document fields, so they land in the flattened JSON.
 
-`Sub` and `R` default to the open bags a JSON document carries, so a call that
-names neither gets exactly the untyped signatures.
+## `AccessOptions`
 
-## Querying
+```ts signature
+interface AccessOptions {
+  version?: string | number;
+  closed?: boolean;
+  fetchedAt?: Instant;
+  maxStale?: number;
+}
+```
 
-```ts
-interface Access<Sub, R> {
+`version` overrides the document's. `closed` fails closed on an unknown key.
+`fetchedAt` is when this holder last validated, and supplying it obliges the
+document to state `maxStale`, which here is a local ceiling `min`-ed with the
+document's.
+
+## `Access`
+
+The evaluator over one frozen document.
+
+```ts signature
+interface Access<Sub = Subject, R = AnyObjects, Keys extends string = string> {
   readonly matrix: Readonly<Matrix>;
   readonly version: string | number | undefined;
   readonly schema: MatrixSchema | undefined;
@@ -50,175 +122,333 @@ interface Access<Sub, R> {
   can(subject, key, action, object?, now?): Decision;
   canMany(subject, key, action, objects, now?): Decision[];
   canFields(subject, key, action, object, axis, proposed?, now?): FieldDecision;
-  capabilities(subject, now?): Record<string, Decision>;
-  authorize(subject, options?: { now?: Instant }): Authorized<R>;
-  object(key): BoundKind<Sub, R[K]>;
+  capabilities(subject, now?): Record<Keys, Decision>;
+  authorize(subject, options?: { now?: Instant }): Authorized<R, Keys>;
+  object(key): BoundKind<Sub, R[K], ActionOf<Keys, K>>;
   readsObject(key, action): boolean;
 }
 ```
 
-| Call           | Answers                                                                |
-| -------------- | ---------------------------------------------------------------------- |
-| `can`          | one decision for one instance                                          |
-| `canMany`      | a decision per instance, one settled clock for the list                |
-| `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision     |
-| `capabilities` | every permission in the matrix, keyed, in document order               |
-| `authorize`    | `can`, `canMany`, `canFields`, `capabilities`, subject and clock bound |
-| `object`       | `can`, `canMany`, `canFields`, `readsObject`, object kind bound        |
-| `readsObject`  | whether the permission needs the object row at all                     |
+`canMany` settles one clock for the whole list. `readsObject` says whether the
+permission needs the row before it can decide.
 
-`authorize(subject)` returns `Authorized<R>`, which carries `can`, `canMany`,
-`canFields` and `capabilities` with the subject dropped from each signature and
-the key map kept. It
-carries no `matrix`, `version` or `schema`: one frozen document is evaluated
-against many subjects, and a caller that needs both holds the `access` it got
-`authorize` from.
+Every object parameter takes a partial: a projection is the
+[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case. An absent
+`subject.*` path is a definite miss instead.
 
-`readsObject` takes no subject for the same reason in reverse — it is a fact
-about the document. See
-[Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
+## `Authorized`
 
-`object(key)` is a handle binding one object kind: `BoundKind` carries `can`,
-`canMany`, `canFields` and `readsObject` with the key dropped.
+What `authorize(subject)` returns.
 
-## Many origins
-
-```ts
-function federatedPolicies(
-  policies: Readonly<Record<string, Access>>,
-): FederatedAccess;
-
-interface FederatedAccess {
-  can(subject, key, action, object?, now?): Decision;
-  capabilities(subject, now?): Record<string, Decision>;
-  get(origin: string): Access | undefined;
+```ts signature
+interface Authorized<R = AnyObjects, Keys extends string = string> {
+  can<K extends keyof R & string>(
+    key: K,
+    action: ActionOf<Keys, K>,
+    object?: Partial<R[K]>,
+  ): Decision;
+  canMany<K extends keyof R & string>(
+    key: K,
+    action: ActionOf<Keys, K>,
+    objects: readonly Partial<R[K]>[],
+  ): Decision[];
+  canFields<K extends keyof R & string>(
+    key: K,
+    action: ActionOf<Keys, K>,
+    object: Partial<R[K]>,
+    axis: 'read' | 'write',
+    proposed?: Partial<R[K]>,
+  ): FieldDecision;
+  capabilities(): Record<Keys, Decision>;
 }
 ```
 
-One `Access` per origin, composed with no document merged. `can` routes to the
-origin holding `` `${object}.${action}` ``, `capabilities` settles one instant for
-every origin, and `get` hands back the member the caller passed. Two origins
-claiming one key throw `OriginCollisionError` at construction, naming the key
-and both origins. See [Many services](/acl/federation).
+None of `matrix`, `version`, `schema` or `readsObject` is a fact about one
+subject, so none of the four is here.
 
-## A cross-cutting deny
+## `BoundKind`
 
-```ts
-function applyDenyOverlay(
-  matrix: Matrix,
-  overlay: DenyOverlay,
-  options: DenyOverlayOptions,
-): Matrix;
+What `object(key)` returns.
 
-type DenyOverlay = Readonly<Record<string, readonly Rule[]>>;
-
-interface DenyOverlayOptions {
-  readonly vetoable: readonly string[];
+```ts signature
+interface BoundKind<Sub, Obj, Act extends string = string> {
+  can(
+    subject: Sub,
+    action: Act,
+    object?: Partial<Obj>,
+    now?: Instant,
+  ): Decision;
+  canMany(
+    subject: Sub,
+    action: Act,
+    objects: readonly Partial<Obj>[],
+    now?: Instant,
+  ): Decision[];
+  canFields(
+    subject: Sub,
+    action: Act,
+    object: Partial<Obj>,
+    axis: 'read' | 'write',
+    proposed?: Partial<Obj>,
+    now?: Instant,
+  ): FieldDecision;
+  readsObject(action: Act): boolean;
 }
 ```
 
-A compliance or fraud team publishes deny rules for permissions it does not own,
-and the owning service appends them before it constructs. `Matrix → Matrix` and
-pure, so it composes by ordinary function composition. A contribution is a
-`readonly Rule[]`, which can express no allow rule and no field rule, so an
-overlay only ever subtracts. See [Many
-services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
+`authorize` binds the other axis; the two compose.
 
-## The write path
+## `KeysOf`
 
-```ts
+```ts signature
+type KeysOf<A> = A extends Access<never, never, infer Keys> ? Keys : never;
+```
+
+The permission keys an `Access` carries, lifted out of its type. A producer
+exports `KeysOf<typeof access>` for a consumer compiled against its source.
+
+## `ActionOf`
+
+```ts signature
+type ActionOf<Keys extends string, K extends string> = [Keys] extends [never]
+  ? string
+  : string extends Keys
+    ? string
+    : [Extract<Keys, `${K}.${string}`>] extends [never]
+      ? string
+      : Keys extends `${K}.${infer Act}`
+        ? Act
+        : never;
+```
+
+The action half of the keys one object kind holds, checked against every query's
+action parameter. Open, empty and unmatched key unions answer `string`.
+
+## `CRUD_ACTIONS`
+
+```ts signature
+const CRUD_ACTIONS: readonly ['create', 'read', 'update', 'delete'];
+```
+
+The one declaration of the four default verbs, which `Action` is read off. Pass
+it to `allowEach`.
+
+## `pickAllowedFields`
+
+The subset of a proposed write the decision marked `allowed`. It throws
+`ActionNotAllowedError` on a refused action. See
+[the write path](/acl/fields#writing).
+
+```ts signature
 function pickAllowedFields<T extends Record<string, unknown>>(
   decision: FieldDecision,
   proposed: T,
 ): Partial<T>;
 ```
 
-The subset of `proposed` the decision marked `allowed`, and nothing else. Throws
-`ActionNotAllowedError` when the action is refused. This is [the write
-path](/acl/fields#writing); nothing else narrows a write.
+## `serialize`
 
-## The document
+```ts signature
+function serialize<Sub, R, Keys>(
+  access: Access<Sub, R, Keys>,
+  mode: 'full',
+): Matrix;
+function serialize<Sub, R, Keys>(
+  access: Access<Sub, R, Keys>,
+  mode: 'reduced',
+  options?: SerializeOptions<Keys>,
+): Matrix;
+```
 
-```ts
+`full` hands back `access.matrix`. `reduced` keeps each permission marked
+`visibility: 'public'` whole, strips the marking, and adds the `schema` entries
+for the kinds they name. See
+[Many services](/acl/federation#publishing-the-rules-to-a-consumer).
+
+## `SerializeMode`
+
+```ts signature
+type SerializeMode = 'full' | 'reduced';
+```
+
+## `SerializeOptions`
+
+```ts signature
+interface SerializeOptions<Keys extends string = string> {
+  readonly vetoable?: readonly Keys[];
+}
+```
+
+A listed key the reduction would drop raises `UnpublishedVetoableError`. A key
+the document never held is refused earlier, by the compiler, where the policy
+was authored with the builder. `DenyOverlayOptions` takes no such parameter: it
+carries a `Matrix`, and the team writing an overlay holds that document as JSON
+and no types.
+
+## `federatedPolicies`
+
+One `Access` per origin, composed with no document merged. See
+[Many services](/acl/federation).
+
+```ts signature
+function federatedPolicies(
+  policies: Readonly<Record<string, Access>>,
+): FederatedAccess;
+```
+
+## `FederatedAccess`
+
+```ts signature
+interface FederatedAccess {
+  can(
+    subject: Subject,
+    key: string,
+    action: string,
+    object?: Record<string, unknown>,
+    now?: Instant,
+  ): Decision;
+  capabilities(subject: Subject, now?: Instant): Record<string, Decision>;
+  get(origin: string): Access | undefined;
+}
+```
+
+`can` routes to the origin holding `` `${object}.${action}` ``; a key no member
+holds answers `unknown-action`. `capabilities` settles one instant for all.
+
+## `applyDenyOverlay`
+
+Appends another team's deny rules to the keys this document opens for veto. See
+[Many services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
+
+```ts signature
+function applyDenyOverlay(
+  matrix: Matrix,
+  overlay: DenyOverlay,
+  options: DenyOverlayOptions,
+): Matrix;
+```
+
+## `DenyOverlay`
+
+```ts signature
+type DenyOverlay = Readonly<Record<string, readonly Rule[]>>;
+```
+
+A `Rule` spells no allow and no field rule, so an overlay only subtracts.
+
+## `DenyOverlayOptions`
+
+```ts signature
+interface DenyOverlayOptions {
+  readonly vetoable: readonly string[];
+}
+```
+
+Listing a key obliges the matrix to declare that key's object kind in
+`schema.objects`.
+
+## `Matrix`
+
+A JSON envelope over a flat list of permissions. See
+[The matrix document](/acl/matrix).
+
+```ts signature
 interface Matrix {
   readonly version?: string | number;
   readonly maxStale?: number; // how long a holder may keep deciding on it
   readonly schema?: MatrixSchema;
   readonly permissions: readonly Permission[];
 }
+```
 
+## `Permission`
+
+```ts signature
 interface Permission {
-  key: string;
-  object: string;
-  action: string;
-  rules?: readonly Rule[];
-  denyRules?: readonly Rule[];
+  key: string; // exactly `${object}.${action}`
+  object: ObjectKey;
+  action: string; // whatever the producer wrote
+  rules?: readonly Rule[]; // allows, OR-ed
+  denyRules?: readonly Rule[]; // denies, OR-ed; a matched deny wins
   fields?: FieldRules;
   visibility?: 'public' | 'internal'; // absent is internal
 }
+```
 
+## `Rule`
+
+```ts signature
 interface Rule {
-  id?: string;
-  when?: readonly Condition[];
+  id?: string; // what a decision reports as `rule`; defaults to `#0`, `#1`, …
+  when?: readonly Condition[]; // AND-ed
 }
+```
 
+## `Condition`
+
+[The matrix document](/acl/matrix#conditions) has the operator table.
+
+```ts signature
 type Condition =
   | { field: 'now'; op: 'before' | 'after'; value: Instant }
   | {
       field: string;
       op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
-      path?: string;
+      path?: string; // the `eq`/`ne` form only
       value?: unknown;
     };
+```
 
+## `FieldRules`
+
+```ts signature
 interface FieldRules {
-  fields?: readonly string[];
+  fields?: readonly string[]; // ['*', '!status'] or ['body', 'title']
   [field: string]: readonly string[] | FieldConfig | undefined;
 }
+```
 
+Every other key is a field name carrying a write-axis config, so a field named
+`fields` cannot be configured.
+
+## `FieldConfig`
+
+```ts signature
 type FieldConfig =
   | { targets: readonly unknown[] }
   | { transitions: Record<string, readonly unknown[]> };
-
-type Instant = string | number | Date;
 ```
 
-## Publishing
+`targets` allow-lists the proposed value; `transitions` is a state machine over
+the current one. See [Fields](/acl/fields).
 
-```ts
-function serialize<Sub, R>(access: Access<Sub, R>, mode: 'full'): Matrix;
-function serialize<Sub, R>(
-  access: Access<Sub, R>,
-  mode: 'reduced',
-  options?: SerializeOptions,
-): Matrix;
+## `MatrixSchema`
 
-interface SerializeOptions {
-  readonly vetoable?: readonly string[];
-}
-```
-
-`full` hands back `access.matrix` as it stands. `reduced` is the contract a
-service gives its consumers: the permissions marked `visibility: 'public'`, each
-kept whole with the marking stripped from the copy, plus the `schema` entries for
-the object kinds those permissions name. Everything else is dropped, and an
-unmarked permission counts as internal. See
-[Many services](/acl/federation#publishing-the-rules-to-a-consumer).
-
-## The schema
-
-```ts
+```ts signature
 interface MatrixSchema {
   readonly subject?: ObjectSchema;
-  readonly objects?: Readonly<Record<string, ObjectSchema>>;
+  readonly objects?: Readonly<Record<ObjectKey, ObjectSchema>>;
 }
+```
 
+Optional for a producer, binding where present, per kind: a kind `objects` omits
+is unchecked.
+
+## `ObjectSchema`
+
+```ts signature
 interface ObjectSchema {
   readonly fields?: Readonly<Record<string, FieldType>>;
-  readonly relations?: Readonly<Record<string, string>>;
+  readonly relations?: Readonly<Record<string, ObjectKey>>;
 }
+```
 
-type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
+`relations` names the kinds one kind points at, one hop. No condition compares
+one.
+
+## `FieldType`
+
+```ts signature
 type FieldType =
   | BaseFieldType
   | `${BaseFieldType}[]`
@@ -226,13 +456,26 @@ type FieldType =
   | `${BaseFieldType}[]?`;
 ```
 
-`relations` names the kinds one kind points at, one hop, without nesting. A
-condition reads one field of one scope, so a relation is never a value a
-condition compares; it is declared for the consumers that resolve it.
+`?` marks a field that may be absent. A flat string any language emits by
+reflection.
 
-## Decisions
+## `BaseFieldType`
 
-```ts
+```ts signature
+type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
+```
+
+## `Instant`
+
+```ts signature
+type Instant = string | number | Date;
+```
+
+A string parses as ISO 8601, a number as epoch milliseconds; both survive JSON.
+
+## `Decision`
+
+```ts signature
 interface Decision {
   key: string;
   allowed: boolean;
@@ -240,7 +483,14 @@ interface Decision {
   rule?: string;
   missing?: readonly string[];
 }
+```
 
+`allowed` is the gate; the other three are output only.
+[Decisions](/acl/decisions) says which reason carries which.
+
+## `Reason`
+
+```ts signature
 type Reason =
   | 'allow'
   | 'no-rule-matched'
@@ -249,15 +499,32 @@ type Reason =
   | 'unevaluable'
   | 'unusable-clock'
   | 'stale-contract';
+```
 
+## `FieldDecision`
+
+```ts signature
 interface FieldDecision {
-  allowed: boolean;
-  action: Decision;
+  allowed: boolean; // the action is allowed AND every decided field is
+  action: Decision; // the action alone
   fields: Record<string, FieldState>;
   reasons: Record<string, FieldReason>;
 }
+```
 
+## `FieldState`
+
+```ts signature
 type FieldState = 'allowed' | 'denied' | 'unevaluable';
+```
+
+Compare against `'allowed'`; comparing against `'denied'` treats an unevaluable
+field as writable. See
+[Pitfalls](/acl/pitfalls#never-hand-filter-the-field-map).
+
+## `FieldReason`
+
+```ts signature
 type FieldReason =
   | 'allow'
   | 'not-listed'
@@ -267,12 +534,9 @@ type FieldReason =
   | 'proposed-required';
 ```
 
-What each reason means is in [Decisions](/acl/decisions) and
-[Field permissions](/acl/fields).
+## `EvaluationContext`
 
-## The evaluation context
-
-```ts
+```ts signature
 interface EvaluationContext {
   subject: Record<string, unknown>;
   object?: Record<string, unknown>;
@@ -280,52 +544,399 @@ interface EvaluationContext {
 }
 ```
 
-The entry points assemble this from their arguments; it is the shape a decision
-is taken against.
+The entry points assemble this; `now` settles to one epoch per call.
 
-## The type aliases
+## `Subject`
 
-`Action`, `ObjectKey` and `Subject` are the string and bag types the signatures
-above are written in. `AnyObjects` is the open key map `Access` and `Policy`
-default to. `Actions`, `Cond`, `Operand`, `Ops`, `Paths` and `Valid` are what
-the `.for()` block's helpers are typed with: an author names none of them, and a
-library wrapping `policy()` names several.
+```ts signature
+type Subject = Record<string, unknown>;
+```
 
-The package exports no other function. You cannot call the engine's per-node
-steps, because each one answers a fragment and trusts its caller for the rest:
-the permission-level step reads a permission the gate never checked, and the
-field-level step returns an `allowed` that ignores the action. `hydratePolicy`
-and `parseMatrix` put the steps in order, so an application and a tool
-inspecting a matrix both enter through one of those two.
+## `AnyObjects`
 
-## Errors
+```ts signature
+type AnyObjects = Record<string, Record<string, unknown>>;
+```
 
-Every construction failure extends `AclConfigError`, which extends `Error`:
-`InvalidMatrixError`, `InvalidSchemaError`, `InvalidPermissionError`,
-`InvalidRuleError`, `InvalidConditionError`, `KeyMismatchError`,
-`DuplicatePermissionError`, `UnknownFieldError`, `FieldTypeMismatchError`, `BangInAllowListError`,
-`DenyWithoutBaselineError`, `TargetsTransitionsConflictError`. Each carries the
-keys, fields and locations it names in its message as properties —
-[the table](/acl/authoring#construction-errors) says what raises which.
+The open key map `Access` defaults to.
 
-`UnpublishedVetoableError` is raised by `serialize` when a key the target opens
-to a deny overlay would not ship in the contract. `MissingFreshnessBudgetError`
-and `InvalidFreshnessError` are raised by construction when a holder reports
-`fetchedAt` against a document that states no `maxStale`, or reports a bound the
-comparison cannot use.
+## `ObjectKey`
 
-`UnknownObjectKeyError` and `UnknownPermissionError` share that base class but
-are raised by a query on the open path. Under `parseMatrix` the same key fails
-closed instead.
+```ts signature
+type ObjectKey = string;
+```
 
-`OriginCollisionError` shares it too. `federatedPolicies` raises it while
-composing several documents, and it carries `key` and `origins`.
+## `Actions`
 
-`UnvetoablePermissionError` and `MissingVetoSchemaError` share it as well, and
-`applyDenyOverlay` raises both: the first when an overlay names a key the target
-matrix does not list as `vetoable`, the second when a vetoable key's object kind
-has no `schema.objects` entry to check a contribution against.
+The block parameter `.for()` hands you. `Vocab` is what this kind may declare,
+`Act` what this chain declared, and only `Act` reaches the permission keys.
 
-`ActionNotAllowedError` extends `Error` directly and is raised only by
-`pickAllowedFields`, when the action the write was narrowed against is refused.
-It carries `key` and `reason`.
+```ts signature
+interface Actions<
+  Sub,
+  Obj,
+  Act extends string = string,
+  Vocab extends string = string,
+> extends Ops<Sub, Obj> {
+  allow<A extends Vocab>(
+    action: A,
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  deny<A extends Vocab>(
+    action: A,
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  allowEach<A extends Vocab>(
+    actions: readonly A[],
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  denyEach<A extends Vocab>(
+    actions: readonly A[],
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
+  visibility(visibility: Visibility): Actions<Sub, Obj, Act, Vocab>;
+}
+```
+
+`allowEach` and `denyEach` write one rule across several actions, one ordinary
+permission each. `fields` and `visibility` mark the action last declared and
+raise `AclConfigError` after a batch.
+
+## `Action`
+
+```ts signature
+type Action = (typeof CRUD_ACTIONS)[number];
+```
+
+The vocabulary a kind gets when `Vocabs` names none. No wildcard member sits
+here, and `docs/specs/2026-09-17-acl-wildcard-action.md` records why.
+
+## `VocabularyOf`
+
+```ts signature
+type VocabularyOf<Vocabs, K extends string> = K extends keyof Vocabs
+  ? Vocabs[K] extends string
+    ? Vocabs[K]
+    : Action
+  : Action;
+```
+
+What one kind's block may declare from. `string` there opens the kind to any
+action.
+
+## `Visibility`
+
+```ts signature
+type Visibility = NonNullable<Permission['visibility']>;
+```
+
+The marking `p.visibility()` writes and `serialize(access, 'reduced')` reads.
+
+## `PermissionKeys`
+
+```ts signature
+type PermissionKeys<K extends string, Act extends string> = string extends Act
+  ? string
+  : `${K}.${Act}`;
+```
+
+The keys one block contributes. An `Act` the compiler reads as `string`
+contributes `string`, widening the document's whole key union.
+
+## `Ops`
+
+The condition helpers, bound to the subject and object types.
+
+```ts signature
+interface Ops<Sub, Obj> {
+  eq<A extends string, B>(
+    field: Valid<A, Sub, Obj>,
+    operand: Operand<B, Sub, Obj>,
+  ): Cond;
+  ne<A extends string, B>(
+    field: Valid<A, Sub, Obj>,
+    operand: Operand<B, Sub, Obj>,
+  ): Cond;
+  in<A extends string>(
+    field: Valid<A, Sub, Obj>,
+    values: readonly unknown[],
+  ): Cond;
+  notIn<A extends string>(
+    field: Valid<A, Sub, Obj>,
+    values: readonly unknown[],
+  ): Cond;
+  contains<A extends string>(field: Valid<A, Sub, Obj>, value: unknown): Cond;
+  before(field: 'now', instant: Instant): Cond;
+  after(field: 'now', instant: Instant): Cond;
+  and(...conditions: Cond[]): Cond;
+  or(...conditions: Cond[]): Cond;
+  readonly always: Cond;
+}
+```
+
+`not-in` is not an identifier, so the helper is `notIn`.
+
+## `Cond`
+
+```ts signature
+interface Cond {
+  readonly node: Node;
+}
+```
+
+An opaque condition tree. `build()` flattens it to one rule per `or` branch.
+
+## `Operand`
+
+```ts signature
+type Operand<B, Sub, Obj> = B extends
+  `subject.${string}` | `object.${string}` | 'now'
+  ? Valid<B & string, Sub, Obj>
+  : B;
+```
+
+A comparand shaped like a namespaced path is checked as one; any other string
+is a literal.
+
+## `Paths`
+
+```ts signature
+type Paths<T, P extends string> = {
+  [K in keyof T & string]: `${P}.${K}`;
+}[keyof T & string];
+```
+
+## `Valid`
+
+```ts signature
+type Valid<S extends string, Sub, Obj> = S extends
+  Paths<Sub, 'subject'> | Paths<Obj, 'object'> | 'now'
+  ? S
+  : `unknown path '${S}' on this resource`;
+```
+
+The failure branch is the parameter type, so the compiler names the bad path.
+
+## `AclConfigError`
+
+```ts signature
+class AclConfigError extends Error {}
+```
+
+The base of every construction failure. [Typed
+authoring](/acl/authoring#construction-errors) tables what raises which.
+
+## `InvalidMatrixError`
+
+```ts signature
+class InvalidMatrixError extends AclConfigError {}
+```
+
+No `permissions` array, or a `version` of the wrong type.
+
+## `InvalidSchemaError`
+
+```ts signature
+class InvalidSchemaError extends AclConfigError {
+  readonly where: string; // schema.objects.question.fields.status
+}
+```
+
+## `InvalidPermissionError`
+
+```ts signature
+class InvalidPermissionError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+}
+```
+
+A permission's `object`, `action`, `rules` or `fields` is malformed.
+
+## `InvalidRuleError`
+
+```ts signature
+class InvalidRuleError extends AclConfigError {
+  readonly key: string;
+  readonly field: string; // rules[2]
+}
+```
+
+The rule is not an object, or its `when` is not an array.
+
+## `InvalidConditionError`
+
+```ts signature
+class InvalidConditionError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+}
+```
+
+An unusable shape, namespace, path depth or operator pairing.
+
+## `KeyMismatchError`
+
+```ts signature
+class KeyMismatchError extends AclConfigError {
+  readonly key: string;
+  readonly object: string;
+  readonly action: string;
+}
+```
+
+`key` is not exactly `` `${object}.${action}` ``.
+
+## `DuplicatePermissionError`
+
+```ts signature
+class DuplicatePermissionError extends AclConfigError {
+  readonly key: string;
+}
+```
+
+## `UnknownFieldError`
+
+```ts signature
+class UnknownFieldError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+}
+```
+
+A condition names a field the schema does not declare.
+
+## `FieldTypeMismatchError`
+
+```ts signature
+class FieldTypeMismatchError extends AclConfigError {
+  readonly key: string;
+  readonly field: string;
+  readonly where: string;
+}
+```
+
+`contains` against a non-array, or a literal of the wrong type.
+
+## `BangInAllowListError`
+
+```ts signature
+class BangInAllowListError extends AclConfigError {}
+```
+
+A `!name` entry inside an allow-list.
+
+## `DenyWithoutBaselineError`
+
+```ts signature
+class DenyWithoutBaselineError extends AclConfigError {}
+```
+
+A `!name` entry with no `*` baseline to subtract from.
+
+## `TargetsTransitionsConflictError`
+
+```ts signature
+class TargetsTransitionsConflictError extends AclConfigError {}
+```
+
+## `UnknownObjectKeyError`
+
+```ts signature
+class UnknownObjectKeyError extends AclConfigError {
+  readonly key: ObjectKey;
+}
+```
+
+Raised by a query on the open path; `parseMatrix` fails closed.
+
+## `UnknownPermissionError`
+
+```ts signature
+class UnknownPermissionError extends AclConfigError {
+  readonly key: string;
+}
+```
+
+Raised by a query on the open path; `parseMatrix` answers `unknown-action`.
+
+## `OriginCollisionError`
+
+```ts signature
+class OriginCollisionError extends AclConfigError {
+  readonly key: string;
+  readonly origins: readonly [string, string];
+}
+```
+
+Two origins claim one key. `federatedPolicies` raises it while composing.
+
+## `UnvetoablePermissionError`
+
+```ts signature
+class UnvetoablePermissionError extends AclConfigError {
+  readonly key: string;
+}
+```
+
+An overlay named a key the target does not list as `vetoable`.
+
+## `MissingVetoSchemaError`
+
+```ts signature
+class MissingVetoSchemaError extends AclConfigError {
+  readonly key: string;
+  readonly object: ObjectKey;
+}
+```
+
+A vetoable key whose object kind has no `schema.objects` entry.
+
+## `UnpublishedVetoableError`
+
+```ts signature
+class UnpublishedVetoableError extends AclConfigError {
+  readonly key: string;
+}
+```
+
+`serialize` raises it for a vetoable key the contract would not ship.
+
+## `MissingFreshnessBudgetError`
+
+```ts signature
+class MissingFreshnessBudgetError extends AclConfigError {}
+```
+
+A holder reported `fetchedAt` against a document stating no `maxStale`.
+
+## `InvalidFreshnessError`
+
+```ts signature
+class InvalidFreshnessError extends AclConfigError {
+  readonly field: string;
+}
+```
+
+`fetchedAt` is not an instant, or `maxStale` is not a finite, non-negative
+number of milliseconds.
+
+## `ActionNotAllowedError`
+
+```ts signature
+class ActionNotAllowedError extends Error {
+  readonly key: string;
+  readonly reason: Reason;
+}
+```
+
+The only error raised outside construction. `pickAllowedFields` throws it when
+the action is refused.
+
+## What is not exported
+
+`decide`, `decideFields` and `evaluateCondition`. Each answers a fragment and
+trusts its caller for the rest.

@@ -49,7 +49,7 @@ describe('the Authorization demonstration', () => {
 
     for (const person of Object.values(people)) {
       signIn(person.role);
-      const allowed = ['review', 'edit', 'publish'].filter(
+      const allowed = (['review', 'edit', 'publish'] as const).filter(
         (action) =>
           access.can(person, 'listing', action, { status: 'draft' }).allowed,
       );

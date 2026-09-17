@@ -30,6 +30,12 @@ interface Listing {
   status: 'draft' | 'published';
 }
 
+/** The one object kind the demonstration decides about. */
+type ShopObjects = { listing: Listing };
+
+/** What a listing answers for. Three of them sit outside the four verbs. */
+type ShopVerbs = { listing: 'review' | 'edit' | 'publish' };
+
 /**
  * The three people the switch moves between, by the role that names them.
  *
@@ -58,8 +64,9 @@ export const openingGrants: Grants = {
 /**
  * The policy, on the typed authoring path.
  *
- * `policy<Shopper>().for<'listing', Listing>(...)` names the subject once and
- * binds the object type to the key, so every path in a condition is checked
+ * `policy<Shopper, ShopObjects, ShopVerbs>()` names the subject, the object
+ * types and the verbs each kind answers for once, so every path in a condition
+ * and every action a block declares is checked
  * against those two types as it is written: `subject.roles` here does not
  * compile, and the compiler's message names the path rather than reporting an
  * assignability mismatch twelve lines away.
@@ -69,8 +76,8 @@ export const openingGrants: Grants = {
  * nothing worth caching.
  */
 export function buildAccess(grants: Grants) {
-  return policy<Shopper>()
-    .for<'listing', Listing>('listing', (p) =>
+  return policy<Shopper, ShopObjects, ShopVerbs>()
+    .for('listing', (p) =>
       p
         .allow('review', p.always)
         .allow('edit', p.in('subject.role', grants.edit))
@@ -85,7 +92,7 @@ export type Access = ReturnType<typeof buildAccess>;
 
 /** One control on the interface, and the action it is granted by. */
 export interface Control {
-  action: string;
+  action: ShopVerbs['listing'];
   /** What the control says, which depends on what pressing it would do. */
   label: (listing: Listing) => string;
 }
@@ -138,7 +145,7 @@ export const source: readonly SourceLine[] = [
   {
     segments: [
       {
-        text: "const access = policy<Shopper>()\n  .for<'listing', Listing>('listing', (p) =>",
+        text: "const access = policy<Shopper, ShopObjects, ShopVerbs>()\n  .for('listing', (p) =>",
       },
     ],
   },

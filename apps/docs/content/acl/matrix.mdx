@@ -32,15 +32,19 @@ interface Rule {
 }
 ```
 
+One document holds every object kind an app has, one `permissions` entry per
+object-and-action pair, so `question.update` and `listing.update` sit side by
+side in the same envelope. Nobody writes a matrix per resource.
+
 `key` must equal `` `${object}.${action}` ``, and neither half may contain the
 dot. Lookup is by key alone, so a key that disagreed with its own `object` and
 `action` would answer for a pair it was never written for; construction refuses
 it with `KeyMismatchError`.
 
 A rule with an empty `when` is the unconditional grant. That spelling is
-deliberate: `when` is required and must be an array, so a document that lost its
-conditions in transit — `null`, absent, a string — is a construction error
-rather than a permission that grants everything.
+deliberate. `when` is required and must be an array, so a document that lost its
+conditions in transit (`null`, absent, a string) raises a construction error. It
+never lands as a permission that grants everything.
 
 ## Conditions
 
@@ -66,7 +70,7 @@ One condition reads one path and compares it to one comparand.
 literal `value`. Comparison is strict on both sides of a JSON boundary: `'1'` is
 not `1`, a `Date` is not the string that spells it, and `null` is not absence.
 
-A path is namespaced and one level deep — `subject.x`, `object.y`, or the bare
+A path is namespaced and one level deep: `subject.x`, `object.y`, or the bare
 `now`. There is no nesting and no relation traversal inside a condition; a
 consumer that needs a related row resolves it and passes it as the object.
 
@@ -84,7 +88,7 @@ authored document with something else before building.
 `hydratePolicy(matrix, { version })` overrides the document's value. The document
 states what a producer shipped; the option states what this site is actually
 running, which the producer cannot know. The option wins, and the frozen
-`access.matrix` carries the winner — so the version that decided is the version
+`access.matrix` carries the winner, so the version that decided is the version
 that crosses.
 
 A document that states no version leaves `access.version` undefined, and a `!==`
@@ -103,17 +107,17 @@ producer and binding when it is present.
 Field types are flat strings, so the whole schema is JSON a producer emits by
 reflection: `string`, `number`, `boolean`, `instant`, a `[]` suffix for an array
 of one, a `?` suffix for a field that may be absent from a complete instance. A
-declared field that is present and `null` is present — nullability is not an
-optionality axis.
+declared field that is present and `null` is present. Nullability is its own
+axis and optionality does not cover it.
 
 A present schema checks two things, both at construction:
 
-1. a condition naming a field the declared kind does not declare —
+1. a condition naming a field the declared kind does not declare, raising
    `UnknownFieldError`;
-2. a condition whose operator or comparand does not fit the declared type —
-   `FieldTypeMismatchError`: `contains` against a non-array, an equality against
-   an array, a literal of the wrong type, or a `path` comparand whose two sides
-   disagree.
+2. a condition whose operator or comparand does not fit the declared type,
+   raising `FieldTypeMismatchError`: `contains` against a non-array, an equality
+   against an array, a literal of the wrong type, or a `path` comparand whose
+   two sides disagree.
 
 It does not check the names in `fields` rules, the `targets` and `transitions`
 keys, or whether a permission can ever decide `unevaluable`. Granularity is per
@@ -121,15 +125,15 @@ kind: a permission on an object kind absent from `schema.objects` is unchecked,
 and `subject.*` paths are unchecked unless `schema.subject` is declared.
 
 The typo class this closes is the expensive one. Without a schema,
-`object.askedBv` is not an error — it is a path that never reads, so the
-permission reports `unevaluable` forever and a UI refetches forever.
+`object.askedBv` raises nothing. It is a path that never reads, so the permission
+reports `unevaluable` forever and a UI refetches forever.
 
 ## Adopting a foreign matrix
 
 A backend with its own ACL can publish its matrix as JSON, and the frontend
 adopts it. `parseMatrix` is `hydratePolicy` with `closed: true`: the key universe
-is untrusted, so an unknown object kind or action fails closed instead of
-throwing.
+is untrusted, so an unknown object kind or action fails closed and throws
+nothing.
 
 ```ts file=libs/acl/README.md region=foreign-matrix
 
@@ -147,8 +151,8 @@ permission nobody has.
 of each member, deep-clones every permission, freezes the result, and validates
 that copy.
 
-Reading twice is what this avoids. A caller's document is a live object, and an
-accessor or a proxy on it can answer a second read differently — a `when` that
+That single read is the point. A caller's document is a live object, and an
+accessor or a proxy on it can answer a second read differently. A `when` that
 validates as a condition and clones as the empty, unconditional form is an open
 grant that passed the gate. Nothing downstream reads the caller's object again,
 and nothing can mutate what evaluates afterwards, including through the exposed

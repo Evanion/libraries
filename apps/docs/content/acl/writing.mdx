@@ -2,6 +2,35 @@
 
 <WorkshopNotice slug="acl" />
 
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={20}
+  requires={[['Rules that read the object', '/acl/intermediate']]}
+  unlocks={[
+    ['Field permissions', '/acl/fields'],
+    ['Why was this refused?', '/acl/refusals'],
+  ]}
+/>
+
+**The concept.** A customer edits their own question on the Brass: Birmingham
+listing. They may change the body. The shop's lock on `status` is the shop's,
+so a form that posts `status` along with the body has to lose that key before it
+reaches the database.
+
+**What you will have.** One call that decides the action and every field of the
+write together, and one call that turns that decision into the object you hand
+the ORM.
+
+**Why you would want it.** The hand-written version is a pick-list in the
+handler. It is correct the day you write it, and it stays correct until somebody
+adds a column. Then the form posts a field nobody listed, the pick-list has no
+opinion about it, and the write goes through.
+
+**How the library gets you there.** `canFields` decides the action and returns a
+state per field. `pickAllowedFields` keeps the fields that decided `allowed` and
+drops the rest, so the value you pass on is the value the decision approved.
+
 Two calls, and the second one is not optional. `canFields` decides;
 `pickAllowedFields` produces the value to write.
 
@@ -11,33 +40,38 @@ Two calls, and the second one is not optional. `canFields` decides;
 
 Pass that result to the ORM, and pass only that result.
 
-## Why hand-filtering the map is the bug
+The policy there declares `question` because that is the form on the screen.
+Chain a `.for()` for every kind the app has and the field rules for listings and
+orders live in the same document, under the same `access`. You do not build a
+policy per resource.
+
+## Why hand-filtering the acl field map is the bug
 
 The obvious-looking alternative is to filter the proposed write against the
-field map:
+field map. `fd` and `proposed` below are the two the fence above produced:
 
 ```ts
 // Do not write this.
 const narrowed = Object.fromEntries(
-  Object.entries(proposed).filter(([key]) => decision.fields[key] !== 'denied'),
+  Object.entries(proposed).filter(([key]) => fd.fields[key] !== 'denied'),
 );
 ```
 
-`FieldState` has three values, not two. `transitions` is a state machine over a
-field's current value, set out under [Naming the fields](#naming-the-fields), and
-a field whose config could not be checked — because the object did not carry that
-current value — comes back
-`unevaluable`, and `'unevaluable' !== 'denied'` is `true`, so that filter writes
-a value the decision explicitly declined to approve. `pickAllowedFields` keeps
-the keys that decided `allowed` and withholds everything else, which is one
-state to get right instead of two to enumerate.
+`FieldState` carries three values, and that filter accounts for two of them. The
+third is `unevaluable`: a field config the engine could not check, because the
+object handed to `canFields` did not carry that field's current value. A
+`transitions` config is the common case, and it needs the current value because
+it is a state machine over it. `'unevaluable' !== 'denied'` is `true`, so the
+filter writes a value the decision declined to approve. `pickAllowedFields`
+keeps the keys that decided `allowed` and withholds everything else, which
+leaves you one state to get right.
 
 The same filter also writes any key the decision does not carry at all, because
 `undefined !== 'denied'`. On the write axis the decision covers every key of
-`proposed`, so that set is normally empty — but it is empty by a property of the
-engine, not by anything in the filter.
+`proposed`, so that set is normally empty. It is empty by a property of the
+engine, and nothing in the filter makes it so.
 
-## What the decision covers
+## What an acl field decision covers
 
 The matrix does not know the object's shape, so the decision covers:
 
@@ -47,19 +81,21 @@ The matrix does not know the object's shape, so the decision covers:
 - and on the write axis, every key of the proposed write.
 
 That last one is the mass-assignment case. A key that exists nowhere but the
-write still gets a state, so `!role` applies to a column the row has never held.
-A decision covering only the keys already on the object would say nothing about
-the one being added.
+write still gets a state, so a `!pinned` in the name list decides a posted
+`pinned` on a question row that has never carried one. A decision covering only
+the keys already on the object would say nothing about the one being added.
 
-## Naming the fields
+## Naming the fields in an acl policy
+
+`p` is the block helper each `.for()` hands you, the one the fence at the top of
+this page called `.allow` and `.fields` on. Three shapes it takes:
 
 ```ts
 p.fields(['*', '!status']); // everything except status
-p.fields(['title', 'price']); // exactly these two
+p.fields(['body']); // exactly this one
 p.fields({
-  fields: ['*', '!id'],
-  status: { transitions: { draft: ['published'], published: [] } },
-  visibility: { targets: ['public', 'private'] },
+  fields: ['*', '!askedBy'],
+  status: { transitions: { open: ['locked'], locked: [] } },
 });
 ```
 
@@ -70,56 +106,64 @@ never field names, wherever they turn up. A `!name` with no `*` is
 everything else.
 
 With no name list at all, every unnamed key is writable. A `targets` or
-`transitions` config restricts the field it names **and no other** — it is not a
-writable-field list, and reading it as one leaves every other key open.
+`transitions` config restricts the field it names and no other. Read one of them
+as a writable-field list and you leave every other key open.
 
-`targets` allow-lists the proposed value. `transitions` is a state machine over
-the current value: the key is what the object holds now, the array is what it
-may become. An empty array is a terminal state, so the `published: []` above
-refuses every write that moves `status` out of `published`. The two are mutually
-exclusive on one field.
+`targets` allow-lists the proposed value, so `status: { targets: ['open', 'locked'] }`
+accepts either of those and refuses anything else. `transitions` is a state
+machine over the current value: the key is what the object holds now, the array
+is what it may become. An empty array is a terminal state, so the `locked: []`
+above refuses every write that moves `status` out of `locked`. The two are
+mutually exclusive on one field, which is why the `status` config above takes
+`transitions` and cannot also take `targets`.
 
-```mermaid caption="The state machine the status config above declares. Moving from draft to published is the one write it allows; published names an empty array, so every write out of it is refused. A call that carried no current status decides unevaluable instead of either."
+```mermaid caption="The state machine the status config above declares. The config allows one write, from open to locked; locked names an empty array, so the engine refuses every write out of it. A call that carried no current status decides unevaluable."
 flowchart LR
-  D["draft"] -->|"the one allowed write"| P["published"]:::accent
+  D["open"] -->|"the one allowed write"| P["locked"]:::accent
   P -. "refused" .-> A["any other value"]
 ```
 
-## The action gate
+## The acl action gate
 
 `canFields` returns two booleans named `allowed`, one nested inside the other,
-and they can disagree.
-
-| Read                | Means                                                |
-| ------------------- | ---------------------------------------------------- |
-| `fd.allowed`        | the action is allowed **and** every field is allowed |
-| `fd.action.allowed` | only the action-level decision                       |
+and they can disagree. `fd.allowed` is `true` when the action is allowed and
+every field is allowed. `fd.action.allowed` reports the action-level decision on
+its own.
 
 The field maps are filled in whatever the action says, deliberately: a blocked
 caller still learns which fields would be editable once the action is unblocked,
 so one call renders the form and explains the block. That is useful and it is a
-hazard — iterating `fd.fields` without checking `fd.allowed` first skips the
+hazard. Iterate `fd.fields` without checking `fd.allowed` first and you skip the
 action entirely. [Caveats and pitfalls](/acl/pitfalls#read-allowed-not-actionallowed)
 has both entries.
 
 `pickAllowedFields` throws `ActionNotAllowedError` when the action is refused.
-No field of a refused action is writable, and returning an empty object would be
-indistinguishable from a lawful write of nothing. A field the action allows but
-the field rules deny is a partial write — the case the narrowing exists for — so
-that returns the allowed subset.
+No field of a refused action is writable, and returning an empty object would
+look exactly like a lawful write of nothing. Where the action is allowed and the
+field rules deny some of the keys, you have a partial write, which is the case
+the narrowing exists for, so the call returns the allowed subset.
 
-## Reading
+## Reading with acl
+
+Every name below comes from the fence at the top of this page: `access` is the
+policy, `current` is the question as the database holds it.
 
 ```ts
-const view = access.canFields(subject, 'question', 'read', question, 'read');
+const view = access.canFields(
+  { id: 'c1' },
+  'question',
+  'read',
+  current,
+  'read',
+);
 ```
 
 The `read` axis takes no proposed write, and per-field `targets`/`transitions`
 are write concepts, so on `read` only the name list denies. It shapes a
 response the same way the write axis shapes a form.
 
-It is a projection decision, not a query. The row was already fetched, and a
-field decided `denied` here was still read out of the database.
+It decides a projection, and it queries nothing. The row was already fetched,
+and a field decided `denied` here was still read out of the database.
 
 ## Where to go next
 

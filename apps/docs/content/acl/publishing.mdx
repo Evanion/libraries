@@ -7,11 +7,40 @@
   </Text>
 </WorkshopNotice>
 
+<PageSheet
+  difficulty={4}
+  read={7}
+  hands={20}
+  requires={[['Many services', '/acl/federation']]}
+  unlocks={[
+    ['A policy from another service', '/acl/adopting'],
+    ['The matrix document', '/acl/matrix'],
+  ]}
+/>
+
+**The concept.** Baize's orders service decides who may refund an order. The
+storefront draws the refund button and needs the same answer, and orders would
+rather hand over the four permissions that concern the storefront than the
+forty it runs on.
+
+**What you will have.** A JSON document holding the permissions you marked,
+whole, which a consumer adopts and evaluates against its own subject, and a
+freshness bound that stops it deciding on a copy you have since changed.
+
+**Why you would want it.** Say nothing and the storefront team writes the rules
+again from what they can see. That copy diverges the first time orders changes a
+rule nobody thinks to propagate, and it diverges silently, because orders is
+still refusing correctly on the real matrix.
+
+**How the library gets you there.** Mark a permission `visibility: 'public'`.
+`serialize(access, 'reduced')` keeps the marked permissions with every rule they
+carry, drops the rest, and trims the schema to the kinds that survived.
+
 `serialize(access, 'reduced')` turns the policy a service already evaluates into
 a document its consumers evaluate. Mark each permission `visibility: 'public'`
 or leave it unmarked; the reduced form keeps the marked ones and drops the rest.
 
-## Why the artifact exists
+## Why an acl contract exists
 
 A BFF in front of an orders service that cannot read orders' rules writes its
 own. That copy is orders' permission logic maintained by a team that does not own
@@ -22,7 +51,7 @@ Orders keeps refusing correctly, so nothing is breached and no alert fires. The
 refund button is hidden against a server that would have allowed the call, and it
 stays hidden, in a UI bug on a different team's backlog.
 
-## Marking and serializing
+## Marking and serializing an acl policy
 
 An unmarked permission is internal. An older document, a producer that emits no
 such field, and an author who forgot all publish nothing.
@@ -36,16 +65,17 @@ subject. Nothing merges them, and the doctrine on
 [Many services](/acl/federation) is unchanged: every layer decides for itself,
 and orders decides again on its own matrix when the refund call arrives.
 
-## A published permission ships whole
+## A published permission goes out whole
 
-Dropping one of a kept permission's deny rules would turn a refusal into an
-allow. Dropping an allow rule or a field config would move the answer the other
-way. So a permission goes out with its refusals attached or it stays internal,
-and a permission whose deny rules read an internal concept either discloses that
-concept or does not publish.
+Drop one of a kept permission's deny rules and you turn a refusal into an allow.
+Drop an allow rule or a field config and you move the answer the other way. So a
+permission goes out with its refusals attached or it stays internal, and a
+permission whose deny rules read an internal concept either discloses that
+concept or stays home.
 
-The cost lands on the owner, by the owner's choice. The deny rule in the example
-above publishes `subject.tier` and the word `probation` to every consumer.
+The owner accepts that disclosure, and the owner is the one who decides it. The
+deny rule in the example above shows `subject.tier` and the word `probation` to
+every consumer.
 
 The contract's decisions equal orders' own, key for key, which is what makes it
 worth holding. A contract that answered more conservatively would be a second
@@ -59,7 +89,7 @@ a rule.
   </Text>
 </Panel>
 
-## How long a consumer may keep deciding on it
+## How long a consumer may keep deciding on an acl contract
 
 `maxStale` is the owner's ceiling, in milliseconds, measured from the consumer's
 last successful freshness check. The consumer reports that instant as
@@ -67,20 +97,23 @@ last successful freshness check. The consumer reports that instant as
 Past `fetchedAt + min(the two)` every key answers `stale-contract`, and the
 remedy is a fetch of the document.
 
-Measuring from the last check is what expires a consumer whose poll silently
-stopped: that consumer believes it is fresh and never starts a clock of its own.
-A consumer that reports no `fetchedAt` claims no freshness and runs under no
-bound, which is every matrix a service authors in its own process.
+The engine measures from that last check because a consumer whose poll silently
+stopped believes it is fresh and starts no clock of its own. Only the owner's
+bound expires it. A consumer that reports no `fetchedAt` claims no freshness and
+runs under no bound, which is every matrix a service authors in its own process.
 
-A stale contract is stale-permissive, and that survives for one reason: orders
+A stale contract is stale-permissive, and one thing makes that safe: orders
 re-evaluates on its own matrix on every call and refuses. A stale consumer
 over-shows and never over-grants.
 
-## A key another team may veto has to ship
+## A key another team may veto has to be published
 
 `serialize(access, 'reduced', { vetoable })` refuses a listed key the reduction
-would drop. Compliance checks its own contribution by running `applyDenyOverlay`
-against the published contract, and an internal vetoable key is absent from it,
+would drop. Compliance checks its own contribution by running
+[`applyDenyOverlay`](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies),
+which merges another
+team's deny rules into a document before it is constructed, against the
+published contract. An internal vetoable key is absent from that contract,
 taking its object kind's schema entry along, so that check would refuse every
 contribution it was written to accept.
 

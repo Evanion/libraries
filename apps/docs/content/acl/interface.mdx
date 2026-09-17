@@ -8,7 +8,7 @@
 </WorkshopNotice>
 
 <PageSheet
-  difficulty={2}
+  difficulty={4}
   read={7}
   hands={20}
   requires={[['Rules that outlive the process', '/acl/advanced']]}
@@ -21,7 +21,8 @@
 **The concept.** Baize's Brass: Birmingham listing has an action bar with three
 buttons on it: Review, Edit, Publish. Jo, who is a customer, sees one of them; a
 bookseller sees two; the owner sees three; and once the listing is published the
-Edit button leaves for all three. Nobody writes an `if` to make that happen.
+bar draws no Edit button for any of them. Nobody writes an `if` to make that
+happen.
 
 **What you will have.** An action bar that holds a list of actions and no
 conditions, and four policy statements that decide what it draws for whoever is
@@ -33,28 +34,44 @@ you write them. Then somebody tightens the handler, the button stays lit, and a
 bookseller presses Edit on a published listing and gets a 403 with no
 explanation.
 
-**How the library gets you there.** The bar calls `access.can` once per action
-and draws from `allowed`. `reason` is what the disabled button says. Adding a
-fourth control is a statement in the policy and a row in the list.
+**How the library gets you there.** The storefront fetched the matrix, checked
+its version and hydrated it, which is where [Rules that outlive the
+process](/acl/advanced) left you. The bar calls `access.can` on that evaluator
+once per action and draws from `allowed`. `reason` is what the disabled button
+says. Adding a fourth control is a statement in the policy and a row in the
+list.
 
 ## The shop's listing policy, in four statements
 
-Every rule you have written so far reads a subject, an object, or a document
-somebody else shipped. The bar above needs four of them and nothing new. A
-listing is a game the shop sells: Jo can review it, a bookseller can edit it,
-the owner can publish it, and a published listing is closed to edits whoever
-asks.
+The document the storefront fetched carries a permission per object kind the
+shop has, questions and orders among them, and `listing` is the kind this screen
+draws. The storefront never runs the builder call below. That call is how the
+producer wrote the four statements the storefront now answers from: Jo can
+review a listing, a bookseller can edit it, the owner can publish it, and a
+published listing is closed to edits whoever asks.
 
 ```ts file=libs/acl/README.md region=listing-bar
 
 ```
 
-Four statements, three controls, three roles. The typed builder binds `Listing`
+The `.for('listing', …)` block is one of however many kinds the shop's policy
+holds. A shop that also sells events chains `.for('event', …)` beside it, and
+the bar goes on reading `listing` out of the same document.
+
+Two condition helpers are new in that block. `p.always` is the condition that
+holds for anybody, so `review` is granted to whoever is signed in. `p.in` tests
+one subject value against an allow-list. This `Shopper` carries `role` as a
+single string, where the report policy on [rules that read the
+subject](/acl/simple) carried `roles` as an array and read it with `p.contains`.
+One value against a list, or one value inside a list: the two helpers run the
+same test from opposite ends.
+
+Four statements produce the whole bar. The typed builder binds `Listing`
 to the key `listing`, so `object.status` in the deny is checked against the
-interface as it is written — the same binding that turns a misspelled
-path into a compile error, met first where [rules read the
-object](/acl/intermediate) and here holding a screen together instead of a
-test.
+interface as it is written. That is the binding that turns a misspelled path
+into a compile error, met first where [rules read the
+object](/acl/intermediate), and the schema on the document holds a foreign
+producer to the same paths once the builder's types have gone.
 
 ## What the bar draws for each shopper
 
@@ -64,8 +81,8 @@ to draw the button, and `reason` is the wording when it draws the button
 greyed out.
 
 Ask on the bookseller's behalf and `review` and `edit` come back `allowed` while
-`publish` comes back `no-rule-matched`. Three answers, three controls, and the
-component holds no condition of its own — it holds a list of actions.
+`publish` comes back `no-rule-matched`. Each answer draws one control, and the
+component holds a list of actions and no condition of its own.
 
 That is the property worth taking away: adding a fourth control to the bar is a
 statement in the policy and a row in the list. It is never a branch in the
@@ -75,20 +92,23 @@ policy cannot see.
 ## A status change moves the bar without touching the policy
 
 Press Publish and `object.status` becomes `published`. The deny in the shop's
-listing policy now matches, `edit` comes back `denied`, and the Edit button
-leaves the bar for every role — the bookseller's and the owner's alike, because
-a deny outranks a matching allow.
+listing policy now matches, `edit` comes back `denied`, and the bar draws no
+Edit button for any role, the bookseller's and the owner's alike, because a deny
+outranks a matching allow.
 
-Nothing was recomputed by hand and no second rule was written for the published
-case. One row changed and four statements produced a different screen.
+You recomputed nothing by hand and you wrote no second rule for the published
+case. One row changed and four statements produced a different screen. The
+service that published this document evaluates the same four statements before
+it writes the status, so the screen and the write agree by reading one
+document.
 
 ## The screen, with the policy in your hands
 
 Both beats are below, on the policy this page has been reading. Sign in as each
 of the three and the bar is rebuilt from `access.can`. Press a role inside a
 grant to strike it out and the control that grant produced leaves while you are
-looking at it. Press Publish and the deny matches, so Edit goes for the
-bookseller and the owner alike.
+looking at it. Press Publish and the deny matches, so neither the bookseller nor
+the owner is offered Edit.
 
 <AccessDemo />
 
@@ -113,4 +133,4 @@ out instead has to say why, and `Decision` carries `reason`, `rule` and
 `missing` beside `allowed` for that. What each key
 means, and which of them are repairable, is [Why was this
 refused?](/acl/refusals); the shape itself is in the [API
-reference](/acl/api#decisions).
+reference](/acl/api#decision).

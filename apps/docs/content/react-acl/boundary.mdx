@@ -10,6 +10,7 @@
 <PageSheet
   difficulty={3}
   read={7}
+  hands={10}
   requires={[['Getting started', '/react-acl/getting-started']]}
   unlocks={[
     ['Security contract', '/acl/security'],
@@ -35,7 +36,7 @@ loader.
 `'use client'` sits at the top of its entry point, so a hook cannot be called on
 the trusted side at all, and the trusted side calls the core.
 
-## What the two calls have in common, and what they do not
+## One decision, two runtimes
 
 `useCan('listing', 'edit', listing)` and
 `access.can(shopper, 'listing', 'edit', listing)` evaluate the same rules over
@@ -49,6 +50,7 @@ read, against a subject the shopper's own page supplied.
 
 | Where                                | Runtime | Decides?                                |
 | ------------------------------------ | ------- | --------------------------------------- |
+| Middleware                           | trusted | yes, for what it lets through           |
 | Loader or server component           | trusted | yes, for what it returns or renders     |
 | `PolicyProvider` and its tree        | browser | never; it toggles what the shopper sees |
 | Action, Server Action, route handler | trusted | yes, independently, for what it writes  |
@@ -58,9 +60,16 @@ rendering anything, so the row re-resolves the subject from the session, re-read
 the row from the database, and decides again. There is no "already checked
 upstream": a gateway that allowed the request does not excuse the service behind
 it, and a page that hid the button does not excuse the handler the button posts
-to.
+to. Every app in the chain runs its own evaluation and trusts no earlier layer,
+and that holds between two of your own services as much as it holds between the
+browser and the server.
 
-## What a server component calls instead
+Each of those evaluations reads a document already in memory. `can` is a
+function over frozen JSON, so nothing in the trusted column waits on a network
+call to decide, and a policy service that is slow or down cannot turn a deny
+into an allow.
+
+## What a server component calls
 
 Nothing on the trusted side imports `@evanion/react-acl`. A loader or a server
 component already holds an evaluator and a subject, so it asks the core:
@@ -76,16 +85,22 @@ signature after it. [React Router 8](/acl/react-router) and
 [Next.js RSC](/acl/next-rsc) each work that through against a real app's file
 layout.
 
-Importing `@evanion/react-acl` into a React Server Component graph is not a
-subtle failure. The package's entry point carries `'use client'`, so the import
-opens a client boundary around whatever imported it, and the component you meant
-to keep on the server ships to the browser.
+`@evanion/react-acl` cannot run in a React Server Component at all. Its entry
+point carries `'use client'` and calls `createContext`, and the `react-server`
+condition Next resolves React under for a Server Component exports no
+`createContext` and no stateful hook. So an RSC app has one way to ask, and it
+is the one above: call `access.can(...)` from `@evanion/acl` directly.
+
+Import the package into a Server Component file anyway and the bundler answers
+before React does. The `'use client'` directive opens a client boundary around
+whatever imported it, and the component you wanted to keep on the server is now
+sent to the browser with its props serialized.
 
 ## What crosses the render
 
-`Access` is a set of closures over a frozen document. It does not survive
-serialization — `JSON.stringify` drops every method silently — so no loader
-return value and no server component prop can carry one.
+`Access` is a set of closures over a frozen document, and it does not survive
+serialization. `JSON.stringify` drops every method silently, so no loader return
+value and no server component prop can carry one.
 
 What crosses is [the matrix](/acl/matrix): a JSON envelope carrying its own
 `version` and `schema`, which is why nothing has to travel beside it. The client
@@ -93,8 +108,8 @@ calls `hydratePolicy` on it and gets its own evaluator back, which is the
 `access` prop [Getting started](/react-acl/getting-started) mounts.
 
 The subject crosses too, because the browser needs it to evaluate. It is not a
-credential and nothing reads it back: the server resolves its own subject from
-the session on the next request rather than trusting the copy it sent.
+credential and nothing reads it back. On the next request the server resolves
+its own subject from the session, and it never trusts the copy it sent.
 
 `now` crosses as a string. Resolve it on the server so the server render and the
 client's first render agree on the instant, and so a time window in the policy is
@@ -104,17 +119,19 @@ not read against a clock the shopper's machine sets.
 
 The matrix in the browser is as fresh as the render that delivered it. Revoke a
 permission and that copy keeps granting until something replaces it, and it has
-no way to notice. `access.version` — the revision stamped on
-[the matrix](/acl/matrix) — is the surface for detecting the gap; failing closed
-and refetching is the app's to write.
+no way to notice. `access.version` (the revision stamped on
+[the matrix](/acl/matrix)) is the surface for detecting the gap. Your app writes
+the part that fails closed and refetches.
 
 The server never depends on that copy, which is what makes the staleness
 survivable. Every loader, every action and every handler evaluates its own.
 
-None of this is a weakness in the browser's answer, because the browser's answer
-was never load-bearing. It is there so the page is honest about what will work:
-a shopper who is shown an Edit button that 403s has been misled by the page, and
-that is the failure the hooks exist to prevent.
+Treat the browser's answer as a convenience for toggling what a control looks
+like, and nothing else. It is there to keep the page honest about what will
+work: a shopper shown an Edit button that 403s has been misled, and that is
+the failure the hooks exist to prevent. Everything that actually protects the
+listing happens on the trusted side, in every layer, each one deciding for
+itself.
 
 ## Where to go next
 
