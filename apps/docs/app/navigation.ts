@@ -268,7 +268,12 @@ export const packages: readonly DocumentedPackage[] = [
     // with no colour of its own. The React binding has no colour of its own
     // either, and its core already took `coral`.
     hue: 'stone',
-    documented: false,
+    documented: true,
+    // The binding's own section, not the core's: the provider, the four hooks
+    // and which side of a render a decision counts on. Everything a rule is
+    // made of belongs to `acl`, and these pages link to the page that owns it
+    // rather than teaching it twice.
+    demo: 'getting-started',
     workshop: true,
   },
   {

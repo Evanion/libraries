@@ -17,7 +17,11 @@
     "ignoreDeprecations": "6.0",
     "rootDir": "."
   },
+  // `examples/` is compiled here for the same reason `src/` is: the docs cite
+  // those files by region and `src/examples.test.tsx` renders them, so they are
+  // test input, and the library build never reaches them.
   "include": [
+    "examples/**/*.tsx",
     "src/**/*.js",
     "src/**/*.jsx",
     "src/**/*.ts",

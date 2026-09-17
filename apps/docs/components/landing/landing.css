@@ -1399,3 +1399,149 @@ textarea.landing-access__field {
 .landing-compose .landing-items__line {
   padding-left: 0;
 }
+
+/*
+ * The React Authorization specimen: a component tree under one provider.
+ *
+ * Two columns on the same grid as `landing-access`, because the pair is the
+ * same shape -- the thing on the left, and what it is reading on the right.
+ */
+.landing-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+}
+
+.landing-policy__tree {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+.landing-policy__aside {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+  border-left: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  background: var(--baize-felt);
+}
+
+.landing-policy__chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-3);
+}
+
+.landing-policy__status {
+  padding: var(--baize-space-1) var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 40%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+  background: transparent;
+  color: var(--baize-chalk);
+  font: inherit;
+  cursor: pointer;
+}
+
+.landing-policy__status[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--baize-hue) 22%, transparent);
+}
+
+/*
+ * One box per component. The nesting is the point, so each box is indented
+ * inside its parent rather than laid out in a row.
+ */
+.landing-policy__node {
+  display: grid;
+  gap: var(--baize-space-2);
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid color-mix(in oklab, var(--baize-hue) 28%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+}
+
+.landing-policy__node .landing-policy__node {
+  background: color-mix(in oklab, var(--baize-hue) 8%, transparent);
+}
+
+.landing-policy__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  margin: 0;
+}
+
+.landing-policy__name {
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-policy__call {
+  color: var(--baize-moss);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-xs);
+}
+
+/*
+ * The answer, in the one place a reader is looking. `denied` and
+ * `no-rule-matched` are both refusals and read alike; the allowed state is the
+ * one that is marked, because it is the one that changes as the reader presses.
+ */
+.landing-policy__badge {
+  margin-left: auto;
+  padding: 0 var(--baize-space-2);
+  border-radius: var(--baize-radius-button);
+  background: color-mix(in oklab, var(--baize-hue) 16%, transparent);
+  color: var(--baize-moss);
+  font-family: var(--baize-font-mono);
+  font-size: var(--baize-text-xs);
+}
+
+.landing-policy__badge[data-allowed] {
+  background: color-mix(in oklab, var(--baize-hue) 45%, transparent);
+  color: var(--baize-chalk);
+}
+
+.landing-policy__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-policy__bar li {
+  padding: var(--baize-space-1) var(--baize-space-3);
+  border: 1px dashed
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  border-radius: var(--baize-radius-button);
+  color: var(--baize-moss);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-policy__note {
+  margin: 0;
+  color: var(--baize-moss);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  letter-spacing: var(--baize-tracking-normal);
+}
+
+@media (max-width: 52rem) {
+  .landing-policy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked, the aside sits under the tree rather than beside it. */
+  .landing-policy__aside {
+    border-left: 0;
+    border-top: 1px solid
+      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  }
+}

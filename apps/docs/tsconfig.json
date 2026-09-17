@@ -91,6 +91,9 @@
       "path": "../../libs/acl"
     },
     {
+      "path": "../../libs/react-acl"
+    },
+    {
       "path": "../../libs/luhn"
     },
     {
