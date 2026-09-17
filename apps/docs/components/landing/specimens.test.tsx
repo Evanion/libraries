@@ -14,7 +14,7 @@ import {
   urnComponents,
   urnSpecimen,
   urnWith,
-  UserURN,
+  GameURN,
 } from './specimens';
 import TokenSpecimen from './TokenSpecimen';
 import UrnSpecimen from './UrnSpecimen';
@@ -173,10 +173,14 @@ describe('the URN card', () => {
 
   it('shows the parts the package parses, in order', () => {
     const { container } = render(<UrnSpecimen value={urnSpecimen} />);
-    const parsed = UserURN.parse(urnSpecimen);
+    const parsed = GameURN.parse(urnSpecimen);
 
     expect(segments(container)).toEqual([parsed.urn, parsed.nid, parsed.nss]);
-    expect(parsed).toMatchObject({ urn: 'urn', nid: 'user', nss: '1337' });
+    expect(parsed).toMatchObject({
+      urn: 'urn',
+      nid: 'game',
+      nss: 'brass-birmingham',
+    });
   });
 
   it('names an explanation for every part, and opens it on a tap', () => {
@@ -186,7 +190,7 @@ describe('the URN card', () => {
       expect(part).toHaveAccessibleDescription(/./);
     }
 
-    const namespace = screen.getByRole('button', { name: 'user' });
+    const namespace = screen.getByRole('button', { name: 'game' });
     fireEvent.click(namespace);
     expect(namespace).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(namespace);
@@ -221,7 +225,7 @@ describe('the URN card', () => {
       urnSpecimen,
       urnComponents.map((component) => component.key),
     );
-    const parsed = UserURN.parse(written);
+    const parsed = GameURN.parse(written);
 
     expect(screen.getByRole('status')).toHaveTextContent(written);
     expect(segments(container)).toEqual([
@@ -256,7 +260,7 @@ describe('the URN card', () => {
       fireEvent.click(screen.getByRole('button', { name: component.label }));
       const written = urnWith(urnSpecimen, [component.key]);
 
-      expect(UserURN.equals(written, urnSpecimen)).toBe(true);
+      expect(GameURN.equals(written, urnSpecimen)).toBe(true);
       expect(screen.getByText(/names nothing new/)).toHaveTextContent(
         urnSpecimen,
       );

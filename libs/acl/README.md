@@ -589,25 +589,29 @@ the value to write, and nothing else from the write is.
 import { policy, pickAllowedFields } from '@evanion/acl';
 
 const access = policy<{ id: string }>()
-  .for<'user', { id: string; name: string }>('user', (p) =>
-    p.allow('update', p.eq('object.id', 'subject.id')).fields(['*', '!role']),
+  .for<'question', { askedBy: string; body: string; status: string }>(
+    'question',
+    (p) =>
+      p
+        .allow('update', p.eq('object.askedBy', 'subject.id'))
+        .fields(['*', '!status']),
   )
   .build();
 
-const current = { id: 'u1', name: 'Ann' };
-const proposed = { name: 'Eve', role: 'admin' };
+const current = { askedBy: 'c1', body: 'In stock?', status: 'open' };
+const proposed = { body: 'Wingspan in stock?', status: 'locked' };
 
 const fd = access.canFields(
-  { id: 'u1' },
-  'user',
+  { id: 'c1' },
+  'question',
   'update',
   current,
   'write',
   proposed,
 );
 
-fd.fields['role']; // -> 'denied'
-JSON.stringify(pickAllowedFields(fd, proposed)); // -> '{"name":"Eve"}'
+fd.fields['status']; // -> 'denied'
+JSON.stringify(pickAllowedFields(fd, proposed)); // -> '{"body":"Wingspan in stock?"}'
 ```
 
 <!-- #endregion write-path -->

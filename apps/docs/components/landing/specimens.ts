@@ -126,22 +126,22 @@ export function collisionAt(entropyBits: number): number {
   return Math.round(codes / scale) * scale;
 }
 
-/** The identifier the URN card opens with. */
-export const urnSpecimen = 'urn:user:1337';
+/** The identifier the URN card opens with: a game in the shop's catalogue. */
+export const urnSpecimen = 'urn:game:brass-birmingham';
 
 /**
  * The card's namespace, as a subclass, which is the package's extension
  * point. With `nid` set, `parse` gives back the name without the namespace;
- * the base class, whose `nid` is a placeholder, keeps `user:` in the `nss`
+ * the base class, whose `nid` is a placeholder, keeps `game:` in the `nss`
  * rather than discard a namespace it was not told about.
  */
-export class UserURN extends URN {
-  static override readonly nid = 'user';
+export class GameURN extends URN {
+  static override readonly nid = 'game';
 }
 
 /** The parts of the specimen, from the package's own parser. */
 export function urnParts(value: string): ParsedURN {
-  return UserURN.parse(value);
+  return GameURN.parse(value);
 }
 
 /** Which of RFC 8141 2.3's optional components a card segment is. */
@@ -154,7 +154,7 @@ export interface UrnComponent {
   label: string;
   /** What introduces it in the identifier. */
   delimiter: string;
-  /** What the card attaches, chosen to be plausible for a user record. */
+  /** What the card attaches, chosen to be plausible for a listing. */
   value: string;
   /** The heading of its explanation, matching the other three parts. */
   name: string;
@@ -198,9 +198,9 @@ export const urnComponents: readonly UrnComponent[] = [
     key: 'fComponent',
     label: 'fragment',
     delimiter: '#',
-    value: 'avatar',
+    value: 'rules',
     name: 'f-component',
-    line: 'Which part to open. Nothing on the network reads this one -- you already have the whole thing, and this says where to jump inside it. It is the `#section` at the end of a web address, and it behaves the same way.',
+    line: 'Which part to open. Nothing on the network reads this one -- you already have the whole listing, and this says where to jump inside it. It is the `#section` at the end of a web address, and it behaves the same way.',
   },
 ];
 
@@ -216,8 +216,8 @@ export function urnWith(
   base: string,
   attached: readonly ComponentKey[],
 ): string {
-  return UserURN.stringify({
-    nss: UserURN.extractId(base),
+  return GameURN.stringify({
+    nss: GameURN.extractId(base),
     ...Object.fromEntries(
       urnComponents
         .filter((component) => attached.includes(component.key))
@@ -228,5 +228,5 @@ export function urnWith(
 
 /** Whether two identifiers name the same thing, as the package judges it. */
 export function urnEquals(a: string, b: string): boolean {
-  return UserURN.equals(a, b);
+  return GameURN.equals(a, b);
 }
