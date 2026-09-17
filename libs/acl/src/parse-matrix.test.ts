@@ -208,4 +208,21 @@ describe('parseMatrix', () => {
     );
     expect(access.can({}, 'comment', 'read').allowed).toBe(false);
   });
+
+  it('evaluates against an interface-typed subject the caller names', () => {
+    interface ShopSubject {
+      id: string;
+      roles: string[];
+    }
+    interface ShopComment {
+      authorId: string;
+    }
+
+    const access = parseMatrix<ShopSubject, { comment: ShopComment }>(json);
+    const editor: ShopSubject = { id: 's1', roles: ['editor'] };
+    const reader: ShopSubject = { id: 's2', roles: [] };
+
+    expect(access.can(editor, 'comment', 'read').allowed).toBe(true);
+    expect(access.can(reader, 'comment', 'read').allowed).toBe(false);
+  });
 });

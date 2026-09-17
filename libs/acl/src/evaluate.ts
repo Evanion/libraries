@@ -109,8 +109,13 @@ function sideOutcome(
  * 4. the deny side is unevaluable -> unevaluable, naming the deny rule
  * 5. an allow rule matches -> allow
  * 6. the allow side reads an unusable clock -> unusable-clock
- * 7. the allow side is unevaluable -> unevaluable
- * 8. otherwise -> no-rule-matched
+ * 7. the allow side is unevaluable -> unevaluable, naming the paths it missed
+ *
+ * Seven branches and no eighth. Step 2 is the only `no-rule-matched` there is,
+ * because `sideOutcome` answers `fails` for every allow side that definitely
+ * matched nothing, and the four states it can answer with are each named above.
+ * Step 7 is the last return, reached with `unevaluable` as the one allow state
+ * the steps above have not already answered.
  *
  * Steps 3 and 4 sit above step 5 because a deny the engine could not decide
  * outranks an allow that matched: the side whose job is to refuse has to be

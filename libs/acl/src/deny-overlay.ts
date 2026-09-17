@@ -36,6 +36,13 @@ export interface DenyOverlayOptions {
    *
    * The target's whole statement of its extension points. Listing a key is what
    * obliges the matrix to declare that key's object kind in `schema.objects`.
+   *
+   * Plain strings, where `SerializeOptions.vetoable` is checked against the
+   * document's key union. This function takes a `Matrix`, the serializable
+   * document, which carries no union, and the party that writes an overlay is
+   * another team holding that document as JSON with none of the producer's
+   * types. A key nothing here can check is `UnknownPermissionError` at
+   * construction.
    */
   readonly vetoable: readonly string[];
 }

@@ -211,11 +211,46 @@ function expiryOf(matrix: Matrix, options: AccessOptions): number | undefined {
 export type AnyObjects = Record<string, Record<string, unknown>>;
 
 /**
+ * The action half of the keys `Keys` holds for one object kind.
+ *
+ * A document whose keys are open answers `string`, which is the action
+ * parameter every query took before a builder declared a vocabulary. A
+ * document that declares `'comment.update' | 'comment.read'` answers
+ * `'update' | 'read'` for `'comment'`, so the action a query names is checked
+ * the same way its key is.
+ *
+ * An empty `Keys` is a document that declares nothing, which a policy with no
+ * blocks produces, and it answers `string` for the same reason an open one
+ * does.
+ *
+ * A kind the union holds no key for answers `string` as well. The builder
+ * cannot reach that branch, since every block contributes a kind and its keys
+ * together, and a caller naming `R` and `Keys` by hand over an adopted document
+ * can: `parseMatrix<Sub, { device: Device }, 'telemetry.read'>` states a row
+ * type for a kind it named no key for. `string` leaves that kind answerable and
+ * `never` would make every query on it uncallable, which is a refusal the
+ * document never asked for.
+ */
+export type ActionOf<Keys extends string, K extends string> = [Keys] extends [
+  never,
+]
+  ? string
+  : string extends Keys
+    ? string
+    : [Extract<Keys, `${K}.${string}`>] extends [never]
+      ? string
+      : Keys extends `${K}.${infer Act}`
+        ? Act
+        : never;
+
+/**
  * One subject's decisions, bound to that subject and one clock instant.
  *
  * `R` is the key -> object-type map the `Access` it came from carries, so the
- * binding survives the member that hands it back. Only `R` appears, because
- * `authorize` already took the subject and checked it there.
+ * binding survives the member that hands it back. `Keys` is the permission-key
+ * union from the same place, and `capabilities()` answers under those keys.
+ * The subject is absent from both, because `authorize` already took it and
+ * checked it there.
  *
  * Decisions only. It carries no `matrix`, `version` or `schema`, and a caller
  * that needs the document alongside the handle holds the `Access` it came from
@@ -228,25 +263,25 @@ export type AnyObjects = Record<string, Record<string, unknown>>;
  * `readsObject` is absent for the same reason in reverse: it is a fact about
  * the document, not about this subject.
  */
-export interface Authorized<R = AnyObjects> {
+export interface Authorized<R = AnyObjects, Keys extends string = string> {
   can<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object?: Partial<R[K]>,
   ): Decision;
   canMany<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     objects: readonly Partial<R[K]>[],
   ): Decision[];
   canFields<K extends keyof R & string>(
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object: Partial<R[K]>,
     axis: 'read' | 'write',
     proposed?: Partial<R[K]>,
   ): FieldDecision;
-  capabilities(): Record<string, Decision>;
+  capabilities(): Record<Keys, Decision>;
 }
 
 /**
@@ -259,42 +294,48 @@ export interface Authorized<R = AnyObjects> {
  * miss, so a projected subject refuses with `no-rule-matched` and names nothing
  * to fetch.
  */
-export interface BoundKind<Sub, Obj> {
+export interface BoundKind<Sub, Obj, Act extends string = string> {
   can(
     subject: Sub,
-    action: string,
+    action: Act,
     object?: Partial<Obj>,
     now?: Instant,
   ): Decision;
   canMany(
     subject: Sub,
-    action: string,
+    action: Act,
     objects: readonly Partial<Obj>[],
     now?: Instant,
   ): Decision[];
   canFields(
     subject: Sub,
-    action: string,
+    action: Act,
     object: Partial<Obj>,
     axis: 'read' | 'write',
     proposed?: Partial<Obj>,
     now?: Instant,
   ): FieldDecision;
   /** `Access.readsObject` for this kind, with the key already bound. */
-  readsObject(action: string): boolean;
+  readsObject(action: Act): boolean;
 }
 
 /**
  * The evaluator over one frozen document.
  *
- * `Sub` is the subject the matrix was written against and `R` is the key ->
- * object-type map. Both default to the open bags a JSON document carries, and
- * at the defaults `keyof R & string` is `string` and `Partial<R[K]>` is a bag
- * of unknowns, so a foreign document accepts any key and any object. A typed
- * author names both, and every query checks its key and its object against
- * them.
+ * `Sub` is the subject the matrix was written against, `R` is the key ->
+ * object-type map, and `Keys` is the permission keys the document declares.
+ * All three default to the open forms a JSON document carries, and at the
+ * defaults `keyof R & string` is `string`, `Partial<R[K]>` is a bag of
+ * unknowns and `capabilities()` answers under any key, so a foreign document
+ * accepts any key, any action and any object. A typed author names them
+ * through the builder, and every query checks its key, its action and its
+ * object against them.
  */
-export interface Access<Sub = Subject, R = AnyObjects> {
+export interface Access<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+> {
   /**
    * The frozen document. It round-trips through JSON, so an SSR crossing is
    * `hydratePolicy(JSON.parse(JSON.stringify(access.matrix)))` with nothing
@@ -308,30 +349,39 @@ export interface Access<Sub = Subject, R = AnyObjects> {
   can<K extends keyof R & string>(
     subject: Sub,
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object?: Partial<R[K]>,
     now?: Instant,
   ): Decision;
   canMany<K extends keyof R & string>(
     subject: Sub,
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     objects: readonly Partial<R[K]>[],
     now?: Instant,
   ): Decision[];
   canFields<K extends keyof R & string>(
     subject: Sub,
     key: K,
-    action: string,
+    action: ActionOf<Keys, K>,
     object: Partial<R[K]>,
     axis: 'read' | 'write',
     proposed?: Partial<R[K]>,
     now?: Instant,
   ): FieldDecision;
-  capabilities(subject: Sub, now?: Instant): Record<string, Decision>;
-  authorize(subject: Sub, opts?: { now?: Instant }): Authorized<R>;
+  /**
+   * Every action-level decision for this subject, under the document's keys.
+   *
+   * The key of each entry is the permission key, `'comment.update'`. A
+   * document that declares its keys answers a record typed by them, so a
+   * caller reads one by name and a misspelled name is a compile error.
+   */
+  capabilities(subject: Sub, now?: Instant): Record<Keys, Decision>;
+  authorize(subject: Sub, opts?: { now?: Instant }): Authorized<R, Keys>;
   /** A handle with one object kind bound, so the key is named once. */
-  object<K extends keyof R & string>(key: K): BoundKind<Sub, R[K]>;
+  object<K extends keyof R & string>(
+    key: K,
+  ): BoundKind<Sub, R[K], ActionOf<Keys, K>>;
   /**
    * Whether this permission needs the object row to reach a decision at all.
    *
@@ -355,8 +405,31 @@ export interface Access<Sub = Subject, R = AnyObjects> {
    * false: it decides `unknown-action` without a row. Unknown keys behave as
    * they do for `can` -- open mode throws, `closed` mode answers.
    */
-  readsObject<K extends keyof R & string>(key: K, action: string): boolean;
+  readsObject<K extends keyof R & string>(
+    key: K,
+    action: ActionOf<Keys, K>,
+  ): boolean;
 }
+
+/**
+ * The permission keys an `Access` carries, lifted back out of its type.
+ *
+ * A producer that authored its policy with the builder publishes the union its
+ * blocks accumulated: `export type ShopPermissions = KeysOf<typeof access>`. A
+ * consumer in the same build imports that and hands it to `parseMatrix`, so the
+ * two sides agree by construction and a key the producer renames breaks the
+ * consumer's compile.
+ *
+ * The boundary: this reads a TypeScript type, so it reaches only a consumer
+ * that compiles against the producer's source. A consumer in another
+ * repository, which is the topology the published-contract pages teach, holds
+ * the document and no types at all, and states the union it expects by hand as
+ * the third argument of `parseMatrix`. Both are assertions about a document
+ * neither side validated at the type level; one is kept honest by the compiler
+ * and the other by the reader.
+ */
+export type KeysOf<A> =
+  A extends Access<never, never, infer Keys> ? Keys : never;
 
 function buildIndex(
   permissions: readonly Permission[],
@@ -369,10 +442,10 @@ function buildIndex(
 /**
  * The evaluator over a matrix document.
  *
- * `Sub` and `R` are the compile-time surface; the engine underneath takes plain
- * bags and string keys, so the body is written against the erased form and cast
- * once at the end. Naming neither is the foreign path, where the defaults make
- * every signature the untyped one.
+ * `Sub`, `R` and `Keys` are the compile-time surface; the engine underneath
+ * takes plain bags and string keys, so the body is written against the erased
+ * form and cast once at the end. Naming none of them is the foreign path, where
+ * the defaults make every signature the untyped one.
  *
  * A holder that reports `fetchedAt` gets a freshness budget out of the
  * document's `maxStale`. Past `fetchedAt + min(maxStale, options.maxStale)`,
@@ -381,10 +454,11 @@ function buildIndex(
  * an `object.*` path is a fact about the document and no claim about the
  * present.
  */
-export function hydratePolicy<Sub = Subject, R = AnyObjects>(
-  matrix: Matrix,
-  options: AccessOptions = {},
-): Access<Sub, R> {
+export function hydratePolicy<
+  Sub = Subject,
+  R = AnyObjects,
+  Keys extends string = string,
+>(matrix: Matrix, options: AccessOptions = {}): Access<Sub, R, Keys> {
   const frozen = adopt(matrix, options.version);
   const permissions = frozen.permissions;
   const index = buildIndex(permissions);
@@ -602,5 +676,5 @@ export function hydratePolicy<Sub = Subject, R = AnyObjects>(
     readsObject,
   };
 
-  return access as unknown as Access<Sub, R>;
+  return access as unknown as Access<Sub, R, Keys>;
 }

@@ -272,8 +272,11 @@ describe('federatedPolicies', () => {
     });
 
     it('takes a member the typed builder produced', () => {
-      const own = policy<{ id: string; roles: string[] }>()
-        .for<'sessions:session', { ownerId: string }>('sessions:session', (p) =>
+      const own = policy<
+        { id: string; roles: string[] },
+        { 'sessions:session': { ownerId: string } }
+      >()
+        .for('sessions:session', (p) =>
           p.allow('read', p.eq('object.ownerId', 'subject.id')),
         )
         .build();

@@ -2,18 +2,24 @@ import { describe, expect, it } from 'vitest';
 
 import { policy } from './authoring.js';
 import { hydratePolicy } from './hydrate-policy.js';
+import { parseMatrix } from './parse-matrix.js';
+import { serialize } from './serialize.js';
 import { AclConfigError, UnknownFieldError } from './errors.js';
+import type { Action } from './authoring.js';
 import type { Matrix, MatrixSchema } from './types.js';
 
 type Subject = { id: string; roles: string[] };
 type Comment = { authorId: string; status: 'draft' | 'published' };
 type Media = { ownerId: string; bytes: number };
 
+type Objects = { comment: Comment; media: Media };
+type Verbs = { comment: Action | 'publish' };
+
 const subject: Subject = { id: 's1', roles: ['editor'] };
 
 describe('authoring', () => {
   it('flattens the chain to a canonical matrix', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p
         .allow('update', p.eq('object.authorId', 'subject.id'))
         .allow('publish', p.contains('subject.roles', 'editor')),
@@ -50,7 +56,7 @@ describe('authoring', () => {
   });
 
   it('a document with no version and no schema omits both keys', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always),
     );
     expect(Object.keys(access.matrix)).toEqual(['permissions']);
@@ -66,11 +72,11 @@ describe('authoring', () => {
         comment: { fields: { authorId: 'string', status: 'string' } },
       },
     };
-    const access = policy<Subject>({
+    const access = policy<Subject, Objects, Verbs>({
       version: 'orders@7+veto@41',
       schema,
     })
-      .for<'comment', Comment>('comment', (p) =>
+      .for('comment', (p) =>
         p.allow('update', p.eq('object.authorId', 'subject.id')),
       )
       .build();
@@ -88,12 +94,12 @@ describe('authoring', () => {
 
   it('a schema in the document binds the conditions the builder emitted', () => {
     expect(() =>
-      policy<Subject>({
+      policy<Subject, Objects, Verbs>({
         schema: {
           objects: { comment: { fields: { authorId: 'string' } } },
         },
       })
-        .for<'comment', Comment>('comment', (p) =>
+        .for('comment', (p) =>
           // `status` is a Comment field, so TypeScript accepts the path; the
           // schema does not declare it, so construction refuses the
           // document.
@@ -104,7 +110,7 @@ describe('authoring', () => {
   });
 
   it('every permission key is its object and action joined', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always).deny('delete', p.always),
     );
     for (const permission of access.matrix.permissions) {
@@ -113,7 +119,7 @@ describe('authoring', () => {
   });
 
   it('or produces one rule per branch and and produces one rule', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p
         .allow(
           'update',
@@ -136,7 +142,7 @@ describe('authoring', () => {
   });
 
   it('a nested or distributes into one rule per branch', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow(
         'update',
         p.and(
@@ -155,7 +161,7 @@ describe('authoring', () => {
   });
 
   it('several conditions on one allow are one AND-ed rule', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow(
         'update',
         p.eq('object.status', 'draft'),
@@ -167,14 +173,14 @@ describe('authoring', () => {
   });
 
   it('always flattens to one rule with an empty when', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('create', p.always),
     );
     expect(access.matrix.permissions[0]!.rules).toEqual([{ when: [] }]);
   });
 
   it('every op has a helper', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow(
         'read',
         p.ne('object.status', 'published'),
@@ -195,7 +201,7 @@ describe('authoring', () => {
   });
 
   it('a path operand becomes a path and a literal becomes a value', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p
         .allow('update', p.eq('object.authorId', 'subject.id'))
         .allow('read', p.eq('object.status', 'published')),
@@ -213,8 +219,8 @@ describe('authoring', () => {
   });
 
   it('deny authoring produces denyRules', () => {
-    const access = policy<Subject>()
-      .for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>()
+      .for('comment', (p) =>
         p
           .allow('delete', p.contains('subject.roles', 'editor'))
           .deny('delete', p.eq('object.status', 'published')),
@@ -231,7 +237,7 @@ describe('authoring', () => {
   });
 
   it('fields attaches to the action most recently declared', () => {
-    const access = policy<Subject>().for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p
         .allow('update', p.always)
         .fields({
@@ -246,20 +252,147 @@ describe('authoring', () => {
     });
   });
 
-  it('fields before any action is refused', () => {
+  it('visibility attaches to the action most recently declared', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p.allow('update', p.always).visibility('public').allow('read', p.always),
+    );
+    expect(access.matrix.permissions[0]!.visibility).toBe('public');
+    expect(access.matrix.permissions[1]!.visibility).toBeUndefined();
+  });
+
+  it('an undeclared visibility emits no key', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p.allow('update', p.always),
+    );
+    expect(Object.keys(access.matrix.permissions[0]!)).toEqual([
+      'key',
+      'object',
+      'action',
+      'rules',
+    ]);
+    expect(JSON.stringify(access.matrix)).not.toContain('visibility');
+  });
+
+  it('an internal marking is emitted as the document states it', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p.allow('update', p.always).visibility('internal'),
+    );
+    expect(access.matrix.permissions[0]!.visibility).toBe('internal');
+  });
+
+  it('visibility before any action is refused', () => {
     expect(() =>
-      policy<Subject>().for<'comment', Comment>('comment', (p) =>
-        p.fields(['*']),
+      policy<Subject, Objects, Verbs>().for('comment', (p) =>
+        p.visibility('public'),
       ),
     ).toThrow(AclConfigError);
   });
 
+  it('fields before any action is refused', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) => p.fields(['*'])),
+    ).toThrow(AclConfigError);
+  });
+
+  it('allowEach writes one ordinary permission per action', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p.allowEach(['read', 'update'], p.eq('object.authorId', 'subject.id')),
+    );
+    expect(access.matrix.permissions).toEqual([
+      {
+        key: 'comment.read',
+        object: 'comment',
+        action: 'read',
+        rules: [
+          {
+            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+      },
+      {
+        key: 'comment.update',
+        object: 'comment',
+        action: 'update',
+        rules: [
+          {
+            when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('denyEach writes a deny rule per action', () => {
+    const access = policy<Subject, Objects, Verbs>()
+      .for('comment', (p) =>
+        p
+          .allowEach(['read', 'update'], p.always)
+          .denyEach(['update'], p.eq('object.status', 'published')),
+      )
+      .build();
+    expect(
+      access.can(subject, 'comment', 'read', { status: 'published' }).allowed,
+    ).toBe(true);
+    expect(
+      access.can(subject, 'comment', 'update', { status: 'published' }),
+    ).toMatchObject({ allowed: false, reason: 'denied' });
+  });
+
+  it('an action allowEach repeats is the one draft that action has', () => {
+    const batched = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p
+        .allow('read', p.eq('object.status', 'published'))
+        .allowEach(['read'], p.eq('object.authorId', 'subject.id')),
+    );
+    const written = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p
+        .allow('read', p.eq('object.status', 'published'))
+        .allow('read', p.eq('object.authorId', 'subject.id')),
+    );
+    expect(batched.matrix).toEqual(written.matrix);
+    expect(batched.matrix.permissions).toHaveLength(1);
+  });
+
+  it('an empty action list declares nothing', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p.allowEach([], p.always),
+    );
+    expect(access.matrix.permissions).toEqual([]);
+  });
+
+  it('fields and visibility are refused after a batch', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) =>
+        p.allowEach(['read', 'update'], p.always).fields(['*']),
+      ),
+    ).toThrow(AclConfigError);
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) =>
+        p.denyEach(['read'], p.always).visibility('public'),
+      ),
+    ).toThrow(AclConfigError);
+  });
+
+  it('an action named after a batch takes the mark', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p
+        .allowEach(['read', 'update'], p.always)
+        .allow('publish', p.always)
+        .visibility('public'),
+    );
+    expect(access.matrix.permissions[2]).toMatchObject({
+      key: 'comment.publish',
+      visibility: 'public',
+    });
+    expect(access.matrix.permissions[0]!.visibility).toBeUndefined();
+  });
+
   it('chained for calls accumulate every kind', () => {
-    const access = policy<Subject>()
-      .for<'comment', Comment>('comment', (p) =>
+    const access = policy<Subject, Objects, Verbs>()
+      .for('comment', (p) =>
         p.allow('update', p.eq('object.authorId', 'subject.id')),
       )
-      .for<'media', Media>('media', (p) =>
+      .for('media', (p) =>
         p.allow('read', p.eq('object.ownerId', 'subject.id')),
       )
       .build();
@@ -272,8 +405,8 @@ describe('authoring', () => {
   });
 
   it('a bound kind decides what the key form decides', () => {
-    const access = policy<Subject>()
-      .for<'media', Media>('media', (p) =>
+    const access = policy<Subject, Objects, Verbs>()
+      .for('media', (p) =>
         p.allow('read', p.eq('object.ownerId', 'subject.id')),
       )
       .build();
@@ -285,8 +418,8 @@ describe('authoring', () => {
 });
 
 describe('a projection through the typed path', () => {
-  const access = policy<Subject>()
-    .for<'comment', Comment>('comment', (p) =>
+  const access = policy<Subject, Objects, Verbs>()
+    .for('comment', (p) =>
       p
         .allow('update', p.eq('object.authorId', 'subject.id'))
         .deny('update', p.eq('object.status', 'published')),
@@ -349,8 +482,8 @@ describe('a projection through the typed path', () => {
 });
 
 describe('the built matrix against the hand-written one', () => {
-  const built = policy<Subject>({ version: 3 })
-    .for<'comment', Comment>('comment', (p) =>
+  const built = policy<Subject, Objects, Verbs>({ version: 3 })
+    .for('comment', (p) =>
       p
         .allow(
           'update',
@@ -363,7 +496,7 @@ describe('the built matrix against the hand-written one', () => {
         .allow('publish', p.contains('subject.roles', 'editor'))
         .deny('publish', p.eq('object.status', 'published')),
     )
-    .for<'media', Media>('media', (p) => p.allow('read', p.always))
+    .for('media', (p) => p.allow('read', p.always))
     .build();
 
   const hand: Matrix = {
@@ -449,5 +582,64 @@ describe('the built matrix against the hand-written one', () => {
 
   it('decides identically through capabilities', () => {
     expect(built.capabilities(subject)).toEqual(written.capabilities(subject));
+  });
+});
+
+describe('a builder-authored policy published as a contract', () => {
+  const owner = policy<Subject, Objects, Verbs>({
+    version: 'shop@4',
+    schema: {
+      subject: { fields: { id: 'string', roles: 'string[]' } },
+      objects: {
+        comment: { fields: { authorId: 'string', status: 'string' } },
+        media: { fields: { ownerId: 'string', bytes: 'number' } },
+      },
+    },
+  })
+    .for('comment', (p) =>
+      p
+        .allow('update', p.eq('object.authorId', 'subject.id'))
+        .visibility('public')
+        .allow('publish', p.contains('subject.roles', 'editor')),
+    )
+    .for('media', (p) => p.allow('read', p.always).visibility('internal'))
+    .build();
+
+  const contract = serialize(owner, 'reduced');
+  const consumer = parseMatrix<Subject, { comment: Comment }>(contract);
+  const comment: Comment = { authorId: 's1', status: 'draft' };
+
+  it('keeps the marked permission and drops the rest', () => {
+    expect(contract.permissions.map((p) => p.key)).toEqual(['comment.update']);
+    expect(Object.keys(contract.schema?.objects ?? {})).toEqual(['comment']);
+    expect(contract.permissions[0]).not.toHaveProperty('visibility');
+  });
+
+  it('decides the published key the way the owner does', () => {
+    expect(consumer.can(subject, 'comment', 'update', comment)).toEqual(
+      owner.can(subject, 'comment', 'update', comment),
+    );
+    expect(
+      consumer.can({ id: 'x', roles: [] }, 'comment', 'update', comment),
+    ).toEqual(owner.can({ id: 'x', roles: [] }, 'comment', 'update', comment));
+  });
+
+  it('answers unknown-action for a key that stayed internal', () => {
+    expect(consumer.can(subject, 'comment', 'publish', comment).reason).toBe(
+      'unknown-action',
+    );
+  });
+
+  it('round-trips the contract through JSON and parseMatrix unchanged', () => {
+    const adopted = parseMatrix(JSON.parse(JSON.stringify(contract)) as Matrix);
+    expect(adopted.matrix).toEqual(consumer.matrix);
+  });
+
+  it('serializes the full document with every marking intact', () => {
+    const full = serialize(owner, 'full');
+    expect(full.permissions.map((permission) => permission.visibility)).toEqual(
+      ['public', undefined, 'internal'],
+    );
+    expect(hydratePolicy(full).matrix).toEqual(owner.matrix);
   });
 });

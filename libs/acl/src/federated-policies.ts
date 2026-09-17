@@ -1,6 +1,6 @@
 import { settleNow } from './conditions.js';
 import { OriginCollisionError } from './errors.js';
-import type { Access, Subject } from './hydrate-policy.js';
+import type { Access, AnyObjects, Subject } from './hydrate-policy.js';
 import type { Decision, Instant } from './types.js';
 
 /**
@@ -62,9 +62,15 @@ export interface FederatedAccess {
  * members are built. This function takes no overlay and no `vetoable` list.
  */
 export function federatedPolicies(
-  policies: Readonly<Record<string, Access>>,
+  policies: Readonly<Record<string, Access<Subject, AnyObjects, never>>>,
 ): FederatedAccess {
-  const members = new Map(Object.entries(policies));
+  // Every member is read through the erased surface, and the empty key union
+  // in the parameter is what lets members that declare different keys sit in
+  // one record: a record of declared keys satisfies a record of none, and a
+  // record of open keys does too.
+  const members = new Map(
+    Object.entries(policies as Readonly<Record<string, Access>>),
+  );
   const claimedBy = new Map<string, string>();
   const holder = new Map<string, Access>();
 
