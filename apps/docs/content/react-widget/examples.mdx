@@ -180,18 +180,20 @@ Per-instance `components` overrides let the same data render differently on
 different pages:
 
 ```tsx
-const { Widgets } = createWidgets({ components: { news: NewsTeaser } });
+const { Widgets } = createWidgets({ components: { listing: ListingCard } });
 
-function HomePage() {
-  return <Widgets items={newsItems} components={{ news: FeaturedNews }} />;
+function StorefrontPage() {
+  return (
+    <Widgets items={shelfItems} components={{ listing: FeaturedListing }} />
+  );
 }
 
-function ArchivePage() {
-  return <Widgets items={newsItems} />;
+function BackOfficePage() {
+  return <Widgets items={shelfItems} />;
 }
 ```
 
-`FeaturedNews` has to accept `NewsTeaser`'s props — the items were checked
+`FeaturedListing` has to accept `ListingCard`'s props — the items were checked
 against the factory's map, and an override is a `Partial<C>`, so its entries are
 checked against the same component types.
 

@@ -89,7 +89,7 @@ components it will never render. The bound form off `createWidgets` uses the
 factory's component map.
 
 ```ts
-validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
+validateItems([{ id: 'a', type: 'nope', props: {} }], ['listing']);
 // [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
 ```
 
@@ -120,10 +120,10 @@ list, so the same id at different depths is fine.
 what a CMS text field that was opened and left empty arrives as.
 
 ```ts
-validateItems([{ id: 'a', type: 'news', props: {} }], ['news'], {
-  news: ['title'],
+validateItems([{ id: 'a', type: 'listing', props: {} }], ['listing'], {
+  listing: ['title'],
 });
-// [{ index: 0, id: 'a', type: 'news', message: 'missing field title' }]
+// [{ index: 0, id: 'a', type: 'listing', message: 'missing field title' }]
 ```
 
 Beyond that, `props` is not checked against the component. That is

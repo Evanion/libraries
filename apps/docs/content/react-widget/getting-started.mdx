@@ -18,56 +18,13 @@ React 18 or 19 is the peer dependency. Node 20 or newer. The package is ESM only
 
 ## Three pieces
 
-A widget set is a component map, a list of items, and the `Widgets`
-component that renders one against the other.
+A widget set is a component map, a list of items, and the `Widgets` component
+that renders one against the other. Baize's shelf is two widget types — a
+listing card and the table-booking strip — and the items the shop's data gives
+it.
 
-```tsx
-import { createWidgets } from '@evanion/react-widget';
+```tsx twoslash file=libs/react-widget/examples/listing.tsx region=catalogue
 
-// 1. The components.
-const NewsTeaser = ({ title, body }: { title: string; body: string }) => (
-  <article>
-    <h3>{title}</h3>
-    <p>{body}</p>
-  </article>
-);
-
-const UserSidebar = ({
-  username,
-  messages,
-}: {
-  username: string;
-  messages: number;
-}) => (
-  <div>
-    <span>{username}</span>
-    <span>{messages} messages</span>
-  </div>
-);
-
-// 2. The set. Call createWidgets once, at module scope.
-const { Widgets } = createWidgets({
-  components: { news: NewsTeaser, userInfo: UserSidebar },
-  chrome: {
-    wrapper: ({ children }) => <aside className="sidebar">{children}</aside>,
-  },
-});
-
-// 3. The items.
-export default function Page() {
-  return (
-    <Widgets
-      items={[
-        {
-          id: 'u1',
-          type: 'userInfo',
-          props: { username: 'Evanion', messages: 5 },
-        },
-        { id: 'n1', type: 'news', props: { title: 'Hello', body: '…' } },
-      ]}
-    />
-  );
-}
 ```
 
 That page can be a Server Component. Nothing in the package forces the widgets
@@ -106,7 +63,7 @@ opening exactly where the component is simplest.
 ## Typing items held in a variable
 
 Written inline in JSX, an item array is already contextually typed. Assigned to
-a variable it is not: `const items = [{ type: 'news', … }]` infers
+a variable it is not: `const items = [{ type: 'listing', … }]` infers
 `type: string`, which cannot narrow to the map's keys, and the check is silently
 lost.
 
@@ -114,13 +71,13 @@ lost.
 
 ```tsx
 const { Widgets, defineItems } = createWidgets({
-  components: { news: NewsTeaser, weather: WeatherCard },
+  components: { listing: ListingCard, booking: TableBooking },
 });
 
 const items = defineItems([
-  { id: '1', type: 'news', props: { title: 'Hello', body: '…' } },
+  { id: '1', type: 'listing', props: { title: 'Wingspan', price: 549 } },
   { id: '2', type: 'nope', props: {} }, // ✗ not a key of the map
-  { id: '3', type: 'weather', props: { celsius: 'warm' } }, // ✗ celsius is a number
+  { id: '3', type: 'booking', props: { tables: 'warm' } }, // ✗ tables is a number
 ]);
 ```
 
@@ -177,7 +134,7 @@ Run the loud check yourself at ingestion or in CI:
 ```ts
 import { validateItems } from '@evanion/react-widget';
 
-const problems = validateItems(payload, ['news', 'weather', 'card']);
+const problems = validateItems(payload, ['listing', 'booking', 'card']);
 if (problems.length) {
   console.error(problems);
   process.exit(1);

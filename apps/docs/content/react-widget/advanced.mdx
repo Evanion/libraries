@@ -7,10 +7,10 @@ A widget set has two wrappers. `chrome.wrapper` goes around the whole region;
 
 ```tsx
 const { Widgets } = createWidgets({
-  components: { news: NewsTeaser, userInfo: UserSidebar },
+  components: { listing: ListingCard, booking: TableBooking },
   chrome: {
     wrapper: ({ children }) => (
-      <aside className="blog-sidebar">
+      <aside className="blog-shelf">
         <header>Latest updates</header>
         <div className="widget-container">{children}</div>
       </aside>
@@ -41,11 +41,11 @@ rather than reimplementing it.
 factory's:
 
 ```tsx
-function HomePage() {
+function StorefrontPage() {
   return (
     <Widgets
       items={items}
-      components={{ news: FeaturedNews }}
+      components={{ listing: FeaturedListing }}
       chrome={{ wrapper: HeroRegion }}
     />
   );
@@ -232,7 +232,7 @@ export function SafeItem({ children, ...rest }) {
 
 ```tsx
 const { Widgets } = createWidgets({
-  components: { news: NewsTeaser },
+  components: { listing: ListingCard },
   chrome: { item: SafeItem },
 });
 ```

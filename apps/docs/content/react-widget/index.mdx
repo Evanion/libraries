@@ -1,22 +1,12 @@
 # @evanion/react-widget
 
-Render a region of React components from structured data — a CMS page, a
-dashboard layout, a configurable sidebar — with the data checked against the
-components at compile time.
+Render a region of React components from structured data — a shop page, a
+back-office view, a configurable shelf — with the data checked against the
+components at compile time. Baize's shelf below is two widget types and the
+items the shop's data gives them.
 
-```tsx
-import { createWidgets } from '@evanion/react-widget';
+```tsx twoslash file=libs/react-widget/examples/listing.tsx region=catalogue
 
-const { Widgets } = createWidgets({
-  components: { news: NewsTeaser, userInfo: UserSidebar },
-});
-
-<Widgets
-  items={[
-    { id: 'u1', type: 'userInfo', props: { username: 'Evanion', messages: 5 } },
-    { id: 'n1', type: 'news', props: { title: 'Hello', body: '…' } },
-  ]}
-/>;
 ```
 
 The component map drives everything. An unknown `type`, a missing or mistyped
