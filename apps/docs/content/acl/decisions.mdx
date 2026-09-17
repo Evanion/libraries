@@ -39,7 +39,7 @@ const decision = access.can({ id: 's1' }, 'comment', 'update', comment);
 anything. That cuts both ways: gating on the reason string instead of on
 `allowed` grants what the engine refused.
 
-The six it can hold are the six rows below, and this build says so — a
+The seven it can hold are the rows below, and this build says so — a
 reason added to the package and not to the table leaves `NotInTheTable` with a
 member, and a type whose constraint is `never` cannot have one:
 
@@ -166,7 +166,7 @@ A caller that runs in front of the fetch — an HTTP guard ahead of the handler
 that loads the row — gets `unevaluable` from every object-dependent permission,
 every time. That is correct and it is unhelpful: the guard cannot tell it apart
 from a call that happened to lack data, so it has to let the request through
-and trust that something downstream decides properly.
+and trust something downstream decides.
 
 `access.readsObject(key, action)` says which is which, from the document rather
 than from a call:
