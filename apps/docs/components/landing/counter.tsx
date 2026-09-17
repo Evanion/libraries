@@ -3,14 +3,14 @@ import { createWidgets, type WidgetItemComponent } from '@evanion/react-widget';
 import type { ReactNode } from 'react';
 
 /**
- * The widget set the "Rendering from data" demo renders with: a workshop's
- * dashboard, composed from a list of items.
+ * The widget set the "Rendering from data" demo renders with: the counter's own
+ * view of the shop, composed from a list of items.
  *
  * Four types, one of them a container. `columns` takes nested items and lays
  * them side by side, which is the shape a flat list of components cannot
  * describe and the reason this is a library rather than an afternoon's
  * `items.map`. The other three are blocks a developer wrote once -- a figure, a
- * job table, an order table -- and the data decides which ones the page has,
+ * table board, a reprint board -- and the data decides which ones the page has,
  * where they sit and how wide they are.
  *
  * Small enough that a reader holds the whole map in their head while moving
@@ -22,7 +22,7 @@ import type { ReactNode } from 'react';
  */
 
 /** What the demo's item chrome reads off `meta`: how many columns to take. */
-export interface DeskMeta {
+export interface CounterMeta {
   span?: 1 | 2;
 }
 
@@ -36,12 +36,12 @@ function Metric({
   delta: string;
 }) {
   return (
-    <div className="landing-desk__metric">
+    <div className="landing-counter__metric">
       <Figure size="lg">{figure}</Figure>
       <Text as="span" size="xs">
         {label}
       </Text>
-      <span className="landing-desk__delta">{delta}</span>
+      <span className="landing-counter__delta">{delta}</span>
     </div>
   );
 }
@@ -57,11 +57,11 @@ function Board({
   rows: readonly (readonly string[])[];
 }) {
   return (
-    <div className="landing-desk__board">
+    <div className="landing-counter__board">
       <Title as="h4" size="sm">
         {title}
       </Title>
-      <table className="landing-desk__table">
+      <table className="landing-counter__table">
         <thead>
           <tr>
             {head.map((cell) => (
@@ -85,35 +85,30 @@ function Board({
   );
 }
 
-function Jobs({ title }: { title: string }) {
+function Tables({ title }: { title: string }) {
   return (
     <Board
       title={title}
-      head={['Customer', 'Bike', 'Work', 'State']}
+      head={['Table', 'Game', 'Party', 'State']}
       rows={[
-        ['Hanna Lind', 'Crescent Elit', 'Wheel true', 'On the stand'],
-        ['Otto Ruane', 'Monark cargo', 'Brake bleed', 'On the stand'],
-        ['Sigrid Vall', 'Pelago Stavanger', 'Full service', 'Ready'],
-        [
-          'Emil Norrby',
-          'Bianchi Via Nirone',
-          'Gear index',
-          'Waiting on a part',
-        ],
+        ['One', 'Brass: Birmingham', 'Hanna Lind, +3', 'Playing'],
+        ['Two', 'Spirit Island', 'Otto Ruane, +2', 'Playing'],
+        ['Three', 'Root', 'Sigrid Vall, +3', 'Teaching'],
+        ['Four', 'Crokinole', 'Emil Norrby, +1', 'Booked, 20:00'],
       ]}
     />
   );
 }
 
-function Parts({ title }: { title: string }) {
+function Reprints({ title }: { title: string }) {
   return (
     <Board
       title={title}
-      head={['Part', 'Due']}
+      head={['Title', 'Due']}
       rows={[
-        ['Shimano BR-M6100 pads', 'Tuesday'],
-        ['Rear wheel, 36h, 700c', 'Thursday'],
-        ['Gates belt, 113t', 'Next week'],
+        ['Wingspan, Oceania', 'Tuesday'],
+        ['Hive Pocket', 'Thursday'],
+        ['Azul, Summer Pavilion', 'Next week'],
       ]}
     />
   );
@@ -128,37 +123,46 @@ function Parts({ title }: { title: string }) {
  * its width with it.
  */
 function Columns({ children }: { children?: ReactNode }) {
-  return <div className="landing-desk__columns">{children}</div>;
+  return <div className="landing-counter__columns">{children}</div>;
 }
 
-const Cell: WidgetItemComponent<DeskMeta> = ({ children, meta, ...rest }) => (
+const Cell: WidgetItemComponent<CounterMeta> = ({
+  children,
+  meta,
+  ...rest
+}) => (
   <div
     {...rest}
-    className="landing-desk__cell"
-    style={{ '--desk-span': meta?.span ?? 1 } as React.CSSProperties}
+    className="landing-counter__cell"
+    style={{ '--counter-span': meta?.span ?? 1 } as React.CSSProperties}
   >
     {children}
   </div>
 );
 
 function Stage({ children }: { children?: ReactNode }) {
-  return <div className="landing-desk__stage">{children}</div>;
+  return <div className="landing-counter__stage">{children}</div>;
 }
 
 export const { Widgets, defineItems } = createWidgets({
-  components: { columns: Columns, metric: Metric, jobs: Jobs, parts: Parts },
+  components: {
+    columns: Columns,
+    metric: Metric,
+    tables: Tables,
+    reprints: Reprints,
+  },
   chrome: { item: Cell, wrapper: Stage, suspense: 'none' },
 });
 
 /**
- * The page the demo opens on: a figures row, then a wide job board beside a
- * narrower order board.
+ * The page the demo opens on: a figures row, then a wide table board beside a
+ * narrower reprint board.
  *
  * Two top-level items, each holding its own. Moving one of them moves the whole
- * block, which is the thing worth seeing; moving `stands` past `parts` swaps
- * which side of the desk is wide, because `meta.span` travels with the item.
+ * block, which is the thing worth seeing; moving `tables` past `reprints` swaps
+ * which side of the counter is wide, because `meta.span` travels with the item.
  */
-export const deskItems = defineItems([
+export const counterItems = defineItems([
   {
     id: 'week',
     type: 'columns',
@@ -167,12 +171,12 @@ export const deskItems = defineItems([
       {
         id: 'intake',
         type: 'metric',
-        props: { figure: '38', label: 'Bikes in', delta: '+6' },
+        props: { figure: '38', label: 'Games in', delta: '+6' },
       },
       {
-        id: 'collected',
+        id: 'sold',
         type: 'metric',
-        props: { figure: '31', label: 'Collected', delta: '+2' },
+        props: { figure: '31', label: 'Sold', delta: '+2' },
       },
       {
         id: 'turnaround',
@@ -182,20 +186,20 @@ export const deskItems = defineItems([
     ],
   },
   {
-    id: 'desk',
+    id: 'counter',
     type: 'columns',
     props: {},
     children: [
       {
-        id: 'stands',
-        type: 'jobs',
-        props: { title: 'On the stands' },
+        id: 'tables',
+        type: 'tables',
+        props: { title: 'Tonight at the tables' },
         meta: { span: 2 },
       },
       {
-        id: 'parts',
-        type: 'parts',
-        props: { title: 'Parts on order' },
+        id: 'reprints',
+        type: 'reprints',
+        props: { title: 'Reprints on order' },
       },
     ],
   },
