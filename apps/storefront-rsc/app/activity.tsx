@@ -1,5 +1,6 @@
 import { SectionHeader, Text, Title } from '@evanion/baize-ui';
 
+import { authorized } from './access';
 import { fetchJson, type TelemetryEvent } from './shop-api';
 
 /**
@@ -13,13 +14,26 @@ import { fetchJson, type TelemetryEvent } from './shop-api';
  * The events it lists are largely the other widgets' own stock checks, recorded
  * by shop-api's telemetry sink against the correlation id of the request that
  * caused them.
+ *
+ * `telemetry.read` is the one permission in shop-api's matrix that this widget
+ * hangs on, and the matrix grants it to a manager alone. A shopper renders
+ * nothing here: the widget returns null and the region is two widgets wide for
+ * them.
  */
 
 /** How many events to show. The sink holds 500; a page does not need them. */
 const SHOWN = 6;
 
 export async function Activity({ heading }: { heading: string }) {
+  // #region gate-before-fetch
+  // Decided before the fetch, not after it. A gate that renders nothing over
+  // data it already asked for has still pulled the events into this process,
+  // and the whole point of the section is that they never arrive.
+  const may = await authorized();
+  if (!may.can('telemetry', 'read').allowed) return null;
+
   const events = await fetchJson<TelemetryEvent[]>('/telemetry');
+  // #endregion gate-before-fetch
   const recent = [...events].slice(-SHOWN).reverse();
 
   return (

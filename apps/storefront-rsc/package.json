@@ -17,6 +17,7 @@
     }
   },
   "dependencies": {
+    "@evanion/acl": "*",
     "@evanion/baize-ui": "*",
     "@evanion/react-widget": "*",
     "next": "16.3.4",

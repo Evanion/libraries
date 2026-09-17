@@ -15,6 +15,7 @@ import {
   ComplexityRamp,
 } from '@evanion/baize-ui';
 
+import { authorized } from './access';
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
 import {
   availabilityLabel,
@@ -48,12 +49,26 @@ import {
  * The two legs are a waterfall on purpose and cannot be otherwise: the urns to
  * ask about come out of the first response. Inside the second leg the requests
  * are parallel.
+ *
+ * Two permissions decide what it renders. `game.read` is the section itself, and
+ * shop-api's matrix grants it to everyone, so the gate below is a decision this
+ * app makes rather than one it assumes. `game.reprice` is per row: the matrix
+ * asks for the manager role and for the row's shop to match the subject's, and
+ * the catalogue spans two shops, so a manager in Stockholm sees the marker on
+ * the Stockholm titles and not on the Gothenburg ones.
  */
 export async function Catalogue({ heading }: { heading: string }) {
+  const may = await authorized();
+  if (!may.can('game', 'read').allowed) return null;
+
   const games = await fetchJson<Game[]>('/games');
+  // One call for the whole page of rows. `canMany` answers in the order it was
+  // given, so the decision for a row is the decision at its index.
+  const reprice = may.canMany('game', 'reprice', games);
   const entries = await Promise.all(
-    games.map(async (game) => ({
+    games.map(async (game, index) => ({
       ...game,
+      mayReprice: reprice[index]?.allowed ?? false,
       quantity: (await fetchJson<Stock>(`/inventory/${urnPath(game.urn)}`))
         .quantity,
     })),
@@ -81,11 +96,23 @@ export async function Catalogue({ heading }: { heading: string }) {
                 /* Availability is what the shop says about buying it; the
                    copies on the shelf are what inventory answered. Two facts,
                    and the pill on the art above carries the other one. */
-                <Text as="span" size="sm" tone="moss">
-                  {entry.quantity > 0
-                    ? `${entry.quantity} on the shelf`
-                    : 'none on the shelf'}
-                </Text>
+                <>
+                  <Text as="span" size="sm" tone="moss">
+                    {entry.quantity > 0
+                      ? `${entry.quantity} on the shelf`
+                      : 'none on the shelf'}
+                  </Text>
+                  {/* What the matrix says this visitor may do to this row.
+                      The line names the permission and opens no editor: a form
+                      here would post to a Server Action, and that action is a
+                      second trusted entry point which has to decide for
+                      itself. */}
+                  {entry.mayReprice ? (
+                    <Text as="span" size="sm" tone="moss">
+                      yours to reprice
+                    </Text>
+                  ) : null}
+                </>
               }
               head={
                 <>

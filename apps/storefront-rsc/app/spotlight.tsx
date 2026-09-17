@@ -12,6 +12,7 @@ import {
   ComplexityRamp,
 } from '@evanion/baize-ui';
 
+import { authorized } from './access';
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
 import {
   availabilityLabel,
@@ -34,12 +35,23 @@ import {
  *
  * It also reports the correlation id shop-api saw for the stock request, which
  * is the `@evanion/nestjs-correlation-id` hop observed from the consumer's side.
+ *
+ * `game.read` gates the card and `game.reprice` the staff line inside it. The
+ * reprice decision waits for the row, because the matrix compares the title's
+ * shop against the subject's and neither this component nor shop-api's guard can
+ * answer that without the row in hand.
  */
 export async function Spotlight({ urn }: { urn: string }) {
+  // #region decide-on-the-row
+  const may = await authorized();
+  if (!may.can('game', 'read').allowed) return null;
+
   const [game, stock] = await Promise.all([
     fetchJson<Game>(`/games/${urnPath(urn)}`),
     fetchJson<Stock>(`/inventory/${urnPath(urn)}`),
   ]);
+  const mayReprice = may.can('game', 'reprice', game).allowed;
+  // #endregion decide-on-the-row
 
   return (
     <section aria-label={game.title} className="spotlight">
@@ -103,6 +115,11 @@ export async function Spotlight({ urn }: { urn: string }) {
           <span className="identifier">{stock.correlationId ?? 'none'}</span>{' '}
           for the stock request behind this card.
         </Text>
+        {mayReprice ? (
+          <Text size="sm" tone="moss">
+            This title is yours to reprice.
+          </Text>
+        ) : null}
       </Card>
     </section>
   );

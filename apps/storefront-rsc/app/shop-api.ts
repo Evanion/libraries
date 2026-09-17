@@ -7,6 +7,11 @@
  * this app exists to show.
  */
 
+import { cache } from 'react';
+import { randomUUID } from 'node:crypto';
+
+import { currentSubject, SHOP_SUBJECT_HEADER } from './subject';
+
 /** Whether a title can be bought, and why not when it cannot. */
 export type Availability =
   'in-stock' | 'preorder' | 'reprint-pending' | 'out-of-print';
@@ -38,6 +43,8 @@ export interface Game {
    * knows the copies.
    */
   availability: Availability;
+  /** Slug of the shop that lists this title, e.g. `stockholm`. */
+  shop: string;
   expansions: Expansion[];
 }
 
@@ -68,14 +75,43 @@ export interface TelemetryEvent {
 const SHOP_API = process.env.SHOP_API_URL ?? 'http://localhost:3000/api';
 
 /**
+ * `@evanion/nestjs-correlation-id`'s `CORRELATION_ID_HEADER` default, spelled
+ * the way shop-api's middleware reads it.
+ */
+export const CORRELATION_HEADER = 'X-Correlation-Id';
+
+/**
+ * One id for every request this page view makes, minted on the first one.
+ *
+ * Without it shop-api mints an id per request, and the six calls behind one page
+ * carry six unrelated ids: the activity widget then lists the spotlight's own
+ * stock check as though a stranger had asked for it. `cache` is what scopes the
+ * id to the page view, so a second visitor's requests carry a different one.
+ */
+const correlationId = cache((): string => randomUUID());
+
+/**
  * `cache: 'no-store'` on every request: stock changes, and a cached response
  * would let a page claim a game is available after it has sold out. It is also
  * what keeps this route out of the build -- a fetch Next cannot cache makes the
  * page dynamic, so `next build` never calls shop-api and the build does not
  * need it running.
+ *
+ * Every call states who it is for. shop-api resolves its own subject from this
+ * header and re-decides the request against its own copy of the matrix, so the
+ * widget that decided to render a section and the service that answers it reach
+ * the same verdict independently. A widget that skipped its gate would still be
+ * refused at the service.
  */
 export async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${SHOP_API}${path}`, { cache: 'no-store' });
+  const subject = await currentSubject();
+  const response = await fetch(`${SHOP_API}${path}`, {
+    cache: 'no-store',
+    headers: {
+      [SHOP_SUBJECT_HEADER]: JSON.stringify(subject),
+      [CORRELATION_HEADER]: correlationId(),
+    },
+  });
   if (!response.ok) {
     throw new Error(`GET ${path} returned ${response.status}`);
   }

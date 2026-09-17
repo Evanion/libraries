@@ -1,0 +1,124 @@
+import { cache } from 'react';
+import {
+  parseMatrix,
+  type Access,
+  type Authorized,
+  type Matrix,
+} from '@evanion/acl';
+
+import { fetchJson, type Game, type TelemetryEvent } from './shop-api';
+import { currentSubject, type ShopSubject } from './subject';
+
+/**
+ * The object kind behind each key this app decides over.
+ *
+ * Two kinds, because two are what the page renders. shop-api's matrix also
+ * carries `order`, and a key this map does not name is a compile error at the
+ * call site, which is the point: a widget cannot quietly ask about a kind this
+ * app holds no rows of.
+ */
+export interface ShopObjects {
+  game: Game;
+  telemetry: TelemetryEvent;
+}
+
+/** The evaluator, bound to the subject this app resolves and the rows it holds. */
+export type ShopAccess = Access<ShopSubject, ShopObjects>;
+
+/**
+ * The body `GET /api/policy` answers with. shop-api's `PolicyDocument`, as this
+ * app's own type for the reason the response types in `shop-api.ts` are.
+ */
+export interface PolicyDocument {
+  /** What a holder compares against the version it already has, with `!==`. */
+  version: string | number | undefined;
+  /** The contract itself, adopted below with `parseMatrix`. */
+  matrix: Matrix;
+}
+
+/**
+ * The last document this process adopted, and the evaluator over it.
+ *
+ * `parseMatrix` validates the document, deep-clones it and deep-freezes the
+ * clone, so a render that parses is a render whose first widget waits on that
+ * work. Holding the result across requests takes it off every render after the
+ * first.
+ *
+ * Sharing one evaluator between requests and between visitors is safe because
+ * an `Access` holds a document and no actor: `can`, `capabilities` and
+ * `authorize` each take the subject as an argument and settle the clock per
+ * call, so nothing about one page view is retained in here. The version is the
+ * key, so a document shop-api republishes under a new version replaces this one
+ * on the next page view rather than being evaluated under the old rules.
+ */
+// #region version-keyed-memo
+let adopted:
+  { version: string | number | undefined; access: ShopAccess } | undefined;
+
+/**
+ * The evaluator over `document`, parsed only when the version moved.
+ *
+ * `parseMatrix` and not `hydratePolicy`: this document crossed the wire from
+ * another service, so it is adopted in the fail-closed mode, where a key the
+ * contract does not carry decides `unknown-permission` and refuses rather than
+ * throwing mid-render. `inventory.read` is such a key. shop-api keeps it
+ * internal, and no widget here asks about it.
+ *
+ * The assertion names the subject and the rows this app passes. `parseMatrix`
+ * is the foreign path and returns the erased instantiation: a document read at
+ * runtime carries no TypeScript view of the shapes its owner wrote it over, and
+ * the erased and the named instantiation share no overlap TypeScript can check,
+ * which is what the hop through `unknown` says. What holds the two in step is
+ * the document's own `schema`, which shop-api publishes and `parseMatrix`
+ * checks every condition against.
+ */
+function adopt(document: PolicyDocument): ShopAccess {
+  if (adopted && adopted.version === document.version) return adopted.access;
+  const access = parseMatrix(document.matrix) as unknown as ShopAccess;
+  adopted = { version: document.version, access };
+  return access;
+}
+// #endregion version-keyed-memo
+
+/**
+ * shop-api's access matrix, fetched once for the page view and adopted locally.
+ *
+ * `cache` is what makes it once. Three widgets render independently, none of
+ * them knows about the others, and each one asks for the evaluator it needs; one
+ * `GET /api/policy` answers all three. Two concurrent page views each get their
+ * own fetch, which a module-level promise would not give them.
+ *
+ * Every decision after this point is local. The matrix is a document and the
+ * engine evaluates it in this process, so no `can` call reaches the network,
+ * however deep in the tree it sits.
+ *
+ * An unreachable shop-api throws here and the render fails, the same way every
+ * widget's own fetch already fails. An evaluator that quietly refused everything
+ * would render a page telling the visitor what they may not do when the truth is
+ * that the catalogue service is down.
+ */
+// #region per-request-cache
+export const currentAccess = cache(async (): Promise<ShopAccess> =>
+  adopt(await fetchJson<PolicyDocument>('/policy')),
+);
+
+/**
+ * The matrix bound to this page view's subject and one clock instant.
+ *
+ * Bound once so every widget decides against the same actor at the same
+ * instant. Two widgets settling their own `now` a few milliseconds apart would
+ * be able to disagree about a rule with a time window in it.
+ *
+ * This is the handle the widgets call, and it is the app's whole enforcement
+ * story on the render side. shop-api decides again on its own copy of the same
+ * document for every request this app sends it, so a widget that decided wrong
+ * is a rendering bug and not an access-control one.
+ */
+export const authorized = cache(async (): Promise<Authorized<ShopObjects>> => {
+  const [access, subject] = await Promise.all([
+    currentAccess(),
+    currentSubject(),
+  ]);
+  return access.authorize(subject);
+});
+// #endregion per-request-cache
