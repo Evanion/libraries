@@ -30,8 +30,8 @@ policy<Subject>()
   .build();
 ```
 
-`:` is safe as the separator because `.` is not available. It is the key
-delimiter, and a `.` inside `object` or `action` is refused at construction:
+`:` is the separator because `.` is the key delimiter, and a `.` inside
+`object` or `action` is refused at construction:
 
 ```
 InvalidPermissionError: permission "storefront.listing.read": "object" carries the
