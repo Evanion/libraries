@@ -7,26 +7,39 @@
   </Text>
 </WorkshopNotice>
 
-The smallest thing that works: a handful of permissions, conditions that read
-only the subject, one process, and `can`. Five minutes.
+<PageSheet
+  difficulty={1}
+  read={5}
+  hands={15}
+  requires={[['Overview', '/acl']]}
+  unlocks={[
+    ['Intermediate setup', '/acl/intermediate'],
+    ['Can this user do this?', '/acl/asking'],
+  ]}
+/>
 
-## What makes this tier the simple one
+**The concept.** Baize keeps a stock report. Anyone on staff may read it. Only
+an admin may export it. To answer either question you need to know who is
+asking, and you need nothing else: no listing is fetched, no comment is loaded,
+nothing goes to the database first.
 
-A condition reads either the subject or the object. Reading only the subject is
-what keeps this tier small, and it is a real line rather than a teaching
-simplification:
+**What you will have.** A matrix holding both permissions, a server that resolves
+the subject once per request, and a call that answers yes or no for any
+permission in the document.
 
-- The subject is resolved whole before the call, so no field of it is ever
-  missing by accident. Every permission answers `true` or `false` and nothing
-  answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
-- No instance has to be fetched to ask a question, so `can` takes three
-  arguments and [`capabilities`](/acl/capabilities) answers the whole matrix at
-  once.
+**Why you would want it.** The two role checks you write today are fine. The
+twentieth is the problem. By then one handler tests `roles.includes('admin')`,
+another tests `user.isAdmin`, a third was copied before the role was renamed,
+and the export endpoint somebody added last month tests nothing at all.
 
-Crossing that line — a rule such as "the author may edit their own comment" —
-is what [the intermediate tier](/acl/intermediate) is.
+**How the library gets you there.** `createPolicy` reads the matrix and hands
+back an access object. `can` answers one question with a decision. `authorize`
+binds the subject, so no handler restates it. `capabilities` answers
+every question at once, which is how a menu knows what to draw.
 
-## Install
+## Install acl
+
+One package, and nothing else comes with it:
 
 ```bash
 npm install @evanion/acl
@@ -34,45 +47,50 @@ npm install @evanion/acl
 
 ESM only, Node 20 or newer, and no framework in the import graph.
 
-## Write the matrix
+## Write the acl matrix
 
-A matrix is a JSON envelope over a flat list of permissions. Each permission
-carries a `key` of exactly `` `${object}.${action}` ``, and a list of allow
-rules whose conditions are AND-ed. At this tier `capabilities` answers the whole
-document at once, so the policy and every answer it gives fit in one block:
+With the package installed, the first thing to write is the document it reads. A
+matrix is a JSON envelope over a flat list of permissions. Each permission
+carries a `key` of exactly `` `${object}.${action}` `` and a list of allow
+rules. A rule holds conditions, each one a comparison the engine can run against
+the subject, and they are AND-ed: the rule matches when every condition in it
+holds. At this tier `capabilities` answers the whole document at once, so the
+policy and every answer it gives fit in one block:
 
 ```ts file=libs/acl/README.md region=capabilities
 
 ```
 
 Nothing is allowed without an allow rule that matched. `report.export` has a
-rule, the rule did not match, and the decision is `no-rule-matched` — default
-deny is the floor, not something to configure.
+rule, the rule did not match, and the decision is `no-rule-matched`. Default
+deny is the floor of the engine and there is nothing to configure.
 
-## Ask
+## Ask acl a question
 
-`can` returns a decision, not a boolean:
+`capabilities` answered everything at once. When you want one answer, `can`
+takes the subject, the object kind (`report`) and the action (`read`), and
+returns a decision:
 
 ```ts
 const decision = access.can({ id: 'u1', roles: ['staff'] }, 'report', 'read');
 // { key: 'report.read', allowed: true, reason: 'allow', rule: '#0' }
 ```
 
-`allowed` is the answer. Gate on it and nothing else — `reason` is output only,
-and gating on the reason string grants what the engine refused.
+`allowed` is the answer. Gate on it and nothing else. `reason` is output only,
+and a handler that branches on the reason string grants what the engine refused.
 
-## Bind the subject once
+## Bind the subject to one acl handle
 
-A server resolves the subject from the session and then asks many questions
-about it. `authorize` binds it so no handler restates it:
+Every `can` above restated the subject. A server resolves it from the session
+once and then asks many questions about it, so `authorize` takes it once:
 
 ```ts file=libs/acl/README.md region=server-authorize
 
 ```
 
 That handle carries `can`, `canMany`, `canFields` and `capabilities` with the
-subject dropped from each signature. It is also what makes the guarded path the
-short one to write, which is the only lever the library has on [complete
+subject dropped from each signature. It also makes the guarded call the shortest
+one to write, which is the only lever the library has on [complete
 mediation](/acl/security#complete-mediation).
 
 <Panel heading="This decision is authoritative only where it is made">
@@ -84,10 +102,25 @@ mediation](/acl/security#complete-mediation).
   </Text>
 </Panel>
 
+## Where the simple tier stops
+
+You now have a working policy, and every condition in it reads the subject. That
+is the line this tier sits on, and it is a real line in the engine:
+
+- The server resolves the subject whole before the call, so no field of it is
+  ever missing by accident. Every permission answers `true` or `false`, and
+  nothing answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+- Nothing has to be fetched to ask a question, so `can` takes three arguments
+  and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
+
+Now write one rule that reads the object: the author may edit their own comment.
+Both of those bullets stop holding at once. That rule, and everything it brings
+with it, is [the intermediate tier](/acl/intermediate).
+
 ## Where to go next
 
-- [Intermediate setup](/acl/intermediate) — conditions that read the row, the
-  typed builder, field permissions and the write path
+- [Intermediate setup](/acl/intermediate) — conditions that read the object, the
+  typed builder, field permissions and the guarded save
 - [Can this user do this?](/acl/asking) — the decision shape, and asking about a
   list
 - [What can they do at all?](/acl/capabilities) — driving a menu from one call
