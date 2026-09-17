@@ -7,10 +7,37 @@
   </Text>
 </WorkshopNotice>
 
-What [the intermediate tier](/acl/intermediate) leaves out is everything that
-follows from the document outliving the process that wrote it: a declared shape
-a foreign consumer can check against, and a version that says which document
-decided.
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={30}
+  requires={[['Intermediate setup', '/acl/intermediate']]}
+  unlocks={[
+    ['One policy, one screen', '/acl/interface'],
+    ['Many services', '/acl/federation'],
+  ]}
+/>
+
+**The concept.** Baize's checkout service writes the matrix. The storefront and
+the admin app read it, and neither one imports the file it was written in. The
+document has outlived the process that wrote it, and every question on this page
+follows from that.
+
+**What you will have.** A document that states the field shapes its own
+conditions read, a version string a reader can compare, and a `parseMatrix` that
+takes somebody else's document without throwing on a permission you have never
+heard of.
+
+**Why you would want it.** Without the schema, the checkout team renames
+`buyerId` and the storefront keeps asking about a path that no longer reads: the
+permission answers `unevaluable` forever, the UI refetches forever, and nothing
+anywhere raises an error. Without the version, the admin app grants a permission
+that was revoked an hour ago and has no way to notice.
+
+**How the library gets you there.** A `schema` on the document turns a mistyped
+path into an `UnknownFieldError` at construction. `version` gives the client one
+value to compare with `!==`. `parseMatrix` fails closed on a key the document
+does not carry, so a producer that moved on cannot take a page down.
 
 ## Declare the shape
 
@@ -45,7 +72,7 @@ binding wherever it is present.
 ## Drive a UI from the whole matrix
 
 `capabilities` resolves every permission in the document against one subject, in
-dependency order, in a single pass:
+document order, in a single pass:
 
 ```ts file=libs/acl/README.md region=capabilities
 

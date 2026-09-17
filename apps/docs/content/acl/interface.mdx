@@ -1,10 +1,5 @@
 # One policy behind a screen
 
-Every control on a screen is one `can`, and the policy is the only place the
-rule behind it is written. This page works one shop screen end to end: a game
-listing, three people who might be looking at it, and an action bar whose
-buttons are decisions rather than markup.
-
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
     Every example on this page is a region of `libs/acl/README.md` and runs
@@ -12,9 +7,35 @@ buttons are decisions rather than markup.
   </Text>
 </WorkshopNotice>
 
-The three setup tiers built policies and read decisions out of them. What
-changes here is only where the answers go: into an interface, one control at a
-time, with nothing between the policy and the pixel.
+<PageSheet
+  difficulty={2}
+  read={7}
+  hands={20}
+  requires={[['Advanced setup', '/acl/advanced']]}
+  unlocks={[
+    ['Platforms', '/acl/platforms'],
+    ['Why was this refused?', '/acl/refusals'],
+  ]}
+/>
+
+**The concept.** Baize's Brass: Birmingham listing has an action bar with three
+buttons on it: Review, Edit, Publish. A customer sees one of them, a bookseller
+sees two, the owner sees three, and once the listing is published the Edit
+button leaves for all three. Nobody writes an `if` to make that happen.
+
+**What you will have.** An action bar that holds a list of actions and no
+conditions, and four policy statements that decide what it draws for whoever is
+signed in.
+
+**Why you would want it.** Put the rule in the component and you have written
+it twice: once here, once in the handler the button posts to. They agree the day
+you write them. Then somebody tightens the handler, the button stays lit, and a
+bookseller presses Edit on a published listing and gets a 403 with no
+explanation.
+
+**How the library gets you there.** The bar calls `access.can` once per action
+and draws from `allowed`. `reason` is what the disabled button says. Adding a
+fourth control is a statement in the policy and a row in the list.
 
 ## The shop's listing policy, in four statements
 
