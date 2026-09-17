@@ -17,9 +17,9 @@ it is that an item is four fields and a renderer reads all four the same way:
 `id` names it, `type` picks the component, `props` is the component's data, and
 `children` holds the items under it.
 
-**What you will have.** A payload for the Baize shop's counter view, a registry
-naming the types it may use, and a check that fails your build when a bookseller
-saves a widget type nothing draws.
+**What you will have.** A payload for a listing page in the Baize shop, a
+registry naming the types it may use, and a check that fails your build when a
+bookseller saves a widget type nothing draws.
 
 **Why you would want it.** A CMS lets someone rename a section type on a
 Tuesday afternoon. Nothing stops them, and the renderer that meets the new name
@@ -64,10 +64,10 @@ it the leftovers, the renderer's own field names would be reserved words in the
 CMS's vocabulary, and adding one later would take a prop away from every payload
 already saved.
 
-`meta` is placement: which column the item sits in, what it spans, whether a
-rule runs above it. It goes to the chrome, which is the markup a renderer wraps
-each item in, and never into the item's own props, because where a widget sits
-is not something the widget should know.
+`meta` is placement. `span: 2` puts the listing across two columns of whatever
+holds it. It goes to the chrome, which is the markup a renderer wraps each item
+in, and never into the item's own props, because where a widget sits is not
+something the widget should know.
 
 `children` is the items under this one. `tonight` carries one listing, and
 moving `tonight` moves that listing with it, which is the property a flat array
@@ -98,7 +98,7 @@ renderer.
 
 ## Check the payload before anything renders it
 
-`validateItems` walks the array, recurses into `children`, and returns
+`validateItems` walks the array and the items nested in it, and returns
 everything it found. It throws nothing:
 
 ```ts file=libs/widget/README.md region=unknown
@@ -118,12 +118,12 @@ or in a build script, before the pages are written.
 Run it nowhere and the failure is silent. That is the whole argument for
 running it.
 
-## Move an item and watch the region recompose
+## Move an item and watch the page recompose
 
-The array is the page, which is a claim you can put your hands on. Below is the
-shop counter's back-office view, composed from seven items, with the items
-themselves listed underneath and a pair of move controls in the gutter of every
-line that starts one.
+The array is the page, which is a claim you can put your hands on. Below is a
+second payload and the page it composes: the shop counter's back-office view,
+seven items, with the items themselves listed underneath and a pair of move
+controls in the gutter of every line that starts one.
 
 <DataDemo />
 
@@ -132,7 +132,7 @@ figures, `counter` holds the two boards. Move `counter` above `week` and both
 boards travel as one block, because they are its `children`. Move `tables` past
 `reprints` and the wide side of the counter changes sides, because `meta.span`
 travels with the item it sits on. Those are the two facts the item shape is
-built around, and the control is the same component the front page opens with.
+built around, and the control is the same component the front page carries.
 
 What is drawing that page is `@evanion/react-widget`. The core supplies the
 array and the rules the array answers to, and it puts no pixel on the screen.

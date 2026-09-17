@@ -33,17 +33,17 @@ const page: AnyWidgetItem[] = [
     id: 'brass-birmingham',
     type: 'listing',
     props: { title: 'Brass: Birmingham', complexity: 4 },
-    meta: { width: 'full' },
+    meta: { span: 2 },
   },
   {
     id: 'tonight',
-    type: 'tables',
+    type: 'shelf',
     props: { heading: 'On the table tonight' },
     children: [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
   },
 ];
 
-const problems = validateItems(page, ['listing', 'tables']);
+const problems = validateItems(page, ['listing', 'shelf']);
 
 problems; // -> []
 ```
@@ -131,9 +131,9 @@ import { defineWidgets, validateItems } from '@evanion/widget';
 // Whatever your renderer resolves a type to. The core reads the keys and never
 // calls a value, so a stand-in is enough to show what the keys do.
 const Listing = () => null;
-const Tables = () => null;
+const Shelf = () => null;
 
-const registry = defineWidgets({ listing: Listing, tables: Tables });
+const registry = defineWidgets({ listing: Listing, shelf: Shelf });
 
 const problems = validateItems(
   [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
@@ -162,7 +162,7 @@ import { validateItems } from '@evanion/widget';
 
 const problems = validateItems(
   [{ id: 'root', type: 'listting', props: { title: 'Root' } }],
-  ['listing', 'tables'],
+  ['listing', 'shelf'],
 );
 
 problems; // -> [{ index: 0, id: 'root', type: 'listting', message: 'unknown widget type' }]
@@ -209,13 +209,13 @@ const payload = [
   { id: 'root', type: 'listing', props: { title: 'Root' } },
   {
     id: 'tonight',
-    type: 'tables',
+    type: 'shelf',
     props: {},
     children: [{ id: 'hive', type: 'listting', props: {} }],
   },
 ];
 
-const problems = validateItems(payload, ['listing', 'tables']).map(
+const problems = validateItems(payload, ['listing', 'shelf']).map(
   (problem) => problem.message,
 );
 
