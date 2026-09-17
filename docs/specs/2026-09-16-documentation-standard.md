@@ -242,7 +242,7 @@ is inert on the page.
 
 Wired today in `libs/luhn`, `libs/token`, `libs/urn` and `libs/acl`. Not wired
 in `libs/compose`, `libs/feature`, `libs/react-widget`, `libs/widget`,
-`libs/astro-widget`, `nest/correlation-id`.
+`libs/astro-widget`, `libs/nestjs-correlation-id`.
 
 **A probe.** `apps/docs/components/Probe.tsx` plus one module per package under
 `components/probes/`. The code is the region's code, one argument is an
@@ -972,9 +972,14 @@ document that disagrees with the guard is worse than no number:
 `tools/repo-checks/src/doc-prose-budget.json` carries the allowance G8 reads,
 and that file is the one place to look up what a page is currently allowed.
 
-The budget is not a style preference. A page over it is two reader questions
-sharing a URL, which means the search result and the table of contents both
-point at the wrong half. It is also the countable version of the Diátaxis
+The budget is a guideline and G8 reports rather than fails. A page over it is
+usually two reader questions sharing a URL, which means the search result and
+the table of contents both point at the wrong half, so the count is a prompt to
+ask whether the page has become two. An answer of "no" is legitimate and gets
+recorded: `acl/api.mdx` carries one section per export, and a reader who arrives
+knowing the symbol they want is served worse by two pages to search than by one
+long one. Enforcing the number buys shorter sentences and not better pages, and
+an author fifteen words over trims a gloss that was doing work. It is also the countable version of the Diátaxis
 diagnostic in section 3 and of the one-concept rule in section 2: a teaching page
 over budget is usually a page that introduced two things. The three `acl` pages
 on the list are the clearest cases. The platform guides under
@@ -991,10 +996,11 @@ budget counts prose, not generated signatures.
 
 An API reference page has one heading per exported symbol, spelled as the
 symbol, in backticks. `compose/api.mdx` does this — its headings are
-`ComposeProvider` and `provider(component, props)`. `acl/api.mdx` does not: its
-headings are "Construction", "Querying", "The write path", which is a how-to's
-vocabulary on a reference page, and it makes `canFields` unfindable by search or
-by the table of contents.
+`ComposeProvider` and `provider(component, props)`. `acl/api.mdx` ran the other
+way for a while: its headings were "Construction", "Querying", "The write path",
+which is a how-to's vocabulary on a reference page, and it made `canFields`
+unfindable by search or by the table of contents. It now carries one heading per
+export.
 
 Question pages take the opposite rule: the heading is the question, and the
 method name is in the first line of the answer. `acl/_meta.ts` already states
@@ -1071,31 +1077,32 @@ So the reference stays hand-written, the `signature` tag stays the answer, and
 decision 21 is open with its cost now stated: the gap is an interface block
 whose member list the compiler knows and this site does not check.
 
-One thing that evaluation turned up, now settled. `acl/api.mdx` does not take
-the `signature` tag, and it is the one API reference page exempt from decision 8. G5's extension reads the symbol out of the `##` heading the block sits under,
-and the page's eleven headings are `Construction`, `Querying`, `The document`
-and so on, grouping the exports by the question a reader arrives with, so
-tagging its ten blocks fails G5 ten times.
+One thing that evaluation turned up, then reversed. `acl/api.mdx` held an
+exemption from decision 8 and the `signature` tag. The argument for it was that
+the page's fences were groups of declarations that had to be read whole:
+`Construction` carried `hydratePolicy`, `parseMatrix`, `policy`, `Policy`,
+`AccessOptions` and `PolicyOptions` in one fence, because `policy()` returns the
+builder whose `build()` takes the options, and a reader given `Policy` alone has
+been handed the middle of a sentence. Splitting the page into one symbol per
+heading splits those groups too. The estimate at the time was that decision 8
+applied literally meant about seventy headings, most of them a type alias with a
+line under it.
 
-What blocks the tag is not the headings but the blocks. The tag documents one
-symbol, and every fence on that page is a group of declarations that has to be
-read whole: `Construction` carries `hydratePolicy`, `parseMatrix`, `policy`,
-`Policy`, `AccessOptions` and `PolicyOptions` in one fence, because `policy()`
-returns the builder whose `build()` takes the options, and a reader given
-`Policy` alone has been handed the middle of a sentence. `The document` is
-`Matrix` down through `Instant` — seven declarations that are one JSON shape.
-Splitting the page into one symbol per heading splits those groups too, and the
-groups are what make it readable: `@evanion/acl` exports eleven callables, some
-forty types and twenty-two error classes, so decision 8 applied literally is
-about seventy headings, most of them a type alias with a line under it.
+The estimate was right and the conclusion was wrong. The page now carries 67
+headings, one per export, every block `signature` tagged. What the exemption
+bought was readability for someone already reading the page top to bottom. What
+it cost was every other way in: `canFields`, `pickAllowedFields`, `serialize`,
+`applyDenyOverlay` and `federatedPolicies` had no heading, so no table of
+contents entry, no anchor to link, and nothing a search could land on. A
+reference page earns its keep on the reader who arrives knowing the symbol they
+want, and that reader was the one the grouping failed. The ordering carries what
+the groups carried: the three constructors first, then the types each returns,
+then the remaining callables beside their option types.
 
-The cost of the exemption is stated rather than hidden. Ten fences on that page
-stay unexplained, they sit inside `acl`'s allowance in
-`doc-fence-allowance.json`, and nothing holds their declarations to the
-package's exports. Decision 21 — a generator emitting the block from the `.d.ts`
-— is what would close that, and it closes it for this page without any heading
-changing, because a generator keyed on a region name has no opinion about how
-many symbols a region holds.
+G5 now reads all 67 headings against the export list, and `acl`'s unexplained
+fences in `doc-fence-allowance.json` fell from 74 to 64. Decision 21, a
+generator emitting each block from the `.d.ts`, is still what would hold the
+declarations to the package's exports.
 
 `anti-example` and `no-run` are the two that will be abused, because they are
 the two a writer reaches for when the alternative is wiring doctest into a
