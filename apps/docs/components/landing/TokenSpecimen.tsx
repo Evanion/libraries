@@ -33,15 +33,20 @@ const STAGGER_MS = 25;
  *
  * The alphabet is the control the library exists for. Two of the three are
  * accepted and move the entropy the caption reports; the third is every
- * lowercase letter and digit, which `createToken` refuses, and the card shows
- * the characters the refusal named rather than a code that could not be
- * minted. The button goes with them, because there is nothing to mint from.
+ * lowercase letter and digit, which `createToken` refuses.
+ *
+ * A refusal holds the code already on screen, dimmed, and names the refused
+ * characters under it. The code is the last one the package minted and is
+ * still true, and a card that empties itself reads as a fault rather than as
+ * a guardrail -- which is the opposite of what this control is here to show.
+ * Generate is disabled rather than removed, so the shape of the card does not
+ * move under the reader.
  *
  * A new code lands left to right, each character turning through that
  * alphabet for a moment before it settles, the separator standing still
  * throughout: 200ms for the first character and 25ms more for each after it.
- * The `<output>` is what a screen reader gets, and holds the code, or the
- * refusal, and never a frame of the turning.
+ * The `<output>` is what a screen reader gets, and holds the code, with the
+ * refusal after it, and never a frame of the turning.
  */
 export default function TokenSpecimen({ initial }: { initial: string }) {
   const [shape, setShape] = useState(0);
@@ -52,10 +57,10 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
   const attempt = useMemo(() => buildToken(shape, alphabet), [shape, alphabet]);
   const built = attempt.kind === 'built' ? attempt.token : undefined;
 
-  // Nothing is shown while a dictionary stands refused, so the settle has no
-  // value and no alphabet to turn through until one is accepted again.
-  const code = built ? value : '';
-  const shown = useSettled(code, built?.dictionary ?? '', STAGGER_MS) ?? code;
+  // The code a refused dictionary would have replaced stays on screen, dimmed.
+  // It is the last one the package did mint, so it is still true, and a card
+  // that empties itself reads as a fault rather than as a refusal.
+  const shown = useSettled(value, built?.dictionary ?? '', STAGGER_MS) ?? value;
   const { body, check } = tokenParts(shown);
 
   /**
@@ -78,39 +83,43 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
   return (
     <div className="landing-spec">
       <p className="landing-specimen landing-specimen--live">
-        {attempt.kind === 'built' ? (
-          <span className="landing-specimen__value" aria-hidden="true">
-            {body}
-            <span className="landing-specimen__mark">{check}</span>
-          </span>
-        ) : (
-          <span
-            className="landing-specimen__value landing-token__refused"
-            aria-hidden="true"
-          >
-            {attempt.offending.map((char) => (
-              <span key={char} className="landing-token__offending">
-                {char}
-              </span>
-            ))}
-          </span>
-        )}
+        <span
+          className={
+            built
+              ? 'landing-specimen__value'
+              : 'landing-specimen__value landing-token__stale'
+          }
+          aria-hidden="true"
+        >
+          {body}
+          <span className="landing-specimen__mark">{check}</span>
+        </span>
         <output className="landing-sr-only" aria-live="polite">
           {attempt.kind === 'built'
             ? value
-            : `Refused: ${attempt.offending.join(', ')}`}
+            : `${value}. Refused: ${attempt.offending.join(', ')}.`}
         </output>
-        {built ? (
-          <span className="landing-specimen__action">
-            <Button
-              variant="quiet"
-              onClick={() => setValue(built.generate().value)}
-            >
-              Generate
-            </Button>
-          </span>
-        ) : null}
+        <span className="landing-specimen__action">
+          <Button
+            variant="quiet"
+            disabled={!built}
+            onClick={() => built && setValue(built.generate().value)}
+          >
+            Generate
+          </Button>
+        </span>
       </p>
+
+      {attempt.kind === 'refused' ? (
+        <p className="landing-token__refused">
+          <span>createToken refuses this alphabet:</span>
+          {attempt.offending.map((char) => (
+            <span key={char} className="landing-token__offending">
+              {char}
+            </span>
+          ))}
+        </p>
+      ) : null}
 
       <div className="landing-spec__row">
         <span className="landing-spec__label" id={`${id}-shape`}>
@@ -165,7 +174,7 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
           ? `${Math.round(built.entropyBits)} bits, so a collision is even odds at ${collisionAt(
               built.entropyBits,
             ).toLocaleString('en-US')} codes.`
-          : 'Refused: said back down a phone, each of these comes out as something else.'}
+          : 'Read off a screen or said down a phone, each of these comes back as something else. The code above is the one the last accepted alphabet minted.'}
       </p>
     </div>
   );

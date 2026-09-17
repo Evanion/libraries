@@ -184,10 +184,12 @@ describe('the Token card', () => {
 
   /**
    * The alphabet of every lowercase letter and digit is the one the package
-   * refuses, and the card shows the characters the refusal named rather than
-   * a code it could not mint.
+   * refuses. The card names the refused characters under the code it last
+   * minted, and holds that code: emptying itself reads as a fault rather than
+   * as the guardrail this control is here to show. Generate is disabled rather
+   * than removed, so the card does not reflow under the reader.
    */
-  it('shows the characters the package refused, and no code', () => {
+  it('names the refused characters and keeps the code it last minted', () => {
     const refused = tokenAlphabets.findIndex(
       (_, index) => buildToken(0, index).kind === 'refused',
     );
@@ -208,7 +210,8 @@ describe('the Token card', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       attempt.offending.join(', '),
     );
-    expect(screen.queryByRole('button', { name: 'Generate' })).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent(tokenSpecimen);
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled();
   });
 });
 
@@ -298,19 +301,19 @@ describe('the URN card', () => {
   /** The payoff: what is attached is not part of the name, and `equals` says so. */
   it('says the name is unchanged, while the package says it is', () => {
     render(<UrnSpecimen value={urnSpecimen} />);
-    expect(screen.queryByText(/Still the same name/)).toBeNull();
+    expect(screen.queryByText(/names nothing new/)).toBeNull();
 
     for (const component of urnComponents) {
       fireEvent.click(screen.getByRole('button', { name: component.label }));
       const written = urnWith(urnSpecimen, [component.key]);
 
       expect(UserURN.equals(written, urnSpecimen)).toBe(true);
-      expect(screen.getByText(/Still the same name/)).toHaveTextContent(
+      expect(screen.getByText(/names nothing new/)).toHaveTextContent(
         urnSpecimen,
       );
 
       fireEvent.click(screen.getByRole('button', { name: component.label }));
-      expect(screen.queryByText(/Still the same name/)).toBeNull();
+      expect(screen.queryByText(/names nothing new/)).toBeNull();
     }
   });
 });

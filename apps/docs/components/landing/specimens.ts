@@ -186,11 +186,16 @@ export interface UrnComponent {
  * The three components RFC 8141 2.3 allows after the name, in the order the
  * grammar puts them.
  *
- * Each sentence is the RFC's own division of labour: the r-component is read
- * by whatever resolves the name, the q-component by the thing that resolving
- * it produces, the f-component by the client once it holds that thing. They
- * are easy to conflate and the distinction is the only reason there are three
- * of them rather than one.
+ * A name is not an address: it says which thing you mean and nothing about
+ * where to get it, so something has to go and find it. These three each speak
+ * to a different point in that trip -- where to look, which version to hand
+ * back, which part of it to open -- and each sentence says who reads it and
+ * when, because that is the only thing separating them.
+ *
+ * Each is explained against a web address, which every reader already has. The
+ * RFC's own names are `name` and go in the heading, because a reader searching
+ * for `r-component` has to land here; the sentence under it is what tells them
+ * what it is.
  */
 export const urnComponents: readonly UrnComponent[] = [
   {
@@ -199,7 +204,7 @@ export const urnComponents: readonly UrnComponent[] = [
     delimiter: '?+',
     value: 'dir=eu',
     name: 'r-component',
-    line: 'Parameters for whatever resolves the name: which directory to ask, which mirror. Read on the way to the record, never by the record.',
+    line: 'Where to go looking. This one is for the lookup service, not the thing being looked up -- which catalogue to ask, which mirror to use. It is spent on the way there, and the thing you get back never sees it.',
   },
   {
     key: 'qComponent',
@@ -207,7 +212,7 @@ export const urnComponents: readonly UrnComponent[] = [
     delimiter: '?=',
     value: 'v=2',
     name: 'q-component',
-    line: 'Parameters for the record the name resolves to, such as a version or a view. Handed on once the name has been resolved.',
+    line: 'Which version to hand back. This one reaches the thing itself, once it has been found: the second edition rather than the first, the short view rather than the full one. It is the query string of a web address.',
   },
   {
     key: 'fComponent',
@@ -215,7 +220,7 @@ export const urnComponents: readonly UrnComponent[] = [
     delimiter: '#',
     value: 'avatar',
     name: 'f-component',
-    line: 'A place inside the record, the way a fragment points into a page. The client reads it, after it has the record.',
+    line: 'Which part to open. Nothing on the network reads this one -- you already have the whole thing, and this says where to jump inside it. It is the `#section` at the end of a web address, and it behaves the same way.',
   },
 ];
 

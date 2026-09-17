@@ -699,14 +699,27 @@
 }
 
 /*
- * The characters the package would not draw from, struck where a code would
- * otherwise be. Spaced apart, because they are being named one at a time
- * rather than read as a string.
+ * The characters the package would not draw from, named under the code rather
+ * than in place of it. Spaced apart, because they are being named one at a
+ * time rather than read as a string.
  */
 .landing-token__refused {
-  display: flex;
-  gap: var(--baize-space-3);
+  align-items: baseline;
   color: var(--baize-hue);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--baize-text-sm);
+  gap: var(--baize-space-2);
+  margin-block: var(--baize-space-2) 0;
+}
+
+/*
+ * The code a refused alphabet did not replace. It was minted from the alphabet
+ * the control no longer points at, so it is held at the weight of something no
+ * longer on offer: a card that empties itself reads as a fault.
+ */
+.landing-token__stale {
+  opacity: 0.45;
 }
 
 .landing-token__offending {
