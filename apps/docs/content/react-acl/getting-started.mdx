@@ -158,6 +158,31 @@ shopper could write. The server applies the same map with
 [`pickAllowedFields`](/acl/writing) when the form is posted, because this one
 decided nothing.
 
+## Keep the policy's keys through react-acl
+
+The hooks so far take the key as a plain string, because the document arrived as
+JSON. An application that writes its policy in TypeScript has more:
+[`policy`](/acl/authoring) names the subject once and binds an object type per
+block, so `'listing'` is a key the compiler knows.
+
+`createPolicyContext` carries that to the hooks. Hand it the built policy and it
+returns a provider and the same four hooks, checking their key against the
+policy and their row against the object type:
+
+```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
+
+```
+
+`useCan('lsiting', 'edit', listing)` is a compile error there. The imported
+`useCan` compiles the same call, and the engine throws `UnknownObjectKeyError`
+when the component renders, or answers `unknown-action` where the matrix was
+hydrated with `closed: true`.
+
+`Shopper` and `Listing` are named at `policy` and read back off the argument, so
+the `createPolicyContext` call writes neither. It is a factory because
+`createContext` fixes its type where the context is made, and a hook four
+components down reads that fixed type whatever the provider was handed.
+
 ## Where to go next
 
 - [Which side decides](/react-acl/boundary) — what a hook is for, and what has

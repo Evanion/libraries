@@ -13,7 +13,8 @@
   requires={[['Getting started', '/react-acl/getting-started']]}
 />
 
-One provider, four hooks, one props interface. Every type named below —
+One provider, four hooks, a factory that binds them to a policy, and three
+interfaces. Every type named below —
 `Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the
 rest — is re-exported from `@evanion/acl` under the same name and documented in
 [the core's reference](/acl/api).
@@ -50,10 +51,13 @@ interface PolicyProviderProps {
 }
 ```
 
-`access` is the untyped `Access` the core's `hydratePolicy` returns.
-`policy<Subject>()` returns a narrower `Access` bound to the subject and object
-types it was built with, which does not satisfy this prop; hydrate the built
-policy's `matrix` to cross that, which is what a browser does in any case.
+`access` is any `Access`, whether the core's `hydratePolicy` returned it or
+`policy<Subject>().build()` did. The subject and object types a typed policy
+carries stop here: the hooks below take `key: string`, so a key this provider's
+document never declared reaches them, and the engine throws
+`UnknownObjectKeyError` at render unless the matrix was hydrated with
+`closed: true`. [`createPolicyContext`](#createpolicycontext) is what keeps
+those types.
 
 Only `now` is read off `context`. The subject is a prop of its own rather than a
 key of the context, so the two are memoised separately and a re-render that
@@ -148,6 +152,95 @@ may reach rather than what they may do to a particular thing.
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
 
 ```
+
+## `createPolicyContext`
+
+Binds one policy's subject and object types to a provider and a set of hooks.
+
+```tsx signature
+function createPolicyContext<Sub = Subject, R = AnyObjects>(
+  access: Access<Sub, R>,
+): PolicyContext<Sub, R>;
+```
+
+[`policy`](/acl/authoring) names a subject type once and binds a row type per
+object kind, and `build()` returns an `Access` carrying both. Pass that here and
+the hooks that come back check their key against the kinds the policy declared
+and their row against the type bound to the kind. Both come off the argument, so
+the call site writes neither.
+
+A React context fixes its type when it is created, and `useContext` hands a hook
+that fixed type whatever the provider above it was given. That is why this is a
+function returning hooks rather than a generic `PolicyProvider`: the two
+parameters have nowhere else to live.
+
+Each call makes its own context, so two policies nest and each set of hooks
+reads its own provider. The returned provider also feeds the shared context, so
+a component calling `useCan` from the package root underneath it reads the same
+decision.
+
+```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
+
+```
+
+## `PolicyContext`
+
+What `createPolicyContext` returns: the same provider and four hooks, at the
+types the policy carries.
+
+```tsx signature
+interface PolicyContext<Sub, R> {
+  PolicyProvider(props: BoundPolicyProviderProps<Sub, R>): ReactElement;
+  useCan<K extends keyof R & string>(
+    key: K,
+    action: string,
+    object?: Partial<R[K]>,
+  ): Decision;
+  useCanMany<K extends keyof R & string>(
+    key: K,
+    action: string,
+    objects: readonly Partial<R[K]>[],
+  ): Decision[];
+  useCanFields<K extends keyof R & string>(
+    key: K,
+    action: string,
+    object: Partial<R[K]>,
+    axis: 'read' | 'write',
+    proposed?: Partial<R[K]>,
+  ): FieldDecision;
+  useCapabilities(): Record<string, Decision>;
+}
+```
+
+`Partial<R[K]>` for the row, because a list row carrying two of five fields is
+the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case rather
+than a type error. A row type declared `extends Record<string, unknown>` accepts
+every key and gives the check nothing to hold, so declare the row's fields and
+nothing more.
+
+`useCapabilities` stays keyed by `string`. It answers by permission key,
+`listing.edit`, where `R` holds the object kinds, `listing`, and the actions
+that complete the key are plain strings no builder collects.
+
+## `BoundPolicyProviderProps`
+
+```tsx signature
+interface BoundPolicyProviderProps<Sub, R> {
+  access?: Access<Sub, R>;
+  subject: Sub;
+  context?: { now?: Instant };
+  children?: ReactNode;
+}
+```
+
+`access` is optional here and required on `PolicyProvider`, because
+`createPolicyContext` was already handed a document. Pass it to decide against a
+different one of the same shape: a per-tenant matrix, or the copy the browser
+rebuilt with `hydratePolicy`, which crossed JSON and carries no types of its
+own.
+
+`subject` is the subject type the policy was authored against, so a value
+missing a field that type declares is a compile error at the mount.
 
 ## Where to go next
 
