@@ -14,11 +14,17 @@ the decision should ever reach an `if`.
 | `unknown-action`  | —         | the document has moved on; fail closed       |
 | `unevaluable`     | `missing` | a refetch, not a refusal                     |
 | `unusable-clock`  | `rule`    | the `now` this call passed is not an instant |
+| `stale-contract`  | —         | fetch the document again; this copy is old   |
 
 `unevaluable` and `unusable-clock` both mean the engine could not reach an
 answer, and they are two reasons because the repair differs. `unevaluable` names
 paths in `missing`, and one refetch settles it. `unusable-clock` says the `now`
 the call passed is not an instant, which no refetch changes: fix the argument.
+
+`stale-contract` is the third repairable one, and the thing to fetch is the
+document. A holder that tells `parseMatrix` when it last validated its copy, with
+`fetchedAt`, gets this for every key once the copy is older than the `maxStale`
+the document states. A holder that reports no `fetchedAt` never sees it.
 
 ## `rule` — which rule decided
 

@@ -28,6 +28,8 @@ export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
 export { federatedPolicies } from './federated-policies.js';
 export type { FederatedAccess } from './federated-policies.js';
+export { serialize } from './serialize.js';
+export type { SerializeMode, SerializeOptions } from './serialize.js';
 export { policy } from './authoring.js';
 export type {
   Actions,
@@ -49,17 +51,20 @@ export {
   DuplicatePermissionError,
   FieldTypeMismatchError,
   InvalidConditionError,
+  InvalidFreshnessError,
   InvalidMatrixError,
   InvalidPermissionError,
   InvalidRuleError,
   InvalidSchemaError,
   KeyMismatchError,
+  MissingFreshnessBudgetError,
   MissingVetoSchemaError,
   OriginCollisionError,
   TargetsTransitionsConflictError,
   UnknownFieldError,
   UnknownObjectKeyError,
   UnknownPermissionError,
+  UnpublishedVetoableError,
   UnvetoablePermissionError,
 } from './errors.js';
 

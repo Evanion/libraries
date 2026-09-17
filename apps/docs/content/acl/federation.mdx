@@ -175,14 +175,19 @@ schema and never sees any of this — `hydratePolicy(matrix)` takes no overlay, 
 ### The compliance team runs the same call
 
 `applyDenyOverlay(ordersContract, myOverlay, { vetoable })` in compliance's own
-CI, against the document orders publishes, catches compliance's mistake before
-the owner's deploy breaks. Nothing in the function reads private state or needs
-the full authored matrix: a published subset carrying the vetoable keys and
-their schema entries is enough.
+CI catches the mistake before the owner's deploy breaks. The function reads no
+private state: a published subset carrying the vetoable keys and their schema
+entries is enough.
 
-Applying comes before serializing. Publishing the authored matrix omits the veto,
-and a veto is a deny rule, so omitting one publishes a document that allows what
-the owner refuses.
+Apply before serializing. A veto is a deny rule, so publishing the authored
+matrix instead would publish a document that allows what the owner refuses.
+
+## Publishing the rules to a consumer
+
+`serialize(access, 'reduced')` emits the permissions marked
+`visibility: 'public'`, each kept whole, and the consumer adopts the result with
+`parseMatrix`. The topology above is unchanged: the consumer decides
+locally, and the owner decides again when the call arrives.
 
 ## What this topology does not give you
 
@@ -193,6 +198,8 @@ attacker wrote.
 
 ## Where to go next
 
+- [Giving my rules to another service](/acl/publishing) — `serialize`,
+  `visibility` and the freshness budget
 - [My policy came from another service](/acl/adopting) — `parseMatrix`, the
   closed mode, and what construction refuses
 - [Caveats and pitfalls](/acl/pitfalls) — the layer-trust and subject-forgery

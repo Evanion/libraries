@@ -24,6 +24,8 @@ interface Policy<Sub, R> {
 interface AccessOptions {
   version?: string | number; // overrides the document's own
   closed?: boolean; // fail closed on unknown keys instead of throwing
+  fetchedAt?: Instant; // when this holder last validated the document
+  maxStale?: number; // a shorter local ceiling, in milliseconds
 }
 
 type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
@@ -140,6 +142,7 @@ path](/acl/fields#writing); nothing else narrows a write.
 ```ts
 interface Matrix {
   readonly version?: string | number;
+  readonly maxStale?: number; // how long a holder may keep deciding on it
   readonly schema?: MatrixSchema;
   readonly permissions: readonly Permission[];
 }
@@ -151,6 +154,7 @@ interface Permission {
   rules?: readonly Rule[];
   denyRules?: readonly Rule[];
   fields?: FieldRules;
+  visibility?: 'public' | 'internal'; // absent is internal
 }
 
 interface Rule {
@@ -178,6 +182,28 @@ type FieldConfig =
 
 type Instant = string | number | Date;
 ```
+
+## Publishing
+
+```ts
+function serialize<Sub, R>(access: Access<Sub, R>, mode: 'full'): Matrix;
+function serialize<Sub, R>(
+  access: Access<Sub, R>,
+  mode: 'reduced',
+  options?: SerializeOptions,
+): Matrix;
+
+interface SerializeOptions {
+  readonly vetoable?: readonly string[];
+}
+```
+
+`full` hands back `access.matrix` as it stands. `reduced` is the contract a
+service gives its consumers: the permissions marked `visibility: 'public'`, each
+kept whole with the marking stripped from the copy, plus the `schema` entries for
+the object kinds those permissions name. Everything else is dropped, and an
+unmarked permission counts as internal. See
+[Many services](/acl/federation#publish-the-rules-as-a-contract).
 
 ## The schema
 
@@ -221,7 +247,8 @@ type Reason =
   | 'denied'
   | 'unknown-action'
   | 'unevaluable'
-  | 'unusable-clock';
+  | 'unusable-clock'
+  | 'stale-contract';
 
 interface FieldDecision {
   allowed: boolean;
@@ -280,6 +307,12 @@ Every construction failure extends `AclConfigError`, which extends `Error`:
 `DenyWithoutBaselineError`, `TargetsTransitionsConflictError`. Each carries the
 keys, fields and locations it names in its message as properties —
 [the table](/acl/authoring#construction-errors) says what raises which.
+
+`UnpublishedVetoableError` is raised by `serialize` when a key the target opens
+to a deny overlay would not ship in the contract. `MissingFreshnessBudgetError`
+and `InvalidFreshnessError` are raised by construction when a holder reports
+`fetchedAt` against a document that states no `maxStale`, or reports a bound the
+comparison cannot use.
 
 `UnknownObjectKeyError` and `UnknownPermissionError` share that base class but
 are raised by a query on the open path. Under `parseMatrix` the same key fails

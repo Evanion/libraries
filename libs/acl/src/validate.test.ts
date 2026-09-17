@@ -316,6 +316,50 @@ describe('validateMatrix', () => {
     }
   });
 
+  it('rejects a visibility that is neither public nor internal', () => {
+    for (const visibility of ['PUBLIC', 'exposed', '', 42, null]) {
+      const matrix = {
+        permissions: [
+          {
+            key: 'comment.read',
+            object: 'comment',
+            action: 'read',
+            visibility,
+          },
+        ],
+      } as unknown as Matrix;
+      expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
+    }
+  });
+
+  it('accepts both markings and an absent one', () => {
+    for (const visibility of ['public', 'internal', undefined]) {
+      const matrix = {
+        permissions: [
+          {
+            key: 'comment.read',
+            object: 'comment',
+            action: 'read',
+            visibility,
+          },
+        ],
+      } as unknown as Matrix;
+      expect(() => validateMatrix(matrix)).not.toThrow();
+    }
+  });
+
+  it('rejects a maxStale that is not a span of milliseconds', () => {
+    for (const maxStale of ['60000', -1, Number.NaN, Infinity, null, {}]) {
+      const matrix = {
+        maxStale,
+        permissions: [
+          { key: 'comment.read', object: 'comment', action: 'read' },
+        ],
+      } as unknown as Matrix;
+      expect(() => validateMatrix(matrix)).toThrow(InvalidMatrixError);
+    }
+  });
+
   it('rejects two permissions under one key', () => {
     const node = { key: 'comment.read', object: 'comment', action: 'read' };
     expect(() => validateMatrix({ permissions: [node, node] })).toThrow(

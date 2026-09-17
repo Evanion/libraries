@@ -132,6 +132,16 @@ export interface Permission {
   denyRules?: readonly Rule[];
   /** Field-level rules, write and/or read axis. */
   fields?: FieldRules;
+  /**
+   * Whether this permission ships in a reduced serialization.
+   *
+   * Absent is `internal`. An older document, a foreign producer that emits no
+   * such field, and an author who forgot all read the same way, and none of the
+   * three publishes anything. `serialize(access, 'reduced')` keeps a `public`
+   * permission whole and strips the field from the copy it emits, so a contract
+   * carries no marking and its own reduced serialization is empty.
+   */
+  visibility?: 'public' | 'internal';
 }
 
 /**
@@ -206,6 +216,17 @@ export interface MatrixSchema {
 export interface Matrix {
   readonly version?: string | number;
   readonly schema?: MatrixSchema;
+  /**
+   * How long a holder of this document may keep deciding on it, in
+   * milliseconds, measured from its last successful freshness validation.
+   *
+   * The owner sets it as a ceiling. A holder reports the validation instant as
+   * `AccessOptions.fetchedAt` and may shorten the bound with
+   * `AccessOptions.maxStale`; past `fetchedAt + min(the two)` every decision
+   * answers `stale-contract`. A holder that reports no `fetchedAt` claims no
+   * freshness and no bound applies.
+   */
+  readonly maxStale?: number;
   readonly permissions: readonly Permission[];
 }
 
@@ -217,6 +238,11 @@ export interface Matrix {
  * differs: `unevaluable` names paths in `missing` and one refetch settles it,
  * `unusable-clock` says the instant the call supplied does not parse and only a
  * different argument settles it.
+ *
+ * `stale-contract` is the third refusal with a caller's move attached, and the
+ * move is a fetch of the document itself. The holder is past the freshness
+ * budget `Matrix.maxStale` states, so the document carries no claim about the
+ * present and every key answers this, including a key it does not hold.
  */
 export type Reason =
   | 'allow'
@@ -224,7 +250,8 @@ export type Reason =
   | 'denied'
   | 'unknown-action'
   | 'unevaluable'
-  | 'unusable-clock';
+  | 'unusable-clock'
+  | 'stale-contract';
 
 /** One action-level decision. */
 export interface Decision {

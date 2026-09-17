@@ -53,6 +53,7 @@ const documented = [
   'unknown-action',
   'unevaluable',
   'unusable-clock',
+  'stale-contract',
 ] as const satisfies readonly Reason[];
 
 type Exhaustive<T extends never> = T;
@@ -67,6 +68,7 @@ type NotInTheTable = Exhaustive<Exclude<Reason, (typeof documented)[number]>>;
 | `unknown-action`  | the key is not in the matrix; the fail-closed path only        |
 | `unevaluable`     | a rule read a path the object did not carry; carries `missing` |
 | `unusable-clock`  | a rule read a `now` that is not an instant; carries `rule`     |
+| `stale-contract`  | the document is past the freshness budget it states            |
 
 ## Default deny, express allow, express deny wins
 
