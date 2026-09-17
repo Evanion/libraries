@@ -16,8 +16,14 @@ import type { Matrix, MatrixSchema, ObjectKey, Permission } from './types.js';
 /** Which of the two documents an `Access` holds is wanted. */
 export type SerializeMode = 'full' | 'reduced';
 
-/** What a reduced serialization needs beyond the document itself. */
-export interface SerializeOptions {
+/**
+ * What a reduced serialization needs beyond the document itself.
+ *
+ * `Keys` is the permission-key union the `Access` being serialized carries, so
+ * a document authored with the builder checks its own list and an adopted one,
+ * whose keys are `string`, takes any key it likes.
+ */
+export interface SerializeOptions<Keys extends string = string> {
   /**
    * The keys this target opens to a deny overlay, as `applyDenyOverlay` took
    * them.
@@ -26,8 +32,18 @@ export interface SerializeOptions {
    * `applyDenyOverlay` and the matrix it returns records nothing about which
    * keys were opened. The publishing path holds the list already, having just
    * passed it to the overlay.
+   *
+   * The keys are checked against the document being published, because this
+   * call holds the `Access` and the `Access` carries the union. A misspelt key
+   * is an `UnknownPermissionError` at runtime, and where the union is known the
+   * compiler reaches it first.
+   *
+   * `applyDenyOverlay` takes the same list and cannot check it. It takes a
+   * `Matrix`, which is the serializable document and carries no union, and the
+   * party writing an overlay is another team holding that document as JSON with
+   * none of the producer's types. A check there would have nothing to stand on.
    */
-  readonly vetoable?: readonly string[];
+  readonly vetoable?: readonly Keys[];
 }
 
 /** Whether this permission ships in a contract. Absent is `internal`. */
@@ -75,11 +91,14 @@ function projectSchema(
   return Object.keys(projected).length === 0 ? undefined : projected;
 }
 
-export function serialize<Sub, R>(access: Access<Sub, R>, mode: 'full'): Matrix;
-export function serialize<Sub, R>(
-  access: Access<Sub, R>,
+export function serialize<Sub, R, Keys extends string = string>(
+  access: Access<Sub, R, Keys>,
+  mode: 'full',
+): Matrix;
+export function serialize<Sub, R, Keys extends string = string>(
+  access: Access<Sub, R, Keys>,
   mode: 'reduced',
-  options?: SerializeOptions,
+  options?: SerializeOptions<Keys>,
 ): Matrix;
 
 /**
@@ -113,10 +132,10 @@ export function serialize<Sub, R>(
  * `access.matrix` is a deep-frozen `structuredClone`, so this copies out of a
  * value nothing can have mutated since construction.
  */
-export function serialize<Sub, R>(
-  access: Access<Sub, R>,
+export function serialize<Sub, R, Keys extends string = string>(
+  access: Access<Sub, R, Keys>,
   mode: SerializeMode,
-  options: SerializeOptions = {},
+  options: SerializeOptions<Keys> = {},
 ): Matrix {
   const matrix = access.matrix;
   if (mode === 'full') return matrix;

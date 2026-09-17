@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { policy } from './authoring.js';
 import { applyDenyOverlay } from './deny-overlay.js';
 import { UnknownPermissionError, UnpublishedVetoableError } from './errors.js';
 import { hydratePolicy } from './hydrate-policy.js';
@@ -160,6 +161,29 @@ describe('serialize', () => {
     expect(() =>
       serialize(access, 'reduced', { vetoable: ['invoice.approve'] }),
     ).not.toThrow();
+  });
+
+  it('publishes a builder-authored document under its own keys', () => {
+    const authored = policy<
+      { id: string; roles: string[] },
+      { invoice: { ownerId: string } },
+      { invoice: 'approve' | 'read' }
+    >()
+      .for('invoice', (p) =>
+        p
+          .allow('approve', p.contains('subject.roles', 'approver'))
+          .visibility('public')
+          .allow('read', p.eq('object.ownerId', 'subject.id')),
+      )
+      .build();
+
+    const contract = serialize(authored, 'reduced', {
+      vetoable: ['invoice.approve'],
+    });
+    expect(contract.permissions.map((p) => p.key)).toEqual(['invoice.approve']);
+    expect(() =>
+      serialize(authored, 'reduced', { vetoable: ['invoice.read'] }),
+    ).toThrow(UnpublishedVetoableError);
   });
 
   it('gives the overlay author a contract its own check runs against', () => {

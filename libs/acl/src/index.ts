@@ -18,9 +18,11 @@ export { hydratePolicy } from './hydrate-policy.js';
 export type {
   Access,
   AccessOptions,
+  ActionOf,
   AnyObjects,
   Authorized,
   BoundKind,
+  KeysOf,
   Subject,
 } from './hydrate-policy.js';
 export { applyDenyOverlay } from './deny-overlay.js';
@@ -30,16 +32,20 @@ export { federatedPolicies } from './federated-policies.js';
 export type { FederatedAccess } from './federated-policies.js';
 export { serialize } from './serialize.js';
 export type { SerializeMode, SerializeOptions } from './serialize.js';
-export { policy } from './authoring.js';
+export { policy, CRUD_ACTIONS } from './authoring.js';
 export type {
   Actions,
   Cond,
+  Action,
   Operand,
   Ops,
   Paths,
+  PermissionKeys,
   Policy,
   PolicyOptions,
   Valid,
+  Visibility,
+  VocabularyOf,
 } from './authoring.js';
 export { pickAllowedFields } from './fields.js';
 
@@ -69,7 +75,6 @@ export {
 } from './errors.js';
 
 export type {
-  Action,
   BaseFieldType,
   Condition,
   Decision,

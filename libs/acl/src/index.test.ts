@@ -13,6 +13,7 @@ import * as api from './index.js';
  * refuses or grants on data it never supplied.
  */
 const RUNTIME_EXPORTS = [
+  'CRUD_ACTIONS',
   'AclConfigError',
   'ActionNotAllowedError',
   'BangInAllowListError',

@@ -40,8 +40,8 @@ import { policy } from '@evanion/acl';
 
 type Question = { id: string; askedBy: string };
 
-const access = policy<{ id: string }>()
-  .for<'question', Question>('question', (p) =>
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
     p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
@@ -70,8 +70,8 @@ import { policy } from '@evanion/acl';
 
 type Question = { askedBy: string; status: string };
 
-const access = policy<{ id: string }>()
-  .for<'question', Question>('question', (p) =>
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
     p
       .allow('update', p.eq('object.askedBy', 'subject.id'))
       .deny('update', p.eq('object.status', 'locked')),
@@ -130,8 +130,8 @@ import { policy } from '@evanion/acl';
 
 type Question = { id: string; askedBy: string };
 
-const access = policy<{ id: string }>()
-  .for<'question', Question>('question', (p) =>
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
     p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
@@ -167,8 +167,8 @@ import { policy } from '@evanion/acl';
 
 type Question = { id: string; askedBy: string };
 
-const access = policy<{ id: string }>()
-  .for<'question', Question>('question', (p) =>
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
     p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
@@ -197,20 +197,23 @@ document, resolved in document order against one subject.
 
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
+import type { Action } from '@evanion/acl';
 
 type Shopper = { id: string; roles: string[] };
 
 // One policy, every object kind the app has. A `.for()` per kind, and the
 // permissions they flatten to live in the same flat list.
-const access = policy<Shopper>()
-  .for<'report', { id: string }>('report', (p) =>
+const access = policy<
+  Shopper,
+  { report: { id: string }; listing: { id: string } },
+  { report: Action | 'export' }
+>()
+  .for('report', (p) =>
     p
       .allow('read', p.contains('subject.roles', 'bookseller'))
       .allow('export', p.contains('subject.roles', 'owner')),
   )
-  .for<'listing', { id: string }>('listing', (p) =>
-    p.allow('read', p.contains('subject.roles', 'owner')),
-  )
+  .for('listing', (p) => p.allow('read', p.contains('subject.roles', 'owner')))
   .build();
 
 const caps = access.capabilities({ id: 'u1', roles: ['bookseller'] });
@@ -250,8 +253,12 @@ interface Listing {
   status: 'draft' | 'published';
 }
 
-const access = policy<Shopper>()
-  .for<'listing', Listing>('listing', (p) =>
+const access = policy<
+  Shopper,
+  { listing: Listing },
+  { listing: 'review' | 'edit' | 'publish' }
+>()
+  .for('listing', (p) =>
     p
       .allow('review', p.always)
       .allow('edit', p.in('subject.role', ['bookseller', 'owner']))
@@ -406,15 +413,22 @@ Two things, both at construction, both an `AclConfigError`:
 
 ## Typed authoring
 
-`policy<Subject>()` names the subject once and returns a builder. Each `.for()`
-call binds one object kind to its type and hands the condition helpers to a
-block, so a typo in an `object.*` or `subject.*` path is a compile error, and so
-is an unknown object kind or an object of the wrong kind at the call site.
+`policy<Subject, Objects, Verbs>()` names the subject, the object kinds and the
+actions each kind answers for, then returns a builder. Each `.for()` names its
+kind as a value and hands the condition helpers to a block, so a typo in an
+`object.*` or `subject.*` path is a compile error, and so is an unknown object
+kind, an action outside the kind's vocabulary, or an object of the wrong kind at
+the call site.
+
+`Verbs` is optional, and a kind it does not name may declare the four
+`Action` verbs. The keys `capabilities()` answers under are read off the
+`allow` and `deny` calls each block actually made.
 
 <!-- #region typed-authoring -->
 
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
+import type { Action } from '@evanion/acl';
 
 type Subject = { id: string; roles: string[] };
 type Question = { askedBy: string; status: 'open' | 'locked' };
@@ -423,8 +437,12 @@ type Listing = { sellerId: string };
 // One policy, every object kind the shop has. Each `.for()` adds a kind and
 // keeps the ones before it, so `access` answers for questions and listings
 // alike and there is one document to ship.
-const access = policy<Subject>()
-  .for<'question', Question>('question', (p) =>
+const access = policy<
+  Subject,
+  { question: Question; listing: Listing },
+  { question: Action | 'hide' }
+>()
+  .for('question', (p) =>
     p
       .allow(
         'update',
@@ -436,7 +454,7 @@ const access = policy<Subject>()
       .allow('hide', p.contains('subject.roles', 'bookseller'))
       .deny('delete', p.eq('object.status', 'locked')),
   )
-  .for<'listing', Listing>('listing', (p) =>
+  .for('listing', (p) =>
     p.allow('update', p.eq('object.sellerId', 'subject.id')),
   )
   .build();
@@ -451,9 +469,9 @@ access.can(subject, 'listing', 'update', { sellerId: 's2' }).allowed; // -> fals
 <!-- #endregion typed-authoring -->
 
 The block parameter carries the whole permission model: `allow` and `deny`
-declare an action's rules, `fields` attaches to the action most recently
-declared in the chain, and the condition helpers are `eq`, `ne`, `in`, `notIn`,
-`contains`, `before`, `after`, `and`, `or` and `always`.
+declare an action's rules, `fields` and `visibility` attach to the action most
+recently declared in the chain, and the condition helpers are `eq`, `ne`, `in`,
+`notIn`, `contains`, `before`, `after`, `and`, `or` and `always`.
 
 An operand is read as a **path** when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
@@ -471,8 +489,12 @@ it. `Cond` is a plain value, so the shared half is a local `const` named once
 in the same block:
 
 ```ts
-const access = policy<Subject>()
-  .for<'question', Question>('question', (p) => {
+const access = policy<
+  Subject,
+  { question: Question },
+  { question: Action | 'hide' }
+>()
+  .for('question', (p) => {
     const isAsker = p.eq('object.askedBy', 'subject.id');
     return p
       .allow('update', isAsker)
@@ -499,7 +521,7 @@ import { policy } from '@evanion/acl';
 
 type Question = { askedBy: string; status: string };
 
-const access = policy<{ id: string }>({
+const access = policy<{ id: string }, { question: Question }>({
   version: 'orders@7',
   schema: {
     subject: { fields: { id: 'string' } },
@@ -508,7 +530,7 @@ const access = policy<{ id: string }>({
     },
   },
 })
-  .for<'question', Question>('question', (p) =>
+  .for('question', (p) =>
     p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
@@ -519,12 +541,12 @@ JSON.stringify(access.matrix.version); // -> '"orders@7"'
 <!-- #endregion typed-document -->
 
 They sit on `policy()` rather than on a method at the end of the chain because
-neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
-and a version and a schema are known before the first block is written.
+neither is a per-kind fact: `.for()` exists to write one kind's rules, and a
+version and a schema are known before the first block is written.
 
-A schema is written by hand. `.for<'question', Question>()` holds `Question` at the
-type level only, and a schema is runtime JSON, so nothing can derive one from the
-type argument.
+A schema is written by hand. `policy<Subject, { question: Question }>()` holds
+`Question` at the type level only, and a schema is runtime JSON, so nothing can
+derive one from the type argument.
 
 That makes the field-existence guarantee available twice on the typed path, and
 the duplication is the point: TypeScript gives it to the author, and the schema
@@ -538,6 +560,54 @@ because the type declares the field is still an `UnknownFieldError` at
 construction when the schema does not declare it — the schema is binding
 wherever it is present.
 
+### Marking a typed permission for publication
+
+`p.visibility('public')` marks the action most recently declared in the chain,
+the way `p.fields()` attaches to it. The emitted permission carries the same
+`visibility` field a hand-written document carries, so
+`serialize(access, 'reduced')` reads a builder-authored matrix and a foreign one
+the same way.
+
+<!-- #region typed-contract -->
+
+```ts @import.meta.vitest
+import { policy, parseMatrix, serialize } from '@evanion/acl';
+
+type Subject = { id: string; roles: string[]; tier: string };
+type Order = { ownerId: string };
+type Ledger = { period: string };
+
+const orders = policy<
+  Subject,
+  { 'orders:order': Order; 'orders:ledger': Ledger },
+  { 'orders:order': 'refund'; 'orders:ledger': 'reconcile' }
+>({ version: 'orders@7' })
+  .for('orders:order', (p) =>
+    p
+      .allow('refund', p.contains('subject.roles', 'bookseller'))
+      .deny('refund', p.eq('subject.tier', 'probation'))
+      .visibility('public'),
+  )
+  .for('orders:ledger', (p) =>
+    p.allow('reconcile', p.contains('subject.roles', 'accountant')),
+  )
+  .build();
+
+const contract = serialize(orders, 'reduced');
+contract.permissions.map((p) => p.key); // -> ['orders:order.refund']
+
+const bff = parseMatrix<Subject, { 'orders:order': Order }>(contract);
+const bookseller = { id: 'u1', roles: ['bookseller'], tier: 'permanent' };
+bff.can(bookseller, 'orders:order', 'refund').allowed; // -> true
+```
+
+<!-- #endregion typed-contract -->
+
+An action nobody marks emits no `visibility` at all, which every reader takes as
+`internal`, so the reduced document holds the marked actions and nothing else.
+`p.visibility('internal')` writes the marking out where an author wants it on
+the page.
+
 ## Field-level permissions
 
 <!-- #region field-permissions -->
@@ -545,10 +615,8 @@ wherever it is present.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>()
-  .for<'listing', { status: string }>('listing', (p) =>
-    p.allow('read', p.always).fields(['*', '!status']),
-  )
+const access = policy<{ id: string }, { listing: { status: string } }>()
+  .for('listing', (p) => p.allow('read', p.always).fields(['*', '!status']))
   .build();
 
 const fd = access.canFields(
@@ -588,13 +656,14 @@ the value to write, and nothing else from the write is.
 ```ts @import.meta.vitest
 import { policy, pickAllowedFields } from '@evanion/acl';
 
-const access = policy<{ id: string }>()
-  .for<'question', { askedBy: string; body: string; status: string }>(
-    'question',
-    (p) =>
-      p
-        .allow('update', p.eq('object.askedBy', 'subject.id'))
-        .fields(['*', '!status']),
+const access = policy<
+  { id: string },
+  { question: { askedBy: string; body: string; status: string } }
+>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .fields(['*', '!status']),
   )
   .build();
 
@@ -961,18 +1030,28 @@ component evaluates without restating it.
 <!-- #region server-authorize -->
 
 ```ts @import.meta.vitest
-import { policy } from '@evanion/acl';
+import { policy, type Action } from '@evanion/acl';
 
-type Subject = { id: string; roles: string[] };
+type Shopper = { id: string; roles: string[] };
 
-const access = policy<Subject>()
-  .for<'question', { id: string }>('question', (p) =>
-    p.allow('read', p.contains('subject.roles', 'bookseller')),
+// One policy, every object kind the app has. A `.for()` per kind, and one
+// bound handle answers for all of them.
+type Shelf = { report: { id: string }; listing: { id: string } };
+
+// `report` grants a verb outside the default CRUD set, so it names its own
+// vocabulary. `listing` omits one and takes `Action`.
+const access = policy<Shopper, Shelf, { report: Action | 'export' }>()
+  .for('report', (p) =>
+    p
+      .allow('read', p.contains('subject.roles', 'bookseller'))
+      .allow('export', p.contains('subject.roles', 'owner')),
   )
+  .for('listing', (p) => p.allow('read', p.contains('subject.roles', 'owner')))
   .build();
 
-const forUser = access.authorize({ id: 's1', roles: ['bookseller'] });
-forUser.can('question', 'read').allowed; // -> true
+const forUser = access.authorize({ id: 'u1', roles: ['bookseller'] });
+forUser.can('report', 'read').allowed; // -> true
+forUser.can('report', 'export').reason; // -> 'no-rule-matched'
 ```
 
 <!-- #endregion server-authorize -->
@@ -1001,8 +1080,8 @@ import { policy } from '@evanion/acl';
 
 type Listing = { id: string; locked: boolean };
 
-const access = policy<{ id: string; roles: string[] }>()
-  .for<'listing', Listing>('listing', (p) =>
+const access = policy<{ id: string; roles: string[] }, { listing: Listing }>()
+  .for('listing', (p) =>
     p
       .allow('read', p.contains('subject.roles', 'owner'))
       .allow('update', p.always)
@@ -1175,7 +1254,7 @@ expiry and no way for a held matrix to notice that it is stale.
 
 | Export                                                                                     | Purpose                                                                                    |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `policy<S>(options?)`                                                                      | Typed authoring; `.for<K, O>(key, block)` per object kind, `.build()` for the evaluator.   |
+| `policy<S, O, V>(options?)`                                                                | Typed authoring; `.for(key, block)` per object kind, `.build()` for the evaluator.         |
 | `hydratePolicy(matrix, options?)`                                                          | An evaluator over a document you already have. Validates, clones and freezes.              |
 | `parseMatrix(json, options?)`                                                              | Adopts somebody else's document; fails closed on unknown keys.                             |
 | `p.allow` / `p.deny` / `p.fields`                                                          | Declare one action inside a `.for()` block.                                                |
@@ -1208,10 +1287,12 @@ it stands:
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-const access = policy<{ id: string }>()
-  .for<'sale', { id: string }>('sale', (p) =>
-    p.allow('buy', p.after('now', '2026-01-01T00:00:00Z')),
-  )
+const access = policy<
+  { id: string },
+  { sale: { id: string } },
+  { sale: 'buy' }
+>()
+  .for('sale', (p) => p.allow('buy', p.after('now', '2026-01-01T00:00:00Z')))
   .build();
 
 const crossed = JSON.parse(

@@ -3,9 +3,6 @@
  */
 export type ObjectKey = string;
 
-/** The name of an action a subject can take on an object. */
-export type Action = string;
-
 /**
  * An instant, for a `now` condition or a context clock. A string is parsed as
  * ISO 8601, a number as epoch milliseconds. The string and number forms survive
@@ -125,7 +122,14 @@ export interface Rule {
 export interface Permission {
   key: string;
   object: ObjectKey;
-  action: Action;
+  /**
+   * The name of an action a subject can take on an object.
+   *
+   * A plain string, because a document that arrived over the wire names
+   * whatever its producer wrote. The authoring builder is where an action is
+   * held to a vocabulary.
+   */
+  action: string;
   /** Allow rules, OR-ed. */
   rules?: readonly Rule[];
   /** Deny rules, OR-ed. A matched deny wins over an allow. */

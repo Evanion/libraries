@@ -113,13 +113,129 @@ export interface Ops<Sub, Obj> {
   readonly always: Cond;
 }
 
-/** The block parameter: the ops, plus the chained action declarations. */
-export interface Actions<Sub, Obj> extends Ops<Sub, Obj> {
-  allow(action: string, ...conditions: Cond[]): Actions<Sub, Obj>;
-  deny(action: string, ...conditions: Cond[]): Actions<Sub, Obj>;
+/**
+ * The block parameter: the ops, plus the chained action declarations.
+ *
+ * `Act` is the actions declared so far in this chain. `allow` and `deny` widen
+ * it by the literal they were handed, and `.for()` reads the final union off
+ * what the block returns, so the permission keys come from the calls that
+ * declare them and an author writes each action once.
+ *
+ * `Vocab` is what those two calls may name, which is the kind's entry in the
+ * vocabulary map or {@link Action}. The two parameters answer different
+ * questions: `Vocab` is what this kind may do, `Act` is what this block said it
+ * does, and only `Act` reaches the permission keys. A vocabulary listing
+ * `'reprice'` that no block allows puts no `listing.reprice` in the keys.
+ *
+ * What a discovered `Act` gives up: a misspelled `p.allow('updte')` inside a
+ * kind whose vocabulary is `string` is a key rather than an error, and it
+ * surfaces at every site that names the key, where `caps['comment.update']` and
+ * `access.can(s, 'comment', 'update')` both fail against a union carrying
+ * `'comment.updte'`. A kind whose vocabulary is a union refuses the misspelling
+ * here instead, at the call that wrote it.
+ *
+ * `fields` and `visibility` carry both parameters through untouched: each one
+ * marks the action most recently declared and declares none of its own.
+ */
+export interface Actions<
+  Sub,
+  Obj,
+  Act extends string = string,
+  Vocab extends string = string,
+> extends Ops<Sub, Obj> {
+  allow<A extends Vocab>(
+    action: A,
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  deny<A extends Vocab>(
+    action: A,
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  /**
+   * One allow rule, written once and attached to each action in the list.
+   *
+   * The document gains one ordinary permission per action, in the same flat
+   * list `allow` writes into, so a reviewer reading the matrix reads every
+   * action it grants. Nothing in the document stands for a set of actions, and
+   * an action added to a vocabulary later widens no grant written before it.
+   *
+   * An action this repeats is the action `allow` already declared: the rules
+   * are appended to the one draft that action has, exactly as two `allow`
+   * calls for the same action are two rules. An empty list declares nothing.
+   *
+   * `fields` and `visibility` refuse after this call. Each marks one action,
+   * and a batch leaves no single answer to which one, so the chain drops the
+   * mark rather than spreading it over actions the author did not name
+   * individually.
+   */
+  allowEach<A extends Vocab>(
+    actions: readonly A[],
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
+  /** One deny rule, attached to each action in the list. See `allowEach`. */
+  denyEach<A extends Vocab>(
+    actions: readonly A[],
+    ...conditions: Cond[]
+  ): Actions<Sub, Obj, Act | A, Vocab>;
   /** Field rules for the action most recently declared in the chain. */
-  fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj>;
+  fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
+  /**
+   * The publication marking for the action most recently declared in the chain.
+   *
+   * The argument is the `visibility` a `Permission` carries, so a block writes
+   * the same two words a hand-written document writes and
+   * `serialize(access, 'reduced')` reads the emitted matrix with no knowledge of
+   * which path authored it. An action this is never called for emits no
+   * `visibility` at all, which is the `internal` every unmarked permission
+   * already means.
+   */
+  visibility(visibility: Visibility): Actions<Sub, Obj, Act, Vocab>;
 }
+
+/** The publication marking a permission carries, named for reuse in a block. */
+export type Visibility = NonNullable<Permission['visibility']>;
+
+/**
+ * The action vocabulary a block gets when it declares none of its own.
+ *
+ * Four verbs, domain-neutral, and a string-literal union rather than a
+ * TypeScript `enum`: an `enum` is nominal and a runtime artifact, and the
+ * actions in a matrix are plain strings that survive `JSON.parse`, so a member
+ * of an `enum` would compare unequal to the string the document carries.
+ *
+ * A domain that needs more names them per kind, in the vocabulary map
+ * `policy()` takes: `{ listing: Action | 'publish' }`. A kind that answers
+ * for actions no vocabulary can list opens itself with `string`.
+ *
+ * No wildcard member sits here. The engine resolves `${kind}.${action}` as an
+ * exact lookup, so an `'all'` in this union would mint a permission that a
+ * query for `'update'` never consults. Wildcard semantics are specified
+ * separately, and this union stays four verbs until that spec lands.
+ */
+export const CRUD_ACTIONS = ['create', 'read', 'update', 'delete'] as const;
+
+/**
+ * The default action vocabulary, read off {@link CRUD_ACTIONS}.
+ *
+ * The list is the one declaration. A caller that wants the four at runtime
+ * passes `CRUD_ACTIONS` to `allowEach`, and the type follows it, so the union
+ * and the array cannot drift.
+ */
+export type Action = (typeof CRUD_ACTIONS)[number];
+
+/**
+ * The vocabulary one kind's block may declare from.
+ *
+ * A kind the map names gets that entry; `string` there is a kind whose actions
+ * no union can list. A kind the map leaves out gets {@link Action}, so a
+ * policy that declares no vocabulary at all still refuses a verb outside the
+ * four.
+ */
+export type VocabularyOf<Vocabs, K extends string> = K extends keyof Vocabs
+  ? Vocabs[K] extends string
+    ? Vocabs[K]
+    : Action
+  : Action;
 
 /**
  * The document-level facts the builder emits alongside the permissions.
@@ -127,23 +243,55 @@ export interface Actions<Sub, Obj> extends Ops<Sub, Obj> {
  * They are document fields rather than construction options, so
  * `JSON.stringify(access.matrix)` from the typed path emits everything a foreign
  * producer emits. They sit on `policy()` rather than on a terminal method because
- * neither is a per-kind fact: `.for()` exists to accumulate the key -> object-type
- * map, and a version and a schema are known before the first block is written.
+ * neither is a per-kind fact: `.for()` exists to write one kind's rules, and a
+ * version and a schema are known before the first block is written.
  *
- * A `schema` is passed by hand. The builder holds `Obj` at the type level only,
- * and a `MatrixSchema` is runtime JSON, so no schema can be derived from
- * `.for<'comment', Comment>()`. A typed author already has the field-existence
+ * A `schema` is passed by hand. The builder holds the object types at the type
+ * level only, and a `MatrixSchema` is runtime JSON, so no schema can be derived
+ * from `policy<Subject, Objects>()`. A typed author already has the field-existence
  * guarantee from TypeScript; passing a schema is what carries that guarantee
  * across the wire to a consumer that adopts the emitted JSON with `parseMatrix`.
  */
 export type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
 
 /**
+ * The permission keys one block contributes, joined from the object kind and
+ * the actions the block declared.
+ *
+ * An open vocabulary contributes `string`, which absorbs every other member of
+ * the union it joins. A block whose body is a statement with no return, or one
+ * that hands `allow` a value the compiler reads as `string`, therefore widens
+ * the whole document's keys to `string`, which is the shape a document arriving
+ * as JSON answers with: a key half the document cannot name is a key nothing
+ * can be checked against.
+ */
+export type PermissionKeys<
+  K extends string,
+  Act extends string,
+> = string extends Act ? string : `${K}.${Act}`;
+
+/**
  * The typed builder: `for`, `matrix` and `build`, and nothing else.
  *
- * `R` accumulates the key -> object-type map one `.for()` at a time, and
- * `build()` hands both parameters to the evaluator, so a query checks its key
- * and its object against the blocks that were written.
+ * `Objects` is the kind -> row-type map the author named at `policy()`. Each
+ * `.for()` looks its object type up there, so a block names its kind once, as
+ * a value, and an unknown kind is a compile error against the map.
+ *
+ * `Vocabs` is the kind -> action-union map beside it. It sits in its own
+ * parameter rather than inside `Objects`, because `Objects` is the shape a
+ * consumer restates by hand as the `R` of `parseMatrix`, and a wrapper carrying
+ * both halves would put the producer's authoring concern into the type every
+ * consumer writes.
+ *
+ * `R` accumulates the kinds that actually carry a block, one `.for()` at a
+ * time, and `build()` hands it to the evaluator. A kind the map declares and no
+ * block writes is therefore unknown to every query, which is what the document
+ * says too.
+ *
+ * `Keys` accumulates the permission keys the same way. Each `.for()` reads the
+ * actions off what its block returns and joins them to the kind, so
+ * `capabilities()` answers under the keys the blocks wrote and nothing states
+ * an action twice.
  *
  * Nothing here forwards a query. `build()` calls the shared constructor once
  * and returns its result, which is the same `Access` a document arriving at
@@ -153,13 +301,27 @@ export type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
  * document without an evaluator: `applyDenyOverlay` takes a `Matrix`, so an
  * owner overlaying a typed-authored policy needs the document first.
  */
-export interface Policy<Sub, R> {
-  for<K extends string, Obj>(
+export interface Policy<
+  Sub,
+  Objects,
+  Vocabs extends Partial<Record<keyof Objects, string>>,
+  R,
+  Keys extends string = string,
+> {
+  for<K extends keyof Objects & string, Act extends string = string>(
     key: K,
-    build: (p: Actions<Sub, Obj>) => unknown,
-  ): Policy<Sub, R & Record<K, Obj>>;
+    build: (
+      p: Actions<Sub, Objects[K], never, VocabularyOf<Vocabs, K>>,
+    ) => Actions<Sub, Objects[K], Act, VocabularyOf<Vocabs, K>> | void,
+  ): Policy<
+    Sub,
+    Objects,
+    Vocabs,
+    R & Record<K, Objects[K]>,
+    Keys | PermissionKeys<K, Act>
+  >;
   readonly matrix: Readonly<Matrix>;
-  build(options?: AccessOptions): Access<Sub, R>;
+  build(options?: AccessOptions): Access<Sub, R, Keys>;
 }
 
 interface Draft {
@@ -167,6 +329,7 @@ interface Draft {
   rules: { when: readonly Condition[] }[];
   denyRules: { when: readonly Condition[] }[];
   fields?: FieldRules;
+  visibility?: Visibility;
 }
 
 /**
@@ -178,6 +341,8 @@ function blockBuilder(
   drafts: Draft[],
 ): Actions<unknown, unknown> {
   let current: Draft | undefined;
+  /** Whether the last declaration in the chain named several actions at once. */
+  let batched = false;
 
   const draftFor = (action: string): Draft => {
     const existing = drafts.find((draft) => draft.action === action);
@@ -189,6 +354,11 @@ function blockBuilder(
 
   const attachTo = (what: string): Draft => {
     if (current) return current;
+    if (batched) {
+      throw new AclConfigError(
+        `"${kind}" calls ${what}() after allowEach()/denyEach(): ${what} marks one action, and a batch names several, so name the action with allow() or deny() and attach ${what} to that call`,
+      );
+    }
     throw new AclConfigError(
       `"${kind}" calls ${what}() before any allow() or deny(): ${what} attaches to the action most recently declared in the chain`,
     );
@@ -219,19 +389,41 @@ function blockBuilder(
   const chain: Actions<unknown, unknown> = {
     ...ops,
     allow(action, ...conditions) {
+      batched = false;
       current = draftFor(action);
       current.rules.push(...toRules(conditions));
       return chain;
     },
     deny(action, ...conditions) {
+      batched = false;
       current = draftFor(action);
       current.denyRules.push(...toRules(conditions));
+      return chain;
+    },
+    allowEach(actions, ...conditions) {
+      batched = true;
+      current = undefined;
+      for (const action of actions) {
+        draftFor(action).rules.push(...toRules(conditions));
+      }
+      return chain;
+    },
+    denyEach(actions, ...conditions) {
+      batched = true;
+      current = undefined;
+      for (const action of actions) {
+        draftFor(action).denyRules.push(...toRules(conditions));
+      }
       return chain;
     },
     fields(rules) {
       attachTo('fields').fields = Array.isArray(rules)
         ? { fields: rules }
         : (rules as FieldRules);
+      return chain;
+    },
+    visibility(visibility) {
+      attachTo('visibility').visibility = visibility;
       return chain;
     },
   };
@@ -246,7 +438,8 @@ function blockBuilder(
  *
  * An empty `rules` or `denyRules` is omitted rather than emitted as `[]`,
  * because the canonical document a foreign backend produces omits them and
- * `JSON.stringify` of the two must match.
+ * `JSON.stringify` of the two must match. An undeclared `visibility` is omitted
+ * for the same reason, and an absent marking reads as `internal` everywhere.
  */
 function toPermission(kind: string, draft: Draft): Permission {
   return {
@@ -256,6 +449,7 @@ function toPermission(kind: string, draft: Draft): Permission {
     ...(draft.rules.length > 0 ? { rules: draft.rules } : {}),
     ...(draft.denyRules.length > 0 ? { denyRules: draft.denyRules } : {}),
     ...(draft.fields ? { fields: draft.fields } : {}),
+    ...(draft.visibility ? { visibility: draft.visibility } : {}),
   };
 }
 
@@ -279,30 +473,49 @@ function toMatrix(
 }
 
 /**
- * The typed authoring path. Names the subject once, binds one object type per
- * `.for()` block, and flattens to the canonical matrix.
+ * The typed authoring path. Names the subject and the object kinds once, writes
+ * one block per kind, and flattens to the canonical matrix.
  *
- * `policy<Sub>()` is a call returning a builder rather than `policy<Sub>(config)`
- * taking the config, because TypeScript has no partial type-argument inference:
- * naming `Sub` in a single call forces every other type parameter to be named
- * too. The extra call is what lets `Sub` be explicit while each `.for()` infers
- * its own object type.
+ * `policy<Sub, Objects, Vocabs>()` is a call returning a builder rather than
+ * `policy<Sub, Objects, Vocabs>(config)` taking the config, because TypeScript
+ * has no partial type-argument inference: naming a parameter in a single call
+ * forces every other one to be named too. The extra call is what lets the map
+ * parameters be explicit while each `.for()` names nothing and reads its object
+ * type out of `Objects`, its vocabulary out of `Vocabs`, and the actions it
+ * declared off the chain the block returns.
+ *
+ * `Vocabs` is optional, and a kind it does not name may declare the four
+ * {@link Action} verbs. A domain verb is a compile error until the kind
+ * names it, which is what catches `p.allow('updte')` at the call that wrote it.
  *
  * Flattening is deferred to `matrix` and `build()`, so validation runs once
  * over every block.
  *
  * @example
  * ```ts
- * const access = policy<Subject>()
- *   .for<'comment', Comment>('comment', (p) =>
- *     p.allow('update', p.eq('object.authorId', 'subject.id')),
+ * type Objects = { comment: Comment; media: Media };
+ * type Verbs = { comment: Action | 'publish' };
+ *
+ * const access = policy<Subject, Objects, Verbs>()
+ *   .for('comment', (p) =>
+ *     p
+ *       .allow('update', p.eq('object.authorId', 'subject.id'))
+ *       .allow('publish', p.contains('subject.roles', 'editor')),
  *   )
+ *   .for('media', (p) => p.allow('read', p.always))
  *   .build();
+ *
+ * access.capabilities(subject)['comment.publish']; // a Decision
+ * access.capabilities(subject)['comment.publsh']; // a compile error
  * ```
  */
-export function policy<Sub>(
+export function policy<
+  Sub,
+  Objects,
+  Vocabs extends Partial<Record<keyof Objects, string>> = Record<never, never>,
+>(
   options: PolicyOptions = {},
-): Policy<Sub, Record<never, never>> {
+): Policy<Sub, Objects, Vocabs, Record<never, never>, never> {
   const kinds: [string, Draft[]][] = [];
 
   const document = (): Matrix =>
@@ -328,5 +541,11 @@ export function policy<Sub>(
     },
   };
 
-  return self as unknown as Policy<Sub, Record<never, never>>;
+  return self as unknown as Policy<
+    Sub,
+    Objects,
+    Vocabs,
+    Record<never, never>,
+    never
+  >;
 }
