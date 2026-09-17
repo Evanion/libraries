@@ -9,16 +9,6 @@
   </Text>
 </WorkshopNotice>
 
-<PageSheet
-  difficulty={1}
-  read={6}
-  hands={5}
-  unlocks={[
-    ['Simple setup', '/acl/simple'],
-    ['Security contract', '/acl/security'],
-  ]}
-/>
-
 **The concept.** Baize is a board game shop. A customer leaves a question under
 its Brass: Birmingham listing, and they may edit that question. A bookseller may
 edit anybody's. Once the shop locks a question, nobody may edit it at all. Those
@@ -118,15 +108,14 @@ This entry imports no framework.
 
 ## Where to go next
 
-That table is the map. Start with a setup tier: one decision stages the three,
-whether a condition reads the object, and how much of the API a tier uses does not
-come into it.
+That table is the map. Setup is three pages, and what separates them is what a
+rule is allowed to look at:
 
-- [Simple](/acl/simple) — a handful of permissions, conditions on the subject
-  only, `can` and done
-- [Intermediate](/acl/intermediate) — object-dependent conditions, the typed
-  builder, field permissions and the guarded save
-- [Advanced](/acl/advanced) — the schema, `capabilities`,
+- [Rules that read the subject](/acl/simple) — a handful of permissions, `can`
+  and done
+- [Rules that read the object](/acl/intermediate) — the typed builder, field
+  permissions and the guarded save
+- [Rules that outlive the process](/acl/advanced) — the schema, `capabilities`,
   versioning and the revalidate contract
 - [Many services](/acl/federation) — one matrix per service, namespaced object
   kinds, and what a gateway holds
