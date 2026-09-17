@@ -3,7 +3,7 @@
 <WorkshopNotice slug="acl" />
 
 `can(subject, kind, action, object?, now?)`, where `kind` is the object kind —
-`'comment'`, not `'comment.update'`. It answers with a decision.
+`'question'`, not `'question.update'`. It answers with a decision.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -45,12 +45,12 @@ engine could not read refuses as well.
 ## Asking with a projection
 
 The object parameter takes a partial. A list query that selected `id` and
-`ownerId` passes what it has, and the typed path checks those field names
+`askedBy` passes what it has, and the typed path checks those field names
 against the object type without demanding the rest of the row.
 
 ```ts
-access.can(subject, 'comment', 'update', { authorId: 's1' });
-access.object('comment').can(subject, 'update', {});
+access.can(subject, 'question', 'update', { askedBy: 's1' });
+access.object('question').can(subject, 'update', {});
 ```
 
 A projection that carries a path some rule reads decides definitely. One that

@@ -32,7 +32,7 @@ Defaults to `#0`, `#1`, … by position; a rule that states an `id` reports that
 instead. Give the rules a UI has to name an `id`, because a position moves the
 first time somebody reorders the list.
 
-It is a log line and a support answer — "denied by `locked-comment`" — not
+It is a log line and a support answer — "denied by `locked-question`" — not
 something to branch on. Two rules can grant the same thing, and which one
 matched is not a property the app should depend on.
 
@@ -44,11 +44,11 @@ fetch.
 
 A caller meets it in two situations, which are the same shortfall:
 
-- **No instance at all.** `can(subject, 'comment', 'create')` against a
+- **No instance at all.** `can(subject, 'question', 'create')` against a
   permission whose rules read `object.*`. This is the create toggle: there is
   nothing to compare against yet.
 - **A projection that does not carry the field.** The list query selected `id`
-  and `title`; the rule reads `object.authorId`.
+  and `body`; the rule reads `object.askedBy`.
 
 ```ts file=libs/acl/README.md region=refetch
 

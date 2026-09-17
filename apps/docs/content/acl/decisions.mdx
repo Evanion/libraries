@@ -21,17 +21,17 @@ What `can` hands back:
 ```ts twoslash
 import { policy } from '@evanion/acl';
 
-type Comment = { authorId: string; status: string };
+type Question = { askedBy: string; status: string };
 
 const access = policy<{ id: string }>()
-  .for<'comment', Comment>('comment', (p) =>
-    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  .for<'question', Question>('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
 
-const comment = { authorId: 's1', status: 'draft' };
+const question = { askedBy: 's1', status: 'draft' };
 // ---cut---
-const decision = access.can({ id: 's1' }, 'comment', 'update', comment);
+const decision = access.can({ id: 's1' }, 'question', 'update', question);
 //    ^?
 ```
 
@@ -135,16 +135,16 @@ with the data it was handed, and `missing` names exactly what to fetch.
 
 A caller sees it in two situations, and they are the same shortfall:
 
-- **No instance at all.** `access.can(subject, 'comment', 'create')` against a
+- **No instance at all.** `access.can(subject, 'question', 'create')` against a
   permission whose rules read `object.*`. This is the create toggle: there is
   nothing to compare against yet.
 - **A projection that does not carry the field.** A list query selected `id` and
-  `title`, and the rule reads `object.authorId`.
+  `body`, and the rule reads `object.askedBy`.
 
 ```ts
-const decision = access.can(subject, 'comment', 'update', { status: 'draft' });
-// { key: 'comment.update', allowed: false, reason: 'unevaluable',
-//   missing: ['object.authorId'] }
+const decision = access.can(subject, 'question', 'update', { status: 'draft' });
+// { key: 'question.update', allowed: false, reason: 'unevaluable',
+//   missing: ['object.askedBy'] }
 ```
 
 What to do with one depends on where the call is:
@@ -175,12 +175,12 @@ than from a call:
 
 ```
 
-`article.read` reads only `subject.roles`. `article.update` carries a deny on
+`listing.read` reads only `subject.roles`. `listing.update` carries a deny on
 `object.locked`, so a guard ahead of the fetch only ever holds an `unevaluable`
 for it:
 
 ```ts
-if (access.readsObject('article', 'update')) {
+if (access.readsObject('listing', 'update')) {
   // Never decidable here. Refuse loudly, or record that the real decision is
   // owed in the handler, instead of waving the request through.
 }
@@ -211,14 +211,14 @@ absent subject comparand fails the condition outright, an absent object
 comparand leaves it unevaluable.
 
 A rule that mixes object-dependent and object-independent branches is decided by
-the branch that does not need data. `p.or(p.eq('object.authorId',
+the branch that does not need data. `p.or(p.eq('object.askedBy',
 'subject.id'), p.always)` with no instance is `allow`, because `always` answers
 without the object.
 
 ## Asking more than one question
 
 ```ts
-access.canMany(subject, 'comment', 'update', rows); // one decision per row
+access.canMany(subject, 'question', 'update', rows); // one decision per row
 access.capabilities(subject); // every permission, keyed
 access.authorize(subject); // a handle with the subject bound
 ```

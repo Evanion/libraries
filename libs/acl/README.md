@@ -38,16 +38,16 @@ key rather than throw.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Comment = { id: string; authorId: string };
+type Question = { id: string; askedBy: string };
 
 const access = policy<{ id: string }>()
-  .for<'comment', Comment>('comment', (p) =>
-    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  .for<'question', Question>('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
 
-const decision = access.can({ id: 's1' }, 'comment', 'update', {
-  authorId: 's1',
+const decision = access.can({ id: 's1' }, 'question', 'update', {
+  askedBy: 's1',
 });
 decision.allowed; // -> true
 ```
@@ -68,12 +68,12 @@ and a deny the engine could not read refuses too:
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Comment = { authorId: string; status: string };
+type Question = { askedBy: string; status: string };
 
 const access = policy<{ id: string }>()
-  .for<'comment', Comment>('comment', (p) =>
+  .for<'question', Question>('question', (p) =>
     p
-      .allow('update', p.eq('object.authorId', 'subject.id'))
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
       .deny('update', p.eq('object.status', 'locked')),
   )
   .build();
@@ -81,32 +81,32 @@ const access = policy<{ id: string }>()
 const subject = { id: 's1' };
 
 // An allow rule matched, and no deny did.
-const mine = access.can(subject, 'comment', 'update', {
-  authorId: 's1',
+const mine = access.can(subject, 'question', 'update', {
+  askedBy: 's1',
   status: 'draft',
 });
 mine.reason; // -> 'allow'
 
-// Somebody else's comment: no allow rule matched.
-const theirs = access.can(subject, 'comment', 'update', {
-  authorId: 's2',
+// Somebody else's question: no allow rule matched.
+const theirs = access.can(subject, 'question', 'update', {
+  askedBy: 's2',
   status: 'draft',
 });
 theirs.reason; // -> 'no-rule-matched'
 
 // A matched deny outranks the allow that also matched.
-const locked = access.can(subject, 'comment', 'update', {
-  authorId: 's1',
+const locked = access.can(subject, 'question', 'update', {
+  askedBy: 's1',
   status: 'locked',
 });
 locked.reason; // -> 'denied'
 
 // A projection carrying neither field. The deny side could not be read, so the
 // permission is not answerable yet — and the answer names what to fetch.
-const partial = access.can(subject, 'comment', 'update', {});
+const partial = access.can(subject, 'question', 'update', {});
 partial.allowed; // -> false
 partial.reason; // -> 'unevaluable'
-partial.missing; // -> ['object.status', 'object.authorId']
+partial.missing; // -> ['object.status', 'object.askedBy']
 ```
 
 <!-- #endregion four-outcomes -->
@@ -128,24 +128,24 @@ enough however many rules read the object.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Comment = { id: string; authorId: string };
+type Question = { id: string; askedBy: string };
 
 const access = policy<{ id: string }>()
-  .for<'comment', Comment>('comment', (p) =>
-    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  .for<'question', Question>('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
 
-// The list query selected `id` and `title`; the rule reads `authorId`.
-const projection = { id: 'c1', title: 'Draft' };
+// The list query selected `id` and `body`; the rule reads `askedBy`.
+const projection = { id: 'q1', body: 'Does this ship sleeved?' };
 
-const first = access.can({ id: 's1' }, 'comment', 'update', projection);
+const first = access.can({ id: 's1' }, 'question', 'update', projection);
 first.reason; // -> 'unevaluable'
-first.missing; // -> ['object.authorId']
+first.missing; // -> ['object.askedBy']
 
 // Fetch exactly what `missing` names, then ask once more.
-const complete = { ...projection, authorId: 's1' };
-access.can({ id: 's1' }, 'comment', 'update', complete).allowed; // -> true
+const complete = { ...projection, askedBy: 's1' };
+access.can({ id: 's1' }, 'question', 'update', complete).allowed; // -> true
 ```
 
 <!-- #endregion refetch -->
@@ -165,21 +165,21 @@ per row.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Comment = { id: string; authorId: string };
+type Question = { id: string; askedBy: string };
 
 const access = policy<{ id: string }>()
-  .for<'comment', Comment>('comment', (p) =>
-    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  .for<'question', Question>('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
 
 const rows = [
-  { id: 'c1', authorId: 's1' },
-  { id: 'c2', authorId: 's2' },
+  { id: 'c1', askedBy: 's1' },
+  { id: 'c2', askedBy: 's2' },
   { id: 'c3' }, // the projection this row came back in lacks the field
 ];
 
-const decisions = access.canMany({ id: 's1' }, 'comment', 'update', rows);
+const decisions = access.canMany({ id: 's1' }, 'question', 'update', rows);
 const reasons = decisions.map((decision) => decision.reason);
 reasons; // -> ['allow', 'no-rule-matched', 'unevaluable']
 ```
@@ -198,27 +198,27 @@ document, resolved in document order against one subject.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Staffer = { id: string; roles: string[] };
+type Shopper = { id: string; roles: string[] };
 
 // One policy, every object kind the app has. A `.for()` per kind, and the
 // permissions they flatten to live in the same flat list.
-const access = policy<Staffer>()
+const access = policy<Shopper>()
   .for<'report', { id: string }>('report', (p) =>
     p
-      .allow('read', p.contains('subject.roles', 'staff'))
-      .allow('export', p.contains('subject.roles', 'admin')),
+      .allow('read', p.contains('subject.roles', 'bookseller'))
+      .allow('export', p.contains('subject.roles', 'owner')),
   )
-  .for<'invoice', { id: string }>('invoice', (p) =>
-    p.allow('read', p.contains('subject.roles', 'admin')),
+  .for<'listing', { id: string }>('listing', (p) =>
+    p.allow('read', p.contains('subject.roles', 'owner')),
   )
   .build();
 
-const caps = access.capabilities({ id: 'u1', roles: ['staff'] });
+const caps = access.capabilities({ id: 'u1', roles: ['bookseller'] });
 
-Object.keys(caps); // -> ['report.read', 'report.export', 'invoice.read']
+Object.keys(caps); // -> ['report.read', 'report.export', 'listing.read']
 caps['report.read']?.allowed; // -> true
 caps['report.export']?.reason; // -> 'no-rule-matched'
-caps['invoice.read']?.reason; // -> 'no-rule-matched'
+caps['listing.read']?.reason; // -> 'no-rule-matched'
 ```
 
 <!-- #endregion capabilities -->
@@ -296,7 +296,7 @@ import { hydratePolicy } from '@evanion/acl';
 const access = hydratePolicy({
   version: 'orders@7',
   permissions: [
-    { key: 'comment.read', object: 'comment', action: 'read', rules: [] },
+    { key: 'question.read', object: 'question', action: 'read', rules: [] },
   ],
 });
 
@@ -342,16 +342,16 @@ const matrix: Matrix = {
   schema: {
     subject: { fields: { id: 'string', roles: 'string[]' } },
     objects: {
-      comment: {
-        fields: { authorId: 'string', status: 'string', tags: 'string[]' },
-        relations: { post: 'post' },
+      question: {
+        fields: { askedBy: 'string', status: 'string', tags: 'string[]' },
+        relations: { listing: 'listing' },
       },
     },
   },
   permissions: [
     {
-      key: 'comment.update',
-      object: 'comment',
+      key: 'question.update',
+      object: 'question',
       action: 'update',
       // `status` is a string, and contains tests an array.
       rules: [
@@ -417,24 +417,24 @@ is an unknown object kind or an object of the wrong kind at the call site.
 import { policy } from '@evanion/acl';
 
 type Subject = { id: string; roles: string[] };
-type Comment = { authorId: string; status: 'draft' | 'published' };
+type Question = { askedBy: string; status: 'open' | 'locked' };
 type Listing = { sellerId: string };
 
 // One policy, every object kind the shop has. Each `.for()` adds a kind and
-// keeps the ones before it, so `access` answers for comments and listings
+// keeps the ones before it, so `access` answers for questions and listings
 // alike and there is one document to ship.
 const access = policy<Subject>()
-  .for<'comment', Comment>('comment', (p) =>
+  .for<'question', Question>('question', (p) =>
     p
       .allow(
         'update',
         p.or(
-          p.eq('object.authorId', 'subject.id'),
-          p.contains('subject.roles', 'editor'),
+          p.eq('object.askedBy', 'subject.id'),
+          p.contains('subject.roles', 'bookseller'),
         ),
       )
-      .allow('publish', p.contains('subject.roles', 'editor'))
-      .deny('delete', p.eq('object.status', 'published')),
+      .allow('hide', p.contains('subject.roles', 'bookseller'))
+      .deny('delete', p.eq('object.status', 'locked')),
   )
   .for<'listing', Listing>('listing', (p) =>
     p.allow('update', p.eq('object.sellerId', 'subject.id')),
@@ -442,8 +442,8 @@ const access = policy<Subject>()
   .build();
 
 const subject = { id: 's1', roles: [] };
-const comment = { authorId: 's1', status: 'draft' } as const;
-access.can(subject, 'comment', 'update', comment).allowed; // -> true
+const question = { askedBy: 's1', status: 'open' } as const;
+access.can(subject, 'question', 'update', question).allowed; // -> true
 access.can(subject, 'listing', 'update', { sellerId: 's1' }).allowed; // -> true
 access.can(subject, 'listing', 'update', { sellerId: 's2' }).allowed; // -> false
 ```
@@ -459,7 +459,7 @@ An operand is read as a **path** when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
 otherwise. That shape is the only discriminator, and it is what makes
 `p.eq('object.status', 'published')` a comparison against a literal while
-`p.eq('object.authorId', 'subject.idd')` is a compile error naming the path.
+`p.eq('object.askedBy', 'subject.idd')` is a compile error naming the path.
 
 Action names and comparand value types are not checked at compile time. An
 action the matrix does not carry is a legitimate question with a
@@ -472,11 +472,11 @@ in the same block:
 
 ```ts
 const access = policy<Subject>()
-  .for<'comment', Comment>('comment', (p) => {
-    const isAuthor = p.eq('object.authorId', 'subject.id');
+  .for<'question', Question>('question', (p) => {
+    const isAsker = p.eq('object.askedBy', 'subject.id');
     return p
-      .allow('update', isAuthor)
-      .allow('publish', p.and(p.contains('subject.roles', 'editor'), isAuthor));
+      .allow('update', isAsker)
+      .allow('hide', p.and(p.contains('subject.roles', 'bookseller'), isAsker));
   })
   .build();
 ```
@@ -497,19 +497,19 @@ them in the document it flattens to rather than holding them beside it:
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Comment = { authorId: string; status: string };
+type Question = { askedBy: string; status: string };
 
 const access = policy<{ id: string }>({
   version: 'orders@7',
   schema: {
     subject: { fields: { id: 'string' } },
     objects: {
-      comment: { fields: { authorId: 'string', status: 'string' } },
+      question: { fields: { askedBy: 'string', status: 'string' } },
     },
   },
 })
-  .for<'comment', Comment>('comment', (p) =>
-    p.allow('update', p.eq('object.authorId', 'subject.id')),
+  .for<'question', Question>('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
   )
   .build();
 
@@ -522,14 +522,14 @@ They sit on `policy()` rather than on a method at the end of the chain because
 neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
 and a version and a schema are known before the first block is written.
 
-A schema is written by hand. `.for<'comment', Comment>()` holds `Comment` at the
+A schema is written by hand. `.for<'question', Question>()` holds `Question` at the
 type level only, and a schema is runtime JSON, so nothing can derive one from the
 type argument.
 
 That makes the field-existence guarantee available twice on the typed path, and
 the duplication is the point: TypeScript gives it to the author, and the schema
 gives it to everyone downstream. The document travels; the types do not. A
-consumer that adopts the emitted JSON with `parseMatrix` has no `Comment` to
+consumer that adopts the emitted JSON with `parseMatrix` has no `Question` to
 check against and gets the same guarantee from the schema. A typed author who
 ships a document to nobody needs no schema.
 
@@ -546,14 +546,14 @@ wherever it is present.
 import { policy } from '@evanion/acl';
 
 const access = policy<{ id: string }>()
-  .for<'comment', { status: string }>('comment', (p) =>
+  .for<'listing', { status: string }>('listing', (p) =>
     p.allow('read', p.always).fields(['*', '!status']),
   )
   .build();
 
 const fd = access.canFields(
   { id: 's1' },
-  'comment',
+  'listing',
   'read',
   { status: 'draft' },
   'read',
@@ -636,17 +636,21 @@ import { parseMatrix } from '@evanion/acl';
 const access = parseMatrix({
   permissions: [
     {
-      key: 'comment.read',
-      object: 'comment',
+      key: 'question.read',
+      object: 'question',
       action: 'read',
       rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'editor' }] },
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
+        },
       ],
     },
   ],
 });
 
-access.can({ id: 's1' }, 'comment', 'delete').reason; // -> 'unknown-action'
+access.can({ id: 's1' }, 'question', 'delete').reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion foreign-matrix -->
@@ -657,10 +661,10 @@ Across a fleet of services, each service authors and evaluates only the matrix
 it owns. No service evaluates another's document to reach a decision, and there
 is no merged matrix anywhere.
 
-Object kinds are namespaced by origin — `orders:invoice`, `billing:invoice` —
-because two services that both say `invoice` mean different rows, with different
+Object kinds are namespaced by origin — `storefront:listing`, `stock:listing` —
+because two services that both say `listing` mean different rows, with different
 fields, in different databases. The canonical key is unchanged:
-`orders:invoice.read` still equals `` `${object}.${action}` `` character for
+`storefront:listing.read` still equals `` `${object}.${action}` `` character for
 character. `.` is the key delimiter and is refused inside `object` and `action`
 at construction, which is what makes `:` safe as the namespace separator.
 
@@ -675,28 +679,30 @@ key, and settles a single instant for the view.
 import { federatedPolicies, parseMatrix } from '@evanion/acl';
 import type { Decision, Matrix } from '@evanion/acl';
 
-const ordersMatrix: Matrix = {
+const storefrontMatrix: Matrix = {
   permissions: [
     {
-      key: 'orders:invoice.read',
-      object: 'orders:invoice',
+      key: 'storefront:listing.read',
+      object: 'storefront:listing',
       action: 'read',
       rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'ops' }] },
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'owner' }] },
       ],
     },
   ],
 };
 
-const billingMatrix: Matrix = {
+const stockMatrix: Matrix = {
   permissions: [
     {
-      key: 'billing:invoice.read',
-      object: 'billing:invoice',
+      key: 'stock:listing.read',
+      object: 'stock:listing',
       action: 'read',
       rules: [
         {
-          when: [{ field: 'subject.roles', op: 'contains', value: 'finance' }],
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
         },
       ],
     },
@@ -707,26 +713,26 @@ const billingMatrix: Matrix = {
 // so each arrives through `parseMatrix` and fails closed. Two origins claiming
 // one key throw `OriginCollisionError` on this line, naming both.
 const fleet = federatedPolicies({
-  orders: parseMatrix(ordersMatrix),
-  billing: parseMatrix(billingMatrix),
+  storefront: parseMatrix(storefrontMatrix),
+  stock: parseMatrix(stockMatrix),
 });
 
-const subject = { id: 'u1', roles: ['finance'] };
+const subject = { id: 'u1', roles: ['bookseller'] };
 
 // One advisory view for a UI, over one instant every origin reads.
 const view: Record<string, Decision> = fleet.capabilities(subject);
 
-Object.keys(view).sort(); // -> ['billing:invoice.read', 'orders:invoice.read']
-view['billing:invoice.read']?.allowed; // -> true
-view['orders:invoice.read']?.allowed; // -> false
+Object.keys(view).sort(); // -> ['stock:listing.read', 'storefront:listing.read']
+view['stock:listing.read']?.allowed; // -> true
+view['storefront:listing.read']?.allowed; // -> false
 
 // The origin holding the key answers it. A key nobody holds reaches no origin.
-fleet.can(subject, 'billing:invoice', 'read').allowed; // -> true
+fleet.can(subject, 'stock:listing', 'read').allowed; // -> true
 fleet.can(subject, 'shipping:parcel', 'read').reason; // -> 'unknown-action'
 
 // The member itself, with `canMany`, `canFields`, `readsObject` and `authorize`
 // on it, plus the document that origin published.
-fleet.get('orders')?.matrix.permissions.length; // -> 1
+fleet.get('storefront')?.matrix.permissions.length; // -> 1
 ```
 
 <!-- #endregion federation -->
@@ -771,20 +777,20 @@ entry, and there the name is wider than its word.
 import { applyDenyOverlay, hydratePolicy } from '@evanion/acl';
 import type { DenyOverlay, Matrix } from '@evanion/acl';
 
-// The owner's document. `schema.objects.payout` is what opening `payout.send`
+// The owner's document. `schema.objects.refund` is what opening `refund.issue`
 // to a veto obliges it to declare.
 const authored: Matrix = {
-  version: 'payments@7',
+  version: 'refunds@7',
   schema: {
-    objects: { payout: { fields: { region: 'string', amount: 'number' } } },
+    objects: { refund: { fields: { region: 'string', amount: 'number' } } },
   },
   permissions: [
     {
-      key: 'payout.send',
-      object: 'payout',
-      action: 'send',
+      key: 'refund.issue',
+      object: 'refund',
+      action: 'issue',
       rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'ops' }] },
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'owner' }] },
       ],
     },
   ],
@@ -793,7 +799,7 @@ const authored: Matrix = {
 // What compliance publishes. A contribution is a `Rule[]`, so it can state a
 // deny and nothing else -- no allow, no dependency, no field rule.
 const overlay: DenyOverlay = {
-  'payout.send': [
+  'refund.issue': [
     {
       id: 'sanctions-hold',
       when: [{ field: 'object.region', op: 'eq', value: 'XX' }],
@@ -802,14 +808,14 @@ const overlay: DenyOverlay = {
 };
 
 const access = hydratePolicy(
-  applyDenyOverlay(authored, overlay, { vetoable: ['payout.send'] }),
-  { version: 'payments@7+veto@41' },
+  applyDenyOverlay(authored, overlay, { vetoable: ['refund.issue'] }),
+  { version: 'refunds@7+veto@41' },
 );
 
-const operator = { id: 'u1', roles: ['ops'] };
+const operator = { id: 'u1', roles: ['owner'] };
 
-access.can(operator, 'payout', 'send', { region: 'SE', amount: 10 }).allowed; // -> true
-access.can(operator, 'payout', 'send', { region: 'XX', amount: 10 }).reason; // -> 'denied'
+access.can(operator, 'refund', 'issue', { region: 'SE', amount: 10 }).allowed; // -> true
+access.can(operator, 'refund', 'issue', { region: 'XX', amount: 10 }).reason; // -> 'denied'
 ```
 
 <!-- #endregion deny-overlay -->
@@ -854,18 +860,22 @@ const authored: Matrix = {
   maxStale: 300_000,
   schema: {
     objects: {
-      'orders:invoice': { fields: { ownerId: 'string' } },
+      'orders:order': { fields: { ownerId: 'string' } },
       'orders:ledger': { fields: { period: 'string' } },
     },
   },
   permissions: [
     {
-      key: 'orders:invoice.refund',
-      object: 'orders:invoice',
+      key: 'orders:order.refund',
+      object: 'orders:order',
       action: 'refund',
       visibility: 'public',
       rules: [
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'agent' }] },
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
+        },
       ],
       denyRules: [
         { when: [{ field: 'subject.tier', op: 'eq', value: 'probation' }] },
@@ -884,17 +894,17 @@ const authored: Matrix = {
 const orders = hydratePolicy(authored);
 const contract = serialize(orders, 'reduced');
 
-contract.permissions.map((p) => p.key); // -> ['orders:invoice.refund']
-Object.keys(contract.schema?.objects ?? {}); // -> ['orders:invoice']
+contract.permissions.map((p) => p.key); // -> ['orders:order.refund']
+Object.keys(contract.schema?.objects ?? {}); // -> ['orders:order']
 'visibility' in (contract.permissions[0] ?? {}); // -> false
 
 // The consumer adopts it the way it adopts any foreign document, and reports
 // when it last checked the contract was current.
 const bff = parseMatrix(contract, { fetchedAt: Date.now() });
-const agent = { id: 'u1', roles: ['agent'], tier: 'staff' };
+const bookseller = { id: 'u1', roles: ['bookseller'], tier: 'permanent' };
 
-bff.can(agent, 'orders:invoice', 'refund').allowed; // -> true
-bff.can(agent, 'orders:ledger', 'reconcile').reason; // -> 'unknown-action'
+bff.can(bookseller, 'orders:order', 'refund').allowed; // -> true
+bff.can(bookseller, 'orders:ledger', 'reconcile').reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion contract -->
@@ -952,13 +962,13 @@ import { policy } from '@evanion/acl';
 type Subject = { id: string; roles: string[] };
 
 const access = policy<Subject>()
-  .for<'comment', { id: string }>('comment', (p) =>
-    p.allow('read', p.contains('subject.roles', 'editor')),
+  .for<'question', { id: string }>('question', (p) =>
+    p.allow('read', p.contains('subject.roles', 'bookseller')),
   )
   .build();
 
-const forUser = access.authorize({ id: 's1', roles: ['editor'] });
-forUser.can('comment', 'read').allowed; // -> true
+const forUser = access.authorize({ id: 's1', roles: ['bookseller'] });
+forUser.can('question', 'read').allowed; // -> true
 ```
 
 <!-- #endregion server-authorize -->
@@ -985,19 +995,19 @@ decision tells it apart from a call that happened to lack data.
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
-type Article = { id: string; locked: boolean };
+type Listing = { id: string; locked: boolean };
 
 const access = policy<{ id: string; roles: string[] }>()
-  .for<'article', Article>('article', (p) =>
+  .for<'listing', Listing>('listing', (p) =>
     p
-      .allow('read', p.contains('subject.roles', 'staff'))
+      .allow('read', p.contains('subject.roles', 'owner'))
       .allow('update', p.always)
       .deny('update', p.eq('object.locked', true)),
   )
   .build();
 
-access.readsObject('article', 'read'); // -> false
-access.readsObject('article', 'update'); // -> true
+access.readsObject('listing', 'read'); // -> false
+access.readsObject('listing', 'update'); // -> true
 ```
 
 <!-- #endregion reads-object -->
@@ -1143,7 +1153,7 @@ function revalidate(current: Access, served: Matrix): Access {
 const served: Matrix = {
   version: 'orders@8',
   permissions: [
-    { key: 'comment.read', object: 'comment', action: 'read', rules: [] },
+    { key: 'question.read', object: 'question', action: 'read', rules: [] },
   ],
 };
 
@@ -1179,7 +1189,7 @@ expiry and no way for a held matrix to notice that it is stale.
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `unknown-action`, `unevaluable`,
-`unusable-clock`). Nothing in the library reads a `reason` back to decide
+`unusable-clock`, `stale-contract`). Nothing in the library reads a `reason` back to decide
 anything.
 
 ### The clock

@@ -2,7 +2,7 @@
 
 <WorkshopNotice slug="acl" />
 
-An action-level decision answers "may this subject update this comment". A
+An action-level decision answers "may this subject update this question". A
 field-level decision answers "which parts of it", on one of two axes: `read`,
 which is a projection, and `write`, which is what a form submits.
 
@@ -49,7 +49,7 @@ configs.
 
 ```ts
 p.fields(['*', '!status']); // everything except status
-p.fields(['title', 'body']); // exactly these two
+p.fields(['title', 'price']); // exactly these two
 p.fields({
   fields: ['*', '!id'],
   status: { transitions: { draft: ['published'], published: [] } },
@@ -139,7 +139,7 @@ it never enters a decision map and never comes back out of the narrowing.
 ## Reading
 
 ```ts
-const view = access.canFields(subject, 'comment', 'read', comment, 'read');
+const view = access.canFields(subject, 'question', 'read', question, 'read');
 ```
 
 The `read` axis answers which fields of an instance this subject may see, and a

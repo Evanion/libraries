@@ -46,9 +46,9 @@ An operand is read as a path when its type matches
 otherwise. The shape is the only discriminator, and it is load-bearing:
 
 ```ts
-p.eq('object.status', 'published'); // compares against the string 'published'
-p.eq('object.authorId', 'subject.id'); // compares two paths
-p.eq('object.authorId', 'subject.idd'); // compile error naming the path
+p.eq('object.status', 'locked'); // compares against the string 'locked'
+p.eq('object.askedBy', 'subject.id'); // compares two paths
+p.eq('object.askedBy', 'subject.idd'); // compile error naming the path
 ```
 
 Without that rule a mistyped `'subject.idd'` is indistinguishable from a
@@ -78,12 +78,12 @@ They sit on `policy()` rather than on a method at the end of the chain because
 neither is a per-kind fact: `.for()` exists to accumulate the key-to-type map,
 and both are known before the first block is written.
 
-A schema is written by hand. `.for<'comment', Comment>()` holds `Comment` at the
+A schema is written by hand. `.for<'question', Question>()` holds `Question` at the
 type level only, and a schema is runtime JSON, so nothing can derive one from the
 type argument. The duplication is the point: TypeScript gives the
 field-existence guarantee to the author, the schema gives it to everyone
 downstream. The document travels; the types do not. A consumer adopting the
-emitted JSON with `parseMatrix` has no `Comment` to check against.
+emitted JSON with `parseMatrix` has no `Question` to check against.
 
 The two are checked independently and can disagree. A path TypeScript accepts
 because the type declares the field is still an `UnknownFieldError` at
@@ -95,9 +95,9 @@ wherever it is present.
 `access.object(key)` binds one object kind so the key is named once:
 
 ```ts
-const comments = access.object('comment');
-comments.can(subject, 'update', comment);
-comments.canFields(subject, 'update', comment, 'write', proposed);
+const questions = access.object('question');
+questions.can(subject, 'update', question);
+questions.canFields(subject, 'update', question, 'write', proposed);
 ```
 
 It carries `can`, `canMany`, `canFields` and `readsObject`.

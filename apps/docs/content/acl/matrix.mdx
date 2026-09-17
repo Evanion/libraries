@@ -47,8 +47,8 @@ rather than a permission that grants everything.
 One condition reads one path and compares it to one comparand.
 
 ```ts
-{ field: 'object.authorId', op: 'eq', path: 'subject.id' }  // path comparand
-{ field: 'subject.roles', op: 'contains', value: 'editor' } // literal comparand
+{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }  // path comparand
+{ field: 'subject.roles', op: 'contains', value: 'bookseller' } // literal comparand
 { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }
 ```
 
@@ -121,7 +121,7 @@ kind: a permission on an object kind absent from `schema.objects` is unchecked,
 and `subject.*` paths are unchecked unless `schema.subject` is declared.
 
 The typo class this closes is the expensive one. Without a schema,
-`object.authorld` is not an error — it is a path that never reads, so the
+`object.askedBv` is not an error — it is a path that never reads, so the
 permission reports `unevaluable` forever and a UI refetches forever.
 
 ## Adopting a foreign matrix
