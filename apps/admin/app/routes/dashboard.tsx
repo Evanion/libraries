@@ -1,5 +1,11 @@
 import type { Route } from './+types/dashboard';
-import { correlationContext, shelfContext } from '../page-context.js';
+import {
+  accessContext,
+  correlationContext,
+  shelfContext,
+  subjectContext,
+} from '../page-context.js';
+import { allows } from '../access.js';
 import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { availabilityCounts, shelfTotals } from '../shelf.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
@@ -18,15 +24,27 @@ export const headers: Route.HeadersFunction = () => ({
 
 export async function loader({ context }: Route.LoaderArgs) {
   const correlationId = context.get(correlationContext);
+  const subject = context.get(subjectContext);
+  const access = await context.get(accessContext)();
   const shelf = await context.get(shelfContext)();
 
   // Two reads of the same sink: every order, and only what this page view
   // produced. Filtering server-side keeps the trail to the handful of events
   // that share this id instead of shipping 500 and narrowing in the browser.
-  const [events, trail] = await Promise.all([
-    listTelemetry(correlationId).catch(emptyOnUnavailable),
-    listTelemetry(correlationId, correlationId).catch(emptyOnUnavailable),
-  ]);
+  //
+  // Both are skipped for a subject the contract refuses `telemetry.read`. The
+  // page then shows the shelf half and zeroes for the order half, which is what
+  // this loader decided it may read. shop-api decides the same question again
+  // for any request that does reach it.
+  const reads = allows(access.capabilities(subject), 'telemetry.read');
+  const [events, trail] = reads
+    ? await Promise.all([
+        listTelemetry(correlationId, subject).catch(emptyOnUnavailable),
+        listTelemetry(correlationId, subject, correlationId).catch(
+          emptyOnUnavailable,
+        ),
+      ])
+    : [[], []];
 
   const orders = ordersFromTelemetry(events);
   const totals = orderTotals(orders);

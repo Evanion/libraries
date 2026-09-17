@@ -1,4 +1,7 @@
 import { createContext } from 'react-router';
+import type { Access } from '@evanion/acl';
+import { NO_ACCESS } from './access.js';
+import type { AdminObjects, AdminSubject } from './access.js';
 import type { ShelfRow } from './shelf.js';
 
 /**
@@ -15,6 +18,41 @@ import type { ShelfRow } from './shelf.js';
  * before the loaders with somewhere to put a value.
  */
 export const correlationContext = createContext<string>('');
+
+/**
+ * Who the request runs as.
+ *
+ * Set once by the shell's middleware and read by every loader and every action
+ * beneath it. A router context for the same reason the correlation id is one:
+ * one process serves many requests, and the subject belongs to the request.
+ *
+ * The default is a subject with no roles and no shop, so a loader reached
+ * without the middleware having run decides against an actor the matrix refuses
+ * everywhere rather than against an actor with the last request's roles.
+ */
+// #region subject-context
+export const subjectContext = createContext<AdminSubject>({
+  id: 'anonymous',
+  roles: [],
+  shop: '',
+});
+// #endregion subject-context
+
+/**
+ * Reads shop-api's access matrix once per request, however many callers ask.
+ *
+ * A function and not the document, for the reason {@link shelfContext} states
+ * about the shelf, and settled the other way: an action re-decides on the
+ * contract and a revalidating loader decides on the same one, so both are
+ * entitled to the copy fetched during this request. The memo is what keeps the
+ * shell loader, the page loader and an action to one fetch between them.
+ *
+ * `Access` is a set of closures over a frozen document. It never crosses to the
+ * browser; what crosses is `access.matrix`, which the tree adopts itself.
+ */
+export type ReadAccess = () => Promise<Access<AdminSubject, AdminObjects>>;
+
+export const accessContext = createContext<ReadAccess>(async () => NO_ACCESS);
 
 /** The catalogue joined to stock, or the reason it could not be read. */
 export interface ShelfSnapshot {

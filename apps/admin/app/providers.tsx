@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
+import type { AdminSubject } from './access.js';
 
 /**
  * The three providers the back office runs, kept apart from `ui/baize.tsx`.
@@ -23,10 +24,22 @@ import type { ReactNode } from 'react';
 
 /** Who is signed in. Supplied by the shell route's loader, never by the client. */
 export interface Session {
+  /** The operator's display name, which is what the nav shows. */
   operator: string;
+  /** The shop's trading name, which is what the wordmark shows. */
   shop: string;
   /** Correlation id of the page view, so the UI can show what it traced. */
   correlationId: string;
+  /**
+   * The same actor at the members the access matrix reads.
+   *
+   * It crosses to the browser so the tree can evaluate the contract and toggle
+   * what it shows. It is not a credential: the server resolves its own subject
+   * on the next request and never reads this copy back, and a browser that
+   * edited it changes which buttons it draws and nothing a loader or an action
+   * decides.
+   */
+  subject: AdminSubject;
 }
 
 const SessionContext = createContext<Session | null>(null);

@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import type { Route } from './+types/orders';
-import { correlationContext } from '../page-context.js';
+import {
+  accessContext,
+  correlationContext,
+  subjectContext,
+} from '../page-context.js';
+import { allows } from '../access.js';
 import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
 import { Ledger, defineLedgerItems, ledgerColumns } from '../regions/ledger.js';
@@ -26,20 +31,44 @@ const OrdersTable = ({ children }: { children?: ReactNode }) => (
   </div>
 );
 
+/**
+ * The order history, or a refusal.
+ *
+ * The nav hides this section from a subject the contract refuses, and the path
+ * is still a URL. So the loader decides for itself before it reads anything: the
+ * refusal below is what a typed address reaches, and shop-api refuses the same
+ * request a second time on its own copy of the document.
+ */
 export async function loader({ context }: Route.LoaderArgs) {
   const correlationId = context.get(correlationContext);
+  // #region loader-decides
+  const subject = context.get(subjectContext);
+  const access = await context.get(accessContext)();
+
+  if (!allows(access.capabilities(subject), 'telemetry.read')) {
+    return {
+      refused: true,
+      unavailable: undefined,
+      figures: [],
+      items: defineLedgerItems([]),
+    };
+  }
+  // #endregion loader-decides
 
   let unavailable: string | undefined;
-  const events = await listTelemetry(correlationId).catch((error: unknown) => {
-    if (!(error instanceof ShopApiUnavailable)) throw error;
-    unavailable = error.message;
-    return [];
-  });
+  const events = await listTelemetry(correlationId, subject).catch(
+    (error: unknown) => {
+      if (!(error instanceof ShopApiUnavailable)) throw error;
+      unavailable = error.message;
+      return [];
+    },
+  );
 
   const orders = ordersFromTelemetry(events);
   const totals = orderTotals(orders);
 
   return {
+    refused: false,
     unavailable,
     figures: [
       { label: 'orders', value: String(totals.orders) },
@@ -84,7 +113,19 @@ export async function loader({ context }: Route.LoaderArgs) {
 }
 
 export default function Orders({ loaderData }: Route.ComponentProps) {
-  const { figures, items, unavailable } = loaderData;
+  const { figures, items, refused, unavailable } = loaderData;
+
+  if (refused) {
+    return (
+      <Panel heading="Not yours to read">
+        <Text measured>
+          Order history is a manager&rsquo;s view. The shop&rsquo;s access
+          matrix refuses <code>telemetry.read</code> for this operator, and the
+          loader read nothing.
+        </Text>
+      </Panel>
+    );
+  }
 
   if (unavailable) {
     return (
