@@ -28,6 +28,7 @@
     "vite.config.mts"
   ],
   "references": [
+    { "path": "../../libs/acl/tsconfig.lib.json" },
     { "path": "../../libs/nestjs-correlation-id/tsconfig.lib.json" },
     { "path": "../../libs/urn/tsconfig.lib.json" }
   ]

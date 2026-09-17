@@ -3,11 +3,21 @@ import { NotFoundException } from '@nestjs/common';
 import type { AxiosResponse } from 'axios';
 import { of, throwError } from 'rxjs';
 import { describe, expect, it } from 'vitest';
+import { SHOP_SUBJECT_HEADER } from '../acl/acl.constants.js';
+import type { ShopSubject } from '../acl/shop-subject.model.js';
+import type { SubjectService } from '../acl/subject.service.js';
 import { InventoryClient } from './inventory-client.service.js';
 
 const httpServiceStub = (
-  impl: (url: string) => ReturnType<HttpService['get']>,
+  impl: (
+    url: string,
+    config?: { headers?: Record<string, string> },
+  ) => ReturnType<HttpService['get']>,
 ): HttpService => ({ get: impl }) as unknown as HttpService;
+
+/** A SubjectService answering with one subject, or with none at all. */
+const subjectsStub = (subject?: ShopSubject): SubjectService =>
+  ({ current: () => subject }) as unknown as SubjectService;
 
 const axiosResponse = <T>(data: T): AxiosResponse<T> =>
   ({
@@ -25,7 +35,7 @@ describe('InventoryClient', () => {
       requestedUrl = url;
       return of(axiosResponse({ urn: 'urn:game:wingspan', quantity: 5 }));
     });
-    const client = new InventoryClient(http);
+    const client = new InventoryClient(http, subjectsStub());
 
     client.getStock('urn:game:wingspan');
 
@@ -35,6 +45,26 @@ describe('InventoryClient', () => {
     expect(requestedUrl).toContain(encodeURIComponent('urn:game:wingspan'));
   });
 
+  it('sends the request subject on the loopback hop', () => {
+    let sent: Record<string, string> | undefined;
+    const http = httpServiceStub((_url, config) => {
+      sent = config?.headers;
+      return of(axiosResponse({ urn: 'urn:game:wingspan', quantity: 5 }));
+    });
+    const subject: ShopSubject = {
+      id: 'staff:ada',
+      roles: ['operator'],
+      shop: 'stockholm',
+    };
+    const client = new InventoryClient(http, subjectsStub(subject));
+
+    client.getStock('urn:game:wingspan');
+
+    // The inventory route decides for itself, and this header is what it
+    // decides about. Without it the hop would arrive as the anonymous subject.
+    expect(sent?.[SHOP_SUBJECT_HEADER]).toBe(JSON.stringify(subject));
+  });
+
   it('resolves with the response body', async () => {
     const stock = {
       urn: 'urn:game:wingspan',
@@ -42,7 +72,7 @@ describe('InventoryClient', () => {
       correlationId: 'abc',
     };
     const http = httpServiceStub(() => of(axiosResponse(stock)));
-    const client = new InventoryClient(http);
+    const client = new InventoryClient(http, subjectsStub());
 
     await expect(client.getStock('urn:game:wingspan')).resolves.toEqual(stock);
   });
@@ -51,7 +81,7 @@ describe('InventoryClient', () => {
     const http = httpServiceStub(() =>
       throwError(() => ({ isAxiosError: true, response: { status: 404 } })),
     );
-    const client = new InventoryClient(http);
+    const client = new InventoryClient(http, subjectsStub());
 
     await expect(client.getStock('urn:game:unknown')).rejects.toBeInstanceOf(
       NotFoundException,
@@ -64,8 +94,8 @@ describe('InventoryClient', () => {
     InventoryClient.constructed = 0;
     const http = httpServiceStub(() => of(axiosResponse({})));
 
-    new InventoryClient(http);
-    new InventoryClient(http);
+    new InventoryClient(http, subjectsStub());
+    new InventoryClient(http, subjectsStub());
 
     expect(InventoryClient.constructed).toBe(2);
   });
@@ -73,7 +103,7 @@ describe('InventoryClient', () => {
   it('increments the initialised counter from onModuleInit', () => {
     InventoryClient.initialised = 0;
     const http = httpServiceStub(() => of(axiosResponse({})));
-    const client = new InventoryClient(http);
+    const client = new InventoryClient(http, subjectsStub());
 
     client.onModuleInit();
 

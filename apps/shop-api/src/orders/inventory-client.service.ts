@@ -1,6 +1,8 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
+import { SHOP_SUBJECT_HEADER } from '../acl/acl.constants.js';
+import { SubjectService } from '../acl/subject.service.js';
 import { GLOBAL_PREFIX, PORT } from '../config.js';
 import type { Stock } from '../inventory/stock.model.js';
 
@@ -39,7 +41,10 @@ export class InventoryClient implements OnModuleInit {
 
   private readonly baseUrl = `http://127.0.0.1:${PORT}/${GLOBAL_PREFIX}`;
 
-  constructor(private readonly http: HttpService) {
+  constructor(
+    private readonly http: HttpService,
+    private readonly subjects: SubjectService,
+  ) {
     InventoryClient.constructed += 1;
   }
 
@@ -54,10 +59,14 @@ export class InventoryClient implements OnModuleInit {
    * @throws {NotFoundException} when the endpoint answers 404, so the caller
    * handles an unknown urn the same way whether the lookup crossed HTTP or not.
    */
-  async getStock(urn: string): Promise<Stock & { correlationId?: string }> {
+  async getStock(
+    urn: string,
+  ): Promise<Stock & { correlationId?: string; subjectId?: string }> {
     try {
       const response = await firstValueFrom(
-        this.http.get(`${this.baseUrl}/inventory/${encodeURIComponent(urn)}`),
+        this.http.get(`${this.baseUrl}/inventory/${encodeURIComponent(urn)}`, {
+          headers: this.subjectHeader(),
+        }),
       );
       return response.data;
     } catch (error) {
@@ -66,5 +75,27 @@ export class InventoryClient implements OnModuleInit {
       }
       throw error;
     }
+  }
+
+  /**
+   * The subject header this hop sends, carrying the actor of the outer request.
+   *
+   * AclGuard is bound under APP_GUARD, so it runs on the inbound `POST /orders`
+   * and again on the `GET /inventory/:urn` this hop makes. Both evaluations are
+   * wanted: the inventory endpoint is reachable from the public internet as
+   * well as from here, so it decides for itself and trusts no caller, which is
+   * what the second evaluation is. Propagating the subject is what lets it
+   * decide against the actor who placed the order; without the header the inner
+   * request would resolve to the anonymous subject and the endpoint would be
+   * answering about somebody else.
+   *
+   * The correlation header travels the same hop, added by the axios
+   * interceptor `withCorrelation()` installs. This one is set per call, because
+   * the subject is read out of AsyncLocalStorage at the moment the request is
+   * built.
+   */
+  private subjectHeader(): Record<string, string> {
+    const subject = this.subjects.current();
+    return subject ? { [SHOP_SUBJECT_HEADER]: JSON.stringify(subject) } : {};
   }
 }

@@ -1,6 +1,8 @@
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
+import { ANONYMOUS_SUBJECT } from '../acl/shop-subject.model.js';
+import { SubjectService } from '../acl/subject.service.js';
 import { GameURN } from '../domain/game.urn.js';
 import { TelemetryService } from '../telemetry/telemetry.service.js';
 import { InventoryController } from './inventory.controller.js';
@@ -16,6 +18,10 @@ describe('InventoryController', () => {
         {
           provide: CorrelationService,
           useValue: { getCorrelationId: () => correlationId },
+        },
+        {
+          provide: SubjectService,
+          useValue: { current: () => ANONYMOUS_SUBJECT },
         },
       ],
     }).compile();
@@ -33,6 +39,9 @@ describe('InventoryController', () => {
 
     expect(result.urn).toBe(urn);
     expect(result.correlationId).toBe('req-1');
+    // The endpoint reports the actor it decided against, so a caller compares
+    // it against the actor it sent on the hop.
+    expect(result.subjectId).toBe(ANONYMOUS_SUBJECT.id);
   });
 
   it('records an inventory.checked telemetry event stamped with the request id', async () => {
