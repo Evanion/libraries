@@ -14,17 +14,17 @@ const parts: { key: 'urn' | 'nid' | 'nss'; name: string; line: string }[] = [
   {
     key: 'urn',
     name: 'scheme',
-    line: 'Every URN starts with it: this string is a name, not a location.',
+    line: 'Always the same three letters, and they say what the rest of the string is: a name for something, not an address where it lives. A URL tells you where to go; this tells you what you mean.',
   },
   {
     key: 'nid',
     name: 'namespace',
-    line: 'What kind of thing is named. Parsed out, so nothing downstream has to be told what a 1337 is.',
+    line: 'What kind of thing this names. Two systems can both number their records from 1, and this is what keeps those two 1s apart.',
   },
   {
     key: 'nss',
     name: 'name',
-    line: 'The identifier inside that namespace. Whatever the system it came from used.',
+    line: 'The identifier itself, in whatever form the system it came from uses. Unique inside the namespace above, and nowhere else.',
   },
 ];
 
@@ -164,7 +164,9 @@ export default function UrnSpecimen({ value }: { value: string }) {
 
       {attached.length > 0 && urnEquals(shown, value) ? (
         <p className="landing-spec__note">
-          Still the same name as {value}. None of this counts toward it.
+          These three say how to fetch the thing, not which thing is meant, so
+          adding them names nothing new: `URN.equals` still reads this as{' '}
+          {value}.
         </p>
       ) : null}
     </div>

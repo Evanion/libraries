@@ -9,14 +9,22 @@ import { InvalidAlphabetError, InvalidShapeError } from './exceptions.js';
 /**
  * 32 characters: the lowercase alphanumerics without `i`, `l`, `o` and `w`.
  *
- * Each removal drops a character a person confuses with another: `i` and `l`
- * read as `1`, `o` reads as `0`, and `w` is the one English letter whose name
- * is polysyllabic and contains another letter's name — "double-u" — which is
- * what breaks it when a code is dictated.
+ * The size is the constraint, and it comes first. 32 is even and free of case
+ * pairs, so `@evanion/luhn` can compute a check character over it, and it
+ * divides 256, so `byte % 32` draws every character with equal probability.
+ * Any other count either biases the draw or cannot carry a check character.
  *
- * 32 is not an accident either. It is even and free of case pairs, so
- * `@evanion/luhn` can compute a check character over it, and it divides 256,
- * so `byte % 32` draws every character with equal probability.
+ * That fixes how many characters leave: four. Three pick themselves, because
+ * they are the pairs a person actually confuses — `i` and `l` read as `1`, and
+ * `o` reads as `0`. In each pair the letter goes and the digit stays, since a
+ * code is more often typed from a screen than dictated.
+ *
+ * `w` is the fourth, and it is the weakest of the four. Dropping only the
+ * three leaves 33, which is odd and does not divide 256, so a fourth has to
+ * go whatever the reason. `w` is the candidate with an argument attached: it
+ * is the one English letter whose name is polysyllabic and contains another
+ * letter's name, so "double-u" dictated down a phone can be written back as
+ * `u`. Nobody mistakes `w` for another character on a screen.
  */
 export const DEFAULT_DICTIONARY = '0123456789abcdefghjkmnpqrstuvxyz';
 
