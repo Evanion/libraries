@@ -136,8 +136,8 @@ authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
 
 `applyDenyOverlay(matrix, overlay, { vetoable })` appends each key's rules to
 that permission's `denyRules` and returns a new matrix. It is pure
-`Matrix → Matrix`, so it composes with anything by ordinary function
-composition, and it changes nothing about the topology above: nothing merges at
+`Matrix → Matrix`, so it composes, and it changes nothing about the topology
+above: nothing merges at
 an edge, nothing but the owner is authoritative, and the service that enforces
 the veto is the one that applies it.
 

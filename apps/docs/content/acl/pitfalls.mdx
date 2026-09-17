@@ -20,9 +20,9 @@ if (decision.allowed) proceed(); // right
 ```
 
 `reason` is output only. Nothing in the library reads one back to decide
-anything, and the six values are not two buckets: `no-rule-matched`,
-`unknown-action`, `unevaluable` and `unusable-clock` all refuse, and the first
-form proceeds through every one of them.
+anything, and the seven values are not two buckets: `no-rule-matched`,
+`unknown-action`, `unevaluable`, `unusable-clock` and `stale-contract` all
+refuse, and the first form proceeds through every one of them.
 
 ### `unevaluable` is not `denied`
 
@@ -34,7 +34,7 @@ if (!decision.allowed) return <ReadOnly />; // loses a repairable answer
 handed, and `missing` names exactly what to fetch. `allowed` is already `false`,
 so treating it as a refusal is safe on a server — but in a UI it hides something
 the user can have. Render the control as pending, fetch what `missing` names,
-ask once more. Treating it as permission is the other direction and is simply
+ask once more. Treating it as permission is the other direction and is
 broken.
 
 An `unevaluable` that survives a refetch is a mistyped field name in the
