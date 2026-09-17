@@ -26,6 +26,14 @@ gateway or a BFF that already allowed the request does not excuse the service
 behind it from deciding again. There is no transitive trust, because a caller
 reaches the later service directly whenever it wants to.
 
+```mermaid caption="One matrix, evaluated once per process. The browser's answer draws the interface, the gateway's answer does not excuse the service, and the service's answer is the one guarding the write — because a caller reaches the service directly whenever it wants to."
+flowchart LR
+  B["browser<br>can(subject, …)"] --> G["gateway or BFF<br>can(subject, …)"]
+  G --> S["service<br>can(subject, …)"]:::accent
+  S --> W[("the write")]
+  B -. "reaches the service directly" .-> S
+```
+
 Evaluating the same matrix twice is cheap. It is a local function call over a
 frozen object, with no round trip to pay for, which is what makes "check again"
 a rule that can actually be kept.

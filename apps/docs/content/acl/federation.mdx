@@ -52,6 +52,14 @@ whole. It carries three members: `can`, `capabilities` and `get`.
 `orders:invoice.read`. A key no origin holds answers
 `{ allowed: false, reason: 'unknown-action' }` and reaches no member at all.
 
+```mermaid caption="One Access per origin, each document whole, behind one view. A key goes to the single origin whose key set holds it; a key no origin holds is refused by the view itself and reaches no member."
+flowchart LR
+  C["fleet.can(subject, key, action)"] --> R{"which origin's key set<br>holds this key?"}:::accent
+  R -->|"orders:…"| O["orders<br>its own Access"]
+  R -->|"billing:…"| B["billing<br>its own Access"]
+  R -->|"no origin"| U["unknown-action"]
+```
+
 `capabilities(subject, now?)` settles one instant and hands that instant to
 every origin. A view over five origins reads one clock, so a `before` or
 `after` boundary falls on the same side of every answer in the view.
