@@ -98,12 +98,22 @@
     "minTokens": 30,
     "minLines": 3,
 
-    // Today's figure is 3.6%. The ceiling is a ratchet, not a target: it fails
+    // Today's figure is 3.9%. The ceiling is a ratchet, not a target: it fails
     // the run that adds the next copy and is lowered whenever a clone group is
     // consolidated.
     "threshold": 4.0,
 
     "ignore": [
+      // Each app in the demo chain restates the subject contract it will
+      // believe, and narrows it: `apps/storefront` forwards only the roles a
+      // shopper can hold, `apps/shop-api` accepts the staff roles too. That is
+      // the pattern `apps/docs/content/acl/platforms.mdx` teaches, because a
+      // consumer in another repository cannot import the producer's types.
+      // Consolidating these would couple two services that stand in for
+      // separate deployments.
+      "apps/shop-api/src/acl/shop-subject.model.ts",
+      "apps/storefront-rsc/app/subject.ts",
+      "apps/storefront/src/lib/subject.ts",
       "**/vite.config.*",
       "**/vitest.config.*",
       "**/eslint.config.*",
