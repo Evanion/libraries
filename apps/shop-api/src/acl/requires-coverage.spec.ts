@@ -1,5 +1,3 @@
-import 'reflect-metadata';
-
 import { describe, expect, it } from 'vitest';
 
 import { GamesController } from '../games/games.controller.js';

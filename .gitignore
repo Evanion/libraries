@@ -90,3 +90,6 @@ apps/storefront/dist/
 /*.gif
 /*.webp
 /.playwright-mcp/
+
+# Scratch notes, not repo content
+.claude/ideas/
