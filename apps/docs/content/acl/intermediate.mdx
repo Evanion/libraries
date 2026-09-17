@@ -38,7 +38,7 @@ never had one at all.
 
 **How the library gets you there.** One condition reads the comment, and that one
 change brings four things with it: a type that catches a misspelled path, a
-fourth answer for when you only loaded half the row, a decision that tells you
+fourth answer for a comment that arrived half-loaded, a decision that tells you
 why it said no, and a field map you hand to the ORM.
 
 Work through them in that order and you have the tier.
@@ -49,8 +49,8 @@ Work through them in that order and you have the tier.
 | ------------------------------ | ------------------------------------------------------------------------------ |
 | you name a path into a comment | [the typed builder](/acl/authoring), so a typo is a compile error              |
 | a comment may be half-loaded   | [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), and one refetch |
-| a page shows forty comments    | [`canMany`](/acl/asking#asking-about-a-list), one clock for the whole list     |
-| a comment has parts            | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
+| a page shows forty comments    | [`canMany`](/acl/asking#asking-about-a-list), one decision per comment         |
+| a comment has fields           | [field permissions](/acl/writing), and `pickAllowedFields` on the write        |
 
 ## Naming the comment, so acl can check the paths
 
@@ -70,38 +70,45 @@ So name the shape once and let the compiler hold you to it:
 `policy<Subject>()` names the subject. Each `.for()` binds one object kind to its
 type and hands the condition helpers to a block.
 
-What makes that work is smaller than it looks. An operand is read as a path when
-its type matches `` `subject.${string}` | `object.${string}` | 'now' ``, and as a
-literal otherwise. That one discriminator is the whole mechanism. It is why
-`p.eq('object.status', 'published')` compares against a string, and why
-`p.eq('object.authorId', 'subject.idd')` is a compile error that names the path
-you fat-fingered.
+The block declares two kinds of rule. `.allow` is the kind you wrote in the
+simple tier: the action is granted when the rule's conditions hold. `.deny` is
+the kind this page adds. Nobody may delete a published comment, so the block
+says so once, and a deny that matches outranks every allow that matched with it.
+`.dependsOn` chains one permission to another, and it comes back below, when a
+decision has to explain itself.
 
-The builder flattens to the canonical matrix on the first query, so
-`JSON.stringify(access.matrix)` still emits the document a foreign producer
-would. Nothing about the typed path changes what ships.
+The typing is smaller than it looks. A helper reads a string beginning
+`subject.` or `object.` as a path into that thing, and reads any other string as
+a plain value. That is why `p.eq('object.status', 'published')` compares the
+status against the text `published`, and why `p.eq('object.authorId',
+'subject.idd')` refuses to compile, with the path you fat-fingered in the
+message.
+
+The builder flattens to a plain matrix on the first query, so
+`JSON.stringify(access.matrix)` emits the same JSON envelope you wrote by hand in
+the simple tier. The types live in your editor and never reach the document.
 
 ## The four answers an acl decision can give
 
 All of that assumes you have the comment in hand. Often you do not.
 
-The listing page loads forty comments and takes two columns from each: an id
-and an author. Now ask whether you may edit one. The rule also reads
-`object.status`, the row you loaded has no status, and the honest answer is
-neither yes nor no.
+The listing page loads forty comments and selects from each only the fields it
+renders. Now ask whether you may edit one. The allow rule reads
+`object.authorId`, the deny rule reads `object.status`, the comment in your hand
+carries neither, and the honest answer is neither yes nor no.
 
-So a decision here has four outcomes, not two:
+So a decision here has four outcomes:
 
 ```ts file=libs/acl/README.md region=four-outcomes
 
 ```
 
-You already know three of them. Nothing matched, so no. A rule allowed it, so
-yes. A deny matched, so no, and a deny always wins.
+Three of them you have already met. Nothing matched, so no. An allow rule
+matched, so yes. A deny matched, so no, and the deny wins.
 
 The fourth is the new one. The engine could not tell. It says `unevaluable`, and
-`missing` lists the columns to go and fetch. Fetch them, ask again, and you get a
-real answer.
+`missing` names the paths it could not read. Fetch the fields those paths name,
+ask again, and you get a real answer.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
@@ -144,15 +151,14 @@ was.
 
 `*` means every field, and `!status` takes one back out.
 
-The map covers every key on the comment and every name your rules mention. On a
-write it also covers every key of whatever the caller sent you, including one the
-comment has never had. That last case is the one people forget, and it is why the
-map is computed for each call, not read off the matrix.
+The map covers every field on the comment and every field your rules name. On a
+write it also covers every field of whatever the caller sent you, including one
+the comment has never had. That last case is the one people forget, and it is why
+the engine computes the map for each call and never reads it off the matrix.
 
 ## Applying the field map with `pickAllowedFields`
 
-Having the map is not the same as applying it. The package does that part for
-you, and you should let it:
+You have the map. The package applies it for you, and you should let it:
 
 ```ts file=libs/acl/README.md region=write-path
 
@@ -160,8 +166,8 @@ you, and you should let it:
 
 Pass what it returns to the ORM. Pass only that.
 
-Filtering the map yourself is [the one mistake this page most wants you to
-avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
+Never filter the map yourself. That is [the one mistake this page most wants you
+to avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
 every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
 and those are fields nobody said you could write.
 
