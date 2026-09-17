@@ -57,6 +57,21 @@ a deny outranks a matching allow.
 Nothing was recomputed by hand and no second rule was written for the published
 case. One row changed and four statements produced a different screen.
 
+## The screen, with the policy in your hands
+
+Both beats are below, on the policy this page has been reading. Sign in as each
+of the three and the bar is rebuilt from `access.can`. Press a role inside a
+grant to strike it out and the control that grant produced leaves while you are
+looking at it. Press Publish and the deny matches, so Edit goes for the
+bookseller and the owner alike.
+
+<AccessDemo />
+
+The policy in the panel is built by the same `policy()` call the region above
+runs, and the buttons are `Decision.allowed` and nothing else. This is the
+demonstration the front page opens with, mounted here where the four statements
+have already been explained.
+
 ## The browser's copy of the shop's policy decides nothing
 
 The decisions this screen renders are convenience. The same `can` runs again in

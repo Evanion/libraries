@@ -101,6 +101,13 @@ if (result.filtered > 0) return reject('unexpected characters');
 Counting is by code point, not by UTF-16 unit, so an astral character is one
 drop rather than two.
 
+Type into the order number below and watch the check character follow it. The
+grouping and the case make no difference to the character, because both are
+filtered before anything is computed; a letter of the payload changes it every
+time.
+
+<LuhnSpecimen initial="order-2026-0042" />
+
 ## Case folding
 
 The default instance folds input to lowercase before looking it up. That is a

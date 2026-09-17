@@ -103,6 +103,13 @@ URN.extractId('urn:example:foo?=q#f'); // 'foo'
 `sameNamespace` and `belongsToNamespace` only look at the scheme and the NID, so
 components never affect them either.
 
+Attach each component to the identifier below and read what `parse` makes of
+it. The line that arrives with them is `URN.equals` answering for the carrying
+form against the bare one, which is §3.1 holding rather than a sentence saying
+it does. Each part is askable: press one for what it names.
+
+<UrnSpecimen value="urn:user:1337" />
+
 ## Custom separators switch this off
 
 A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
