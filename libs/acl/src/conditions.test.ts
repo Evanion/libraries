@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { evaluateCondition } from './conditions.js';
-import type { Condition, EvaluationContext } from './types.js';
+import { applyDenyOverlay } from './deny-overlay.js';
+import { InvalidConditionError } from './errors.js';
+import { validateMatrix } from './validate.js';
+import type { Condition, EvaluationContext, Rule } from './types.js';
 
 const ctx: EvaluationContext = {
   subject: { id: 's1', roles: ['editor'] },
@@ -189,20 +192,42 @@ describe('evaluateCondition', () => {
     }
   });
 
-  it('a boundary that does not parse leaves the clock unusable', () => {
-    expect(state({ field: 'now', op: 'after', value: 'not a date' }, ctx)).toBe(
-      'unusable-clock',
-    );
-  });
-
-  it('an infinite boundary decides nothing', () => {
-    for (const value of [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-      expect(state({ field: 'now', op: 'before', value }, ctx)).toBe(
-        'unusable-clock',
-      );
-      expect(state({ field: 'now', op: 'after', value }, ctx)).toBe(
-        'unusable-clock',
-      );
+  it('a boundary that does not parse is refused before anything evaluates', () => {
+    // `evaluateResolved` does not check the boundary. These two are why it
+    // does not have to: every rule array that reaches the engine came through
+    // one of them. An infinite boundary is on the list because a number is the
+    // one instant that reaches a comparison without being parsed, and
+    // `Infinity > boundary` holds for every boundary there is.
+    const boundaries = [
+      'not a date',
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      Number.NaN,
+    ];
+    for (const value of boundaries) {
+      const rules: Rule[] = [{ when: [{ field: 'now', op: 'after', value }] }];
+      expect(() =>
+        validateMatrix({
+          permissions: [{ key: 'c.read', object: 'c', action: 'read', rules }],
+        }),
+      ).toThrow(InvalidConditionError);
+      expect(() =>
+        applyDenyOverlay(
+          {
+            permissions: [
+              {
+                key: 'c.read',
+                object: 'c',
+                action: 'read',
+                rules: [{ when: [] }],
+              },
+            ],
+            schema: { objects: { c: { fields: {} } } },
+          },
+          { 'c.read': rules },
+          { vetoable: ['c.read'] },
+        ),
+      ).toThrow(InvalidConditionError);
     }
   });
 

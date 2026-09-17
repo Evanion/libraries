@@ -392,7 +392,17 @@ describe('the context clock', () => {
   });
 
   it('denies every entry point on a now that does not parse, without throwing', () => {
-    for (const now of ['not a date', Number.NaN, new Date('not a date')]) {
+    // The whole list, named rather than derived: `null`, `NaN`, an
+    // `Invalid Date` and a string that is not a date. Only the last is a
+    // string, so narrowing `Instant` to `Date | number` would leave three of
+    // the four standing and delete no state.
+    const unusable: Instant[] = [
+      null as unknown as Instant,
+      Number.NaN,
+      new Date('not a date'),
+      'not a date',
+    ];
+    for (const now of unusable) {
       expect(() => answers(now)).not.toThrow();
       expect(answers(now)).toEqual({
         can: false,
@@ -401,6 +411,9 @@ describe('the context clock', () => {
         capabilities: false,
         authorize: false,
       });
+      expect(
+        createPolicy(timed).can(editor, 'comment', 'update', {}, now).reason,
+      ).toBe('unusable-clock');
     }
   });
 

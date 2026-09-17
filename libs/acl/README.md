@@ -978,6 +978,13 @@ reaches `can` from a client payload — a hydration blob, a request body, a quer
 string — hands the client every time window in the matrix. Pass it only to make
 a server render and its rehydration agree, and resolve it server-side.
 
+In a browser the wall clock belongs to the subject. Setting the system clock
+back re-opens a window that has closed, and the library cannot detect it,
+because the clock is an argument. A role condition reads the subject a server
+resolved; a time condition reads a value the subject's machine produced. Both
+are advisory in a browser, and the second is the weaker of the two. A server
+passing its own `now` is unaffected.
+
 A clock that parses is taken as given. A clock that does not — `null`, `NaN`,
 an `Invalid Date`, a string that is not a date — refuses instead: every
 permission whose decision reads it answers
