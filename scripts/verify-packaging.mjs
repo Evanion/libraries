@@ -157,7 +157,7 @@ import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps,
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
-import type { Access, AccessOptions, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
+import type { Access, AccessOptions, Action, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
@@ -267,9 +267,10 @@ const vetoed: Matrix = applyDenyOverlay(matrix, overlay, overlayOptions);
 // a path neither Actor nor Comment declares is a compile error rather than a
 // string literal compared against a field.
 const aclOptionsTyped: PolicyOptions = { version: 2, schema: aclSchema };
-const ownComment = (p: Actions<Actor, Comment>): Cond =>
+type AclObjects = { comment: Comment };
+const ownComment = (p: Actions<Actor, Comment, never, Action>): Cond =>
   p.and(p.eq('object.authorId', 'subject.id'), p.contains('subject.roles', 'editor'));
-const typed = policy<Actor>(aclOptionsTyped).for<'comment', Comment>('comment', (p) =>
+const typed = policy<Actor, AclObjects>(aclOptionsTyped).for('comment', (p) =>
   p.allow('update', ownComment(p)).fields(['body'])
    .allow('read', p.always)
    .deny('read', p.eq('object.status', 'hidden')),
