@@ -208,14 +208,18 @@ describe('react-acl', () => {
   });
 });
 
-const shop = policy<Subject>()
-  .for<'listing', { sellerId: string }>('listing', (p) =>
+const shop = policy<Subject, { listing: { sellerId: string } }>()
+  .for('listing', (p) =>
     p.allow('update', p.eq('object.sellerId', 'subject.id')),
   )
   .build();
 
-const backoffice = policy<Subject>()
-  .for<'ticket', { id: string }>('ticket', (p) =>
+const backoffice = policy<
+  Subject,
+  { ticket: { id: string } },
+  { ticket: 'close' }
+>()
+  .for('ticket', (p) =>
     p.allow('close', p.contains('subject.roles', 'support')),
   )
   .build();

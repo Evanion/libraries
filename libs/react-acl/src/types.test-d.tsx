@@ -138,8 +138,10 @@ interface Listing {
   price: number;
 }
 
-const shop = policy<Shopper>()
-  .for<'listing', Listing>('listing', (p) =>
+type ShopObjects = { listing: Listing };
+
+const shop = policy<Shopper, ShopObjects>()
+  .for('listing', (p) =>
     p.allow('update', p.eq('object.sellerId', 'subject.id')),
   )
   .build();
@@ -181,8 +183,8 @@ describe('a bound policy context', () => {
     interface Loose extends Record<string, unknown> {
       id: string;
     }
-    const loose = policy<Shopper>()
-      .for<'listing', Loose>('listing', (p) => p.allow('update', p.always))
+    const loose = policy<Shopper, { listing: Loose }>()
+      .for('listing', (p) => p.allow('update', p.always))
       .build();
 
     // An index signature accepts every key, so the row is unchecked. The check
@@ -226,6 +228,47 @@ describe('a bound policy context', () => {
     // bivariantly.
     const crossed = <Bound access={rebuilt} subject={shopper} />;
     void crossed;
+  });
+
+  it('carries the keys the policy declared into every hook', () => {
+    const declared = policy<Shopper, ShopObjects>()
+      .for('listing', (p) =>
+        p
+          .allow('update', p.eq('object.sellerId', 'subject.id'))
+          .allow('read', p.always),
+      )
+      .build();
+    const bound = createPolicyContext(declared);
+
+    bound.useCan('listing', 'update', { sellerId: 'u1' });
+    // @ts-expect-error 'updte' is not an action 'listing' declares
+    bound.useCan('listing', 'updte');
+    // @ts-expect-error the action is checked on every hook
+    bound.useCanMany('listing', 'updte', [{ id: 'l1' }]);
+    // @ts-expect-error the action is checked on every hook
+    bound.useCanFields('listing', 'updte', { id: 'l1' }, 'write');
+
+    expectTypeOf(bound.useCapabilities).returns.toEqualTypeOf<
+      Record<'listing.update' | 'listing.read', Decision>
+    >();
+    expectTypeOf(
+      bound.useCapabilities()['listing.update'],
+    ).toEqualTypeOf<Decision>();
+    // @ts-expect-error 'updte' is not an action 'listing' declares
+    void bound.useCapabilities()['listing.updte'];
+    // @ts-expect-error 'lsiting' is not an object kind the policy declares
+    void bound.useCapabilities()['lsiting.update'];
+  });
+
+  it('takes a policy with declared keys on the shared provider too', () => {
+    const declared = policy<Shopper, ShopObjects>()
+      .for('listing', (p) =>
+        p.allow('update', p.eq('object.sellerId', 'subject.id')),
+      )
+      .build();
+
+    const mounted = <PolicyProvider access={declared} subject={shopper} />;
+    void mounted;
   });
 
   it('keeps every key open when the access carries no types', () => {

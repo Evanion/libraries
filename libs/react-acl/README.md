@@ -104,10 +104,8 @@ import { createPolicyContext } from '@evanion/react-acl';
 type Shopper = { id: string; role: 'customer' | 'bookseller' };
 type Listing = { id: string; sellerId: string };
 
-const shop = policy<Shopper>()
-  .for<'listing', Listing>('listing', (p) =>
-    p.allow('edit', p.eq('object.sellerId', 'subject.id')),
-  )
+const shop = policy<Shopper, { listing: Listing }, { listing: 'edit' }>()
+  .for('listing', (p) => p.allow('edit', p.eq('object.sellerId', 'subject.id')))
   .build();
 
 const { PolicyProvider, useCan } = createPolicyContext(shop);
