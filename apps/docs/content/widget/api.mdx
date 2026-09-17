@@ -90,7 +90,10 @@ function resetWarnings(): void;
 Clears the set of messages `warnOnce` has already written. A set that lives as
 long as the process is what a dev server wants and what a test file cannot
 have, since one case's warning would silence the next case that produces the
-same message. Each renderer's test setup calls this before every test.
+same message. Each renderer's test setup calls this before every test. It
+carries no example for the reason `warnOnce` carries none: what an example
+would show is a second call staying quiet, and that is an assertion rather than
+a line to copy.
 
 ## `ERROR_MESSAGES`
 

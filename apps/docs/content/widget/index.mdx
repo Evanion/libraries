@@ -26,7 +26,7 @@ worth reading for is the part that does not move when you swap runtimes: a shop
 whose listing pages are Astro and whose counter is React writes one payload,
 and this package is where the rules that payload answers to are written down.
 
-**How the library gets you there.** Three exports carry it. `AnyWidgetItem` is
+**How the library gets you there.** Three names carry it. `AnyWidgetItem` is
 the shape. `defineWidgets` keeps a registry's keys literal so an editor
 completes on them. `validateItems` walks a payload and hands back a list of
 what is wrong with it.
@@ -99,8 +99,8 @@ The entry point is small enough to list whole:
 | `ERROR_MESSAGES`                 | the message text a renderer warns with                          |
 | `warnOnce`, `resetWarnings`      | the renderer's warning seam, for adapter authors                |
 
-Node 20 or newer, ESM only, and no dependencies. There is no `require`
-condition in the exports map, so a CommonJS consumer gets `ERR_REQUIRE_ESM`.
+Node 20 or newer, ESM only, and no dependencies. The exports map carries no
+`require` condition.
 
 ## Where to go next
 

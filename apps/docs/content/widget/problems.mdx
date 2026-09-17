@@ -12,6 +12,10 @@ and this page links to it rather than teaching it again.
 `validateItems` returns a `WidgetProblem[]`. One entry per thing it found, in
 the order it walked the payload, and an empty array when it found nothing.
 
+Two of its arguments are named throughout this page. `known` is the set of
+types the payload may use, either a registry or a plain list of names.
+`required` is a widget type mapped to the props that must carry something.
+
 | Field     | What it holds                                                                    |
 | --------- | -------------------------------------------------------------------------------- |
 | `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list |
@@ -29,17 +33,17 @@ section they opened.
 The strings are exported as `VALIDATION_MESSAGES`, so a caller can group,
 count or translate a report without matching on prose.
 
-| Constant           | Message                     | What produced it                                              |
-| ------------------ | --------------------------- | ------------------------------------------------------------- |
-| `NOT_A_LIST`       | `items is not a list`       | the payload itself is not an array                            |
-| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is a string, a number, `null` or an array            |
-| `INVALID_ID`       | `item id is not a string`   | `id` is absent, or is something other than a string           |
-| `INVALID_TYPE`     | `item type is not a string` | `type` is absent, or is something other than a string         |
-| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set                     |
-| `INVALID_PROPS`    | `props is not an object`    | `props` is absent, or is an array, `null` or a primitive      |
-| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and is not an array                     |
-| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`             |
-| `MISSING_FIELD`    | `missing field <name>`      | a prop the caller's `required` map demands is absent or blank |
+| Constant           | Message                     | What produced it                                         |
+| ------------------ | --------------------------- | -------------------------------------------------------- |
+| `NOT_A_LIST`       | `items is not a list`       | the payload itself is not an array                       |
+| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is a string, a number, `null` or an array       |
+| `INVALID_ID`       | `item id is not a string`   | `id` is absent, or is something other than a string      |
+| `INVALID_TYPE`     | `item type is not a string` | `type` is absent, or is something other than a string    |
+| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set                |
+| `INVALID_PROPS`    | `props is not an object`    | `props` is absent, or is an array, `null` or a primitive |
+| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and is not an array                |
+| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`        |
+| `MISSING_FIELD`    | `missing field <name>`      | a prop `required` demands is absent or blank             |
 
 `MISSING_FIELD` is a function of the field name, because the name is the whole
 of the report: an editor who reads `missing field title` knows which box to
@@ -58,7 +62,7 @@ repeats the first item's `id`, and the third is fine until the walk reaches its
 one child, whose type nothing draws. The nested problem carries index 0,
 because it is the first item in its own sibling list.
 
-## An absent props is a problem, not an empty one
+## Why an item with no props is reported
 
 `props is not an object` fires on an item that left `props` out entirely, and
 that is deliberate. A widget's data lives under that key and nowhere else, so
@@ -86,33 +90,19 @@ known set does not carry is reported once as an unknown type and its required
 fields are never counted, because listing the props of a widget nothing draws
 adds nothing to the first problem.
 
-## Where to run the widget check
-
-No renderer calls `validateItems`. Each renderer stays defensive, skipping an
-item it cannot draw and warning about it, so one bad save never takes a running
-page down. This is the loud gate, and you choose where it sits:
-
-- **At ingestion.** A webhook takes the CMS save, calls `validateItems`, and
-  answers with the problems. The editor finds out while the page they were
-  editing is still open.
-- **In CI.** A test walks the committed payloads and fails on a non-empty
-  report. The check costs nothing and it runs on every pull request.
-- **In a build script.** The build fails before the pages are written, which is
-  the last point at which a hole in a page is still cheap.
-
-None of those needs a renderer. `known` may be a plain list of names, so a
-script validates a payload without importing a single component it will never
-draw.
-
 ## Why a type is looked up as an own key
 
 `type` is matched with `Object.prototype.hasOwnProperty` rather than with `in`
-or a bare index. Items are CMS data, so any string is reachable, and both of
-the looser forms walk the prototype chain: an item typed `constructor`,
-`toString` or `__proto__` would otherwise pass as a registered type, and the
-value that came back would be a function off `Object.prototype`. The same rule
-governs the `required` map's own lookup.
+or a bare index, and so is `required`'s own lookup. Items are CMS data, so any
+string is reachable, and both of the looser forms walk the prototype chain: an
+item typed `constructor`, `toString` or `__proto__` would otherwise pass as a
+registered type, and the value that came back would be a function off
+`Object.prototype`.
 
 Both renderers apply the rule in their own registry lookups. It is written down
 here because it is one decision about untrusted data rather than two
 coincidences.
+
+[Getting started](/widget/getting-started#check-the-payload-before-anything-renders-it)
+is where to call `validateItems` from: at ingestion, in CI, or in a build
+script.
