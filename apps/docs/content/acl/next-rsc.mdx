@@ -40,12 +40,19 @@ between them and is neither.
 ## Building the matrix
 
 Module scope in a server-only module, the way `apps/storefront-rsc` calls
-`createWidgets` at module scope in `app/widgets.tsx`:
+`createWidgets` at module scope in `app/widgets.tsx`. `Subject` and `Order` are
+the app's own types, and `MATRIX_VERSION` is a string the build stamps in — the
+document revision a client compares its copy against:
 
 ```ts
 // app/access.ts
 import 'server-only';
 import { policy } from '@evanion/acl';
+
+import type { Order, Subject } from './types.js';
+
+/** Stamped at build time; `access.version` is what a client compares. */
+const MATRIX_VERSION = process.env.MATRIX_VERSION;
 
 export const access = policy<Subject>({ version: MATRIX_VERSION })
   .for<'order', Order>('order', (p) =>

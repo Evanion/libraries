@@ -39,11 +39,18 @@ and is not a trust boundary, whatever it fetches from.
 
 Module scope in a `.server.ts` module. That suffix is load-bearing in this app:
 `apps/admin/app/shop-api.server.ts` notes that the Vite plugin makes importing a
-`.server` module from client-reachable code a build error.
+`.server` module from client-reachable code a build error. `Subject` and `Title`
+are the app's own types, and `MATRIX_VERSION` is a string the build stamps in —
+the document revision a client compares its copy against.
 
 ```ts
 // app/access.server.ts
 import { policy } from '@evanion/acl';
+
+import type { Subject, Title } from './types.js';
+
+/** Stamped at build time; `access.version` is what a client compares. */
+const MATRIX_VERSION = process.env.MATRIX_VERSION;
 
 export const access = policy<Subject>({ version: MATRIX_VERSION })
   .for<'title', Title>('title', (p) =>
@@ -135,7 +142,9 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 renderable page returns a field instead; `apps/admin` returns `unavailable?:
 string` for that case.
 
-`authorize` binds the subject and the clock once for the loader:
+`authorize` binds the subject, and optionally the clock, for the whole loader.
+The region below binds the subject alone; pass `{ now }` beside it to pin the
+instant too:
 
 ```ts file=libs/acl/README.md region=server-authorize
 
@@ -213,8 +222,6 @@ this app's convention throughout.
 ## The tree toggles, and enforces nothing
 
 ```tsx
-'use client';
-
 import { useCan } from '@evanion/react-acl';
 
 function DeclareForm({ title }: { title: Title }) {

@@ -66,15 +66,15 @@ Object.entries(proposed).filter(([key]) => decision.fields[key] !== 'denied');
 pickAllowedFields(decision, proposed);
 ```
 
-`FieldState` has three values. A field whose `transitions` config could not be
-checked, because the object did not carry the current value, comes back
-`unevaluable` — and `'unevaluable' !== 'denied'` is `true`, so the first form
+`FieldState` has three values. `transitions` is a state machine over a field's
+current value, and a field whose config the object did not carry that value for
+comes back `unevaluable` — and `'unevaluable' !== 'denied'` is `true`, so the first form
 writes a value the decision explicitly declined to approve. The same filter also
 passes any key the decision does not carry at all, since `undefined !== 'denied'`.
 
 `pickAllowedFields` keeps the keys that decided `allowed` and withholds
-everything else. That is one state to get right rather than two to enumerate,
-and it is the only narrowing in the package.
+everything else. That is one state to get right rather than two, and it is the
+only narrowing in the package.
 
 ### A name absent from `fields` is not a denial
 
@@ -144,11 +144,11 @@ list leaves the rest of the row open.
 ### A condition may only read fields the subject cannot write
 
 ```ts
-p.allow('read', p.contains('object.collaborators', 'subject.id')); // self-authorizing
+p.allow('read', p.eq('object.sharedWith', 'subject.id')); // self-authorizing
 p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
 ```
 
-If the subject can add themselves to `collaborators`, they can authorize
+If the subject can write `sharedWith`, they can authorize
 themselves for the document. The engine cannot detect this: it does not know
 which object fields the subject can write, and the write that opens the door is
 a different action from the read it opens.
@@ -209,17 +209,13 @@ moved.
 
 ## Two gaps with no defence
 
-Both are real today and neither is guarded. They are stated rather than omitted
-because a caller can avoid both, and cannot avoid what nobody wrote down.
+Both are real today and neither is guarded. A caller can avoid both, and cannot
+avoid what nobody wrote down.
 
 ### A clock the caller supplies is the clock the windows move with
 
-```ts
-access.can(subject, 'sale', 'buy', undefined, '2026-01-01T00:00:00Z');
-// -> { allowed: false, reason: 'denied' }
+```ts file=libs/acl/README.md region=clock
 
-access.can(subject, 'sale', 'buy', undefined, '2019-06-01T00:00:00Z');
-// -> { allowed: true,  reason: 'allow' }
 ```
 
 Supplying `now` at all is worth deciding deliberately: it slides every window in

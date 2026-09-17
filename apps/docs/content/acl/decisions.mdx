@@ -36,11 +36,10 @@ const decision = access.can({ id: 's1' }, 'comment', 'update', comment);
 ```
 
 `reason` is output only. Nothing in the library reads a reason back to decide
-anything, so stripping the field from a decision changes no outcome. That cuts
-both ways: gating on the reason string instead of on `allowed` grants what the
-engine refused.
+anything. That cuts both ways: gating on the reason string instead of on
+`allowed` grants what the engine refused.
 
-The seven it can hold are the seven rows below, and this build says so — a
+The six it can hold are the six rows below, and this build says so — a
 reason added to the package and not to the table leaves `NotInTheTable` with a
 member, and a type whose constraint is `never` cannot have one:
 
@@ -72,8 +71,9 @@ type NotInTheTable = Exhaustive<Exclude<Reason, (typeof documented)[number]>>;
 ## Default deny, express allow, express deny wins
 
 Nothing is allowed without an allow rule that matched. No rules, an empty rule
-list, an unknown action — each refuses. On top of that baseline, a deny that matched outranks an allow that also matched, and a deny
-the engine could not read refuses as well.
+list, an unknown action — each refuses. Above that, a deny that matched
+outranks an allow that also matched, and a deny the engine could not read
+refuses as well.
 
 ```ts file=libs/acl/README.md region=four-outcomes
 
@@ -169,6 +169,14 @@ and trust that something downstream decides properly.
 `access.readsObject(key, action)` says which is which, from the document rather
 than from a call:
 
+```ts file=libs/acl/README.md region=reads-object
+
+```
+
+`article.read` reads only `subject.roles`. `article.update` carries a deny on
+`object.locked`, so a guard ahead of the fetch only ever holds an `unevaluable`
+for it:
+
 ```ts
 if (access.readsObject('article', 'update')) {
   // Never decidable here. Refuse loudly, or record that the real decision is
@@ -178,7 +186,7 @@ if (access.readsObject('article', 'update')) {
 
 It is true when any allow rule or any deny rule of this permission names an
 `object.*` path, on either operand. It takes no subject: it is a fact about
-the matrix, so the answer is the same for everyone.
+the matrix.
 
 Field rules do not count toward it. A `transitions` config reads the current
 value off the object, but only on the `canFields` write axis, where the caller

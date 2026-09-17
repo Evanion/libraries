@@ -91,7 +91,9 @@ and a handler that branches on the reason string grants what the engine refused.
 ## Bind the subject to one acl handle
 
 Every `can` above restated the subject. A server resolves it from the session
-once and then asks many questions about it, so `authorize` takes it once:
+once and then asks many questions about it, so `authorize` takes it once — here
+over a comment policy, because binding the subject is the same move whatever the
+document holds:
 
 ```ts file=libs/acl/README.md region=server-authorize
 

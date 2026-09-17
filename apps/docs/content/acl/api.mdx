@@ -55,15 +55,15 @@ interface Access<Sub, R> {
 }
 ```
 
-| Call           | Answers                                                            |
-| -------------- | ------------------------------------------------------------------ |
-| `can`          | one decision for one instance                                      |
-| `canMany`      | a decision per instance, one settled clock for the list            |
-| `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision |
-| `capabilities` | every permission in the matrix, keyed, in document order           |
-| `authorize`    | the same four with the subject and clock bound                     |
-| `object`       | the same three with the object kind bound                          |
-| `readsObject`  | whether the permission needs the object row at all                 |
+| Call           | Answers                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `can`          | one decision for one instance                                          |
+| `canMany`      | a decision per instance, one settled clock for the list                |
+| `canFields`    | the field maps for `'read'` or `'write'`, plus the action decision     |
+| `capabilities` | every permission in the matrix, keyed, in document order               |
+| `authorize`    | `can`, `canMany`, `canFields`, `capabilities`, subject and clock bound |
+| `object`       | `can`, `canMany`, `canFields`, `readsObject`, object kind bound        |
+| `readsObject`  | whether the permission needs the object row at all                     |
 
 `authorize(subject)` returns `Authorized<R>`, which carries `can`, `canMany`,
 `canFields` and `capabilities` with the subject dropped from each signature and
@@ -94,10 +94,33 @@ interface FederatedAccess {
 ```
 
 One `Access` per origin, composed with no document merged. `can` routes to the
-origin holding `` `${key}.${action}` ``, `capabilities` settles one instant for
+origin holding `` `${object}.${action}` ``, `capabilities` settles one instant for
 every origin, and `get` hands back the member the caller passed. Two origins
 claiming one key throw `OriginCollisionError` at construction, naming the key
 and both origins. See [Many services](/acl/federation).
+
+## A cross-cutting deny
+
+```ts
+function applyDenyOverlay(
+  matrix: Matrix,
+  overlay: DenyOverlay,
+  options: DenyOverlayOptions,
+): Matrix;
+
+type DenyOverlay = Readonly<Record<string, readonly Rule[]>>;
+
+interface DenyOverlayOptions {
+  readonly vetoable: readonly string[];
+}
+```
+
+A compliance or fraud team publishes deny rules for permissions it does not own,
+and the owning service appends them before it constructs. `Matrix → Matrix` and
+pure, so it composes by ordinary function composition. A contribution is a
+`readonly Rule[]`, which can express no allow rule and no field rule, so an
+overlay only ever subtracts. See [Many
+services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
 
 ## The write path
 
@@ -233,12 +256,20 @@ interface EvaluationContext {
 The entry points assemble this from their arguments; it is the shape a decision
 is taken against.
 
-The engine's per-node functions are not exported. Each answers a fragment of a
-decision and leaves the rest to the caller: the permission-level one takes a
-permission node the gate never checked; the field-level one returns an
-`allowed` that ignores the action-level gate. `hydratePolicy` and
-`parseMatrix` compose them, and one of those two is the entry point — for an
-application and for a tool inspecting a matrix alike.
+## The type aliases
+
+`Action`, `ObjectKey` and `Subject` are the string and bag types the signatures
+above are written in. `AnyObjects` is the open key map `Access` and `Policy`
+default to. `Actions`, `Cond`, `Operand`, `Ops`, `Paths` and `Valid` are what
+the `.for()` block's helpers are typed with: an author names none of them, and a
+library wrapping `policy()` names several.
+
+The package exports no other function. You cannot call the engine's per-node
+steps, because each one answers a fragment and trusts its caller for the rest:
+the permission-level step reads a permission the gate never checked, and the
+field-level step returns an `allowed` that ignores the action. `hydratePolicy`
+and `parseMatrix` put the steps in order, so an application and a tool
+inspecting a matrix both enter through one of those two.
 
 ## Errors
 
@@ -256,6 +287,11 @@ closed instead.
 
 `OriginCollisionError` shares it too. `federatedPolicies` raises it while
 composing several documents, and it carries `key` and `origins`.
+
+`UnvetoablePermissionError` and `MissingVetoSchemaError` share it as well, and
+`applyDenyOverlay` raises both: the first when an overlay names a key the target
+matrix does not list as `vetoable`, the second when a vetoable key's object kind
+has no `schema.objects` entry to check a contribution against.
 
 `ActionNotAllowedError` extends `Error` directly and is raised only by
 `pickAllowedFields`, when the action the write was narrowed against is refused.

@@ -23,8 +23,10 @@ const narrowed = Object.fromEntries(
 );
 ```
 
-`FieldState` has three values, not two. A field whose `transitions` config could
-not be checked — because the object did not carry the current value — comes back
+`FieldState` has three values, not two. `transitions` is a state machine over a
+field's current value, set out under [Naming the fields](#naming-the-fields), and
+a field whose config could not be checked — because the object did not carry that
+current value — comes back
 `unevaluable`, and `'unevaluable' !== 'denied'` is `true`, so that filter writes
 a value the decision explicitly declined to approve. `pickAllowedFields` keeps
 the keys that decided `allowed` and withholds everything else, which is one

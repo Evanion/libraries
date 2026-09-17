@@ -83,8 +83,9 @@ never a projection, so a subject carrying no `roles` genuinely has none.
 A read-only input is a `FieldReason`, not a `Reason`. `not-listed` means the
 rules exclude the name; `targets-failed` and `transition-failed` mean the
 proposed value is the problem rather than the field; `missing-field` is the
-field-level `unevaluable` and wants the same refetch. [Which fields may they
-write?](/acl/writing) has the set.
+field-level `unevaluable` and wants the same refetch. [Field
+permissions](/acl/fields) has every `FieldReason` in one table, including
+`proposed-required`, which the four above leave out.
 
 ## Where to go next
 

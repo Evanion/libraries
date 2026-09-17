@@ -178,8 +178,8 @@ it next.
 
 `access.readsObject(key, action)` tells the guard which of the two it is
 holding. It is a fact about the document, not about a subject or a call: true
-when any rule or deny rule of that permission, or of anything it depends on,
-reads an `object.*` path. So a guard can refuse loudly on a permission it was
+when any allow rule or any deny rule of that permission reads an `object.*`
+path, on either operand. So a guard can refuse loudly on a permission it was
 never going to be able to decide, and pass on only the ones the service is
 expected to finish:
 
@@ -196,11 +196,16 @@ its service" stays an invariant the app asserts in its own tests.
 
 ## The service decides on the row
 
+`SubjectService` is the request-scoped provider above; `OrderRepository` is
+whatever this app loads orders with, and `ACL_ACCESS` is the token the module
+binds the built matrix to.
+
 ```ts
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly subjects: SubjectService,
+    private readonly repository: OrderRepository,
     @Inject(ACL_ACCESS) private readonly access: Access,
   ) {}
 
@@ -223,8 +228,9 @@ export class OrdersService {
 }
 ```
 
-`authorize` binds the subject and the clock once, so the rest of the method
-restates neither:
+`authorize` binds the subject, and optionally the clock. `forRequest` above
+passes both, so the rest of the method restates neither — the region below binds
+the subject alone:
 
 ```ts file=libs/acl/README.md region=server-authorize
 
@@ -271,8 +277,8 @@ const module = await Test.createTestingModule({
 
 The matrix is real, not a mock. A stubbed decision asserts that the controller
 calls something; a real matrix asserts that the rules say what the app thinks
-they say, and construction failures — an unknown field, a type mismatch, a
-dependency naming no permission — surface in the test rather than at boot.
+they say, and construction failures — an unknown field, a type mismatch, two
+permissions sharing a key — surface in the test rather than at boot.
 
 `apps/shop-api` declares throwaway `@Controller()` and `@Module()` classes
 inline in its e2e specs; that is where "every guarded route is also decided in
