@@ -5,21 +5,28 @@ import type { MetaRecord } from 'nextra';
  * into the stack it runs in, answer the question they arrived with, then look
  * the mechanism up.
  *
- * Setup is staged by one decision rather than by difficulty. Simple is
- * subject-only conditions, where nothing can decide `unevaluable`; intermediate
- * is the moment a condition reads the row, which brings projections, the typed
- * builder and the field axis with it; advanced is what follows from the
- * document outliving the process that wrote it. `interface` closes Setup as the
- * section's demonstration: it is where the three tiers' answers land in a
- * rendered screen, and it is the last step of learning rather than the first
- * step of looking something up.
+ * Setup is staged by one decision, and each title names the decision rather
+ * than the rung. `simple` is the page where every condition reads the subject,
+ * so nothing can decide `unevaluable`. `intermediate` is the page where a
+ * condition reads the object, which brings projections, the typed builder and
+ * the field axis with it. `advanced` is the page where the document outlives
+ * the process that wrote it, which brings the schema, the version and a
+ * foreign document. The difficulty ladder is on each page's `<PageSheet>`, and
+ * a title that repeated it would say less than the sheet does. `interface`
+ * closes Setup as the section's demonstration: it is where the three answers
+ * land in a rendered screen, and it is the last step of learning rather than
+ * the first step of looking something up.
+ *
+ * The slugs stay `simple`, `intermediate` and `advanced`. A URL a reader has
+ * bookmarked or a search engine has indexed costs more to move than the titles
+ * gained by moving it.
  *
  * Questions are titled as the question, not as the method, because that is what
  * a reader searches for. The method is in the first line of each.
  *
  * Caveats heads the reference band rather than sitting in Questions: it is
  * material to check code against rather than a task, and a reader meets it from
- * the overview and from the end of every setup tier.
+ * the overview and from the end of every Setup page.
  *
  * Separators rather than folders, on the same reasoning as `content/_meta.ts`:
  * a folder puts one more click between a reader and every page inside it, and a
@@ -42,9 +49,9 @@ export default {
   index: 'Overview',
 
   'group-setup': { type: 'separator', title: 'Setup' },
-  simple: 'Simple',
-  intermediate: 'Intermediate',
-  advanced: 'Advanced',
+  simple: 'Rules that read the subject',
+  intermediate: 'Rules that read the object',
+  advanced: 'Rules that outlive the process',
   interface: 'One Policy, One Screen',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },

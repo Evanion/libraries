@@ -89,8 +89,9 @@ and the frozen `access.matrix` carries the winner, so the version that decided i
 the version that crosses an SSR boundary.
 
 A document stating no version leaves `access.version` undefined, where a `!==`
-decides nothing. [Fetch and revalidate](/acl/advanced#end-of-the-tier-fetch-and-revalidate)
-is the contract; the library supplies the comparison and nothing else.
+decides nothing. [Refetch when the version
+moves](/acl/advanced#refetch-when-the-version-moves) is the contract; the
+library supplies the comparison and nothing else.
 
 ## What adoption does not give you
 

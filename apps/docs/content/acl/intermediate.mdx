@@ -1,4 +1,4 @@
-# Intermediate setup
+# Rules that read the object
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -11,9 +11,9 @@
   difficulty={3}
   read={9}
   hands={30}
-  requires={[['Simple setup', '/acl/simple']]}
+  requires={[['Rules that read the subject', '/acl/simple']]}
   unlocks={[
-    ['Advanced setup', '/acl/advanced'],
+    ['Rules that outlive the process', '/acl/advanced'],
     ['Which fields may they write?', '/acl/writing'],
   ]}
 />
@@ -25,7 +25,7 @@ Everyone knows that rule. The interesting part is that no role can express it.
 You and Jo are both customers, with exactly the same permissions. What tells you
 apart is which question is yours.
 
-So the rule has to read the question. That is the whole of this tier.
+So the rule has to read the question. That is the whole of this page.
 
 **What you will have.** A policy that knows whose question is whose, and a save
 that writes only the fields you are allowed to change.
@@ -71,12 +71,12 @@ Chain a `.for()` for every kind your app has, so one policy covers the whole
 app. A policy per resource is the `if` you came here to delete, in another
 file.
 
-The block declares two kinds of rule. `.allow` is the kind you wrote in the
-simple tier: the action is granted when the rule's conditions hold. `.deny` is
-the kind this page adds. Nobody may delete a question the shop has
-locked, so the block says so once, and a deny that matches outranks every allow
-that matched with it. No permission gates another: a rule that `hide` shares
-with `update` is written into `hide`, where a reader of `hide` sees it.
+The block declares two kinds of rule. `.allow` is the kind you wrote against the
+subject alone: the action is granted when the rule's conditions hold. `.deny` is
+the kind this page adds. Nobody may delete a question the shop has locked, so
+the block says so once, and a deny that matches outranks every allow that
+matched with it. No permission gates another: a rule that `hide` shares with
+`update` is written into `hide`, where a reader of `hide` sees it.
 
 The typing is smaller than it looks. A helper reads a string beginning
 `subject.` or `object.` as a path into that thing, and reads any other string as
@@ -86,8 +86,8 @@ status against the text `locked`, and why `p.eq('object.askedBy',
 message.
 
 `build()` flattens the blocks to a plain matrix, so
-`JSON.stringify(access.matrix)` emits the same JSON envelope you wrote by hand in
-the simple tier. The types live in your editor and never reach the document.
+`JSON.stringify(access.matrix)` emits the same JSON envelope the subject-only
+policy flattened to. The types live in your editor and never reach the document.
 
 ## The four answers an acl decision can give
 
@@ -170,12 +170,14 @@ to avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
 every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
 and those are fields nobody said you could write.
 
-That is the tier. You edit your question, Jo edits hers, and nobody wrote an `if`.
+That is the page. You edit your question, Jo edits hers, and nobody wrote an
+`if`.
 
 ## Where to go next
 
 - [Caveats and pitfalls](/acl/pitfalls) — the mistakes this API makes easy, and
   what to write instead
-- [Advanced setup](/acl/advanced) — the schema, foreign documents, versioning
+- [Rules that outlive the process](/acl/advanced) — the schema, foreign
+  documents, versioning
 - [Which fields may they write?](/acl/writing) — the whole field axis, one task
   at a time

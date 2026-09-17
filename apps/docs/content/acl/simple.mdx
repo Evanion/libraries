@@ -1,4 +1,4 @@
-# Simple setup
+# Rules that read the subject
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -13,7 +13,7 @@
   hands={15}
   requires={[['Overview', '/acl']]}
   unlocks={[
-    ['Intermediate setup', '/acl/intermediate'],
+    ['Rules that read the object', '/acl/intermediate'],
     ['Can this user do this?', '/acl/asking'],
   ]}
 />
@@ -53,9 +53,9 @@ With the package installed, the first thing to write is the policy.
 `policy<Subject>()` names the subject once, `.for<K, Obj>(key, block)` declares
 one object kind, and `.build()` hands back the evaluator. A block holds allow
 rules, a rule holds conditions, and the conditions are AND-ed: the rule matches
-when every condition in it holds. At this tier `capabilities` answers the whole
-document at once, so the
-policy and every answer it gives fit in one block:
+when every condition in it holds. While every condition reads the subject,
+`capabilities` answers the whole document at once, so the policy and every
+answer it gives fit in one block:
 
 ```ts file=libs/acl/README.md region=capabilities
 
@@ -117,10 +117,10 @@ mediation](/acl/security#complete-mediation).
   </Text>
 </Panel>
 
-## Where the simple tier stops
+## Where subject-only rules stop
 
 You now have a working policy, and every condition in it reads the subject. That
-is the line this tier sits on, and it is a real line in the engine:
+is the line this page sits on, and it is a real line in the engine:
 
 - The server resolves the subject whole before the call, so no field of it is
   ever missing by accident. Every permission answers `true` or `false`, and
@@ -131,12 +131,12 @@ is the line this tier sits on, and it is a real line in the engine:
 Now write one rule that reads the object: the customer who asked may edit their
 own question.
 Both of those bullets stop holding at once. That rule, and everything it brings
-with it, is [the intermediate tier](/acl/intermediate).
+with it, is [Rules that read the object](/acl/intermediate).
 
 ## Where to go next
 
-- [Intermediate setup](/acl/intermediate) — conditions that read the object, the
-  typed builder, field permissions and the guarded save
+- [Rules that read the object](/acl/intermediate) — the typed builder, field
+  permissions and the guarded save
 - [Can this user do this?](/acl/asking) — the decision shape, and asking about a
   list
 - [What can they do at all?](/acl/capabilities) — driving a menu from one call
