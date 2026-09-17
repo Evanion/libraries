@@ -9,10 +9,40 @@
   </Text>
 </WorkshopNotice>
 
-An access-control matrix written once, serialized as JSON, and evaluated locally
-by whatever JS runtime holds it — a Node service, an SSR graph, a browser SPA,
-React Native, Electron. The matrix is a frozen document. There is no per-subject
-snapshot to build and no round trip to a policy server to make one decision.
+<PageSheet
+  difficulty={1}
+  read={6}
+  hands={5}
+  unlocks={[
+    ['Simple setup', '/acl/simple'],
+    ['Security contract', '/acl/security'],
+  ]}
+/>
+
+**The concept.** Baize is a board game shop. A customer leaves a comment under
+its Brass: Birmingham listing, and they may edit that comment. A bookseller may
+edit anybody's. Once the shop locks a comment, nobody may edit it at all. Those
+three sentences are Baize's authorization rules, and today they are written out
+again in the handler, again in the loader, and again in the component that greys
+out the button.
+
+**What you will have.** One document that holds every rule your app has, and one
+call that reads it: may this subject take this action on this object? The
+subject is whoever is asking, and the object is the one thing they want to
+touch. The document is JSON, and the call runs wherever the JSON is, so the
+server that enforces the answer and the screen that renders it read the same
+rules.
+
+**Why you would want it.** Copies drift. You tighten the handler and forget the
+loader. The next endpoint ships with three of the four checks. A year in, nobody
+can say who may edit a locked comment without reading four files, and the UI
+greys out a button the API would have accepted.
+
+**How the library gets you there.** The rules are a JSON document called the
+matrix. `createPolicy` turns the matrix into an access object. `can` answers one
+question and carries the reasons with the answer. `capabilities` answers every
+question at once, and `authorize` binds a subject for the length of a request.
+No round trip to a policy server, and no per-subject snapshot to build.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -32,20 +62,27 @@ snapshot to build and no round trip to a policy server to make one decision.
   </Text>
 </Panel>
 
-## When to reach for it
+## When to reach for acl
 
-- Permissions that depend on the row, not only on the role — "the author may
-  edit their own comment", "a draft may be deleted and a published one may not".
+One document and one call is the whole shape. Whether it suits you comes down to
+what your rules have to look at:
+
+- Permissions that turn on which object is in front of the user as well as on
+  the role — "the author may edit their own comment", "a draft may be deleted and a
+  published one may not".
 - The same rules needed on a server and in a UI, without writing them twice and
   without an endpoint per question. The document crosses an SSR boundary as
   `access.matrix` and rebuilds on the other side.
-- A UI that has to explain a block rather than only enforce it: which rule
-  refused, which parent permission is off, which field is read-only, what is
-  still missing before the question can be answered at all.
-- A field-level write path, where the answer is "these keys of the write are
-  yours" rather than a single yes.
+- A UI that has to explain a block as well as enforce it: which rule refused,
+  which parent permission is off, which field is read-only, what is still
+  missing before the question can be answered at all.
+- A field-level write, where the answer names which fields of the write are
+  yours.
 
-## When not to
+## When acl is the wrong tool
+
+The same two properties, a public document and a local answer, rule some jobs
+straight out:
 
 - Anything the document cannot state in the open. The matrix ships to the
   client in full, so every object kind, action, role string, field name and time
@@ -59,18 +96,21 @@ snapshot to build and no round trip to a policy server to make one decision.
 - A non-JS backend. Only the JSON crosses; a .NET or Go service uses its own
   evaluator.
 
-## What is in the package
+## What ships in the acl package
 
-| Export                                  | What it is                                                        |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| `createPolicy(matrix, options?)`        | the access object, from a document you trust                      |
-| `parseMatrix(json, options?)`           | the same, from a foreign document; fails closed on unknown keys   |
-| `policy<Subject>()`                     | the typed builder, one `.for()` block per object kind             |
-| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision   |
-| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                  |
-| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request       |
-| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                     |
-| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring) |
+You have met `createPolicy` and `can`. This is the rest of what the entry point
+gives you:
+
+| Export                                  | What it is                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `createPolicy(matrix, options?)`        | the access object, from a document you trust                              |
+| `parseMatrix(json, options?)`           | the same, from a foreign document; fails closed on a key it does not know |
+| `policy<Subject>()`                     | the typed builder, one `.for()` block per object kind                     |
+| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision           |
+| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                          |
+| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request               |
+| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                             |
+| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)         |
 
 The React provider and hooks are a separate package,
 [`@evanion/react-acl`](https://github.com/Evanion/libraries/tree/main/libs/react-acl#readme).
@@ -78,13 +118,14 @@ This entry imports no framework.
 
 ## Where to go next
 
-Start with a setup tier. They are staged by one decision — whether a condition
-reads the row — rather than by how much of the API they use.
+That table is the map. Start with a setup tier: one decision stages the three,
+whether a condition reads the object, and how much of the API a tier uses does not
+come into it.
 
 - [Simple](/acl/simple) — a handful of permissions, conditions on the subject
   only, `can` and done
 - [Intermediate](/acl/intermediate) — object-dependent conditions, the typed
-  builder, field permissions and the write path
+  builder, field permissions and the guarded save
 - [Advanced](/acl/advanced) — `dependsOn` cascades, the schema, `capabilities`,
   versioning and the revalidate contract
 - [Many services](/acl/federation) — one matrix per service, namespaced object
