@@ -64,8 +64,8 @@ Where `page.json` is whatever your CMS writes:
 
 `defineWidgets` returns the object it is handed. Its whole job is the generic
 parameter: annotating the same object as `WidgetRegistry` widens its keys to
-`string`, and the key union is what an editor completes on and what
-`validateItems` narrows a `required` map against.
+`string`, and the key union is what an editor completes on. `validateItems`
+reads its `required` map by plain string, so the union does not reach it.
 
 <!-- #region registry -->
 
