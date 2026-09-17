@@ -19,5 +19,10 @@
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
     "src/**/*.test-d.ts"
+  ],
+  "references": [
+    {
+      "path": "../../tools/doc-examples"
+    }
   ]
 }
