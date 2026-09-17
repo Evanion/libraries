@@ -18,25 +18,28 @@
   ]}
 />
 
-**The concept.** Two booksellers work your shop. Mika and Otto, both with the
-`bookseller` role, both looking at the same listing for Brass: Birmingham. Mika
-wrote it. Otto did not.
+**The concept.** Mika is halfway through a listing for Brass: Birmingham. She has
+the box in front of her, she has written two lines about the canals, and she has
+not decided on a price. It is a draft.
 
-You want Mika to be able to edit it and Otto not to. Their roles are identical,
-so no rule about roles can separate them. The only thing that tells them apart is
-the listing itself, and that is what this page teaches you to read.
+Otto is a bookseller too. Same role, same permissions, same everything — and he
+should not be able to touch Mika's draft while she is still writing it. Once she
+publishes it, it belongs to the shop and any bookseller can pick it up.
 
-**What you will have.** A policy that knows who owns what, and a write path that
-carries the answer from the policy to the database without you filtering
-anything in between.
+Nothing about their roles tells you that. The draft does: it knows who started
+it. Reading that is what this page is for.
 
-**Why you would want it.** Without it you write the check by hand. It goes in the
+**What you will have.** A policy that knows whose draft is whose, and a write
+path that carries the answer from the policy to the database without you
+filtering anything in between.
+
+**Why you would want it.** The alternative is the check by hand. It goes in the
 handler, as an `if`, next to the code that does the work. It reads fine the day
 you write it. Six months later there are forty of them, three are subtly
-different, one is missing, and the service that was supposed to repeat the check
-never did.
+different, one is missing, and the background job that republishes stale listings
+never had one at all.
 
-**How the library gets you there.** One condition reads the listing. That single
+**How the library gets you there.** One condition reads the draft. That single
 change costs you four things, and they arrive in this order: a type that catches
 a misspelled path, a fourth answer for when you only loaded half the row, a
 decision that tells you why it said no, and a field map you hand to the ORM.
@@ -54,10 +57,10 @@ Work through them in that order and you have the tier.
 
 ## Naming the row, so acl can check the paths
 
-Start at the top of that table. To ask whether Mika wrote the listing, you name a
-path into it: `object.ownerId`. That is a string, and strings take typos.
+Start at the top of that table. To ask whether Mika started this draft, you name
+a path into it: `object.startedBy`. That is a string, and strings take typos.
 
-Write `object.ownerld` with an L and nothing complains. The matrix builds. The
+Write `object.startedBv` and nothing complains. The matrix builds. The
 tests pass. The permission just never says yes, to anybody, and you find out from
 a bug report.
 
@@ -85,9 +88,10 @@ would. Nothing about the typed path changes what ships.
 
 All of that assumes you have the listing in hand. Often you do not.
 
-Your shelf page loads forty listings and takes two columns from each: an id and
-an owner. Now ask whether Mika may publish one. The rule wants `object.status`,
-the row you loaded has no status, and the honest answer is neither yes nor no.
+The drafts page loads forty listings and takes two columns from each: an id and
+whoever started it. Now ask whether Mika may publish one. The rule wants
+`object.status`, the row you loaded has no status, and the honest answer is
+neither yes nor no.
 
 So a decision here has four outcomes, not two:
 
@@ -132,9 +136,9 @@ handler that checks `reason !== 'denied'` grants everything the engine refused.
 
 Last line of the table, and the one that changes your UI.
 
-Mika may edit her listing. Fine. May she change its price after it has sold? May
-she edit the title, or only the description? "May she edit this" was never the
-question a form needed answering. "Which fields do I render as inputs" was.
+Mika may edit her own draft. Fine. Once it is published, may she still change
+the price? The title? "May she edit this" was never the question the form needed
+answering. "Which of these eight inputs do I render" was.
 
 ```ts file=libs/acl/README.md region=field-permissions
 
@@ -143,7 +147,7 @@ question a form needed answering. "Which fields do I render as inputs" was.
 `*` means every field, and `!price` takes one back out.
 
 The map covers every key on the listing and every name your rules mention. On a
-write it also covers every key of what the caller sent you, including one the
+write it also covers every key of whatever the caller sent you, including one the
 listing has never had. That last case is the one people forget, and it is why the
 map is computed for each call rather than read off the matrix.
 
@@ -163,8 +167,8 @@ avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
 every field that is not `denied`, which quietly keeps the `unevaluable` ones too,
 and those are fields nobody said you could write.
 
-That is the tier. Mika may edit her listing, Otto may not, and the shop never had
-to write an `if`.
+That is the tier. Mika finishes her draft, Otto leaves it alone until she
+publishes it, and nobody wrote an `if`.
 
 ## Where to go next
 
