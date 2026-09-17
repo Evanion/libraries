@@ -14,7 +14,7 @@ interface Props {
 }
 
 const { title } = Astro.props;
-const { api, cart } = Astro.locals;
+const { api, cart, subject } = Astro.locals;
 
 // The navigation region's own context. Not the catalogue: the nav needs the
 // current path and the cart count, and handing it the whole page context would
@@ -75,6 +75,16 @@ const navCtx = {
 
     <footer class="page site-footer">
       <CorrelationTrace api={api} />
+      {/* Beside the correlation trace because it is the same kind of fact: what
+          this page view sent to the shop-api, and who it sent it as. */}
+      <div class="trace">
+        <span>
+          acting as <span class="trace__id">{subject.id}</span>
+        </span>
+        <span>
+          <a class="inline-link" href="/session">change who you are</a>
+        </span>
+      </div>
     </footer>
   </body>
 </html>

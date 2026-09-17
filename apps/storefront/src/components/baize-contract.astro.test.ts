@@ -101,6 +101,7 @@ const wingspan: Game = {
   complexity: 2.4,
   price: 59900,
   availability: 'in-stock',
+  shop: 'gothenburg',
   expansions: [
     {
       urn: 'urn:expansion:wingspan:europe',

@@ -10,8 +10,9 @@ import { ExpansionURN } from '../../domain/expansion.urn.js';
 import { GameURN } from '../../domain/game.urn.js';
 import Page from '../../layouts/Page.astro';
 import { formatPrice, gameLadderClass } from '../../lib/catalogue.js';
+import { mayPlaceOrder } from '../../lib/policy.js';
 
-const { api } = Astro.locals;
+const { access, api, subject } = Astro.locals;
 const urn = Astro.params.urn ?? '';
 
 // Screened before the API is called: the route takes a urn straight off the URL,
@@ -29,7 +30,14 @@ if (!game.ok && game.status === 404) {
 }
 
 const copies = stock.ok ? stock.value.quantity : undefined;
+
+// Stock says whether there is a copy to sell; `order.create` says whether this
+// visitor may order one. The detail page keeps them apart in what it tells the
+// reader, because "none on the shelf" and "sign in to order" are two different
+// things to do next.
 const sellable = copies !== undefined && copies > 0;
+const mayOrder = mayPlaceOrder(access, subject);
+const orderable = sellable && mayOrder;
 ---
 
 {
@@ -83,7 +91,10 @@ const sellable = copies !== undefined && copies > 0;
                         name="back"
                         value={Astro.url.pathname}
                       />
-                      <button class="baize-button baize-button--variant-quiet">
+                      <button
+                        class="baize-button baize-button--variant-quiet"
+                        disabled={!mayOrder}
+                      >
                         Add for {formatPrice(expansion.price)}
                       </button>
                     </form>
@@ -132,16 +143,24 @@ const sellable = copies !== undefined && copies > 0;
                 min="1"
                 max={copies ?? 1}
                 value="1"
-                disabled={!sellable}
+                disabled={!orderable}
               />
               <button
                 class="baize-button baize-button--variant-primary detail__add"
-                disabled={!sellable}
+                disabled={!orderable}
               >
-                Add to cart
+                {mayOrder ? 'Add to cart' : 'Sign in to order'}
               </button>
             </form>
-            {!sellable && (
+            {!mayOrder && (
+              <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
+                <a class="inline-link" href="/session">
+                  Sign in as a customer
+                </a>{' '}
+                to put a copy in the cart.
+              </p>
+            )}
+            {mayOrder && !sellable && (
               <p class="baize-text baize-text--tone-lichen baize-text--size-sm">
                 Not orderable right now. Ask at the counter and we will say when
                 the next printing lands.

@@ -44,6 +44,7 @@ const games: Game[] = [
     complexity: 3.9,
     price: 74900,
     availability: 'reprint-pending',
+    shop: 'gothenburg',
     expansions: [],
   },
   {
@@ -55,6 +56,7 @@ const games: Game[] = [
     complexity: 4,
     price: 84900,
     availability: 'in-stock',
+    shop: 'stockholm',
     expansions: [
       {
         urn: 'urn:expansion:spirit-island:jagged-earth',

@@ -1,11 +1,14 @@
 /**
- * Typed client for `apps/shop-api`, and the place the correlation id crosses
- * from this process into that one.
+ * Typed client for `apps/shop-api`, and the place the correlation id and the
+ * subject cross from this process into that one.
  *
  * The response shapes are declared here rather than imported from the API:
  * the HTTP contract is the boundary, and a shared types package between two
  * demo apps would hide a breaking change behind a compile that still passes.
  */
+import type { Matrix } from '@evanion/acl';
+
+import { ANONYMOUS_SUBJECT, type StorefrontSubject } from './subject.js';
 
 /** Whether a title can be bought, and why not when it cannot. */
 export type Availability =
@@ -31,6 +34,8 @@ export interface Game {
   /** Minor units, SEK öre. */
   price: number;
   availability: Availability;
+  /** Slug of the shop that lists this title, e.g. `stockholm`. */
+  shop: string;
   expansions: Expansion[];
 }
 
@@ -51,6 +56,14 @@ export interface Order {
   inventoryCorrelationIds: (string | undefined)[];
 }
 
+/** The access matrix and its revision, as `GET /policy` returns them. */
+export interface PolicyDocument {
+  /** What a holder compares against the revision it already adopted, with `!==`. */
+  version: string | number | undefined;
+  /** The contract itself, which a holder adopts with `parseMatrix`. */
+  matrix: Matrix;
+}
+
 /**
  * Either a response or a reason there is none.
  *
@@ -68,6 +81,18 @@ export type Result<T> =
  * not a consumer of its Nest package.
  */
 export const CORRELATION_HEADER = 'X-Correlation-Id';
+
+/**
+ * The header the subject travels in, as JSON, matching the shop-api's
+ * `SHOP_SUBJECT_HEADER`. Spelled out for the reason {@link CORRELATION_HEADER}
+ * is: the storefront is an HTTP client of that service and imports none of its
+ * modules.
+ *
+ * The service resolves its own subject from this and decides again on its own
+ * copy of the matrix. Nothing this app decides reaches it, and nothing it
+ * answers is taken here as a decision.
+ */
+export const SHOP_SUBJECT_HEADER = 'X-Shop-Subject';
 
 /**
  * The same shape `DEFAULT_CORRELATION_ID_VALIDATOR` accepts on the API side.
@@ -108,6 +133,7 @@ export class ShopApi {
   constructor(
     readonly correlationId: string,
     private readonly baseUrl: string = baseUrlFromEnv(),
+    readonly subject: StorefrontSubject = ANONYMOUS_SUBJECT,
   ) {}
 
   /**
@@ -116,14 +142,33 @@ export class ShopApi {
    *
    * Reusing an inbound id is what lets `curl -H 'X-Correlation-Id: …'` pin the
    * id for a whole page view and then find it again in the API's telemetry.
+   *
+   * @param subject Who this page view acts as. The middleware reads it from the
+   * request's own cookies; it is not taken off an inbound header, so a caller
+   * cannot state an actor by adding one to a page request.
    */
-  static forRequest(request: Request, baseUrl?: string): ShopApi {
+  static forRequest(
+    request: Request,
+    subject: StorefrontSubject = ANONYMOUS_SUBJECT,
+    baseUrl?: string,
+  ): ShopApi {
     const inbound = request.headers.get(CORRELATION_HEADER);
     const id =
       inbound && VALID_CORRELATION_ID.test(inbound)
         ? inbound
         : crypto.randomUUID();
-    return new ShopApi(id, baseUrl);
+    return new ShopApi(id, baseUrl, subject);
+  }
+
+  /**
+   * The published access matrix.
+   *
+   * Called by the policy cache and not by a page: a page render reads the
+   * adopted `Access` off `Astro.locals`, and a decision that waited on this
+   * would be a network call inside an evaluation.
+   */
+  policy(): Promise<Result<PolicyDocument>> {
+    return this.request<PolicyDocument>('GET', '/policy');
   }
 
   /** The whole catalogue. */
@@ -176,6 +221,11 @@ export class ShopApi {
         method,
         headers: {
           [CORRELATION_HEADER]: this.correlationId,
+          // Every outbound call states the actor, including the reads: the
+          // service scopes what it returns to the subject it resolves, and a
+          // read sent without one would be answered for a different actor than
+          // the write beside it.
+          [SHOP_SUBJECT_HEADER]: JSON.stringify(this.subject),
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),

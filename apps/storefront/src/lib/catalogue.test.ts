@@ -26,6 +26,7 @@ const game = (overrides: Partial<Game> = {}): Game => ({
   complexity: 1.8,
   price: 34900,
   availability: 'in-stock',
+  shop: 'gothenburg',
   expansions: [],
   ...overrides,
 });

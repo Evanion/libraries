@@ -7,6 +7,7 @@ import BoxArt from '../../components/BoxArt.astro';
 import MechanismTags from '../../components/MechanismTags.astro';
 import StatLine from '../../components/StatLine.astro';
 import { formatPrice, gameLadderClass } from '../../lib/catalogue.js';
+import { mayPlaceOrder } from '../../lib/policy.js';
 import { regionCtx } from '../ctx.js';
 
 interface Props {
@@ -20,6 +21,11 @@ interface Props {
 const { urn, lede, ctx } = Astro.props;
 const { games, path } = regionCtx(ctx);
 const game = games.find((candidate) => candidate.urn === urn);
+
+// The feature's buy button is the same affordance a card carries, so it asks the
+// same permission. The block reads it off `Astro.locals` and not off `ctx`: the
+// subject is request state and `ctx` is what an editor's page data supplies.
+const mayOrder = mayPlaceOrder(Astro.locals.access, Astro.locals.subject);
 ---
 
 {
@@ -58,7 +64,8 @@ const game = games.find((candidate) => candidate.urn === urn);
           </span>
           <AddToCart
             back={path}
-            label="Add to cart"
+            disabled={!mayOrder}
+            label={mayOrder ? 'Add to cart' : 'Sign in to order'}
             urn={game.urn}
             variant="primary"
           />

@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@astrojs/node": "^11.1.5",
+    "@evanion/acl": "*",
     "@evanion/astro-widget": "*",
     "@evanion/baize-ui": "*",
     "@evanion/urn": "*",

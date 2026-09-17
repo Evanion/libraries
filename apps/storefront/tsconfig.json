@@ -2,13 +2,16 @@
   "extends": "astro/tsconfigs/strict",
   "references": [
     {
-      "path": "../../libs/astro-widget"
+      "path": "../../libs/urn"
     },
     {
       "path": "../../internal/baize-ui"
     },
     {
-      "path": "../../libs/urn"
+      "path": "../../libs/astro-widget"
+    },
+    {
+      "path": "../../libs/acl"
     }
   ]
 }
