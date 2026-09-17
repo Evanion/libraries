@@ -7,6 +7,8 @@ The item model — `AnyWidgetItem`, `WidgetRegistry`, `WidgetProblem`,
 `ERROR_MESSAGES`, `VALIDATION_MESSAGES` — comes from `@evanion/widget` and is
 re-exported here. The specifier does not change and neither does the install:
 this package pins the core exactly and depends on it.
+[The widget core's API reference](/widget/api) is where each of those is
+written down, and the entries below link to it rather than restating it.
 
 ## `createWidgets(config)`
 
@@ -71,68 +73,21 @@ omits `ctx`, so a typed item cannot express one at all.
 
 ## `validateItems(items, known, required?)`
 
-```ts
-function validateItems(
-  items: unknown,
-  known: WidgetRegistry | readonly string[],
-  required?: Record<string, string[]>,
-): WidgetProblem[];
-```
+Re-exported unchanged from `@evanion/widget`.
+[The core's entry](/widget/api#validateitems) carries the signature and the
+arguments, and [What it reports](/widget/problems) carries every message it
+returns and the payload that produces each one.
 
-Checks data that never met the type checker. Returns problems rather than
-throwing, accumulates rather than short-circuiting, and recurses into
-`children`.
+Two entry points reach it here. The standalone export takes a plain list of type
+names, so a webhook handler or a CI script validates a payload without importing
+React components it will never render. The bound form off `createWidgets` closes
+over the factory's component map, so it takes `items` and `required` and no
+`known`.
 
-Two entry points. The standalone export takes a plain list of type names, so a
-webhook handler or a CI script can validate a payload without importing React
-components it will never render. The bound form off `createWidgets` uses the
-factory's component map.
-
-```ts
-validateItems([{ id: 'a', type: 'nope', props: {} }], ['listing']);
-// [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
-```
-
-A problem is `{ index, id, type, message }`. `index` is the position within the
-item's own sibling list, so a problem at the top level and one inside a
-`children` array can both report `index: 0`. `id` and `type` are `'-'` when the
-item has none usable.
-
-The messages, all exported as `VALIDATION_MESSAGES`:
-
-| Constant           | Message                     | Raised when                                 |
-| ------------------ | --------------------------- | ------------------------------------------- |
-| `NOT_A_LIST`       | `items is not a list`       | the root is not an array; `index` is `-1`   |
-| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is null, an array, or a primitive  |
-| `INVALID_ID`       | `item id is not a string`   | `id` is missing or not a string             |
-| `INVALID_TYPE`     | `item type is not a string` | `type` is missing or not a string           |
-| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not an own key of the known set   |
-| `INVALID_PROPS`    | `props is not an object`    | `props` is missing or not a plain object    |
-| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and not an array      |
-| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list share an `id` |
-| `MISSING_FIELD`    | `missing field <name>`      | a prop `required` names is absent or blank  |
-
-Duplicate ids are only reported within one sibling list. React scopes keys per
-list, so the same id at different depths is fine.
-
-`required` maps a widget type to the props that must be present and non-blank on
-`item.props`, where blank means `undefined`, `null` or whitespace only — which is
-what a CMS text field that was opened and left empty arrives as.
-
-```ts
-validateItems([{ id: 'a', type: 'listing', props: {} }], ['listing'], {
-  listing: ['title'],
-});
-// [{ index: 0, id: 'a', type: 'listing', message: 'missing field title' }]
-```
-
-Beyond that, `props` is not checked against the component. That is
-`WidgetItem<C>`'s job and it does it at compile time; `validateItems` covers
-structure, which is all it can see given a list of type names.
-
-Lookups use `Object.prototype.hasOwnProperty` rather than `in`. Items are
-untrusted input, and `in` walks the prototype chain — a CMS-supplied type of
-`constructor`, `toString` or `__proto__` would otherwise pass as registered.
+`props` is not checked against the component. That is `WidgetItem<C>`'s job and
+it does it at compile time, which is the half of the check this package adds;
+`validateItems` covers structure, which is all it can see given a list of type
+names.
 
 ## `DefaultWrapper`
 
@@ -165,15 +120,9 @@ boundary lives in the renderer; error boundaries are not in this package at all.
 
 ## `ERROR_MESSAGES`
 
-What the renderer passes to its warn-once logger.
-
-| Key                  | Shape                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| `UNKNOWN_WIDGET`     | `(type, id) => 'Unknown widget type "…" for widget ID "…". Skipping render.'`         |
-| `MALFORMED_ITEMS`    | a string: the `items` prop was not an array                                           |
-| `MALFORMED_ITEM`     | `(id, type) => 'Malformed widget item (id="…", type="…"). Skipping render.'`          |
-| `MALFORMED_CHILDREN` | a function of `id`: the item's children were not an array, so it renders without them |
-| `UNKNOWN`            | the literal `'unknown'`, used where an id or type is unusable                         |
+Re-exported from `@evanion/widget`, and what this renderer passes to its
+warn-once logger when it skips an item.
+[The core's entry](/widget/api#error_messages) lists every key and its shape.
 
 Each message names the offending item, which is what makes the message text a
 usable key: every bad item is reported once per process, and a second bad item
@@ -203,8 +152,8 @@ instead of a dropped subtree.
 
 ### `WidgetMeta`
 
-`Record<string, unknown>`. The `meta` vocabulary of a set whose chrome declares
-none.
+`Record<string, unknown>`, from `@evanion/widget`. The `meta` vocabulary of a
+set whose chrome declares none, and the default for `M` throughout this page.
 
 ### `WidgetsChrome<M>`
 
@@ -252,22 +201,12 @@ does, or React warns about an unknown attribute.
 
 ### `AnyWidgetItem<Type, Props>`
 
-```ts
-interface AnyWidgetItem<Type extends string = string, Props = object> {
-  id: string;
-  type: Type;
-  props: Props;
-  meta?: Record<string, unknown>;
-  children?: AnyWidgetItem[];
-}
-```
-
-A loose item shape for callers building item data before a component map exists
-— a CMS payload, a fixture, a network response. It checks nothing against a
-component. Prefer `WidgetItem`.
-
-From `@evanion/widget`, and the same type an `@evanion/astro-widget` consumer
-writes, which is what makes one payload render through both.
+The loose item shape, from `@evanion/widget`, for data built before a component
+map exists — a CMS payload, a fixture, a network response. It checks nothing
+against a component, so prefer `WidgetItem`, which widens to it.
+[Getting started](/widget/getting-started#write-the-widget-item-array) is where
+the four fields are taught and [the core's entry](/widget/api#anywidgetitem)
+carries the interface.
 
 ### `RenderableWidgetItem`
 
@@ -285,8 +224,11 @@ the concrete component that was passed.
 
 ### Others
 
-`WidgetRegistry<T>`, `WidgetsConfig<C, M>`, `WidgetsProps<C, M>`,
-`WidgetSuspenseMode`, `WidgetProblem`, `KnownWidgetTypes`, `defineWidgets`.
+`WidgetsConfig<C, M>`, `WidgetsProps<C, M>` and `WidgetSuspenseMode` are this
+package's own. [`WidgetRegistry`](/widget/api#widgetregistry),
+[`WidgetProblem`](/widget/api#widgetproblem),
+[`KnownWidgetTypes`](/widget/api#knownwidgettypes) and
+[`defineWidgets`](/widget/api#definewidgets) come from `@evanion/widget`.
 
 ## Migrating from 0.2.x
 

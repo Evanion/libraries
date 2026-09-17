@@ -5,6 +5,8 @@ The item model — `AnyWidgetItem`, `WidgetRegistry`, `WidgetProblem`,
 `ERROR_MESSAGES`, `VALIDATION_MESSAGES` — comes from `@evanion/widget` and is
 re-exported here. The specifier does not change and neither does the install:
 this package pins the core exactly and depends on it.
+[The widget core's API reference](/widget/api) is where each of those is written
+down. What follows `Widgets.astro` is what those names mean on this side.
 
 ## `Widgets.astro`
 
@@ -46,78 +48,50 @@ not ask for.
 
 ## `defineWidgets(registry)`
 
-```ts
-function defineWidgets<R extends WidgetRegistry>(registry: R): R;
-```
+Re-exported unchanged from `@evanion/widget`, which is where
+[its entry](/widget/api#definewidgets) is. It returns the registry it was handed
+and keeps the keys literal.
 
-Returns the registry unchanged, typed as the literal object that was passed.
-Annotating the same object as `WidgetRegistry` instead widens its keys to
-`string`, and the key union is what an editor completes on.
+Only the keys are read, so a registry of `.astro` modules and a plain list of
+names do the same job here.
 
 ## `validateItems(items, known, required?)`
 
-```ts
-function validateItems(
-  items: unknown,
-  known: WidgetRegistry | readonly string[],
-  required?: Record<string, string[]>,
-): WidgetProblem[];
-```
+Re-exported unchanged from `@evanion/widget`, which carries
+[the signature](/widget/api#validateitems) and
+[every message it returns](/widget/problems).
 
-Checks an item list against a registry, recursing into `children`. Returns
-problems rather than throwing, and accumulates rather than short-circuiting.
-
-`required` maps a widget type to prop names that must be present and non-blank
-on `item.props`, where blank means `undefined`, `null` or whitespace only.
-
-See [Validation](/astro-widget/validation) for the messages and for where to run
-it.
+[Validation](/astro-widget/validation) is where to run it from in an Astro
+project, and why it matters more here than it does in React: an `.astro`
+component exposes no prop types to infer from, so this call is the only check a
+widget's props get.
 
 ## Types
 
 ### `AnyWidgetItem`
 
-```ts
-interface AnyWidgetItem<Type extends string = string, Props = object> {
-  id: string;
-  type: Type;
-  props: Props;
-  meta?: Record<string, unknown>;
-  children?: AnyWidgetItem[];
-}
-```
+The item shape, from `@evanion/widget`, which carries
+[the interface](/widget/api#anywidgetitem) and teaches the four fields on
+[Getting started](/widget/getting-started#write-the-widget-item-array).
 
-The same type an `@evanion/react-widget` consumer writes, which is what makes
-one payload render through both. React's `WidgetItem<C>` is the checked
-counterpart, inferred from a component map; there is no Astro equivalent,
-because an `.astro` component exposes no prop types to infer from.
-`validateItems` is the check on this side.
+React's `WidgetItem<C>` is the checked counterpart, inferred from a component
+map. There is no Astro equivalent, because an `.astro` component exposes no prop
+types to infer from, so `validateItems` is the check on this side.
 
 ### `WidgetRegistry`
 
-```ts
-type WidgetRegistry<T = unknown> = Record<string, T>;
-```
-
+From `@evanion/widget`, and [its entry](/widget/api#widgetregistry) has the type.
 Here the values stay `unknown`. An `.astro` module's default export is an
 `AstroComponentFactory`, which carries no prop types — the props of a `.astro`
 file live in its frontmatter `Props` interface and are not reachable from the
 factory's type. So a narrower value type would buy nothing, which is why
 `validateItems` exists.
 
-The React adapter instantiates the same type at its own component type, which is
-what drives its compile-time prop check.
-
 ### `WidgetProblem`
 
-```ts
-interface WidgetProblem {
-  index: number; // within the item's own sibling list; -1 when the root is not a list
-  id: string; // or '-' when the item has none usable
-  type: string; // or '-' when the item has none usable
-  message: string;
-}
-```
+One line of the report `validateItems` returns, from `@evanion/widget`;
+[its entry](/widget/api#widgetproblem) has the fields and
+[What it reports](/widget/problems) walks them.
 
 `id` is a usable handle now that every item has one, which is what tells apart
 two problems reporting the same `index` at different depths.

@@ -48,31 +48,13 @@ from, so there is no compile-time half.
 
 ## What it reports
 
-```ts
-interface WidgetProblem {
-  index: number;
-  id: string;
-  type: string;
-  message: string;
-}
-```
+One `WidgetProblem` per fault: the item's `index` within its own sibling list,
+its `id` and `type`, and the message.
+[What it reports](/widget/problems) in the widget core is the catalogue — every
+message, and the payload that produces each one. The nine below are the same
+nine, run here against this package's own build.
 
-| Message                     | Raised when                                   |
-| --------------------------- | --------------------------------------------- |
-| `items is not a list`       | the root is not an array; `index` is `-1`     |
-| `item is not an object`     | an entry is null, an array, or a primitive    |
-| `item id is not a string`   | `id` is missing or not a string               |
-| `item type is not a string` | `type` is missing or not a string             |
-| `unknown widget type`       | `type` is not an own key of the registry      |
-| `props is not an object`    | `props` is missing or not a plain object      |
-| `children is not a list`    | `children` is present and not an array        |
-| `duplicate sibling id`      | two items in one sibling list share an `id`   |
-| `missing field x`           | a prop named in `required` is absent or blank |
-
-`id` and `type` are `'-'` when the item has none usable. Problems accumulate
-rather than short-circuiting, and nothing throws, so one run reports
-everything. Five of the nine are structural and run whatever the registry
-holds:
+Five of the nine are structural and fire whatever the registry holds:
 
 ```ts file=libs/astro-widget/README.md region=structural-rules
 
@@ -102,10 +84,10 @@ validateItems(sections, registry, {
 });
 ```
 
-The third argument maps a widget type to the prop names that must be present and
-non-blank on `item.props`. Blank means `undefined`, `null`, or a string that is whitespace only
-— a CMS text field that was opened and left empty arrives as the last of those,
-and is exactly the case a plain presence check misses.
+The third argument maps a widget type to the prop names that must carry
+something. [What blank means](/widget/problems#required-props-and-what-blank-means)
+is the core's, and the case it catches is the CMS text field an editor opened
+and left empty:
 
 ```ts file=libs/astro-widget/README.md region=required-fields
 
@@ -117,9 +99,8 @@ prop it does not have.
 
 ## `index` is scoped to its own level
 
-The validator recurses into `children`, and `index` is the position within the
-item's own sibling list. A problem in a top-level section and a problem in one
-of its `children` can both report `index: 0`, meaning different things.
+The validator recurses into `children`, so a problem in a top-level section and
+a problem inside one of its `children` can both report `index: 0`:
 
 ```ts file=libs/astro-widget/README.md region=nested-index
 
