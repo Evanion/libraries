@@ -36,14 +36,14 @@ you write it. Six months later there are forty of them, three are subtly
 different, one is missing, and the moderation job that edits comments in bulk
 never had one at all.
 
-**How the library gets you there.** One condition reads the comment. That single
-change costs you four things, and they arrive in this order: a type that catches
-a misspelled path, a fourth answer for when you only loaded half the row, a
-decision that tells you why it said no, and a field map you hand to the ORM.
+**How the library gets you there.** One condition reads the comment, and that one
+change brings four things with it: a type that catches a misspelled path, a
+fourth answer for when you only loaded half the row, a decision that tells you
+why it said no, and a field map you hand to the ORM.
 
 Work through them in that order and you have the tier.
 
-## What reading the comment costs you
+## Four things you now need
 
 | What changes                   | What you need                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------ |
@@ -54,7 +54,7 @@ Work through them in that order and you have the tier.
 
 ## Naming the comment, so acl can check the paths
 
-Start at the top of that table. To ask whether this comment is yours, you name a
+Start at the top of the table. To ask whether this comment is yours, you name a
 path into it: `object.authorId`. That is a string, and strings take typos.
 
 Write `object.authorld` with an L and nothing complains. The matrix builds. The
