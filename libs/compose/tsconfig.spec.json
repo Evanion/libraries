@@ -23,6 +23,7 @@
   // some other target to have emitted it first; compiling the sources checks
   // the tests against the real types and needs nothing built.
   "include": [
+    "examples/**/*.tsx",
     "src/**/*.js",
     "src/**/*.jsx",
     "src/**/*.ts",
