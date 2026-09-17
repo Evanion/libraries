@@ -3,7 +3,7 @@
 <WorkshopNotice slug="acl" />
 
 `capabilities(subject, now?)` resolves every permission in the document against
-one subject, keyed, in dependency order, in one pass.
+one subject, keyed, in document order, in one pass.
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
 
@@ -26,10 +26,11 @@ the answer to every question that can be answered without a row.
 
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
-    On a matrix with object-dependent rules, most entries come back
-    `unevaluable`. That is not a misconfiguration. Reading the map as a list of
-    `allowed === true` is correct; reading `allowed === false` as "refused" is
-    not.
+    All three rules above read `subject.roles`, so all three entries decide
+    definitely. Add one rule reading `object.*` and its entry comes back
+    `unevaluable` on every call, however the subject is shaped. That is not a
+    misconfiguration. Reading the map as a list of `allowed === true` is
+    correct; reading `allowed === false` as "refused" is not.
   </Text>
 </Panel>
 
@@ -96,6 +97,6 @@ whole premise, and a projection would be a second thing to keep fresh.
 ## Where to go next
 
 - [Can this user do this?](/acl/asking) — the per-instance question
-- [Why was this refused?](/acl/refusals) — reading `cause` out of a capability
-  map
+- [Why was this refused?](/acl/refusals) — reading `reason` and `missing` out of
+  a capability map
 - [Many services](/acl/federation) — folding one view out of several origins

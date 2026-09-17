@@ -47,11 +47,18 @@ asserting it is the app's test.
 
 ## Building the matrix
 
-Once, at module scope, for the life of the process:
+Once, at module scope, for the life of the process. `Session` and `Order` are
+the app's own types, and `MATRIX_VERSION` is a string the build stamps in — the
+document revision a client compares its copy against:
 
 ```ts
 // access.ts
 import { policy } from '@evanion/acl';
+
+import type { Order, Session } from './types.js';
+
+/** Stamped at build time; `access.version` is what a client compares. */
+const MATRIX_VERSION = process.env.MATRIX_VERSION;
 
 export const access = policy<Session['user']>({ version: MATRIX_VERSION })
   .for<'order', Order>('order', (p) =>
@@ -93,8 +100,9 @@ export const bindAccess: RequestHandler = (req, res, next) => {
 };
 ```
 
-`authorize` binds the subject and the clock once, so a handler asks
-`can(key, action, object)` without restating either:
+`authorize` binds the subject, and optionally the clock. The middleware above
+passes both, so a handler asks `can(kind, action, object)` without restating
+either — the region below binds the subject alone:
 
 ```ts file=libs/acl/README.md region=server-authorize
 

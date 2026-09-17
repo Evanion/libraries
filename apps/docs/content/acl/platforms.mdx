@@ -70,11 +70,18 @@ request and never reads the client's copy.
 A matrix is validated, deep-cloned and deep-frozen at construction, and every
 decision after that is a local function call over the frozen copy. The cost is
 the construction, not the query, so build it once per process and hold it at
-module scope:
+module scope. `Subject` and `Order` below are the app's own types, and
+`MATRIX_VERSION` is a string the build stamps in — the document revision a
+client compares its copy against:
 
 ```ts
 // access.ts — imported by the server runtime, never by a browser bundle.
 import { policy } from '@evanion/acl';
+
+import type { Order, Subject } from './types.js';
+
+/** Stamped at build time; `access.version` is what a client compares. */
+const MATRIX_VERSION = process.env.MATRIX_VERSION;
 
 export const access = policy<Subject>({ version: MATRIX_VERSION })
   .for<'order', Order>('order', (p) =>
@@ -104,11 +111,13 @@ deputy, and no evaluator can detect it.
 
 ## Deciding twice is the design
 
-Evaluating the same matrix on the server and again in the browser is not
-duplicated work to be optimised away. The browser copy answers "what should this
-page look like" and the server copy answers "may this happen", and the second
-question is asked by callers who never loaded the page. Both calls have the same
-signature and the same return type; nothing in the types separates them.
+A reader who sees the same `can` run on the server and again in the browser will
+want to delete one of them. Keep both. The browser copy answers "what should
+this page look like", and the person it answers for is looking at the page. The
+server copy answers "may this happen", and it answers for a script posting to
+the same URL with curl, which never loaded the page and never ran the browser
+copy. The two calls have the same signature and the same return type, and
+nothing in the types tells them apart.
 
 ## The write path
 

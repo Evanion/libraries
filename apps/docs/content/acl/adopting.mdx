@@ -66,9 +66,12 @@ A foreign consumer has no `Comment` type to check paths against. The producer's
 
 ```
 
-A condition naming an undeclared field is `UnknownFieldError` at construction.
-Without it, `object.authorld` is not an error — it is a path that never reads,
-so the permission decides `unevaluable` forever and a UI refetches forever.
+The document above declares `status` as a string and then tests it with
+`contains`, which tests an array, so `hydratePolicy` refuses it with
+`FieldTypeMismatchError`. A condition naming a field the schema does not declare
+at all is `UnknownFieldError`, raised the same way. Without a schema,
+`object.authorld` is not an error — it is a path that never reads, so the
+permission decides `unevaluable` forever and a UI refetches forever.
 
 Granularity is per kind. A permission on an object kind absent from
 `schema.objects` is unchecked, so a partial schema checks part of the document.

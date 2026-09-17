@@ -105,16 +105,16 @@ unregistered origin takes down the request.
 ## One permission never gates another
 
 No permission in this document declares a dependency on another, inside one
-origin or across two. A subject who may ship an order and may not pay the
-invoice is two questions, and the caller asks both.
+origin or across two. A subject who may read the orders copy of an invoice and
+may not read the billing copy is two questions, and the caller asks both.
 
 When one request genuinely touches two services, the fan-out is the caller's
-own `&&`:
+own `&&` over the `fleet` built above:
 
 ```ts
 const ok =
-  orders.can(subject, 'orders:order', 'ship', order).allowed &&
-  billing.can(subject, 'billing:invoice', 'read', invoice).allowed;
+  fleet.can(subject, 'orders:invoice', 'read').allowed &&
+  fleet.can(subject, 'billing:invoice', 'read').allowed;
 ```
 
 Deny-overrides, written at a call site by somebody who knows whether they meant

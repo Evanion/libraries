@@ -2,7 +2,8 @@
 
 <WorkshopNotice slug="acl" />
 
-`can(subject, key, action, object?, now?)`. It answers with a decision.
+`can(subject, kind, action, object?, now?)`, where `kind` is the object kind —
+`'comment'`, not `'comment.update'`. It answers with a decision.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -15,12 +16,16 @@ disabled control eventually has to say why it is disabled, and the alternatives
 to carrying the reason are a second call that re-derives it or a string the app
 guesses from context.
 
-So `allowed` is the answer and two more fields are the explanation:
+So `allowed` is the answer and three more fields are the explanation:
 
 | Field     | Present on                       | What it is                             |
 | --------- | -------------------------------- | -------------------------------------- |
+| `reason`  | every decision                   | which of the six answers this one is   |
 | `rule`    | `allow`, `denied`, `unevaluable` | the rule that decided, by `id` or `#n` |
 | `missing` | `unevaluable`                    | the paths that did not read            |
+
+The "Present on" column names `reason` values, so `reason` is the field that
+says which row of it applies.
 
 All of them are output only. Nothing in the library reads a `reason` back to
 decide anything, which cuts both ways: **gate on `allowed`**, because gating on
@@ -33,9 +38,9 @@ refused?](/acl/refusals) is what to do with the rest.
 
 ```
 
-Default deny is the floor — no rules, an empty rule list, an unknown action or a
-parent that is off all refuse. Above it, a matched deny outranks a matching
-allow, and a deny the engine could not read refuses as well.
+Default deny is the floor — no rules, an empty rule list and an unknown action
+all refuse. Above it, a matched deny outranks a matching allow, and a deny the
+engine could not read refuses as well.
 
 ## Asking with a projection
 
@@ -54,7 +59,7 @@ does not comes back `unevaluable`, with `missing` naming what to fetch. Both are
 `reason` is where a projection turns into permission the engine never granted.
 [Caveats and pitfalls](/acl/pitfalls) has that one first.
 
-`access.readsObject(key, action)` answers, from the document, whether a
+`access.readsObject(kind, action)` answers, from the document, whether a
 permission needs the row at all. A permission that reads only the subject
 settles with no object, and a caller holding a projection is the caller that
 wants to know which kind it is asking about before it pays for a fetch.
@@ -99,10 +104,11 @@ one rendering is a correctness property, not a speed one.
 
 ```
 
-`authorize(subject, { now })` binds the subject and the clock, and returns
-`can`, `canMany`, `canFields` and `capabilities` with both dropped from each
-signature. On a typed policy `access.object(key)` binds the other axis — one
-object kind, so the key is named once — and the two compose.
+`authorize` binds the subject, and optionally the clock: the call above passes
+the subject alone, and `authorize(subject, { now })` pins the instant with it.
+Either returns `can`, `canMany`, `canFields` and `capabilities` with what was
+bound dropped from each signature. On a typed policy `access.object(kind)` binds
+the other axis — one object kind, so it is named once — and the two compose.
 
 ## Where to go next
 

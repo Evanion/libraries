@@ -23,9 +23,8 @@ separates them. The runtime does.
 
 Every app in the chain evaluates for itself and trusts no earlier layer. A
 gateway or a BFF that already allowed the request does not excuse the service
-behind it from deciding again. There is no transitive trust and no "already
-checked upstream" exemption, because a caller reaches the later service directly
-whenever it wants to.
+behind it from deciding again. There is no transitive trust, because a caller
+reaches the later service directly whenever it wants to.
 
 Evaluating the same matrix twice is cheap. It is a local function call over a
 frozen object, with no round trip to pay for, which is what makes "check again"
@@ -136,8 +135,8 @@ copying them would hide the cost. Pass plain, already-resolved objects.
 A condition may read only fields the subject cannot write. A rule that keys on
 an object field within the subject's reach is self-authorizing: the subject
 edits the field, then passes the check the field controls.
-`contains('object.collaborators', 'subject.id')` is the obvious trap — a user
-adds themselves to a document and is authorized for it.
+`eq('object.sharedWith', 'subject.id')` is the obvious trap — a user puts their
+own id in the share field and is authorized for it.
 
 The engine cannot detect this. It does not know which fields the subject can
 write, and the write that opens the door is a different action from the read it

@@ -11,10 +11,10 @@ so is an unknown object kind, or an object of the wrong kind, at the call site.
 
 ```
 
-The builder flattens to the canonical matrix on the first query, so
-`JSON.stringify(access.matrix)` emits the same document a foreign backend would
-produce. Flattening is deferred to the first query, so validation runs once
-over every block.
+`build()` is the terminal call, and it is where the blocks flatten to the
+canonical matrix, so `JSON.stringify(access.matrix)` emits the same document a
+foreign backend would produce. Deferring the flatten to the end of the chain
+runs validation once over every block rather than once per `.for()`.
 
 ## The block parameter
 
@@ -100,9 +100,11 @@ comments.can(subject, 'update', comment);
 comments.canFields(subject, 'update', comment, 'write', proposed);
 ```
 
-It carries `can`, `canMany` and `canFields`. `authorize(subject)` is the other
-axis — it binds the subject instead — and the two compose, since `authorize`
-returns the same three plus `capabilities`.
+It carries `can`, `canMany`, `canFields` and `readsObject`.
+`authorize(subject)` is the other axis — it binds the subject instead — and the
+two compose. `authorize` carries `can`, `canMany`, `canFields` and
+`capabilities`: `readsObject` takes no subject, so there is nothing for it to
+drop.
 
 ## Construction errors
 

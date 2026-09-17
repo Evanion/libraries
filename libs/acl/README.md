@@ -191,7 +191,7 @@ The array is parallel to the input, so the decision for `rows[i]` is
 is what lets a list render the refusal beside the row rather than dropping it.
 
 `capabilities` asks the other way — no instance, every permission in the
-document, resolved in dependency order against one subject.
+document, resolved in document order against one subject.
 
 <!-- #region capabilities -->
 
@@ -305,6 +305,12 @@ const payload = JSON.parse(
   JSON.stringify(access.matrix),
 ) as typeof access.matrix;
 hydratePolicy(payload).version; // -> 'orders@7'
+
+// The construction site states what it is actually running. The option wins,
+// and the frozen `matrix` carries the winner.
+const vetoed = hydratePolicy(payload, { version: 'orders@7+veto@41' });
+vetoed.version; // -> 'orders@7+veto@41'
+vetoed.matrix.version; // -> 'orders@7+veto@41'
 ```
 
 <!-- #endregion matrix-round-trip -->
@@ -990,8 +996,8 @@ copying them would hide the cost. Pass plain, already-resolved objects.
 A condition may read only fields the subject cannot write. A rule that keys on
 an object field within the subject's reach is self-authorizing: the subject
 edits the field, then passes the check the field controls.
-`contains('object.collaborators', 'subject.id')` is the obvious trap, allowing
-a user to add themselves to a document and be authorized for it. Either keep
+`eq('object.sharedWith', 'subject.id')` is the obvious trap, allowing
+a user to put their own id in the share field and be authorized for it. Either keep
 the field out of every write path the rule guards, or key the rule on something
 the subject cannot reach — ownership set at creation, a role on the subject, a
 field the server alone writes.
