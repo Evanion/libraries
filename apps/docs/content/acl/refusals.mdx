@@ -42,7 +42,7 @@ the decision should ever reach an `if`.
 | `no-rule-matched` | —         | a plain no; this subject, this row           |
 | `denied`          | `rule`    | a plain no, and which rule to name in a log  |
 | `unknown-action`  | —         | the document has moved on; fail closed       |
-| `unevaluable`     | `missing` | a refetch, not a refusal                     |
+| `unevaluable`     | `missing` | a refetch; the engine never decided          |
 | `unusable-clock`  | `rule`    | the `now` this call passed is not an instant |
 | `stale-contract`  | —         | fetch the document again; this copy is old   |
 
@@ -51,18 +51,28 @@ answer, and they are two reasons because the repair differs. `unevaluable` names
 paths in `missing`, and one refetch settles it. `unusable-clock` says the `now`
 the call passed is not an instant, which no refetch changes: fix the argument.
 
-`stale-contract` is the third repairable one, and the thing to fetch is the
-document. A holder that tells `parseMatrix` when it last validated its copy, with
-`fetchedAt`, gets this for every key once the copy is older than the `maxStale`
-the document states. A holder that reports no `fetchedAt` never sees it.
+<Panel heading="`unevaluable` is not `denied`">
+  <Text as="div" size="sm">
+    Both carry `allowed: false`, and only one of them is an answer. A `denied`
+    says the rules refused this subject on this row. An `unevaluable` says the
+    engine could not read a path it needed, so a UI that draws it as forbidden
+    hides a control the customer is entitled to.
+  </Text>
+</Panel>
+
+`stale-contract` is the third repairable one, and the document is the thing to
+fetch. Tell `parseMatrix` when your process last validated its copy, with
+`fetchedAt`, and every key answers `stale-contract` once that copy is older than
+the `maxStale` the document states. A holder reporting no `fetchedAt` never sees
+the reason at all.
 
 ## `rule`, which rule decided
 
-Defaults to `#0`, `#1`, … by position; a rule that states an `id` reports that
-instead. Give the rules a UI has to name an `id`, because a position moves the
-first time somebody reorders the list.
+`rule` defaults to `#0`, `#1`, … by position, and a rule that states an `id`
+reports that `id` instead. Give the rules a UI has to name an `id`, because a
+position moves the first time somebody reorders the list.
 
-Treat it as a log line and a support answer ("denied by `locked-question`").
+Treat `rule` as a log line and a support answer ("denied by `locked-question`").
 Never branch on it. Two rules can grant the same thing, and which one matched is
 not a property the app should depend on.
 
@@ -93,40 +103,50 @@ answers this way for listings and orders too.
 
 Both sides' unreadable paths come back in one `missing`, so one refetch settles
 the permission however many rules read the object. One round trip, never one per
-rule.
+rule:
+
+```mermaid caption="The repair loop for one unevaluable. Both sides' unreadable paths arrive in one missing array, so a single query fetches all of them and the second ask decides. An unevaluable that survives the refetch is a mistyped field name in the document."
+flowchart LR
+  C["can(subject, key, action, projection)"]:::accent --> D{"reason is<br>unevaluable?"}
+  D -->|"no"| S["the decision stands"]
+  D -->|"yes"| M["missing<br>names every unreadable path"]
+  M --> Q["one query<br>for every named path"]
+  Q --> C
+```
 
 ### What to do with an unevaluable
 
 - On a server, enforcing: treat it as a refusal. Fetch the named paths and
   re-ask, or return a 403. It is never a grant.
 - On a client, rendering: draw the control as _pending_. Fetch `missing`, ask
-  once more. A UI that draws it as forbidden hides something the user can have;
-  one that draws it as permitted is broken.
+  once more. A UI that draws it as forbidden hides something the customer can
+  have; one that draws it as permitted is broken.
 - While authoring: an `unevaluable` that no refetch repairs is a bug in the
   document, almost always a mistyped field name. A `schema` turns that class
   into an `UnknownFieldError` at construction.
-- Deciding before the row is loaded: a caller in front of the fetch gets
-  `unevaluable` from every object-dependent permission, every time.
-  `access.readsObject(key, action)` tells that apart from a call that happened
-  to lack data. See
+- Deciding before the row is loaded: ask in front of the fetch and every
+  object-dependent permission answers `unevaluable`, every time.
+  `access.readsObject(key, action)` tells that case apart from a call that
+  happened to lack data. See
   [Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
 
-Absence is unevaluable for every operator, negative ones included. "It is not
-equal to `published`" is not a fact about a field nobody read, so `ne`, `not-in`
-and `contains` over an absent path are as unevaluable as `eq`.
+Every operator treats an absent path as unevaluable, the negative operators
+included. "It is not equal to `published`" states no fact about a field nobody
+read, so `ne`, `not-in` and `contains` over an absent path come back as
+unevaluable as `eq`.
 
 ### Why only the object
 
 An absent `object.*` path is unevaluable; an absent `subject.*` path is a plain
-miss. The object is a projection the caller chose, so a field it lacks says
-nothing about the row. The subject is resolved whole before the call and is
-never a projection, so a subject carrying no `roles` genuinely has none.
+miss. Your query chose the object projection, so a field it lacks says nothing
+about the row. The app resolves the subject whole before the call and never
+projects it, so a subject carrying no `roles` genuinely has none.
 
 ## Explaining one field of an acl decision
 
 A read-only input has a `FieldReason` on it, from a vocabulary of its own.
 `not-listed` means the rules exclude the name. `targets-failed` and
-`transition-failed` point at the value the caller proposed, and the field itself
+`transition-failed` point at the value the write proposed, and the field itself
 is writable. `missing-field` is the field-level `unevaluable` and wants the same
 refetch. [Field
 permissions](/acl/fields) has every `FieldReason` in one table, including

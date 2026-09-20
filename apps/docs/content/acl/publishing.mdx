@@ -19,9 +19,9 @@
 />
 
 **The concept.** Baize's orders service decides who may refund an order. The
-storefront draws the refund button and needs the same answer, and orders would
-rather hand over the four permissions that concern the storefront than the
-forty it runs on.
+storefront draws the refund button and needs the same answer, and orders hands
+over the four permissions that concern the storefront out of the forty it runs
+on.
 
 **What you will have.** A JSON document holding the permissions you marked,
 whole, which a consumer adopts and evaluates against its own subject, and a
@@ -42,10 +42,10 @@ or leave it unmarked; the reduced form keeps the marked ones and drops the rest.
 
 ## Why an acl contract exists
 
-A BFF in front of an orders service that cannot read orders' rules writes its
-own. That copy is orders' permission logic maintained by a team that does not own
-it, and it diverges the first time orders changes a rule nobody thinks to
-propagate.
+A backend for frontend (BFF) in front of an orders service that cannot read
+orders' rules writes its own. That copy is orders' permission logic maintained
+by a team that does not own it, and it diverges the first time orders changes a
+rule nobody thinks to propagate.
 
 Orders keeps refusing correctly, so nothing is breached and no alert fires. The
 refund button is hidden against a server that would have allowed the call, and it
@@ -53,11 +53,20 @@ stays hidden, in a UI bug on a different team's backlog.
 
 ## Marking and serializing an acl policy
 
-An unmarked permission is internal. An older document, a producer that emits no
-such field, and an author who forgot all publish nothing.
+An unmarked permission is internal. A document written before the field existed
+publishes nothing, and so does a permission whose author forgot the mark.
 
 ```ts file=libs/acl/README.md region=contract
 
+```
+
+```mermaid caption="What a reduced serialization keeps. A permission marked visibility public goes out with every rule it carries, deny rules included; an unmarked permission stays internal, and an object kind left with no public permission loses its schema entry too. The published permissions arrive unmarked, so a consumer cannot publish them on again."
+flowchart LR
+  M["the matrix orders runs<br>forty permissions"] --> S["serialize(access, 'reduced')"]:::accent
+  S -->|"visibility public"| K["the contract<br>four permissions, whole"]
+  S -->|"unmarked"| I["stays internal"]
+  K --> C["the storefront<br>parseMatrix"]
+  C --> R["orders decides again<br>when the refund call arrives"]
 ```
 
 The consumer holds one contract per origin and evaluates each against its own
@@ -77,15 +86,16 @@ The owner accepts that disclosure, and the owner is the one who decides it. The
 deny rule in the example above shows `subject.tier` and the word `probation` to
 every consumer.
 
-The contract's decisions equal orders' own, key for key, which is what makes it
-worth holding. A contract that answered more conservatively would be a second
-copy again, and a button hidden by caution looks exactly like a button hidden by
-a rule.
+The contract's decisions equal orders' own, key for key, which is what makes the
+contract worth holding. If a contract answered more conservatively, it would be
+a second copy again, and a button hidden by caution looks exactly like a button
+hidden by a rule.
 
 <Panel heading="A contract is terminal">
   <Text as="div" size="sm">
-    Its permissions arrive unmarked, so a consumer's own reduced serialization
-    is empty. Re-publishing another team's rules is the failure this removes.
+    A contract's permissions arrive unmarked, so a consumer's own reduced
+    serialization comes out empty. That closes the case where one team publishes
+    another team's rules on again.
   </Text>
 </Panel>
 
@@ -109,13 +119,13 @@ over-shows and never over-grants.
 ## A key another team may veto has to be published
 
 `serialize(access, 'reduced', { vetoable })` refuses a listed key the reduction
-would drop. Compliance checks its own contribution by running
+would otherwise drop. A compliance team checks its own contribution against the
+published contract by running
 [`applyDenyOverlay`](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies),
-which merges another
-team's deny rules into a document before it is constructed, against the
-published contract. An internal vetoable key is absent from that contract,
-taking its object kind's schema entry along, so that check would refuse every
-contribution it was written to accept.
+which merges another team's deny rules into a document before the document is
+constructed. An internal vetoable key is absent from that contract, and it takes
+its object kind's schema entry along, so the check refuses every contribution it
+was written to accept.
 
 ## Where to go next
 
