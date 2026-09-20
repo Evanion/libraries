@@ -29,11 +29,21 @@ conditions read, a version string a reader can compare, and a `parseMatrix` that
 takes somebody else's document without throwing on a permission you have never
 heard of.
 
-**Why you would want it.** Without the schema, Priya, who maintains Baize's
-`orders` service, publishes a rule that tests `object.status` with `contains`,
-the operator for an array, against a field holding a string. Nothing refuses the
-document. The condition never holds, the storefront draws that control for
-nobody, and the first report of it is a shopper's. Without the version, a
+```mermaid caption="The document's life across two processes. The orders service builds a matrix and declares in its schema the field shapes its conditions read, which the builder checks at construction. The storefront calls parseMatrix, which fails closed on a key it does not know, and compares the version it just fetched against the one it already holds to decide whether to fetch again."
+flowchart LR
+  A["orders service<br>policy() + schema"] --> B[("matrix JSON<br>version · schema · permissions")]
+  B --> C["storefront<br>parseMatrix(json)"]:::accent
+  C --> D["can(subject, …)"]
+  C --> V{"version !== the<br>version held?"}
+  V -->|yes| F["fetch the document again"]
+  F --> B
+```
+
+**Why you would want it.** Priya maintains Baize's `orders` service. Without the
+schema she publishes a rule that tests `object.status` with `contains`, the
+operator for an array, against a field holding a string. Nothing refuses the
+document. The condition never holds, so the storefront draws that control for
+nobody, and a shopper files the first report of it. Without the version a
 bookseller is handed an Edit button for a permission the owner revoked an hour
 ago, and the browser holding the old document has no way to notice.
 
@@ -60,8 +70,8 @@ any language emits the whole schema by reflection.
 
 Two checks, both at construction: a condition naming an undeclared field is
 `UnknownFieldError`; an operator or comparand that does not fit the declared
-type is `FieldTypeMismatchError`. Granularity is per kind, so a permission on a
-kind absent from `schema.objects` is unchecked.
+type is `FieldTypeMismatchError`. The schema binds per kind, so a permission on
+a kind absent from `schema.objects` is unchecked.
 
 Priya authors `orders` against the TypeScript types and writes the schema beside
 them:
@@ -94,15 +104,16 @@ action fails closed and throws nothing.
 
 ```
 
-The difference is between a bug and a data problem. A key the local typed policy
-does not carry is a programmer error and throws `UnknownPermissionError`. A key a
-foreign document does not carry is a document that has moved on, and throwing
-there would take down a page over a permission nobody has. [A policy from
+`hydratePolicy` and `parseMatrix` treat an unknown key differently, because the
+two cases are different. A key the local typed policy does not carry is a
+programmer error, and `hydratePolicy` throws `UnknownPermissionError`. A key a
+foreign document does not carry means the producer has moved on, and throwing
+there would take a page down over a permission nobody has. [A policy from
 another service](/acl/adopting) is the whole story.
 
 ## Version the document, and revalidate against it
 
-A foreign document now evaluates without throwing. The question left is which
+A foreign document now evaluates without throwing. You still do not know which
 foreign document arrived. `version` is a string or a number and the contract
 compares it with `!==`, so a content digest or a composite such as
 `orders@7+veto@41` works where a counter cannot. The document states what the
@@ -116,7 +127,7 @@ option wins, and the frozen `access.matrix` carries the winner.
 
 ## Refetch when the version moves
 
-You can compare the two version strings. Nothing compares them for you: the
+Compare the two version strings yourself. Nothing compares them for you: the
 storefront holds the matrix it last fetched, and when the owner revokes a
 permission that copy goes on granting it until somebody fetches again. The
 library supplies the comparison and leaves the fetch to you:
@@ -126,10 +137,10 @@ library supplies the comparison and leaves the fetch to you:
 ```
 
 The library never pushes an update and never expires a copy. A document that
-states no `version` leaves `access.version` undefined, where a `!==` decides
-nothing, so a producer who wants the contract to hold states one. The `orders` service never
-depends on the storefront's copy in any case: it evaluates its own before it
-writes anything.
+states no `version` leaves `access.version` undefined, and a `!==` over
+`undefined` decides nothing. A producer who wants the contract to hold states a
+version. The `orders` service never depends on the storefront's copy in any
+case: it evaluates its own document before it writes anything.
 
 ## Where to go next
 

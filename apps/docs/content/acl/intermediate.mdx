@@ -30,6 +30,15 @@ So the rule has to read the question. That is the whole of this page.
 **What you will have.** A policy that knows whose question is whose, and a save
 that writes only the fields you are allowed to change.
 
+```mermaid caption="What changes when a condition names an object path. A subject-only condition reads the subject the server resolved whole, so it either holds or fails. A condition naming an object.* path also reads the instance the caller passed, and an instance that does not carry the path leaves the condition unevaluable until a refetch supplies it."
+flowchart LR
+  S["subject<br>resolved whole"] --> C1["p.contains('subject.roles', 'bookseller')"]
+  C1 --> O1["holds<br>fails"]
+  S --> C2["p.eq('object.askedBy', 'subject.id')"]:::accent
+  O["object<br>the question in hand"] --> C2
+  C2 --> O2["holds<br>fails<br>unevaluable"]
+```
+
 **Why you would want it.** The alternative is the check by hand, in the handler,
 as an `if`, next to the code that does the work. It reads fine the day you write
 it. Six months later there are forty of them, three are subtly different, and the
@@ -81,8 +90,7 @@ The typing is smaller than it looks. A helper reads a string beginning
 `subject.` or `object.` as a path into that thing, and reads any other string as
 a plain value. That is why `p.eq('object.status', 'locked')` compares the
 status against the text `locked`, and why `p.eq('object.askedBy',
-'subject.idd')` refuses to compile, with the path you fat-fingered in the
-message.
+'subject.idd')` refuses to compile, with the path you mistyped in the message.
 
 `build()` flattens the blocks to a plain matrix, so
 `JSON.stringify(access.matrix)` emits the same JSON envelope the subject-only
@@ -94,8 +102,8 @@ All of that assumes you have the question in hand. Often you do not.
 
 The listing page loads forty questions and selects from each only the fields it
 renders. Now ask whether you may edit one. The allow rule reads
-`object.askedBy`, the deny rule reads `object.status`, the question in your hand
-carries neither, and the honest answer is neither yes nor no.
+`object.askedBy` and the deny rule reads `object.status`. The question in your
+hand carries neither field, so the honest answer is neither yes nor no.
 
 So a decision here has four outcomes:
 
@@ -128,9 +136,9 @@ All three are output only. Build an error message from them, log them, show them
 in a tooltip. Never branch on them: gate on `allowed` and nothing else. A handler
 that checks `reason !== 'denied'` grants everything the engine refused.
 
-## Which fields of a question acl will let you write
+## Which fields of a question acl lets you write
 
-Last line of the list, and the one that changes your UI.
+The last line of the list is the one that changes your UI.
 
 You may edit your own question. Fine. May you change the body and leave the
 status alone? The form draws itself from one answer: which of these inputs do I
@@ -161,12 +169,20 @@ A field decision is a map, and a map is not a write. `pickAllowedFields` takes
 the decision and the proposed question and returns the keys that decided
 `allowed`.
 
+```mermaid caption="The guarded save. canFields decides the action and every key of the proposed write in one pass, and each key comes back allowed, denied or unevaluable. pickAllowedFields keeps the allowed keys and drops the other two states, so only those keys reach the ORM."
+flowchart LR
+  P["the proposed question"] --> D["access.canFields(…, 'write', proposed)"]
+  D --> M["fields: one state per key<br>allowed · denied · unevaluable"]
+  M --> F["pickAllowedFields(decision, proposed)"]:::accent
+  F --> O["the ORM<br>the allowed keys and nothing else"]
+```
+
 Pass what it returns to the ORM. Pass only that.
 
-Never filter the map yourself. That is [the one mistake this page most wants you
-to avoid](/acl/pitfalls#never-hand-filter-the-field-map). The obvious loop keeps
-every field that is not `denied`, which keeps the `unevaluable` ones too, and
-nobody said those were writable.
+Never filter the map yourself. [Never hand-filter the field
+map](/acl/pitfalls#never-hand-filter-the-field-map) is the mistake this API
+makes easiest. The obvious loop keeps every field that is not `denied`, which
+keeps the `unevaluable` ones too, and nobody said those were writable.
 
 That is the page. You edit your question, Jo edits hers, and nobody wrote an
 `if`.
