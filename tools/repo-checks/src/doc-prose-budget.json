@@ -1,5 +1,7 @@
 {
   "apps/docs/content/acl/api.mdx": 1240,
+  "apps/docs/content/acl/federation.mdx": 1201,
+  "apps/docs/content/acl/nestjs.mdx": 1203,
   "apps/docs/content/acl/pitfalls.mdx": 1456,
   "apps/docs/content/react-widget/api.mdx": 1418
 }

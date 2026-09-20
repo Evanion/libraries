@@ -20,8 +20,8 @@
 />
 
 **The concept.** One matrix per service, one `Access` per matrix. Each service
-authors and evaluates only what it owns, no service evaluates another's document
-to reach a decision, and there is no merged matrix anywhere in the topology.
+authors and evaluates only what it owns, and no service evaluates another's
+document to reach a decision. The topology holds no merged matrix anywhere.
 
 **What you will have.** A gateway holding one `Access` per origin behind a view
 that routes a question to the single origin whose keys carry it, plus the
@@ -29,7 +29,7 @@ overlay an owner applies when another team publishes a veto.
 
 **Why you would want it.** Baize's storefront and its stock service both hold
 rows they call a listing, in two databases with two field sets. A merged view
-would answer about a row that does not exist.
+answers about a row that does not exist.
 
 **How the library gets you there.** `federatedPolicies` composes the members and
 routes by canonical key. `applyDenyOverlay` is pure `Matrix → Matrix` and runs
@@ -69,7 +69,8 @@ key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
 ```
 
 `federatedPolicies` takes one `Access` per origin and keeps every document
-whole. It carries three members: `can`, `capabilities` and `get`.
+whole. The returned view carries three members: `can`, `capabilities` and
+`get`.
 
 `can` routes by the canonical key. The origin that answers
 `can(subject, 'storefront:listing', 'read')` is the one origin whose key set holds
@@ -114,18 +115,27 @@ declares and another only vetoes is no collision.
 
 <Panel heading="The edge view is advisory">
   <Text as="div" size="sm">
-    It sits in the same tier as a browser's. Every service behind the gateway
-    evaluates its own matrix and never trusts the edge's answer. A gateway that
-    allowed the request does not excuse the service behind it, which a caller
-    reaches directly whenever it wants to.
+    The view sits in the same tier as a browser's. Every service behind the
+    gateway evaluates its own matrix and never trusts the edge's answer. A
+    gateway that allowed the request does not excuse the service behind it,
+    which a caller reaches directly whenever it wants to.
   </Text>
 </Panel>
 
+```mermaid caption="Where the gateway's answer counts and where it does not. The edge view routes a key to the origin whose key set holds it and answers in the same tier as a browser; each service behind it evaluates its own matrix on every call, including a call that reached it without passing the gateway at all."
+flowchart LR
+  CL["a caller"] --> GW["the edge view<br>advisory, like a browser's"]
+  GW -->|"storefront:…"| S1["storefront<br>decides on its own matrix"]:::accent
+  GW -->|"stock:…"| S2["stock<br>decides on its own matrix"]
+  CL -->|"directly"| S1
+  CL -->|"directly"| S2
+```
+
 ## An unreachable upstream needs no flag
 
-Its origin is absent from the record, so every key it would have answered is
-already `{ key, allowed: false, reason: 'unknown-action' }` from the view
-itself, and a degraded fleet fails closed by absence.
+An upstream the gateway cannot reach is absent from the record, so every key
+that origin owns is already `{ key, allowed: false, reason: 'unknown-action' }`
+from the view itself. A degraded fleet fails closed by absence.
 
 Each member is still built with `parseMatrix`, for the reason
 [A policy from another service](/acl/adopting) gives: every document in the
@@ -152,7 +162,7 @@ library does not guess.
 
 A compliance or fraud team publishes deny rules for permissions it does not own.
 The owning service fetches them and applies them in its own process, before it
-constructs its policy:
+builds its `Access` with `hydratePolicy`:
 
 ```
 authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
@@ -163,10 +173,9 @@ authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
 ```
 
 `applyDenyOverlay(matrix, overlay, { vetoable })` appends each key's rules to
-that permission's `denyRules` and returns a new matrix. It changes nothing about
-the topology above: nothing merges at an edge, nothing but the owner is
-authoritative, and the service that enforces the veto is the one that applies
-it.
+that permission's `denyRules` and returns a new matrix. The call changes nothing
+about the topology above. Nothing merges at an edge, the owner stays the only
+authority, and the service that enforces the veto is the one that applies it.
 
 ### A contribution can only subtract
 
@@ -174,10 +183,10 @@ A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
 `fields` lives on `Permission`, and an allow rule is a member of a different
 array, so a contribution has no way to express an allow or a field rule.
 
-That is what makes the overlay safe to accept from another team. Appending deny
-rules moves the deny side towards a match and never away. A subject the overlaid
-matrix allows was allowed by the authored one, for every object and every
-instant.
+The overlay is safe to accept from another team for that reason. An appended
+deny rule moves the deny side towards a match and never away. A subject the
+overlaid matrix allows was allowed by the authored one, for every object and
+every instant.
 
 ### Three refusals, all at apply time
 
@@ -185,20 +194,20 @@ instant.
   <Text as="div" size="sm">
     A key the target matrix does not define. A key the target does not list in
     `vetoable`. A condition that does not validate against the target's schema
-    for that key's object kind — the same `UnknownFieldError` and
+    for that key's object kind, which raises the same `UnknownFieldError` and
     `FieldTypeMismatchError` construction raises, run over the contribution.
   </Text>
 </Panel>
 
 A matrix owes a schema for the object kinds of its `vetoable` keys and nothing
-else. Opening a key whose kind has no `schema.objects` entry is itself a
-refusal, because contributions to it would be unchecked. A consumer that opens
-nothing owes no schema.
+else. A key opened whose kind has no `schema.objects` entry is a refusal,
+because no schema checks contributions to it. A consumer that opens nothing owes
+no schema.
 
-The contributing team runs the same call in its own CI, over the owner's
-published subset, and finds its own mistake there. Apply before serializing: a
-veto is a deny rule, and publishing the authored matrix would publish a document
-allowing what the owner refuses.
+The contributing team runs the same call in its own build, over the owner's
+published subset, and finds its own mistake there. Apply before
+serializing: a veto is a deny rule, and a published authored matrix allows what
+the owner refuses.
 
 ## Publishing the rules to a consumer
 
