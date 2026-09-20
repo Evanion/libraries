@@ -2,17 +2,16 @@
 import { defineConfig } from 'vite';
 
 import { docExampleSources, docExamples } from '@evanion/doc-examples';
-
-// The names the README's later blocks use without reintroducing the import
-// line every time. A block that does show its imports shadows these, so the
-// two never disagree.
-const preamble =
-  "import { ALTERNATING_CASE_DICTIONARY, DEFAULT_DICTIONARY, Luhn, createLuhn } from '@evanion/luhn';\n";
+import { readPreamble } from '@evanion/doc-examples/preamble';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/luhn',
-  ...docExamples({ preamble }),
+  // doc-examples.preamble.ts holds the names the README's later blocks use
+  // without reintroducing the import line every time. The docs app's region
+  // loader reads the same file, so a block compiles on a page the way it runs
+  // here.
+  ...docExamples({ preamble: readPreamble(import.meta.dirname) }),
   test: {
     name: '@evanion/luhn',
     watch: false,
