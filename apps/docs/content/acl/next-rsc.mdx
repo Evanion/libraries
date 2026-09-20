@@ -25,12 +25,12 @@ points into the same code, the render and the Server Action, and a decision made
 at one does not carry to the other. The client component sits between them and
 is neither.
 
-**What you will have.** What `apps/storefront-rsc` runs: one `GET /api/policy`
+**What you get.** What `apps/storefront-rsc` runs: one `GET /api/policy`
 per page view, `parseMatrix` over what comes back, React's `cache` holding the
 result for the render, and each server component deciding before it fetches the
 data it would render.
 
-**Why you would want it.** Baize's spotlight widget shows a staff price line and
+**Why you want it.** Baize's spotlight widget shows a staff price line and
 the activity widget shows the order trail. Neither one knows the others exist.
 Each fetches its own data, and each has to answer "may this visitor see this"
 without a second network call.

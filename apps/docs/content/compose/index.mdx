@@ -15,10 +15,10 @@ and the file that holds them is a staircase eight levels deep whose closing
 tags you count on your fingers. Adding a provider reindents everything under
 it.
 
-**What you will have.** The same tree, written as an array. One entry per
+**What you get.** The same tree, written as an array. One entry per
 provider, first entry outermost, and a diff that adds a provider is one line.
 
-**Why you would want it.** The staircase is not hard to read once. It is hard
+**Why you want it.** The staircase is not hard to read once. It is hard
 to change. Moving a provider means moving its closing tag too, and the two are
 forty lines apart; a reviewer reading the diff sees indentation and cannot tell
 whether the order changed. An array puts the order on screen in three lines,

@@ -23,11 +23,11 @@ the owner may export it. To answer either question you need to know who is
 asking, and you need nothing else: no listing is fetched, no question is loaded,
 nothing goes to the database first.
 
-**What you will have.** A matrix holding both permissions, a server that resolves
+**What you get.** A matrix holding both permissions, a server that resolves
 the subject once per request, and a call that answers yes or no for any
 permission in the document.
 
-**Why you would want it.** The two role checks you write today are fine. The
+**Why you want it.** The two role checks you write today are fine. The
 twentieth is the problem. By then four handlers disagree:
 
 - one tests `roles.includes('owner')`

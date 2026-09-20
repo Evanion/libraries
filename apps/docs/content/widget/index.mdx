@@ -15,12 +15,12 @@ a component by `type` and carrying the props that component takes.
 item, it names the registry that maps a type to a component, and it checks a
 payload before anything renders it. It draws nothing at all.
 
-**What you will have.** One item array that renders the same widgets in the
+**What you get.** One item array that renders the same widgets in the
 same order through React and through Astro, and a check you can run over a CMS
 payload in CI, in a webhook handler or in a build script, with no renderer
 installed anywhere near it.
 
-**Why you would want it.** Both renderers re-export everything below, so most
+**Why you want it.** Both renderers re-export everything below, so most
 readers already have this package and never type its name. What the core is
 worth reading for is the part that does not move when you swap runtimes: a shop
 whose listing pages are Astro and whose counter is React writes one payload,

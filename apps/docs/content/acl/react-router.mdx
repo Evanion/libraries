@@ -25,11 +25,11 @@ and the action, with a browser tree between them that is neither. A
 `<Form method="post">` reaches the action. So does `curl`, and the loader that
 decided what to render never ran for that caller.
 
-**What you will have.** What `apps/admin` runs: middleware binding the subject
+**What you get.** What `apps/admin` runs: middleware binding the subject
 and deferring the contract read, loaders deciding what a page returns, the action
 deciding again on the row, and `useCan` picking the form or the sentence.
 
-**Why you would want it.** Baize grants `game.declare` to an operator whose own
+**Why you want it.** Baize grants `game.declare` to an operator whose own
 shop lists the title. Ines works in Stockholm, so the availability form is drawn
 on Wingspan and withheld on Azul, which Gothenburg lists. The URL resolves
 either way.

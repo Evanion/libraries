@@ -24,11 +24,11 @@ anything and no second runtime needs keeping honest, so every decision this app
 makes is authoritative. The only question is whether the decision happens at
 all.
 
-**What you will have.** An API over Baize's catalogue with one matrix at module
+**What you get.** An API over Baize's catalogue with one matrix at module
 scope, one middleware binding the subject onto `res.locals`, and a `can` call in
 every handler that touches a title.
 
-**Why you would want it.** `app.use` is positional. A route registered above the
+**Why you want it.** `app.use` is positional. A route registered above the
 middleware that binds the subject never sees it, and nothing fails. Mount the
 binding on the router, and an unguarded path becomes a route file somebody
 added.

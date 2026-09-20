@@ -23,11 +23,11 @@ ask whether this shopper may edit this listing. They get the same answer from
 the same rules. An attacker can work around one of the two answers and cannot
 touch the other, and no line of either file says which is which.
 
-**What you will have.** A clear line through your app: the side that fetches and
+**What you get.** A clear line through your app: the side that fetches and
 writes decides, and the side that renders toggles. A hook never appears on the
 first side.
 
-**Why you would want it.** Both calls compile. Both return a `Decision`. The
+**Why you want it.** Both calls compile. Both return a `Decision`. The
 component that hid the Edit button reads as a permission check to the next
 person who opens it, and the action it posts to is a URL that never ran a
 loader.

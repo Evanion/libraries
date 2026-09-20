@@ -23,12 +23,12 @@
 guard runs before the controller method and holds the subject with no row. The
 service runs after the read and holds both.
 
-**What you will have.** What `apps/shop-api` runs: one matrix built at boot
+**What you get.** What `apps/shop-api` runs: one matrix built at boot
 behind an injection token, the request's subject in `AsyncLocalStorage`, a
 global guard that refuses what it can, and `GamesService` deciding
 `game.declare` on the title it has just loaded.
 
-**Why you would want it.** Baize grants `game.declare` to an operator whose own
+**Why you want it.** Baize grants `game.declare` to an operator whose own
 shop lists the title. A guard called with no title cannot compare `object.shop`
 against `subject.shop`, so it answers `unevaluable`, which is not a refusal.
 Read that as a grant and an operator in Gothenburg edits a Stockholm listing.

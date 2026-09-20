@@ -17,10 +17,10 @@
 see two. The sidebar renders before any listing, order or report has been
 fetched, so it has to draw itself from the subject alone.
 
-**What you will have.** One call at the top of a render that answers every
+**What you get.** One call at the top of a render that answers every
 permission in the document at once, and a map the menu filters.
 
-**Why you would want it.** A menu that calls `can` once per entry asks the
+**Why you want it.** A menu that calls `can` once per entry asks the
 clock six times and scans the permission list six times. Worse, it grows a
 hand-written list of keys that nobody updates when a permission is added, so the
 new section is invisible until somebody notices.

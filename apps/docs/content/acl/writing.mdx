@@ -18,11 +18,11 @@ listing. They may change the body. The shop's lock on `status` is the shop's,
 so a form that posts `status` along with the body has to lose that key before it
 reaches the database.
 
-**What you will have.** One call that decides the action and every field of the
+**What you get.** One call that decides the action and every field of the
 write together, and one call that turns that decision into the object you hand
 the object-relational mapper (ORM).
 
-**Why you would want it.** The hand-written version is a pick-list in the
+**Why you want it.** The hand-written version is a pick-list in the
 handler. It is correct the day you write it, and it stays correct until somebody
 adds a column. Then the form posts a field nobody listed, the pick-list has no
 opinion about it, and the write goes through.
