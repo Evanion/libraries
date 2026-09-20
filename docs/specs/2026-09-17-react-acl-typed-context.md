@@ -1,6 +1,8 @@
 # Carrying the typed builder's types through `@evanion/react-acl`
 
-Status: proposed
+Status: accepted and shipped. `createPolicyContext` is exported from
+`@evanion/react-acl`, landed in `c9e1dc6` and extended in `433a2e7` to carry
+the permission key union as well as the subject and object types.
 Packages: `@evanion/react-acl`. `@evanion/acl` is read and not changed.
 Depends on: `libs/react-acl/src/index.tsx` (the whole file),
 `libs/acl/src/hydrate-policy.ts:297-359` (`Access<Sub, R>`, whose method

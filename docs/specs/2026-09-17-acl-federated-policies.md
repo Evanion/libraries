@@ -1,6 +1,7 @@
 # `federatedPolicies`, and the invariant nothing checks
 
-Status: proposed
+Status: accepted and shipped. `federatedPolicies` and `OriginCollisionError`
+are exported from `@evanion/acl`, landed in `c2d6023`.
 Packages: `@evanion/acl`. One exported function, one exported interface, one
 error class, one new module. No change to `Matrix`, `Permission`, `Rule` or any
 existing entry point. `@evanion/react-acl` is untouched: a federated set is

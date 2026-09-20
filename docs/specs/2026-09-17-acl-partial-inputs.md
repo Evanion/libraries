@@ -1,6 +1,8 @@
 # Partial inputs on the typed path
 
-Status: proposed
+Status: accepted and shipped. An object parameter on the typed path takes a
+projection, and a path the projection does not carry decides `unevaluable`
+rather than `denied`. Landed in `305e0fa` and `ee67f4e`.
 Depends on: `libs/acl/src/authoring.ts` (the typed builder, where every
 signature in scope lives), `libs/acl/src/conditions.ts` and
 `libs/acl/src/evaluate.ts` (the `unevaluable` machinery the change exists to
