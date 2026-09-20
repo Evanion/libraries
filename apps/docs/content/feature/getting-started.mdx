@@ -21,7 +21,7 @@ A feature is stored intent: `enabled` is what the shop wants, and `rules`
 decide whether that intent reaches a given customer. `dependsOn` names the
 flags that have to resolve on first.
 
-```ts file=libs/feature/README.md region=quick-start
+```ts twoslash file=libs/feature/README.md region=quick-start
 
 ```
 
@@ -38,7 +38,7 @@ The rollout is a hash rather than a draw, so one customer's answer is the same
 everywhere and forever. That is the property a shop needs and a coin flip does
 not have.
 
-```ts file=libs/feature/README.md region=rollout
+```ts twoslash file=libs/feature/README.md region=rollout
 
 ```
 
@@ -54,7 +54,7 @@ the bucket behind it and what happens when the percentage moves.
 flag, and the decision explains itself: `reason` says which of the five cases
 this is, and `dependency-off` carries the parent that blocked it.
 
-```ts file=libs/feature/README.md region=dependency-off
+```ts twoslash file=libs/feature/README.md region=dependency-off
 
 ```
 
@@ -68,7 +68,7 @@ look at. [Decisions](/feature/decisions) has the other four reasons.
 definition and reports which dependants go off with it, before anything is
 applied.
 
-```ts file=libs/feature/README.md region=toggle
+```ts twoslash file=libs/feature/README.md region=toggle
 
 ```
 

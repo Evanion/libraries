@@ -6,7 +6,7 @@ A rollout holds a resolved feature to a share of customers. Baize is putting
 its new checkout in front of a tenth of them, and the tenth has to be the same
 tenth on the next request, in the next process, and tomorrow.
 
-```ts file=libs/feature/README.md region=rollout
+```ts twoslash file=libs/feature/README.md region=rollout
 
 ```
 
@@ -43,7 +43,7 @@ The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
 The bucket is a pure hash of the `(seed, value)` pair. No randomness,
 no clock, no process state, so every process and every evaluation agrees:
 
-```ts file=libs/feature/README.md region=bucket-stable
+```ts twoslash file=libs/feature/README.md region=bucket-stable
 
 ```
 
@@ -53,7 +53,7 @@ The seed defaults to the feature key, so one customer hashes to an unrelated
 bucket per feature. `cust-0007` sits at the top of the new checkout's range and
 at the very bottom of express pickup's:
 
-```ts file=libs/feature/README.md region=bucket-decorrelated
+```ts twoslash file=libs/feature/README.md region=bucket-decorrelated
 
 ```
 

@@ -45,7 +45,7 @@ An item names a component and carries its data. Nothing here is a class, a
 builder or a call: a payload is JSON your CMS can write and your tests can
 paste.
 
-```ts file=libs/widget/README.md region=shape
+```ts twoslash file=libs/widget/README.md region=shape
 
 ```
 
@@ -78,7 +78,7 @@ of sections cannot express.
 `validateItems` took a list of names above. In an app that list is usually a
 registry, because the renderer needs one anyway:
 
-```ts file=libs/widget/README.md region=registry
+```ts twoslash file=libs/widget/README.md region=registry
 
 ```
 
@@ -101,7 +101,7 @@ renderer.
 `validateItems` walks the array and the items nested in it, and returns
 everything it found. It throws nothing:
 
-```ts file=libs/widget/README.md region=unknown
+```ts twoslash file=libs/widget/README.md region=unknown
 
 ```
 
