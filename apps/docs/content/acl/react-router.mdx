@@ -20,24 +20,33 @@
   ]}
 />
 
-**The concept.** A React Router route has two server entry points, the loader
-and the action, with a browser tree between them that is neither. A
-`<Form method="post">` reaches the action, and so does `curl`, for whom the
-loader that decided what to render never ran.
+**The concept.** A route has two server entry points.
 
-**What you get.** What `apps/admin` runs: middleware answering who is asking
-and deferring the contract read, loaders deciding whether that subject may have
-the page, the action deciding again on the row, and `useCan` picking the form or
-the sentence.
+**What you get.** Middleware asks who, a loader asks whether.
 
-**Why you want it.** Baize grants `game.declare` to an operator whose own
-shop lists the title. Ines works in Stockholm, so the availability form is drawn
-on Wingspan and withheld on Azul, which Gothenburg lists, and the URL resolves
-either way.
+**Why you want it.** `curl` reaches the action directly.
 
-**How the library gets you there.** `parseMatrix` adopts the fetched document in
-this process, so the loader, the action and the browser tree evaluate the same
-rules and none of them asks shop-api a question.
+**How the library gets you there.** `parseMatrix` adopts what shop-api published.
+
+## What `apps/admin` puts on a route
+
+A React Router route has two server entry points, the loader and the action,
+with a browser tree between them that is neither. A `<Form method="post">`
+reaches the action, and so does `curl`, for whom the loader that decided what to
+render never ran. `apps/admin` puts four things on that route:
+
+- middleware answering who is asking and deferring the contract read,
+- loaders deciding whether that subject may have the page,
+- the action deciding again on the row,
+- `useCan` picking the form or the sentence.
+
+`parseMatrix` adopts the fetched document in this process, so the loader, the
+action and the browser tree evaluate the same rules and none of them asks
+shop-api a question.
+
+Baize grants `game.declare` to an operator whose own shop lists the title. Ines
+works in Stockholm, so the availability form is drawn on Wingspan and withheld
+on Azul, which Gothenburg lists, and the URL resolves either way.
 
 ## The loader and the action are two boundaries
 

@@ -9,10 +9,12 @@
 
 Every decision `@evanion/acl` returns carries one gate, `allowed`, and several
 explanation fields that gate nothing. Each heading below names a mistake this
-API makes easy, with the form to write instead, and several have been made in
-this repository.
+API invites and the form that holds, and this repository has made several of
+them.
 
-The fences share their names:
+## The names these fences share
+
+Every fence on this page reuses one set of names:
 
 | Name         | What it holds                                                                                               |
 | ------------ | ----------------------------------------------------------------------------------------------------------- |
@@ -33,9 +35,14 @@ if (decision.reason !== 'denied') proceed(); // wrong
 if (decision.allowed) proceed(); // right
 ```
 
-`reason` is output only, and its seven values are not two buckets:
-`no-rule-matched`, `unknown-action`, `unevaluable`, `unusable-clock` and
-`stale-contract` all refuse, and the first form proceeds through every one.
+`reason` is output only, and its seven values do not split into two buckets.
+Each of these refuses, and the first form proceeds through every one:
+
+- `no-rule-matched`
+- `unknown-action`
+- `unevaluable`
+- `unusable-clock`
+- `stale-contract`
 
 ### `unevaluable` is not `denied`
 
@@ -44,10 +51,12 @@ if (!decision.allowed) return <ReadOnly />; // loses a repairable answer
 ```
 
 `unevaluable` means the engine could not reach the decision with the data it was
-handed, and `missing` names what to fetch. `allowed` is already `false`, so a
-server that refuses on it is safe, and a UI that refuses on it hides something
-the user can have. Render the control as pending, fetch what `missing` names,
-and ask once more. A caller who reads `unevaluable` as permission has a hole.
+handed, and `missing` names what to fetch.
+
+- `allowed` is already `false`, so a server that refuses on it is safe.
+- A UI that refuses on it hides something the user can have.
+- Render the control as pending, fetch what `missing` names, and ask once more.
+- A caller who reads `unevaluable` as permission has a hole.
 
 An `unevaluable` that survives a refetch is a mistyped field name in the
 document. A `schema` turns that class into an `UnknownFieldError` at
@@ -64,10 +73,12 @@ items.filter((item) => !caps[item.key]?.allowed); // shows every unknown key
 items.filter((item) => caps[item.key]?.allowed === true); // right
 ```
 
-A capability map holds an entry per permission in the document. A key the
-document does not carry reads `undefined`, and negating `undefined?.allowed` is
-`true`. A menu written the first way grows an item whenever somebody renames a
-permission.
+A capability map holds an entry per permission in the document.
+
+- A key the document does not carry reads `undefined`, and negating
+  `undefined?.allowed` is `true`.
+- A menu written the first way grows an item whenever somebody renames a
+  permission.
 
 ## Writing fields
 
@@ -83,9 +94,12 @@ pickAllowedFields(decision, proposed);
 
 `FieldState` has three values. `transitions` is a state machine over a field's
 current value, and a field whose config the object did not carry that value for
-comes back `unevaluable`. Since `'unevaluable' !== 'denied'` is `true`, the first
-form writes a value the decision declined to approve. The same filter passes any
-key the decision does not carry at all, since `undefined !== 'denied'`.
+comes back `unevaluable`. The first form writes a value the decision declined to
+approve, in two ways:
+
+- a key that decided `unevaluable`, since `'unevaluable' !== 'denied'` is `true`
+- a key the decision does not carry at all, since `undefined !== 'denied'` is
+  `true`
 
 `pickAllowedFields` keeps the keys that decided `allowed` and withholds the
 rest.
@@ -97,13 +111,16 @@ const fd = access.canFields(subject, 'question', 'update', projection, 'read');
 fd.fields['status']; // undefined: the projection did not carry it
 ```
 
-The map is keyed by the union of the object's own keys, the proposed write's
-keys and the rule's field names. Hand `canFields` a projection and the map
-shrinks. A name in the map is a decision; a name missing from it is a question
-nobody asked.
+`canFields` keys the map by the union of three sets:
 
-A form rendered from `fields` draws fewer inputs, and `pickAllowedFields` writes
-only keys that decided `allowed`, so the default direction is the safe one.
+- the object's own keys
+- the proposed write's keys
+- the rule's field names
+
+Hand `canFields` a projection and the map shrinks. A name in the map is a
+decision; a name missing from it is a question nobody asked. A form rendered
+from `fields` draws fewer inputs, and `pickAllowedFields` writes only keys that
+decided `allowed`, so the default direction is the safe one.
 
 ### Read `allowed`, not `action.allowed`
 
@@ -122,16 +139,20 @@ fd.allowed; // false: a field in this write is not
 ```
 
 `canFields` returns two booleans named `allowed`, one nested inside the other,
-and they disagree exactly when the narrowing is doing its job. `fd.allowed`
-composes both: the action is allowed and every decided field is allowed.
-`fd.action.allowed` is the action alone.
+and they disagree exactly when the narrowing is doing its job.
+
+- `fd.allowed` composes both: the action is allowed and every decided field is
+  allowed.
+- `fd.action.allowed` is the action alone.
 
 ### Do not iterate `fields` without checking `allowed` first
 
-The field maps are filled in whatever the action decides, so a subject refused
-the action still gets a complete map of which fields would be editable once the
-action is unblocked. A caller who reads that map as the gate skips the action
-entirely, and the map looks identical either way.
+`canFields` fills the field maps in whatever the action decides.
+
+- A subject refused the action still gets a complete map of which fields would
+  be editable once the action is unblocked.
+- A caller who reads that map as the gate skips the action entirely.
+- The map looks identical either way.
 
 ### A `targets` or `transitions` config is not an allow-list
 
@@ -143,9 +164,11 @@ p.fields({
 });
 ```
 
-A per-field config restricts the field it names and no other. With no `fields`
-list, every unnamed key is writable, so a caller who reads the config as the
-writable-field list leaves the rest of the row open.
+A per-field config restricts the field it names and no other.
+
+- With no `fields` list, every unnamed key is writable.
+- A caller who reads the config as the writable-field list leaves the rest of
+  the row open.
 
 ## Authoring a policy
 
@@ -159,18 +182,20 @@ p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
 If the subject can write `sharedWith`, they authorize themselves for the
 document. The engine cannot see this: it does not know which object fields the
 subject can write, and the write that opens the door is a different action from
-the read.
-
-Keep the field out of every write path the rule guards, or key the rule on
-something out of reach: ownership set at creation, or a field only the server
-writes.
+the read. Keep the field out of every write path the rule guards, or key the
+rule on something out of reach: ownership set at creation, or a field only the
+server writes.
 
 ### The matrix is public in its names, not only its values
 
 `bypass-kyc` as an action name, or `internal-fraud-reviewer` as a role string,
 is disclosed the moment a page loads. The document reaches the client in full,
-carrying every object kind, every action, every role, every field name including
-the ones the API never returns, and every time window.
+carrying:
+
+- every object kind and every action
+- every role
+- every field name, including the ones the API never returns
+- every time window
 
 Send it anyway. Security must not rest on the document staying secret, and here
 it does not. Name things as if a reader has them open, and keep secrets and
@@ -181,9 +206,13 @@ server-only predicates out of the document.
 ### The subject is whatever you hand it
 
 `can(subject, …)` authorizes the bag it receives and has no channel to ask where
-that bag came from. A subject derived from a header, a query parameter, an
-unverified token body, or a field the client posted gets the attacker's claimed
-identity faithfully authorized.
+that bag came from. A subject derived from any of these gets the attacker's
+claimed identity faithfully authorized:
+
+- a header
+- a query parameter
+- an unverified token body
+- a field the client posted
 
 No evaluator can fix this confused deputy. Resolve the subject from a verified
 session or token, server-side, before it reaches the call.
@@ -203,9 +232,13 @@ frozen object, which makes "check again" a rule a team can keep.
 ### Re-check inside the transaction
 
 A decision describes the snapshot it was given. Between `can` returning `true`
-and the write landing, the object can change owner, the subject can lose the
-role, and the time window can close. The library carries no freshness token and
-cannot see the gap.
+and the write landing:
+
+- the object can change owner
+- the subject can lose the role
+- the time window can close
+
+The library carries no freshness token and cannot see the gap.
 
 ```mermaid caption="The gap a decision cannot see. can answers over the snapshot it was handed; the object can change owner, the subject can lose the role and the window can close before the write runs. Re-reading and re-checking inside the transaction closes the gap, and so does a conditional predicate on the write."
 flowchart LR
@@ -234,10 +267,14 @@ Pass it only to make a server render and the client's first render agree, and
 resolve it server-side. A `now` from a request body hands over every time window
 there is.
 
-A clock that does not parse is guarded:
+A clock that does not parse is guarded. Each of these answers
 `{ allowed: false, reason: 'unusable-clock' }` on both sides of the permission,
-so a time-gated deny goes on denying when the instant is `null`, `NaN`, an
-`Invalid Date` or a string that is not a date.
+so a time-gated deny goes on denying:
+
+- `null`
+- `NaN`
+- an `Invalid Date`
+- a string that is not a date
 
 ### The subject and object bags are read live
 
@@ -254,9 +291,12 @@ access.can(subject, 'question', 'update', { status: 'locked' }); // -> reason: '
 
 Conditions read `subject` and `object` field by field as the decision walks the
 rules, and the engine reads the deny side before the allow side. A bag whose
-properties are accessors (an ORM row, a lazy proxy, a memoised getter over a
-cache that can refill) can answer the two sides differently and pass the deny it
-should have matched.
+properties are accessors can answer the two sides differently and pass the deny
+it should have matched:
+
+- an ORM row
+- a lazy proxy
+- a memoised getter over a cache that can refill
 
 The engine copies neither the subject nor the object, because they are the app's
 data, and the matrix it evaluates is a frozen deep copy for this reason. Pass

@@ -18,23 +18,30 @@
   ]}
 />
 
-**The concept.** A subject-only rule reads the subject the server resolved and
-nothing else, so `can` answers it with no database read in front of it. Baize's
-stock report carries two: any bookseller may read it, and only the owner may
-export it.
+**The concept.** A subject-only rule reads only the subject.
+**What you get.** Every permission answered from one call.
+**Why you want it.** Hand-written role checks disagree.
+**How the library gets you there.** `policy()` writes the matrix; `can` reads
+it.
 
-**What you get.** A matrix holding both permissions, a server that resolves
-the subject once per request, and a call that answers yes or no for any
-permission in the document.
+## What a subject-only policy covers
 
-**Why you want it.** You write the twentieth role check by hand and four
-handlers now disagree: one tests `roles.includes('owner')`, another tests
-`user.isOwner`, a third was copied before the role was renamed, and the export
-endpoint tests nothing at all.
+A subject-only rule reads the subject the server resolved and nothing else, so
+`can` answers it with no database read in front of it. Baize's stock report
+carries two such rules: any bookseller may read the report, and only the owner
+may export it.
 
-**How the library gets you there.** `policy()` writes the matrix and hands back
-an access object over it. `can` answers one question, `authorize` binds the
-subject, and `capabilities` answers the whole document at once.
+The matrix holds both permissions, the server resolves the subject once per
+request, and one call answers yes or no for any permission in the document.
+
+`policy()` writes the matrix and hands back an access object over it. `can`
+answers one question, `authorize` binds the subject, and `capabilities` answers
+the whole document at once.
+
+You write the twentieth role check by hand and four handlers now disagree: one
+tests `roles.includes('owner')`, another tests `user.isOwner`, a third was
+copied before the role was renamed, and the export endpoint tests nothing at
+all.
 
 ## Install acl
 

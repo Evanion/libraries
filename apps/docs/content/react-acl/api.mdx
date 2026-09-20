@@ -8,18 +8,15 @@
 </WorkshopNotice>
 
 `@evanion/react-acl` exports one provider, four hooks, a factory that binds them
-to a policy, and three interfaces. Every type named below is re-exported from
-`@evanion/acl` under the same name and documented in
-[the core's reference](/acl/api): `Decision`, `FieldDecision`, `Access`,
-`Subject`, `Matrix`, `Instant` and the rest.
-
-A hook called outside a `PolicyProvider` throws, and the message names the
-provider and the package.
+to a policy, and three interfaces. `Decision`, `FieldDecision`, `Access`,
+`Subject`, `Matrix` and `Instant` keep their `@evanion/acl` names here, and
+[the core's reference](/acl/api) documents them.
 
 ## `PolicyProvider`
 
 `PolicyProvider` holds one evaluator, one subject and one clock for the tree
-under it, and renders its children and nothing else.
+under it, and renders its children and nothing else. A hook called outside a
+`PolicyProvider` throws, and the message names the provider and the package.
 
 ```tsx signature
 function PolicyProvider<Keys extends string = string>(
@@ -27,11 +24,11 @@ function PolicyProvider<Keys extends string = string>(
 ): ReactElement;
 ```
 
-The context value is memoised on the identity of `access`, `subject` and
-`context`, so all three need stable references. `context.now` defaults to
-`new Date()` when it is left off, and that memo recomputes whenever any of the
-three changes identity, so the clock moves under the tree. Pass the value the
-server rendered with.
+- The context value is memoised on the identity of `access`, `subject` and
+  `context`, so all three need stable references.
+- `context.now` defaults to `new Date()` when it is left off.
+- The memo recomputes whenever any of the three changes identity, so the clock
+  moves under the tree. Pass the value the server rendered with.
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
@@ -48,18 +45,18 @@ interface PolicyProviderProps<Keys extends string = string> {
 }
 ```
 
-`access` is any `Access`, whether the core's `hydratePolicy` returned it or
-`policy<Subject, Objects>().build()` did. The types a typed policy
-carries stop here: the hooks below take `key: string`, so a key this provider's
-document never declared reaches them, and the engine throws
-`UnknownObjectKeyError` at render unless the matrix was hydrated with
-`closed: true`. [`createPolicyContext`](#createpolicycontext) is what keeps
-those types.
+| Prop       | What it is                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `access`   | any `Access`, whether the core's `hydratePolicy` returned it or `policy<Subject, Objects>().build()` did                               |
+| `subject`  | the subject every hook under the provider decides against, held in the same `useMemo`                                                  |
+| `context`  | only `now` is read off it, and an omitted `context` re-reads the wall clock whenever `access`, `subject` or `context` changes identity |
+| `children` | the tree the provider renders                                                                                                          |
 
-Only `now` is read off `context`. `PolicyProvider` takes the subject as its own
-prop, and one `useMemo` keyed on `access`, `subject` and `context` holds both.
-A re-render that changes who is signed in rebuilds the clock with them, which is
-why an omitted `context` re-reads the wall clock at every such change.
+The types a typed policy carries stop here. The hooks below take `key: string`,
+so a key this provider's document never declared reaches them, and the engine
+throws `UnknownObjectKeyError` at render unless the matrix was hydrated with
+`closed: true`. [`createPolicyContext`](#createpolicycontext) keeps those
+types.
 
 ## `useCan`
 
@@ -73,13 +70,12 @@ function useCan(
 ): Decision;
 ```
 
-`object` is optional for the create case, where there is no instance yet. A rule
-that reads the row and is asked without one answers
-[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
-
-Memoised on `access`, `subject`, `key`, `action`, `object` and `now`. The row's
-identity is part of that key, so a component handed a rebuilt row object
-evaluates again and the stale answer never reaches it.
+- `object` is optional for the create case, where there is no instance yet. A
+  rule that reads the row and is asked without one answers
+  [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+- `useCan` memoises on `access`, `subject`, `key`, `action`, `object` and `now`,
+  so a component handed a rebuilt row evaluates again and no stale answer
+  reaches it.
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 
@@ -97,10 +93,9 @@ function useCanMany(
 ): Decision[];
 ```
 
-The returned array is parallel to the input, so a row's answer is at the row's
-index. `useCanMany` is the hook for a list. React forbids a hook inside a loop,
-so a row component calling `useCan` for itself breaks the first time the list is
-filtered or reordered.
+The returned array is parallel to the input, so a row's answer sits at the row's
+index. React forbids a hook inside a loop, so a row component calling `useCan`
+for itself breaks the first time the list is filtered or reordered.
 
 ```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
 
@@ -120,18 +115,17 @@ function useCanFields(
 ): FieldDecision;
 ```
 
-`axis` is `'read'` for which fields may be shown and `'write'` for which may be
-set. `proposed` is the write the caller intends, and on the write axis the map
-covers its keys too, including keys the row has never held.
+| Name       | What it carries                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `axis`     | `'read'` for which fields may be shown, `'write'` for which may be set                                             |
+| `proposed` | the write the caller intends; on the write axis the map covers its keys too, including keys the row has never held |
+| `action`   | the action-level decision the field maps hang off; the engine fills `fields` whatever that decision said           |
+| `fields`   | every field name mapped to `'allowed'`, `'denied'` or `'unevaluable'`                                              |
 
-`action` carries the action-level decision the field maps hang off, and the
-engine fills `fields` whatever that decision said. Read `action.allowed` before
-you read a field, or a shopper who may not edit the listing at all reaches an
-input the map called `'allowed'`.
-
-`fields` maps every field name to `'allowed'`, `'denied'` or `'unevaluable'`.
-Compare against `'allowed'`; comparing against `'denied'` treats the
-unevaluable fields as writable, which is
+Read `action.allowed` before you read a field, or a shopper who may not edit the
+listing at all reaches an input the map called `'allowed'`. Compare a field
+against `'allowed'`; comparing against `'denied'` treats the unevaluable fields
+as writable, which is
 [the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
 
 ```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
@@ -148,9 +142,8 @@ function useCapabilities(): Record<string, Decision>;
 ```
 
 `useCapabilities` passes no object, so a rule that reads one cannot be decided
-here. It is the hook for a menu or a navigation bar, where the question is which
-actions the shopper may reach at all. A question about one particular row goes
-to `useCan`.
+here. A menu or a navigation bar asks which actions the shopper may reach at
+all, and a question about one particular row goes to `useCan`.
 [What can they do at all?](/acl/capabilities) sets out the no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
@@ -171,23 +164,16 @@ function createPolicyContext<
 ```
 
 [`policy`](/acl/authoring) names a subject type once and binds a row type per
-object kind, and `build()` returns an `Access` carrying both. Pass that here and
-the hooks that come back check their key against the kinds the policy declared
-and their row against the type bound to the kind. Both come off the argument, so
-the call site writes neither.
+object kind, and `build()` returns an `Access` carrying both. The hooks that
+come back check their key against the kinds the policy declared, and their row
+against the type bound to the kind, both read off the argument.
 
-A React context fixes its type when it is created, and `useContext` hands a hook
-that fixed type whatever the provider above it was given, which is why
-`createPolicyContext` is a function returning hooks.
-
-One policy holds every object kind an app has. Chain a `.for()` per kind and one
-`createPolicyContext` call covers the listing and the stock report both. You do
-not make a context per resource.
-
-Each call does make its own context, so two separate policy documents nest and
-each set of hooks reads its own provider. The returned provider also feeds the
-shared context, so a component calling `useCan` from the package root underneath
-it reads the same decision.
+| What you have                            | What `createPolicyContext` gives                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| one policy holding every object kind     | one call covering the listing and the stock report both, since you chain a `.for()` per kind   |
+| two separate policy documents            | one context per call, so the two nest and each set of hooks reads its own provider             |
+| a component under the returned provider  | the same decision from a `useCan` imported at the package root, which that provider also feeds |
+| a key or a row the policy never declared | a compile error, since the hooks check both against the `Access` handed in                     |
 
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 
@@ -222,18 +208,12 @@ interface PolicyContext<Sub, R, Keys extends string = string> {
 }
 ```
 
-`Partial<R[K]>` for the row, because a list row carrying two of five fields is
-the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case, and the
-compiler has no business calling it a type error. A row type declared
-`extends Record<string, unknown>` accepts
-every key and gives the check nothing to hold, so declare the row's fields and
-nothing more.
-
-`useCapabilities` answers by permission key, `listing.edit`, where `R` holds the
-object kinds, `listing`. A policy whose blocks
-[declare their actions](/acl/authoring#the-vocabulary-of-a-kind) narrows
-those keys to the ones it declares, so `listing.edti` is a compile error. A
-policy that leaves one block's actions open stays keyed by `string`.
+| Type detail                                                                            | What it means                                                                                                                                       |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Partial<R[K]>` on every row parameter                                                 | a list row carrying two of five fields is the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case, so the compiler lets it through   |
+| a row type declared `extends Record<string, unknown>`                                  | accepts every key and gives the check nothing to hold, so declare the row's fields and nothing more                                                 |
+| the keys `useCapabilities` answers by                                                  | `` `${object}.${action}` ``, `listing.edit`, where `R` holds the object kinds                                                                       |
+| a policy whose blocks [declare their actions](/acl/authoring#the-vocabulary-of-a-kind) | narrows those keys to the ones it declares, so `listing.edti` is a compile error; a policy leaving one block's actions open stays keyed by `string` |
 
 ## `BoundPolicyProviderProps`
 
@@ -247,13 +227,12 @@ interface BoundPolicyProviderProps<Sub, R, Keys extends string = string> {
 ```
 
 `access` is optional here and required on `PolicyProvider`, because
-`createPolicyContext` was already handed a document. Pass it to decide against a
-different one of the same shape: a per-tenant matrix, or the copy the browser
-rebuilt with `hydratePolicy`, which crossed JSON and carries no types of its
-own.
+`createPolicyContext` was already handed a document. Pass one to decide against
+a different document of the same shape: a per-tenant matrix, or the copy the
+browser rebuilt with `hydratePolicy`, which carries no types of its own.
 
-`subject` is the subject type the policy was authored against, so a value
-missing a field that type declares is a compile error at the mount.
+`subject` takes the type the policy was authored against, so a value missing a
+field that type declares is a compile error at the mount.
 
 ## Where to go next
 

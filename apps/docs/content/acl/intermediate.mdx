@@ -18,13 +18,10 @@
   ]}
 />
 
-**The concept.** A rule that names an `object.*` path reads the instance in
-hand, so a policy can tell your question on the Brass: Birmingham listing from
-Jo's. You and Jo are both customers with exactly the same permissions, and only
-the question's `askedBy` tells you apart.
-
-**What you get.** A policy that knows whose question is whose, and a save
-that writes only the fields you are allowed to change.
+**The concept.** An `object.*` condition reads the instance in hand.
+**What you get.** A policy that knows whose question is whose.
+**Why you want it.** Hand-written checks drift.
+**How the library gets you there.** One condition brings four things.
 
 ```mermaid caption="What changes when a condition names an object path. A subject-only condition reads the subject the server resolved whole, so it either holds or fails. A condition naming an object.* path also reads the instance the caller passed, and an instance that does not carry the path leaves the condition unevaluable until a refetch supplies it."
 flowchart LR
@@ -35,12 +32,21 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-**Why you want it.** You write the check by hand, as an `if` in the handler,
-next to the code that does the work. Six months later there are forty of them,
-three are subtly different, and the bulk close job never had one at all.
+## What an acl object condition reads
 
-**How the library gets you there.** One condition naming `object.askedBy`
-brings four things with it.
+A rule that names an `object.*` path reads the instance in hand, so a policy can
+tell your question on the Brass: Birmingham listing from Jo's. You and Jo are
+both customers with exactly the same permissions, and only the question's
+`askedBy` tells you apart.
+
+The policy then knows whose question is whose, and the save writes only the
+fields you are allowed to change.
+
+You write the check by hand, as an `if` in the handler, next to the code that
+does the work. Six months later there are forty of them, three are subtly
+different, and the bulk close job never had one at all.
+
+One condition naming `object.askedBy` brings four things with it.
 
 ## Four things you now need
 
@@ -70,11 +76,15 @@ Name the shape once and the compiler holds you to it:
 verbs beyond the default four. Each `.for()` hands the condition helpers to a
 block. Chain one per kind your app has, so one policy covers the whole app.
 
-The block declares two kinds of rule. `.allow` grants the action when the rule's
-conditions hold. `.deny` refuses it, so the block states once that nobody may
-delete a question the shop has locked, and a deny that matches outranks every
-allow that matched with it. No permission gates another: a rule that `hide`
-shares with `update` is written into `hide`, where a reader of `hide` sees it.
+The block declares two kinds of rule:
+
+- `.allow` grants the action when the rule's conditions hold.
+- `.deny` refuses it, so the block states once that nobody may delete a question
+  the shop has locked, and a deny that matches outranks every allow that matched
+  with it.
+
+No permission gates another: a rule that `hide` shares with `update` is written
+into `hide`, where a reader of `hide` sees it.
 
 A helper reads a string beginning `subject.` or `object.` as a path into that
 thing, and any other string as a plain value. So `p.eq('object.status',
@@ -119,24 +129,26 @@ The fourth is new. The engine could not tell, so it answers `unevaluable` and
 
 ### Watching an acl decision move between the four answers
 
-Each field in the control below carries a checkbox saying whether the query
-selected it and a select saying what it holds, and a field the query left out
-never reaches the engine. The control runs the policy above.
+The control below runs the policy above. A field's checkbox says whether the
+query selected it and its select says what it holds. A field the query left out
+never reaches the engine.
 
-It opens on a projection that selected neither field, so the decision is
-`unevaluable` and `missing` names both paths. Select both and the question is
-yours and a draft, which is `allow`. Change `askedBy` to `s2` and the allow rule
-compares two identifiers that differ, which is `no-rule-matched`. Change
-`status` to `locked` and the deny rule matches, which is `denied` whatever the
-allow side said.
+The control opens on a projection that selected neither field, so the decision
+is `unevaluable` and `missing` names both paths. Three moves take it elsewhere:
+
+- Select both fields, and your own draft question decides `allow`.
+- Change `askedBy` to `s2`, and the allow rule compares two identifiers that
+  differ, which is `no-rule-matched`.
+- Change `status` to `locked`, and the deny rule matches, which is `denied`
+  whatever the allow side said.
+
+### When an acl decision returns to `unevaluable`
 
 A decision returns to `unevaluable` only where the data it does have settles
 nothing. Clear `status` on your own draft question and the deny side has nothing
 to read, so `missing` names `object.status`. Clear it on Jo's question and the
 answer is `no-rule-matched`, because the allow rule already failed on data the
-engine did have.
-
-Refetch selects exactly what `missing` named and asks again.
+engine did have. Refetch selects exactly what `missing` named and asks again.
 
 <UnevaluableDemo />
 

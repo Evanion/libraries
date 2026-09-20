@@ -13,27 +13,24 @@
   ]}
 />
 
-**The concept.** `parseMatrix` builds an evaluator over a JSON matrix this
-process did not write. Baize's orders service owns the rules about refunds and
-publishes its matrix; the storefront adopts that document to grey out the refund
-button.
+**The concept.** `parseMatrix` builds an evaluator over a foreign document.
+**What you get.** An evaluator that refuses unknown keys.
+**Why you want it.** Rewritten rules drift.
+**How the library gets you there.** `parseMatrix` validates the document and
+runs closed.
 
-**What you get.** An evaluator over a document this process did not write,
+## What parseMatrix builds
+
+`parseMatrix` builds an evaluator over a JSON matrix this process did not write,
 which answers for the keys the document carries and refuses every key it does
-not.
-
-**Why you want it.** Write the rules a second time in the storefront and
-they are right until orders changes one. Orders keeps refusing correctly, so no
-alarm fires, and the refund button stays hidden against a server that would have
-allowed the call.
-
-**How the library gets you there.** `parseMatrix` validates the document on the
-way in and runs closed, so a key the document does not carry answers
-`unknown-action` and the page stays up. A `schema` in the document checks the
-paths the rules name.
+not. `parseMatrix` validates that document on the way in and runs closed, so a
+key the document does not carry answers `unknown-action` and the page stays up.
+A `schema` in the document checks the paths the rules name.
 
 A backend with its own access control list (ACL) publishes its matrix as JSON;
-a frontend or a peer service adopts it.
+a frontend or a peer service adopts it. Baize's orders service owns the rules
+about refunds and publishes its matrix, and the storefront adopts that document
+to grey out the refund button.
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
@@ -42,6 +39,10 @@ a frontend or a peer service adopts it.
 The `permissions` array there holds one entry, so one key answers. A real
 document holds every key the producer publishes across every object kind it
 owns, and that whole list builds one evaluator.
+
+Write the rules a second time in the storefront and they are right until orders
+changes one. Orders keeps refusing correctly, so no alarm fires, and the refund
+button stays hidden against a server that would have allowed the call.
 
 ## Closed mode is the whole difference
 

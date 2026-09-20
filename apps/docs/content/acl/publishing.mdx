@@ -18,22 +18,26 @@
   ]}
 />
 
-**The concept.** `serialize(access, 'reduced')` emits the permissions you marked
-public as a JSON document a consumer adopts. Baize's orders service decides who
-may refund an order, and it hands the storefront the four permissions that
-concern the refund button out of the forty it runs on.
+**The concept.** `serialize(access, 'reduced')` emits the permissions you marked.
 
-**What you get.** A JSON document holding the permissions you marked,
-whole, which a consumer adopts and evaluates against its own subject, and a
-freshness bound that stops it deciding on a copy you have since changed.
+**What you get.** A consumer adopts it and evaluates locally.
 
-**Why you want it.** A consumer that cannot read your rules writes its own
-copy, and that copy diverges the first time you change a rule nobody thinks to
-propagate.
+**Why you want it.** A consumer without your rules writes one.
 
 **How the library gets you there.** Mark a permission `visibility: 'public'`.
-`serialize(access, 'reduced')` keeps the marked permissions with every rule they
-carry, drops the rest, and trims the schema to the kinds that survived.
+
+## What an acl contract carries
+
+`serialize(access, 'reduced')` emits the permissions you marked public as a JSON
+document a consumer adopts. `serialize` keeps each marked permission with every
+rule it carries, drops the rest, and trims the schema to the kinds that
+survived. The document carries a freshness bound that stops a consumer deciding
+on a copy you have since changed, and the consumer evaluates the whole against
+its own subject.
+
+Baize's orders service decides who may refund an order, and it hands the
+storefront the four permissions that concern the refund button out of the forty
+it runs on.
 
 ## Why an acl contract exists
 
@@ -98,6 +102,13 @@ last successful freshness check. The consumer reports that instant as
 `fetchedAt` and may tighten the bound with its own `maxStale`, never extend it.
 Past `fetchedAt + min(the two)` every key answers `stale-contract`, and the
 remedy is a fetch of the document.
+
+| Bound                      | Who states it | What it does                                   |
+| -------------------------- | ------------- | ---------------------------------------------- |
+| `maxStale` on the document | the owner     | sets the ceiling, in milliseconds              |
+| `maxStale` on the consumer | the consumer  | tightens the owner's ceiling, never extends it |
+| `fetchedAt`                | the consumer  | names the instant the bound measures from      |
+| neither of the two         | nobody        | leaves the consumer claiming no freshness      |
 
 State `maxStale` on the document before any consumer reports `fetchedAt`. A
 consumer reporting one against a document that states no ceiling gets

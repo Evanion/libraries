@@ -18,25 +18,31 @@
   ]}
 />
 
-**The concept.** A component that calls `access.can` once per action holds a
-list of actions and no `if`. Baize's Brass: Birmingham listing draws an action
-bar of three buttons, Review, Edit and Publish, where Jo the customer sees one,
-a bookseller two, the owner three, and nobody sees Edit once the listing is
-published.
+**The concept.** A component calls `access.can` once per action.
+**What you get.** An action bar without conditions.
+**Why you want it.** A component's own rule drifts.
+**How the library gets you there.** The bar draws from `allowed` and `reason`.
 
-**What you get.** An action bar that holds a list of actions and no
-conditions, and four policy statements that decide what it draws for whoever is
-signed in.
+## The action bar this page builds
 
-**Why you want it.** Put the rule in the component and you have written it
-twice, once here and once in the handler the button posts to. Somebody tightens
-the handler, the button stays lit, and a bookseller presses Edit on a published
-listing and gets a 403 with no explanation.
+Baize's Brass: Birmingham listing draws an action bar of three buttons, Review,
+Edit and Publish. Four policy statements decide what that bar draws for whoever
+is signed in:
 
-**How the library gets you there.** The storefront fetched the matrix and
-hydrated it in [Rules that outlive the process](/acl/advanced). The bar calls
-`access.can` on that evaluator once per action and draws from `allowed`, with
-`reason` as the wording of a disabled button.
+- Jo the customer sees one button.
+- A bookseller sees two.
+- The owner sees three.
+- Nobody sees Edit once the listing is published.
+
+The bar holds that list of actions and no `if`. Put the rule in the component
+and you have written it twice, once here and once in the handler the button
+posts to. Somebody tightens the handler, the button stays lit, and a bookseller
+presses Edit on a published listing and gets a 403 with no explanation.
+
+The storefront fetched the matrix and hydrated it in [Rules that outlive the
+process](/acl/advanced). The bar calls `access.can` on that evaluator once per
+action and draws from `allowed`, with `reason` as the wording of a disabled
+button.
 
 ## The shop's listing policy, in four statements
 
@@ -56,13 +62,16 @@ producer ran it:
 The `.for('listing', …)` block is one of however many kinds the shop's policy
 holds, and a shop that also sells events chains `.for('event', …)` beside it.
 
-Two condition helpers are new in that block. `p.always` is the condition that
-holds for anybody, so `review` is granted to whoever is signed in. `p.in` tests
-one subject value against a list written in the rule, and this `Shopper` carries
-`role` as a single string. The report policy on [rules that read the
-subject](/acl/simple) carried `roles` as an array and read it with `p.contains`,
-which runs the test the other way round: one value written in the rule, against
-a list held on the subject.
+Two condition helpers are new in that block:
+
+- `p.always` is the condition that holds for anybody, so `review` is granted to
+  whoever is signed in.
+- `p.in` tests one subject value against a list written in the rule, and this
+  `Shopper` carries `role` as a single string.
+
+The report policy on [rules that read the subject](/acl/simple) carried `roles`
+as an array and read it with `p.contains`, which runs the test the other way
+round: one value written in the rule, against a list held on the subject.
 
 The typed builder binds `Listing` to the key `listing`, so it checks
 `object.status` in the deny against the interface as it is written. That binding

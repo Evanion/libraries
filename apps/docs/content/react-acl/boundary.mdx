@@ -18,20 +18,26 @@
   ]}
 />
 
-**The concept.** `@evanion/react-acl` runs in the shopper's browser and toggles
-controls. The trusted side, a loader, a server component, an action or a route
-handler, calls `@evanion/acl` and makes the decision that counts.
+**The concept.** `@evanion/react-acl` toggles controls in the browser.
 
-**What you get.** A line through your app: the side that fetches and writes
-decides, and the side that renders toggles. A hook never appears on the first
-side.
+**What you get.** The side that writes decides.
 
-**Why you want it.** `useCan` and `access.can` both compile, both return a
-`Decision`, and neither call says which side enforces. A shopper can work around
-the browser's answer and cannot touch the handler's.
+**Why you want it.** A shopper can work around the browser.
 
-**How the library gets you there.** `'use client'` sits at the top of the
-package's entry point, so a hook cannot be called on the trusted side at all.
+**How the library gets you there.** `'use client'` keeps hooks off the server.
+
+## Where the line through your app falls
+
+`@evanion/react-acl` runs in the shopper's browser and toggles controls. The
+trusted side, a loader, a server component, an action or a route handler, calls
+`@evanion/acl` and makes the decision that counts. The side that fetches and
+writes decides, the side that renders toggles, and a hook never appears on the
+first side. `'use client'` sits at the top of the package's entry point, so a
+hook cannot be called on the trusted side at all.
+
+`useCan` and `access.can` both compile, both return a `Decision`, and neither
+call says which side enforces. A shopper can work around the browser's answer
+and cannot touch the handler's.
 
 ## One decision, two runtimes
 
@@ -103,6 +109,13 @@ value and no server component prop can carry one.
 calls `hydratePolicy` on it and gets its own evaluator back, which is the
 `access` prop [Getting started](/react-acl/getting-started) mounts.
 
+| What crosses | The form it crosses in                          | What the browser does with it         |
+| ------------ | ----------------------------------------------- | ------------------------------------- |
+| `Access`     | nothing; closures do not serialize              | rebuilds its own with `hydratePolicy` |
+| the matrix   | a JSON envelope carrying `version` and `schema` | hydrates it into an evaluator         |
+| the subject  | a plain object, and no credential               | evaluates against it                  |
+| `now`        | an ISO string                                   | keys every hook memo on it            |
+
 The subject crosses too, because the browser needs it to evaluate. It is not a
 credential and nothing reads it back. On the next request the server resolves
 its own subject from the session, and it never trusts the copy it sent.
@@ -135,8 +148,10 @@ no way to notice. `access.version` (the revision stamped on
 [the matrix](/acl/matrix)) is the surface for detecting the gap. Your app writes
 the part that fails closed and refetches.
 
-The server never reads that copy. Every loader, every action and every handler
-evaluates its own.
+### The server never reads the browser's copy
+
+The server never reads the browser's copy. Every loader, every action and every
+handler evaluates its own.
 
 Treat the browser's answer as a convenience for toggling what a control looks
 like, and nothing else. A shopper shown an Edit button that 403s has been

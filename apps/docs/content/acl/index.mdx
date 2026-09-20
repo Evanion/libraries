@@ -9,15 +9,11 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** `@evanion/acl` holds every authorization rule an app has in one
-JSON document and answers one question against it: may this subject take this
-action on this object? Baize, a board game shop, states three rules that way. A
-customer may edit their own question, a bookseller may edit anybody's, and a
-locked question is editable by nobody.
-
-**What you get.** One document and one call, both of which run wherever the
-JSON is, so the server that enforces the answer and the screen that renders it
-read the same rules.
+**The concept.** `@evanion/acl` holds every rule in one document.
+**What you get.** One call over the same rules.
+**Why you want it.** Hand-copied rules drift.
+**How the library gets you there.** `policy()` writes the document; four methods
+read it.
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -28,20 +24,21 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-**Why you want it.** Hand-written copies of a rule drift: you tighten the
-handler, forget the loader, and the UI greys out a button the API would have
-accepted.
+## What the access object answers
 
-**How the library gets you there.** `policy()` writes the JSON document, called
-the matrix, and hands back an access object with four methods on it.
+`policy()` writes the JSON document, called the matrix, and hands back an access
+object with four methods on it.
 
 - `can` decides one action and carries the reasons beside the answer.
 - `capabilities` decides every action at once.
 - `authorize` binds one subject for the length of a request.
 - `canFields` names the fields of a write you may set.
 
-Each is a local function over the frozen document, so no call waits on a network
-round trip.
+Each method is a local function over the frozen document, so no call waits on a
+network round trip. The matrix answers one question: may this subject take this
+action on this object? Baize, a board game shop, states three rules that way. A
+customer may edit their own question, a bookseller may edit anybody's, and a
+locked question is editable by nobody.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -52,6 +49,11 @@ round trip.
 
 One `.for()` block declares one object kind, and a policy chains a block per
 kind. The example declares only `question` because that is all it asks about.
+
+The server that enforces the answer and the screen that renders it read the same
+rules, because both run over the same document. Hand-written copies of a rule
+drift: you tighten the handler, forget the loader, and the UI greys out a button
+the API would have accepted.
 
 <Panel heading="A decision counts where it is made">
   <Text as="div" size="sm">

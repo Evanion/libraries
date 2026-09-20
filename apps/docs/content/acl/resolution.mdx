@@ -2,27 +2,19 @@
 
 <WorkshopNotice slug="acl" />
 
-**The concept.** `decideResolved` settles one permission in seven fixed steps,
-reading the deny rules first and the allow rules second. Any number of rules can
-match at once, and the step order decides which list answers and what the engine
-returns when a rule cannot be decided at all.
+**The concept.** `decideResolved` settles one permission in seven fixed steps.
 
-**What you get.** The seven steps `decideResolved` runs, and the behaviour each
-step's position produces.
+**What you get.** The seven steps, in order.
 
-**Why you want it.** A browser, the server behind it and a downstream service
-holding the same document reach the same decision, because the order is a
-property of the document and nothing configures it.
+**Why you want it.** Nothing configures the order.
 
-**How the library gets you there.** `decideResolved` reads
-`permission.denyRules`, `permission.rules` and the caller's context, and nothing
-else. [Decisions](/acl/decisions) has the shape it hands back.
+**How the library gets you there.** `decideResolved` reads both rule lists.
 
 ## The order acl resolves a permission in
 
 The deny side is `permission.denyRules` and the allow side is
 `permission.rules`. Rules within a side are OR-ed, so one match settles that
-side. Four outcomes cover most calls:
+side, and any number of rules can match at once. Four outcomes cover most calls:
 
 | Deny side   | Allow side  | Decision                         |
 | ----------- | ----------- | -------------------------------- |
@@ -31,7 +23,8 @@ side. Four outcomes cover most calls:
 | fails       | fails       | `no-rule-matched`                |
 | unevaluable | not failing | `unevaluable`, naming both sides |
 
-`libs/acl/src/evaluate.ts` defines the full order:
+`libs/acl/src/evaluate.ts` defines the full order, and
+[Decisions](/acl/decisions) has the shape each step hands back:
 
 1. a deny rule matches → `denied`
 2. the allow side definitely fails → `no-rule-matched`
@@ -74,17 +67,13 @@ flowchart TD
 
 ## Why acl reads the deny side twice
 
-Step 2 answers `no-rule-matched` ahead of the deny side's undecided cases. No
-fetch repairs a definite "no allow rule matched", so answering `unevaluable`
-there would tell a UI to refetch and re-ask forever.
+Step 2 answers `no-rule-matched` ahead of the deny side's undecided cases,
+because no fetch repairs a definite "no allow rule matched".
 
-Steps 3 and 4 sit above step 5. A deny side held up by a path the object did not
-carry, or by a `now` that does not parse, might have matched, so the engine
-reports that rather than handing back `allow`.
-
-A deny the engine could not decide only ever subtracts. It turns an `allow` into
-an `unevaluable`, and it never turns a definite no-allow into something a
-refetch repairs. Every branch below step 1 answers `allowed: false`, so no
+Steps 3 and 4 sit above step 5, so a deny side held up by an unreadable path or
+by a `now` that does not parse reports itself and hands back no `allow`. An
+undecided deny turns an `allow` into an `unevaluable` and leaves a definite
+no-allow alone. Every branch below step 1 answers `allowed: false`, so no
 undecided path leaks a grant.
 
 ## Why acl declines last-declaration-wins
@@ -96,7 +85,7 @@ hazard: "the order of rules matters: `cannot` declarations should follow after
 `can`, otherwise they will be overridden by `can`".
 
 A [matrix](/acl/matrix) is a frozen JSON document one service emits and another
-adopts with `parseMatrix`, and three things break there under order-dependence:
+adopts with `parseMatrix`. Three things break there under order-dependence:
 
 - Identical rules in a different order decide differently, so a producer that
   reorders its own output changes what a consumer grants.
@@ -105,13 +94,13 @@ adopts with `parseMatrix`, and three things break there under order-dependence:
 - A reviewer could not say what a matrix grants without reading every rule in
   sequence, and matrix review is the only control over an over-broad grant.
 
-Under step 1 a deny wins wherever it sits in the array, so array order carries no
-meaning.
+Under step 1 a deny wins wherever it sits in the array, so array order carries
+no meaning.
 
 ## Deny-overrides, and the names XACML gave it
 
-acl runs deny-overrides and exposes no setting for it. Four other engines put
-that choice somewhere a caller can change:
+acl runs deny-overrides and exposes no setting. Four other engines put that
+choice where a caller can change it:
 
 | Engine    | How it combines                                        | Where that choice lives                       | What it answers                            |
 | --------- | ------------------------------------------------------ | --------------------------------------------- | ------------------------------------------ |
@@ -121,33 +110,29 @@ that choice somewhere a caller can change:
 | Casbin    | whatever `[policy_effect]` names                       | the model file, per deployment                | a boolean                                  |
 | acl       | deny-overrides, and nothing configures it              | nowhere: the seven steps above are the engine | `allow`, a refusal, or `unevaluable`       |
 
-A choice that lives in a document or a setting travels with that document, so a
-consumer adopting a foreign matrix inherits whichever algorithm the producer
-picked. An engine that answers only true or false has nothing for steps 3, 4 and
-7 to report.
+A consumer adopting a foreign matrix inherits whichever algorithm the producer
+picked. Three of those engines write the algorithm down:
 
-OASIS named the combining algorithms in Appendix C of the eXtensible Access
-Control Markup Language (XACML) 3.0: deny-overrides, permit-overrides,
-first-applicable and only-one-applicable, alongside ordered and
-`deny-unless-permit` variants. XACML states deny-overrides as "if a single
-`<Rule>` or `<Policy>` element is encountered that evaluates to 'Deny', then,
-regardless of the evaluation result of the other … elements in the applicable
-policy, the combined result is 'Deny'".
-
-AWS IAM states the same algorithm: "By default, all requests are implicitly
-denied", a policy must explicitly allow them, and "An explicit deny overrides an
-explicit allow." Those are steps 1, 2 and 5 with the undecided steps taken out.
-
-Casbin makes the choice a setting. Its `[policy_effect]` section takes
-allow-override, deny-override, the conjunction of the two, or
-`priority(p.eft) || deny`, which is first-applicable.
+- XACML 3.0. OASIS named the combining algorithms in Appendix C of the
+  eXtensible Access Control Markup Language (XACML) 3.0: deny-overrides,
+  permit-overrides, first-applicable and only-one-applicable, alongside ordered
+  and `deny-unless-permit` variants. XACML states deny-overrides as "if a single
+  `<Rule>` or `<Policy>` element is encountered that evaluates to 'Deny', then,
+  regardless of the evaluation result of the other … elements in the applicable
+  policy, the combined result is 'Deny'".
+- AWS IAM. "By default, all requests are implicitly denied", a policy must
+  explicitly allow them, and "An explicit deny overrides an explicit allow."
+  Those are steps 1, 2 and 5 with the undecided steps taken out.
+- Casbin. The `[policy_effect]` section takes allow-override, deny-override, the
+  conjunction of the two, or `priority(p.eft) || deny`, which is
+  first-applicable.
 
 ## The third state, and what XACML calls Indeterminate
 
 `unevaluable` is acl's third answer: the engine could not reach a decision with
 the data it was handed, and `missing` names the paths to fetch. Steps 3 and 4
-exist to separate that case from a refusal. CASL, AWS IAM and Casbin all answer
-a boolean and have nothing there to separate.
+separate that case from a refusal, and CASL, AWS IAM and Casbin all answer a
+boolean.
 
 XACML is the exception. Its decision values are Permit, Deny, NotApplicable and
 Indeterminate, and its extended `Indeterminate{D}`, `{P}` and `{DP}` variants
@@ -163,8 +148,8 @@ environment makes the decision that counts, and every app in the chain evaluates
 for itself and trusts no earlier layer, which [the security
 contract](/acl/security) argues in full.
 
-Every step above reads the permission and the context, and reads no array order,
-no construction option and no per-process setting. A browser, the server behind
+Every step above reads the permission and the context, and no array order,
+construction option or per-process setting. A browser, the server behind
 it and a downstream service holding the same document and subject reach the same
 decision, so a layer that re-decides confirms the answer it was handed.
 

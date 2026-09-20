@@ -54,8 +54,13 @@ function policy<
 ): Policy<Sub, Objects, Vocabs, Record<never, never>, never>;
 ```
 
-`Objects` maps each kind to its row type and `Vocabs` maps a kind to the actions
-it answers for; a kind `Vocabs` omits takes `Action`.
+| Type parameter | What it is                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `Sub`          | the subject type every `subject.*` path is checked against                                                                         |
+| `Objects`      | each object kind mapped to its row type                                                                                            |
+| `Vocabs`       | each kind mapped to the actions it answers for                                                                                     |
+| `Action`       | the vocabulary a kind `Vocabs` omits gets, carrying no wildcard member; `docs/specs/2026-09-17-acl-wildcard-action.md` records why |
+| `VocabularyOf` | what one kind's block may declare from; `string` there opens the kind to any action                                                |
 
 ## `Policy`
 
@@ -84,9 +89,14 @@ interface Policy<
 }
 ```
 
-`for` takes no type arguments, reading the object type out of `Objects`, the
-vocabulary out of `Vocabs` and `Act` off the chain its block returns. `matrix`
-flattens the blocks without building one.
+| Member or type   | What it is                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `for`            | takes no type arguments, reading the object type out of `Objects`, the vocabulary out of `Vocabs` and `Act` off the chain its block returns             |
+| `matrix`         | flattens the blocks without building one                                                                                                                |
+| `build`          | validates every block once and returns the `Access`                                                                                                     |
+| `PermissionKeys` | the keys one block contributes; an `Act` the compiler reads as `string` contributes `string`, widening the document's whole key union                   |
+| `KeysOf`         | lifts those keys out of an `Access` type; a producer exports `KeysOf<typeof access>` for a consumer compiled against its source                         |
+| `ActionOf`       | the action half of the keys one object kind holds, checked against every query's action parameter; open, empty and unmatched key unions answer `string` |
 
 ## `PolicyOptions`
 
@@ -107,10 +117,12 @@ interface AccessOptions {
 }
 ```
 
-`version` overrides the document's. `closed` fails closed on an unknown key.
-`fetchedAt` is when this holder last validated. A holder that supplies it
-obliges the document to state `maxStale`, which here is a local ceiling `min`-ed
-with the document's.
+| Option      | What it is                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `version`   | overrides the document's own `version`                                                              |
+| `closed`    | fails closed on an unknown key                                                                      |
+| `fetchedAt` | when this holder last validated; a holder that supplies it obliges the document to state `maxStale` |
+| `maxStale`  | a local ceiling, `min`-ed with the document's                                                       |
 
 ## `Access`
 
@@ -132,8 +144,16 @@ interface Access<Sub = Subject, R = AnyObjects, Keys extends string = string> {
 }
 ```
 
-`canMany` settles one clock for the whole list. `readsObject` says whether the
-permission needs the row before it can decide.
+| Member                        | What it answers                                             |
+| ----------------------------- | ----------------------------------------------------------- |
+| `can`                         | one decision for one action on one row                      |
+| `canMany`                     | one decision per row, settling one clock for the whole list |
+| `canFields`                   | the field-level decision on the `read` or `write` axis      |
+| `capabilities`                | every permission key, decided against one subject           |
+| `authorize`                   | an `Authorized` handle carrying the subject                 |
+| `object`                      | a `BoundKind` handle carrying the object kind               |
+| `readsObject`                 | whether the permission needs the row before it can decide   |
+| `matrix`, `version`, `schema` | the frozen document, and the two envelope fields off it     |
 
 Every object parameter takes a partial: a projection is the
 [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case. An absent
@@ -166,8 +186,8 @@ interface Authorized<R = AnyObjects, Keys extends string = string> {
 }
 ```
 
-None of `matrix`, `version`, `schema` or `readsObject` is a fact about one
-subject, so none is here.
+`Authorized` omits `matrix`, `version`, `schema` and `readsObject`, which are
+not facts about one subject.
 
 ## `BoundKind`
 
@@ -207,9 +227,6 @@ interface BoundKind<Sub, Obj, Act extends string = string> {
 type KeysOf<A> = A extends Access<never, never, infer Keys> ? Keys : never;
 ```
 
-The permission keys an `Access` carries, lifted out of its type. A producer
-exports `KeysOf<typeof access>` for a consumer compiled against its source.
-
 ## `ActionOf`
 
 ```ts signature
@@ -224,16 +241,13 @@ type ActionOf<Keys extends string, K extends string> = [Keys] extends [never]
         : never;
 ```
 
-The action half of the keys one object kind holds, checked against every query's
-action parameter. Open, empty and unmatched key unions answer `string`.
-
 ## `CRUD_ACTIONS`
 
 ```ts signature
 const CRUD_ACTIONS: readonly ['create', 'read', 'update', 'delete'];
 ```
 
-The one declaration of the four default verbs, which `Action` is read off. Pass
+`CRUD_ACTIONS` declares the four default verbs, and `Action` reads off it. Pass
 it to `allowEach`.
 
 ## `pickAllowedFields`
@@ -282,9 +296,9 @@ interface SerializeOptions<Keys extends string = string> {
 }
 ```
 
-A listed key the reduction would drop raises `UnpublishedVetoableError`. A key
-the document never held is refused earlier, by the compiler, where the policy
-was authored with the builder.
+A listed key the reduction would drop raises `UnpublishedVetoableError`. The
+compiler refuses a key the document never held, where the builder authored the
+policy.
 
 ## `federatedPolicies`
 
@@ -346,8 +360,8 @@ interface DenyOverlayOptions {
 }
 ```
 
-Listing a key obliges the matrix to declare that key's object kind in
-`schema.objects`.
+A key listed in `vetoable` obliges the matrix to declare that key's object kind
+in `schema.objects`.
 
 ## `Matrix`
 
@@ -362,6 +376,18 @@ interface Matrix {
   readonly permissions: readonly Permission[];
 }
 ```
+
+| Type           | What it holds                                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `Permission`   | one `` `${object}.${action}` `` key, its allow rules, its deny rules and its field rules                                      |
+| `Rule`         | an id and a list of AND-ed conditions                                                                                         |
+| `Condition`    | one comparison; [The matrix document](/acl/matrix#conditions) has the operator table                                          |
+| `FieldRules`   | the `fields` list, then one key per field carrying a write-axis config, so a field named `fields` cannot be configured        |
+| `FieldConfig`  | `targets` allow-lists the proposed value and `transitions` is a state machine over the current one; see [Fields](/acl/fields) |
+| `MatrixSchema` | optional for a producer, binding where present, per kind: a kind `objects` omits is unchecked                                 |
+| `ObjectSchema` | a kind's field types, and the `relations` naming the kinds it points at, one hop; no condition compares a relation            |
+| `FieldType`    | a flat string any language emits by reflection, where `?` marks a field that may be absent                                    |
+| `Instant`      | an ISO 8601 string, epoch milliseconds, or a `Date`; the string and number forms survive JSON                                 |
 
 ## `Permission`
 
@@ -388,8 +414,6 @@ interface Rule {
 
 ## `Condition`
 
-[The matrix document](/acl/matrix#conditions) has the operator table.
-
 ```ts signature
 type Condition =
   | { field: 'now'; op: 'before' | 'after'; value: Instant }
@@ -410,9 +434,6 @@ interface FieldRules {
 }
 ```
 
-Every other key is a field name carrying a write-axis config, so a field named
-`fields` cannot be configured.
-
 ## `FieldConfig`
 
 ```ts signature
@@ -420,9 +441,6 @@ type FieldConfig =
   | { targets: readonly unknown[] }
   | { transitions: Record<string, readonly unknown[]> };
 ```
-
-`targets` allow-lists the proposed value; `transitions` is a state machine over
-the current one. See [Fields](/acl/fields).
 
 ## `MatrixSchema`
 
@@ -433,9 +451,6 @@ interface MatrixSchema {
 }
 ```
 
-Optional for a producer, binding where present, per kind: a kind `objects` omits
-is unchecked.
-
 ## `ObjectSchema`
 
 ```ts signature
@@ -444,9 +459,6 @@ interface ObjectSchema {
   readonly relations?: Readonly<Record<string, ObjectKey>>;
 }
 ```
-
-`relations` names the kinds one kind points at, one hop. No condition compares
-one.
 
 ## `FieldType`
 
@@ -457,9 +469,6 @@ type FieldType =
   | `${BaseFieldType}?`
   | `${BaseFieldType}[]?`;
 ```
-
-`?` marks a field that may be absent. A flat string any language emits by
-reflection.
 
 ## `BaseFieldType`
 
@@ -473,8 +482,6 @@ type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
 type Instant = string | number | Date;
 ```
 
-A string parses as ISO 8601, a number as epoch milliseconds; both survive JSON.
-
 ## `Decision`
 
 ```ts signature
@@ -487,8 +494,13 @@ interface Decision {
 }
 ```
 
-`allowed` is the gate; the other three are output only.
-[Decisions](/acl/decisions) says which reason carries which.
+| Field     | What it carries                                                          |
+| --------- | ------------------------------------------------------------------------ |
+| `key`     | the permission key the query asked about                                 |
+| `allowed` | the gate                                                                 |
+| `reason`  | output only; [Decisions](/acl/decisions) says which reason carries which |
+| `rule`    | output only; the id of the rule that decided                             |
+| `missing` | output only; the paths that did not read                                 |
 
 ## `Reason`
 
@@ -514,15 +526,20 @@ interface FieldDecision {
 }
 ```
 
+| Field     | What it carries                                                                                                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allowed` | the action is allowed and every decided field is                                                                                                   |
+| `action`  | the action-level `Decision` alone                                                                                                                  |
+| `fields`  | every field name mapped to a `FieldState`; compare against `'allowed'`, since comparing against `'denied'` treats an unevaluable field as writable |
+| `reasons` | every field name mapped to the `FieldReason` that settled it                                                                                       |
+
 ## `FieldState`
 
 ```ts signature
 type FieldState = 'allowed' | 'denied' | 'unevaluable';
 ```
 
-Compare against `'allowed'`; comparing against `'denied'` treats an unevaluable
-field as writable. See
-[Pitfalls](/acl/pitfalls#never-hand-filter-the-field-map).
+See [Pitfalls](/acl/pitfalls#never-hand-filter-the-field-map).
 
 ## `FieldReason`
 
@@ -546,7 +563,8 @@ interface EvaluationContext {
 }
 ```
 
-The entry points assemble this; `now` settles to one epoch per call.
+The entry points assemble an `EvaluationContext`, and `now` settles to one epoch
+per call.
 
 ## `Subject`
 
@@ -560,7 +578,7 @@ type Subject = Record<string, unknown>;
 type AnyObjects = Record<string, Record<string, unknown>>;
 ```
 
-The open key map `Access` defaults to.
+`AnyObjects` is the open key map `Access` defaults to.
 
 ## `ObjectKey`
 
@@ -570,9 +588,7 @@ type ObjectKey = string;
 
 ## `Actions`
 
-`Actions` is the block parameter `.for()` hands you. `Vocab` is what this kind
-may declare, `Act` what this chain declared, and only `Act` reaches the
-permission keys.
+`Actions` is the block parameter `.for()` hands you.
 
 ```ts signature
 interface Actions<
@@ -602,18 +618,19 @@ interface Actions<
 }
 ```
 
-`allowEach` and `denyEach` write one rule across several actions, one ordinary
-permission each. `fields` and `visibility` mark the action last declared and
-raise `AclConfigError` after a batch.
+| Member or type          | What it does                                                            |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `allow`, `deny`         | add one rule to the action named                                        |
+| `allowEach`, `denyEach` | write one rule across several actions, one ordinary permission each     |
+| `fields`, `visibility`  | mark the action last declared, and raise `AclConfigError` after a batch |
+| `Vocab`                 | what this kind may declare                                              |
+| `Act`                   | what this chain declared; only `Act` reaches the permission keys        |
 
 ## `Action`
 
 ```ts signature
 type Action = (typeof CRUD_ACTIONS)[number];
 ```
-
-The vocabulary a kind gets when `Vocabs` names none. No wildcard member sits
-here, and `docs/specs/2026-09-17-acl-wildcard-action.md` records why.
 
 ## `VocabularyOf`
 
@@ -625,16 +642,14 @@ type VocabularyOf<Vocabs, K extends string> = K extends keyof Vocabs
   : Action;
 ```
 
-What one kind's block may declare from. `string` there opens the kind to any
-action.
-
 ## `Visibility`
 
 ```ts signature
 type Visibility = NonNullable<Permission['visibility']>;
 ```
 
-The marking `p.visibility()` writes and `serialize(access, 'reduced')` reads.
+`Visibility` is the marking `p.visibility()` writes and
+`serialize(access, 'reduced')` reads.
 
 ## `PermissionKeys`
 
@@ -643,9 +658,6 @@ type PermissionKeys<K extends string, Act extends string> = string extends Act
   ? string
   : `${K}.${Act}`;
 ```
-
-The keys one block contributes. An `Act` the compiler reads as `string`
-contributes `string`, widening the document's whole key union.
 
 ## `Ops`
 
@@ -680,6 +692,13 @@ interface Ops<Sub, Obj> {
 
 `not-in` is not an identifier, so the helper is `notIn`.
 
+| Type      | What it is                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| `Cond`    | an opaque condition tree, which `build()` flattens to a rule per `or` branch                           |
+| `Operand` | a comparand shaped like a namespaced path is checked as one, and any other string is a literal         |
+| `Paths`   | the `subject.` and `object.` paths one bound type offers                                               |
+| `Valid`   | a path those types carry; the failure branch is the parameter type, so the compiler names the bad path |
+
 ## `Cond`
 
 ```ts signature
@@ -687,9 +706,6 @@ interface Cond {
   readonly node: Node;
 }
 ```
-
-`Cond` is an opaque condition tree, and `build()` flattens one to a rule per
-`or` branch.
 
 ## `Operand`
 
@@ -699,9 +715,6 @@ type Operand<B, Sub, Obj> = B extends
   ? Valid<B & string, Sub, Obj>
   : B;
 ```
-
-A comparand shaped like a namespaced path is checked as one; any other string
-is a literal.
 
 ## `Paths`
 
@@ -720,24 +733,44 @@ type Valid<S extends string, Sub, Obj> = S extends
   : `unknown path '${S}' on this resource`;
 ```
 
-The failure branch is the parameter type, so the compiler names the bad path.
-
 ## `AclConfigError`
 
 ```ts signature
 class AclConfigError extends Error {}
 ```
 
-The base of every construction failure. [Typed
-authoring](/acl/authoring#construction-errors) tables what raises which.
+`AclConfigError` is the base of every class below. [Typed
+authoring](/acl/authoring#construction-errors) tables the same set by authoring
+step.
+
+| Error                             | Raised when                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `InvalidMatrixError`              | the envelope carries no `permissions` array, or a `version` of the wrong type                     |
+| `InvalidSchemaError`              | the schema's own shape is wrong; `where` locates it inside the document                           |
+| `InvalidPermissionError`          | a permission's `object`, `action`, `rules` or `fields` is malformed                               |
+| `InvalidRuleError`                | a rule is not an object, or its `when` is not an array                                            |
+| `InvalidConditionError`           | a condition's shape, namespace, path depth or operator pairing is unusable                        |
+| `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                                  |
+| `DuplicatePermissionError`        | two permissions share a key                                                                       |
+| `UnknownFieldError`               | a condition names a field the schema does not declare                                             |
+| `FieldTypeMismatchError`          | `contains` runs against a non-array, or a literal is of the wrong type                            |
+| `BangInAllowListError`            | a `!name` entry sits inside an allow-list                                                         |
+| `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                                              |
+| `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                                             |
+| `UnknownObjectKeyError`           | a query on the open path names an unknown object kind; `parseMatrix` fails closed                 |
+| `UnknownPermissionError`          | a query on the open path names an unknown key; `parseMatrix` answers `unknown-action`             |
+| `OriginCollisionError`            | two origins claim one key, which `federatedPolicies` raises while composing                       |
+| `UnvetoablePermissionError`       | an overlay names a key the target does not list as `vetoable`                                     |
+| `MissingVetoSchemaError`          | a vetoable key's object kind has no `schema.objects` entry                                        |
+| `UnpublishedVetoableError`        | `serialize` reduces away a vetoable key the contract would not ship                               |
+| `MissingFreshnessBudgetError`     | a holder reports `fetchedAt` against a document stating no `maxStale`                             |
+| `InvalidFreshnessError`           | `fetchedAt` is not an instant, or `maxStale` is not a finite, non-negative number of milliseconds |
 
 ## `InvalidMatrixError`
 
 ```ts signature
 class InvalidMatrixError extends AclConfigError {}
 ```
-
-No `permissions` array, or a `version` of the wrong type.
 
 ## `InvalidSchemaError`
 
@@ -756,8 +789,6 @@ class InvalidPermissionError extends AclConfigError {
 }
 ```
 
-A permission's `object`, `action`, `rules` or `fields` is malformed.
-
 ## `InvalidRuleError`
 
 ```ts signature
@@ -766,8 +797,6 @@ class InvalidRuleError extends AclConfigError {
   readonly field: string; // rules[2]
 }
 ```
-
-The rule is not an object, or its `when` is not an array.
 
 ## `InvalidConditionError`
 
@@ -779,8 +808,6 @@ class InvalidConditionError extends AclConfigError {
 }
 ```
 
-An unusable shape, namespace, path depth or operator pairing.
-
 ## `KeyMismatchError`
 
 ```ts signature
@@ -790,8 +817,6 @@ class KeyMismatchError extends AclConfigError {
   readonly action: string;
 }
 ```
-
-`key` is not exactly `` `${object}.${action}` ``.
 
 ## `DuplicatePermissionError`
 
@@ -811,8 +836,6 @@ class UnknownFieldError extends AclConfigError {
 }
 ```
 
-A condition names a field the schema does not declare.
-
 ## `FieldTypeMismatchError`
 
 ```ts signature
@@ -823,23 +846,17 @@ class FieldTypeMismatchError extends AclConfigError {
 }
 ```
 
-`contains` against a non-array, or a literal of the wrong type.
-
 ## `BangInAllowListError`
 
 ```ts signature
 class BangInAllowListError extends AclConfigError {}
 ```
 
-A `!name` entry inside an allow-list.
-
 ## `DenyWithoutBaselineError`
 
 ```ts signature
 class DenyWithoutBaselineError extends AclConfigError {}
 ```
-
-A `!name` entry with no `*` baseline to subtract from.
 
 ## `TargetsTransitionsConflictError`
 
@@ -855,8 +872,6 @@ class UnknownObjectKeyError extends AclConfigError {
 }
 ```
 
-Raised by a query on the open path; `parseMatrix` fails closed.
-
 ## `UnknownPermissionError`
 
 ```ts signature
@@ -864,8 +879,6 @@ class UnknownPermissionError extends AclConfigError {
   readonly key: string;
 }
 ```
-
-Raised by a query on the open path; `parseMatrix` answers `unknown-action`.
 
 ## `OriginCollisionError`
 
@@ -876,8 +889,6 @@ class OriginCollisionError extends AclConfigError {
 }
 ```
 
-Two origins claim one key. `federatedPolicies` raises it while composing.
-
 ## `UnvetoablePermissionError`
 
 ```ts signature
@@ -885,8 +896,6 @@ class UnvetoablePermissionError extends AclConfigError {
   readonly key: string;
 }
 ```
-
-An overlay named a key the target does not list as `vetoable`.
 
 ## `MissingVetoSchemaError`
 
@@ -897,8 +906,6 @@ class MissingVetoSchemaError extends AclConfigError {
 }
 ```
 
-A vetoable key whose object kind has no `schema.objects` entry.
-
 ## `UnpublishedVetoableError`
 
 ```ts signature
@@ -907,15 +914,11 @@ class UnpublishedVetoableError extends AclConfigError {
 }
 ```
 
-`serialize` raises it for a vetoable key the contract would not ship.
-
 ## `MissingFreshnessBudgetError`
 
 ```ts signature
 class MissingFreshnessBudgetError extends AclConfigError {}
 ```
-
-A holder reported `fetchedAt` against a document stating no `maxStale`.
 
 ## `InvalidFreshnessError`
 
@@ -924,9 +927,6 @@ class InvalidFreshnessError extends AclConfigError {
   readonly field: string;
 }
 ```
-
-`fetchedAt` is not an instant, or `maxStale` is not a finite, non-negative
-number of milliseconds.
 
 ## `ActionNotAllowedError`
 
@@ -937,10 +937,10 @@ class ActionNotAllowedError extends Error {
 }
 ```
 
-The only error raised outside construction. `pickAllowedFields` throws it when
-the action is refused.
+`ActionNotAllowedError` is the only error the library raises outside
+construction. `pickAllowedFields` throws it when the action is refused.
 
 ## What is not exported
 
-`decide`, `decideFields` and `evaluateCondition`. Each answers a fragment and
-trusts its caller for the rest.
+`@evanion/acl` exports no `decide`, `decideFields` or `evaluateCondition`. Each
+answers a fragment and trusts its caller for the rest.

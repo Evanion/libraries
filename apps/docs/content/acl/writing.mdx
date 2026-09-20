@@ -13,23 +13,23 @@
   ]}
 />
 
-**The concept.** `canFields` decides an action and every field of a proposed
-write in one call, and `pickAllowedFields` turns that decision into the object
-you hand the database. A customer may change the body of their own question on
-the Brass: Birmingham listing. The shop's lock on `status` is the shop's, so a
-form that posts `status` alongside the body has to lose that key.
+**The concept.** `canFields` decides an action and its fields.
+**What you get.** The object to hand the database.
+**Why you want it.** A hand-written pick-list misses new columns.
+**How the library gets you there.** `pickAllowedFields` keeps the allowed
+fields.
 
-**What you get.** One call that decides the action and every field of the
-write together, and one call that turns that decision into the object you hand
-the object-relational mapper (ORM).
+## The two calls on the acl write path
 
-**Why you want it.** A hand-written pick-list in the handler stays correct
-until somebody adds a column. The form then posts a field nobody listed, and the
-write goes through.
+`canFields` decides an action and every field of a proposed write in one call,
+and returns a state per field. `pickAllowedFields` keeps the fields that decided
+`allowed`, drops the rest, and turns the decision into the object you hand the
+object-relational mapper (ORM). A customer may change the body of their own
+question on the Brass: Birmingham listing. The shop's lock on `status` is the
+shop's, so a form that posts `status` alongside the body has to lose that key.
 
-**How the library gets you there.** `canFields` decides the action and returns a
-state per field. `pickAllowedFields` keeps the fields that decided `allowed` and
-drops the rest.
+A hand-written pick-list in the handler stays correct until somebody adds a
+column. The form then posts a field nobody listed, and the write goes through.
 
 ```ts twoslash file=libs/acl/README.md region=write-path
 
@@ -109,14 +109,17 @@ never field names, wherever they turn up. A `!name` with no `*` is
 everything else.
 
 With no name list at all, every unnamed key is writable. A `targets` or
-`transitions` config restricts the field it names and no other.
+`transitions` config restricts the field it names and no other:
 
-`targets` allow-lists the proposed value, so `status: { targets: ['open', 'locked'] }`
-accepts either of those and refuses anything else. `transitions` is a state
-machine over the current value: the key is what the object holds now, the array
-is what it may become. An empty array is a terminal state, so the `locked: []`
-above refuses every write that moves `status` out of `locked`. The two are
-mutually exclusive on one field.
+- `targets` allow-lists the proposed value, so
+  `status: { targets: ['open', 'locked'] }` accepts either of those and refuses
+  anything else.
+- `transitions` is a state machine over the current value: the key is what the
+  object holds now, the array is what it may become. An empty array is a
+  terminal state, so the `locked: []` above refuses every write that moves
+  `status` out of `locked`.
+
+The two are mutually exclusive on one field.
 
 ```mermaid caption="The state machine the status config above declares. The config allows one write, from open to locked; locked names an empty array, so the engine refuses every write out of it. A call that carried no current status decides unevaluable."
 flowchart LR

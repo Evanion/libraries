@@ -13,24 +13,27 @@
   ]}
 />
 
-**The concept.** `can` answers one authorization question and returns a decision
-the handler gates on and the UI renders. Jo clicks Edit on a question somebody
-else asked, and that one call refuses the save and tells the button what to say.
+**The concept.** `can` answers one question with a decision.
+**What you get.** One answer the handler gates on.
+**Why you want it.** A hand-written check drifts.
+**How the library gets you there.** `can` decides one row, `canMany` a page.
 
-**What you get.** One question to ask with the row in hand or over a page
-of forty rows, and an answer a handler gates on and a UI renders.
+## One acl question and its decision
 
-**Why you want it.** Write the check by hand and you write it twice, once in
-the handler that refuses the save and once in the component that greys out the
-button. The two drift, and the customer sees an enabled button that 403s.
+`can` answers one authorization question and returns a decision the handler
+gates on and the UI renders. Jo clicks Edit on a question somebody else asked,
+and that one call refuses the save and tells the button what to say. Ask with
+the row in hand, or over a page of forty rows with `canMany`, which answers the
+same question per row.
 
-**How the library gets you there.** `can` answers one question and hands back a
-decision, and `canMany` answers the same question per row. `authorize` binds the
-subject so no handler restates it, and `access.object(kind)` binds the object
-kind.
+Write the check by hand and you write it twice, once in the handler that refuses
+the save and once in the component that greys out the button. The two drift, and
+the customer sees an enabled button that 403s.
 
-`can(subject, kind, action, object?, now?)` takes the object kind in `kind`, so
-you pass `'question'` and never `'question.update'`.
+`authorize` binds the subject so no handler restates it, and
+`access.object(kind)` binds the object kind. `can(subject, kind, action,
+object?, now?)` takes the object kind in `kind`, so you pass `'question'` and
+never `'question.update'`.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -100,11 +103,15 @@ does not comes back `unevaluable`, with `missing` naming what to fetch. Both are
 and a projection turns into permission the engine never granted. [Caveats and
 pitfalls](/acl/pitfalls) has that one first.
 
+### Asking acl whether a permission needs the row
+
 `access.readsObject(kind, action)` answers, from the document, whether a
 permission needs the row at all. A permission that reads only the subject
 settles with no object. Ask `readsObject` before the database query when you
 hold a projection and want to know which kind of permission you are asking
 about.
+
+### Why an acl subject has no partial form
 
 The subject has no partial form. An absent `subject.*` path is a definite miss.
 If you project the subject, the call refuses with `no-rule-matched` and names
@@ -150,15 +157,15 @@ signature once:
 
 ```
 
-`authorize` binds the subject and one instant. With no `now` the instant is the
-moment you call it, and `authorize(subject, { now })` names the instant
-yourself. The handle returns `can`, `canMany`, `canFields` and `capabilities`,
-each with the subject and the clock dropped from its signature.
+The two handles are alternatives, so bind the axis the call site repeats:
 
-`access.object(kind)` binds the other axis. It names one object kind once and
-returns `can`, `canMany`, `canFields` and `readsObject`, each of which still
-takes the subject first. The two handles are alternatives, so bind the axis the
-call site repeats.
+- `authorize` binds the subject and one instant. With no `now` the instant is
+  the moment you call it, and `authorize(subject, { now })` names the instant
+  yourself. The handle returns `can`, `canMany`, `canFields` and `capabilities`,
+  each with the subject and the clock dropped from its signature.
+- `access.object(kind)` binds the other axis. The handle names one object kind
+  once and returns `can`, `canMany`, `canFields` and `readsObject`, each of
+  which still takes the subject first.
 
 That policy declares `report` and `listing`, so it offers `object('report')` and
 `object('listing')`. A policy chaining four `.for()` calls offers four.

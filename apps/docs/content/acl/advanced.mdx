@@ -18,15 +18,11 @@
   ]}
 />
 
-**The concept.** A matrix is JSON, so the process that writes it and the process
-that evaluates it need not be the same one. Baize's `orders` service writes the
-matrix, and the storefront fetches and evaluates it after that process has
-exited, importing nothing of the file it was written in.
-
-**What you get.** A document that states the field shapes its own
-conditions read, a version string a reader can compare, and a `parseMatrix` that
-takes somebody else's document without throwing on a permission you have never
-heard of.
+**The concept.** A matrix is JSON and outlives its process.
+**What you get.** A self-describing, versioned document.
+**Why you want it.** A stale copy grants revoked permissions.
+**How the library gets you there.** `schema` checks paths; `version` dates
+copies.
 
 ```mermaid caption="The document's life across two processes. The orders service builds a matrix and declares in its schema the field shapes its conditions read, which the builder checks at construction. The storefront calls parseMatrix, which fails closed on a key it does not know, and compares the version it just fetched against the one it already holds to decide whether to fetch again."
 flowchart LR
@@ -38,17 +34,28 @@ flowchart LR
   F --> B
 ```
 
-**Why you want it.** Without the schema, Priya publishes a rule from Baize's
-`orders` service testing `object.status` with `contains`, the array operator,
-against a field holding a string, and nothing refuses the document. Without the
-version, a browser holding an hour-old copy goes on drawing an Edit button for a
-permission the owner revoked.
+## What a travelling acl matrix carries
 
-**How the library gets you there.** A `schema` on the document refuses an
-undeclared path with an `UnknownFieldError` and an ill-fitting operator with a
-`FieldTypeMismatchError`, both at construction. `version` gives the client one
-value to compare with `!==`, and `parseMatrix` fails closed on a key the
-document does not carry.
+A matrix is JSON, so the process that writes it and the process that evaluates
+it need not be the same one. Baize's `orders` service writes the matrix, and the
+storefront fetches and evaluates it after that process has exited, importing
+nothing of the file it was written in.
+
+The document states the field shapes its own conditions read and carries a
+version string a reader can compare. `parseMatrix` takes somebody else's
+document without throwing on a permission you have never heard of. Two failures
+follow from a document that travels without those two fields:
+
+- Without the schema, Priya publishes a rule from Baize's `orders` service
+  testing `object.status` with `contains`, the array operator, against a field
+  holding a string, and nothing refuses the document.
+- Without the version, a browser holding an hour-old copy goes on drawing an
+  Edit button for a permission the owner revoked.
+
+A `schema` on the document refuses an undeclared path with an `UnknownFieldError`
+and an ill-fitting operator with a `FieldTypeMismatchError`, both at
+construction. `version` gives the client one value to compare with `!==`, and
+`parseMatrix` fails closed on a key the document does not carry.
 
 ## Declare the shape
 

@@ -3,19 +3,21 @@
 <WorkshopNotice slug="acl" />
 
 `canFields` answers which parts of an object a subject may touch, on one of two
-axes: `read`, which is a projection, and `write`, which is what a form submits.
-An action-level decision answers "may this subject update this question"; a
-field-level one answers "which parts of it".
+axes.
 
-Field rules hang off one permission, so they are declared per object kind and
-per action. The policy below declares `question`; a `.for('listing')` beside it
-carries its own field rules in the same document.
+## The two axes `canFields` decides
+
+`read` is a projection and `write` is what a form submits. Field rules hang off
+one permission, declared per object kind and per action. A `.for('listing')`
+beside the policy below carries its own field rules in the same document.
 
 ```ts twoslash file=libs/acl/README.md region=field-permissions
 
 ```
 
-`canFields` returns the field maps plus the action decision they hang off.
+## What `canFields` returns
+
+`canFields` returns the field maps plus the action decision.
 
 ```ts
 interface FieldDecision {
@@ -26,14 +28,17 @@ interface FieldDecision {
 }
 ```
 
-The field maps are filled in whatever the action says, so a blocked caller still
-learns which fields would be editable once the action is unblocked. Only the
-top-level `allowed` is gated on the action, and it composes both halves. A
-caller who reads the maps as the gate skips the action entirely.
+Every name in `fields` carries one `FieldState`:
 
-`allowed` says the field may be read, or written with this value. `denied` says
-the rules refuse it. `unevaluable` says the decision needs data the call did not
-carry.
+- `allowed`: the subject may read the field, or write it with this value.
+- `denied`: the rules refuse it.
+- `unevaluable`: the decision needs data the call did not carry.
+
+`canFields` fills the field maps whatever the action says, so a blocked caller
+still learns which fields would be editable. Only the top-level `allowed` is
+gated on the action, and that flag composes both halves. A caller who reads the maps as the gate skips the action entirely.
+
+`reasons` carries one `FieldReason` per name.
 
 | `FieldReason`       | Emitted when                                                       |
 | ------------------- | ------------------------------------------------------------------ |
@@ -61,30 +66,40 @@ p.fields({
 
 `*` is the baseline and `!name` subtracts from it. Both are authoring syntax and
 never field names, wherever they turn up: in the rules, on the object, or in a
-proposed write. A `!name` with no `*` baseline is `DenyWithoutBaselineError`, and
-a `!name` inside an explicit allow-list is `BangInAllowListError`, because a list
-that names what is allowed already denies everything else.
+proposed write.
 
 With no name list at all, every unnamed key is writable. A `targets` or
-`transitions` config restricts the field it names and no other. An author who
-reads one as the writable-field list leaves every other key open.
+`transitions` config restricts the field it names and no other, so an author who
+reads one as the writable-field list leaves the rest open.
+
+### `targets` and `transitions`
 
 `targets` allow-lists the proposed value. `transitions` is a state machine over
 the current value: the key is the value the object holds now, the array is what
-it may become. The two are mutually exclusive on one field
-(`TargetsTransitionsConflictError`).
+it may become.
 
 The object form keys the configs by field name and takes `fields` for the name
-list, so `fields` is the one name a field cannot have: a field called `fields`
-has nowhere to put its `targets` or `transitions`. It can still be allowed or
-denied by name through the list. A matrix that gives it a config is refused at
-construction with an `InvalidPermissionError` naming the clash.
+list, so a field called `fields` gets no config. The name list can still allow
+or deny it.
+
+Construction refuses four authoring mistakes.
+
+| The document says                            | Construction raises               |
+| -------------------------------------------- | --------------------------------- |
+| a `!name` with no `*` baseline               | `DenyWithoutBaselineError`        |
+| a `!name` inside an explicit allow-list      | `BangInAllowListError`            |
+| `targets` and `transitions` on one field     | `TargetsTransitionsConflictError` |
+| a per-field config on a field named `fields` | `InvalidPermissionError`          |
 
 ## Which fields are decided
 
-The matrix does not know the object's shape, so the decision covers every field
-the object carries, every field named in the rules, every name in the list, and
-on the write axis every key of the proposed write.
+The matrix does not know the object's shape, so the decision covers four sources
+of names:
+
+- every field the object carries;
+- every field the rules name;
+- every name in the list;
+- on the write axis, every key of the proposed write.
 
 ```mermaid caption="The four sources that key the decision maps. The object's own keys, the per-field config names, the name list and, on the write axis only, the keys of the proposed write are unioned, and every name in that union gets a state. The keys of the proposed write are the source that catches mass assignment."
 flowchart LR
@@ -95,59 +110,54 @@ flowchart LR
   U --> M["fields and reasons,<br>one state per name"]
 ```
 
-That last one is the mass-assignment case. A key that exists nowhere but the
-write still gets a state, so an exclusion applies to a column the row has never
-held.
+That last source is the mass-assignment case: a key that exists nowhere but the
+write still gets a state.
 
-The read axis takes no write, and per-field `targets`/`transitions` configs are
-write concepts: on `read` only the name list denies.
+The read axis takes no write. `targets` and `transitions` are write concepts,
+and on `read` only the name list denies.
 
 ### Passing a projection
 
-`canFields` takes a partial object, so a caller holding a projection can ask.
-The map shrinks with the input: a field the projection omits, that no rule names
-and that the write does not propose, appears in neither `fields` nor `reasons`.
+`canFields` takes a partial object, so a caller holding a projection can ask. A
+field the projection omits, that no rule names and that the write does not
+propose, appears in neither `fields` nor `reasons`.
 
-A name in the map is a decision. A name absent from it is a question nobody
-asked, and `pickAllowedFields` withholds it for exactly that reason. Render
-inputs from the names the map carries, and treat an absent one as undecided.
-[Caveats and pitfalls](/acl/pitfalls) has the filter that gets this wrong.
+A name absent from the map is a question nobody asked, and `pickAllowedFields`
+withholds it. [Caveats and pitfalls](/acl/pitfalls) has the filter that gets
+this wrong.
 
 `access.readsObject(key, action)` says whether the action behind the fields
-needs the row at all, which is the cheaper question to ask before fetching one.
+needs the row at all.
 
 ## Writing
 
-Pass the proposed object to `canFields` on the `write` axis and write what
-`pickAllowedFields` hands back.
+Pass the proposed object to `canFields` on the `write` axis.
 
 ```ts twoslash file=libs/acl/README.md region=write-path
 
 ```
 
-That returned object is the value to write, and nothing else from the write is.
-Every key it carries was marked `allowed` by the decision; `denied` and
-`unevaluable` are both withheld, and so is any key the decision does not carry.
-Pass the result to the ORM, and pass only the result.
+Pass what `pickAllowedFields` returns to the ORM, and pass only that.
 
-`pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
-refused. No field of a refused action is writable, and an empty object would
-read the same as a lawful write of nothing. A field the action allows and the
-field rules deny is a partial write, so that case returns the allowed subset and
-throws nothing.
+- Every key it carries was marked `allowed` by the decision.
+- `denied` and `unevaluable` are both withheld, and so is any key the decision
+  does not carry.
+- `pickAllowedFields` throws `ActionNotAllowedError` when the action itself is
+  refused.
+- A field the action allows and the field rules deny is a partial write, so that
+  call returns the allowed subset and throws nothing.
 
-The narrowed result is safe to spread onto a row: `__proto__` names no field, so
-it never enters a decision map and never comes back out of the narrowing.
+`__proto__` names no field, so it never enters a decision map and never leaves
+the narrowing. The narrowed result is safe to spread onto a row.
 
 ## Reading
 
-The `read` axis answers which fields of an instance this subject may see, and a
-server uses it to shape a response the same way the client uses it to shape a
-form.
+The `read` axis answers which fields of an instance this subject may see.
 
 ```ts
 const view = access.canFields(subject, 'question', 'read', question, 'read');
 ```
 
-The axis decides a projection and runs no query: the row was already fetched,
-and a field decided `denied` here was still read out of the database.
+`canFields` decides a projection on `read` and runs no query: the row was
+already fetched, and a field decided `denied` here was still read out of the
+database.
