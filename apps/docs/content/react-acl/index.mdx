@@ -10,8 +10,9 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** Baize's listing page draws an Edit button four components below
-the route. [`@evanion/acl`](/acl) tells that button whether to draw itself, and
+**The concept.** Baize, the board game shop, draws an Edit button on its listing
+page, four components below the route.
+[`@evanion/acl`](/acl) tells that button whether to draw itself, and
 the call takes three things: the evaluator `policy()` built, the subject (the
 signed-in shopper, as the rest of this section calls them), and the instant a
 rule with a time window in it is read against. None of those three belong to a
@@ -38,7 +39,7 @@ flowchart TD
   S --> L["ListingView"]
   L --> A["ActionBar"]
   A --> E["EditControl<br>useCan(key, action, row)"]:::accent
-  P -. "context" .-> E
+  P -. "React context" .-> E
 ```
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision

@@ -28,8 +28,9 @@ function PolicyProvider<Keys extends string = string>(
 
 The context value is memoised on the identity of `access`, `subject` and
 `context`, so all three need stable references. `context.now` defaults to
-`new Date()` when it is left off, which is a fresh instant on every provider
-remount. Pass the value the server rendered with.
+`new Date()` when it is left off, and that memo recomputes whenever any of the
+three changes identity, so the clock moves under the tree. Pass the value the
+server rendered with.
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
@@ -55,8 +56,9 @@ document never declared reaches them, and the engine throws
 those types.
 
 Only `now` is read off `context`. `PolicyProvider` takes the subject as its own
-prop, so it memoises the two separately, and a re-render that changes who is
-signed in leaves the clock's key alone.
+prop, and one `useMemo` keyed on `access`, `subject` and `context` holds both.
+A re-render that changes who is signed in rebuilds the clock with them, which is
+why an omitted `context` re-reads the wall clock at every such change.
 
 ## `useCan`
 
@@ -120,6 +122,11 @@ function useCanFields(
 `axis` is `'read'` for which fields may be shown and `'write'` for which may be
 set. `proposed` is the write the caller intends, and on the write axis the map
 covers its keys too, including keys the row has never held.
+
+`action` carries the action-level decision the field maps hang off, and the
+engine fills `fields` whatever that decision said. Read `action.allowed` before
+you read a field, or a shopper who may not edit the listing at all reaches an
+input the map called `'allowed'`.
 
 `fields` maps every field name to `'allowed'`, `'denied'` or `'unevaluable'`.
 Compare against `'allowed'`; comparing against `'denied'` treats the
@@ -223,7 +230,7 @@ nothing more.
 
 `useCapabilities` answers by permission key, `listing.edit`, where `R` holds the
 object kinds, `listing`. A policy whose blocks
-[declare their actions](/acl/authoring#declaring-the-actions-of-a-block) narrows
+[declare their actions](/acl/authoring#the-vocabulary-of-a-kind) narrows
 those keys to the ones it declares, so `listing.edti` is a compile error. A
 policy that leaves one block's actions open stays keyed by `string`.
 

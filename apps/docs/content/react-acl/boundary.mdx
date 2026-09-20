@@ -72,7 +72,9 @@ allow.
 ## What a server component calls
 
 Nothing on the trusted side imports `@evanion/react-acl`. A loader or a server
-component already holds an evaluator and a subject, so it asks the core:
+component already holds an evaluator and a subject, so it asks the core. The
+loader below asks `'read'` before it renders anything, and the Edit button's
+question is the same call with `'edit'`:
 
 ```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
 
@@ -122,7 +124,7 @@ flowchart LR
     H["action or route handler<br>access.can(subject, …)"]:::accent
   end
   subgraph client["the shopper's browser"]
-    P["PolicyProvider<br>hydratePolicy(matrix)"]
+    P["hydratePolicy(matrix)<br>then PolicyProvider"]
     C["useCan<br>toggles a control"]
   end
   L -- "matrix, subject, now" --> P

@@ -61,15 +61,15 @@ A server rarely hands a browser an evaluator. It sends
 
 The example settles three things.
 
-`'use client'` is on the file because `useMemo` is. The package carries the same
-directive, so `PolicyProvider` is a client component wherever you import it. The
-directive on the example file settles which side `ShopAccess` runs on.
+`'use client'` is on the file because it renders `PolicyProvider`, and the
+provider calls `createContext`. The package carries the same directive, so
+`PolicyProvider` is a client component wherever you import it. The directive on
+the example file settles which side `ShopAccess` runs on.
 
-Both `useMemo` calls are load-bearing. `hydratePolicy`
-validates the document, deep-clones it and deep-freezes it, so it belongs once
-per matrix. The provider memoises its context value on the identity of `access`,
-`subject` and `context`, and a value rebuilt during render is a new identity on
-every pass.
+Both `useMemo` calls are load-bearing. `hydratePolicy` deep-clones the document,
+deep-freezes the copy and validates that, so it belongs once per matrix. The
+provider memoises its context value on the identity of `access`, `subject` and
+`context`, and a value rebuilt during render is a new identity on every pass.
 
 `now` is a string, and it stays one. The hooks key their memos on it, and a
 `Date` is a fresh object every render, so a string holds the memo across renders
@@ -105,8 +105,9 @@ cannot show the absence of a prop, so the tree below writes every hook call onto
 the box that makes it.
 
 Sign in as somebody else and the provider's `subject` changes. Three boxes down,
-the badges change with it, and `ShopPage`, `ListingView` and `ActionBar` were
-not re-plumbed:
+the Edit and Publish badges change with it, and `ShopPage`, `ListingView` and
+`ActionBar` were not re-plumbed. Review is granted to everybody, so it stays
+where it is:
 
 <PolicySpecimen />
 
@@ -124,7 +125,8 @@ changes what these badges say.
 
 ## Ask react-acl about a list, a menu and a form
 
-Three hooks remain, and each one fits a different shape of screen.
+`useCanMany`, `useCapabilities` and `useCanFields` remain, and each one fits a
+different shape of screen.
 
 A table of rows needs one decision per row, and React forbids a hook in a loop.
 `useCanMany` decides the array in the parent and hands each row its answer:
@@ -144,9 +146,9 @@ decision for the current subject, keyed by `` `${object}.${action}` ``:
 here. The menu draws nothing for that entry.
 [What can they do at all?](/acl/capabilities) sets out the no-object contract.
 
-A form needs an answer per input. `useCanFields` takes the axis and returns a map
-over every field name. `'read'` asks which fields may be shown and `'write'` asks
-which may be set:
+A form needs an answer per input. `useCanFields` takes the axis and returns a
+`FieldDecision`, whose `fields` map covers every field name. `'read'` asks which
+fields may be shown and `'write'` asks which may be set:
 
 ```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
 
@@ -154,14 +156,17 @@ which may be set:
 
 `!== 'allowed'` is the comparison to write. The obvious one, `!== 'denied'`,
 leaves the `unevaluable` fields editable, and those are fields nobody said the
-shopper could write. The server applies the same map with
+shopper could write. The engine fills the map whatever the action decided, so a
+form that a shopper may not edit at all reads `decision.action.allowed` first.
+The server applies the same map with
 [`pickAllowedFields`](/acl/writing) when the form is posted, because this one
 decided nothing.
 
 ## Keep the policy's keys through react-acl
 
-The hooks so far take the key as a plain string, because the document arrived as
-JSON. An application that writes its policy in TypeScript has more:
+`useCan` and its three siblings take the key as a plain string, because the
+document arrived as JSON. An application that writes its policy in TypeScript
+has more:
 [`policy`](/acl/authoring) names the subject once and binds an object type per
 block, so `'listing'` is a key the compiler knows.
 
