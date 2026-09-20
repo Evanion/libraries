@@ -164,8 +164,9 @@ export interface Token {
    * (mod n), which for even `n` has the single non-trivial solution
    * `{0, n - 1}`. It is the textbook mod-10 `{0, 9}` case generalised.
    *
-   * A prefix is not part of the code. Strip it before calling: `validate` sees
-   * a leading `ORD-` as three characters outside the alphabet.
+   * A prefix is not part of the code. Strip it before calling: `validate`
+   * strips the separator and folds the rest, so a leading `ORD-` reads as three
+   * more characters of the code, and its `o` is outside the alphabet.
    */
   validate(input: string): ValidateResult;
 }
