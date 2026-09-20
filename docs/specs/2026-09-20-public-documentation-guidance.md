@@ -6,7 +6,8 @@ standard, which owns page types, the teaching order, fading, H2
 self-containment and the 1,200-word prose budget; nothing here touches any of
 those), `docs/specs/2026-09-20-documentation-prose-craft.md` (on branch
 `docs/prose-craft`; its fourteen decisions are the subject of section 9, and
-this document amends eight, drops one and marks two as unsupported),
+this document amends eight, drops one, supersedes one and marks two as
+unsupported),
 `~/.claude/CLAUDE.md` (the ban list, whose em-dash rule section 4 finally has a
 citation for and whose gerund rule section 4 leaves where the prose-craft spec
 left it), `tools/repo-checks/src/doc-antithesis.test.ts` (the only prose guard
@@ -35,6 +36,10 @@ the page index); the Red Hat supplementary style guide overview; Write the
 Docs, two pages (Documentation principles, Style guides); the Good Docs Project
 template catalogue; digital.gov's plain language guide, two pages (Principles,
 Writing).
+Read as published pages rather than as style guides, for section 12: react.dev's
+`useState` reference and the Next.js App Router `cookies` function reference.
+Neither site publishes a style guide that states the opening rule, so section 12
+argues from what the two pages do and names the sentence it read.
 Not reached, and therefore absent from the argument: the IBM Style guide, whose
 index at `ibm.com/docs/en/ibm-style` lists every topic and whose topic pages
 answer 401 to this session; the Apple Style Guide, which serves a table of
@@ -176,8 +181,29 @@ page` and `this document` are refused. Google, Link text. This loosens the
 20. Decisions 10 and 14 of the prose-craft spec stay, and each is labelled in
     that document as a house rule with no public backing, so a later reader
     does not go looking for the citation. Section 9.
+21. The first sentence of a page, and the first sentence of every section,
+    names its subject and states what that subject does. Where the subject is a
+    symbol, the symbol is the grammatical subject of the sentence and stands in
+    the first few words. react.dev opens its `useState` reference `useState is
+a React Hook that lets you add a state variable`. The Next.js `cookies`
+    reference opens `cookies is an async function that allows you to read the
+HTTP incoming request`. Test: read the heading and the first sentence, with
+    nothing else on the page. The sentence states a fact about the subject, or
+    it describes the document. A sentence that could sit unchanged under a
+    different heading on a different page is describing the document, and it is
+    rewritten. This supersedes the prose-craft spec's decision 4. Section 12.
+22. A sentence that carries no symbol, no number and no named behaviour is cut,
+    unless it is the one sentence of motivation a section gets or a statement
+    of the security doctrine. Google's technical writing course tells an author
+    to shorten or delete needless words, and Microsoft's Use simple words
+    concise sentences page tells an author to cut every word that does no work.
+    Test: delete the sentence and read the section again. The reader has lost a
+    fact, or the sentence goes. Where several sentences state parallel facts,
+    they become a list or a table. Section 12.
 
-Decisions 1 and 2 are the expensive pair, because the prose-craft spec's phase
+Decision 21 is the one that changes the most pages, because the four-part brief
+this site uses puts `**The concept.**` first and the brief was being written as
+a story. Decisions 1 and 2 are the expensive pair, because the prose-craft spec's phase
 two was scoped around the 25% number and decision 2 removes the number.
 Decision 7 changes a component that does not exist yet, which is the cheapest
 moment to change it. Decision 15 is the only decision here that a guard can
@@ -481,25 +507,25 @@ Google's.
 
 ## 9. The fourteen, one at a time
 
-| Prose-craft decision             | Verdict | Public backing                                                              |
-| -------------------------------- | ------- | --------------------------------------------------------------------------- |
-| 1, subject is an actor           | Stands  | Google Voice; 18F Active voice; Microsoft Top 10, tip ten                   |
-| 2, steps are imperatives         | Stands  | Google Procedures; Microsoft Writing step-by-step instructions              |
-| 3, 25% floor                     | Amended | None. Google Second person rules person per sentence. Decisions 1 and 2     |
-| 4, section opens on the payoff   | Stands  | Google Paragraphs; Write the Docs Skimmable; digital.gov Principles         |
-| 5, term enters as subject        | Amended | Google Jargon adds the link form. Decision 13                               |
-| 6, one name per concept          | Amended | Microsoft Global communications adds one concept per name. Decision 14      |
-| 7, four labels by function       | Amended | Four guides publish severity sets. Decision 7                               |
-| 8, `Exception` is a budget       | Amended | Widened to all labels, two a page. Decision 8                               |
-| 9, colour outside rule sentences | Amended | Google global audience extends it to headings and examples. Decision 16     |
-| 10, instruction before opinion   | Stands  | None found. Astro only; nearest is Google's conditions-first rule           |
-| 11, `you can` and `you should`   | Amended | GitLab word list assigns the modals differently. Decision 6                 |
-| 12, link text is the heading     | Amended | Google Link text accepts a descriptive phrase. Decision 17                  |
-| 13, length tracks difficulty     | Dropped | None found in any guide reached. Decision 19                                |
-| 14, recap lists the mistakes     | Stands  | None found. Microsoft's checklist extension summarises instead. Decision 20 |
+| Prose-craft decision             | Verdict    | Public backing                                                              |
+| -------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| 1, subject is an actor           | Stands     | Google Voice; 18F Active voice; Microsoft Top 10, tip ten                   |
+| 2, steps are imperatives         | Stands     | Google Procedures; Microsoft Writing step-by-step instructions              |
+| 3, 25% floor                     | Amended    | None. Google Second person rules person per sentence. Decisions 1 and 2     |
+| 4, section opens on the payoff   | Superseded | react.dev and Next.js open on the subject. Decision 21                      |
+| 5, term enters as subject        | Amended    | Google Jargon adds the link form. Decision 13                               |
+| 6, one name per concept          | Amended    | Microsoft Global communications adds one concept per name. Decision 14      |
+| 7, four labels by function       | Amended    | Four guides publish severity sets. Decision 7                               |
+| 8, `Exception` is a budget       | Amended    | Widened to all labels, two a page. Decision 8                               |
+| 9, colour outside rule sentences | Amended    | Google global audience extends it to headings and examples. Decision 16     |
+| 10, instruction before opinion   | Stands     | None found. Astro only; nearest is Google's conditions-first rule           |
+| 11, `you can` and `you should`   | Amended    | GitLab word list assigns the modals differently. Decision 6                 |
+| 12, link text is the heading     | Amended    | Google Link text accepts a descriptive phrase. Decision 17                  |
+| 13, length tracks difficulty     | Dropped    | None found in any guide reached. Decision 19                                |
+| 14, recap lists the mistakes     | Stands     | None found. Microsoft's checklist extension summarises instead. Decision 20 |
 
-Three stand untouched, eight are amended, one is dropped, and two stand as house
-rules with the absence of backing written down.
+Two stand untouched, eight are amended, one is dropped, one is superseded, and
+two stand as house rules with the absence of backing written down.
 
 Decision 13 is dropped because nothing legislates it and because its own author
 recorded it as the weakest claim in the document. The rule ties a page's prose
@@ -581,7 +607,40 @@ should be two passes.
 This is a recommendation to `.claude/agents/docs-reviewer.md` and this document
 does not make the change.
 
-## The evidence, and what it does not cover
+## 12. Where a sentence starts, and what it costs to get there
+
+The prose-craft spec's decision 4 tells an author to state what the reader gets
+from a section before any mechanism. Applied to a page, it delays the technical
+content, and the four-part brief then stacks four paragraphs of framing ahead of
+the first symbol. `acl/pitfalls.mdx` opened `Each entry is a mistake, the form
+to write instead, and why the difference matters`, which is a sentence about the
+document and would read the same under any other heading on any other page.
+
+Two reference sites do the opposite, and both are sites this repository's owner
+named as the target. react.dev's `useState` page opens its body on `useState is
+a React Hook that lets you add a state variable`. The Next.js `cookies` page
+opens on `cookies is an async function that allows you to read the HTTP incoming
+request`. Each sentence puts the symbol in the first word, names the category
+the symbol belongs to, states what it does for the reader, and hands off to a
+code block. The Next.js page then carries its method surface in one table, its
+options in a second, its warnings in one bullet list, and its examples under
+headings of one or two sentences each. Connective prose is close to absent.
+
+A counter over `apps/docs/content/acl` and `apps/docs/content/react-acl` reports
+how far this site sat from that, measured as prose words before the page names
+any symbol in backticks. `acl/security.mdx` spent 276 words, `acl/index.mdx` 209
+and `acl/adopting.mdx` 126. Symbol density over the same pages ran 2.3% to 3.6%
+at the low end against 9% to 10% on the pages nobody had rewritten as narrative.
+
+Decision 21 states the rule the two sites follow. Decision 22 states what
+happens to the sentences that were filling the gap, because an opening rule on
+its own moves the bloat down the page rather than removing it. The test for
+decision 21 is a reader's test and needs no tooling: a first sentence that
+survives being moved to another page is a sentence about the document.
+
+The counter is worth committing beside `doc-prose-budget.ts`, reporting rather
+than failing, because a number per page tells a reviewer which page to open and
+no threshold on it would be defensible. Nothing here proposes one.
 
 Read verbatim, as raw Markdown or as near-raw source with front matter intact,
 so the wording quoted is the wording the maintainers wrote:
@@ -640,6 +699,12 @@ Asserted, and not measured or quoted:
   or two for an article and this document took the upper bound. The pages here
   are longer than a typical Microsoft Learn article and nothing checked whether
   that matters.
+- That two pages are enough to found decision 21 on. react.dev and Next.js both
+  open a reference page on the symbol, and neither site publishes a style guide
+  that states the rule, so section 12 argues from what two teams do and not from
+  what anybody legislates. Google's Paragraphs lesson and Write the Docs'
+  Skimmable principle both ask for the concept early, which is the half decision
+  21 shares with the decision it supersedes.
 - That no guide reached rules on page length against a difficulty label. This is
   an absence claim over the pages listed at the top, and the guides I could not
   reach are exactly the ones most likely to carry a length rule, because the IBM
