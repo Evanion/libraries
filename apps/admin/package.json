@@ -55,8 +55,8 @@
     "isbot": "^5"
   },
   "devDependencies": {
-    "@react-router/dev": "^8.3.1",
-    "@types/node": "^26.4.1",
+    "@react-router/dev": "^8.4.0",
+    "@types/node": "^26.6.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7"
   }
