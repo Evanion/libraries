@@ -24,7 +24,7 @@ it was written in. By the time the storefront asks a question, the process that
 wrote the answer has exited, and every question on this page follows from
 that.
 
-**What you will have.** A document that states the field shapes its own
+**What you get.** A document that states the field shapes its own
 conditions read, a version string a reader can compare, and a `parseMatrix` that
 takes somebody else's document without throwing on a permission you have never
 heard of.
@@ -39,7 +39,7 @@ flowchart LR
   F --> B
 ```
 
-**Why you would want it.** Priya maintains Baize's `orders` service. Without the
+**Why you want it.** Priya maintains Baize's `orders` service. Without the
 schema she publishes a rule that tests `object.status` with `contains`, the
 operator for an array, against a field holding a string. Nothing refuses the
 document. The condition never holds, so the storefront draws that control for

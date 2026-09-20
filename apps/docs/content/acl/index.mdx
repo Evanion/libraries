@@ -15,7 +15,7 @@ edit anybody's. Once the shop locks a question, nobody may edit it at all. Those
 three sentences are Baize's authorization rules, and today you write them out
 again in the handler and again in the component that greys out the button.
 
-**What you will have.** One document that holds every rule your app has, and one
+**What you get.** One document that holds every rule your app has, and one
 call that reads it: may this subject take this action on this object? The
 subject is whoever is asking, and the object is the one thing they want to
 touch. The document is JSON, and the call runs wherever the JSON is, so the
@@ -31,7 +31,7 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-**Why you would want it.** Copies drift. You tighten the handler and forget the
+**Why you want it.** Copies drift. You tighten the handler and forget the
 loader. The next endpoint goes out with three of the four checks. A year in, nobody
 can say who may edit a locked question without reading four files, and the UI
 greys out a button the API would have accepted.

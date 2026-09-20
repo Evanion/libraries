@@ -19,11 +19,11 @@ rule with a time window in it is read against. None of those three belong to a
 button, so they arrive as props. They pass through `ShopPage`, `ListingView` and
 `ActionBar`, and not one of those components asks a question of its own.
 
-**What you will have.** One provider at the top of the tree holding the
+**What you get.** One provider at the top of the tree holding the
 evaluator, the shopper and the instant, and a button four levels down that asks
 with three strings and the row it is drawing.
 
-**Why you would want it.** You thread the three props to the first component
+**Why you want it.** You thread the three props to the first component
 that needs them and nothing objects. A sibling then needs the shopper too, and a
 third component arrives from somebody who threads `access` and forgets `now`.
 One branch of the page now reads every time window against a different instant.

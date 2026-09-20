@@ -27,7 +27,7 @@ question is yours.
 
 So the rule has to read the question. That is the whole of this page.
 
-**What you will have.** A policy that knows whose question is whose, and a save
+**What you get.** A policy that knows whose question is whose, and a save
 that writes only the fields you are allowed to change.
 
 ```mermaid caption="What changes when a condition names an object path. A subject-only condition reads the subject the server resolved whole, so it either holds or fails. A condition naming an object.* path also reads the instance the caller passed, and an instance that does not carry the path leaves the condition unevaluable until a refetch supplies it."
@@ -39,7 +39,7 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-**Why you would want it.** The alternative is the check by hand, in the handler,
+**Why you want it.** The alternative is the check by hand, in the handler,
 as an `if`, next to the code that does the work. It reads fine the day you write
 it. Six months later there are forty of them, three are subtly different, and the
 bulk close job never had one at all.

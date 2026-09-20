@@ -17,11 +17,11 @@ it is that an item is four fields and a renderer reads all four the same way:
 `id` names it, `type` picks the component, `props` is the component's data, and
 `children` holds the items under it.
 
-**What you will have.** A payload for a listing page in the Baize shop, a
+**What you get.** A payload for a listing page in the Baize shop, a
 registry naming the types it may use, and a check that fails your build when a
 bookseller saves a widget type nothing draws.
 
-**Why you would want it.** A CMS lets someone rename a section type on a
+**Why you want it.** A CMS lets someone rename a section type on a
 Tuesday afternoon. Nothing stops them, and the renderer that meets the new name
 skips the item and writes one line to a log nobody reads. The page goes out with
 a hole in it. The check is where that turns into a failed build instead.
