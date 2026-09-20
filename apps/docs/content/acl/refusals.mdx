@@ -134,9 +134,10 @@ projects it, so a subject carrying no `roles` has none.
 
 `FieldReason` is a vocabulary of its own, and every read-only input carries one.
 `not-listed` means the rules exclude the name. `targets-failed` and
-`transition-failed` point at the value the write proposed, and the field itself
-is writable. `missing-field` is the field-level `unevaluable` and wants the same
-refetch. [Field permissions](/acl/fields) has every `FieldReason` in one table,
+`transition-failed` point at a value rather than at the name: the proposed one
+in the first case, the edge out of the current one in the second.
+`missing-field` is the field-level `unevaluable` and wants the same refetch.
+[Field permissions](/acl/fields) has every `FieldReason` in one table,
 including `proposed-required`.
 
 ## Where to go next

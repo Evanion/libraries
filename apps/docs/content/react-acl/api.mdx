@@ -94,8 +94,8 @@ function useCanMany(
 ```
 
 The returned array is parallel to the input, so a row's answer sits at the row's
-index. React forbids a hook inside a loop, so a row component calling `useCan`
-for itself breaks the first time the list is filtered or reordered.
+index. React forbids a hook inside a loop, so the component holding the list
+cannot call `useCan` once per row.
 
 ```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
 

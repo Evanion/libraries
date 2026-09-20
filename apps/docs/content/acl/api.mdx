@@ -307,7 +307,7 @@ policy.
 
 ```ts signature
 function federatedPolicies(
-  policies: Readonly<Record<string, Access>>,
+  policies: Readonly<Record<string, Access<Subject, AnyObjects, never>>>,
 ): FederatedAccess;
 ```
 

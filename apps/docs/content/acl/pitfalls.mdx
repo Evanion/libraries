@@ -111,11 +111,12 @@ const fd = access.canFields(subject, 'question', 'update', projection, 'read');
 fd.fields['status']; // undefined: the projection did not carry it
 ```
 
-`canFields` keys the map by the union of three sets:
+`canFields` keys the map by the union of four sets:
 
 - the object's own keys
 - the proposed write's keys
 - the rule's field names
+- the names in the allow-list
 
 Hand `canFields` a projection and the map shrinks. A name in the map is a
 decision; a name missing from it is a question nobody asked. A form rendered
