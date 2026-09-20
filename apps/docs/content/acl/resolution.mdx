@@ -122,6 +122,23 @@ meaning.
 
 ## Deny-overrides, and the names XACML gave it
 
+Four other engines make the choice of combining algorithm somewhere, and the
+column that matters is where. Each row is argued below, in the paragraph that
+cites it.
+
+| Engine    | How it combines                                        | Where that choice lives                       | What it answers                            |
+| --------- | ------------------------------------------------------ | --------------------------------------------- | ------------------------------------------ |
+| CASL      | the last matching declaration, `can` or `cannot`       | the code that built the ability               | a boolean                                  |
+| XACML 3.0 | one of the named algorithms, deny-overrides among them | the policy, per policy set                    | Permit, Deny, NotApplicable, Indeterminate |
+| AWS IAM   | deny-overrides, over an implicit deny                  | fixed by the service                          | a boolean                                  |
+| Casbin    | whatever `[policy_effect]` names                       | the model file, per deployment                | a boolean                                  |
+| acl       | deny-overrides, and nothing configures it              | nowhere: the seven steps above are the engine | `allow`, a refusal, or `unevaluable`       |
+
+The last two columns are the argument. A choice that lives in a document or a
+setting travels with that document, so a consumer adopting a foreign matrix
+inherits whichever algorithm the producer picked. An engine that answers only
+true or false has nothing for steps 3, 4 and 7 to report.
+
 None of this is new. OASIS named the combining algorithms in Appendix C of the
 eXtensible Access Control Markup Language (XACML) 3.0: deny-overrides,
 permit-overrides, first-applicable and
