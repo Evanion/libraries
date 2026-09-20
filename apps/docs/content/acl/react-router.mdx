@@ -38,7 +38,7 @@ either way.
 this process, so the loader, the action and the browser tree evaluate the same
 rules and none of them asks shop-api a question.
 
-## Two boundaries, not one
+## The loader and the action are two boundaries
 
 <Panel heading="An action is reached without a loader ever running">
   <Text as="div" size="sm">
@@ -55,6 +55,17 @@ rules and none of them asks shop-api a question.
 | Route component | browser | never; it toggles what the user sees   |
 | `action`        | server  | yes, independently, for what it writes |
 | `clientLoader`  | browser | never                                  |
+
+```mermaid caption="Two server entry points on one route, with the browser tree between them. Middleware binds the subject and decides nothing, the loader decides what the page returns, and a form post and a curl both reach the action, which decides again on the row it re-reads before the revalidating loaders run."
+flowchart TD
+  N["a navigation"] --> M["middleware: binds the subject"]
+  P["a write request, from a Form or from curl"] --> M
+  M -->|"navigation"| L["loader: can, for what it returns"]:::accent
+  L --> T["route component<br>useCan toggles, decides nothing"]
+  M -->|"write"| A["action: decide again on the re-read row"]
+  A --> W["the write happens, or a refusal"]
+  A -->|"revalidate"| L
+```
 
 A `clientLoader` runs in the browser and is no trust boundary, whatever it
 fetches from. `apps/admin` has none and loads everything server-side, which is
@@ -73,20 +84,20 @@ turns a fetched document into an evaluator:
 `parseMatrix` and never `hydratePolicy`: the document is foreign input, and the
 closed mode makes an unknown permission a refusal where `hydratePolicy` throws
 inside a loader. The version keys the memo, because `parseMatrix` validates,
-deep-clones and deep-freezes, and none of that changes between requests over one
+deep-clones and deep-freezes. None of that changes between requests over one
 document.
 
 `access.ts` is deliberately not a `.server` module. The server evaluates the
-matrix to enforce and the browser evaluates it to toggle, and the fetch is the
+matrix to enforce and the browser evaluates it to toggle. The fetch is the
 server's alone: it lives in `access.server.ts`, which the Vite plugin keeps out
 of the browser bundle. A request that cannot reach shop-api falls back to
 `NO_ACCESS`, a parsed document carrying no permissions, so every key answers
-`unknown-action` and the page draws its chrome and writes nothing.
+`unknown-action`. The page draws its chrome and writes nothing.
 
 ## Middleware binds, loaders decide
 
-React Router 8's stable `middleware` plus `createContext` is where the subject
-is resolved. `demoSubject()` is this app's whole identity story, `newCorrelationId`
+React Router 8's stable `middleware` and `createContext` resolve the subject.
+`demoSubject()` is this app's whole identity story, `newCorrelationId`
 mints the page view's id, and `readAccess` and `readShelf` are the two fetches
 the contexts below defer:
 
@@ -94,10 +105,10 @@ the contexts below defer:
 
 ```
 
-`subjectContext` takes a value and `accessContext` and `shelfContext` take
+`subjectContext` takes a value, and `accessContext` and `shelfContext` take
 functions. React Router runs middleware, then the action, then the revalidating
-loaders, so a memo cell the first caller fills keeps a page view to one fetch and
-makes it happen after any action.
+loaders. A memo cell the first caller fills keeps a page view to one fetch, and
+that fetch happens after any action.
 
 ```ts file=apps/admin/app/page-context.ts region=subject-context
 
@@ -128,7 +139,7 @@ through `isRouteErrorResponse`. A degraded page returns a field:
 ## What crosses to the tree
 
 Loader return values are the serialization boundary, and `Access` is a set of
-closures that does not survive it. What crosses is the document:
+closures that does not cross it. What crosses is the document:
 
 ```ts file=libs/acl/README.md region=matrix-round-trip
 
@@ -169,23 +180,23 @@ there.
 
 ```
 
-`decision.action.allowed` is checked first, so a refusal returns the union
-member the component narrows with `in`, and `pickAllowedFields` is reached only
-on an allowed action. That call throws `ActionNotAllowedError` on a refused one,
-so the check keeps the refusal off the exception path.
+The action checks `decision.action.allowed` first, so a refusal returns the
+union member the component narrows with `in`. `pickAllowedFields` is reached
+only on an allowed action, and it throws `ActionNotAllowedError` on a refused
+one, so the check keeps the refusal off the exception path.
 
 A `formData` bag is the mass-assignment shape: whatever the sender put a `name`
-on arrives in it, including keys the title has never held. Filtering the returned
-map by hand on `!== 'denied'` would write the `unevaluable` fields.
+on arrives in it, including keys the title has never held. A hand-written filter
+on `!== 'denied'` writes the `unevaluable` fields too.
 
-The row is re-read inside the action. Between the render that showed the button
-and this action landing, the title can move to another shop and the ownership
-rule can stop matching.
+The action re-reads the row. Between the render that showed the button and this
+action arriving, the title can move to another shop and the ownership rule can
+stop matching.
 
 ## Testing it
 
 `apps/admin/tests/access.spec.tsx` calls the action directly, with a
-`RouterContextProvider` holding what the middleware would have set:
+`RouterContextProvider` holding what the middleware sets on a real request:
 
 ```tsx file=apps/admin/tests/access.spec.tsx region=calling-the-action
 

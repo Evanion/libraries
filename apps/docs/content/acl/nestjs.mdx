@@ -45,13 +45,24 @@ A guard runs before the row is fetched, so it can ask whether this subject holds
 An object-dependent rule called with no instance comes back `unevaluable`,
 naming the paths it could not read.
 
-<Panel heading="A guard is an early refusal, never the enforcement point">
+<Panel heading="The service after the read is the enforcement point">
   <Text as="div" size="sm">
     The row-level decision belongs in the service, after the read. A guard that
-    passed is a guard that could not decide, and reading that as a grant leaves
-    an object-dependent permission unenforced. Keep both seats.
+    passed is a guard that could not decide, and an app that reads that as a
+    grant leaves an object-dependent permission unenforced. Keep both seats.
   </Text>
 </Panel>
+
+```mermaid caption="The two seats one write passes through. AclGuard holds the subject and no row, so it refuses a permission whose rules read only subject paths and passes on one that readsObject reports as object-dependent; GamesService decides that one after the read, against the title it loaded."
+flowchart TD
+  R["a request on a @Requires route"] --> G["AclGuard: can, subject only"]
+  G -->|"allowed"| C["the controller method"]
+  G -->|"refused, readsObject false"| F["403 from the guard"]
+  G -->|"refused, readsObject true"| C
+  C --> S["GamesService loads the title"]
+  S --> D["canFields, against the row"]:::accent
+  D --> W["pickAllowedFields, or 403"]
+```
 
 That split is the whole Nest-specific content of this page; everything below is
 wiring.
@@ -81,8 +92,8 @@ wrote the document:
 
 ```
 
-Construction validates, deep-clones and deep-freezes. An unknown field, or two
-permissions sharing a key, stops the boot.
+`hydratePolicy` validates, deep-clones and deep-freezes the document. An
+unknown field, or two permissions sharing a key, stops the boot.
 
 ## The module that binds the matrix
 
@@ -103,7 +114,7 @@ The token is a namespaced string:
 ```
 
 The provider sits in a global module, where a bare `'ACL_ACCESS'` collides in
-silence, and a symbol is identity-based, so two copies of the package mint two
+silence. A symbol is identity-based, so two copies of the package mint two
 tokens and Nest fails to resolve one of them. `APP_GUARD` binds the guard to
 every route, and the `@Requires` metadata below decides which routes it gates.
 
@@ -162,10 +173,11 @@ reads the subject's roles alone, so a customer-less caller is refused here and
 never reaches `OrdersController`. `game.declare` reads the title's shop, so the
 guard passes it on for `GamesService` to finish.
 
-One thing this guard does not survive: a `@Requires` naming an `action` the
-document has no permission for. `key` is typed and `action` stays a string, and on an
-`Access` built open `can` throws `UnknownPermissionError`, which Nest renders as
-a 500. A typo in the decorator gives a server error where a refusal was wanted.
+One thing this guard does not catch: a `@Requires` naming an `action` the
+document has no permission for. `key` is typed and `action` stays a string. On
+an `Access` built open, `can` throws `UnknownPermissionError`, which Nest
+renders as a 500. A typo in the decorator gives a server error where a refusal
+was wanted.
 
 ## The service decides on the row
 
@@ -180,9 +192,10 @@ field allow-lists:
 
 `decision.action.allowed` is checked first, so the refusal is a
 `ForbiddenException` and never an exception thrown out of `pickAllowedFields`.
-What survives that check is written, and nothing else: reading the field map by
-hand on `!== 'denied'` would write the `unevaluable` fields. A Nest `@Body()` is
-the mass-assignment shape, because a caller puts whatever it likes in it.
+Only what that check allows is written. A hand-written read of the field map on
+`!== 'denied'` writes the `unevaluable` fields too. A Nest
+`@Body()` is the mass-assignment shape, because a caller puts whatever it likes
+in it.
 
 A whitelisting `ValidationPipe` answers a different question: the pipe says the
 key is a legal field of this endpoint, and the decision says this subject may set
@@ -197,15 +210,15 @@ it on this row. Keep both.
 `serialize(access, 'reduced')` emits the permissions marked
 `visibility: 'public'`, each kept whole, and drops `inventory.read`. The three
 frontends fetch this once and evaluate it locally, so no decision any of them
-makes costs a network call. Each of them decides again anyway, and so does this
-service on the next request it receives.
+makes waits on a network call. Each of them decides again anyway, and so does
+this service on the next request it receives.
 
 ## Testing it
 
 `apps/shop-api` stubs the request context with `useValue` on the class token,
 the idiom the app already uses elsewhere:
 
-```ts
+```ts no-run
 const module = await Test.createTestingModule({
   controllers: [GamesController],
   providers: [

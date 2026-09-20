@@ -20,9 +20,10 @@
   ]}
 />
 
-**The concept.** An RSC app has two trusted entry points into the same code, the
-render and the Server Action, and a decision made at one does not carry to the
-other. The client component sits between them and is neither.
+**The concept.** A React Server Components (RSC) app has two trusted entry
+points into the same code, the render and the Server Action, and a decision made
+at one does not carry to the other. The client component sits between them and
+is neither.
 
 **What you will have.** What `apps/storefront-rsc` runs: one `GET /api/policy`
 per page view, `parseMatrix` over what comes back, React's `cache` holding the
@@ -30,16 +31,16 @@ result for the render, and each server component deciding before it fetches the
 data it would render.
 
 **Why you would want it.** Baize's spotlight widget shows a staff price line and
-the activity widget shows the order trail. Neither one knows the others exist,
-each fetches its own data, and each of them has to answer "may this visitor see
-this" without a second network call.
+the activity widget shows the order trail. Neither one knows the others exist.
+Each fetches its own data, and each has to answer "may this visitor see this"
+without a second network call.
 
 **How the library gets you there.** `parseMatrix` turns the fetched document
 into an evaluator in this process, so every `can` after it is a local function
 call however deep in the tree it sits. `access.version` is what tells the memo
 the document moved.
 
-## Two boundaries, not one
+## The render and the write are two boundaries
 
 <Panel heading="A Server Action is a public endpoint the page did not guard">
   <Text as="div" size="sm">
@@ -56,6 +57,16 @@ the document moved.
 | `'use client'` component  | browser | never; it toggles what the user sees   |
 | Server Action             | trusted | yes, independently, for what it writes |
 | Route handler / API route | trusted | yes, independently                     |
+
+```mermaid caption="Two trusted entry points into one route, reached independently. A page view runs the server component, which decides what it renders and hands a client component a verdict that only toggles; a caller posting to the Server Action skips the render entirely, so the action resolves the subject and decides for itself."
+flowchart TD
+  V["a page view"] --> SC["server component: can"]:::accent
+  SC --> CC["client component<br>toggles, decides nothing"]
+  CC --> SA["the Server Action endpoint"]
+  CURL["a caller posting directly"] --> SA
+  SA --> AD["the action: re-resolve the subject,<br>re-read the row, decide again"]
+  AD --> W["the write happens, or it throws"]
+```
 
 ## Adopting a document another service owns
 
@@ -90,10 +101,10 @@ that subject and one clock instant:
 
 ```
 
-React's `cache` is per request and not global, which is the property that
-matters here. Three widgets render independently, none of them knows about the
-others, and one `GET /api/policy` answers all three. Two concurrent page views
-each get their own fetch, which a module-level promise would not give them.
+React's `cache` scopes to one request, which is the property that matters here.
+Three widgets render independently and none of them knows about the others. One
+`GET /api/policy` answers all three, and two concurrent page views each get
+their own fetch, which a module-level promise does not give them.
 
 ## The server component decides before it fetches
 
@@ -119,17 +130,26 @@ The gate sits above the fetch. A widget that renders nothing over data it has
 already asked for has still pulled the events into this process. A shopper gets
 `null` here and the region is two widgets wide for them.
 
-Where a refusal has to be a whole page, `notFound()` beats a 403 on a title that
-exists. A page saying "forbidden" for a real urn and "not found" for a made-up
-one is an existence oracle.
+Where a refusal has to be a whole page, `notFound()` is the right answer for a
+title that exists. A page saying "forbidden" for a real urn and "not found" for
+a made-up one is an existence oracle.
 
 ## Freshness for a consumer
 
 The version-keyed memo above is the whole mechanism. shop-api stamps a version
-on what it publishes and changes it when the rules change, and `adopt` compares
-that string with `!==`. A document republished under a new version replaces the
+on what it publishes and changes it when the rules change. `adopt` compares that
+string with `!==`, so a document republished under a new version replaces the
 held evaluator on the next page view, and a matching version skips the validate,
 deep-clone and deep-freeze.
+
+```mermaid caption="What one page view does with the fetched document. React's cache scopes the GET to the render, and adopt compares the fetched version with the one this process holds: a matching version re-uses the held evaluator, and a new version is validated, deep-cloned and deep-frozen once before it replaces the held one."
+flowchart TD
+  V["a page view"] --> F["GET /api/policy, once per render"]
+  F --> C{"version !== the held one?"}:::accent
+  C -->|"no"| R["re-use the held evaluator"]
+  C -->|"yes"| P["parseMatrix: validate,<br>deep-clone, deep-freeze"]
+  P --> H["hold it as the new evaluator"]
+```
 
 A consumer polls, so the ceiling on how long a rule change takes to reach this
 app is how often it asks. `apps/storefront-rsc` asks once per page view, because
@@ -187,14 +207,14 @@ export default function AccessBoundary({
 ```
 
 `now` crosses as an ISO string. The hooks key their memos on it, and a `Date` is
-a fresh object every render, so a string holds the memo where a `Date`
-re-evaluates the matrix on each pass. Resolve it on the server, so the server
-render and the client's first render agree. A `now` reaching `can` from a client
-payload hands the client every time window in the matrix.
+a fresh object every render. A string holds the memo where a `Date` re-evaluates
+the matrix on each pass. Resolve `now` on the server, so the server render and
+the client's first render agree. A `now` reaching `can` from a client payload
+hands the client every time window in the matrix.
 
-A `useCan` that returns `null` hides a button. It does not stop anyone posting
-to the action behind it, and it was never meant to. The decision there exists to
-make the page honest about what will work.
+A `useCan` that returns `null` hides a button. The hidden button does not stop
+anyone posting to the action behind it. That decision makes the page honest
+about what succeeds, and it enforces nothing.
 
 ## Every Server Action decides again
 
@@ -224,10 +244,10 @@ export async function declareAvailability(form: FormData) {
 }
 ```
 
-Nothing in that function reads what the page decided, and it must not: the page
-did not run for this caller. The subject is re-resolved, the title is re-read,
-and the decision is made again against both. Between the render that showed the
-control and this action landing, the title can move to another shop and the
+Nothing in that function reads what the page decided, and nothing in it may: the
+page did not run for this caller. The action re-resolves the subject, re-reads
+the title, and decides again against both. Between the render that showed the
+control and this action arriving, the title can move to another shop and the
 ownership rule can stop matching.
 
 ## Where to go next

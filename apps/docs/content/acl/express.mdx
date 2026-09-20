@@ -19,9 +19,9 @@
   ]}
 />
 
-**The concept.** Express is trusted end to end. There is no client tree to hand
-anything to and no second runtime to keep honest, so every decision this app
-makes is authoritative and the only question is whether the decision happens at
+**The concept.** Express is trusted end to end. No client tree receives
+anything and no second runtime needs keeping honest, so every decision this app
+makes is authoritative. The only question is whether the decision happens at
 all.
 
 **What you will have.** An API over Baize's catalogue with one matrix at module
@@ -29,22 +29,23 @@ scope, one middleware binding the subject onto `res.locals`, and a `can` call in
 every handler that touches a title.
 
 **Why you would want it.** `app.use` is positional. A route registered above the
-middleware that binds the subject never sees it, and nothing fails. Mounting the
-binding on the router is what makes an unguarded path a route file somebody
+middleware that binds the subject never sees it, and nothing fails. Mount the
+binding on the router, and an unguarded path becomes a route file somebody
 added.
 
 **How the library gets you there.** `@evanion/acl` imports no framework and
-`authorize(subject)` returns a plain object of closures, so there is no Express
-adapter and there will not be one. Connect-style middleware is a function of
-three arguments, and an adapter would be a re-export and a name.
+`authorize(subject)` returns a plain object of closures, so `@evanion/acl` has
+no Express adapter. Connect-style middleware is a function of three arguments,
+and an adapter over `authorize` is a re-export and a name.
 
 ## Complete mediation is registration order
 
-Two middlewares do this and neither is part of `@evanion/acl`. `requireSession`
-is whatever your app already uses to verify a caller and put them on `req.user`:
-Passport, a JWT check, your own cookie code. `bindAccess` is about twenty lines
-you write once, and Binding the subject below is the whole of it. `games` is the
-router carrying the catalogue's own routes, defined in the sections after it.
+Two middlewares carry complete mediation here, and neither is part of
+`@evanion/acl`. `requireSession` is whatever your app already uses to verify a
+caller and put them on `req.user`: Passport, a JSON Web Token (JWT) check, your
+own cookie code. `bindAccess` is about twenty lines you write once, and Binding
+the subject below is the whole of it. `games` is the router carrying the
+catalogue's own routes, defined in the sections after it.
 
 ```ts no-run
 // server.ts — `requireSession` verifies the caller, `bindAccess` binds what it
@@ -63,11 +64,21 @@ api.use('/games', games);
 ```
 
 The library cannot close a route somebody registered above `bindAccess`. The
-app's own route table can, and asserting it is the app's test.
+app's own route table can, and the assertion over it is the app's test.
+
+```mermaid caption="Registration order is what mediates. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset, and nothing fails."
+flowchart TD
+  R["a request"] --> A["requireSession, mounted on api"]
+  A --> B["bindAccess, mounted on api"]:::accent
+  B --> G["the games router"]
+  G --> H["the handler reads res.locals.access"]
+  R --> E["a route registered above bindAccess"]
+  E --> N["the handler runs with<br>res.locals.access unset"]
+```
 
 ## Building Baize's matrix at module scope
 
-Once, for the life of the process. `ShopSubject` and `Game` are the app's own
+Build it once, for the life of the process. `ShopSubject` and `Game` are the app's own
 types, and `SHOP_MATRIX_VERSION` is the document revision a client compares its
 copy against. The three permissions are the ones `apps/shop-api` authors:
 
@@ -105,9 +116,9 @@ export const access = policy<
   .build();
 ```
 
-Construction validates, deep-clones and deep-freezes the document, and a query
-after that is a function call over the frozen copy. Rebuilding per request pays
-the clone on every call for a document that did not change.
+`policy(…).build()` validates, deep-clones and deep-freezes the document, and a
+query after that is a function call over the frozen copy. A rebuild per request
+repeats the clone on every call for a document that did not change.
 
 ## Binding the subject
 
@@ -144,7 +155,7 @@ either. The region below binds the subject alone:
 
 ```
 
-Pinning `now` at bind time is deliberate. Every `before`/`after` window in the
+The middleware pins `now` at bind time, deliberately. Every `before`/`after` window in the
 matrix then reads one instant for the whole request, and two handlers in the
 same request cannot land on opposite sides of a boundary that closed between
 them.
@@ -173,9 +184,10 @@ games.get('/:urn', async (req, res) => {
 });
 ```
 
-Fetching before deciding is not a leak as long as nothing leaves the handler: an
-IDOR is the response, and not the query. What it costs is a read for a request
-that gets a 403, which is the price of a rule reading `object.shop`.
+A fetch before the decision is no leak as long as nothing leaves the handler. An
+insecure direct object reference (IDOR) is what the response gives away, and the
+query gives away nothing. That read is one query on a request that ends in 403,
+which is what a rule reading `object.shop` asks for.
 
 `decision.allowed` is the gate. A decision can come back `unevaluable`, meaning
 the projection did not carry a path some rule reads, and that is neither an
@@ -192,13 +204,13 @@ if (decision.reason === 'unevaluable') {
 }
 ```
 
-Gating on the reason string grants what the engine refused. `allowed` is the
+A gate on the reason string grants what the engine refused. `allowed` is the
 only gate.
 
 ## Writes
 
 A write decides on the field axis and writes what `pickAllowedFields` returns.
-`req.body` is the proposed write, and the write axis decides every key of it,
+`req.body` is the proposed write. The write axis decides every key of it,
 including keys the title has never held, which is what closes mass assignment:
 
 ```ts no-run
@@ -225,12 +237,12 @@ games.patch('/:urn', async (req, res) => {
 });
 ```
 
-`decision.action` is the action-level decision that gates the field map, and
-checking it first is what makes the refusal a 403 on its own line.
-`pickAllowedFields` throws `ActionNotAllowedError` when the action was refused,
-so a handler that skips the check turns a refusal into a 500. Filtering the
-returned map by hand on `!== 'denied'` writes the `unevaluable` fields and every
-key the decision does not carry at all.
+`decision.action` is the action-level decision that gates the field map, and a
+check on it first makes the refusal a 403 on its own line. `pickAllowedFields`
+throws `ActionNotAllowedError` when the action was refused, so a handler that
+skips the check turns a refusal into a 500. A hand-written filter on
+`!== 'denied'` writes the `unevaluable` fields and every key the decision does
+not carry at all.
 
 An empty `writable` is the third case: the action stands, the row is real, and
 the decision allowed no field of the body. `apps/shop-api` answers 400 there,
@@ -261,10 +273,10 @@ app.use((error, _req, res, next) => {
 });
 ```
 
-Send `reason` only when the caller may read it. The matrix is a public document
-in its structure, and a decision names the rule that refused. On an API serving
-parties who should not learn each other's privilege model, `rule` is more than
-the caller asked for.
+The matrix is a public document in its structure, and a decision names the rule
+that refused. On an API serving parties who should not learn each other's
+privilege model, `rule` is more than the caller asked for. Send `reason` to a
+caller who may read it, and send neither member to one who may not.
 
 ## Serving the matrix to a browser client
 
@@ -282,11 +294,11 @@ app.get('/policy', (req, res) => {
 ```
 
 `matrix` is an envelope carrying its own `version` and `schema`, so nothing
-travels beside it. `access` itself does not serialize: it is closures over the
-frozen document, and `JSON.stringify` drops every method in silence.
+travels beside it. `access` itself does not serialize: the value is closures
+over the frozen document, and `JSON.stringify` drops every method in silence.
 
-The client that receives this evaluates for itself, and that evaluation decides
-nothing. It toggles what the user sees. This handler and every one above it
+The client that receives this evaluates for itself. The client's copy toggles
+what the user sees and enforces nothing. This handler and every one above it
 decides again on the next request, against the session it verifies itself, and
 never reads the client's copy of anything.
 
