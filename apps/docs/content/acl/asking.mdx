@@ -13,10 +13,14 @@
   ]}
 />
 
-**The concept.** `can` answers one question with a decision.
-**What you get.** One answer the handler gates on.
-**Why you want it.** A hand-written check drifts.
-**How the library gets you there.** `can` decides one row, `canMany` a page.
+**The concept.** `can` answers one authorization question, over one subject,
+one object kind, one action and one row.
+**What you get.** A `Decision` carrying `allowed` for the handler and `reason`,
+`rule` and `missing` for the screen.
+**Why you want it.** A check written by hand in the handler and again in the
+component states the rule twice, and tightening one leaves the other granting.
+**How the library gets you there.** `can` decides one row, and `canMany` decides
+a page of rows in one call.
 
 ## One acl question and its decision
 

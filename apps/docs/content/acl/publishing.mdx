@@ -18,13 +18,18 @@
   ]}
 />
 
-**The concept.** `serialize(access, 'reduced')` emits the permissions you marked.
+**The concept.** `serialize(access, 'reduced')` emits the permissions marked
+`visibility: 'public'`, each kept whole, as a JSON document.
 
-**What you get.** A consumer adopts it and evaluates locally.
+**What you get.** A consumer that adopts that document with `parseMatrix` and
+decides locally, with no call back to you.
 
-**Why you want it.** A consumer without your rules writes one.
+**Why you want it.** A consumer that cannot read your rules writes its own copy,
+which your team does not own and cannot correct.
 
-**How the library gets you there.** Mark a permission `visibility: 'public'`.
+**How the library gets you there.** Mark a permission `visibility: 'public'`,
+and `maxStale` bounds how long a consumer may keep deciding on the copy it
+fetched.
 
 ## What an acl contract carries
 
@@ -78,7 +83,8 @@ and orders decides again on its own matrix when the refund call arrives.
 `serialize` emits a kept permission with every rule it carries, deny rules
 included. Drop one deny rule and you turn a refusal into an allow; drop an allow
 rule or a field config and you move the answer the other way. A permission whose
-deny rules read an internal concept either discloses that concept or stays home.
+deny rules read an internal concept discloses that concept to every consumer, so
+either publish it and accept the disclosure or leave it unmarked.
 
 The owner accepts that disclosure. The deny rule in the example above shows
 `subject.tier` and the word `probation` to every consumer.
@@ -119,8 +125,9 @@ A consumer that reports no `fetchedAt` claims no freshness and runs under no
 bound, which is every matrix a service authors in its own process.
 
 A stale contract is stale-permissive, and one thing makes that safe: orders
-re-evaluates on its own matrix on every call and refuses. A stale consumer
-over-shows and never over-grants.
+re-evaluates on its own matrix on every call and refuses. A stale consumer draws
+a control the owner revoked, and the write behind that control still fails at
+orders.
 
 ## A key another team may veto has to be published
 

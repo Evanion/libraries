@@ -20,13 +20,17 @@
   ]}
 />
 
-**The concept.** A route has two server entry points.
+**The concept.** A React Router route reaches the server at two entry points,
+the loader and the action, with a browser tree between them that is neither.
 
-**What you get.** Middleware asks who, a loader asks whether.
+**What you get.** Middleware that resolves the subject once, and a loader and an
+action that each decide for themselves.
 
-**Why you want it.** `curl` reaches the action directly.
+**Why you want it.** A `<Form method="post">` reaches the action, and so does
+`curl`, for whom the loader that decided what to render never ran.
 
-**How the library gets you there.** `parseMatrix` adopts what shop-api published.
+**How the library gets you there.** `parseMatrix` adopts the document shop-api
+published, and `access.can` runs on both entry points.
 
 ## What `apps/admin` puts on a route
 

@@ -1,4 +1,4 @@
-# Rules that outlive the process
+# Rules that another service wrote
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -18,11 +18,16 @@
   ]}
 />
 
-**The concept.** A matrix is JSON and outlives its process.
-**What you get.** A self-describing, versioned document.
-**Why you want it.** A stale copy grants revoked permissions.
-**How the library gets you there.** `schema` checks paths; `version` dates
-copies.
+**The concept.** A matrix is a JSON value carrying a flat list of permissions
+between object kinds and subjects, and one service builds it while another
+evaluates the copy it fetched.
+**What you get.** A document that declares the field shapes its own conditions
+read, plus a version string the consumer compares with the one on the copy it
+holds.
+**Why you want it.** A storefront holding an hour-old copy goes on drawing an
+Edit button for a permission the owner revoked.
+**How the library gets you there.** `schema` checks every condition path at
+construction, and `parseMatrix` fails closed on a key the document omits.
 
 ```mermaid caption="The document's life across two processes. The orders service builds a matrix and declares in its schema the field shapes its conditions read, which the builder checks at construction. The storefront calls parseMatrix, which fails closed on a key it does not know, and compares the version it just fetched against the one it already holds to decide whether to fetch again."
 flowchart LR
@@ -34,17 +39,20 @@ flowchart LR
   F --> B
 ```
 
-## What a travelling acl matrix carries
+## What an acl matrix carries between services
 
-A matrix is JSON, so the process that writes it and the process that evaluates
-it need not be the same one. Baize's `orders` service writes the matrix, and the
-storefront fetches and evaluates it after that process has exited, importing
-nothing of the file it was written in.
+A matrix is a plain JSON value, so the service that builds it and the service
+that evaluates it can be different processes. Baize's `orders` service builds
+the matrix and serves it over HTTP, and the storefront evaluates the copy it
+fetched, importing nothing of the module the rules were written in. The library
+writes no file and reads none, so an application that wants a matrix to survive
+a restart arranges that itself.
 
-The document states the field shapes its own conditions read and carries a
-version string a reader can compare. `parseMatrix` takes somebody else's
-document without throwing on a permission you have never heard of. Two failures
-follow from a document that travels without those two fields:
+The document states the field shapes its own conditions read, and carries a
+version string a consumer compares with the one on the copy it holds.
+`parseMatrix` takes somebody else's document without throwing on a permission
+you have never heard of. Two failures follow from a document published without
+those two fields:
 
 - Without the schema, Priya publishes a rule from Baize's `orders` service
   testing `object.status` with `contains`, the array operator, against a field
@@ -61,8 +69,8 @@ construction. `version` gives the client one value to compare with `!==`, and
 
 `schema` declares the field shapes a document's own conditions read. The typed
 builder's types stay in your editor and the document leaves without them, so a
-document that travels carries the shapes itself. The schema is optional for a
-producer and binding wherever it is present.
+document another service reads carries the shapes itself. The schema is optional
+for a producer and binding wherever it is present.
 
 ```ts twoslash file=libs/acl/README.md region=schema-binding
 
@@ -87,7 +95,7 @@ them:
 The two are checked independently and can disagree. A path TypeScript accepts is
 still an `UnknownFieldError` when the schema does not declare it.
 
-## What `capabilities` answers on a travelling document
+## What `capabilities` answers on a document another service wrote
 
 `capabilities` reads a document `orders` wrote exactly as it read the shop's
 report policy in [Rules that read the
@@ -107,10 +115,11 @@ or action fails closed and throws nothing.
 ```
 
 `hydratePolicy` and `parseMatrix` treat an unknown key differently. A key the
-local typed policy does not carry is a programmer error, and `hydratePolicy` throws `UnknownPermissionError`. A key a
-foreign document does not carry means the producer has moved on, and throwing
-there would take a page down over a permission nobody has. [A policy from
-another service](/acl/adopting) is the whole story.
+local typed policy does not carry is a programmer error, and `hydratePolicy`
+throws `UnknownPermissionError`. A key a foreign document does not carry means
+the producer removed that permission, and throwing there would take a page down
+over a permission nobody holds. [A policy from another service](/acl/adopting)
+is the whole story.
 
 ## Version the document, and revalidate against it
 
@@ -148,6 +157,6 @@ evaluates its own document before it writes anything.
   an action bar, and the wording of a control it refuses.
 - [Many services](/acl/federation). One matrix per service, namespaced kinds,
   and what a gateway holds.
-- [Caveats and pitfalls](/acl/pitfalls). The two gaps a travelling document is
-  most likely to walk into.
+- [Caveats and pitfalls](/acl/pitfalls). The two gaps an adopted document leaves
+  open, and what a consumer does about each.
 - [Security contract](/acl/security). What remains yours.

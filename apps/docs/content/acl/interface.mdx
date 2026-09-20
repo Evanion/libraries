@@ -11,17 +11,20 @@
   difficulty={4}
   read={7}
   hands={20}
-  requires={[['Rules that outlive the process', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Platforms', '/acl/platforms'],
     ['Why was this refused?', '/acl/refusals'],
   ]}
 />
 
-**The concept.** A component calls `access.can` once per action.
-**What you get.** An action bar without conditions.
-**Why you want it.** A component's own rule drifts.
-**How the library gets you there.** The bar draws from `allowed` and `reason`.
+**The concept.** A component calls `access.can` once per action it might draw,
+over the document the app fetched.
+**What you get.** An action bar carrying no role test of its own.
+**Why you want it.** A component that tests the role itself states the rule a
+second time, and the handler it posts to is the copy somebody tightens.
+**How the library gets you there.** The bar reads `allowed` to decide whether to
+draw a button, and `reason` for the wording when it does not.
 
 ## The action bar this page builds
 
@@ -39,8 +42,8 @@ and you have written it twice, once here and once in the handler the button
 posts to. Somebody tightens the handler, the button stays lit, and a bookseller
 presses Edit on a published listing and gets a 403 with no explanation.
 
-The storefront fetched the matrix and hydrated it in [Rules that outlive the
-process](/acl/advanced). The bar calls `access.can` on that evaluator once per
+The storefront fetched the matrix and hydrated it in [Rules that another service
+wrote](/acl/advanced). The bar calls `access.can` on that evaluator once per
 action and draws from `allowed`, with `reason` as the wording of a disabled
 button.
 

@@ -152,7 +152,8 @@ for the frontend to adopt.
 ```
 
 A key the local typed policy does not carry throws `UnknownPermissionError`. A
-key a foreign document does not carry is a document that has moved on.
+key a foreign document does not carry means the producer removed that
+permission, and `parseMatrix` answers `unknown-action` rather than throwing.
 
 ## What construction does to the document
 

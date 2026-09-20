@@ -13,11 +13,14 @@
   ]}
 />
 
-**The concept.** `canFields` decides an action and its fields.
-**What you get.** The object to hand the database.
-**Why you want it.** A hand-written pick-list misses new columns.
-**How the library gets you there.** `pickAllowedFields` keeps the allowed
-fields.
+**The concept.** `canFields` decides the action and every field of a proposed
+write in one call.
+**What you get.** The object to hand the object-relational mapper, with every
+refused key already gone.
+**Why you want it.** A pick-list written by hand does not cover a column added
+next month, and that column goes through undecided.
+**How the library gets you there.** `pickAllowedFields` keeps the fields that
+decided `allowed` and drops the rest.
 
 ## The two calls on the acl write path
 

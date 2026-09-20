@@ -9,11 +9,14 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** `@evanion/acl` holds every rule in one document.
-**What you get.** One call over the same rules.
-**Why you want it.** Hand-copied rules drift.
-**How the library gets you there.** `policy()` writes the document; four methods
-read it.
+**The concept.** `@evanion/acl` keeps every authorization rule in one JSON
+document, called the matrix.
+**What you get.** A server handler and a browser control that answer from the
+same rules, through the same call.
+**Why you want it.** A rule copied into a second codebase by hand diverges the
+first time somebody edits one copy.
+**How the library gets you there.** `policy()` writes the document, and `can`,
+`canMany`, `canFields` and `capabilities` read it.
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -51,9 +54,9 @@ One `.for()` block declares one object kind, and a policy chains a block per
 kind. The example declares only `question` because that is all it asks about.
 
 The server that enforces the answer and the screen that renders it read the same
-rules, because both run over the same document. Hand-written copies of a rule
-drift: you tighten the handler, forget the loader, and the UI greys out a button
-the API would have accepted.
+rules, because both run over the same document. A rule copied by hand into a
+second place diverges from the first: you tighten the handler, forget the
+loader, and the UI greys out a button the API would have accepted.
 
 <Panel heading="A decision counts where it is made">
   <Text as="div" size="sm">
@@ -124,7 +127,7 @@ Setup runs to four pages, separated by what a rule may read:
   and done.
 - [Rules that read the object](/acl/intermediate). The typed builder, field
   permissions and the guarded save.
-- [Rules that outlive the process](/acl/advanced). The schema, versioning and
+- [Rules that another service wrote](/acl/advanced). The schema, versioning and
   the revalidate contract.
 - [One policy behind a screen](/acl/interface). The fetched document driving an
   action bar, and where the wording of a refusal comes from.

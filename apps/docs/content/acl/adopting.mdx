@@ -6,18 +6,22 @@
   difficulty={3}
   read={8}
   hands={20}
-  requires={[['Rules that outlive the process', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Many services', '/acl/federation'],
     ['The matrix document', '/acl/matrix'],
   ]}
 />
 
-**The concept.** `parseMatrix` builds an evaluator over a foreign document.
-**What you get.** An evaluator that refuses unknown keys.
-**Why you want it.** Rewritten rules drift.
-**How the library gets you there.** `parseMatrix` validates the document and
-runs closed.
+**The concept.** `parseMatrix` builds an evaluator over a policy document
+another service published.
+**What you get.** An evaluator that answers for the keys the document carries
+and refuses every key it does not.
+**Why you want it.** A team that rewrites another service's rules locally
+diverges from them the first time that service edits one.
+**How the library gets you there.** `parseMatrix` validates the document at
+adoption time and runs closed, so an unknown key answers `unknown-action`
+instead of throwing.
 
 ## What parseMatrix builds
 

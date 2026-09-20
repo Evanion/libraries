@@ -13,11 +13,14 @@
   ]}
 />
 
-**The concept.** `capabilities` answers every permission against one subject.
-**What you get.** One map the menu filters.
-**Why you want it.** Hand-written key lists go stale.
-**How the library gets you there.** `capabilities` resolves the document in one
-pass.
+**The concept.** `capabilities` resolves every permission in the document
+against one subject, passing no object.
+**What you get.** A map keyed by permission, each entry a full decision, which a
+navigation menu filters its items against.
+**Why you want it.** A menu holding its own list of permission keys stops
+matching the document the day somebody adds a key to one and not the other.
+**How the library gets you there.** `capabilities` walks the whole document in
+one pass, in document order.
 
 ## What one capabilities call returns
 

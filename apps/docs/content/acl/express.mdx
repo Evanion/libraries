@@ -12,20 +12,25 @@
 <PageSheet
   difficulty={2}
   read={7}
-  requires={[['Rules that outlive the process', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['NestJS', '/acl/nestjs'],
     ['Field permissions', '/acl/fields'],
   ]}
 />
 
-**The concept.** Express is trusted end to end.
+**The concept.** An Express app runs every route in a server process and hands
+no tree to a browser, so every `can` it calls enforces.
 
-**What you get.** Every handler calls `can` itself.
+**What you get.** A handler that resolves the subject from the verified session
+and decides on the row it just read.
 
-**Why you want it.** `app.use` is positional, so registration order mediates.
+**Why you want it.** `app.use` mounts middleware positionally, so a route
+registered above `bindAccess` runs with no evaluator bound and no decision made.
 
-**How the library gets you there.** `@evanion/acl` has no Express adapter.
+**How the library gets you there.** `@evanion/acl` ships no Express adapter, so
+this page wires `requireSession`, `bindAccess` and one `can` call per
+handler.
 
 ## What an Express app with `@evanion/acl` holds
 

@@ -22,13 +22,17 @@
   ]}
 />
 
-**The concept.** Server components render in a trusted runtime.
+**The concept.** A server component renders in the Node process, so a `can`
+call inside it enforces.
 
-**What you get.** Each widget decides before it fetches.
+**What you get.** A widget that decides whether the subject may read a title
+before it fetches the title.
 
-**Why you want it.** A Server Action skips the render.
+**Why you want it.** A caller posts to a Server Action directly, and the render
+that hid the button never ran for them.
 
-**How the library gets you there.** `parseMatrix` makes every `can` local.
+**How the library gets you there.** `parseMatrix` adopts shop-api's document
+once per version, so every `can` is a local call over frozen JSON.
 
 ## What an RSC app decides, and where
 
@@ -49,7 +53,8 @@ in those two places.
 
 `parseMatrix` turns the fetched document into an evaluator in this process, so
 every `can` after it is a local function call however deep in the tree it sits.
-`access.version` tells the memo the document moved.
+`access.version` is the revision the memo compares the next fetched document
+against.
 
 Baize's spotlight widget shows a staff price line and the activity widget shows
 the order trail. Each fetches its own data and answers "may this visitor see

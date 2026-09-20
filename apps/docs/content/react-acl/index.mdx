@@ -10,13 +10,17 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** `@evanion/react-acl` holds one evaluator in context.
+**The concept.** `@evanion/react-acl` holds one evaluator, one subject and one
+clock instant in a React context.
 
-**What you get.** A button four levels down asks directly.
+**What you get.** A button four levels down that calls `useCan` and names none
+of the three.
 
-**Why you want it.** A component that forgets `now` drifts.
+**Why you want it.** A component passed `now` by hand reads a different instant
+from its sibling, and a time-windowed rule then answers two ways on one screen.
 
-**How the library gets you there.** `PolicyProvider` takes all three once.
+**How the library gets you there.** `PolicyProvider` takes `access`, `subject`
+and `context` once, and four hooks read all three.
 
 ## One provider holds what every hook reads
 
