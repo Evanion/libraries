@@ -163,7 +163,7 @@ export class URN {
    * with a floor of one character.
    *
    * RFC 2141 2 defined `NID ::= <let-num> [ 1,31<let-num-hyp> ]`, permitting a
-   * one-character NID, and RFC 8141 Appendix B keeps every URN that was valid
+   * one-character NID, and RFC 8141 1 keeps every URN that was valid
    * under the earlier specification valid. The charset is not relaxed: RFC 2141
    * never permitted `_`, `.` or `~` either.
    */
