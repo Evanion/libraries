@@ -60,7 +60,7 @@ let adopted:
  *
  * `parseMatrix` and not `hydratePolicy`: this document crossed the wire from
  * another service, so it is adopted in the fail-closed mode, where a key the
- * contract does not carry decides `unknown-permission` and refuses rather than
+ * contract does not carry decides `unknown-action` and refuses rather than
  * throwing mid-render. `inventory.read` is such a key. shop-api keeps it
  * internal, and no widget here asks about it.
  *
