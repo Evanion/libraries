@@ -135,8 +135,7 @@ URN.stringify('a b', 'example');
 
 `stringify` enforces the RFC 8141 NID exactly. `parse` accepts the same
 character set but allows a one-character NID, because RFC 2141 permitted one and
-RFC 8141 Appendix B keeps earlier-valid URNs valid. Nothing else is relaxed on
-read:
+RFC 8141 §1 keeps earlier-valid URNs valid. Nothing else is relaxed on read:
 
 ```ts
 URN.parse('urn:x:1'); // { urn: 'urn', nid: 'x', nss: 'x:1' }

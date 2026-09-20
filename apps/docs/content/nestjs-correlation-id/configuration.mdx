@@ -58,8 +58,8 @@ export const DEFAULT_CORRELATION_ID_VALIDATOR = (value: string): boolean =>
   /^[\w.:-]{1,128}$/.test(value);
 ```
 
-One to 128 word characters, dots, colons and hyphens — an RFC 9110 token subset.
-It excludes:
+One to 128 word characters, dots, colons and hyphens — RFC 9110 token
+characters, plus the colon. It excludes:
 
 - CR and LF, which is what keeps a header value from splitting a response or
   forging a log line.

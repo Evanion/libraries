@@ -124,7 +124,8 @@ createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' }).uniformOverBytes;
 ```
 
 32 is the useful size that satisfies both. It is what `@evanion/token` uses,
-with `i`, `l`, `o` and `w` dropped from the 36 for legibility.
+with `i`, `l`, `o` and `w` dropped from the 36 because they are confused when
+read or heard.
 
 ## A per-request dictionary
 

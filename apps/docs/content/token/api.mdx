@@ -82,8 +82,8 @@ Total and free of side effects. Separators are stripped and input is case-folded
 first, so a code typed without them, or grouped differently, still validates.
 
 The three checks run in the order listed and the first failure is reported. A
-prefix is not part of the code — `validate` sees a leading `ORD-` as three
-characters outside the alphabet.
+prefix is not part of the code — `validate` reads a leading `ORD-` as three more
+characters of it, and its `o` is outside the alphabet.
 
 `body` on success is the code without its check character, case-folded: the
 string to look up.

@@ -16,21 +16,21 @@ cost:
 
 ## The API
 
-| 2.x                                                | 3.x                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------- |
-| `Luhn.generate(input)`                             | unchanged call, new value                                                 |
-| `Luhn.validate(input)`                             | unchanged call; it now accepts every token `generate` produces            |
-| `Luhn.generate(input, true)`                       | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).generate(input)` |
-| `class X extends Luhn { static dictionary = d }`   | `createLuhn({ dictionary: d, caseInsensitive: true })`                    |
-| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` — same values   |
-| `Luhn.dictionary = d`                              | `TypeError`; the default instance is frozen                               |
-| `Luhn.sensitive`                                   | `Luhn.caseInsensitive`                                                    |
-| `Luhn.lowercaseOnly(d)`                            | removed; nothing folds a dictionary any more                              |
-| the `protected static` helpers                     | removed; they were arrow fields bound to `Luhn` and never overridable     |
-| `ValidationError`                                  | `LuhnError`                                                               |
-| `validate('')` returning `isValid: true`           | `isValid: false`                                                          |
-| `generate('')` returning `{ checksum: '0' }`       | throws `EmptyInputError`                                                  |
-| an odd dictionary throwing at the first call       | throws at `createLuhn`                                                    |
+| 2.x                                                | 3.x                                                                     |
+| -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `Luhn.generate(input)`                             | unchanged call, new value                                               |
+| `Luhn.validate(input)`                             | unchanged call; it now accepts every token `generate` produces          |
+| `Luhn.generate(input, true)`                       | `createLuhn({ caseInsensitive: false }).generate(input)`                |
+| `class X extends Luhn { static dictionary = d }`   | `createLuhn({ dictionary: d, caseInsensitive: true })`                  |
+| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` — same values |
+| `Luhn.dictionary = d`                              | `TypeError`; the default instance is frozen                             |
+| `Luhn.sensitive`                                   | `Luhn.caseInsensitive`                                                  |
+| `Luhn.lowercaseOnly(d)`                            | removed; nothing folds a dictionary any more                            |
+| the `protected static` helpers                     | removed; the one `reduce` read was bound to `Luhn` and not overridable  |
+| `ValidationError`                                  | `LuhnError`                                                             |
+| `validate('')` returning `isValid: true`           | `isValid: false`                                                        |
+| `generate('')` returning `{ checksum: '0' }`       | throws `EmptyInputError`                                                |
+| an odd dictionary throwing at the first call       | throws at `createLuhn`                                                  |
 
 `Luhn.generate(x)` and `Luhn.validate(x)` still compile and still run. `Luhn` is
 now the default instance rather than a class, which is what keeps those two call
@@ -48,9 +48,9 @@ lookup tables. Three consequences, all of them shipped bugs:
 - A static is a name match, not a type match. A subclass that set `dictionary`
   to a function passed the parity check on the function's arity, and failed four
   frames deeper with `TypeError: dictionary.indexOf is not a function`.
-- Half the surface was not overridable at all. The helpers were static arrow
-  fields whose `this` was bound to `Luhn` at class-body evaluation, so a
-  subclass override of any of them was a silent no-op.
+- Part of the surface was not overridable at all. `reduce` was a static arrow
+  field, so the `this` it read `char2index` off was `Luhn` whatever class the
+  call started on, and a subclass override of `char2index` was a silent no-op.
 
 `createLuhn` gives that moment: the dictionary is checked and turned into lookup
 tables once. The assignment that used to configure it now throws, in a module,
