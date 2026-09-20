@@ -205,6 +205,20 @@
       // there is no single version for it to be a changelog of. Each package
       // gets its own, published as a GitHub release against its own tag.
       "workspaceChangelog": false,
+      // A package that has never been released carries no tag, so there is no
+      // ref to generate its first changelog against and the run fails on it.
+      // The version step does not need one: with no tag it falls back to the
+      // manifest and reads the specifier from the first commit, so the package
+      // does get a bump, and having been bumped it then asks for a changelog.
+      //
+      // This closes that gap by reading the same history the version step read.
+      // It engages only where no tag exists, so an already-released package
+      // still measures from its own tag and its changelog is unchanged.
+      //
+      // Before this, an unreleased package under `libs/*` failed every
+      // unscoped release. It has been avoided since 2026-09-12 by passing
+      // `--projects`, which is why no release since has hit it.
+      "automaticFromRef": true,
       "projectChangelogs": {
         "createRelease": "github"
       }
