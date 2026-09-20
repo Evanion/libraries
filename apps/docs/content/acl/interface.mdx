@@ -76,9 +76,10 @@ you met it first where [rules read the object](/acl/intermediate). Once the
 builder's types have gone, the schema on the document holds a foreign producer
 to the same paths.
 
-## What the bar draws for each shopper
+## What the action bar draws for each shopper
 
-Those four statements are the whole policy the bar has. The bar renders one
+Baize's listing screen draws an action bar, and the four statements in the
+shop's listing policy are the whole policy that bar has. The bar renders one
 button per action and calls `access.can` once for each: `allowed` says whether
 to draw the button, and `reason` is the wording when it draws the button
 greyed out.
@@ -102,12 +103,12 @@ Add a fourth control by writing one more statement in the policy and one more
 row in the list of actions. Never add it as a branch in the component, because a
 branch in the component is a rule written somewhere the policy cannot see.
 
-## A status change moves the bar without touching the policy
+## A status change moves the action bar without touching the policy
 
 Press Publish and `object.status` becomes `published`. The deny in the shop's
-listing policy now matches, so `edit` comes back `denied`. The bar draws no Edit
-button for any role, the bookseller's and the owner's alike, because a deny
-outranks a matching allow.
+listing policy now matches, so `edit` comes back `denied`. The listing's action
+bar draws no Edit button for any role, the bookseller's and the owner's alike,
+because a deny outranks a matching allow.
 
 You recomputed nothing by hand and you wrote no second rule for the published
 case. One row changed and four statements produced a different screen. The
@@ -115,10 +116,11 @@ service that published this document evaluates the same four statements before
 it writes the status, so the screen and the write agree by reading one
 document.
 
-## The screen, with the policy in your hands
+## Edit the policy and watch the action bar redraw
 
-The demo below runs the policy this page has been reading. Sign in as each of
-the three shoppers and the bar rebuilds itself from `access.can`. Press a role
+The demo below draws the listing's action bar, the three buttons Review, Edit
+and Publish, from the shop's four listing statements. Sign in as each of the
+three shoppers and the bar rebuilds itself from `access.can`. Press a role
 inside a grant to strike it out, and the control that grant produced leaves
 while you are looking at it. Press Publish and the deny matches, so neither the
 bookseller nor the owner is offered Edit.
@@ -132,7 +134,7 @@ already been explained.
 
 ## The browser's copy of the shop's policy decides nothing
 
-The decisions this screen renders are convenience. The same `can` runs again in
+The decisions the listing's action bar renders are convenience. The same `can` runs again in
 the shop's server runtime, over a subject that runtime resolved itself, before
 any listing is edited or published. A screen that hid the button does not excuse
 the handler the button posts to. [The security contract](/acl/security) is the
@@ -141,7 +143,7 @@ stack.
 
 ## Where a refused control gets its wording
 
-The bar above removes a control it may not draw. A bar that greys the control
+The listing's action bar removes a control it may not draw. A bar that greys the control
 out instead has to say why, and `Decision` carries `reason`, `rule` and
 `missing` beside `allowed` for that. What each key
 means, and which of them are repairable, is [Why was this
