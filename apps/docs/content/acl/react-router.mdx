@@ -15,7 +15,7 @@
   read={8}
   requires={[['A policy from another service', '/acl/adopting']]}
   unlocks={[
-    ['Next.js RSC', '/acl/next-rsc'],
+    ['React Server Components', '/acl/next-rsc'],
     ['Field permissions', '/acl/fields'],
   ]}
 />
@@ -25,9 +25,10 @@ and the action, with a browser tree between them that is neither. A
 `<Form method="post">` reaches the action. So does `curl`, and the loader that
 decided what to render never ran for that caller.
 
-**What you get.** What `apps/admin` runs: middleware binding the subject
-and deferring the contract read, loaders deciding what a page returns, the action
-deciding again on the row, and `useCan` picking the form or the sentence.
+**What you get.** What `apps/admin` runs: middleware answering who is asking
+and deferring the contract read, loaders deciding whether that subject may have
+the page, the action deciding again on the row, and `useCan` picking the form or
+the sentence.
 
 **Why you want it.** Baize grants `game.declare` to an operator whose own
 shop lists the title. Ines works in Stockholm, so the availability form is drawn
@@ -50,15 +51,15 @@ rules and none of them asks shop-api a question.
 
 | Where           | Runtime | Decides?                               |
 | --------------- | ------- | -------------------------------------- |
-| `middleware`    | server  | binds the subject; decides nothing     |
+| `middleware`    | server  | answers who is asking; decides nothing |
 | `loader`        | server  | yes, for what it returns               |
 | Route component | browser | never; it toggles what the user sees   |
 | `action`        | server  | yes, independently, for what it writes |
 | `clientLoader`  | browser | never                                  |
 
-```mermaid caption="Two server entry points on one route, with the browser tree between them. Middleware binds the subject and decides nothing, the loader decides what the page returns, and a form post and a curl both reach the action, which decides again on the row it re-reads before the revalidating loaders run."
+```mermaid caption="Two server entry points on one route, with the browser tree between them. Middleware answers who is asking and decides nothing further, the loader decides whether that subject may have the page, and a form post and a curl both reach the action, which decides again on the row it re-reads before the revalidating loaders run."
 flowchart TD
-  N["a navigation"] --> M["middleware: binds the subject"]
+  N["a navigation"] --> M["middleware: answers who is asking"]
   P["a write request, from a Form or from curl"] --> M
   M -->|"navigation"| L["loader: can, for what it returns"]:::accent
   L --> T["route component<br>useCan toggles, decides nothing"]
@@ -94,12 +95,20 @@ of the browser bundle. A request that cannot reach shop-api falls back to
 `NO_ACCESS`, a parsed document carrying no permissions, so every key answers
 `unknown-action`. The page draws its chrome and writes nothing.
 
-## Middleware binds, loaders decide
+## Middleware answers who is asking, a loader answers whether
 
-React Router 8's stable `middleware` and `createContext` resolve the subject.
-`demoSubject()` is this app's whole identity story, `newCorrelationId`
-mints the page view's id, and `readAccess` and `readShelf` are the two fetches
-the contexts below defer:
+A React Router route splits one authorization into two questions, and each
+server entry point owns one of them. Middleware answers who is asking: it
+resolves the subject from the session and binds it, so every loader and action
+on the route runs against one identity. A loader or an action answers whether
+that subject may have what it came for, which is a `can` call over the row it
+is about to return or write. Middleware reaches no `can` call itself, because a
+decision needs the object being acted on and a refusal needs somewhere to go,
+and middleware holds neither.
+
+React Router 8's stable `middleware` and `createContext` are what carry the
+subject. `demoSubject()` is this app's whole identity story, and `readAccess`
+and `readShelf` are the two fetches the contexts below defer:
 
 ```ts file=apps/admin/app/page-view.server.ts region=bind-subject
 
@@ -120,10 +129,11 @@ everywhere. A `Subject | null` default with a 401 at every read is the other
 defensible choice; this app declines it, because a roles-less subject reaches
 the same refusal through the rules the page is already about.
 
-## The loader decides what a page returns
+## What a loader decides, with the subject already bound
 
-`allows` reads one permission out of a capability map, and `telemetry.read`
-belongs to a manager:
+The middleware bound who is asking, and this loader decides whether that
+subject may read the orders page at all. `allows` reads one permission out of a
+capability map, and `telemetry.read` belongs to a manager:
 
 ```tsx file=apps/admin/app/routes/orders.tsx region=loader-decides
 
@@ -220,7 +230,7 @@ The browser half needs a data router, because `<Form>` reads its submit:
 
 ## Where to go next
 
-- [Next.js RSC](/acl/next-rsc) — the same split with a server component as the
+- [React Server Components](/acl/next-rsc) — the same split with a server component as the
   trusted side
 - [What can they do at all?](/acl/capabilities) — the map a loader reads
 - [Field permissions](/acl/fields) — the write axis an action decides on
