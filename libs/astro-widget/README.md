@@ -176,8 +176,9 @@ validateItems(nested, ['game-grid']); // -> [{ index: 0, id: 'questions', type: 
 
 <!-- #endregion nested-index -->
 
-The five structural rules run over every payload, whatever the registry holds.
-Each one is a save a CMS can make and a build should not ship:
+Six structural rules run over every payload, whatever the registry holds, and
+five of them fire on the one below. Each is a save a CMS can make and a build
+should not ship:
 
 <!-- #region structural-rules -->
 
