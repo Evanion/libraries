@@ -27,7 +27,7 @@ function PolicyProvider<Keys extends string = string>(
 ```
 
 The context value is memoised on the identity of `access`, `subject` and
-`context`, so all three want stable references. `context.now` defaults to
+`context`, so all three need stable references. `context.now` defaults to
 `new Date()` when it is left off, which is a fresh instant on every provider
 remount. Pass the value the server rendered with.
 
@@ -95,9 +95,9 @@ function useCanMany(
 ```
 
 The returned array is parallel to the input, so a row's answer is at the row's
-index. This is the hook for a list: React forbids a hook inside a loop, so a row
-component calling `useCan` for itself breaks the first time the list is filtered
-or reordered.
+index. `useCanMany` is the hook for a list. React forbids a hook inside a loop,
+so a row component calling `useCan` for itself breaks the first time the list is
+filtered or reordered.
 
 ```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
 
@@ -139,9 +139,10 @@ Every action-level decision for the current subject, keyed by
 function useCapabilities(): Record<string, Decision>;
 ```
 
-No object is passed, so a rule that reads one cannot be decided here. This is
-the hook for a menu or a navigation bar, where the question is which actions the
-shopper may reach at all. A question about one particular row goes to `useCan`.
+`useCapabilities` passes no object, so a rule that reads one cannot be decided
+here. It is the hook for a menu or a navigation bar, where the question is which
+actions the shopper may reach at all. A question about one particular row goes
+to `useCan`.
 [What can they do at all?](/acl/capabilities) sets out the no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
@@ -177,8 +178,8 @@ listing and the stock report sit in the same document, where one
 
 Each call does make its own context, so two separate policy documents nest and
 each set of hooks reads its own provider. The returned provider also feeds the
-shared context, so a component calling `useCan` from the package root underneath
-it reads the same decision.
+shared context. A component calling `useCan` from the package root underneath it
+reads the same decision.
 
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 

@@ -11,10 +11,10 @@
 </WorkshopNotice>
 
 **The concept.** Baize's listing page draws an Edit button four components below
-the route. [`@evanion/acl`](/acl) will tell that button whether to draw itself,
-and the call takes three things: the evaluator `policy()` built, the subject
-(the signed-in shopper, as the rest of this section calls them), and the instant
-a rule with a time window in it is read against. None of those three belong to a
+the route. [`@evanion/acl`](/acl) tells that button whether to draw itself, and
+the call takes three things: the evaluator `policy()` built, the subject (the
+signed-in shopper, as the rest of this section calls them), and the instant a
+rule with a time window in it is read against. None of those three belong to a
 button, so they arrive as props. They pass through `ShopPage`, `ListingView` and
 `ActionBar`, and not one of those components asks a question of its own.
 
@@ -23,15 +23,23 @@ evaluator, the shopper and the instant, and a button four levels down that asks
 with three strings and the row it is drawing.
 
 **Why you would want it.** You thread the three props to the first component
-that needs them and nothing objects. Then a sibling needs the shopper too, then
-a third one is added by
-somebody who threads `access` but forgets `now`, and a rule with a time window
-in it starts answering against a different instant on one branch of the page.
+that needs them and nothing objects. A sibling then needs the shopper too, and a
+third component arrives from somebody who threads `access` and forgets `now`.
+One branch of the page now reads every time window against a different instant.
 
 **How the library gets you there.** `PolicyProvider` takes `access`, `subject`
 and `context` once. `useCan`, `useCanMany`, `useCanFields` and `useCapabilities`
 read them out of context and call the core's method of the same name. The
 package decides nothing itself.
+
+```mermaid caption="One PolicyProvider holds the evaluator, the shopper and the instant. ShopPage, ListingView and ActionBar pass none of the three, and EditControl reads all three out of context when it calls useCan."
+flowchart TD
+  P["PolicyProvider<br>access, subject, context"] --> S["ShopPage"]
+  S --> L["ListingView"]
+  L --> A["ActionBar"]
+  A --> E["EditControl<br>useCan(key, action, row)"]:::accent
+  P -. "context" .-> E
+```
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 
@@ -44,11 +52,11 @@ on it.
 
 <Panel heading="A decision in a browser enforces nothing">
   <Text as="div" size="sm">
-    Every hook here toggles what a reader sees. Not drawing the Edit button
-    hides the button; the request behind it is a URL, and it is still there.
-    Enforcement happens on the trusted side of a boundary, in every layer, each
-    one deciding for itself. [Which side decides](/react-acl/boundary) is the
-    short version and [the security contract](/acl/security) is the whole of it.
+    Every hook here toggles what a reader sees. A hidden Edit button is still a
+    URL, and the shopper can post to it. Enforcement happens on the trusted side
+    of a boundary, in every layer, each one deciding for itself. [Which side
+    decides](/react-acl/boundary) is the short version and [the security
+    contract](/acl/security) is the whole of it.
   </Text>
 </Panel>
 
@@ -103,8 +111,8 @@ the rest. A component that names one does not install the core by hand. The
 core's values are not re-exported. `hydratePolicy` and `policy` stay in
 `@evanion/acl`, and you import them from there.
 
-React 18 or 19 is the only peer dependency, `@evanion/acl` is a dependency, and
-the package is ESM only.
+React 18 or 19 is the only peer dependency and `@evanion/acl` is a dependency.
+The package is ESM only.
 
 ## Where to go next
 
