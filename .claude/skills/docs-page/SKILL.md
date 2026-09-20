@@ -113,10 +113,26 @@ block has no body in the `.mdx`; the region loader fills it at build. Anything
 that reads the `.mdx` directly — a generator, an agent surface, a grep for what
 an example shows — sees nothing. Expand regions first.
 
-**`twoslash` plus any other meta word renders dead markup.** The transformer
-triggers on `/\btwoslash\b/`, and Nextra injects its `Popup` component only when
-the meta is exactly `twoslash`. A fence between the two renders hover markup
-with no component behind it, and nothing fails.
+**`file=` and `region=` are not meta words by the time Nextra sees them; any
+other word is.** `rehype-twoslash-popup` injects the `Popup` import when a
+fence's meta is exactly `twoslash`. The region loader runs before it and strips
+the `file=… region=…` pair out of the info string, so a region fence written as
+`ts twoslash file=libs/acl/README.md region=quick-start` reaches rehype as
+plain `twoslash` and its hovers work. Put `twoslash` on every region fence
+whose code compiles standalone. A word the loader does not consume — `copy`,
+`filename=`, `showLineNumbers` — survives and blocks the import.
+
+Blocking it fails loudly. MDX throws `Expected component Popup to be defined`
+at render and the page returns 500. The import is injected once per document,
+so one exact-`twoslash` fence supplies `Popup` to every other fence on that
+page; only a document where every twoslash fence carries an extra word breaks.
+`doc-twoslash.test.ts` asserts the post-expansion meta, which catches it before
+a render does.
+
+Verified 2026-09-20 against `next dev`. Adding `copy` to the ACL index fence
+500s the page. Keeping `copy` and adding a bare `ts twoslash` block to the same
+page returns 200 with 24 `twoslash-popup-container` elements. The fence as
+shipped renders 23.
 
 **A `^?` query must be the last line of its fence.** The popup is absolutely
 positioned, so it covers the following line rather than pushing it down.
