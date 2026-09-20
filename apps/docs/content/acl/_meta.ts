@@ -68,7 +68,7 @@ export default {
   platforms: 'Overview',
   express: 'Express',
   nestjs: 'NestJS',
-  'next-rsc': 'Next.js RSC',
+  'next-rsc': 'React Server Components',
   'react-router': 'React Router 8',
   federation: 'Many Services',
 

@@ -84,7 +84,7 @@ question is the same call with `'edit'`:
 An app builds the evaluator at module scope in a server-only module and calls
 `access.authorize(shopper)` once per request, which drops the subject from every
 signature after it. [React Router 8](/acl/react-router) and
-[Next.js RSC](/acl/next-rsc) each work that through against a real app's file
+[React Server Components](/acl/next-rsc) each work that through against a real app's file
 layout.
 
 `@evanion/react-acl` cannot run in a React Server Component (RSC) at all. Its
@@ -156,7 +156,7 @@ trusted side, in every layer, each one deciding for itself.
   to time of use, and what remains yours
 - [React Router 8](/acl/react-router) — middleware, loader, action, and the
   provider in the shell
-- [Next.js RSC](/acl/next-rsc) — the server component, the client boundary, and
+- [React Server Components](/acl/next-rsc) — the server component, the client boundary, and
   the Server Action behind the button
 - [API reference](/react-acl/api) — the provider, the four hooks and the typed
   policy factory

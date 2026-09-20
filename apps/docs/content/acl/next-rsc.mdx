@@ -1,12 +1,14 @@
-# Next.js RSC
+# React Server Components
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    `apps/storefront-rsc` in this repository is a Next 16 App Router app with no
-    `'use client'` file in it at all. It adopts `apps/shop-api`'s published
-    document and gates its server components on it, and the fences citing it run
-    under `nx test storefront-rsc`. The client half of this page is guidance for
-    an app that has a client tree; that app is not this one.
+    React Server Components (RSC) is the model this page is about, and Next.js
+    is the implementation it is shown in. `apps/storefront-rsc` in this
+    repository is a Next 16 App Router app with no `'use client'` file in it at
+    all. It adopts `apps/shop-api`'s published document and gates its server
+    components on it, and the fences citing it run under `nx test
+    storefront-rsc`. The client half of this page is guidance for an app that
+    has a client tree; that app is not this one.
   </Text>
 </WorkshopNotice>
 
@@ -20,10 +22,12 @@
   ]}
 />
 
-**The concept.** A React Server Components (RSC) app has two trusted entry
-points into the same code, the render and the Server Action, and a decision made
-at one does not carry to the other. The client component sits between them and
-is neither.
+**The concept.** A server component renders in a trusted runtime, so the
+render is a place a decision can be made. A Server Action is a second trusted
+entry point into the same route, reached without the render ever running, and a
+decision made at the render does not carry to it. The client component sits
+between the two and is neither. Next.js is where this page shows the model, and
+every framework that ships RSC puts the boundary in the same two places.
 
 **What you get.** What `apps/storefront-rsc` runs: one `GET /api/policy`
 per page view, `parseMatrix` over what comes back, React's `cache` holding the
@@ -157,6 +161,19 @@ app is how often it asks. `apps/storefront-rsc` asks once per page view, because
 requests needs a revalidation window, which [Platforms](/acl/platforms) sets
 out.
 
+## The hooks cannot gate a server tree
+
+`@evanion/react-acl` ships `'use client'` as the first line of its entry point,
+and the published build carries the directive too. A server component that
+imports `useCan` from it therefore imports a client reference rather than a
+function, and calling that reference during the server render throws. The
+package is the browser half of the model and has no server half.
+
+A server tree decides with `@evanion/acl` directly, which is every fence above:
+`parseMatrix` builds the evaluator and `access.can` answers in the same process,
+with no hook, no context and no React involved. The two halves read the same
+document and neither trusts the other's verdict.
+
 ## A client tree, where an app has one
 
 `apps/storefront-rsc` has no client component, so nothing below runs in it. An
@@ -218,8 +235,9 @@ about what succeeds, and it enforces nothing.
 
 ## Every Server Action decides again
 
-`apps/storefront-rsc` has no Server Action, and an app that adds one owes it a
-full decision of its own:
+A Server Action is a route a caller posts to directly, and the render that hid
+the button never ran for them. `apps/storefront-rsc` has no Server Action, and
+an app that adds one owes it a full decision of its own:
 
 ```ts no-run
 // app/games/actions.ts
