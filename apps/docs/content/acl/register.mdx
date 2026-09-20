@@ -2,9 +2,11 @@
 
 <WorkshopNotice slug="acl" />
 
-Thirty-six classes of attack, and what `@evanion/acl` does about each. The
-suite in `libs/acl/src/security` is checked against this register: one entry per
-class, one identifier, one test, run by `nx test @evanion/acl`.
+Thirty-six classes of attack, and what `@evanion/acl` does about each. The suite
+in `libs/acl/src/security` holds one test per entry, under the entry's
+identifier, and runs under `nx test @evanion/acl`. Each row names the Common
+Weakness Enumeration (CWE) and the Open Worldwide Application Security Project
+(OWASP).
 
 [The security contract](/acl/security) argues the same material in prose.
 
@@ -14,13 +16,12 @@ Each entry sits in one tier, and the tier decides what its test may claim.
 
 In tier 1 the library prevents the attack, and the test asserts that it raises a
 construction error or reaches a refusal. In tier 2 the primitive exists and the
-consumer calls it, and the test asserts that the primitive is correct and that
+consumer calls it. The test there asserts that the primitive is correct and that
 the idiom it replaces is wrong on the same decision. In tier 3 the class is
-structurally out of scope and the test asserts nothing: the contract clause
-exists, and where the behaviour reads like a defence, the test pins what the
-engine really does.
+structurally out of scope: the contract clause exists, and where the behaviour
+reads like a defence, the test pins what the engine really does.
 
-A tier 3 test asserts no defence; a passing one would imply one.
+A tier 3 test asserts no defence; a pass implies one.
 
 ## Tier 1, prevented
 
@@ -83,6 +84,5 @@ the clause is still written down; SEC-207 and SEC-208 also pin the gap.
 ## Where the suite lives
 
 `libs/acl/src/security`, matched by the package's own `src/**/*.{test,spec}.ts`
-include, so CI runs it with no project to forget. It sits apart from the unit
-tests: a unit test asserts what a function does, these assert that an attack
-fails.
+include, so CI runs it with no project to forget. A unit test asserts what a
+function does; a register test asserts that an attack fails.

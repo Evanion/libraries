@@ -122,8 +122,9 @@ meaning.
 
 ## Deny-overrides, and the names XACML gave it
 
-None of this is new. OASIS named the combining algorithms in XACML 3.0
-(Appendix C): deny-overrides, permit-overrides, first-applicable and
+None of this is new. OASIS named the combining algorithms in Appendix C of the
+eXtensible Access Control Markup Language (XACML) 3.0: deny-overrides,
+permit-overrides, first-applicable and
 only-one-applicable, alongside ordered and `deny-unless-permit` variants. acl
 runs deny-overrides, stated there as "if a single `<Rule>` or
 `<Policy>` element is encountered that evaluates to 'Deny', then, regardless of
@@ -149,11 +150,10 @@ handed, and `missing` names the paths to fetch. That third state is why steps 3
 and 4 exist at all. A boolean engine has nothing for them to separate.
 
 XACML is the exception. Its decision values are Permit, Deny, NotApplicable and
-Indeterminate, its extended
-`Indeterminate{D}`, `{P}` and `{DP}` variants travel through the combining
-algorithms, and § 7.3.5 says that where a required attribute is not found "the
-result is Indeterminate, and a MissingAttributeDetail element SHOULD be included
-in the Status". acl arrived at the same shape. Nobody checked for this page
+Indeterminate, and its extended `Indeterminate{D}`, `{P}` and `{DP}` variants
+travel through the combining algorithms. § 7.3.5 says that where a required
+attribute is not found "the result is Indeterminate, and a MissingAttributeDetail
+element SHOULD be included in the Status". acl arrived at the same shape. Nobody checked for this page
 whether a deployed implementation returns those details.
 
 ## Why a fixed order is what lets every layer re-decide

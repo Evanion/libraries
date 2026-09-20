@@ -105,9 +105,9 @@ interface AccessOptions {
 ```
 
 `version` overrides the document's. `closed` fails closed on an unknown key.
-`fetchedAt` is when this holder last validated, and supplying it obliges the
-document to state `maxStale`, which here is a local ceiling `min`-ed with the
-document's.
+`fetchedAt` is when this holder last validated. A holder that supplies it
+obliges the document to state `maxStale`, which here is a local ceiling `min`-ed
+with the document's.
 
 ## `Access`
 
@@ -134,7 +134,7 @@ permission needs the row before it can decide.
 
 Every object parameter takes a partial: a projection is the
 [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case. An absent
-`subject.*` path is a definite miss instead.
+`subject.*` path is a definite miss.
 
 ## `Authorized`
 
@@ -164,7 +164,7 @@ interface Authorized<R = AnyObjects, Keys extends string = string> {
 ```
 
 None of `matrix`, `version`, `schema` or `readsObject` is a fact about one
-subject, so none of the four is here.
+subject, so none is here.
 
 ## `BoundKind`
 

@@ -90,14 +90,14 @@ deny?](/acl/resolution) has the order, the diagram and the argument for it.
 
 ## `unevaluable` is a third state
 
-It is neither an error nor a no. The decision cannot be reached with the data it
-was handed, and `missing` names exactly what to fetch.
+`unevaluable` is neither an error nor a no. The decision cannot be reached with
+the data it was handed, and `missing` names exactly what to fetch.
 
 A caller sees it in two situations, both the same shortfall:
 
 - No instance at all. `access.can(subject, 'question', 'create')` against a
-  permission whose rules read `object.*`. This is the create toggle: there is
-  nothing to compare against yet.
+  permission whose rules read `object.*`. That is the create toggle, and the
+  call carries no instance to compare against yet.
 - A projection that does not carry the field. A list query selected `id` and
   `body`, and the rule reads `object.askedBy`.
 
@@ -141,8 +141,9 @@ if (access.readsObject('listing', 'update')) {
 }
 ```
 
-It is true when any allow or deny rule of this permission names an `object.*`
-path, on either operand. It takes no subject: it is a fact about the matrix.
+`readsObject` is true when any allow or deny rule of this permission names an
+`object.*` path, on either operand. It takes no subject, because it reports a
+fact about the matrix.
 
 Field rules do not count. A `transitions` config reads the object only on the
 `canFields` write axis, where the caller holds the row already.
@@ -184,7 +185,7 @@ re-settles the clock each pass.
 ```
 
 `authorize` binds the subject, and optionally the clock, so a middleware,
-loader, action or RSC server component evaluates without restating either. It
+loader, action or React server component evaluates without restating either. It
 also makes the guarded path the short one to write.
 
 ## The clock
