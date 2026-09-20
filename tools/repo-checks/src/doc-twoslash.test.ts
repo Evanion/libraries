@@ -204,7 +204,9 @@ describe('twoslash fences', () => {
   it('carries only the meta Nextra injects its Popup component for', () => {
     // rehype-twoslash-popup.js matches `node.data.meta === 'twoslash'`, while
     // the transformer triggers on /\btwoslash\b/. A fence between the two
-    // renders hover markup with no component behind it.
+    // renders hover markup and no import for the `Popup` behind it, and MDX
+    // throws on the missing component. The fences here are already expanded,
+    // so `file=` and `region=` are gone the way Nextra will see them.
     expect(
       fences.filter(
         ({ info }) => info.split(/\s+/).slice(1).join(' ') !== 'twoslash',

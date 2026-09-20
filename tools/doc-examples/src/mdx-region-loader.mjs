@@ -21,10 +21,12 @@ import { readRegion } from './regions.mjs';
  *     ```
  *
  * Nextra injects the `Popup` component only for a fence whose meta is exactly
- * `twoslash` (nextra/dist/server/rehype-plugins/rehype-twoslash-popup.js),
- * while Twoslash itself triggers on `/\btwoslash\b/`. A fence combining
- * `twoslash` with any other meta word renders hover markup with no component
- * behind it, so `twoslash` is the only meta a region block may carry.
+ * `twoslash` (nextra/dist/server/rehype-plugins/rehype-twoslash-popup.js).
+ * This strips `file=` and `region=` before Nextra reads the info string, so
+ * the fence above arrives there as plain `twoslash` and its hovers work. Any
+ * word this does not consume survives, blocks the import, and makes the page
+ * throw on a `Popup` it never imported — so `twoslash` is the only other meta
+ * a region block may carry.
  *
  * A webpack loader rather than the remark plugin the demo-apps spec called
  * for. Nextra hands `mdxOptions.remarkPlugins` straight to unified, which
