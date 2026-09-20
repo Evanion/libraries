@@ -13,43 +13,40 @@
   ]}
 />
 
-**The concept.** Jo opens the Brass: Birmingham listing and clicks Edit on a
-question somebody else asked. One call decides whether that click goes through,
-and the same call tells the button what to say when it does not.
+**The concept.** `can` answers one authorization question and returns a decision
+the handler gates on and the UI renders. Jo clicks Edit on a question somebody
+else asked, and that one call refuses the save and tells the button what to say.
 
 **What you get.** One question to ask with the row in hand or over a page
 of forty rows, and an answer a handler gates on and a UI renders.
 
-**Why you want it.** Write the check by hand and you write it twice: once
-in the handler that refuses the save, once in the component that greys out the
-button. The two drift, and the day they disagree the customer sees an enabled
-button that 403s.
+**Why you want it.** Write the check by hand and you write it twice, once in
+the handler that refuses the save and once in the component that greys out the
+button. The two drift, and the customer sees an enabled button that 403s.
 
 **How the library gets you there.** `can` answers one question and hands back a
-decision. `canMany` answers the same question per row. `authorize` binds the
+decision, and `canMany` answers the same question per row. `authorize` binds the
 subject so no handler restates it, and `access.object(kind)` binds the object
 kind.
 
 `can(subject, kind, action, object?, now?)` takes the object kind in `kind`, so
-you pass `'question'` and never `'question.update'`. It answers with a decision.
+you pass `'question'` and never `'question.update'`.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
 ```
 
-The policy above declares one object kind because the example has one. Chain a
-`.for()` per kind to put the questions and the listings in the same document,
-which is the document `can` reads. Do not build a policy per resource.
+The policy above declares one object kind. Chain a `.for()` per kind to put the
+questions and the listings in the same document, and do not build a policy per
+resource.
 
 ## Why an acl decision is not a boolean
 
-A boolean tells the handler whether to run the save. It tells the Edit button
-nothing. When support asks why that button is greyed out, a component holding
-only `true` or `false` answers by calling again to work it out or by guessing a
-string from context.
+A boolean tells the handler whether to run the save and tells the Edit button
+nothing. A component holding only `true` or `false` explains a greyed-out button
+by calling again to work it out or by guessing a string from context.
 
-So `allowed` is the answer, and three more fields explain it. One call feeds
-both consumers:
+`allowed` is the answer, and three more fields explain it:
 
 ```mermaid caption="One call, two consumers. The handler gates on allowed and reads nothing else; the Edit button reads reason, rule and missing to say why it is greyed out. Both read the same decision, so the two cannot disagree."
 flowchart LR
@@ -65,10 +62,9 @@ position; it rides on `allow`, on `denied`, on `unusable-clock`, and on an
 not read, and it rides on `unevaluable`. An `unevaluable` the allow side raised
 carries `missing` and no `rule`, because only the deny side names a rule there.
 
-All of them are output only. Nothing in the library reads a `reason` back to
-decide anything, and that cuts both ways: **gate on `allowed`**, because a gate
-on the reason string grants what the engine refused. [Why was this
-refused?](/acl/refusals) is what to do with the rest.
+All of them are output only. Gate on `allowed`, because a gate on the reason
+string grants what the engine refused. [Why was this refused?](/acl/refusals) is
+what to do with the rest.
 
 ## The four shapes an acl decision comes back in
 
@@ -81,9 +77,6 @@ Four shapes come out of `can`, and one policy produces all four:
 Default deny is the floor. No rules, an empty rule list and an unknown action
 all refuse. Above it, a matched deny outranks a matching allow, and a deny the
 engine could not read refuses as well.
-
-That policy declares one kind again. Add a `.for('listing', …)` beside it and
-the same `access` answers for listings too, from one document.
 
 ## Asking acl with a projection
 
@@ -126,12 +119,11 @@ nothing to fetch. The app resolves the subject whole, and the type says so.
 ```
 
 The array is parallel to the input, so the decision for `rows[i]` is
-`decisions[i]`. Nothing is filtered out. A refused row keeps its entry, so the
-table draws the refusal beside the row. Drop the row and the customer wonders
-what happened to the record they can still see in search.
+`decisions[i]`. Nothing is filtered out, and a refused row keeps its entry, so
+the table draws the refusal beside the row.
 
-The policy behind that call declares one kind. A page that lists questions and
-listings together asks one `canMany` per kind against the same `access`.
+A page that lists questions and listings together asks one `canMany` per kind
+against the same `access`.
 
 ### What canMany costs
 
@@ -145,9 +137,8 @@ does once for the whole list, where a loop of `can` does them per row:
 - The object-kind lookup. Each `can` scans the permission list to check the
   object kind exists. `canMany` scans once.
 
-For a list of rows the clock is the reason to prefer it. One settled instant for
-one rendering keeps the page consistent with itself, and the speed is a side
-effect.
+Prefer `canMany` for the clock. One rendering then reads one instant, and the
+speed is a side effect.
 
 ## Binding what an acl call repeats
 
@@ -169,14 +160,12 @@ returns `can`, `canMany`, `canFields` and `readsObject`, each of which still
 takes the subject first. The two handles are alternatives, so bind the axis the
 call site repeats.
 
-That policy declares `report` and `listing`, so `object('report')` and
-`object('listing')` are the two handles it offers. A policy chaining four
-`.for()` calls offers four, over the one document `authorize` already bound the
-subject to.
+That policy declares `report` and `listing`, so it offers `object('report')` and
+`object('listing')`. A policy chaining four `.for()` calls offers four.
 
 ## Where to go next
 
-- [Why was this refused?](/acl/refusals) — the explanation fields, and what a UI
-  does with each
-- [What can they do at all?](/acl/capabilities) — the no-object question
-- [Caveats and pitfalls](/acl/pitfalls) — starting with what `allowed` means
+- [Why was this refused?](/acl/refusals). The explanation fields, and what a UI
+  does with each.
+- [What can they do at all?](/acl/capabilities). The no-object question.
+- [Caveats and pitfalls](/acl/pitfalls). Start with what `allowed` means.

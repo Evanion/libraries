@@ -16,14 +16,14 @@ Chain a `.for()` per kind and one policy covers the whole app: `question`,
 
 ```
 
-`build()` is the terminal call, and it is where the blocks flatten to the
-canonical matrix, so `JSON.stringify(access.matrix)` emits the same document a
-foreign backend would produce. The flatten waits for the end of the chain, so
-validation runs once over every block and not once per `.for()`.
+`build()` is the terminal call, and it flattens the blocks to the canonical
+matrix, so `JSON.stringify(access.matrix)` emits the same document a foreign
+backend would produce. Validation runs once over every block at that point, not
+once per `.for()`.
 
 ## The block parameter
 
-The block receives one object carrying the whole permission model.
+`.for()` hands its block one object carrying the whole permission model.
 
 | Call                                  | What it does                              |
 | ------------------------------------- | ----------------------------------------- |
@@ -39,10 +39,9 @@ The block receives one object carrying the whole permission model.
 | `p.and` `p.or`                        | grouping                                  |
 | `p.always`                            | the unconditional rule                    |
 
-`fields` and `visibility` attach to the most recently declared action, which is
-what makes the chain read as one statement per action. Calling either before any
-`allow` or `deny`, or after a batch that named several actions, is an
-`AclConfigError` naming the object kind.
+`fields` and `visibility` attach to the most recently declared action. Calling
+either before any `allow` or `deny`, or after a batch that named several
+actions, is an `AclConfigError` naming the object kind.
 
 Conditions passed to one `allow` are AND-ed, and `p.or` inside them flattens to
 disjunctive normal form, one rule per branch. Two separate `allow` calls for the
@@ -50,9 +49,9 @@ same action are two rules, which is the same OR.
 
 ## Paths versus literals
 
-An operand is read as a path when its type matches
+The builder reads an operand as a path when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
-otherwise. The shape is the only discriminator, and it is load-bearing:
+otherwise. The shape is the only discriminator:
 
 ```ts
 p.eq('object.status', 'locked'); // compares against the string 'locked'
@@ -108,9 +107,8 @@ caps['question.read'];
 caps['question.raed'];
 ```
 
-The vocabulary says what a kind may do; the block says what it does. Only the
-second reaches the keys, so a `'reprice'` the vocabulary lists and no block
-allows puts no `question.reprice` in `capabilities()`.
+Only the block reaches the keys, so a `'reprice'` the vocabulary lists and no
+block allows puts no `question.reprice` in `capabilities()`.
 
 The keys accumulate one `.for()` at a time, and `build()` hands them to the
 evaluator. A block whose body is a statement with no return hands back no chain
@@ -130,16 +128,11 @@ them in the document it flattens to:
 
 ```
 
-They sit on `policy()` and not on a method at the end of the chain, because
-neither is a per-kind fact: `.for()` exists to write one kind's rules, and both
-are known before the first block is written.
-
-A schema is written by hand. The object map holds `Question` at the type level
-only, and a schema is runtime JSON, so nothing can derive one from the type
-argument. The duplication is the point: TypeScript gives the
-field-existence guarantee to the author, the schema gives it to everyone
-downstream. The document travels; the types do not. A consumer adopting the
-emitted JSON with `parseMatrix` has no `Question` to check against.
+You write a schema by hand. The object map holds `Question` at the type level
+only and a schema is runtime JSON, so nothing derives one from the type
+argument. TypeScript gives the field-existence guarantee to the author and the
+schema gives it to a consumer, who adopts the emitted JSON with `parseMatrix`
+and has no `Question` to check against.
 
 The two are checked independently and can disagree. A path TypeScript accepts
 because the type declares the field is still an `UnknownFieldError` at
@@ -156,14 +149,14 @@ questions.can(subject, 'update', question);
 questions.canFields(subject, 'update', question, 'write', proposed);
 ```
 
-It carries `can`, `canMany`, `canFields` and `readsObject`. `authorize(subject)`
-is the other axis, binding the subject, and the two compose. `authorize` carries
-`can`, `canMany`, `canFields` and `capabilities`: `readsObject` takes no subject,
-so there is nothing for it to drop.
+A bound handle carries `can`, `canMany`, `canFields` and `readsObject`.
+`authorize(subject)` binds the other axis and carries `can`, `canMany`,
+`canFields` and `capabilities`; `readsObject` takes no subject, so there is
+nothing for it to drop. The two compose.
 
 ## Construction errors
 
-Every one of these is an `AclConfigError` subclass thrown while the policy is
+Every error below is an `AclConfigError` subclass thrown while the policy is
 built, which is startup for a local matrix and adoption time for a foreign one.
 
 | Error                             | Raised when                                                                       |

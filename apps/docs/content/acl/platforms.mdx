@@ -8,10 +8,10 @@
   </Text>
 </WorkshopNotice>
 
-The library imports no framework, so you answer the same three questions on
-every platform: where the matrix is built, where the subject comes from, and
-which call actually decides. Only the third is a security question, and only
-the third changes from platform to platform.
+`@evanion/acl` imports no framework, so every platform answers the same three
+questions: where the matrix is built, where the subject comes from, and which
+call decides. Only the third is a security question, and only the third changes
+from platform to platform.
 
 <Panel heading="Enforcement is server-side, and the browser copy toggles">
   <Text as="div" size="sm">
@@ -27,6 +27,8 @@ the third changes from platform to platform.
 
 ## Where the boundary sits
 
+Five platforms put the authoritative call in five places.
+
 | Platform                                 | The call that decides                                   | What is not a boundary                         |
 | ---------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
 | [Express](/acl/express)                  | the request handler                                     | nothing crosses; the whole app is trusted      |
@@ -41,17 +43,14 @@ independently by a caller who never renders anything.
 
 [Astro SSR](/acl/astro) is the fifth shape, and server-side rendering (SSR) is
 the whole of its trusted runtime. A prerendered Astro site has no runtime at
-request time, so it has nothing to decide with and belongs in no row of this
-table; a server-rendered one runs a page's frontmatter per request in a process
-the operator controls. That frontmatter is the loader and the action in one
-module. `apps/storefront`'s `cart.astro` reaches one `order.create` decision at
-the top, and both gates read it: the `POST` branch answers 403, and the checkout
-button below draws from the same verdict. A script that never loaded the page
-still reaches that URL, and the frontmatter meets it.
+request time, so it belongs in no row of this table. A server-rendered one runs
+a page's frontmatter per request in a process the operator controls, and that
+frontmatter is the loader and the action in one module: `apps/storefront`'s
+`cart.astro` reaches one `order.create` decision that its `POST` branch and its
+checkout button both read.
 
-[Many services](/acl/federation) closes this band on a topology, the one axis
-the guides do not cover. Each service there authors and evaluates only the
-objects it owns, whichever platform it runs on.
+[Many services](/acl/federation) closes this band on a topology, where each
+service authors and evaluates only the objects it owns.
 
 ## What crosses, on the platforms where something does
 
@@ -68,17 +67,15 @@ The matrix is an envelope carrying its own `version` and `schema`, so nothing
 travels beside it. A payload of `{ matrix, version, subject }` states the
 version twice; `access.matrix` carries the effective one.
 
-The subject crosses too, because the client needs it to evaluate, and it is the
-same bag the server decided against. The subject is no credential: the server
-resolves its own from its own session on the next request and never reads the
-client's copy.
+The subject crosses too, because the client needs it to evaluate. The subject is
+no credential: the server resolves its own from its own session on the next
+request and never reads the client's copy.
 
 ### Which function rebuilds depends on where the document came from
 
-The round trip above rebuilds with `hydratePolicy`, and that is right for a
-document the same process authored and sent to its own client. Where the
-document came from somewhere else, reach for `parseMatrix`. `parseMatrix` is
-`hydratePolicy` in closed mode: a key the document does not carry answers
+`hydratePolicy` rebuilds a document the same process authored, which is the
+round trip above. `parseMatrix` rebuilds one that came from somewhere else, and
+it is `hydratePolicy` in closed mode: a key the document does not carry answers
 `unknown-action`, where `hydratePolicy` throws `UnknownPermissionError`.
 
 ```mermaid caption="Which rebuild call a fetched document gets. A document the same process authored rebuilds with hydratePolicy, where a key the document does not carry throws UnknownPermissionError; a document another service published rebuilds with parseMatrix in closed mode, where the same key answers unknown-action and the page keeps serving."
@@ -91,16 +88,14 @@ flowchart TD
 ```
 
 When the owner removes a permission, `parseMatrix` refuses the action and keeps
-serving, and `hydratePolicy` throws on a page nobody's permission was ever
-about. The three frontends here fetch `apps/shop-api`'s matrix and adopt it
-closed.
+serving, and `hydratePolicy` throws. The three frontends here fetch
+`apps/shop-api`'s matrix and adopt it closed.
 
 ### Narrow a subject before you forward it
 
-A layer that resolves a subject and passes it to the next service decides what
-that service is willing to believe. `apps/storefront` reads an unsigned cookie
-and sends `X-Shop-Subject` to `apps/shop-api`, so it screens the roles it
-forwards down to the one a shopper can hold:
+`apps/storefront` reads an unsigned cookie and sends `X-Shop-Subject` to
+`apps/shop-api`, so it screens the roles it forwards down to the one a shopper
+can hold:
 
 ```ts twoslash file=apps/storefront/src/lib/subject.ts region=storefront-roles
 
@@ -123,10 +118,10 @@ builder produced:
 
 ## Holding a document you fetched
 
-A consumer has no boot-time document, so it holds what it last fetched and
-decides how long for. `HeldPolicy` pairs a parsed document with its revision,
-and `ShopApi` is the typed client. `apps/storefront` states the window as a
-constant and asks only when the window has closed:
+`HeldPolicy` pairs a parsed document with its revision, and a consumer holds one
+because it has no boot-time document. `ShopApi` is the typed client.
+`apps/storefront` states the window as a constant and asks only when the window
+has closed:
 
 ```ts file=apps/storefront/src/lib/policy.ts region=policy-cache
 
@@ -134,9 +129,8 @@ constant and asks only when the window has closed:
 
 `POLICY_REVALIDATE_MS` is the ceiling on how long a rule change takes to reach
 this app's gates. One minute is safe because shop-api re-decides every request
-on its own copy. A storefront a minute behind hides a control it should show, or
-shows one that is then refused. The in-flight promise holds every render that
-arrives on an expired window to one fetch.
+on its own copy. The in-flight promise holds every render that arrives on an
+expired window to one fetch.
 
 ```ts file=apps/storefront/src/lib/policy.ts region=policy-refresh
 
@@ -144,16 +138,14 @@ arrives on an expired window to one fetch.
 
 A version that matches re-uses the adopted object, so the validate, clone and
 freeze are skipped on a poll that changed nothing. A failed response leaves the
-held document in place and the window open, so the next request asks again.
-Refusing every shopper because the policy service is down is a second outage. A
+held document in place and the window open, so the next request asks again. A
 document that fails validation replaces nothing.
 
-No `fetchedAt` reaches `parseMatrix` here, deliberately. Supplying it obliges
-the document to state `maxStale`, and shop-api's document states none, so
-adoption throws `MissingFreshnessBudgetError`. Where an owner does state a
-budget,
-`fetchedAt` makes every decision past
-`fetchedAt + min(maxStale, options.maxStale)` answer `stale-contract`.
+No `fetchedAt` reaches `parseMatrix` here. Supplying it obliges the document to
+state `maxStale`, and shop-api's document states none, so adoption throws
+`MissingFreshnessBudgetError`. Where an owner does state a budget, `fetchedAt`
+makes every decision past `fetchedAt + min(maxStale, options.maxStale)` answer
+`stale-contract`.
 
 ## Resolving the subject
 
@@ -165,10 +157,10 @@ evaluator detects it.
 
 ## Deciding twice is the design
 
-You meet the same `can` twice, once on the server and once in the browser. Keep
-both. The browser copy answers "what should this page look like", for a person
-looking at it. The server copy answers "may this happen", for a script posting
-to the same URL with curl.
+`can` is called twice on a platform with a browser half, once on the server and
+once in the browser. Keep both. The browser copy answers "what should this page
+look like", for a person looking at it. The server copy answers "may this
+happen", for a script posting to the same URL with curl.
 
 ```mermaid caption="The same permission decided twice, for two different questions. The browser copy decides what the page draws and enforces nothing; a script that never loads the page reaches the handler anyway, where the server copy decides whether the write happens."
 flowchart TD

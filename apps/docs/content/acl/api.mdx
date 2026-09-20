@@ -2,12 +2,13 @@
 
 <WorkshopNotice slug="acl" />
 
-Every export of `@evanion/acl`, one heading each. Node 20 or newer, ESM only.
-The React provider and hooks are [`@evanion/react-acl`](/react-acl/api).
+`@evanion/acl` exports the evaluator, the typed builder, the document types and
+the construction errors, one heading each below. Node 20 or newer, ESM only. The
+React provider and hooks are [`@evanion/react-acl`](/react-acl/api).
 
 ## `hydratePolicy`
 
-Builds an evaluator over a matrix document.
+`hydratePolicy` builds an evaluator over a matrix document.
 
 ```ts signature
 function hydratePolicy<
@@ -17,12 +18,14 @@ function hydratePolicy<
 >(matrix: Matrix, options?: AccessOptions): Access<Sub, R, Keys>;
 ```
 
-It copies the document, freezes and validates the copy, and throws on an unknown
-key. All three parameters default to the open forms JSON carries.
+`hydratePolicy` copies the document, freezes and validates the copy, and throws
+on an unknown key. All three type parameters default to the open forms JSON
+carries.
 
 ## `parseMatrix`
 
-`hydratePolicy` with `closed: true`, for a document another service published.
+`parseMatrix` is `hydratePolicy` with `closed: true`, for a document another
+service published.
 
 ```ts signature
 function parseMatrix<
@@ -38,7 +41,7 @@ An unknown object kind or action answers `unknown-action` and nothing throws.
 
 ## `policy`
 
-The typed builder, one `.for()` per object kind. See
+`policy` returns the typed builder, one `.for()` per object kind. See
 [Typed authoring](/acl/authoring).
 
 ```ts signature
@@ -111,7 +114,7 @@ with the document's.
 
 ## `Access`
 
-The evaluator over one frozen document.
+`Access` is the evaluator over one frozen document.
 
 ```ts signature
 interface Access<Sub = Subject, R = AnyObjects, Keys extends string = string> {
@@ -138,7 +141,7 @@ Every object parameter takes a partial: a projection is the
 
 ## `Authorized`
 
-What `authorize(subject)` returns.
+`Authorized` is what `authorize(subject)` returns.
 
 ```ts signature
 interface Authorized<R = AnyObjects, Keys extends string = string> {
@@ -168,7 +171,7 @@ subject, so none is here.
 
 ## `BoundKind`
 
-What `object(key)` returns.
+`BoundKind` is what `object(key)` returns.
 
 ```ts signature
 interface BoundKind<Sub, Obj, Act extends string = string> {
@@ -235,8 +238,8 @@ it to `allowEach`.
 
 ## `pickAllowedFields`
 
-The subset of a proposed write the decision marked `allowed`. It throws
-`ActionNotAllowedError` on a refused action. See
+`pickAllowedFields` returns the subset of a proposed write the decision marked
+`allowed`, and throws `ActionNotAllowedError` on a refused action. See
 [the write path](/acl/fields#writing).
 
 ```ts signature
@@ -281,13 +284,11 @@ interface SerializeOptions<Keys extends string = string> {
 
 A listed key the reduction would drop raises `UnpublishedVetoableError`. A key
 the document never held is refused earlier, by the compiler, where the policy
-was authored with the builder. `DenyOverlayOptions` takes no such parameter: it
-carries a `Matrix`, and the team writing an overlay holds that document as JSON
-and no types.
+was authored with the builder.
 
 ## `federatedPolicies`
 
-One `Access` per origin, composed with no document merged. See
+`federatedPolicies` composes one `Access` per origin and merges no document. See
 [Many services](/acl/federation).
 
 ```ts signature
@@ -317,7 +318,8 @@ holds answers `unknown-action`. `capabilities` settles one instant for all.
 
 ## `applyDenyOverlay`
 
-Appends another team's deny rules to the keys this document opens for veto. See
+`applyDenyOverlay` appends another team's deny rules to the keys this document
+opens for veto. See
 [Many services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
 
 ```ts signature
@@ -349,7 +351,7 @@ Listing a key obliges the matrix to declare that key's object kind in
 
 ## `Matrix`
 
-A JSON envelope over a flat list of permissions. See
+`Matrix` is a JSON envelope over a flat list of permissions. See
 [The matrix document](/acl/matrix).
 
 ```ts signature
@@ -568,8 +570,9 @@ type ObjectKey = string;
 
 ## `Actions`
 
-The block parameter `.for()` hands you. `Vocab` is what this kind may declare,
-`Act` what this chain declared, and only `Act` reaches the permission keys.
+`Actions` is the block parameter `.for()` hands you. `Vocab` is what this kind
+may declare, `Act` what this chain declared, and only `Act` reaches the
+permission keys.
 
 ```ts signature
 interface Actions<
@@ -646,7 +649,7 @@ contributes `string`, widening the document's whole key union.
 
 ## `Ops`
 
-The condition helpers, bound to the subject and object types.
+`Ops` holds the condition helpers, bound to the subject and object types.
 
 ```ts signature
 interface Ops<Sub, Obj> {
@@ -685,7 +688,8 @@ interface Cond {
 }
 ```
 
-An opaque condition tree. `build()` flattens it to one rule per `or` branch.
+`Cond` is an opaque condition tree, and `build()` flattens one to a rule per
+`or` branch.
 
 ## `Operand`
 

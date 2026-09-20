@@ -18,27 +18,22 @@
   ]}
 />
 
-**The concept.** Baize's orders service decides who may refund an order. The
-storefront draws the refund button and needs the same answer, and orders hands
-over the four permissions that concern the storefront out of the forty it runs
-on.
+**The concept.** `serialize(access, 'reduced')` emits the permissions you marked
+public as a JSON document a consumer adopts. Baize's orders service decides who
+may refund an order, and it hands the storefront the four permissions that
+concern the refund button out of the forty it runs on.
 
 **What you get.** A JSON document holding the permissions you marked,
 whole, which a consumer adopts and evaluates against its own subject, and a
 freshness bound that stops it deciding on a copy you have since changed.
 
-**Why you want it.** Say nothing and the storefront team writes the rules
-again from what they can see. That copy diverges the first time orders changes a
-rule nobody thinks to propagate, and it diverges silently, because orders is
-still refusing correctly on the real matrix.
+**Why you want it.** A consumer that cannot read your rules writes its own
+copy, and that copy diverges the first time you change a rule nobody thinks to
+propagate.
 
 **How the library gets you there.** Mark a permission `visibility: 'public'`.
 `serialize(access, 'reduced')` keeps the marked permissions with every rule they
 carry, drops the rest, and trims the schema to the kinds that survived.
-
-`serialize(access, 'reduced')` turns the policy a service already evaluates into
-a document its consumers evaluate. Mark each permission `visibility: 'public'`
-or leave it unmarked; the reduced form keeps the marked ones and drops the rest.
 
 ## Why an acl contract exists
 
@@ -48,13 +43,13 @@ by a team that does not own it, and it diverges the first time orders changes a
 rule nobody thinks to propagate.
 
 Orders keeps refusing correctly, so nothing is breached and no alert fires. The
-refund button is hidden against a server that would have allowed the call, and it
-stays hidden, in a UI bug on a different team's backlog.
+refund button is hidden against a server that would have allowed the call, and
+it stays hidden, in a UI bug on a different team's backlog.
 
 ## Marking and serializing an acl policy
 
-An unmarked permission is internal. A document written before the field existed
-publishes nothing, and so does a permission whose author forgot the mark.
+`visibility: 'public'` marks a permission for publication. An unmarked
+permission is internal, and so is a permission whose author forgot the mark.
 
 ```ts twoslash file=libs/acl/README.md region=contract
 
@@ -76,20 +71,17 @@ and orders decides again on its own matrix when the refund call arrives.
 
 ## A published permission goes out whole
 
-Drop one of a kept permission's deny rules and you turn a refusal into an allow.
-Drop an allow rule or a field config and you move the answer the other way. So a
-permission goes out with its refusals attached or it stays internal, and a
-permission whose deny rules read an internal concept either discloses that
-concept or stays home.
+`serialize` emits a kept permission with every rule it carries, deny rules
+included. Drop one deny rule and you turn a refusal into an allow; drop an allow
+rule or a field config and you move the answer the other way. A permission whose
+deny rules read an internal concept either discloses that concept or stays home.
 
-The owner accepts that disclosure, and the owner is the one who decides it. The
-deny rule in the example above shows `subject.tier` and the word `probation` to
-every consumer.
+The owner accepts that disclosure. The deny rule in the example above shows
+`subject.tier` and the word `probation` to every consumer.
 
-The contract's decisions equal orders' own, key for key, which is what makes the
-contract worth holding. If a contract answered more conservatively, it would be
-a second copy again, and a button hidden by caution looks exactly like a button
-hidden by a rule.
+The contract's decisions equal orders' own, key for key. A contract that
+answered more conservatively would be a second copy again, and a button hidden
+by caution looks exactly like a button hidden by a rule.
 
 <Panel heading="A contract is terminal">
   <Text as="div" size="sm">
@@ -112,10 +104,8 @@ consumer reporting one against a document that states no ceiling gets
 `MissingFreshnessBudgetError` at construction, because the owner's bound is the
 only one that expires a copy.
 
-The engine measures from that last check because a consumer whose poll silently
-stopped believes it is fresh and starts no clock of its own. Only the owner's
-bound expires it. A consumer that reports no `fetchedAt` claims no freshness and
-runs under no bound, which is every matrix a service authors in its own process.
+A consumer that reports no `fetchedAt` claims no freshness and runs under no
+bound, which is every matrix a service authors in its own process.
 
 A stale contract is stale-permissive, and one thing makes that safe: orders
 re-evaluates on its own matrix on every call and refuses. A stale consumer

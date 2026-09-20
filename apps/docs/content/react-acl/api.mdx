@@ -7,18 +7,19 @@
   </Text>
 </WorkshopNotice>
 
-One provider, four hooks, a factory that binds them to a policy, and three
-interfaces. Every type named below is re-exported from `@evanion/acl` under the
-same name and documented in [the core's reference](/acl/api): `Decision`,
-`FieldDecision`, `Access`, `Subject`, `Matrix`, `Instant` and the rest.
+`@evanion/react-acl` exports one provider, four hooks, a factory that binds them
+to a policy, and three interfaces. Every type named below is re-exported from
+`@evanion/acl` under the same name and documented in
+[the core's reference](/acl/api): `Decision`, `FieldDecision`, `Access`,
+`Subject`, `Matrix`, `Instant` and the rest.
 
-A hook throws if it is called outside a `PolicyProvider`, and the message names
-the provider and the package.
+A hook called outside a `PolicyProvider` throws, and the message names the
+provider and the package.
 
 ## `PolicyProvider`
 
-Holds one evaluator, one subject and one clock for the tree under it. Renders
-its children and nothing else.
+`PolicyProvider` holds one evaluator, one subject and one clock for the tree
+under it, and renders its children and nothing else.
 
 ```tsx signature
 function PolicyProvider<Keys extends string = string>(
@@ -62,7 +63,7 @@ why an omitted `context` re-reads the wall clock at every such change.
 
 ## `useCan`
 
-One decision for one action on one row.
+`useCan` returns one decision for one action on one row.
 
 ```tsx signature
 function useCan(
@@ -86,7 +87,7 @@ evaluates again and the stale answer never reaches it.
 
 ## `useCanMany`
 
-One decision per row, in the order the rows were given.
+`useCanMany` returns one decision per row, in the order the rows were given.
 
 ```tsx signature
 function useCanMany(
@@ -107,7 +108,7 @@ filtered or reordered.
 
 ## `useCanFields`
 
-The field-level decision for one action on one axis.
+`useCanFields` returns the field-level decision for one action on one axis.
 
 ```tsx signature
 function useCanFields(
@@ -139,8 +140,8 @@ unevaluable fields as writable, which is
 
 ## `useCapabilities`
 
-Every action-level decision for the current subject, keyed by
-`` `${object}.${action}` ``.
+`useCapabilities` returns every action-level decision for the current subject,
+keyed by `` `${object}.${action}` ``.
 
 ```tsx signature
 function useCapabilities(): Record<string, Decision>;
@@ -158,7 +159,8 @@ to `useCan`.
 
 ## `createPolicyContext`
 
-Binds one policy's subject and object types to a provider and a set of hooks.
+`createPolicyContext` binds one policy's subject and object types to a provider
+and a set of hooks.
 
 ```tsx signature
 function createPolicyContext<
@@ -175,18 +177,17 @@ and their row against the type bound to the kind. Both come off the argument, so
 the call site writes neither.
 
 A React context fixes its type when it is created, and `useContext` hands a hook
-that fixed type whatever the provider above it was given. `Sub` and `R` have
-nowhere else to live, which is why this is a function returning hooks and why a
-generic `PolicyProvider` cannot do the job.
+that fixed type whatever the provider above it was given, which is why
+`createPolicyContext` is a function returning hooks.
 
-One policy holds every object kind an app has. Chain a `.for()` per kind and the
-listing and the stock report sit in the same document, where one
-`createPolicyContext` call covers both. You do not make a context per resource.
+One policy holds every object kind an app has. Chain a `.for()` per kind and one
+`createPolicyContext` call covers the listing and the stock report both. You do
+not make a context per resource.
 
 Each call does make its own context, so two separate policy documents nest and
 each set of hooks reads its own provider. The returned provider also feeds the
-shared context. A component calling `useCan` from the package root underneath it
-reads the same decision.
+shared context, so a component calling `useCan` from the package root underneath
+it reads the same decision.
 
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 
@@ -194,8 +195,8 @@ reads the same decision.
 
 ## `PolicyContext`
 
-What `createPolicyContext` returns: the same provider and four hooks, at the
-types the policy carries.
+`PolicyContext` is what `createPolicyContext` returns: the same provider and
+four hooks, at the types the policy carries.
 
 ```tsx signature
 interface PolicyContext<Sub, R, Keys extends string = string> {

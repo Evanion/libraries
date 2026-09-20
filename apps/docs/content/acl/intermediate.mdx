@@ -18,14 +18,10 @@
   ]}
 />
 
-**The concept.** You left a question on the Brass: Birmingham listing. So did Jo. You
-can edit yours. You cannot edit Jo's.
-
-Everyone knows that rule, and no role can express it. You and Jo are both
-customers with exactly the same permissions, and what tells you apart is which
-question is yours.
-
-So the rule has to read the question. That is the whole of this page.
+**The concept.** A rule that names an `object.*` path reads the instance in
+hand, so a policy can tell your question on the Brass: Birmingham listing from
+Jo's. You and Jo are both customers with exactly the same permissions, and only
+the question's `askedBy` tells you apart.
 
 **What you get.** A policy that knows whose question is whose, and a save
 that writes only the fields you are allowed to change.
@@ -39,17 +35,16 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-**Why you want it.** The alternative is the check by hand, in the handler,
-as an `if`, next to the code that does the work. It reads fine the day you write
-it. Six months later there are forty of them, three are subtly different, and the
-bulk close job never had one at all.
+**Why you want it.** You write the check by hand, as an `if` in the handler,
+next to the code that does the work. Six months later there are forty of them,
+three are subtly different, and the bulk close job never had one at all.
 
-**How the library gets you there.** One condition reads the question, and that one
-change brings four things with it: a type that catches a misspelled path, a
-fourth answer for a question that arrived half-loaded, a decision that tells you
-why it said no, and a field map you hand to the ORM.
+**How the library gets you there.** One condition naming `object.askedBy`
+brings four things with it.
 
 ## Four things you now need
+
+You need four things once a rule reads the question:
 
 - You name a path into a question, so the typed builder makes a typo a compile
   error.
@@ -61,14 +56,11 @@ why it said no, and a field map you hand to the ORM.
 
 ## Naming the question, so acl can check the paths
 
-To ask whether this question is yours, you name a path into it:
-`object.askedBy`. That is a string, and strings take typos.
+`object.askedBy` is a path string, and a path string takes typos. Write
+`object.askedBv` with a v and the matrix builds, the tests pass, the permission
+never says yes to anybody, and you find out from a bug report.
 
-Write `object.askedBv` with a v and nothing complains. The matrix builds, the
-tests pass, the permission never says yes to anybody, and you find out from a bug
-report.
-
-So name the shape once and let the compiler hold you to it:
+Name the shape once and the compiler holds you to it:
 
 ```ts twoslash file=libs/acl/README.md region=typed-authoring
 
@@ -76,21 +68,19 @@ So name the shape once and let the compiler hold you to it:
 
 `policy<Subject, Objects, Verbs>()` names the subject, the object kinds, and any
 verbs beyond the default four. Each `.for()` hands the condition helpers to a
-block. Chain one per kind your app has, so one policy covers the whole app. A
-policy per resource is the `if` you came here to delete, in another file.
+block. Chain one per kind your app has, so one policy covers the whole app.
 
-The block declares two kinds of rule. `.allow` is the kind you wrote against the
-subject alone: the action is granted when the rule's conditions hold. `.deny` is
-the kind this page adds. Nobody may delete a question the shop has locked, so
-the block says so once, and a deny that matches outranks every allow that
-matched with it. No permission gates another: a rule that `hide` shares with
-`update` is written into `hide`, where a reader of `hide` sees it.
+The block declares two kinds of rule. `.allow` grants the action when the rule's
+conditions hold. `.deny` refuses it, so the block states once that nobody may
+delete a question the shop has locked, and a deny that matches outranks every
+allow that matched with it. No permission gates another: a rule that `hide`
+shares with `update` is written into `hide`, where a reader of `hide` sees it.
 
-The typing is smaller than it looks. A helper reads a string beginning
-`subject.` or `object.` as a path into that thing, and reads any other string as
-a plain value. That is why `p.eq('object.status', 'locked')` compares the
-status against the text `locked`, and why `p.eq('object.askedBy',
-'subject.idd')` refuses to compile, with the path you mistyped in the message.
+A helper reads a string beginning `subject.` or `object.` as a path into that
+thing, and any other string as a plain value. So `p.eq('object.status',
+'locked')` compares the status against the text `locked`, and
+`p.eq('object.askedBy', 'subject.idd')` refuses to compile, with the path you
+mistyped in the message.
 
 `build()` flattens the blocks to a plain matrix, so
 `JSON.stringify(access.matrix)` emits the same JSON envelope the subject-only
@@ -98,14 +88,15 @@ policy flattened to. The types live in your editor and never reach the document.
 
 ## The four answers an acl decision can give
 
-All of that assumes you have the question in hand. Often you do not.
+A decision has four answers, and the fourth arrives when the question in hand
+does not carry a path the rules read.
 
 The listing page loads forty questions and selects from each only the fields it
-renders. Now ask whether you may edit one. The allow rule reads
-`object.askedBy` and the deny rule reads `object.status`. The question in your
-hand carries neither field, so the honest answer is neither yes nor no.
+renders. The allow rule reads `object.askedBy` and the deny rule reads
+`object.status`, and a question carrying neither field settles as neither yes
+nor no.
 
-So a decision here has four outcomes:
+One policy produces all four:
 
 ```ts twoslash file=libs/acl/README.md region=four-outcomes
 
@@ -114,9 +105,8 @@ So a decision here has four outcomes:
 Three of them you have already met. Nothing matched, so no. An allow rule
 matched, so yes. A deny matched, so no, and the deny wins.
 
-The fourth is the new one. The engine could not tell, so it says `unevaluable`
-and `missing` names the paths it could not read. Fetch those fields, ask again,
-and you get a real answer.
+The fourth is new. The engine could not tell, so it answers `unevaluable` and
+`missing` names the paths it could not read. Fetch those fields and ask again.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
@@ -129,9 +119,9 @@ and you get a real answer.
 
 ### Watching an acl decision move between the four answers
 
-The control below runs the policy above. Each field carries a checkbox saying
-whether the query selected it and a select saying what it holds, and a field
-the query left out never reaches the engine.
+Each field in the control below carries a checkbox saying whether the query
+selected it and a select saying what it holds, and a field the query left out
+never reaches the engine. The control runs the policy above.
 
 It opens on a projection that selected neither field, so the decision is
 `unevaluable` and `missing` names both paths. Select both and the question is
@@ -146,15 +136,14 @@ to read, so `missing` names `object.status`. Clear it on Jo's question and the
 answer is `no-rule-matched`, because the allow rule already failed on data the
 engine did have.
 
-Refetch selects exactly what `missing` named and asks again. One press turns
-the opening `unevaluable` into a real answer.
+Refetch selects exactly what `missing` named and asks again.
 
 <UnevaluableDemo />
 
 ## Asking an acl decision why
 
-Four answers only help if you can tell which one you got. The decision carries
-three more fields for that: `reason`, `rule` and `missing`.
+A decision carries `reason`, `rule` and `missing` beside `allowed`, and those
+three say which of the four answers you got.
 
 All three are output only. Build an error message from them, log them, show them
 in a tooltip. Never branch on them: gate on `allowed` and nothing else. A handler
@@ -162,14 +151,9 @@ that checks `reason !== 'denied'` grants everything the engine refused.
 
 ## Which fields of a question acl lets you write
 
-The last line of the list is the one that changes your UI.
-
-You may edit your own question. Fine. May you change the body and leave the
-status alone? The form draws itself from one answer: which of these inputs do I
-render.
-
-`canFields` answers it. It decides the action and every field of the write in one
-pass, and the shop's lock on `status` is not the customer's:
+`canFields` decides the action and every field of the write in one pass, so a
+form knows which inputs to render. You may edit your own question, and the
+shop's lock on `status` is not yours to change:
 
 ```ts twoslash file=libs/acl/README.md region=write-path
 
@@ -184,14 +168,11 @@ they are different arguments.
 
 The map covers every field on the question, every field your rules name, and on a
 write every key the caller sent you, including one the question has never had.
-That last case is why the engine computes the map on every call: the matrix
-cannot hold a field nobody has declared yet.
 
 ## Applying an acl field map with `pickAllowedFields`
 
-A field decision is a map, and a map is not a write. `pickAllowedFields` takes
-the decision and the proposed question and returns the keys that decided
-`allowed`.
+`pickAllowedFields` takes the decision and the proposed question and returns the
+keys that decided `allowed`.
 
 ```mermaid caption="The guarded save. canFields decides the action and every key of the proposed write in one pass, and each key comes back allowed, denied or unevaluable. pickAllowedFields keeps the allowed keys and drops the other two states, so only those keys reach the ORM."
 flowchart LR
@@ -205,11 +186,8 @@ Pass what it returns to the ORM. Pass only that.
 
 Never filter the map yourself. [Never hand-filter the field
 map](/acl/pitfalls#never-hand-filter-the-field-map) is the mistake this API
-makes easiest. The obvious loop keeps every field that is not `denied`, which
-keeps the `unevaluable` ones too, and nobody said those were writable.
-
-That is the page. You edit your question, Jo edits hers, and nobody wrote an
-`if`.
+makes easiest: the obvious loop keeps every field that is not `denied`, and that
+keeps the `unevaluable` ones too.
 
 ## Where to go next
 

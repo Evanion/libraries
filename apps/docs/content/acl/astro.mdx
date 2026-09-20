@@ -20,11 +20,10 @@
   ]}
 />
 
-**The concept.** An `.astro` page's frontmatter runs on the server, and it is
-the loader and the action for that page in one module. The gate on what the page
-renders and the gate on what the page writes are lines in the same file, so one
-decision above them serves both. A prerendered Astro build has neither gate,
-because it has no process at request time.
+**The concept.** An `.astro` page's frontmatter runs on the server and is the
+loader and the action for that page in one module, so one decision above both
+gates serves the render path and the write path. A prerendered Astro build has
+neither gate, because it has no process at request time.
 
 **What you get.** What `apps/storefront` runs: middleware opening the
 per-request context, shop-api's document adopted once at module scope, and
@@ -32,8 +31,8 @@ per-request context, shop-api's document adopted once at module scope, and
 checkout button both read.
 
 **Why you want it.** Baize's cart is one URL answering two methods. A shopper
-sees a checkout button and presses it; a script posts `intent=checkout` to the
-same path without ever loading the page. Both arrive at the same frontmatter.
+presses a checkout button and a script posts `intent=checkout` to the same path
+without ever loading the page, and both arrive at the same frontmatter.
 
 **How the library gets you there.** `parseMatrix` adopts the fetched document
 once per process, so a `can` call in a page's frontmatter is a local function
@@ -41,17 +40,15 @@ call over a frozen copy and no render waits on a network round trip.
 
 ## Server output is what makes the page a boundary
 
-Astro builds either way, and which way decides whether anything on this page
-applies. A prerendered build runs a page's frontmatter once, at build time, and
-ships the HTML it produced; no process exists at request time to resolve a
-subject against, and no handler exists for a form to post to. A server-rendered
-build runs the frontmatter on every request, inside a Node process the operator
-controls, which is a trusted runtime and a genuine trust boundary.
+A prerendered build runs a page's frontmatter once, at build time, and serves
+the HTML it produced. No process exists at request time to resolve a subject
+against, and no handler exists for a form to post to. A server-rendered build
+runs the frontmatter on every request inside a Node process the operator
+controls, which is the trusted runtime this page is about.
 
-`apps/storefront/astro.config.mjs` sets `output: 'server'` and the `@astrojs/node`
-adapter in standalone mode. Under a prerendered build the middleware below would
-run once at build time, against whoever built the site, and the catalogue would
-be baked into the HTML.
+`apps/storefront/astro.config.mjs` sets `output: 'server'` and the
+`@astrojs/node` adapter in standalone mode. Under a prerendered build the
+middleware below would run once at build time, against whoever built the site.
 
 ## The middleware opens the request context
 
@@ -65,23 +62,21 @@ visitor's cookie, `ShopApi.forRequest` is the typed client for shop-api, and
 ```
 
 Every page then reads `Astro.locals.subject` and `Astro.locals.access` and
-decides for itself. Resolving both once per request is what stops two blocks on
-one page from deciding against two different identities.
+decides for itself. The middleware resolves both once per request, so two blocks
+on one page cannot decide against two different identities.
 
 `policyAccess` awaits a fetch only where this process holds no document or the
 revalidation window has closed. Every other request reads a document already
-validated, deep-cloned and deep-frozen, so a decision in a page's frontmatter
-costs a function call. [Platforms](/acl/platforms) carries the cache, the window
-and what a failed poll leaves behind.
+validated, deep-cloned and deep-frozen, so a decision in a page's frontmatter is
+a function call. [Platforms](/acl/platforms) carries the cache, the window and
+what a failed poll leaves behind.
 
 ## The frontmatter is the loader and the action in one module
 
-An `.astro` page answers every method at its URL out of the same frontmatter,
-and that is what makes this platform its own shape. A React Router route reaches
-its loader and its action independently, and an RSC route reaches its render and
-its Server Action independently, so each of those owes two decisions written in
-two places. Here one decision at the top of the file serves the render path and
-the write path, because both paths are in the file.
+An `.astro` page answers every method at its URL out of the same frontmatter, so
+one decision at the top of the file serves the render path and the write path. A
+React Router route and an RSC route each reach two entry points independently
+and each owes two decisions written in two places.
 
 `apps/storefront`'s cart is that shape. `decide` answers with a `Decision`, or
 with `undefined` where this app holds no document to decide on, and `mayOrder` is
@@ -129,10 +124,9 @@ which roles this surface may assert. It screens the claim down to the one role
 
 ```
 
-`parseSubject` discards a payload claiming any role outside that list, whole
-rather than in part, so a hand-edited cookie claiming `manager` reaches the API
-as an anonymous shopper. Repairing half of it would hand the matrix a subject
-whose `shop` nobody stated.
+`parseSubject` discards a payload claiming any role outside that list, the whole
+payload and never part of it, so a hand-edited cookie claiming `manager` reaches
+the API as an anonymous shopper.
 
 ## This app has no browser copy to keep honest
 

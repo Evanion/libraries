@@ -13,10 +13,10 @@
   ]}
 />
 
-**The concept.** The Edit button on a question is greyed out and the customer
-emails support to ask why. Seven answers are possible, and each one wants a
-different thing from you: a message, a refetch, a corrected argument, a fresh
-copy of the document.
+**The concept.** Every decision carries `reason`, `rule` and `missing`, which
+say why the answer came out the way it did. Seven reasons exist, and each asks a
+different thing of the UI: a message, a refetch, a corrected argument, or a
+fresh copy of the document.
 
 **What you get.** A reading of `reason`, `rule` and `missing` that tells
 you which of the seven you got, what to render for it, and which ones a second
@@ -24,17 +24,15 @@ call repairs.
 
 **Why you want it.** Render every refusal as "forbidden" and you hide
 things the customer can have. Half of these answers mean the engine never got to
-decide, and a UI that treats them as a no makes a support ticket out of a
-missing database column.
+decide.
 
 **How the library gets you there.** Every decision carries `reason`. `rule`
 names the rule behind a decision a rule made. `missing` names the paths to fetch
 when the engine could not read them, so the repair is a query you write from the
 decision.
 
-Three fields explain a decision, and each one tells a UI something different to
-render. All three are output only: `allowed` is the gate, and nothing else on
-the decision should ever reach an `if`.
+All three are output only. `allowed` is the gate, and nothing else on the
+decision should ever reach an `if`.
 
 | `reason`          | Carries   | What the UI has                              |
 | ----------------- | --------- | -------------------------------------------- |
@@ -47,9 +45,9 @@ the decision should ever reach an `if`.
 | `stale-contract`  | —         | fetch the document again; this copy is old   |
 
 `unevaluable` and `unusable-clock` both mean the engine could not reach an
-answer, and they are two reasons because the repair differs. `unevaluable` names
-paths in `missing`, and one refetch settles it. `unusable-clock` says the `now`
-the call passed is not an instant, which no refetch changes: fix the argument.
+answer, and the repair differs. `unevaluable` names paths in `missing`, and one
+refetch settles it. `unusable-clock` says the `now` the call passed is not an
+instant, which no refetch changes: fix the argument.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
@@ -73,7 +71,7 @@ reports that `id` instead. Give the rules a UI has to name an `id`, because a
 position moves the first time somebody reorders the list.
 
 Treat `rule` as a log line and a support answer ("denied by `locked-question`").
-Never branch on it. Two rules can grant the same thing, and which one matched is
+Never branch on it: two rules can grant the same thing, and which one matched is
 not a property the app should depend on.
 
 `allow`, `denied` and `unusable-clock` always carry it. An `unevaluable` carries
@@ -82,10 +80,10 @@ because the deny side is the only one that names a rule on that path.
 
 ## When the answer is `unevaluable`
 
-The engine never reached an answer. `allowed` is already `false`, so nothing
-leaks, and the answer is repairable: `missing` names exactly what to fetch.
+`unevaluable` says the engine never reached an answer. `allowed` is already
+`false`, so nothing leaks, and `missing` names exactly what to fetch.
 
-A caller meets it in two situations, which are the same shortfall:
+A caller meets it in two situations:
 
 - No instance at all. `can(subject, 'question', 'create')` against a permission
   whose rules read `object.*`. This is the create toggle: there is nothing to
@@ -97,13 +95,11 @@ A caller meets it in two situations, which are the same shortfall:
 
 ```
 
-The policy there declares `question` alone, which keeps the fence to the point
-being made. One policy carries every kind the app has, so the same `access`
-answers this way for listings and orders too.
+The policy there declares `question` alone, and one policy carries every kind
+the app has, so the same `access` answers this way for listings and orders too.
 
 Both sides' unreadable paths come back in one `missing`, so one refetch settles
-the permission however many rules read the object. One round trip, never one per
-rule:
+the permission however many rules read the object:
 
 ```mermaid caption="The repair loop for one unevaluable. Both sides' unreadable paths arrive in one missing array, so a single query fetches all of them and the second ask decides. An unevaluable that survives the refetch is a mistyped field name in the document."
 flowchart LR
@@ -115,6 +111,8 @@ flowchart LR
 ```
 
 ### What to do with an unevaluable
+
+Handle an `unevaluable` by where you meet it:
 
 - On a server, enforcing: treat it as a refusal. Fetch the named paths and
   re-ask, or return a 403. It is never a grant.
@@ -144,7 +142,7 @@ projects it, so a subject carrying no `roles` genuinely has none.
 
 ## Explaining one field of an acl decision
 
-A read-only input has a `FieldReason` on it, from a vocabulary of its own.
+`FieldReason` is a vocabulary of its own, and every read-only input carries one.
 `not-listed` means the rules exclude the name. `targets-failed` and
 `transition-failed` point at the value the write proposed, and the field itself
 is writable. `missing-field` is the field-level `unevaluable` and wants the same

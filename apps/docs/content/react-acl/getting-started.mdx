@@ -18,38 +18,36 @@
   ]}
 />
 
-**The concept.** The overview showed a button asking whether to draw itself. On
-this page you mount the thing it asks. The provider holds three values for the
-whole tree, and a component under it names none of them.
+**The concept.** `PolicyProvider` holds an evaluator, a subject and an instant
+for the whole tree under it, and a component under it names none of the three.
 
-**What you get.** A shop listing whose action bar is drawn from the
-policy, with a role switch at the top that changes every control on it and no
-component in between that knows a permission exists.
+**What you get.** A shop listing whose action bar is drawn from the policy, with
+a role switch at the top that changes every control on it.
 
-**Why you want it.** You thread `access` and `subject` through one
-component and nothing objects. Thread them through five and four carry values
-they never read. One of those four is the component somebody refactors without
-knowing why the props are there, and the branch they drop them from is the branch
-where the button stays lit.
+**Why you want it.** Thread `access` and `subject` through five components and
+four of them carry values they never read. A refactor that drops those props
+from one branch leaves the button lit in that branch.
 
 **How the library gets you there.** One provider and one hook, and the hook
 takes three arguments.
 
 ## Install react-acl
 
+Install both packages:
+
 ```bash
 npm install @evanion/react-acl @evanion/acl
 ```
 
-Both, because the core is where the rules are written and read: the hooks return
-its `Decision`, and `hydratePolicy` below is its function. React 18 or 19 is the
-only peer dependency, and the package is ESM only.
+The hooks return the core's `Decision` and `hydratePolicy` below is the core's
+function. React 18 or 19 is the only peer dependency, and the package is ESM
+only.
 
 ## Mount the react-acl provider
 
-The provider takes three props. `access` is an evaluator, `subject` is whoever
-is signed in, and `context` carries the instant every time window in the policy
-is read against.
+`PolicyProvider` takes three props. `access` is an evaluator, `subject` is
+whoever is signed in, and `context` carries the instant every time window in the
+policy is read against.
 
 A server rarely hands a browser an evaluator. It sends
 [the matrix](/acl/matrix), the JSON document the server rendered with, and
@@ -59,21 +57,17 @@ A server rarely hands a browser an evaluator. It sends
 
 ```
 
-The example settles three things.
-
-`'use client'` is on the file because it renders `PolicyProvider`, and the
-provider calls `createContext`. The package carries the same directive, so
-`PolicyProvider` is a client component wherever you import it. The directive on
-the example file settles which side `ShopAccess` runs on.
+`'use client'` on the example file settles which side `ShopAccess` runs on. The
+package carries the same directive, so `PolicyProvider` is a client component
+wherever you import it.
 
 Both `useMemo` calls are load-bearing. `hydratePolicy` deep-clones the document,
 deep-freezes the copy and validates that, so it belongs once per matrix. The
 provider memoises its context value on the identity of `access`, `subject` and
 `context`, and a value rebuilt during render is a new identity on every pass.
 
-`now` is a string, and it stays one. The hooks key their memos on it, and a
-`Date` is a fresh object every render, so a string holds the memo across renders
-where a `Date` re-evaluates the matrix on each.
+`now` stays a string. The hooks key their memos on it, and a `Date` is a fresh
+object every render, so a `Date` re-evaluates the matrix on each pass.
 
 ## Ask react-acl for one decision
 
@@ -91,11 +85,10 @@ that branches on the reason string draws a control the engine refused.
 The row is the third argument and is optional. Leave it off for the create case,
 where there is no instance yet. A rule that reads the row and is asked without
 one answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which
-has `allowed: false` on it and means something a reader can act on.
+carries `allowed: false`.
 
 Call `useCan` outside a `PolicyProvider` and it throws, naming the provider.
-There is no default policy and no silent deny. A tree that lost its provider is
-a bug, and the throw is how you find it.
+There is no default policy and no silent deny.
 
 ## Watch one react-acl provider drive a whole tree
 
@@ -105,19 +98,17 @@ cannot show the absence of a prop, so the tree below writes every hook call onto
 the box that makes it.
 
 Sign in as somebody else and the provider's `subject` changes. Three boxes down,
-the Edit and Publish badges change with it, and `ShopPage`, `ListingView` and
-`ActionBar` were not re-plumbed. Review is granted to everybody, so it stays
-where it is:
+the Edit and Publish badges change with it. Review is granted to everybody, so
+it stays where it is:
 
 <PolicySpecimen />
 
-Publish the listing and the other half happens. The provider is untouched, and
-the only thing that changed is the row `useCan` was asked about. Only
+Publish the listing and only the row `useCan` was asked about changes. Only
 `EditControl` moves, because one rule in the shop's policy reads the row: a deny
 that closes `edit` once the listing is published and outranks every allow that
 matched with it. [Rules that read the object](/acl/intermediate) is where denies
 are written. `no-rule-matched` and `denied` are both refusals and the badge says
-which, because a tooltip on that control would tell the shopper the same reason.
+which.
 
 `PolicyProvider` and `useCan` here are the published ones, on the shop policy
 behind [One policy behind a screen](/acl/interface). A rule that changed there
@@ -125,8 +116,8 @@ changes what these badges say.
 
 ## Ask react-acl about a list, a menu and a form
 
-`useCanMany`, `useCapabilities` and `useCanFields` remain, and each one fits a
-different shape of screen.
+`useCanMany`, `useCapabilities` and `useCanFields` each fit a different shape of
+screen.
 
 A table of rows needs one decision per row, and React forbids a hook in a loop.
 `useCanMany` decides the array in the parent and hands each row its answer:
@@ -154,21 +145,18 @@ fields may be shown and `'write'` asks which may be set:
 
 ```
 
-`!== 'allowed'` is the comparison to write. The obvious one, `!== 'denied'`,
-leaves the `unevaluable` fields editable, and those are fields nobody said the
-shopper could write. The engine fills the map whatever the action decided, so a
-form that a shopper may not edit at all reads `decision.action.allowed` first.
-The server applies the same map with
-[`pickAllowedFields`](/acl/writing) when the form is posted, because this one
-decided nothing.
+`!== 'allowed'` is the comparison to write. `!== 'denied'` leaves the
+`unevaluable` fields editable, and nobody said the shopper could write those.
+The engine fills the map whatever the action decided, so a form that a shopper
+may not edit at all reads `decision.action.allowed` first. The server applies
+the same map with [`pickAllowedFields`](/acl/writing) when the form is posted,
+because this one enforces nothing.
 
 ## Keep the policy's keys through react-acl
 
 `useCan` and its three siblings take the key as a plain string, because the
-document arrived as JSON. An application that writes its policy in TypeScript
-has more:
-[`policy`](/acl/authoring) names the subject once and binds an object type per
-block, so `'listing'` is a key the compiler knows.
+document arrived as JSON. [`policy`](/acl/authoring) names the subject once and
+binds an object type per block, so `'listing'` is a key the compiler knows.
 
 `createPolicyContext` carries that to the hooks. Hand it the built policy and it
 returns a provider and the same four hooks, checking their key against the
@@ -183,15 +171,13 @@ policy holds every kind your app has: chain a `.for()` per kind. You do not
 build a policy, or a context, per resource.
 
 `useCan('lsiting', 'edit', listing)` is a compile error there. The imported
-`useCan` compiles the same call. The engine then throws `UnknownObjectKeyError`
-when the component renders, or answers `unknown-action` where the matrix was
-hydrated with `closed: true`.
+`useCan` compiles the same call, and the engine then throws
+`UnknownObjectKeyError` when the component renders, or answers `unknown-action`
+where the matrix was hydrated with `closed: true`.
 
-`Shopper` and `Listing` are named at `policy` and read back off the argument, so
-the `createPolicyContext` call writes neither. `createPolicyContext` is a
-factory because `createContext` fixes its type where the context is made, and a
-hook four components down reads that fixed type whatever the provider was
-handed.
+`Shopper` and `Listing` are read back off the argument, so the
+`createPolicyContext` call writes neither. `createContext` fixes its type where
+the context is made, which is why `createPolicyContext` is a factory.
 
 ## Where to go next
 

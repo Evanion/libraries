@@ -2,9 +2,10 @@
 
 <WorkshopNotice slug="acl" />
 
-Every entry point answers with a decision. `allowed` is the answer and the rest
-is the explanation, so a UI says why a button is disabled without a second call
-and a log line carries why a request was refused.
+`Decision` is what every entry point of `@evanion/acl` answers with. `allowed`
+is the answer and the other three fields are the explanation, so a UI says why a
+button is disabled without a second call and a log line carries why a request
+was refused.
 
 ```ts
 interface Decision {
@@ -41,9 +42,9 @@ per kind and `question`, `listing` and `report` share the document.
 `reason` is output only. Nothing in the library reads a reason back to decide
 anything, and gating on the reason string grants what the engine refused.
 
-The seven it can hold are the rows below, and this build says so. A reason added
-to the package and not to the table leaves `NotInTheTable` with a member, and a
-type constrained to `never` cannot have one:
+`Reason` holds the seven values in the table below, and this build checks that.
+A reason added to the package and not to the table leaves `NotInTheTable` with a
+member, and a type constrained to `never` cannot have one:
 
 ```ts twoslash
 import type { Reason } from '@evanion/acl';
@@ -77,9 +78,10 @@ that could not be read. An allow side left unevaluable carries `missing` alone.
 
 ## Default deny, express allow, express deny wins
 
-Nothing is allowed without an allow rule that matched. No rules, an empty rule
-list and an unknown action each refuse. Above that, a deny that matched outranks
-an allow that also matched, and a deny the engine could not read refuses too.
+`@evanion/acl` allows nothing without an allow rule that matched. No rules, an
+empty rule list and an unknown action each refuse. Above that, a deny that
+matched outranks an allow that also matched, and a deny the engine could not
+read refuses too.
 
 ```ts twoslash file=libs/acl/README.md region=four-outcomes
 
@@ -90,10 +92,10 @@ deny?](/acl/resolution) has the order, the diagram and the argument for it.
 
 ## `unevaluable` is a third state
 
-`unevaluable` is neither an error nor a no. The decision cannot be reached with
-the data it was handed, and `missing` names exactly what to fetch.
+`unevaluable` is neither an error nor a no. The engine could not reach a
+decision with the data it was handed, and `missing` names exactly what to fetch.
 
-A caller sees it in two situations, both the same shortfall:
+A caller sees it in two situations:
 
 - No instance at all. `access.can(subject, 'question', 'create')` against a
   permission whose rules read `object.*`. That is the create toggle, and the
@@ -121,9 +123,8 @@ What to do with one depends on where the call is:
 ### Deciding before the row is loaded
 
 An HTTP guard ahead of the handler that loads the row gets `unevaluable` from
-every object-dependent permission, every time. That is correct and unhelpful:
-the guard cannot tell it apart from a call that happened to lack data, so it
-waves the request through and trusts something downstream.
+every object-dependent permission, every time. The guard cannot tell that apart
+from a call that happened to lack data.
 
 `access.readsObject(key, action)` says which is which, from the document:
 
@@ -169,6 +170,9 @@ The branch that needs no data decides a rule that mixes both.
 
 ## Asking more than one question
 
+`canMany`, `capabilities` and `authorize` each answer more than one question per
+call:
+
 ```ts
 access.canMany(subject, 'question', 'update', rows); // one decision per row
 access.capabilities(subject); // every permission, keyed
@@ -185,8 +189,7 @@ re-settles the clock each pass.
 ```
 
 `authorize` binds the subject, and optionally the clock, so a middleware,
-loader, action or React server component evaluates without restating either. It
-also makes the guarded path the short one to write.
+loader, action or React server component evaluates without restating either.
 
 ## The clock
 

@@ -25,9 +25,8 @@
 **The concept.** A server component renders in a trusted runtime, so the
 render is a place a decision can be made. A Server Action is a second trusted
 entry point into the same route, reached without the render ever running, and a
-decision made at the render does not carry to it. The client component sits
-between the two and is neither. Next.js is where this page shows the model, and
-every framework that ships RSC puts the boundary in the same two places.
+decision made at the render does not carry to it. Every framework implementing
+RSC puts the boundary in those two places.
 
 **What you get.** What `apps/storefront-rsc` runs: one `GET /api/policy`
 per page view, `parseMatrix` over what comes back, React's `cache` holding the
@@ -35,16 +34,18 @@ result for the render, and each server component deciding before it fetches the
 data it would render.
 
 **Why you want it.** Baize's spotlight widget shows a staff price line and
-the activity widget shows the order trail. Neither one knows the others exist.
-Each fetches its own data, and each has to answer "may this visitor see this"
-without a second network call.
+the activity widget shows the order trail. Each fetches its own data and answers
+"may this visitor see this" without a second network call.
 
 **How the library gets you there.** `parseMatrix` turns the fetched document
 into an evaluator in this process, so every `can` after it is a local function
-call however deep in the tree it sits. `access.version` is what tells the memo
-the document moved.
+call however deep in the tree it sits. `access.version` tells the memo the
+document moved.
 
 ## The render and the write are two boundaries
+
+A route has two trusted entry points, the render and each Server Action, and a
+caller reaches either one without the other.
 
 <Panel heading="A Server Action is a public endpoint the page did not guard">
   <Text as="div" size="sm">
@@ -74,8 +75,7 @@ flowchart TD
 
 ## Adopting a document another service owns
 
-`apps/storefront-rsc` authors no rules. It fetches shop-api's contract and
-adopts it, which is the shape an RSC app in a service chain needs.
+`apps/storefront-rsc` authors no rules and adopts shop-api's contract.
 `PolicyDocument` is the `{ version, matrix }` body the endpoint answers with,
 `ShopAccess` is the evaluator bound to this app's subject and row types, and
 `adopt` is the memo:
@@ -85,10 +85,9 @@ adopts it, which is the shape an RSC app in a service chain needs.
 ```
 
 `parseMatrix` and never `hydratePolicy`. The document crossed the wire from
-another process, so it is adopted in the closed mode, where a key the contract
-does not carry decides `unknown-action` and refuses. `inventory.read` is such a
-key: shop-api keeps it internal and no widget here asks about it. Under
-`hydratePolicy` the same key throws mid-render.
+another process, so this app adopts it in closed mode, where a key the contract
+does not carry decides `unknown-action` and refuses. Under `hydratePolicy` the
+same key throws mid-render.
 
 An app that owns its own rules builds them with `policy(…).build()` at module
 scope, which [NestJS](/acl/nestjs) and [Express](/acl/express) both show. Put
@@ -105,16 +104,15 @@ that subject and one clock instant:
 
 ```
 
-React's `cache` scopes to one request, which is the property that matters here.
-Three widgets render independently and none of them knows about the others. One
+React's `cache` scopes to one request. Three widgets render independently, one
 `GET /api/policy` answers all three, and two concurrent page views each get
 their own fetch, which a module-level promise does not give them.
 
 ## The server component decides before it fetches
 
-`Spotlight` is handed a urn and goes and gets the title and its stock, as this
-app's own `Game` and `Stock` shapes, through `urnPath` for the encoding.
-`game.read` gates the card and `game.reprice` the staff price line inside it:
+`Spotlight` takes a urn and loads the title and its stock as this app's own
+`Game` and `Stock` shapes, through `urnPath` for the encoding. `game.read` gates
+the card and `game.reprice` the staff price line inside it:
 
 ```tsx file=apps/storefront-rsc/app/spotlight.tsx region=decide-on-the-row
 
@@ -131,8 +129,7 @@ shop against the subject's and nothing can answer that without the row.
 ```
 
 The gate sits above the fetch. A widget that renders nothing over data it has
-already asked for has still pulled the events into this process. A shopper gets
-`null` here and the region is two widgets wide for them.
+already asked for has still pulled the events into this process.
 
 Where a refusal has to be a whole page, `notFound()` is the right answer for a
 title that exists. A page saying "forbidden" for a real urn and "not found" for
@@ -140,11 +137,10 @@ a made-up one is an existence oracle.
 
 ## Freshness for a consumer
 
-The version-keyed memo above is the whole mechanism. shop-api stamps a version
-on what it publishes and changes it when the rules change. `adopt` compares that
-string with `!==`, so a document republished under a new version replaces the
-held evaluator on the next page view, and a matching version skips the validate,
-deep-clone and deep-freeze.
+shop-api stamps a version on what it publishes and changes it when the rules
+change. `adopt` compares that string with `!==`, so a document republished under
+a new version replaces the held evaluator on the next page view, and a matching
+version skips the validate, deep-clone and deep-freeze.
 
 ```mermaid caption="What one page view does with the fetched document. React's cache scopes the GET to the render, and adopt compares the fetched version with the one this process holds: a matching version re-uses the held evaluator, and a new version is validated, deep-cloned and deep-frozen once before it replaces the held one."
 flowchart TD
@@ -155,24 +151,23 @@ flowchart TD
   P --> H["hold it as the new evaluator"]
 ```
 
-A consumer polls, so the ceiling on how long a rule change takes to reach this
-app is how often it asks. `apps/storefront-rsc` asks once per page view, because
-`cache` scopes the fetch to the render. An app that holds a document across
-requests needs a revalidation window, which [Platforms](/acl/platforms) sets
-out.
+`apps/storefront-rsc` asks once per page view, because `cache` scopes the fetch
+to the render, so a rule change reaches this app's gates on the next view. An
+app that holds a document across requests needs a revalidation window, which
+[Platforms](/acl/platforms) sets out.
 
 ## The hooks cannot gate a server tree
 
 `@evanion/react-acl` ships `'use client'` as the first line of its entry point,
 and the published build carries the directive too. A server component that
-imports `useCan` from it therefore imports a client reference rather than a
-function, and calling that reference during the server render throws. The
-package is the browser half of the model and has no server half.
+imports `useCan` from it therefore imports a client reference, not a function,
+and calling that reference during the server render throws. The package is the
+browser half of the model and has no server half.
 
-A server tree decides with `@evanion/acl` directly, which is every fence above:
-`parseMatrix` builds the evaluator and `access.can` answers in the same process,
-with no hook, no context and no React involved. The two halves read the same
-document and neither trusts the other's verdict.
+A server tree decides with `@evanion/acl` directly: `parseMatrix` builds the
+evaluator and `access.can` answers in the same process, with no hook and no
+context. The two halves read the same document and neither trusts the other's
+verdict.
 
 ## A client tree, where an app has one
 
@@ -223,15 +218,13 @@ export default function AccessBoundary({
 }
 ```
 
-`now` crosses as an ISO string. The hooks key their memos on it, and a `Date` is
-a fresh object every render. A string holds the memo where a `Date` re-evaluates
-the matrix on each pass. Resolve `now` on the server, so the server render and
-the client's first render agree. A `now` reaching `can` from a client payload
-hands the client every time window in the matrix.
+`now` crosses as an ISO string, because the hooks key their memos on it by value
+and a `Date` is a fresh object every render. Resolve `now` on the server, so the
+server render and the client's first render agree. A `now` reaching `can` from a
+client payload hands the client every time window in the matrix.
 
 A `useCan` that returns `null` hides a button. The hidden button does not stop
-anyone posting to the action behind it. That decision makes the page honest
-about what succeeds, and it enforces nothing.
+anyone posting to the action behind it, so the client decision enforces nothing.
 
 ## Every Server Action decides again
 
@@ -262,11 +255,10 @@ export async function declareAvailability(form: FormData) {
 }
 ```
 
-Nothing in that function reads what the page decided, and nothing in it may: the
-page did not run for this caller. The action re-resolves the subject, re-reads
-the title, and decides again against both. Between the render that showed the
-control and this action arriving, the title can move to another shop and the
-ownership rule can stop matching.
+The action re-resolves the subject, re-reads the title, and decides against
+both, because the page did not run for this caller. Between the render that
+showed the control and this action arriving, the title can move to another shop
+and the ownership rule can stop matching.
 
 ## Where to go next
 

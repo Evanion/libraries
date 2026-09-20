@@ -13,10 +13,10 @@
   ]}
 />
 
-**The concept.** Baize's orders service owns the rules about refunds. The
-storefront has to grey out the refund button, and it has no copy of those rules
-and no business writing one. So orders publishes its matrix as JSON and the
-storefront adopts the document it is handed.
+**The concept.** `parseMatrix` builds an evaluator over a JSON matrix this
+process did not write. Baize's orders service owns the rules about refunds and
+publishes its matrix; the storefront adopts that document to grey out the refund
+button.
 
 **What you get.** An evaluator over a document this process did not write,
 which answers for the keys the document carries and refuses every key it does
@@ -27,15 +27,13 @@ they are right until orders changes one. Orders keeps refusing correctly, so no
 alarm fires, and the refund button stays hidden against a server that would have
 allowed the call.
 
-**How the library gets you there.** `parseMatrix` builds an evaluator from JSON
-and validates the document on the way in. It runs closed, so a key the document
-does not carry answers `unknown-action` and the page stays up. A `schema` in the
-document checks the paths the rules name, which is the guarantee a local
-`Question` type gives you and a foreign document otherwise cannot.
+**How the library gets you there.** `parseMatrix` validates the document on the
+way in and runs closed, so a key the document does not carry answers
+`unknown-action` and the page stays up. A `schema` in the document checks the
+paths the rules name.
 
 A backend with its own access control list (ACL) publishes its matrix as JSON;
-a frontend or a peer service adopts it. `parseMatrix` is the entry point for a document this process
-did not write.
+a frontend or a peer service adopts it.
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
@@ -43,15 +41,15 @@ did not write.
 
 The `permissions` array there holds one entry, so one key answers. A real
 document holds every key the producer publishes across every object kind it
-owns, and that whole list arrives in one document and builds one evaluator.
+owns, and that whole list builds one evaluator.
 
 ## Closed mode is the whole difference
 
 `parseMatrix(json, options?)` is `hydratePolicy(json, { ...options, closed: true })`.
 The flag is written last, so no option a caller passes re-opens a foreign
-document. One flag, and it changes what an unknown key means. Which of the two a document
-gets is a question of provenance: `hydratePolicy` for your own document coming
-back, `parseMatrix` for somebody else's arriving.
+document. Which of the two a document gets is a question of provenance:
+`hydratePolicy` for your own document coming back, `parseMatrix` for somebody
+else's arriving.
 
 Ask a key the document does not carry, on the open path, and `hydratePolicy`
 throws: `UnknownObjectKeyError` for an object kind it has never heard of,
@@ -59,13 +57,10 @@ throws: `UnknownObjectKeyError` for an object kind it has never heard of,
 closed path and `parseMatrix` answers
 `{ allowed: false, reason: 'unknown-action' }` for both.
 
-The open path treats that key as a bug and the closed path treats it as data,
-and each is right about its own case. A key a local typed policy does not carry
-is a programmer error: the compiler knows the whole key universe, and the throw
-points at the line. A key a foreign document does not carry means the document
-has moved on. The producer removed a permission, or this consumer was written
-against an older revision, and a throw there takes down a page over a permission
-nobody has.
+A key a local typed policy does not carry is a programmer error, and the throw
+points at the line. A key a foreign document does not carry means the producer
+removed a permission or this consumer was written against an older revision, and
+a throw there takes down a page over a permission nobody has.
 
 ```mermaid caption="Closed mode on the consumer's side. parseMatrix answers from the adopted rules for every key the document carries, and answers unknown-action with allowed false for every key it does not, so a permission the producer removed does not take the page down. Orders decides again on its own matrix when the refund call arrives."
 flowchart LR
@@ -83,9 +78,8 @@ itself when the call reaches it.
 
 ## Adopting a document still validates it
 
-Closed mode softens the _query_ and leaves the document under every check.
-Everything a local matrix is held to, a foreign one is held to, at adoption
-time:
+`parseMatrix` holds a foreign document to every check a local matrix passes, at
+adoption time:
 
 | Refused at construction    | When                                                   |
 | -------------------------- | ------------------------------------------------------ |
@@ -96,21 +90,19 @@ time:
 | `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``       |
 | `DuplicatePermissionError` | two permissions share a key                            |
 
-`InvalidRuleError` is the one worth understanding. `when` is required and must be
-an array. A document that lost its conditions in transit (`null`, absent, a
-string) fails construction, and it never becomes a permission that grants
-everything. The unconditional grant is spelled as an empty `when`, which is the
-form that survives a JSON round trip.
+`InvalidRuleError` covers a document that lost its conditions in transit
+(`null`, absent, a string), so such a document never becomes a permission that
+grants everything. The unconditional grant is spelled as an empty `when`, which
+is the form that survives a JSON round trip.
 
-Adoption is a boundary, so handle the throw. `parseMatrix` on a payload from the
-network can fail for reasons this process cannot fix. Catch `AclConfigError`,
-keep the last document that constructed, and alarm. A fresh document that does
-not build still leaves you a policy to serve.
+`parseMatrix` on a payload from the network can fail for reasons this process
+cannot fix, so catch `AclConfigError`, keep the last document that constructed,
+and alarm.
 
 ## Check a foreign document against a schema
 
-A foreign consumer has no `Question` type to check paths against. The producer's
-`schema` is what carries that guarantee across the wire:
+The producer's `schema` checks the paths its rules name, so a consumer with no
+local `Question` type still gets those paths validated at construction:
 
 ```ts twoslash file=libs/acl/README.md region=schema-binding
 
@@ -119,20 +111,19 @@ A foreign consumer has no `Question` type to check paths against. The producer's
 The document above declares `status` as a string and then tests it with
 `contains`, which tests an array, so `hydratePolicy` refuses it with
 `FieldTypeMismatchError`. A condition naming a field the schema does not declare
-at all is `UnknownFieldError`, raised the same way. Without a schema,
-`object.askedBt` raises nothing. That misspelling is a path that never reads, so
-the permission decides `unevaluable` forever and a UI refetches forever.
+at all is `UnknownFieldError`. Without a schema, `object.askedBt` raises
+nothing: that misspelling is a path that never reads, so the permission decides
+`unevaluable` forever and a UI refetches forever.
 
-`schema.objects` declares one entry per object kind, and that document declares
-`question`. A producer publishing four kinds declares four, in the same schema,
-and `hydratePolicy` checks the rules of each against its own entry. A permission
-on an object kind absent from `schema.objects` is unchecked, so a partial schema
-checks part of the document.
+`schema.objects` declares one entry per object kind, and `hydratePolicy` checks
+the rules of each kind against its own entry. A permission on an object kind
+absent from `schema.objects` is unchecked, so a partial schema checks part of
+the document.
 
 ## Know which document acl is running
 
-A consumer holding a document for weeks needs to say which revision decided.
-`version` travels on the envelope and survives the round trip:
+`version` travels on the envelope and survives the round trip, so a consumer
+holding a document for weeks can say which revision decided:
 
 ```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 

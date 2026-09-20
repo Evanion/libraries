@@ -10,28 +10,24 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** Baize, the board game shop, draws an Edit button on its listing
-page, four components below the route.
-[`@evanion/acl`](/acl) tells that button whether to draw itself, and
-the call takes three things: the evaluator `policy()` built, the subject (the
-signed-in shopper, as the rest of this section calls them), and the instant a
-rule with a time window in it is read against. None of those three belong to a
-button, so they arrive as props. They pass through `ShopPage`, `ListingView` and
-`ActionBar`, and not one of those components asks a question of its own.
+**The concept.** `@evanion/react-acl` holds one evaluator, one subject and one
+instant in a React context, and its four hooks read all three out of that
+context to answer a permission question. Baize, the board game shop, draws an
+Edit button four components below its listing route, and that button asks with
+three strings and the row it is drawing.
 
-**What you get.** One provider at the top of the tree holding the
-evaluator, the shopper and the instant, and a button four levels down that asks
-with three strings and the row it is drawing.
+**What you get.** One provider at the top of the tree holding the evaluator, the
+shopper and the instant, and a button four levels down that names none of the
+three.
 
-**Why you want it.** You thread the three props to the first component
-that needs them and nothing objects. A sibling then needs the shopper too, and a
-third component arrives from somebody who threads `access` and forgets `now`.
-One branch of the page now reads every time window against a different instant.
+**Why you want it.** Without the provider, `access`, `subject` and `now` arrive
+as props on `ShopPage`, `ListingView` and `ActionBar`, none of which read them.
+A component that threads `access` and forgets `now` reads every time window in
+its branch against a different instant.
 
 **How the library gets you there.** `PolicyProvider` takes `access`, `subject`
 and `context` once. `useCan`, `useCanMany`, `useCanFields` and `useCapabilities`
-read them out of context and call the core's method of the same name. The
-package decides nothing itself.
+read them out of context and call the core's method of the same name.
 
 ```mermaid caption="One PolicyProvider holds the evaluator, the shopper and the instant. ShopPage, ListingView and ActionBar pass none of the three, and EditControl reads all three out of context when it calls useCan."
 flowchart TD
@@ -63,8 +59,7 @@ on it.
 
 ## When to reach for react-acl
 
-The package is a provider, four hooks and a factory that binds them to a typed
-policy, so whether it suits you is a short question:
+`@evanion/react-acl` suits three shapes of app:
 
 - A client tree that asks about permissions at more than one depth, where
   `access` and `subject` have started arriving as props in components that do
@@ -79,6 +74,8 @@ policy, so whether it suits you is a short question:
 
 ## When react-acl is the wrong tool
 
+`@evanion/react-acl` answers nothing useful in three places:
+
 - A server component, a loader or a Server Action. Those call
   [`access.can`](/acl/asking) directly. The package carries `'use client'` at
   the top of its entry point and calls `createContext`, so it cannot run in a
@@ -92,7 +89,7 @@ policy, so whether it suits you is a short question:
 
 ## What the react-acl package exports
 
-The entry point is small enough to list whole. Six values and three types:
+`@evanion/react-acl` exports six values and three types:
 
 | Export                                               | What it is                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------- |
@@ -106,11 +103,10 @@ The entry point is small enough to list whole. Six values and three types:
 | `PolicyContext`                                      | what `createPolicyContext` returns                            |
 | `BoundPolicyProviderProps`                           | the typed provider's props, where `access` is optional        |
 
-Every core type these signatures name is re-exported from `@evanion/acl` under
-the same name: `Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix` and
-the rest. A component that names one does not install the core by hand. The
-core's values are not re-exported. `hydratePolicy` and `policy` stay in
-`@evanion/acl`, and you import them from there.
+`@evanion/react-acl` re-exports every core type those signatures name under the
+same name: `Decision`, `FieldDecision`, `Access`, `Subject`, `Matrix` and the
+rest. The core's values stay in `@evanion/acl`, so import `hydratePolicy` and
+`policy` from there.
 
 React 18 or 19 is the only peer dependency and `@evanion/acl` is a dependency.
 The package is ESM only.
