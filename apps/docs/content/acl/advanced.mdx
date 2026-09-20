@@ -145,10 +145,11 @@ again:
 
 ```
 
-The library never pushes an update and never expires a copy. A document that
-states no `version` leaves `access.version` undefined, and a `!==` over
-`undefined` decides nothing. A producer who wants the contract to hold states a
-version. The `orders` service never depends on the storefront's copy: it
+The library never pushes an update, and a holder that reports no `fetchedAt`
+runs under no expiry. A document that states no `version` leaves
+`access.version` undefined, and a `!==` over `undefined` decides nothing. A
+producer who wants the contract to hold states a version. The `orders` service
+never depends on the storefront's copy: it
 evaluates its own document before it writes anything.
 
 ## Where to go next

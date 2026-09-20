@@ -30,7 +30,7 @@ flowchart LR
 ## What the access object answers
 
 `policy()` writes the JSON document, called the matrix, and hands back an access
-object with four methods on it.
+object. Four of its methods carry most of the work.
 
 - `can` decides one action and carries the reasons beside the answer.
 - `capabilities` decides every action at once.

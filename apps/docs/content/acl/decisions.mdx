@@ -178,12 +178,12 @@ access.capabilities(subject); // every permission, keyed
 access.authorize(subject); // a handle with the subject bound
 ```
 
-| Call           | What it answers                                                                   |
-| -------------- | --------------------------------------------------------------------------------- |
-| `can`          | one question, and a loop of it re-settles the clock each pass                     |
-| `canMany`      | one decision per row, settling the clock once for the whole list                  |
-| `capabilities` | the whole matrix against one context, which a client hydrates a UI from           |
-| `authorize`    | a handle with the subject bound, and the clock with it when the caller passes one |
+| Call           | What it answers                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `can`          | one question, and a loop of it re-settles the clock each pass                                                    |
+| `canMany`      | one decision per row, settling the clock once for the whole list                                                 |
+| `capabilities` | the whole matrix against one context, which a client hydrates a UI from                                          |
+| `authorize`    | a handle with the subject bound, and one instant with it: the `now` the caller passed, or the moment of the call |
 
 Prefer `canMany` or `capabilities` over a loop of `can`.
 
