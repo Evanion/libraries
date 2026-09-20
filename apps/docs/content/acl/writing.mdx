@@ -56,37 +56,6 @@ Chain a `.for()` for every kind the app has to put the field rules for listings
 and orders in the same document, under the same `access`. Do not build a policy
 per resource.
 
-## Working the acl field axis
-
-Four failures show up on this axis, and telling them apart means reading the
-action decision and the field map together. The control below runs one
-`canFields` call, shows both maps, and shows the object `pickAllowedFields`
-returns from them. The sections after it take each of the four in turn.
-
-It opens signed in as Sam Reyes, who asked the question, over an open row whose
-proposed write moves `status` to `locked`. The action is allowed and every
-field of that write is writable. Four moves take it elsewhere:
-
-- Sign in as Jo Vainio, who asked no question here. The action decides
-  `no-rule-matched`, every field still carries a state, and `pickAllowedFields`
-  throws `ActionNotAllowedError`.
-- Tick the `pinned` checkbox, which posts a key the policy's name list never
-  mentions. `pinned` decides `denied` with the reason `not-listed`, and the
-  write that reaches the ORM does not carry it. That is the mass-assignment
-  case.
-- Set `status now` to `locked`. The `transitions` config names an empty array of
-  edges out of `locked`, so `status` decides `denied` with `transition-failed`.
-- Tick the checkbox saying the query did not select `status`, which takes the
-  field off the row. `transitions` reads the value the row holds now, so
-  `status` decides `unevaluable` with `missing-field` and is withheld from the
-  write.
-
-<FieldWriteDemo />
-
-The policy behind the control names `body` in its allow-list and gives `status`
-a `transitions` config, so `askedBy` decides `denied` with the reason
-`not-listed` whoever is signed in.
-
 ## Why hand-filtering the acl field map is the bug
 
 The obvious-looking alternative is to filter the proposed write against the
@@ -205,6 +174,38 @@ No field of a refused action is writable, and an empty object reads exactly like
 a lawful write of nothing. Where the action is allowed and the field rules deny
 some of the keys, you have a partial write, which is the case the narrowing
 exists for, so the call returns the allowed subset.
+
+## Working the acl field axis
+
+Four failures show up on this axis, and telling them apart means reading the
+action decision and the field map together. The sections above take each of the
+four in turn. The control below runs one `canFields` call, shows both maps, and
+shows the object `pickAllowedFields` returns from them, so you can watch the
+action decision and the field map disagree.
+
+It opens signed in as Sam Reyes, who asked the question, over an open row whose
+proposed write moves `status` to `locked`. The action is allowed and every
+field of that write is writable. Four moves take it elsewhere:
+
+- Sign in as Jo Vainio, who asked no question here. The action decides
+  `no-rule-matched`, every field still carries a state, and `pickAllowedFields`
+  throws `ActionNotAllowedError`.
+- Tick the `pinned` checkbox, which posts a key the policy's name list never
+  mentions. `pinned` decides `denied` with the reason `not-listed`, and the
+  write that reaches the ORM does not carry it. That is the mass-assignment
+  case.
+- Set `status now` to `locked`. The `transitions` config names an empty array of
+  edges out of `locked`, so `status` decides `denied` with `transition-failed`.
+- Tick the checkbox saying the query did not select `status`, which takes the
+  field off the row. `transitions` reads the value the row holds now, so
+  `status` decides `unevaluable` with `missing-field` and is withheld from the
+  write.
+
+<FieldWriteDemo />
+
+The policy behind the control names `body` in its allow-list and gives `status`
+a `transitions` config, so `askedBy` decides `denied` with the reason
+`not-listed` whoever is signed in.
 
 ## Reading with acl
 
