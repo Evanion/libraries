@@ -19,6 +19,11 @@ import { workspaceRoot } from '@nx/devkit';
  * - JSX tags, keeping what sits between them, because a `<Callout>` holds a
  *   sentence.
  * - MDX comments, and the URL half of a link.
+ * - Headings, table rows and list markers. A reader scans those rather than
+ *   reading them as sentences, and counting them punished the one change the
+ *   budget most wants: moving a paragraph's facts into a table. A five-row
+ *   table costs about 110 words of pipe and dash that nobody reads, so a page
+ *   that restructured well scored worse than one that did nothing.
  *
  * Splitting on whitespace after that counts a backticked symbol as the one
  * word it reads as.
@@ -31,7 +36,11 @@ export function proseWords(source: string): number {
     .replace(/\{\/\*.*?\*\/\}/gs, '')
     .replace(/<!--.*?-->/gs, '')
     .replace(/\]\([^)]*\)/g, ']')
-    .replace(/<[^>]+>/g, ' ');
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/^#{1,6}\s[^\n]*$/gm, '')
+    .replace(/^\s*\|.*$/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '');
 
   return prose.split(/\s+/).filter(Boolean).length;
 }
