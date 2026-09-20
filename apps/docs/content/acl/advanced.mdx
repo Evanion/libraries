@@ -60,7 +60,7 @@ policy. That type stays in your editor and the document leaves without it, so a
 document that travels may declare the shapes its conditions read. The schema is
 optional for a producer and binding wherever it is present.
 
-```ts file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/README.md region=schema-binding
 
 ```
 
@@ -76,7 +76,7 @@ a kind absent from `schema.objects` is unchecked.
 Priya authors `orders` against the TypeScript types and writes the schema beside
 them:
 
-```ts file=libs/acl/README.md region=typed-document
+```ts twoslash file=libs/acl/README.md region=typed-document
 
 ```
 
@@ -100,7 +100,7 @@ none: `orders` does. `parseMatrix` is `hydratePolicy` with `closed: true` for
 exactly that case. The key universe is untrusted, so an unknown object kind or
 action fails closed and throws nothing.
 
-```ts file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
@@ -121,7 +121,7 @@ producer published. `hydratePolicy(matrix, { version })` states what this
 construction site is actually running, which the producer cannot know. The
 option wins, and the frozen `access.matrix` carries the winner.
 
-```ts file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
@@ -132,7 +132,7 @@ storefront holds the matrix it last fetched, and when the owner revokes a
 permission that copy goes on granting it until somebody fetches again. The
 library supplies the comparison and leaves the fetch to you:
 
-```ts file=libs/acl/README.md region=revalidate
+```ts twoslash file=libs/acl/README.md region=revalidate
 
 ```
 

@@ -81,7 +81,7 @@ Nothing is allowed without an allow rule that matched. No rules, an empty rule
 list and an unknown action each refuse. Above that, a deny that matched outranks
 an allow that also matched, and a deny the engine could not read refuses too.
 
-```ts file=libs/acl/README.md region=four-outcomes
+```ts twoslash file=libs/acl/README.md region=four-outcomes
 
 ```
 
@@ -127,7 +127,7 @@ waves the request through and trusts something downstream.
 
 `access.readsObject(key, action)` says which is which, from the document:
 
-```ts file=libs/acl/README.md region=reads-object
+```ts twoslash file=libs/acl/README.md region=reads-object
 
 ```
 
@@ -180,7 +180,7 @@ instant does not. `capabilities` decides the whole matrix against one context,
 and a client hydrates a UI from it. Prefer either over a loop of `can`, which
 re-settles the clock each pass.
 
-```ts file=libs/acl/README.md region=server-authorize
+```ts twoslash file=libs/acl/README.md region=server-authorize
 
 ```
 
@@ -195,7 +195,7 @@ supplied, it is whatever the caller passed, in any `Instant` form: an ISO 8601
 string, epoch milliseconds, or a `Date`. The string and number forms survive
 JSON, so a client-supplied instant passes straight through.
 
-```ts file=libs/acl/README.md region=clock
+```ts twoslash file=libs/acl/README.md region=clock
 
 ```
 
