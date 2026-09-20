@@ -94,7 +94,7 @@ back. Name the namespace you meant instead —
 
 It is also not idempotent and is not a normaliser:
 
-```ts file=libs/urn/README.md region=round-trip
+```ts twoslash file=libs/urn/README.md region=round-trip
 
 ```
 
@@ -181,7 +181,7 @@ character for character, except that the hex digits of a percent-triplet
 canonicalise to uppercase. An encoded octet is never decoded, so `%2C` and `,`
 are not equivalent. The r-, q- and f-components are excluded.
 
-```ts file=libs/urn/README.md region=equality
+```ts twoslash file=libs/urn/README.md region=equality
 
 ```
 
@@ -212,7 +212,7 @@ explicit step, so a value can never be double-encoded by accident.
 Six getters, all readable off the class, all reactive to a subclass's
 `separator`:
 
-```ts file=libs/urn/README.md region=grammars
+```ts twoslash file=libs/urn/README.md region=grammars
 
 ```
 
