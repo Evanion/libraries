@@ -56,6 +56,30 @@ Chain a `.for()` for every kind the app has to put the field rules for listings
 and orders in the same document, under the same `access`. Do not build a policy
 per resource.
 
+## Working the acl field axis
+
+Four hazards live on this axis, and telling them apart means reading the action
+decision and the field map together. The control below runs one `canFields`
+call and shows both, with what `pickAllowedFields` made of them beside. Each
+state it reaches has a section of its own further down this page.
+
+- Sign in as Jo Vainio, who asked no question here. The action decides
+  `no-rule-matched`, every field still carries a state, and `pickAllowedFields`
+  throws `ActionNotAllowedError`.
+- Post `pinned`, a key the policy's name list never mentions. It decides
+  `denied` with the reason `not-listed`, and the write that reaches the ORM
+  does not carry it. That is the mass-assignment case.
+- Move the row to `locked`. The `transitions` config names an empty array of
+  edges out of `locked`, so `status` decides `denied` with `transition-failed`.
+- Take `status` out of the row the query returned. `transitions` reads the value
+  the row holds now, so `status` decides `unevaluable` with `missing-field` and
+  is withheld from the write.
+
+<FieldWriteDemo />
+
+The policy behind the control names `body` in its allow-list and gives `status`
+a `transitions` config, so `askedBy` decides `not-listed` whoever is signed in.
+
 ## Why hand-filtering the acl field map is the bug
 
 The obvious-looking alternative is to filter the proposed write against the
