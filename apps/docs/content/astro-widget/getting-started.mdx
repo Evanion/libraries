@@ -15,8 +15,7 @@ export const registry = defineWidgets({
 ```
 
 `defineWidgets` comes from `@evanion/widget` and returns the object unchanged;
-[the core's entry](/widget/api#definewidgets) is where it is written down. What
-it buys is the key union an editor completes on.
+[the core's entry](/widget/api#definewidgets) is where it is written down. That declaration is what gives an editor the key union it completes on.
 
 Only the keys are read, so the helper is shown here over stand-ins for the two
 `.astro` modules — what it returns is the object it was handed:
