@@ -65,8 +65,7 @@ look at. [Decisions](/feature/decisions) has the other four reasons.
 ## Turn the parent off
 
 `toggle` is the only call that writes. It sets `enabled` on the stored
-definition and reports which dependants go off with it, before anything is
-applied.
+definition and reports which dependants go off with it.
 
 ```ts twoslash file=libs/feature/README.md region=toggle
 
@@ -84,6 +83,6 @@ without changing anything stored.
 
 - [Configuration](/feature/configuration) — every field of a definition, and the precedence between them
 - [Rollouts](/feature/rollouts) — the bucket, the seed, and why raising a percentage only adds members
-- [Decisions](/feature/decisions) — the five reasons, and `capabilities` over the whole set
+- [Decisions](/feature/decisions) — the five reasons, and `resolve` over the whole set
 - [React](/feature/react) — the provider and the three hooks
 - [Build-time planning](/feature/build-time) — `plan()` for a static build

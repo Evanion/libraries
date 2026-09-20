@@ -20,8 +20,8 @@ same order through React and through Astro, and a check you can run over a CMS
 payload in CI, in a webhook handler or in a build script, with no renderer
 installed anywhere near it.
 
-**Why you want it.** Both renderers re-export everything below, so most
-readers already have this package and never type its name. What the core is
+**Why you want it.** Both renderers re-export everything below bar the warning
+seam, so most readers already have this package and never type its name. What the core is
 worth reading for is the part that does not move when you swap runtimes: a shop
 whose listing pages are Astro and whose counter is React writes one payload,
 and this package is where the rules that payload answers to are written down.
