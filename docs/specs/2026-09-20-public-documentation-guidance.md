@@ -200,6 +200,12 @@ HTTP incoming request`. Test: read the heading and the first sentence, with
     Test: delete the sentence and read the section again. The reader has lost a
     fact, or the sentence goes. Where several sentences state parallel facts,
     they become a list or a table. Section 12.
+23. A sentence states a mechanism, a value or a behaviour, and a figure of
+    speech never stands in for one. Test: read the sentence and say what the
+    reader now knows that they did not before. A feeling rather than a fact
+    means the sentence is rewritten. Length is the second consideration and the
+    fact is the first, so a brief part of 15 to 25 words naming a mechanism
+    beats one of 6 that gestures. Section 13.
 
 Decision 21 is the one that changes the most pages, because the four-part brief
 this site uses puts `**The concept.**` first and the brief was being written as
@@ -709,6 +715,65 @@ Asserted, and not measured or quoted:
   an absence claim over the pages listed at the top, and the guides I could not
   reach are exactly the ones most likely to carry a length rule, because the IBM
   Style Guide is the longest and most prescriptive of the set.
+
+## 13. What a figure of speech costs, measured on this site
+
+Decision 21 did not prevent the defect it was written against, and
+`apps/docs/content/acl/advanced.mdx` is the evidence. The page opened its
+four-part brief on a subject and stated something about it, which is what
+decision 21 asks for, and carried almost no information anyway:
+
+```
+**The concept.** A matrix is JSON and outlives its process.
+**What you get.** A self-describing, versioned document.
+**Why you want it.** A stale copy grants revoked permissions.
+**How the library gets you there.** `schema` checks paths; `version` dates copies.
+```
+
+The repository owner read that page and wrote:
+
+> what the hell is 'and outlives its process'? Wouldn't something like 'A
+> matrix is a mapping of policies between resources and subjects, it can be
+> shared between different applications that connect with each other.' or
+> something similar? just another example of euphemistic wordsalad hiding
+> valuable information.
+
+His replacement is the model the decision takes. It says what a matrix maps
+(permissions between resources and subjects) and what that buys (two
+applications that talk to each other share one), and it is longer than the line
+it replaces. Only the third of the four lines above carries a fact. `outlives
+its process` is a figure standing where a mechanism belongs, `dates copies` is
+telegraphic to the point of being unreadable, and `A self-describing, versioned
+document` is a noun phrase with no actor and no behaviour in it.
+
+A figure of speech does not only hide a fact. It can carry a false claim past a
+review, because a metaphor does not read like an assertion and nobody checks it
+against the source. `outlives its process` asserts durability that
+`@evanion/acl` neither provides nor claims. The only `node:fs` import under
+`libs/acl/src` or `libs/react-acl/src` is in `security/fixtures.ts`, which is
+test scaffolding; `serialize` returns a `Matrix` object; `hydratePolicy`
+validates, deep-clones and deep-freezes an in-memory value. Whether a matrix
+ever reaches a disk is the application's business. The owner made that point
+himself:
+
+> i would say that 'outlives its process' is false, since we aren't
+> storing/persisting it to a file anywhere. some applications might do that, but
+> that's not a framework concern, that's an application concern
+
+The page title carried the same claim into the navigation, where eight other
+files repeated it as a `requires` label, an `unlocks` label, a link and the
+`_meta.ts` entry. It is now `Rules that another service wrote`, which names
+crossing rather than surviving and sits in the pattern its siblings set
+(`Rules that read the subject`, `Rules that read the object`). The slug stays
+`advanced`.
+
+The defect arrived through the lede length target. The pass that cut 7,062
+words across 31 pages was scoped to a 40-word lede, and a four-part brief hits
+40 words by compressing each part into an aphorism. The density gain is real
+and none of it is being restored; what the number bought at the margin was
+sentences that read well and say nothing. A brief written under decision 23
+runs 60 to 100 words, and that is the cost the next person reading the 40-word
+target should expect to pay.
 
 ## Where I am guessing
 
