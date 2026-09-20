@@ -34,12 +34,15 @@ import type { MetaRecord } from 'nextra';
  *
  * Platforms follows Setup: a platform guide is the last step of setup, and each
  * one is wiring over the same API rather than a further tier. `platforms` is
- * the band's overview and heads it. The four guides are server-only first,
- * because the trust boundary is simplest there and the two React pages build on
- * it: an RSC graph and a React Router 8 app both put the authoritative decision
+ * the band's overview and heads it. The five guides are ordered by how many
+ * places a reader has to write a decision. Express and NestJS are server-only
+ * and have one, which is the simplest trust boundary there is. Astro SSR still
+ * has one, and it sits in a page's frontmatter, which is the loader and the
+ * action in one module. The two React platforms have two entry points reached
+ * independently, so each owes two decisions, and both put the authoritative one
  * on the server and send the document to a client that re-renders without
- * enforcing. Many Services closes the band — a topology spans the four rather
- * than being a fifth of them.
+ * enforcing. Many Services closes the band — a topology spans the five rather
+ * than being a sixth of them.
  *
  * `resolution` follows `decisions`, and it is the only Reference title phrased
  * as a question. It carries the whole of the precedence order, so `decisions`
@@ -68,6 +71,7 @@ export default {
   platforms: 'Overview',
   express: 'Express',
   nestjs: 'NestJS',
+  astro: 'Astro SSR',
   'next-rsc': 'React Server Components',
   'react-router': 'React Router 8',
   federation: 'Many Services',
