@@ -14,10 +14,10 @@ export class AppModule implements NestModule {
 }
 ```
 
-The id comes from a header the caller sends — `X-Correlation-Id`, or
-`X-Request-Id` — reused where it arrives, minted where it does not, and
-forwarded to everything downstream, so a log line in one service can be matched
-to the request that produced it in another.
+The id comes from a header the caller sends — `X-Correlation-Id` by default, or
+whichever one you configure — reused where it arrives, minted where it does not,
+and forwarded to everything downstream, so a log line in one service can be
+matched to the request that produced it in another.
 
 ## Installation
 
