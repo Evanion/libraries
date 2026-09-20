@@ -60,10 +60,10 @@ publishes nothing, and so does a permission whose author forgot the mark.
 
 ```
 
-```mermaid caption="What a reduced serialization keeps. A permission marked visibility public goes out with every rule it carries, deny rules included; an unmarked permission stays internal, and an object kind left with no public permission loses its schema entry too. The published permissions arrive unmarked, so a consumer cannot publish them on again."
+```mermaid caption="What a reduced serialization keeps. A permission marked visibility public goes out with every rule it carries, deny rules included; an unmarked permission stays internal, and an object kind left with no public permission loses its schema entry too."
 flowchart LR
-  M["the matrix orders runs<br>forty permissions"] --> S["serialize(access, 'reduced')"]:::accent
-  S -->|"visibility public"| K["the contract<br>four permissions, whole"]
+  M["every permission<br>orders runs"] --> S["serialize(access, 'reduced')"]:::accent
+  S -->|"visibility public"| K["the contract<br>the marked permissions, whole"]
   S -->|"unmarked"| I["stays internal"]
   K --> C["the storefront<br>parseMatrix"]
   C --> R["orders decides again<br>when the refund call arrives"]
@@ -106,6 +106,11 @@ last successful freshness check. The consumer reports that instant as
 `fetchedAt` and may tighten the bound with its own `maxStale`, never extend it.
 Past `fetchedAt + min(the two)` every key answers `stale-contract`, and the
 remedy is a fetch of the document.
+
+State `maxStale` on the document before any consumer reports `fetchedAt`. A
+consumer reporting one against a document that states no ceiling gets
+`MissingFreshnessBudgetError` at construction, because the owner's bound is the
+only one that expires a copy.
 
 The engine measures from that last check because a consumer whose poll silently
 stopped believes it is fresh and starts no clock of its own. Only the owner's
