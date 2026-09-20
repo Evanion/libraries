@@ -15,7 +15,7 @@ gets evidence rather than a knob.
 map of the props each type cannot render without. It returns one problem per
 fault, in order, and throws nothing:
 
-```ts file=libs/astro-widget/README.md region=validate
+```ts twoslash file=libs/astro-widget/README.md region=validate
 
 ```
 
@@ -56,7 +56,7 @@ nine, run here against this package's own build.
 
 Five of the nine are structural and fire whatever the registry holds:
 
-```ts file=libs/astro-widget/README.md region=structural-rules
+```ts twoslash file=libs/astro-widget/README.md region=structural-rules
 
 ```
 
@@ -64,14 +64,14 @@ The root itself is the ninth, and it reports one problem rather than none: a
 CMS that wrote an object where the schema said array has broken the page, and
 a clean run would say it had not.
 
-```ts file=libs/astro-widget/README.md region=not-a-list
+```ts twoslash file=libs/astro-widget/README.md region=not-a-list
 
 ```
 
 A payload with nothing wrong reports nothing, which is the case a build gate
 runs on every deploy:
 
-```ts file=libs/astro-widget/README.md region=clean-payload
+```ts twoslash file=libs/astro-widget/README.md region=clean-payload
 
 ```
 
@@ -89,7 +89,7 @@ something. [What blank means](/widget/problems#required-props-and-what-blank-mea
 is the core's, and the case it catches is the CMS text field an editor opened
 and left empty:
 
-```ts file=libs/astro-widget/README.md region=required-fields
+```ts twoslash file=libs/astro-widget/README.md region=required-fields
 
 ```
 
@@ -102,7 +102,7 @@ prop it does not have.
 The validator recurses into `children`, so a problem in a top-level section and
 a problem inside one of its `children` can both report `index: 0`:
 
-```ts file=libs/astro-widget/README.md region=nested-index
+```ts twoslash file=libs/astro-widget/README.md region=nested-index
 
 ```
 
@@ -130,7 +130,7 @@ read, so a CI script that does not want to pull `.astro` modules into a plain
 Node process can hand it a bare list of names — `validateItems` lives in
 `@evanion/widget` and imports no framework at all:
 
-```ts file=libs/astro-widget/README.md region=registry
+```ts twoslash file=libs/astro-widget/README.md region=registry
 
 ```
 
