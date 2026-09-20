@@ -92,10 +92,15 @@ names.
 ## `DefaultWrapper`
 
 ```tsx
-function DefaultWrapper(props: HTMLProps<HTMLDivElement>): ReactElement;
+function DefaultWrapper(
+  props: HTMLProps<HTMLDivElement> & {
+    items?: readonly RenderableWidgetItem[];
+  },
+): ReactElement;
 ```
 
-A `<section>` carrying whatever props it is handed. `<section>` rather than
+A `<section>` carrying whatever props it is handed, less `items`, which it drops
+rather than spreading onto the element. `<section>` rather than
 `<div>` because a named section maps to the `region` landmark role, so a caller
 who passes `aria-label` gets a region reachable by landmark navigation and one
 who does not is no worse off.

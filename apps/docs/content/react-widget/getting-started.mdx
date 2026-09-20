@@ -121,9 +121,9 @@ items by rendering `children`, like any other React component.
 ## What happens to bad data
 
 The type checker covers items you wrote. For a CMS payload it does not, and the
-renderer stays defensive: a malformed item, an unknown `type`, or a non-array
-`children` is skipped with a development-only `console.warn` rather than taking
-the page down.
+renderer stays defensive: a malformed item or an unknown `type` is skipped, and
+a non-array `children` is dropped and the widget rendered without it, each with
+a development-only `console.warn` rather than taking the page down.
 
 Each message is logged once per process, keyed on its own text — which carries
 the offending item's `id` and `type`, so a second bad item is still reported

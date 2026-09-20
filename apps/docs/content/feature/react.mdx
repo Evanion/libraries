@@ -134,7 +134,7 @@ result down.
 import { features } from '../features';
 import { Flags } from './flags';
 
-export default function Layout({ children }) {
+export default async function Layout({ children }) {
   const decisions = features.resolve({ targetingKey: await currentUserId() });
   return <Flags decisions={decisions}>{children}</Flags>;
 }

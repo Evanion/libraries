@@ -24,8 +24,9 @@ const { Widgets } = createWidgets({
 });
 ```
 
-The wrapper receives `children` and nothing else. The item chrome receives
-`children`, `data-widget-id`, `data-widget-type` and `meta`.
+The wrapper receives `children` and an optional `items`, the region's items in
+the order they render. The item chrome receives `children`, `data-widget-id`,
+`data-widget-type` and `meta`.
 
 Spread the `data-widget-*` attributes onto the element unless you have a reason
 not to: CMS click-to-edit overlays, analytics and E2E selectors key off them,
@@ -258,8 +259,9 @@ cost of off-screen blocks while leaving every one of them in the HTML:
 
 For a client-side dashboard where the list is long enough to matter, virtualize
 in your own `'use client'` `chrome.wrapper` with `@tanstack/react-virtual`. The
-wrapper receives only `children`, so it windows over
-`React.Children.toArray(children)` — one entry per top-level item, already
-rendered as elements. That keeps the virtualizer a dependency of the application
+wrapper receives `items` beside `children`, positionally aligned, so it measures
+and windows by item and indexes into `React.Children.toArray(children)` — one
+entry per top-level item, already rendered as elements. That keeps the
+virtualizer a dependency of the application
 rather than of this package. Only the top-level list of a region is ever a
 candidate; nested items are not.
