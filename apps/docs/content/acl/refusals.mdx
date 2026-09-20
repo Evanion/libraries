@@ -29,8 +29,8 @@ missing database column.
 
 **How the library gets you there.** Every decision carries `reason`. `rule`
 names the rule behind a decision a rule made. `missing` names the paths to fetch
-when the engine could not read them, so the repair is a query you can write from
-the decision.
+when the engine could not read them, so the repair is a query you write from the
+decision.
 
 Three fields explain a decision, and each one tells a UI something different to
 render. All three are output only: `allowed` is the gate, and nothing else on
@@ -130,10 +130,10 @@ flowchart LR
   happened to lack data. See
   [Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded).
 
-Every operator treats an absent path as unevaluable, the negative operators
-included. "It is not equal to `published`" states no fact about a field nobody
-read, so `ne`, `not-in` and `contains` over an absent path come back as
-unevaluable as `eq`.
+Every operator treats an absent `object.*` path as unevaluable, the negative
+operators included. "It is not equal to `published`" states no fact about a
+field nobody read, so `ne`, `not-in` and `contains` over an absent path come
+back as unevaluable as `eq`.
 
 ### Why only the object
 

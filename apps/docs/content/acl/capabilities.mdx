@@ -48,28 +48,35 @@ decides what the answer can mean:
 - A permission whose rules read only `subject.*` decides definitely. The subject
   was resolved whole before the call, so a field it lacks is a field it does not
   have.
-- A permission whose rules read any `object.*` path decides `unevaluable`, with
-  `missing` naming the paths. There is no instance to compare against, so the
-  question has not been asked yet, and `false` overstates what the engine knows.
+- A permission the subject alone cannot settle decides `unevaluable`, with
+  `missing` naming the object paths. There is no instance to compare against, so
+  the question has not been asked yet, and `false` overstates what the engine
+  knows.
 
-```mermaid caption="One subject against the whole document, in one pass. A permission whose rules read only subject.* settles, because the subject was resolved whole. A permission whose rules read object.* has nothing to compare against and comes back unevaluable, with missing naming the paths."
+A rule that reads the object still settles when its subject conditions decide
+the rule on their own. A rule requiring `subject.roles` to contain `bookseller`
+fails definitely for a customer, whatever `object.*` paths sit beside it, and
+the permission answers `no-rule-matched` without the row:
+
+```mermaid caption="One subject against the whole document, in one pass. A permission whose rules read only subject.* settles. A permission whose object rules the subject already decides settles too, as denied or no-rule-matched. What is left is the permission that needs the row, and it comes back unevaluable with missing naming the paths."
 flowchart LR
   S["capabilities(subject)"]:::accent --> P["every permission<br>in the document"]
   P -->|"rules read subject.* only"| A["allowed true or false<br>a settled answer"]
-  P -->|"rules read any object.*"| U["unevaluable<br>missing names the paths"]
+  P -->|"a subject condition<br>settles the rule"| N["denied, or<br>no-rule-matched"]
+  P -->|"the rules still need the row"| U["unevaluable<br>missing names the paths"]
 ```
 
-So read the map as the answer to every question that can be answered without a
-row. It falls short of the subject's full permissions by exactly the permissions
-that need one.
+The map answers every permission the subject alone settles. A permission whose
+rules still need the row sits in the map as `unevaluable`, and the row is what
+settles it.
 
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
     All three rules above read `subject.roles`, so all three entries decide
-    definitely. Add one rule reading `object.*` and its entry comes back
-    `unevaluable` on every call, however the subject is shaped. That is not a
-    misconfiguration. Reading the map as a list of `allowed === true` is
-    correct; reading `allowed === false` as "refused" is not.
+    definitely. Add a rule that needs `object.*` to settle and its entry comes
+    back `unevaluable` for every subject the rule's own conditions do not
+    already decide. That is not a misconfiguration. Read the map as a list of
+    `allowed === true`, and never read `allowed === false` as "refused".
   </Text>
 </Panel>
 
@@ -122,9 +129,9 @@ This document arrived as JSON, so its keys are `string` and the miss happens at
 runtime. A policy the builder authored carries its keys in the type, and
 `caps['listing.read']` is then a compile error and never an absent entry.
 
-You should make one `capabilities` call for the whole menu, because it settles
-one instant for the whole document. A loop of `can` settles the clock per
-permission, so a `before` boundary can fall between two items of one render.
+Make one `capabilities` call for the whole menu, because it settles one instant
+for the whole document. A loop of `can` settles the clock per permission, so a
+`before` boundary can fall between two items of one render.
 
 ## What an acl capability map does not replace
 

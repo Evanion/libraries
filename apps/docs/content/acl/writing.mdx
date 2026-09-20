@@ -20,7 +20,7 @@ reaches the database.
 
 **What you will have.** One call that decides the action and every field of the
 write together, and one call that turns that decision into the object you hand
-the ORM.
+the object-relational mapper (ORM).
 
 **Why you would want it.** The hand-written version is a pick-list in the
 handler. It is correct the day you write it, and it stays correct until somebody
@@ -38,17 +38,16 @@ Two calls, and the second one is not optional. `canFields` decides;
 
 ```
 
-Pass that result to the object-relational mapper (ORM), and pass only that
-result.
+Pass that result to the ORM, and pass only that result.
 
 ```mermaid caption="The write path, both calls. canFields decides the action and gives every field a state; pickAllowedFields throws on a refused action and otherwise keeps the keys that decided allowed. A denied field and an unevaluable one are both withheld, so the value reaching the ORM is the value the decision approved."
 flowchart LR
   I["the proposed write,<br>and the current row"] --> F["canFields(…)"]:::accent
   F --> A["fd.action<br>the action decision"]
   F --> M["fd.fields<br>allowed, denied, unevaluable"]
-  A -->|"refused"| T["ActionNotAllowedError"]
-  A -->|"allowed"| K["pickAllowedFields(fd, proposed)"]
+  A --> K["pickAllowedFields(fd, proposed)"]
   M --> K
+  K -->|"the action was refused"| T["ActionNotAllowedError"]
   K -->|"the allowed keys, and nothing else"| O[("the ORM")]
 ```
 

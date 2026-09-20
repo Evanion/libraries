@@ -33,8 +33,8 @@ does not carry answers `unknown-action` and the page stays up. A `schema` in the
 document checks the paths the rules name, which is the guarantee a local
 `Question` type gives you and a foreign document otherwise cannot.
 
-A backend with its own ACL publishes its matrix as JSON; a frontend or a peer
-service adopts it. `parseMatrix` is the entry point for a document this process
+A backend with its own access control list (ACL) publishes its matrix as JSON;
+a frontend or a peer service adopts it. `parseMatrix` is the entry point for a document this process
 did not write.
 
 ```ts file=libs/acl/README.md region=foreign-matrix
@@ -47,8 +47,9 @@ owns, and that whole list arrives in one document and builds one evaluator.
 
 ## Closed mode is the whole difference
 
-`parseMatrix(json, options?)` is `hydratePolicy(json, { closed: true, ...options })`.
-One flag, and it changes what an unknown key means. Which of the two a document
+`parseMatrix(json, options?)` is `hydratePolicy(json, { ...options, closed: true })`.
+The flag is written last, so no option a caller passes re-opens a foreign
+document. One flag, and it changes what an unknown key means. Which of the two a document
 gets is a question of provenance: `hydratePolicy` for your own document coming
 back, `parseMatrix` for somebody else's arriving.
 
