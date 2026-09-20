@@ -131,8 +131,8 @@ action still gets a complete map of which fields would be editable once the
 action is unblocked. That is deliberate: one call renders a form and explains a
 block.
 
-It is also a hazard. A caller who reads the maps as the gate skips the action
-entirely, and the maps look identical either way.
+The same map is also a hazard. A caller who reads it as the gate skips the
+action entirely, and the map looks identical either way.
 
 ### A `targets` or `transitions` config is not an allow-list
 
@@ -196,10 +196,10 @@ behind it stays, and so does the request it would have sent. The call has the
 same signature and return type in both places, nothing in the types separates
 authoritative from advisory, and the runtime decides.
 
-A gateway or a BFF that already allowed the request does not excuse the service
-behind it, because a caller reaches that service directly whenever it wants to.
-The second evaluation is a local function call over a frozen object, which makes
-"check again" a rule a team can keep.
+A gateway or a backend-for-frontend layer that already allowed the request does
+not excuse the service behind it, because a caller reaches that service directly
+whenever it wants to. The second evaluation is a local function call over a
+frozen object, which makes "check again" a rule a team can keep.
 
 ### Re-check inside the transaction
 
@@ -208,13 +208,21 @@ and the write landing, the object can change owner, the subject can lose the
 role, and the time window can close. The library carries no freshness token and
 cannot see the gap.
 
+```mermaid caption="The gap a decision cannot see. can answers over the snapshot it was handed; the object can change owner, the subject can lose the role and the window can close before the write runs. Re-reading and re-checking inside the transaction closes the gap, and so does a conditional predicate on the write."
+flowchart LR
+  C["can(subject, …)<br>allowed: true"] --> G["the gap<br>owner, role, window"]:::accent
+  G --> W[("the write")]
+  G -.-> R["re-read and re-check<br>inside the transaction"]
+  R --> W
+```
+
 Re-read the object and re-check inside the transaction, or write with a
 conditional predicate that fails when the state has moved.
 
 ## Two gaps with no defence
 
-Both are real today and neither is guarded. A caller can avoid both, once
-somebody writes them down.
+Both are real today and neither is guarded. A caller who knows about them avoids
+both.
 
 ### A clock the caller supplies is the clock the windows move with
 

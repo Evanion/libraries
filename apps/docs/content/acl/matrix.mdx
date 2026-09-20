@@ -9,10 +9,10 @@ whole configuration: what it does not say, the library does not know.
 { "version": 3, "schema": { "objects": {} }, "permissions": [] }
 ```
 
-There is no bare-array form. `version` and `schema` are document fields rather
-than construction options, so a producer in any language states both in the JSON
-it emits, and one value crosses an SSR boundary with nothing assembled around
-it.
+A matrix has no bare-array form. `version` and `schema` are document fields
+rather than construction options, so a producer in any language states both in
+the JSON it emits, and one value crosses a server-rendering boundary with
+nothing assembled around it.
 
 ## One permission
 
@@ -71,8 +71,8 @@ literal `value`. Comparison is strict on both sides of a JSON boundary: `'1'` is
 not `1`, a `Date` is not the string that spells it, and `null` is not absence.
 
 A path is namespaced and one level deep: `subject.x`, `object.y`, or the bare
-`now`. There is no nesting and no relation traversal inside a condition; a
-consumer that needs a related row resolves it and passes it as the object.
+`now`. A condition carries no nesting and no relation traversal; a consumer that
+needs a related row resolves it and passes it as the object.
 
 ## The version
 
@@ -97,8 +97,8 @@ to hold states one; a hash of the document is enough.
 
 ## The schema
 
-A document may declare the shapes its conditions read. It is optional for a
-producer and binding when it is present.
+A document may declare the shapes its conditions read. The `schema` field is
+optional for a producer and binding wherever it is present.
 
 ```ts file=libs/acl/README.md region=schema-binding
 
@@ -119,9 +119,10 @@ A present schema checks two things, both at construction:
    against an array, a literal of the wrong type, or a `path` comparand whose
    two sides disagree.
 
-It does not check the names in `fields` rules, the `targets` and `transitions`
-keys, or whether a permission can ever decide `unevaluable`. Granularity is per
-kind: a permission on an object kind absent from `schema.objects` is unchecked,
+A schema does not check the names in `fields` rules, the `targets` and
+`transitions` keys, or whether a permission can ever decide `unevaluable`. It
+binds per kind: a permission on an object kind absent from `schema.objects` is
+unchecked,
 and `subject.*` paths are unchecked unless `schema.subject` is declared.
 
 The typo class this closes is the expensive one. Without a schema,
@@ -147,9 +148,18 @@ permission nobody has.
 
 ## What construction does to the document
 
-`hydratePolicy` does not keep your object. It rebuilds the envelope from one read
-of each member, deep-clones every permission, freezes the result, and validates
-that copy.
+`hydratePolicy` does not keep the caller's document. It rebuilds the envelope
+from one read of each member, deep-clones every permission, freezes the result,
+and validates that copy.
+
+```mermaid caption="What hydratePolicy does to a document. It reads each member of the caller's object once, clones every permission out of it, freezes the copy, and validates the frozen copy rather than the original. Nothing downstream reads the caller's object again. The subject and the object bags are not copied, because they are the app's data."
+flowchart LR
+  I["the caller's<br>document"] --> R["one read<br>per member"]
+  R --> D["deep clone"]
+  D --> F["freeze"]
+  F --> V["validate<br>the frozen copy"]:::accent
+  V --> A["access.matrix"]
+```
 
 That single read is the point. A caller's document is a live object, and an
 accessor or a proxy on it can answer a second read differently. A `when` that

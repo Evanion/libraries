@@ -181,8 +181,9 @@ built, which is startup for a local matrix and adoption time for a foreign one.
 | `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                              |
 | `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                             |
 
-Two more carry the same base class and are raised by a query on the open path,
-not by construction: `UnknownObjectKeyError` and `UnknownPermissionError`. A local typed matrix knows its key universe, so an
+Two more carry the same base class, and a query on the open path raises them
+while construction never does: `UnknownObjectKeyError` and
+`UnknownPermissionError`. A local typed matrix knows its key universe, so an
 unknown key there is a programmer error. Under `parseMatrix` the same key fails
 closed with `reason: 'unknown-action'` and nothing throws.
 

@@ -87,6 +87,15 @@ The matrix does not know the object's shape, so the decision covers every field
 the object carries, every field named in the rules, every name in the list, and
 on the write axis every key of the proposed write.
 
+```mermaid caption="The four sources that key the decision maps. The object's own keys, the per-field config names, the name list and, on the write axis only, the keys of the proposed write are unioned, and every name in that union gets a state. The keys of the proposed write are the source that catches mass assignment."
+flowchart LR
+  O["the object's<br>own keys"] --> U["the union"]:::accent
+  C["the rules'<br>field names"] --> U
+  L["the name list"] --> U
+  P["the proposed write's<br>keys, write axis only"] --> U
+  U --> M["fields and reasons,<br>one state per name"]
+```
+
 That last one is the mass-assignment case. A key that exists nowhere but the
 write still gets a state, so an exclusion applies to a column the row has never
 held. A decision that only covered the keys already on the object would say
@@ -122,8 +131,8 @@ That returned object is the value to write, and nothing else from the write is.
 Every key it carries was marked `allowed` by the decision; `denied` and
 `unevaluable` are both withheld, and so is any key the decision does not carry.
 
-This is the whole write path, and it exists to stop you filtering the field map
-by hand. An `unevaluable` field is no permission, and a key the decision never
+`pickAllowedFields` is the whole write path, and it exists to stop you filtering
+the field map by hand. An `unevaluable` field is no permission, and a key the decision never
 saw has no state to test at all, so a filter written against the map writes
 both. Pass the result to the ORM, and pass only the result.
 
@@ -144,5 +153,5 @@ const view = access.canFields(subject, 'question', 'read', question, 'read');
 
 The `read` axis answers which fields of an instance this subject may see, and a
 server uses it to shape a response the same way the client uses it to shape a
-form. It is a projection decision, not a query: the row was already fetched, and
-a field decided `denied` here was still read out of the database.
+form. The axis decides a projection and runs no query: the row was already
+fetched, and a field decided `denied` here was still read out of the database.

@@ -20,8 +20,9 @@ the runtime does.
 ## Every layer decides for itself
 
 Every app in the chain evaluates for itself and trusts no earlier layer. A
-gateway or a BFF that already allowed the request does not excuse the service
-behind it, because a caller reaches that service directly whenever it wants to.
+gateway or a backend-for-frontend layer that already allowed the request does
+not excuse the service behind it, because a caller reaches that service directly
+whenever it wants to.
 
 ```mermaid caption="One matrix, evaluated once per process. The browser's answer draws the interface and the gateway's answer does not excuse the service, so the service's own answer guards the write. A caller reaches the service directly whenever it wants to."
 flowchart LR
@@ -44,9 +45,9 @@ the server's vocabulary.
 
 Ship it anyway. Security must not rest on the document staying secret, and here
 it does not. Name things as if someone were going to read them, because someone
-is. An action named `bypass-kyc` or a role named `internal-fraud-reviewer` gives
-the game away the moment the page loads. Secrets and server-only predicates
-belong outside the matrix, in the app layer.
+is. An action named `bypass-kyc` or a role named `internal-fraud-reviewer` is
+disclosed the moment the page loads. Secrets and server-only predicates belong
+outside the matrix, in the app layer.
 
 ## Three tiers
 
@@ -99,9 +100,9 @@ the browser sent) hands the client every time window in the matrix. Pass it only
 to make a server render and the client's first render agree, and resolve it on
 the server.
 
-In a browser the wall clock belongs to the subject. Setting it back re-opens a
-closed window, and the library cannot see that, because the clock is an
-argument. So on one page a role condition reads the subject a server resolved
+In a browser the wall clock belongs to the subject. A subject who sets it back
+re-opens a closed window, and the library cannot see that, because the clock is
+an argument. So on one page a role condition reads the subject a server resolved
 and a time condition reads what the subject's machine produced. A server passing
 its own `now` is unaffected.
 
@@ -142,8 +143,8 @@ writes.
 A client holds the matrix it last fetched. When a permission is revoked, that
 client keeps granting it until it refetches, and it has no way to notice.
 
-`access.version` detects a mismatch and resolves none. You compare it, fail
-closed, and force a refetch. The comparison is a `!==`, so a digest or a
+`access.version` detects a mismatch and resolves none. Compare it, fail closed,
+and force a refetch. The comparison is a `!==`, so a digest or a
 composite covering every input works as well as a counter. A document that
 states no version leaves `access.version` undefined, where a `!==` decides
 nothing.
