@@ -69,7 +69,7 @@ built, so what reorders is a real provider tree.
 One thing the control deliberately cannot show: React reconciles by position,
 so every reorder unmounts the subtree and mounts it again. There is no state
 under these boxes to lose. In an app there is, which is why a `providers` array
-whose order or length changes while the app runs costs you everything below it.
+whose order or length changes while the app runs remounts everything below it.
 Keep the array fixed and let a provider handle its own conditional case.
 
 ## Write a compose entry three ways
