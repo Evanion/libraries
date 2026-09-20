@@ -1,0 +1,273 @@
+/*
+ * The two acl demonstrations that mount inside a teaching page.
+ *
+ * Both draw the same figure: a band of controls, the call they compose, and the
+ * panes holding what the package returned. One stylesheet rather than two,
+ * because a reader who works the field axis on one page and the repair loop on
+ * another should be looking at the same object.
+ *
+ * The colours are the baize tokens the docs app rebinds per theme in
+ * `app/global.css`, so nothing here is a second palette. `--baize-hue` is the
+ * package's own, bound by `docs-identity` on the page wrapper.
+ */
+
+.acl-demo {
+  display: grid;
+  gap: var(--baize-space-4);
+  margin: var(--baize-space-5) 0;
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-felt);
+  font-size: var(--baize-text-sm);
+}
+
+.acl-demo__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--baize-space-4);
+}
+
+.acl-demo__group {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.acl-demo__legend {
+  padding: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  text-transform: lowercase;
+}
+
+/* A control and its label on one line, wrapping to two when the column is narrow. */
+.acl-demo__field,
+.acl-demo__check,
+.acl-demo__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-1) var(--baize-space-2);
+  min-width: 0;
+}
+
+.acl-demo__field > label,
+.acl-demo__check > label {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+}
+
+.acl-demo__input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: 2px var(--baize-space-2);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+}
+
+.acl-demo__input:disabled {
+  color: var(--baize-moss);
+  cursor: not-allowed;
+}
+
+.acl-demo__hint {
+  margin: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  line-height: 1.4;
+}
+
+/*
+ * The segmented control, the same face the landing demonstrations use: one
+ * track, one lifted option. The input is off-screen rather than hidden, so the
+ * group keeps arrow-key navigation and the focus ring is drawn on the face.
+ */
+.acl-demo__seg {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 2px;
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+}
+
+.acl-demo__seg-option {
+  display: block;
+}
+
+.acl-demo__seg-face {
+  display: block;
+  padding: 3px var(--baize-space-3);
+  border-radius: 999px;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  cursor: pointer;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.acl-demo__seg-option:hover .acl-demo__seg-face {
+  color: var(--baize-chalk);
+}
+
+.acl-demo__seg input:checked + .acl-demo__seg-face {
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+.acl-demo__seg input:focus-visible + .acl-demo__seg-face {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+/* The call the controls compose, which is the call the panes below answered. */
+.acl-demo__call,
+.acl-demo__out {
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  overflow-x: auto;
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.acl-demo__out[data-state='denied'] {
+  color: var(--baize-chalk);
+  border-color: color-mix(in oklab, var(--baize-hue) 45%, var(--baize-rule));
+}
+
+/*
+ * The panes. Three across on a wide screen and one per row on a narrow one:
+ * the lesson is that the action decision and the field map can disagree, and
+ * stacking keeps both on the same scroll rather than hiding one off the side.
+ */
+.acl-demo__panes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--baize-space-3);
+}
+
+.acl-demo__pane {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  padding: var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+}
+
+.acl-demo__pane-head {
+  margin: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.acl-demo__pairs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--baize-space-1) var(--baize-space-3);
+  margin: 0;
+  font-size: var(--baize-text-xs);
+}
+
+.acl-demo__pairs dt {
+  color: var(--baize-moss);
+}
+
+.acl-demo__pairs dd {
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.acl-demo__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--baize-text-xs);
+}
+
+.acl-demo__table th,
+.acl-demo__table td {
+  padding: 2px var(--baize-space-2) 2px 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+}
+
+.acl-demo__table thead th {
+  color: var(--baize-moss);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.acl-demo__table tbody th {
+  color: var(--baize-lichen);
+}
+
+.acl-demo__table td {
+  color: var(--baize-chalk);
+}
+
+/*
+ * The three states, distinguished by weight and a mark as well as by colour:
+ * the hue is the package's and carries no meaning of its own, and a reader who
+ * cannot separate two of these needs the row to still read.
+ */
+.acl-demo [data-state='allowed'] {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.acl-demo [data-state='denied'],
+.acl-demo [data-state='unevaluable'] {
+  color: var(--baize-lichen);
+}
+
+.acl-demo [data-state='unevaluable'] {
+  font-style: italic;
+}
+
+.acl-demo__meaning {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+/* For a screen reader only: the decision behind the panes that changed. */
+.acl-demo__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acl-demo__seg-face {
+    transition: none;
+  }
+}
