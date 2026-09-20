@@ -22,25 +22,38 @@
   ]}
 />
 
-**The concept.** A server component renders in a trusted runtime, so the
-render is a place a decision can be made. A Server Action is a second trusted
-entry point into the same route, reached without the render ever running, and a
-decision made at the render does not carry to it. Every framework implementing
-RSC puts the boundary in those two places.
+**The concept.** Server components render in a trusted runtime.
 
-**What you get.** What `apps/storefront-rsc` runs: one `GET /api/policy`
-per page view, `parseMatrix` over what comes back, React's `cache` holding the
-result for the render, and each server component deciding before it fetches the
-data it would render.
+**What you get.** Each widget decides before it fetches.
 
-**Why you want it.** Baize's spotlight widget shows a staff price line and
-the activity widget shows the order trail. Each fetches its own data and answers
-"may this visitor see this" without a second network call.
+**Why you want it.** A Server Action skips the render.
 
-**How the library gets you there.** `parseMatrix` turns the fetched document
-into an evaluator in this process, so every `can` after it is a local function
-call however deep in the tree it sits. `access.version` tells the memo the
-document moved.
+**How the library gets you there.** `parseMatrix` makes every `can` local.
+
+## What an RSC app decides, and where
+
+A server component renders in a trusted runtime, so the render is a place a
+decision can be made. A Server Action is a second trusted entry point into the
+same route, reached without the render ever running, and a decision made at the
+render does not carry to it. Every framework implementing RSC puts the boundary
+in those two places.
+
+`apps/storefront-rsc` runs four pieces:
+
+| Piece                 | What it does                                       |
+| --------------------- | -------------------------------------------------- |
+| `GET /api/policy`     | fetched once per page view                         |
+| `parseMatrix`         | turns what comes back into an evaluator            |
+| React's `cache`       | holds the result for the render                    |
+| each server component | decides before it fetches the data it would render |
+
+`parseMatrix` turns the fetched document into an evaluator in this process, so
+every `can` after it is a local function call however deep in the tree it sits.
+`access.version` tells the memo the document moved.
+
+Baize's spotlight widget shows a staff price line and the activity widget shows
+the order trail. Each fetches its own data and answers "may this visitor see
+this" without a second network call.
 
 ## The render and the write are two boundaries
 

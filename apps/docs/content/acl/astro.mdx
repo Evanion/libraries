@@ -20,23 +20,33 @@
   ]}
 />
 
-**The concept.** An `.astro` page's frontmatter runs on the server and is the
-loader and the action for that page in one module, so one decision above both
-gates serves the render path and the write path. A prerendered Astro build has
-neither gate, because it has no process at request time.
+**The concept.** A page's frontmatter is loader and action.
 
-**What you get.** What `apps/storefront` runs: middleware opening the
-per-request context, shop-api's document adopted once at module scope, and
-`cart.astro` reaching one `order.create` decision that its `POST` branch and its
-checkout button both read.
+**What you get.** One decision serves both gates.
 
-**Why you want it.** Baize's cart is one URL answering two methods. A shopper
-presses a checkout button and a script posts `intent=checkout` to the same path
-without ever loading the page, and both arrive at the same frontmatter.
+**Why you want it.** Baize's cart answers two methods.
 
-**How the library gets you there.** `parseMatrix` adopts the fetched document
-once per process, so a `can` call in a page's frontmatter is a local function
-call over a frozen copy and no render waits on a network round trip.
+**How the library gets you there.** `parseMatrix` adopts the document once.
+
+## What `apps/storefront` puts in one module
+
+An `.astro` page's frontmatter runs on the server and is the loader and the
+action for that page in one module, so one decision above both gates serves the
+render path and the write path. A prerendered Astro build has neither gate,
+because it has no process at request time. `apps/storefront` runs three pieces:
+
+- middleware opening the per-request context,
+- shop-api's document adopted once at module scope,
+- `cart.astro` reaching one `order.create` decision that its `POST` branch and
+  its checkout button both read.
+
+`parseMatrix` adopts the fetched document once per process, so a `can` call in a
+page's frontmatter is a local function call over a frozen copy and no render
+waits on a network round trip.
+
+Baize's cart is one URL answering two methods. A shopper presses a checkout
+button and a script posts `intent=checkout` to the same path without ever
+loading the page, and both arrive at the same frontmatter.
 
 ## Server output is what makes the page a boundary
 

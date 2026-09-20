@@ -2,13 +2,15 @@
 
 <WorkshopNotice slug="acl" />
 
-`@evanion/acl` answers thirty-six classes of attack, one row each below. The
-suite in `libs/acl/src/security` holds one test per entry, under the entry's
-identifier, and runs under `nx test @evanion/acl`. Each row names the Common
-Weakness Enumeration (CWE) and the Open Worldwide Application Security Project
-(OWASP).
+`@evanion/acl` answers thirty-six classes of attack, one row each below. [The
+security contract](/acl/security) argues the same material in prose.
 
-[The security contract](/acl/security) argues the same material in prose.
+## How to read a row
+
+Each row names the Common Weakness Enumeration (CWE) and the Open Worldwide
+Application Security Project (OWASP) entry for its class. The suite in
+`libs/acl/src/security` holds one test per row, under the row's identifier, and
+runs under `nx test @evanion/acl`.
 
 ## The three tiers
 

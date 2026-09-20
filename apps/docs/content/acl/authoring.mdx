@@ -3,14 +3,14 @@
 <WorkshopNotice slug="acl" />
 
 `policy<Subject, Objects, Verbs>()` names the subject, the object kinds and the
-actions each kind answers for, then returns a builder. Each `.for()` names its
-kind as a value and hands the condition helpers to a block, so a typo in an
-`object.*` or `subject.*` path is a compile error. So is an unknown object kind,
-an action the kind never declared, or an object of the wrong kind at the call
-site.
+actions each kind answers for, then returns a builder.
 
-Chain a `.for()` per kind and one policy covers the whole app: `question`,
-`listing` and `report` accumulate into the same key map and the same document.
+## The builder chain
+
+Each `.for()` names its kind as a value and hands the condition helpers to a
+block, so a typo in an `object.*` or `subject.*` path is a compile error. Chain
+a `.for()` per kind and one policy covers the whole app. Every kind accumulates
+into the same key map and the same document.
 
 ```ts twoslash file=libs/acl/README.md region=typed-authoring
 
@@ -18,40 +18,36 @@ Chain a `.for()` per kind and one policy covers the whole app: `question`,
 
 `build()` is the terminal call, and it flattens the blocks to the canonical
 matrix, so `JSON.stringify(access.matrix)` emits the same document a foreign
-backend would produce. Validation runs once over every block at that point, not
-once per `.for()`.
+backend would produce. Validation runs once over every block at that point, and
+no `.for()` validates on its own.
 
 ## The block parameter
 
 `.for()` hands its block one object carrying the whole permission model.
 
-| Call                                  | What it does                              |
-| ------------------------------------- | ----------------------------------------- |
-| `p.allow(action, ...conditions)`      | adds an allow rule to that action         |
-| `p.deny(action, ...conditions)`       | adds a deny rule to that action           |
-| `p.allowEach(actions, ...conditions)` | adds that allow rule to each action named |
-| `p.denyEach(actions, ...conditions)`  | adds that deny rule to each action named  |
-| `p.fields(rules)`                     | attaches field rules to that same action  |
-| `p.visibility(visibility)`            | marks that same action for publication    |
-| `p.eq` `p.ne` `p.in` `p.notIn`        | comparisons                               |
-| `p.contains`                          | the field is an array holding the value   |
-| `p.before` `p.after`                  | time windows, over the bare `now`         |
-| `p.and` `p.or`                        | grouping                                  |
-| `p.always`                            | the unconditional rule                    |
-
-`fields` and `visibility` attach to the most recently declared action. Calling
-either before any `allow` or `deny`, or after a batch that named several
-actions, is an `AclConfigError` naming the object kind.
+| Call                                  | What it does                                                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p.allow(action, ...conditions)`      | adds an allow rule to that action                                                                                                                                         |
+| `p.deny(action, ...conditions)`       | adds a deny rule to that action                                                                                                                                           |
+| `p.allowEach(actions, ...conditions)` | adds that allow rule to each action named                                                                                                                                 |
+| `p.denyEach(actions, ...conditions)`  | adds that deny rule to each action named                                                                                                                                  |
+| `p.fields(rules)`                     | attaches field rules to the action last declared, and raises `AclConfigError` naming the kind when no `allow` or `deny` came first, or when a batch named several actions |
+| `p.visibility(visibility)`            | marks the action last declared for publication, under the same `AclConfigError` rule                                                                                      |
+| `p.eq` `p.ne` `p.in` `p.notIn`        | comparisons                                                                                                                                                               |
+| `p.contains`                          | the field is an array holding the value                                                                                                                                   |
+| `p.before` `p.after`                  | time windows, over the bare `now`                                                                                                                                         |
+| `p.and` `p.or`                        | grouping                                                                                                                                                                  |
+| `p.always`                            | the unconditional rule                                                                                                                                                    |
 
 Conditions passed to one `allow` are AND-ed, and `p.or` inside them flattens to
 disjunctive normal form, one rule per branch. Two separate `allow` calls for the
-same action are two rules, which is the same OR.
+same action are two rules, the same OR.
 
 ## Paths versus literals
 
 The builder reads an operand as a path when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
-otherwise. The shape is the only discriminator:
+otherwise:
 
 ```ts
 p.eq('object.status', 'locked'); // compares against the string 'locked'
@@ -59,25 +55,23 @@ p.eq('object.askedBy', 'subject.id'); // compares two paths
 p.eq('object.askedBy', 'subject.idd'); // compile error naming the path
 ```
 
-Without that rule a mistyped `'subject.idd'` is indistinguishable from a
-deliberate string literal, and the condition silently compares a field against
-that text.
-
 ## What is checked, and what is not
 
-TypeScript checks the field half of every condition against the bound types, the
-object key against the accumulated key map, and the object passed to a query
-against the type that key was bound to.
+| What TypeScript sees                    | What it checks it against             |
+| --------------------------------------- | ------------------------------------- |
+| the field half of every condition       | the bound subject and object types    |
+| the object key of a `.for()` or a query | the accumulated key map               |
+| the object passed to a query            | the type that key was bound to        |
+| the action name                         | the vocabulary the kind declares      |
+| the comparand value                     | nothing; comparand types go unchecked |
 
-It checks action names against the vocabulary the kind declares, and it never
-checks comparand value types. A kind whose vocabulary is `string` takes any
-action, because an action the matrix does not carry is a legitimate question on
-the foreign path.
+A kind whose vocabulary is `string` takes any action, because a foreign document
+may carry an action this one does not.
 
 ## The vocabulary of a kind
 
 `policy()` takes a third map, kind to the actions that kind answers for. A kind
-the map leaves out may declare the four `Action` verbs and nothing else:
+the map leaves out declares the four `Action` verbs and nothing else:
 
 ```ts twoslash
 // @errors: 2345 2551
@@ -110,34 +104,30 @@ caps['question.raed'];
 Only the block reaches the keys, so a `'reprice'` the vocabulary lists and no
 block allows puts no `question.reprice` in `capabilities()`.
 
-The keys accumulate one `.for()` at a time, and `build()` hands them to the
-evaluator. A block whose body is a statement with no return hands back no chain
-to read the actions off, so its document answers `Record<string, Decision>`.
+A block whose body is a statement with no return hands back no chain to read the
+actions off, so its document answers `Record<string, Decision>`.
 
 `allowEach(actions, ...conditions)` and `denyEach` write one rule across several
 actions, one ordinary permission each, so the document names every action it
-grants. `CRUD_ACTIONS` is the four default verbs at runtime, which is what an
-author hands `allowEach` to open all four at once.
+grants. `CRUD_ACTIONS` holds those four verbs at runtime, and an author hands it
+to `allowEach` to open all four at once.
 
 ## The document a typed policy emits
 
-`version` and `schema` are document fields, so `policy()` takes them and puts
-them in the document it flattens to:
+`policy()` takes `version` and `schema`, both document fields, and puts them in
+the document it flattens to:
 
 ```ts twoslash file=libs/acl/README.md region=typed-document
 
 ```
 
 You write a schema by hand. The object map holds `Question` at the type level
-only and a schema is runtime JSON, so nothing derives one from the type
-argument. TypeScript gives the field-existence guarantee to the author and the
-schema gives it to a consumer, who adopts the emitted JSON with `parseMatrix`
-and has no `Question` to check against.
+only, so nothing derives a schema from it.
 
-The two are checked independently and can disagree. A path TypeScript accepts
-because the type declares the field is still an `UnknownFieldError` at
-construction when the schema does not declare it. The schema is binding wherever
-it is present.
+TypeScript and the schema are checked independently and can disagree. A path
+TypeScript accepts because the type declares the field is still an
+`UnknownFieldError` at construction when the schema does not declare it. The
+schema is binding wherever it is present.
 
 ## A bound handle
 
@@ -151,35 +141,31 @@ questions.canFields(subject, 'update', question, 'write', proposed);
 
 A bound handle carries `can`, `canMany`, `canFields` and `readsObject`.
 `authorize(subject)` binds the other axis and carries `can`, `canMany`,
-`canFields` and `capabilities`; `readsObject` takes no subject, so there is
-nothing for it to drop. The two compose.
+`canFields` and `capabilities`, dropping `readsObject`, which takes no subject.
+The two compose.
 
 ## Construction errors
 
-Every error below is an `AclConfigError` subclass thrown while the policy is
+Every error below is an `AclConfigError` subclass raised while the policy is
 built, which is startup for a local matrix and adoption time for a foreign one.
 
-| Error                             | Raised when                                                                       |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `InvalidMatrixError`              | the envelope is not one: no `permissions` array, a `version` of the wrong type    |
-| `InvalidSchemaError`              | the schema's own shape is wrong; `where` locates it inside the document           |
-| `InvalidPermissionError`          | a permission's `object`, `action`, `rules` or `fields` is malformed               |
-| `InvalidRuleError`                | a rule is not an object, or its `when` is absent or not an array                  |
-| `InvalidConditionError`           | a condition's shape, namespace, path depth, or operator/value pairing is unusable |
-| `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                  |
-| `DuplicatePermissionError`        | two permissions share a key                                                       |
-| `UnknownFieldError`               | a condition names a field the declared schema does not carry                      |
-| `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                           |
-| `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies          |
-| `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                              |
-| `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                             |
+| Error                             | Raised when                                                                                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InvalidMatrixError`              | the envelope is not one: no `permissions` array, a `version` of the wrong type                                                                                            |
+| `InvalidSchemaError`              | the schema's own shape is wrong; `where` locates it inside the document                                                                                                   |
+| `InvalidPermissionError`          | a permission's `object`, `action`, `rules` or `fields` is malformed                                                                                                       |
+| `InvalidRuleError`                | a rule is not an object, or its `when` is absent or not an array                                                                                                          |
+| `InvalidConditionError`           | a condition's shape, namespace, path depth, or operator/value pairing is unusable                                                                                         |
+| `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                                                                                                          |
+| `DuplicatePermissionError`        | two permissions share a key                                                                                                                                               |
+| `UnknownFieldError`               | a condition names a field the declared schema does not carry                                                                                                              |
+| `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                                                                                                                   |
+| `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies                                                                                                  |
+| `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                                                                                                                      |
+| `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                                                                                                                     |
+| `UnknownObjectKeyError`           | a query on a local typed matrix names an object kind the document never held; under `parseMatrix` the key fails closed with `reason: 'unknown-action'` and nothing throws |
+| `UnknownPermissionError`          | a query on a local typed matrix names a key the document never held; under `parseMatrix` the key fails closed with `reason: 'unknown-action'` and nothing throws          |
 
-Two more carry the same base class, and a query on the open path raises them
-while construction never does: `UnknownObjectKeyError` and
-`UnknownPermissionError`. A local typed matrix knows its key universe, so an
-unknown key there is a programmer error. Under `parseMatrix` the same key fails
-closed with `reason: 'unknown-action'` and nothing throws.
-
-`ActionNotAllowedError` is the only error the library raises outside
-construction on either path; it belongs to [the write
-path](/acl/fields#writing).
+The last two rows are raised by a query, never by construction.
+`ActionNotAllowedError` is the only error raised outside construction on either
+path, and [the write path](/acl/fields#writing) has it.

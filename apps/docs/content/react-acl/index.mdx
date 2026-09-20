@@ -10,24 +10,24 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** `@evanion/react-acl` holds one evaluator, one subject and one
-instant in a React context, and its four hooks read all three out of that
-context to answer a permission question. Baize, the board game shop, draws an
-Edit button four components below its listing route, and that button asks with
-three strings and the row it is drawing.
+**The concept.** `@evanion/react-acl` holds one evaluator in context.
 
-**What you get.** One provider at the top of the tree holding the evaluator, the
-shopper and the instant, and a button four levels down that names none of the
-three.
+**What you get.** A button four levels down asks directly.
 
-**Why you want it.** Without the provider, `access`, `subject` and `now` arrive
-as props on `ShopPage`, `ListingView` and `ActionBar`, none of which read them.
-A component that threads `access` and forgets `now` reads every time window in
-its branch against a different instant.
+**Why you want it.** A component that forgets `now` drifts.
 
-**How the library gets you there.** `PolicyProvider` takes `access`, `subject`
-and `context` once. `useCan`, `useCanMany`, `useCanFields` and `useCapabilities`
-read them out of context and call the core's method of the same name.
+**How the library gets you there.** `PolicyProvider` takes all three once.
+
+## One provider holds what every hook reads
+
+`@evanion/react-acl` holds one evaluator, one subject and one instant in a React
+context. `PolicyProvider` takes `access`, `subject` and `context` once. `useCan`,
+`useCanMany`, `useCanFields` and `useCapabilities` read all three out of that
+context and call the core's method of the same name.
+
+Baize, the board game shop, draws an Edit button four components below its
+listing route, and that button asks with three strings and the row it is
+drawing.
 
 ```mermaid caption="One PolicyProvider holds the evaluator, the shopper and the instant. ShopPage, ListingView and ActionBar pass none of the three, and EditControl reads all three out of context when it calls useCan."
 flowchart TD
@@ -37,6 +37,11 @@ flowchart TD
   A --> E["EditControl<br>useCan(key, action, row)"]:::accent
   P -. "React context" .-> E
 ```
+
+Without the provider, `access`, `subject` and `now` arrive as props on
+`ShopPage`, `ListingView` and `ActionBar`, none of which read them. A component
+that threads `access` and forgets `now` reads every time window in its branch
+against a different instant.
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 

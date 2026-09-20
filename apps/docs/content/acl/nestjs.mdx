@@ -19,24 +19,35 @@
   ]}
 />
 
-**The concept.** Nest puts two seats in front of one write. A `CanActivate`
-guard runs before the controller method and holds the subject with no row. The
-service runs after the read and holds both.
+**The concept.** Nest seats two decisions per write.
 
-**What you get.** What `apps/shop-api` runs: one matrix built at boot
-behind an injection token, the request's subject in `AsyncLocalStorage`, a
-global guard that refuses what it can, and `GamesService` deciding
-`game.declare` on the title it has just loaded.
+**What you get.** A guard refuses early, a service later.
 
-**Why you want it.** Baize grants `game.declare` to an operator whose own
-shop lists the title. A guard called with no title answers `unevaluable`, and an
-app reading that as a grant lets an operator in Gothenburg edit a Stockholm
-listing.
+**Why you want it.** A guard without the row answers `unevaluable`.
 
-**How the library gets you there.** `access.readsObject(key, action)` tells the
-guard which permissions it can finish, so the guard refuses those and passes the
-others on. `canFields` and `pickAllowedFields` then close the write in the
-service.
+**How the library gets you there.** `readsObject` divides the seats.
+
+## What `apps/shop-api` wires up
+
+`apps/shop-api` runs four pieces, and every fence on this page is a region of
+one of them:
+
+| Piece          | Where it lives                          | What it does                                |
+| -------------- | --------------------------------------- | ------------------------------------------- |
+| the matrix     | built at boot behind an injection token | holds every rule the service enforces       |
+| the subject    | `AsyncLocalStorage`                     | carries the request's actor to every caller |
+| `AclGuard`     | a global guard                          | refuses what it can refuse before the read  |
+| `GamesService` | the service layer                       | decides `game.declare` on the loaded title  |
+
+A `CanActivate` guard runs before the controller method and holds the subject
+with no row. The service runs after the read and holds both.
+`access.readsObject(key, action)` tells the guard which permissions it can
+finish, so the guard refuses those and passes the others on. `canFields` and
+`pickAllowedFields` then close the write in the service.
+
+Baize grants `game.declare` to an operator whose own shop lists the title. A
+guard called with no title answers `unevaluable`, and an app reading that as a
+grant lets an operator in Gothenburg edit a Stockholm listing.
 
 ## Two seats, and only one of them decides
 

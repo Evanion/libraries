@@ -13,23 +13,23 @@
   ]}
 />
 
-**The concept.** `capabilities` answers every permission in the document
-against one subject, passing no object. Baize's sidebar renders before any
-listing, order or report has been fetched, and Jo sees two of its six entries.
+**The concept.** `capabilities` answers every permission against one subject.
+**What you get.** One map the menu filters.
+**Why you want it.** Hand-written key lists go stale.
+**How the library gets you there.** `capabilities` resolves the document in one
+pass.
 
-**What you get.** One call at the top of a render that answers every
-permission in the document at once, and a map the menu filters.
-
-**Why you want it.** A menu calling `can` once per entry reads the clock six
-times and scans the permission list six times, and its hand-written list of keys
-goes stale the day somebody adds a permission.
-
-**How the library gets you there.** `capabilities` resolves the whole document
-in one pass and keys the answers by permission, and every entry is a full
-decision.
+## What one capabilities call returns
 
 `capabilities(subject, now?)` resolves every permission in the document against
-one subject, keyed, in document order, in one pass.
+one subject, passing no object, keyed by permission, in document order, in one
+pass. Every entry is a full decision, and the menu filters the map. Baize's
+sidebar renders before any listing, order or report has been fetched, and Jo
+sees two of its six entries.
+
+A menu calling `can` once per entry reads the clock six times and scans the
+permission list six times, and its hand-written list of keys goes stale the day
+somebody adds a permission. One call at the top of a render replaces that loop.
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
 

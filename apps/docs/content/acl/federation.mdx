@@ -19,22 +19,28 @@
   ]}
 />
 
-**The concept.** `federatedPolicies` holds one `Access` per origin behind one
-view and routes each question to the single origin whose keys carry it. Each
-service authors and evaluates only what it owns, and the topology holds no
-merged matrix anywhere.
+**The concept.** `federatedPolicies` holds one `Access` per origin.
 
-**What you get.** A gateway holding one `Access` per origin behind a view
-that routes a question to the single origin whose keys carry it, plus the
-overlay an owner applies when another team publishes a veto.
+**What you get.** A view routes each key home.
 
-**Why you want it.** Baize's storefront and its stock service both hold
-rows they call a listing, in two databases with two field sets. A merged view
-answers about a row that does not exist.
+**Why you want it.** Two services mean different rows by `listing`.
 
-**How the library gets you there.** `federatedPolicies` composes the members and
-routes by canonical key. `applyDenyOverlay` is pure `Matrix → Matrix` and runs
-inside the owner, before it builds its policy.
+**How the library gets you there.** `federatedPolicies` routes by canonical key.
+
+## What a federated view holds, and what it does not
+
+`federatedPolicies` holds one `Access` per origin behind one view and routes
+each question to the single origin whose keys carry it. Each service authors and
+evaluates only what it owns, and the topology holds no merged matrix anywhere. A
+gateway built this way also carries the overlay an owner applies when another
+team publishes a veto.
+
+`applyDenyOverlay` is pure `Matrix → Matrix` and runs inside the owner, before
+it builds its policy.
+
+Baize's storefront and its stock service both hold rows they call a listing, in
+two databases with two field sets. A merged view answers about a row that does
+not exist.
 
 ## Namespace the object kind by origin
 

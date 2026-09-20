@@ -18,18 +18,25 @@
   ]}
 />
 
-**The concept.** `PolicyProvider` holds an evaluator, a subject and an instant
-for the whole tree under it, and a component under it names none of the three.
+**The concept.** `PolicyProvider` holds the evaluator for a tree.
 
-**What you get.** A shop listing whose action bar is drawn from the policy, with
-a role switch at the top that changes every control on it.
+**What you get.** An action bar the policy draws.
 
-**Why you want it.** Thread `access` and `subject` through five components and
-four of them carry values they never read. A refactor that drops those props
-from one branch leaves the button lit in that branch.
+**Why you want it.** You thread `access` through five components.
 
-**How the library gets you there.** One provider and one hook, and the hook
-takes three arguments.
+**How the library gets you there.** One provider, one hook.
+
+## What this page builds with react-acl
+
+`PolicyProvider` holds an evaluator, a subject and an instant for the whole tree
+under it, and a component under it names none of the three. One provider and one
+hook carry this page, and the hook takes three arguments. The screen is a shop
+listing whose action bar is drawn from the policy, with a role switch at the top
+that changes every control on it.
+
+Thread `access` and `subject` through five components by hand and four of them
+carry values they never read. A refactor that drops those props from one branch
+leaves the button lit in that branch.
 
 ## Install react-acl
 
@@ -110,9 +117,8 @@ matched with it. [Rules that read the object](/acl/intermediate) is where denies
 are written. `no-rule-matched` and `denied` are both refusals and the badge says
 which.
 
-`PolicyProvider` and `useCan` here are the published ones, on the shop policy
-behind [One policy behind a screen](/acl/interface). A rule that changed there
-changes what these badges say.
+`PolicyProvider` and `useCan` here are the published ones, running on the shop
+policy behind [One policy behind a screen](/acl/interface).
 
 ## Ask react-acl about a list, a menu and a form
 

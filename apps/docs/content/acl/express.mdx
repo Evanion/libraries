@@ -19,21 +19,27 @@
   ]}
 />
 
-**The concept.** Express is trusted end to end. No client tree receives
-anything, so every decision this app makes is authoritative and the only
-question is whether the decision happens at all.
+**The concept.** Express is trusted end to end.
 
-**What you get.** An API over Baize's catalogue with one matrix at module
-scope, one middleware binding the subject onto `res.locals`, and a `can` call in
-every handler that touches a title.
+**What you get.** Every handler calls `can` itself.
 
-**Why you want it.** `app.use` is positional, so a route registered above the
-middleware that binds the subject never sees it and nothing fails. Mount the
-binding on the router.
+**Why you want it.** `app.use` is positional, so registration order mediates.
 
-**How the library gets you there.** `@evanion/acl` imports no framework and
-`authorize(subject)` returns a plain object of closures, so `@evanion/acl` has
-no Express adapter. An adapter over `authorize` is a re-export and a name.
+**How the library gets you there.** `@evanion/acl` has no Express adapter.
+
+## What an Express app with `@evanion/acl` holds
+
+An Express app hands no client tree anything, so every decision it makes is
+authoritative and the only question is whether the decision happens at all. This
+page builds an API over Baize's catalogue out of three pieces:
+
+- one matrix at module scope,
+- one middleware binding the subject onto `res.locals`,
+- a `can` call in every handler that touches a title.
+
+`@evanion/acl` imports no framework, and `authorize(subject)` returns a plain
+object of closures, so the package ships no Express adapter. An adapter over
+`authorize` is a re-export and a name.
 
 ## Complete mediation is registration order
 
@@ -60,8 +66,11 @@ api.use(bindAccess);
 api.use('/games', games);
 ```
 
-The library cannot close a route somebody registered above `bindAccess`. The
-app's own route table can, and the assertion over it is the app's test.
+`app.use` is positional, so a route registered above the middleware that binds
+the subject never sees it and nothing fails. Mount the binding on the router, as
+`api` does above. The library cannot close a route somebody registered above
+`bindAccess`. The app's own route table can, and the assertion over it is the
+app's test.
 
 ```mermaid caption="Registration order is what mediates. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset, and nothing fails."
 flowchart TD
