@@ -1247,8 +1247,11 @@ access.version; // -> 'orders@8'
 
 <!-- #endregion revalidate -->
 
-Until that runs, the client grants what it last fetched. There is no push, no
-expiry and no way for a held matrix to notice that it is stale.
+Until that runs, the client grants what it last fetched. Nothing pushes an
+update to a holder. A holder that reports `fetchedAt` gets a freshness budget
+from the document's `maxStale`, and past `fetchedAt + min(maxStale,
+options.maxStale)` every key answers `stale-contract`. A holder that reports no
+`fetchedAt` claims no freshness and runs under no expiry.
 
 ## API
 
