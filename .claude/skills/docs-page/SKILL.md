@@ -5,10 +5,23 @@ description: Use when writing or retrofitting a page in apps/docs — the verifi
 
 # Working on a docs page
 
-The rules live in `docs/specs/2026-09-16-documentation-standard.md`. Read the
-sections that bear on the page you are touching. Do not work from a summary of
-it, and do not copy parts of it into anything else: it is edited often, and a
-copy goes stale in the direction that reads as authoritative.
+The rules live in three specs, and they divide by subject:
+
+- `docs/specs/2026-09-16-documentation-standard.md` decides structure. Which page
+  a thing belongs on, how a section stands alone, how support fades.
+- `docs/specs/2026-09-20-public-documentation-guidance.md` decides sentences.
+  Person, tense, mood, paragraph and list length, terminology, notices, the
+  refused words. Each rule names the public guide it comes from, or says it is a
+  house rule. Read this one before writing prose.
+- `docs/specs/2026-09-20-documentation-prose-craft.md` is where the sentence
+  rules were first worked out, from rulebooks and from measuring other sites.
+  The public guidance spec supersedes it wherever the two disagree, and says so
+  per decision. Read it for the reasoning, not for the rule.
+
+Read the sections that bear on the page you are touching. Do not work from a
+summary of them, and do not copy parts of them into anything else: they are
+edited often, and a copy goes stale in the direction that reads as
+authoritative.
 
 This file is the procedure and the traps. It holds nothing the spec holds.
 
