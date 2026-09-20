@@ -147,7 +147,7 @@ Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)
 ```
 
 When there is no correlation context, no header is attached. An outgoing call
-from a cron job that never opened one simply carries none.
+from a cron job that never opened one carries none.
 
 ## Work with no request behind it
 
@@ -192,8 +192,8 @@ setCorrelationId() was called outside a correlation context. Apply
 CorrelationIdMiddleware, or wrap the work in CorrelationService.run().
 ```
 
-Note that this changes the id the rest of the request sees, and not the response
-header — that was already set by the middleware.
+`setCorrelationId` changes the id the rest of the request sees. The response
+header keeps the id the middleware wrote when the request arrived.
 
 ## Why `@evanion/nestjs-correlation-id` has nothing to click
 

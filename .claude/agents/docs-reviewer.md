@@ -129,6 +129,46 @@ Fragment links (`#some-heading`) are not checked by any guard, so treat one as a
 liability: verify the heading exists, and say so if the page would be fine
 without it.
 
+**The person follows the actor.** A sentence about what the reader does takes
+the second person or the imperative. A sentence about what the package does
+takes the third person, with the package as the grammatical subject. Name the
+actor of each sentence and check the person against it: `the developer passes`
+where the reader is meant is a defect, and so is `you hydrate the document`
+where `hydratePolicy` is the thing doing it.
+
+There is no target ratio. A page can be right at any density, and a page that
+addresses nobody anywhere is usually failing the first half of that rule rather
+than the second. `docs/specs/2026-09-20-public-documentation-guidance.md`
+section 1 has the reasoning and the guides it comes from.
+
+**Modals mean three different things.** An imperative means the reader has to.
+`You should` means this repository recommends it and the reader may decline.
+`You can` means the action is available and nothing is lost by skipping it, and
+it is cut wherever the sentence still reads without it. A `you can` that is
+really a requirement, or a `you should` that is really an instruction, is a
+defect.
+
+**A notice is a budget, not a box to reach for.** Two a page, never two
+adjacent, from `Note`, `Exception`, `Warning` and `Shop note`. An H2 section
+carrying more than one `Exception` is describing an API that is hard to
+remember, and the page says so in prose rather than smoothing it over.
+
+**Paragraph and list shape.** Three to five sentences a paragraph, seven at the
+outside, and the first sentence carries the concept. Two to seven items a list,
+all sharing a structure, and never a list of one. No sentence links more than
+two clauses with `and`, `or` or `but`.
+
+**Terminology.** A term of art enters as the grammatical subject of its
+defining sentence, or as a link to a definition that already exists here.
+An acronym is spelled out on first use with the acronym in parentheses. One
+name per concept and one concept per name: grep the section for synonyms, then
+grep the name and check every hit means the same thing.
+
+**The domain keeps its vocabulary and loses its jokes.** Shop and board game
+language belongs in examples, in a `Shop note`, and in the page furniture. It
+does not belong inside a sentence that states a rule. No humour, idiom, holiday,
+season or sport anywhere, including headings.
+
 ## How to read a page
 
 Read it in the order a reader meets it, not by scanning for patterns. Most
