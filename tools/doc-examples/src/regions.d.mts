@@ -9,8 +9,8 @@
 export interface Region {
   /**
    * The language for the code block the docs app renders: a markdown region's
-   * fence info with the doctest marker gone, or `ts`/`tsx` from the extension
-   * of a source file.
+   * fence info with the doctest marker gone, or `ts`, `tsx` or `astro` from
+   * the extension of a source file.
    */
   lang: string;
   /** The code the markers wrap. */

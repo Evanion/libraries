@@ -124,6 +124,9 @@ describe('parseRegions', () => {
  * The markers are line comments and the extension picks them, so one
  * `parseRegions` serves both and a page's `file=` reference says which by
  * naming the file.
+ *
+ * An `.astro` component is two languages in one file, so it takes the line
+ * comment in its frontmatter and the JSX expression comment in its template.
  */
 const typeClaims = [
   "import { expectTypeOf } from 'vitest';",
@@ -154,6 +157,23 @@ widen(draft).price;`);
     expect(
       parseRegions(typeClaims, 'widget.test-d.tsx').get('widen')?.lang,
     ).toBe('tsx');
+    expect(parseRegions(typeClaims, 'cart.astro').get('widen')?.lang).toBe(
+      'astro',
+    );
+  });
+
+  it('reads a JSX comment marker, which is what an astro template has', () => {
+    const template = [
+      '<div>',
+      '  {/* #region checkout-gate */}',
+      '  <button disabled={!mayOrder}>Place the order</button>',
+      '  {/* #endregion checkout-gate */}',
+      '</div>',
+    ].join('\n');
+
+    expect(
+      parseRegions(template, 'cart.astro').get('checkout-gate')?.code,
+    ).toBe('<button disabled={!mayOrder}>Place the order</button>');
   });
 
   it('ignores an HTML comment marker in a source file', () => {
