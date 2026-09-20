@@ -28,15 +28,25 @@
  * a `*.test-d.ts` file, which has no README fence to sit in, and the claim the
  * page renders is then the one `tsc` checked.
  *
+ * An `.astro` component is two languages in one file, so it takes both marker
+ * spellings. The frontmatter is TypeScript and takes the line comment above.
+ * The template is JSX and takes the expression comment Astro already supports
+ * there:
+ *
+ *     {/* #region checkout-gate *\/}
+ *     <button disabled={!mayOrder}>Place the order</button>
+ *     {/* #endregion checkout-gate *\/}
+ *
  * The extracted block is executed, because the file it comes from is executed —
  * the docs app inherits that guarantee rather than adding one.
  */
 
 const REGION = /<!--\s*#region\s+([\w-]+)\s*-->/;
 const ENDREGION = /<!--\s*#endregion\s+([\w-]+)\s*-->/;
-const SOURCE_REGION = /^\s*\/\/\s*#region\s+([\w-]+)\s*$/;
-const SOURCE_ENDREGION = /^\s*\/\/\s*#endregion\s+([\w-]+)\s*$/;
-const SOURCE_FILE = /\.tsx?$/;
+const SOURCE_REGION = /^\s*(?:\/\/|\{\/\*)\s*#region\s+([\w-]+)\s*(?:\*\/\})?$/;
+const SOURCE_ENDREGION =
+  /^\s*(?:\/\/|\{\/\*)\s*#endregion\s+([\w-]+)\s*(?:\*\/\})?$/;
+const SOURCE_FILE = /\.(?:tsx?|astro)$/;
 const FENCE = /^\s*(`{3,})(.*)$/;
 
 /** A malformed or missing region, with the file and line in its message. */
@@ -80,12 +90,19 @@ function body(lines) {
   return trimmed.map((line) => line.slice(width)).join('\n');
 }
 
+/** The Shiki language a source file's regions render as. */
+function sourceLang(file) {
+  if (file.endsWith('.astro')) return 'astro';
+  return file.endsWith('.tsx') ? 'tsx' : 'ts';
+}
+
 /**
- * Every named region in a `.ts` or `.tsx` source.
+ * Every named region in a `.ts`, `.tsx` or `.astro` source.
  *
  * No fence to delimit the block, so the region is the lines between the
- * markers. The language is the extension: a `.tsx` example renders as `tsx`,
- * which is what Shiki needs to highlight the JSX in it.
+ * markers. The language is the extension: a `.tsx` example renders as `tsx`
+ * and an `.astro` one as `astro`, which is what Shiki needs to highlight the
+ * JSX and the frontmatter in them.
  */
 function parseSourceRegions(source, file) {
   const regions = new Map();
@@ -123,10 +140,7 @@ function parseSourceRegions(source, file) {
           `${file}:${index + 1}: region '${open.name}' is defined twice`,
         );
       }
-      regions.set(open.name, {
-        lang: file.endsWith('.tsx') ? 'tsx' : 'ts',
-        code: body(lines),
-      });
+      regions.set(open.name, { lang: sourceLang(file), code: body(lines) });
       open = null;
       return;
     }
