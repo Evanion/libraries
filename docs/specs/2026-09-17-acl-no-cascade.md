@@ -1,6 +1,8 @@
 # The shape of the `@evanion/acl` surface
 
-Status: proposed
+Status: accepted and shipped. `dependsOn` is gone from `Permission` and from
+`PERMISSION_MEMBERS` in `libs/acl/src/validate.ts`, so a document carrying it
+is refused rather than silently ignored. Landed in `5a80e02`.
 Packages: `@evanion/acl`. `@evanion/react-acl` is untouched by part A, reads one
 changed type in part B, and is evidence against part C.
 Depends on: `libs/acl/src/conditions.ts` (`settleNow` and `toEpoch`, which are
