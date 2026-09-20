@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { preamblePath, readPreamble, withPreamble } from './preamble.mjs';
 import { readRegion } from './regions.mjs';
 
 /**
@@ -27,6 +28,9 @@ import { readRegion } from './regions.mjs';
  * word this does not consume survives, blocks the import, and makes the page
  * throw on a `Popup` it never imported — so `twoslash` is the only other meta
  * a region block may carry.
+ *
+ * A Twoslash block gets the README's own preamble in front of it, behind a
+ * `// ---cut---` the reader never sees. `preamble.mjs` carries why.
  *
  * A webpack loader rather than the remark plugin the demo-apps spec called
  * for. Nextra hands `mdxOptions.remarkPlugins` straight to unified, which
@@ -96,8 +100,15 @@ export function expandRegions(source, root, file) {
       const rest = info.replace(REFERENCE, '').trim();
       const emitted = rest || region.lang || 'ts';
 
+      // Only a Twoslash fence, which a compiler reads and `// ---cut---` trims
+      // back to the region. A plain fence is displayed source, and an import
+      // line in front of it shows the reader something the README does not.
+      const code = /\btwoslash\b/.test(emitted)
+        ? withPreamble(readPreamble(dirname(join(root, path))), region.code)
+        : region.code;
+
       out.push(`${indent}${ticks}${emitted}`);
-      for (const body of region.code.split('\n')) out.push(indent + body);
+      for (const body of code.split('\n')) out.push(indent + body);
       continue;
     }
 
@@ -124,8 +135,12 @@ export default function mdxRegionLoader(source) {
   // Declares each referenced README as an input of this page, so editing one
   // rebuilds the pages that quote it. Without this the page's own mtime is the
   // only thing the build watches, and a page keeps serving a stale region.
+  // The preamble beside each README is declared too, so editing one rebuilds
+  // the Twoslash fences compiling against it.
   for (const match of source.matchAll(new RegExp(REFERENCE, 'g'))) {
-    this.addDependency(join(root, match[1]));
+    const readme = join(root, match[1]);
+    this.addDependency(readme);
+    this.addDependency(preamblePath(dirname(readme)));
   }
 
   return expandRegions(source, root, this.resourcePath);

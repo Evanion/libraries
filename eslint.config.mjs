@@ -66,6 +66,19 @@ export default [
     },
   },
   {
+    // The lines a package's README examples stand on, read by the doctest run
+    // and by the docs app's region loader. Nothing imports this file: both
+    // sides read it as text and put it in front of an example. It has to write
+    // the specifier a reader would install, so the relative-import rule is
+    // wrong here, and the names it brings in are used by the example that
+    // follows it rather than by the file itself.
+    files: ['**/doc-examples.preamble.ts'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
     files: [
       '**/*.ts',
       '**/*.tsx',

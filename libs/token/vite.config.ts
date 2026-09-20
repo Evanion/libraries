@@ -1,19 +1,18 @@
 import { defineConfig } from 'vite';
 
 import { docExampleSources, docExamples } from '@evanion/doc-examples';
-
-// The names the README's later blocks use without reintroducing the import line
-// every time. A block that does show its imports shadows these, so the two
-// never disagree. `token` is here as well as `createToken`, because the code a
-// reader needs in front of them is the call they are reading about, not the
-// construction they already saw at the top of the page.
-const preamble =
-  "import { createToken } from '@evanion/token';\nconst token = createToken();\n";
+import { readPreamble } from '@evanion/doc-examples/preamble';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/token',
-  ...docExamples({ preamble }),
+  // doc-examples.preamble.ts holds the names the README's later blocks use
+  // without reintroducing the import line every time. It declares `token` as
+  // well as `createToken`, because the code a reader needs in front of them is
+  // the call they are reading about, not the construction they already saw at
+  // the top of the page. The docs app's region loader reads the same file, so
+  // a block compiles on a page the way it runs here.
+  ...docExamples({ preamble: readPreamble(import.meta.dirname) }),
   test: {
     name: '@evanion/token',
     watch: false,
