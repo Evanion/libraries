@@ -20,13 +20,17 @@
   ]}
 />
 
-**The concept.** A page's frontmatter is loader and action.
+**The concept.** An `.astro` page's frontmatter runs on the server for every
+HTTP method at that URL, so it is the loader and the action in one module.
 
-**What you get.** One decision serves both gates.
+**What you get.** One `can` call at the top of the file gates the render and the
+write.
 
-**Why you want it.** Baize's cart answers two methods.
+**Why you want it.** Baize's cart answers GET and POST at one URL, and a
+decision made for the render never runs for the POST.
 
-**How the library gets you there.** `parseMatrix` adopts the document once.
+**How the library gets you there.** `parseMatrix` adopts shop-api's document
+once in middleware, and every page reads that one evaluator.
 
 ## What `apps/storefront` puts in one module
 

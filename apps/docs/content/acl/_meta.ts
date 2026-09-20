@@ -9,9 +9,9 @@ import type { MetaRecord } from 'nextra';
  * than the rung. `simple` is the page where every condition reads the subject,
  * so nothing can decide `unevaluable`. `intermediate` is the page where a
  * condition reads the object, which brings projections, the typed builder and
- * the field axis with it. `advanced` is the page where the document outlives
- * the process that wrote it, which brings the schema, the version and a
- * foreign document. The difficulty ladder is on each page's `<PageSheet>`, and
+ * the field axis with it. `advanced` is the page where one service evaluates a
+ * document a different service wrote, which brings the schema, the version and
+ * `parseMatrix`. The difficulty ladder is on each page's `<PageSheet>`, and
  * a title that repeated it would say less than the sheet does. `interface`
  * closes Setup: the storefront `advanced` leaves holding a fetched, version
  * checked document draws a screen from it, so the page takes the three
@@ -64,7 +64,7 @@ export default {
   'group-setup': { type: 'separator', title: 'Setup' },
   simple: 'Rules that read the subject',
   intermediate: 'Rules that read the object',
-  advanced: 'Rules that outlive the process',
+  advanced: 'Rules that another service wrote',
   interface: 'One policy behind a screen',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },

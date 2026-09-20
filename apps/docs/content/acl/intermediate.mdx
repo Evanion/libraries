@@ -13,15 +13,19 @@
   hands={30}
   requires={[['Rules that read the subject', '/acl/simple']]}
   unlocks={[
-    ['Rules that outlive the process', '/acl/advanced'],
+    ['Rules that another service wrote', '/acl/advanced'],
     ['Which fields may they write?', '/acl/writing'],
   ]}
 />
 
-**The concept.** An `object.*` condition reads the instance in hand.
-**What you get.** A policy that knows whose question is whose.
-**Why you want it.** Hand-written checks drift.
-**How the library gets you there.** One condition brings four things.
+**The concept.** An `object.*` condition reads both the subject and the
+instance the caller passed to `can`.
+**What you get.** A policy that compares `object.askedBy` with `subject.id` and
+tells your question from Jo's.
+**Why you want it.** An ownership test written in the handler states the rule a
+second time, and the two copies disagree the first time one of them changes.
+**How the library gets you there.** One `object.*` condition brings the typed
+builder, projections, the `unevaluable` answer and the field axis with it.
 
 ```mermaid caption="What changes when a condition names an object path. A subject-only condition reads the subject the server resolved whole, so it either holds or fails. A condition naming an object.* path also reads the instance the caller passed, and an instance that does not carry the path leaves the condition unevaluable until a refetch supplies it."
 flowchart LR
@@ -205,7 +209,7 @@ keeps the `unevaluable` ones too.
 
 - [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
   what to write in their place.
-- [Rules that outlive the process](/acl/advanced). The schema, foreign
+- [Rules that another service wrote](/acl/advanced). The schema, foreign
   documents, versioning.
 - [Can this user do this?](/acl/asking). `canMany`, and asking about a list.
 - [Which fields may they write?](/acl/writing). The whole field axis, one task

@@ -18,13 +18,17 @@
   ]}
 />
 
-**The concept.** `PolicyProvider` holds the evaluator for a tree.
+**The concept.** `PolicyProvider` holds one evaluator, one subject and one
+clock instant for the whole tree under it.
 
-**What you get.** An action bar the policy draws.
+**What you get.** An action bar three components below the provider that reads
+all three without taking a prop.
 
-**Why you want it.** You thread `access` through five components.
+**Why you want it.** Without the provider you pass `access`, the subject and
+`now` through every component between the route and the button.
 
-**How the library gets you there.** One provider, one hook.
+**How the library gets you there.** `PolicyProvider` takes the three props once,
+and `useCan` reads them back out of context.
 
 ## What this page builds with react-acl
 

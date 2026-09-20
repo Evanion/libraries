@@ -12,20 +12,24 @@
 <PageSheet
   difficulty={3}
   read={8}
-  requires={[['Rules that outlive the process', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Express', '/acl/express'],
     ['Many services', '/acl/federation'],
   ]}
 />
 
-**The concept.** Nest seats two decisions per write.
+**The concept.** A Nest request passes a guard before the row is fetched and a
+service after it, so one write decides twice.
 
-**What you get.** A guard refuses early, a service later.
+**What you get.** A guard that refuses a subject holding no `game.declare` at
+all, and a service that decides on Brass: Birmingham.
 
-**Why you want it.** A guard without the row answers `unevaluable`.
+**Why you want it.** A guard asking an object-dependent rule with no instance
+gets `unevaluable` back, which is not a refusal.
 
-**How the library gets you there.** `readsObject` divides the seats.
+**How the library gets you there.** `readsObject` reports which permissions need
+the row, which is what puts each decision where the data is.
 
 ## What `apps/shop-api` wires up
 
@@ -51,8 +55,11 @@ grant lets an operator in Gothenburg edit a Stockholm listing.
 
 ## Two seats, and only one of them decides
 
-A guard runs before the row is fetched, so it can ask whether this subject holds
-`game.declare` at all and cannot ask whether it holds it on Brass: Birmingham.
+A seat is a place in the request pipeline where an app can call `can`, and a
+Nest write passes two of them: the guard, before the row is fetched, and the
+service, after. A guard holds the subject and no row, so it can ask whether this
+subject holds `game.declare` at all and cannot ask whether it holds it on Brass:
+Birmingham.
 An object-dependent rule called with no instance comes back `unevaluable`,
 naming the paths it could not read.
 

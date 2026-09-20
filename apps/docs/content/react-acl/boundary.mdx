@@ -18,22 +18,28 @@
   ]}
 />
 
-**The concept.** `@evanion/react-acl` toggles controls in the browser.
+**The concept.** `@evanion/react-acl` runs in the shopper's browser and toggles
+controls.
 
-**What you get.** The side that writes decides.
+**What you get.** A trusted runtime that makes the decision that counts, and a
+browser copy that decides what the screen shows.
 
-**Why you want it.** A shopper can work around the browser.
+**Why you want it.** A shopper edits the JavaScript, so a control the browser
+hid is a control the server still has to refuse.
 
-**How the library gets you there.** `'use client'` keeps hooks off the server.
+**How the library gets you there.** The package ships `'use client'` on its
+entry point, so a server component importing `useCan` gets a client reference,
+and calling it during the server render throws.
 
 ## Where the line through your app falls
 
 `@evanion/react-acl` runs in the shopper's browser and toggles controls. The
 trusted side, a loader, a server component, an action or a route handler, calls
-`@evanion/acl` and makes the decision that counts. The side that fetches and
-writes decides, the side that renders toggles, and a hook never appears on the
-first side. `'use client'` sits at the top of the package's entry point, so a
-hook cannot be called on the trusted side at all.
+`@evanion/acl` and makes the decision that counts. A decision the browser makes
+changes which controls render and nothing else, and the same `can` runs again in
+that trusted runtime before anything is written. `'use client'` sits at the top
+of the package's entry point, so a hook cannot be called on the trusted side at
+all.
 
 `useCan` and `access.can` both compile, both return a `Decision`, and neither
 call says which side enforces. A shopper can work around the browser's answer

@@ -2,13 +2,17 @@
 
 <WorkshopNotice slug="acl" />
 
-**The concept.** `decideResolved` settles one permission in seven fixed steps.
+**The concept.** `decideResolved` settles one permission in seven steps that
+run in a fixed order.
 
-**What you get.** The seven steps, in order.
+**What you get.** The seven steps written out, and which of the four outcomes
+each one produces.
 
-**Why you want it.** Nothing configures the order.
+**Why you want it.** No option reorders them, so a rule you read in one service
+decides the same way in every other.
 
-**How the library gets you there.** `decideResolved` reads both rule lists.
+**How the library gets you there.** `decideResolved` reads
+`permission.denyRules` and `permission.rules`, the deny side first.
 
 ## The order acl resolves a permission in
 

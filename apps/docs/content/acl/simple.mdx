@@ -18,11 +18,14 @@
   ]}
 />
 
-**The concept.** A subject-only rule reads only the subject.
-**What you get.** Every permission answered from one call.
-**Why you want it.** Hand-written role checks disagree.
-**How the library gets you there.** `policy()` writes the matrix; `can` reads
-it.
+**The concept.** A subject-only rule reads the subject the server resolved and
+nothing else.
+**What you get.** Every permission answered with no database read in front of
+the call.
+**Why you want it.** A role test written by hand in each handler answers
+differently per handler once somebody edits one of them.
+**How the library gets you there.** `policy()` writes the matrix at startup, and
+`can` reads it on every question.
 
 ## What a subject-only policy covers
 

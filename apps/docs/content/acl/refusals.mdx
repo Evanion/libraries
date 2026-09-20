@@ -13,28 +13,32 @@
   ]}
 />
 
-**The concept.** Every decision carries `reason`, `rule` and `missing`.
+**The concept.** Every `Decision` carries `reason`, `rule` and `missing` beside
+`allowed`.
 
-**What you get.** Which of the seven reasons you got.
+**What you get.** Which of the seven values `reason` took, and which rule
+produced it.
 
-**Why you want it.** Half mean the engine never decided.
+**Why you want it.** Three of the seven mean the engine never reached an answer,
+and a screen drawing those as a refusal tells the customer the wrong thing.
 
-**How the library gets you there.** `missing` names the refetch.
+**How the library gets you there.** `missing` names the paths the object did not
+carry, which is the list to refetch.
 
 ## The seven reasons a decision carries
 
 `reason` says why the answer came out the way it did, and takes one of seven
 values.
 
-| `reason`          | Carries   | What the UI has                              |
-| ----------------- | --------- | -------------------------------------------- |
-| `allow`           | `rule`    | nothing to explain                           |
-| `no-rule-matched` | —         | a plain no; this subject, this row           |
-| `denied`          | `rule`    | a plain no, and which rule to name in a log  |
-| `unknown-action`  | —         | the document has moved on; fail closed       |
-| `unevaluable`     | `missing` | a refetch; the engine never decided          |
-| `unusable-clock`  | `rule`    | the `now` this call passed is not an instant |
-| `stale-contract`  | —         | fetch the document again; this copy is old   |
+| `reason`          | Carries   | What the UI has                                |
+| ----------------- | --------- | ---------------------------------------------- |
+| `allow`           | `rule`    | nothing to explain                             |
+| `no-rule-matched` | —         | a plain no; this subject, this row             |
+| `denied`          | `rule`    | a plain no, and which rule to name in a log    |
+| `unknown-action`  | —         | this document carries no such key; fail closed |
+| `unevaluable`     | `missing` | a refetch; the engine never decided            |
+| `unusable-clock`  | `rule`    | the `now` this call passed is not an instant   |
+| `stale-contract`  | —         | fetch the document again; this copy is old     |
 
 `reason`, `rule` and `missing` are output only. `allowed` is the gate, and
 nothing else on the decision should ever reach an `if`.
