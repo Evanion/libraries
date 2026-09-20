@@ -28,9 +28,12 @@ the subject once per request, and a call that answers yes or no for any
 permission in the document.
 
 **Why you would want it.** The two role checks you write today are fine. The
-twentieth is the problem. By then one handler tests `roles.includes('owner')`,
-another tests `user.isOwner`, a third was copied before the role was renamed,
-and the export endpoint somebody added last month tests nothing at all.
+twentieth is the problem. By then four handlers disagree:
+
+- one tests `roles.includes('owner')`
+- another tests `user.isOwner`
+- a third was copied before the role was renamed
+- the export endpoint somebody added last month tests nothing at all
 
 **How the library gets you there.** `policy()` writes the matrix and hands back
 an access object over it. `can` answers one question with a decision. `authorize`
@@ -49,17 +52,19 @@ ESM only, Node 20 or newer. No framework reaches the import graph.
 
 ## Write the acl policy
 
-With the package installed, the first thing to write is the policy.
-`policy<Subject, Objects>()` names the subject and the object kinds,
-`.for(key, block)` writes one kind's rules, and `.build()` hands back the
-evaluator. A block holds allow
-rules, a rule holds conditions, and the conditions are AND-ed: the rule matches
-when every condition in it holds. `p` is the condition helper the block hands
-you, and `p.contains(path, value)` is the one this policy needs: it reads the
-array at `subject.roles` and asks whether the role is in it. While every
-condition reads the subject,
-`capabilities` answers the whole document at once, so the policy and every
-answer it gives fit in one block:
+With the package installed, write the policy first. Three calls build one:
+
+- `policy<Subject, Objects>()` names the subject type and the object kinds.
+- `.for(key, block)` writes one kind's rules.
+- `.build()` hands back the evaluator.
+
+A block holds allow rules and a rule holds conditions. The engine ANDs the
+conditions, so the rule matches when every condition in it holds. `p` is the
+condition helper the block hands you, and this policy needs one of its methods:
+`p.contains(path, value)` reads the array at `subject.roles` and asks whether
+the role is in it. Every condition below reads the subject, so `capabilities`
+answers the whole document at once. The policy and its answers fit in one
+block:
 
 ```ts file=libs/acl/README.md region=capabilities
 
@@ -69,9 +74,17 @@ One policy holds every object kind your app has. Chain a `.for()` per kind and
 the report and the listing sit side by side in the same document. You do not
 build a policy per resource.
 
-Nothing is allowed without an allow rule that matched. `report.export` has a
-rule, the rule did not match, and the decision is `no-rule-matched`. Default
-deny is the floor of the engine and there is nothing to configure.
+Nothing is allowed without an allow rule that matched. `report.export` carries
+one such rule. The bookseller's roles do not satisfy it, so the decision is
+`no-rule-matched`. Default deny is the floor of the engine and you configure
+nothing to get it.
+
+```mermaid caption="What the engine decides for a permission carrying allow rules only, which is every permission in the policy above. The engine reads those rules against the subject the caller passed. One rule whose conditions all hold answers allow; no such rule answers no-rule-matched, which is the default deny this policy never states."
+flowchart TD
+  Q["can(subject, 'report', 'export')"] --> R{"an allow rule<br>whose conditions<br>all hold?"}
+  R -->|yes| A["allowed: true<br>reason: allow"]
+  R -->|no| N["allowed: false<br>reason: no-rule-matched"]:::accent
+```
 
 `access.matrix` is what the blocks flattened to: a JSON envelope over a flat
 list of permissions, each carrying a `key` of exactly
@@ -106,11 +119,11 @@ the same report-and-listing policy:
 
 ```
 
-The bookseller reads the report and does not export it, and neither call named
-who was asking. That handle carries `can`, `canMany`, `canFields` and
-`capabilities` with the subject dropped from each signature. It also makes the
-guarded call the shortest one to write, which is the only lever the library has
-on [complete mediation](/acl/security#complete-mediation).
+The bookseller reads the report and does not export it. Neither call named who
+was asking. The handle carries `can`, `canMany`, `canFields` and `capabilities`
+with the subject dropped from each signature, which makes the guarded call the
+shortest one to write. That is all the library can do about [complete
+mediation](/acl/security#complete-mediation).
 
 <Panel heading="This decision is authoritative only where it is made">
   <Text as="div" size="sm">
@@ -123,8 +136,8 @@ on [complete mediation](/acl/security#complete-mediation).
 
 ## Where subject-only rules stop
 
-You now have a working policy, and every condition in it reads the subject. That
-is the line this page sits on, and it is a real line in the engine:
+You now have a working policy, and every condition in it reads the subject. The
+engine draws a real line there, and two things hold on this side of it:
 
 - The server resolves the subject whole before the call, so no field of it is
   ever missing by accident. Every permission answers `true` or `false`, and
@@ -133,9 +146,8 @@ is the line this page sits on, and it is a real line in the engine:
   and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
 
 Now write one rule that reads the object: the customer who asked may edit their
-own question.
-Both of those bullets stop holding at once. That rule, and everything it brings
-with it, is [Rules that read the object](/acl/intermediate).
+own question. That single rule breaks both bullets at once, and
+[Rules that read the object](/acl/intermediate) is what it brings with it.
 
 ## Where to go next
 

@@ -38,17 +38,20 @@ explanation.
 its version and hydrated it, which is where [Rules that outlive the
 process](/acl/advanced) left you. The bar calls `access.can` on that evaluator
 once per action and draws from `allowed`. `reason` is what the disabled button
-says. Adding a fourth control is a statement in the policy and a row in the
-list.
+says. You extend the bar by writing a statement in the policy, never by writing
+a branch in the component.
 
 ## The shop's listing policy, in four statements
 
 The document the storefront fetched carries a permission per object kind the
-shop has, questions and orders among them, and `listing` is the kind this screen
-draws. The storefront never runs the builder call below. That call is how the
-producer wrote the four statements the storefront now answers from: Jo can
-review a listing, a bookseller can edit it, the owner can publish it, and a
-published listing is closed to edits whoever asks.
+shop has, questions and orders among them. `listing` is the kind this screen
+draws. The storefront never runs the builder call below; the producer ran it to
+write four statements:
+
+- Jo reviews a listing, and so does everyone else who is signed in.
+- A bookseller edits a listing.
+- The owner publishes a listing.
+- A published listing is closed to edits whoever asks.
 
 ```ts file=libs/acl/README.md region=listing-bar
 
@@ -60,18 +63,18 @@ the bar goes on reading `listing` out of the same document.
 
 Two condition helpers are new in that block. `p.always` is the condition that
 holds for anybody, so `review` is granted to whoever is signed in. `p.in` tests
-one subject value against an allow-list. This `Shopper` carries `role` as a
-single string, where the report policy on [rules that read the
+one subject value against a list written in the rule. This `Shopper` carries
+`role` as a single string, and the report policy on [rules that read the
 subject](/acl/simple) carried `roles` as an array and read it with `p.contains`.
-One value against a list, or one value inside a list: the two helpers run the
-same test from opposite ends.
+`p.contains` runs the test the other way round: one value written in the rule,
+against a list held on the subject.
 
-Four statements produce the whole bar. The typed builder binds `Listing`
-to the key `listing`, so `object.status` in the deny is checked against the
-interface as it is written. That is the binding that turns a misspelled path
-into a compile error, met first where [rules read the
-object](/acl/intermediate), and the schema on the document holds a foreign
-producer to the same paths once the builder's types have gone.
+Four statements produce the whole bar. The typed builder binds `Listing` to the
+key `listing`, so it checks `object.status` in the deny against the interface as
+it is written. That binding turns a misspelled path into a compile error, and
+you met it first where [rules read the object](/acl/intermediate). Once the
+builder's types have gone, the schema on the document holds a foreign producer
+to the same paths.
 
 ## What the bar draws for each shopper
 
@@ -84,16 +87,26 @@ Ask on the bookseller's behalf and `review` and `edit` come back `allowed` while
 `publish` comes back `no-rule-matched`. Each answer draws one control, and the
 component holds a list of actions and no condition of its own.
 
-That is the property worth taking away: adding a fourth control to the bar is a
-statement in the policy and a row in the list. It is never a branch in the
-component, because a branch in the component is a rule written somewhere the
-policy cannot see.
+Here is every answer the four statements give, for each shopper and each status
+the listing has:
+
+| Signed in as | Listing status | `review` | `edit`            | `publish`         |
+| ------------ | -------------- | -------- | ----------------- | ----------------- |
+| customer     | `draft`        | `allow`  | `no-rule-matched` | `no-rule-matched` |
+| bookseller   | `draft`        | `allow`  | `allow`           | `no-rule-matched` |
+| owner        | `draft`        | `allow`  | `allow`           | `allow`           |
+| bookseller   | `published`    | `allow`  | `denied`          | `no-rule-matched` |
+| owner        | `published`    | `allow`  | `denied`          | `allow`           |
+
+Add a fourth control by writing one more statement in the policy and one more
+row in the list of actions. Never add it as a branch in the component, because a
+branch in the component is a rule written somewhere the policy cannot see.
 
 ## A status change moves the bar without touching the policy
 
 Press Publish and `object.status` becomes `published`. The deny in the shop's
-listing policy now matches, `edit` comes back `denied`, and the bar draws no
-Edit button for any role, the bookseller's and the owner's alike, because a deny
+listing policy now matches, so `edit` comes back `denied`. The bar draws no Edit
+button for any role, the bookseller's and the owner's alike, because a deny
 outranks a matching allow.
 
 You recomputed nothing by hand and you wrote no second rule for the published
@@ -104,18 +117,18 @@ document.
 
 ## The screen, with the policy in your hands
 
-Both beats are below, on the policy this page has been reading. Sign in as each
-of the three and the bar is rebuilt from `access.can`. Press a role inside a
-grant to strike it out and the control that grant produced leaves while you are
-looking at it. Press Publish and the deny matches, so neither the bookseller nor
-the owner is offered Edit.
+The demo below runs the policy this page has been reading. Sign in as each of
+the three shoppers and the bar rebuilds itself from `access.can`. Press a role
+inside a grant to strike it out, and the control that grant produced leaves
+while you are looking at it. Press Publish and the deny matches, so neither the
+bookseller nor the owner is offered Edit.
 
 <AccessDemo />
 
 The policy in the panel is built by the same `policy()` call the region above
-runs, and the buttons are `Decision.allowed` and nothing else. This is the
-demonstration the front page opens with, mounted here where the four statements
-have already been explained.
+runs, and the buttons are `Decision.allowed` and nothing else. The front page
+opens with the same demonstration, mounted here where the four statements have
+already been explained.
 
 ## The browser's copy of the shop's policy decides nothing
 

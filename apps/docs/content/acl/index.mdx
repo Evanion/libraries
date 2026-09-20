@@ -22,17 +22,31 @@ touch. The document is JSON, and the call runs wherever the JSON is, so the
 server that enforces the answer and the screen that renders it read the same
 rules.
 
+```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
+flowchart LR
+  P["policy()<br>the rules, written once"] --> M[("access.matrix<br>JSON")]
+  M --> S["service<br>can(subject, …)"]:::accent
+  M --> B["browser<br>hydratePolicy(matrix)<br>can(subject, …)"]
+  S --> W[("the write")]
+  B --> U["what the screen draws"]
+```
+
 **Why you would want it.** Copies drift. You tighten the handler and forget the
 loader. The next endpoint goes out with three of the four checks. A year in, nobody
 can say who may edit a locked question without reading four files, and the UI
 greys out a button the API would have accepted.
 
 **How the library gets you there.** The rules are a JSON document called the
-matrix. `policy()` writes one and hands back an access object over it. On that
-object, `can` answers one question and carries the reasons with the answer,
-`capabilities` answers every question at once, `authorize` binds a subject for
-the length of a request, and `canFields` names the fields of a write you may
-set. You call no policy server, and you build no per-subject snapshot.
+matrix. `policy()` writes one and hands back an access object over it. That
+object answers four questions:
+
+- `can` decides one action and carries the reasons beside the answer.
+- `capabilities` decides every action at once.
+- `authorize` binds one subject for the length of a request.
+- `canFields` names the fields of a write you may set.
+
+Each of those is a local function over the frozen document, so no call waits on
+a network round trip.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -58,8 +72,8 @@ app puts every kind it has in this one policy.
 
 ## When to reach for acl
 
-You write one document and you make one call. Whether that suits you comes down
-to what your rules have to look at:
+You write one document and you make one call. Reach for acl when your rules
+have to look at one of these:
 
 - Permissions that turn on which object is in front of the user as well as on
   the role. "The customer who asked may edit their own question", "an open
@@ -73,8 +87,8 @@ to what your rules have to look at:
 
 ## When acl is the wrong tool
 
-The document is public and the answer is local, and those two facts rule out
-four jobs:
+The document is public and the answer is local. acl does not do these four
+jobs:
 
 - Anything the document cannot state in the open. The matrix reaches the
   client in full, so every object kind, action, role string, field name and time
@@ -90,7 +104,7 @@ four jobs:
 
 ## What the acl package exports
 
-This is the rest of what the entry point gives you, beyond `policy()` and `can`:
+The entry point exports these beside `policy()` and `can`:
 
 | Export                                  | What it is                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------ |
@@ -109,12 +123,12 @@ This is the rest of what the entry point gives you, beyond `policy()` and `can`:
 
 The React provider and hooks are a separate package,
 [`@evanion/react-acl`](/react-acl).
-This entry imports no framework.
+The `@evanion/acl` entry point imports no framework.
 
 ## Where to go next
 
-That table is the map. Setup is four pages: what a rule may look at separates the
-first three, and the fourth puts the result on a screen:
+Setup runs to four pages. What a rule may read separates the first three, and
+the fourth puts the answer on a screen:
 
 - [Rules that read the subject](/acl/simple). A handful of permissions, `can`
   and done.
