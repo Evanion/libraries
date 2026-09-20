@@ -58,27 +58,34 @@ per resource.
 
 ## Working the acl field axis
 
-Four hazards live on this axis, and telling them apart means reading the action
-decision and the field map together. The control below runs one `canFields`
-call and shows both, with what `pickAllowedFields` made of them beside. Each
-state it reaches has a section of its own further down this page.
+Four failures show up on this axis, and telling them apart means reading the
+action decision and the field map together. The control below runs one
+`canFields` call, shows both maps, and shows the object `pickAllowedFields`
+returns from them. The sections after it take each of the four in turn.
+
+It opens signed in as Sam Reyes, who asked the question, over an open row whose
+proposed write moves `status` to `locked`. The action is allowed and every
+field of that write is writable. Four moves take it elsewhere:
 
 - Sign in as Jo Vainio, who asked no question here. The action decides
   `no-rule-matched`, every field still carries a state, and `pickAllowedFields`
   throws `ActionNotAllowedError`.
-- Post `pinned`, a key the policy's name list never mentions. It decides
-  `denied` with the reason `not-listed`, and the write that reaches the ORM
-  does not carry it. That is the mass-assignment case.
-- Move the row to `locked`. The `transitions` config names an empty array of
+- Tick the `pinned` checkbox, which posts a key the policy's name list never
+  mentions. `pinned` decides `denied` with the reason `not-listed`, and the
+  write that reaches the ORM does not carry it. That is the mass-assignment
+  case.
+- Set `status now` to `locked`. The `transitions` config names an empty array of
   edges out of `locked`, so `status` decides `denied` with `transition-failed`.
-- Take `status` out of the row the query returned. `transitions` reads the value
-  the row holds now, so `status` decides `unevaluable` with `missing-field` and
-  is withheld from the write.
+- Tick the checkbox saying the query did not select `status`, which takes the
+  field off the row. `transitions` reads the value the row holds now, so
+  `status` decides `unevaluable` with `missing-field` and is withheld from the
+  write.
 
 <FieldWriteDemo />
 
 The policy behind the control names `body` in its allow-list and gives `status`
-a `transitions` config, so `askedBy` decides `not-listed` whoever is signed in.
+a `transitions` config, so `askedBy` decides `denied` with the reason
+`not-listed` whoever is signed in.
 
 ## Why hand-filtering the acl field map is the bug
 

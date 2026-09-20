@@ -129,26 +129,25 @@ and you get a real answer.
 
 ### Watching an acl decision move between the four answers
 
-The control below runs the policy above. A checkbox per field says whether the
-query selected that field, and a field the query left out never reaches the
-engine.
+The control below runs the policy above. Each field carries a checkbox saying
+whether the query selected it and a select saying what it holds, and a field
+the query left out never reaches the engine.
 
 It opens on a projection that selected neither field, so the decision is
 `unevaluable` and `missing` names both paths. Select both and the question is
-yours and open, which is `allow`. Change `askedBy` to `s2` and the allow rule
+yours and a draft, which is `allow`. Change `askedBy` to `s2` and the allow rule
 compares two identifiers that differ, which is `no-rule-matched`. Change
 `status` to `locked` and the deny rule matches, which is `denied` whatever the
 allow side said.
 
 A decision returns to `unevaluable` only where the data it does have settles
-nothing. Clear `status` on your own open question and the deny side has nothing
+nothing. Clear `status` on your own draft question and the deny side has nothing
 to read, so `missing` names `object.status`. Clear it on Jo's question and the
 answer is `no-rule-matched`, because the allow rule already failed on data the
 engine did have.
 
 Refetch selects exactly what `missing` named and asks again. One press turns
-the opening `unevaluable` into a real answer, which is what separates a
-repairable decision from a refusal.
+the opening `unevaluable` into a real answer.
 
 <UnevaluableDemo />
 
