@@ -37,8 +37,8 @@ one subject, keyed, in document order, in one pass.
 ```
 
 One policy holds every object kind the app has. That one chains a `.for()` for
-`report` and another for `listing`, and `capabilities` answers across both,
-which is what makes it one call and not one per resource.
+`report` and another for `listing`, and `capabilities` answers across both from
+the single call.
 
 ## The no-object contract in acl
 
@@ -50,12 +50,18 @@ decides what the answer can mean:
   have.
 - A permission whose rules read any `object.*` path decides `unevaluable`, with
   `missing` naming the paths. There is no instance to compare against, so the
-  question has not been asked yet, and `false` would overstate what the engine
-  knows.
+  question has not been asked yet, and `false` overstates what the engine knows.
+
+```mermaid caption="One subject against the whole document, in one pass. A permission whose rules read only subject.* settles, because the subject was resolved whole. A permission whose rules read object.* has nothing to compare against and comes back unevaluable, with missing naming the paths."
+flowchart LR
+  S["capabilities(subject)"]:::accent --> P["every permission<br>in the document"]
+  P -->|"rules read subject.* only"| A["allowed true or false<br>a settled answer"]
+  P -->|"rules read any object.*"| U["unevaluable<br>missing names the paths"]
+```
 
 So read the map as the answer to every question that can be answered without a
-row. It falls short of "the user's permissions" by exactly the permissions that
-need one.
+row. It falls short of the subject's full permissions by exactly the permissions
+that need one.
 
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
@@ -114,10 +120,11 @@ built on `!caps[key]?.allowed` shows every item the matrix has never heard of.
 
 This document arrived as JSON, so its keys are `string` and the miss happens at
 runtime. A policy the builder authored carries its keys in the type, and
-`caps['listing.read']` is then a compile error rather than an absent entry.
+`caps['listing.read']` is then a compile error and never an absent entry.
 
-Prefer this over a loop of `can` over every key. `capabilities` settles the
-clock once for the whole document; a loop settles it per permission.
+You should make one `capabilities` call for the whole menu, because it settles
+one instant for the whole document. A loop of `can` settles the clock per
+permission, so a `before` boundary can fall between two items of one render.
 
 ## What an acl capability map does not replace
 
@@ -126,9 +133,10 @@ question, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
 rows. A capability map cannot answer it, and an entry that came back
 `unevaluable` is the map saying so.
 
-`capabilities` is also not a per-subject projection to ship to a client. The
-client gets `access.matrix` and evaluates it locally; that is the package's
-whole premise, and a projection would be a second thing to keep fresh.
+`capabilities` is also not a per-subject projection to ship to a client. Ship
+the client `access.matrix` and let the client evaluate it locally, which is the
+package's whole premise. A per-subject projection is a second artifact to keep
+fresh.
 
 ## Where to go next
 

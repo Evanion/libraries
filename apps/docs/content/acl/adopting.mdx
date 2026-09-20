@@ -66,8 +66,19 @@ has moved on. The producer removed a permission, or this consumer was written
 against an older revision, and a throw there takes down a page over a permission
 nobody has.
 
+```mermaid caption="Closed mode on the consumer's side. parseMatrix answers from the adopted rules for every key the document carries, and answers unknown-action with allowed false for every key it does not, so a permission the producer removed does not take the page down. Orders decides again on its own matrix when the refund call arrives."
+flowchart LR
+  J["the producer's matrix,<br>as JSON"] --> P["parseMatrix(json)<br>closed"]:::accent
+  P --> K{"does the document<br>carry this key?"}
+  K -->|"yes"| D["a decision<br>from the adopted rules"]
+  K -->|"no"| U["unknown-action<br>allowed false"]
+  D --> C["the storefront draws<br>the refund button"]
+  C --> O["orders decides again<br>on its own matrix"]
+```
+
 Neither path grants. `unknown-action` is `allowed: false`, so the closed path
-refuses the call it could not decide.
+refuses the call it could not decide, and the producing service decides for
+itself when the call reaches it.
 
 ## Adopting a document still validates it
 
@@ -92,7 +103,7 @@ form that survives a JSON round trip.
 
 Adoption is a boundary, so handle the throw. `parseMatrix` on a payload from the
 network can fail for reasons this process cannot fix. Catch `AclConfigError`,
-keep the last document that constructed, and alarm. A fresh document that will
+keep the last document that constructed, and alarm. A fresh document that does
 not build still leaves you a policy to serve.
 
 ## Check a foreign document against a schema
@@ -108,8 +119,8 @@ The document above declares `status` as a string and then tests it with
 `contains`, which tests an array, so `hydratePolicy` refuses it with
 `FieldTypeMismatchError`. A condition naming a field the schema does not declare
 at all is `UnknownFieldError`, raised the same way. Without a schema,
-`object.askedBt` raises nothing. It is a path that never reads, so the
-permission decides `unevaluable` forever and a UI refetches forever.
+`object.askedBt` raises nothing. That misspelling is a path that never reads, so
+the permission decides `unevaluable` forever and a UI refetches forever.
 
 `schema.objects` declares one entry per object kind, and that document declares
 `question`. A producer publishing four kinds declares four, in the same schema,
@@ -119,6 +130,9 @@ checks part of the document.
 
 ## Know which document acl is running
 
+A consumer holding a document for weeks needs to say which revision decided.
+`version` travels on the envelope and survives the round trip:
+
 ```ts file=libs/acl/README.md region=matrix-round-trip
 
 ```
@@ -127,7 +141,7 @@ checks part of the document.
 version })` overrides the document's own: the document states what a producer
 shipped, the option states what this site is actually running. The option wins,
 and the frozen `access.matrix` carries the winner, so the version that decided is
-the version that crosses an SSR boundary.
+the version that crosses a server-side rendering (SSR) boundary.
 
 A document stating no version leaves `access.version` undefined, where a `!==`
 decides nothing. [Refetch when the version

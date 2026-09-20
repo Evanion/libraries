@@ -38,17 +38,25 @@ you pass `'question'` and never `'question.update'`. It answers with a decision.
 ```
 
 The policy above declares one object kind because the example has one. Chain a
-`.for()` per kind and the questions and the listings sit in the same document,
-which is the document `can` reads. You do not build a policy per resource.
+`.for()` per kind to put the questions and the listings in the same document,
+which is the document `can` reads. Do not build a policy per resource.
 
 ## Why an acl decision is not a boolean
 
 A boolean tells the handler whether to run the save. It tells the Edit button
-nothing. Somebody will ask you why that button is greyed out, and a caller
-holding only `true` or `false` answers by calling again to work it out or by
-guessing a string from context.
+nothing. When support asks why that button is greyed out, a component holding
+only `true` or `false` answers by calling again to work it out or by guessing a
+string from context.
 
-So `allowed` is the answer, and three more fields explain it.
+So `allowed` is the answer, and three more fields explain it. One call feeds
+both consumers:
+
+```mermaid caption="One call, two consumers. The handler gates on allowed and reads nothing else; the Edit button reads reason, rule and missing to say why it is greyed out. Both read the same decision, so the two cannot disagree."
+flowchart LR
+  Q["access.can(subject,<br>'question', 'update', row)"]:::accent --> D["a decision"]
+  D -->|"allowed"| H["the handler<br>runs the save, or refuses"]
+  D -->|"reason, rule, missing"| U["the Edit button<br>label and state"]
+```
 
 `reason` comes back on every decision and says which of the seven answers this
 one is. `rule` names the rule that decided, by its `id` or by `#n` for its
@@ -58,11 +66,13 @@ not read, and it rides on `unevaluable`. An `unevaluable` the allow side raised
 carries `missing` and no `rule`, because only the deny side names a rule there.
 
 All of them are output only. Nothing in the library reads a `reason` back to
-decide anything, which cuts both ways: **gate on `allowed`**, because gating on
-the reason string grants what the engine refused. [Why was this
+decide anything, and that cuts both ways: **gate on `allowed`**, because a gate
+on the reason string grants what the engine refused. [Why was this
 refused?](/acl/refusals) is what to do with the rest.
 
 ## The four things that can come back
+
+Four shapes come out of `can`, and one policy produces all four:
 
 ```ts file=libs/acl/README.md region=four-outcomes
 
@@ -93,18 +103,19 @@ access.object('question').can(subject, 'update', {});
 
 A projection that carries a path some rule reads decides definitely. One that
 does not comes back `unevaluable`, with `missing` naming what to fetch. Both are
-`allowed: false`, so gating on `allowed` is correct either way. Gate on `reason`
+`allowed: false`, so gate on `allowed` and both come out right. Gate on `reason`
 and a projection turns into permission the engine never granted. [Caveats and
 pitfalls](/acl/pitfalls) has that one first.
 
 `access.readsObject(kind, action)` answers, from the document, whether a
 permission needs the row at all. A permission that reads only the subject
-settles with no object, and a caller holding a projection is the caller that
-wants to know which kind it is asking about before it goes to the database.
+settles with no object. Ask `readsObject` before the database query when you
+hold a projection and want to know which kind of permission you are asking
+about.
 
-The subject has no partial form. An absent `subject.*` path is a definite miss,
-so a projected subject would refuse with `no-rule-matched` and name nothing to
-fetch. The app resolves the subject whole, and the type says so.
+The subject has no partial form. An absent `subject.*` path is a definite miss.
+If you project the subject, the call refuses with `no-rule-matched` and names
+nothing to fetch. The app resolves the subject whole, and the type says so.
 
 ## Asking about a list
 
@@ -116,8 +127,8 @@ fetch. The app resolves the subject whole, and the type says so.
 
 The array is parallel to the input, so the decision for `rows[i]` is
 `decisions[i]`. Nothing is filtered out. A refused row keeps its entry, so the
-table draws the refusal beside the row. Drop the row and a reader wonders what
-happened to the record they can still see in search.
+table draws the refusal beside the row. Drop the row and the customer wonders
+what happened to the record they can still see in search.
 
 The policy behind that call declares one kind. A page that lists questions and
 listings together asks one `canMany` per kind against the same `access`.
@@ -139,6 +150,10 @@ one rendering keeps the page consistent with itself, and the speed is a side
 effect.
 
 ## Binding what an acl call repeats
+
+Every handler in a request passes the same subject, and most of them name the
+same object kind. `authorize` and `access.object` take those two out of the
+signature once:
 
 ```ts file=libs/acl/README.md region=server-authorize
 
