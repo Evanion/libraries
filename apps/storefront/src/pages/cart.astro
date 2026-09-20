@@ -58,8 +58,10 @@ function persist(next: CartLine[]) {
 //
 // One decision per request, read by the handler below and by the checkout button
 // further down, so the page and the write path answer to the same verdict.
+// #region order-decision
 const decision = decide(access, subject, 'order', 'create');
 const mayOrder = decision?.allowed === true;
+// #endregion order-decision
 
 if (Astro.request.method === 'POST' && !mayOrder) {
   Astro.response.status = 403;
@@ -266,6 +268,7 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
             </div>
 
             <div class="cart__actions">
+              {/* #region checkout-gate */}
               <form method="post" action="/cart">
                 <input type="hidden" name="intent" value="checkout" />
                 <button
@@ -275,6 +278,7 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
                   {mayOrder ? 'Place the order' : 'Sign in to order'}
                 </button>
               </form>
+              {/* #endregion checkout-gate */}
               <a class="baize-button baize-button--variant-standard" href="/">
                 Keep browsing
               </a>

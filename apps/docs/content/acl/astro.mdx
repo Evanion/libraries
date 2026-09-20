@@ -1,0 +1,154 @@
+# Astro SSR
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    `apps/storefront` in this repository is Baize's shop front: an Astro app
+    with `output: 'server'` and the standalone Node adapter, running no
+    JavaScript in the browser. It adopts `apps/shop-api`'s published document,
+    decides on it in middleware and in page frontmatter, and the fences citing
+    it run under `nx test storefront`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={3}
+  read={7}
+  requires={[['A policy from another service', '/acl/adopting']]}
+  unlocks={[
+    ['React Server Components', '/acl/next-rsc'],
+    ['Security contract', '/acl/security'],
+  ]}
+/>
+
+**The concept.** An `.astro` page's frontmatter runs on the server, and it is
+the loader and the action for that page in one module. The gate on what the page
+renders and the gate on what the page writes are lines in the same file, so one
+decision above them serves both. A prerendered Astro build has neither gate,
+because it has no process at request time.
+
+**What you get.** What `apps/storefront` runs: middleware opening the
+per-request context, shop-api's document adopted once at module scope, and
+`cart.astro` reaching one `order.create` decision that its `POST` branch and its
+checkout button both read.
+
+**Why you want it.** Baize's cart is one URL answering two methods. A shopper
+sees a checkout button and presses it; a script posts `intent=checkout` to the
+same path without ever loading the page. Both arrive at the same frontmatter.
+
+**How the library gets you there.** `parseMatrix` adopts the fetched document
+once per process, so a `can` call in a page's frontmatter is a local function
+call over a frozen copy and no render waits on a network round trip.
+
+## Server output is what makes the page a boundary
+
+Astro builds either way, and which way decides whether anything on this page
+applies. A prerendered build runs a page's frontmatter once, at build time, and
+ships the HTML it produced; no process exists at request time to resolve a
+subject against, and no handler exists for a form to post to. A server-rendered
+build runs the frontmatter on every request, inside a Node process the operator
+controls, which is a trusted runtime and a genuine trust boundary.
+
+`apps/storefront/astro.config.mjs` sets `output: 'server'` and the `@astrojs/node`
+adapter in standalone mode. Under a prerendered build the middleware below would
+run once at build time, against whoever built the site, and the catalogue would
+be baked into the HTML.
+
+## The middleware opens the request context
+
+Astro middleware runs ahead of any page's frontmatter, so it is where this app
+resolves who is asking and which document to ask against. `readSubject` reads the
+visitor's cookie, `ShopApi.forRequest` is the typed client for shop-api, and
+`policyAccess` answers with the adopted evaluator:
+
+```ts file=apps/storefront/src/middleware.ts region=open-context
+
+```
+
+Every page then reads `Astro.locals.subject` and `Astro.locals.access` and
+decides for itself. Resolving both once per request is what stops two blocks on
+one page from deciding against two different identities.
+
+`policyAccess` awaits a fetch only where this process holds no document or the
+revalidation window has closed. Every other request reads a document already
+validated, deep-cloned and deep-frozen, so a decision in a page's frontmatter
+costs a function call. [Platforms](/acl/platforms) carries the cache, the window
+and what a failed poll leaves behind.
+
+## The frontmatter is the loader and the action in one module
+
+An `.astro` page answers every method at its URL out of the same frontmatter,
+and that is what makes this platform its own shape. A React Router route reaches
+its loader and its action independently, and an RSC route reaches its render and
+its Server Action independently, so each of those owes two decisions written in
+two places. Here one decision at the top of the file serves the render path and
+the write path, because both paths are in the file.
+
+`apps/storefront`'s cart is that shape. `decide` answers with a `Decision`, or
+with `undefined` where this app holds no document to decide on, and `mayOrder` is
+what both gates read:
+
+```ts file=apps/storefront/src/pages/cart.astro region=order-decision
+
+```
+
+The `POST` branch reads `mayOrder` before anything else. A refused visitor gets
+status 403 and the wording `refusalText` picks, and the cart cookie is untouched.
+Every intent the form carries is decided against `order.create`, including the
+three that only edit that cookie, because a cart is the draft of an order and a
+visitor the matrix refuses an order has nothing to draft.
+
+The checkout button reads the same `mayOrder` further down the file:
+
+```astro file=apps/storefront/src/pages/cart.astro region=checkout-gate
+
+```
+
+The disabled button is the convenience and the `POST` branch is the enforcement.
+A script posting `intent=checkout` to `/cart` draws no button and still meets the
+decision above it. One `can` call answers both, so this page cannot show a
+control its own handler would refuse.
+
+```mermaid caption="One decision at the top of cart.astro, read by both gates. A page view and a direct POST enter the same frontmatter, which resolves order.create once: the render path draws the checkout button enabled or disabled from that verdict, and the POST path answers 403 from the same one."
+flowchart TD
+  V["a page view"] --> F["cart.astro frontmatter"]
+  C["a script posting to /cart"] --> F
+  F --> D["decide: order.create, once"]:::accent
+  D --> R["the checkout button,<br>drawn enabled or disabled"]
+  D --> W["the write path:<br>the order is placed, or 403"]
+```
+
+## Narrow the roles before forwarding them
+
+`apps/storefront` states its subject to `apps/shop-api` on the `X-Shop-Subject`
+header, so whatever it forwards is what that service believes about the caller.
+The cookie it reads is unsigned, which makes this hop the last place that knows
+which roles this surface may assert. It screens the claim down to the one role
+`/session` issues:
+
+```ts twoslash file=apps/storefront/src/lib/subject.ts region=storefront-roles
+
+```
+
+`parseSubject` discards a payload claiming any role outside that list, whole
+rather than in part, so a hand-edited cookie claiming `manager` reaches the API
+as an anonymous shopper. Repairing half of it would hand the matrix a subject
+whose `shop` nobody stated.
+
+## This app has no browser copy to keep honest
+
+`apps/storefront` ships no JavaScript to the browser, so nothing there evaluates
+anything and every decision it makes happens in the Node process. That does not
+make its decisions the authoritative ones for the catalogue. `apps/shop-api` owns
+the data, holds the same document, and decides again on every request it
+receives, against a subject it resolves itself. Neither layer reads the other's
+verdict, and a storefront that hid the checkout button does not excuse the
+service the form posts to.
+
+## Where to go next
+
+- [Security contract](/acl/security) — subject authenticity, complete mediation,
+  and the rest of what a consumer owns
+- [React Server Components](/acl/next-rsc) — the same trusted render, with the
+  write on a second entry point
+- [A policy from another service](/acl/adopting) — closed mode and what a fetched
+  document obliges

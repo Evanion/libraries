@@ -28,6 +28,7 @@ import { readSubject } from './lib/subject.js';
  * prerendered build it would run once at build time, which is the reason
  * astro.config.mjs sets `output: 'server'`.
  */
+// #region open-context
 export const onRequest = defineMiddleware(async (context, next) => {
   const subject = readSubject(context.cookies);
 
@@ -43,3 +44,4 @@ export const onRequest = defineMiddleware(async (context, next) => {
   response.headers.set(CORRELATION_HEADER, context.locals.api.correlationId);
   return response;
 });
+// #endregion open-context

@@ -27,24 +27,27 @@ the third changes from platform to platform.
 
 ## Where the boundary sits
 
-| Platform                            | The call that decides                                   | What is not a boundary                         |
-| ----------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| [Express](/acl/express)             | the request handler                                     | nothing crosses; the whole app is trusted      |
-| [NestJS](/acl/nestjs)               | the guard, then the service after the read              | the guard alone, which runs before the row     |
-| Astro SSR                           | the page's frontmatter, once per request                | the rendered markup, and the form posting back |
-| [Next.js RSC](/acl/next-rsc)        | the server component, and each Server Action separately | the client component, and the action's caller  |
-| [React Router 8](/acl/react-router) | the loader, and each action separately                  | the component tree, and `clientLoader`         |
+| Platform                                 | The call that decides                                   | What is not a boundary                         |
+| ---------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| [Express](/acl/express)                  | the request handler                                     | nothing crosses; the whole app is trusted      |
+| [NestJS](/acl/nestjs)                    | the guard, then the service after the read              | the guard alone, which runs before the row     |
+| [Astro SSR](/acl/astro)                  | the page's frontmatter, once per request                | the rendered markup, and the form posting back |
+| [React Server Components](/acl/next-rsc) | the server component, and each Server Action separately | the client component, and the action's caller  |
+| [React Router 8](/acl/react-router)      | the loader, and each action separately                  | the component tree, and `clientLoader`         |
 
 The two server-only platforms have one boundary, the request handler. The two
 React platforms have two: the render path and the write path, reached
 independently by a caller who never renders anything.
 
-Astro is the fifth shape, and server-side rendering (SSR) is the whole of its
-trusted runtime. An `.astro` page's frontmatter is the loader and the action in
-one module. `apps/storefront`'s `cart.astro` reaches one `order.create` decision
-at the top, and both gates read it: the `POST` branch answers 403, and the
-checkout button below draws from the same verdict. A script that never loaded
-the page still reaches that URL, and the frontmatter meets it.
+[Astro SSR](/acl/astro) is the fifth shape, and server-side rendering (SSR) is
+the whole of its trusted runtime. A prerendered Astro site has no runtime at
+request time, so it has nothing to decide with and belongs in no row of this
+table; a server-rendered one runs a page's frontmatter per request in a process
+the operator controls. That frontmatter is the loader and the action in one
+module. `apps/storefront`'s `cart.astro` reaches one `order.create` decision at
+the top, and both gates read it: the `POST` branch answers 403, and the checkout
+button below draws from the same verdict. A script that never loaded the page
+still reaches that URL, and the frontmatter meets it.
 
 [Many services](/acl/federation) closes this band on a topology, the one axis
 the guides do not cover. Each service there authors and evaluates only the
