@@ -136,10 +136,33 @@ describe('the menu', () => {
 
 describe('the form', () => {
   it('leaves an allowed field writable and every other field read-only', () => {
-    mount(<ListingForm listing={{ id: 'x', blurb: 'Canals.', price: 45 }} />);
+    mount(
+      <ListingForm listing={{ ...OWN_DRAFT, blurb: 'Canals.', price: 45 }} />,
+    );
 
     expect(screen.getByLabelText('Blurb')).not.toHaveAttribute('readonly');
     expect(screen.getByLabelText('Price')).toHaveAttribute('readonly');
+  });
+
+  /**
+   * The field map is filled whatever the action decided, and this listing
+   * carries no `sellerId` the allow rule can read, so the action comes back
+   * `unevaluable` while `blurb` still reports `allowed`. A form reading only
+   * the map would offer a write the engine refused.
+   */
+  it('draws no input when the action itself is refused', () => {
+    mount(
+      <ListingForm
+        listing={{
+          ...OTHER_DRAFT,
+          blurb: 'Canals.',
+          price: 45,
+        }}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Blurb')).toBeNull();
+    expect(screen.queryByLabelText('Price')).toBeNull();
   });
 });
 
