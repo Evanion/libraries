@@ -7,16 +7,22 @@
   </Text>
 </WorkshopNotice>
 
-Each entry is a mistake, the form to write instead, and why the difference
-matters. Several of these have been made in this repository.
+Every decision `@evanion/acl` returns carries one gate, `allowed`, and several
+explanation fields that gate nothing. Each heading below names a mistake this
+API makes easy, with the form to write instead, and several have been made in
+this repository.
 
-The fences share their names. `access` is the evaluator `policy().build()` or
-`hydratePolicy(matrix)` handed back, and `subject` is the bookseller the server
-resolved from the session. `decision` is what `can` or `canFields` answered.
-`current` is the row as it stands, `projection` is a partial of it, and
-`proposed` is the write a form submitted.
-`p` is the block parameter a `.for()` call passes its block, carrying `allow`,
-`deny`, `fields` and the condition helpers.
+The fences share their names:
+
+| Name         | What it holds                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `access`     | the evaluator `policy().build()` or `hydratePolicy(matrix)` handed back                                     |
+| `subject`    | the bookseller the server resolved from the session                                                         |
+| `decision`   | what `can` or `canFields` answered                                                                          |
+| `current`    | the row as it stands                                                                                        |
+| `projection` | a partial of `current`                                                                                      |
+| `proposed`   | the write a form submitted                                                                                  |
+| `p`          | the block parameter `.for()` passes its block, carrying `allow`, `deny`, `fields` and the condition helpers |
 
 ## Reading a decision
 

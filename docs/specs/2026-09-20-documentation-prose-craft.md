@@ -117,6 +117,12 @@ Where the test is countable, the count is named.
    in the reader's words, before any mechanism.** Test: read the heading and
    the first sentence alone. They answer "why am I here" with no second
    sentence. No H2 section opens on a bare symbol. Section 2.
+   Superseded by decision 21 of
+   `docs/specs/2026-09-20-public-documentation-guidance.md`, which has the first
+   sentence name its subject and state what the subject does, and which puts a
+   symbol in the first few words where the subject is a symbol. This decision
+   delayed the technical content, and section 12 of that document reports what
+   it cost on `apps/docs/content`.
 5. **A term of art enters in a sentence whose grammatical subject is the term,
    and nothing uses it before that sentence.** Test: search the page for the
    term; the first hit is the definition. Section 3.
@@ -212,6 +218,10 @@ The corresponding count for section openings, decision 4's, is stricter and
 section 2 says why.
 
 ## 2. What a section's first sentence does
+
+Decision 4 is superseded by decision 21 of
+`docs/specs/2026-09-20-public-documentation-guidance.md`. This section is the
+reasoning behind the superseded form and is kept for that.
 
 Brass opens every action section the same way. The Build section's first
 sentence:

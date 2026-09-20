@@ -9,18 +9,15 @@
   </Text>
 </WorkshopNotice>
 
-**The concept.** Baize is a board game shop. A customer leaves a question under
-its Brass: Birmingham listing, and they may edit that question. A bookseller may
-edit anybody's. Once the shop locks a question, nobody may edit it at all. Those
-three sentences are Baize's authorization rules, and today you write them out
-again in the handler and again in the component that greys out the button.
+**The concept.** `@evanion/acl` holds every authorization rule an app has in one
+JSON document and answers one question against it: may this subject take this
+action on this object? Baize, a board game shop, states three rules that way. A
+customer may edit their own question, a bookseller may edit anybody's, and a
+locked question is editable by nobody.
 
-**What you get.** One document that holds every rule your app has, and one
-call that reads it: may this subject take this action on this object? The
-subject is whoever is asking, and the object is the one thing they want to
-touch. The document is JSON, and the call runs wherever the JSON is, so the
-server that enforces the answer and the screen that renders it read the same
-rules.
+**What you get.** One document and one call, both of which run wherever the
+JSON is, so the server that enforces the answer and the screen that renders it
+read the same rules.
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -31,22 +28,20 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-**Why you want it.** Copies drift. You tighten the handler and forget the
-loader. The next endpoint goes out with three of the four checks. A year in, nobody
-can say who may edit a locked question without reading four files, and the UI
-greys out a button the API would have accepted.
+**Why you want it.** Hand-written copies of a rule drift: you tighten the
+handler, forget the loader, and the UI greys out a button the API would have
+accepted.
 
-**How the library gets you there.** The rules are a JSON document called the
-matrix. `policy()` writes one and hands back an access object over it. That
-object answers four questions:
+**How the library gets you there.** `policy()` writes the JSON document, called
+the matrix, and hands back an access object with four methods on it.
 
 - `can` decides one action and carries the reasons beside the answer.
 - `capabilities` decides every action at once.
 - `authorize` binds one subject for the length of a request.
 - `canFields` names the fields of a write you may set.
 
-Each of those is a local function over the frozen document, so no call waits on
-a network round trip.
+Each is a local function over the frozen document, so no call waits on a network
+round trip.
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
@@ -55,9 +50,8 @@ a network round trip.
 `can` answers with a decision. `allowed` is the answer; `reason`, `rule` and
 `missing` are why.
 
-One `.for()` block declares one object kind, and you chain a block per kind. The
-example above declares `question` because `question` is all it asks about. Your
-app puts every kind it has in this one policy.
+One `.for()` block declares one object kind, and a policy chains a block per
+kind. The example declares only `question` because that is all it asks about.
 
 <Panel heading="A decision counts where it is made">
   <Text as="div" size="sm">
@@ -72,34 +66,30 @@ app puts every kind it has in this one policy.
 
 ## When to reach for acl
 
-You write one document and you make one call. Reach for acl when your rules
-have to look at one of these:
+acl fits rules that read one of these:
 
 - Permissions that turn on which object is in front of the user as well as on
   the role. "The customer who asked may edit their own question", "an open
   question may be deleted and a locked one may not".
-- The same rules needed on a server and in a UI, without writing them twice and
-  without an endpoint per question. The document crosses an SSR boundary as
-  `access.matrix` and rebuilds on the other side.
-- A UI that has to explain a block as well as enforce it: which rule refused,
-  which field is read-only, and what is still missing.
+- The same rules on a server and in a UI. The document crosses an SSR boundary
+  as `access.matrix` and rebuilds on the other side.
+- A UI that explains a block as well as enforcing it: which rule refused, which
+  field is read-only, and what is still missing.
 - A field-level write, where the answer names which fields are yours.
 
 ## When acl is the wrong tool
 
-The document is public and the answer is local. acl does not do these four
-jobs:
+acl does not do these four jobs:
 
-- Anything the document cannot state in the open. The matrix reaches the
-  client in full, so every object kind, action, role string, field name and time
+- Anything the document cannot state in the open. The matrix reaches the client
+  in full, so every object kind, action, role string, field name and time
   boundary in it is public. Opaque predicates stay server-side, outside the
   matrix.
-- Filtering a collection in the database. A decision is per instance; there is
-  no row-scoping query language, and generating a `WHERE` clause from the matrix
-  is out of scope.
-- Rules that need to call a function. Conditions are declarative because the
-  matrix must pass through `JSON.stringify` unchanged.
-- A non-JS backend. Only the JSON crosses; a .NET or Go service uses its own
+- Filtering a collection in the database. A decision is per instance, and
+  generating a `WHERE` clause from the matrix is out of scope.
+- Rules that call a function. Conditions are declarative because the matrix must
+  pass through `JSON.stringify` unchanged.
+- A non-JS backend. Only the JSON crosses, and a .NET or Go service uses its own
   evaluator.
 
 ## What the acl package exports
@@ -121,14 +111,12 @@ The entry point exports these beside `policy()` and `can`:
 | `applyDenyOverlay(matrix, overlay, …)`  | another team's denies, merged before construction                              |
 | `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)              |
 
-The React provider and hooks are a separate package,
-[`@evanion/react-acl`](/react-acl).
-The `@evanion/acl` entry point imports no framework.
+The `@evanion/acl` entry point imports no framework. The React provider and
+hooks are a separate package, [`@evanion/react-acl`](/react-acl).
 
 ## Where to go next
 
-Setup runs to four pages. What a rule may read separates the first three, and
-the fourth puts the answer on a screen:
+Setup runs to four pages, separated by what a rule may read:
 
 - [Rules that read the subject](/acl/simple). A handful of permissions, `can`
   and done.

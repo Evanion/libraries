@@ -4,18 +4,17 @@
 
 <Panel heading="In a browser, `can` decides what the user sees">
   <Text as="div" size="sm">
-    It shows or hides a button and enables or disables a field. The control
-    disappears; the data behind it stays, and so does the request the control
-    would have sent. Enforcement happens in a trusted environment, and a page
-    that hid the button does not excuse the handler the button posts to.
+    The control disappears; the data behind it stays, and so does the request
+    the control would have sent. Enforcement happens in a trusted environment,
+    and a page that hid the button does not excuse the handler the button posts
+    to.
   </Text>
 </Panel>
 
-A decision counts where it is made: authoritative in a trusted environment (a
-React Router 8 or Next.js server runtime, a Node service, the server side of an
-API boundary) and advisory everywhere else. The call has the same signature and
-the same return type in both places. Nothing in the types separates them, and
-the runtime does.
+`can` is authoritative in a trusted environment (a React Router 8 or Next.js
+server runtime, a Node service, the server side of an API boundary) and advisory
+everywhere else. The signature and the return type are the same in both places,
+nothing in the types separates them, and the runtime decides which one you have.
 
 ## Every layer decides for itself
 
@@ -32,38 +31,33 @@ flowchart LR
   B -. "reaches the service directly" .-> S
 ```
 
-The second evaluation is a local function call over a frozen object, with no
-round trip anywhere. That is what makes "check again" a rule a team can keep.
+The second evaluation is a local function call over a frozen object with no
+round trip, which is what makes "check again" a rule a team can keep.
 
 ## The matrix is a public document
 
-It ships to the client in full, names and structure as well as values. Anyone
-who loads the page reads every object kind, every action name, every role string
-in a condition, every field name including the ones the API never returns, every
-state machine and every time window. That is a map of the privilege model and of
-the server's vocabulary.
+The matrix ships to the client in full, names and structure as well as values.
+Anyone who loads the page reads every object kind, every action name, every role
+string in a condition, every field name including the ones the API never
+returns, every state machine and every time window.
 
 Ship it anyway. Security must not rest on the document staying secret, and here
-it does not. Name things as if someone were going to read them, because someone
-is. An action named `bypass-kyc` or a role named `internal-fraud-reviewer` is
-disclosed the moment the page loads. Secrets and server-only predicates belong
-outside the matrix, in the app layer.
+it does not. Name things as if a reader has them open, because one does: an
+action named `bypass-kyc` or a role named `internal-fraud-reviewer` is disclosed
+the moment the page loads. Secrets and server-only predicates belong outside the
+matrix, in the app layer.
 
 ## Three tiers
 
 The package holds itself to [a register](/acl/register), one row per class of
-attack, each row naming the test that proves it. The suite runs under
-`nx test @evanion/acl`, so every change is checked against it.
+attack, each row naming the test that proves it, running under
+`nx test @evanion/acl`.
 
-A tier 1 entry is one the library prevents, with a construction error or a
-refusal. A tier 2 entry is one where the library supplies the primitive and the
-consumer has to call it. A tier 3 entry is structurally out of scope, and the
-contract clause is the answer.
-
-Tier 1 runs from mass assignment to matrix shapes that exhaust the process. Tier
-2 is where the primitive exists and the consumer has to call it:
+Tier 1 is what the library prevents with a construction error or a refusal, and
+it runs from mass assignment to matrix shapes that exhaust the process. Tier 2
+is where the library supplies the primitive and the consumer calls it:
 [`pickAllowedFields`](/acl/fields#writing) for a write, `allowed` for a gate.
-Tier 3 is the rest of this page.
+Tier 3 is structurally out of scope, and it is every section below.
 
 ## Subject authenticity
 
@@ -120,23 +114,22 @@ side reads the fields its own rules name. A bag whose properties are accessors
 (an ORM row, a lazy proxy, a memoised getter over a cache that can refill) can
 answer the two sides differently and pass the deny it should have matched.
 
-The matrix the engine evaluates is a frozen deep copy for exactly this reason.
-The subject and the object are not copied, because they are the app's data and
-copying them would hide the cost. Pass plain, already-resolved objects.
+The matrix the engine evaluates is a frozen deep copy for this reason. The
+subject and the object are not copied, because they are the app's data. Pass
+plain, already-resolved objects.
 
 ## What a condition may read
 
 A condition may read only fields the subject cannot write. A rule that keys on
 an object field within the subject's reach is self-authorizing: the subject
 edits the field, then passes the check the field controls.
-`eq('object.sharedWith', 'subject.id')` is the obvious trap. A user puts their
-own id in the share field and walks through the check.
+`eq('object.sharedWith', 'subject.id')` is the obvious trap.
 
-The engine cannot see this. It does not know which fields the subject can write,
-and the write that opens the door is a different action from the read. Keep the
-field out of every write path the rule guards, or key the rule on something the
-subject cannot reach: ownership set at creation, or a field the server alone
-writes.
+The engine cannot see this, because it does not know which fields the subject
+can write, and the write that opens the door is a different action from the
+read. Keep the field out of every write path the rule guards, or key the rule on
+something the subject cannot reach: ownership set at creation, or a field the
+server alone writes.
 
 ## Matrix freshness
 
