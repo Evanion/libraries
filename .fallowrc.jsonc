@@ -11,6 +11,12 @@
     "internal/baize-ui/tools/generate-tokens.ts",
     "tools/**/src/**/*.{ts,mts,mjs}",
     "scripts/*.mjs",
+
+    // A package's doctest preamble, read by path rather than imported:
+    // `vite.config.ts` reads it through `readPreamble(import.meta.dirname)` and
+    // the region loader reads it beside the README it fills a fence from. No
+    // module names the file, so the reachability walk cannot see it.
+    "libs/*/doc-examples.preamble.ts",
   ],
 
   // The stylesheet resolves through `@evanion/baize-ui`'s exports map to

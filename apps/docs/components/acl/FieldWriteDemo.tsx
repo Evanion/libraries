@@ -41,6 +41,67 @@ function json(value: unknown): string {
  * values and nothing else; `field-write.ts` builds the policy and makes the
  * calls, and `field-write.test.tsx` holds each pane against the same calls.
  */
+/** A labelled select over a fixed set of values. */
+function Choice({
+  id,
+  label,
+  value,
+  values,
+  disabled,
+  onPick,
+}: {
+  id: string;
+  label: string;
+  value: Status;
+  values: readonly Status[];
+  disabled?: boolean;
+  onPick: (value: Status) => void;
+}) {
+  return (
+    <div className="acl-demo__field">
+      <label htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        className="acl-demo__input"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onPick(event.target.value as Status)}
+      >
+        {values.map((each) => (
+          <option key={each} value={each}>
+            {each}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** A labelled checkbox. The label holds markup, so it is a child. */
+function Check({
+  id,
+  checked,
+  onToggle,
+  children,
+}: {
+  id: string;
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="acl-demo__check">
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onToggle(event.target.checked)}
+      />
+      <label htmlFor={id}>{children}</label>
+    </div>
+  );
+}
+
 export default function FieldWriteDemo() {
   const [proposal, setProposal] = useState<Proposal>(opening);
   const id = useId();
@@ -92,69 +153,39 @@ export default function FieldWriteDemo() {
               onChange={(event) => set({ body: event.target.value })}
             />
           </div>
-          <div className="acl-demo__field">
-            <label htmlFor={`${id}-status`}>status</label>
-            <select
-              id={`${id}-status`}
-              className="acl-demo__input"
-              value={proposal.status}
-              onChange={(event) =>
-                set({ status: event.target.value as Status })
-              }
-            >
-              {statuses.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="acl-demo__check">
-            <input
-              id={`${id}-pinned`}
-              type="checkbox"
-              checked={proposal.pinned}
-              onChange={(event) => set({ pinned: event.target.checked })}
-            />
-            <label htmlFor={`${id}-pinned`}>
-              post <code>pinned</code>, which no rule names
-            </label>
-          </div>
+          <Choice
+            id={`${id}-status`}
+            label="status"
+            value={proposal.status}
+            values={statuses}
+            onPick={(status) => set({ status })}
+          />
+          <Check
+            id={`${id}-pinned`}
+            checked={proposal.pinned}
+            onToggle={(pinned) => set({ pinned })}
+          >
+            post <code>pinned</code>, which no rule names
+          </Check>
         </fieldset>
 
         <fieldset className="acl-demo__group">
           <legend className="acl-demo__legend">The row as it stands</legend>
-          <div className="acl-demo__field">
-            <label htmlFor={`${id}-current`}>status now</label>
-            <select
-              id={`${id}-current`}
-              className="acl-demo__input"
-              value={proposal.current}
-              disabled={!proposal.selectedStatus}
-              onChange={(event) =>
-                set({ current: event.target.value as Status })
-              }
-            >
-              {statuses.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="acl-demo__check">
-            <input
-              id={`${id}-selected`}
-              type="checkbox"
-              checked={!proposal.selectedStatus}
-              onChange={(event) =>
-                set({ selectedStatus: !event.target.checked })
-              }
-            />
-            <label htmlFor={`${id}-selected`}>
-              the query did not select <code>status</code>
-            </label>
-          </div>
+          <Choice
+            id={`${id}-current`}
+            label="status now"
+            value={proposal.current}
+            values={statuses}
+            disabled={!proposal.selectedStatus}
+            onPick={(current) => set({ current })}
+          />
+          <Check
+            id={`${id}-selected`}
+            checked={!proposal.selectedStatus}
+            onToggle={(off) => set({ selectedStatus: !off })}
+          >
+            the query did not select <code>status</code>
+          </Check>
           <p className="acl-demo__hint">
             <code>transitions</code> reads the value the row holds now, so a row
             that arrived without it cannot be decided.
