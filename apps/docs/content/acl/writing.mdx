@@ -136,6 +136,17 @@ flowchart LR
   P -. "refused" .-> A["any other value"]
 ```
 
+On the `write` axis a per-field config decides its own field, and the name list
+never sees that field. So `fields: ['*', '!status']` beside a `status` config
+leaves `status` to the config, and the `!status` takes back nothing.
+
+| Restricting a field        | On the `read` axis                    | On the `write` axis                                        |
+| -------------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| the name list              | denies every name it excludes         | denies every name it excludes and no config claims         |
+| `targets` on the field     | nothing; `targets` is a write concept | allow-lists the proposed value, ahead of the name list     |
+| `transitions` on the field | nothing; a write concept as well      | reads the edge out of the current value, ahead of the list |
+| no name list and no config | allowed                               | allowed                                                    |
+
 ## The acl action gate
 
 `canFields` returns two booleans named `allowed`, one nested inside the other,
