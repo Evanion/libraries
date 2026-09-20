@@ -2,19 +2,21 @@
 
 <WorkshopNotice slug="acl" />
 
-A matrix is a plain JSON envelope over a flat list of permissions. It is the
-whole configuration: what it does not say, the library does not know.
+A matrix is a plain JSON envelope over a flat list of permissions. The matrix is
+the whole configuration, and what it does not say the library does not know.
 
 ```json
 { "version": 3, "schema": { "objects": {} }, "permissions": [] }
 ```
 
-A matrix has no bare-array form. `version` and `schema` are document fields
-rather than construction options, so a producer in any language states both in
-the JSON it emits, and one value crosses a server-rendering boundary with
-nothing assembled around it.
+A matrix has no bare-array form. `version` and `schema` are document fields, so
+a producer in any language states both in the JSON it emits, and one value
+crosses a server-rendering boundary with nothing assembled around it.
 
 ## One permission
+
+A `Permission` names one object-and-action pair and carries the rules that
+decide it.
 
 ```ts
 interface Permission {
@@ -37,14 +39,13 @@ object-and-action pair, so `question.update` and `listing.update` sit side by
 side in the same envelope. Nobody writes a matrix per resource.
 
 `key` must equal `` `${object}.${action}` ``, and neither half may contain the
-dot. Lookup is by key alone, so a key that disagreed with its own `object` and
-`action` would answer for a pair it was never written for; construction refuses
-it with `KeyMismatchError`.
+dot. Lookup is by key alone, and construction refuses a mismatch with
+`KeyMismatchError`.
 
-A rule with an empty `when` is the unconditional grant. That spelling is
-deliberate. `when` is required and must be an array, so a document that lost its
-conditions in transit (`null`, absent, a string) raises a construction error. It
-never lands as a permission that grants everything.
+A rule with an empty `when` is the unconditional grant. `when` is required and
+must be an array, so a document that lost its conditions in transit (`null`,
+absent, a string) raises a construction error and never lands as a permission
+that grants everything.
 
 ## Conditions
 
@@ -78,8 +79,7 @@ needs a related row resolves it and passes it as the object.
 
 `version` is a string or a number, and the revalidate contract compares it with
 `!==`. A content digest or a composite such as `orders@7+veto@41` works where a
-counter cannot, which is what a construction site needs when it merges the
-authored document with something else before building.
+counter cannot.
 
 ```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
@@ -97,8 +97,8 @@ to hold states one; a hash of the document is enough.
 
 ## The schema
 
-A document may declare the shapes its conditions read. The `schema` field is
-optional for a producer and binding wherever it is present.
+`schema` declares the shapes the conditions read. The field is optional for a
+producer and binding wherever it is present.
 
 ```ts twoslash file=libs/acl/README.md region=schema-binding
 
@@ -125,23 +125,22 @@ binds per kind: a permission on an object kind absent from `schema.objects` is
 unchecked,
 and `subject.*` paths are unchecked unless `schema.subject` is declared.
 
-The typo class this closes is the expensive one. Without a schema,
-`object.askedBv` raises nothing. It is a path that never reads, so the permission
-reports `unevaluable` forever and a UI refetches forever.
+Without a schema, `object.askedBv` raises nothing. It is a path that never
+reads, so the permission reports `unevaluable` forever and a UI refetches
+forever.
 
 ## Adopting a foreign matrix
 
-A backend with its own ACL can publish its matrix as JSON, and the frontend
-adopts it. `parseMatrix` is `hydratePolicy` with `closed: true`: the key universe
-is untrusted, so an unknown object kind or action fails closed and throws
-nothing.
+`parseMatrix` is `hydratePolicy` with `closed: true`: the key universe is
+untrusted, so an unknown object kind or action fails closed and throws nothing.
+A backend with its own access control list (ACL) publishes its matrix as JSON,
+and the frontend adopts it.
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
-The two behaviours are the difference between a bug and a data problem. A key
-the local typed policy does not carry is a programmer error and throws
+A key the local typed policy does not carry is a programmer error and throws
 `UnknownPermissionError`. A key a foreign document does not carry is a document
 that has moved on, and a thrown error there would take down a page over a
 permission nobody has.
@@ -161,12 +160,11 @@ flowchart LR
   V --> A["access.matrix"]
 ```
 
-That single read is the point. A caller's document is a live object, and an
-accessor or a proxy on it can answer a second read differently. A `when` that
-validates as a condition and clones as the empty, unconditional form is an open
-grant that passed the gate. Nothing downstream reads the caller's object again,
-and nothing can mutate what evaluates afterwards, including through the exposed
-`access.matrix`.
+A caller's document is a live object, and an accessor or a proxy on it can
+answer a second read differently. A `when` that validates as a condition and
+clones as the empty, unconditional form is an open grant that passed the gate.
+Nothing downstream reads the caller's object again, and nothing can mutate what
+evaluates afterwards, including through the exposed `access.matrix`.
 
 The subject and the object are not copied. They are the app's data, they are
 read live as the decision walks the rules, and copying them would hide the cost

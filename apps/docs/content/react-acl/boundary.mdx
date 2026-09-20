@@ -18,31 +18,28 @@
   ]}
 />
 
-**The concept.** A React Router loader and the route component it renders both
-ask whether this shopper may edit this listing. They get the same answer from
-the same rules. An attacker can work around one of the two answers and cannot
-touch the other, and no line of either file says which is which.
+**The concept.** `@evanion/react-acl` runs in the shopper's browser and toggles
+controls. The trusted side, a loader, a server component, an action or a route
+handler, calls `@evanion/acl` and makes the decision that counts.
 
-**What you get.** A clear line through your app: the side that fetches and
-writes decides, and the side that renders toggles. A hook never appears on the
-first side.
+**What you get.** A line through your app: the side that fetches and writes
+decides, and the side that renders toggles. A hook never appears on the first
+side.
 
-**Why you want it.** Both calls compile. Both return a `Decision`. The
-component that hid the Edit button reads as a permission check to the next
-person who opens it, and the action it posts to is a URL that never ran a
-loader.
+**Why you want it.** `useCan` and `access.can` both compile, both return a
+`Decision`, and neither call says which side enforces. A shopper can work around
+the browser's answer and cannot touch the handler's.
 
-**How the library gets you there.** The package makes the split hard to blur.
-`'use client'` sits at the top of its entry point, so a hook cannot be called on
-the trusted side at all, and the trusted side calls the core instead.
+**How the library gets you there.** `'use client'` sits at the top of the
+package's entry point, so a hook cannot be called on the trusted side at all.
 
 ## One decision, two runtimes
 
 `useCan('listing', 'edit', listing)` and
 `access.can(shopper, 'listing', 'edit', listing)` evaluate the same rules over
-the same document and return the same `Decision`. The library draws no
-distinction between them and cannot. The rules are a JSON document and `can` is
-a function over it, and that function does not know where it is running.
+the same document and return the same `Decision`. `can` is a function over
+frozen JSON and does not know where it is running, so the library draws no
+distinction between the two calls.
 
 The runtime separates them. One call ran where the shopper could not reach the
 code, and one ran in the shopper's browser, over a document the shopper can
@@ -58,11 +55,9 @@ read, against a subject the shopper's own page supplied.
 A caller reaches the last row of that table directly. `curl` posts to the action
 without rendering anything, so the handler re-resolves the subject from the
 session, re-reads the listing from the database, and decides again. No layer may
-lean on "already checked upstream". A gateway that allowed the request does not
-excuse the service behind it, and a page that hid the button does not excuse the
-handler the button posts to. Every app in the chain runs its own evaluation and
-trusts no earlier layer, and that holds between two of your own services as
-firmly as it holds between the browser and the server.
+lean on "already checked upstream". Every app in the chain runs its own
+evaluation and trusts no earlier layer, and that holds between two of your own
+services as firmly as it holds between the browser and the server.
 
 Each of those evaluations reads a document already in memory. `can` is a
 function over frozen JSON, so nothing in the trusted column waits on a network
@@ -71,10 +66,10 @@ allow.
 
 ## What a server component calls
 
-Nothing on the trusted side imports `@evanion/react-acl`. A loader or a server
-component already holds an evaluator and a subject, so it asks the core. The
-loader below asks `'read'` before it renders anything, and the Edit button's
-question is the same call with `'edit'`:
+A loader or a server component calls `access.can` from `@evanion/acl` and
+imports nothing from `@evanion/react-acl`. The loader below asks `'read'` before
+it renders anything, and the Edit button's question is the same call with
+`'edit'`:
 
 ```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
 
@@ -90,13 +85,12 @@ layout.
 `@evanion/react-acl` cannot run in a React Server Component (RSC) at all. Its
 entry point carries `'use client'` and calls `createContext`, and the
 `react-server` condition Next resolves React under for an RSC exports no
-`createContext` and no stateful hook. So an RSC app has one way to ask, and it
-is the one above: call `access.can(...)` from `@evanion/acl` directly.
+`createContext` and no stateful hook. An RSC app calls `access.can(...)` from
+`@evanion/acl` directly.
 
-Import the package into an RSC file anyway and the bundler answers before React
-does. The `'use client'` directive opens a client boundary around whatever
-imported it, and the component you wanted to keep on the server is now sent to
-the browser with its props serialized.
+Import the package into an RSC file anyway and the `'use client'` directive
+opens a client boundary around whatever imported it, so the component you wanted
+to keep on the server is sent to the browser with its props serialized.
 
 ## What crosses the render
 
@@ -141,14 +135,14 @@ no way to notice. `access.version` (the revision stamped on
 [the matrix](/acl/matrix)) is the surface for detecting the gap. Your app writes
 the part that fails closed and refetches.
 
-The server never depends on that copy, so the staleness is survivable. Every
-loader, every action and every handler evaluates its own.
+The server never reads that copy. Every loader, every action and every handler
+evaluates its own.
 
 Treat the browser's answer as a convenience for toggling what a control looks
-like, and nothing else. It keeps the page honest about what the server accepts:
-a shopper shown an Edit button that 403s has been misled, and the hooks exist to
-prevent that. Everything that actually protects the listing happens on the
-trusted side, in every layer, each one deciding for itself.
+like, and nothing else. A shopper shown an Edit button that 403s has been
+misled, and the hooks exist to prevent that. Everything that protects the
+listing happens on the trusted side, in every layer, each one deciding for
+itself.
 
 ## Where to go next
 

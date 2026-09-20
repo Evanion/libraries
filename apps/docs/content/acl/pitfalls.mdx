@@ -33,10 +33,9 @@ if (decision.reason !== 'denied') proceed(); // wrong
 if (decision.allowed) proceed(); // right
 ```
 
-`reason` is output only. Nothing in the library reads one back to decide
-anything, and the seven values are not two buckets: `no-rule-matched`,
-`unknown-action`, `unevaluable`, `unusable-clock` and `stale-contract` all
-refuse, and the first form proceeds through every one of them.
+`reason` is output only, and its seven values are not two buckets:
+`no-rule-matched`, `unknown-action`, `unevaluable`, `unusable-clock` and
+`stale-contract` all refuse, and the first form proceeds through every one.
 
 ### `unevaluable` is not `denied`
 
@@ -44,11 +43,11 @@ refuse, and the first form proceeds through every one of them.
 if (!decision.allowed) return <ReadOnly />; // loses a repairable answer
 ```
 
-`unevaluable` means the decision could not be reached with the data it was
-handed, and `missing` names exactly what to fetch. `allowed` is already `false`,
-so a server that refuses on it is safe. A UI that does hides something the user
-can have. Render the control as pending, fetch what `missing` names, ask once
-more. Read it as permission and you have a hole.
+`unevaluable` means the engine could not reach the decision with the data it was
+handed, and `missing` names what to fetch. `allowed` is already `false`, so a
+server that refuses on it is safe, and a UI that refuses on it hides something
+the user can have. Render the control as pending, fetch what `missing` names,
+and ask once more. A caller who reads `unevaluable` as permission has a hole.
 
 An `unevaluable` that survives a refetch is a mistyped field name in the
 document. A `schema` turns that class into an `UnknownFieldError` at
@@ -89,7 +88,7 @@ form writes a value the decision declined to approve. The same filter passes any
 key the decision does not carry at all, since `undefined !== 'denied'`.
 
 `pickAllowedFields` keeps the keys that decided `allowed` and withholds the
-rest. One state to get right, and the only narrowing in the package.
+rest.
 
 ### A name absent from `fields` is not a denial
 
@@ -103,11 +102,8 @@ keys and the rule's field names. Hand `canFields` a projection and the map
 shrinks. A name in the map is a decision; a name missing from it is a question
 nobody asked.
 
-The safe direction happens by default: a form rendered from `fields` draws
-fewer inputs, and `pickAllowedFields` writes only keys that decided `allowed`.
-Read the gap as an answer and you go the other way, either as a denial in a UI,
-which hides a control the user can have, or as a permission in a filter, which
-is the entry above.
+A form rendered from `fields` draws fewer inputs, and `pickAllowedFields` writes
+only keys that decided `allowed`, so the default direction is the safe one.
 
 ### Read `allowed`, not `action.allowed`
 
@@ -132,13 +128,10 @@ composes both: the action is allowed and every decided field is allowed.
 
 ### Do not iterate `fields` without checking `allowed` first
 
-The field maps are filled in whatever the action decides. A subject refused the
-action still gets a complete map of which fields would be editable once the
-action is unblocked. That is deliberate: one call renders a form and explains a
-block.
-
-The same map is also a hazard. A caller who reads it as the gate skips the
-action entirely, and the map looks identical either way.
+The field maps are filled in whatever the action decides, so a subject refused
+the action still gets a complete map of which fields would be editable once the
+action is unblocked. A caller who reads that map as the gate skips the action
+entirely, and the map looks identical either way.
 
 ### A `targets` or `transitions` config is not an allow-list
 
@@ -175,12 +168,12 @@ writes.
 ### The matrix is public in its names, not only its values
 
 `bypass-kyc` as an action name, or `internal-fraud-reviewer` as a role string,
-is disclosed the moment a page loads. The document ships to the client in full,
-so a reader gets every object kind, every action, every role, every field name
-including the ones the API never returns, and every time window.
+is disclosed the moment a page loads. The document reaches the client in full,
+carrying every object kind, every action, every role, every field name including
+the ones the API never returns, and every time window.
 
-Ship it anyway. Security must not rest on the document staying secret, and here
-it does not. Name things as if they will be read, and keep secrets and
+Send it anyway. Security must not rest on the document staying secret, and here
+it does not. Name things as if a reader has them open, and keep secrets and
 server-only predicates out of the document.
 
 ## Around the call
@@ -227,8 +220,7 @@ conditional predicate that fails when the state has moved.
 
 ## Two gaps with no defence
 
-Both are real today and neither is guarded. A caller who knows about them avoids
-both.
+Neither gap below is guarded, and a caller who knows about them avoids both.
 
 ### A clock the caller supplies is the clock the windows move with
 
@@ -266,13 +258,12 @@ properties are accessors (an ORM row, a lazy proxy, a memoised getter over a
 cache that can refill) can answer the two sides differently and pass the deny it
 should have matched.
 
-The matrix the engine evaluates is a frozen deep copy for exactly this reason.
 The engine copies neither the subject nor the object, because they are the app's
-data. Pass plain, already-resolved objects.
+data, and the matrix it evaluates is a frozen deep copy for this reason. Pass
+plain, already-resolved objects.
 
 ## Where this comes from
 
 The package holds itself to [a register](/acl/register), one row per class of
-attack, each naming the test that proves it. It runs under
-`nx test @evanion/acl`. The [security contract](/acl/security) is the prose
-version of the same material.
+attack, each naming the test that proves it under `nx test @evanion/acl`. The
+[security contract](/acl/security) covers the same material in prose.

@@ -19,9 +19,10 @@
   ]}
 />
 
-**The concept.** One matrix per service, one `Access` per matrix. Each service
-authors and evaluates only what it owns, and no service evaluates another's
-document to reach a decision. The topology holds no merged matrix anywhere.
+**The concept.** `federatedPolicies` holds one `Access` per origin behind one
+view and routes each question to the single origin whose keys carry it. Each
+service authors and evaluates only what it owns, and the topology holds no
+merged matrix anywhere.
 
 **What you get.** A gateway holding one `Access` per origin behind a view
 that routes a question to the single origin whose keys carry it, plus the
@@ -41,10 +42,9 @@ Two services that both say `listing` mean different rows, with different fields,
 in different databases. The namespace says so: `storefront:listing`,
 `stock:listing`.
 
-Nothing about the document format changes. `storefront:listing.read` still equals
-`` `${object}.${action}` `` character for character, so `KeyMismatchError` is
-satisfied by construction and the typed builder takes the namespaced key
-directly. The ownership axis is the one Baize already uses:
+`storefront:listing.read` still equals `` `${object}.${action}` `` character for
+character, so `KeyMismatchError` is satisfied by construction and the typed
+builder takes the namespaced key directly:
 
 ```ts no-run
 policy<Subject, { 'storefront:listing': Listing }>()
@@ -64,13 +64,12 @@ key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
 
 ## A gateway composes one policy per origin
 
+`federatedPolicies` takes one `Access` per origin, keeps every document whole,
+and returns a view carrying three members: `can`, `capabilities` and `get`.
+
 ```ts twoslash file=libs/acl/README.md region=federation
 
 ```
-
-`federatedPolicies` takes one `Access` per origin and keeps every document
-whole. The returned view carries three members: `can`, `capabilities` and
-`get`.
 
 `can` routes by the canonical key. The origin that answers
 `can(subject, 'storefront:listing', 'read')` is the one origin whose key set holds
@@ -95,6 +94,8 @@ because each of the four answers about one key and the key names the origin.
 
 ### Two origins claiming one key refuse at construction
 
+`federatedPolicies` throws when two members declare the same key:
+
 ```
 OriginCollisionError: permission key "listing.read" is claimed by two origins,
 "storefront" and "stock": each origin's keys must be disjoint for one view to
@@ -104,11 +105,7 @@ hold both
 Each document is valid on its own, and two services can each declare
 `{ object: 'listing', action: 'read' }` with no namespace anywhere. The
 collision exists only in the process holding both documents, so the edge is
-where the check runs. A lint has nowhere to sit: the two documents live in two
-repositories and arrive over HTTP at startup.
-
-The message names both origins, because the fix is a pull request against one of
-two repositories and the key alone does not say which.
+where the check runs and the message names both origins.
 
 The check reads `permission.key`. A deny rule carries none, so a key one origin
 declares and another only vetoes is no collision.
@@ -173,9 +170,9 @@ authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
 ```
 
 `applyDenyOverlay(matrix, overlay, { vetoable })` appends each key's rules to
-that permission's `denyRules` and returns a new matrix. The call changes nothing
-about the topology above. Nothing merges at an edge, the owner stays the only
-authority, and the service that enforces the veto is the one that applies it.
+that permission's `denyRules` and returns a new matrix. Nothing merges at an
+edge, the owner stays the only authority, and the service that enforces the veto
+is the one that applies it.
 
 ### A contribution can only subtract
 
@@ -183,12 +180,13 @@ A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
 `fields` lives on `Permission`, and an allow rule is a member of a different
 array, so a contribution has no way to express an allow or a field rule.
 
-The overlay is safe to accept from another team for that reason. An appended
-deny rule moves the deny side towards a match and never away. A subject the
-overlaid matrix allows was allowed by the authored one, for every object and
-every instant.
+An appended deny rule moves the deny side towards a match and never away. A
+subject the overlaid matrix allows was allowed by the authored one, for every
+object and every instant.
 
 ### Three refusals, all at apply time
+
+`applyDenyOverlay` throws on three contributions:
 
 <Panel heading="Each one names the offending key">
   <Text as="div" size="sm">
@@ -205,17 +203,16 @@ because no schema checks contributions to it. A consumer that opens nothing owes
 no schema.
 
 The contributing team runs the same call in its own build, over the owner's
-published subset, and finds its own mistake there. Apply before
-serializing: a veto is a deny rule, and a published authored matrix allows what
-the owner refuses.
+published subset, and finds its own mistake there. Apply before serializing: a
+veto is a deny rule, and a published authored matrix allows what the owner
+refuses.
 
 ## Publishing the rules to a consumer
 
 `serialize(access, 'reduced')` emits the permissions marked
 `visibility: 'public'`, each kept whole, and the consumer adopts the result with
 `parseMatrix`. `apps/shop-api` serves exactly that at `GET /api/policy`. The
-topology above is unchanged: the consumer decides locally, and the owner decides
-again when the call arrives.
+consumer decides locally, and the owner decides again when the call arrives.
 
 ## What this topology does not give you
 

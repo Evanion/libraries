@@ -18,35 +18,31 @@
   ]}
 />
 
-**The concept.** Baize's Brass: Birmingham listing has an action bar with three
-buttons on it: Review, Edit, Publish. Jo, who is a customer, sees one of them; a
-bookseller sees two; the owner sees three; and once the listing is published the
-bar draws no Edit button for any of them. Nobody writes an `if` to make that
-happen.
+**The concept.** A component that calls `access.can` once per action holds a
+list of actions and no `if`. Baize's Brass: Birmingham listing draws an action
+bar of three buttons, Review, Edit and Publish, where Jo the customer sees one,
+a bookseller two, the owner three, and nobody sees Edit once the listing is
+published.
 
 **What you get.** An action bar that holds a list of actions and no
 conditions, and four policy statements that decide what it draws for whoever is
 signed in.
 
-**Why you want it.** Put the rule in the component and you have written
-it twice: once here, once in the handler the button posts to. They agree the day
-you write them. Then somebody tightens the handler, the button stays lit, and a
-bookseller presses Edit on a published listing and gets a 403 with no
-explanation.
+**Why you want it.** Put the rule in the component and you have written it
+twice, once here and once in the handler the button posts to. Somebody tightens
+the handler, the button stays lit, and a bookseller presses Edit on a published
+listing and gets a 403 with no explanation.
 
-**How the library gets you there.** The storefront fetched the matrix, checked
-its version and hydrated it, which is where [Rules that outlive the
-process](/acl/advanced) left you. The bar calls `access.can` on that evaluator
-once per action and draws from `allowed`. `reason` is what the disabled button
-says. You extend the bar by writing a statement in the policy, never by writing
-a branch in the component.
+**How the library gets you there.** The storefront fetched the matrix and
+hydrated it in [Rules that outlive the process](/acl/advanced). The bar calls
+`access.can` on that evaluator once per action and draws from `allowed`, with
+`reason` as the wording of a disabled button.
 
 ## The shop's listing policy, in four statements
 
-The document the storefront fetched carries a permission per object kind the
-shop has, questions and orders among them. `listing` is the kind this screen
-draws. The storefront never runs the builder call below; the producer ran it to
-write four statements:
+`listing` is the object kind this screen draws, and the fetched document carries
+four statements for it. The storefront never runs the builder call below; the
+producer ran it:
 
 - Jo reviews a listing, and so does everyone else who is signed in.
 - A bookseller edits a listing.
@@ -58,38 +54,30 @@ write four statements:
 ```
 
 The `.for('listing', …)` block is one of however many kinds the shop's policy
-holds. A shop that also sells events chains `.for('event', …)` beside it, and
-the bar goes on reading `listing` out of the same document.
+holds, and a shop that also sells events chains `.for('event', …)` beside it.
 
 Two condition helpers are new in that block. `p.always` is the condition that
 holds for anybody, so `review` is granted to whoever is signed in. `p.in` tests
-one subject value against a list written in the rule. This `Shopper` carries
-`role` as a single string, and the report policy on [rules that read the
-subject](/acl/simple) carried `roles` as an array and read it with `p.contains`.
-`p.contains` runs the test the other way round: one value written in the rule,
-against a list held on the subject.
+one subject value against a list written in the rule, and this `Shopper` carries
+`role` as a single string. The report policy on [rules that read the
+subject](/acl/simple) carried `roles` as an array and read it with `p.contains`,
+which runs the test the other way round: one value written in the rule, against
+a list held on the subject.
 
-Four statements produce the whole bar. The typed builder binds `Listing` to the
-key `listing`, so it checks `object.status` in the deny against the interface as
-it is written. That binding turns a misspelled path into a compile error, and
-you met it first where [rules read the object](/acl/intermediate). Once the
-builder's types have gone, the schema on the document holds a foreign producer
-to the same paths.
+The typed builder binds `Listing` to the key `listing`, so it checks
+`object.status` in the deny against the interface as it is written. That binding
+turns a misspelled path into a compile error, and you met it first where [rules
+read the object](/acl/intermediate). Once the builder's types have gone, the
+schema on the document holds a foreign producer to the same paths.
 
 ## What the action bar draws for each shopper
 
-Baize's listing screen draws an action bar, and the four statements in the
-shop's listing policy are the whole policy that bar has. The bar renders one
-button per action and calls `access.can` once for each: `allowed` says whether
-to draw the button, and `reason` is the wording when it draws the button
-greyed out.
+Baize's listing action bar draws from the four statements in the shop's listing
+policy and nothing else. The bar renders one button per action and calls
+`access.can` once for each: `allowed` says whether to draw the button, and
+`reason` is the wording when it draws the button greyed out.
 
-Ask on the bookseller's behalf and `review` and `edit` come back `allowed` while
-`publish` comes back `no-rule-matched`. Each answer draws one control, and the
-component holds a list of actions and no condition of its own.
-
-Here is every answer the four statements give, for each shopper and each status
-the listing has:
+Every answer the four statements give, per shopper and per listing status:
 
 | Signed in as | Listing status | `review` | `edit`            | `publish`         |
 | ------------ | -------------- | -------- | ----------------- | ----------------- |
@@ -100,8 +88,8 @@ the listing has:
 | owner        | `published`    | `allow`  | `denied`          | `allow`           |
 
 Add a fourth control by writing one more statement in the policy and one more
-row in the list of actions. Never add it as a branch in the component, because a
-branch in the component is a rule written somewhere the policy cannot see.
+row in the list of actions. Never add it as a branch in the component, which is
+a rule written somewhere the policy cannot see.
 
 ## A status change moves the action bar without touching the policy
 
@@ -110,42 +98,37 @@ listing policy now matches, so `edit` comes back `denied`. The listing's action
 bar draws no Edit button for any role, the bookseller's and the owner's alike,
 because a deny outranks a matching allow.
 
-You recomputed nothing by hand and you wrote no second rule for the published
-case. One row changed and four statements produced a different screen. The
-service that published this document evaluates the same four statements before
-it writes the status, so the screen and the write agree by reading one
+The service that published this document evaluates the same four statements
+before it writes the status, so the screen and the write agree by reading one
 document.
 
 ## Edit the policy and watch the action bar redraw
 
-The demo below draws the listing's action bar, the three buttons Review, Edit
-and Publish, from the shop's four listing statements. Sign in as each of the
-three shoppers and the bar rebuilds itself from `access.can`. Press a role
-inside a grant to strike it out, and the control that grant produced leaves
-while you are looking at it. Press Publish and the deny matches, so neither the
-bookseller nor the owner is offered Edit.
+The demo below draws the listing's action bar from the shop's four listing
+statements. Sign in as each of the three shoppers and the bar rebuilds itself
+from `access.can`. Press a role inside a grant to strike it out, and the control
+that grant produced leaves while you are looking at it. Press Publish and the
+deny matches, so neither the bookseller nor the owner is offered Edit.
 
 <AccessDemo />
 
 The policy in the panel is built by the same `policy()` call the region above
-runs, and the buttons are `Decision.allowed` and nothing else. The front page
-opens with the same demonstration, mounted here where the four statements have
-already been explained.
+runs, and the buttons are `Decision.allowed` and nothing else.
 
 ## The browser's copy of the shop's policy decides nothing
 
-The decisions the listing's action bar renders are convenience. The same `can` runs again in
-the shop's server runtime, over a subject that runtime resolved itself, before
-any listing is edited or published. A screen that hid the button does not excuse
-the handler the button posts to. [The security contract](/acl/security) is the
+The decisions the listing's action bar renders are convenience. The same `can`
+runs again in the shop's server runtime, over a subject that runtime resolved
+itself, before any listing is edited or published. A screen that hid the button
+does not excuse the handler the button posts to. [The security contract](/acl/security) is the
 long form, and [Platforms](/acl/platforms) is where the second call sits on each
 stack.
 
 ## Where a refused control gets its wording
 
-The listing's action bar removes a control it may not draw. A bar that greys the control
-out instead has to say why, and `Decision` carries `reason`, `rule` and
-`missing` beside `allowed` for that. What each key
-means, and which of them are repairable, is [Why was this
+The listing's action bar removes a control it may not draw. A bar that greys the
+control out instead has to say why, and `Decision` carries `reason`, `rule` and
+`missing` beside `allowed` for that. What each key means, and which of them are
+repairable, is [Why was this
 refused?](/acl/refusals); the shape itself is in the [API
 reference](/acl/api#decision).

@@ -13,21 +13,20 @@
   ]}
 />
 
-**The concept.** Baize's sidebar has six entries on it. Jo signs in and should
-see two. The sidebar renders before any listing, order or report has been
-fetched, so it has to draw itself from the subject alone.
+**The concept.** `capabilities` answers every permission in the document
+against one subject, passing no object. Baize's sidebar renders before any
+listing, order or report has been fetched, and Jo sees two of its six entries.
 
 **What you get.** One call at the top of a render that answers every
 permission in the document at once, and a map the menu filters.
 
-**Why you want it.** A menu that calls `can` once per entry asks the
-clock six times and scans the permission list six times. Worse, it grows a
-hand-written list of keys that nobody updates when a permission is added, so the
-new section is invisible until somebody notices.
+**Why you want it.** A menu calling `can` once per entry reads the clock six
+times and scans the permission list six times, and its hand-written list of keys
+goes stale the day somebody adds a permission.
 
 **How the library gets you there.** `capabilities` resolves the whole document
-against one subject in one pass and keys the answers by permission. Every entry
-is a full decision, so an entry that could not be settled says so.
+in one pass and keys the answers by permission, and every entry is a full
+decision.
 
 `capabilities(subject, now?)` resolves every permission in the document against
 one subject, keyed, in document order, in one pass.
@@ -36,21 +35,19 @@ one subject, keyed, in document order, in one pass.
 
 ```
 
-One policy holds every object kind the app has. That one chains a `.for()` for
-`report` and another for `listing`, and `capabilities` answers across both from
-the single call.
+One policy holds every object kind the app has. The one above chains
+`.for('report')` and `.for('listing')`, and `capabilities` answers across both
+in the single call.
 
 ## The no-object contract in acl
 
-`capabilities` passes no object. That is the whole shape of the call, and it
-decides what the answer can mean:
+`capabilities` passes no object, and that decides what its answers can mean:
 
 - A permission whose rules read only `subject.*` decides definitely. The subject
   was resolved whole before the call, so a field it lacks is a field it does not
   have.
 - A permission the subject alone cannot settle decides `unevaluable`, with
-  `missing` naming the object paths. There is no instance to compare against, so
-  the question has not been asked yet, and `false` overstates what the engine
+  `missing` naming the object paths. `false` would overstate what the engine
   knows.
 
 A rule that reads the object still settles when its subject conditions decide
@@ -66,10 +63,6 @@ flowchart LR
   P -->|"the rules still need the row"| U["unevaluable<br>missing names the paths"]
 ```
 
-The map answers every permission the subject alone settles. A permission whose
-rules still need the row sits in the map as `unevaluable`, and the row is what
-settles it.
-
 <Panel heading="`unevaluable` in a capability map is normal">
   <Text as="div" size="sm">
     All three rules above read `subject.roles`, so all three entries decide
@@ -82,14 +75,13 @@ settles it.
 
 ## Driving a menu from an acl capability map
 
-A navigation menu is exactly the object-free question: "is there any point
-showing this section". One call at the top of a render, one lookup per item.
+A navigation menu asks the object-free question: is there any point showing this
+section. One `capabilities` call at the top of a render answers it, and each
+item is one lookup.
 
-The policy below declares `report` and stops there, to keep the fence short.
-Chain the app's other kinds onto the same `policy()` call and the map grows the
-keys with it; the menu code does not change.
-
-One call answers for every key in the document at once:
+The policy below declares `report` and stops there. Chain the app's other kinds
+onto the same `policy()` call and the map grows the keys with it, and the menu
+code does not change.
 
 ```ts twoslash
 import { policy } from '@evanion/acl';
@@ -147,7 +139,7 @@ fresh.
 
 ## Where to go next
 
-- [Can this user do this?](/acl/asking) — the per-instance question
-- [Why was this refused?](/acl/refusals) — reading `reason` and `missing` out of
-  a capability map
-- [Many services](/acl/federation) — folding one view out of several origins
+- [Can this user do this?](/acl/asking). The per-instance question.
+- [Why was this refused?](/acl/refusals). Reading `reason` and `missing` out of
+  a capability map.
+- [Many services](/acl/federation). Folding one view out of several origins.

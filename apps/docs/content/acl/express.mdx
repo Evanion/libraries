@@ -20,23 +20,20 @@
 />
 
 **The concept.** Express is trusted end to end. No client tree receives
-anything and no second runtime needs keeping honest, so every decision this app
-makes is authoritative. The only question is whether the decision happens at
-all.
+anything, so every decision this app makes is authoritative and the only
+question is whether the decision happens at all.
 
 **What you get.** An API over Baize's catalogue with one matrix at module
 scope, one middleware binding the subject onto `res.locals`, and a `can` call in
 every handler that touches a title.
 
-**Why you want it.** `app.use` is positional. A route registered above the
-middleware that binds the subject never sees it, and nothing fails. Mount the
-binding on the router, and an unguarded path becomes a route file somebody
-added.
+**Why you want it.** `app.use` is positional, so a route registered above the
+middleware that binds the subject never sees it and nothing fails. Mount the
+binding on the router.
 
 **How the library gets you there.** `@evanion/acl` imports no framework and
 `authorize(subject)` returns a plain object of closures, so `@evanion/acl` has
-no Express adapter. Connect-style middleware is a function of three arguments,
-and an adapter over `authorize` is a re-export and a name.
+no Express adapter. An adapter over `authorize` is a re-export and a name.
 
 ## Complete mediation is registration order
 
@@ -78,9 +75,11 @@ flowchart TD
 
 ## Building Baize's matrix at module scope
 
-Build it once, for the life of the process. `ShopSubject` and `Game` are the app's own
-types, and `SHOP_MATRIX_VERSION` is the document revision a client compares its
-copy against. The three permissions are the ones `apps/shop-api` authors:
+`policy(…).build()` validates, deep-clones and deep-freezes the document, so
+build the matrix once and hold it at module scope. `ShopSubject` and `Game` are
+the app's own types, and `SHOP_MATRIX_VERSION` is the document revision a client
+compares its copy against. The three permissions are the ones `apps/shop-api`
+authors:
 
 ```ts no-run
 // access.ts
@@ -116,9 +115,8 @@ export const access = policy<
   .build();
 ```
 
-`policy(…).build()` validates, deep-clones and deep-freezes the document, and a
-query after that is a function call over the frozen copy. A rebuild per request
-repeats the clone on every call for a document that did not change.
+A query after the build is a function call over the frozen copy. A rebuild per
+request repeats the clone on every call for a document that did not change.
 
 ## Binding the subject
 
@@ -155,15 +153,15 @@ either. The region below binds the subject alone:
 
 ```
 
-The middleware pins `now` at bind time, deliberately. Every `before`/`after` window in the
+The middleware pins `now` at bind time. Every `before`/`after` window in the
 matrix then reads one instant for the whole request, and two handlers in the
 same request cannot land on opposite sides of a boundary that closed between
 them.
 
 ## Deciding on a row
 
-`game.declare` reads `object.shop`, so the decision follows the read. `catalogue`
-is the app's own store of titles, keyed by urn:
+`game.declare` reads `object.shop`, so the decision follows the read.
+`catalogue` is the app's own store of titles, keyed by urn:
 
 ```ts no-run
 // games.router.ts
@@ -186,8 +184,7 @@ games.get('/:urn', async (req, res) => {
 
 A fetch before the decision is no leak as long as nothing leaves the handler. An
 insecure direct object reference (IDOR) is what the response gives away, and the
-query gives away nothing. That read is one query on a request that ends in 403,
-which is what a rule reading `object.shop` asks for.
+query gives away nothing.
 
 `decision.allowed` is the gate. A decision can come back `unevaluable`, meaning
 the projection did not carry a path some rule reads, and that is neither an
@@ -237,22 +234,20 @@ games.patch('/:urn', async (req, res) => {
 });
 ```
 
-`decision.action` is the action-level decision that gates the field map, and a
-check on it first makes the refusal a 403 on its own line. `pickAllowedFields`
-throws `ActionNotAllowedError` when the action was refused, so a handler that
-skips the check turns a refusal into a 500. A hand-written filter on
-`!== 'denied'` writes the `unevaluable` fields and every key the decision does
-not carry at all.
+`decision.action` is the action-level decision that gates the field map.
+`pickAllowedFields` throws `ActionNotAllowedError` when the action was refused,
+so a handler that skips the check turns a refusal into a 500. A hand-written
+filter on `!== 'denied'` writes the `unevaluable` fields and every key the
+decision does not carry at all.
 
 An empty `writable` is the third case: the action stands, the row is real, and
-the decision allowed no field of the body. `apps/shop-api` answers 400 there,
-because applying the write would change nothing.
+the decision allowed no field of the body. `apps/shop-api` answers 400 there.
 
 ## Refusals as one handler
 
-A 403 written in every route drifts. An error the handler throws and one
-error-handling middleware catches does not. `Decision` is the shape `can`
-returns, and `reason` is the member naming why:
+One error-handling middleware catches a `Forbidden` the handler throws and
+answers 403 in one place. `Decision` is the shape `can` returns, and `reason`
+is the member naming why:
 
 ```ts no-run
 // forbidden.ts
@@ -273,10 +268,10 @@ app.use((error, _req, res, next) => {
 });
 ```
 
-The matrix is a public document in its structure, and a decision names the rule
-that refused. On an API serving parties who should not learn each other's
-privilege model, `rule` is more than the caller asked for. Send `reason` to a
-caller who may read it, and send neither member to one who may not.
+A decision names the rule that refused. On an API serving parties who should not
+learn each other's privilege model, `rule` is more than the caller asked for.
+Send `reason` to a caller who may read it, and send neither member to one who
+may not.
 
 ## Serving the matrix to a browser client
 

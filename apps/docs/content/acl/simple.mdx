@@ -18,31 +18,27 @@
   ]}
 />
 
-**The concept.** Baize keeps a stock report. Any bookseller may read it. Only
-the owner may export it. To answer either question you need to know who is
-asking, and you need nothing else: no listing is fetched, no question is loaded,
-nothing goes to the database first.
+**The concept.** A subject-only rule reads the subject the server resolved and
+nothing else, so `can` answers it with no database read in front of it. Baize's
+stock report carries two: any bookseller may read it, and only the owner may
+export it.
 
 **What you get.** A matrix holding both permissions, a server that resolves
 the subject once per request, and a call that answers yes or no for any
 permission in the document.
 
-**Why you want it.** The two role checks you write today are fine. The
-twentieth is the problem. By then four handlers disagree:
-
-- one tests `roles.includes('owner')`
-- another tests `user.isOwner`
-- a third was copied before the role was renamed
-- the export endpoint somebody added last month tests nothing at all
+**Why you want it.** You write the twentieth role check by hand and four
+handlers now disagree: one tests `roles.includes('owner')`, another tests
+`user.isOwner`, a third was copied before the role was renamed, and the export
+endpoint tests nothing at all.
 
 **How the library gets you there.** `policy()` writes the matrix and hands back
-an access object over it. `can` answers one question with a decision. `authorize`
-binds the subject, so no handler restates it. `capabilities` answers
-every question at once, which is how a menu knows what to draw.
+an access object over it. `can` answers one question, `authorize` binds the
+subject, and `capabilities` answers the whole document at once.
 
 ## Install acl
 
-One package, and nothing else comes with it:
+`@evanion/acl` installs as one package and brings nothing with it:
 
 ```bash
 npm install @evanion/acl
@@ -52,30 +48,27 @@ ESM only, Node 20 or newer. No framework reaches the import graph.
 
 ## Write the acl policy
 
-With the package installed, write the policy first. Three calls build one:
+`policy()` builds a policy from three calls:
 
 - `policy<Subject, Objects>()` names the subject type and the object kinds.
 - `.for(key, block)` writes one kind's rules.
 - `.build()` hands back the evaluator.
 
 A block holds allow rules and a rule holds conditions. The engine ANDs the
-conditions, so the rule matches when every condition in it holds. `p` is the
-condition helper the block hands you, and this policy needs one of its methods:
-`p.contains(path, value)` reads the array at `subject.roles` and asks whether
-the role is in it. Every condition below reads the subject, so `capabilities`
-answers the whole document at once. The policy and its answers fit in one
-block:
+conditions, so a rule matches when every condition in it holds. `p` is the
+condition helper the block hands you, and `p.contains(path, value)` reads the
+array at `subject.roles` and asks whether the role is in it. Every condition
+below reads the subject, so `capabilities` answers the whole document at once:
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
 
 ```
 
-One policy holds every object kind your app has. Chain a `.for()` per kind and
-the report and the listing sit side by side in the same document. You do not
-build a policy per resource.
+One policy holds every object kind your app has. Chain a `.for()` per kind, and
+do not build a policy per resource.
 
 Nothing is allowed without an allow rule that matched. `report.export` carries
-one such rule. The bookseller's roles do not satisfy it, so the decision is
+one such rule, and the bookseller's roles do not satisfy it, so the decision is
 `no-rule-matched`. Default deny is the floor of the engine and you configure
 nothing to get it.
 
@@ -93,9 +86,8 @@ list of permissions, each carrying a `key` of exactly
 
 ## Ask acl a question
 
-`capabilities` answered everything at once. When you want one answer, `can`
-takes the subject, the object kind (`report`) and the action (`read`), and
-returns a decision:
+`can` takes the subject, the object kind (`report`) and the action (`read`), and
+returns one decision:
 
 ```ts
 const decision = access.can(
@@ -111,18 +103,16 @@ and a handler that branches on the reason string grants what the engine refused.
 
 ## Bind the subject to one acl handle
 
-Every `can` above restated the subject. A server resolves it from the session
-once and then asks many questions about it, so `authorize` takes it once, over
-the same report-and-listing policy:
+`authorize` takes the subject once and returns a handle that asks many questions
+about it, over the same report-and-listing policy:
 
 ```ts twoslash file=libs/acl/README.md region=server-authorize
 
 ```
 
-The bookseller reads the report and does not export it. Neither call named who
-was asking. The handle carries `can`, `canMany`, `canFields` and `capabilities`
-with the subject dropped from each signature, which makes the guarded call the
-shortest one to write. That is all the library can do about [complete
+The handle carries `can`, `canMany`, `canFields` and `capabilities` with the
+subject dropped from each signature, which makes the guarded call the shortest
+one to write. That is all the library can do about [complete
 mediation](/acl/security#complete-mediation).
 
 <Panel heading="This decision is authoritative only where it is made">
@@ -136,18 +126,18 @@ mediation](/acl/security#complete-mediation).
 
 ## Where subject-only rules stop
 
-You now have a working policy, and every condition in it reads the subject. The
-engine draws a real line there, and two things hold on this side of it:
+The engine settles every permission in a subject-only policy, and two things
+follow:
 
-- The server resolves the subject whole before the call, so no field of it is
-  ever missing by accident. Every permission answers `true` or `false`, and
-  nothing answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+- The server resolves the subject whole before the call, so every permission
+  answers `true` or `false` and nothing answers
+  [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
 - Nothing has to be fetched to ask a question, so `can` takes three arguments
   and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
 
-Now write one rule that reads the object: the customer who asked may edit their
-own question. That single rule breaks both bullets at once, and
-[Rules that read the object](/acl/intermediate) is what it brings with it.
+Write one rule that reads the object, the customer who asked may edit their own
+question, and both break at once. [Rules that read the
+object](/acl/intermediate) picks up there.
 
 ## Where to go next
 

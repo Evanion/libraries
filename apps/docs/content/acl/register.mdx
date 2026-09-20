@@ -2,8 +2,8 @@
 
 <WorkshopNotice slug="acl" />
 
-Thirty-six classes of attack, and what `@evanion/acl` does about each. The suite
-in `libs/acl/src/security` holds one test per entry, under the entry's
+`@evanion/acl` answers thirty-six classes of attack, one row each below. The
+suite in `libs/acl/src/security` holds one test per entry, under the entry's
 identifier, and runs under `nx test @evanion/acl`. Each row names the Common
 Weakness Enumeration (CWE) and the Open Worldwide Application Security Project
 (OWASP).
@@ -12,16 +12,15 @@ Weakness Enumeration (CWE) and the Open Worldwide Application Security Project
 
 ## The three tiers
 
-Each entry sits in one tier, and the tier decides what its test may claim.
+Every entry sits in one of three tiers, and the tier decides what its test may
+claim.
 
-In tier 1 the library prevents the attack, and the test asserts that it raises a
-construction error or reaches a refusal. In tier 2 the primitive exists and the
-consumer calls it. The test there asserts that the primitive is correct and that
-the idiom it replaces is wrong on the same decision. In tier 3 the class is
-structurally out of scope: the contract clause exists, and where the behaviour
-reads like a defence, the test pins what the engine really does.
-
-A tier 3 test asserts no defence; a pass implies one.
+- Tier 1: the library prevents the attack, and the test asserts a construction
+  error or a refusal.
+- Tier 2: the primitive exists and the consumer calls it. The test asserts the
+  primitive is correct and the idiom it replaces wrong on the same decision.
+- Tier 3: the class is structurally out of scope. The test pins what the engine
+  really does, and asserts no defence.
 
 ## Tier 1, prevented
 
@@ -83,6 +82,7 @@ the clause is still written down; SEC-207 and SEC-208 also pin the gap.
 
 ## Where the suite lives
 
-`libs/acl/src/security`, matched by the package's own `src/**/*.{test,spec}.ts`
-include, so CI runs it with no project to forget. A unit test asserts what a
-function does; a register test asserts that an attack fails.
+`libs/acl/src/security` holds the suite, matched by the package's own
+`src/**/*.{test,spec}.ts` include, so CI runs it with no project to forget. A
+unit test asserts what a function does; a register test asserts that an attack
+fails.

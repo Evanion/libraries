@@ -29,14 +29,14 @@ global guard that refuses what it can, and `GamesService` deciding
 `game.declare` on the title it has just loaded.
 
 **Why you want it.** Baize grants `game.declare` to an operator whose own
-shop lists the title. A guard called with no title cannot compare `object.shop`
-against `subject.shop`, so it answers `unevaluable`, which is not a refusal.
-Read that as a grant and an operator in Gothenburg edits a Stockholm listing.
+shop lists the title. A guard called with no title answers `unevaluable`, and an
+app reading that as a grant lets an operator in Gothenburg edit a Stockholm
+listing.
 
-**How the library gets you there.** `access.readsObject(key, action)` is a fact
-about the document, and it tells the guard which permissions it can finish. The
-guard refuses those and passes the others on. `canFields` and
-`pickAllowedFields` then close the write in the service.
+**How the library gets you there.** `access.readsObject(key, action)` tells the
+guard which permissions it can finish, so the guard refuses those and passes the
+others on. `canFields` and `pickAllowedFields` then close the write in the
+service.
 
 ## Two seats, and only one of them decides
 
@@ -64,9 +64,6 @@ flowchart TD
   D --> W["pickAllowedFields, or 403"]
 ```
 
-That split is the whole Nest-specific content of this page; everything below is
-wiring.
-
 ## Building Baize's matrix once at boot
 
 `ShopSubject` carries `id`, `roles` and `shop`. `Game`, `OrderDraft`,
@@ -80,13 +77,12 @@ frontend compares its copy against.
 ```
 
 Five permissions, each carrying `visibility` except `inventory.read`, which
-shop-api keeps to itself. `game.declare` lets an operator set
-`availability`; `game.reprice` adds `price` and belongs to a manager. Both read
-the ownership axis `object.shop === subject.shop`.
+shop-api keeps to itself. `game.declare` lets an operator set `availability`;
+`game.reprice` adds `price` and belongs to a manager. Both read the ownership
+axis `object.shop === subject.shop`.
 
 `SHOP_MATRIX` is the document that builder produced and `ShopObjects` maps each
-key to its row shape. `hydratePolicy` and not `parseMatrix`, because this process
-wrote the document:
+key to its row shape. `hydratePolicy` adopts it, because this process wrote it:
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
 
@@ -97,11 +93,10 @@ unknown field, or two permissions sharing a key, stops the boot.
 
 ## The module that binds the matrix
 
-The registration idiom this repository already runs is `forRoot()` returning a
-`global: true` `DynamicModule` with a `useValue` provider under a
-package-namespaced string token. `ACL_ACCESS` is that token, `AclGuard` is the
-guard two sections below, and `PolicyController` is the endpoint at the end of
-this page:
+`AclModule.forRoot()` returns a `global: true` `DynamicModule` with a `useValue`
+provider under a package-namespaced string token. `ACL_ACCESS` is that token,
+`AclGuard` is the guard two sections below, and `PolicyController` is the
+endpoint at the end of this page:
 
 ```ts file=apps/shop-api/src/acl/acl.module.ts region=acl-module
 
@@ -120,11 +115,12 @@ every route, and the `@Requires` metadata below decides which routes it gates.
 
 ## Resolving the subject in a Nest request
 
-This repository holds per-request context in an `AsyncLocalStorage` singleton.
-`Scope.REQUEST` propagates _upward_ through the injection graph: every dependent
-of a request-scoped provider becomes request-scoped, is rebuilt per request, and
-never receives `onModuleInit`. `GamesService` and `InventoryClient` both depend
-on the subject, so request scope on it would re-scope the application.
+`SubjectService` holds the request's subject in an `AsyncLocalStorage`
+singleton. `Scope.REQUEST` propagates _upward_ through the injection graph:
+every dependent of a request-scoped provider becomes request-scoped, is rebuilt
+per request, and never receives `onModuleInit`. `GamesService` and
+`InventoryClient` both depend on the subject, so request scope on it would
+re-scope the application.
 
 ```ts file=apps/shop-api/src/acl/subject.service.ts region=subject-service
 
@@ -166,18 +162,15 @@ carry fails to compile:
 
 ```
 
-`readsObject` is the load-bearing line. It is a fact about the document rather
-than about a subject or a call: true when any allow rule or any deny rule of
-that permission reads an `object.*` path, on either operand. `order.create`
-reads the subject's roles alone, so a customer-less caller is refused here and
-never reaches `OrdersController`. `game.declare` reads the title's shop, so the
-guard passes it on for `GamesService` to finish.
+`readsObject` answers true when any allow rule or any deny rule of that
+permission reads an `object.*` path, on either operand. `order.create` reads the
+subject's roles alone, so a customer-less caller is refused here and never
+reaches `OrdersController`. `game.declare` reads the title's shop, so the guard
+passes it on for `GamesService` to finish.
 
-One thing this guard does not catch: a `@Requires` naming an `action` the
-document has no permission for. `key` is typed and `action` stays a string. On
-an `Access` built open, `can` throws `UnknownPermissionError`, which Nest
-renders as a 500. A typo in the decorator gives a server error where a refusal
-was wanted.
+The guard does not catch a `@Requires` naming an `action` the document has no
+permission for: `key` is typed and `action` stays a string. On an `Access` built
+open, `can` throws `UnknownPermissionError`, which Nest renders as a 500.
 
 ## The service decides on the row
 
@@ -191,17 +184,18 @@ field allow-lists:
 ```
 
 `decision.action.allowed` is checked first, so the refusal is a
-`ForbiddenException` and never an exception thrown out of `pickAllowedFields`.
-Only what that check allows is written. A hand-written read of the field map on
-`!== 'denied'` writes the `unevaluable` fields too. A Nest
-`@Body()` is the mass-assignment shape, because a caller puts whatever it likes
-in it.
+`ForbiddenException` and never an exception thrown out of `pickAllowedFields`. A
+hand-written read of the field map on `!== 'denied'` writes the `unevaluable`
+fields too. A Nest `@Body()` is the mass-assignment shape, because a caller puts
+whatever it likes in it.
 
 A whitelisting `ValidationPipe` answers a different question: the pipe says the
 key is a legal field of this endpoint, and the decision says this subject may set
 it on this row. Keep both.
 
 ## Publishing the matrix to the frontends
+
+`PolicyController` answers `GET /api/policy` with the reduced document:
 
 ```ts file=apps/shop-api/src/acl/policy.controller.ts region=policy-endpoint
 
