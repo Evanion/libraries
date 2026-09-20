@@ -57,7 +57,7 @@ serialize. `structuredClone` throws on the functions, and `JSON.stringify`
 silently drops every method. The document is what crosses a server/client
 boundary, and the client rebuilds the evaluator from it:
 
-```ts file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
@@ -99,7 +99,7 @@ that service is willing to believe. `apps/storefront` reads an unsigned cookie
 and sends `X-Shop-Subject` to `apps/shop-api`, so it screens the roles it
 forwards down to the one a shopper can hold:
 
-```ts file=apps/storefront/src/lib/subject.ts region=storefront-roles
+```ts twoslash file=apps/storefront/src/lib/subject.ts region=storefront-roles
 
 ```
 
@@ -184,7 +184,7 @@ falls on one `can` call, which is `apps/storefront`'s checkout. A permission
 carrying field rules needs the second call, and the value to write is what
 `pickAllowedFields` returns:
 
-```ts file=libs/acl/README.md region=write-path
+```ts twoslash file=libs/acl/README.md region=write-path
 
 ```
 

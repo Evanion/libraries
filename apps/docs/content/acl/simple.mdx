@@ -66,7 +66,7 @@ the role is in it. Every condition below reads the subject, so `capabilities`
 answers the whole document at once. The policy and its answers fit in one
 block:
 
-```ts file=libs/acl/README.md region=capabilities
+```ts twoslash file=libs/acl/README.md region=capabilities
 
 ```
 
@@ -115,7 +115,7 @@ Every `can` above restated the subject. A server resolves it from the session
 once and then asks many questions about it, so `authorize` takes it once, over
 the same report-and-listing policy:
 
-```ts file=libs/acl/README.md region=server-authorize
+```ts twoslash file=libs/acl/README.md region=server-authorize
 
 ```
 

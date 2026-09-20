@@ -74,7 +74,7 @@ refused?](/acl/refusals) is what to do with the rest.
 
 Four shapes come out of `can`, and one policy produces all four:
 
-```ts file=libs/acl/README.md region=four-outcomes
+```ts twoslash file=libs/acl/README.md region=four-outcomes
 
 ```
 
@@ -121,7 +121,7 @@ nothing to fetch. The app resolves the subject whole, and the type says so.
 
 `canMany` takes the instances and answers per instance:
 
-```ts file=libs/acl/README.md region=can-many
+```ts twoslash file=libs/acl/README.md region=can-many
 
 ```
 
@@ -155,7 +155,7 @@ Every handler in a request passes the same subject, and most of them name the
 same object kind. `authorize` and `access.object` take those two out of the
 signature once:
 
-```ts file=libs/acl/README.md region=server-authorize
+```ts twoslash file=libs/acl/README.md region=server-authorize
 
 ```
 

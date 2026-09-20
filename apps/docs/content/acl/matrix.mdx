@@ -81,7 +81,7 @@ needs a related row resolves it and passes it as the object.
 counter cannot, which is what a construction site needs when it merges the
 authored document with something else before building.
 
-```ts file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
@@ -100,7 +100,7 @@ to hold states one; a hash of the document is enough.
 A document may declare the shapes its conditions read. The `schema` field is
 optional for a producer and binding wherever it is present.
 
-```ts file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/README.md region=schema-binding
 
 ```
 
@@ -136,7 +136,7 @@ adopts it. `parseMatrix` is `hydratePolicy` with `closed: true`: the key univers
 is untrusted, so an unknown object kind or action fails closed and throws
 nothing.
 
-```ts file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 

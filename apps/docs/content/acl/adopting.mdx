@@ -37,7 +37,7 @@ A backend with its own access control list (ACL) publishes its matrix as JSON;
 a frontend or a peer service adopts it. `parseMatrix` is the entry point for a document this process
 did not write.
 
-```ts file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
@@ -112,7 +112,7 @@ not build still leaves you a policy to serve.
 A foreign consumer has no `Question` type to check paths against. The producer's
 `schema` is what carries that guarantee across the wire:
 
-```ts file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/README.md region=schema-binding
 
 ```
 
@@ -134,7 +134,7 @@ checks part of the document.
 A consumer holding a document for weeks needs to say which revision decided.
 `version` travels on the envelope and survives the round trip:
 
-```ts file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
