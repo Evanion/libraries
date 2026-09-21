@@ -1106,11 +1106,11 @@ only on the `canFields` write axis, where the caller holds the row already.
 rather than text. A reviewer reading a line-by-line document diff has to hold
 the precedence order in their head to work out what moved. A finding states it.
 
-`sideOutcome` is monotone in its rule array: a side that matched goes on
-matching whatever is appended. So an added allow branch can only widen and an
-added deny branch can only narrow, and the added branch is the reviewer's
-sentence, because its conditions are what an author wrote. A rule's id is
-derived from its conditions, so a reordered document reports nothing.
+The evaluator ORs the rules on a side, so a side that has matched goes on
+matching whatever is appended to it. An added allow branch can therefore only
+widen and an added deny branch can only narrow, and the added branch is the
+reviewer's sentence, because its conditions are what an author wrote. A rule is
+identified by a hash of its conditions, so a reordered document reports nothing.
 
 <!-- #region diff-matrix -->
 
@@ -1118,16 +1118,20 @@ derived from its conditions, so a reordered document reports nothing.
 import { diffMatrix } from '@evanion/acl';
 import type { Condition, Matrix } from '@evanion/acl';
 
-const admin: Condition = { field: 'subject.role', op: 'eq', value: 'admin' };
-const operator: Condition = {
+const isOwner: Condition = {
   field: 'subject.roles',
   op: 'contains',
-  value: 'operator',
+  value: 'owner',
 };
-const ownTenant: Condition = {
-  field: 'subject.tenantId',
+const isBookseller: Condition = {
+  field: 'subject.roles',
+  op: 'contains',
+  value: 'bookseller',
+};
+const ownListing: Condition = {
+  field: 'subject.id',
   op: 'eq',
-  path: 'object.tenantId',
+  path: 'object.sellerId',
 };
 
 const reprice = {
@@ -1138,14 +1142,17 @@ const reprice = {
 
 const before: Matrix = {
   version: 'listings@7',
-  permissions: [{ ...reprice, rules: [{ when: [admin] }] }],
+  permissions: [{ ...reprice, rules: [{ when: [isOwner] }] }],
 };
 
-// One branch appended: an operator may reprice a listing in their own tenant.
+// One branch appended: a bookseller may reprice a listing they sell.
 const after: Matrix = {
   version: 'listings@8',
   permissions: [
-    { ...reprice, rules: [{ when: [admin] }, { when: [operator, ownTenant] }] },
+    {
+      ...reprice,
+      rules: [{ when: [isOwner] }, { when: [isBookseller, ownListing] }],
+    },
   ],
 };
 
@@ -1158,8 +1165,8 @@ const granted = diff.findings.filter((each) => each.kind === 'granted');
 
 granted[0]?.key; // -> 'listing.reprice'
 granted[0]?.cause; // -> 'allow-branch-added'
-granted[0]?.groups.subject; // -> [operator]
-granted[0]?.groups.object; // -> [ownTenant]
+granted[0]?.groups.subject; // -> [isBookseller]
+granted[0]?.groups.object; // -> [ownListing]
 granted[0]?.groups.window; // -> []
 ```
 
@@ -1177,8 +1184,8 @@ Four things the report cannot derive, and it states each rather than guessing:
 - Whether a grant overlaps one already in force. The report names the added
   branch whole, so a reviewer may read a grant that was already granted.
 - Whether an added branch grants anything. A branch ANDing
-  `subject.role eq 'admin'` with `subject.role eq 'operator'` is unsatisfiable,
-  and the report calls it a grant.
+  `subject.role eq 'owner'` with `subject.role eq 'bookseller'` is
+  unsatisfiable, and the report calls it a grant.
 - What an edit did. A rule that kept an author-supplied `id` and changed its
   conditions, and a permission whose allow side and deny side both moved, come
   back as `undetermined` with both versions attached.
@@ -1189,9 +1196,11 @@ can check.
 ### A change that widens nothing and breaks every caller
 
 A permission that gains a deny rule reading `object.locked` grants nobody
-anything new. Every caller deciding without the row still breaks: the decision
-that answered `allow` answers `unevaluable` naming the path it now needs.
-`diffMatrix` reports that as its own finding.
+anything new. The narrowing is reported as `deny-branch-added`, and it is the
+smaller half of what the edit did. Every caller deciding without the row also
+breaks: the decision that answered `allow` answers `unevaluable` naming the
+path it now needs. `diffMatrix` reports that second consequence as a finding of
+its own.
 
 <!-- #region diff-reads-object -->
 
@@ -1199,14 +1208,16 @@ that answered `allow` answers `unevaluable` naming the path it now needs.
 import { diffMatrix, parseMatrix } from '@evanion/acl';
 import type { Matrix } from '@evanion/acl';
 
-type Staff = { id: string; role: string };
+type Staff = { id: string; roles: string[] };
 type Objects = { listing: { locked?: boolean } };
 
 const read = {
   key: 'listing.read',
   object: 'listing',
   action: 'read',
-  rules: [{ when: [{ field: 'subject.role', op: 'eq', value: 'admin' }] }],
+  rules: [
+    { when: [{ field: 'subject.roles', op: 'contains', value: 'bookseller' }] },
+  ],
 } as const;
 
 const before: Matrix = { version: 'listings@7', permissions: [read] };
@@ -1223,19 +1234,11 @@ const after: Matrix = {
   ],
 };
 
-const supervisor: Staff = { id: 'u1', role: 'admin' };
+const seller: Staff = { id: 'u1', roles: ['bookseller'] };
 
 // A gateway that decides in front of the fetch passes no listing.
-const was = parseMatrix<Staff, Objects>(before).can(
-  supervisor,
-  'listing',
-  'read',
-);
-const now = parseMatrix<Staff, Objects>(after).can(
-  supervisor,
-  'listing',
-  'read',
-);
+const was = parseMatrix<Staff, Objects>(before).can(seller, 'listing', 'read');
+const now = parseMatrix<Staff, Objects>(after).can(seller, 'listing', 'read');
 
 was.allowed; // -> true
 now.allowed; // -> false
@@ -1243,6 +1246,12 @@ now.reason; // -> 'unevaluable'
 now.missing; // -> ['object.locked']
 
 const findings = diffMatrix(before, after).findings;
+
+// The narrowing, which is what the added deny branch did to the allowed set.
+const withdrawn = findings.filter((each) => each.kind === 'withdrawn');
+withdrawn[0]?.cause; // -> 'deny-branch-added'
+
+// The second finding, which is what it did to every caller.
 const reads = findings.filter((each) => each.kind === 'reads-object');
 
 reads[0]?.before; // -> false

@@ -25,9 +25,9 @@ reports access.
 it withdraws, what it declines to classify, and which `object.*` paths a
 decision now reads.
 
-**Why you want it.** A line-by-line document diff shows a reviewer moved JSON,
-and the reviewer then runs the precedence order in their head to work out what
-that JSON did.
+**Why you want it.** A line-by-line document diff shows you that some JSON
+moved, and you then run the precedence order in your head to work out what that
+JSON did.
 
 **How the library gets you there.** An added allow branch is the grant, spelled
 in the conditions its author wrote, and `diffMatrix` renders those conditions.
@@ -39,36 +39,38 @@ when the two documents state one policy, and `version` names the two documents
 the report compared. A finding carries `key`, and `kind` says which of four
 shapes it is.
 
-| `kind`         | What the finding says                                     | Carries                              |
-| -------------- | --------------------------------------------------------- | ------------------------------------ |
-| `granted`      | the second document grants access the first did not       | `cause`, `when`, `groups`            |
-| `withdrawn`    | the first document granted access the second does not     | `cause`, `when`, `groups`, `holders` |
-| `undetermined` | `diffMatrix` declines to call the change either direction | `cause`, `before`, `after`           |
-| `reads-object` | the `object.*` paths this permission reads changed        | `before`, `after`, `paths`           |
+| `kind`         | What the finding says                                     | Carries                                        |
+| -------------- | --------------------------------------------------------- | ---------------------------------------------- |
+| `granted`      | the second document grants access the first did not       | `cause`, `when`, `groups`, `fields`            |
+| `withdrawn`    | the first document granted access the second does not     | `cause`, `when`, `groups`, `fields`, `holders` |
+| `undetermined` | `diffMatrix` declines to call the change either direction | `cause`, `before`, `after`                     |
+| `reads-object` | the `object.*` paths this permission reads changed        | `before`, `after`, `paths`                     |
 
 A `granted` finding names one of four causes: `permission-added`,
 `allow-branch-added`, `deny-branch-removed`, `field-list-widened`. A
-`withdrawn` finding names the four mirrored ones, from `permission-removed` to
-`field-list-narrowed`.
+`withdrawn` finding names the four mirrored ones: `permission-removed`,
+`allow-branch-removed`, `deny-branch-added`, `field-list-narrowed`. An
+`undetermined` finding names `rule-edited`, `both-sides-changed` or
+`fields-changed`.
 
 ```ts twoslash file=libs/acl/README.md region=diff-matrix
 
 ```
 
-`when` is the added branch whole. `groups` is the same branch split for
-rendering: `subject` is who gained the access, `object` is which rows, and
-`window` is the `now` conditions. A condition comparing a subject path against
-an object path lands in `object`, because it restricts rows rather than people.
-The three groups make the reviewer's sentence: any subject whose `roles`
-contains `operator` may now reprice a listing whose `tenantId` equals the
-subject's.
+`when` is the added branch whole, and it is empty where the cause is
+`field-list-widened`, because a field list carries no conditions. `groups` is
+the same branch split for rendering: `subject` is who gained the access,
+`object` is which rows, and `window` is the `now` conditions. A condition
+comparing a subject path against an object path lands in `object`, because it
+restricts rows rather than people. The three groups make the sentence you
+review: any subject whose `roles` contains `bookseller` may now reprice a
+listing whose `sellerId` is their own id.
 
 ## Why an added allow branch is a widening
 
-`sideOutcome` is monotone in its rule array. A side that matched goes on
-matching whatever is appended, so appending an allow rule cannot remove an
-allow and appending a deny rule cannot add one. `applyDenyOverlay` derives its
-subtract-only property from the same argument.
+The evaluator ORs the rules on a side, so a side that has matched goes on
+matching whatever is appended to it. Appending an allow rule therefore cannot
+remove an allow, and appending a deny rule cannot add one.
 
 That argument gives `diffMatrix` a direction. It gives no exact set: an added
 allow branch contains the newly granted access, and it may also contain access
@@ -79,26 +81,30 @@ A permission whose allow side and whose deny side both moved gets no direction
 at all. Each side alone is monotone, their composition is not, and `diffMatrix`
 reports `both-sides-changed` with both versions attached.
 
-## Why a reordered acl document reports nothing
+## Why a reordered matrix document reports nothing
 
-`ruleId` derives a rule's id from its conditions, so a rule keeps its id when it
-moves and when another rule is inserted in front of it. `diffMatrix` indexes
-each side by id and takes a set difference, and that difference is the whole of
-the branch classification. Two documents differing only in rule order, or in
-the key order inside one condition, come back `unchanged: true`.
+[`ruleId`](/acl/api#ruleid) identifies a rule by a hash of its conditions and
+the side it sits on, so a rule keeps its identity when it moves and when
+another rule is inserted in front of it. `diffMatrix` indexes each side by that
+id and takes a set difference, and that difference is the whole of the branch
+classification. Two documents differing only in rule order, or in the key order
+inside one condition, come back `unchanged: true`.
 
-An author-supplied `id` on a rule is the author's own statement of identity. A
-rule that keeps such an `id` and changes its conditions reads as one rule
-edited rather than as one removed and one added, and `diffMatrix` reports
-`rule-edited` with `before` and `after` on it.
+An author-supplied `id` on a rule overrides the hash, because it is the author's
+own statement of identity. A rule that keeps such an `id` and changes its
+conditions reads as one rule edited rather than as one removed and one added,
+and `diffMatrix` reports `rule-edited` with `before` and `after` on it.
 
-## What a withdrawn acl permission does to each holder
+## What a withdrawn permission does to each holder
 
-A removed permission is two different events, so a `withdrawn` finding whose
+A holder is a service that runs your document, and a removed permission reaches
+the two kinds of holder as two different events. So a `withdrawn` finding whose
 cause is `permission-removed` carries `holders` with a sentence for each.
-Remove `listing.reprice` from a document a consumer adopted with `parseMatrix`
-and `holders.closed` reads: `` `parseMatrix` holders: `listing.reprice` answers
-`unknown-action` and refuses. `` That holder keeps serving pages.
+
+A consumer that adopted the document with `parseMatrix` runs closed. Remove
+`listing.reprice` and `holders.closed` reads: `` `parseMatrix` holders:
+`listing.reprice` answers `unknown-action` and refuses. `` That holder keeps
+serving pages.
 
 A `hydratePolicy` holder runs open, and `holders.open` reads: `` `hydratePolicy`
 holders: `can` throws `UnknownPermissionError` for `listing.reprice`. `` When the
@@ -108,43 +114,46 @@ this matrix.
 
 ## Four things `diffMatrix` cannot derive
 
-A reader who does not know these four trusts the report further than it goes.
+Read a report without these four and you will trust it further than it goes.
 
-- **How many people a grant describes.** The report names a condition and never
-  a headcount. `subject.roles contains 'operator'` describes two people or two
-  thousand, and the difference lives in the directory rather than in the
-  matrix. So findings cannot be ranked by blast radius, and every widening
-  arrives at equal weight.
+- **How many people a grant describes.** A finding names a condition and never
+  a headcount. The matrix lists no people, so nothing in the report tells you
+  whether two people or two thousand hold `bookseller`. You count that in
+  whatever system stores your users, and you cannot sort the findings by how
+  many people they affect.
 - **Whether a grant was already in force.** Computing the exactly-new set means
   negating a disjunctive normal form, which is exponential in the branch count
-  and unreadable at any size. The report names the added branch whole, so a
-  reviewer may read a grant that another branch already gave.
+  and unreadable at any size. A finding names the added branch whole, so you
+  may read a grant that another branch already gave.
 - **Whether an added branch grants anything.** A branch ANDing
-  `subject.role eq 'admin'` with `subject.role eq 'operator'` is unsatisfiable
-  and grants nobody anything. The report calls it a grant.
-- **What an edit did.** A rule edited in place, and a permission whose two
-  sides both moved, come back as `undetermined` with both versions attached and
-  no direction.
+  `subject.role eq 'owner'` with `subject.role eq 'bookseller'` is
+  unsatisfiable and grants nobody anything. The report calls it a grant.
+- **What an edit did.** A rule edited in place, a permission whose two sides
+  both moved, and a field list carrying `*` or a `!` entry all come back as
+  `undetermined` with both versions attached and no direction. The three causes
+  are `rule-edited`, `both-sides-changed` and `fields-changed`.
 
-Each of those four fails toward reporting a grant, which is the direction a
-reviewer can check.
+Each of those four fails toward reporting a grant, which is the direction you
+can check.
 
 ## A change that widens nothing and breaks every caller
 
-A permission that gains a deny rule reading `object.locked` grants nobody
-anything. Every caller that decides without the row still breaks. An admin who
-supplied no listing answered `allowed: true` before the edit and answers
-`unevaluable` after it, naming `object.locked` in `missing`.
+A permission that gains a deny rule reading `object.locked` narrows access by
+the locked rows and by nothing else. Every caller that decides without the row
+breaks anyway. `can` answered `allowed: true` for a bookseller who passed no
+listing, and after the edit it answers `unevaluable` and names `object.locked`
+in `missing`.
 
 ```ts twoslash file=libs/acl/README.md region=diff-reads-object
 
 ```
 
-`diffMatrix` reports that as a `reads-object` finding carrying `paths.before`
-and `paths.after`. A gateway that decides in front of the fetch goes from
+`diffMatrix` reports two findings for that edit. The `withdrawn` one, cause
+`deny-branch-added`, is the narrowing, and it is the smaller half. The
+`reads-object` one carries `paths.before` and `paths.after`, and it is what
+every caller feels: a gateway that decides in front of the fetch goes from
 passing the request to refusing it, and a screen that drew a control holds a
-decision it must refetch to settle. Neither the `granted` list nor the
-`withdrawn` list mentions the edit, because no access moved.
+decision it must refetch to settle.
 
 ## Where to go next
 
