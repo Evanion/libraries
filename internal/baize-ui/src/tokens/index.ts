@@ -38,7 +38,12 @@ export {
   PLATFORM_LIGHT_GROUND,
 } from './platform.js';
 export type { Platform } from './platform.js';
-export { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
+export {
+  availability,
+  availabilityOnLight,
+  AVAILABILITY_CONTRAST_FLOOR,
+  AVAILABILITY_LIGHT_GROUND,
+} from './availability.js';
 export type { Availability } from './availability.js';
 export {
   complexity,

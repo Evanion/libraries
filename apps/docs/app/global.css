@@ -258,6 +258,16 @@ html:not(.dark) [class*='baize-platform-'] {
 }
 
 /*
+ * The same swap for an availability pill. The four state colours are held to
+ * 4.5:1 against the library's dark felt, and this site rebinds felt to paper,
+ * where the dark values reach between 1.77:1 and 2.00:1. The pill's label is
+ * the state, so an unreadable one says nothing at all.
+ */
+html:not(.dark) [class*='baize-state-'] {
+  --baize-state: var(--baize-state-on-light);
+}
+
+/*
  * Where the hue lands: the page title, the rule under a section heading, and a
  * card's own title.
  *

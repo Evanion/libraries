@@ -81,6 +81,10 @@
   --baize-availability-preorder: #8fa8d8;
   --baize-availability-reprint-pending: #c9a15e;
   --baize-availability-out-of-print: #8fa69e;
+  --baize-availability-on-light-in-stock: #397048;
+  --baize-availability-on-light-preorder: #4e6591;
+  --baize-availability-on-light-reprint-pending: #835e15;
+  --baize-availability-on-light-out-of-print: #546962;
   --baize-complexity-1: #908b75;
   --baize-complexity-2: #a89b72;
   --baize-complexity-3: #c5a96a;

@@ -166,18 +166,27 @@
   --baize-ladder: var(--baize-complexity-5);
 }
 
-/* The availability colour, bound once per state and read by the pill. */
+/*
+ * The availability colour, bound once per state and read by the pill. Each
+ * state binds both grounds: `--baize-state` is the dark value the library's own
+ * felt takes, and `--baize-state-on-light` is there for a consumer that rebinds
+ * felt to paper, which swaps the two with one rule rather than four.
+ */
 .baize-state-in-stock {
   --baize-state: var(--baize-availability-in-stock);
+  --baize-state-on-light: var(--baize-availability-on-light-in-stock);
 }
 .baize-state-preorder {
   --baize-state: var(--baize-availability-preorder);
+  --baize-state-on-light: var(--baize-availability-on-light-preorder);
 }
 .baize-state-reprint-pending {
   --baize-state: var(--baize-availability-reprint-pending);
+  --baize-state-on-light: var(--baize-availability-on-light-reprint-pending);
 }
 .baize-state-out-of-print {
   --baize-state: var(--baize-availability-out-of-print);
+  --baize-state-on-light: var(--baize-availability-on-light-out-of-print);
 }
 
 /*
