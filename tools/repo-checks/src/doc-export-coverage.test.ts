@@ -410,10 +410,10 @@ describe('every published name is documented', () => {
         if (allowed.has(symbol)) continue;
         failures.push(
           `${name} exports \`${symbol}\`, which no \`##\` heading on its API ` +
-            `reference names. Add the entry. If the name is published for ` +
-            `a caller's convenience and is never going to be documented, ` +
-            `state why in doc-export-coverage-exempt.json; if it is simply ` +
-            `not written yet, record it in doc-export-coverage-allowance.json.`,
+            `reference names. Add the entry. If the name is published for a ` +
+            `caller's convenience and is not public API, mark it \`@internal\` ` +
+            `and say why in the same docblock; if the entry is simply not ` +
+            `written yet, record it in doc-export-coverage-allowance.json.`,
         );
       }
     }
@@ -431,9 +431,9 @@ describe('every published name is documented', () => {
         failures.push(
           `${name} exports \`${symbol}\`, which no \`twoslash\` or \`file=\` ` +
             `fence calls. A reader gets a signature and no example. Add one. ` +
-            `If the name cannot sensibly carry one, state why in ` +
-            `doc-export-coverage-exempt.json; if the example is simply not ` +
-            `written yet, record it in doc-export-coverage-allowance.json.`,
+            `If the name is not public API, mark it \`@internal\` and say why ` +
+            `in the same docblock; if the example is simply not written yet, ` +
+            `record it in doc-export-coverage-allowance.json.`,
         );
       }
     }

@@ -2220,10 +2220,13 @@ it, a deletion takes it, and the person deciding is looking at the code.
 
 A debt and a decision are different, so they are stored differently. What is
 merely not written yet goes in `doc-export-coverage-allowance.json`, a ratchet
-like G3 and G9, and a name may not be in both places. G10 lands recording 115
-undocumented names and 49 unexercised ones across ten packages. Only
+like G3 and G9, and a name may not be in both places. G10 lands recording 133
+undocumented names and 60 unexercised ones across ten packages. Only
 `@evanion/compose` starts clean. The largest single group is error classes,
-which are exported to be caught and are named in no example that runs.
+which are exported to be caught and are named in no example that runs. The
+second is `@evanion/acl/testing`, whose eighteen names are documented in
+`libs/acl/README.md` and on no page of the site, which is the first debt to
+pay and the one G10 exists to have caught.
 
 G1, G2, G4, G5, G7, G8 and G10 are written. G1, G5 and G7 pass on the current
 content: G5 resolves every package import in a fence, G7 every internal link.
