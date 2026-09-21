@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { diffMatrix } from './diff-matrix.js';
+import { diffMatrix, findingsOf } from './diff-matrix.js';
 import { parseMatrix } from './parse-matrix.js';
 import { ruleId } from './rule-id.js';
-import type { DiffFinding } from './diff-matrix.js';
 import type { Condition, Matrix, Permission, Rule } from './types.js';
 
 type Subject = { id?: string; role?: string; roles?: string[] };
@@ -33,14 +32,6 @@ const ownTenant: Condition = {
   path: 'object.tenantId',
 };
 const locked: Condition = { field: 'object.locked', op: 'eq', value: true };
-
-const of = <K extends DiffFinding['kind']>(
-  findings: readonly DiffFinding[],
-  kind: K,
-): Extract<DiffFinding, { kind: K }>[] =>
-  findings.filter(
-    (each): each is Extract<DiffFinding, { kind: K }> => each.kind === kind,
-  );
 
 describe('diffMatrix', () => {
   it('reports nothing for two documents stating one policy', () => {
@@ -84,7 +75,7 @@ describe('diffMatrix', () => {
         permission('listing.reprice', [{ when: [isAdmin] }, added]),
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'granted');
+      const [finding] = findingsOf(diffMatrix(before, after), 'granted');
 
       expect(finding?.cause).toBe('allow-branch-added');
       expect(finding?.key).toBe('listing.reprice');
@@ -105,7 +96,7 @@ describe('diffMatrix', () => {
         ]),
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'granted');
+      const [finding] = findingsOf(diffMatrix(before, after), 'granted');
 
       expect(finding?.groups.subject).toEqual([isOperator]);
       expect(finding?.groups.object).toEqual([ownTenant]);
@@ -119,7 +110,7 @@ describe('diffMatrix', () => {
       ]);
       const after = matrix([permission('doc.read', [{ when: [isAdmin] }], [])]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'granted');
+      const [finding] = findingsOf(diffMatrix(before, after), 'granted');
 
       expect(finding?.cause).toBe('deny-branch-removed');
       expect(finding?.rule).toBe(ruleId(denied, 'deny'));
@@ -131,7 +122,7 @@ describe('diffMatrix', () => {
         permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
       ]);
 
-      const findings = of(diffMatrix(before, after).findings, 'granted');
+      const findings = findingsOf(diffMatrix(before, after), 'granted');
 
       expect(findings).toHaveLength(2);
       expect(findings.every((each) => each.cause === 'permission-added')).toBe(
@@ -148,7 +139,7 @@ describe('diffMatrix', () => {
         permission('doc.read', [{ when: [isAdmin] }], [denied]),
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'withdrawn');
+      const [finding] = findingsOf(diffMatrix(before, after), 'withdrawn');
 
       expect(finding?.cause).toBe('deny-branch-added');
       expect(finding?.when).toEqual([locked]);
@@ -161,7 +152,7 @@ describe('diffMatrix', () => {
       ]);
       const after = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'withdrawn');
+      const [finding] = findingsOf(diffMatrix(before, after), 'withdrawn');
 
       expect(finding?.cause).toBe('allow-branch-removed');
       expect(finding?.when).toEqual([isOperator]);
@@ -174,7 +165,7 @@ describe('diffMatrix', () => {
       ]);
       const after = matrix([permission('doc.write', [{ when: [isAdmin] }])]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'withdrawn');
+      const [finding] = findingsOf(diffMatrix(before, after), 'withdrawn');
 
       expect(finding?.cause).toBe('permission-removed');
       expect(finding?.holders?.closed).toContain('unknown-action');
@@ -185,7 +176,7 @@ describe('diffMatrix', () => {
       const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
       const after = matrix([]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'withdrawn');
+      const [finding] = findingsOf(diffMatrix(before, after), 'withdrawn');
 
       expect(finding?.holders?.open).toContain('UnknownObjectKeyError');
       expect(finding?.holders?.open).toContain('doc');
@@ -201,15 +192,15 @@ describe('diffMatrix', () => {
         permission('doc.read', [{ id: 'r', when: [isOperator] }]),
       ]);
 
-      const findings = diffMatrix(before, after).findings;
-      const [finding] = of(findings, 'undetermined');
+      const diff = diffMatrix(before, after);
+      const [finding] = findingsOf(diff, 'undetermined');
 
       expect(finding?.cause).toBe('rule-edited');
       expect(finding?.rule).toBe('r');
       expect(finding?.before).toEqual([isAdmin]);
       expect(finding?.after).toEqual([isOperator]);
-      expect(of(findings, 'granted')).toHaveLength(0);
-      expect(of(findings, 'withdrawn')).toHaveLength(0);
+      expect(findingsOf(diff, 'granted')).toHaveLength(0);
+      expect(findingsOf(diff, 'withdrawn')).toHaveLength(0);
     });
 
     it('refuses a direction when both sides of one permission moved', () => {
@@ -222,11 +213,13 @@ describe('diffMatrix', () => {
         ),
       ]);
 
-      const findings = diffMatrix(before, after).findings;
+      const diff = diffMatrix(before, after);
 
-      expect(of(findings, 'undetermined')[0]?.cause).toBe('both-sides-changed');
-      expect(of(findings, 'granted')).toHaveLength(0);
-      expect(of(findings, 'withdrawn')).toHaveLength(0);
+      expect(findingsOf(diff, 'undetermined')[0]?.cause).toBe(
+        'both-sides-changed',
+      );
+      expect(findingsOf(diff, 'granted')).toHaveLength(0);
+      expect(findingsOf(diff, 'withdrawn')).toHaveLength(0);
     });
 
     it('decides two literal name lists by set comparison', () => {
@@ -236,7 +229,7 @@ describe('diffMatrix', () => {
         { ...base, fields: { fields: ['title', 'body'] } },
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'granted');
+      const [finding] = findingsOf(diffMatrix(before, after), 'granted');
 
       expect(finding?.cause).toBe('field-list-widened');
       expect(finding?.fields).toEqual(['body']);
@@ -247,7 +240,7 @@ describe('diffMatrix', () => {
       const before = matrix([{ ...base, fields: { fields: ['*', '!price'] } }]);
       const after = matrix([{ ...base, fields: { fields: ['title'] } }]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'undetermined');
+      const [finding] = findingsOf(diffMatrix(before, after), 'undetermined');
 
       expect(finding?.cause).toBe('fields-changed');
     });
@@ -260,7 +253,7 @@ describe('diffMatrix', () => {
         permission('doc.read', [{ when: [isAdmin] }], [{ when: [locked] }]),
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'reads-object');
+      const [finding] = findingsOf(diffMatrix(before, after), 'reads-object');
 
       expect(finding?.before).toBe(false);
       expect(finding?.after).toBe(true);
@@ -290,16 +283,16 @@ describe('diffMatrix', () => {
       expect(now.reason).toBe('unevaluable');
       expect(now.missing).toEqual(['object.locked']);
 
-      const findings = diffMatrix(before, after).findings;
+      const diff = diffMatrix(before, after);
 
       // The narrowing is reported, and on its own it describes a locked row.
-      expect(of(findings, 'withdrawn')[0]?.cause).toBe('deny-branch-added');
-      expect(of(findings, 'withdrawn')[0]?.when).toEqual([locked]);
+      expect(findingsOf(diff, 'withdrawn')[0]?.cause).toBe('deny-branch-added');
+      expect(findingsOf(diff, 'withdrawn')[0]?.when).toEqual([locked]);
 
       // This admin supplied no row at all and is refused whatever the row
       // holds, which only the path finding reaches.
-      expect(of(findings, 'reads-object')).toHaveLength(1);
-      expect(of(findings, 'reads-object')[0]?.paths.after).toEqual([
+      expect(findingsOf(diff, 'reads-object')).toHaveLength(1);
+      expect(findingsOf(diff, 'reads-object')[0]?.paths.after).toEqual([
         'object.locked',
       ]);
     });
@@ -312,7 +305,7 @@ describe('diffMatrix', () => {
         ]),
       ]);
 
-      const [finding] = of(diffMatrix(before, after).findings, 'reads-object');
+      const [finding] = findingsOf(diffMatrix(before, after), 'reads-object');
 
       expect(finding?.paths.before).toEqual(['object.locked']);
       expect(finding?.paths.after).toEqual(['object.archived']);
@@ -382,7 +375,60 @@ describe('diffMatrix', () => {
       expect(was.allowed).toBe(false);
       expect(now.allowed).toBe(true);
       expect(now.rule).toBe(
-        of(diffMatrix(before, after).findings, 'granted')[0]?.rule,
+        findingsOf(diffMatrix(before, after), 'granted')[0]?.rule,
+      );
+    });
+  });
+
+  describe('findingsOf', () => {
+    it('returns only the kind asked for', () => {
+      const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
+      const after = matrix([
+        permission('doc.read', [{ when: [isAdmin] }], [{ when: [locked] }]),
+      ]);
+      const diff = diffMatrix(before, after);
+
+      expect(diff.findings.length).toBeGreaterThan(1);
+      expect(
+        findingsOf(diff, 'withdrawn').every(
+          (each) => each.kind === 'withdrawn',
+        ),
+      ).toBe(true);
+    });
+
+    it("narrows the member, so a caller reads the kind's own fields", () => {
+      const before = matrix([permission('listing.reprice', [])]);
+      const after = matrix([
+        permission('listing.reprice', [{ when: [isOperator] }]),
+      ]);
+
+      const [grant] = findingsOf(diffMatrix(before, after), 'granted');
+
+      // `groups` is on GrantedFinding and on no other member, so this reads
+      // without a cast or a check.
+      expect(grant?.groups.subject).toEqual([isOperator]);
+    });
+
+    it('answers empty for a kind the report has none of', () => {
+      const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
+      const after = matrix([
+        permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
+      ]);
+
+      expect(findingsOf(diffMatrix(before, after), 'withdrawn')).toEqual([]);
+    });
+
+    it('keeps the order the report was built in', () => {
+      const before = matrix([permission('doc.read', [])]);
+      const after = matrix([
+        permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
+      ]);
+      const diff = diffMatrix(before, after);
+
+      expect(findingsOf(diff, 'granted').map((each) => each.when)).toEqual(
+        diff.findings
+          .filter((each) => each.kind === 'granted')
+          .map((each) => each.when),
       );
     });
   });

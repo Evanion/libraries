@@ -39,6 +39,7 @@ const RUNTIME_EXPORTS = [
   'applyDenyOverlay',
   'diffMatrix',
   'federatedPolicies',
+  'findingsOf',
   'hydratePolicy',
   'parseMatrix',
   'pickAllowedFields',
