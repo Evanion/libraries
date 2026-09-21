@@ -24,9 +24,14 @@ import type { MetaRecord } from 'nextra';
  * Questions are titled as the question, not as the method, because that is what
  * a reader searches for. The method is in the first line of each.
  *
- * Caveats heads the reference band rather than sitting in Questions: it is
- * material to check code against rather than a task, and a reader meets it from
- * the overview and from the end of every Setup page.
+ * Limits heads the reference band. It is what a reader decides against before
+ * writing any code, so it precedes Caveats, which is what a reader checks code
+ * against once there is some. The overview links it from `When acl is the wrong
+ * tool`, so an evaluating reader reaches it without opening the band.
+ *
+ * Caveats follows Limits rather than sitting in Questions: it is material to
+ * check code against rather than a task, and a reader meets it from the
+ * overview and from the end of every Setup page.
  *
  * Separators rather than folders, on the same reasoning as `content/_meta.ts`:
  * a folder puts one more click between a reader and every page inside it, and a
@@ -85,6 +90,7 @@ export default {
   publishing: 'Giving my rules to another service',
 
   'group-reference': { type: 'separator', title: 'Reference' },
+  limits: 'What this does not do',
   pitfalls: 'Caveats & Pitfalls',
   matrix: 'The Matrix Document',
   authoring: 'Typed Authoring',

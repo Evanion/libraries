@@ -1,0 +1,153 @@
+# What `@evanion/acl` does not do
+
+<WorkshopNotice slug="acl" />
+
+<PageSheet
+  difficulty={1}
+  read={8}
+  requires={[['Overview', '/acl']]}
+  unlocks={[
+    ['Security contract', '/acl/security'],
+    ['Caveats and pitfalls', '/acl/pitfalls'],
+  ]}
+/>
+
+`@evanion/acl` decides from two inputs: a frozen JSON document, and the subject
+and object bags a caller already holds. Four questions sit outside those inputs,
+and each one is a property of the model rather than a feature nobody has written
+yet. A team that needs one of the four is better served by another tool, and the
+section covering it names which.
+
+## Revocation reaches a consumer no sooner than `maxStale`
+
+`expiryOf` (`libs/acl/src/hydrate-policy.ts:188-205`) settles the instant past
+which every key answers `stale-contract`, at
+`fetchedAt + min(matrix.maxStale, options.maxStale)`. A consumer holding a
+document fetched before the owner edited it goes on deciding from the old rules
+until it revalidates. `maxStale` is therefore the floor on revocation latency,
+and no export of this library lowers it.
+
+Executed against `libs/acl/src` with `maxStale: 1000`, `fetchedAt: 0` and a
+settled clock of 5000:
+
+- a key the document carries answers `stale-contract`
+- a key the document does not carry answers `stale-contract`
+- `capabilities` answers `stale-contract` for every entry
+- `readsObject` answers `true`, because it states a fact about the document and
+  none about the present
+
+An owner who needs a revocation to take effect inside one second states
+`maxStale: 1000`, and every consumer revalidates at that rate. Two enterprise
+cases separate at this point, and a deployment that confuses them sets the
+budget far lower than it needs. A terminated employee is revoked at the identity
+provider, which reaches the subject: `subject.roles` stops carrying the role and
+every consumer resolving a fresh subject refuses at once, whatever the
+document's age. Revocation through the document is for a change of rule. An
+emergency grant written into the document carries the same bound in the worse
+direction, so a break-glass design puts the emergency role on the subject and
+the condition in the document, and the document names the role it honours and
+never the person.
+
+## A relationship across two rows has no expression in a matrix
+
+"Is this question in a shop this bookseller's team owns" states a hop, and a
+matrix condition reads one field of one scope. `readPath`
+(`libs/acl/src/conditions.ts:76-92`) splits a path at its first dot and reads
+the remainder as a single own key off the `subject` or `object` bag.
+`pathFault` (`libs/acl/src/validate.ts:57-72`) refuses the deeper form at
+construction, so a policy naming one throws before it decides anything:
+
+```text no-run
+InvalidConditionError: permission "question.edit": condition rules[0].when[0] on "object.shop.ownerId" nests below its scope: a path reads one field of a scope, so at most one dot is resolvable
+```
+
+`ObjectSchema.relations` (`libs/acl/src/types.ts:176-183`) declares which kinds
+one kind points at, one hop and no nesting. A condition cannot compare a
+relation, because a relation is no value. The field is declared for the
+consumers that resolve the hop themselves.
+
+Traversal needs the graph, a matrix carries no graph, and fetching one during a
+decision is the network call this design exists to avoid. A caller that has
+already resolved the hop passes the result as a flat field, and
+`object.teamId` on a loaded row is an ordinary condition that decides
+correctly. An answer that depends on walking a hierarchy the caller does not
+hold belongs to a Zanzibar implementation, where a relationship tuple is the
+primitive and the graph walk is the engine's job:
+[SpiceDB](https://authzed.com/docs/spicedb/getting-started/discovering-spicedb)
+and [OpenFGA](https://openfga.dev/docs/getting-started/setup-openfga/docker).
+Each runs as a service over a database, and each check is a network call.
+
+## No call answers which subjects can take an action
+
+An access review asks who can approve a refund. A matrix answers that a subject
+whose `roles` contains `approver` and whose `tenantId` equals the order's can,
+and converting that second answer into the first needs the subject population. A
+matrix carries no subject population, and no entry point of `@evanion/acl` ever
+receives one.
+
+Attribute-based access control (ABAC) carries this limit generally, so it
+belongs to the model and not to this implementation. NIST SP 800-162 §3.1.2.3
+calls the review of who holds access before any request is made a
+before-the-fact audit, often necessary for demonstrating compliance, and states
+that "An ABAC system may not lend itself well to conducting these audits
+efficiently". The same page records that determining who can reach an object may
+require simulating the request for every known subject. The join belongs to the
+identity directory, and what a matrix contributes to it is a machine-readable
+statement of the conditions per permission.
+
+The inverse question is answerable and is the stronger evidence. What gated
+`order.refund` on 3 March is the document at the version deployed on 3 March.
+
+## Every consumer keeps its own decision records
+
+Evaluation is a local call inside each consumer process, so N consumers produce
+N streams of decision records and no stream holds every decision. A question
+nobody asked produces no record at all, which makes an absence of records no
+evidence that no access occurred: a caller that skipped the check entirely
+leaves nothing behind, and no party here owns the call count that would show the
+gap.
+
+NIST SP 800-53 AU-2 asks an organization for "a rationale for why the event
+types selected for logging are deemed to be adequate". A deployment on
+`@evanion/acl` writes that rationale itself, naming which call sites are
+instrumented and why the uninstrumented ones do not matter.
+
+## Which record is the access record
+
+A consumer's decision records are user-interface evidence, and the records of
+the service that owns the row are access evidence. Every layer re-evaluates and
+no layer's answer travels forward as an assertion, so a browser's `can` answered
+what a screen drew and never what a write was permitted to do. An audit that
+presents a browser's decision log as an access record is presenting the wrong
+artifact. [The security contract](/acl/security) states where a decision binds.
+
+| What a compliance reviewer asks          | What answers it                                             |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| the control's definition on a given date | the matrix at the `version` deployed on that date           |
+| evidence that a change was authorised    | the git history: an author, a reviewer, a timestamp, a diff |
+| evidence that the control operated       | the decision records of the service that owns the row       |
+| a list of who held access                | nothing here; the subject population is the directory's     |
+
+## What will not be built
+
+Nine features are refused for `@evanion/acl`, each because of the property it
+would break. The list is fixed rather than a backlog, so a team reading it can
+plan around the refusals instead of waiting on them.
+
+| Refused                                                           | The property it breaks                                                                            |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| a remote decision endpoint, a sidecar or a decision-point service | every property of a local decision becomes conditional on the network                             |
+| relationship traversal or a graph walk                            | the document carries no graph, and fetching one during a decision reaches the network             |
+| a fetcher, a poller or a loader taking a URL                      | a caller constructing inside a request handler puts a network call on the decision path           |
+| a push revocation channel                                         | a consumer that missed a push believes it is fresh, and `maxStale` still bounds the window anyway |
+| a decision cache                                                  | a cache adds a key to get wrong and a second staleness window inside the process                  |
+| a decision sink, a log transport or an audit shipper              | the application's logging stack already holds retention, redaction and a destination              |
+| a reverse index over subjects                                     | it needs the subject population, so the library would hold a copy of the identity directory       |
+| an administration interface that writes the matrix                | the document would change outside review, and review is the only control over an over-broad grant |
+| a per-consumer freshness override that extends the owner's budget | `expiryOf` takes `min` of the two, because a consumer choosing its own bound optimises for itself |
+
+Two of the nine get asked for most: relationship traversal and the reverse index
+over subjects. Both are answered better by naming SpiceDB or OpenFGA than by
+half-building either here. Tightening the freshness budget below the owner's
+stays allowed, and an interface that opens a pull request against the matrix is
+a different thing and nobody's objection.
