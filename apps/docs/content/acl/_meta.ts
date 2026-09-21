@@ -24,6 +24,12 @@ import type { MetaRecord } from 'nextra';
  * Questions are titled as the question, not as the method, because that is what
  * a reader searches for. The method is in the first line of each.
  *
+ * `testing` closes Questions, after `changes`. It wires `diffMatrix` into
+ * `contractDrift`'s differ seam and takes the `MatrixDiff` vocabulary as read,
+ * so the page that teaches that vocabulary comes first. It also takes
+ * `adopting` as read, because a consumer replays its questions against two
+ * documents it adopted with `parseMatrix`.
+ *
  * Limits heads the reference band. It is what a reader decides against before
  * writing any code, so it precedes Caveats, which is what a reader checks code
  * against once there is some. The overview links it from `When acl is the wrong
@@ -90,6 +96,7 @@ export default {
   publishing: 'Giving my rules to another service',
   errors: 'What can throw?',
   changes: 'What did this change do to access?',
+  testing: 'Testing a contract I consume',
 
   'group-reference': { type: 'separator', title: 'Reference' },
   limits: 'What this does not do',

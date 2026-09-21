@@ -1192,9 +1192,121 @@ drift.changed[0]?.fetched.reason; // -> 'unknown-action'
 
 <!-- #endregion contract-drift -->
 
-`options.diff` is where the full document diff goes once one is available. It is
-a `(pinned, fetched) => D`, `contractDrift` reads nothing out of the result, and
-`report.diff` carries whatever it returned.
+### A red build when a replayed decision changes
+
+`assertNoContractDrift` runs `contractDrift` and throws a `ContractDriftError`
+when the producer removed a published key or a replayed decision changed. The
+error carries the whole `report`, and its message is `describeContractDrift` of
+that report. `ContractDriftError` extends `AclAssertionError`, which is the base
+class every refusal in this entry point raises.
+
+<!-- #region drift-assert -->
+
+```ts @import.meta.vitest
+import { AclAssertionError } from '@evanion/acl/testing';
+import { ContractDriftError } from '@evanion/acl/testing';
+import { assertNoContractDrift } from '@evanion/acl/testing';
+import { describeContractDrift } from '@evanion/acl/testing';
+import type { Matrix } from '@evanion/acl';
+
+const refund = (role: string): Matrix => ({
+  version: role === 'bookseller' ? 'orders@7' : 'orders@8',
+  permissions: [
+    {
+      key: 'orders:order.refund',
+      object: 'orders:order',
+      action: 'refund',
+      rules: [
+        {
+          id: 'staff',
+          when: [{ field: 'subject.roles', op: 'contains', value: role }],
+        },
+      ],
+    },
+  ],
+});
+
+// The producer kept the key and narrowed the role that holds it.
+const staff = { id: 'u1', roles: ['bookseller'] };
+
+let caught: unknown;
+try {
+  assertNoContractDrift({
+    pinned: refund('bookseller'),
+    fetched: refund('supervisor'),
+    cases: [
+      {
+        name: 'the refund button',
+        subject: staff,
+        key: 'orders:order',
+        action: 'refund',
+      },
+    ],
+  });
+} catch (error) {
+  caught = error;
+}
+
+const drift = caught as ContractDriftError;
+drift instanceof AclAssertionError; // -> true
+drift.report.removed; // -> []
+drift.report.changed[0]?.fetched.reason; // -> 'no-rule-matched'
+describeContractDrift(drift.report).split('\n')[0]; // -> 'contract drift, orders@7 -> orders@8'
+```
+
+<!-- #endregion drift-assert -->
+
+### The whole document diff at the same seam
+
+`options.diff` is a `MatrixDiffer<D>`, a `(pinned, fetched) => D`.
+`contractDrift` reads nothing out of the result and carries it onto
+`report.diff`, so passing `diffMatrix` types `report.diff` as a `MatrixDiff` and
+passing nothing leaves it `undefined`. The replayed cases say what this
+application's own screens do; the diff says what moved in the document behind
+them.
+
+<!-- #region drift-seam -->
+
+```ts @import.meta.vitest
+import { diffMatrix } from '@evanion/acl';
+import { contractDrift } from '@evanion/acl/testing';
+import type { Matrix } from '@evanion/acl';
+
+const bookseller = {
+  id: 'staff',
+  when: [{ field: 'subject.roles', op: 'contains', value: 'bookseller' }],
+} as const;
+
+const supervisor = {
+  id: 'supervisor',
+  when: [{ field: 'subject.roles', op: 'contains', value: 'supervisor' }],
+} as const;
+
+const contract = (version: string, rules: readonly unknown[]): Matrix =>
+  ({
+    version,
+    permissions: [
+      {
+        key: 'orders:order.refund',
+        object: 'orders:order',
+        action: 'refund',
+        rules,
+      },
+    ],
+  }) as Matrix;
+
+const report = contractDrift({
+  pinned: contract('orders@7', [bookseller]),
+  fetched: contract('orders@8', [bookseller, supervisor]),
+  diff: diffMatrix,
+});
+
+report.changed; // -> []
+report.diff?.unchanged; // -> false
+report.diff?.findings.map((finding) => finding.kind); // -> ['granted']
+```
+
+<!-- #endregion drift-seam -->
 
 ### Reaching `stale-contract` on purpose
 
@@ -1245,6 +1357,78 @@ assertRefused(past, 'stale-contract').allowed; // -> false
 ```
 
 <!-- #endregion fixture-clock -->
+
+### Assertions that name the reason
+
+`assertAllowed` returns the decision it was given, or throws naming the key, the
+reason, the rule and the missing paths. `assertRefused` is the same for a
+refusal and takes the `reason` to assert. `assertFieldState` asserts one field
+of a `canFields` decision, and reports a field the decision carries no entry for
+apart from a field in the wrong state. `explainDecision` and
+`explainFieldDecision` are the one-line renderings those three throw, available
+on their own for a message a test assembles itself.
+
+<!-- #region consumer-assertions -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+import { AclAssertionError } from '@evanion/acl/testing';
+import { assertAllowed } from '@evanion/acl/testing';
+import { assertFieldState } from '@evanion/acl/testing';
+import { explainDecision } from '@evanion/acl/testing';
+import { explainFieldDecision } from '@evanion/acl/testing';
+import type { Matrix } from '@evanion/acl';
+
+const contract: Matrix = {
+  version: 'orders@8',
+  permissions: [
+    {
+      key: 'orders:order.update',
+      object: 'orders:order',
+      action: 'update',
+      rules: [
+        {
+          id: 'staff',
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
+        },
+      ],
+      fields: { fields: ['note'] },
+    },
+  ],
+};
+
+const storefront = parseMatrix(contract);
+const staff = { id: 'u1', roles: ['bookseller'] };
+
+const decision = storefront.can(staff, 'orders:order', 'update');
+assertAllowed(decision, 'the order editor').rule; // -> 'staff'
+explainDecision(decision); // -> '"orders:order.update" allowed with reason "allow", from rule "staff"'
+
+const fields = storefront.canFields(
+  staff,
+  'orders:order',
+  'update',
+  { note: 'held for pickup' },
+  'write',
+);
+assertFieldState(fields, 'note', 'allowed').allowed; // -> true
+explainFieldDecision(fields); // -> '"orders:order.update" allowed with reason "allow", from rule "staff"; note: allowed (allow)'
+
+let caught: unknown;
+try {
+  assertFieldState(fields, 'total', 'allowed');
+} catch (error) {
+  caught = error;
+}
+
+const failure = caught as AclAssertionError;
+failure instanceof AclAssertionError; // -> true
+failure.message; // -> '"orders:order.update" has no field "total": it carries note'
+```
+
+<!-- #endregion consumer-assertions -->
 
 ## Server-side `authorize`
 
