@@ -1022,6 +1022,153 @@ against the published contract, and an internal vetoable key is absent from it,
 taking its object kind's schema entry along, so that check would refuse every
 contribution it was written to accept.
 
+## Testing a contract you consume
+
+`@evanion/acl/testing` is a secondary entry point. Importing `@evanion/acl`
+pulls none of it in, it imports no test framework, and every helper returns a
+value or throws a plain `Error`, so it runs under vitest, `node:test` and jest
+alike.
+
+A test that calls `can` and reads the decision needs none of it. What it is for
+is the assertion a consumer gets wrong: a fixture matrix written by the consumer
+to stand in for the producer's contract is a second copy of somebody else's
+rules, which is the failure the contract removes. The consumer pins the
+producer's document, fetches the current one in CI, and replays its own
+questions against both.
+
+`contractDrift` reports a removed key apart from a changed decision. The first
+is a producer breaking a published contract. The second may be exactly what the
+producer intended, and the consumer decides whether its UI still reads
+correctly. An added key is neither, and `assertNoContractDrift` passes on one.
+
+<!-- #region contract-drift -->
+
+```ts @import.meta.vitest
+import { contractDrift } from '@evanion/acl/testing';
+import type { Matrix } from '@evanion/acl';
+
+// The contract this consumer pinned, checked in beside the test.
+const pinned: Matrix = {
+  version: 'orders@7',
+  permissions: [
+    {
+      key: 'orders:order.refund',
+      object: 'orders:order',
+      action: 'refund',
+      rules: [
+        {
+          id: 'bookseller',
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'orders:order.cancel',
+      object: 'orders:order',
+      action: 'cancel',
+      rules: [{ id: 'anyone', when: [] }],
+    },
+  ],
+};
+
+// What the producer publishes now, fetched in CI. The refund key is gone.
+const fetched: Matrix = {
+  version: 'orders@8',
+  permissions: [
+    {
+      key: 'orders:order.cancel',
+      object: 'orders:order',
+      action: 'cancel',
+      rules: [{ id: 'anyone', when: [] }],
+    },
+  ],
+};
+
+const staff = { id: 'u1', roles: ['bookseller'] };
+
+const drift = contractDrift({
+  pinned,
+  fetched,
+  // The decisions this application renders, named the way a reader reads them.
+  cases: [
+    {
+      name: 'the refund button',
+      subject: staff,
+      key: 'orders:order',
+      action: 'refund',
+    },
+    {
+      name: 'the cancel button',
+      subject: staff,
+      key: 'orders:order',
+      action: 'cancel',
+    },
+  ],
+});
+
+drift.removed; // -> ['orders:order.refund']
+drift.changed.map((change) => change.name); // -> ['the refund button']
+drift.changed[0]?.fetched.reason; // -> 'unknown-action'
+```
+
+<!-- #endregion contract-drift -->
+
+`options.diff` is where the full document diff goes once one is available. It is
+a `(pinned, fetched) => D`, `contractDrift` reads nothing out of the result, and
+`report.diff` carries whatever it returned.
+
+### Reaching `stale-contract` on purpose
+
+`stale-contract` is the refusal a consumer's UI meets in production and never in
+development, because a matrix authored in-process reports no `fetchedAt` and
+runs under no bound. `fixtureClock` computes the budget the way the engine
+computes it and names the two instants that bracket it: `fresh` is the last one
+every key still decides on, `stale` the first one that answers
+`stale-contract`.
+
+<!-- #region fixture-clock -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+import { assertRefused, fixtureClock } from '@evanion/acl/testing';
+import type { Matrix } from '@evanion/acl';
+
+const contract: Matrix = {
+  version: 'orders@7',
+  maxStale: 300_000,
+  permissions: [
+    {
+      key: 'orders:order.refund',
+      object: 'orders:order',
+      action: 'refund',
+      rules: [{ id: 'anyone', when: [] }],
+    },
+  ],
+};
+
+const clock = fixtureClock(contract, { fetchedAt: '2026-01-01T00:00:00Z' });
+const bff = parseMatrix(contract, clock.options);
+const shopper = { id: 'u1' };
+
+const inside = bff.can(
+  shopper,
+  'orders:order',
+  'refund',
+  undefined,
+  clock.fresh,
+);
+inside.reason; // -> 'allow'
+
+// `assertRefused` names the key, the reason and the rule when it throws, so a
+// failure says which refusal arrived instead of `false !== true`.
+const past = bff.can(shopper, 'orders:order', 'refund', undefined, clock.stale);
+assertRefused(past, 'stale-contract').allowed; // -> false
+```
+
+<!-- #endregion fixture-clock -->
+
 ## Server-side `authorize`
 
 `authorize` binds a subject so a middleware, loader, action, or RSC server
@@ -1433,6 +1580,20 @@ options.maxStale)` every key answers `stale-contract`. A holder that reports no
 | `access.authorize(subject)`                                                                | A bound handle for server-side evaluation. Decisions only; the document stays on `access`. |
 | `access.matrix`                                                                            | The frozen document. Round-trips through JSON; this is what crosses SSR.                   |
 | `access.version` / `access.schema`                                                         | The effective version, and the declared shapes when the document carries them.             |
+
+`@evanion/acl/testing` is a separate entry point, for a consumer asserting its
+decisions against a producer's published contract.
+
+| Export                                                 | Purpose                                                                                     |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `contractDrift({ pinned, fetched, cases, now, diff })` | What moved between two versions of a contract: keys removed, keys added, decisions changed. |
+| `assertNoContractDrift(options)`                       | The same, thrown as a `ContractDriftError`. An added key passes.                            |
+| `describeContractDrift(report)`                        | The report as a reader sees it, removals first.                                             |
+| `fixtureClock(matrix, options?)`                       | The freshness budget's two edges, `fresh` and `stale`, plus the `AccessOptions` for them.   |
+| `assertAllowed(decision, context?)`                    | Returns the decision, or throws naming the reason, the rule and the missing paths.          |
+| `assertRefused(decision, reason?, context?)`           | The same for a refusal, optionally asserting which one.                                     |
+| `assertFieldState(decision, field, state, context?)`   | One field of a `canFields` decision, with the whole decision in the message.                |
+| `explainDecision` / `explainFieldDecision`             | One line naming everything a decision carries.                                              |
 
 A decision carries `allowed` plus an output-only `reason` (`allow`,
 `no-rule-matched`, `denied`, `unknown-action`, `unevaluable`,

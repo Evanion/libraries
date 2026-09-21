@@ -158,6 +158,9 @@ import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps,
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
 import type { Access, AccessOptions, Action, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
+// The test kit, a second entry point that the main one must not pull in.
+import { assertAllowed, assertFieldState, assertRefused, assertNoContractDrift, contractDrift, describeContractDrift, explainDecision, explainFieldDecision, fixtureClock, AclAssertionError, ContractDriftError } from '@evanion/acl/testing';
+import type { ContractDriftOptions, ContractDriftReport, DecisionCase, DecisionChange, FixtureClock, FixtureClockOptions, MatrixDiff } from '@evanion/acl/testing';
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
@@ -286,6 +289,20 @@ const typedFields: FieldDecision = typed.canFields(actor, 'comment', 'update', {
 const typedMatrix: Matrix = typed.matrix;
 const typedBound: Authorized<{ comment: Comment }> = typed.authorize(actor);
 const aclError: AclConfigError = new UnknownPermissionError('comment.nope');
+// The test kit. Every symbol is named and every type is assigned, so one that
+// stopped being exported from the second entry point fails here.
+const driftCase: DecisionCase = { name: 'the body editor', subject, key: 'comment', action: 'update', object: { authorId: 'u1' } };
+const staleClockOptions: FixtureClockOptions = { fetchedAt: 0, maxStale: 1000 };
+const staleClock: FixtureClock = fixtureClock({ ...matrix, maxStale: 60_000 }, staleClockOptions);
+const driftOptions: ContractDriftOptions<null> = { pinned: matrix, fetched: matrix, cases: [driftCase], now: staleClock.fresh, diff: ((a, b) => (a === b ? null : null)) satisfies MatrixDiff<null> };
+const driftReport: ContractDriftReport<null> = contractDrift(driftOptions);
+const driftChanges: readonly DecisionChange[] = driftReport.changed;
+const driftText: string = describeContractDrift(assertNoContractDrift(driftOptions));
+const assertedAllowed: AclDecision = assertAllowed(access.can(subject, 'comment', 'update', { authorId: 'u1' }));
+const assertedRefused: AclDecision = assertRefused(access.can(subject, 'comment', 'update', { authorId: 'u2' }), 'no-rule-matched');
+const assertedField: FieldDecision = assertFieldState(fieldDecision, 'body', 'allowed');
+const explained: string = explainDecision(assertedAllowed) + explainFieldDecision(assertedField);
+const kitErrors: [typeof AclAssertionError, typeof ContractDriftError] = [AclAssertionError, ContractDriftError];
 // The React binding over an already-built matrix. Hooks are named, not called:
 // what has to hold is that their signatures and the provider's props resolve.
 const policyProvider: PolicyProviderProps = { access, subject, context: { now: new Date() } };
@@ -306,6 +323,7 @@ void [typedBound, ComposeProvider, provider, parsed, arr, err, items, widgetProb
       aclDecision, aclDecisions, capabilities, authorized, fieldState, permission, adopted,
       aclVersion, aclSchemaBack, needsObject, writable, evaluationContext, vetoed,
       projected, bound, boundDecision, typedFields, typedMatrix, aclError,
+      driftChanges, driftText, assertedRefused, explained, kitErrors,
       PolicyProvider, useCanMany, useCapabilities, policyProvider, reactAccess, reactCan,
       reactCanFields, reactFieldDecision];
 `,
@@ -357,6 +375,7 @@ import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
 import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
 import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields } from '@evanion/acl';
+import { assertNoContractDrift, assertRefused, contractDrift, fixtureClock } from '@evanion/acl/testing';
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
@@ -431,6 +450,18 @@ if (!aclTyped.can({ id: 'u1' }, 'comment', 'read', { authorId: 'u1' }).allowed |
   console.error('@evanion/acl authoring helpers do not build a working policy from the published build');
   process.exit(1);
 }
+// The test kit resolves through its own exports entry and evaluates against the
+// core from the same install: a consumer that imports only '@evanion/acl' must
+// not reach it, and one that imports it must get the same engine.
+const kitClock = fixtureClock({ ...aclMatrix, maxStale: 60_000 }, { fetchedAt: 0 });
+const kitHolder = parseMatrix({ ...aclMatrix, maxStale: 60_000 }, kitClock.options);
+assertRefused(kitHolder.can({ id: 'u1' }, 'comment', 'update', { authorId: 'u1' }, kitClock.stale), 'stale-contract');
+const kitDrift = contractDrift({ pinned: aclMatrix, fetched: { version: 2, permissions: [] } });
+if (kitDrift.removed[0] !== 'comment.update') {
+  console.error('@evanion/acl/testing does not report a removed published key from its published build');
+  process.exit(1);
+}
+assertNoContractDrift({ pinned: aclMatrix, fetched: aclMatrix });
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
 // first thing that actually resolves the import.
@@ -812,6 +843,29 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
   }
   console.log("  ✓ acl core ships no 'use client'; react-acl ships one");
+
+  const aclPkg = JSON.parse(
+    readFileSync(
+      join(dir, 'node_modules', '@evanion', 'acl', 'package.json'),
+      'utf8',
+    ),
+  );
+  const aclEntries = Object.keys(aclPkg.exports);
+  for (const entry of ['.', './testing']) {
+    if (!aclEntries.includes(entry)) {
+      throw new Error(`@evanion/acl stopped exporting "${entry}"`);
+    }
+  }
+  // The core must not reach the kit: a consumer importing the engine into an
+  // application bundle would carry the assertion helpers with it.
+  const aclCoreSource = readFileSync(join(aclDist, 'index.js'), 'utf8');
+  if (aclCoreSource.includes('./testing/')) {
+    throw new Error(
+      '@evanion/acl dist/index.js imports from the testing entry: the test kit ' +
+        'is a second entry point and the core must not pull it in.',
+    );
+  }
+  console.log('  ✓ acl exports both entries, and the core imports no kit');
 
   // @evanion/baize-ui promises statelessness, and the packed entry is where a
   // promise kept in the source can still be broken: a bundler upgrade, a
