@@ -149,7 +149,8 @@ interface Exported {
 function exportsOf(entries: readonly Entry[]): Map<string, Exported[]> {
   const paths: Record<string, string[]> = {};
   for (const entry of entries) {
-    if (entry.specifier === entry.package) paths[entry.package] = [entry.source];
+    if (entry.specifier === entry.package)
+      paths[entry.package] = [entry.source];
   }
 
   const program = ts.createProgram(
@@ -249,8 +250,10 @@ function internalMark(
 
   // A tag the checker reports but no node carries, which happens for a symbol
   // whose declaration is in a file outside this program.
-  const reported = [...symbol.getJsDocTags(checker), ...resolved.getJsDocTags(checker)]
-    .find((tag) => tag.name.toLowerCase() === 'internal');
+  const reported = [
+    ...symbol.getJsDocTags(checker),
+    ...resolved.getJsDocTags(checker),
+  ].find((tag) => tag.name.toLowerCase() === 'internal');
   return reported ? ts.displayPartsToString(reported.text ?? []) : null;
 }
 
@@ -301,9 +304,7 @@ function executableCode(): Map<string, string> {
     bySlug.set(slug, [...(bySlug.get(slug) ?? []), ...body]);
   }
 
-  return new Map(
-    [...bySlug].map(([slug, lines]) => [slug, lines.join('\n')]),
-  );
+  return new Map([...bySlug].map(([slug, lines]) => [slug, lines.join('\n')]));
 }
 
 /** The symbols an API reference page gives a heading, by section slug. */
