@@ -1,0 +1,94 @@
+/*
+ * The filter above an API reference's entries.
+ *
+ * Every value is a `--baize-*` property from `@evanion/baize-ui/styles.css`,
+ * bound per theme in `app/global.css`. No colour, radius or size of its own.
+ *
+ * Sticky, because the reader it serves is scrolling a hundred entries and a
+ * control that scrolls away with them serves nobody. The entries take
+ * `scroll-margin-top` in `global.css` so the row never covers what a reader
+ * tabs to or arrives at from a search result.
+ */
+
+.docs-api-filter {
+  position: sticky;
+  /* Under the theme's own fixed navbar, which is what `top: 0` would put this
+   * behind. */
+  top: var(--nextra-navbar-height);
+  z-index: 1;
+  background: var(--baize-ink);
+  padding-block: var(--baize-space-3);
+  margin-block-end: var(--baize-space-4);
+  /* The entries scroll under this, so the edge it clips them at has to be a
+   * line somebody drew rather than the point the background happens to end. */
+  border-block-end: 1px solid var(--baize-rule);
+}
+
+.docs-api-filter__row {
+  display: flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+  flex-wrap: wrap;
+}
+
+.docs-api-filter__query {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-base);
+  color: var(--baize-chalk);
+  background: var(--baize-felt);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  padding: var(--baize-space-2) var(--baize-space-3);
+  min-width: 12rem;
+  flex: 1 1 12rem;
+}
+
+/*
+ * A kind toggle carries the same word the entry's own chip carries, so it is
+ * the chip's geometry rather than a checkbox: a reader should recognise the
+ * pair. Pressed is the kind's hue; unpressed is the hairline alone, which is
+ * what says the kind is off without needing a second colour to mean "off".
+ */
+.docs-api-filter__kind {
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--baize-rule);
+}
+
+.docs-api-filter__kind[aria-pressed='true'] {
+  color: var(--baize-kind);
+  border-color: color-mix(in oklab, var(--baize-kind) 45%, transparent);
+}
+
+.docs-api-filter__kind[aria-pressed='false'] {
+  color: var(--baize-moss);
+}
+
+.docs-api-filter__count {
+  margin-inline-start: auto;
+  color: var(--baize-lichen);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The empty state says what to do rather than what failed, and names the two
+ * things the reader can change: the query, and the kinds that are on.
+ */
+.docs-api-filter__empty {
+  color: var(--baize-lichen);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-base);
+  padding-block-start: var(--baize-space-3);
+}
+
+.docs-api-filter__clear {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--baize-chalk);
+  text-decoration: underline;
+}

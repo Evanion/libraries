@@ -322,6 +322,110 @@ html:not(.dark) [class*='baize-kind-'] {
 }
 
 /*
+ * An API reference entry: a list item, not a card.
+ *
+ * `CardGrid`'s track is `minmax(17rem, 1fr)` and a resolved signature runs to
+ * about 150 characters on one line, so a card would wrap it six times. Grid
+ * rows also align their cells' feet, and these entries have no comparable
+ * height: a docblock runs from three words to three hundred and half of them
+ * carry no example.
+ */
+.docs-api-entry {
+  padding-bottom: var(--baize-space-6);
+  margin-top: var(--baize-space-6);
+}
+
+/*
+ * The name and its kind chip share a row.
+ *
+ * `baseline` rather than `center`: the chip is small print beside a title, and
+ * aligning their baselines is what makes the pair read as one line rather than
+ * as a label floating next to a heading.
+ */
+.docs-api-entry__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--baize-space-3);
+  flex-wrap: wrap;
+}
+
+/*
+ * The name carries the kind's hue and the chip beside it says the kind in
+ * words, so colour is a second channel on a fact the text already carries and
+ * a reader who cannot see the hue loses nothing.
+ *
+ * The heading's own rule moves to the foot of the entry. Inside a flex row the
+ * heading is as wide as the name, so a border on it would be a hairline the
+ * width of one word; at the foot of the entry it is the separator between two
+ * entries, in the package's colour, which is the channel `--baize-hue` already
+ * owns down the rest of the page.
+ */
+.docs-api-entry :where(h2),
+.docs-api-entry :where(h2) :where(code) {
+  color: var(--baize-kind);
+}
+
+/*
+ * The name is set as the page's own title face, not as code.
+ *
+ * Every heading on a reference page is a backticked export name, so the
+ * theme's inline-code treatment makes a hundred grey pills down the page, and
+ * the pill is the thing the eye lands on rather than the name inside it. The
+ * name is what identifies the entry, so it takes the heading's own face and
+ * the kind's hue, and the chip beside it is the only pill on the row.
+ */
+.docs-api-entry h2 code.nextra-code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: var(--baize-font-title);
+}
+
+.docs-api-entry :where(h2) {
+  border-bottom: 0;
+  padding-bottom: 0;
+  /* The navbar is fixed and the filter row is sticky under it, so between them
+   * they would cover whatever a reader tabs to or arrives at from a search
+   * result's anchor. */
+  scroll-margin-top: calc(var(--nextra-navbar-height) + 4rem);
+}
+
+.docs-api-entry {
+  border-top: 1px solid color-mix(in oklab, var(--baize-hue) 45%, transparent);
+  padding-top: var(--baize-space-4);
+}
+
+/*
+ * The signature wraps where every other fence on the site scrolls.
+ *
+ * A signature is a shape a reader takes in once, not a program they follow
+ * down the page, and the longest one here is 154 characters. Scrolling it
+ * sideways hides the return type, which is the half a reader came for.
+ */
+.docs-api-entry__signature :where(pre) {
+  white-space: pre-wrap;
+  overflow-x: visible;
+}
+
+.docs-api-entry__signature :where(pre) :where(code) {
+  white-space: inherit;
+}
+
+/*
+ * The collapsed half of the docblock.
+ *
+ * The theme already renders `<details>` as an animated disclosure with its own
+ * marker, so this only holds it to the page's own type: the summary is prose
+ * continuing the sentence above it, not a panel heading.
+ */
+.docs-api-entry__more :where(h3) {
+  font-size: var(--baize-text-sm);
+  font-weight: 500;
+  color: var(--baize-lichen);
+  border: 0;
+}
+
+/*
  * The sidebar's list dissolves before it reaches the footer.
  *
  * The theme masks the list with two gradients, each running from transparent
