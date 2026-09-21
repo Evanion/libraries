@@ -34,6 +34,19 @@ export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
 export { ruleId } from './rule-id.js';
+export { diffMatrix } from './diff-matrix.js';
+export type {
+  MatrixDiff,
+  DiffFinding,
+  GrantedFinding,
+  WithdrawnFinding,
+  UndeterminedFinding,
+  ReadsObjectFinding,
+  GrantedCause,
+  WithdrawnCause,
+  UndeterminedCause,
+  ConditionGroups,
+} from './diff-matrix.js';
 export { federatedPolicies } from './federated-policies.js';
 export type { FederatedAccess } from './federated-policies.js';
 export { serialize } from './serialize.js';

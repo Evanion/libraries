@@ -37,6 +37,7 @@ const RUNTIME_EXPORTS = [
   'UnpublishedVetoableError',
   'UnvetoablePermissionError',
   'applyDenyOverlay',
+  'diffMatrix',
   'federatedPolicies',
   'hydratePolicy',
   'parseMatrix',
