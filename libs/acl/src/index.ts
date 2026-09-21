@@ -75,9 +75,11 @@ export { pickAllowedFields } from './fields.js';
 export {
   AclConfigError,
   ActionNotAllowedError,
+  AmbiguousRuleIdError,
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
+  DuplicateRuleIdError,
   FieldTypeMismatchError,
   InvalidConditionError,
   InvalidFreshnessError,

@@ -31,6 +31,7 @@ no `.for()` validates on its own.
 | `p.deny(action, ...conditions)`       | adds a deny rule to that action                                                                                                                                           |
 | `p.allowEach(actions, ...conditions)` | adds that allow rule to each action named                                                                                                                                 |
 | `p.denyEach(actions, ...conditions)`  | adds that deny rule to each action named                                                                                                                                  |
+| `p.id(name)`                          | names the rule the previous `allow` or `deny` wrote                                                                                                                       |
 | `p.fields(rules)`                     | attaches field rules to the action last declared, and raises `AclConfigError` naming the kind when no `allow` or `deny` came first, or when a batch named several actions |
 | `p.visibility(visibility)`            | marks the action last declared for publication, under the same `AclConfigError` rule                                                                                      |
 | `p.eq` `p.ne` `p.in` `p.notIn`        | comparisons                                                                                                                                                               |
@@ -42,6 +43,32 @@ no `.for()` validates on its own.
 Conditions passed to one `allow` are AND-ed, and `p.or` inside them flattens to
 disjunctive normal form, one rule per branch. Two separate `allow` calls for the
 same action are two rules, the same OR.
+
+## Naming a rule with `p.id()`
+
+`p.id(name)` names the rule the previous `p.allow()` or `p.deny()` wrote, and a
+decision carries that name back as `rule`. A rule that states no name gets one
+derived from its conditions and the side it sits on, and that derivation changes
+whenever a release changes how a condition is represented, so an audit row
+holding a derived id stops matching its rule and nothing reports that it has.
+
+```ts twoslash file=libs/acl/README.md region=rule-ids
+
+```
+
+`p.id()` names one rule. `p.or()` inside one `p.allow()` emits one rule per
+branch, so `AmbiguousRuleIdError` refuses the name and states how many rules the
+call wrote. An author who wants a name per branch writes one `p.allow()` per
+branch. `p.id()` refuses before any `p.allow()` or `p.deny()`, and after
+`p.allowEach()` or `p.denyEach()`, where `p.fields()` and `p.visibility()`
+refuse for the same reason.
+
+`DuplicateRuleIdError` refuses a second rule carrying a name already taken in
+the same permission. The allow side and the deny side share one name space: a
+derived id carries the side it sits on, as `allow-b72dadff`, and a decision
+reports `rule` with no side beside it, so one name on both sides leaves a
+support answer pointing at two rules that decide opposite ways. The refusal
+runs in `validateMatrix`, so a document that arrived as JSON meets it too.
 
 ## Paths versus literals
 
@@ -158,6 +185,8 @@ built, which is startup for a local matrix and adoption time for a foreign one.
 | `InvalidConditionError`           | a condition's shape, namespace, path depth, or operator/value pairing is unusable                                                                                         |
 | `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                                                                                                          |
 | `DuplicatePermissionError`        | two permissions share a key                                                                                                                                               |
+| `DuplicateRuleIdError`            | two rules of one permission carry the same `id`, counting both sides                                                                                                      |
+| `AmbiguousRuleIdError`            | `p.id()` follows an `allow` or `deny` that flattened to other than one rule                                                                                               |
 | `UnknownFieldError`               | a condition names a field the declared schema does not carry                                                                                                              |
 | `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                                                                                                                   |
 | `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies                                                                                                  |

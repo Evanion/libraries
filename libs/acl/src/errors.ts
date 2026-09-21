@@ -203,6 +203,64 @@ export class InvalidRuleError extends AclConfigError {
 }
 
 /**
+ * Two rules of one permission carrying the same `id`.
+ *
+ * `diffMatrix` indexes each side by rule id and takes a set difference, so the
+ * second rule under a taken id replaces the first in that index and a branch
+ * added beside it is reported as no change. A reviewer reads the report as the
+ * whole of what the deploy altered, so an id that names two rules withholds a
+ * grant rather than mis-labelling one.
+ *
+ * The two sides of a permission share one id space, and an allow rule may not
+ * take the id of a deny rule beside it. A derived id carries the side it sits
+ * on, as `allow-b72dadff`, so derivation puts no name on both sides. A
+ * `Decision` reports `rule` as that one string and states no side next to it,
+ * so `"blocked-on-probation"` appearing on both sides leaves a support answer
+ * naming two rules that decide opposite ways.
+ */
+export class DuplicateRuleIdError extends AclConfigError {
+  readonly key: string;
+  readonly id: string;
+  constructor(key: string, id: string) {
+    super(
+      `permission "${key}": two rules carry the id "${id}": an id names one rule, and the diff indexes each side by it, so the second rule under a taken id is reported as no change. Both sides of a permission share one id space`,
+    );
+    this.name = 'DuplicateRuleIdError';
+    this.key = key;
+    this.id = id;
+  }
+}
+
+/**
+ * An `.id()` attached to an `allow()` or `deny()` that did not flatten to
+ * exactly one rule.
+ *
+ * `p.or(a, b)` inside one call emits disjunctive normal form, one rule per
+ * branch, and an id names one rule. Writing the name onto each branch would
+ * hand `diffMatrix` two rules under one key, which is the state
+ * {@link DuplicateRuleIdError} refuses, and hand a decision a `rule` string
+ * that does not say which branch matched.
+ */
+export class AmbiguousRuleIdError extends AclConfigError {
+  readonly key: string;
+  readonly id: string;
+  readonly rules: number;
+  constructor(key: string, verb: 'allow' | 'deny', id: string, rules: number) {
+    const what =
+      rules === 0
+        ? `no rules, so '${id}' would name none`
+        : `${rules} rules, so '${id}' would name ${rules === 2 ? 'both' : `all ${rules}`}`;
+    super(
+      `permission "${key}": this ${verb}() flattened to ${what}. Write one ${verb}() per branch, or leave the id derived`,
+    );
+    this.name = 'AmbiguousRuleIdError';
+    this.key = key;
+    this.id = id;
+    this.rules = rules;
+  }
+}
+
+/**
  * A condition whose shape, namespace, path depth, or operator/value pairing
  * leaves it unevaluable.
  *

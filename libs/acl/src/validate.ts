@@ -2,6 +2,7 @@ import {
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
+  DuplicateRuleIdError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidPermissionError,
@@ -268,6 +269,37 @@ export function assertRules(key: string, side: string, rules: unknown): void {
   }
 }
 
+/**
+ * Refuses one permission whose rules repeat an `id`.
+ *
+ * The check runs over both sides at once, so an allow rule and a deny rule of
+ * one permission may not share an id either. `ruleId` derives an id from the
+ * conditions and the side, as `allow-b72dadff`, so two sides never collide by
+ * derivation; a `Decision` carries `rule` as one string with no side beside it,
+ * and an explicit id on both sides leaves that string naming two rules that
+ * decide opposite ways.
+ *
+ * A rule that states no `id` is skipped. Two such rules with identical
+ * conditions derive one id and decide identically, which `ruleId` documents and
+ * this does not reopen.
+ *
+ * Malformed rules reach this after `assertRules`, so every `id` here is a
+ * string or absent.
+ */
+function assertUniqueRuleIds(key: string, permission: Node): void {
+  const taken = new Set<string>();
+  for (const side of ['rules', 'denyRules']) {
+    const rules = permission[side];
+    if (!Array.isArray(rules)) continue;
+    for (const rule of rules) {
+      const id = (rule as Node)['id'];
+      if (typeof id !== 'string') continue;
+      if (taken.has(id)) throw new DuplicateRuleIdError(key, id);
+      taken.add(id);
+    }
+  }
+}
+
 /** Every member the canonical permission node carries. */
 const PERMISSION_MEMBERS = new Set([
   'key',
@@ -409,6 +441,9 @@ const ENVELOPE =
  * taken decides every call the first was written to answer, and the winner is
  * whichever the array put last.
  *
+ * Rule ids are unique within a permission, across both of its sides.
+ * `DuplicateRuleIdError` states why.
+ *
  * This is the whole gate between a foreign matrix and the engine: every entry
  * point passes through it, and everything it accepts evaluates without throwing.
  * Every rejection is an `AclConfigError` naming the permission key and the
@@ -497,6 +532,7 @@ export function validateMatrix(matrix: Matrix): void {
     assertMembers(key, permission);
     assertRules(key, 'rules', permission['rules']);
     assertRules(key, 'denyRules', permission['denyRules']);
+    assertUniqueRuleIds(key, permission);
     assertFieldRules(key, permission['fields']);
   }
 
