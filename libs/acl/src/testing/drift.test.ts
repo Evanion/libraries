@@ -8,7 +8,7 @@ import {
   contractDrift,
   describeContractDrift,
   type DecisionCase,
-  type MatrixDiff,
+  type MatrixDiffer,
 } from './drift.js';
 
 const refund: Permission = {
@@ -311,7 +311,7 @@ describe('the decisions a replay compares', () => {
 describe('the diffMatrix seam', () => {
   it('carries whatever the diff returned', () => {
     const fetched: Matrix = { version: 'orders@8', permissions: [cancel] };
-    const diff: MatrixDiff<{ widened: string[] }> = (a, b) => ({
+    const diff: MatrixDiffer<{ widened: string[] }> = (a, b) => ({
       widened: [String(a.version), String(b.version)],
     });
 

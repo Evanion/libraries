@@ -40,7 +40,7 @@ export interface DecisionChange {
  * `D`. A caller that passes `diffMatrix` gets `report.diff` typed as whatever
  * `diffMatrix` returns; a caller that passes nothing gets `undefined`.
  */
-export type MatrixDiff<D> = (pinned: Matrix, fetched: Matrix) => D;
+export type MatrixDiffer<D> = (pinned: Matrix, fetched: Matrix) => D;
 
 export interface ContractDriftOptions<D = never> {
   /** The contract this consumer pinned, as fetched at the version it compiled against. */
@@ -56,7 +56,7 @@ export interface ContractDriftOptions<D = never> {
    */
   readonly now?: Instant;
   /** The full document diff, when one is available. */
-  readonly diff?: MatrixDiff<D>;
+  readonly diff?: MatrixDiffer<D>;
 }
 
 export interface ContractDriftReport<D = never> {
