@@ -619,10 +619,13 @@ export function hydratePolicy<
     now?: Instant,
   ): Record<string, Decision> => {
     const ctx = ctxWith(subject, undefined, now);
+    // One clock decides the whole map, so freshness is read once rather than
+    // per permission.
+    const isStale = stale(ctx.now);
     return Object.fromEntries(
       permissions.map((permission) => [
         permission.key,
-        stale(ctx.now)
+        isStale
           ? staleDecision(permission.key)
           : decideResolved(permission, ctx),
       ]),

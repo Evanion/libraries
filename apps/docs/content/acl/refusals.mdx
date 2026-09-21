@@ -62,10 +62,12 @@ states. A holder reporting no `fetchedAt` never sees the reason.
 
 ## `rule`, which rule decided
 
-`rule` names the rule behind a decision a rule made. `rule` defaults to `#0`,
-`#1`, … by position, and a rule that states an `id` reports that `id` instead.
-Give the rules a UI has to name an `id`, because a position moves the first time
-somebody reorders the list.
+`rule` names the rule behind a decision a rule made. A rule that states an `id`
+reports that `id`. A rule that states none reports a derived id, the side it
+sits on and a hash of its conditions, as `allow-b72dadff`. That id holds when
+the list is reordered and when another producer emits the same document, so a
+log line keeps its meaning. Give the rules a UI has to name an `id` anyway:
+`locked-question` reads better in a support answer than a hash.
 
 Treat `rule` as a log line and a support answer ("denied by `locked-question`").
 Never branch on it: two rules can grant the same thing, and which one matched is
