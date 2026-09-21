@@ -42,6 +42,7 @@ const RUNTIME_EXPORTS = [
   'parseMatrix',
   'pickAllowedFields',
   'policy',
+  'ruleId',
   'serialize',
 ];
 
