@@ -12,6 +12,11 @@
  * action-level gate, and a single condition outcome is not a decision.
  * `hydratePolicy` and `parseMatrix` compose them, and one of those two is the
  * entry point.
+ *
+ * `ruleId` is exported despite being internal to evaluation, because it grants
+ * nothing and answers the whole of its question: what a given rule reports as
+ * `Decision.rule`. A test that wants to name the rule it expects calls it
+ * rather than writing the derived hash into an assertion.
  */
 
 export { hydratePolicy } from './hydrate-policy.js';
@@ -28,6 +33,7 @@ export type {
 export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
+export { ruleId } from './rule-id.js';
 export { federatedPolicies } from './federated-policies.js';
 export type { FederatedAccess } from './federated-policies.js';
 export { serialize } from './serialize.js';

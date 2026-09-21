@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { ruleId } from '@evanion/acl';
 import FieldWriteDemo from './FieldWriteDemo';
 import { decide, opening, pick, type Proposal } from './field-write';
 
@@ -131,7 +132,12 @@ describe('the field-write demonstration', () => {
     signIn('Mika Persson');
 
     expect(actionPane(container)['allowed']).toBe('true');
-    expect(actionPane(container)['rule']).toBe('#1');
+    expect(actionPane(container)['rule']).toBe(
+      ruleId(
+        { when: [{ field: 'subject.roles', op: 'contains', value: 'bookseller' }] },
+        'allow',
+      ),
+    );
   });
 
   /** The mass-assignment case: a key the rules never name. */
