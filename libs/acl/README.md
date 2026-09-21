@@ -1485,6 +1485,392 @@ reads[0]?.paths.after; // -> ['object.locked']
 
 <!-- #endregion diff-reads-object -->
 
+## What refuses a document
+
+Each refusal below names the value it refused and where that value sits, so a
+build log identifies the line to change. Every case names its input first,
+because the name is what the message will be about.
+
+<!-- #region errors-document -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+
+/** The error a call raises, by name, or `undefined` when it raises none. */
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const read = {
+  key: 'doc.read',
+  object: 'doc',
+  action: 'read',
+  rules: [{ when: [] }],
+};
+
+const noPermissions = { version: 'v1' } as never;
+const objectVersion = { version: {}, permissions: [] } as never;
+const wrongKey = {
+  version: 'v1',
+  permissions: [{ ...read, key: 'doc.write' }],
+} as never;
+const twice = { version: 'v1', permissions: [read, read] } as never;
+const noAction = {
+  version: 'v1',
+  permissions: [{ key: 'doc.read', object: 'doc' }],
+} as never;
+const whenIsString = {
+  version: 'v1',
+  permissions: [{ ...read, rules: [{ when: 'x' }] }],
+} as never;
+
+raised(() => parseMatrix(noPermissions)); // -> 'InvalidMatrixError'
+raised(() => parseMatrix(objectVersion)); // -> 'InvalidMatrixError'
+raised(() => parseMatrix(wrongKey)); // -> 'KeyMismatchError'
+raised(() => parseMatrix(twice)); // -> 'DuplicatePermissionError'
+raised(() => parseMatrix(noAction)); // -> 'InvalidPermissionError'
+raised(() => parseMatrix(whenIsString)); // -> 'InvalidRuleError'
+
+// Three conditions, one class. The message tells them apart.
+const when = (condition: unknown) =>
+  ({
+    version: 'v1',
+    permissions: [{ ...read, rules: [{ when: [condition] }] }],
+  }) as never;
+
+const unknownOp = when({ field: 'subject.id', op: 'nope', value: 1 });
+const twoDots = when({ field: 'subject.a.b', op: 'eq', value: 1 });
+const noScope = when({ field: 'user.id', op: 'eq', value: 1 });
+
+raised(() => parseMatrix(unknownOp)); // -> 'InvalidConditionError'
+raised(() => parseMatrix(twoDots)); // -> 'InvalidConditionError'
+raised(() => parseMatrix(noScope)); // -> 'InvalidConditionError'
+```
+
+<!-- #endregion errors-document -->
+
+An `InvalidConditionError` carries `key`, `field` and `where`, and `where` is
+the path to the condition inside the permission:
+
+<!-- #region errors-condition-where -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+
+/** What an `InvalidConditionError` carries beside its message. */
+type Located = Error & {
+  key?: string;
+  field?: string;
+  where?: string;
+};
+
+const twoDots = {
+  version: 'v1',
+  permissions: [
+    {
+      key: 'doc.read',
+      object: 'doc',
+      action: 'read',
+      rules: [{ when: [{ field: 'subject.a.b', op: 'eq', value: 1 }] }],
+    },
+  ],
+} as never;
+
+let caught: Located | undefined;
+try {
+  parseMatrix(twoDots);
+} catch (error) {
+  caught = error as Located;
+}
+
+caught?.name; // -> 'InvalidConditionError'
+caught?.key; // -> 'doc.read'
+caught?.field; // -> 'subject.a.b'
+caught?.where; // -> 'rules[0].when[0]'
+```
+
+<!-- #endregion errors-condition-where -->
+
+## What refuses a schema or a field rule
+
+A schema is checked for its own shape, and then every condition naming a
+declared kind is checked against it. Field rules are checked with or without
+one.
+
+<!-- #region errors-schema-fields -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const read = {
+  key: 'doc.read',
+  object: 'doc',
+  action: 'read',
+  rules: [{ when: [] }],
+};
+const schema = { objects: { doc: { fields: { title: 'string' } } } };
+
+const unknownType = {
+  version: 'v1',
+  schema: { objects: { doc: { fields: { title: 'nope' } } } },
+  permissions: [read],
+} as never;
+
+const undeclaredField = {
+  version: 'v1',
+  schema,
+  permissions: [
+    {
+      ...read,
+      rules: [{ when: [{ field: 'object.missing', op: 'eq', value: 1 }] }],
+    },
+  ],
+} as never;
+
+const containsOnString = {
+  version: 'v1',
+  schema,
+  permissions: [
+    {
+      ...read,
+      rules: [
+        { when: [{ field: 'object.title', op: 'contains', value: 'x' }] },
+      ],
+    },
+  ],
+} as never;
+
+raised(() => parseMatrix(unknownType)); // -> 'InvalidSchemaError'
+raised(() => parseMatrix(undeclaredField)); // -> 'UnknownFieldError'
+raised(() => parseMatrix(containsOnString)); // -> 'FieldTypeMismatchError'
+
+const fields = (rules: unknown) =>
+  ({ version: 'v1', permissions: [{ ...read, fields: rules }] }) as never;
+
+const bangInList = fields({ fields: ['title', '!price'] });
+const bangNoBaseline = fields({ fields: ['!price'] });
+const bothConfigs = fields({
+  status: { targets: ['open'], transitions: { open: [] } },
+});
+
+raised(() => parseMatrix(bangInList)); // -> 'BangInAllowListError'
+raised(() => parseMatrix(bangNoBaseline)); // -> 'DenyWithoutBaselineError'
+raised(() => parseMatrix(bothConfigs)); // -> 'TargetsTransitionsConflictError'
+```
+
+<!-- #endregion errors-schema-fields -->
+
+## What a query raises, and what it refuses instead
+
+`hydratePolicy` is the open path and throws on a key the document never held,
+because a local document is source and a missing key is an authoring mistake.
+`parseMatrix` is the closed path and answers `unknown-action`, because a
+foreign document is input and a query against it must refuse rather than end
+the request.
+
+<!-- #region errors-query -->
+
+```ts @import.meta.vitest
+import { hydratePolicy, parseMatrix } from '@evanion/acl';
+
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const document = {
+  version: 'v1',
+  permissions: [
+    { key: 'doc.read', object: 'doc', action: 'read', rules: [{ when: [] }] },
+  ],
+} as never;
+
+const open = hydratePolicy(document);
+const closed = parseMatrix(document);
+
+// The document holds `doc.read` and nothing else. A query naming anything
+// else is typed `never` here, because a caller writing one has already left
+// what the document declares.
+const anyone = {} as never;
+const doc = 'doc' as never;
+const readAction = 'read' as never;
+const noSuchAction = 'write' as never;
+const noSuchKind = 'thing' as never;
+
+raised(() => open.can(anyone, doc, noSuchAction)); // -> 'UnknownPermissionError'
+raised(() => open.can(anyone, noSuchKind, readAction)); // -> 'UnknownObjectKeyError'
+
+const refused = closed.can(anyone, doc, noSuchAction);
+
+refused.allowed; // -> false
+refused.reason; // -> 'unknown-action'
+```
+
+<!-- #endregion errors-query -->
+
+Freshness raises where the holder is built, not where a decision is asked for,
+so a misconfigured holder fails at startup:
+
+<!-- #region errors-freshness -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const read = {
+  key: 'doc.read',
+  object: 'doc',
+  action: 'read',
+  rules: [{ when: [] }],
+};
+const stateless = { version: 'v1', permissions: [read] } as never;
+const bounded = { version: 'v1', maxStale: 1000, permissions: [read] } as never;
+
+const reported = { fetchedAt: 0 };
+const notAnInstant = { fetchedAt: 'nope' } as never;
+
+raised(() => parseMatrix(stateless, reported)); // -> 'MissingFreshnessBudgetError'
+raised(() => parseMatrix(bounded, notAnInstant)); // -> 'InvalidFreshnessError'
+```
+
+<!-- #endregion errors-freshness -->
+
+## What refuses a composition
+
+<!-- #region errors-composition -->
+
+```ts @import.meta.vitest
+import { applyDenyOverlay, federatedPolicies } from '@evanion/acl';
+import { parseMatrix, policy, serialize } from '@evanion/acl';
+
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const read = {
+  key: 'doc.read',
+  object: 'doc',
+  action: 'read',
+  rules: [{ when: [] }],
+};
+const plain = { version: 'v1', permissions: [read] } as never;
+const declared = {
+  version: 'v1',
+  schema: { objects: { doc: { fields: { locked: 'boolean' } } } },
+  permissions: [read],
+} as never;
+
+const twoOrigins = { a: parseMatrix(plain), b: parseMatrix(plain) } as never;
+const veto = { 'doc.read': [{ when: [] }] };
+const locked = { field: 'object.locked', op: 'eq' as const, value: true };
+const lockedVeto = { 'doc.read': [{ when: [locked] }] };
+const noKeyOpened = { vetoable: [] };
+const opened = { vetoable: ['doc.read'] };
+
+raised(() => federatedPolicies(twoOrigins)); // -> 'OriginCollisionError'
+raised(() => applyDenyOverlay(plain, veto, noKeyOpened)); // -> 'UnvetoablePermissionError'
+raised(() => applyDenyOverlay(plain, veto, opened)); // -> 'MissingVetoSchemaError'
+raised(() => applyDenyOverlay(declared, lockedVeto, opened)); // -> undefined
+
+const internalOnly = policy<{ id: string }, { doc: { id: string } }>()
+  .for('doc', (p) => p.allow('read', p.always))
+  .build();
+const asContract = { vetoable: ['doc.read'] } as never;
+
+raised(() => serialize(internalOnly, 'reduced', asContract)); // -> 'UnpublishedVetoableError'
+```
+
+<!-- #endregion errors-composition -->
+
+## Catching every acl refusal at once
+
+<!-- #region errors-catching -->
+
+```ts @import.meta.vitest
+import { AclConfigError, parseMatrix } from '@evanion/acl';
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+const malformed = { version: 'v1' } as never;
+
+let base: Error | undefined;
+try {
+  parseMatrix(malformed);
+} catch (error) {
+  base = error as Error;
+}
+
+// Every class the package raises at construction extends this one, so a
+// startup guard catches the set without naming each member.
+base instanceof AclConfigError; // -> true
+base instanceof Error; // -> true
+
+// `pickAllowedFields` is the one throw outside construction and query. No
+// field of a refused action is writable, so it refuses rather than returning
+// an object a handler would write. It is not a configuration fault, so it sits
+// outside `AclConfigError`: a startup guard around construction does not catch
+// it, and a request handler has to.
+const access = policy<{ id: string }, { doc: { id: string; title: string } }>()
+  .for('doc', (p) => p.allow('update', p.eq('subject.id', 'nobody')))
+  .build();
+
+const row = { id: 'd1', title: 'before' };
+const proposed = { title: 'after' };
+const decided = access.canFields(
+  { id: 'u1' },
+  'doc',
+  'update',
+  row,
+  'write',
+  proposed,
+);
+
+decided.action.allowed; // -> false
+
+let refusedWrite: Error | undefined;
+try {
+  pickAllowedFields(decided, proposed);
+} catch (error) {
+  refusedWrite = error as Error;
+}
+
+refusedWrite?.name; // -> 'ActionNotAllowedError'
+refusedWrite instanceof AclConfigError; // -> false
+refusedWrite instanceof Error; // -> true
+```
+
+<!-- #endregion errors-catching -->
+
 ## Security contract
 
 A decision counts where it is made. It is authoritative in a trusted

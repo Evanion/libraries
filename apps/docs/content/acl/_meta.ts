@@ -88,6 +88,7 @@ export default {
   refusals: 'Why was this refused?',
   adopting: 'A policy from another service',
   publishing: 'Giving my rules to another service',
+  errors: 'What can throw?',
   changes: 'What did this change do to access?',
 
   'group-reference': { type: 'separator', title: 'Reference' },

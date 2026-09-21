@@ -1,0 +1,142 @@
+# What can throw?
+
+<WorkshopNotice slug="acl" />
+
+<PageSheet
+  difficulty={2}
+  read={7}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  unlocks={[
+    ['Typed Authoring', '/acl/authoring'],
+    ['Why was this refused?', '/acl/refusals'],
+  ]}
+/>
+
+**The concept.** `AclConfigError` is the base of every class construction
+raises, and `ActionNotAllowedError` is the one throw that sits outside it.
+
+**What you get.** The malformed input that raises each one, as code that runs.
+
+**Why you want it.** A refusal names a class, and the class alone does not say
+which value to change.
+
+**How the library gets you there.** Each error carries `key`, `field` or
+`where` beside its message, locating the value inside the document.
+
+## When acl throws, and when it refuses instead
+
+A refusal is a `Decision` carrying `allowed: false`, and a throw ends the call.
+Which one a caller meets is decided by where the document came from.
+
+`hydratePolicy` is the open path, for a document this service authored. A key
+it never held is an authoring mistake, so a query naming one throws.
+
+`parseMatrix` is the closed path, for a document another service published. A
+key it never holds is ordinary, because the producer's next release removes
+keys this consumer still asks about, so a query naming one answers
+`unknown-action` and refuses.
+
+Everything else throws at construction, which is startup for a local matrix and
+adoption time for a foreign one, so a malformed document fails a deploy rather
+than a request. [The API reference](/acl/api#aclconfigerror) carries every
+class and the properties each one adds.
+
+## What refuses an acl document
+
+Each case names its input first, because the name is what the message is about.
+`raised` reports the class, so a case reads as one line.
+
+```ts file=libs/acl/README.md region=errors-document
+
+```
+
+`InvalidConditionError` covers three faults, and the message tells them apart:
+an unknown `op`, a path nesting below its scope, and a scope that is neither
+`subject`, `object` nor `now`. The properties locate the condition:
+
+```ts file=libs/acl/README.md region=errors-condition-where
+
+```
+
+`where` is the path inside the permission, so a document with forty rules
+identifies the one to fix.
+
+## What refuses an acl schema or field rule
+
+A schema is checked for its own shape first. Every condition naming a declared
+kind is then checked against it, which is what turns a renamed column into a
+failed deploy rather than a permission that silently stops matching. Field
+rules are checked whether a schema is present or not.
+
+```ts file=libs/acl/README.md region=errors-schema-fields
+
+```
+
+`*` and `!name` are authoring syntax and never field names, so
+`BangInAllowListError` and `DenyWithoutBaselineError` are raised by the shape
+of the list rather than by any field it mentions. [Which fields may they
+write?](/acl/writing) has the syntax.
+
+## What an acl query raises
+
+The open path throws and the closed path refuses, over the same document:
+
+```ts file=libs/acl/README.md region=errors-query
+
+```
+
+A gateway adopting a foreign contract wants the closed path for this reason. A
+producer removing a key takes the consumer's request path with it otherwise.
+
+Freshness raises where the holder is built rather than where a decision is
+asked for, so a misconfigured holder fails at startup:
+
+```ts file=libs/acl/README.md region=errors-freshness
+
+```
+
+A holder reporting `fetchedAt` claims it knows when it last validated, and the
+owner has to state how long a validation lasts. [The security
+contract](/acl/security) has the freshness model.
+
+## What refuses an acl composition
+
+Composition is the third place a document is checked, and each refusal names
+the key it refused:
+
+```ts file=libs/acl/README.md region=errors-composition
+
+```
+
+`OriginCollisionError` is the one a reader meets while wiring services
+together, and [Many Services](/acl/federation) has the topology it comes from.
+The three veto errors belong to [the cross-cutting
+deny](/acl/federation#a-cross-cutting-deny).
+
+## Catching every acl configuration fault at once
+
+`AclConfigError` is the base of every class construction raises, so a startup
+guard catches the set without naming each member.
+
+It does not cover `ActionNotAllowedError`, which extends `Error` directly. That
+one comes from `pickAllowedFields` when the action was refused, on a document
+that is entirely valid, so it is a request-time refusal rather than a
+configuration fault. A handler catches it where the write happens. [Which
+fields may they write?](/acl/writing#the-acl-action-gate) has the pair of
+booleans behind it.
+
+```ts file=libs/acl/README.md region=errors-catching
+
+```
+
+A service that wraps construction in one `catch (error) { if (error instanceof
+AclConfigError) ... }` reports every malformed document the same way, and still
+has to handle the write refusal where the write is attempted.
+
+## Where to go next
+
+- [API reference](/acl/api#aclconfigerror) — every class, and the properties
+  each one carries
+- [Typed Authoring](/acl/authoring#construction-errors) — the same set, tabled
+  by authoring step
+- [Why was this refused?](/acl/refusals) — the refusals that carry no throw
