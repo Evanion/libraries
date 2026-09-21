@@ -6,6 +6,15 @@ export {
   rewriteMarkdown,
 } from './expect-comments.ts';
 export type { ValueClaim } from './expect-comments.ts';
+export {
+  DeclarationError,
+  commentText,
+  internalMark,
+  readReference,
+  resolveAlias,
+} from './declarations.mjs';
+export type { ExportKind, Reference } from './declarations.mjs';
+export { expandReferences } from './mdx-reference-loader.mjs';
 export { mdSiblings } from './md-siblings.mjs';
 export {
   PREAMBLE_FILE,
