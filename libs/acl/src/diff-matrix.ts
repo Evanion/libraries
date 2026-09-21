@@ -93,10 +93,15 @@ export interface UndeterminedFinding {
 /**
  * A change in which `object.*` paths a decision reads.
  *
- * No access widened and every caller deciding without the row still breaks: a
- * permission that answered `allow` answers `unevaluable` naming a path it now
- * needs. A gateway deciding before it loads the row goes from passing the
- * request to refusing it, and a UI holds a decision it must refetch to settle.
+ * The edit behind this usually appears in the granted or the withdrawn list as
+ * well, and reading only that list gets the blast radius wrong. Adding a deny
+ * rule over `object.locked` is reported as a narrowing, which a reviewer reads
+ * as "locked rows lose the access". Every caller that decides without loading
+ * the row is affected too, whatever the row holds: the permission answered
+ * `allow` and now answers `unevaluable` naming the path it needs.
+ *
+ * A gateway deciding before it reads the row goes from passing the request to
+ * refusing it, and a UI holds a decision it must refetch to settle.
  */
 export interface ReadsObjectFinding {
   readonly kind: 'reads-object';
