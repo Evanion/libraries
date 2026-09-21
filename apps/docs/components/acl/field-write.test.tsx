@@ -134,7 +134,11 @@ describe('the field-write demonstration', () => {
     expect(actionPane(container)['allowed']).toBe('true');
     expect(actionPane(container)['rule']).toBe(
       ruleId(
-        { when: [{ field: 'subject.roles', op: 'contains', value: 'bookseller' }] },
+        {
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+          ],
+        },
         'allow',
       ),
     );
