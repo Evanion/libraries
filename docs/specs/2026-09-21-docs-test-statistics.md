@@ -5,17 +5,24 @@ this project's test statistics, explaining the major classes of case it tests
 against, with an interactive interface reading the coverage reports. Two of
 those three arrive intact. The third, the coverage report as the thing a reader
 looks at, is answered differently in § 7, and § 6 declines the OWASP framing the
-question offered as an example.
+question offered as an example. Three decisions arrive already settled by the
+owner and are recorded here with their consequences worked out: the scope is the
+published libraries and nothing else (§ 0), the coverage numbers are generated
+at deploy time from a fresh run (§ 4.1), and the security material is organised
+by the register (§ 6).
 Packages: `apps/docs` gains a section and a build step. `tools/repo-checks`
-gains three checks. `libs/acl` gains a `coverage` block nowhere and loses one
-duplicated table; `libs/astro-widget/vite.config.ts` gains the `coverage` block
-it is missing (§ 8.4). No published library changes its runtime or its types.
-Depends on: `apps/docs/next.config.ts:53` (`output: 'export'`, which decides
-§ 4 entirely), `apps/docs/next.config.ts:19-50` (the three MDX loaders a new
-page passes through), `.github/workflows/docs.yml:54-67` (the deploy job, which
-today installs and builds and runs no test), `.github/workflows/ci.yml:105`
-(`nx run-many -t lint test build typecheck check`, which runs no coverage),
-`libs/acl/SECURITY.md` (the register, 36 entries in three tiers),
+gains two checks. `libs/acl` loses one duplicated table;
+`libs/astro-widget/vite.config.ts` gains the `coverage` block it is missing
+(§ 8.5). No published library changes its runtime or its types.
+Depends on: `nx.json:146-151` (`release.projects` is `["libs/*"]`, which is the
+scope § 0 adopts, and the comment above it is the reason it can be adopted
+without writing a list), `apps/docs/next.config.ts:53` (`output: 'export'`, which
+decides § 4 entirely), `apps/docs/next.config.ts:19-50` (the three MDX loaders a
+new page passes through), `.github/workflows/docs.yml:54-67` (the deploy job,
+which today installs and builds and runs no test),
+`.github/workflows/ci.yml:105` (`nx run-many -t lint test build typecheck
+check`, which runs no coverage), `libs/acl/SECURITY.md` (the register, 36
+entries in three tiers),
 `libs/acl/src/security/tier1-prevented.test.ts`,
 `tier2-primitives.test.ts` and `tier3-contract.test.ts` (the tests those
 entries name), `libs/acl/src/security/fixtures.ts:136-151` (the README clause
@@ -26,8 +33,12 @@ hand-typed copy of the register, checked by nothing),
 the owner's position in the words § 6.1 quotes), `libs/acl/vite.config.ts:25-28`
 (the per-package coverage configuration every library but one repeats),
 `apps/docs/app/navigation.ts` and `apps/docs/content/_meta.ts:49-52` (where a
-section has to be wired), `tools/repo-checks/src/docs-navigation.test.ts:154-163`
-and `:502-517` (the assertion a new content directory has to satisfy),
+section has to be wired), `tools/repo-checks/src/doc-export-coverage.test.ts:54`
+and `:80-85` (one existing reader of the package list, imported from
+`navigation.ts`), `tools/repo-checks/src/docs-navigation.test.ts:88-109` (the
+other reader, computing the same set from `release.projects` through the Nx
+project graph, which is what § 0 reuses), `:154-163` and `:502-517` (the
+assertion a new content directory has to satisfy),
 `tools/repo-checks/src/doc-fence.test.ts:205`,
 `tools/repo-checks/src/doc-domain.test.ts:169` and
 `tools/repo-checks/src/doc-twoslash.test.ts` (three of the checks a new page
@@ -41,17 +52,61 @@ macOS 26.6.2, Apple M1 Pro. Every count, percentage and duration below was
 derived by running something against that tree in this session. The evidence sections at the end list what I ran and what I could not
 run here.
 Prior art: five security-sensitive libraries and two OWASP documents, fetched
-from their own sources on 2026-09-21 and listed in § 12 with the page beside
+from their own sources on 2026-09-21 and listed in § 14 with the page beside
 each claim. Two of the five publish a coverage percentage and three do not, and
 the one whose security document is closest in shape to this repository's
 register publishes 95%. OWASP's own two documents settle § 6: the Top 10 is
 built from prevalence counts over tested applications and never proposes that a
 library map its tests onto it, and ASVS, which does propose exactly that
 mapping, defines the thing being verified as an application. Sources the
-research could not reach are named at the end of § 12, along with one limit on
+research could not reach are named at the end of § 14, along with one limit on
 how the research was done.
 
 ## What is actually being asked
+
+**The page is a trust signal.** The owner's reason, in his words: this project
+uses AI heavily for development, and users become sceptical. The reader is an
+engineer deciding whether to depend on an authorization library largely written
+by a machine, and that reader arrives already doubting. Everything below is
+derived from that, and the derivation changes several answers a page written for
+a maintainer would give.
+
+Three consequences, and they are the spine of this document.
+
+**A number a sceptic cannot reproduce is worth less than nothing.** It reads as
+marketing to exactly the reader the page exists for, and it confirms the prior
+the reader came with. So every figure on the page carries the command that
+produces it and the commit it was produced at (§ 5), and the numbers are
+generated by the deploy (§ 4.1). A stale figure in front of this reader costs
+more than an absent one.
+
+**A statistic and a case each answer the doubt the other raises, so the page
+pairs them.** This is the owner's argument and it is the page's organising
+principle. A number is verifiable in principle and anecdotal to nobody, so a
+count standing alone invites the reader to wonder whether the tests behind it
+are filler. A case is concrete and proves only itself, so a case standing alone
+invites them to wonder whether it was cherry-picked. The case shows the suite is
+real; the count shows the case is not the only one. Neither is laid out in its
+own section: every count on the page sits next to a case rendered from a test
+that produced it, and § 8.1 is the layout that follows.
+
+That principle is also what keeps the coverage figures on the page. They are the
+weakest evidence here standing alone, and a rendered case beside them changes
+what they are worth. What survives of the caution is narrow and absolute: the
+page says what the number measures, because a reader who later discovers that a
+coverage figure counted lines and not cases has been told something untrue by a
+page built to be trusted. § 7.
+
+**The strongest signals here are not statistics.** § 1 ranks them for this
+reader. The top of that list is that the documentation's examples are executed,
+compiled and rendered from the files the tests run, which answers the specific
+fear that the prose was invented. Below it is a security register that publishes
+what the package does not defend, which nobody fabricates. The page is built
+from the top of that list down. The statistics support that material and never
+lead it.
+
+A trust page that lists only its strengths is the genre the reader is
+suspicious of. § 12 is what the page cannot prove, written for them.
 
 The owner asked for three things in one section: the statistics, an explanation
 of the classes of case, and an interface over the coverage reports. The first
@@ -60,13 +115,19 @@ third has a hard constraint on it and an honesty problem inside it.
 
 The material is real. Running every project's vitest config against `d474dc8`
 collected 2,443 test cases over 168 test files in 18 of the 19 configs in the
-repository. `libs/acl` alone holds 1,095 of those over 28 files, and 107 of them
-sit in `libs/acl/src/security`, one group per `SEC-` identifier, under a name
-that states what must hold. `libs/acl/SECURITY.md` carries 36 register entries
-across three tiers, and the tier decides what the test under it may claim. None
-of that reaches `docs.evanion.com` except through one page,
-`apps/docs/content/acl/register.mdx`, which restates the register by hand and
-which no check holds against the file it restates.
+repository. The eleven libraries hold 1,759 of those cases over 84 files, and
+`libs/acl` alone holds 1,095 over 28. 107 of `libs/acl`'s sit in
+`libs/acl/src/security`, one group per `SEC-` identifier, under a name that
+states what must hold. `libs/acl/SECURITY.md` carries 36 register entries across
+three tiers, and the tier decides what the test under it may claim. 95
+documentation examples in the libraries execute as tests, 82 of them from
+package READMEs and 36 from `libs/acl/README.md` alone, and 126 twoslash fences
+in the site's content are compiled against each package's built output. None of
+that reaches `docs.evanion.com` as a statement a reader can check.
+
+The owner has since set the scope: the statistics cover the published packages
+under `libs/` and nothing else. § 0 works out how to express that without
+writing a list, and says what the page gives up by leaving the demo apps out.
 
 The constraint is `apps/docs/next.config.ts:53`. The site is `output: 'export'`,
 a directory of static files served by GitHub Pages, with no server to ask
@@ -83,20 +144,38 @@ that the register is already the right unit and OWASP is the wrong frame.
 
 ## Decisions
 
-Sixteen, and four of them are refusals. Decisions 1 through 6 settle where the
-numbers come from. Decisions 7 through 9 settle what the security part of the
-page claims. Decisions 10 through 12 settle the coverage percentage. The rest
-are the wiring and one defect found while measuring.
+Twenty-seven. Decision A is what the page is for and every other decision is
+derived from it. Decision B is the page's organising principle, that a count and
+a case each answer the doubt the other raises. Decision 0 is the scope the owner
+set. Decisions 1 through 6 settle where the numbers come from, 7 through 9 what
+the security part claims, 10 through 12 the coverage figures, and 13 through 16
+the wiring and one defect found while measuring. Decisions C through I build the
+page around B. Decision J is put to the owner undecided, because it is his to
+make.
+
+A. **The page's audience is a reader who suspects the library was written by a
+machine and wants to find out whether it is any good.** Every other decision is
+derived from that, and where a maintainer-facing answer and a sceptic-facing
+answer differ, the sceptic wins. The page opens with what a reader can check for
+themselves, and the statistics follow. "What is actually being asked" is the
+derivation, and § 1 is the ranking. 0. **The page counts the projects `nx.json`'s `release.projects` matches, which
+is the eleven libraries under `libs/`.** The demo apps, the docs app, the
+design system and the repository checks are off the page's numbers. The data
+step resolves the set through the Nx project graph, the way
+`tools/repo-checks/src/docs-navigation.test.ts:88-109` already does, so
+adding a library needs no edit here. What that costs the page is real and
+§ 0.3 states it. § 0.
 
 1. **The section is one top-level `/testing` section, and every number on it is
    derived at build time from a run.** Nothing on the page is typed by a person
    and nothing is copied from another file. The page is prerendered into the
    static export, so the reader downloads a page, not a fetch. § 9.
-2. **The numbers come from a fresh test run during the docs build.** The
-   `docs.yml` build job gains a coverage run ahead of `nx build docs`, and the
-   build reads the reports that run wrote. The sweep over every project cost
-   44.7 s of wall clock here, sequential and warm, and the coverage sweep over
-   the eleven libraries cost 19.3 s. § 4.1 and § 4.4.
+2. **The numbers come from a fresh test run over the libraries during the docs
+   build.** The `docs.yml` build job gains a coverage run ahead of
+   `nx build docs`, and the build reads the reports that run wrote. Measured
+   here: 19.3 s of wall clock for the coverage sweep over the eleven libraries,
+   sequential and warm, against 44.7 s for a sweep of all 19 project configs.
+   § 4.1 and § 4.4.
 3. **No coverage summary is committed to the repository.** A committed file is
    reviewable in a diff, which is the argument for it, and it is right only
    until somebody lands a change without regenerating it. The failure is silent
@@ -110,10 +189,11 @@ are the wiring and one defect found while measuring.
    an empty state, a dash, or a number from an earlier run. Measured in § 4.4: a
    failing test run writes no coverage summary at all, so the absent file is
    already the signal, and the build has to treat it as one.
-6. **Every number on the page carries the commit it was measured at, and the
-   page says what the run covered and what it did not.** A reader who wants to
-   know whether the figure is current compares one short SHA against the
-   repository. § 5.
+6. **Every figure on the page carries the command that reproduces it and the
+   commit it was measured at.** `npx nx test @evanion/acl` sits beside
+   `@evanion/acl`'s counts, the coverage command beside the coverage figures.
+   A reader who doubts a number runs the line under it. This is the decision
+   that makes the page evidence for the reader decision A names. § 5.
 7. **The register is the unit, and the page is organised by tier.** Tier 1, tier
    2 and tier 3 each say a different thing about what a passing test proves, and
    no category scheme this project could adopt carries that distinction. § 6.2.
@@ -129,12 +209,16 @@ are the wiring and one defect found while measuring.
    verified artifact as an application. Adopting it means claiming requirement
    identifiers this package satisfies on an application's behalf, which is a
    separate document and a larger claim. § 6.4.
-10. **No coverage percentage appears as a headline, a badge, or a number beside
-    a package name in the sidebar or on the landing page.** § 7.1.
-11. **Where a coverage figure appears, statement and branch percentages appear
-    together and the uncovered lines are named.** Measured on `libs/acl`: 98.16%
-    of statements and 94.42% of branches, which is 21 statements and 46 branches
-    not executed, in files the report names. § 7.2.
+10. **The coverage figures stay on the page, beside a case, and never as a
+    badge.** They are weak alone and a rendered case beside them changes what
+    they are worth, which is decision F. What stays absolute: the sentence
+    introducing them says they count lines executed, because a reader who
+    discovers that later has been misled by the page built to earn their trust.
+    No badge, no sidebar figure, no landing-page number. § 7.1.
+11. **Statement and branch percentages appear together, with the uncovered lines
+    named.** Measured on `libs/acl`: 98.16% of statements and 94.42% of
+    branches, which is 21 statements and 46 branches not executed, in files the
+    report names. The gap between the two is the honest part. § 7.2.
 12. **Coverage is never summed into one workspace number.** Measured across the
     libraries: three sit at 100% on all four metrics and `libs/acl`, the package
     with the most tests in the repository by a factor of five, sits lowest of
@@ -142,59 +226,304 @@ are the wiring and one defect found while measuring.
     changes. § 7.3.
 13. **`apps/docs/content/acl/register.mdx` stops being typed and starts being
     generated from `libs/acl/SECURITY.md` and the run.** The two files agree
-    today, entry for entry and identifier for identifier, and nothing in the
-    repository would report it if they stopped. § 3.
-14. **A repo check holds the register against the tests.** Every `SEC-` in the
-    register has a group in the tier file it names, every group in a tier file
-    has an entry, and the stated counts equal the counted ones. § 10.1.
+    today, entry for entry and identifier for identifier. § 3.
+14. **The guard holding the register against its suite and its published page is
+    PR #259, open as this is written, and decision 13 builds on it.**
+    `libs/acl/SECURITY.md:4-6` claimed the adversarial suite was checked against
+    the register and nothing checked it. That PR adds
+    `tools/repo-checks/src/security-register.test.ts`, 208 lines, holding the
+    identifiers in both directions, the tier each is proved in, the stated
+    counts, and the identifiers on the published page. This document specifies
+    nothing about that check and references it. § 3.
 15. **The section's data module is built by a script under `apps/docs/tools/`
-    and is not checked in.** The raw vitest JSON for all 18 collected projects
-    is 784 KB, of which `libs/acl` alone is 313 KB, so the build reduces it
-    before any of it reaches a page. § 8.2.
+    and is not checked in.** The raw vitest JSON for the eleven libraries is
+    530 KB, of which `libs/acl` alone is 313 KB, so the build reduces it before
+    any of it reaches a page. § 8.2.
 16. **`libs/astro-widget/vite.config.ts` gains the `coverage` block the other
     ten libraries carry.** It has none, so a coverage run writes to
     `libs/astro-widget/coverage/`, which `.gitignore:30-34` does not catch. Found
-    by running it, and `git status` reported the directory as untracked. § 8.4.
+    by running it, and `git status` reported the directory as untracked. § 8.5.
+    B. **Every count on the page sits beside a case rendered from a test that
+    produced it, and neither appears alone.** A count alone reads as filler and a
+    case alone reads as cherry-picked, so each answers the doubt the other
+    raises. This decides the layout (§ 8.1), it is why the coverage figures stay
+    (decision 10), and it is why the page shows four cases and not thirty-six
+    (§ 3A.4).
+    C. **The four cases are chosen by a rule, and the rule is printed above them.**
+    The lowest-numbered entry in each tier, plus every entry whose test
+    constructs the seeded generator, which selects SEC-001, SEC-019, SEC-101 and
+    SEC-201 today. Cases chosen by taste are cherry-picked whether or not the
+    author meant them to be, and a sceptic assumes they were. § 3A.4 states what
+    the rule excludes and what it rests on.
+    D. **Every one of the thirty-six entries is one click from the page, as a row
+    naming its tier, its identifiers and the test that proves it.** A selection
+    stays honest when the unselected are reachable, and PR #259's check is what
+    guarantees the link resolves to a test that runs. § 3A.4.
+    E. **The cases are rendered as `file=…region=…` fences over
+    `libs/acl/src/security`, so the page shows the text of a test CI ran.**
+    Marking regions in the tier files costs two comment lines per case and
+    changes no behaviour, and a region always encloses a complete `it(...)` block
+    and never a fragment assembled for display. § 3A.1 and § 3A.2.
+    F. **The page shows cases carrying OWASP and CWE identifiers, and claims no
+    OWASP category coverage.** Showing SEC-001's attack and refusal claims that
+    this named class has a real case that runs, and nothing about API3:2023 as a
+    category. 8 of the 36 entries carry an OWASP identifier, and the page says
+    so. § 3A.6, which is how § 6's refusal and the owner's instruction are the
+    same page.
+    G. **The page opens with the executed documentation, and it is the largest thing
+    on it.** 95 documentation examples in the libraries run as tests, 82 from
+    package READMEs, 36 from `libs/acl/README.md` alone, and 126 twoslash fences
+    compile against each package's built output. For a reader afraid the prose
+    was invented, an example that cannot be wrong is the strongest answer this
+    repository has. § 1.1.
+    H. **The page publishes the guards' recorded debt beside the guards.** The
+    export-coverage allowance records 115 undocumented and 29 unexercised exports
+    across nine packages, and the fence allowance records 242 fences that are not
+    region references. A guard that reports its own backlog is the evidence; a
+    guard quoted without it is the marketing the reader expects. § 1.3 and § 12.
+    I. **The page carries a section on what it cannot prove, and that section is not
+    at the bottom.** A suite covers the cases somebody thought of, the guards
+    check shape and not correctness, and § 12 says both plainly. Omitting this is
+    what makes a trust page read as marketing.
+    J. **Whether the page states the AI involvement outright is the owner's
+    decision, and this document does not make it.** § 11 works both options
+    through and recommends stating it. Nothing else in this specification changes
+    either way, which is the reason it can be left open.
 
-## 1. What this repository already tests, measured
+## 0. The scope, and how it is expressed
+
+The owner set it: the statistics cover the published packages under `libs/`. The
+demo apps, the docs app itself, the design system under `internal/` and the
+repository checks under `tools/` are off the page's numbers.
+
+### 0.1 The list already exists, twice
+
+`nx.json:151` is `"projects": ["libs/*"]`, and the comment above it at `:146-150`
+gives the reason the scope can be adopted without writing anything down: "The
+directory decides: everything under `libs/` is a published library and every
+other project sits elsewhere... so nothing here needs an exclusion, and adding a
+library needs no edit."
+
+Two files in the repository already resolve that set.
+`tools/repo-checks/src/docs-navigation.test.ts:88-109` reads `release.projects`
+from `nx.json` with the comment-tolerant parser, expands the globs against the
+Nx project graph with `findMatchingProjects`, and returns each project's name
+and root. `tools/repo-checks/src/doc-export-coverage.test.ts:54` and `:80-85`
+take the same set from the other end, importing `packages` from
+`apps/docs/app/navigation.ts`, and `docs-navigation.test.ts:175-218` is what
+holds those two in agreement in both directions.
+
+The data step takes the first form. It resolves `release.projects` through the
+project graph, then reads each matched project's vitest config and coverage
+output. That makes the page's scope the same predicate as the release scope, and
+a twelfth library appears on the page the day it is released, with no edit to
+`apps/docs` and none here.
+
+Taking the second form instead would read `navigation.ts`, which carries
+editorial fields the statistics have no use for, and which is already a
+derivation of the first. Either resolves to the same eleven projects today,
+because `docs-navigation.test.ts` fails when they stop matching.
+
+### 0.2 What the page counts, measured
 
 Run against `d474dc8`, one `vitest run --reporter=json` per project config,
 after `nx run-many -t build --skip-nx-cache`:
 
-| Project                          | Test cases | Test files |
+| Package                          | Test cases | Test files |
 | -------------------------------- | ---------: | ---------: |
 | `@evanion/acl`                   |      1,095 |         28 |
-| `@evanion/repo-checks`           |        224 |         32 |
-| `@evanion/baize-ui`              |        183 |          7 |
 | `@evanion/urn`                   |        139 |          5 |
-| `storefront`                     |        114 |         10 |
 | `@evanion/react-widget`          |        108 |         16 |
 | `@evanion/feature`               |         90 |          7 |
-| `shop-api`                       |         84 |         18 |
 | `@evanion/luhn`                  |         75 |          5 |
 | `@evanion/token`                 |         74 |          5 |
-| `@evanion/docs`                  |         62 |         14 |
 | `@evanion/widget`                |         48 |          5 |
 | `@evanion/nestjs-correlation-id` |         46 |          5 |
 | `@evanion/react-acl`             |         35 |          3 |
 | `@evanion/compose`               |         30 |          3 |
 | `@evanion/astro-widget`          |         19 |          2 |
-| `storefront-rsc`                 |         14 |          2 |
-| `@evanion/nx-astro`              |          3 |          1 |
-| **Total**                        |  **2,443** |    **168** |
+| **On the page**                  |  **1,759** |     **84** |
+
+### 0.3 What the page gives up
+
+The same run collected 684 cases over 84 further files in seven projects the
+page will not count:
+
+| Project                | Test cases | Test files |
+| ---------------------- | ---------: | ---------: |
+| `@evanion/repo-checks` |        224 |         32 |
+| `@evanion/baize-ui`    |        183 |          7 |
+| `storefront`           |        114 |         10 |
+| `shop-api`             |         84 |         18 |
+| `@evanion/docs`        |         62 |         14 |
+| `storefront-rsc`       |         14 |          2 |
+| `@evanion/nx-astro`    |          3 |          1 |
+| **Off the page**       |    **684** |     **84** |
+
+So the page counts 72% of the repository's cases and half of its test files.
+Three things go with the other half, and two of them are losses worth stating on
+the page.
+
+**The demo apps are where a library is exercised end to end, and a reader could
+reasonably expect them counted.** `shop-api`'s 84 cases and `storefront`'s 114
+run the policy engine through a NestJS service and an Astro renderer, and
+`apps/shop-api/src/orders/orders.e2e.spec.ts` is one of only two end-to-end
+files in the repository. A reader told that `@evanion/acl` has 1,095 tests has
+not been told that an application enforcing a policy through it also passes. The
+page says so in a sentence and links the apps' directories. It does not count
+them, and it does not imply they do not exist.
+
+**The repository checks drop off the count, and § 1.3 is why that does not
+matter here.** 224 cases over 32 files hold the workspace and its documentation
+to invariants. They are strong evidence for the reader decision A names, and
+they are evidence about the repository's process, so the page presents them as
+process and not as a test statistic. § 1.3 does that, § 2 names them as a kind
+of test, and no number of theirs joins § 0.2's table.
+
+**`internal/baize-ui`'s 183 cases are no loss.** It is `private: true` and
+`npm install` does not resolve it, which is the same reason
+`docs-navigation.test.ts:209-218` keeps it off the site's package list.
+
+### 0.4 What the narrow scope buys
+
+A test failure in `apps/shop-api` no longer stops the documentation publishing,
+because the docs build never runs it. That was the open question this document
+left in its first draft. The scope answers it, and no policy about which
+failures are tolerable is needed.
 
 `apps/admin` is the nineteenth config and collected nothing here. Its
 `vite.config.mts:3` imports `@react-router/dev/vite`, and that package is absent
-from the installed `node_modules`, so the config fails to load and the Nx
-project graph fails with it. That is a stale install in this checkout rather
-than a defect in the repository, and "Measured" at the end records it as a gap
-in the measurement. The page's data step has to treat a project that collects nothing
-as an error for the same reason decision 5 gives.
+from the installed `node_modules`, so the config fails to load and the Nx project
+graph fails with it. That is a stale install in this checkout, and "Measured" at
+the end records it as a gap in the measurement. Under decision 0 it is also off
+the page, so the same stale install would no longer break a deploy. The data step
+still treats a matched library that collects nothing as an error, for the reason
+decision 5 gives.
 
 The brief this document answers put the count of repo checks at "30+". Measured:
 `tools/repo-checks/src` holds 32 `.test.ts` files carrying 224 cases, run as two
 vitest projects, one of which loads Astro's vite plugin to compile `.astro`
 components (`tools/repo-checks/vitest.config.ts:37-52`).
+
+## 1. What a sceptic can check, ranked
+
+Decision A says the page is built from the top of this list down. The ranking
+criterion is what the reader can verify without trusting the author, and how
+directly the evidence answers the fear that a machine wrote the library and
+nobody checked.
+
+### 1.1 The documentation's examples are executed, and that is the strongest
+
+thing here
+
+The specific fear about machine-written software is plausible prose over wrong
+code. A README that explains an API the package does not have, an example that
+would throw, a signature that drifted three releases ago. Every one of those is
+a thing this repository makes impossible, by three separate mechanisms, and a
+reader can confirm each one by running a command.
+
+**A README region runs as a test.** `tools/doc-examples/src/vite-config.ts:25-28`
+wires `vite-plugin-doctest` and `:54-55` collects `README.md` and every
+non-test source into `includeSource`, so a fenced block in a package's README is
+executed by that package's own suite. Measured over the eleven libraries: 95
+executed documentation examples across 11 source files, 82 of them from READMEs,
+36 from `libs/acl/README.md` alone. A reader who doubts a README snippet runs
+`npx nx test @evanion/acl` and watches it run.
+
+**A `// -> value` claim in an example becomes an assertion.**
+`tools/doc-examples/src/vite-config.ts:25-26` rewrites it before doctest
+extracts the block, and `tools/repo-checks/src/expect-comments.test.ts` holds
+the rewriter to firing on value claims and on nothing else. So the value a
+README says a call returns is the value the test compares against.
+
+**A page's code block is rendered from the README region the tests ran.** The
+MDX loader at `apps/docs/next.config.ts:19-50` fills every `file=… region=…`
+fence from the named region of the package's own README, and a renamed region
+fails the site build. `tools/repo-checks/src/doc-regions.test.ts` fails earlier,
+in `nx test`, for the same reason. Measured: 150 `region=` references across 81
+MDX pages. The snippet on the page is not a copy of the tested one; it is the
+tested one.
+
+**A `twoslash` fence is compiled.**
+`tools/repo-checks/src/doc-twoslash.test.ts:13-35` compiles every twoslash fence
+in the site's content and in the package READMEs against each package's built
+`dist/`, under Twoslash's strict defaults, and fails when an `@errors:` code a
+fence declares stops being produced. Measured: 126 twoslash fences.
+
+That is the top of the page. Four mechanisms, each with its file, each with a
+number, each with a command. None of it is a statistic about quantity.
+
+### 1.2 The register publishes what the package does not defend
+
+Second, because it is the one claim on the site that costs the author something
+to make. `libs/acl/SECURITY.md` holds 8 tier 3 entries stating that no defence
+exists: a forged subject (SEC-201), complete mediation (SEC-202), client-side
+enforcement (SEC-205), a caller-supplied clock (SEC-207) and four more. Each is
+held in place by a test asserting the README clause that states the gap
+(`libs/acl/src/security/fixtures.ts:136-151`).
+
+Nobody fabricates their own gaps. A reader who finds a published list of the
+attacks a library does not stop has found the one thing a marketing page never
+contains, and § 6 is the argument for keeping the register's shape intact rather
+than flattening it into categories.
+
+### 1.3 The claims are guarded, and the guards carry their backlog
+
+Third. `tools/repo-checks/src` holds 32 test files carrying 224 cases at
+`d474dc8`, and PR #259 adds a thirty-third, taking it to 231. They check the
+repository's claims about itself, and two of them are directly about the fear in
+§ 1.1: `doc-export-coverage.test.ts` refuses a published export with no
+documentation heading and no example exercising it, and `doc-exports.test.ts`
+refuses a fence importing or naming a symbol its package does not export.
+
+The honest presentation is the guard together with what it has not yet caught
+up on, which is decision C. Measured from the allowance files:
+`doc-export-coverage-allowance.json` records 115 undocumented and 29 unexercised
+exports across nine packages, and `doc-fence-allowance.json` records 242 fences
+that are not region references. Those are recorded debts that a new addition
+cannot grow, because both allowances default an unlisted entry to zero
+(`doc-export-coverage.test.ts:441` and `:461`, `doc-fence.test.ts:205`).
+
+A page that says "every documented export has a working example" is false and a
+reader can check that it is false. A page that says "115 exports are documented
+nowhere, recorded in a file the build reads, and no new one can be added" is
+true, checkable, and better evidence.
+
+### 1.4 The security register is now checked against its own suite
+
+Fourth, and newly true. `libs/acl/SECURITY.md:4-6` stated that the adversarial
+suite is checked against the register, and until PR #259 nothing checked it. That
+PR adds `tools/repo-checks/src/security-register.test.ts`, holding the
+identifiers in both directions, the tier file each identifier is proved in, the
+stated counts at `:24`, and the identifiers on the published page at
+`apps/docs/content/acl/register.mdx`. Decision 13 builds the page's register on
+top of it.
+
+This ranks below § 1.3 for one reason a sceptic will appreciate: it is a day
+old, and the failure it fixes is exactly the failure this page is about. The
+page says so.
+
+### 1.5 The counts, last
+
+`libs/acl` holds 62% of the 1,759 cases the page counts. 107 of its 1,095 sit in
+`libs/acl/src/security` over three files of 1,169, 471 and 247 lines, one group
+per `SEC-` identifier.
+
+The distribution is uneven in a way the page shows and never averages:
+`@evanion/react-widget` carries 108 cases over 16 files, `@evanion/urn` 139 over
+5, `@evanion/astro-widget` 19 over 2. A file count beside a case count tells a
+reader which packages have many small suites and which have a few large ones,
+and both numbers come from the same report.
+
+A count of tests says how much was tested and nothing about how well, which is
+why decision B never lets one stand alone. 1,095 beside SEC-019's seeded
+generator is a different claim from 1,095 on its own: the count says the case is
+not the only one, and the case says the count is not filler.
+
+### 1.6 Coverage, last
+
+Weakest of the six, for the reason § 7.1 gives, and on the page for the reason
+decision B gives. It ranks last and it is not dropped. § 7.
 
 ## 2. The kinds of test, and how the page derives the list
 
@@ -202,8 +531,15 @@ The brief listed nine kinds. Reading the tree finds eleven distinguishable ones,
 and the difference matters because the page's list has to be derived from the
 configuration and not typed under it.
 
+Seven of the eleven run inside the libraries and carry a number on the page.
+Four sit wholly or partly outside § 0's scope, and each is marked below with
+where it runs. The page names all eleven, because the list is a statement about
+method and a reader looking for "does this project compile its documentation
+examples" wants an answer whichever project the examples live in. Only the seven
+carry counts.
+
 1. **Behaviour tests.** `src/**/*.{test,spec}.ts` in every project config, the
-   bulk of the 2,443.
+   bulk of the 1,759 the page counts.
 2. **Type tests.** `*.test-d.ts` under `typecheck.include`, enabled per package.
    Four files: `libs/acl/src/authoring.test-d.ts`, `libs/acl/src/types.test-d.ts`,
    `libs/urn/src/lib/urn.test-d.ts`, `libs/widget/src/define-widgets.test-d.ts`.
@@ -225,32 +561,40 @@ configuration and not typed under it.
    still be produced (`tools/repo-checks/src/doc-twoslash.test.ts:13-35`). The
    content holds 126 twoslash fences and 150 `region=` references across 81 MDX
    pages.
-6. **Repository checks.** 32 files, 224 cases, described in § 1.
+6. **Repository checks.** 32 files, 224 cases, described in § 0.4. Outside the
+   scope: they live in `tools/repo-checks`, so the page names them and counts
+   nothing.
 7. **Astro container tests.** `.astro` components rendered in a second vitest
-   project that loads Astro's own vite plugin, in
-   `tools/repo-checks/vitest.astro.config.ts` and in
-   `libs/astro-widget/vite.config.ts:56-71`.
-8. **End-to-end tests.** Two files: `apps/shop-api/src/orders/orders.e2e.spec.ts`
-   and `libs/nestjs-correlation-id/src/correlation.e2e.spec.ts`.
+   project that loads Astro's own vite plugin. Inside the scope in
+   `libs/astro-widget/vite.config.ts:56-71`, and outside it in
+   `tools/repo-checks/vitest.astro.config.ts`.
+8. **End-to-end tests.** Two files, one in each. Inside:
+   `libs/nestjs-correlation-id/src/correlation.e2e.spec.ts`. Outside:
+   `apps/shop-api/src/orders/orders.e2e.spec.ts`, which is the one § 0.3 says
+   the page gives up.
 9. **Build-output assertions.** `apps/storefront/src/build.test.ts` reads what
    `astro build` emitted, which is why `nx.json:119-127` orders a project's own
-   build ahead of its tests.
+   build ahead of its tests. Outside the scope, and the only kind with no
+   instance inside it.
 10. **Packaging verification.** `scripts/verify-packaging.mjs` packs every
     publishable library, installs the tarballs into a throwaway project outside
-    the workspace, and checks a consumer can import them. It is its own CI job
-    (`.github/workflows/ci.yml:125-139`) and belongs to no Nx project, so it is
-    the one kind on this list that `nx run-many -t test` does not reach.
+    the workspace, and checks a consumer can import them. Its subject is exactly
+    § 0's eleven packages, and it runs as its own CI job
+    (`.github/workflows/ci.yml:125-139`) belonging to no Nx project, so
+    `nx run-many -t test` does not reach it and neither does the docs build.
+    The page names it and counts nothing.
 11. **The adversarial suite.** `libs/acl/src/security`, 107 cases over three tier
     files, one group per register entry, including seeded property tests drawing
     from `libs/acl/src/security/generator.ts`. § 3 is about this one.
 
-The page derives 1, 2, 3, 7 and 11 by reading each project's resolved vitest
-configuration, which is what the data step already loads to run the tests. It
-derives 5, 6 and 9 from the test file paths in the run. It derives 4 and 10 from
-a short list in the data script naming the two things that live outside a vitest
-config, with a comment saying why each is there. A kind added to a config
-appears on the page with no edit; a kind added outside one does not, and § 10.3
-is the check that reports it.
+The page derives 1, 2, 3, 7 and 11 by reading each matched library's resolved
+vitest configuration, which is what the data step already loads to run the
+tests. It derives 5 from the test file paths in the run. It derives 4, 6, 8, 9
+and 10 from a short list in the data script naming the kinds that live outside a
+matched library's vitest config, with a comment saying why each is there and
+whether it carries a count. A kind added to a library's config appears on the
+page with no edit; a kind added elsewhere does not, and § 10.2 is the check that
+reports it.
 
 ## 3. The register, and the copy of it already on the site
 
@@ -291,18 +635,212 @@ three tables with the Class column reworded to fit the page width. The two files
 agree today, which I checked by extracting the identifier sets and the
 CWE and OWASP sets from each and comparing them.
 
-Nothing in the repository holds them together. `libs/acl/SECURITY.md:4-6` claims
-"the adversarial suite in `src/security` is checked against this file: one entry
-per class, one identifier, and the test that proves the entry", and no code does
-that either. The only references to the register from the tests are two
-docblocks, `tier1-prevented.test.ts:6` and `tier3-contract.test.ts:12`, which
-describe the arrangement and check nothing. The counts on
-`apps/docs/content/acl/register.mdx:5`, `:29`, `:56` and `:71` are English words
-typed by hand: "thirty-six", "Twenty entries", "Eight entries", "Eight entries".
+Until PR #259 nothing in the repository held them together.
+`libs/acl/SECURITY.md:4-6` claims "the adversarial suite in `src/security` is
+checked against this file: one entry per class, one identifier, and the test
+that proves the entry", and no code did that. The only references to the
+register from the tests were two docblocks, `tier1-prevented.test.ts:6` and
+`tier3-contract.test.ts:12`, which describe the arrangement and check nothing.
+The counts on `apps/docs/content/acl/register.mdx:5`, `:29`, `:56` and `:71` are
+English words typed by hand: "thirty-six", "Twenty entries", "Eight entries",
+"Eight entries".
 
-So the register is three copies of one fact, and the fact is maintained by
-attention. Decision 13 makes the page a projection of the file, decision 14
-makes the file a projection of the tests, and § 10.1 is the check.
+PR #259 adds `tools/repo-checks/src/security-register.test.ts` and closes it:
+identifiers in both directions, the tier file each is proved in, the stated
+counts, and the identifiers on the published page. Decision 13 makes the page a
+projection of the register on top of that check, and this document specifies
+nothing further about it.
+
+## 3A. Showing the cases, from the tests that ran
+
+The owner's instruction is show, not tell. A reader who is told the library
+tests mass assignment has learned nothing that a page could not have invented. A
+reader who sees the malformed write, the decision the engine returned, and the
+file that produced both has seen it.
+
+The mechanism for that already exists in this repository and is already pointed
+at a test file.
+
+### 3A.1 A region in a test file is an existing, used pattern
+
+`tools/doc-examples/src/regions.mjs:44-47` matches `// #region name` and
+`// #endregion name` in any file whose path matches `/\.(?:tsx?|astro)$/`, which
+a `.test.ts` satisfies. Its docblock at `:18-28` says the case was designed for:
+"`expectTypeOf` and `@ts-expect-error` live in a `*.test-d.ts` file, which has no
+README fence to sit in, and the claim the page renders is then the one `tsc`
+checked." And at `:38-40`: "The extracted block is executed, because the file it
+comes from is executed."
+
+The pattern is in use. `apps/docs/content/acl/react-router.mdx:222`, `:229` and
+`:238` render three regions of `apps/admin/tests/access.spec.tsx`. The middle
+one, marked at `access.spec.tsx:264-278`, is a whole `it(...)` block with its two
+`expect` calls inside the region, and the page around it at `:232-233` says
+"Every case decides on a real document, because a stubbed decision only asserts
+that the action called something."
+
+So the page can render `libs/acl/src/security/tier1-prevented.test.ts` directly,
+region by region, and what a reader sees is the text of a test that CI ran.
+
+### 3A.2 The cost of marking the security tests, stated
+
+The tier files are the register's proof, and adding comment markers to them
+touches a security-sensitive file for a documentation reason. The trade, both
+sides:
+
+**What it costs.** Three things. A marker pair is two lines per shown case in a
+file whose whole value is that it is easy to audit. A region boundary becomes a
+thing a later edit can break, since moving an assertion out of a region changes
+the page without changing the test. And a rendered case invites an author to
+write the test for the page, which is how an example stops being the honest
+minimum and starts being a demonstration.
+
+**What it costs nothing.** `// #region` is TypeScript's and VS Code's own
+folding marker and means nothing to the compiler
+(`tools/doc-examples/src/regions.mjs:24-26`), so no test behaviour changes, no
+import moves, and the file runs identically. `doc-regions.test.ts` fails in
+`nx test` when a region is renamed or removed, so a broken boundary is a red
+test and never a quietly empty fence. A `file=…region=…` fence is the sanctioned
+fence form, so the 36 the page could add cost nothing against
+`doc-fence-allowance.json`.
+
+**The recommendation is to mark them**, and to answer the third cost by a rule
+by a rule: a region encloses a complete `it(...)` block, never a fragment
+assembled for display. A reader can then check the rendered case
+against the file and find the same text, and an author gains nothing by writing
+for the page because the page shows whatever the test says.
+
+### 3A.3 The engine's answer is already in the region
+
+Showing the attack is half of it. The half a sceptic wants is what the engine
+returned, and in a test file it is already visible, because the assertion states
+it. `tier1-prevented.test.ts:53-60` reads
+`expect(decision.fields['role']).toBe('denied')` and
+`expect(decision.allowed).toBe(false)`. A region around that block renders the
+hostile write and the refusal together, in the form CI checked.
+
+So the `// -> value` rewriting is not needed here, and the page should not use
+it. It exists for README prose where no assertion is in scope
+(`tools/doc-examples/src/vite-plugin.ts:4-12`). `expectComments` does transform
+any `.ts` file the pipeline touches (`vite-plugin.ts:18-22`), so a `// -> value`
+in a tier file would become an assertion and would work. It would be a second
+way of saying what `expect` already says, in the one file where a reader is
+counting on being able to read the assertions as written.
+
+One thing the region cannot show is the decision object in full, because a test
+asserts the members it cares about. Where a case turns on the shape of the
+answer, the page's prose names the other members and links the file. It does not
+paste an object nothing checked.
+
+### 3A.4 All thirty-six cases, ranked by a printed rule
+
+The owner's instruction is to feature as many high-value cases as the page can
+hold, and the indexing constraint in § 8.2 says every case has to be in the
+exported HTML whether or not it is on screen. Those agree, so the answer is not
+a selection at all.
+
+**All thirty-six cases are rendered into the page at build time, ordered by a
+rule the page prints above them.** The rank decides what a reader meets first
+and what sits collapsed below. Nothing is cut, and no case is fetched or
+rendered on demand, for the reason § 8.2 gives.
+
+That removes the cherry-picking doubt entirely. A reader who thinks the order
+was arranged scrolls, and the case they wanted is on the same page.
+
+**The rank, and every criterion is read off the register's own columns.**
+
+1. **Tier 3, the eight entries publishing a non-defence.** Least fakeable, so
+   first. SEC-201's forged subject leads the page: `tier3-contract.test.ts:32-40`
+   asserts the engine "authorizes a forged subject exactly as it would a real
+   one", with the comment "No defence. The engine has no channel to ask where
+   the bag came from, and this is what that costs."
+2. **Tier 2, the eight entries where the register states the wrong idiom beside
+   the right one.** These are the mistakes a competent engineer actually makes,
+   which is the property separating a real case from a filler test. SEC-101's
+   entry says filtering by hand on `!== 'denied'` writes the unevaluable fields
+   and every key the decision does not carry, and the rendered case shows both
+   calls against one decision.
+3. **Tier 1 whose defence acts when a decision is made, which is eighteen of the
+   twenty.** A wrong grant with no error is the failure a reviewer never catches
+   by reading, so the engine getting it right is the whole of the defence.
+   Within this group, the entries carrying a CWE and an OWASP identifier come
+   first, then the entry drawing from the seeded generator, then the rest by
+   identifier.
+4. **Tier 1 refused at construction, which is SEC-009 and SEC-020.** Last,
+   because a construction error is loud: the first developer to run the code
+   sees a thrown exception, so the case demonstrates a guard. No silent failure
+   was avoided.
+
+Measured, by reading the Mechanism column of every tier 1 row: two entries name
+a construction error as the whole of the defence (SEC-009, "an operand the engine
+would ignore is refused at construction"; SEC-020, "are all construction
+errors"). Two more name both paths and rank with the decision-time group,
+because a decision-time defence exists: SEC-011 ("the untrusted path fails closed
+on an unknown key; the authored path throws") and SEC-018 ("a condition whose
+clock does not parse is `unusable-clock`, not a fail... A boundary that does not
+parse is an `InvalidConditionError` at construction").
+
+**What the rank rests on.** Criteria 1, 2 and 4 are read off columns PR #259's
+check already holds against the suite. Criterion 3's ordering uses the OWASP and
+CWE columns, which are editorial: somebody decided SEC-001 carries API3:2023.
+The page says so. It changes which of eighteen tier 1 cases a reader meets
+first, and it changes nothing about which cases exist, because all of them do.
+
+**Why this needs a component, which is why the owner asked for one.** Thirty-six
+cases with their code is too much to read as a flat page and exactly right as a
+filterable set. The statistics sit at the top, the ranked cases below, and the
+component filters by tier, by CWE and by OWASP identifier, and by free text over
+the class and the mechanism. The case volume is the reason the component exists.
+§ 8.1 is the layout and § 8.2 is the constraint on how it filters.
+
+### 3A.5 The build cost, stated so the owner can see it
+
+Marking regions is real work in security-sensitive files, and the owner should
+choose with the size visible.
+
+**Thirty-six region pairs, 72 marker lines, across three files.**
+`tier1-prevented.test.ts` is 1,169 lines and takes 20 pairs,
+`tier2-primitives.test.ts` is 471 lines and takes 8, `tier3-contract.test.ts` is
+247 lines and takes 8. The three hold 107 cases between them, so a region marks
+one representative `it(...)` per entry and the other 71 cases stay unmarked and
+unrendered, reachable through the file link every register row carries.
+
+Choosing that representative is the one judgement in the work, and the rule from
+§ 3A.2 bounds it: a region encloses a complete `it(...)` block, never a fragment.
+Where an entry's first `it` is the clearest statement of the attack, which is
+the pattern in `tier1-prevented.test.ts` throughout, the choice is mechanical.
+
+**What the work does not touch.** No assertion changes, no fixture changes, no
+import moves. `// #region` is TypeScript's and VS Code's own folding marker
+(`tools/doc-examples/src/regions.mjs:24-26`), so the compiler and the runtime see
+nothing. The suite that passes before the marking is the suite that passes
+after, which a reviewer confirms by reading a diff of comment lines.
+
+**What it adds to the guard surface.** 36 new `file=…region=…` references, each
+checked by `tools/repo-checks/src/doc-regions.test.ts` in `nx test`, so a
+renamed or deleted region is a red test in seconds. A `file=…region=…` fence is
+the sanctioned fence form, so the 36 cost nothing against
+`doc-fence-allowance.json`.
+
+### 3A.6 What the shown cases claim about OWASP, and what they do not
+
+§ 6 refuses to organise the page by OWASP category, and that refusal and the
+owner's instruction to lift how the project tests against known issues are the
+same page once the claim is stated precisely.
+
+**The page shows cases that carry OWASP and CWE identifiers. It does not claim
+to cover an OWASP category.** SEC-001 carries CWE-915 and API3:2023, and
+rendering its attack, the engine's refusal and the test behind it claims exactly
+one thing: this named class has a real case that runs. It claims nothing about
+API3:2023 as a category, and the page never counts categories.
+
+The page says so in its own words, and says the arithmetic: 8 of the 36 entries
+carry an OWASP identifier, 30 carry a CWE alone, and the identifiers are a
+property of individual entries. A reader looking for an index of the Top 10 is
+told there is not one here and why, which is § 6.3 and § 6.4 compressed to a
+paragraph.
+
+The three tiers stay on the page and stay visible in every filtered view, for
+the reason § 6.2 gives.
 
 ## 4. The static export, and the three places the numbers could come from
 
@@ -373,7 +911,7 @@ Measured, and it decides decision 5. I ran a coverage sweep over the eleven
 libraries. Four wrote no `coverage-summary.json`: `libs/compose`,
 `libs/react-acl` and `libs/react-widget` because their runs failed, and
 `libs/astro-widget` because it has no `coverage` block at all and wrote to a
-different directory (§ 8.4). Vitest printed "Coverage enabled with v8" in all
+different directory (§ 8.5). Vitest printed "Coverage enabled with v8" in all
 four logs and produced no summary for the three that failed.
 
 So a failing test run already deletes the page's input. The docs build has to
@@ -392,6 +930,22 @@ The section carries, once, near the top: the short commit the run was measured
 at, the date of that commit, the Node version the run used, and one sentence
 saying the numbers were produced by the build that produced the page. Those four
 come from the environment the data step runs in, so none of them is typed.
+
+**Every figure also carries the command that reproduces it**, which is decision
+6 and the thing that turns a claim into evidence for the reader decision A
+names. `npx nx test @evanion/acl` sits under `@evanion/acl`'s counts.
+`npx nx test @evanion/acl --coverage` sits under its coverage figures. The
+commands are derived from the project name, so a twelfth library gets its own
+without an edit. A reader who doubts a number runs the line under it and
+compares.
+
+One honesty note the page inherits from this document. `npx nx test @evanion/acl`
+failed in this worktree, because `apps/admin`'s vite config imports a package
+absent from the installed `node_modules` and the Nx project graph fails with it.
+The per-project form, `npx vitest run --config libs/acl/vite.config.ts`, is what
+produced every figure here. The page prints the `nx` form, which is what a
+reader with a clean install runs, and the evidence sections of this document
+record the substitution.
 
 That sentence is checkable. A reader compares the SHA against the repository's
 history. If the deploy ever stops running the tests, the SHA stops moving with
@@ -508,30 +1062,41 @@ and that the project makes no ASVS level claim. Revisit ASVS when a consumer
 asks for it, and treat the answer as a separate specification that starts from
 what the consuming application has to do.
 
-## 7. Whether a coverage percentage belongs on a docs site
+## 7. The coverage figures, and what makes them worth showing
 
-The brief asked this directly. The answer is that it belongs in the section, in
-one place, with enough beside it that it cannot be read as a quality score, and
-nowhere else.
+The brief asked whether a coverage percentage belongs on a docs site at all.
+The answer, under decision B: the figures belong on the page, beside a case, and
+never as a badge. Alone they are the weakest evidence here. Beside a rendered
+test they are a different object, because the case answers the doubt the number
+raises.
 
-### 7.1 What the number measures and what a reader takes from it
+### 7.1 What the number measures, said on the page
 
 A v8 line-coverage percentage counts statements the run executed. It counts
 nothing about assertions. A suite that imports every module and asserts nothing
 reaches a high number. The reader takes it as "this library is well tested",
-which is a claim about assertions.
+which is a claim about assertions, and a reader who discovers the difference
+after trusting the figure has been misled by a page built to be trusted.
 
-Two of the five libraries in § 12 publish a coverage percentage: OpenFGA at 80%
-and rustls at 95%. `libs/acl` measures 98.16% of statements here. Putting that
-number where a reader compares it against those two is the specific dishonesty
-this section has to avoid, because `libs/acl` is a few thousand lines of pure
-functions over frozen JSON with no network, no cryptography, no unsafe code and
-no parser for a wire format, and rustls is a TLS implementation. The number is
-higher because the code is smaller and simpler, and a reader has no way to see
-that from the number.
+So the sentence introducing the figures says what they count, in those words,
+and it is not a footnote. This is the one part of the caution that survives
+decision B intact.
 
-So: no badge, no sidebar figure, no landing-page number, no per-package
-percentage on the package's own pages. One place, inside the section, framed.
+What the paired case buys, concretely. A reader looking at 94.42% of branches
+under `libs/acl` can look immediately below at SEC-001's attack and the engine's
+`{ allowed: false }`, and at SEC-019's seeded generator producing writes nobody
+enumerated. The number says how much of the file ran. The case says the running
+was doing something. Neither sentence is available from the other.
+
+**No badge, no sidebar figure, no landing-page number, no percentage on a
+package's own pages.** A badge is the figure with every qualifier stripped and
+no case beside it, which is the form decision B exists to refuse. Two of the
+five libraries in § 14 publish one: OpenFGA at 80% and rustls at 95%.
+`libs/acl` measures 98.16% of statements, and a reader comparing those three has
+been invited to conclude something false, because `libs/acl` is a few thousand
+lines of pure functions over frozen JSON with no network, no cryptography, no
+unsafe code and no wire-format parser, and rustls is a TLS implementation. The
+page states that comparison problem in a sentence where a badge cannot.
 
 ### 7.2 What appears beside it
 
@@ -578,7 +1143,7 @@ Measured across the libraries, one coverage run each:
 | `@evanion/widget`                |     96.29% |   90.19% |    84.61% | 96.07% |
 
 `@evanion/astro-widget` measures 100% of statements and 80% of branches over 5
-files, and § 8.4 is why its report lands somewhere else.
+files, and § 8.5 is why its report lands somewhere else.
 `@evanion/compose`, `@evanion/react-acl` and `@evanion/react-widget` produced no
 summary in this checkout, for the reason § 4.4 gives.
 
@@ -590,38 +1155,85 @@ the repository's tests does. Per package, or not at all.
 
 ## 8. The interactive part
 
-### 8.1 What the reader does with it
+### 8.1 The layout, which decision B decides
 
-Three things, and all three are filtering over data that is already in the page.
+No count is laid out in its own section. Every count sits beside a case rendered
+from a test that produced it, because a count alone reads as filler and a case
+alone reads as cherry-picked.
 
-The register, filtered. By tier, by CWE, by OWASP identifier, and by free text
-over the class and the mechanism. A row expands to show the test names that ran
-under that identifier in this build's run, and the file and line they live in.
-The count above the table always breaks down by tier, so no filtered view
-reports a total without saying how much of it is tier 3.
+So the page runs in four bands, and each band is a pair.
 
-The test inventory, per project. The 18-row table in § 1, sortable, with each
-row expanding into its test files and their case counts, and a tag per kind from
-§ 2 so a reader can see that `@evanion/acl`'s 1,095 includes 107 adversarial
-cases and two type-test files.
+**The executed documentation, with its numbers.** 95 executed examples, 82 from
+READMEs, 126 compiled twoslash fences, beside a rendered README region and the
+page fence that renders from it. The reader sees the count and the thing counted
+at once. § 1.1.
 
-The coverage, per package. The table in § 7.3, with the per-file breakdown and
-the uncovered lines behind an expander.
+**The register, with its cases.** 36 entries, 20 and 8 and 8 by tier, beside all
+thirty-six rendered cases in the rank § 3A.4 prints. The count above the case
+list always breaks down by tier, in every filtered view, so no view reports a
+total without saying how much of it is a non-defence.
 
-### 8.2 How the data reaches the page
+**The suite, with its adversarial subset.** The per-package table from § 0.2,
+sortable, each row expanding into its test files and their case counts with a
+tag per kind from § 2, beside the 107 cases in `libs/acl/src/security` that one
+of those rows contains. 1,095 is an abstraction; SEC-019's seeded generator is
+what 1,095 is made of.
 
-The existing pattern is at `apps/docs/components/probes/islands.tsx:25-30`: a
-client component doing the dispatch, one lazily loaded chunk per package, and
-the comment at `:22-23` states the rule the section follows, that the static
-export has to carry the value before anything is fetched. The section's tables
-are prerendered into the HTML with every row present, and the island sorts and
-filters what is already there. A reader with no JavaScript reads the tables. A
-crawler indexes them, which matters because `docs.yml:67` runs Pagefind over the
-exported HTML and `apps/docs/tools/md-siblings.mjs` writes a `.md` sibling of
-every page for agents.
+**The coverage, with the case that vouches for it.** The per-package table from
+§ 7.3 with its per-file breakdown and uncovered lines, and directly beneath it
+the two tier 1 cases whose assertions show the branches being taken. § 7.1 is
+why this band exists at all and why it is last.
 
-The data itself is too large to ship raw. The vitest JSON for the 18 collected
-projects is 784 KB, `libs/acl` alone being 313 KB, because each report carries
+The component's job in every band is filtering and sorting what the build put
+there. It fetches nothing.
+
+### 8.2 How the data reaches the page, and the constraint that decides it
+
+**Everything renders into the HTML at build time, and the filter hides rather
+than renders.** The agent working on the API reference component measured this
+on a fixture page and the finding is recorded in
+`docs/specs/2026-09-21-docs-api-reference.md` on branch `docs/api-reference-spec`.
+Three parts of it decide this design:
+
+- A `'use client'` component is not disqualified. The string
+  `apps/docs/components/probes/urn-probe.tsx` computes appears in the Pagefind
+  fragment for `/urn/components/`, so an interactive case explorer can be a
+  client component and still be indexed.
+- Pagefind indexes `hidden` and `display:none` content. A filter that hides
+  non-matching cases keeps all thirty-six in the index.
+- A filter that renders only matches after hydration deletes every non-matching
+  case from the index while looking correct in a browser.
+
+On a page whose whole purpose is trust, taking thirty-six security cases out of
+search while appearing to work is the worst failure available. So the component
+never renders on demand.
+
+A second constraint points the same way and is worth recording here, because it
+decides how the cases are written, where the first decides how they are
+filtered.
+`tools/doc-examples/src/md-siblings.mjs:22-26` states it: "The components a page
+mounts stay as written." The `.md` sibling of every page is built from the MDX
+source with its `file=…region=…` fences expanded, so a case written as a fence
+reaches an agent reading the site with its code in it, and a case rendered by a
+component reaches that agent as the component's name. That is the argument for
+the cases being MDX fences that a component decorates, against a component that
+holds the cases itself.
+
+The existing runtime pattern is at
+`apps/docs/components/probes/islands.tsx:25-30`, and the comment at `:22-23`
+states the rule this section follows: the static export has to carry the value
+before anything is fetched.
+
+One measurement trap, from the same agent's work and from the G10 guard that
+under-counted for a day: a measurement that reads a `file=` fence takes the info
+string off the page as written and the body off the page as expanded.
+`tools/repo-checks/src/doc-export-coverage.test.ts:302-311` documents it. The
+data step in § 8.3 reads fences, so it inherits the rule.
+
+### 8.3 The data step
+
+The data itself is too large to ship raw. The vitest JSON for the eleven
+libraries is 530 KB, `libs/acl` alone being 313 KB, because each report carries
 every assertion's full name, ancestor titles, duration and status. The eight
 `coverage-summary.json` files total 23 KB, `libs/acl` being 9,085 bytes of that.
 So a script under `apps/docs/tools/` runs the sweep, reduces both into one
@@ -630,7 +1242,7 @@ test names that matched each identifier, and the coverage summaries, and writes
 it where the page imports it. That module is a build output and is not checked
 in, which is decision 15.
 
-### 8.3 What the page's prose has to satisfy
+### 8.4 What the page's prose has to satisfy
 
 A new page under `apps/docs/content/` passes the checks in
 `tools/repo-checks/src`, and three of them decide how the page is written.
@@ -650,7 +1262,7 @@ sentence (`doc-antithesis.test.ts`), none of the refused words
 (`diagram-captions.test.ts`). `doc-prose-budget.test.ts` warns over 1,200 words
 and fails nothing.
 
-### 8.4 The defect found while measuring
+### 8.5 The defect found while measuring
 
 `libs/astro-widget/vite.config.ts` has no `coverage` block. The other ten
 libraries all carry the same three lines, `libs/acl/vite.config.ts:25-28` being
@@ -667,7 +1279,7 @@ reports `?? libs/astro-widget/coverage/`. I ran it, saw that line, and deleted
 the directory.
 
 Decision 16 adds the block. A check would be better than a convention here, and
-§ 10.2 is that check.
+§ 10.1 is that check.
 
 ## 9. Where the page lives
 
@@ -708,38 +1320,134 @@ is.
 
 ## 10. What the checks have to gain
 
-Three, all in `tools/repo-checks/src`. Each one reads files, and none of them
-runs a build.
+Two, both in `tools/repo-checks/src`. Each reads files and neither runs a build.
+The third one this document originally proposed, holding the register against
+its suite, is PR #259 and is not specified here.
 
-### 10.1 The register against the tests
-
-Reads `libs/acl/SECURITY.md` and the three tier files. Asserts that the set of
-`SEC-` identifiers in the register equals the set in the tests, that each
-identifier's tier matches the file it appears in, that each register row's Test
-column names that file, and that the counts stated at
-`libs/acl/SECURITY.md:24` equal the counted ones.
-
-This is the check `libs/acl/SECURITY.md:4-6` already claims exists. Without it,
-decision 13's generated page projects an unverified file, which moves the drift
-from two files to one and does not remove it.
-
-### 10.2 Every library configures coverage the same way
+### 10.1 Every library configures coverage the same way
 
 Reads each library's resolved vitest configuration and asserts a `coverage`
 block with `reportsDirectory: './test-output/vitest/coverage'`. One package
-fails it today (§ 8.4), and decision 16 is the fix. This one is cheap and it
-protects the data step in § 8.2, which globs those directories.
+fails it today (§ 8.5), and decision 16 is the fix. This one is cheap and it
+protects the data step in § 8.3, which globs those directories.
 
-### 10.3 The kinds list is derived, and its exceptions are declared
+### 10.2 The kinds list is derived, and its exceptions are declared
 
-§ 2 derives nine of the eleven kinds from the configs and names two in a short
-list in the data script. That list is the thing that goes stale. The check reads
-the list, asserts each entry names a file that exists, and asserts that no
-vitest project config carries an include pattern the derivation does not
-recognise. A new kind wired into a config appears on the page; a new kind wired
-outside one fails this check until somebody declares it.
+§ 2 derives five of the eleven kinds from the libraries' configs and names the
+rest in a short list in the data script, each entry saying whether it carries a
+count. That list is the thing that goes stale. The check reads it, asserts each
+entry names a file that exists, and asserts that no matched library's vitest
+config carries an include pattern the derivation does not recognise. A kind
+wired into a library's config appears on the page; a kind wired elsewhere fails
+this check until somebody declares it.
 
-## 11. What should not be built
+## 11. Whether the page states the AI involvement
+
+This is the owner's decision and this document does not make it. Both options
+are worked through here so it can be made on what each costs, and the
+recommendation is at the end.
+
+Nothing else in this specification changes either way. The cases, the counts,
+the rank, the guards and the coverage figures are the same page under both
+options, which is the reason the question can be left open this long.
+
+### 11.1 Stating it
+
+The page says the project is developed with heavy AI assistance, and then says
+what the controls are and what they cannot catch.
+
+**What it costs.** Some readers stop there. A statement like that is a filter,
+and the page cannot know how many people it turns away who would otherwise have
+evaluated the library on its evidence.
+
+**What it buys.** Two things a page cannot get any other way. First, every
+control on the page acquires a reason: a reader who does not know why a project
+executes all 95 of its documented examples reads that as thoroughness, and a
+reader who does reads it as a specific answer to a specific risk. The controls
+are more persuasive with the risk named than without it. Second, it forecloses
+the discovery. A reader who learns the library is AI-built after reading a trust
+page that did not mention it revises their opinion of everything on that page,
+including the parts that were true. The page's own material is what that reader
+stops believing.
+
+### 11.2 Not stating it
+
+The page presents the evidence and lets it stand on its own.
+
+**What it costs.** The discovery risk above, which is the whole of it and is
+severe. It is also the one cost that grows over time, because the project's
+provenance becomes more discoverable every year.
+
+**What it buys.** The page is shorter and reaches every reader who would have
+stopped at the disclosure. It is also the option that requires no judgement
+about how to phrase something the industry has no settled vocabulary for.
+
+### 11.3 The recommendation, and the honest framing if it is taken
+
+**State it.** The discovery failure is worse than the filter, and the controls
+mean something once the reason for them is stated.
+
+If stated, the framing is what the controls are and what they cannot catch, and
+the second half is what makes the first half credible:
+
+- What the controls are: every documented example executes, every twoslash
+  fence compiles, 33 repository guards hold the claims about the repository, the
+  security register is checked against its suite, and the page's own numbers are
+  produced by the deploy that produced the page.
+- What they cannot catch: § 12, in full and linked from the statement.
+
+One sentence that must not appear: any claim about how much of the code a human
+reviewed. It is unmeasurable, unverifiable by a reader, and it is the sentence a
+sceptic is most likely to test.
+
+## 12. What this page cannot prove
+
+Not at the bottom of the page, and not a disclaimer. A reader who has just been
+shown thirty-six security cases is exactly the reader who should be told what
+they do not establish, and this is the section that makes the rest credible.
+
+**A test suite covers the cases somebody thought of.** Every one of the 36
+register entries is a class somebody named. The 37th is not in the register, is
+not in the suite, and nothing on this page would look any different if it
+existed. SEC-019's seeded generator is the narrowest exception and the page
+should not overstate it: it generates writes nobody enumerated, within a shape
+somebody chose, against a property somebody stated. A generator does not find
+the class its author did not think of either.
+
+**The guards check shape, not correctness.** `doc-export-coverage.test.ts`
+refuses a published export with no example. It has no opinion about whether the
+example is any good, whether the prose around it is true, or whether the export
+should exist. `doc-twoslash.test.ts` proves a fence compiles, which is a
+different claim from the fence being the right way to use the API. Every guard
+on this page is a guard against a documented thing being absent or stale, and
+none is a guard against it being wrong.
+
+**The guards carry a recorded backlog, and the page prints it.** 115 exports
+documented nowhere and 29 with no example exercising them, across nine packages,
+in `doc-export-coverage-allowance.json`; 242 fences that are not region
+references in `doc-fence-allowance.json`. Both allowances default an unlisted
+entry to zero (`doc-export-coverage.test.ts:441` and `:461`,
+`doc-fence.test.ts:205`), so the backlog cannot grow, and it has not been paid
+down.
+
+**Coverage counts lines executed.** § 7.1, repeated here because this is the
+section a sceptic reads.
+
+**The register describes one library, at one layer.** Tier 3 is eight entries
+long and `apps/docs/content/acl/security.mdx:5` is what it means: in a browser
+the control disappears and the request it would have sent does not. A reader who
+takes this page as evidence that an application using `@evanion/acl` is secure
+has drawn a conclusion the page's own tier 3 refutes.
+
+**Nothing here is an audit.** No third party has reviewed this code. § 14 records
+that libsodium links a sponsored external audit and rustls publishes an audit
+report in-repo, and this project has neither. The page says so in those words,
+because a reader comparing this page against those projects should be able to
+see the difference from this page.
+
+**The numbers describe the commit the page was built from.** § 5.
+
+## 13. What should not be built
 
 **A coverage badge in any README.** § 7.1.
 
@@ -750,7 +1458,7 @@ reader to treat it as signal.
 
 **A threshold that fails the build.** A coverage minimum makes the number the
 target, and the first thing it buys is a test written to execute a line. The
-register's counts are the thing worth gating, and § 10.1 gates them.
+register's counts are the thing worth gating, and PR #259 gates them.
 
 **A per-package coverage figure on the package's own pages.** Decision 10. A
 reader on `/luhn` seeing 100% has learned that `@evanion/luhn` is 86 statements.
@@ -761,7 +1469,7 @@ reader on `/luhn` seeing 100% has learned that `@evanion/luhn` is 86 statements.
 **Publishing the raw vitest JSON.** 784 KB of assertion names, durations and
 file paths, describing the build machine, for no reader.
 
-## 12. The landscape, read for this document
+## 14. The landscape, read for this document
 
 Fetched on 2026-09-21 from each project's own repository or documentation, with
 the page named beside each claim. The question asked of each was whether it
@@ -885,14 +1593,39 @@ breakdown.
 Against this worktree at `d474dc8`, Node v24.16.0, TypeScript 6.0.3, macOS
 26.6.2, Apple M1 Pro, after `npx nx run-many -t build --skip-nx-cache`:
 
-- The per-project counts in § 1, from one `npx vitest run --config <config>
---reporter=json` per project config, summed from the JSON reports: 2,443 cases
-  over 168 files across 18 configs.
+- The per-project counts in § 0.2 and § 0.3, from one `npx vitest run --config
+<config> --reporter=json` per project config, summed from the JSON reports:
+  2,443 cases over 168 files across 18 configs, of which the eleven libraries
+  hold 1,759 over 84 and the seven other collected projects hold 684 over 84.
 - That `apps/admin/vite.config.mts` fails to load here, with
   `Cannot find package '@react-router/dev'`, and that the same failure breaks
   the Nx project graph, which is why `npx nx test @evanion/acl` also failed.
+  Every figure here therefore comes from the per-project `vitest` form, and the
+  page prints the `nx` form a clean install runs. § 5 records the substitution.
 - 44.7 s of wall clock for the sequential sweep of all 19 configs, warm, and
   19.3 s for the coverage sweep over the eleven libraries.
+- The 95 executed documentation examples in § 1.1, by walking the same JSON
+  reports for result files that are not `*.test.ts`, `*.spec.ts` or
+  `*.test-d.ts`: 11 source files, 95 cases, 82 of them from a `README.md` and 36
+  from `libs/acl/README.md`. This is a floor. `libs/compose`, `libs/react-acl`
+  and `libs/react-widget` failed to resolve their `examples/` imports in this
+  checkout, so their documented examples collected nothing and are not in the 95.
+- The allowance figures in § 1.3 and § 12, by summing the arrays in
+  `doc-export-coverage-allowance.json` (115 undocumented, 29 unexercised, 9
+  packages) and `doc-fence-allowance.json` (242 across 9 sections).
+- The loud and silent split in § 3A.4, by reading the Mechanism column of every
+  tier 1 row in `libs/acl/SECURITY.md` and matching "construction error", "at
+  construction" and "throws": SEC-009, SEC-011, SEC-018 and SEC-020 match, and
+  SEC-011 and SEC-018 also name a decision-time defence in the same cell.
+- That exactly one register entry draws from the seeded generator:
+  `tier1-prevented.test.ts:36` imports `Gen` and `rng`, and `:1117` is the only
+  construction, inside SEC-019's `describe`.
+- That a `.test.ts` file qualifies as a region source
+  (`tools/doc-examples/src/regions.mjs:46`, `SOURCE_FILE = /\.(?:tsx?|astro)$/`),
+  and that the pattern is already in use: `apps/docs/content/acl/react-router.mdx:222`,
+  `:229` and `:238` render three regions of `apps/admin/tests/access.spec.tsx`,
+  the second of them marked at `access.spec.tsx:264-278` around a complete
+  `it(...)` block with both its `expect` calls inside the region.
 - The coverage table in § 7.2 and the per-package table in § 7.3, from
   `--coverage --coverage.reporter=json-summary` with `--typecheck.enabled=false`.
 - The per-file figures quoted in § 7.2, from the same run's text reporter:
@@ -905,9 +1638,9 @@ Against this worktree at `d474dc8`, Node v24.16.0, TypeScript 6.0.3, macOS
   that `git status` then reported the directory as untracked, and that its
   figures are 100% statements over 19, 80% branches, 100% functions, 100% lines,
   over 5 files.
-- Report sizes: 784 KB of vitest JSON over 18 projects, `libs/acl` 313,168 bytes
-  of it; 23,268 bytes of `coverage-summary.json` over seven packages,
-  `libs/acl` 9,085 bytes of it.
+- Report sizes: 784 KB of vitest JSON over 18 projects and 530 KB over the
+  eleven libraries, `libs/acl` 313,168 bytes of it; 23,268 bytes of
+  `coverage-summary.json` over seven packages, `libs/acl` 9,085 bytes of it.
 - The register counts: 20, 8 and 8 distinct `SEC-` identifiers in the three tier
   files, 36 in `libs/acl/SECURITY.md`, 36 in
   `apps/docs/content/acl/register.mdx`, 23 distinct CWEs in each of the two
@@ -942,16 +1675,30 @@ Against this worktree at `d474dc8`, Node v24.16.0, TypeScript 6.0.3, macOS
 - `libs/acl/src/security/fixtures.ts:136-151` and the docblocks at
   `tier1-prevented.test.ts:1-8` and `tier3-contract.test.ts:1-14`.
 - `scripts/verify-packaging.mjs:1-50`, for § 2's item 10.
+- `nx.json:146-151` and
+  `tools/repo-checks/src/docs-navigation.test.ts:88-109`, which § 0.1's scope
+  expression rests on. No data step was written, so nothing here resolved the
+  project graph through that path.
+- `tools/doc-examples/src/regions.mjs:1-47` and
+  `tools/doc-examples/src/md-siblings.mjs:1-26`. The second carries § 8.2's
+  second constraint, that a component a page mounts stays as written in the
+  `.md` sibling, and no sibling was generated here to confirm it.
+- `tools/doc-examples/src/vite-plugin.ts:13-25`, for § 3A.3's claim that
+  `expectComments` transforms any `.ts` the pipeline touches. Read, not
+  exercised against a tier file.
+- PR #259's description and its single added file,
+  `tools/repo-checks/src/security-register.test.ts`, 208 lines. That branch was
+  not checked out here and its check was not run.
 
 ### Quoted from a source outside this repository
 
-Each fetched on 2026-09-21, with the page named in § 12: Cedar's security page
+Each fetched on 2026-09-21, with the page named in § 14: Cedar's security page
 and the Amazon Science article, OpenFGA's GitHub security policy and its Codecov
 badge endpoint, libsodium's documentation introduction, rustls' `SECURITY.md`
 and its manual page on vulnerability classes, Tink's `SECURITY-USABILITY.md`,
 the `OWASP/Top10` 2025 introduction, and the `OWASP/ASVS` 5.0 chapters
 `0x03-What-is-the-ASVS.md` and `0x04-Assessment_and_Certification.md`.
-Everything else about a project in § 12 is a summary in this document's own
+Everything else about a project in § 14 is a summary in this document's own
 words of a page named beside it.
 
 ### Asserted here and not measured
@@ -978,16 +1725,36 @@ words of a page named beside it.
 - That 46 uncovered branches in `libs/acl` are worth showing a reader. They are
   worth showing a maintainer. Whether a consumer does anything with a list of
   line numbers is untested.
-- Every claim about another project in § 12 is what that project's own
+- That pairing a count with a case changes what the count is worth to a reader.
+  This is the page's organising principle and it comes from the owner's
+  judgement about his own audience. Nobody has been shown either version.
+- That the rank in § 3A.4 produces an order a sceptic accepts. Its criteria are
+  read off the register's own columns and are checkable, and no reader has been
+  asked whether leading with eight non-defences reads as honesty or as a
+  library admitting it does not work.
+- That one representative `it(...)` per register entry is enough to carry a
+  case. 107 cases sit behind 36 entries, so the rendered case is between a
+  quarter and a third of what each entry actually runs, and which third a reader
+  needs was not tested.
+- That marking 36 regions in the tier files stays a comment-only diff. It is
+  true of the pattern and I did not mark any of them, so nothing here confirms
+  that every chosen `it(...)` block is self-contained enough to render without
+  the fixture setup around it.
+- Every claim about another project in § 14 is what that project's own
   documentation or repository said on the date recorded. Nothing was deployed
   and no behaviour was observed.
 
 ## Where I am guessing
 
-- That the owner wants a section a reader chooses to open. The brief says
-  section and says interactive, and § 7's refusals depend on that destination.
-  If the intent was a trust signal on the front page, § 7 answers it in a
-  paragraph and this document is longer than it needs to be.
+- That a sceptical reader reads far enough to reach § 12. Everything about the
+  page's credibility rests on what it admits, and the admissions are below the
+  evidence. A reader who stops after the first band has read the flattering
+  half. I did not work out whether § 12 should be higher, and it is the design's
+  most fragile assumption.
+- That the disclosure question in § 11 is separable from the rest. I claim
+  nothing else changes either way, which is what lets it stay open. If stating
+  the AI involvement means the page needs a different opening paragraph and a
+  different order, that claim is wrong and § 11 is not a section but a rewrite.
 - That the register generalises past `@evanion/acl`. It is the only package with
   one. `@evanion/token` mints codes a person reads over the phone and
   `@evanion/urn` signs identifiers, and both have classes worth registering.
