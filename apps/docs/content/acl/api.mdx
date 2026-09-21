@@ -363,18 +363,6 @@ interface DenyOverlayOptions {
 A key listed in `vetoable` obliges the matrix to declare that key's object kind
 in `schema.objects`.
 
-## `ruleId`
-
-`ruleId` is the identity `diffMatrix` indexes a rule by.
-
-```ts signature
-function ruleId(rule: Rule, side: 'allow' | 'deny'): string;
-```
-
-An author-supplied `rule.id` wins. Otherwise the id is the side and a hash of
-the rule's canonicalised conditions, so a rule keeps its id across a reorder and
-an insertion.
-
 ## `diffMatrix`
 
 `diffMatrix` compares two matrix documents and reports access rather than text.

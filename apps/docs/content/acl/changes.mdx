@@ -84,9 +84,10 @@ reports `both-sides-changed` with both versions attached.
 
 ## Why a reordered matrix document reports nothing
 
-[`ruleId`](/acl/api#ruleid) identifies a rule by a hash of its conditions and
-the side it sits on, so a rule keeps its identity when it moves and when
-another rule is inserted in front of it. `diffMatrix` indexes each side by that
+A rule is identified by the `id` its author gave it, or, when it states none,
+by a derived one: the side it sits on and a hash of its conditions. Either way
+the rule keeps its identity when it moves and when another rule is inserted in
+front of it. `diffMatrix` indexes each side by that
 id and takes a set difference, and that difference is the whole of the branch
 classification. Two documents differing only in rule order, or in the key order
 inside one condition, come back `unchanged: true`.
