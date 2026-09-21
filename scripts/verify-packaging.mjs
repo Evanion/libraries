@@ -160,7 +160,7 @@ import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields
 import type { Access, AccessOptions, Action, Authorized, Subject, Actions, BoundKind, Cond, Condition, Decision as AclDecision, DenyOverlay, DenyOverlayOptions, EvaluationContext, FieldDecision, FieldState, Matrix, MatrixSchema, Permission, PolicyOptions } from '@evanion/acl';
 // The test kit, a second entry point that the main one must not pull in.
 import { assertAllowed, assertFieldState, assertRefused, assertNoContractDrift, contractDrift, describeContractDrift, explainDecision, explainFieldDecision, fixtureClock, AclAssertionError, ContractDriftError } from '@evanion/acl/testing';
-import type { ContractDriftOptions, ContractDriftReport, DecisionCase, DecisionChange, FixtureClock, FixtureClockOptions, MatrixDiff } from '@evanion/acl/testing';
+import type { ContractDriftOptions, ContractDriftReport, DecisionCase, DecisionChange, FixtureClock, FixtureClockOptions, MatrixDiffer } from '@evanion/acl/testing';
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
@@ -294,7 +294,7 @@ const aclError: AclConfigError = new UnknownPermissionError('comment.nope');
 const driftCase: DecisionCase = { name: 'the body editor', subject, key: 'comment', action: 'update', object: { authorId: 'u1' } };
 const staleClockOptions: FixtureClockOptions = { fetchedAt: 0, maxStale: 1000 };
 const staleClock: FixtureClock = fixtureClock({ ...matrix, maxStale: 60_000 }, staleClockOptions);
-const driftOptions: ContractDriftOptions<null> = { pinned: matrix, fetched: matrix, cases: [driftCase], now: staleClock.fresh, diff: ((a, b) => (a === b ? null : null)) satisfies MatrixDiff<null> };
+const driftOptions: ContractDriftOptions<null> = { pinned: matrix, fetched: matrix, cases: [driftCase], now: staleClock.fresh, diff: ((a, b) => (a === b ? null : null)) satisfies MatrixDiffer<null> };
 const driftReport: ContractDriftReport<null> = contractDrift(driftOptions);
 const driftChanges: readonly DecisionChange[] = driftReport.changed;
 const driftText: string = describeContractDrift(assertNoContractDrift(driftOptions));

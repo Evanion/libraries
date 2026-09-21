@@ -46,7 +46,7 @@ export type {
   ContractDriftReport,
   DecisionCase,
   DecisionChange,
-  MatrixDiff,
+  MatrixDiffer,
 } from './drift.js';
 
 export { AclAssertionError } from './errors.js';
