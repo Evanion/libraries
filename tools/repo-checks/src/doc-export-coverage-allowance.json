@@ -1,9 +1,31 @@
 {
   "@evanion/acl": {
+    "undocumented": [
+      "AclAssertionError",
+      "ContractDriftError",
+      "ContractDriftOptions",
+      "ContractDriftReport",
+      "DecisionCase",
+      "DecisionChange",
+      "FixtureClock",
+      "FixtureClockOptions",
+      "MatrixDiffer",
+      "assertAllowed",
+      "assertFieldState",
+      "assertNoContractDrift",
+      "assertRefused",
+      "contractDrift",
+      "describeContractDrift",
+      "explainDecision",
+      "explainFieldDecision",
+      "fixtureClock"
+    ],
     "unexercised": [
+      "AclAssertionError",
       "AclConfigError",
       "ActionNotAllowedError",
       "BangInAllowListError",
+      "ContractDriftError",
       "DenyWithoutBaselineError",
       "DuplicatePermissionError",
       "InvalidConditionError",
@@ -20,7 +42,16 @@
       "UnknownObjectKeyError",
       "UnknownPermissionError",
       "UnpublishedVetoableError",
-      "UnvetoablePermissionError"
+      "UnvetoablePermissionError",
+      "assertAllowed",
+      "assertFieldState",
+      "assertNoContractDrift",
+      "assertRefused",
+      "contractDrift",
+      "describeContractDrift",
+      "explainDecision",
+      "explainFieldDecision",
+      "fixtureClock"
     ]
   },
   "@evanion/astro-widget": {
