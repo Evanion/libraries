@@ -144,27 +144,39 @@ that the register is already the right unit and OWASP is the wrong frame.
 
 ## Decisions
 
-Twenty-seven. Decision A is what the page is for and every other decision is
-derived from it. Decision B is the page's organising principle, that a count and
-a case each answer the doubt the other raises. Decision 0 is the scope the owner
-set. Decisions 1 through 6 settle where the numbers come from, 7 through 9 what
-the security part claims, 10 through 12 the coverage figures, and 13 through 16
-the wiring and one defect found while measuring. Decisions C through I build the
-page around B. Decision J is put to the owner undecided, because it is his to
-make.
+Thirty-two. Decision A is what the page is for and decision B is how it is
+built; every other decision is derived from those two. Decision 0 is the scope
+the owner set. Decisions 1 through 6 settle where the numbers come from, 7
+through 9 what the security part claims, 10 through 12 the coverage figures, and
+13 through 16 the wiring and one defect found while measuring. Decisions C
+through I build the page around B, and K through O are its visual design.
+Decisions J and O are put to the owner undecided, because they are his to make.
+
+### The two the rest are derived from
 
 A. **The page's audience is a reader who suspects the library was written by a
 machine and wants to find out whether it is any good.** Every other decision is
 derived from that, and where a maintainer-facing answer and a sceptic-facing
 answer differ, the sceptic wins. The page opens with what a reader can check for
 themselves, and the statistics follow. "What is actually being asked" is the
-derivation, and § 1 is the ranking. 0. **The page counts the projects `nx.json`'s `release.projects` matches, which
-is the eleven libraries under `libs/`.** The demo apps, the docs app, the
-design system and the repository checks are off the page's numbers. The data
-step resolves the set through the Nx project graph, the way
-`tools/repo-checks/src/docs-navigation.test.ts:88-109` already does, so
-adding a library needs no edit here. What that costs the page is real and
-§ 0.3 states it. § 0.
+derivation, and § 1 is the ranking.
+
+B. **Every count on the page sits beside a case rendered from a test that
+produced it, and neither appears alone.** A count alone reads as filler and a
+case alone reads as cherry-picked, so each answers the doubt the other
+raises. This decides the layout (§ 8.1), it is why the coverage figures stay
+(decision 10), and it is why the page shows four cases and not thirty-six
+(§ 3A.4).
+
+### The numbered decisions
+
+0. **The page counts the projects `nx.json`'s `release.projects` matches, which
+   is the eleven libraries under `libs/`.** The demo apps, the docs app, the
+   design system and the repository checks are off the page's numbers. The data
+   step resolves the set through the Nx project graph, the way
+   `tools/repo-checks/src/docs-navigation.test.ts:88-109` already does, so
+   adding a library needs no edit here. What that costs the page is real and
+   § 0.3 states it. § 0.
 
 1. **The section is one top-level `/testing` section, and every number on it is
    derived at build time from a run.** Nothing on the page is typed by a person
@@ -243,52 +255,82 @@ adding a library needs no edit here. What that costs the page is real and
     ten libraries carry.** It has none, so a coverage run writes to
     `libs/astro-widget/coverage/`, which `.gitignore:30-34` does not catch. Found
     by running it, and `git status` reported the directory as untracked. § 8.5.
-    B. **Every count on the page sits beside a case rendered from a test that
-    produced it, and neither appears alone.** A count alone reads as filler and a
-    case alone reads as cherry-picked, so each answers the doubt the other
-    raises. This decides the layout (§ 8.1), it is why the coverage figures stay
-    (decision 10), and it is why the page shows four cases and not thirty-six
-    (§ 3A.4).
-    C. **The four cases are chosen by a rule, and the rule is printed above them.**
-    The lowest-numbered entry in each tier, plus every entry whose test
-    constructs the seeded generator, which selects SEC-001, SEC-019, SEC-101 and
-    SEC-201 today. Cases chosen by taste are cherry-picked whether or not the
-    author meant them to be, and a sceptic assumes they were. § 3A.4 states what
-    the rule excludes and what it rests on.
-    D. **Every one of the thirty-six entries is one click from the page, as a row
-    naming its tier, its identifiers and the test that proves it.** A selection
-    stays honest when the unselected are reachable, and PR #259's check is what
-    guarantees the link resolves to a test that runs. § 3A.4.
-    E. **The cases are rendered as `file=…region=…` fences over
-    `libs/acl/src/security`, so the page shows the text of a test CI ran.**
-    Marking regions in the tier files costs two comment lines per case and
-    changes no behaviour, and a region always encloses a complete `it(...)` block
-    and never a fragment assembled for display. § 3A.1 and § 3A.2.
-    F. **The page shows cases carrying OWASP and CWE identifiers, and claims no
-    OWASP category coverage.** Showing SEC-001's attack and refusal claims that
-    this named class has a real case that runs, and nothing about API3:2023 as a
-    category. 8 of the 36 entries carry an OWASP identifier, and the page says
-    so. § 3A.6, which is how § 6's refusal and the owner's instruction are the
-    same page.
-    G. **The page opens with the executed documentation, and it is the largest thing
-    on it.** 95 documentation examples in the libraries run as tests, 82 from
-    package READMEs, 36 from `libs/acl/README.md` alone, and 126 twoslash fences
-    compile against each package's built output. For a reader afraid the prose
-    was invented, an example that cannot be wrong is the strongest answer this
-    repository has. § 1.1.
-    H. **The page publishes the guards' recorded debt beside the guards.** The
-    export-coverage allowance records 115 undocumented and 29 unexercised exports
-    across nine packages, and the fence allowance records 242 fences that are not
-    region references. A guard that reports its own backlog is the evidence; a
-    guard quoted without it is the marketing the reader expects. § 1.3 and § 12.
-    I. **The page carries a section on what it cannot prove, and that section is not
-    at the bottom.** A suite covers the cases somebody thought of, the guards
-    check shape and not correctness, and § 12 says both plainly. Omitting this is
-    what makes a trust page read as marketing.
-    J. **Whether the page states the AI involvement outright is the owner's
-    decision, and this document does not make it.** § 11 works both options
-    through and recommends stating it. Nothing else in this specification changes
-    either way, which is the reason it can be left open.
+
+### How the page is built around them
+
+C. **The four cases are chosen by a rule, and the rule is printed above them.**
+The lowest-numbered entry in each tier, plus every entry whose test
+constructs the seeded generator, which selects SEC-001, SEC-019, SEC-101 and
+SEC-201 today. Cases chosen by taste are cherry-picked whether or not the
+author meant them to be, and a sceptic assumes they were. § 3A.4 states what
+the rule excludes and what it rests on.
+
+D. **Every one of the thirty-six entries is one click from the page, as a row
+naming its tier, its identifiers and the test that proves it.** A selection
+stays honest when the unselected are reachable, and PR #259's check is what
+guarantees the link resolves to a test that runs. § 3A.4.
+
+E. **The cases are rendered as `file=…region=…` fences over
+`libs/acl/src/security`, so the page shows the text of a test CI ran.**
+Marking regions in the tier files costs two comment lines per case and
+changes no behaviour, and a region always encloses a complete `it(...)` block
+and never a fragment assembled for display. § 3A.1 and § 3A.2.
+
+F. **The page shows cases carrying OWASP and CWE identifiers, and claims no
+OWASP category coverage.** Showing SEC-001's attack and refusal claims that
+this named class has a real case that runs, and nothing about API3:2023 as a
+category. 8 of the 36 entries carry an OWASP identifier, and the page says
+so. § 3A.6, which is how § 6's refusal and the owner's instruction are the
+same page.
+
+G. **The page opens with the executed documentation, and it is the largest thing
+on it.** 95 documentation examples in the libraries run as tests, 82 from
+package READMEs, 36 from `libs/acl/README.md` alone, and 126 twoslash fences
+compile against each package's built output. For a reader afraid the prose
+was invented, an example that cannot be wrong is the strongest answer this
+repository has. § 1.1.
+
+H. **The page publishes the guards' recorded debt beside the guards.** The
+export-coverage allowance records 115 undocumented and 29 unexercised exports
+across nine packages, and the fence allowance records 242 fences that are not
+region references. A guard that reports its own backlog is the evidence; a
+guard quoted without it is the marketing the reader expects. § 1.3 and § 12.
+
+I. **The page carries a section on what it cannot prove, and that section is not
+at the bottom.** A suite covers the cases somebody thought of, the guards
+check shape and not correctness, and § 12 says both plainly. Omitting this is
+what makes a trust page read as marketing.
+
+J. **Whether the page states the AI involvement outright is the owner's
+decision, and this document does not make it.** § 11 works both options
+through and recommends stating it. Nothing else in this specification changes
+either way, which is the reason it can be left open.
+
+K. **The page is built from `internal/baize-ui` and invents no palette.** Six
+ground roles, two families, the kit's components. A trust page in a foreign
+visual identity is the last thing this project can afford. § 8A.
+
+L. **The hero is a rendered refused attack, not a figure.** SEC-001's `it(...)`
+block above the fold, under one sentence of frame and above its provenance line.
+No `StatLine` above the fold. § 8A.1.
+
+M. **`AvailabilityPill` carries the tier, and `ComplexityRamp` is refused.**
+`inStock`, `preorder` and `outOfPrint` map onto prevented, primitive supplied
+and out of scope without stretching; `reprintPending` stays unused. A ramp is
+ordinal and tier is nominal, and rendering the eight non-defences as the far end
+of a scale is the most misleading thing available here. § 8A.3 and § 8A.4.
+
+N. **One blocker before any of this is built: the availability colours have no
+checked contrast on the docs site's light ground.**
+`internal/baize-ui/src/tokens/tokens.test.ts:206-215` holds them against dark
+`felt`, and `apps/docs/app/global.css:66` rebinds it. `categorical` and
+`platform` carry `on-light` variants and `availability` carries none. § 8A.3 and
+§ 8A.8.
+
+O. **Where § 12 sits is put to the owner with three arrangements and a
+recommendation.** A short limits block in the hero band, the full section in
+place. § 8A.2 argues against moving it whole and says what to take if the owner
+disagrees.
 
 ## 0. The scope, and how it is expressed
 
@@ -1187,6 +1229,9 @@ why this band exists at all and why it is last.
 The component's job in every band is filtering and sorting what the build put
 there. It fetches nothing.
 
+§ 8A is the visual design of those bands, in the vocabulary the site already
+has.
+
 ### 8.2 How the data reaches the page, and the constraint that decides it
 
 **Everything renders into the HTML at build time, and the filter hides rather
@@ -1280,6 +1325,246 @@ the directory.
 
 Decision 16 adds the block. A check would be better than a convention here, and
 § 10.1 is that check.
+
+## 8A. The visual design
+
+The site has an identity and this page inherits it. `internal/baize-ui` is a
+board-game shop's kit: six ground roles named `ink`, `felt`, `rule`, `chalk`,
+`lichen` and `moss` (`src/tokens/ground.ts`), Bricolage Grotesque over Public
+Sans (`src/tokens/type.ts:11-13`, which says "Not Inter"), and a dark ground
+that the docs site renders on paper in light mode. `apps/docs/app/global.css:46-90`
+states that relationship: "light mode is that design on paper rather than a
+second design... a card is a different material on the page, not a brighter one."
+
+A trust page in an invented palette would read as a foreign object on the site,
+which is the opposite of what a page about this project's credibility can afford.
+So every value below is a token that exists.
+
+### 8A.1 The hero is a refused attack
+
+**The page opens with one rendered case, above the fold, before any number.** A
+large figure with a small label and a gradient accent is the default treatment
+for a statistics page, and for this reader it is the wrong one: it is a claim,
+and the reader came doubting claims. The most characteristic thing in this
+subject is a real attack meeting a real refusal, so that is the first thing on
+the page.
+
+The hero is three parts and nothing else:
+
+- One sentence of frame. Code as the literal first element is noise to a reader
+  who does not yet know what they are looking at, which is the one place I would
+  amend the direction I was given. The sentence is short and it makes no claim:
+  it says what the block below is and where it comes from.
+- The case: SEC-001's `it(...)` block, rendered from
+  `libs/acl/src/security/tier1-prevented.test.ts` by a `file=…region=…` fence, so
+  the hostile write and `expect(decision.allowed).toBe(false)` are both visible
+  without scrolling.
+- The provenance line, in `Text` at `size="sm"` in the secondary role: the file
+  path, the identifier, and the command that runs it. `Figure` is not used here;
+  a path is not a number.
+
+No `StatLine` above the fold. The counts start in the second band, which is
+where decision B's pairing puts them anyway.
+
+### 8A.2 Where the limits go, specified both ways
+
+The owner has not ruled on whether § 12 moves above the evidence. Both are
+specified and the recommendation is a third arrangement.
+
+**High.** § 12 renders in full as the second band, under the hero. A sceptic
+scans for the catch, and finding it before the evidence makes everything after
+it credible. The cost is that § 12's items are unreadable before the reader
+knows what a tier is: "the guards check shape, not correctness" means nothing to
+somebody who has not met a guard, and "coverage counts lines executed" arrives
+before any coverage figure. A wall of caveats in front of an unprimed reader
+reads as throat-clearing, and the page spends its best position on it.
+
+**In place.** § 12 renders after the register band and before coverage. Every
+item lands because its subject has been met. The cost is the one the direction
+names: a reader who stops early has read only the flattering half, and a reader
+scanning for the catch does not find it.
+
+**Split, which is what I recommend.** A short limits block in the hero band,
+three sentences in `Panel`, directly under the case: a test suite covers the
+cases somebody thought of; nothing here is an audit; the coverage figures count
+lines. Each links down to its full treatment in § 12, which stays in place. The
+sceptic scanning for the catch finds it in the first screen, in language that
+needs no priming, and the full section lands where its items are legible.
+
+This is a real disagreement with the direction, and it is not a hedge. Moving
+§ 12 whole is worse than either leaving it or splitting it, because its value is
+in the specifics and the specifics are the part that needs context. If the owner
+prefers the straight move, take "High" as written; it is the second-best of the
+three and not a bad page.
+
+### 8A.3 The vocabulary, and what it costs to use it
+
+**`Stat`, `StatLine` and `Figure` are the counts.** Already built
+(`internal/baize-ui/src/components/stat-line.tsx:28-34`, `:66-76`,
+`typography.tsx:151`). `Figure` sets tabular figures, which is what keeps a
+column of percentages aligned, and its docblock gives the reason a component
+exists for it: `font-variant-numeric` set in one app and forgotten in another is
+the drift the library is for. `StatLine` takes `size="lg"` when it leads a band.
+
+The props are already-formatted strings, so the data step formats: `figure="1,759"`,
+`label="test cases in eleven libraries"`. No `Intl` reaches the library.
+
+**`AvailabilityPill` is the tier, and the mapping is honest.** The shop's stock
+vocabulary maps onto the register's three tiers without stretching:
+
+| Tier | Meaning                          | Pill state   | Why it fits                                          |
+| ---- | -------------------------------- | ------------ | ---------------------------------------------------- |
+| 1    | the library prevents             | `inStock`    | the thing is there and works                         |
+| 2    | the primitive exists             | `preorder`   | it is available and the consumer has to do something |
+| 3    | structurally in scope for nobody | `outOfPrint` | it is not available, and saying so is the point      |
+
+`reprintPending` stays unused. Four states and three tiers, and pressing the
+fourth into service would invent a degree the register does not have.
+
+The pill's label is the whole accessible name, which
+`tags.tsx:83-86` states: the dot is decoration drawn by the stylesheet, "and a
+reader who cannot see the colour loses nothing". So the labels are the register's
+own words: `prevented`, `primitive supplied`, `out of scope`.
+
+**The cost of using it, which is real and checkable.** The four availability
+colours are held to 4.5:1 against `ground.felt`, and
+`internal/baize-ui/src/tokens/tokens.test.ts:206-215` asserts it against that
+literal dark value. The docs site rebinds `felt` in light mode
+(`apps/docs/app/global.css:66`, `--docs-raised` as a mix of `chalk` and `rule`),
+so the checked ratio is the dark theme's and nothing has checked the light one.
+
+`categorical` and `platform` both carry `on-light` variants
+(`internal/baize-ui/src/tokens/custom-properties.ts:62`, `:64`) and `availability`
+carries none. The docs site already handles the same problem for two of them, at
+`apps/docs/app/global.css:248` and `:256`, with one rule swapping in the
+light-ground value. So there are two ways to pay this and both are small: add
+`availabilityOnLight` to the token module with the same contrast assertion
+against the light ground, or follow the `.docs-identity` precedent with a
+docs-side rule. The first is better, because a second app using the pill on
+paper inherits it.
+
+**Nothing else in the kit is reached for.** `Chip` takes a `mechanism` or a
+`platform` and paints a hue from the shop's categorical systems, which name
+nothing here. CWE and OWASP identifiers render as plain `Text` in the secondary
+role, monospaced where the surrounding type is not.
+
+### 8A.4 `ComplexityRamp` is refused, and the kit already says why
+
+A ramp is ordinal. `stat-line.tsx:105-113` states its own argument: per-pip
+colour "because the ramp is sequential, and a bar that lightens left to right
+reads as a scale where a uniform bar reads as a count".
+
+Tier is not a scale. Tier 3 is not more of anything than tier 1; it is a
+different kind of statement about what a passing test may claim, which is the
+whole of § 6.2. A ramp would render the eight entries the library does not
+defend as the far end of a difficulty axis, which is the single most misleading
+thing available on this page.
+
+`Title`'s docblock is the same test applied elsewhere and worth following:
+"There is no mechanism prop: a game's title must not be coloured by its
+category." Before any kit component is used here, the question is whether the
+thing it encodes is the thing being shown. Pills, because tier is nominal.
+
+### 8A.5 The case explorer
+
+All thirty-six cases render at build time and the filter hides, which § 8.2
+establishes and which is a correctness requirement before it is a design one.
+
+**Controls.** Three tier toggles, an identifier filter, and a text field over
+the class and mechanism wording. The tier toggles are `Button` at
+`variant="quiet"` with `aria-pressed`, so a pressed state is a state and not a
+colour. The kit has no filter control and the boundary table in
+`internal/baize-ui/README.md` puts it out on purpose ("filter sidebar... one
+app's page layout"), so the control is the docs app's own `'use client'` file
+styled with kit classes, which is the pattern that README's "Stateful
+primitives" section prescribes.
+
+**Count, always broken down.** The line above the list reads as three `Stat`
+cells, one per tier, in every filtered view. A filtered total with no tier
+breakdown is the rounding § 6.3 refuses, moved into the interface.
+
+**The empty state is an instruction.** No filter combination should produce it,
+because every register entry carries a tier and the text filter is the only way
+to reach zero. When it happens the panel says what to do: name the identifier
+directly, or clear the text and pick a tier. It does not apologise and it does
+not say "no results found".
+
+**Case openings are the only motion on the page.** A case expands with a height
+and opacity transition of 150ms on the kit's own easing. Everything else is
+static: no per-card hover transition, no scroll-triggered reveal, no gradient
+wash. Under `prefers-reduced-motion: reduce` the transition is removed and the
+case appears; the disclosure still works, because the motion was never carrying
+the meaning.
+
+### 8A.6 Keyboard, focus and no JavaScript
+
+**Every control is a real control.** The tier toggles are `<button>`, the text
+filter is `<input type="search">` with a visible `<label>`, and each case's
+disclosure is a `<button>` with `aria-expanded` and `aria-controls`. Nothing is
+a `<div>` with a click handler, so tab order, Enter and Space are the platform's.
+
+**Focus is visible and is not the hover state.** The kit's focus ring is what
+appears, on `--baize-rule` against whichever ground is active. A filter that
+hides a case must move focus off it: hiding the element the reader is standing
+on drops focus to the body and loses their place, so the component moves focus
+to the count line when the active case is filtered out.
+
+**Filtering is announced.** The count line is `aria-live="polite"`, so a reader
+using a screen reader hears "12 cases, 4 prevented, 4 primitive supplied, 4 out
+of scope". Silence is what they get without it.
+
+**With no JavaScript the reader gets every case and no filter.** The cases are
+MDX fences rendered at build time, so they are all present and all open. The
+control strip is rendered by the client component and simply is not there. That
+is the correct degradation for this page: a sceptic with scripts off sees more
+than a sceptic with scripts on, and nothing is broken.
+
+### 8A.7 What the page does not do
+
+No all-caps eyebrow label above a heading. The one uppercase on the page is
+inside `AvailabilityPill`, which the kit sets at
+`internal/baize-ui/src/styles.css:497-511` with `tracking.loose`, and that is a
+pill's own typography, and no decorative label appears on the page.
+
+No `01 / 02 / 03` numbering. The four bands are not a sequence and the thirty-six
+cases are ranked, not stepped. The rank's four groups carry their names.
+
+No arrow glyph appended to link text. No per-card hover transition. No gradient
+used as decoration anywhere, in a design whose ground is six flat values.
+
+No `PageSheet`. Every `/acl/` page carries one (`apps/docs/components/PageSheet.tsx`)
+with a difficulty rung, a reading time and a requires/unlocks pair. This page
+teaches nothing and unlocks nothing, and a difficulty rung on a trust page is a
+claim about the reader.
+
+### 8A.8 Where the design is uncertain
+
+Three things I would want rendered before committing, and one measurement.
+
+**The measurement, which is a blocker.** The four availability colours against
+the docs site's light ground. `tokens.test.ts:206-215` checks them against dark
+`felt` only, § 8A.3 explains why that is not the ground here, and if any of the
+three used states falls under 4.5:1 on paper then `availabilityOnLight` is not
+an improvement, it is a prerequisite.
+
+**The hero, at 400px.** A rendered `it(...)` block is between eight and fifteen
+lines with real indentation, and a code fence is the one element the site lets
+scroll horizontally. Whether SEC-001's block is legible above the fold on a
+phone decides whether the hero is that case or a shorter one, and the rank in
+§ 3A.4 would need a clause if the answer is that the hero case is chosen by
+length. I would not add that clause before seeing it.
+
+**Thirty-six cases in one column.** The page is long and I have not seen how
+long. If it is unreasonable, the answer is collapsing all but the first case per
+rank group by default, which costs nothing in the index because Pagefind reads
+hidden content (§ 8.2). I would rather decide that against a render than guess
+at it now.
+
+**The tier pills beside a code fence.** A pill is a shop's stock badge and a
+fence is a wall of monospace. Whether three coloured pills above thirty-six code
+blocks reads as a system or as decoration is a judgement I cannot make from the
+token values, and it is the one place the borrowed vocabulary might not survive
+contact with this content.
 
 ## 9. Where the page lives
 
@@ -1689,6 +1974,15 @@ Against this worktree at `d474dc8`, Node v24.16.0, TypeScript 6.0.3, macOS
 - PR #259's description and its single added file,
   `tools/repo-checks/src/security-register.test.ts`, 208 lines. That branch was
   not checked out here and its check was not run.
+- `internal/baize-ui/src/tokens/ground.ts`, `type.ts:1-45` and `availability.ts`
+  in full, `src/components/stat-line.tsx`, `tags.tsx` and `typography.tsx`, and
+  `internal/baize-ui/README.md`, for § 8A's vocabulary. Nothing was rendered.
+- `apps/docs/app/global.css:1-95`, `:248` and `:256`, and
+  `apps/docs/app/baize-theme.ts:1-18`, for how the docs site binds the kit and
+  how it already swaps a hue for the light ground.
+- `internal/baize-ui/src/styles.css:497-521`, the `.baize-pill` rule, for its
+  uppercase, its dot and the `color-mix` its label colour comes from.
+- `apps/docs/components/PageSheet.tsx:1-30`, for what decision § 8A.7 declines.
 
 ### Quoted from a source outside this repository
 
@@ -1740,6 +2034,14 @@ words of a page named beside it.
   true of the pattern and I did not mark any of them, so nothing here confirms
   that every chosen `it(...)` block is self-contained enough to render without
   the fixture setup around it.
+- Every visual claim in § 8A. Nothing was rendered, screenshotted or measured in
+  a browser. The token values, the class rules and the component signatures were
+  read; how three tier pills sit above thirty-six code fences was not seen, and
+  § 8A.8 lists the four things I would want rendered before committing.
+- That the availability colours clear 4.5:1 on the docs site's light ground.
+  `tokens.test.ts:206-215` checks the dark ground only and I ran no contrast
+  calculation against the light one. Decision N treats this as a blocker on that
+  basis and not on a measurement.
 - Every claim about another project in § 14 is what that project's own
   documentation or repository said on the date recorded. Nothing was deployed
   and no behaviour was observed.
@@ -1755,6 +2057,14 @@ words of a page named beside it.
   nothing else changes either way, which is what lets it stay open. If stating
   the AI involvement means the page needs a different opening paragraph and a
   different order, that claim is wrong and § 11 is not a section but a rewrite.
+  § 8A.1's hero is where the two would collide: a disclosure sentence and the
+  frame sentence are both the first thing on the page, and only one can be.
+- That the shop's stock vocabulary survives being borrowed for security tiers.
+  `inStock`, `preorder` and `outOfPrint` map cleanly onto the register's three
+  claims and the pill's label carries the whole meaning, so the argument is
+  sound on paper. Whether a reader who has never seen the shop reads a green
+  pill beside a refused attack as "prevented" or as leftover e-commerce is the
+  judgement § 8A.8 wants a render for.
 - That the register generalises past `@evanion/acl`. It is the only package with
   one. `@evanion/token` mints codes a person reads over the phone and
   `@evanion/urn` signs identifiers, and both have classes worth registering.
