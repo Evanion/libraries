@@ -270,36 +270,68 @@ function executable(info: string): boolean {
   return /(^|\s)twoslash(\s|$)/.test(info) || /(^|\s)file=/.test(info);
 }
 
+/** One fenced block: the info string it opened with, and its lines. */
+interface Block {
+  info: string;
+  body: string[];
+}
+
+/** Every fenced block in a document, in order. */
+function blocksOf(source: string): Block[] {
+  const blocks: Block[] = [];
+  let open: Block | null = null;
+
+  for (const line of source.split('\n')) {
+    const marker = line.match(FENCE);
+    if (marker && open === null) {
+      open = { info: (marker[3] as string).trim(), body: [] };
+      continue;
+    }
+    if (marker && open !== null) {
+      blocks.push(open);
+      open = null;
+      continue;
+    }
+    open?.body.push(line);
+  }
+
+  return blocks;
+}
+
 /**
  * The text of every executable fence on the site, by section slug, with the
  * `file=` regions already filled in.
+ *
+ * Executability is read off the page as written and the body off the page as
+ * expanded, because the two questions have different sources. The region
+ * loader replaces `ts file=… region=…` with a plain `ts`, so a fence whose
+ * whole point is that a package's own tests run it looks, after expansion,
+ * exactly like a fence nothing checks. Reading both and pairing by position is
+ * what keeps a `file=` fence counted; expansion fills bodies and neither adds
+ * a fence nor removes one, so the two lists line up.
  */
 function executableCode(): Map<string, string> {
   const bySlug = new Map<string, string[]>();
 
   for (const page of mdxFiles(CONTENT)) {
     const slug = relative(CONTENT, page).split(sep)[0] as string;
-    const source = expandRegions(
-      readFileSync(page, 'utf8'),
-      workspaceRoot,
-      page,
-    ) as string;
+    const raw = readFileSync(page, 'utf8');
+    const written = blocksOf(raw);
+    const expanded = blocksOf(
+      expandRegions(raw, workspaceRoot, page) as string,
+    );
 
-    let open: string | null = null;
-    const body: string[] = [];
-
-    for (const line of source.split('\n')) {
-      const marker = line.match(FENCE);
-      if (marker && open === null) {
-        open = (marker[3] as string).trim();
-        continue;
-      }
-      if (marker && open !== null) {
-        open = null;
-        continue;
-      }
-      if (open !== null && executable(open)) body.push(line);
+    if (written.length !== expanded.length) {
+      throw new Error(
+        `${relative(workspaceRoot, page)}: expanding regions changed the ` +
+          `fence count from ${written.length} to ${expanded.length}, so a ` +
+          `fence cannot be matched to the info string it was written with`,
+      );
     }
+
+    const body = written.flatMap((block, at) =>
+      executable(block.info) ? (expanded[at] as Block).body : [],
+    );
 
     bySlug.set(slug, [...(bySlug.get(slug) ?? []), ...body]);
   }
