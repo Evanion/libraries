@@ -69,6 +69,13 @@ the list is reordered and when another producer emits the same document, so a
 log line keeps its meaning. Give the rules a UI has to name an `id` anyway:
 `locked-question` reads better in a support answer than a hash.
 
+Store an `id` an author wrote, and do not store a derived one. A derived id
+holds across documents at one version of this library and not across versions
+of the library itself: it hashes the rule's conditions, so a release that adds
+a field to `Condition` changes every id derived from one. An audit trail
+holding `allow-b72dadff` stops matching its rule after a dependency bump, and
+nothing reports that it has.
+
 Treat `rule` as a log line and a support answer ("denied by `locked-question`").
 Never branch on it: two rules can grant the same thing, and which one matched is
 not a property the app should depend on.
