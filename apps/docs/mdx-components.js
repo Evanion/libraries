@@ -8,6 +8,7 @@ import LuhnSpecimen from './components/landing/LuhnSpecimen';
 import PolicySpecimen from './components/landing/PolicySpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
 import UrnSpecimen from './components/landing/UrnSpecimen';
+import ApiFilter from './components/api/ApiFilter';
 import Probe from './components/Probe';
 import Diagram from './components/diagram/Diagram';
 import Listing from './components/listing/Listing';
@@ -85,6 +86,7 @@ export function useMDXComponents(components) {
     Text,
     Title,
     Probe,
+    ApiFilter,
     // Not a tag an author writes: `tools/remark-diagram.mjs` rewrites a
     // ```mermaid fence into one, and the name has to be on this map for the
     // rewritten element to resolve to anything.

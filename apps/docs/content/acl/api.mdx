@@ -9,17 +9,11 @@ consumer of a published contract writes, and its exports are headed the same
 way from [`contractDrift`](#contractdrift) down. The React provider and hooks
 are [`@evanion/react-acl`](/react-acl/api).
 
+<ApiFilter />
+
 ## `hydratePolicy`
 
-`hydratePolicy` builds an evaluator over a matrix document.
-
-```ts signature
-function hydratePolicy<
-  Sub = Subject,
-  R = AnyObjects,
-  Keys extends string = string,
->(matrix: Matrix, options?: AccessOptions): Access<Sub, R, Keys>;
-```
+<!-- reference @evanion/acl#hydratePolicy example=matrix-round-trip -->
 
 `hydratePolicy` copies the document, freezes and validates the copy, and throws
 on an unknown key. All three type parameters default to the open forms JSON
@@ -680,16 +674,7 @@ interface Decision {
 
 ## `Reason`
 
-```ts signature
-type Reason =
-  | 'allow'
-  | 'no-rule-matched'
-  | 'denied'
-  | 'unknown-action'
-  | 'unevaluable'
-  | 'unusable-clock'
-  | 'stale-contract';
-```
+<!-- reference @evanion/acl#Reason -->
 
 ## `FieldDecision`
 
@@ -1340,9 +1325,7 @@ class DenyWithoutBaselineError extends AclConfigError {}
 
 ## `TargetsTransitionsConflictError`
 
-```ts signature
-class TargetsTransitionsConflictError extends AclConfigError {}
-```
+<!-- reference @evanion/acl#TargetsTransitionsConflictError -->
 
 ## `UnknownObjectKeyError`
 
