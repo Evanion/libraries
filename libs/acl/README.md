@@ -1115,7 +1115,7 @@ identified by a hash of its conditions, so a reordered document reports nothing.
 <!-- #region diff-matrix -->
 
 ```ts @import.meta.vitest
-import { diffMatrix } from '@evanion/acl';
+import { diffMatrix, findingsOf } from '@evanion/acl';
 import type { Condition, Matrix } from '@evanion/acl';
 
 const isOwner: Condition = {
@@ -1161,7 +1161,7 @@ const diff = diffMatrix(before, after);
 diff.unchanged; // -> false
 diff.version; // -> { before: 'listings@7', after: 'listings@8' }
 
-const granted = diff.findings.filter((each) => each.kind === 'granted');
+const granted = findingsOf(diff, 'granted');
 
 granted[0]?.key; // -> 'listing.reprice'
 granted[0]?.cause; // -> 'allow-branch-added'
@@ -1205,7 +1205,7 @@ its own.
 <!-- #region diff-reads-object -->
 
 ```ts @import.meta.vitest
-import { diffMatrix, parseMatrix } from '@evanion/acl';
+import { diffMatrix, findingsOf, parseMatrix } from '@evanion/acl';
 import type { Matrix } from '@evanion/acl';
 
 type Staff = { id: string; roles: string[] };
@@ -1245,14 +1245,14 @@ now.allowed; // -> false
 now.reason; // -> 'unevaluable'
 now.missing; // -> ['object.locked']
 
-const findings = diffMatrix(before, after).findings;
+const diff = diffMatrix(before, after);
 
 // The narrowing, which is what the added deny branch did to the allowed set.
-const withdrawn = findings.filter((each) => each.kind === 'withdrawn');
+const withdrawn = findingsOf(diff, 'withdrawn');
 withdrawn[0]?.cause; // -> 'deny-branch-added'
 
 // The second finding, which is what it did to every caller.
-const reads = findings.filter((each) => each.kind === 'reads-object');
+const reads = findingsOf(diff, 'reads-object');
 
 reads[0]?.before; // -> false
 reads[0]?.after; // -> true

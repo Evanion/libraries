@@ -37,7 +37,8 @@ in the conditions its author wrote, and `diffMatrix` renders those conditions.
 `diffMatrix` returns a `MatrixDiff`. `findings` is the list, `unchanged` is true
 when the two documents state one policy, and `version` names the two documents
 the report compared. A finding carries `key`, and `kind` says which of four
-shapes it is.
+shapes it is. `findingsOf(diff, kind)` returns one kind, narrowed, for a caller
+rendering a section of the report.
 
 | `kind`         | What the finding says                                     | Carries                                        |
 | -------------- | --------------------------------------------------------- | ---------------------------------------------- |

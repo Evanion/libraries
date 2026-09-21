@@ -34,7 +34,7 @@ export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
 export { ruleId } from './rule-id.js';
-export { diffMatrix } from './diff-matrix.js';
+export { diffMatrix, findingsOf } from './diff-matrix.js';
 export type {
   MatrixDiff,
   DiffFinding,

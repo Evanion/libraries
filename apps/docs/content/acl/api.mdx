@@ -384,9 +384,10 @@ See [What did this change do to access?](/acl/changes).
 function diffMatrix(before: Matrix, after: Matrix): MatrixDiff;
 ```
 
-Soundness rests on `sideOutcome` being monotone in its rule array, so an added
-allow branch can only widen and an added deny branch can only narrow. A finding
-is a direction and an upper bound, never an exact set.
+The evaluator ORs the rules on a side, so a side that matched goes on matching
+whatever is appended. An added allow branch can therefore only widen and an
+added deny branch only narrow. A finding is a direction and an upper bound,
+never an exact set.
 
 ## `MatrixDiff`
 
@@ -413,6 +414,22 @@ type DiffFinding =
 
 Discriminated on `kind`. Every member carries `key`, the permission key the
 finding is about.
+
+## `findingsOf`
+
+`findingsOf` returns the findings of one kind, narrowed to that member.
+
+```ts signature
+function findingsOf<K extends DiffFinding['kind']>(
+  diff: MatrixDiff,
+  kind: K,
+): readonly Extract<DiffFinding, { kind: K }>[];
+```
+
+`MatrixDiff.findings` is one list because a report is read in order. A caller
+rendering a section of that report wants one kind, and reaching it otherwise
+means a `filter` and a narrowing written the same way at every call site.
+The order `diffMatrix` built the report in is kept.
 
 ## `GrantedFinding`
 

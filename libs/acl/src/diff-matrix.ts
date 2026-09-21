@@ -128,6 +128,33 @@ export interface MatrixDiff {
   };
 }
 
+/**
+ * The findings of one kind, narrowed.
+ *
+ * `findings` is one list because a report is read in order and a permission's
+ * findings belong together. A caller that wants a section of a report wants one
+ * kind, and reaching it means a `filter` plus a narrowing that every call site
+ * would write the same way.
+ *
+ * ```ts
+ * for (const grant of findingsOf(diff, 'granted')) {
+ *   console.log(grant.key, grant.groups.subject);
+ * }
+ * ```
+ *
+ * The order the report was built in is kept, so a caller that prints two kinds
+ * separately still prints each permission's findings in the order `diffMatrix`
+ * reached them.
+ */
+export function findingsOf<K extends DiffFinding['kind']>(
+  diff: MatrixDiff,
+  kind: K,
+): readonly Extract<DiffFinding, { kind: K }>[] {
+  return diff.findings.filter(
+    (each): each is Extract<DiffFinding, { kind: K }> => each.kind === kind,
+  );
+}
+
 function groupsOf(when: readonly Condition[]): ConditionGroups {
   const subject: Condition[] = [];
   const object: Condition[] = [];
