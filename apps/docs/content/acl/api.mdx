@@ -938,7 +938,7 @@ function contractDrift<D = never>(
 ```
 
 Both documents are adopted with `parseMatrix`, which fails closed, so a removed
-key answers `unknown-action` and lands in `changed` rather than throwing
+key answers `unknown-action` and is reported in `changed`. Nothing throws
 partway through the run.
 
 ## `assertNoContractDrift`
