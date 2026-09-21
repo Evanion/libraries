@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { availability, AVAILABILITY_CONTRAST_FLOOR } from './availability.js';
+import {
+  availability,
+  availabilityOnLight,
+  AVAILABILITY_CONTRAST_FLOOR,
+  AVAILABILITY_LIGHT_GROUND,
+} from './availability.js';
 import { boxArt, boxArtPhoto } from './box-art.js';
 import {
   BOX_ART_MAX_DEPTH,
@@ -213,6 +218,28 @@ describe('contrast against felt', () => {
       ).toBeGreaterThanOrEqual(AVAILABILITY_CONTRAST_FLOOR);
     });
   }
+
+  for (const [name, value] of Object.entries(availabilityOnLight)) {
+    it(`holds availabilityOnLight.${name} at ${AVAILABILITY_CONTRAST_FLOOR}:1 on the light ground`, () => {
+      const ratio = contrast(value, AVAILABILITY_LIGHT_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `availabilityOnLight.${name} (${value}) reaches ${ratio.toFixed(2)}:1 ` +
+          `on ${AVAILABILITY_LIGHT_GROUND}, which is the ground a light theme ` +
+          `lays the pill on.`,
+      ).toBeGreaterThanOrEqual(AVAILABILITY_CONTRAST_FLOOR);
+    });
+  }
+
+  /**
+   * The scale that shipped without this is why the pair is checked rather than
+   * the dark half alone. A floor measured against one ground says nothing about
+   * a consumer that rebinds it, and the failure is invisible: a pill renders,
+   * and its label is unreadable.
+   */
+  it('gives every availability state a light-ground value', () => {
+    expect(Object.keys(availabilityOnLight)).toEqual(Object.keys(availability));
+  });
 
   for (const [stop, value] of Object.entries(complexity)) {
     it(`holds complexity.${stop} at ${COMPLEXITY_CONTRAST_FLOOR}:1`, () => {

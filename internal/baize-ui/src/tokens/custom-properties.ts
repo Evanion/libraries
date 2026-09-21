@@ -1,4 +1,4 @@
-import { availability } from './availability.js';
+import { availability, availabilityOnLight } from './availability.js';
 import { categorical, categoricalOnLight } from './categorical.js';
 import { slug as kebab } from './class-names.js';
 import { boxArt } from './box-art.js';
@@ -64,6 +64,7 @@ export const customProperties: readonly (readonly [string, string])[] = [
   ...group('platform-on-light-', platformOnLight),
   ...group('mechanism-', mechanism),
   ...group('availability-', availability),
+  ...group('availability-on-light-', availabilityOnLight),
   ...group('complexity-', complexity),
   ...Object.entries(boxArt).flatMap(([palette, stops]) =>
     Object.entries(stops).map(
