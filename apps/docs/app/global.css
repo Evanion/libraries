@@ -268,6 +268,16 @@ html:not(.dark) [class*='baize-state-'] {
 }
 
 /*
+ * The same swap for an export's kind hue, which a reference entry binds on the
+ * heading that carries the export name. The six dark values reach between
+ * 1.38:1 and 1.52:1 on paper, so a light theme reading the dark half would put
+ * the page's most important word out of reach.
+ */
+html:not(.dark) [class*='baize-kind-'] {
+  --baize-kind: var(--baize-kind-on-light);
+}
+
+/*
  * Where the hue lands: the page title, the rule under a section heading, and a
  * card's own title.
  *

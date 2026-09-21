@@ -2,6 +2,7 @@ import type { Availability } from './availability.js';
 import type { CategoricalHue } from './categorical.js';
 import type { BoxArtPalette } from './box-art.js';
 import type { ComplexityStop } from './complexity.js';
+import type { ExportKind } from './export-kind.js';
 import type { Mechanism } from './mechanism.js';
 import type { Platform } from './platform.js';
 
@@ -89,6 +90,20 @@ export function platformClass(platform: Platform): string {
  */
 export function ladderClass(stop: ComplexityStop): string {
   return `baize-ladder-${stop}`;
+}
+
+/**
+ * The class that binds an export's kind hue, as `--baize-kind`.
+ *
+ * Its own property rather than `--baize-hue`, and this is forced rather than
+ * chosen. The docs site paints the package hue onto every `h2` and `h3` border
+ * in a section through `--baize-hue`, so a kind class binding that property on
+ * the heading itself would win inside the element and take the hairline under
+ * the heading with it. Every entry's rule would become its kind's colour and
+ * the package would lose the channel.
+ */
+export function kindClass(kind: ExportKind): string {
+  return `baize-kind-${slug(kind)}`;
 }
 
 /** The class that binds an availability colour, as `--baize-state`. */
