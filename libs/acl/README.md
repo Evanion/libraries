@@ -1100,6 +1100,158 @@ True when any allow rule or any deny rule of this permission names an
 about the matrix. Field rules do not count, since a `transitions` config reads the object
 only on the `canFields` write axis, where the caller holds the row already.
 
+## What a deploy changed
+
+`diffMatrix(before, after)` compares two matrix documents and reports access
+rather than text. A reviewer reading a line-by-line document diff has to hold
+the precedence order in their head to work out what moved. A finding states it.
+
+`sideOutcome` is monotone in its rule array: a side that matched goes on
+matching whatever is appended. So an added allow branch can only widen and an
+added deny branch can only narrow, and the added branch is the reviewer's
+sentence, because its conditions are what an author wrote. A rule's id is
+derived from its conditions, so a reordered document reports nothing.
+
+<!-- #region diff-matrix -->
+
+```ts @import.meta.vitest
+import { diffMatrix } from '@evanion/acl';
+import type { Condition, Matrix } from '@evanion/acl';
+
+const admin: Condition = { field: 'subject.role', op: 'eq', value: 'admin' };
+const operator: Condition = {
+  field: 'subject.roles',
+  op: 'contains',
+  value: 'operator',
+};
+const ownTenant: Condition = {
+  field: 'subject.tenantId',
+  op: 'eq',
+  path: 'object.tenantId',
+};
+
+const reprice = {
+  key: 'listing.reprice',
+  object: 'listing',
+  action: 'reprice',
+} as const;
+
+const before: Matrix = {
+  version: 'listings@7',
+  permissions: [{ ...reprice, rules: [{ when: [admin] }] }],
+};
+
+// One branch appended: an operator may reprice a listing in their own tenant.
+const after: Matrix = {
+  version: 'listings@8',
+  permissions: [
+    { ...reprice, rules: [{ when: [admin] }, { when: [operator, ownTenant] }] },
+  ],
+};
+
+const diff = diffMatrix(before, after);
+
+diff.unchanged; // -> false
+diff.version; // -> { before: 'listings@7', after: 'listings@8' }
+
+const granted = diff.findings.filter((each) => each.kind === 'granted');
+
+granted[0]?.key; // -> 'listing.reprice'
+granted[0]?.cause; // -> 'allow-branch-added'
+granted[0]?.groups.subject; // -> [operator]
+granted[0]?.groups.object; // -> [ownTenant]
+granted[0]?.groups.window; // -> []
+```
+
+<!-- #endregion diff-matrix -->
+
+`groups` splits the branch for rendering. `subject` is who gained the access,
+`object` is which rows, and `window` is the `now` conditions. A condition
+comparing a subject path against an object path lands in `object`, because it
+restricts rows rather than people.
+
+Four things the report cannot derive, and it states each rather than guessing:
+
+- How many people a grant describes. The report names a condition and never a
+  headcount, so findings cannot be ranked by blast radius.
+- Whether a grant overlaps one already in force. The report names the added
+  branch whole, so a reviewer may read a grant that was already granted.
+- Whether an added branch grants anything. A branch ANDing
+  `subject.role eq 'admin'` with `subject.role eq 'operator'` is unsatisfiable,
+  and the report calls it a grant.
+- What an edit did. A rule that kept an author-supplied `id` and changed its
+  conditions, and a permission whose allow side and deny side both moved, come
+  back as `undetermined` with both versions attached.
+
+Each of those fails toward reporting a grant, which is the direction a reviewer
+can check.
+
+### A change that widens nothing and breaks every caller
+
+A permission that gains a deny rule reading `object.locked` grants nobody
+anything new. Every caller deciding without the row still breaks: the decision
+that answered `allow` answers `unevaluable` naming the path it now needs.
+`diffMatrix` reports that as its own finding.
+
+<!-- #region diff-reads-object -->
+
+```ts @import.meta.vitest
+import { diffMatrix, parseMatrix } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
+
+type Staff = { id: string; role: string };
+type Objects = { listing: { locked?: boolean } };
+
+const read = {
+  key: 'listing.read',
+  object: 'listing',
+  action: 'read',
+  rules: [{ when: [{ field: 'subject.role', op: 'eq', value: 'admin' }] }],
+} as const;
+
+const before: Matrix = { version: 'listings@7', permissions: [read] };
+
+const after: Matrix = {
+  version: 'listings@8',
+  permissions: [
+    {
+      ...read,
+      denyRules: [
+        { when: [{ field: 'object.locked', op: 'eq', value: true }] },
+      ],
+    },
+  ],
+};
+
+const supervisor: Staff = { id: 'u1', role: 'admin' };
+
+// A gateway that decides in front of the fetch passes no listing.
+const was = parseMatrix<Staff, Objects>(before).can(
+  supervisor,
+  'listing',
+  'read',
+);
+const now = parseMatrix<Staff, Objects>(after).can(
+  supervisor,
+  'listing',
+  'read',
+);
+
+was.allowed; // -> true
+now.allowed; // -> false
+now.reason; // -> 'unevaluable'
+now.missing; // -> ['object.locked']
+
+const findings = diffMatrix(before, after).findings;
+const reads = findings.filter((each) => each.kind === 'reads-object');
+
+reads[0]?.before; // -> false
+reads[0]?.after; // -> true
+reads[0]?.paths.after; // -> ['object.locked']
+```
+
+<!-- #endregion diff-reads-object -->
+
 ## Security contract
 
 A decision counts where it is made. It is authoritative in a trusted

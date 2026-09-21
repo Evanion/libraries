@@ -363,6 +363,162 @@ interface DenyOverlayOptions {
 A key listed in `vetoable` obliges the matrix to declare that key's object kind
 in `schema.objects`.
 
+## `diffMatrix`
+
+`diffMatrix` compares two matrix documents and reports access rather than text.
+See [What did this change do to access?](/acl/changes).
+
+```ts signature
+function diffMatrix(before: Matrix, after: Matrix): MatrixDiff;
+```
+
+Soundness rests on `sideOutcome` being monotone in its rule array, so an added
+allow branch can only widen and an added deny branch can only narrow. A finding
+is a direction and an upper bound, never an exact set.
+
+## `MatrixDiff`
+
+```ts signature
+interface MatrixDiff {
+  readonly findings: readonly DiffFinding[];
+  readonly unchanged: boolean;
+  readonly version: {
+    readonly before?: string | number;
+    readonly after?: string | number;
+  };
+}
+```
+
+`unchanged` is true when the two documents state one policy. Rule order and
+condition key order are not policy, so a reordered document reports nothing.
+
+## `DiffFinding`
+
+```ts signature
+type DiffFinding =
+  GrantedFinding | WithdrawnFinding | UndeterminedFinding | ReadsObjectFinding;
+```
+
+Discriminated on `kind`. Every member carries `key`, the permission key the
+finding is about.
+
+## `GrantedFinding`
+
+```ts signature
+interface GrantedFinding {
+  readonly kind: 'granted';
+  readonly key: string;
+  readonly cause: GrantedCause;
+  readonly rule?: string;
+  readonly when: readonly Condition[];
+  readonly groups: ConditionGroups;
+  readonly fields?: readonly string[];
+}
+```
+
+`when` is the added branch whole and `groups` is it split for rendering.
+`fields` carries the field names added, where `cause` is `field-list-widened`.
+
+## `GrantedCause`
+
+```ts signature
+type GrantedCause =
+  | 'permission-added'
+  | 'allow-branch-added'
+  | 'deny-branch-removed'
+  | 'field-list-widened';
+```
+
+## `WithdrawnFinding`
+
+```ts signature
+interface WithdrawnFinding {
+  readonly kind: 'withdrawn';
+  readonly key: string;
+  readonly cause: WithdrawnCause;
+  readonly rule?: string;
+  readonly when: readonly Condition[];
+  readonly groups: ConditionGroups;
+  readonly holders?: { readonly closed: string; readonly open: string };
+  readonly fields?: readonly string[];
+}
+```
+
+`holders` accompanies `permission-removed` and carries a sentence each for a
+`parseMatrix` holder and a `hydratePolicy` holder, because one removal answers
+`unknown-action` for the first and throws for the second.
+
+## `WithdrawnCause`
+
+```ts signature
+type WithdrawnCause =
+  | 'permission-removed'
+  | 'allow-branch-removed'
+  | 'deny-branch-added'
+  | 'field-list-narrowed';
+```
+
+## `UndeterminedFinding`
+
+```ts signature
+interface UndeterminedFinding {
+  readonly kind: 'undetermined';
+  readonly key: string;
+  readonly cause: UndeterminedCause;
+  readonly rule?: string;
+  readonly before: unknown;
+  readonly after: unknown;
+}
+```
+
+A change `diffMatrix` declines to call a widening or a narrowing, with both
+versions shown.
+
+## `UndeterminedCause`
+
+```ts signature
+type UndeterminedCause =
+  'rule-edited' | 'both-sides-changed' | 'fields-changed';
+```
+
+`rule-edited` is a rule that kept an author-supplied `id` and changed its
+conditions. `both-sides-changed` is a permission whose allow side and deny side
+both moved. `fields-changed` is a field-rule change outside the one decidable
+case, which is two literal name lists carrying no `*` and no `!` entry.
+
+## `ReadsObjectFinding`
+
+```ts signature
+interface ReadsObjectFinding {
+  readonly kind: 'reads-object';
+  readonly key: string;
+  readonly before: boolean;
+  readonly after: boolean;
+  readonly paths: {
+    readonly before: readonly string[];
+    readonly after: readonly string[];
+  };
+}
+```
+
+A change in which `object.*` paths a decision reads. No access moved, and a
+caller that decides in front of the fetch gets `unevaluable` where it got
+`allow`.
+
+## `ConditionGroups`
+
+```ts signature
+interface ConditionGroups {
+  readonly subject: readonly Condition[];
+  readonly object: readonly Condition[];
+  readonly window: readonly Condition[];
+}
+```
+
+`subject` is who gained or lost the access, `object` is which rows, and
+`window` is the `now` conditions. A condition comparing a subject path against
+an object path lands in `object`.
+
 ## `Matrix`
 
 `Matrix` is a JSON envelope over a flat list of permissions. See
