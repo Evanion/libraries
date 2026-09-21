@@ -1,10 +1,7 @@
 import { evaluateResolved, resolveContext } from './conditions.js';
 import type { ResolvedContext } from './conditions.js';
+import { ruleId } from './rule-id.js';
 import type { Decision, EvaluationContext, Permission, Rule } from './types.js';
-
-function ruleId(rule: Rule, index: number): string {
-  return rule.id ?? `#${index}`;
-}
 
 /**
  * How one rule stands: matched, a definite miss, held up by a clock that does
@@ -26,10 +23,10 @@ type RuleOutcome =
  */
 function ruleMatches(
   rule: Rule,
-  index: number,
+  side: 'allow' | 'deny',
   ctx: ResolvedContext,
 ): RuleOutcome {
-  const id = ruleId(rule, index);
+  const id = ruleId(rule, side);
   const missing: string[] = [];
   let clockUnusable = false;
   for (const condition of rule.when ?? []) {
@@ -63,14 +60,15 @@ type SideOutcome =
 
 function sideOutcome(
   rules: readonly Rule[] | undefined,
+  side: 'allow' | 'deny',
   ctx: ResolvedContext,
 ): SideOutcome {
   const missing = new Set<string>();
   let first: string | undefined;
   let clockRule: string | undefined;
 
-  for (const [index, rule] of (rules ?? []).entries()) {
-    const outcome = ruleMatches(rule, index, ctx);
+  for (const rule of rules ?? []) {
+    const outcome = ruleMatches(rule, side, ctx);
     if (outcome.state === 'matched') {
       return { state: 'matched', rule: outcome.rule };
     }
@@ -130,7 +128,7 @@ export function decideResolved(
   permission: Permission,
   ctx: ResolvedContext,
 ): Decision {
-  const deny = sideOutcome(permission.denyRules, ctx);
+  const deny = sideOutcome(permission.denyRules, 'deny', ctx);
   if (deny.state === 'matched') {
     return {
       key: permission.key,
@@ -140,7 +138,7 @@ export function decideResolved(
     };
   }
 
-  const allow = sideOutcome(permission.rules, ctx);
+  const allow = sideOutcome(permission.rules, 'allow', ctx);
   if (allow.state === 'fails') {
     return { key: permission.key, allowed: false, reason: 'no-rule-matched' };
   }

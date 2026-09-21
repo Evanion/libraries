@@ -34,7 +34,7 @@ interface Permission {
 }
 
 interface Rule {
-  id?: string; // what a decision reports as `rule`; defaults to `#0`, `#1`, …
+  id?: string; // what a decision reports as `rule`; derived from `when` when absent
   when?: Condition[]; // AND-ed
 }
 ```

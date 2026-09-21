@@ -21,6 +21,7 @@ import {
 import { hydratePolicy } from '../hydrate-policy.js';
 import { pickAllowedFields } from '../fields.js';
 import { parseMatrix } from '../parse-matrix.js';
+import { ruleId } from '../rule-id.js';
 import {
   always,
   countingSubject,
@@ -966,10 +967,11 @@ describe('SEC-018 a clock that does not settle decides nothing (CWE-754)', () =>
   });
 
   it('refuses the deny side ahead of an allow rule that matched', () => {
+    const denied = when({ field: 'now', op: 'after', value: '2020-01-01' });
     const access = foreign([
       permission('sale', 'buy', {
         rules: [always, when({ field: 'subject.id', op: 'eq', value: 's1' })],
-        denyRules: [when({ field: 'now', op: 'after', value: '2020-01-01' })],
+        denyRules: [denied],
       }),
     ]);
 
@@ -982,7 +984,7 @@ describe('SEC-018 a clock that does not settle decides nothing (CWE-754)', () =>
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unusable-clock');
-    expect(decision.rule).toBe('#0');
+    expect(decision.rule).toBe(ruleId(denied, 'deny'));
   });
 
   it('refuses ahead of an unevaluable object path rather than asking for a refetch', () => {
