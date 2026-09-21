@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
+import { expandReferences } from './mdx-reference-loader.mjs';
 import { expandRegions } from './mdx-region-loader.mjs';
 
 /**
@@ -16,8 +17,11 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * body in `apps/docs/content`; `mdx-region-loader.mjs` fills it during
  * `next build`. All 54 of them are empty in source, so serving raw MDX the way
  * react.dev serves its own would hand an agent 54 blank TypeScript examples.
- * This module runs the same expansion the loader runs, which is what puts an
- * unexpanded `.md` file out of reach.
+ * This module runs the same expansions the loaders run, in the same order,
+ * which is what puts an unexpanded `.md` file out of reach. A reference entry
+ * is the same argument: its signature, its docblock and its example exist
+ * nowhere in the page's own source, so a sibling built from raw MDX would hand
+ * an agent an HTML comment where the API is.
  *
  * Nothing else is rewritten. A ```mermaid fence stays a fence, because the
  * `<Diagram>` the browser gets is markup around this same source and the fence
@@ -57,7 +61,11 @@ export function mdSiblings(contentDir, root) {
 
     siblings.set(
       route.replace(/\.mdx$/, '.md'),
-      expandRegions(readFileSync(page, 'utf8'), root, page),
+      expandRegions(
+        expandReferences(readFileSync(page, 'utf8'), root, page),
+        root,
+        page,
+      ),
     );
   }
 

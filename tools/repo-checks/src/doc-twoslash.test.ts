@@ -6,6 +6,7 @@ import { findMatchingProjects } from 'nx/src/devkit-internals';
 import { createTwoslasher } from 'twoslash';
 import { describe, expect, it } from 'vitest';
 
+import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 
@@ -96,14 +97,28 @@ function fencesIn(source: string, page: string): Fence[] {
 
 const relative = (path: string): string => path.slice(workspaceRoot.length + 1);
 
-/** Every `twoslash` fence, with its regions already filled in. */
+/**
+ * Every `twoslash` fence, with its references and regions already filled in.
+ *
+ * Both loaders, in the order `next.config.ts` runs them, because a fence a
+ * loader emits is a fence Nextra compiles. A reference entry's signature and
+ * example exist nowhere in the page as written, so reading the page as written
+ * would leave the compiler's own emissions as the only fences on the site that
+ * nothing checks before the build.
+ */
 function twoslashFences(): Fence[] {
-  return mdxFiles(CONTENT).flatMap((page) =>
-    fencesIn(
-      expandRegions(readFileSync(page, 'utf8'), workspaceRoot, page),
-      relative(page),
-    ).filter(({ info }) => /\btwoslash\b/.test(info)),
-  );
+  return mdxFiles(CONTENT).flatMap((page) => {
+    const source = readFileSync(page, 'utf8');
+    const expanded = expandRegions(
+      expandReferences(source, workspaceRoot, page),
+      workspaceRoot,
+      page,
+    ) as string;
+
+    return fencesIn(expanded, relative(page)).filter(({ info }) =>
+      /\btwoslash\b/.test(info),
+    );
+  });
 }
 
 /**

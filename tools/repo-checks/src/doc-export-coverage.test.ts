@@ -6,6 +6,7 @@ import { workspaceRoot } from '@nx/devkit';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { internalMark, resolveAlias } from '@evanion/doc-examples/declarations';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 
@@ -176,10 +177,7 @@ function exportsOf(entries: readonly Entry[]): Map<string, Exported[]> {
     found.set(
       entry.specifier,
       checker.getExportsOfModule(symbol).map((each) => {
-        const resolved =
-          each.getFlags() & ts.SymbolFlags.Alias
-            ? checker.getAliasedSymbol(each)
-            : each;
+        const resolved = resolveAlias(each, checker);
         const type = checker.getTypeOfSymbolAtLocation(resolved, source);
         const callable =
           Boolean(resolved.getFlags() & ts.SymbolFlags.Value) &&
@@ -197,64 +195,6 @@ function exportsOf(entries: readonly Entry[]): Map<string, Exported[]> {
   }
 
   return found;
-}
-
-/**
- * A JSDoc comment as text. It arrives as a string, or as nodes once the block
- * carries an inline tag such as a `{@link}`.
- */
-function commentText(
-  comment: string | ts.NodeArray<ts.JSDocComment> | undefined,
-): string {
-  if (comment === undefined) return '';
-  if (typeof comment === 'string') return comment;
-  return comment.map((part) => part.text ?? '').join('');
-}
-
-/**
- * The prose of the docblock that marks a symbol `@internal`, or `null` when
- * nothing marks it.
- *
- * The tag is read off the declaration and its two enclosing nodes, because
- * where it lands depends on how the name is exported. `export const x` puts it
- * on the `VariableStatement` two levels above the declaration, and
- * `export { x } from './x.js'` puts it on the `ExportDeclaration` two levels
- * above the specifier. An author writes the tag above the line either way.
- *
- * The prose returned is the comment of the block the tag sits in, not the
- * symbol's documentation. A re-export tagged `@internal` whose target carries a
- * long docblock about what the function does has still said nothing about why
- * it is not public API, and that sentence is the one being asked for.
- */
-function internalMark(
-  symbol: ts.Symbol,
-  resolved: ts.Symbol,
-  checker: ts.TypeChecker,
-): string | null {
-  const nodes = [
-    ...(symbol.getDeclarations() ?? []),
-    ...(resolved.getDeclarations() ?? []),
-  ].flatMap((node) => [node, node.parent, node.parent?.parent]);
-
-  for (const node of nodes) {
-    if (!node) continue;
-    for (const tag of ts.getJSDocTags(node)) {
-      if (tag.tagName.text.toLowerCase() !== 'internal') continue;
-      const block = tag.parent as ts.JSDoc;
-      return [commentText(block.comment), commentText(tag.comment)]
-        .map((text) => text.trim())
-        .filter(Boolean)
-        .join(' ');
-    }
-  }
-
-  // A tag the checker reports but no node carries, which happens for a symbol
-  // whose declaration is in a file outside this program.
-  const reported = [
-    ...symbol.getJsDocTags(checker),
-    ...resolved.getJsDocTags(checker),
-  ].find((tag) => tag.name.toLowerCase() === 'internal');
-  return reported ? ts.displayPartsToString(reported.text ?? []) : null;
 }
 
 function mdxFiles(dir: string): string[] {
