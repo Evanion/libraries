@@ -1338,10 +1338,10 @@ const contract: Matrix = {
 };
 
 const clock = fixtureClock(contract, { fetchedAt: '2026-01-01T00:00:00Z' });
-const bff = parseMatrix(contract, clock.options);
+const storefront = parseMatrix(contract, clock.options);
 const shopper = { id: 'u1' };
 
-const inside = bff.can(
+const inside = storefront.can(
   shopper,
   'orders:order',
   'refund',
@@ -1352,7 +1352,13 @@ inside.reason; // -> 'allow'
 
 // `assertRefused` names the key, the reason and the rule when it throws, so a
 // failure says which refusal arrived instead of `false !== true`.
-const past = bff.can(shopper, 'orders:order', 'refund', undefined, clock.stale);
+const past = storefront.can(
+  shopper,
+  'orders:order',
+  'refund',
+  undefined,
+  clock.stale,
+);
 assertRefused(past, 'stale-contract').allowed; // -> false
 ```
 
@@ -1375,6 +1381,7 @@ import { parseMatrix } from '@evanion/acl';
 import { AclAssertionError } from '@evanion/acl/testing';
 import { assertAllowed } from '@evanion/acl/testing';
 import { assertFieldState } from '@evanion/acl/testing';
+import { assertRefused } from '@evanion/acl/testing';
 import { explainDecision } from '@evanion/acl/testing';
 import { explainFieldDecision } from '@evanion/acl/testing';
 import type { Matrix } from '@evanion/acl';
@@ -1405,6 +1412,11 @@ const staff = { id: 'u1', roles: ['bookseller'] };
 const decision = storefront.can(staff, 'orders:order', 'update');
 assertAllowed(decision, 'the order editor').rule; // -> 'staff'
 explainDecision(decision); // -> '"orders:order.update" allowed with reason "allow", from rule "staff"'
+
+// A shopper holds no role the rule names, so no allow rule matched.
+const shopper = { id: 'u2', roles: [] };
+const refused = storefront.can(shopper, 'orders:order', 'update');
+assertRefused(refused, 'no-rule-matched', 'the order editor').allowed; // -> false
 
 const fields = storefront.canFields(
   staff,

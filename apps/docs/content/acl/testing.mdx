@@ -21,12 +21,12 @@
   ]}
 />
 
-**The concept.** `@evanion/acl/testing` is a secondary entry point holding the
+**The concept.** `@evanion/acl/testing` is a second entry point holding the
 assertions a consumer writes against a producer's published contract.
 **What you get.** A report of what moved between the contract version you
-pinned and the one CI fetched, the two instants that bracket a document's
-freshness budget, and failure messages that name the key, the reason, the rule
-and the missing paths.
+pinned and the one continuous integration (CI) fetched, the two instants that
+bracket a document's freshness budget, and failure messages that name the key,
+the reason, the rule and the missing paths.
 **Why you want it.** A consumer that writes a fixture matrix to stand in for
 the contract keeps a second copy of somebody else's rules, which is the failure
 a published contract exists to remove.
@@ -38,9 +38,9 @@ a published contract exists to remove.
 `@evanion/acl/testing` asserts a consumer's decisions against the producer's
 document, pinned at one version and fetched at the next. The producer owns the
 rules and publishes them; the consumer holds them and asks questions of them.
-Write those rules a second time in a test file and the copy is right until the
-producer edits one, at which point the producer goes on refusing correctly and
-the consumer's suite goes on passing.
+A consumer that writes those rules a second time in a test file holds a copy
+that is right until the producer edits one. The producer then goes on refusing
+correctly and the consumer's suite goes on passing.
 
 A test file that calls `can` and reads the decision needs no library at all.
 `hydratePolicy` over a 200-permission document takes 2.7 ms, so a suite that
@@ -54,13 +54,13 @@ throws a plain `Error`, which vitest, `node:test` and jest each report the same
 way. `@evanion/acl` does not re-export any of it, so an application importing
 the engine pulls none of this into its bundle.
 
-```mermaid caption="The direction the assertion runs. The orders service publishes its contract, the storefront pins orders@7 beside its test file, and CI fetches orders@8 on every run. contractDrift adopts both documents with parseMatrix and answers the storefront's own DecisionCase list against each, so the storefront finds out about a rule change in its own pipeline."
+```mermaid caption="The direction the assertion runs. The orders service publishes its contract, the storefront pins orders@7 beside its test file, and CI fetches orders@8 on every run. contractDrift adopts both documents with parseMatrix and answers the storefront's own questions against each, so the storefront finds out about a rule change in its own pipeline."
 flowchart LR
   P["orders publishes<br>its contract"] --> A["orders@7,<br>pinned in the repo"]
   P --> B["orders@8,<br>fetched in CI"]
   A --> D["contractDrift"]:::accent
   B --> D
-  C["the storefront's<br>DecisionCase list"] --> D
+  C["the questions the<br>storefront asks"] --> D
   D --> R["removed keys,<br>added keys,<br>changed decisions"]
 ```
 
@@ -79,10 +79,10 @@ name, and the two decisions that disagreed.
 
 `ContractDriftReport` carries `pinnedVersion` and `fetchedVersion` off the two
 envelopes, `removed` and `added` over the permission keys, `changed` as a
-`DecisionChange` list, and `diff`. A key in `removed` is a producer breaking a
-published contract, and it is the finding that is never deliberate on this side
-of the boundary. A decision in `changed` may be exactly what the producer
-intended, and the consumer decides whether its screens still read correctly.
+`DecisionChange` list, and `diff`. A key in `removed` means the producer broke a
+published contract, and the consumer never asked for it. A decision in `changed`
+may be exactly what the producer intended, and the consumer decides whether its
+UI still reads correctly.
 
 Both documents are adopted with `parseMatrix`, which fails closed, so a removed
 key answers `unknown-action` and arrives in `changed`. Nothing throws partway
@@ -103,27 +103,28 @@ widened its surface leaves the consumer's build green.
 
 ```
 
-`ContractDriftError` extends `AclAssertionError`, the base class every refusal
-in this entry point raises. Both are plain `Error` subclasses carrying no
+`ContractDriftError` extends `AclAssertionError`, which every assertion in
+`@evanion/acl/testing` throws. Both are plain `Error` subclasses carrying no
 matcher, so a `try`/`catch` around the call, or a framework's own
 `toThrow(ContractDriftError)`, reads the same failure.
 
-## diffMatrix drops into the diff seam of contractDrift
+## contractDrift takes a document differ on options.diff
 
 `MatrixDiffer<D>` is the type of `options.diff`, a `(pinned, fetched) => D`.
 `contractDrift` reads nothing out of the result and carries it onto
-`report.diff`, so passing [`diffMatrix`](/acl/changes) types `report.diff` as a
-`MatrixDiff` and passing nothing leaves it `undefined`. The replayed cases say
-what this application's own screens do; the diff says what moved in the
-document behind them.
+`report.diff`. Pass [`diffMatrix`](/acl/changes) and `report.diff` is a
+`MatrixDiff`; pass nothing and it is `undefined`. The replayed cases say what
+this application's own UI does, and the diff says what moved in the document
+behind it.
 
 ```ts twoslash file=libs/acl/README.md region=drift-seam
 
 ```
 
-`libs/acl/src/testing/drift-diff.test.ts` holds the two halves together. The
-seam takes any differ, so a change to `diffMatrix`'s signature would pass every
-other test in the package and fail a consumer who wired the two this way.
+`@evanion/acl` tests `diffMatrix` and `contractDrift` together in
+`libs/acl/src/testing/drift-diff.test.ts`. `options.diff` accepts any differ, so
+a change to `diffMatrix`'s signature would pass every other test in the package
+and fail there.
 
 ## fixtureClock reaches stale-contract on purpose
 
@@ -131,14 +132,17 @@ other test in the package and fail a consumer who wired the two this way.
 the engine computes it and names the two instants that bracket it. `fresh` is
 the last instant every key still decides on, `stale` the first that answers
 `stale-contract`, and `options` is the `AccessOptions` those two came from, so
-the holder and the test cannot disagree about the budget.
+the holder and the test cannot disagree about the budget. The fence below
+closes on `assertRefused`, which the next section covers: it names which
+refusal arrived, so a failure says `stale-contract` where a bare boolean would
+say `false !== true`.
 
 ```ts twoslash file=libs/acl/README.md region=fixture-clock
 
 ```
 
-`stale-contract` is the refusal a consumer's screens meet in production and
-never in development, because a document authored in-process reports no
+`stale-contract` is the refusal a consumer's UI meets in production and never
+in development, because a document authored in-process reports no
 `fetchedAt` and runs under no bound. `FixtureClockOptions` takes `fetchedAt`
 and a local `maxStale`, and `FixtureClock` also carries `budget`, `expiresAt`
 and `at(ms)` for an arbitrary instant. A document stating no `maxStale` raises
@@ -149,9 +153,9 @@ and `at(ms)` for an arbitrary instant. A document stating no `maxStale` raises
 `assertAllowed(decision, context?)` returns the decision when it allows and
 throws naming the key, the reason, the rule and the missing paths.
 `assertRefused(decision, reason?, context?)` is the mirror and asserts which
-refusal arrived, which matters because a UI treats three of them differently:
-`unevaluable` asks for a refetch of the row, `stale-contract` for a refetch of
-the document, and `denied` for neither.
+refusal arrived, which matters because a UI treats three of the seven reasons
+differently: `unevaluable` asks for a refetch of the row, `stale-contract` for
+a refetch of the document, and `denied` for neither.
 
 ```ts twoslash file=libs/acl/README.md region=consumer-assertions
 
@@ -166,10 +170,10 @@ for a message a suite assembles itself.
 
 ## Where to go next
 
-- [What did this change do to access?](/acl/changes): the `MatrixDiff` the seam
-  carries, and what a `granted` finding does and does not claim
-- [Why was this refused?](/acl/refusals): what `unevaluable` tells a UI and what
-  `unknown-action` tells a `parseMatrix` holder
+- [What did this change do to access?](/acl/changes): the `MatrixDiff`
+  `options.diff` carries, and what a `granted` finding does and does not claim
+- [Why was this refused?](/acl/refusals): the seven reasons a decision carries,
+  and what `unevaluable` tells a UI
 - [Giving my rules to another service](/acl/publishing): the producer's half of
   the obligation, and the freshness budget `fixtureClock` reads
 - [API reference](/acl/api): every name this entry point exports

@@ -913,9 +913,9 @@ type Valid<S extends string, Sub, Obj> = S extends
 
 ## `@evanion/acl/testing`
 
-The test-kit entry point. `@evanion/acl` re-exports none of it, so an
-application importing the engine pulls none of it into its bundle, and nothing
-here imports a test framework. See [Testing a contract I
+`@evanion/acl/testing` is the second entry point. `@evanion/acl` re-exports
+none of it, so an application importing the engine pulls none of it into its
+bundle, and nothing here imports a test framework. See [Testing a contract I
 consume](/acl/testing).
 
 ```ts twoslash
@@ -981,8 +981,9 @@ interface ContractDriftOptions<D = never> {
 ```
 
 `pinned` is the contract this consumer compiled against and `fetched` is the
-one the producer publishes now. Settling `now` once compares a time-windowed
-permission at one epoch rather than at two readings of the wall clock.
+one the producer publishes now. `contractDrift` settles `now` once, so it
+decides a time-windowed permission at one epoch in both documents and never at
+two readings of the wall clock.
 
 ## `ContractDriftReport`
 
@@ -1039,9 +1040,10 @@ unreadable path arrives as a change.
 type MatrixDiffer<D> = (pinned: Matrix, fetched: Matrix) => D;
 ```
 
-The seam [`diffMatrix`](#diffmatrix) drops into. `contractDrift` reads nothing
-out of the result and carries it onto `report.diff`, so the diff's own shape
-stays the diff's business and arrives here as `D`.
+The type of `options.diff`, which [`diffMatrix`](#diffmatrix) satisfies.
+`contractDrift` reads nothing out of the result and carries it onto
+`report.diff`, so the diff's own shape stays the diff's business and arrives
+here as `D`.
 
 ## `fixtureClock`
 
@@ -1056,8 +1058,8 @@ function fixtureClock(
 ```
 
 Every argument is validated as `hydratePolicy` validates it, so a document
-stating no `maxStale` raises `MissingFreshnessBudgetError` here rather than at
-the construction the test was about to write.
+stating no `maxStale` raises `MissingFreshnessBudgetError` from `fixtureClock`,
+before the test reaches the construction it was about to write.
 
 ## `FixtureClockOptions`
 
@@ -1128,9 +1130,10 @@ function assertFieldState(
 ): FieldDecision;
 ```
 
-A field the decision carries no entry for is reported apart, because the maps
-are keyed by the names the document declares and an absent name means the test
-named a field the permission never had.
+A field the decision carries no entry for is reported apart, because
+`decision.fields` and `decision.reasons` are keyed by the names the document
+declares and an absent name means the test named a field the permission never
+had.
 
 ## `explainDecision`
 
@@ -1154,8 +1157,8 @@ function explainFieldDecision(decision: FieldDecision): string;
 ```
 
 `FieldDecision.allowed` is true only when the action is allowed and every field
-is, so a false one has at least two places to look and the maps are both of
-them.
+is, so a false one has at least two places to look: `decision.action` and
+`decision.fields`.
 
 ## `AclAssertionError`
 
@@ -1163,9 +1166,9 @@ them.
 class AclAssertionError extends Error {}
 ```
 
-The base class every refusal in `@evanion/acl/testing` raises. A plain `Error`
-subclass and no matcher, so vitest, `node:test` and jest each report a throw
-from a test body the same way.
+Every assertion in `@evanion/acl/testing` throws this class or a subclass of
+it. A plain `Error` subclass and no matcher, so vitest, `node:test` and jest
+each report a throw from a test body the same way.
 
 ## `ContractDriftError`
 
