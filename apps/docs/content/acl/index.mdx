@@ -97,6 +97,12 @@ acl does not do these four jobs:
 - A non-JS backend. Only the JSON crosses, and a .NET or Go service uses its own
   evaluator.
 
+[What this does not do](/acl/limits) carries the four bigger ones: the floor
+`maxStale` puts under revocation latency, why a relationship across two rows has
+no expression in a matrix, why no call answers which subjects can take an
+action, and why decision records are per consumer. Read it before you build on
+this library.
+
 ## What the acl package exports
 
 The entry point exports these beside `policy()` and `can`:
@@ -152,6 +158,8 @@ Then the question you arrived with:
 
 The reference is below those, and one page of it is not optional:
 
+- [What this does not do](/acl/limits). The four questions this model cannot
+  answer, and the nine features that will not be built.
 - [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
   the two gaps it does not defend.
 - [Security contract](/acl/security). What the library prevents, what it hands
