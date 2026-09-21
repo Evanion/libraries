@@ -24,7 +24,16 @@ import {
   CATEGORICAL_DARK_GROUND,
   CATEGORICAL_LIGHT_GROUND,
 } from './categorical.js';
+import {
+  exportKind,
+  exportKindOnLight,
+  EXPORT_KIND_CONTRAST_FLOOR,
+  EXPORT_KIND_DARK_GROUND,
+  EXPORT_KIND_HUE_SEPARATION_FLOOR,
+  EXPORT_KIND_LIGHT_GROUND,
+} from './export-kind.js';
 import { mechanism, MECHANISM_CONTRAST_FLOOR } from './mechanism.js';
+import { hueSeparation, oklchHue } from './oklch.js';
 import {
   platform,
   platformOnLight,
@@ -158,6 +167,113 @@ describe('the categorical scale', () => {
       Object.values(categorical).sort(),
     );
   });
+});
+
+/**
+ * Both ends of the export-kind scale, and its distance from the scale it shares
+ * a page with.
+ *
+ * The pair is checked rather than the dark half alone because a floor measured
+ * against one ground says nothing about a consumer that rebinds it, and the
+ * failure is invisible: a heading renders, and its name is unreadable. Laid on
+ * paper the six dark values reach between 1.38:1 and 1.52:1.
+ */
+describe('the export-kind scale', () => {
+  it('carries the same kinds at both ends', () => {
+    expect(Object.keys(exportKindOnLight)).toEqual(Object.keys(exportKind));
+  });
+
+  for (const [name, value] of Object.entries(exportKind)) {
+    it(`holds exportKind.${name} at ${EXPORT_KIND_CONTRAST_FLOOR}:1 on the dark ground`, () => {
+      const ratio = contrast(value, EXPORT_KIND_DARK_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `exportKind.${name} (${value}) reaches ${ratio.toFixed(2)}:1 on ` +
+          `${EXPORT_KIND_DARK_GROUND}. It carries an export's name at 18px in ` +
+          `a regular weight, which is normal-size text.`,
+      ).toBeGreaterThanOrEqual(EXPORT_KIND_CONTRAST_FLOOR);
+    });
+  }
+
+  for (const [name, value] of Object.entries(exportKindOnLight)) {
+    it(`holds exportKindOnLight.${name} at ${EXPORT_KIND_CONTRAST_FLOOR}:1 on the light ground`, () => {
+      const ratio = contrast(value, EXPORT_KIND_LIGHT_GROUND);
+      expect(
+        Number(ratio.toFixed(2)),
+        `exportKindOnLight.${name} (${value}) reaches ${ratio.toFixed(2)}:1 ` +
+          `on ${EXPORT_KIND_LIGHT_GROUND}, which is the page a light theme ` +
+          `lays the heading on.`,
+      ).toBeGreaterThanOrEqual(EXPORT_KIND_CONTRAST_FLOOR);
+    });
+  }
+
+  it('sits at L = 0.80, between lichen and chalk on felt', () => {
+    const ratios = Object.values(exportKind).map((value) =>
+      contrast(value, ground.felt),
+    );
+
+    expect(
+      Math.min(...ratios) > contrast(ground.lichen, ground.felt),
+      `A kind hue is the export's name and lichen is the summary line under ` +
+        `it, so the name has to outrank its own subtitle. lichen reaches ` +
+        `${contrast(ground.lichen, ground.felt).toFixed(2)}:1 and the dimmest ` +
+        `kind reaches ${Math.min(...ratios).toFixed(2)}:1.`,
+    ).toBe(true);
+
+    expect(
+      Math.max(...ratios) < contrast(ground.chalk, ground.felt),
+      `chalk is the page's brightest text and the names should not outshine ` +
+        `it. chalk reaches ${contrast(ground.chalk, ground.felt).toFixed(2)}:1 ` +
+        `and the brightest kind reaches ${Math.max(...ratios).toFixed(2)}:1.`,
+    ).toBe(true);
+  });
+
+  /**
+   * The guard that a hue table cannot supply for itself.
+   *
+   * A reference page carries both scales at once: the package hue on the title
+   * and the heading rules, a kind hue on every export name. Two hues a reader
+   * cannot tell apart read as one channel saying two things, which is the
+   * failure the stylesheet's own comment about a chip saying "amber twice"
+   * records. Fifteen hues share the wheel, so the floor is what six more can
+   * reach beside the existing nine rather than a round number.
+   */
+  for (const [label, kinds, packages] of [
+    ['dark', exportKind, categorical],
+    ['light', exportKindOnLight, categoricalOnLight],
+  ] as const) {
+    it(`keeps every ${label} kind hue clear of every other hue a page shows`, () => {
+      const hues = [
+        ...Object.entries(kinds).map(
+          ([name, value]) => [`exportKind.${name}`, oklchHue(value)] as const,
+        ),
+        ...Object.entries(packages).map(
+          ([name, value]) => [`categorical.${name}`, oklchHue(value)] as const,
+        ),
+      ];
+
+      const tooClose = hues.flatMap(([oneName, one], index) =>
+        hues.slice(index + 1).flatMap(([otherName, other]) => {
+          const bothPackages =
+            oneName.startsWith('categorical') &&
+            otherName.startsWith('categorical');
+          const apart = hueSeparation(one, other);
+
+          return !bothPackages && apart < EXPORT_KIND_HUE_SEPARATION_FLOOR
+            ? [`${oneName} and ${otherName} are ${apart.toFixed(1)} apart`]
+            : [];
+        }),
+      );
+
+      expect(
+        tooClose,
+        `Every pair a reference page can show at once has to be ` +
+          `${EXPORT_KIND_HUE_SEPARATION_FLOOR} OKLCH degrees apart. The ` +
+          `package scale's own spacing is its own business and is not checked ` +
+          `here.`,
+      ).toEqual([]);
+    });
+  }
 });
 
 /**

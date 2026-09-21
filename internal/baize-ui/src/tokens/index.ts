@@ -46,6 +46,15 @@ export {
 } from './availability.js';
 export type { Availability } from './availability.js';
 export {
+  exportKind,
+  exportKindOnLight,
+  EXPORT_KIND_CONTRAST_FLOOR,
+  EXPORT_KIND_DARK_GROUND,
+  EXPORT_KIND_HUE_SEPARATION_FLOOR,
+  EXPORT_KIND_LIGHT_GROUND,
+} from './export-kind.js';
+export type { ExportKind } from './export-kind.js';
+export {
   complexity,
   COMPLEXITY_CONTRAST_FLOOR,
   complexityTier,
@@ -73,6 +82,7 @@ export {
   categoricalClass,
   classNames,
   hueClass,
+  kindClass,
   ladderClass,
   modifier,
   paletteClass,

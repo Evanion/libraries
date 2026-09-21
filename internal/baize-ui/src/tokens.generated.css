@@ -85,6 +85,18 @@
   --baize-availability-on-light-preorder: #4e6591;
   --baize-availability-on-light-reprint-pending: #835e15;
   --baize-availability-on-light-out-of-print: #546962;
+  --baize-export-kind-error: #ff9bba;
+  --baize-export-kind-class: #f49cdb;
+  --baize-export-kind-function: #ffa56f;
+  --baize-export-kind-constant: #a7cd6e;
+  --baize-export-kind-interface: #2dd4e9;
+  --baize-export-kind-type-alias: #c1b0ff;
+  --baize-export-kind-on-light-error: #a14666;
+  --baize-export-kind-on-light-class: #984884;
+  --baize-export-kind-on-light-function: #a04e10;
+  --baize-export-kind-on-light-constant: #4e6e00;
+  --baize-export-kind-on-light-interface: #016f7b;
+  --baize-export-kind-on-light-type-alias: #6c59a1;
   --baize-complexity-1: #908b75;
   --baize-complexity-2: #a89b72;
   --baize-complexity-3: #c5a96a;

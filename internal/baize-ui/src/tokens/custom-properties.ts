@@ -2,6 +2,7 @@ import { availability, availabilityOnLight } from './availability.js';
 import { categorical, categoricalOnLight } from './categorical.js';
 import { slug as kebab } from './class-names.js';
 import { boxArt } from './box-art.js';
+import { exportKind, exportKindOnLight } from './export-kind.js';
 import { elevation, measure, motion, radius, space } from './geometry.js';
 import { ground } from './ground.js';
 import { mechanism } from './mechanism.js';
@@ -65,6 +66,8 @@ export const customProperties: readonly (readonly [string, string])[] = [
   ...group('mechanism-', mechanism),
   ...group('availability-', availability),
   ...group('availability-on-light-', availabilityOnLight),
+  ...group('export-kind-', exportKind),
+  ...group('export-kind-on-light-', exportKindOnLight),
   ...group('complexity-', complexity),
   ...Object.entries(boxArt).flatMap(([palette, stops]) =>
     Object.entries(stops).map(

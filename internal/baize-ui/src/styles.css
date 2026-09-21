@@ -190,6 +190,41 @@
 }
 
 /*
+ * An export's kind hue, bound once per kind and read by the name in a
+ * reference entry's heading.
+ *
+ * `--baize-kind` and not `--baize-hue`: a consumer paints its section hue onto
+ * the borders of the headings inside that section through `--baize-hue`, and a
+ * kind class binding the same property on a heading would win inside the
+ * element and recolour the rule under it. Each kind binds both grounds, so a
+ * consumer that rebinds felt to paper swaps the six with one rule.
+ */
+.baize-kind-error {
+  --baize-kind: var(--baize-export-kind-error);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-error);
+}
+.baize-kind-class {
+  --baize-kind: var(--baize-export-kind-class);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-class);
+}
+.baize-kind-function {
+  --baize-kind: var(--baize-export-kind-function);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-function);
+}
+.baize-kind-constant {
+  --baize-kind: var(--baize-export-kind-constant);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-constant);
+}
+.baize-kind-interface {
+  --baize-kind: var(--baize-export-kind-interface);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-interface);
+}
+.baize-kind-type-alias {
+  --baize-kind: var(--baize-export-kind-type-alias);
+  --baize-kind-on-light: var(--baize-export-kind-on-light-type-alias);
+}
+
+/*
  * Titles. Tracking tightens as the size grows.
  *
  * The ladder wins over the mechanism hue where a title somehow carries both, so
