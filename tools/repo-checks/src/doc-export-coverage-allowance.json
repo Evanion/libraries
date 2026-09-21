@@ -1,39 +1,4 @@
 {
-  "@evanion/acl": {
-    "undocumented": [
-      "AclAssertionError",
-      "ContractDriftError",
-      "ContractDriftOptions",
-      "ContractDriftReport",
-      "DecisionCase",
-      "DecisionChange",
-      "FixtureClock",
-      "FixtureClockOptions",
-      "MatrixDiffer",
-      "assertAllowed",
-      "assertFieldState",
-      "assertNoContractDrift",
-      "assertRefused",
-      "contractDrift",
-      "describeContractDrift",
-      "explainDecision",
-      "explainFieldDecision",
-      "fixtureClock"
-    ],
-    "unexercised": [
-      "AclAssertionError",
-      "ContractDriftError",
-      "assertAllowed",
-      "assertFieldState",
-      "assertNoContractDrift",
-      "assertRefused",
-      "contractDrift",
-      "describeContractDrift",
-      "explainDecision",
-      "explainFieldDecision",
-      "fixtureClock"
-    ]
-  },
   "@evanion/astro-widget": {
     "undocumented": [
       "AnyWidgetItem",
