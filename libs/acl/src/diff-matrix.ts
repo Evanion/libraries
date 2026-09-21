@@ -33,9 +33,7 @@ export type WithdrawnCause =
 
 /** Why a change could not be classified as a widening or a narrowing. */
 export type UndeterminedCause =
-  | 'rule-edited'
-  | 'both-sides-changed'
-  | 'fields-changed';
+  'rule-edited' | 'both-sides-changed' | 'fields-changed';
 
 /**
  * Access this document grants that the previous one did not.
@@ -105,21 +103,24 @@ export interface ReadsObjectFinding {
   readonly key: string;
   readonly before: boolean;
   readonly after: boolean;
-  readonly paths: { readonly before: readonly string[]; readonly after: readonly string[] };
+  readonly paths: {
+    readonly before: readonly string[];
+    readonly after: readonly string[];
+  };
 }
 
 export type DiffFinding =
-  | GrantedFinding
-  | WithdrawnFinding
-  | UndeterminedFinding
-  | ReadsObjectFinding;
+  GrantedFinding | WithdrawnFinding | UndeterminedFinding | ReadsObjectFinding;
 
 /** What `diffMatrix` answers. */
 export interface MatrixDiff {
   readonly findings: readonly DiffFinding[];
   /** True when the two documents state one policy. */
   readonly unchanged: boolean;
-  readonly version: { readonly before?: string | number; readonly after?: string | number };
+  readonly version: {
+    readonly before?: string | number;
+    readonly after?: string | number;
+  };
 }
 
 function groupsOf(when: readonly Condition[]): ConditionGroups {
@@ -278,7 +279,9 @@ function diffFields(
       findings.push(granted(key, 'field-list-widened', undefined, [], arrived));
     }
     if (gone.length > 0) {
-      findings.push(withdrawn(key, 'field-list-narrowed', undefined, [], undefined, gone));
+      findings.push(
+        withdrawn(key, 'field-list-narrowed', undefined, [], undefined, gone),
+      );
     }
     if (findings.length > 0) return findings;
   }
@@ -332,7 +335,9 @@ function diffPermission(before: Permission, after: Permission): DiffFinding[] {
       findings.push(granted(key, 'deny-branch-removed', id, rule.when ?? []));
     }
     for (const [id, rule] of allow.removed) {
-      findings.push(withdrawn(key, 'allow-branch-removed', id, rule.when ?? []));
+      findings.push(
+        withdrawn(key, 'allow-branch-removed', id, rule.when ?? []),
+      );
     }
     for (const [id, rule] of deny.added) {
       findings.push(withdrawn(key, 'deny-branch-added', id, rule.when ?? []));
@@ -407,7 +412,12 @@ export function diffMatrix(before: Matrix, after: Matrix): MatrixDiff {
     if (was === undefined) {
       for (const rule of permission.rules ?? []) {
         findings.push(
-          granted(key, 'permission-added', ruleId(rule, 'allow'), rule.when ?? []),
+          granted(
+            key,
+            'permission-added',
+            ruleId(rule, 'allow'),
+            rule.when ?? [],
+          ),
         );
       }
       if ((permission.rules ?? []).length === 0) {
@@ -431,11 +441,19 @@ export function diffMatrix(before: Matrix, after: Matrix): MatrixDiff {
     };
     for (const rule of permission.rules ?? []) {
       findings.push(
-        withdrawn(key, 'permission-removed', ruleId(rule, 'allow'), rule.when ?? [], holders),
+        withdrawn(
+          key,
+          'permission-removed',
+          ruleId(rule, 'allow'),
+          rule.when ?? [],
+          holders,
+        ),
       );
     }
     if ((permission.rules ?? []).length === 0) {
-      findings.push(withdrawn(key, 'permission-removed', undefined, [], holders));
+      findings.push(
+        withdrawn(key, 'permission-removed', undefined, [], holders),
+      );
     }
   }
 
