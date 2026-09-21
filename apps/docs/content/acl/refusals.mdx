@@ -69,6 +69,10 @@ the list is reordered and when another producer emits the same document, so a
 log line keeps its meaning. Give the rules a UI has to name an `id` anyway:
 `locked-question` reads better in a support answer than a hash.
 
+A typed author writes that `id` with
+[`p.id(name)`](/acl/authoring#naming-a-rule-with-pid) on the `allow` or `deny`
+that wrote the rule.
+
 Store an `id` an author wrote, and do not store a derived one. A derived id
 holds across documents at one version of this library and not across versions
 of the library itself: it hashes the rule's conditions, so a release that adds

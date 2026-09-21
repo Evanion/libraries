@@ -1,4 +1,4 @@
-import { AclConfigError } from './errors.js';
+import { AclConfigError, AmbiguousRuleIdError } from './errors.js';
 import { hydratePolicy } from './hydrate-policy.js';
 import type { Access, AccessOptions } from './hydrate-policy.js';
 import type {
@@ -7,6 +7,7 @@ import type {
   Instant,
   Matrix,
   Permission,
+  Rule,
 } from './types.js';
 
 /** The namespaced paths one level deep into `T`, prefixed with `P`. */
@@ -78,9 +79,7 @@ function toBranches(node: Node): readonly (readonly Condition[])[] {
 }
 
 /** The conditions of one `allow`/`deny` call, AND-ed and flattened to rules. */
-function toRules(
-  conditions: readonly Cond[],
-): { when: readonly Condition[] }[] {
+function toRules(conditions: readonly Cond[]): Rule[] {
   const node: Node = { kind: 'and', parts: conditions.map((c) => c.node) };
   return toBranches(node).map((when) => ({ when }));
 }
@@ -177,6 +176,30 @@ export interface Actions<
     actions: readonly A[],
     ...conditions: Cond[]
   ): Actions<Sub, Obj, Act | A, Vocab>;
+  /**
+   * Names the rule the previous `allow()` or `deny()` wrote.
+   *
+   * A rule states an `id` so that a `Decision` reports that name and a
+   * `diffMatrix` finding keeps the rule's identity across an edit. The fallback
+   * id is derived by hashing the rule's conditions, and a release that changes
+   * how a condition is represented changes every derived id, so a log line or
+   * an audit row holding one stops matching its rule and nothing reports that
+   * it has. An author-supplied id is the one that survives.
+   *
+   * The name lands on one rule, and a call that emitted several is
+   * {@link AmbiguousRuleIdError}: `p.allow('read', p.or(a, b))` is disjunctive
+   * normal form, one rule per branch, and one name cannot name two of them. The
+   * author writes one `allow()` per branch when each branch wants a name.
+   *
+   * ```ts
+   * p.allow('update', p.eq('object.sellerId', 'subject.id')).id('owner-edits-own')
+   * ```
+   *
+   * This refuses before any `allow()` or `deny()`, and after `allowEach()` or
+   * `denyEach()`, on the rule `fields` and `visibility` follow: a batch names
+   * several actions and leaves no single rule for the name to land on.
+   */
+  id(id: string): Actions<Sub, Obj, Act, Vocab>;
   /** Field rules for the action most recently declared in the chain. */
   fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
   /**
@@ -326,8 +349,8 @@ export interface Policy<
 
 interface Draft {
   action: string;
-  rules: { when: readonly Condition[] }[];
-  denyRules: { when: readonly Condition[] }[];
+  rules: Rule[];
+  denyRules: Rule[];
   fields?: FieldRules;
   visibility?: Visibility;
 }
@@ -343,6 +366,8 @@ function blockBuilder(
   let current: Draft | undefined;
   /** Whether the last declaration in the chain named several actions at once. */
   let batched = false;
+  /** The rules the last `allow`/`deny` wrote, which `id` names one of. */
+  let emitted: { verb: 'allow' | 'deny'; rules: Rule[] } | undefined;
 
   const draftFor = (action: string): Draft => {
     const existing = drafts.find((draft) => draft.action === action);
@@ -391,18 +416,23 @@ function blockBuilder(
     allow(action, ...conditions) {
       batched = false;
       current = draftFor(action);
-      current.rules.push(...toRules(conditions));
+      const rules = toRules(conditions);
+      emitted = { verb: 'allow', rules };
+      current.rules.push(...rules);
       return chain;
     },
     deny(action, ...conditions) {
       batched = false;
       current = draftFor(action);
-      current.denyRules.push(...toRules(conditions));
+      const rules = toRules(conditions);
+      emitted = { verb: 'deny', rules };
+      current.denyRules.push(...rules);
       return chain;
     },
     allowEach(actions, ...conditions) {
       batched = true;
       current = undefined;
+      emitted = undefined;
       for (const action of actions) {
         draftFor(action).rules.push(...toRules(conditions));
       }
@@ -411,9 +441,30 @@ function blockBuilder(
     denyEach(actions, ...conditions) {
       batched = true;
       current = undefined;
+      emitted = undefined;
       for (const action of actions) {
         draftFor(action).denyRules.push(...toRules(conditions));
       }
+      return chain;
+    },
+    id(id) {
+      // The rules `emitted` holds are the same objects the draft holds, so
+      // naming one here names it in the document. `attachTo` raises the two
+      // messages `fields` raises, for the same two positions in the chain.
+      const draft = attachTo('id');
+      // `current` and `emitted` move together: a chain that reached here ran an
+      // allow() or a deny(), which set both. TypeScript sees them separately.
+      const last = emitted ?? { verb: 'allow' as const, rules: [] };
+      const [only] = last.rules;
+      if (only === undefined || last.rules.length !== 1) {
+        throw new AmbiguousRuleIdError(
+          `${kind}.${draft.action}`,
+          last.verb,
+          id,
+          last.rules.length,
+        );
+      }
+      only.id = id;
       return chain;
     },
     fields(rules) {

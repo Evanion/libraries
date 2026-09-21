@@ -4,7 +4,12 @@ import { policy } from './authoring.js';
 import { hydratePolicy } from './hydrate-policy.js';
 import { parseMatrix } from './parse-matrix.js';
 import { serialize } from './serialize.js';
-import { AclConfigError, UnknownFieldError } from './errors.js';
+import {
+  AclConfigError,
+  AmbiguousRuleIdError,
+  DuplicateRuleIdError,
+  UnknownFieldError,
+} from './errors.js';
 import type { Action } from './authoring.js';
 import type { Matrix, MatrixSchema } from './types.js';
 
@@ -292,6 +297,94 @@ describe('authoring', () => {
     expect(() =>
       policy<Subject, Objects, Verbs>().for('comment', (p) => p.fields(['*'])),
     ).toThrow(AclConfigError);
+  });
+
+  it('id names the rule the previous allow wrote', () => {
+    const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
+      p
+        .allow('update', p.eq('object.authorId', 'subject.id'))
+        .id('author-edits-own')
+        .allow('publish', p.contains('subject.roles', 'editor'))
+        .id('editor-publishes'),
+    );
+    expect(access.matrix.permissions[0]!.rules![0]!.id).toBe(
+      'author-edits-own',
+    );
+    expect(access.matrix.permissions[1]!.rules![0]!.id).toBe(
+      'editor-publishes',
+    );
+  });
+
+  it('id names a deny rule, and a decision reports it', () => {
+    const access = policy<Subject, Objects, Verbs>()
+      .for('comment', (p) =>
+        p
+          .allow('update', p.always)
+          .deny('update', p.eq('object.status', 'published'))
+          .id('published-is-final'),
+      )
+      .build();
+    expect(
+      access.can(subject, 'comment', 'update', {
+        authorId: 's1',
+        status: 'published',
+      }).rule,
+    ).toBe('published-is-final');
+  });
+
+  it('id refuses an allow that flattened to several rules', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) =>
+        p
+          .allow(
+            'update',
+            p.or(
+              p.eq('object.authorId', 'subject.id'),
+              p.contains('subject.roles', 'editor'),
+            ),
+          )
+          .id('two-branches'),
+      ),
+    ).toThrow(AmbiguousRuleIdError);
+  });
+
+  it('id before any action, and after a batch, is refused', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) => p.id('early')),
+    ).toThrow(AclConfigError);
+    expect(() =>
+      policy<Subject, Objects, Verbs>().for('comment', (p) =>
+        p.allowEach(['read', 'update'], p.always).id('batched'),
+      ),
+    ).toThrow(AclConfigError);
+  });
+
+  it('two rules of one permission may not share an id', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>()
+        .for('comment', (p) =>
+          p
+            .allow('update', p.eq('object.authorId', 'subject.id'))
+            .id('owner')
+            .allow('update', p.contains('subject.roles', 'editor'))
+            .id('owner'),
+        )
+        .build(),
+    ).toThrow(DuplicateRuleIdError);
+  });
+
+  it('an allow rule and a deny rule may not share an id either', () => {
+    expect(() =>
+      policy<Subject, Objects, Verbs>()
+        .for('comment', (p) =>
+          p
+            .allow('update', p.always)
+            .id('probation')
+            .deny('update', p.eq('object.status', 'published'))
+            .id('probation'),
+        )
+        .build(),
+    ).toThrow(DuplicateRuleIdError);
   });
 
   it('allowEach writes one ordinary permission per action', () => {

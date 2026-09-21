@@ -509,6 +509,83 @@ so every query checks its key and its object against what the blocks declared.
 `.matrix` is the document on its own, for a caller that wants to overlay or ship
 it. `JSON.stringify(access.matrix)` emits what a foreign backend would produce.
 
+### Naming a rule
+
+`.id(name)` names the rule the previous `allow()` or `deny()` wrote. A decision
+reports that name as `rule`, and `diffMatrix` reads it as the rule's identity
+across an edit. A rule that states no name gets one derived from its conditions
+and its side, and a release that changes how a condition is represented changes
+every derived id, so an audit row holding `allow-b72dadff` stops matching its
+rule and nothing reports that it has.
+
+<!-- #region rule-ids -->
+
+```ts @import.meta.vitest
+import { expect } from 'vitest';
+import { policy } from '@evanion/acl';
+import { AmbiguousRuleIdError, DuplicateRuleIdError } from '@evanion/acl';
+
+type Subject = { id: string; roles: string[] };
+type Listing = { sellerId: string; status: string };
+type Objects = { listing: Listing };
+
+const access = policy<Subject, Objects>()
+  .for('listing', (p) =>
+    p
+      .allow('update', p.eq('object.sellerId', 'subject.id'))
+      .id('seller-edits-own')
+      .deny('update', p.eq('object.status', 'withdrawn'))
+      .id('withdrawn-is-final'),
+  )
+  .build();
+
+const seller = { id: 's1', roles: [] };
+const listing = { sellerId: 's1', status: 'withdrawn' };
+access.can(seller, 'listing', 'update', listing).rule; // -> 'withdrawn-is-final'
+
+// An or() inside one allow() emits one rule per branch, and a name cannot
+// name two of them.
+expect(() =>
+  policy<Subject, Objects>().for('listing', (p) =>
+    p
+      .allow(
+        'update',
+        p.or(
+          p.eq('object.sellerId', 'subject.id'),
+          p.contains('subject.roles', 'bookseller'),
+        ),
+      )
+      .id('two-branches'),
+  ),
+).toThrow(AmbiguousRuleIdError);
+
+// One name, one rule, across both sides of the permission.
+expect(() =>
+  policy<Subject, Objects>()
+    .for('listing', (p) =>
+      p
+        .allow('update', p.eq('object.sellerId', 'subject.id'))
+        .id('seller-edits-own')
+        .deny('update', p.eq('object.status', 'withdrawn'))
+        .id('seller-edits-own'),
+    )
+    .build(),
+).toThrow(DuplicateRuleIdError);
+```
+
+<!-- #endregion rule-ids -->
+
+`AmbiguousRuleIdError` names how many rules the call wrote, and an author who
+wants a name per branch writes one `allow()` per branch. `.id()` refuses before
+any `allow()` or `deny()`, and after `allowEach()` or `denyEach()`, where
+`fields()` and `visibility()` refuse for the same reason.
+
+`DuplicateRuleIdError` refuses a second rule carrying a name already taken in
+that permission. The allow side and the deny side share one name space: a
+derived id carries the side it sits on, and a decision reports `rule` with no
+side next to it, so one name on both sides leaves a support answer pointing at
+two rules that decide opposite ways.
+
 ### The document a typed policy emits
 
 `version` and `schema` are document fields, so `policy()` takes them and puts

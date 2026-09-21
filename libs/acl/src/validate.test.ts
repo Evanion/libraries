@@ -5,6 +5,7 @@ import {
   BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
+  DuplicateRuleIdError,
   InvalidConditionError,
   InvalidMatrixError,
   InvalidPermissionError,
@@ -145,6 +146,58 @@ describe('validateMatrix', () => {
 
   it('accepts an empty when as the unconditional form', () => {
     expect(() => validateMatrix(withWhen([]))).not.toThrow();
+  });
+
+  it('rejects two rules of one side carrying the same id', () => {
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [
+            { id: 'owner', when: [] },
+            { id: 'owner', when: [] },
+          ],
+        },
+      ],
+    };
+    expect(() => validateMatrix(matrix)).toThrow(DuplicateRuleIdError);
+  });
+
+  it('rejects an allow rule and a deny rule sharing an id', () => {
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [{ id: 'probation', when: [] }],
+          denyRules: [{ id: 'probation', when: [] }],
+        },
+      ],
+    };
+    expect(() => validateMatrix(matrix)).toThrow(DuplicateRuleIdError);
+  });
+
+  it('accepts one id per permission across two permissions', () => {
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'comment.read',
+          object: 'comment',
+          action: 'read',
+          rules: [{ id: 'owner', when: [] }],
+        },
+        {
+          key: 'comment.update',
+          object: 'comment',
+          action: 'update',
+          rules: [{ id: 'owner', when: [] }],
+        },
+      ],
+    };
+    expect(() => validateMatrix(matrix)).not.toThrow();
   });
 
   it('rejects a condition that is not an object', () => {

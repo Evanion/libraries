@@ -786,18 +786,20 @@ interface Actions<
     actions: readonly A[],
     ...conditions: Cond[]
   ): Actions<Sub, Obj, Act | A, Vocab>;
+  id(id: string): Actions<Sub, Obj, Act, Vocab>;
   fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
   visibility(visibility: Visibility): Actions<Sub, Obj, Act, Vocab>;
 }
 ```
 
-| Member or type          | What it does                                                            |
-| ----------------------- | ----------------------------------------------------------------------- |
-| `allow`, `deny`         | add one rule to the action named                                        |
-| `allowEach`, `denyEach` | write one rule across several actions, one ordinary permission each     |
-| `fields`, `visibility`  | mark the action last declared, and raise `AclConfigError` after a batch |
-| `Vocab`                 | what this kind may declare                                              |
-| `Act`                   | what this chain declared; only `Act` reaches the permission keys        |
+| Member or type          | What it does                                                                |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `allow`, `deny`         | add one rule to the action named                                            |
+| `allowEach`, `denyEach` | write one rule across several actions, one ordinary permission each         |
+| `id`                    | name the rule the previous `allow` or `deny` wrote, for a decision's `rule` |
+| `fields`, `visibility`  | mark the action last declared, and raise `AclConfigError` after a batch     |
+| `Vocab`                 | what this kind may declare                                                  |
+| `Act`                   | what this chain declared; only `Act` reaches the permission keys            |
 
 ## `Action`
 
@@ -925,6 +927,8 @@ step.
 | `InvalidConditionError`           | a condition's shape, namespace, path depth or operator pairing is unusable                        |
 | `KeyMismatchError`                | `key` is not exactly `` `${object}.${action}` ``                                                  |
 | `DuplicatePermissionError`        | two permissions share a key                                                                       |
+| `DuplicateRuleIdError`            | two rules of one permission carry the same `id`, counting both sides                              |
+| `AmbiguousRuleIdError`            | `p.id()` follows an `allow` or `deny` that flattened to other than one rule                       |
 | `UnknownFieldError`               | a condition names a field the schema does not declare                                             |
 | `FieldTypeMismatchError`          | `contains` runs against a non-array, or a literal is of the wrong type                            |
 | `BangInAllowListError`            | a `!name` entry sits inside an allow-list                                                         |
@@ -998,6 +1002,35 @@ class DuplicatePermissionError extends AclConfigError {
   readonly key: string;
 }
 ```
+
+## `DuplicateRuleIdError`
+
+```ts signature
+class DuplicateRuleIdError extends AclConfigError {
+  readonly key: string;
+  readonly id: string;
+}
+```
+
+Two rules of one permission carrying the same `id`. `diffMatrix` indexes each
+side by rule id, so the second rule under a taken id replaces the first there
+and a branch added beside it is reported as no change. The allow side and the
+deny side of one permission share one id space. [Naming a
+rule](/acl/authoring#naming-a-rule-with-pid) has the example.
+
+## `AmbiguousRuleIdError`
+
+```ts signature
+class AmbiguousRuleIdError extends AclConfigError {
+  readonly key: string;
+  readonly id: string;
+  readonly rules: number;
+}
+```
+
+A `p.id()` following an `allow` or a `deny` that flattened to other than one
+rule. `rules` is how many that call wrote, and an `or()` inside it wrote one per
+branch.
 
 ## `UnknownFieldError`
 
