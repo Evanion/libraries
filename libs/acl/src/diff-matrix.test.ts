@@ -268,9 +268,10 @@ describe('diffMatrix', () => {
     });
 
     it('is the finding an admin who supplied no object needs', () => {
-      // The measured case: no access widened and every caller deciding without
-      // the row broke. The diff has to say so, because neither the granted nor
-      // the withdrawn list mentions this edit.
+      // The withdrawn finding for this edit says locked rows lose the access.
+      // It is the `reads-object` finding that reaches the caller deciding
+      // without a row at all, which this admin is, and which the narrowing on
+      // its own gives a reviewer no reason to think about.
       const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
       const after = matrix([
         permission('doc.read', [{ when: [isAdmin] }], [{ when: [locked] }]),
@@ -288,9 +289,19 @@ describe('diffMatrix', () => {
       expect(now.allowed).toBe(false);
       expect(now.reason).toBe('unevaluable');
       expect(now.missing).toEqual(['object.locked']);
-      expect(
-        of(diffMatrix(before, after).findings, 'reads-object'),
-      ).toHaveLength(1);
+
+      const findings = diffMatrix(before, after).findings;
+
+      // The narrowing is reported, and on its own it describes a locked row.
+      expect(of(findings, 'withdrawn')[0]?.cause).toBe('deny-branch-added');
+      expect(of(findings, 'withdrawn')[0]?.when).toEqual([locked]);
+
+      // This admin supplied no row at all and is refused whatever the row
+      // holds, which only the path finding reaches.
+      expect(of(findings, 'reads-object')).toHaveLength(1);
+      expect(of(findings, 'reads-object')[0]?.paths.after).toEqual([
+        'object.locked',
+      ]);
     });
 
     it('reports a changed path even when the permission read the object before', () => {
