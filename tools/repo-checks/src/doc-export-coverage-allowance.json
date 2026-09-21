@@ -126,11 +126,7 @@
       "LuhnOptions",
       "ValidateResult"
     ],
-    "unexercised": [
-      "EmptyInputError",
-      "InvalidDictionaryError",
-      "LuhnError"
-    ]
+    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"]
   },
   "@evanion/nestjs-correlation-id": {
     "undocumented": [
@@ -218,11 +214,7 @@
       "ValidateFailureReason",
       "ValidateResult"
     ],
-    "unexercised": [
-      "InvalidAlphabetError",
-      "InvalidShapeError",
-      "TokenError"
-    ]
+    "unexercised": ["InvalidAlphabetError", "InvalidShapeError", "TokenError"]
   },
   "@evanion/urn": {
     "undocumented": [
@@ -235,15 +227,9 @@
       "decodeNss",
       "encodeNss"
     ],
-    "unexercised": [
-      "InvalidError",
-      "ValidationError"
-    ]
+    "unexercised": ["InvalidError", "ValidationError"]
   },
   "@evanion/widget": {
-    "unexercised": [
-      "resetWarnings",
-      "warnOnce"
-    ]
+    "unexercised": ["resetWarnings", "warnOnce"]
   }
 }
