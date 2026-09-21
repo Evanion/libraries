@@ -1,0 +1,218 @@
+{
+  "@evanion/acl": {
+    "unexercised": [
+      "AclConfigError",
+      "ActionNotAllowedError",
+      "BangInAllowListError",
+      "DenyWithoutBaselineError",
+      "DuplicatePermissionError",
+      "InvalidConditionError",
+      "InvalidFreshnessError",
+      "InvalidMatrixError",
+      "InvalidPermissionError",
+      "InvalidRuleError",
+      "InvalidSchemaError",
+      "KeyMismatchError",
+      "MissingFreshnessBudgetError",
+      "MissingVetoSchemaError",
+      "TargetsTransitionsConflictError",
+      "UnknownFieldError",
+      "UnknownObjectKeyError",
+      "UnknownPermissionError",
+      "UnpublishedVetoableError",
+      "UnvetoablePermissionError"
+    ]
+  },
+  "@evanion/astro-widget": {
+    "undocumented": [
+      "AnyWidgetItem",
+      "ERROR_MESSAGES",
+      "KnownWidgetTypes",
+      "VALIDATION_MESSAGES",
+      "WidgetMeta",
+      "WidgetProblem",
+      "WidgetRegistry"
+    ]
+  },
+  "@evanion/feature": {
+    "undocumented": [
+      "AttributeCondition",
+      "Cause",
+      "Condition",
+      "DEFAULT_ROLLOUT_FIELD",
+      "DayOfWeekCondition",
+      "Decision",
+      "Decisions",
+      "DuplicateFeatureError",
+      "EvaluationContext",
+      "FeatureConfigError",
+      "FeatureCycleError",
+      "FeatureDefinition",
+      "FeatureKey",
+      "FeatureProviderProps",
+      "Instant",
+      "Plan",
+      "PlanEntry",
+      "Reason",
+      "RolloutSpec",
+      "Rule",
+      "RuleOutcome",
+      "ToggleResult",
+      "UnknownDependencyError",
+      "Weekday",
+      "WindowCondition",
+      "bucketOf",
+      "evaluateCondition",
+      "inRollout",
+      "murmur3",
+      "useFeature",
+      "useFeatureEnabled",
+      "useFeatures"
+    ],
+    "unexercised": [
+      "DuplicateFeatureError",
+      "FeatureConfigError",
+      "FeatureCycleError",
+      "FeatureProvider",
+      "UnknownDependencyError",
+      "evaluateCondition",
+      "murmur3",
+      "useFeature",
+      "useFeatureEnabled",
+      "useFeatures"
+    ]
+  },
+  "@evanion/luhn": {
+    "undocumented": [
+      "ALTERNATING_CASE_DICTIONARY",
+      "DEFAULT_DICTIONARY",
+      "EmptyInputError",
+      "GenerateResult",
+      "InvalidDictionaryError",
+      "InvalidDictionaryReason",
+      "Luhn",
+      "LuhnError",
+      "LuhnOptions",
+      "ValidateResult"
+    ],
+    "unexercised": [
+      "EmptyInputError",
+      "InvalidDictionaryError",
+      "LuhnError"
+    ]
+  },
+  "@evanion/nestjs-correlation-id": {
+    "undocumented": [
+      "CORRELATION_AXIOS_INTERCEPTOR",
+      "CORRELATION_CONFIG_TOKEN",
+      "CORRELATION_ID_HEADER",
+      "DEFAULT_CORRELATION_ID_VALIDATOR"
+    ],
+    "unexercised": [
+      "CorrelationIdMiddleware",
+      "CorrelationModule",
+      "CorrelationService",
+      "DEFAULT_CORRELATION_ID_VALIDATOR",
+      "withCorrelation"
+    ]
+  },
+  "@evanion/react-acl": {
+    "undocumented": [
+      "Access",
+      "ActionOf",
+      "AnyObjects",
+      "Condition",
+      "Decision",
+      "EvaluationContext",
+      "FieldDecision",
+      "FieldReason",
+      "FieldState",
+      "FieldType",
+      "Instant",
+      "Matrix",
+      "MatrixSchema",
+      "ObjectSchema",
+      "Permission",
+      "Reason",
+      "Subject"
+    ]
+  },
+  "@evanion/react-widget": {
+    "undocumented": [
+      "AnyWidgetComponent",
+      "AnyWidgetItem",
+      "KnownWidgetTypes",
+      "RenderableWidgetItem",
+      "VALIDATION_MESSAGES",
+      "WidgetChildren",
+      "WidgetDataProps",
+      "WidgetItem",
+      "WidgetItemComponent",
+      "WidgetMeta",
+      "WidgetProblem",
+      "WidgetRegistry",
+      "WidgetSuspenseMode",
+      "WidgetsChrome",
+      "WidgetsConfig",
+      "WidgetsProps",
+      "WidgetsWrapperComponent",
+      "defineWidgets"
+    ],
+    "unexercised": [
+      "DefaultItem",
+      "DefaultWrapper",
+      "defineWidgets",
+      "validateItems"
+    ]
+  },
+  "@evanion/token": {
+    "undocumented": [
+      "CONFUSABLE_CHARACTERS",
+      "DEFAULT_CHUNK_SIZE",
+      "DEFAULT_DICTIONARY",
+      "DEFAULT_LENGTH",
+      "DEFAULT_SEPARATOR",
+      "GenerateOptions",
+      "GenerateResult",
+      "InvalidAlphabetError",
+      "InvalidDictionaryReason",
+      "InvalidShapeError",
+      "InvalidShapeReason",
+      "InvalidToken",
+      "Token",
+      "TokenError",
+      "TokenOptions",
+      "TokenShape",
+      "ValidToken",
+      "ValidateFailureReason",
+      "ValidateResult"
+    ],
+    "unexercised": [
+      "InvalidAlphabetError",
+      "InvalidShapeError",
+      "TokenError"
+    ]
+  },
+  "@evanion/urn": {
+    "undocumented": [
+      "IFullURN",
+      "InvalidError",
+      "ParsedURN",
+      "URNComponents",
+      "URNParts",
+      "ValidationError",
+      "decodeNss",
+      "encodeNss"
+    ],
+    "unexercised": [
+      "InvalidError",
+      "ValidationError"
+    ]
+  },
+  "@evanion/widget": {
+    "unexercised": [
+      "resetWarnings",
+      "warnOnce"
+    ]
+  }
+}

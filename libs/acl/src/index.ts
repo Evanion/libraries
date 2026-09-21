@@ -33,6 +33,10 @@ export type {
 export { applyDenyOverlay } from './deny-overlay.js';
 export type { DenyOverlay, DenyOverlayOptions } from './deny-overlay.js';
 export { parseMatrix } from './parse-matrix.js';
+/**
+ * @internal Published so a test can name the rule it expects rather than
+ * writing a derived hash into an assertion. The id format is not API.
+ */
 export { ruleId } from './rule-id.js';
 export { diffMatrix, findingsOf } from './diff-matrix.js';
 export type {

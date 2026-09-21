@@ -2194,7 +2194,38 @@ today on `acl` most of all. It is a ratchet like G3 and its limit is honest: a
 deny list can prove an example left the old domain and can never prove it
 arrived in the new one. Whether an example is set in the shop is a reading.
 
-G1, G2, G4, G5, G7 and G8 are written. G1, G5 and G7 pass on the current
+**G10 — every published name is documented, and every callable one has an
+example that runs.** G5 holds a fence's symbols to the export list; nothing held
+the export list to the pages. `diffMatrix` shipped exported, built, tested and
+undocumented, and every target passed. G10 reads each package's `exports` map
+under the `@evanion/source` condition, takes the exported names of every entry
+that resolves to TypeScript, and asks two things of each: that some `##` heading
+spells the name, which is what decision 8 already fixes an API reference's
+headings as; and, for a name a caller can call or construct, that a `twoslash`
+or `file=` fence names it. Callability is read off the type checker's call and
+construct signatures, so a `const` holding an arrow function is held to the same
+bar as a `function`, and a type or a plain value needs the heading and nothing
+more.
+
+The opt-out is `@internal` on the export's own docblock, which is the standard
+TSDoc spelling and was already in the repository once. The tag is read off the
+declaration and its two enclosing nodes, because `export const x` carries it on
+the statement and `export { x } from './x.js'` carries it on the export
+declaration. The docblock holding the tag has to carry prose, so an author
+states why the name is published and is not public API; the prose is read from
+that block and not from the symbol, because a re-export whose target is well
+documented has still said nothing about why it is exempt. Keeping the reason
+beside the export is what a file of exemptions here cannot do: a rename carries
+it, a deletion takes it, and the person deciding is looking at the code.
+
+A debt and a decision are different, so they are stored differently. What is
+merely not written yet goes in `doc-export-coverage-allowance.json`, a ratchet
+like G3 and G9, and a name may not be in both places. G10 lands recording 115
+undocumented names and 49 unexercised ones across ten packages. Only
+`@evanion/compose` starts clean. The largest single group is error classes,
+which are exported to be caught and are named in no example that runs.
+
+G1, G2, G4, G5, G7, G8 and G10 are written. G1, G5 and G7 pass on the current
 content: G5 resolves every package import in a fence, G7 every internal link.
 G8, G2 and G4 land as ratchets — G8 recording the four pages over budget, G2 the
 five sections with no getting-started page and `compose`'s unfilled
