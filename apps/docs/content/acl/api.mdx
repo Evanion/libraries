@@ -3,8 +3,11 @@
 <WorkshopNotice slug="acl" />
 
 `@evanion/acl` exports the evaluator, the typed builder, the document types and
-the construction errors, one heading each below. Node 20 or newer, ESM only. The
-React provider and hooks are [`@evanion/react-acl`](/react-acl/api).
+the construction errors, one heading each below. Node 20 or newer, ESM only.
+`@evanion/acl/testing` is a second entry point holding the assertions a
+consumer of a published contract writes, and its exports are headed the same
+way from [`contractDrift`](#contractdrift) down. The React provider and hooks
+are [`@evanion/react-acl`](/react-acl/api).
 
 ## `hydratePolicy`
 
@@ -907,6 +910,274 @@ type Valid<S extends string, Sub, Obj> = S extends
   ? S
   : `unknown path '${S}' on this resource`;
 ```
+
+## `@evanion/acl/testing`
+
+The test-kit entry point. `@evanion/acl` re-exports none of it, so an
+application importing the engine pulls none of it into its bundle, and nothing
+here imports a test framework. See [Testing a contract I
+consume](/acl/testing).
+
+```ts twoslash
+import {
+  assertAllowed,
+  assertNoContractDrift,
+  fixtureClock,
+} from '@evanion/acl/testing';
+```
+
+## `contractDrift`
+
+`contractDrift` replays a consumer's own decisions against two versions of one
+contract and reports what moved.
+
+```ts signature
+function contractDrift<D = never>(
+  options: ContractDriftOptions<D>,
+): ContractDriftReport<D>;
+```
+
+Both documents are adopted with `parseMatrix`, which fails closed, so a removed
+key answers `unknown-action` and lands in `changed` rather than throwing
+partway through the run.
+
+## `assertNoContractDrift`
+
+`assertNoContractDrift` throws a `ContractDriftError` when the producer removed
+a published key or a replayed decision changed, and returns the report
+otherwise.
+
+```ts signature
+function assertNoContractDrift<D = never>(
+  options: ContractDriftOptions<D>,
+): ContractDriftReport<D>;
+```
+
+An added key passes, so a producer that only widened its surface leaves the
+consumer's build green.
+
+## `describeContractDrift`
+
+`describeContractDrift` renders a report as a reader sees it, removals first.
+
+```ts signature
+function describeContractDrift(report: ContractDriftReport<unknown>): string;
+```
+
+A removal is spelled as a broken contract and a changed decision is spelled as
+a change, because one report that spelled them alike would leave the consumer
+to work out which of the two it is looking at.
+
+## `ContractDriftOptions`
+
+```ts signature
+interface ContractDriftOptions<D = never> {
+  readonly pinned: Matrix;
+  readonly fetched: Matrix;
+  readonly cases?: readonly DecisionCase[];
+  readonly now?: Instant; // settled once for every case without its own
+  readonly diff?: MatrixDiffer<D>;
+}
+```
+
+`pinned` is the contract this consumer compiled against and `fetched` is the
+one the producer publishes now. Settling `now` once compares a time-windowed
+permission at one epoch rather than at two readings of the wall clock.
+
+## `ContractDriftReport`
+
+```ts signature
+interface ContractDriftReport<D = never> {
+  readonly pinnedVersion: string | number | undefined;
+  readonly fetchedVersion: string | number | undefined;
+  readonly removed: readonly string[];
+  readonly added: readonly string[];
+  readonly changed: readonly DecisionChange[];
+  readonly diff: D | undefined;
+}
+```
+
+`removed` holds the permission keys the pinned contract carries and the fetched
+one does not, which is a producer breaking a published contract. `added` is not
+a break. `diff` is whatever `options.diff` returned.
+
+## `DecisionCase`
+
+```ts signature
+interface DecisionCase {
+  readonly name?: string; // defaults to `${key}.${action}`
+  readonly subject: Subject;
+  readonly key: string;
+  readonly action: string;
+  readonly object?: Record<string, unknown>;
+  readonly now?: Instant;
+}
+```
+
+The three positional arguments of `can` in a bag, plus a name for the report.
+`key` is the object kind and `action` the action, so the permission key the
+document carries is `` `${key}.${action}` ``.
+
+## `DecisionChange`
+
+```ts signature
+interface DecisionChange {
+  readonly name: string;
+  readonly case: DecisionCase;
+  readonly pinned: Decision;
+  readonly fetched: Decision;
+}
+```
+
+Two decisions are the same when `key`, `allowed`, `reason`, `rule` and every
+element of `missing` match, so a refusal that started naming a second
+unreadable path arrives as a change.
+
+## `MatrixDiffer`
+
+```ts signature
+type MatrixDiffer<D> = (pinned: Matrix, fetched: Matrix) => D;
+```
+
+The seam [`diffMatrix`](#diffmatrix) drops into. `contractDrift` reads nothing
+out of the result and carries it onto `report.diff`, so the diff's own shape
+stays the diff's business and arrives here as `D`.
+
+## `fixtureClock`
+
+`fixtureClock` computes a document's freshness budget the way the engine
+computes it and names the two instants that bracket it.
+
+```ts signature
+function fixtureClock(
+  matrix: Matrix,
+  options?: FixtureClockOptions,
+): FixtureClock;
+```
+
+Every argument is validated as `hydratePolicy` validates it, so a document
+stating no `maxStale` raises `MissingFreshnessBudgetError` here rather than at
+the construction the test was about to write.
+
+## `FixtureClockOptions`
+
+```ts signature
+interface FixtureClockOptions {
+  fetchedAt?: Instant; // defaults to the wall clock, settled once
+  maxStale?: number; // a local ceiling, `min`-ed with the document's
+}
+```
+
+## `FixtureClock`
+
+```ts signature
+interface FixtureClock {
+  readonly fetchedAt: number;
+  readonly budget: number; // min(matrix.maxStale, options.maxStale)
+  readonly expiresAt: number; // fetchedAt + budget
+  readonly fresh: number; // the last instant every key still decides on
+  readonly stale: number; // the first instant that answers stale-contract
+  readonly options: AccessOptions;
+  at(ms: number): number;
+}
+```
+
+`options` carries the two numbers the instants were derived from, so the holder
+and the test cannot disagree about the budget.
+
+## `assertAllowed`
+
+`assertAllowed` returns the decision when it allows, and throws naming why it
+did not.
+
+```ts signature
+function assertAllowed(decision: Decision, context?: string): Decision;
+```
+
+The decision is returned so a caller chains on it, and `context` is a label
+prefixed onto the message.
+
+## `assertRefused`
+
+`assertRefused` returns the decision when it refuses, and throws naming what it
+answered.
+
+```ts signature
+function assertRefused(
+  decision: Decision,
+  reason?: Reason,
+  context?: string,
+): Decision;
+```
+
+Naming `reason` asserts which refusal arrived, and a UI treats three of them
+differently: `unevaluable` asks for a refetch of the row, `stale-contract` for
+a refetch of the document, and `denied` for neither.
+
+## `assertFieldState`
+
+`assertFieldState` returns the field decision when the named field is in
+`state`, and throws naming the whole decision when it is not.
+
+```ts signature
+function assertFieldState(
+  decision: FieldDecision,
+  field: string,
+  state: FieldState,
+  context?: string,
+): FieldDecision;
+```
+
+A field the decision carries no entry for is reported apart, because the maps
+are keyed by the names the document declares and an absent name means the test
+named a field the permission never had.
+
+## `explainDecision`
+
+`explainDecision` renders one line naming everything a `Decision` carries.
+
+```ts signature
+function explainDecision(decision: Decision): string;
+```
+
+A failed `expect(decision.allowed).toBe(true)` reports `true !== false` and
+names neither the key, the reason, the rule that decided, nor the paths a
+refusal is waiting on.
+
+## `explainFieldDecision`
+
+`explainFieldDecision` renders the action decision a field decision hangs off,
+then every field beside its state and its reason.
+
+```ts signature
+function explainFieldDecision(decision: FieldDecision): string;
+```
+
+`FieldDecision.allowed` is true only when the action is allowed and every field
+is, so a false one has at least two places to look and the maps are both of
+them.
+
+## `AclAssertionError`
+
+```ts signature
+class AclAssertionError extends Error {}
+```
+
+The base class every refusal in `@evanion/acl/testing` raises. A plain `Error`
+subclass and no matcher, so vitest, `node:test` and jest each report a throw
+from a test body the same way.
+
+## `ContractDriftError`
+
+```ts signature
+class ContractDriftError extends AclAssertionError {
+  readonly report: ContractDriftReport<unknown>;
+}
+```
+
+Raised by `assertNoContractDrift` for a removed key or a changed decision, with
+the whole report attached and `describeContractDrift` of that report as the
+message.
 
 ## `AclConfigError`
 

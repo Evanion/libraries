@@ -1,0 +1,175 @@
+# Testing a contract I consume
+
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    The examples on this page are regions of `libs/acl/README.md` and run under
+    `nx test @evanion/acl`.
+  </Text>
+</WorkshopNotice>
+
+<PageSheet
+  difficulty={4}
+  read={8}
+  hands={20}
+  requires={[
+    ['A policy from another service', '/acl/adopting'],
+    ['What did this change do to access?', '/acl/changes'],
+  ]}
+  unlocks={[
+    ['Why was this refused?', '/acl/refusals'],
+    ['Caveats & Pitfalls', '/acl/pitfalls'],
+  ]}
+/>
+
+**The concept.** `@evanion/acl/testing` is a secondary entry point holding the
+assertions a consumer writes against a producer's published contract.
+**What you get.** A report of what moved between the contract version you
+pinned and the one CI fetched, the two instants that bracket a document's
+freshness budget, and failure messages that name the key, the reason, the rule
+and the missing paths.
+**Why you want it.** A consumer that writes a fixture matrix to stand in for
+the contract keeps a second copy of somebody else's rules, which is the failure
+a published contract exists to remove.
+**How the library gets you there.** `contractDrift` adopts both documents with
+`parseMatrix` and replays your own questions against each of them.
+
+## Which direction @evanion/acl/testing asserts in
+
+`@evanion/acl/testing` asserts a consumer's decisions against the producer's
+document, pinned at one version and fetched at the next. The producer owns the
+rules and publishes them; the consumer holds them and asks questions of them.
+Write those rules a second time in a test file and the copy is right until the
+producer edits one, at which point the producer goes on refusing correctly and
+the consumer's suite goes on passing.
+
+A test file that calls `can` and reads the decision needs no library at all.
+`hydratePolicy` over a 200-permission document takes 2.7 ms, so a suite that
+constructs a policy in every test spends nothing worth optimising.
+`@evanion/acl/testing` adds no faster construction path and no shorter syntax
+for authoring a document, because a second authoring surface produces test
+documents that differ from production documents in ways nobody reviews.
+
+The entry point imports no test framework. Every helper returns a value or
+throws a plain `Error`, which vitest, `node:test` and jest each report the same
+way. `@evanion/acl` does not re-export any of it, so an application importing
+the engine pulls none of this into its bundle.
+
+```mermaid caption="The direction the assertion runs. The orders service publishes its contract, the storefront pins orders@7 beside its test file, and CI fetches orders@8 on every run. contractDrift adopts both documents with parseMatrix and answers the storefront's own DecisionCase list against each, so the storefront finds out about a rule change in its own pipeline."
+flowchart LR
+  P["orders publishes<br>its contract"] --> A["orders@7,<br>pinned in the repo"]
+  P --> B["orders@8,<br>fetched in CI"]
+  A --> D["contractDrift"]:::accent
+  B --> D
+  C["the storefront's<br>DecisionCase list"] --> D
+  D --> R["removed keys,<br>added keys,<br>changed decisions"]
+```
+
+## contractDrift replays the decisions an application renders
+
+`contractDrift({ pinned, fetched, cases })` adopts two versions of one contract
+and answers every case against both. A `DecisionCase` holds the three
+positional arguments of `can` in a bag (`subject`, `key` and `action`, plus an
+optional `object`), a `name` the report uses, and a `now` that overrides the
+instant settled for the whole run. A `DecisionChange` carries the case, its
+name, and the two decisions that disagreed.
+
+```ts twoslash file=libs/acl/README.md region=contract-drift
+
+```
+
+`ContractDriftReport` carries `pinnedVersion` and `fetchedVersion` off the two
+envelopes, `removed` and `added` over the permission keys, `changed` as a
+`DecisionChange` list, and `diff`. A key in `removed` is a producer breaking a
+published contract, and it is the finding that is never deliberate on this side
+of the boundary. A decision in `changed` may be exactly what the producer
+intended, and the consumer decides whether its screens still read correctly.
+
+Both documents are adopted with `parseMatrix`, which fails closed, so a removed
+key answers `unknown-action` and arrives in `changed`. Nothing throws partway
+through the run. Neither adoption reports a `fetchedAt`, so no case
+answers `stale-contract` for a reason that has nothing to do with the two
+versions.
+
+## assertNoContractDrift turns drift into a failing build
+
+`assertNoContractDrift(options)` runs `contractDrift` and throws a
+`ContractDriftError` when the producer removed a published key or a replayed
+decision changed. The error carries the whole report on `.report`, and its
+message is `describeContractDrift` of that report, which prints removals first
+and spells them as a broken contract. An added key passes, so a producer that
+widened its surface leaves the consumer's build green.
+
+```ts twoslash file=libs/acl/README.md region=drift-assert
+
+```
+
+`ContractDriftError` extends `AclAssertionError`, the base class every refusal
+in this entry point raises. Both are plain `Error` subclasses carrying no
+matcher, so a `try`/`catch` around the call, or a framework's own
+`toThrow(ContractDriftError)`, reads the same failure.
+
+## diffMatrix drops into the diff seam of contractDrift
+
+`MatrixDiffer<D>` is the type of `options.diff`, a `(pinned, fetched) => D`.
+`contractDrift` reads nothing out of the result and carries it onto
+`report.diff`, so passing [`diffMatrix`](/acl/changes) types `report.diff` as a
+`MatrixDiff` and passing nothing leaves it `undefined`. The replayed cases say
+what this application's own screens do; the diff says what moved in the
+document behind them.
+
+```ts twoslash file=libs/acl/README.md region=drift-seam
+
+```
+
+`libs/acl/src/testing/drift-diff.test.ts` holds the two halves together. The
+seam takes any differ, so a change to `diffMatrix`'s signature would pass every
+other test in the package and fail a consumer who wired the two this way.
+
+## fixtureClock reaches stale-contract on purpose
+
+`fixtureClock(matrix, options?)` computes a document's freshness budget the way
+the engine computes it and names the two instants that bracket it. `fresh` is
+the last instant every key still decides on, `stale` the first that answers
+`stale-contract`, and `options` is the `AccessOptions` those two came from, so
+the holder and the test cannot disagree about the budget.
+
+```ts twoslash file=libs/acl/README.md region=fixture-clock
+
+```
+
+`stale-contract` is the refusal a consumer's screens meet in production and
+never in development, because a document authored in-process reports no
+`fetchedAt` and runs under no bound. `FixtureClockOptions` takes `fetchedAt`
+and a local `maxStale`, and `FixtureClock` also carries `budget`, `expiresAt`
+and `at(ms)` for an arbitrary instant. A document stating no `maxStale` raises
+`MissingFreshnessBudgetError` from `fixtureClock` itself.
+
+## assertAllowed and assertRefused name the reason a decision gives
+
+`assertAllowed(decision, context?)` returns the decision when it allows and
+throws naming the key, the reason, the rule and the missing paths.
+`assertRefused(decision, reason?, context?)` is the mirror and asserts which
+refusal arrived, which matters because a UI treats three of them differently:
+`unevaluable` asks for a refetch of the row, `stale-contract` for a refetch of
+the document, and `denied` for neither.
+
+```ts twoslash file=libs/acl/README.md region=consumer-assertions
+
+```
+
+`assertFieldState(decision, field, state, context?)` asserts one field of a
+`canFields` decision, and reports a field the decision carries no entry for
+apart from a field in the wrong state, because an absent name means the test
+named a field the permission never had. `explainDecision` and
+`explainFieldDecision` are the one-line renderings those three throw, exported
+for a message a suite assembles itself.
+
+## Where to go next
+
+- [What did this change do to access?](/acl/changes): the `MatrixDiff` the seam
+  carries, and what a `granted` finding does and does not claim
+- [Why was this refused?](/acl/refusals): what `unevaluable` tells a UI and what
+  `unknown-action` tells a `parseMatrix` holder
+- [Giving my rules to another service](/acl/publishing): the producer's half of
+  the obligation, and the freshness budget `fixtureClock` reads
+- [API reference](/acl/api): every name this entry point exports
