@@ -29,11 +29,13 @@ import {
   lineOfKey,
   objectKinds,
   readJsonObject,
+  rowFor,
   sampleSubject,
   sampleText,
   type Adoption,
   type PermissionReport,
   type Rows,
+  type RowSource,
   type RuleReport,
 } from './explorer';
 import JsonEditor from './JsonEditor';
@@ -368,6 +370,9 @@ export default function ExplorerScreen() {
 
           {kinds.map((kind) => (
             <ObjectBox
+              fill={
+                access === undefined ? { source: 'none' } : rowFor(access, kind)
+              }
               id={`${id}-row-${kind}`}
               key={kind}
               kind={kind}
@@ -381,10 +386,10 @@ export default function ExplorerScreen() {
           {kinds.length > 0 ? (
             <p className="explorer__hint">
               An empty box is no row, and every permission that reads the object
-              answers <code>unevaluable</code>. A row missing a key the rules
-              read answers <code>unevaluable</code> too, naming what is short. A
-              key with an empty value is a value, and a comparison against it
-              fails.
+              answers <code>unevaluable</code>. Fill one in and edit it: a row
+              missing a key the rules read answers <code>unevaluable</code> too,
+              naming what is short, and a key with an empty value is a value, so
+              a comparison against it fails.
             </p>
           ) : null}
         </section>
@@ -616,15 +621,25 @@ function ThemeButton() {
  * kinds, two boxes, and the whole table is current. A document that reads the
  * object on ten kinds shows ten boxes in a pane that already scrolls, which is
  * the cost.
+ *
+ * **The box opens empty and a control fills it.** Reaching the answer a row
+ * produces should not cost a reader a hand-written object matching a schema
+ * they have to read first, and prefilling would take `unevaluable` off the
+ * first screen, which is the one thing here worth arriving at. So the row is
+ * one press away and never already there. What lands is editable text like any
+ * other, so the three answers a row can produce stay reachable by hand.
  */
 function ObjectBox({
   id,
   kind,
   value,
+  fill,
   onChange,
 }: {
   id: string;
   kind: string;
+  /** The row the control would drop in, and where it came from. */
+  fill: { source: RowSource; row?: Record<string, unknown> };
   value: string;
   onChange: (next: string) => void;
 }) {
@@ -635,8 +650,20 @@ function ObjectBox({
       <div className="explorer__pane-head">
         <h2 className="explorer__pane-title">Object</h2>
         <code className="explorer__kind">{kind}</code>
+        <button
+          className="explorer__action"
+          disabled={fill.row === undefined}
+          onClick={() => onChange(JSON.stringify(fill.row, null, 2))}
+          type="button"
+        >
+          Fill in a row
+        </button>
         <span className="explorer__hint">
-          one <code>can</code> call per permission that reads it
+          {fill.source === 'sample'
+            ? `a ${kind} the subject above owns`
+            : fill.source === 'schema'
+              ? 'one empty value per declared field'
+              : `the document declares no fields for ${kind}, so there is nothing to build one from`}
         </span>
       </div>
       <JsonEditor

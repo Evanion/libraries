@@ -241,7 +241,10 @@
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  height: 4.5rem;
+  /* Seven lines: what `Fill in a row` drops in for the sample is five fields
+     between braces, and a box showing three of them is a box the reader has to
+     scroll to read what they just asked for. */
+  height: 7.5rem;
 }
 
 .explorer__editor--grow {

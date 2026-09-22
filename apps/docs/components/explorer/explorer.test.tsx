@@ -8,6 +8,7 @@ import {
   declared,
   decide,
   objectKinds,
+  rowFor,
   readJsonObject,
   sample,
   sampleText,
@@ -474,6 +475,108 @@ describe('the matrix explorer', () => {
 
       expect(row(container, 'listing.read')['asked']).toBe('capabilities');
       expect(row(container, 'order.refund')['asked']).toBe('capabilities');
+    });
+
+    /**
+     * The control that fills a box. It never runs on its own, so the screen
+     * still opens on `unevaluable`, and what it drops in is text the reader
+     * can edit into any of the three states.
+     */
+    it('fills the box with a row the subject owns, on one press', async () => {
+      const { container } = render(<ExplorerScreen />);
+
+      await loadSample();
+      expect(rowBox('listing')).toHaveValue('');
+      expect(row(container, 'listing.update')['reason']).toBe('unevaluable');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Fill in a row' }));
+
+      expect(JSON.parse(rowBox('listing').value)).toEqual({
+        id: 'l_7',
+        sellerId: 'u_31',
+        status: 'live',
+        title: 'Wingspan',
+        price: 59,
+      });
+      expect(row(container, 'listing.update')['reason']).toBe('allow');
+    });
+
+    it('leaves what it filled in editable', async () => {
+      const { container } = render(<ExplorerScreen />);
+
+      await loadSample();
+      fireEvent.click(screen.getByRole('button', { name: 'Fill in a row' }));
+
+      const filled = JSON.parse(rowBox('listing').value);
+      enter('listing', JSON.stringify({ ...filled, status: 'archived' }));
+      expect(row(container, 'listing.update')['reason']).toBe('denied');
+
+      enter('listing', JSON.stringify({ ...filled, sellerId: 'u_99' }));
+      expect(row(container, 'listing.update')['reason']).toBe(
+        'no-rule-matched',
+      );
+    });
+
+    it('builds a row from the schema where no sample row fits', () => {
+      const document = {
+        schema: {
+          objects: {
+            order: {
+              fields: {
+                id: 'string',
+                total: 'number',
+                paid: 'boolean',
+                tags: 'string[]',
+                placedAt: 'instant?',
+              },
+            },
+          },
+        },
+        permissions: [
+          {
+            key: 'order.read',
+            object: 'order',
+            action: 'read',
+            rules: [
+              { when: [{ field: 'object.paid', op: 'eq', value: true }] },
+            ],
+          },
+        ],
+      };
+
+      const adoption = adopt(JSON.stringify(document));
+      if (adoption.state !== 'ready') throw new Error(adoption.state);
+
+      expect(rowFor(adoption.access, 'order')).toEqual({
+        source: 'schema',
+        row: { id: '', total: 0, paid: false, tags: [], placedAt: '' },
+      });
+    });
+
+    it('offers nothing for a kind the schema describes no fields for', async () => {
+      render(<ExplorerScreen />);
+
+      await paste(
+        JSON.stringify({
+          permissions: [
+            {
+              key: 'order.read',
+              object: 'order',
+              action: 'read',
+              rules: [
+                { when: [{ field: 'object.paid', op: 'eq', value: true }] },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        screen.getByRole('button', { name: 'Fill in a row' }),
+      ).toBeDisabled();
+      expect(
+        screen.getByText(/declares no fields for order/),
+      ).toBeInTheDocument();
     });
 
     it('reports a malformed row and decides as though it had none', async () => {
