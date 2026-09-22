@@ -219,8 +219,26 @@ const printer = ts.createPrinter({ removeComments: true });
  * `Keys` fall out without being reasoned about. A declaration naming a type the
  * package does not publish fails `next build`, which is the right direction: a
  * reference entry a reader cannot type out is a reference entry that is wrong.
+ *
+ * **`merges` is what decides whether the entry's own name carries its
+ * docblock.** Twoslash compiles the fence, so it answers about the symbol the
+ * fence declares, and a redeclared symbol has no docblock because the comment
+ * stayed in the source that was printed from. A reader hovering the name gets
+ * a type and nothing else, which is the opposite of what a Twoslash fence is
+ * for. Declaring the same name inside `declare module '<specifier>'` merges
+ * with the published symbol instead of shadowing it, so the hover answers for
+ * the package and carries its documentation.
+ *
+ * Measured against `@evanion/acl`, merging works for a function and an
+ * interface, both of which TypeScript merges by design, and throws for a
+ * class, a `const` and a type alias, none of which can be declared twice. So
+ * those three keep the plain printed declaration and their own name's hover
+ * shows a type with no prose. A type alias loses nothing by it: a printed alias
+ * produces no hover on its own name either way. A class and a `const` do lose
+ * the prose, and the entry carries it above the fence regardless, in the
+ * summary and the disclosure, where the search index can also read it.
  */
-function declarationOf(resolved, exported, name) {
+function declarationOf(resolved, exported, name, kind) {
   const declaration = resolved.getDeclarations()?.[0];
   if (!declaration) return null;
 
@@ -229,21 +247,33 @@ function declarationOf(resolved, exported, name) {
   const node = ts.isVariableDeclaration(declaration)
     ? declaration.parent.parent
     : declaration;
-  const text = printer.printNode(
+  const printed = printer.printNode(
     ts.EmitHint.Unspecified,
     node,
     node.getSourceFile(),
   );
 
+  const merges = kind === 'function' || kind === 'interface';
+  // Inside a module block the declaration is already ambient and already
+  // exported, so the modifiers the `.d.ts` carries have to come off.
+  const text = merges
+    ? printed.replace(/^export\s+/, '').replace(/^declare\s+/, '')
+    : printed;
+
   const mentioned = new Set(text.match(/[A-Za-z_$][\w$]*/g) ?? []);
   const referenced = [...exported.keys()].filter(
     (each) => each !== name && mentioned.has(each),
   );
+  // The entry's own name is imported too when it merges, because importing it
+  // is what puts the published symbol in the fence for the local one to merge
+  // with.
+  const own = merges ? [name] : [];
 
   return {
     text,
-    values: referenced.filter((each) => exported.get(each)),
-    types: referenced.filter((each) => !exported.get(each)),
+    merges,
+    values: [...own, ...referenced].filter((each) => exported.get(each)),
+    types: [...own, ...referenced].filter((each) => !exported.get(each)),
   };
 }
 
@@ -298,6 +328,7 @@ export function readReference(root, specifier, name) {
   }
 
   const resolved = resolveAlias(symbol, checker);
+  const kind = kindOf(resolved, checker, source);
   const { summary, rest } = paragraphs(
     ts.displayPartsToString(resolved.getDocumentationComment(checker)),
   );
@@ -313,8 +344,8 @@ export function readReference(root, specifier, name) {
   return {
     name,
     specifier,
-    kind: kindOf(resolved, checker, source),
-    signature: declarationOf(resolved, exported, name),
+    kind,
+    signature: declarationOf(resolved, exported, name, kind),
     summary,
     rest,
     tags,

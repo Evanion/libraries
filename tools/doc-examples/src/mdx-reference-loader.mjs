@@ -113,13 +113,30 @@ function signatureFence(reference) {
       `import type { ${signature.types.join(', ')} } from '${specifier}';`,
   ].filter(Boolean);
 
+  // The imports are compilation context and not the entry's content, so they
+  // are cut from what the reader sees. A merging declaration is wrapped in a
+  // module block for the reason `declarations.mjs` gives, and the two lines of
+  // wrapper are cut as well, so the fence shows the declaration and nothing
+  // around it.
+  const body = signature.merges
+    ? [
+        '// ---cut-start---',
+        `declare module '${specifier}' {`,
+        '// ---cut-end---',
+        ...signature.text.split('\n'),
+        '// ---cut-start---',
+        '}',
+        '// ---cut-end---',
+      ]
+    : signature.text.split('\n');
+
   return [
     '<div className="docs-api-entry__signature">',
     '',
     '```ts twoslash',
     ...imports,
-    ...(imports.length > 0 ? [''] : []),
-    ...signature.text.split('\n'),
+    ...(imports.length > 0 ? ['// ---cut---'] : []),
+    ...body,
     '```',
     '',
     '</div>',
