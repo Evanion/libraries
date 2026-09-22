@@ -81,8 +81,8 @@ describe('SEC-002 an unconditional grant must be written as one (CWE-1188)', () 
   const withWhen = (node: Record<string, unknown>) =>
     foreign([
       raw({
-        key: 'post.read',
-        object: 'post',
+        key: 'edition.read',
+        object: 'edition',
         action: 'read',
         rules: [node],
       }),
@@ -109,8 +109,8 @@ describe('SEC-002 an unconditional grant must be written as one (CWE-1188)', () 
     expect(() =>
       foreign([
         raw({
-          key: 'post.read',
-          object: 'post',
+          key: 'edition.read',
+          object: 'edition',
           action: 'read',
           rules: [always],
           denyRules: [{}],
@@ -126,8 +126,8 @@ describe('SEC-003 a permission is reachable only under its own key (CWE-566)', (
     expect(() =>
       foreign([
         raw({
-          key: 'post.read',
-          object: 'post',
+          key: 'edition.read',
+          object: 'edition',
           action: 'delete',
           rules: [always],
         }),
@@ -215,20 +215,22 @@ describe('SEC-005 a prototype member never decides a condition (CWE-1321)', () =
   // #region sec-005
   it('reads no inherited member off the subject', () => {
     const access = foreign([
-      permission('post', 'read', { rules: [when(probe('subject.toString'))] }),
+      permission('edition', 'read', {
+        rules: [when(probe('subject.toString'))],
+      }),
     ]);
 
-    expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ id: 'u1' }, 'edition', 'read').allowed).toBe(false);
   });
   // #endregion sec-005
 
   it('reads no inherited member off the object', () => {
     const access = foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [when(probe('object.constructor'))],
       }),
     ]);
-    const decision = access.can({ id: 'u1' }, 'post', 'read', { id: 'p1' });
+    const decision = access.can({ id: 'u1' }, 'edition', 'read', { id: 'p1' });
 
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unevaluable');
@@ -236,14 +238,14 @@ describe('SEC-005 a prototype member never decides a condition (CWE-1321)', () =
 
   it('leaves the object prototype clean after a hostile write decision', () => {
     const access = foreign([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [always],
         fields: { fields: ['*', '!role'] },
       }),
     ]);
     access.canFields(
       fromJson('{"__proto__": {"polluted": "yes"}}'),
-      'post',
+      'edition',
       'update',
       fromJson('{"__proto__": {"polluted": "yes"}, "title": "x"}'),
       'write',
@@ -257,7 +259,7 @@ describe('SEC-005 a prototype member never decides a condition (CWE-1321)', () =
 describe('SEC-006 a prototype member names no transition edge (CWE-1321)', () => {
   const machine = () =>
     foreign([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [always],
         fields: { status: { transitions: { draft: ['published'] } } },
       }),
@@ -268,7 +270,7 @@ describe('SEC-006 a prototype member names no transition edge (CWE-1321)', () =>
     for (const current of ['toString', 'constructor', '__proto__']) {
       const decision = machine().canFields(
         { id: 'u1' },
-        'post',
+        'edition',
         'update',
         { status: current },
         'write',
@@ -489,7 +491,7 @@ describe('SEC-009 an operand the engine would ignore is refused (CWE-20)', () =>
     it(`refuses ${name}`, () => {
       expect(() =>
         foreign([
-          permission('post', 'read', {
+          permission('edition', 'read', {
             rules: [when(condition as unknown as Condition)],
           }),
         ]),
@@ -503,8 +505,8 @@ describe('SEC-009 an operand the engine would ignore is refused (CWE-20)', () =>
       expect(() =>
         foreign([
           raw({
-            key: 'post.read',
-            object: 'post',
+            key: 'edition.read',
+            object: 'edition',
             action: 'read',
             rules: [{ when: [node] }],
           }),
@@ -518,26 +520,28 @@ describe('SEC-009 an operand the engine would ignore is refused (CWE-20)', () =>
 describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () => {
   // #region sec-010
   it('refuses a permission with no rules at all', () => {
-    const access = foreign([permission('post', 'read')]);
+    const access = foreign([permission('edition', 'read')]);
 
-    expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
-    expect(access.can({ id: 'u1' }, 'post', 'read').reason).toBe(
+    expect(access.can({ id: 'u1' }, 'edition', 'read').allowed).toBe(false);
+    expect(access.can({ id: 'u1' }, 'edition', 'read').reason).toBe(
       'no-rule-matched',
     );
   });
   // #endregion sec-010
 
   it('refuses a permission whose rule list is empty', () => {
-    const access = foreign([permission('post', 'read', { rules: [] })]);
+    const access = foreign([permission('edition', 'read', { rules: [] })]);
 
-    expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ id: 'u1' }, 'edition', 'read').allowed).toBe(false);
   });
 
   it('refuses every action of an object kind the matrix does not name', () => {
-    const access = foreign([permission('post', 'read', { rules: [always] })]);
+    const access = foreign([
+      permission('edition', 'read', { rules: [always] }),
+    ]);
 
     expect(access.can({ id: 'u1' }, 'invoice', 'read').allowed).toBe(false);
-    expect(access.can({ id: 'u1' }, 'post', 'delete').reason).toBe(
+    expect(access.can({ id: 'u1' }, 'edition', 'delete').reason).toBe(
       'unknown-action',
     );
   });
@@ -546,7 +550,9 @@ describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () 
 describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
   // #region sec-011
   it('answers a foreign matrix with a refusal', () => {
-    const access = foreign([permission('post', 'read', { rules: [always] })]);
+    const access = foreign([
+      permission('edition', 'read', { rules: [always] }),
+    ]);
     const decision = access.can({ id: 'u1' }, 'anything', 'at-all');
 
     expect(decision.allowed).toBe(false);
@@ -555,18 +561,20 @@ describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
   // #endregion sec-011
 
   it('answers an authored matrix with a throw', () => {
-    const access = local([permission('post', 'read', { rules: [always] })]);
+    const access = local([permission('edition', 'read', { rules: [always] })]);
 
-    expect(() => access.can({ id: 'u1' }, 'post', 'delete')).toThrow(
+    expect(() => access.can({ id: 'u1' }, 'edition', 'delete')).toThrow(
       UnknownPermissionError,
     );
   });
 
   it('answers a narrowed write against an unknown key with no writable field', () => {
-    const access = foreign([permission('post', 'read', { rules: [always] })]);
+    const access = foreign([
+      permission('edition', 'read', { rules: [always] }),
+    ]);
     const decision = access.canFields(
       { id: 'u1' },
-      'post',
+      'edition',
       'delete',
       {},
       'write',
@@ -582,24 +590,24 @@ describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
 describe('SEC-012 the evaluated matrix is beyond the caller reach (CWE-913)', () => {
   // #region sec-012
   it('ignores a mutation of the matrix the caller passed in', () => {
-    const source: Permission[] = [permission('post', 'read', { rules: [] })];
+    const source: Permission[] = [permission('edition', 'read', { rules: [] })];
     const access = foreign(source);
 
     (source[0] as { rules: unknown }).rules = [always];
 
-    expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ id: 'u1' }, 'edition', 'read').allowed).toBe(false);
   });
   // #endregion sec-012
 
   it('refuses a mutation of the matrix it exposes', () => {
-    const access = foreign([permission('post', 'read', { rules: [] })]);
+    const access = foreign([permission('edition', 'read', { rules: [] })]);
     const exposed = access.matrix.permissions[0] as { rules?: unknown };
 
     expect(() => {
       exposed.rules = [always];
     }).toThrow(TypeError);
     expect(Object.isFrozen(access.matrix)).toBe(true);
-    expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ id: 'u1' }, 'edition', 'read').allowed).toBe(false);
   });
 });
 
@@ -619,7 +627,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
       [],
     );
     const access = local([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [
           {
             get when() {
@@ -630,14 +638,16 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
       }),
     ]);
 
-    expect(access.can({ role: 'nobody' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ role: 'nobody' }, 'edition', 'read').allowed).toBe(
+      false,
+    );
   });
   // #endregion sec-013
 
   it('cannot widen a field allow-list after it is checked', () => {
     const face = twoFaced<readonly string[]>(['title'], ['*']);
     const access = local([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [always],
         fields: {
           get fields() {
@@ -648,7 +658,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
     ]);
     const decision = access.canFields(
       { id: 'u1' },
-      'post',
+      'edition',
       'update',
       {},
       'write',
@@ -659,7 +669,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
   });
 
   it('cannot move a permission to an object kind that was never checked', () => {
-    const face = twoFaced('comment', 'post');
+    const face = twoFaced('comment', 'edition');
     const access = local([
       raw({
         key: 'comment.read',
@@ -674,16 +684,16 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
 
     expect(adopted.key).toBe(`${adopted.object}.${adopted.action}`);
     expect(access.can({}, 'comment', 'read').allowed).toBe(true);
-    expect(() => access.can({}, 'post', 'read')).toThrow(AclConfigError);
+    expect(() => access.can({}, 'edition', 'read')).toThrow(AclConfigError);
   });
 
   it('cannot swap the whole permission list after it is checked', () => {
-    const gated = permission('post', 'read', {
+    const gated = permission('edition', 'read', {
       rules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
     });
     const face = twoFaced<readonly Permission[]>(
       [gated],
-      [permission('post', 'read', { rules: [always] })],
+      [permission('edition', 'read', { rules: [always] })],
     );
     const access = hydratePolicy(
       rawMatrix({
@@ -693,7 +703,9 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
       }),
     );
 
-    expect(access.can({ role: 'nobody' }, 'post', 'read').allowed).toBe(false);
+    expect(access.can({ role: 'nobody' }, 'edition', 'read').allowed).toBe(
+      false,
+    );
     expect(access.matrix.permissions).toEqual([gated]);
   });
 
@@ -702,13 +714,13 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
     // the check leaves a matrix that was never validated against what it
     // carries.
     const face = twoFaced(
-      { objects: { post: { fields: { secret: 'string' as const } } } },
-      { objects: { post: { fields: { other: 'number' as const } } } },
+      { objects: { edition: { fields: { secret: 'string' as const } } } },
+      { objects: { edition: { fields: { other: 'number' as const } } } },
     );
     const access = hydratePolicy(
       rawMatrix({
         permissions: [
-          permission('post', 'read', {
+          permission('edition', 'read', {
             rules: [when({ field: 'object.secret', op: 'eq', value: 'x' })],
           }),
         ],
@@ -719,7 +731,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
     );
 
     expect(access.schema).toEqual({
-      objects: { post: { fields: { secret: 'string' } } },
+      objects: { edition: { fields: { secret: 'string' } } },
     });
   });
 
@@ -742,7 +754,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
 describe('SEC-014 a decision never throws on the data it is given (CWE-754)', () => {
   const machine = () =>
     foreign([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [always],
         fields: { status: { transitions: { draft: ['published'] } } },
       }),
@@ -768,7 +780,7 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
     it(`denies a transition from ${name}`, () => {
       const decision = machine().canFields(
         { id: 'u1' },
-        'post',
+        'edition',
         'update',
         { status: current },
         'write',
@@ -783,14 +795,14 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
 
   it('reads a primitive current value as the edge it names', () => {
     const access = foreign([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [always],
         fields: { status: { transitions: { draft: ['published'], 1: ['2'] } } },
       }),
     ]);
 
     expect(
-      access.canFields({}, 'post', 'update', { status: 1 }, 'write', {
+      access.canFields({}, 'edition', 'update', { status: 1 }, 'write', {
         status: '2',
       }).fields['status'],
     ).toBe('allowed');
@@ -810,7 +822,7 @@ describe('SEC-015 a matrix cannot exhaust the walk that adopts it (CWE-674)', ()
 
     expect(() =>
       foreign([
-        permission('post', 'read', {
+        permission('edition', 'read', {
           rules: [when({ field: 'subject.id', op: 'eq', value: root })],
         }),
       ]),
@@ -856,7 +868,7 @@ describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', ()
 
   it('reads the subject once however wide the list a condition tests', () => {
     const access = foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [
           when({
             field: 'subject.id',
@@ -869,7 +881,7 @@ describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', ()
     const { subject, reads, reset } = countingSubject({ id: 'nobody' });
     reset();
 
-    expect(access.can(subject, 'post', 'read').allowed).toBe(false);
+    expect(access.can(subject, 'edition', 'read').allowed).toBe(false);
     expect(reads()).toBe(1);
   });
 });
@@ -877,35 +889,37 @@ describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', ()
 describe('SEC-017 a value of the wrong type is a miss, not a match (CWE-1287)', () => {
   const equals = (value: unknown) =>
     foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [when({ field: 'subject.tier', op: 'eq', value })],
       }),
     ]);
 
   // #region sec-017
   it('does not match a string against the number it spells', () => {
-    expect(equals(1).can({ tier: '1' }, 'post', 'read').allowed).toBe(false);
-    expect(equals('1').can({ tier: 1 }, 'post', 'read').allowed).toBe(false);
+    expect(equals(1).can({ tier: '1' }, 'edition', 'read').allowed).toBe(false);
+    expect(equals('1').can({ tier: 1 }, 'edition', 'read').allowed).toBe(false);
   });
   // #endregion sec-017
 
   it('does not match a null against an absent attribute', () => {
-    expect(equals(null).can({}, 'post', 'read').allowed).toBe(false);
-    expect(equals(null).can({ tier: null }, 'post', 'read').allowed).toBe(true);
-    expect(equals(null).can({ tier: undefined }, 'post', 'read').allowed).toBe(
-      false,
+    expect(equals(null).can({}, 'edition', 'read').allowed).toBe(false);
+    expect(equals(null).can({ tier: null }, 'edition', 'read').allowed).toBe(
+      true,
     );
+    expect(
+      equals(null).can({ tier: undefined }, 'edition', 'read').allowed,
+    ).toBe(false);
   });
 
   it('does not match a list against the scalar it holds', () => {
-    expect(equals('gold').can({ tier: ['gold'] }, 'post', 'read').allowed).toBe(
-      false,
-    );
+    expect(
+      equals('gold').can({ tier: ['gold'] }, 'edition', 'read').allowed,
+    ).toBe(false);
   });
 
   it('does not match a Date against the string that spells it', () => {
     const access = foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [
           when({ field: 'object.at', op: 'eq', value: '2020-01-01T00:00:00Z' }),
         ],
@@ -913,32 +927,33 @@ describe('SEC-017 a value of the wrong type is a miss, not a match (CWE-1287)', 
     ]);
 
     expect(
-      access.can({}, 'post', 'read', { at: new Date('2020-01-01T00:00:00Z') })
-        .allowed,
+      access.can({}, 'edition', 'read', {
+        at: new Date('2020-01-01T00:00:00Z'),
+      }).allowed,
     ).toBe(false);
   });
 
   it('tests membership of a list only against a list', () => {
     const access = foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [when({ field: 'object.editors', op: 'contains', value: 'u1' })],
       }),
     ]);
 
-    expect(access.can({}, 'post', 'read', { editors: ['u1'] }).allowed).toBe(
+    expect(access.can({}, 'edition', 'read', { editors: ['u1'] }).allowed).toBe(
       true,
     );
-    expect(access.can({}, 'post', 'read', { editors: 'u1' }).allowed).toBe(
+    expect(access.can({}, 'edition', 'read', { editors: 'u1' }).allowed).toBe(
       false,
     );
     expect(
-      access.can({}, 'post', 'read', { editors: { u1: true } }).allowed,
+      access.can({}, 'edition', 'read', { editors: { u1: true } }).allowed,
     ).toBe(false);
   });
 
   it('reads a signed zero as the zero it equals', () => {
-    expect(equals(0).can({ tier: -0 }, 'post', 'read').allowed).toBe(true);
-    expect(equals(-0).can({ tier: 0 }, 'post', 'read').allowed).toBe(true);
+    expect(equals(0).can({ tier: -0 }, 'edition', 'read').allowed).toBe(true);
+    expect(equals(-0).can({ tier: 0 }, 'edition', 'read').allowed).toBe(true);
   });
 });
 
@@ -1076,20 +1091,20 @@ describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
   const malformed: readonly (readonly [string, Record<string, unknown>])[] = [
     ['a document with no permissions', { version: 1 }],
     ['a null permissions list', { permissions: null }],
-    ['a permissions object', { permissions: { 'post.read': {} } }],
-    ['a permissions string', { permissions: 'post.read' }],
+    ['a permissions object', { permissions: { 'edition.read': {} } }],
+    ['a permissions string', { permissions: 'edition.read' }],
     [
       'a version that is neither a string nor a number',
       { permissions: [], version: {} },
     ],
     ['a version list', { permissions: [], version: [1] }],
-    ['a schema that is not an object', { permissions: [], schema: 'post' }],
+    ['a schema that is not an object', { permissions: [], schema: 'edition' }],
     ['a schema list', { permissions: [], schema: [] }],
     [
       'a declared type that is not one',
       {
         permissions: [],
-        schema: { objects: { post: { fields: { at: 'timestamp' } } } },
+        schema: { objects: { edition: { fields: { at: 'timestamp' } } } },
       },
     ],
   ];
@@ -1104,7 +1119,7 @@ describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
   it('refuses a bare list of permissions, which carries no envelope at all', () => {
     expect(() =>
       parseMatrix([
-        permission('post', 'read', { rules: [always] }),
+        permission('edition', 'read', { rules: [always] }),
       ] as unknown as Parameters<typeof parseMatrix>[0]),
     ).toThrow(AclConfigError);
   });
@@ -1114,12 +1129,12 @@ describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
     expect(() =>
       foreign(
         [
-          permission('post', 'read', {
+          permission('edition', 'read', {
             rules: [when({ field: 'object.ghost', op: 'eq', value: 'x' })],
           }),
         ],
         undefined,
-        { schema: { objects: { post: { fields: { title: 'string' } } } } },
+        { schema: { objects: { edition: { fields: { title: 'string' } } } } },
       ),
     ).toThrow(AclConfigError);
   });
