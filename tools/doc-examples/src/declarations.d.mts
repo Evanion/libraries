@@ -20,6 +20,8 @@ export interface Reference {
   /** The declaration the package published, with the imports it names. */
   signature: {
     text: string;
+    /** Whether declaring it again merges with the published symbol. */
+    merges: boolean;
     values: string[];
     types: string[];
   } | null;
