@@ -1,6 +1,5 @@
-import { Footer, Layout, Navbar, ThemeSwitch } from 'nextra-theme-docs';
 import { Head } from 'nextra/components';
-import { getPageMap } from 'nextra/page-map';
+import { ThemeProvider } from 'next-themes';
 import { Bricolage_Grotesque, Public_Sans } from 'next/font/google';
 import 'nextra-theme-docs/style.css';
 import './global.css';
@@ -35,36 +34,32 @@ export const metadata = {
 };
 
 /**
- * The theme switch is in the navbar rather than in the sidebar's footer,
- * where the theme puts it, because the landing page has no sidebar and a
- * reader there still needs it. One control for the whole site; global.css
- * hides the sidebar's copy so a docs page does not show two.
- */
-const navbar = (
-  <Navbar
-    logo={<b>Evanion Libraries</b>}
-    projectLink="https://github.com/Evanion/libraries"
-  >
-    <ThemeSwitch lite />
-  </Navbar>
-);
-const footer = (
-  <Footer>MIT {new Date().getFullYear()} © Mikael Pettersson.</Footer>
-);
-
-/**
- * The shell every docs page renders inside: Nextra's theme layout, built from
- * the page map the MDX files produce.
+ * The document every route renders inside: the element, the fonts, the ground
+ * and the theme, and nothing that belongs to one kind of page.
+ *
+ * The docs chrome is one level down. `(site)/layout.tsx` holds
+ * `nextra-theme-docs`'s `Layout` -- the navbar, the sidebar, the search -- over
+ * the landing page and the content tree, and `(tool)/` is a sibling group whose
+ * routes render a full-viewport tool with chrome of its own. Neither group
+ * names a URL segment, so every existing path is unchanged. In the App Router a
+ * root layout applies to every route, so moving the chrome down is the only way
+ * a route escapes it.
+ *
+ * **`ThemeProvider` is here rather than inside Nextra's `Layout`.** `html.dark`
+ * is what `global.css` swaps the palette on, and `next-themes` is what writes
+ * that class from a blocking script. A route outside the docs chrome would
+ * otherwise render in the light palette with no way to change it. Nextra's
+ * `Layout` still renders a provider of its own and it costs nothing: a
+ * `ThemeProvider` that finds an enclosing one returns its children unchanged
+ * (`next-themes@0.4.6`, `dist/index.mjs`). The options below are the defaults
+ * `nextra-theme-docs/dist/schemas.js:24-30` parses, so the behaviour of a docs
+ * page is the behaviour it already had.
  *
  * The theme stylesheet is imported ahead of `global.css`, because global.css is
  * what remaps the theme's own variables onto Baize tokens and the later
  * declaration of a custom property is the one that applies.
- *
- * `async` because the sidebar comes from `getPageMap()`, which reads the page map
- * Nextra compiles from `content/`. Under `output: 'export'` that happens once, at
- * build time.
  */
-export default async function RootLayout({ children }: PropsWithChildren) {
+export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html
       className={`${title.variable} ${text.variable}`}
@@ -72,9 +67,9 @@ export default async function RootLayout({ children }: PropsWithChildren) {
       // nextra-theme-docs reads `dir` to place its sidebar and breadcrumbs; it
       // has no default, so an unset value leaves both unplaced.
       dir="ltr"
-      // next-themes, which the theme uses, writes the colour-scheme class onto
-      // this element from a blocking script before React hydrates. Without this
-      // the class the client sees never matches the server's markup.
+      // next-themes writes the colour-scheme class onto this element from a
+      // blocking script before React hydrates. Without this the class the
+      // client sees never matches the server's markup.
       suppressHydrationWarning
     >
       {/* The ground and the accent reach the theme here rather than through CSS:
@@ -82,14 +77,14 @@ export default async function RootLayout({ children }: PropsWithChildren) {
           over any stylesheet link. Both are derived from the library's tokens. */}
       <Head backgroundColor={baizeBackground} color={baizeColor} />
       <body>
-        <Layout
-          navbar={navbar}
-          pageMap={await getPageMap()}
-          docsRepositoryBase="https://github.com/Evanion/libraries/tree/main/apps/docs"
-          footer={footer}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          storageKey="theme"
         >
           {children}
-        </Layout>
+        </ThemeProvider>
       </body>
     </html>
   );

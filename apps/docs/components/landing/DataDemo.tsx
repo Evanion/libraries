@@ -1,6 +1,8 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { jsonTokens } from '../json-tokens';
+import '../json-tokens.css';
 import { Widgets } from './counter';
 import { moved, openingNodes, rows, within, type Node } from './tree';
 
@@ -9,31 +11,22 @@ type Items = Parameters<typeof Widgets>[0]['items'];
 /**
  * The text as JSON tokens, each in the colour its kind takes.
  *
- * A tokenizer for JSON and nothing else: strings, numbers, the three literals,
- * punctuation. A string followed by a colon is a key. The site's code blocks
- * are highlighted by Shiki at build time; these lines are reassembled in the
- * browser every time a reader moves an item, so they are highlighted here, in
- * the design's own colours -- keys in the reading colour, strings in the
- * package hue, the rest stepped back.
+ * `components/json-tokens.ts` does the splitting and `json-tokens.css` holds
+ * the three colours, because the matrix explorer highlights a document a
+ * reader typed and the two surfaces must not hold two tokenizers or two
+ * palettes. The colours are the ones this section had: keys in the reading
+ * colour, strings in the package hue, the rest stepped back.
  */
 function Highlight({ text }: { text: string }) {
-  const tokens = text.split(
-    /("(?:[^"\\]|\\.)*"\s*:?|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b)/,
-  );
-
-  return tokens.map((token, index) => {
-    if (index % 2 === 0) return token;
-    const kind = token.startsWith('"')
-      ? token.trimEnd().endsWith(':')
-        ? 'key'
-        : 'string'
-      : 'literal';
-    return (
-      <span key={index} className={`landing-items__token--${kind}`}>
-        {token}
+  return jsonTokens(text).map((token, index) =>
+    token.kind === undefined ? (
+      token.text
+    ) : (
+      <span key={index} className={`json-token--${token.kind}`}>
+        {token.text}
       </span>
-    );
-  });
+    ),
+  );
 }
 
 interface HandleProps {

@@ -1,0 +1,32 @@
+/*
+ * The three colours a JSON token takes, wherever this site draws JSON it
+ * tokenized itself.
+ *
+ * The declarations are the ones `landing.css` held while the front page's
+ * listing was the only caller, carried across unchanged rather than rebound to
+ * something close: keys in the reading colour, strings in the package hue, the
+ * rest stepped back. The names moved because `landing-items__token--key`
+ * describes where the first caller happened to live, and the matrix explorer
+ * is not the landing page.
+ *
+ * Punctuation and whitespace carry no class and take whatever colour the
+ * surrounding text is set in, which is what makes braces and commas recede
+ * without a rule of their own.
+ *
+ * `--baize-hue` is the section's, bound by the `baize-categorical-*` class on
+ * an enclosing element. A surface that binds none gets the fallback the kit
+ * declares, so the string colour degrades to a ground role rather than to
+ * nothing.
+ */
+
+.json-token--key {
+  color: var(--baize-chalk);
+}
+
+.json-token--string {
+  color: var(--baize-hue);
+}
+
+.json-token--literal {
+  color: var(--baize-lichen);
+}
