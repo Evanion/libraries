@@ -91,10 +91,26 @@ function projectSchema(
   return Object.keys(projected).length === 0 ? undefined : projected;
 }
 
+/**
+ * The document an `Access` holds, whole.
+ *
+ * Every permission, marked as it stands, so a round trip through `parseMatrix`
+ * comes back the same document. This is the internal matrix and not a contract:
+ * it carries every rule, every condition and every literal a condition compares
+ * against. Hand it to a party that may see all of them.
+ */
 export function serialize<Sub, R, Keys extends string = string>(
   access: Access<Sub, R, Keys>,
   mode: 'full',
 ): Matrix;
+/**
+ * The contract: the permissions marked `public`, byte for byte.
+ *
+ * A kept permission is copied whole with its marking dropped, and nothing else
+ * about it is edited. Removing a permission changes nothing for the rest,
+ * because a decision reads one permission and the settled context, which is
+ * what lets a reduced document decide as the full one for every key it kept.
+ */
 export function serialize<Sub, R, Keys extends string = string>(
   access: Access<Sub, R, Keys>,
   mode: 'reduced',

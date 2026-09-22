@@ -42,6 +42,14 @@ export interface DecisionChange {
  */
 export type MatrixDiffer<D> = (pinned: Matrix, fetched: Matrix) => D;
 
+/**
+ * What `contractDrift` compares, and what it replays against both documents.
+ *
+ * `pinned` and `fetched` are the two versions of one producer's contract. The
+ * rest narrows the comparison to what this consumer actually depends on: the
+ * decisions its screens render, the instant to settle them at, and a differ
+ * when the caller wants the whole document compared as well.
+ */
 export interface ContractDriftOptions<D = never> {
   /** The contract this consumer pinned, as fetched at the version it compiled against. */
   readonly pinned: Matrix;
@@ -59,6 +67,15 @@ export interface ContractDriftOptions<D = never> {
   readonly diff?: MatrixDiffer<D>;
 }
 
+/**
+ * What changed between the pinned contract and the one the producer publishes.
+ *
+ * The three findings are deliberately separate, because a consumer answers them
+ * differently. A removed key is the producer breaking a published contract. A
+ * changed decision may be exactly what the producer intended, and the consumer
+ * decides whether its screens still read correctly. An added key is neither,
+ * and `assertNoContractDrift` passes on one.
+ */
 export interface ContractDriftReport<D = never> {
   readonly pinnedVersion: string | number | undefined;
   readonly fetchedVersion: string | number | undefined;
