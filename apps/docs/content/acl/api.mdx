@@ -21,16 +21,10 @@ carries.
 
 ## `parseMatrix`
 
+<!-- reference @evanion/acl#parseMatrix example=foreign-matrix -->
+
 `parseMatrix` is `hydratePolicy` with `closed: true`, for a document another
 service published.
-
-```ts signature
-function parseMatrix<
-  Sub = Subject,
-  R = AnyObjects,
-  Keys extends string = string,
->(matrix: Matrix, options?: AccessOptions): Access<Sub, R, Keys>;
-```
 
 An unknown object kind or action answers `unknown-action` and nothing throws.
 `Keys` is the union the consumer expects, unchecked against the document. See
@@ -38,18 +32,10 @@ An unknown object kind or action answers `unknown-action` and nothing throws.
 
 ## `policy`
 
+<!-- reference @evanion/acl#policy example=field-permissions -->
+
 `policy` returns the typed builder, one `.for()` per object kind. See
 [Typed authoring](/acl/authoring).
-
-```ts signature
-function policy<
-  Sub,
-  Objects,
-  Vocabs extends Partial<Record<keyof Objects, string>> = Record<never, never>,
->(
-  options?: PolicyOptions,
-): Policy<Sub, Objects, Vocabs, Record<never, never>, never>;
-```
 
 | Type parameter | What it is                                                                                                                         |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,30 +47,7 @@ function policy<
 
 ## `Policy`
 
-```ts signature
-interface Policy<
-  Sub,
-  Objects,
-  Vocabs extends Partial<Record<keyof Objects, string>>,
-  R,
-  Keys extends string = string,
-> {
-  for<K extends keyof Objects & string, Act extends string = string>(
-    key: K,
-    build: (
-      p: Actions<Sub, Objects[K], never, VocabularyOf<Vocabs, K>>,
-    ) => Actions<Sub, Objects[K], Act, VocabularyOf<Vocabs, K>> | void,
-  ): Policy<
-    Sub,
-    Objects,
-    Vocabs,
-    R & Record<K, Objects[K]>,
-    Keys | PermissionKeys<K, Act>
-  >;
-  readonly matrix: Readonly<Matrix>;
-  build(options?: AccessOptions): Access<Sub, R, Keys>;
-}
-```
+<!-- reference @evanion/acl#Policy -->
 
 | Member or type   | What it is                                                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -97,22 +60,13 @@ interface Policy<
 
 ## `PolicyOptions`
 
-```ts signature
-type PolicyOptions = Pick<Matrix, 'version' | 'schema'>;
-```
+<!-- reference @evanion/acl#PolicyOptions -->
 
 Both are document fields, so they land in the flattened JSON.
 
 ## `AccessOptions`
 
-```ts signature
-interface AccessOptions {
-  version?: string | number;
-  closed?: boolean;
-  fetchedAt?: Instant;
-  maxStale?: number;
-}
-```
+<!-- reference @evanion/acl#AccessOptions -->
 
 | Option      | What it is                                                                                          |
 | ----------- | --------------------------------------------------------------------------------------------------- |
@@ -123,23 +77,9 @@ interface AccessOptions {
 
 ## `Access`
 
+<!-- reference @evanion/acl#Access example=revalidate -->
+
 `Access` is the evaluator over one frozen document.
-
-```ts signature
-interface Access<Sub = Subject, R = AnyObjects, Keys extends string = string> {
-  readonly matrix: Readonly<Matrix>;
-  readonly version: string | number | undefined;
-  readonly schema: MatrixSchema | undefined;
-
-  can(subject, key, action, object?, now?): Decision;
-  canMany(subject, key, action, objects, now?): Decision[];
-  canFields(subject, key, action, object, axis, proposed?, now?): FieldDecision;
-  capabilities(subject, now?): Record<Keys, Decision>;
-  authorize(subject, options?: { now?: Instant }): Authorized<R, Keys>;
-  object(key): BoundKind<Sub, R[K], ActionOf<Keys, K>>;
-  readsObject(key, action): boolean;
-}
-```
 
 | Member                        | What it answers                                             |
 | ----------------------------- | ----------------------------------------------------------- |
@@ -158,121 +98,47 @@ Every object parameter takes a partial: a projection is the
 
 ## `Authorized`
 
-`Authorized` is what `authorize(subject)` returns.
+<!-- reference @evanion/acl#Authorized -->
 
-```ts signature
-interface Authorized<R = AnyObjects, Keys extends string = string> {
-  can<K extends keyof R & string>(
-    key: K,
-    action: ActionOf<Keys, K>,
-    object?: Partial<R[K]>,
-  ): Decision;
-  canMany<K extends keyof R & string>(
-    key: K,
-    action: ActionOf<Keys, K>,
-    objects: readonly Partial<R[K]>[],
-  ): Decision[];
-  canFields<K extends keyof R & string>(
-    key: K,
-    action: ActionOf<Keys, K>,
-    object: Partial<R[K]>,
-    axis: 'read' | 'write',
-    proposed?: Partial<R[K]>,
-  ): FieldDecision;
-  capabilities(): Record<Keys, Decision>;
-}
-```
+`Authorized` is what `authorize(subject)` returns.
 
 `Authorized` omits `matrix`, `version`, `schema` and `readsObject`, which are
 not facts about one subject.
 
 ## `BoundKind`
 
-`BoundKind` is what `object(key)` returns.
+<!-- reference @evanion/acl#BoundKind -->
 
-```ts signature
-interface BoundKind<Sub, Obj, Act extends string = string> {
-  can(
-    subject: Sub,
-    action: Act,
-    object?: Partial<Obj>,
-    now?: Instant,
-  ): Decision;
-  canMany(
-    subject: Sub,
-    action: Act,
-    objects: readonly Partial<Obj>[],
-    now?: Instant,
-  ): Decision[];
-  canFields(
-    subject: Sub,
-    action: Act,
-    object: Partial<Obj>,
-    axis: 'read' | 'write',
-    proposed?: Partial<Obj>,
-    now?: Instant,
-  ): FieldDecision;
-  readsObject(action: Act): boolean;
-}
-```
+`BoundKind` is what `object(key)` returns.
 
 `authorize` binds the other axis; the two compose.
 
 ## `KeysOf`
 
-```ts signature
-type KeysOf<A> = A extends Access<never, never, infer Keys> ? Keys : never;
-```
+<!-- reference @evanion/acl#KeysOf -->
 
 ## `ActionOf`
 
-```ts signature
-type ActionOf<Keys extends string, K extends string> = [Keys] extends [never]
-  ? string
-  : string extends Keys
-    ? string
-    : [Extract<Keys, `${K}.${string}`>] extends [never]
-      ? string
-      : Keys extends `${K}.${infer Act}`
-        ? Act
-        : never;
-```
+<!-- reference @evanion/acl#ActionOf -->
 
 ## `CRUD_ACTIONS`
 
-```ts signature
-const CRUD_ACTIONS: readonly ['create', 'read', 'update', 'delete'];
-```
+<!-- reference @evanion/acl#CRUD_ACTIONS -->
 
 `CRUD_ACTIONS` declares the four default verbs, and `Action` reads off it. Pass
 it to `allowEach`.
 
 ## `pickAllowedFields`
 
+<!-- reference @evanion/acl#pickAllowedFields example=write-path -->
+
 `pickAllowedFields` returns the subset of a proposed write the decision marked
 `allowed`, and throws `ActionNotAllowedError` on a refused action. See
 [the write path](/acl/fields#writing).
 
-```ts signature
-function pickAllowedFields<T extends Record<string, unknown>>(
-  decision: FieldDecision,
-  proposed: T,
-): Partial<T>;
-```
-
 ## `serialize`
 
-```ts signature
-function serialize<Sub, R, Keys>(
-  access: Access<Sub, R, Keys>,
-  mode: 'full',
-): Matrix;
-function serialize<Sub, R, Keys>(
-  access: Access<Sub, R, Keys>,
-  mode: 'reduced',
-  options?: SerializeOptions<Keys>,
-): Matrix;
-```
+<!-- reference @evanion/acl#serialize example=typed-contract -->
 
 `full` hands back `access.matrix`. `reduced` keeps each permission marked
 `visibility: 'public'` whole, strips the marking, and adds the `schema` entries
@@ -281,17 +147,11 @@ for the kinds they name. See
 
 ## `SerializeMode`
 
-```ts signature
-type SerializeMode = 'full' | 'reduced';
-```
+<!-- reference @evanion/acl#SerializeMode -->
 
 ## `SerializeOptions`
 
-```ts signature
-interface SerializeOptions<Keys extends string = string> {
-  readonly vetoable?: readonly Keys[];
-}
-```
+<!-- reference @evanion/acl#SerializeOptions -->
 
 A listed key the reduction would drop raises `UnpublishedVetoableError`. The
 compiler refuses a key the document never held, where the builder authored the
@@ -299,75 +159,45 @@ policy.
 
 ## `federatedPolicies`
 
+<!-- reference @evanion/acl#federatedPolicies example=federation -->
+
 `federatedPolicies` composes one `Access` per origin and merges no document. See
 [Many services](/acl/federation).
 
-```ts signature
-function federatedPolicies(
-  policies: Readonly<Record<string, Access<Subject, AnyObjects, never>>>,
-): FederatedAccess;
-```
-
 ## `FederatedAccess`
 
-```ts signature
-interface FederatedAccess {
-  can(
-    subject: Subject,
-    key: string,
-    action: string,
-    object?: Record<string, unknown>,
-    now?: Instant,
-  ): Decision;
-  capabilities(subject: Subject, now?: Instant): Record<string, Decision>;
-  get(origin: string): Access | undefined;
-}
-```
+<!-- reference @evanion/acl#FederatedAccess -->
 
 `can` routes to the origin holding `` `${object}.${action}` ``; a key no member
 holds answers `unknown-action`. `capabilities` settles one instant for all.
 
 ## `applyDenyOverlay`
 
+<!-- reference @evanion/acl#applyDenyOverlay example=deny-overlay -->
+
 `applyDenyOverlay` appends another team's deny rules to the keys this document
 opens for veto. See
 [Many services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
 
-```ts signature
-function applyDenyOverlay(
-  matrix: Matrix,
-  overlay: DenyOverlay,
-  options: DenyOverlayOptions,
-): Matrix;
-```
-
 ## `DenyOverlay`
 
-```ts signature
-type DenyOverlay = Readonly<Record<string, readonly Rule[]>>;
-```
+<!-- reference @evanion/acl#DenyOverlay example=deny-overlay -->
 
 A `Rule` spells no allow and no field rule, so an overlay only subtracts.
 
 ## `DenyOverlayOptions`
 
-```ts signature
-interface DenyOverlayOptions {
-  readonly vetoable: readonly string[];
-}
-```
+<!-- reference @evanion/acl#DenyOverlayOptions -->
 
 A key listed in `vetoable` obliges the matrix to declare that key's object kind
 in `schema.objects`.
 
 ## `diffMatrix`
 
+<!-- reference @evanion/acl#diffMatrix example=drift-seam -->
+
 `diffMatrix` compares two matrix documents and reports access rather than text.
 See [What did this change do to access?](/acl/changes).
-
-```ts signature
-function diffMatrix(before: Matrix, after: Matrix): MatrixDiff;
-```
 
 The evaluator ORs the rules on a side, so a side that matched goes on matching
 whatever is appended. An added allow branch can therefore only widen and an
@@ -376,40 +206,23 @@ never an exact set.
 
 ## `MatrixDiff`
 
-```ts signature
-interface MatrixDiff {
-  readonly findings: readonly DiffFinding[];
-  readonly unchanged: boolean;
-  readonly version: {
-    readonly before?: string | number;
-    readonly after?: string | number;
-  };
-}
-```
+<!-- reference @evanion/acl#MatrixDiff -->
 
 `unchanged` is true when the two documents state one policy. Rule order and
 condition key order are not policy, so a reordered document reports nothing.
 
 ## `DiffFinding`
 
-```ts signature
-type DiffFinding =
-  GrantedFinding | WithdrawnFinding | UndeterminedFinding | ReadsObjectFinding;
-```
+<!-- reference @evanion/acl#DiffFinding -->
 
 Discriminated on `kind`. Every member carries `key`, the permission key the
 finding is about.
 
 ## `findingsOf`
 
-`findingsOf` returns the findings of one kind, narrowed to that member.
+<!-- reference @evanion/acl#findingsOf example=diff-matrix -->
 
-```ts signature
-function findingsOf<K extends DiffFinding['kind']>(
-  diff: MatrixDiff,
-  kind: K,
-): readonly Extract<DiffFinding, { kind: K }>[];
-```
+`findingsOf` returns the findings of one kind, narrowed to that member.
 
 `MatrixDiff.findings` is one list because a report is read in order. A caller
 rendering a section of that report wants one kind, and reaching it otherwise
@@ -418,45 +231,18 @@ The order `diffMatrix` built the report in is kept.
 
 ## `GrantedFinding`
 
-```ts signature
-interface GrantedFinding {
-  readonly kind: 'granted';
-  readonly key: string;
-  readonly cause: GrantedCause;
-  readonly rule?: string;
-  readonly when: readonly Condition[];
-  readonly groups: ConditionGroups;
-  readonly fields?: readonly string[];
-}
-```
+<!-- reference @evanion/acl#GrantedFinding -->
 
 `when` is the added branch whole and `groups` is it split for rendering.
 `fields` carries the field names added, where `cause` is `field-list-widened`.
 
 ## `GrantedCause`
 
-```ts signature
-type GrantedCause =
-  | 'permission-added'
-  | 'allow-branch-added'
-  | 'deny-branch-removed'
-  | 'field-list-widened';
-```
+<!-- reference @evanion/acl#GrantedCause -->
 
 ## `WithdrawnFinding`
 
-```ts signature
-interface WithdrawnFinding {
-  readonly kind: 'withdrawn';
-  readonly key: string;
-  readonly cause: WithdrawnCause;
-  readonly rule?: string;
-  readonly when: readonly Condition[];
-  readonly groups: ConditionGroups;
-  readonly holders?: { readonly closed: string; readonly open: string };
-  readonly fields?: readonly string[];
-}
-```
+<!-- reference @evanion/acl#WithdrawnFinding -->
 
 `holders` accompanies `permission-removed` and carries a sentence each for a
 `parseMatrix` holder and a `hydratePolicy` holder, because one removal answers
@@ -464,36 +250,18 @@ interface WithdrawnFinding {
 
 ## `WithdrawnCause`
 
-```ts signature
-type WithdrawnCause =
-  | 'permission-removed'
-  | 'allow-branch-removed'
-  | 'deny-branch-added'
-  | 'field-list-narrowed';
-```
+<!-- reference @evanion/acl#WithdrawnCause -->
 
 ## `UndeterminedFinding`
 
-```ts signature
-interface UndeterminedFinding {
-  readonly kind: 'undetermined';
-  readonly key: string;
-  readonly cause: UndeterminedCause;
-  readonly rule?: string;
-  readonly before: unknown;
-  readonly after: unknown;
-}
-```
+<!-- reference @evanion/acl#UndeterminedFinding -->
 
 A change `diffMatrix` declines to call a widening or a narrowing, with both
 versions shown.
 
 ## `UndeterminedCause`
 
-```ts signature
-type UndeterminedCause =
-  'rule-edited' | 'both-sides-changed' | 'fields-changed';
-```
+<!-- reference @evanion/acl#UndeterminedCause -->
 
 `rule-edited` is a rule that kept an author-supplied `id` and changed its
 conditions. `both-sides-changed` is a permission whose allow side and deny side
@@ -502,18 +270,7 @@ case, which is two literal name lists carrying no `*` and no `!` entry.
 
 ## `ReadsObjectFinding`
 
-```ts signature
-interface ReadsObjectFinding {
-  readonly kind: 'reads-object';
-  readonly key: string;
-  readonly before: boolean;
-  readonly after: boolean;
-  readonly paths: {
-    readonly before: readonly string[];
-    readonly after: readonly string[];
-  };
-}
-```
+<!-- reference @evanion/acl#ReadsObjectFinding -->
 
 A change in which `object.*` paths a decision reads. No access moved, and a
 caller that decides in front of the fetch gets `unevaluable` where it got
@@ -521,13 +278,7 @@ caller that decides in front of the fetch gets `unevaluable` where it got
 
 ## `ConditionGroups`
 
-```ts signature
-interface ConditionGroups {
-  readonly subject: readonly Condition[];
-  readonly object: readonly Condition[];
-  readonly window: readonly Condition[];
-}
-```
+<!-- reference @evanion/acl#ConditionGroups -->
 
 `subject` is who gained or lost the access, `object` is which rows, and
 `window` is the `now` conditions. A condition comparing a subject path against
@@ -535,17 +286,10 @@ an object path lands in `object`.
 
 ## `Matrix`
 
+<!-- reference @evanion/acl#Matrix example=schema-binding -->
+
 `Matrix` is a JSON envelope over a flat list of permissions. See
 [The matrix document](/acl/matrix).
-
-```ts signature
-interface Matrix {
-  readonly version?: string | number;
-  readonly maxStale?: number; // how long a holder may keep deciding on it
-  readonly schema?: MatrixSchema;
-  readonly permissions: readonly Permission[];
-}
-```
 
 | Type           | What it holds                                                                                                                 |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -561,108 +305,47 @@ interface Matrix {
 
 ## `Permission`
 
-```ts signature
-interface Permission {
-  key: string; // exactly `${object}.${action}`
-  object: ObjectKey;
-  action: string; // whatever the producer wrote
-  rules?: readonly Rule[]; // allows, OR-ed
-  denyRules?: readonly Rule[]; // denies, OR-ed; a matched deny wins
-  fields?: FieldRules;
-  visibility?: 'public' | 'internal'; // absent is internal
-}
-```
+<!-- reference @evanion/acl#Permission -->
 
 ## `Rule`
 
-```ts signature
-interface Rule {
-  id?: string; // what a decision reports as `rule`; derived from `when` when absent
-  when?: readonly Condition[]; // AND-ed
-}
-```
+<!-- reference @evanion/acl#Rule -->
 
 ## `Condition`
 
-```ts signature
-type Condition =
-  | { field: 'now'; op: 'before' | 'after'; value: Instant }
-  | {
-      field: string;
-      op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
-      path?: string; // the `eq`/`ne` form only
-      value?: unknown;
-    };
-```
+<!-- reference @evanion/acl#Condition example=diff-matrix -->
 
 ## `FieldRules`
 
-```ts signature
-interface FieldRules {
-  fields?: readonly string[]; // ['*', '!status'] or ['body', 'title']
-  [field: string]: readonly string[] | FieldConfig | undefined;
-}
-```
+<!-- reference @evanion/acl#FieldRules -->
 
 ## `FieldConfig`
 
-```ts signature
-type FieldConfig =
-  | { targets: readonly unknown[] }
-  | { transitions: Record<string, readonly unknown[]> };
-```
+<!-- reference @evanion/acl#FieldConfig -->
 
 ## `MatrixSchema`
 
-```ts signature
-interface MatrixSchema {
-  readonly subject?: ObjectSchema;
-  readonly objects?: Readonly<Record<ObjectKey, ObjectSchema>>;
-}
-```
+<!-- reference @evanion/acl#MatrixSchema -->
 
 ## `ObjectSchema`
 
-```ts signature
-interface ObjectSchema {
-  readonly fields?: Readonly<Record<string, FieldType>>;
-  readonly relations?: Readonly<Record<string, ObjectKey>>;
-}
-```
+<!-- reference @evanion/acl#ObjectSchema -->
 
 ## `FieldType`
 
-```ts signature
-type FieldType =
-  | BaseFieldType
-  | `${BaseFieldType}[]`
-  | `${BaseFieldType}?`
-  | `${BaseFieldType}[]?`;
-```
+<!-- reference @evanion/acl#FieldType -->
 
 ## `BaseFieldType`
 
-```ts signature
-type BaseFieldType = 'string' | 'number' | 'boolean' | 'instant';
-```
+<!-- reference @evanion/acl#BaseFieldType -->
 
 ## `Instant`
 
-```ts signature
-type Instant = string | number | Date;
-```
+<!-- reference @evanion/acl#Instant -->
 
 ## `Decision`
 
-```ts signature
-interface Decision {
-  key: string;
-  allowed: boolean;
-  reason: Reason;
-  rule?: string;
-  missing?: readonly string[];
-}
-```
+<!-- reference @evanion/acl#Decision example=federation -->
 
 | Field     | What it carries                                                          |
 | --------- | ------------------------------------------------------------------------ |
@@ -678,14 +361,7 @@ interface Decision {
 
 ## `FieldDecision`
 
-```ts signature
-interface FieldDecision {
-  allowed: boolean; // the action is allowed AND every decided field is
-  action: Decision; // the action alone
-  fields: Record<string, FieldState>;
-  reasons: Record<string, FieldReason>;
-}
-```
+<!-- reference @evanion/acl#FieldDecision -->
 
 | Field     | What it carries                                                                                                                                    |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -696,89 +372,40 @@ interface FieldDecision {
 
 ## `FieldState`
 
-```ts signature
-type FieldState = 'allowed' | 'denied' | 'unevaluable';
-```
+<!-- reference @evanion/acl#FieldState -->
 
 See [Pitfalls](/acl/pitfalls#never-hand-filter-the-field-map).
 
 ## `FieldReason`
 
-```ts signature
-type FieldReason =
-  | 'allow'
-  | 'not-listed'
-  | 'targets-failed'
-  | 'transition-failed'
-  | 'missing-field'
-  | 'proposed-required';
-```
+<!-- reference @evanion/acl#FieldReason -->
 
 ## `EvaluationContext`
 
-```ts signature
-interface EvaluationContext {
-  subject: Record<string, unknown>;
-  object?: Record<string, unknown>;
-  now?: Instant;
-}
-```
+<!-- reference @evanion/acl#EvaluationContext -->
 
 The entry points assemble an `EvaluationContext`, and `now` settles to one epoch
 per call.
 
 ## `Subject`
 
-```ts signature
-type Subject = Record<string, unknown>;
-```
+<!-- reference @evanion/acl#Subject -->
 
 ## `AnyObjects`
 
-```ts signature
-type AnyObjects = Record<string, Record<string, unknown>>;
-```
+<!-- reference @evanion/acl#AnyObjects -->
 
 `AnyObjects` is the open key map `Access` defaults to.
 
 ## `ObjectKey`
 
-```ts signature
-type ObjectKey = string;
-```
+<!-- reference @evanion/acl#ObjectKey -->
 
 ## `Actions`
 
-`Actions` is the block parameter `.for()` hands you.
+<!-- reference @evanion/acl#Actions -->
 
-```ts signature
-interface Actions<
-  Sub,
-  Obj,
-  Act extends string = string,
-  Vocab extends string = string,
-> extends Ops<Sub, Obj> {
-  allow<A extends Vocab>(
-    action: A,
-    ...conditions: Cond[]
-  ): Actions<Sub, Obj, Act | A, Vocab>;
-  deny<A extends Vocab>(
-    action: A,
-    ...conditions: Cond[]
-  ): Actions<Sub, Obj, Act | A, Vocab>;
-  allowEach<A extends Vocab>(
-    actions: readonly A[],
-    ...conditions: Cond[]
-  ): Actions<Sub, Obj, Act | A, Vocab>;
-  denyEach<A extends Vocab>(
-    actions: readonly A[],
-    ...conditions: Cond[]
-  ): Actions<Sub, Obj, Act | A, Vocab>;
-  id(id: string): Actions<Sub, Obj, Act, Vocab>;
-  fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
-  visibility(visibility: Visibility): Actions<Sub, Obj, Act, Vocab>;
-}
-```
+`Actions` is the block parameter `.for()` hands you.
 
 | Member or type          | What it does                                                                |
 | ----------------------- | --------------------------------------------------------------------------- |
@@ -791,67 +418,28 @@ interface Actions<
 
 ## `Action`
 
-```ts signature
-type Action = (typeof CRUD_ACTIONS)[number];
-```
+<!-- reference @evanion/acl#Action example=capabilities -->
 
 ## `VocabularyOf`
 
-```ts signature
-type VocabularyOf<Vocabs, K extends string> = K extends keyof Vocabs
-  ? Vocabs[K] extends string
-    ? Vocabs[K]
-    : Action
-  : Action;
-```
+<!-- reference @evanion/acl#VocabularyOf -->
 
 ## `Visibility`
 
-```ts signature
-type Visibility = NonNullable<Permission['visibility']>;
-```
+<!-- reference @evanion/acl#Visibility -->
 
 `Visibility` is the marking `p.visibility()` writes and
 `serialize(access, 'reduced')` reads.
 
 ## `PermissionKeys`
 
-```ts signature
-type PermissionKeys<K extends string, Act extends string> = string extends Act
-  ? string
-  : `${K}.${Act}`;
-```
+<!-- reference @evanion/acl#PermissionKeys -->
 
 ## `Ops`
 
-`Ops` holds the condition helpers, bound to the subject and object types.
+<!-- reference @evanion/acl#Ops -->
 
-```ts signature
-interface Ops<Sub, Obj> {
-  eq<A extends string, B>(
-    field: Valid<A, Sub, Obj>,
-    operand: Operand<B, Sub, Obj>,
-  ): Cond;
-  ne<A extends string, B>(
-    field: Valid<A, Sub, Obj>,
-    operand: Operand<B, Sub, Obj>,
-  ): Cond;
-  in<A extends string>(
-    field: Valid<A, Sub, Obj>,
-    values: readonly unknown[],
-  ): Cond;
-  notIn<A extends string>(
-    field: Valid<A, Sub, Obj>,
-    values: readonly unknown[],
-  ): Cond;
-  contains<A extends string>(field: Valid<A, Sub, Obj>, value: unknown): Cond;
-  before(field: 'now', instant: Instant): Cond;
-  after(field: 'now', instant: Instant): Cond;
-  and(...conditions: Cond[]): Cond;
-  or(...conditions: Cond[]): Cond;
-  readonly always: Cond;
-}
-```
+`Ops` holds the condition helpers, bound to the subject and object types.
 
 `not-in` is not an identifier, so the helper is `notIn`.
 
@@ -864,37 +452,19 @@ interface Ops<Sub, Obj> {
 
 ## `Cond`
 
-```ts signature
-interface Cond {
-  readonly node: Node;
-}
-```
+<!-- reference @evanion/acl#Cond -->
 
 ## `Operand`
 
-```ts signature
-type Operand<B, Sub, Obj> = B extends
-  `subject.${string}` | `object.${string}` | 'now'
-  ? Valid<B & string, Sub, Obj>
-  : B;
-```
+<!-- reference @evanion/acl#Operand -->
 
 ## `Paths`
 
-```ts signature
-type Paths<T, P extends string> = {
-  [K in keyof T & string]: `${P}.${K}`;
-}[keyof T & string];
-```
+<!-- reference @evanion/acl#Paths -->
 
 ## `Valid`
 
-```ts signature
-type Valid<S extends string, Sub, Obj> = S extends
-  Paths<Sub, 'subject'> | Paths<Obj, 'object'> | 'now'
-  ? S
-  : `unknown path '${S}' on this resource`;
-```
+<!-- reference @evanion/acl#Valid -->
 
 ## `@evanion/acl/testing`
 
@@ -913,14 +483,10 @@ import {
 
 ## `contractDrift`
 
+<!-- reference @evanion/acl/testing#contractDrift example=contract-drift -->
+
 `contractDrift` replays a consumer's own decisions against two versions of one
 contract and reports what moved.
-
-```ts signature
-function contractDrift<D = never>(
-  options: ContractDriftOptions<D>,
-): ContractDriftReport<D>;
-```
 
 Both documents are adopted with `parseMatrix`, which fails closed, so a removed
 key answers `unknown-action` and is reported in `changed`. Nothing throws
@@ -928,26 +494,20 @@ partway through the run.
 
 ## `assertNoContractDrift`
 
+<!-- reference @evanion/acl/testing#assertNoContractDrift example=drift-assert -->
+
 `assertNoContractDrift` throws a `ContractDriftError` when the producer removed
 a published key or a replayed decision changed, and returns the report
 otherwise.
-
-```ts signature
-function assertNoContractDrift<D = never>(
-  options: ContractDriftOptions<D>,
-): ContractDriftReport<D>;
-```
 
 An added key passes, so a producer that only widened its surface leaves the
 consumer's build green.
 
 ## `describeContractDrift`
 
-`describeContractDrift` renders a report as a reader sees it, removals first.
+<!-- reference @evanion/acl/testing#describeContractDrift example=drift-assert -->
 
-```ts signature
-function describeContractDrift(report: ContractDriftReport<unknown>): string;
-```
+`describeContractDrift` renders a report as a reader sees it, removals first.
 
 A removal is spelled as a broken contract and a changed decision is spelled as
 a change, because one report that spelled them alike would leave the consumer
@@ -955,15 +515,7 @@ to work out which of the two it is looking at.
 
 ## `ContractDriftOptions`
 
-```ts signature
-interface ContractDriftOptions<D = never> {
-  readonly pinned: Matrix;
-  readonly fetched: Matrix;
-  readonly cases?: readonly DecisionCase[];
-  readonly now?: Instant; // settled once for every case without its own
-  readonly diff?: MatrixDiffer<D>;
-}
-```
+<!-- reference @evanion/acl/testing#ContractDriftOptions -->
 
 `pinned` is the contract this consumer compiled against and `fetched` is the
 one the producer publishes now. `contractDrift` settles `now` once, so it
@@ -972,16 +524,7 @@ two readings of the wall clock.
 
 ## `ContractDriftReport`
 
-```ts signature
-interface ContractDriftReport<D = never> {
-  readonly pinnedVersion: string | number | undefined;
-  readonly fetchedVersion: string | number | undefined;
-  readonly removed: readonly string[];
-  readonly added: readonly string[];
-  readonly changed: readonly DecisionChange[];
-  readonly diff: D | undefined;
-}
-```
+<!-- reference @evanion/acl/testing#ContractDriftReport -->
 
 `removed` holds the permission keys the pinned contract carries and the fetched
 one does not, which is a producer breaking a published contract. `added` is not
@@ -989,16 +532,7 @@ a break. `diff` is whatever `options.diff` returned.
 
 ## `DecisionCase`
 
-```ts signature
-interface DecisionCase {
-  readonly name?: string; // defaults to `${key}.${action}`
-  readonly subject: Subject;
-  readonly key: string;
-  readonly action: string;
-  readonly object?: Record<string, unknown>;
-  readonly now?: Instant;
-}
-```
+<!-- reference @evanion/acl/testing#DecisionCase -->
 
 The three positional arguments of `can` in a bag, plus a name for the report.
 `key` is the object kind and `action` the action, so the permission key the
@@ -1006,14 +540,7 @@ document carries is `` `${key}.${action}` ``.
 
 ## `DecisionChange`
 
-```ts signature
-interface DecisionChange {
-  readonly name: string;
-  readonly case: DecisionCase;
-  readonly pinned: Decision;
-  readonly fetched: Decision;
-}
-```
+<!-- reference @evanion/acl/testing#DecisionChange -->
 
 Two decisions are the same when `key`, `allowed`, `reason`, `rule` and every
 element of `missing` match, so a refusal that started naming a second
@@ -1021,9 +548,7 @@ unreadable path arrives as a change.
 
 ## `MatrixDiffer`
 
-```ts signature
-type MatrixDiffer<D> = (pinned: Matrix, fetched: Matrix) => D;
-```
+<!-- reference @evanion/acl/testing#MatrixDiffer -->
 
 The type of `options.diff`, which [`diffMatrix`](#diffmatrix) satisfies.
 `contractDrift` reads nothing out of the result and carries it onto
@@ -1032,15 +557,10 @@ here as `D`.
 
 ## `fixtureClock`
 
+<!-- reference @evanion/acl/testing#fixtureClock example=fixture-clock -->
+
 `fixtureClock` computes a document's freshness budget the way the engine
 computes it and names the two instants that bracket it.
-
-```ts signature
-function fixtureClock(
-  matrix: Matrix,
-  options?: FixtureClockOptions,
-): FixtureClock;
-```
 
 Every argument is validated as `hydratePolicy` validates it, so a document
 stating no `maxStale` raises `MissingFreshnessBudgetError` from `fixtureClock`,
@@ -1048,54 +568,31 @@ before the test reaches the construction it was about to write.
 
 ## `FixtureClockOptions`
 
-```ts signature
-interface FixtureClockOptions {
-  fetchedAt?: Instant; // defaults to the wall clock, settled once
-  maxStale?: number; // a local ceiling, `min`-ed with the document's
-}
-```
+<!-- reference @evanion/acl/testing#FixtureClockOptions -->
 
 ## `FixtureClock`
 
-```ts signature
-interface FixtureClock {
-  readonly fetchedAt: number;
-  readonly budget: number; // min(matrix.maxStale, options.maxStale)
-  readonly expiresAt: number; // fetchedAt + budget
-  readonly fresh: number; // the last instant every key still decides on
-  readonly stale: number; // the first instant that answers stale-contract
-  readonly options: AccessOptions;
-  at(ms: number): number;
-}
-```
+<!-- reference @evanion/acl/testing#FixtureClock -->
 
 `options` carries the two numbers the instants were derived from, so the holder
 and the test cannot disagree about the budget.
 
 ## `assertAllowed`
 
+<!-- reference @evanion/acl/testing#assertAllowed example=consumer-assertions -->
+
 `assertAllowed` returns the decision when it allows, and throws naming why it
 did not.
-
-```ts signature
-function assertAllowed(decision: Decision, context?: string): Decision;
-```
 
 The decision is returned so a caller chains on it, and `context` is a label
 prefixed onto the message.
 
 ## `assertRefused`
 
+<!-- reference @evanion/acl/testing#assertRefused example=fixture-clock -->
+
 `assertRefused` returns the decision when it refuses, and throws naming what it
 answered.
-
-```ts signature
-function assertRefused(
-  decision: Decision,
-  reason?: Reason,
-  context?: string,
-): Decision;
-```
 
 Naming `reason` asserts which refusal arrived, and a UI treats three of them
 differently: `unevaluable` asks for a refetch of the row, `stale-contract` for
@@ -1103,17 +600,10 @@ a refetch of the document, and `denied` for neither.
 
 ## `assertFieldState`
 
+<!-- reference @evanion/acl/testing#assertFieldState example=consumer-assertions -->
+
 `assertFieldState` returns the field decision when the named field is in
 `state`, and throws naming the whole decision when it is not.
-
-```ts signature
-function assertFieldState(
-  decision: FieldDecision,
-  field: string,
-  state: FieldState,
-  context?: string,
-): FieldDecision;
-```
 
 A field the decision carries no entry for is reported apart, because
 `decision.fields` and `decision.reasons` are keyed by the names the document
@@ -1122,11 +612,9 @@ had.
 
 ## `explainDecision`
 
-`explainDecision` renders one line naming everything a `Decision` carries.
+<!-- reference @evanion/acl/testing#explainDecision example=consumer-assertions -->
 
-```ts signature
-function explainDecision(decision: Decision): string;
-```
+`explainDecision` renders one line naming everything a `Decision` carries.
 
 A failed `expect(decision.allowed).toBe(true)` reports `true !== false` and
 names neither the key, the reason, the rule that decided, nor the paths a
@@ -1134,12 +622,10 @@ refusal is waiting on.
 
 ## `explainFieldDecision`
 
+<!-- reference @evanion/acl/testing#explainFieldDecision example=consumer-assertions -->
+
 `explainFieldDecision` renders the action decision a field decision hangs off,
 then every field beside its state and its reason.
-
-```ts signature
-function explainFieldDecision(decision: FieldDecision): string;
-```
 
 `FieldDecision.allowed` is true only when the action is allowed and every field
 is, so a false one has at least two places to look: `decision.action` and
@@ -1147,9 +633,7 @@ is, so a false one has at least two places to look: `decision.action` and
 
 ## `AclAssertionError`
 
-```ts signature
-class AclAssertionError extends Error {}
-```
+<!-- reference @evanion/acl/testing#AclAssertionError example=drift-assert -->
 
 Every assertion in `@evanion/acl/testing` throws this class or a subclass of
 it. A plain `Error` subclass and no matcher, so vitest, `node:test` and jest
@@ -1157,11 +641,7 @@ each report a throw from a test body the same way.
 
 ## `ContractDriftError`
 
-```ts signature
-class ContractDriftError extends AclAssertionError {
-  readonly report: ContractDriftReport<unknown>;
-}
-```
+<!-- reference @evanion/acl/testing#ContractDriftError example=drift-assert -->
 
 Raised by `assertNoContractDrift` for a removed key or a changed decision, with
 the whole report attached and `describeContractDrift` of that report as the
@@ -1169,9 +649,7 @@ message.
 
 ## `AclConfigError`
 
-```ts signature
-class AclConfigError extends Error {}
-```
+<!-- reference @evanion/acl#AclConfigError example=errors-catching -->
 
 `AclConfigError` is the base of every class below. [Typed
 authoring](/acl/authoring#construction-errors) tables the same set by authoring
@@ -1204,72 +682,35 @@ step.
 
 ## `InvalidMatrixError`
 
-```ts signature
-class InvalidMatrixError extends AclConfigError {}
-```
+<!-- reference @evanion/acl#InvalidMatrixError -->
 
 ## `InvalidSchemaError`
 
-```ts signature
-class InvalidSchemaError extends AclConfigError {
-  readonly where: string; // schema.objects.question.fields.status
-}
-```
+<!-- reference @evanion/acl#InvalidSchemaError -->
 
 ## `InvalidPermissionError`
 
-```ts signature
-class InvalidPermissionError extends AclConfigError {
-  readonly key: string;
-  readonly field: string;
-}
-```
+<!-- reference @evanion/acl#InvalidPermissionError -->
 
 ## `InvalidRuleError`
 
-```ts signature
-class InvalidRuleError extends AclConfigError {
-  readonly key: string;
-  readonly field: string; // rules[2]
-}
-```
+<!-- reference @evanion/acl#InvalidRuleError -->
 
 ## `InvalidConditionError`
 
-```ts signature
-class InvalidConditionError extends AclConfigError {
-  readonly key: string;
-  readonly field: string;
-  readonly where: string;
-}
-```
+<!-- reference @evanion/acl#InvalidConditionError -->
 
 ## `KeyMismatchError`
 
-```ts signature
-class KeyMismatchError extends AclConfigError {
-  readonly key: string;
-  readonly object: string;
-  readonly action: string;
-}
-```
+<!-- reference @evanion/acl#KeyMismatchError -->
 
 ## `DuplicatePermissionError`
 
-```ts signature
-class DuplicatePermissionError extends AclConfigError {
-  readonly key: string;
-}
-```
+<!-- reference @evanion/acl#DuplicatePermissionError -->
 
 ## `DuplicateRuleIdError`
 
-```ts signature
-class DuplicateRuleIdError extends AclConfigError {
-  readonly key: string;
-  readonly id: string;
-}
-```
+<!-- reference @evanion/acl#DuplicateRuleIdError example=rule-ids -->
 
 Two rules of one permission carrying the same `id`. `diffMatrix` indexes each
 side by rule id, so the second rule under a taken id replaces the first there
@@ -1279,13 +720,7 @@ rule](/acl/authoring#naming-a-rule-with-pid) has the example.
 
 ## `AmbiguousRuleIdError`
 
-```ts signature
-class AmbiguousRuleIdError extends AclConfigError {
-  readonly key: string;
-  readonly id: string;
-  readonly rules: number;
-}
-```
+<!-- reference @evanion/acl#AmbiguousRuleIdError example=rule-ids -->
 
 A `p.id()` following an `allow` or a `deny` that flattened to other than one
 rule. `rules` is how many that call wrote, and an `or()` inside it wrote one per
@@ -1293,35 +728,19 @@ branch.
 
 ## `UnknownFieldError`
 
-```ts signature
-class UnknownFieldError extends AclConfigError {
-  readonly key: string;
-  readonly field: string;
-  readonly where: string;
-}
-```
+<!-- reference @evanion/acl#UnknownFieldError -->
 
 ## `FieldTypeMismatchError`
 
-```ts signature
-class FieldTypeMismatchError extends AclConfigError {
-  readonly key: string;
-  readonly field: string;
-  readonly where: string;
-}
-```
+<!-- reference @evanion/acl#FieldTypeMismatchError -->
 
 ## `BangInAllowListError`
 
-```ts signature
-class BangInAllowListError extends AclConfigError {}
-```
+<!-- reference @evanion/acl#BangInAllowListError -->
 
 ## `DenyWithoutBaselineError`
 
-```ts signature
-class DenyWithoutBaselineError extends AclConfigError {}
-```
+<!-- reference @evanion/acl#DenyWithoutBaselineError -->
 
 ## `TargetsTransitionsConflictError`
 
@@ -1329,76 +748,39 @@ class DenyWithoutBaselineError extends AclConfigError {}
 
 ## `UnknownObjectKeyError`
 
-```ts signature
-class UnknownObjectKeyError extends AclConfigError {
-  readonly key: ObjectKey;
-}
-```
+<!-- reference @evanion/acl#UnknownObjectKeyError -->
 
 ## `UnknownPermissionError`
 
-```ts signature
-class UnknownPermissionError extends AclConfigError {
-  readonly key: string;
-}
-```
+<!-- reference @evanion/acl#UnknownPermissionError -->
 
 ## `OriginCollisionError`
 
-```ts signature
-class OriginCollisionError extends AclConfigError {
-  readonly key: string;
-  readonly origins: readonly [string, string];
-}
-```
+<!-- reference @evanion/acl#OriginCollisionError -->
 
 ## `UnvetoablePermissionError`
 
-```ts signature
-class UnvetoablePermissionError extends AclConfigError {
-  readonly key: string;
-}
-```
+<!-- reference @evanion/acl#UnvetoablePermissionError -->
 
 ## `MissingVetoSchemaError`
 
-```ts signature
-class MissingVetoSchemaError extends AclConfigError {
-  readonly key: string;
-  readonly object: ObjectKey;
-}
-```
+<!-- reference @evanion/acl#MissingVetoSchemaError -->
 
 ## `UnpublishedVetoableError`
 
-```ts signature
-class UnpublishedVetoableError extends AclConfigError {
-  readonly key: string;
-}
-```
+<!-- reference @evanion/acl#UnpublishedVetoableError -->
 
 ## `MissingFreshnessBudgetError`
 
-```ts signature
-class MissingFreshnessBudgetError extends AclConfigError {}
-```
+<!-- reference @evanion/acl#MissingFreshnessBudgetError -->
 
 ## `InvalidFreshnessError`
 
-```ts signature
-class InvalidFreshnessError extends AclConfigError {
-  readonly field: string;
-}
-```
+<!-- reference @evanion/acl#InvalidFreshnessError -->
 
 ## `ActionNotAllowedError`
 
-```ts signature
-class ActionNotAllowedError extends Error {
-  readonly key: string;
-  readonly reason: Reason;
-}
-```
+<!-- reference @evanion/acl#ActionNotAllowedError -->
 
 `ActionNotAllowedError` is the only error the library raises outside
 construction. `pickAllowedFields` throws it when the action is refused.

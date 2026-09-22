@@ -201,6 +201,34 @@ function kindOf(resolved, checker, at) {
 
 const printer = ts.createPrinter({ removeComments: true });
 
+/** The package a specifier names, with any subpath dropped. */
+function packageNameOf(specifier) {
+  const match = /^(@[^/]+\/[^/]+|[^@/][^/]*)/.exec(specifier);
+  return match ? match[1] : specifier;
+}
+
+/** An entry point's exports, with whether each is importable as a value. */
+function exportsOf(moduleSymbol, checker) {
+  return new Map(
+    checker.getExportsOfModule(moduleSymbol).map((each) => {
+      const target = resolveAlias(each, checker);
+      return [
+        each.getName(),
+        Boolean(target.getFlags() & ts.SymbolFlags.Value),
+      ];
+    }),
+  );
+}
+
+/** The same, for an entry point this call is not otherwise reading. */
+function exportsOfSpecifier(root, specifier) {
+  const { declaration, program, checker } = programOf(root, specifier);
+  const source = program.getSourceFile(declaration);
+  const moduleSymbol = source && checker.getSymbolAtLocation(source);
+
+  return moduleSymbol ? exportsOf(moduleSymbol, checker) : new Map();
+}
+
 /**
  * The declaration the package published, as source a Twoslash fence compiles.
  *
@@ -238,7 +266,8 @@ const printer = ts.createPrinter({ removeComments: true });
  * the prose, and the entry carries it above the fence regardless, in the
  * summary and the disclosure, where the search index can also read it.
  */
-function declarationOf(resolved, exported, name, kind) {
+function declarationOf(context, resolved, name, kind) {
+  const { exported, root, packageDir, checker } = context;
   const declaration = resolved.getDeclarations()?.[0];
   if (!declaration) return null;
 
@@ -247,6 +276,8 @@ function declarationOf(resolved, exported, name, kind) {
   const node = ts.isVariableDeclaration(declaration)
     ? declaration.parent.parent
     : declaration;
+  const strip = (printed) =>
+    printed.replace(/^export\s+/, '').replace(/^declare\s+/, '');
   const printed = printer.printNode(
     ts.EmitHint.Unspecified,
     node,
@@ -256,24 +287,88 @@ function declarationOf(resolved, exported, name, kind) {
   const merges = kind === 'function' || kind === 'interface';
   // Inside a module block the declaration is already ambient and already
   // exported, so the modifiers the `.d.ts` carries have to come off.
-  const text = merges
-    ? printed.replace(/^export\s+/, '').replace(/^declare\s+/, '')
-    : printed;
+  const text = merges ? strip(printed) : printed;
 
-  const mentioned = new Set(text.match(/[A-Za-z_$][\w$]*/g) ?? []);
-  const referenced = [...exported.keys()].filter(
-    (each) => each !== name && mentioned.has(each),
-  );
-  // The entry's own name is imported too when it merges, because importing it
-  // is what puts the published symbol in the fence for the local one to merge
-  // with.
-  const own = merges ? [name] : [];
+  const own = new Set([name]);
+  const values = [];
+  const types = [];
+  const fromRoot = [];
+  const prelude = [];
+  const seen = new Set();
+
+  /**
+   * Where each name the declaration mentions has to come from.
+   *
+   * Three answers and they are not interchangeable. A name the documented
+   * entry point exports is imported from it. A name only the package root
+   * exports is imported from there, which is what a second entry point needs:
+   * `@evanion/acl/testing` declares `assertAllowed(decision: Decision)` and
+   * publishes no `Decision` of its own. A name the package declares and
+   * publishes nowhere is printed into the fence above the cut, because a fence
+   * that leaves it unbound does not fail -- it silently binds to whatever
+   * global has that name, and `Cond`'s `node: Node` bound to the DOM's `Node`
+   * for as long as the entry existed.
+   */
+  const place = (each, from) => {
+    if (seen.has(each)) return;
+    seen.add(each);
+
+    if (exported.has(each)) {
+      (exported.get(each) ? values : types).push(each);
+      return;
+    }
+
+    if (root.has(each)) {
+      fromRoot.push(each);
+      return;
+    }
+
+    // A name the checker resolves to a type declared inside the package is
+    // private to it. Types only: a declaration's parameter names and property
+    // names resolve too, and printing one puts `decision: Decision` at the top
+    // of the fence as though it were a statement.
+    const symbol = checker.resolveName(each, from, ts.SymbolFlags.Type, false);
+    const target = symbol?.getDeclarations()?.[0];
+    const standalone =
+      target &&
+      (ts.isInterfaceDeclaration(target) ||
+        ts.isTypeAliasDeclaration(target) ||
+        ts.isEnumDeclaration(target));
+
+    if (
+      !standalone ||
+      !target.getSourceFile().fileName.startsWith(packageDir)
+    ) {
+      return;
+    }
+
+    const body = strip(
+      printer.printNode(
+        ts.EmitHint.Unspecified,
+        target,
+        target.getSourceFile(),
+      ),
+    );
+    prelude.push(body);
+    for (const mentioned of body.match(/[A-Za-z_$][\w$]*/g) ?? []) {
+      if (mentioned !== each) place(mentioned, target);
+    }
+  };
+
+  for (const each of text.match(/[A-Za-z_$][\w$]*/g) ?? []) {
+    if (!own.has(each)) place(each, node);
+  }
 
   return {
     text,
     merges,
-    values: [...own, ...referenced].filter((each) => exported.get(each)),
-    types: [...own, ...referenced].filter((each) => !exported.get(each)),
+    // The entry's own name is imported too when it merges, because importing
+    // it is what puts the published symbol in the fence for the local one to
+    // merge with.
+    values: merges && exported.get(name) ? [name, ...values] : values,
+    types: merges && !exported.get(name) ? [name, ...types] : types,
+    fromRoot,
+    prelude,
   };
 }
 
@@ -309,15 +404,16 @@ export function readReference(root, specifier, name) {
   // Every export of the entry point, with whether a caller can import it
   // without `import type`. The signature fence imports from this list, so the
   // package's own surface decides what a fence may name.
-  const exported = new Map(
-    checker.getExportsOfModule(moduleSymbol).map((each) => {
-      const target = resolveAlias(each, checker);
-      return [
-        each.getName(),
-        Boolean(target.getFlags() & ts.SymbolFlags.Value),
-      ];
-    }),
-  );
+  const exported = exportsOf(moduleSymbol, checker);
+
+  // The package root, when this is a second entry point. `@evanion/acl/testing`
+  // declares `assertAllowed(decision: Decision)` and publishes no `Decision`,
+  // so a fence that imported only from `/testing` would not compile.
+  const rootSpecifier = packageNameOf(specifier);
+  const rootExports =
+    rootSpecifier === specifier
+      ? new Map()
+      : exportsOfSpecifier(root, rootSpecifier);
 
   const symbol = checker
     .getExportsOfModule(moduleSymbol)
@@ -345,7 +441,13 @@ export function readReference(root, specifier, name) {
     name,
     specifier,
     kind,
-    signature: declarationOf(resolved, exported, name, kind),
+    signature: declarationOf(
+      { exported, root: rootExports, packageDir, checker },
+      resolved,
+      name,
+      kind,
+    ),
+    rootSpecifier,
     summary,
     rest,
     tags,
