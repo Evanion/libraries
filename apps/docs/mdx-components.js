@@ -1,5 +1,6 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import FieldWriteDemo from './components/acl/FieldWriteDemo';
+import MatrixExplorer from './components/acl/MatrixExplorer';
 import UnevaluableDemo from './components/acl/UnevaluableDemo';
 import AccessDemo from './components/landing/AccessDemo';
 import ComposeSpecimen from './components/landing/ComposeSpecimen';
@@ -100,6 +101,7 @@ export function useMDXComponents(components) {
     PlaygroundExamples,
     AccessDemo,
     FieldWriteDemo,
+    MatrixExplorer,
     UnevaluableDemo,
     ComposeSpecimen,
     DataDemo,

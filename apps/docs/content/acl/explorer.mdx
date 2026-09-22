@@ -1,0 +1,117 @@
+# Explore a document you have
+
+<WorkshopNotice slug="acl" />
+
+<PageSheet
+  difficulty={2}
+  read={5}
+  hands={10}
+  requires={[['The Matrix Document', '/acl/matrix']]}
+  unlocks={[
+    ['A policy from another service', '/acl/adopting'],
+    ['What can they do at all?', '/acl/capabilities'],
+  ]}
+/>
+
+**The concept.** A matrix document states version, freshness, schema and
+permissions, and a reader holding one reads all four by eye.
+**What you get.** A box on this page that adopts the document with
+`parseMatrix` and draws what it declares and what it decides.
+**Why you want it.** Reading forty permissions to find which ones a subject can
+use is the work `capabilities` already does in one call.
+**How the library gets you there.** `parseMatrix` adopts, `capabilities`
+decides every key against one subject, and `readsObject` says which permissions
+owe a row first.
+
+## Where the acl explorer runs
+
+This site is a static export. There is no server behind these pages, and
+`@evanion/acl` imports no framework and evaluates locally, so the document you
+paste is read by JavaScript in your own browser and has nowhere to be uploaded
+to.
+
+The box takes a paste and a file you pick. It reads nothing from the URL. A
+document reachable at `?matrix=https://…` is a link a third party can send, and
+Swagger UI ships the same default off for the same reason.
+
+What you paste is also invisible to this site's search. Search indexes the HTML
+the build emitted, and your document reaches the page after that, so the sample
+below is indexed and nothing you bring is.
+
+## Exploring an acl matrix document
+
+The box adopts with [`parseMatrix`](/acl/api#parsematrix), the closed path, on
+the ground that a document arriving from somewhere else is foreign input: a key
+it does not carry answers `unknown-action` rather than throwing. That is the
+same adoption a consuming service writes, so what you see here is what that
+service would get.
+
+Three things are drawn, and each is either the document's own words or one call
+into the package. **What it declares** is `version`, `maxStale`, the schema's
+object kinds and how many permissions carry `visibility: 'public'`, which is
+the set [`serialize(access, 'reduced')`](/acl/publishing) would keep. **What
+each permission says** is its allow rules, its deny rules and its field rules,
+with `needs the row` on every permission `access.readsObject` answers true for.
+**The subject** takes a JSON object and runs one
+[`capabilities`](/acl/capabilities) call, which settles one clock for the whole
+document where a loop of `can` settles one per permission.
+
+The sample loads a shop matrix over `listing` and `order`. Against the seller
+`{ "id": "u_31", "roles": ["seller"] }` it answers `allow` for `listing.read`,
+`no-rule-matched` for `order.refund`, and `unevaluable` for `listing.update`
+with `missing` naming `object.status` and `object.sellerId`. That third answer
+is the one worth sitting with: the seller may well be allowed to update the
+listing, and no subject alone settles it, because both rules read the row.
+
+<MatrixExplorer />
+
+## What the acl explorer does with a malformed document
+
+Two failures, and your next move differs.
+
+Text that is not JSON never reaches the package. The box says so and quotes
+what `JSON.parse` reported, and no rule has been read at that point.
+
+A document that parsed and that the package refused raises an
+[`AclConfigError`](/acl/errors), and the box renders the class, the message and
+the three properties that locate the value. A condition naming
+`object.seller_id` against a schema declaring `sellerId` gives this:
+
+| What is shown | What it holds                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| class         | `UnknownFieldError`                                                                                                     |
+| message       | permission "listing.update": condition rules[0].when[0] on "object.seller_id" names a field the schema does not declare |
+| `key`         | `listing.update`                                                                                                        |
+| `field`       | `object.seller_id`                                                                                                      |
+| `where`       | `rules[0].when[0]`                                                                                                      |
+
+`where` is a position inside the permission, so a document with forty rules
+still names the one condition to change. [What can throw?](/acl/errors) carries
+every class with the input that raises each one.
+
+## What the acl explorer leaves out
+
+Three things a reader might expect, each left out for a reason.
+
+**The field axis.** `canFields` needs a row and a proposed write before it
+answers anything, which is two more boxes to fill before the screen says a
+word. [Which fields may they write?](/acl/writing) teaches it against a
+scenario built for it.
+
+**An object row.** `capabilities` passes no object by design, and `needs the
+row` already names every permission that answers `unevaluable` because of it.
+Supplying a row means supplying one per object kind, and a document you brought
+has no rows in it.
+
+**A diff between two documents.** `diffMatrix` is a second document, a second
+adoption and a second refusal path on a screen that has one of each today.
+[What did this change do to access?](/acl/changes) has it.
+
+## Where to go next
+
+- [A policy from another service](/acl/adopting). The same `parseMatrix`
+  adoption, in a service rather than a browser.
+- [What can they do at all?](/acl/capabilities). The call the subject box
+  makes, and what its answers mean.
+- [Why was this refused?](/acl/refusals). Reading `reason` and `missing` off a
+  row of the decision table.

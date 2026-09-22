@@ -65,6 +65,12 @@ import type { MetaRecord } from 'nextra';
  * register is the ledger a reader checks a class of attack against, so the
  * argument comes first and the rows a reader scans come after it.
  *
+ * `explorer` closes Reference, after `api`. Every other page in the band
+ * documents this package; that one takes a document the reader brought and
+ * reports on it, so it is the only page whose subject arrives from outside. It
+ * sits last because a reader gets there holding a document, which means they
+ * came from `matrix` or `adopting` rather than from the page above it.
+ *
  * A page not listed here is appended after these, so adding one is not a
  * requirement. Renaming one is: Nextra throws on a `_meta` key naming a page it
  * cannot find, and `tools/repo-checks/src/docs-navigation.test.ts` fails first.
@@ -109,4 +115,5 @@ export default {
   security: 'Security Contract',
   register: 'Security Register',
   api: 'API Reference',
+  explorer: 'Explore a document you have',
 } satisfies MetaRecord;
