@@ -1,0 +1,437 @@
+# How this project is tested
+
+This project is written with heavy AI assistance, and a reader evaluating an
+authorization library on that basis wants to check the claims rather than read
+them. Every figure below comes from a run the deploy made, and every case is
+the text of a test that run executed. The block under this sentence is one of
+them: a write carrying a `role` the policy excludes, and the decision the
+engine returned.
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-001
+
+```
+
+<Provenance />
+
+<Panel heading="Three things this page does not establish">
+  <Text as="div" size="sm">
+    A test suite covers the cases somebody thought of, and the thirty-seventh
+    class is in nobody's register. The guards check that a documented thing is
+    present, and none of them checks that it is right. The coverage figures
+    count lines a run executed, which is a different claim from the assertions
+    being any good. [What this page cannot prove](#what-this-page-cannot-prove)
+    is each of those at length, after the material they are about.
+  </Text>
+</Panel>
+
+## What the numbers cover
+
+The scope is the eleven packages `nx.json`'s `release.projects` matches, which
+is everything under `libs/`. The build resolves that pattern through the Nx
+project graph, so a twelfth library joins these counts the day it is released
+and nobody edits this page.
+
+The demo apps are off the counts, and that is a real omission. `apps/shop-api`
+and `apps/storefront` run the policy engine through a NestJS service and an
+Astro renderer, and one of them holds an end-to-end file that exercises a whole
+request. A reader told that `@evanion/acl` carries a thousand tests has not
+been told that an application enforcing a policy through it also passes.
+
+## The documentation's examples are executed
+
+<DocExamples />
+
+A fenced block in a package README is collected by that package's own vitest
+run, so the example a reader copies is an example that ran. A `// -> value`
+line inside one becomes an assertion before the block executes. A `twoslash`
+fence in this site's content is compiled against the package's built `dist/`
+under Twoslash's strict defaults, and a fence declaring an error code fails
+when the compiler stops producing it. A `file=… region=…` block, such as the
+one below and the thirty-six further down, is filled from the named region of
+the file the tests run.
+
+```ts twoslash file=libs/acl/README.md region=quick-start
+
+```
+
+Run `npx nx test @evanion/acl` to watch the README's own blocks execute.
+
+## The security register, and every case in it
+
+`libs/acl/SECURITY.md` names thirty-six classes of attack and puts each in one
+of three tiers. The tier decides what a passing test under it may claim: tier 1
+says the library prevents the class, tier 2 says the library supplies the
+primitive and the consumer has to use it, and tier 3 says the class is
+structurally out of scope. A tier 3 entry carries no passing defence, because a
+passing test there would imply one.
+
+<RegisterCounts />
+
+<CrossReferences />
+
+### How the cases are ordered
+
+Every criterion below is read off the register's own columns, so a reader can
+check the order rather than trusting it. The one editorial part is inside the
+third group: somebody decided that SEC-001 carries API3:2023, and that decision
+moves which of eighteen cases a reader meets first. It changes nothing about
+which cases exist, because all thirty-six are here.
+
+<RankRule />
+
+<CaseFilter />
+
+### Out of scope, published as a non-defence
+
+<Case id="SEC-201">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-201
+
+```
+
+</Case>
+
+<Case id="SEC-202">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-202
+
+```
+
+</Case>
+
+<Case id="SEC-203">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-203
+
+```
+
+</Case>
+
+<Case id="SEC-204">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-204
+
+```
+
+</Case>
+
+<Case id="SEC-205">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-205
+
+```
+
+</Case>
+
+<Case id="SEC-206">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-206
+
+```
+
+</Case>
+
+<Case id="SEC-207">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-207
+
+```
+
+</Case>
+
+<Case id="SEC-208">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-208
+
+```
+
+</Case>
+
+### The primitive exists, the consumer has to use it
+
+<Case id="SEC-101">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-101
+
+```
+
+</Case>
+
+<Case id="SEC-102">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-102
+
+```
+
+</Case>
+
+<Case id="SEC-103">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-103
+
+```
+
+</Case>
+
+<Case id="SEC-104">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-104
+
+```
+
+</Case>
+
+<Case id="SEC-105">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-105
+
+```
+
+</Case>
+
+<Case id="SEC-106">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-106
+
+```
+
+</Case>
+
+<Case id="SEC-107">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-107
+
+```
+
+</Case>
+
+<Case id="SEC-108">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-108
+
+```
+
+</Case>
+
+### Prevented when a decision is made
+
+<Case id="SEC-001">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-001
+
+```
+
+</Case>
+
+<Case id="SEC-004">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-004
+
+```
+
+</Case>
+
+<Case id="SEC-010">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-010
+
+```
+
+</Case>
+
+<Case id="SEC-011">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-011
+
+```
+
+</Case>
+
+<Case id="SEC-019">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-019
+
+```
+
+</Case>
+
+<Case id="SEC-002">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-002
+
+```
+
+</Case>
+
+<Case id="SEC-003">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-003
+
+```
+
+</Case>
+
+<Case id="SEC-005">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-005
+
+```
+
+</Case>
+
+<Case id="SEC-006">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-006
+
+```
+
+</Case>
+
+<Case id="SEC-007">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-007
+
+```
+
+</Case>
+
+<Case id="SEC-008">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-008
+
+```
+
+</Case>
+
+<Case id="SEC-012">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-012
+
+```
+
+</Case>
+
+<Case id="SEC-013">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-013
+
+```
+
+</Case>
+
+<Case id="SEC-014">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-014
+
+```
+
+</Case>
+
+<Case id="SEC-015">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-015
+
+```
+
+</Case>
+
+<Case id="SEC-016">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-016
+
+```
+
+</Case>
+
+<Case id="SEC-017">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-017
+
+```
+
+</Case>
+
+<Case id="SEC-018">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-018
+
+```
+
+</Case>
+
+### Refused at construction
+
+<Case id="SEC-009">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-009
+
+```
+
+</Case>
+
+<Case id="SEC-020">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-020
+
+```
+
+</Case>
+
+## The suite, package by package
+
+<SuiteTable />
+
+The distribution is uneven, and the table shows it rather than averaging it.
+`@evanion/acl` holds most of these cases, and the adversarial suite under
+`libs/acl/src/security` is the part of them the section above renders. A count
+says how much was tested and nothing about how well, which is why no count on
+this page stands without a case beside it.
+
+Five kinds of test are derived from each library's own vitest configuration and
+appear in the Kinds column: behaviour tests, type tests in a `*.test-d.ts`
+file, doctests from a README, Astro container tests, and the adversarial suite.
+Four more run where no library's configuration can name them, so they carry no
+count here:
+
+<KindsOutside />
+
+## What this page cannot prove
+
+**A test suite covers the cases somebody thought of.** Each of the
+thirty-six register entries is a class somebody named. The thirty-seventh is in
+no register, in no suite, and nothing on this page would look different if it
+existed. SEC-019 draws generated writes from a seeded generator, which is the
+narrowest exception and still generates within a shape somebody chose, against
+a property somebody stated.
+
+**The guards check shape, and never correctness.** The export-coverage check
+refuses a published export with no example, and it has no opinion about whether
+the example is any good or whether the export should exist. The twoslash check
+proves a fence compiles, which is a different claim from the fence being the
+right way to use the API.
+
+<Guards />
+
+Both allowance files default an unlisted entry to zero, so the backlog above
+cannot grow. It has not been paid down either, and a guard quoted without its
+own backlog is the marketing a sceptic came expecting.
+
+**The register describes one library, at one layer.** Eight entries are tier 3,
+and [the security contract](/acl/security) is what they mean: in a browser the
+control disappears and the request it would have sent does not. A reader taking
+this page as evidence that an application using `@evanion/acl` is secure has
+drawn a conclusion the register's own tier 3 refutes.
+
+**Nothing here is an audit.** No third party has reviewed this code. Projects
+of comparable subject link a sponsored external audit or publish an audit
+report in the repository, and this project has neither.
+
+**The numbers describe one commit.** The provenance line at the top names it.
+If the deploy stops running the suite, that commit stops moving with the site,
+and a reader can see the mismatch from this page.
+
+## Coverage
+
+[What coverage measures](/testing/coverage) carries the four metrics per
+package, the files each report reached, and where the branch coverage falls
+short. It is last because it is the weakest evidence on this page.

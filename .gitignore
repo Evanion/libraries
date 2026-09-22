@@ -93,3 +93,9 @@ apps/storefront/dist/
 
 # Scratch notes, not repo content
 .claude/ideas/
+
+# Written by `nx run docs:testing-data` from a run of the libraries' suites, and
+# read by the /testing section while the site is built. Not committed: a
+# committed figure is right until somebody lands a change without regenerating
+# it, and the page keeps rendering the old one with nothing to say so.
+apps/docs/components/testing/statistics.json

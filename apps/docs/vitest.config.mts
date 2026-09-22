@@ -56,7 +56,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./test-setup.ts'],
-    include: ['{app,components}/**/*.test.{ts,tsx}'],
+    // `tools/` is in because the /testing section's reduction lives there as
+    // plain ESM, the way the MDX loaders beside it do, and its failure cases --
+    // a project that collected nothing, a package with no coverage summary --
+    // are what decide whether the docs build stops.
+    include: ['{app,components}/**/*.test.{ts,tsx}', 'tools/**/*.test.mjs'],
     reporters: ['default'],
   },
 });

@@ -9,6 +9,20 @@ import PolicySpecimen from './components/landing/PolicySpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
 import UrnSpecimen from './components/landing/UrnSpecimen';
 import ApiFilter from './components/api/ApiFilter';
+import Case from './components/testing/Case';
+import CaseFilter from './components/testing/CaseFilter';
+import {
+  CoverageShortfall,
+  CoverageTable,
+  CrossReferences,
+  DocExamples,
+  Guards,
+  KindsOutside,
+  Provenance,
+  RankRule,
+  RegisterCounts,
+  SuiteTable,
+} from './components/testing/Numbers';
 import Probe from './components/Probe';
 import Diagram from './components/diagram/Diagram';
 import Listing from './components/listing/Listing';
@@ -87,6 +101,21 @@ export function useMDXComponents(components) {
     Title,
     Probe,
     ApiFilter,
+    // The `/testing` section. Every one of these reads the file
+    // `apps/docs/tools/test-statistics.mjs` wrote during this build, so a page
+    // writes a tag and never a number.
+    Case,
+    CaseFilter,
+    CoverageShortfall,
+    CoverageTable,
+    CrossReferences,
+    DocExamples,
+    Guards,
+    KindsOutside,
+    Provenance,
+    RankRule,
+    RegisterCounts,
+    SuiteTable,
     // Not a tag an author writes: `tools/remark-diagram.mjs` rewrites a
     // ```mermaid fence into one, and the name has to be on this map for the
     // rewritten element to resolve to anything.

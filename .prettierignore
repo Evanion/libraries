@@ -21,3 +21,6 @@ internal/baize-ui/src/tokens.generated.css
 # prettier collapses both to one, which makes the formatter a second producer of
 # the file.
 **/CHANGELOG.md
+# Written by `nx run docs:testing-data`, as `JSON.stringify` prints it. The
+# formatter would be a second producer of a file no reviewer reads.
+apps/docs/components/testing/statistics.json

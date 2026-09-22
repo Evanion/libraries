@@ -45,8 +45,16 @@ function group(id: string, title: string) {
  * The order is the order of `groups`, then of `packages` within each. A group
  * whose packages have all been removed emits no separator, because Nextra
  * renders one whether or not anything follows it.
+ *
+ * `testing` is the one literal key after them, and it is not a package: it is a
+ * section about the repository, so it belongs to no group and cannot be derived
+ * from `packages`. It sits last under its own separator because a reader
+ * arrives looking for a library and reaches the question of whether to trust
+ * one after they have found it.
  */
 export default {
   index: { title: 'All packages', href: '/' },
   ...Object.assign({}, ...groups.map((it) => group(it.id, it.title))),
+  'group-repository': { type: 'separator', title: 'This repository' },
+  testing: 'How it is tested',
 } satisfies MetaRecord;
