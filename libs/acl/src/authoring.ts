@@ -43,9 +43,32 @@ type Node =
   | { kind: 'and'; parts: readonly Node[] }
   | { kind: 'or'; parts: readonly Node[] };
 
-/** An opaque condition tree. Built by the helpers, flattened by the builder. */
+/**
+ * An opaque condition tree. Built by the helpers, flattened by the builder.
+ *
+ * `node` is typed `unknown` so the type is opaque in fact and not only in this
+ * sentence. A caller holds a `Cond`, passes it to `allow` or `deny`, and never
+ * reads it; typing the member as the tree would publish the tree's shape as
+ * API, and typing it as a name this package does not export would leave a
+ * member no consumer can write down.
+ *
+ * The second of those is what shipped. `Node` is module-private, so a
+ * declaration emitting `readonly node: Node` referenced a name that resolves
+ * nowhere for a consumer, and in a context that re-declares it the name binds
+ * to the DOM's `Node` with no error at all.
+ */
 export interface Cond {
-  readonly node: Node;
+  readonly node: unknown;
+}
+
+/**
+ * The tree behind a `Cond`, which only this module may read.
+ *
+ * One cast rather than one per call site, so the place the opacity is undone is
+ * a single line somebody can find.
+ */
+function treeOf(condition: Cond): Node {
+  return condition.node as Node;
 }
 
 function cond(condition: Condition): Cond {
@@ -80,7 +103,7 @@ function toBranches(node: Node): readonly (readonly Condition[])[] {
 
 /** The conditions of one `allow`/`deny` call, AND-ed and flattened to rules. */
 function toRules(conditions: readonly Cond[]): Rule[] {
-  const node: Node = { kind: 'and', parts: conditions.map((c) => c.node) };
+  const node: Node = { kind: 'and', parts: conditions.map(treeOf) };
   return toBranches(node).map((when) => ({ when }));
 }
 
@@ -403,10 +426,10 @@ function blockBuilder(
     before: (field, instant) => cond({ field, op: 'before', value: instant }),
     after: (field, instant) => cond({ field, op: 'after', value: instant }),
     and: (...conditions) => ({
-      node: { kind: 'and', parts: conditions.map((c) => c.node) },
+      node: { kind: 'and', parts: conditions.map(treeOf) },
     }),
     or: (...conditions) => ({
-      node: { kind: 'or', parts: conditions.map((c) => c.node) },
+      node: { kind: 'or', parts: conditions.map(treeOf) },
     }),
     always: { node: { kind: 'and', parts: [] } },
   };
