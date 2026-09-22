@@ -9,10 +9,42 @@
       "type:app"
     ],
     "targets": {
+      "testing-data": {
+        "command": "node tools/test-statistics.mjs",
+        "options": {
+          "cwd": "{projectRoot}"
+        },
+        "cache": true,
+        "inputs": [
+          "{projectRoot}/tools/test-statistics.mjs",
+          "{projectRoot}/tools/statistics.mjs",
+          "{workspaceRoot}/libs/**/*",
+          "{workspaceRoot}/tools/repo-checks/src/*-allowance.json",
+          "{workspaceRoot}/nx.json"
+        ],
+        "outputs": [
+          "{projectRoot}/components/testing/statistics.json"
+        ]
+      },
       "build": {
+        "dependsOn": [
+          "^build",
+          "testing-data"
+        ],
         "outputs": [
           "{projectRoot}/.next",
           "{projectRoot}/out"
+        ]
+      },
+      "test": {
+        "dependsOn": [
+          "^build",
+          "testing-data"
+        ]
+      },
+      "lint": {
+        "dependsOn": [
+          "testing-data"
         ]
       }
     }

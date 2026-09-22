@@ -1,0 +1,67 @@
+# What coverage measures
+
+A v8 coverage percentage counts statements a run executed. It counts nothing
+about assertions: a suite that imports every module and asserts nothing reaches
+a high number. So the figures below say how much of each package ran, and the
+cases underneath say what the running was doing. Neither sentence is available
+from the other, which is why the numbers are here and why they are last.
+
+<Provenance />
+
+## The four metrics, per package
+
+Statement and branch percentages appear together, each with the numerator and
+the denominator the report counted, because the gap between the two is the part
+of a coverage report that says something.
+
+<CoverageTable />
+
+There is no workspace number. Three of these packages sit at 100% on all four
+metrics with fewer than a hundred statements between them, and the package
+holding most of the repository's tests sits lower. An average over that set
+moves when a forty-statement package changes and barely moves when the largest
+one does.
+
+A report also omits files nothing imported, so the last column is what each run
+loaded. "98% of what the run loaded" is a different sentence from "98% of the
+package", and the column is there so a reader can tell which one they are
+reading.
+
+## Where the branches are not taken
+
+<CoverageShortfall />
+
+## The cases those branches are
+
+A branch percentage says a path ran. These two say which path and what it
+decided. The first refuses a write whose deny side the projection could not
+settle, and the second refuses the deny side ahead of an allow rule that had
+already matched.
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-004
+
+```
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-018
+
+```
+
+## What is not built from these numbers
+
+No badge, in this site or any README. A badge is the figure with every
+qualifier stripped and no case beside it. Two comparable projects publish one,
+a Go authorization server at 80% and a TLS implementation at 95%, and
+`@evanion/acl` measures higher than both while being a few thousand lines of
+pure functions over frozen JSON, with no network, no cryptography and no
+wire-format parser. A reader comparing those three numbers has been invited to
+conclude something false.
+
+No trend line, because a stored series needs either a committed file that goes
+stale or a database this static site cannot read. No coverage threshold that
+fails a build, because a minimum makes the number the target and the first
+thing it produces is a test written to execute a line. [The register's
+counts](/testing) are the thing worth gating, and a repository check gates
+them.
+
+No percentage on a package's own pages. A reader on `/luhn` seeing 100% has
+learned that `@evanion/luhn` is eighty-six statements.

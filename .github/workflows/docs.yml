@@ -56,6 +56,13 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       # `output: 'export'` writes a fully static site to apps/docs/out.
+      #
+      # `docs:build` depends on `docs:testing-data`, which runs the eleven
+      # libraries' suites with coverage and writes the figures the /testing
+      # section renders. So this job now runs the tests, and a failing library
+      # stops the deploy: the section's whole claim is that its numbers came
+      # from the build that produced the page, and a run that fails writes no
+      # coverage summary to read.
       - name: Build
         run: npx nx build docs
 
@@ -74,7 +81,7 @@ jobs:
       - name: Check deploy artefacts
         working-directory: apps/docs/out
         run: |
-          for f in .nojekyll CNAME index.html _pagefind/pagefind.js urn/getting-started.md; do
+          for f in .nojekyll CNAME index.html _pagefind/pagefind.js urn/getting-started.md testing/index.html; do
             [ -e "$f" ] || { echo "missing from export: $f" >&2; exit 1; }
           done
           [ "$(cat CNAME)" = "docs.evanion.com" ] || { echo "unexpected CNAME: $(cat CNAME)" >&2; exit 1; }

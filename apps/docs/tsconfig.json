@@ -51,6 +51,10 @@
     "components/**/*.jsx",
     "components/**/*.ts",
     "components/**/*.tsx",
+    // `components/testing/statistics.json`, which `nx run docs:testing-data`
+    // writes from a run of the libraries' suites. Listed so `tsc` has the
+    // shape the /testing components read off it.
+    "components/**/*.json",
     // The MDX loaders this app configures under `turbopack.rules`. Listed so
     // that the test importing one of them has it in the program.
     "tools/**/*.mjs",

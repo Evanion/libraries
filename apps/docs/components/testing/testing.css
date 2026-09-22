@@ -1,0 +1,97 @@
+/*
+ * The `/testing` section's own layout.
+ *
+ * Every colour, space and radius here is a `--baize-*` token. The section is
+ * an argument about whether this project's claims can be checked, and a page
+ * in an invented palette reads as a foreign object on the site, which is the
+ * last thing that argument can afford.
+ *
+ * No gradient, no per-card hover transition, no scroll-triggered reveal. The
+ * ground is six flat values and the page keeps it that way.
+ */
+
+.docs-case {
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card, 6px);
+  margin-block: var(--baize-space-5);
+  padding: var(--baize-space-4);
+}
+
+.docs-case__head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-3);
+}
+
+.docs-case__title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* The disclosure is the platform's own, so Enter, Space and find-in-page work. */
+.docs-case > details > summary {
+  cursor: pointer;
+  margin-block: var(--baize-space-3);
+}
+
+.docs-case-filter {
+  border-block: 1px solid var(--baize-rule);
+  margin-block: var(--baize-space-5);
+  padding-block: var(--baize-space-3);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--baize-ground-felt, transparent);
+}
+
+.docs-case-filter__controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-3);
+}
+
+/* A pressed toggle is a state, drawn as one rather than as a colour alone. */
+.docs-case-filter__controls button[aria-pressed='true'] {
+  border-color: currentColor;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.docs-case-filter__search {
+  align-items: center;
+  display: flex;
+  gap: var(--baize-space-2);
+}
+
+.docs-case-filter__search input {
+  border: 1px solid var(--baize-rule);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 0.35em 0.6em;
+}
+
+.docs-case-filter__count {
+  margin-block: var(--baize-space-2) 0;
+}
+
+/* A table is the one element allowed to scroll sideways, inside its own box. */
+.docs-testing-scroll {
+  overflow-x: auto;
+}
+
+.docs-testing-number {
+  text-align: right;
+}
+
+.docs-testing-shortfall details {
+  margin-block: var(--baize-space-3);
+}
+
+@media (max-width: 640px) {
+  .docs-case-filter {
+    position: static;
+  }
+}
