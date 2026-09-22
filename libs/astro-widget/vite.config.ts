@@ -51,6 +51,16 @@ export default defineConfig(() => ({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     reporters: ['default'],
+    // The same three lines the other ten libraries carry. Without them
+    // Vitest's default `reportsDirectory` applies and a coverage run writes to
+    // `libs/astro-widget/coverage/`, which `.gitignore`'s root-anchored
+    // `/coverage` does not reach, so the run leaves an untracked directory
+    // behind. `tools/repo-checks/src/coverage-config.test.ts` holds every
+    // library to this.
+    coverage: {
+      reportsDirectory: './test-output/vitest/coverage',
+      provider: 'v8' as const,
+    },
     // The container tests live in their own project, for the reason
     // vitest.astro.config.ts gives.
     projects: [
