@@ -45,6 +45,7 @@ describe('SEC-001 mass assignment through an undecided key (CWE-915)', () => {
       }),
     ]);
 
+  // #region sec-001
   it('decides a key that exists only in the proposed write', () => {
     const decision = editable().canFields(
       { id: 'u1' },
@@ -58,6 +59,7 @@ describe('SEC-001 mass assignment through an undecided key (CWE-915)', () => {
     expect(decision.fields['role']).toBe('denied');
     expect(decision.allowed).toBe(false);
   });
+  // #endregion sec-001
 
   it('withholds the excluded key from the narrowed write', () => {
     const access = editable();
@@ -86,9 +88,11 @@ describe('SEC-002 an unconditional grant must be written as one (CWE-1188)', () 
       }),
     ]);
 
+  // #region sec-002
   it('refuses a rule with no when', () => {
     expect(() => withWhen({})).toThrow(InvalidRuleError);
   });
+  // #endregion sec-002
 
   it('refuses a null when', () => {
     expect(() => withWhen({ when: null })).toThrow(InvalidRuleError);
@@ -117,6 +121,7 @@ describe('SEC-002 an unconditional grant must be written as one (CWE-1188)', () 
 });
 
 describe('SEC-003 a permission is reachable only under its own key (CWE-566)', () => {
+  // #region sec-003
   it('refuses a key that disagrees with object and action', () => {
     expect(() =>
       foreign([
@@ -129,6 +134,7 @@ describe('SEC-003 a permission is reachable only under its own key (CWE-566)', (
       ]),
     ).toThrow(KeyMismatchError);
   });
+  // #endregion sec-003
 
   it('refuses a delimiter in an object kind or an action', () => {
     expect(() =>
@@ -163,6 +169,7 @@ describe('SEC-004 a deny that cannot be read does not step aside (CWE-863)', () 
       }),
     ]);
 
+  // #region sec-004
   it('refuses when the projection lacks the field the deny reads', () => {
     const decision = guarded().can({ id: 'u1' }, 'doc', 'read', { id: 'd1' });
 
@@ -170,6 +177,7 @@ describe('SEC-004 a deny that cannot be read does not step aside (CWE-863)', () 
     expect(decision.reason).toBe('unevaluable');
     expect(decision.missing).toEqual(['object.embargoed']);
   });
+  // #endregion sec-004
 
   it('allows once the projection carries the field', () => {
     const decision = guarded().can({ id: 'u1' }, 'doc', 'read', {
@@ -204,6 +212,7 @@ describe('SEC-005 a prototype member never decides a condition (CWE-1321)', () =
     value: 'admin',
   });
 
+  // #region sec-005
   it('reads no inherited member off the subject', () => {
     const access = foreign([
       permission('post', 'read', { rules: [when(probe('subject.toString'))] }),
@@ -211,6 +220,7 @@ describe('SEC-005 a prototype member never decides a condition (CWE-1321)', () =
 
     expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
   });
+  // #endregion sec-005
 
   it('reads no inherited member off the object', () => {
     const access = foreign([
@@ -253,6 +263,7 @@ describe('SEC-006 a prototype member names no transition edge (CWE-1321)', () =>
       }),
     ]);
 
+  // #region sec-006
   it('denies a current value that names an inherited member', () => {
     for (const current of ['toString', 'constructor', '__proto__']) {
       const decision = machine().canFields(
@@ -268,6 +279,7 @@ describe('SEC-006 a prototype member names no transition edge (CWE-1321)', () =>
       expect(decision.reasons['status']).toBe('transition-failed');
     }
   });
+  // #endregion sec-006
 });
 
 describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)', () => {
@@ -279,6 +291,7 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
       }),
     ]);
 
+  // #region sec-007
   it('carries no __proto__ key into the decision', () => {
     const proposed = fromJson(
       '{"__proto__": {"isAdmin": true}, "name": "Grace"}',
@@ -294,6 +307,7 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
 
     expect(Object.hasOwn(decision.fields, '__proto__')).toBe(false);
   });
+  // #endregion sec-007
 
   it('applies to a row without moving its prototype', () => {
     const proposed = fromJson(
@@ -391,6 +405,7 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
       }),
     ]);
 
+  // #region sec-008
   it('drops a proposed key spelled as a baseline or an exclusion', () => {
     const proposed = { '*': 'everything', '!role': 'admin', name: 'Grace' };
     const decision = access().canFields(
@@ -405,6 +420,7 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
     expect(Object.keys(decision.fields)).toEqual(['name']);
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
   });
+  // #endregion sec-008
 
   it('drops an object key spelled as a baseline or an exclusion', () => {
     const decision = access().canFields(
@@ -481,6 +497,7 @@ describe('SEC-009 an operand the engine would ignore is refused (CWE-20)', () =>
     });
   }
 
+  // #region sec-009
   it('refuses a condition that is not an object', () => {
     for (const node of [null, 'subject.id', 42, []]) {
       expect(() =>
@@ -495,9 +512,11 @@ describe('SEC-009 an operand the engine would ignore is refused (CWE-20)', () =>
       ).toThrow(InvalidConditionError);
     }
   });
+  // #endregion sec-009
 });
 
 describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () => {
+  // #region sec-010
   it('refuses a permission with no rules at all', () => {
     const access = foreign([permission('post', 'read')]);
 
@@ -506,6 +525,7 @@ describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () 
       'no-rule-matched',
     );
   });
+  // #endregion sec-010
 
   it('refuses a permission whose rule list is empty', () => {
     const access = foreign([permission('post', 'read', { rules: [] })]);
@@ -524,6 +544,7 @@ describe('SEC-010 nothing is allowed without a rule that says so (CWE-276)', () 
 });
 
 describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
+  // #region sec-011
   it('answers a foreign matrix with a refusal', () => {
     const access = foreign([permission('post', 'read', { rules: [always] })]);
     const decision = access.can({ id: 'u1' }, 'anything', 'at-all');
@@ -531,6 +552,7 @@ describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unknown-action');
   });
+  // #endregion sec-011
 
   it('answers an authored matrix with a throw', () => {
     const access = local([permission('post', 'read', { rules: [always] })]);
@@ -558,6 +580,7 @@ describe('SEC-011 an unknown key never reads as a grant (CWE-276)', () => {
 });
 
 describe('SEC-012 the evaluated matrix is beyond the caller reach (CWE-913)', () => {
+  // #region sec-012
   it('ignores a mutation of the matrix the caller passed in', () => {
     const source: Permission[] = [permission('post', 'read', { rules: [] })];
     const access = foreign(source);
@@ -566,6 +589,7 @@ describe('SEC-012 the evaluated matrix is beyond the caller reach (CWE-913)', ()
 
     expect(access.can({ id: 'u1' }, 'post', 'read').allowed).toBe(false);
   });
+  // #endregion sec-012
 
   it('refuses a mutation of the matrix it exposes', () => {
     const access = foreign([permission('post', 'read', { rules: [] })]);
@@ -588,6 +612,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
     };
   }
 
+  // #region sec-013
   it('cannot turn a conditional rule into an unconditional one', () => {
     const face = twoFaced<readonly Condition[]>(
       [{ field: 'subject.role', op: 'eq', value: 'admin' }],
@@ -607,6 +632,7 @@ describe('SEC-013 validation binds the copy that is evaluated (CWE-367)', () => 
 
     expect(access.can({ role: 'nobody' }, 'post', 'read').allowed).toBe(false);
   });
+  // #endregion sec-013
 
   it('cannot widen a field allow-list after it is checked', () => {
     const face = twoFaced<readonly string[]>(['title'], ['*']);
@@ -722,6 +748,7 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
       }),
     ]);
 
+  // #region sec-014
   const hostile: readonly (readonly [string, unknown])[] = [
     ['a value with no prototype', Object.create(null)],
     [
@@ -752,6 +779,7 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
       expect(decision.reasons['status']).toBe('transition-failed');
     });
   }
+  // #endregion sec-014
 
   it('reads a primitive current value as the edge it names', () => {
     const access = foreign([
@@ -770,6 +798,7 @@ describe('SEC-014 a decision never throws on the data it is given (CWE-754)', ()
 });
 
 describe('SEC-015 a matrix cannot exhaust the walk that adopts it (CWE-674)', () => {
+  // #region sec-015
   it('refuses a value nested deeper than the copy walks', () => {
     let deep: Record<string, unknown> = {};
     const root = deep;
@@ -787,6 +816,7 @@ describe('SEC-015 a matrix cannot exhaust the walk that adopts it (CWE-674)', ()
       ]),
     ).toThrow(InvalidMatrixError);
   });
+  // #endregion sec-015
 });
 
 describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', () => {
@@ -797,6 +827,7 @@ describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', ()
       }),
     );
 
+  // #region sec-016
   it('reads the subject once per permission across the whole matrix', () => {
     const access = foreign(
       Array.from({ length: 2_000 }, (_, i) =>
@@ -811,6 +842,7 @@ describe('SEC-016 the cost of a decision is bounded by the matrix (CWE-400)', ()
 
     expect(reads()).toBe(2_000);
   });
+  // #endregion sec-016
 
   it('reads the subject once per object in a batch, not once per pair', () => {
     const access = foreign(chainOf(3));
@@ -850,10 +882,12 @@ describe('SEC-017 a value of the wrong type is a miss, not a match (CWE-1287)', 
       }),
     ]);
 
+  // #region sec-017
   it('does not match a string against the number it spells', () => {
     expect(equals(1).can({ tier: '1' }, 'post', 'read').allowed).toBe(false);
     expect(equals('1').can({ tier: 1 }, 'post', 'read').allowed).toBe(false);
   });
+  // #endregion sec-017
 
   it('does not match a null against an absent attribute', () => {
     expect(equals(null).can({}, 'post', 'read').allowed).toBe(false);
@@ -966,6 +1000,7 @@ describe('SEC-018 a clock that does not settle decides nothing (CWE-754)', () =>
     ).toBe('denied');
   });
 
+  // #region sec-018
   it('refuses the deny side ahead of an allow rule that matched', () => {
     const denied = when({ field: 'now', op: 'after', value: '2020-01-01' });
     const access = foreign([
@@ -986,6 +1021,7 @@ describe('SEC-018 a clock that does not settle decides nothing (CWE-754)', () =>
     expect(decision.reason).toBe('unusable-clock');
     expect(decision.rule).toBe(ruleId(denied, 'deny'));
   });
+  // #endregion sec-018
 
   it('refuses ahead of an unevaluable object path rather than asking for a refetch', () => {
     const access = foreign([
@@ -1064,6 +1100,7 @@ describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
     });
   }
 
+  // #region sec-020
   it('refuses a bare list of permissions, which carries no envelope at all', () => {
     expect(() =>
       parseMatrix([
@@ -1071,6 +1108,7 @@ describe('SEC-020 an envelope that is not one decides nothing (CWE-20)', () => {
       ] as unknown as Parameters<typeof parseMatrix>[0]),
     ).toThrow(AclConfigError);
   });
+  // #endregion sec-020
 
   it('refuses a condition the declared shape cannot evaluate', () => {
     expect(() =>
@@ -1112,6 +1150,7 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
     'a'.repeat(4096),
   ] as const;
 
+  // #region sec-019
   it('never picks a key the decision did not mark allowed', () => {
     for (let seed = 1; seed <= 400; seed++) {
       const gen = new Gen(rng(seed));
@@ -1166,4 +1205,5 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
       expect(({} as Record<string, unknown>)['isAdmin']).toBeUndefined();
     }
   });
+  // #endregion sec-019
 });

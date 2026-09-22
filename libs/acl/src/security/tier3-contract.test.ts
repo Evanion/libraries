@@ -28,6 +28,7 @@ describe('SEC-201 the subject is authorized as handed over (CWE-441)', () => {
     expect(hasSection(core(), '### Subject authenticity')).toBe(true);
   });
 
+  // #region sec-201
   it('authorizes a forged subject exactly as it would a real one', () => {
     // No defence. The engine has no channel to ask where the bag came from,
     // and this is what that costs.
@@ -41,6 +42,7 @@ describe('SEC-201 the subject is authorized as handed over (CWE-441)', () => {
       true,
     );
   });
+  // #endregion sec-201
 });
 
 describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
@@ -48,6 +50,7 @@ describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
     expect(hasSection(core(), '### Complete mediation')).toBe(true);
   });
 
+  // #region sec-202
   it('names the handle that makes the checked path the easy one', () => {
     const access = foreign([permission('post', 'read', { rules: [always] })]);
     const bound = access.authorize({ id: 'u1' });
@@ -55,6 +58,7 @@ describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
     expect(typeof bound.can).toBe('function');
     expect(bound.can('post', 'read').allowed).toBe(true);
   });
+  // #endregion sec-202
 });
 
 describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () => {
@@ -62,6 +66,7 @@ describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () 
     expect(hasSection(core(), '### Time of check to time of use')).toBe(true);
   });
 
+  // #region sec-203
   it('carries no freshness token a writer could check', () => {
     const access = foreign([
       permission('doc', 'update', {
@@ -84,6 +89,7 @@ describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () 
       'rule',
     ]);
   });
+  // #endregion sec-203
 });
 
 describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-639)', () => {
@@ -92,6 +98,7 @@ describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-6
     expect(core()).toContain('self-authorizing');
   });
 
+  // #region sec-204
   it('grants the subject that added itself to the field the rule reads', () => {
     // No defence. The engine cannot know which object fields the subject can
     // write, so this is the grant the README warns about, shown working.
@@ -112,6 +119,7 @@ describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-6
         .allowed,
     ).toBe(true);
   });
+  // #endregion sec-204
 
   it('cannot be closed by a field rule, because the write is a different action', () => {
     // Narrowing `doc.update` does not touch what `doc.read` reads. Keeping the
@@ -149,6 +157,7 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
     expect(readme('react-acl')).toContain('security contract');
   });
 
+  // #region sec-205
   it('answers a browser and a server identically, which is why the runtime decides', () => {
     const access = foreign([permission('post', 'delete', { rules: [always] })]);
 
@@ -156,6 +165,7 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
     // type separates an authoritative decision from a rendering hint.
     expect(access.can({ id: 'u1' }, 'post', 'delete').allowed).toBe(true);
   });
+  // #endregion sec-205
 });
 
 describe('SEC-206 the matrix is a public document (CWE-200)', () => {
@@ -163,6 +173,7 @@ describe('SEC-206 the matrix is a public document (CWE-200)', () => {
     expect(core()).toContain('public document');
   });
 
+  // #region sec-206
   it('exposes every key, condition and field name it was built from', () => {
     const access = foreign([
       permission('billing', 'bypass-kyc', {
@@ -176,6 +187,7 @@ describe('SEC-206 the matrix is a public document (CWE-200)', () => {
     expect(JSON.stringify(access.matrix)).toContain('fraud-reviewer');
     expect(JSON.stringify(access.matrix)).toContain('internalRiskScore');
   });
+  // #endregion sec-206
 });
 
 describe('SEC-207 the clock is a parameter (CWE-807)', () => {
@@ -183,6 +195,7 @@ describe('SEC-207 the clock is a parameter (CWE-807)', () => {
     expect(hasSection(core(), '### The clock a decision reads')).toBe(true);
   });
 
+  // #region sec-207
   it('opens a closed window for a caller that supplies its own instant', () => {
     const access = foreign([
       permission('sale', 'buy', {
@@ -195,6 +208,7 @@ describe('SEC-207 the clock is a parameter (CWE-807)', () => {
       true,
     );
   });
+  // #endregion sec-207
 
   it('moves a closed window for every entry point that takes a clock', () => {
     const access = foreign([
@@ -219,6 +233,7 @@ describe('SEC-208 the subject and the object are read live (CWE-367)', () => {
     expect(hasSection(core(), '### The bag a decision reads')).toBe(true);
   });
 
+  // #region sec-208
   it('decides the deny side and the allow side against separate reads', () => {
     // No defence. The matrix is copied and frozen; the subject is the app's own
     // data and is not. A bag that answers twice decides twice.
@@ -244,4 +259,5 @@ describe('SEC-208 the subject and the object are read live (CWE-367)', () => {
       false,
     );
   });
+  // #endregion sec-208
 });

@@ -81,6 +81,7 @@ describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE
     });
   });
 
+  // #region sec-101
   it('shows the hand-rolled deny-list filter writing what the decision refused', () => {
     const proposed = { '*': 'everything', name: 'Grace', plan: 'enterprise' };
     const decision = decisionFor(proposed);
@@ -94,6 +95,7 @@ describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE
     });
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
   });
+  // #endregion sec-101
 
   it('refuses to narrow a write the action does not allow', () => {
     const denied = foreign([
@@ -136,6 +138,7 @@ describe('SEC-102 a per-field config restricts that field and no other (CWE-915)
       }),
     ]);
 
+  // #region sec-102
   it('leaves every unnamed key writable when only a config is given', () => {
     const proposed = { role: 'admin', isAdmin: true, tenantId: 'other' };
     const decision = configOnly().canFields(
@@ -154,6 +157,7 @@ describe('SEC-102 a per-field config restricts that field and no other (CWE-915)
       tenantId: 'other',
     });
   });
+  // #endregion sec-102
 
   it('closes the write once a name list states the writable set', () => {
     const proposed = { name: 'Grace', isAdmin: true, tenantId: 'other' };
@@ -194,6 +198,7 @@ describe('SEC-103 ownership is a condition the caller has to supply data for (CW
     }
   });
 
+  // #region sec-103
   it('refuses rather than allows when the projection omits the owner', () => {
     const decision = owned().can({ id: 'u1' }, 'doc', 'read', { id: 'd1' });
 
@@ -201,6 +206,7 @@ describe('SEC-103 ownership is a condition the caller has to supply data for (CW
     expect(decision.reason).toBe('unevaluable');
     expect(decision.missing).toEqual(['object.ownerId']);
   });
+  // #endregion sec-103
 
   it('refuses when no object is supplied at all', () => {
     expect(owned().can({ id: 'u1' }, 'doc', 'read').allowed).toBe(false);
@@ -251,6 +257,7 @@ describe('SEC-104 an unevaluable decision is a refusal with a repair (CWE-863)',
     expect(decision.allowed).toBe(true);
   });
 
+  // #region sec-104
   it('shows reading anything but `allowed` as the grant going wrong', () => {
     const decision = access().can({ id: 'u1', teamId: 't1' }, 'doc', 'read', {
       id: 'd1',
@@ -261,6 +268,7 @@ describe('SEC-104 an unevaluable decision is a refusal with a repair (CWE-863)',
     expect(decision.reason === 'denied').toBe(false);
     expect(decision.allowed).toBe(false);
   });
+  // #endregion sec-104
 });
 
 describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', () => {
@@ -292,6 +300,7 @@ describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', 
     expect(pickAllowedFields(decision, proposed)).toEqual({});
   });
 
+  // #region sec-105
   it('treats a differently spelled name as a different field', () => {
     const proposed = {
       [decomposed]: 'admin',
@@ -315,6 +324,7 @@ describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', 
     // together gets four names for one column and the exclusion is a bypass.
     expect(decomposed.normalize('NFC')).toBe(composed);
   });
+  // #endregion sec-105
 
   it('closes the spelling question with an explicit allow-list', () => {
     const listed = foreign([
@@ -351,11 +361,13 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
       }),
     ]);
 
+  // #region sec-106
   it('never matches an equality against NaN', () => {
     expect(rule('eq').can({ tier: Number.NaN }, 'post', 'read').allowed).toBe(
       false,
     );
   });
+  // #endregion sec-106
 
   it('matches a membership test against NaN', () => {
     // `includes` is SameValueZero, `===` is not. A list is the more permissive
@@ -414,6 +426,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
     expect(access.matrix.version).toBe('composed@9');
   });
 
+  // #region sec-107
   it('keeps granting what a revoked matrix granted until it is replaced', () => {
     const stale = foreign([permission('post', 'delete', { rules: [always] })], {
       version: 1,
@@ -428,6 +441,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
     // access object holds no channel to learn it has been superseded.
     expect(stale.version).not.toBe(current.version);
   });
+  // #endregion sec-107
 });
 
 describe('SEC-108 the field maps answer fields, the action answers the action (CWE-863)', () => {
@@ -439,6 +453,7 @@ describe('SEC-108 the field maps answer fields, the action answers the action (C
       }),
     ]);
 
+  // #region sec-108
   it('reports every field writable while the action is refused', () => {
     const decision = access().canFields(
       { id: 'u1', role: 'nobody' },
@@ -455,6 +470,7 @@ describe('SEC-108 the field maps answer fields, the action answers the action (C
     expect(decision.action.allowed).toBe(false);
     expect(decision.allowed).toBe(false);
   });
+  // #endregion sec-108
 
   it('allows only when the action and every field agree', () => {
     const decision = access().canFields(
