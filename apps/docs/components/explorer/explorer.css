@@ -1,0 +1,659 @@
+/*
+ * The matrix explorer's screen.
+ *
+ * A tool and not a document, so this is the one sheet on the site that lays out
+ * a viewport rather than a column: `position: fixed` over the whole of it, a
+ * toolbar, and two panes that scroll inside themselves. The page never scrolls,
+ * which is what makes the document box stay put while the report under the
+ * reader's eye moves.
+ *
+ * It introduces no palette, no typeface, no radius and no spacing value. Every
+ * colour is a baize token the docs app rebinds per theme in `app/global.css`.
+ * `--baize-hue` is the acl section's coral, bound by the `docs-identity` and
+ * `baize-categorical-coral` classes the component puts on its own root: the
+ * tool explores `@evanion/acl` documents, so it carries that package's colour
+ * the way every page of `/acl/` does, and `global.css` swaps in the
+ * light-ground value for the light theme without a rule here.
+ *
+ * The JSON token colours are not here either. `components/json-tokens.css`
+ * holds them, shared with the front page's listing.
+ *
+ * Motion is one property in one place: the splitter's rule under a pointer or a
+ * focus ring. Nothing else on the screen moves, and the reduced-motion block at
+ * the foot removes that one.
+ */
+
+.explorer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+}
+
+/* The toolbar: who the tool is, what it does, and the way back out. */
+.explorer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2) var(--baize-space-4);
+  padding: var(--baize-space-2) var(--baize-space-4);
+  border-bottom: 1px solid var(--baize-rule);
+  background: var(--baize-felt);
+}
+
+.explorer__identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+/*
+ * The tool's name. No colour of its own: it is an `h1` inside a
+ * `docs-identity` subtree, so `global.css` paints it the package hue, which is
+ * where every other page on the site puts that colour.
+ */
+.explorer__name {
+  margin: 0;
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-md);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+.explorer__for {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__tools,
+.explorer__aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+/* The toolbar pushes its own right-hand group to the edge when there is room. */
+.explorer__aside {
+  margin-left: auto;
+}
+
+.explorer__action {
+  padding: 3px var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: transparent;
+  color: var(--baize-chalk);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+  cursor: pointer;
+}
+
+.explorer__action--lead {
+  border-color: var(--baize-chalk);
+  background: var(--baize-chalk);
+  color: var(--baize-ink);
+}
+
+.explorer__action:disabled {
+  color: var(--baize-moss);
+  cursor: not-allowed;
+}
+
+/*
+ * The file picker keeps its native control. A label wrapping a styled button
+ * with the input hidden reads as a button to a mouse and as nothing to several
+ * screen readers, and the native one already answers Enter and Space.
+ */
+.explorer__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__file input {
+  min-width: 0;
+  max-width: 12rem;
+  color: var(--baize-lichen);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__where {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__back {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.explorer__noscript {
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-4);
+  border-bottom: 1px solid var(--baize-rule);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+}
+
+/*
+ * The two panes and the rule between them. The reader owns the first column's
+ * width, so it is a custom property the component writes and the grid reads.
+ */
+.explorer__panes {
+  display: grid;
+  grid-template-columns: var(--explorer-split) auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.explorer__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--baize-space-3) var(--baize-space-4);
+  overflow: auto;
+}
+
+/*
+ * The input pane is the document, the subject, and one box per object kind the
+ * document reads. The document takes the space the others leave, down to a
+ * floor; past that the whole column scrolls, which is what a document with
+ * several object kinds needs.
+ */
+.explorer__pane--input {
+  overflow: auto;
+}
+
+.explorer__pane--report {
+  gap: var(--baize-space-4);
+  border-left: 1px solid var(--baize-rule);
+  background: var(--baize-felt);
+}
+
+.explorer__pane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+.explorer__pane-title {
+  margin: 0;
+  color: var(--baize-moss);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.explorer__hint {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+/*
+ * The adoption state, said in a word beside the document. Weight and slope
+ * carry it as well as colour, so a reader who cannot separate two greys reads
+ * the same thing.
+ */
+.explorer__status {
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__status[data-adoption='ready'] {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.explorer__status[data-adoption='refused'],
+.explorer__status[data-adoption='unparsed'] {
+  color: var(--baize-lichen);
+  font-style: italic;
+}
+
+/*
+ * The editor: a highlighted layer with a transparent textarea over it.
+ *
+ * Fixed height by default, and the document box grows to what the others
+ * leave. A column of boxes that each took a share would leave none of them
+ * usable.
+ */
+.explorer__editor {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  height: 4.5rem;
+}
+
+.explorer__editor--grow {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 10rem;
+}
+
+/*
+ * The metrics the two layers share, in one rule.
+ *
+ * This is the whole of what keeps a highlighted layer under a textarea: every
+ * property that decides where a glyph lands is set once for both. Written as
+ * one selector rather than two rules, so a change to the font or the padding
+ * cannot reach one layer and miss the other.
+ *
+ * `pre-wrap` with `break-word` is the second half. With wrapping identical
+ * there is no horizontal scroll to keep in step, and `scrollTop` is the only
+ * thing left for the component to sync.
+ */
+.explorer__layer,
+.explorer__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--baize-radius-chip);
+  font-family: ui-monospace, monospace;
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: normal;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.explorer__layer {
+  overflow: hidden;
+  border-color: var(--baize-rule);
+  background: var(--baize-felt);
+  color: var(--baize-chalk);
+  pointer-events: none;
+}
+
+/*
+ * The text the reader owns. Transparent glyphs over the coloured ones, with a
+ * caret that is not: a `resize` handle is off because dragging it would resize
+ * one layer and leave the other where it was.
+ */
+.explorer__input {
+  overflow: auto;
+  border-color: var(--baize-rule);
+  background: transparent;
+  color: transparent;
+  caret-color: var(--baize-chalk);
+  resize: none;
+}
+
+.explorer__input::placeholder {
+  color: var(--baize-moss);
+}
+
+/*
+ * The kit's focus ring, drawn here because the kit scopes its own rule to
+ * `.baize-root` and this site puts that class on nothing. Without it a browser
+ * paints its default ring, which on this ground is a blue box on a green one.
+ * Same two values as `internal/baize-ui/src/styles.css:34-37`.
+ */
+.explorer *:focus-visible {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+.explorer__input::selection {
+  background: color-mix(in oklab, var(--baize-hue) 32%, transparent);
+}
+
+.explorer__line {
+  display: inline;
+}
+
+/*
+ * The line a refusal named. The same tint the front page's listing puts on the
+ * line a move is aimed at, so the one mark this site makes on a line of code
+ * means the same thing in both places.
+ */
+.explorer__line[data-error] {
+  background: color-mix(in oklab, var(--baize-hue) 16%, transparent);
+}
+
+/* The kind an object box is for, beside the word Object in its head. */
+.explorer__kind {
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-xs);
+}
+
+/*
+ * What the reports are showing while the box holds something that will not
+ * adopt. A line of text rather than a dimmed pane: dimming a report drops its
+ * contrast at the moment a reader most needs to read it.
+ */
+.explorer__standing {
+  margin: 0;
+  padding-left: var(--baize-space-3);
+  border-left: 3px solid var(--baize-hue);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+/*
+ * The splitter. A rule until it is pointed at or focused, when it takes the
+ * text colour so the reader can see what they are about to move.
+ */
+.explorer__split {
+  width: 5px;
+  border: 0;
+  background: var(--baize-rule);
+  cursor: col-resize;
+  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
+  touch-action: none;
+}
+
+.explorer__split:hover,
+.explorer__split:focus-visible,
+.explorer__panes[data-dragging] .explorer__split {
+  background: var(--baize-hue);
+}
+
+/* A drag must not select the document under the pointer. */
+.explorer__panes[data-dragging] {
+  user-select: none;
+}
+
+.explorer__block {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+/*
+ * A refusal takes one edge in the text colour and nothing else. It is the one
+ * thing on the screen the reader has to act on, and a filled panel would read
+ * as an alert on a tool that is not reporting an incident.
+ */
+.explorer__block--refusal {
+  padding-left: var(--baize-space-3);
+  border-left: 3px solid var(--baize-hue);
+}
+
+.explorer__block-title {
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-snug);
+}
+
+.explorer__prose {
+  margin: 0;
+  max-width: var(--baize-measure);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+.explorer__sample {
+  width: 100%;
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  overflow: auto;
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+.explorer__pairs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--baize-space-1) var(--baize-space-3);
+  margin: 0;
+  width: 100%;
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__pairs dt {
+  color: var(--baize-moss);
+}
+
+.explorer__pairs dd {
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.explorer__kinds {
+  display: grid;
+  gap: var(--baize-space-1);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  list-style: none;
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__kinds li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1) var(--baize-space-3);
+  min-width: 0;
+}
+
+.explorer__kinds code {
+  color: var(--baize-chalk);
+}
+
+.explorer__kinds span {
+  color: var(--baize-lichen);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * One permission is a list item and not a card. A document with forty of them
+ * would be forty raised surfaces, and a raised surface says "pick this".
+ */
+.explorer__list {
+  display: grid;
+  gap: var(--baize-space-3);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  list-style: none;
+}
+
+.explorer__entry {
+  display: grid;
+  gap: var(--baize-space-1);
+  min-width: 0;
+  padding-top: var(--baize-space-3);
+  border-top: 1px solid var(--baize-rule);
+}
+
+.explorer__entry:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.explorer__entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+.explorer__key {
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.explorer__rule-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-1) var(--baize-space-2);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__rule-line code,
+.explorer__rule-line span:last-child {
+  color: var(--baize-chalk);
+  overflow-wrap: anywhere;
+}
+
+.explorer__rule-label {
+  flex: 0 0 auto;
+  width: 4rem;
+  color: var(--baize-moss);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.explorer__rule-id {
+  color: var(--baize-lichen);
+}
+
+.explorer__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--baize-text-xs);
+}
+
+.explorer__table th,
+.explorer__table td {
+  padding: var(--baize-space-1) var(--baize-space-2) var(--baize-space-1) 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.explorer__table thead th {
+  color: var(--baize-moss);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.explorer__table tbody th {
+  color: var(--baize-lichen);
+}
+
+.explorer__table td {
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+}
+
+/*
+ * The three answers, separated by weight and slope as well as by colour, so a
+ * reader who cannot tell two hues apart still reads the row.
+ */
+.explorer [data-state='allowed'] {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.explorer [data-state='denied'],
+.explorer [data-state='unevaluable'] {
+  color: var(--baize-lichen);
+}
+
+.explorer [data-state='unevaluable'] {
+  font-style: italic;
+}
+
+.explorer__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+ * Below 900px the two panes cannot sit beside each other, so they stack and the
+ * whole column scrolls as one. The splitter governs a layout that no longer
+ * exists, and `display: none` is what takes it out of the tab order with it: a
+ * separator a reader can still focus and move would move nothing.
+ *
+ * The document box takes a fixed height here rather than the space that is
+ * left, because in a stacked column "what is left" is the rest of the document
+ * and the box would push the report off the screen.
+ */
+@media (max-width: 900px) {
+  .explorer {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /*
+   * Not a grid here. A two-track grid inside a box with a definite height
+   * shares that height between its rows however the tracks are declared, which
+   * crops the input pane to half a screen and leaves the report painted over
+   * what it cropped -- measured at 400px, 328px of pane holding 369px of
+   * content. Stacked panes are blocks in a scrolling column, which is what
+   * `display: block` gives and what a grid has to be argued out of.
+   */
+  .explorer__panes {
+    display: block;
+    overflow: auto;
+  }
+
+  .explorer__split {
+    display: none;
+  }
+
+  .explorer__pane {
+    overflow: visible;
+  }
+
+  .explorer__pane--report {
+    border-top: 1px solid var(--baize-rule);
+    border-left: 0;
+  }
+
+  /* The document box, and not the subject or the rows, which keep their own. */
+  .explorer__editor--grow {
+    flex: 0 0 auto;
+    height: 14rem;
+    min-height: 0;
+  }
+
+  .explorer__aside {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explorer__split {
+    transition: none;
+  }
+}

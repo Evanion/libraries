@@ -412,18 +412,6 @@
   overflow-wrap: anywhere;
 }
 
-.landing-items__token--key {
-  color: var(--baize-chalk);
-}
-
-.landing-items__token--string {
-  color: var(--baize-hue);
-}
-
-.landing-items__token--literal {
-  color: var(--baize-lichen);
-}
-
 .landing-items__gutter {
   display: flex;
   gap: 2px;

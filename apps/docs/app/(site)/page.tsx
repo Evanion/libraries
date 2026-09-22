@@ -1,7 +1,7 @@
 import { SkipNavContent } from 'nextra/components';
-import { items } from '../components/landing/items';
-import { Widgets } from '../components/landing/region';
-import '../components/landing/landing.css';
+import { items } from '../../components/landing/items';
+import { Widgets } from '../../components/landing/region';
+import '../../components/landing/landing.css';
 
 export const metadata = {
   // Absolute, so the tab does not read "Evanion Libraries | Evanion Libraries".

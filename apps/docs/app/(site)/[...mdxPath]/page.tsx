@@ -1,9 +1,9 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
-import { useMDXComponents as getMDXComponents } from '../../mdx-components';
-import ReleaseNotice from '../../components/ReleaseNotice';
-import { packages } from '../navigation';
-import { releaseState } from '../release-state';
+import { useMDXComponents as getMDXComponents } from '../../../mdx-components';
+import ReleaseNotice from '../../../components/ReleaseNotice';
+import { packages } from '../../navigation';
+import { releaseState } from '../../release-state';
 
 const listPages = generateStaticParamsFor('mdxPath');
 

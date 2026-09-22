@@ -12,10 +12,10 @@ import {
 /**
  * What the explorer does with a document a reader brought, and nothing else.
  *
- * `MatrixExplorer.tsx` holds the controls and this module holds every call into
- * the package, so `matrix-explorer.test.ts` asks the same questions the screen
- * asks without rendering one. Nothing here reads a URL, a cookie or a network:
- * the site is a static export, the evaluator is the package, and a reader's
+ * `ExplorerScreen.tsx` holds the panes and this module holds every call into
+ * the package, so `explorer.test.tsx` asks the same questions the screen asks
+ * without rendering one. Nothing here reads a URL, a cookie or a network: the
+ * site is a static export, the evaluator is the package, and a reader's
  * document has nowhere to go.
  *
  * Adoption is `parseMatrix` and never `hydratePolicy`. A reader's document is
@@ -330,14 +330,66 @@ export function declared(access: Access): Declared {
   };
 }
 
-/** What the subject box produced: a subject, or the reason it did not. */
-export type SubjectRead =
-  | { state: 'ready'; subject: Record<string, unknown> }
+/**
+ * The character offset a `JSON.parse` message names, where it names one.
+ *
+ * V8 writes two shapes. The long one is `… at position 14 (line 3 column 3)`
+ * and the short one quotes the text instead: `Unexpected token 'o', ..."ons":
+ * [\n  oops\n}" is not valid JSON`, measured on Node 24. The offset is read out
+ * of the first and the second carries none, so a reader meeting the short form
+ * gets the message and no marked line. The line is computed from the offset
+ * rather than read out of the sentence, because the sentence's shape is the
+ * part that changes between releases.
+ */
+export function errorPosition(message: string): number | undefined {
+  const found = /position (\d+)/.exec(message);
+  return found?.[1] === undefined ? undefined : Number(found[1]);
+}
+
+/** The 1-based line and column a character offset falls on. */
+export function lineAt(
+  text: string,
+  position: number,
+): { line: number; column: number } {
+  const before = text.slice(0, Math.max(0, Math.min(position, text.length)));
+  const lines = before.split('\n');
+
+  return { line: lines.length, column: (lines.at(-1) ?? '').length + 1 };
+}
+
+/**
+ * The first line naming a permission key.
+ *
+ * A text search for `"the.key"` and not a source map. The package's errors
+ * locate a value inside the document -- `key`, `field`, `where` -- and nothing
+ * carries the offset the reader's own text had, because the document reached
+ * the package as a parsed object. Searching for the key finds the right line in
+ * every document that states its keys once, which is every document this
+ * repository has, and finds the first of them otherwise.
+ */
+export function lineOfKey(text: string, key: string): number | undefined {
+  const at = text.split('\n').findIndex((line) => line.includes(`"${key}"`));
+  return at === -1 ? undefined : at + 1;
+}
+
+/** What a JSON box produced: an object, or the reason it did not. */
+export type JsonRead =
+  | { state: 'ready'; value: Record<string, unknown> }
   | { state: 'unparsed'; message: string }
-  /** JSON that parsed to something a subject cannot be, such as `[]` or `3`. */
+  /** JSON that parsed to something with no paths in it, such as `[]` or `3`. */
   | { state: 'not-an-object' };
 
-export function readSubject(text: string): SubjectRead {
+/**
+ * Reads a subject box, or a row box for a kind the document describes no shape
+ * for. One reader, because both boxes want the same thing and a reader owed two
+ * different reports for the same mistake would have to learn both.
+ *
+ * A malformed one is reported the way a malformed document is: the message
+ * `JSON.parse` gave, next to the box, and nothing reaches the package. For a
+ * row that means the permission stays on its `capabilities` answer, so it
+ * still reports `unevaluable` rather than being decided against half a row.
+ */
+export function readJsonObject(text: string): JsonRead {
   let held: unknown;
 
   try {
@@ -353,23 +405,105 @@ export function readSubject(text: string): SubjectRead {
     return { state: 'not-an-object' };
   }
 
-  return { state: 'ready', subject: held as Record<string, unknown> };
+  return { state: 'ready', value: held as Record<string, unknown> };
 }
 
 /**
- * Every decision this document reaches for one subject, in document order.
+ * The object kinds a decision needs a row for, in document order.
  *
- * One `capabilities` call rather than a loop of `can`, because the call settles
- * one clock for the whole document: a loop lets a `now` boundary fall between
- * two rows of the same table.
+ * Only the kinds of permissions `access.readsObject` answers true for. A
+ * permission that reads no `object.*` path decides the same with a row and
+ * without one, so asking a reader for that row would be asking for something
+ * that changes no answer.
+ *
+ * `ObjectSchema.relations` is not read here, and neither is `fields`. The
+ * object is a document the reader enters, the way the subject is, so the
+ * document's declared shape decides nothing about the input. `relations` could
+ * not reach an input in any case: it names the kinds one kind points at for
+ * the consumers that resolve them, and a condition compares one field of one
+ * scope, so no condition can name a relation.
  */
+export function objectKinds(access: Access): readonly string[] {
+  const seen = new Set<string>();
+
+  return access.matrix.permissions.flatMap((permission) => {
+    if (seen.has(permission.object)) return [];
+    if (!access.readsObject(permission.object, permission.action)) return [];
+    seen.add(permission.object);
+    return [permission.object];
+  });
+}
+
+/**
+ * The rows the reader entered, keyed by object kind.
+ *
+ * A kind absent from this map has no row, which is a different thing from a
+ * row with nothing in it. Three states, and a reader reaches each one
+ * deliberately:
+ *
+ * - no row at all: the permission stays on its `capabilities` answer, which is
+ *   `unevaluable` with `missing` naming every path its rules read;
+ * - a row without the key, `{}` or `{ "id": "l_1" }` against a rule reading
+ *   `object.status`: `unevaluable` again, and `missing` names what is short;
+ * - a row with the key and an empty value, `{ "status": "" }`: a value the
+ *   engine compares and a comparison that fails, so `no-rule-matched`.
+ *
+ * The screen holds the first apart from the second by whether the box is empty
+ * and the second apart from the third by what the reader typed into it, so
+ * none of the three needs a control of its own.
+ */
+export type Rows = Readonly<Record<string, Record<string, unknown>>>;
+
+/**
+ * Every decision this document reaches, in document order, and how each was
+ * asked.
+ *
+ * One `capabilities` call carries every permission, because the call settles
+ * one clock for the whole document where a loop of `can` settles one per
+ * permission. A permission that reads the object and has a row is then asked
+ * again with that row through `can`, which is the only way to hand the engine
+ * one. The clock moves by whatever those calls take, which is why the cheap
+ * path stays the default and only an object-reading permission is re-asked.
+ *
+ * A kind with no row is left on its `capabilities` answer, so a permission that
+ * reads the object still reports `unevaluable` with `missing` naming the paths
+ * it could not read. That is the tool's most useful screen and nothing here
+ * takes it away.
+ */
+export interface Asked {
+  decision: Decision;
+  /** Which call answered: the document-wide one, or the one carrying a row. */
+  through: 'capabilities' | 'can';
+}
+
 export function decide(
   access: Access,
   subject: Record<string, unknown>,
-): readonly Decision[] {
+  rows: Rows = {},
+): readonly Asked[] {
   const map = access.capabilities(subject);
-  return access.matrix.permissions.flatMap((permission) => {
+
+  return access.matrix.permissions.flatMap<Asked>((permission) => {
+    const row = rows[permission.object];
+    const reads = access.readsObject(permission.object, permission.action);
+
+    if (reads && row !== undefined) {
+      return [
+        {
+          decision: access.can(
+            subject,
+            permission.object,
+            permission.action,
+            row,
+          ),
+          through: 'can' as const,
+        },
+      ];
+    }
+
     const decision = map[permission.key];
-    return decision === undefined ? [] : [decision];
+    return decision === undefined
+      ? []
+      : [{ decision, through: 'capabilities' as const }];
   });
 }
