@@ -5,6 +5,7 @@ import {
   type Condition,
   type Decision,
   type FieldConfig,
+  type FieldType,
   type Matrix,
   type Permission,
 } from '@evanion/acl';
@@ -102,6 +103,30 @@ export const sampleText = JSON.stringify(sample, null, 2);
 
 /** The subject the explorer opens with: a seller, which the sample has rules for. */
 export const sampleSubject = JSON.stringify({ id: 'u_31', roles: ['seller'] });
+
+/**
+ * A row per object kind the sample reads, for the control that fills a box.
+ *
+ * `sellerId` is the sample subject's own id and `status` is not `archived`,
+ * so this row is the one that answers `allow`. That is deliberate: a reader
+ * watching `unevaluable` become a real decision learns more from a decision
+ * that went their way, and the two refusals are one edit away from here --
+ * change `status` to `archived` for `denied`, change `sellerId` for
+ * `no-rule-matched`.
+ *
+ * Not loaded with the document. The explorer opens on `unevaluable` with
+ * `missing` naming both paths, which is the thing the tool exists to show, and
+ * a prefilled row would take it off the first screen.
+ */
+export const sampleRows: Readonly<Record<string, Record<string, unknown>>> = {
+  listing: {
+    id: 'l_7',
+    sellerId: 'u_31',
+    status: 'live',
+    title: 'Wingspan',
+    price: 59,
+  },
+};
 
 /** Where inside the document a refusal points, as the error carries it. */
 export interface Located {
@@ -432,6 +457,75 @@ export function objectKinds(access: Access): readonly string[] {
     seen.add(permission.object);
     return [permission.object];
   });
+}
+
+/**
+ * The empty value a declared type takes in a skeleton row.
+ *
+ * `FieldType` is a flat string -- `number`, `string[]`, `instant?` -- so this
+ * is the whole of reading one: a trailing `?` is optionality, which changes
+ * nothing here because a skeleton carries every field and the reader deletes
+ * what they want absent, and a trailing `[]` is an array.
+ *
+ * An `instant` gets an empty string, because it crosses JSON as an ISO 8601
+ * string or as epoch milliseconds and the string form is the one a reader can
+ * type over.
+ */
+function emptyValue(type: FieldType): unknown {
+  const core = type.endsWith('?') ? type.slice(0, -1) : type;
+
+  if (core.endsWith('[]')) return [];
+  if (core === 'number') return 0;
+  if (core === 'boolean') return false;
+  return '';
+}
+
+/** Where a filled row would come from, or that nothing can fill one. */
+export type RowSource = 'sample' | 'schema' | 'none';
+
+/**
+ * A row to drop into one kind's box, and where it came from.
+ *
+ * The bundled row wins where the document declares every field it names,
+ * which is true of the sample and of any document whose `listing` carries the
+ * same shape. It fits by construction in both cases, and it is the row that
+ * produces an interesting answer rather than a skeleton of empty values.
+ *
+ * Otherwise the schema describes one: every declared field, each holding the
+ * empty value of its type. That moves the permission off `unevaluable` --
+ * every path it reads is now present -- and onto whatever those values decide,
+ * which is where the reader starts editing.
+ *
+ * A kind the schema declares no fields for gets nothing. There is no third
+ * source: the conditions name paths, and a row invented from the paths a rule
+ * happens to read would be the tool guessing at a shape the document declined
+ * to state.
+ */
+export function rowFor(
+  access: Access,
+  kind: string,
+): { source: RowSource; row?: Record<string, unknown> } {
+  const fields = access.schema?.objects?.[kind]?.fields;
+  const bundled = sampleRows[kind];
+
+  if (
+    bundled !== undefined &&
+    fields !== undefined &&
+    Object.keys(bundled).every((field) => field in fields)
+  ) {
+    return { source: 'sample', row: bundled };
+  }
+
+  if (fields === undefined || Object.keys(fields).length === 0) {
+    return { source: 'none' };
+  }
+
+  return {
+    source: 'schema',
+    row: Object.fromEntries(
+      Object.entries(fields).map(([field, type]) => [field, emptyValue(type)]),
+    ),
+  };
 }
 
 /**

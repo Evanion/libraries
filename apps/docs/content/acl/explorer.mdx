@@ -91,6 +91,17 @@ table with every permission in it, and a picker would leave half of it stale:
 `listing.update` decided against the row in hand while `order.refund` still
 carries the answer it gives with none.
 
+Each box opens empty and carries a control that fills it. For the sample that
+is a `listing` the subject above owns, which turns `listing.update` from
+`unevaluable` into `allow`; from there, changing `status` to `"archived"`
+reaches `denied` and changing `sellerId` reaches `no-rule-matched`. For a
+document the reader brought it is one empty value per field
+`schema.objects[kind].fields` declares. For a kind the schema declares no
+fields for, the control is disabled and says so, because a row built from the
+paths a rule happens to read would be the tool guessing at a shape the document
+declined to state. What lands in the box is editable text, so nothing the
+control does is a state a reader cannot also type.
+
 A row is optional, and the three states it has are all worth reaching:
 
 - An empty box is no row, and every permission that reads the object answers
