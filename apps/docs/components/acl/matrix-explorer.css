@@ -1,0 +1,320 @@
+/*
+ * The matrix explorer: a box a reader pastes a document into, and what the
+ * package says about it.
+ *
+ * Its own sheet rather than a third block inside `acl-demo.css`, because the
+ * two demonstrations there draw one figure -- controls, the call, the panes --
+ * and this draws a different one: an input the reader owns, then a report over
+ * a document nothing on this site wrote.
+ *
+ * Every colour is a baize token the docs app rebinds per theme in
+ * `app/global.css`, so this introduces no palette, no typeface, no radius and
+ * no spacing value. `--baize-hue` is the acl section's own, bound by
+ * `docs-identity` on the page wrapper.
+ *
+ * Nothing here transitions, so there is no reduced-motion block. The only thing
+ * on the screen that moves is the two `Button` faces under a pointer, and
+ * `internal/baize-ui/src/styles.css:942-946` already stops that.
+ */
+
+.matrix-explorer {
+  display: grid;
+  gap: var(--baize-space-4);
+  margin: var(--baize-space-5) 0;
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-felt);
+  font-size: var(--baize-text-sm);
+}
+
+.matrix-explorer__source {
+  display: grid;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.matrix-explorer__legend {
+  padding: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+/*
+ * The document box. Monospace because what goes in it is JSON, and a fixed
+ * resize axis because a horizontal drag inside a prose column pushes the page.
+ */
+.matrix-explorer__box {
+  width: 100%;
+  min-width: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.matrix-explorer__box::placeholder {
+  color: var(--baize-moss);
+}
+
+.matrix-explorer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2) var(--baize-space-3);
+}
+
+/*
+ * The file picker keeps its native control. A label wrapping a styled button
+ * with the input hidden reads as a button to a mouse and as nothing to several
+ * screen readers, and the native one already answers Enter and Space.
+ */
+.matrix-explorer__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__file input {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--baize-lichen);
+  font: inherit;
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__heading {
+  margin: 0;
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+}
+
+.matrix-explorer__lede,
+.matrix-explorer__note {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+.matrix-explorer__note {
+  color: var(--baize-moss);
+}
+
+.matrix-explorer__start,
+.matrix-explorer__refusal,
+.matrix-explorer__declares,
+.matrix-explorer__permissions {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  padding: var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+}
+
+/*
+ * A refusal takes the section's own hue on one edge and nothing else. It is the
+ * one thing on the screen the reader has to act on, and a filled panel would
+ * read as an alert on a page that is not reporting an incident.
+ */
+.matrix-explorer__refusal {
+  border-left: 3px solid var(--baize-hue);
+}
+
+.matrix-explorer__sample {
+  margin: 0;
+  max-height: 22rem;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  overflow: auto;
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-felt);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+.matrix-explorer__pairs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--baize-space-1) var(--baize-space-3);
+  margin: 0;
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__pairs dt {
+  color: var(--baize-moss);
+}
+
+.matrix-explorer__pairs dd {
+  margin: 0;
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.matrix-explorer__kinds {
+  display: grid;
+  gap: var(--baize-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__kinds li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1) var(--baize-space-3);
+  min-width: 0;
+}
+
+.matrix-explorer__kinds code {
+  color: var(--baize-chalk);
+}
+
+.matrix-explorer__kinds span {
+  color: var(--baize-lichen);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * One permission is a list item and not a card. A document with forty of them
+ * would be forty raised surfaces, and a raised surface says "pick this".
+ */
+.matrix-explorer__list {
+  display: grid;
+  gap: var(--baize-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.matrix-explorer__entry {
+  display: grid;
+  gap: var(--baize-space-1);
+  min-width: 0;
+  padding-top: var(--baize-space-3);
+  border-top: 1px solid var(--baize-rule);
+}
+
+.matrix-explorer__entry:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.matrix-explorer__entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--baize-space-2);
+  min-width: 0;
+}
+
+.matrix-explorer__key {
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.matrix-explorer__rule-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-1) var(--baize-space-2);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__rule-line code,
+.matrix-explorer__rule-line span:last-child {
+  color: var(--baize-chalk);
+  overflow-wrap: anywhere;
+}
+
+.matrix-explorer__rule-label {
+  flex: 0 0 auto;
+  width: 4rem;
+  color: var(--baize-moss);
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.matrix-explorer__rule-id {
+  color: var(--baize-lichen);
+}
+
+.matrix-explorer__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--baize-text-xs);
+}
+
+.matrix-explorer__table th,
+.matrix-explorer__table td {
+  padding: var(--baize-space-1) var(--baize-space-2) var(--baize-space-1) 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.matrix-explorer__table thead th {
+  color: var(--baize-moss);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.matrix-explorer__table tbody th {
+  color: var(--baize-lichen);
+}
+
+.matrix-explorer__table td {
+  color: var(--baize-chalk);
+  font-family: ui-monospace, monospace;
+}
+
+/*
+ * The three answers, separated by weight and slope as well as by colour, so a
+ * reader who cannot tell two hues apart still reads the row.
+ */
+.matrix-explorer [data-state='allowed'] {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.matrix-explorer [data-state='denied'],
+.matrix-explorer [data-state='unevaluable'] {
+  color: var(--baize-lichen);
+}
+
+.matrix-explorer [data-state='unevaluable'] {
+  font-style: italic;
+}
+
+/* For a screen reader only: what reading the box produced. */
+.matrix-explorer__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
