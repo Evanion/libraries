@@ -350,7 +350,7 @@ describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', 
 describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => {
   const rule = (op: 'eq' | 'in' | 'not-in') =>
     foreign([
-      permission('post', 'read', {
+      permission('edition', 'read', {
         rules: [
           when({
             field: 'subject.tier',
@@ -363,9 +363,9 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
 
   // #region sec-106
   it('never matches an equality against NaN', () => {
-    expect(rule('eq').can({ tier: Number.NaN }, 'post', 'read').allowed).toBe(
-      false,
-    );
+    expect(
+      rule('eq').can({ tier: Number.NaN }, 'edition', 'read').allowed,
+    ).toBe(false);
   });
   // #endregion sec-106
 
@@ -373,11 +373,11 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
     // `includes` is SameValueZero, `===` is not. A list is the more permissive
     // operator for this one value, so a rule that means "never" is written as
     // an equality.
-    expect(rule('in').can({ tier: Number.NaN }, 'post', 'read').allowed).toBe(
-      true,
-    );
     expect(
-      rule('not-in').can({ tier: Number.NaN }, 'post', 'read').allowed,
+      rule('in').can({ tier: Number.NaN }, 'edition', 'read').allowed,
+    ).toBe(true);
+    expect(
+      rule('not-in').can({ tier: Number.NaN }, 'edition', 'read').allowed,
     ).toBe(false);
   });
 
@@ -393,7 +393,7 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
 describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', () => {
   it('surfaces the version the document was built with', () => {
     const access = foreign(
-      [permission('post', 'read', { rules: [always] })],
+      [permission('edition', 'read', { rules: [always] })],
       undefined,
       { version: 7 },
     );
@@ -406,7 +406,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
     // The revalidate contract compares with `!==`, so the version a consumer
     // fails closed on can name every input that went into the document.
     const access = foreign(
-      [permission('post', 'read', { rules: [always] })],
+      [permission('edition', 'read', { rules: [always] })],
       undefined,
       { version: 'orders@7+veto@41' },
     );
@@ -417,7 +417,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
   it('lets the construction site state the version that actually decided', () => {
     // A site that composed the document knows something the producer did not.
     const access = foreign(
-      [permission('post', 'read', { rules: [always] })],
+      [permission('edition', 'read', { rules: [always] })],
       { version: 'composed@9' },
       { version: 7 },
     );
@@ -428,15 +428,18 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
 
   // #region sec-107
   it('keeps granting what a revoked matrix granted until it is replaced', () => {
-    const stale = foreign([permission('post', 'delete', { rules: [always] })], {
-      version: 1,
-    });
-    const current = foreign([permission('post', 'delete', { rules: [] })], {
+    const stale = foreign(
+      [permission('edition', 'delete', { rules: [always] })],
+      {
+        version: 1,
+      },
+    );
+    const current = foreign([permission('edition', 'delete', { rules: [] })], {
       version: 2,
     });
 
-    expect(stale.can({ id: 'u1' }, 'post', 'delete').allowed).toBe(true);
-    expect(current.can({ id: 'u1' }, 'post', 'delete').allowed).toBe(false);
+    expect(stale.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(true);
+    expect(current.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(false);
     // Comparing the two versions and failing closed is the consumer's; the
     // access object holds no channel to learn it has been superseded.
     expect(stale.version).not.toBe(current.version);
@@ -447,7 +450,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
 describe('SEC-108 the field maps answer fields, the action answers the action (CWE-863)', () => {
   const access = () =>
     foreign([
-      permission('post', 'update', {
+      permission('edition', 'update', {
         rules: [when({ field: 'subject.role', op: 'eq', value: 'editor' })],
         fields: { fields: ['*'] },
       }),
@@ -457,7 +460,7 @@ describe('SEC-108 the field maps answer fields, the action answers the action (C
   it('reports every field writable while the action is refused', () => {
     const decision = access().canFields(
       { id: 'u1', role: 'nobody' },
-      'post',
+      'edition',
       'update',
       { id: 'p1' },
       'write',
@@ -475,7 +478,7 @@ describe('SEC-108 the field maps answer fields, the action answers the action (C
   it('allows only when the action and every field agree', () => {
     const decision = access().canFields(
       { id: 'u1', role: 'editor' },
-      'post',
+      'edition',
       'update',
       { id: 'p1' },
       'write',

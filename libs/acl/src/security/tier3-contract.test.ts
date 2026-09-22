@@ -52,11 +52,13 @@ describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
 
   // #region sec-202
   it('names the handle that makes the checked path the easy one', () => {
-    const access = foreign([permission('post', 'read', { rules: [always] })]);
+    const access = foreign([
+      permission('edition', 'read', { rules: [always] }),
+    ]);
     const bound = access.authorize({ id: 'u1' });
 
     expect(typeof bound.can).toBe('function');
-    expect(bound.can('post', 'read').allowed).toBe(true);
+    expect(bound.can('edition', 'read').allowed).toBe(true);
   });
   // #endregion sec-202
 });
@@ -159,11 +161,13 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
 
   // #region sec-205
   it('answers a browser and a server identically, which is why the runtime decides', () => {
-    const access = foreign([permission('post', 'delete', { rules: [always] })]);
+    const access = foreign([
+      permission('edition', 'delete', { rules: [always] }),
+    ]);
 
     // The same call, the same answer, wherever it runs. Nothing in the return
     // type separates an authoritative decision from a rendering hint.
-    expect(access.can({ id: 'u1' }, 'post', 'delete').allowed).toBe(true);
+    expect(access.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(true);
   });
   // #endregion sec-205
 });
