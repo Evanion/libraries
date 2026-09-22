@@ -56,6 +56,15 @@
       "useFeature",
       "useFeatureEnabled",
       "useFeatures"
+    ],
+    "unexplained": [
+      "Condition",
+      "Decisions",
+      "FeatureProvider",
+      "FeatureProviderProps",
+      "Plan",
+      "Reason",
+      "ToggleResult"
     ]
   },
   "@evanion/luhn": {
@@ -71,7 +80,8 @@
       "LuhnOptions",
       "ValidateResult"
     ],
-    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"]
+    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"],
+    "unexplained": ["LuhnOptions"]
   },
   "@evanion/nestjs-correlation-id": {
     "undocumented": [
@@ -107,7 +117,8 @@
       "Permission",
       "Reason",
       "Subject"
-    ]
+    ],
+    "unexplained": ["PolicyProvider"]
   },
   "@evanion/react-widget": {
     "undocumented": [
@@ -135,7 +146,8 @@
       "DefaultWrapper",
       "defineWidgets",
       "validateItems"
-    ]
+    ],
+    "unexplained": ["WidgetsChrome"]
   },
   "@evanion/token": {
     "undocumented": [
@@ -159,7 +171,8 @@
       "ValidateFailureReason",
       "ValidateResult"
     ],
-    "unexercised": ["InvalidAlphabetError", "InvalidShapeError", "TokenError"]
+    "unexercised": ["InvalidAlphabetError", "InvalidShapeError", "TokenError"],
+    "unexplained": ["TokenOptions", "ValidateResult"]
   },
   "@evanion/urn": {
     "undocumented": [

@@ -62,6 +62,7 @@ const HEADING = /^##\s+`([^`]+)`/gm;
 interface Allowance {
   readonly undocumented?: readonly string[];
   readonly unexercised?: readonly string[];
+  readonly unexplained?: readonly string[];
 }
 
 const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
@@ -138,6 +139,8 @@ interface Exported {
   internal: boolean;
   /** Its docblock's prose, which is where an `@internal` states its reason. */
   reason: string;
+  /** Whether it carries a docblock of its own in the library's source. */
+  explained: boolean;
 }
 
 /**
@@ -184,11 +187,22 @@ function exportsOf(entries: readonly Entry[]): Map<string, Exported[]> {
           (type.getCallSignatures().length > 0 ||
             type.getConstructSignatures().length > 0);
         const marked = internalMark(each, resolved, checker);
+        // An overloaded function carries its documentation on the overloads a
+        // caller resolves to, not on the implementation signature below them,
+        // which is what an editor shows and what the reference reads.
+        const prose = [
+          ts.displayPartsToString(each.getDocumentationComment(checker)),
+          ts.displayPartsToString(resolved.getDocumentationComment(checker)),
+        ]
+          .map((text) => text.trim())
+          .filter(Boolean)
+          .join(' ');
         return {
           name: each.getName(),
           callable,
           internal: marked !== null,
           reason: marked ?? '',
+          explained: prose.length > 0,
         };
       }),
     );
@@ -309,6 +323,8 @@ interface Gap {
   exported: string[];
   undocumented: string[];
   unexercised: string[];
+  /** Names the library publishes with no docblock of their own. */
+  unexplained: string[];
   /** The names whose docblock opts them out, with the prose beside the tag. */
   internal: { name: string; reason: string }[];
 }
@@ -337,6 +353,7 @@ async function computeGaps(): Promise<Map<string, Gap>> {
       exported: [],
       undocumented: [],
       unexercised: [],
+      unexplained: [],
       internal: [],
     };
     const known = headings.get(entry.slug) ?? new Set<string>();
@@ -358,6 +375,7 @@ async function computeGaps(): Promise<Map<string, Gap>> {
       if (each.callable && !names(body, each.name)) {
         gap.unexercised.push(each.name);
       }
+      if (!each.explained) gap.unexplained.push(each.name);
     }
 
     found.set(entry.package, gap);
@@ -448,6 +466,50 @@ describe('every published name is documented', () => {
               `"unexercised" list in doc-export-coverage-allowance.json.`,
           );
         }
+      }
+      for (const symbol of entry.unexplained ?? []) {
+        if (!gap.unexplained.includes(symbol)) {
+          failures.push(
+            `${name} now documents \`${symbol}\` in source. Remove it from ` +
+              `the "unexplained" list in doc-export-coverage-allowance.json.`,
+          );
+        }
+      }
+    }
+
+    expect(sorted(failures)).toEqual([]);
+  });
+
+  /**
+   * A published name explains itself in the library's source.
+   *
+   * The generated reference renders an entry's summary from the first paragraph
+   * of its docblock, so a name with none shows a signature and no prose. The
+   * sentence belongs beside the declaration rather than on the page: an editor's
+   * hover reads the same block, and the next build picks up an edit with no
+   * documentation change at all.
+   *
+   * An overloaded function is the case worth knowing about. Its documentation
+   * has to sit on the overloads a caller resolves to, because that is what an
+   * editor shows and what the reference reads; a block on the implementation
+   * signature below them is read by nobody. `serialize` was documented that way
+   * and its prose reached neither.
+   */
+  it('gives every published name a docblock', async () => {
+    const failures: string[] = [];
+
+    for (const [name, gap] of await gaps()) {
+      const allowed = new Set(allowance[name]?.unexplained ?? []);
+      for (const symbol of gap.unexplained) {
+        if (allowed.has(symbol)) continue;
+        failures.push(
+          `${name} exports \`${symbol}\` with no docblock, so its reference ` +
+            `entry renders a signature and no prose. Write the sentence beside ` +
+            `the declaration; on an overloaded function it belongs on the ` +
+            `overloads and not on the implementation. Record it in ` +
+            `doc-export-coverage-allowance.json under "unexplained" if it is ` +
+            `genuinely not worth one.`,
+        );
       }
     }
 

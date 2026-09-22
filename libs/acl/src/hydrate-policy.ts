@@ -133,6 +133,15 @@ function adopt(matrix: Matrix, override: string | number | undefined): Matrix {
 /** A subject for a single call: the actor, a plain object of attributes. */
 export type Subject = Record<string, unknown>;
 
+/**
+ * What a holder states about the document it is constructing over.
+ *
+ * Every member describes the holder rather than the document: which version the
+ * construction site is really running, whether an unknown key throws or
+ * refuses, and when this holder last confirmed the document was current. The
+ * document states what its producer shipped, and these state what the consumer
+ * is doing with it.
+ */
 export interface AccessOptions {
   /**
    * Overrides the document's `version`.

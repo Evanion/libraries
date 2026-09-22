@@ -114,6 +114,13 @@ export interface ReadsObjectFinding {
   };
 }
 
+/**
+ * One thing a diff found, discriminated on `kind`.
+ *
+ * Every member carries `key`, the permission it is about. The three access
+ * members say which direction the change moved, and `reads-object` says the
+ * access did not move while what a decision needs in order to answer did.
+ */
 export type DiffFinding =
   GrantedFinding | WithdrawnFinding | UndeterminedFinding | ReadsObjectFinding;
 
