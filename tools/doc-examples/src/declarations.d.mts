@@ -24,7 +24,13 @@ export interface Reference {
     merges: boolean;
     values: string[];
     types: string[];
+    /** Names only the package root publishes, for a second entry point. */
+    fromRoot: string[];
+    /** Types the package declares and publishes nowhere, printed hidden. */
+    prelude: string[];
   } | null;
+  /** The package root, which is `specifier` unless it carries a subpath. */
+  rootSpecifier: string;
   /** The docblock's first paragraph. */
   summary: string;
   /** Everything after the first paragraph. */

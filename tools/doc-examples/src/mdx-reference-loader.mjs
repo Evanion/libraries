@@ -64,6 +64,40 @@ const KIND_LABELS = {
   typeAlias: 'type',
 };
 
+/**
+ * A docblock's prose as MDX.
+ *
+ * A docblock is written for an editor's hover, where `{` and `<` are ordinary
+ * characters. MDX reads `{` as the start of an expression and `<` as the start
+ * of a tag, so a `{@link Matrix}` in a library's comment fails the whole build
+ * with `Unexpected character '@'`. Six of `@evanion/acl`'s 105 entries carry
+ * one.
+ *
+ * An inline tag becomes what it meant: the label where the author wrote one,
+ * and the target as code where they did not. Everything else that MDX would
+ * read as syntax is escaped, so a docblock written years before this loader
+ * existed renders as the sentence it is.
+ *
+ * Code spans are left alone. MDX does not read an expression inside one, and
+ * escaping there would put a backslash on the page.
+ */
+export function mdxProse(text) {
+  return text
+    .split(/(`+[^`]*`+)/)
+    .map((part, at) => {
+      if (at % 2 === 1) return part;
+
+      return part
+        .replace(
+          /\{@(?:link|linkcode|linkplain)\s+([^}|\s]+)\s*(?:\|\s*)?([^}]*)\}/g,
+          (_, target, label) =>
+            label.trim() === '' ? `\`${target}\`` : label.trim(),
+        )
+        .replace(/[{}<]/g, (character) => `\\${character}`);
+    })
+    .join('');
+}
+
 /** `typeAlias` as the stylesheet spells it, matching `slug` in the kit. */
 function kindSlug(kind) {
   return kind.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -80,10 +114,10 @@ function tagLine(tags) {
   const rendered = tags.map((tag) => {
     if (tag.name === 'param') {
       const [name, ...rest] = tag.text.split(/\s+/);
-      return `\`${name}\` ${rest.join(' ')}`.trim();
+      return `\`${name}\` ${mdxProse(rest.join(' '))}`.trim();
     }
     const label = tag.name === 'return' ? 'returns' : tag.name;
-    return `**${label}** ${tag.text}`.trim();
+    return `**${label}** ${mdxProse(tag.text)}`.trim();
   });
 
   return rendered.filter(Boolean).join(' · ');
@@ -106,18 +140,21 @@ function signatureFence(reference) {
   const { signature, specifier } = reference;
   if (!signature) return [];
 
-  const imports = [
+  const context = [
     signature.values.length > 0 &&
       `import { ${signature.values.join(', ')} } from '${specifier}';`,
     signature.types.length > 0 &&
       `import type { ${signature.types.join(', ')} } from '${specifier}';`,
+    signature.fromRoot.length > 0 &&
+      `import type { ${signature.fromRoot.join(', ')} } from '${reference.rootSpecifier}';`,
+    ...signature.prelude,
   ].filter(Boolean);
 
-  // The imports are compilation context and not the entry's content, so they
-  // are cut from what the reader sees. A merging declaration is wrapped in a
-  // module block for the reason `declarations.mjs` gives, and the two lines of
-  // wrapper are cut as well, so the fence shows the declaration and nothing
-  // around it.
+  // The imports and the private types are compilation context and not the
+  // entry's content, so they are cut from what the reader sees. A merging
+  // declaration is wrapped in a module block for the reason `declarations.mjs`
+  // gives, and the two lines of wrapper are cut as well, so the fence shows the
+  // declaration and nothing around it.
   const body = signature.merges
     ? [
         '// ---cut-start---',
@@ -134,8 +171,8 @@ function signatureFence(reference) {
     '<div className="docs-api-entry__signature">',
     '',
     '```ts twoslash',
-    ...imports,
-    ...(imports.length > 0 ? ['// ---cut---'] : []),
+    ...context,
+    ...(context.length > 0 ? ['// ---cut---'] : []),
     ...body,
     '```',
     '',
@@ -147,7 +184,7 @@ function signatureFence(reference) {
 function head(reference) {
   const lines = [];
 
-  if (reference.summary) lines.push(reference.summary, '');
+  if (reference.summary) lines.push(mdxProse(reference.summary), '');
 
   const tags = tagLine(reference.tags);
   if (tags) lines.push(tags, '');
@@ -157,7 +194,7 @@ function head(reference) {
       '<details className="docs-api-entry__more">',
       '<summary>Full documentation</summary>',
       '',
-      reference.rest,
+      mdxProse(reference.rest),
       '',
       '</details>',
       '',
