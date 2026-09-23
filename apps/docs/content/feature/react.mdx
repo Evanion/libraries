@@ -10,10 +10,11 @@ import {
   useFeature,
   useFeatureEnabled,
   useFeatures,
+  useVariant,
 } from '@evanion/feature/react';
 ```
 
-A provider and three hooks over an already-built store. Nothing here decides
+A provider and four hooks over an already-built store. Nothing here decides
 anything — evaluation lives in the core, and this layer carries the result down
 the tree.
 
@@ -87,8 +88,9 @@ function Checkout() {
 | `useFeatures()`          | every decision                     |
 | `useFeature(key)`        | one decision, explanation included |
 | `useFeatureEnabled(key)` | the boolean                        |
+| `useVariant(key)`        | `{ variant?, value? }`             |
 
-All three throw outside a `<FeatureProvider>`, naming the provider and the
+All four throw outside a `<FeatureProvider>`, naming the provider and the
 package.
 
 `useFeature` also throws for a key that is not configured in that provider:
@@ -104,11 +106,23 @@ why a flag is off:
 ```tsx
 const decision = useFeature('express-pickup');
 // { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
+
+const { variant, value } = useVariant('checkout-cta');
+// variant: 'control', value: undefined
 ```
 
 The key lookup uses `Object.prototype.hasOwnProperty`, so a key of `constructor`
 or `toString` does not resolve to a function off `Object.prototype` and pass as
 a decision object.
+
+### `useVariant`
+
+A reader over the same decision `useFeature` already returns: `variant` and
+`value` come straight off it. Both are absent for a feature that resolved off
+and for a feature declaring no variants, so a component checks `variant` for
+`undefined` before it switches on a name. `useVariant` throws for the same
+reason `useFeature` does, on the same unconfigured key. See
+[Variants](/feature/variants) for how the assignment itself is made.
 
 ## Typing the keys
 

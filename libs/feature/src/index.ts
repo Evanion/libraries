@@ -8,6 +8,8 @@ export { createFeatures } from './lib/features.js';
 export type { Features } from './lib/features.js';
 
 export { bucketOf, inRollout, murmur3 } from './lib/bucketing.js';
+export { assignVariant, variantSeedOf } from './lib/variants.js';
+export type { VariantAssignment } from './lib/variants.js';
 export { evaluateCondition } from './lib/conditions.js';
 export { canonical } from './lib/canonical.js';
 export { ruleId } from './lib/rule-id.js';

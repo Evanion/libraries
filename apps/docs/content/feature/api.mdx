@@ -44,6 +44,8 @@ import {
   bucketOf,
   inRollout,
   murmur3,
+  assignVariant,
+  variantSeedOf,
   evaluateCondition,
   canonical,
   ruleId,
@@ -55,15 +57,23 @@ import {
 } from '@evanion/feature';
 ```
 
-| Export                             | What it is                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------- |
-| `bucketOf(value, seed)`            | the bucket in `[0, 1)`, for snapshot tooling and tests                        |
-| `inRollout(value, percent, seed)`  | whether that bucket is inside the rollout                                     |
-| `murmur3(input, seed?)`            | the hash itself, unsigned 32-bit                                              |
-| `evaluateCondition(cond, context)` | one condition, for the same reason                                            |
-| `canonical(value)`                 | text for a value with its keys sorted, for a hash two producers must agree on |
-| `ruleId(rule)`                     | the id `resolve` gives a rule that declares none                              |
-| `DEFAULT_ROLLOUT_FIELD`            | `'targetingKey'`                                                              |
+| Export                               | What it is                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `bucketOf(value, seed)`              | the bucket in `[0, 1)`, for snapshot tooling and tests                        |
+| `inRollout(value, percent, seed)`    | whether that bucket is inside the rollout                                     |
+| `murmur3(input, seed?)`              | the hash itself, unsigned 32-bit                                              |
+| `assignVariant(definition, context)` | the variant a context gets, for snapshot tooling and tests                    |
+| `variantSeedOf(definition)`          | the seed `assignVariant` buckets on, for the same reason                      |
+| `evaluateCondition(cond, context)`   | one condition, for the same reason                                            |
+| `canonical(value)`                   | text for a value with its keys sorted, for a hash two producers must agree on |
+| `ruleId(rule)`                       | the id `resolve` gives a rule that declares none                              |
+| `DEFAULT_ROLLOUT_FIELD`              | `'targetingKey'`                                                              |
+
+`assignVariant` returns a `VariantAssignment`: the chosen `VariantSpec`, the
+`by` field and, on `'weighted'`, the `bucket`. Its `source` is
+`'weighted' | 'sticky' | 'fallback'`, with no `'pinned'` case: only `decide`
+knows which rule matched, so `decide` applies a pin on top of the assignment
+`assignVariant` returned. See [Variants](/feature/variants).
 
 ## Types
 
@@ -77,6 +87,9 @@ interface FeatureDefinition<F extends FeatureKey = string> {
   rules?: readonly Rule[];
   seed?: string;
   freezeTimeAtBuild?: boolean;
+  variants?: readonly VariantSpec[];
+  variantBy?: string; // defaults to 'targetingKey'
+  variantSeed?: string; // defaults to `${seed ?? key}:variant`
 }
 ```
 
@@ -87,6 +100,7 @@ interface Rule {
   id?: string; // defaults to a hash of the rule, e.g. 'rule-74ffa08d'
   when?: readonly Condition[];
   rollout?: RolloutSpec;
+  variant?: string; // pins this variant on a match, overriding the weights
 }
 
 interface RolloutSpec {
@@ -129,6 +143,7 @@ interface AttributeCondition {
 interface EvaluationContext {
   now?: Date;
   targetingKey?: string;
+  stickyVariants?: Readonly<Record<string, string>>; // prior assignment, by feature key
   [field: string]: unknown;
 }
 ```
@@ -144,6 +159,14 @@ interface Decision<F extends FeatureKey = string> {
   rules?: readonly RuleOutcome[];
   blockedBy?: F;
   cause?: Cause<F>;
+  variant?: string; // on a feature that resolved on and declares variants
+  value?: unknown; // the assigned variant's configured value, when it declares one
+  assignment?: {
+    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
+    by: string;
+    bucket?: number; // absent when the context carried no bucketing value
+    rule?: string; // the pinning rule, on 'pinned'
+  };
 }
 
 type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
@@ -185,11 +208,15 @@ interface PlanEntry<F extends FeatureKey = string> {
   key: F;
   resolved: boolean | 'deferred';
   needs: readonly string[];
-  decision?: Decision<F>;
+  decision?: Decision<F>; // present when `resolved` is a boolean, and sometimes when it is not
 }
 
 type Plan<F extends FeatureKey = string> = Record<F, PlanEntry<F>>;
 ```
+
+A deferred entry carries a `decision` too when enablement settled and only
+the variant split is outstanding. That decision carries enablement and no
+variant. See [Build-time planning](/feature/build-time).
 
 ### `ToggleResult<F>`
 
@@ -227,6 +254,7 @@ import {
   useFeatures,
   useFeature,
   useFeatureEnabled,
+  useVariant,
 } from '@evanion/feature/react';
 ```
 
@@ -236,6 +264,7 @@ import {
 | `useFeatures<F>()`          | `Decisions<F>`                                  |
 | `useFeature<F>(key)`        | `Decision<F>`; throws for an unconfigured key   |
 | `useFeatureEnabled<F>(key)` | `boolean`                                       |
+| `useVariant<F>(key)`        | `{ variant?: string; value?: unknown }`         |
 
 `FeatureProviderProps<F>` is exported as a type. See
 [React](/feature/react) for the memoisation rule on `context`.

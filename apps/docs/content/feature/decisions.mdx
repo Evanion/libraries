@@ -40,13 +40,27 @@ interface Decision<F> {
   rules?: RuleOutcome[]; // the per-rule breakdown, on 'no-rule-matched'
   blockedBy?: F; // the immediate parent, on 'dependency-off'
   cause?: Cause<F>; // the first ancestor off for its own reason
+  variant?: string; // the assigned variant, on a feature that resolved on and declares variants
+  value?: unknown; // the assigned variant's configured value, when it declares one
+  assignment?: {
+    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
+    by: string;
+    bucket?: number; // absent when the context carried no bucketing value
+    rule?: string; // the pinning rule, on 'pinned'
+  };
 }
 ```
 
 `enabled` is the decision. Everything else is explanation, and is output only —
-nothing in this library reads `reason`, `rule`, `rules`, `blockedBy` or `cause`
-back to decide anything. The cascade is typed to see an `enabled` flag and
-nothing else, so that is enforced by the type system rather than by convention.
+nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`, `cause`,
+`variant`, `value` or `assignment` back to decide anything. The cascade is
+typed to see an `enabled` flag and nothing else, so that is enforced by the
+type system rather than by convention.
+
+`variant` and `value` are absent on a feature with no `variants` declared, and
+so is `assignment`. All three are absent on a feature that resolved off, on
+any path that leaves it off. See [Variants](/feature/variants) for how a
+variant is assigned and what each `assignment.source` means.
 
 | `reason`          | Meaning                                                           |
 | ----------------- | ----------------------------------------------------------------- |

@@ -37,9 +37,11 @@
       "ToggleResult",
       "UnknownDependencyError",
       "UnknownVariantError",
+      "VariantAssignment",
       "VariantSpec",
       "Weekday",
       "WindowCondition",
+      "assignVariant",
       "bucketOf",
       "canonical",
       "evaluateCondition",
@@ -48,7 +50,9 @@
       "ruleId",
       "useFeature",
       "useFeatureEnabled",
-      "useFeatures"
+      "useFeatures",
+      "useVariant",
+      "variantSeedOf"
     ],
     "unexercised": [
       "DuplicateFeatureError",
@@ -58,13 +62,16 @@
       "FeatureProvider",
       "UnknownDependencyError",
       "UnknownVariantError",
+      "assignVariant",
       "canonical",
       "evaluateCondition",
       "murmur3",
       "ruleId",
       "useFeature",
       "useFeatureEnabled",
-      "useFeatures"
+      "useFeatures",
+      "useVariant",
+      "variantSeedOf"
     ],
     "unexplained": [
       "Condition",
