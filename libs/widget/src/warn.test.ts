@@ -15,6 +15,7 @@ describe('warnOnce', () => {
 
     warnOnce(message);
     warnOnce(message);
+
     warnOnce(message);
 
     expect(warn).toHaveBeenCalledTimes(1);
@@ -24,6 +25,7 @@ describe('warnOnce', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     warnOnce(ERROR_MESSAGES.UNKNOWN_WIDGET('gone', 'one'));
+
     warnOnce(ERROR_MESSAGES.UNKNOWN_WIDGET('gone', 'two'));
 
     expect(warn).toHaveBeenCalledTimes(2);

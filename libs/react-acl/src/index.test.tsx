@@ -80,6 +80,7 @@ describe('PolicyProvider', () => {
         <Row id="s1" />
       </PolicyProvider>,
     );
+
     expect(screen.getByTestId('row-s1')).toHaveTextContent('editable');
   });
 
@@ -211,6 +212,7 @@ describe('createPolicyContext', () => {
       const spy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
+
       expect(() =>
         render(
           <PolicyProvider access={shop} subject={SUBJECT}>
@@ -234,6 +236,7 @@ describe('useCan', () => {
         <Row id="s1" />
       </PolicyProvider>,
     );
+
     expect(screen.getByTestId('row-s1')).toHaveTextContent('editable');
   });
 });
@@ -262,6 +265,7 @@ describe('useCanMany', () => {
         <List />
       </PolicyProvider>,
     );
+
     expect(screen.getByText('y')).toBeTruthy();
     expect(screen.getByText('n')).toBeTruthy();
   });
@@ -282,6 +286,7 @@ describe('useCapabilities', () => {
         <Caps />
       </PolicyProvider>,
     );
+
     expect(screen.getByTestId('caps')).toHaveTextContent('2');
   });
 });
@@ -305,6 +310,7 @@ describe('useCanFields', () => {
         },
       ],
     });
+
     function Form() {
       const fd = useCanFields('comment', 'update', { status: 'x' }, 'write');
       return <div data-testid="status">{fd.fields['status']}</div>;
@@ -318,6 +324,7 @@ describe('useCanFields', () => {
         <Form />
       </PolicyProvider>,
     );
+
     expect(screen.getByTestId('status')).toHaveTextContent('denied');
   });
 });
@@ -325,6 +332,7 @@ describe('useCanFields', () => {
 describe('useCan', () => {
   it('useCan throws outside a provider', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
     expect(() => render(<Row id="s1" />)).toThrow(/PolicyProvider/);
     spy.mockRestore();
   });

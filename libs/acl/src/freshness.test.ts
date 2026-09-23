@@ -107,6 +107,7 @@ describe('a holder past its freshness budget', () => {
 
   it('carries the reason through a bound handle', () => {
     const bound = access.authorize(subject, { now: expired });
+
     expect(bound.can('invoice', 'read').reason).toBe('stale-contract');
   });
 });
@@ -114,6 +115,7 @@ describe('a holder past its freshness budget', () => {
 describe('the local ceiling', () => {
   it('shortens the owner bound', () => {
     const access = parseMatrix(contract, { fetchedAt, maxStale: 1_000 });
+
     expect(
       access.can(subject, 'invoice', 'read', {}, fetchedAt + 1_001).reason,
     ).toBe('stale-contract');
@@ -121,6 +123,7 @@ describe('the local ceiling', () => {
 
   it('never extends it', () => {
     const access = parseMatrix(contract, { fetchedAt, maxStale: 600_000 });
+
     expect(
       access.can(subject, 'invoice', 'read', {}, fetchedAt + 60_001).reason,
     ).toBe('stale-contract');
@@ -130,6 +133,7 @@ describe('the local ceiling', () => {
 describe('a holder that claims no freshness', () => {
   it('runs under no budget at all', () => {
     const access = parseMatrix(contract);
+
     expect(
       access.can(subject, 'invoice', 'read', {}, fetchedAt + 1e12).reason,
     ).toBe('allow');
@@ -137,6 +141,7 @@ describe('a holder that claims no freshness', () => {
 
   it('runs under no budget on a document that states one', () => {
     const access = hydratePolicy({ ...contract, maxStale: 0 });
+
     expect(access.can(subject, 'invoice', 'read', {}, 1e12).reason).toBe(
       'allow',
     );
@@ -172,6 +177,7 @@ describe('a freshness claim the document cannot honour', () => {
 describe('an unusable clock against a budget', () => {
   it('decides nothing about staleness and lands where it always did', () => {
     const access = parseMatrix(contract, { fetchedAt });
+
     expect(
       access.can(subject, 'invoice', 'read', {}, 'not-an-instant').reason,
     ).toBe('allow');
@@ -182,6 +188,7 @@ describe('the budget on the frozen document', () => {
   it('crosses a JSON round trip with the rest of the envelope', () => {
     const access = parseMatrix(contract, { fetchedAt });
     const again = JSON.parse(JSON.stringify(access.matrix)) as Matrix;
+
     expect(again.maxStale).toBe(60_000);
   });
 

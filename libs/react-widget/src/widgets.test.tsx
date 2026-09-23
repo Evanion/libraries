@@ -16,6 +16,7 @@ describe('Default Components', () => {
       );
 
       const wrapper = screen.getByTestId('wrapper');
+
       expect(wrapper.tagName).toBe('SECTION');
       expect(wrapper).toHaveTextContent('Test content');
     });
@@ -33,6 +34,7 @@ describe('Default Components', () => {
       );
 
       const wrapper = screen.getByTestId('wrapper');
+
       expect(wrapper).toHaveClass('custom-class');
       expect(wrapper).toHaveAttribute('id', 'test-id');
       expect(wrapper).toHaveStyle('background-color: rgb(255, 0, 0)');
@@ -48,6 +50,7 @@ describe('Default Components', () => {
       );
 
       const item = screen.getByTestId('item');
+
       expect(item.tagName).toBe('DIV');
       expect(item).toHaveTextContent('Test content');
     });
@@ -65,6 +68,7 @@ describe('Default Components', () => {
       );
 
       const item = screen.getByTestId('item');
+
       expect(item).toHaveClass('item-class');
       expect(item).toHaveAttribute('id', 'item-id');
       expect(item).toHaveAttribute('role', 'listitem');
@@ -82,6 +86,7 @@ describe('Default Components', () => {
       );
 
       const wrapper = screen.getByTestId('wrapper');
+
       expect(wrapper).toHaveTextContent('First child');
       expect(wrapper).toHaveTextContent('Second child');
       expect(wrapper).toHaveTextContent('Third child');
@@ -99,6 +104,7 @@ describe('Default Components', () => {
       );
 
       const item = screen.getByTestId('item');
+
       expect(item).toHaveTextContent('First span');
       expect(item).toHaveTextContent('Second span');
       expect(item).toHaveTextContent('Button');
@@ -117,6 +123,7 @@ describe('Default Components', () => {
       );
 
       const wrapper = screen.getByTestId('wrapper');
+
       expect(wrapper).toBeInTheDocument();
       expect(wrapper).toBeEmptyDOMElement();
     });

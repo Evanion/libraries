@@ -41,6 +41,7 @@ describe('errors', () => {
           'is bad',
         ),
     ];
+
     for (const make of cases) {
       const err = make();
       expect(err).toBeInstanceOf(AclConfigError);
@@ -50,28 +51,33 @@ describe('errors', () => {
 
   it('an unknown permission error names the key', () => {
     const err = new UnknownPermissionError('comment.red');
+
     expect(err.key).toBe('comment.red');
     expect(err.message).toContain('comment.red');
   });
 
   it('an unknown object key error names the key', () => {
     const err = new UnknownObjectKeyError('unknown');
+
     expect(err.key).toBe('unknown');
     expect(err.message).toContain('unknown');
   });
 
   it('a deny-without-baseline error names the field', () => {
     const err = new DenyWithoutBaselineError('!status');
+
     expect(err.message).toContain('!status');
   });
 
   it('a targets/transitions conflict error names the field', () => {
     const err = new TargetsTransitionsConflictError('status');
+
     expect(err.message).toContain('status');
   });
 
   it('an action-not-allowed error carries the key and the reason', () => {
     const err = new ActionNotAllowedError('user.update', 'no-rule-matched');
+
     expect(err.key).toBe('user.update');
     expect(err.reason).toBe('no-rule-matched');
     expect(err.message).toContain('user.update');
@@ -80,6 +86,7 @@ describe('errors', () => {
 
   it('a key mismatch error names all three parts', () => {
     const err = new KeyMismatchError('comment.read', 'comment', 'delete');
+
     expect(err.key).toBe('comment.read');
     expect(err.object).toBe('comment');
     expect(err.action).toBe('delete');
@@ -98,6 +105,7 @@ describe('errors', () => {
         'nests below its scope',
       ),
     ];
+
     for (const err of cases) {
       expect(err.key).toBe('comment.read');
       expect(err.message).toContain('comment.read');

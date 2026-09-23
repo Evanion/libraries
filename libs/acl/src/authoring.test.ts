@@ -64,6 +64,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always),
     );
+
     expect(Object.keys(access.matrix)).toEqual(['permissions']);
     expect(JSON.stringify(access.matrix)).not.toContain('version');
     expect(access.matrix.version).toBeUndefined();
@@ -77,6 +78,7 @@ describe('policy', () => {
         comment: { fields: { authorId: 'string', status: 'string' } },
       },
     };
+
     const access = policy<Subject, Objects, Verbs>({
       version: 'orders@7+veto@41',
       schema,
@@ -85,6 +87,7 @@ describe('policy', () => {
         p.allow('update', p.eq('object.authorId', 'subject.id')),
       )
       .build();
+
     expect(access.matrix.version).toBe('orders@7+veto@41');
     expect(access.matrix.schema).toEqual(schema);
     expect(access.version).toBe('orders@7+veto@41');
@@ -118,6 +121,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always).deny('delete', p.always),
     );
+
     for (const permission of access.matrix.permissions) {
       expect(permission.key).toBe(`${permission.object}.${permission.action}`);
     }
@@ -141,6 +145,7 @@ describe('policy', () => {
           ),
         ),
     );
+
     expect(access.matrix.permissions[0]!.rules).toHaveLength(2);
     expect(access.matrix.permissions[1]!.rules).toHaveLength(1);
     expect(access.matrix.permissions[1]!.rules![0]!.when).toHaveLength(2);
@@ -159,6 +164,7 @@ describe('policy', () => {
         ),
       ),
     );
+
     expect(access.matrix.permissions[0]!.rules).toHaveLength(2);
     for (const rule of access.matrix.permissions[0]!.rules!) {
       expect(rule.when).toHaveLength(2);
@@ -173,6 +179,7 @@ describe('policy', () => {
         p.contains('subject.roles', 'editor'),
       ),
     );
+
     expect(access.matrix.permissions[0]!.rules).toHaveLength(1);
     expect(access.matrix.permissions[0]!.rules![0]!.when).toHaveLength(2);
   });
@@ -181,6 +188,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('create', p.always),
     );
+
     expect(access.matrix.permissions[0]!.rules).toEqual([{ when: [] }]);
   });
 
@@ -196,6 +204,7 @@ describe('policy', () => {
       ),
     );
     const when = access.matrix.permissions[0]!.rules![0]!.when!;
+
     expect(when.map((condition) => condition.op)).toEqual([
       'ne',
       'in',
@@ -211,6 +220,7 @@ describe('policy', () => {
         .allow('update', p.eq('object.authorId', 'subject.id'))
         .allow('read', p.eq('object.status', 'published')),
     );
+
     expect(access.matrix.permissions[0]!.rules![0]!.when![0]).toEqual({
       field: 'object.authorId',
       op: 'eq',
@@ -231,6 +241,7 @@ describe('policy', () => {
           .deny('delete', p.eq('object.status', 'published')),
       )
       .build();
+
     expect(access.matrix.permissions).toHaveLength(1);
     expect(access.matrix.permissions[0]!.denyRules).toHaveLength(1);
     expect(
@@ -251,6 +262,7 @@ describe('policy', () => {
         .allow('read', p.always)
         .fields(['*', '!status']),
     );
+
     expect(access.matrix.permissions[0]!.fields).toHaveProperty('status');
     expect(access.matrix.permissions[1]!.fields).toEqual({
       fields: ['*', '!status'],
@@ -261,6 +273,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always).visibility('public').allow('read', p.always),
     );
+
     expect(access.matrix.permissions[0]!.visibility).toBe('public');
     expect(access.matrix.permissions[1]!.visibility).toBeUndefined();
   });
@@ -269,6 +282,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always),
     );
+
     expect(Object.keys(access.matrix.permissions[0]!)).toEqual([
       'key',
       'object',
@@ -282,6 +296,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allow('update', p.always).visibility('internal'),
     );
+
     expect(access.matrix.permissions[0]!.visibility).toBe('internal');
   });
 
@@ -307,6 +322,7 @@ describe('policy', () => {
         .allow('publish', p.contains('subject.roles', 'editor'))
         .id('editor-publishes'),
     );
+
     expect(access.matrix.permissions[0]!.rules![0]!.id).toBe(
       'author-edits-own',
     );
@@ -324,6 +340,7 @@ describe('policy', () => {
           .id('published-is-final'),
       )
       .build();
+
     expect(
       access.can(subject, 'comment', 'update', {
         authorId: 's1',
@@ -391,6 +408,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allowEach(['read', 'update'], p.eq('object.authorId', 'subject.id')),
     );
+
     expect(access.matrix.permissions).toEqual([
       {
         key: 'comment.read',
@@ -423,6 +441,7 @@ describe('policy', () => {
           .denyEach(['update'], p.eq('object.status', 'published')),
       )
       .build();
+
     expect(
       access.can(subject, 'comment', 'read', { status: 'published' }).allowed,
     ).toBe(true);
@@ -437,11 +456,13 @@ describe('policy', () => {
         .allow('read', p.eq('object.status', 'published'))
         .allowEach(['read'], p.eq('object.authorId', 'subject.id')),
     );
+
     const written = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p
         .allow('read', p.eq('object.status', 'published'))
         .allow('read', p.eq('object.authorId', 'subject.id')),
     );
+
     expect(batched.matrix).toEqual(written.matrix);
     expect(batched.matrix.permissions).toHaveLength(1);
   });
@@ -450,6 +471,7 @@ describe('policy', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p.allowEach([], p.always),
     );
+
     expect(access.matrix.permissions).toEqual([]);
   });
 
@@ -473,6 +495,7 @@ describe('policy', () => {
         .allow('publish', p.always)
         .visibility('public'),
     );
+
     expect(access.matrix.permissions[2]).toMatchObject({
       key: 'comment.publish',
       visibility: 'public',
@@ -489,6 +512,7 @@ describe('policy', () => {
         p.allow('read', p.eq('object.ownerId', 'subject.id')),
       )
       .build();
+
     expect(
       access.matrix.permissions.map((permission) => permission.key),
     ).toEqual(['comment.update', 'media.read']);
@@ -504,6 +528,7 @@ describe('policy', () => {
       )
       .build();
     const media = access.object('media');
+
     expect(media.can(subject, 'read', { ownerId: 's1', bytes: 1 })).toEqual(
       access.can(subject, 'media', 'read', { ownerId: 's1', bytes: 1 }),
     );
@@ -526,6 +551,7 @@ describe('a projection through the typed path', () => {
       { authorId: 's1' },
       { status: 'draft' },
     ];
+
     for (const object of projections)
       expect(access.can(subject, 'comment', 'update', object)).toEqual(
         untyped.can(subject, 'comment', 'update', object),
@@ -534,6 +560,7 @@ describe('a projection through the typed path', () => {
 
   it('names the paths it could not read', () => {
     const decision = access.can(subject, 'comment', 'update', {});
+
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unevaluable');
     expect(decision.missing).toEqual(
@@ -546,6 +573,7 @@ describe('a projection through the typed path', () => {
       authorId: 's1',
       status: 'draft',
     });
+
     expect(settled.allowed).toBe(true);
   });
 
@@ -569,6 +597,7 @@ describe('a projection through the typed path', () => {
       { authorId: 's1' },
       'read',
     );
+
     expect(Object.keys(decision.fields)).toEqual(['authorId']);
     expect(decision.action.reason).toBe('unevaluable');
   });
@@ -725,11 +754,13 @@ describe('a builder-authored policy published as a contract', () => {
 
   it('round-trips the contract through JSON and parseMatrix unchanged', () => {
     const adopted = parseMatrix(JSON.parse(JSON.stringify(contract)) as Matrix);
+
     expect(adopted.matrix).toEqual(consumer.matrix);
   });
 
   it('serializes the full document with every marking intact', () => {
     const full = serialize(owner, 'full');
+
     expect(full.permissions.map((permission) => permission.visibility)).toEqual(
       ['public', undefined, 'internal'],
     );

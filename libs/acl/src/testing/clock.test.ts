@@ -52,14 +52,18 @@ describe('fixtureClock', () => {
 
   it('accepts an instant in any of the three spellings', () => {
     const iso = fixtureClock(contract, { fetchedAt: '1970-01-01T00:16:40Z' });
+
     const date = fixtureClock(contract, { fetchedAt: new Date(fetchedAt) });
+
     expect(iso.fetchedAt).toBe(fetchedAt);
     expect(date.fetchedAt).toBe(fetchedAt);
   });
 
   it('reads the wall clock when the test names no instant', () => {
     const before = Date.now();
+
     const wall = fixtureClock(contract);
+
     expect(wall.fetchedAt).toBeGreaterThanOrEqual(before);
   });
 
@@ -94,6 +98,7 @@ describe('the instants a fixtureClock names', () => {
   it('brackets the tightened budget as well', () => {
     const tight = fixtureClock(contract, { fetchedAt, maxStale: 5_000 });
     const holder = parseMatrix(contract, tight.options);
+
     expect(holder.can(subject, 'invoice', 'read', {}, tight.fresh).reason).toBe(
       'allow',
     );
@@ -109,6 +114,7 @@ describe('a freshness budget a fixtureClock cannot compute', () => {
       version: contract.version,
       permissions: contract.permissions,
     };
+
     expect(() => fixtureClock(silent, { fetchedAt })).toThrow(
       MissingFreshnessBudgetError,
     );

@@ -31,6 +31,7 @@ describe('buildGraph', () => {
 
   it('rejects a cycle at construction, with the path in the message', () => {
     let error: unknown;
+
     try {
       buildGraph([def('a', ['c']), def('b', ['a']), def('c', ['b'])]);
     } catch (caught) {

@@ -203,6 +203,7 @@ describe('widget regressions', () => {
           items={[{ id: 'ok', type: 'leaf' as const, props: { label: 'ok' } }]}
         />,
       );
+
       expect(screen.getByTestId('leaf-ok')).toBeInTheDocument();
     });
   });
@@ -263,6 +264,7 @@ describe('widget regressions', () => {
 
       fireEvent.click(screen.getByTestId('inc'));
       fireEvent.click(screen.getByTestId('inc'));
+
       expect(screen.getByTestId('inc')).toHaveTextContent('count:2');
 
       // A fresh array identity defeats the `memo` and forces a re-render.

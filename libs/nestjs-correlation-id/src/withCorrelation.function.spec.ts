@@ -63,6 +63,7 @@ const service = (
 describe('withCorrelation', () => {
   it('declares no dependencies for the options factory, so nothing turns HttpService request-scoped', () => {
     const options = withCorrelation();
+
     expect(options.inject ?? []).toEqual([]);
   });
 
@@ -76,6 +77,7 @@ describe('withCorrelation', () => {
       headers: { Authorization: 'Bearer token' },
     });
     const result = await options.useFactory?.();
+
     expect(result).toEqual({
       baseURL: 'https://example.test',
       headers: { Authorization: 'Bearer token' },
@@ -89,6 +91,7 @@ describe('withCorrelation', () => {
   it('reads the correlation id at request time, not at construction time', () => {
     const correlationService = service();
     const { instance, send } = mockAxios();
+
     const provider = interceptorProvider(withCorrelation().extraProviders);
 
     provider.useFactory(
@@ -109,6 +112,7 @@ describe('withCorrelation', () => {
   it('uses the configured header name', () => {
     const correlationService = service();
     const { instance, send } = mockAxios();
+
     const provider = interceptorProvider(withCorrelation().extraProviders);
     provider.useFactory(
       ...([
@@ -119,6 +123,7 @@ describe('withCorrelation', () => {
     );
 
     const headers = correlationService.run('REQ-3', send);
+
     expect(headers.get(CORRELATION_ID_HEADER)).toBe('REQ-3');
     expect(headers.has('X-Request-Id')).toBe(false);
   });
@@ -126,6 +131,7 @@ describe('withCorrelation', () => {
   it('sends no correlation header when the call is made outside a correlation context', () => {
     const correlationService = service();
     const { instance, send } = mockAxios();
+
     const provider = interceptorProvider(withCorrelation().extraProviders);
     provider.useFactory(
       ...([
@@ -140,6 +146,7 @@ describe('withCorrelation', () => {
 
   it('injects the axios instance, the service and the config into the interceptor provider', () => {
     const provider = interceptorProvider(withCorrelation().extraProviders);
+
     expect(provider.inject).toEqual([
       'AXIOS_INSTANCE_TOKEN',
       CorrelationService,

@@ -132,6 +132,7 @@ describe('item meta', () => {
     );
 
     const wrapper = container.querySelector('[data-widget-id="a"]');
+
     expect(wrapper).not.toBeNull();
     expect(wrapper?.hasAttribute('meta')).toBe(false);
     // React logs "Invalid value for prop" / unknown-attribute warnings through
@@ -150,6 +151,7 @@ describe('item meta', () => {
     );
 
     const wrapper = container.querySelector('[data-widget-id="a"]');
+
     expect(wrapper).toHaveAttribute('data-widget-type', 'leaf');
   });
 });

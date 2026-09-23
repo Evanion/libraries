@@ -38,6 +38,7 @@ describe('readsObject', () => {
         value: 'staff',
       }),
     );
+
     expect(a.readsObject('article', 'read')).toBe(false);
   });
 
@@ -55,6 +56,7 @@ describe('readsObject', () => {
         value: '2030-01-01T00:00:00Z',
       }),
     );
+
     expect(a.readsObject('article', 'read')).toBe(false);
   });
 
@@ -66,6 +68,7 @@ describe('readsObject', () => {
         value: 's1',
       }),
     );
+
     expect(a.readsObject('article', 'update')).toBe(true);
   });
 
@@ -79,6 +82,7 @@ describe('readsObject', () => {
         value: true,
       }),
     );
+
     expect(a.readsObject('article', 'update')).toBe(true);
   });
 
@@ -90,6 +94,7 @@ describe('readsObject', () => {
         path: 'object.authorId',
       }),
     );
+
     expect(a.readsObject('article', 'update')).toBe(true);
   });
 
@@ -101,6 +106,7 @@ describe('readsObject', () => {
         path: 'object.authorId',
       }),
     );
+
     expect(a.readsObject('article', 'update')).toBe(true);
   });
 
@@ -136,6 +142,7 @@ describe('readsObject', () => {
         value: 'editor',
       }),
     );
+
     expect(a.readsObject('article', 'update')).toBe(true);
     expect(a.readsObject('article', 'publish')).toBe(false);
   });
@@ -157,6 +164,7 @@ describe('readsObject', () => {
       }),
     );
     const subject = { role: 'staff' };
+
     for (const action of ['read', 'update']) {
       const decision = a.can(subject, 'article', action);
       expect(decision.reason === 'unevaluable').toBe(
@@ -168,11 +176,13 @@ describe('readsObject', () => {
   it('answers false for an unknown action in closed mode', () => {
     const matrix: Matrix = { permissions: [allow('article.read')] };
     const a = hydratePolicy(matrix, { closed: true });
+
     expect(a.readsObject('article', 'destroy')).toBe(false);
   });
 
   it('throws on an unknown action in open mode, as can does', () => {
     const a = access(allow('article.read'));
+
     expect(() => a.readsObject('article', 'destroy')).toThrow(
       UnknownPermissionError,
     );

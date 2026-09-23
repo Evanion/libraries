@@ -247,6 +247,7 @@ describe('applyDenyOverlay', () => {
 
     it('owes no schema when it opens nothing', () => {
       const matrix: Matrix = { permissions: base().permissions };
+
       expect(() =>
         applyDenyOverlay(matrix, {}, { vetoable: [] }),
       ).not.toThrow();
@@ -289,6 +290,7 @@ describe('applyDenyOverlay', () => {
         'update',
         object,
       );
+
       expect(before.allowed).toBe(true);
 
       const after = overlaid().can(subject, 'comment', 'update', object);
@@ -302,6 +304,7 @@ describe('applyDenyOverlay', () => {
 
     it('leaves a subject the overlay does not name alone', () => {
       const clear = { id: 'u1', roles: [], tier: 'ordinary' };
+
       expect(overlaid().can(clear, 'comment', 'update', object).allowed).toBe(
         true,
       );
@@ -351,6 +354,7 @@ describe('applyDenyOverlay', () => {
     it('does not touch the matrix it was handed', () => {
       const authored = base();
       const snapshot = JSON.stringify(authored);
+
       applyDenyOverlay(
         authored,
         { 'comment.update': [HOLD] },
@@ -358,6 +362,7 @@ describe('applyDenyOverlay', () => {
           vetoable: VETOABLE,
         },
       );
+
       expect(JSON.stringify(authored)).toBe(snapshot);
     });
 
@@ -369,6 +374,7 @@ describe('applyDenyOverlay', () => {
           vetoable: VETOABLE,
         },
       );
+
       expect(result.version).toBe('orders@7');
     });
   });
@@ -700,6 +706,7 @@ describe('applyDenyOverlay', () => {
       for (const seed of SEEDS) {
         opened += matrix(new Gen(rng(seed))).vetoable.length;
       }
+
       expect(opened).toBeGreaterThan(300);
     });
   });
@@ -710,11 +717,13 @@ describe('applyDenyOverlay', () => {
       (seed) => {
         const gen = new Gen(rng(seed));
         const { document, vetoable } = matrix(gen);
+
         const overlaid = applyDenyOverlay(document, overlayFor(gen, vetoable), {
           vetoable,
         });
 
         const cloned = JSON.parse(JSON.stringify(overlaid)) as Matrix;
+
         expect(cloned).toEqual(overlaid);
         expect(() => hydratePolicy(cloned)).not.toThrow();
       },

@@ -87,6 +87,7 @@ describe('schema shape', () => {
         schema: declared,
         permissions: [],
       } as unknown as Matrix;
+
       expect(() => parseMatrix(matrix)).toThrow(InvalidSchemaError);
       expect(() => parseMatrix(matrix)).toThrow(where);
     });
@@ -103,6 +104,7 @@ describe('schema shape', () => {
       'instant[]?',
     ];
     const fields = Object.fromEntries(forms.map((form, i) => [`f${i}`, form]));
+
     expect(() =>
       parseMatrix({
         schema: { objects: { comment: { fields } } },
@@ -156,6 +158,7 @@ describe('a condition against a declared field name', () => {
         },
       ],
     };
+
     expect(() => parseMatrix(matrix)).toThrow(UnknownFieldError);
   });
 
@@ -176,11 +179,13 @@ describe('a condition against a declared field name', () => {
         },
       ],
     };
+
     expect(() => parseMatrix(matrix)).not.toThrow();
   });
 
   it('leaves subject paths unchecked when the schema declares no subject', () => {
     const noSubject: MatrixSchema = { objects: schema.objects };
+
     expect(() =>
       parseMatrix(
         withCondition(
@@ -314,6 +319,7 @@ describe('a matrix with no schema', () => {
     const decision = access.can({ id: 's1' }, 'comment', 'update', {
       authorId: 's1',
     });
+
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unevaluable');
     expect(decision.missing).toEqual(['object.authorID']);
@@ -321,6 +327,7 @@ describe('a matrix with no schema', () => {
 
   it('carries no schema on the access object or the document', () => {
     const access = hydratePolicy(matrix);
+
     expect(access.schema).toBeUndefined();
     expect(access.matrix.schema).toBeUndefined();
     expect(Object.hasOwn(access.matrix, 'schema')).toBe(false);

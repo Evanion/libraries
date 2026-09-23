@@ -24,6 +24,7 @@ describe('decide', () => {
         },
       ],
     });
+
     expect(decide(perm, ctx)).toMatchObject({
       allowed: true,
       reason: 'allow',
@@ -40,6 +41,7 @@ describe('decide', () => {
       ],
     });
     const other = { ...ctx, object: { authorId: 'OTHER' } };
+
     expect(decide(perm, other)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -59,6 +61,7 @@ describe('decide', () => {
       ],
     });
     const ctx2 = { ...ctx, object: { authorId: 's1', status: 'published' } };
+
     expect(decide(perm, ctx2)).toMatchObject({
       allowed: false,
       reason: 'denied',
@@ -77,6 +80,7 @@ describe('decide', () => {
         },
       ],
     });
+
     expect(decide(perm, ctx)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -91,6 +95,7 @@ describe('decide', () => {
       ],
     });
     const noObj: EvaluationContext = { subject: { id: 's1' } };
+
     expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -113,6 +118,7 @@ describe('decide', () => {
     const reader: EvaluationContext = {
       subject: { id: 's1', roles: ['reader'] },
     };
+
     expect(decide(perm, reader)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -136,6 +142,7 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['editor'] },
     };
+
     expect(decide(perm, noObj)).toMatchObject({
       allowed: true,
       reason: 'allow',
@@ -160,6 +167,7 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['editor'] },
     };
+
     expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -180,6 +188,7 @@ describe('decide', () => {
       subject: { id: 's1' },
       object: { status: 'draft' },
     };
+
     expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -197,6 +206,7 @@ describe('decide', () => {
       ],
     });
     const roleless: EvaluationContext = { subject: { id: 's1' }, object: {} };
+
     expect(decide(perm, roleless)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -219,6 +229,7 @@ describe('decide', () => {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
+
     expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -242,6 +253,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['reader'] },
       object: { status: 'draft' },
     };
+
     expect(decide(perm, reader)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -264,6 +276,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['editor'] },
       object: { authorId: 's1' },
     };
+
     expect(decide(perm, projection)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -273,6 +286,7 @@ describe('decide', () => {
 
   it('a permission with no rules denies', () => {
     const perm = p({ key: 'comment.update' });
+
     expect(decide(perm, ctx)).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -289,6 +303,7 @@ describe('decide', () => {
       ],
     });
     const noObj: EvaluationContext = { subject: { id: 's1' } };
+
     expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -309,6 +324,7 @@ describe('decide', () => {
     const noObj: EvaluationContext = {
       subject: { id: 's1', roles: ['admin'] },
     };
+
     expect(decide(perm2, noObj)).toMatchObject({
       allowed: true,
       reason: 'allow',
@@ -332,6 +348,7 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+
     expect(decide(perm, partial)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -360,6 +377,7 @@ describe('decide', () => {
       ...ctx,
       object: { authorId: 's1', locked: false },
     };
+
     expect(decide(perm, full)).toMatchObject({
       allowed: true,
       reason: 'allow',
@@ -384,7 +402,9 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { authorId: 's1' } };
+
     const decision = decide(perm, partial);
+
     expect(decision).toMatchObject({
       allowed: false,
       reason: 'no-rule-matched',
@@ -415,7 +435,9 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
+
     const decision = decide(perm, partial);
+
     expect(decision).toMatchObject({ allowed: false, reason: 'unevaluable' });
     expect([...(decision.missing ?? [])].sort()).toEqual([
       'object.authorId',
@@ -445,6 +467,7 @@ describe('decide', () => {
       ],
     });
     const partial: EvaluationContext = { ...ctx, object: { status: 'draft' } };
+
     expect(decide(perm, partial)).toMatchObject({
       allowed: false,
       reason: 'denied',
@@ -472,6 +495,7 @@ describe('decide', () => {
       subject: { id: 's1', roles: ['editor'] },
       now: ctx.now,
     };
+
     expect(decide(perm, noObj)).toMatchObject({
       allowed: false,
       reason: 'unevaluable',
@@ -500,7 +524,9 @@ describe('decide', () => {
         },
       ],
     });
+
     const decision = decide(perm, ctx);
+
     expect(decision).toMatchObject({
       allowed: false,
       reason: 'denied',

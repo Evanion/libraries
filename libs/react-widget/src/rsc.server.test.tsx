@@ -48,6 +48,7 @@ const Box = ({ children }: { children?: React.ReactNode }) => (
 describe('the react-server export condition', () => {
   it('really is active, or every other test in this file proves nothing', () => {
     const react = React as unknown as Record<string, unknown>;
+
     expect(react['createContext']).toBeUndefined();
     expect(react['useContext']).toBeUndefined();
     expect(react['useState']).toBeUndefined();
@@ -71,6 +72,7 @@ describe('@evanion/react-widget under react-server', () => {
     // render internals are absent for a different reason: nothing outside the
     // package may depend on them.
     const surface = pkg as unknown as Record<string, unknown>;
+
     expect(surface['WidgetsProvider']).toBeUndefined();
     expect(surface['useWidgets']).toBeUndefined();
     expect(surface['Output']).toBeUndefined();
@@ -97,6 +99,7 @@ describe('@evanion/react-widget under react-server', () => {
     });
 
     const elements = flatten(tree);
+
     expect(elements.some((e) => e.type === Box)).toBe(true);
     expect(elements.some((e) => e.type === Leaf)).toBe(true);
     expect(elements.some((e) => e.type === React.Suspense)).toBe(true);
@@ -104,6 +107,7 @@ describe('@evanion/react-widget under react-server', () => {
 
   it('validates items without importing a renderer', () => {
     const { validateItems } = createWidgets({ components: { leaf: Leaf } });
+
     expect(validateItems([{ id: 'a', type: 'nope', props: {} }])).toHaveLength(
       1,
     );

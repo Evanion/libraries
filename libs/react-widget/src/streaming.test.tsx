@@ -107,6 +107,7 @@ describe('streaming a synchronous region', () => {
     );
 
     const positions = items.map((_, n) => html.indexOf(`row-${n}-END`));
+
     expect(positions.every((at) => at !== -1)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
