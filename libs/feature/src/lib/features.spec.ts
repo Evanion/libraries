@@ -1040,6 +1040,82 @@ describe('plan', () => {
     expect(entry.decision?.variant).toBeUndefined();
   });
 
+  it('defers when an earlier rule it could not evaluate might have won', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region']);
+  });
+
+  it("agrees with resolve once the skipped rule's field arrives", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const planned = features.plan({ targetingKey: 'u1', region: 'eu' }).cta;
+    const resolved = features.resolve({ targetingKey: 'u1', region: 'eu' }).cta;
+
+    expect(planned.resolved).toBe(true);
+    expect(planned.decision?.variant).toBe('blue');
+    expect(planned.decision?.variant).toBe(resolved.variant);
+    expect(planned.decision?.rule).toBe(resolved.rule);
+  });
+
+  it('still settles a feature whose first rule matched', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          { when: [], variant: 'blue' },
+          { when: [{ field: 'region', op: 'eq', value: 'eu' }] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+  });
+
   it('resolves a feature whose variant a build-time context settles', () => {
     const features = createFeatures([
       {

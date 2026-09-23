@@ -301,7 +301,6 @@ export function planFeature<F extends FeatureKey>(
   // enablement unresolved, so this loop keeps that need separate from the
   // variant's need below and never lets the two share one need count.
   const ruleNeeds = new Set<string>();
-  let matched = false;
 
   if (deferredNeeds.size === 0) {
     for (const rule of rules) {
@@ -311,10 +310,9 @@ export function planFeature<F extends FeatureKey>(
         continue;
       }
       if (evaluateRule(definition, rule, context).matched) {
-        // Rules are OR-ed, so this match settles enablement on its own. The
-        // loop breaks immediately here, and drops any need an earlier rule
-        // in this pass logged: that rule no longer decides anything.
-        matched = true;
+        // `decide` evaluates rules in order and stops at the first match, so
+        // this loop stops here too. A rule after this one never runs, and a
+        // need that rule would have logged never reaches `ruleNeeds`.
         break;
       }
     }
@@ -324,12 +322,14 @@ export function planFeature<F extends FeatureKey>(
   const declaresVariants =
     definition.variants !== undefined && definition.variants.length > 0;
 
-  // Enablement is settled once every one of this feature's own rules has run
-  // against the fields this plan had: a rule matched, or the loop finished
-  // checking every rule and none did (no rules counts as the same case).
-  // `decide` already knows what settles the split, so this block calls it
-  // once and reads `settled.assignment` for the answer.
-  if (deferredNeeds.size === 0 && (matched || ruleNeeds.size === 0)) {
+  // Enablement is settled only when every rule the loop looked at resolved
+  // cleanly, leaving `ruleNeeds` empty. `decide` evaluates rules in order and
+  // stops at the first match, so a rule the loop above skipped for a missing
+  // field could still out-rank a rule that matched after it; a match by
+  // itself does not settle anything while `ruleNeeds` is non-empty. Once
+  // `ruleNeeds` is empty, `decide` already knows what settles the split, so
+  // this block calls it once and reads `settled.assignment` for the answer.
+  if (deferredNeeds.size === 0 && ruleNeeds.size === 0) {
     const settled = decide(definition, context, resolved);
     // `'fallback'` is the one source that means the context left the split
     // unsettled: `assignVariant` found no usable bucketing value and handed
@@ -339,9 +339,10 @@ export function planFeature<F extends FeatureKey>(
     if (settled.assignment?.source !== 'fallback') {
       return { key, resolved: settled.enabled, needs: [], decision: settled };
     }
-    // The split still waits on the bucketing field. Attaching the
-    // fallback-assigned control here would freeze every subject onto it, so
-    // this entry reports enablement and leaves the split to the request.
+    // The bucketing field decides the split, and this context does not carry
+    // it. `decide` computed the control only as a placeholder for the
+    // fallback path. This entry drops that placeholder, reports enablement
+    // only, and leaves the split for a request that supplies the field.
     const { variant, value, assignment, ...enablement } = settled;
     return {
       key,
