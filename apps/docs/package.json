@@ -48,10 +48,8 @@
           "{projectRoot}/tools/behaviour-data.mjs",
           "{projectRoot}/tools/libraries.mjs",
           "{workspaceRoot}/tools/doc-examples/src/behaviours.mjs",
-          "{workspaceRoot}/libs/*/src/**/*.test.ts",
-          "{workspaceRoot}/libs/*/src/**/*.test.tsx",
-          "{workspaceRoot}/libs/*/src/**/*.spec.ts",
-          "{workspaceRoot}/libs/*/src/**/*.spec.tsx",
+          "{workspaceRoot}/libs/*/src/**/*.ts",
+          "{workspaceRoot}/libs/*/src/**/*.tsx",
           "{workspaceRoot}/nx.json"
         ],
         "outputs": [
@@ -103,6 +101,9 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "shiki": "3.23.0"
+    "@shikijs/twoslash": "3.23.0",
+    "shiki": "3.23.0",
+    "twoslash": "0.3.9",
+    "typescript": "6.0.3"
   }
 }

@@ -113,15 +113,26 @@ function titleOf(node) {
 }
 
 /**
- * A block of source with the indentation its nesting gave it taken off.
+ * A block of source with the indentation its nesting gave it taken off, and
+ * where every character of the result stood in the file.
  *
  * A case three `describe` levels down is written at six spaces, and the pane
  * that shows it is narrower than the editor the author wrote it in. The common
  * indent of the lines below the first is what that nesting added, so taking it
  * off gives the reader the case at column zero and changes no line's shape
  * relative to the others.
+ *
+ * `offsets[i]` holds the position in the file of the body's character `i`.
+ * `apps/docs/tools/behaviour-data.mjs` compiles a whole test file once and
+ * carries the hovers it got back at the file's own positions, so it needs the
+ * two coordinate systems held together to say which case a hover fell in and
+ * where in that case's body it sits. The parser reads both at the position it
+ * already has, and nothing downstream searches the file for the body again.
+ *
+ * @param {string} text
+ * @param {number} base Where `text` starts in the file it was read from.
  */
-function dedent(text) {
+function dedent(text, base) {
   const lines = text.split('\n');
   const depths = lines
     .slice(1)
@@ -129,10 +140,29 @@ function dedent(text) {
     .map((line) => line.length - line.trimStart().length);
   const common = depths.length > 0 ? Math.min(...depths) : 0;
 
-  return lines
-    .map((line, at) => (at === 0 ? line : line.slice(common)))
-    .join('\n')
-    .trim();
+  const kept = [];
+  const offsets = [];
+  let at = base;
+
+  lines.forEach((line, index) => {
+    if (index > 0) {
+      kept.push('\n');
+      offsets.push(at);
+      at += 1;
+      at += Math.min(common, line.length);
+    }
+
+    const rest = index === 0 ? line : line.slice(common);
+    for (let step = 0; step < rest.length; step += 1) offsets.push(at + step);
+    kept.push(rest);
+    at += rest.length;
+  });
+
+  const joined = kept.join('');
+  const from = joined.length - joined.trimStart().length;
+  const to = joined.trimEnd().length;
+
+  return { body: joined.slice(from, to), offsets: offsets.slice(from, to) };
 }
 
 /**
@@ -149,7 +179,8 @@ function dedent(text) {
  */
 function bodyOf(node, seeded) {
   const source = node.getSourceFile();
-  if (seeded) return dedent(node.getText(source));
+  const whole = () => dedent(node.getText(source), node.getStart(source));
+  if (seeded) return whole();
 
   const callback = node.arguments.find(
     (each) =>
@@ -157,7 +188,7 @@ function bodyOf(node, seeded) {
       ts.isFunctionExpression(each) ||
       ts.isIdentifier(each),
   );
-  if (!callback) return dedent(node.getText(source));
+  if (!callback) return whole();
 
   if (
     (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
@@ -167,10 +198,10 @@ function bodyOf(node, seeded) {
     const text = callback.body.getText(source);
     // The braces are the callback's, not the case's, and the pane draws its own
     // frame around what it shows.
-    return dedent(text.slice(1, -1));
+    return dedent(text.slice(1, -1), callback.body.getStart(source) + 1);
   }
 
-  return dedent(callback.getText(source));
+  return dedent(callback.getText(source), callback.getStart(source));
 }
 
 /** Where a call stands, as a reader would open the file to it. */
@@ -237,7 +268,7 @@ export function chainsOf(path) {
     const source = {
       file: path,
       line: lineOf(node),
-      body: bodyOf(node, runner.seeded || title === null),
+      ...bodyOf(node, runner.seeded || title === null),
     };
 
     if (runner.seeded || title === null) {

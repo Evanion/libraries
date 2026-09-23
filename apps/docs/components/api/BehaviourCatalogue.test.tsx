@@ -47,6 +47,40 @@ const SIDECAR = {
     },
   },
   styles: { bh0: '--shiki-light:#005CC5;--shiki-dark:#79B8FF' },
+  popups: {},
+};
+
+/**
+ * A case whose tokens the compiler gave types, under its own library.
+ *
+ * Its own library because the fetch is cached per library for the lifetime of
+ * the module, and the cases above are the ones the rail's tests read. The two
+ * tokens are what `behaviour-data.mjs` writes: the class the theme styles, and
+ * the number of the type in the sidecar's own dictionary.
+ */
+const TYPED_GROUPS = [
+  {
+    label: 'parse',
+    rows: [{ title: 'reads the namespace off the front', id: 3 }],
+  },
+];
+
+const TYPED = {
+  bodies: {
+    3: {
+      where: 'libs/urn/src/parse.test.ts',
+      line: 18,
+      html:
+        '<span class="twoslash-hover" data-pop="0">urn</span>' +
+        '<span> = </span>' +
+        '<span class="twoslash-hover" data-pop="1">parse</span>',
+    },
+  },
+  styles: {},
+  popups: {
+    0: '<code class="twoslash-popup-code">const urn: URN</code>',
+    1: '<code class="twoslash-popup-code">function parse(text: string): URN</code>',
+  },
 };
 
 /**
@@ -81,7 +115,10 @@ beforeEach(() => {
 
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({ ok: true, json: async () => SIDECAR })),
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (url.includes('/urn.json') ? TYPED : SIDECAR),
+    })),
   );
 });
 
@@ -96,6 +133,20 @@ const mount = (library = 'acl') =>
   render(
     <BehaviourCatalogue library={library} name="diffMatrix" groups={GROUPS} />,
   );
+
+const mountTyped = () =>
+  render(
+    <BehaviourCatalogue library="urn" name="parse" groups={TYPED_GROUPS} />,
+  );
+
+/** The typed token spelling a name, once the sidecar has reached the pane. */
+function reach(container: HTMLElement, text: string): HTMLElement {
+  const found = [...container.querySelectorAll<HTMLElement>('[data-pop]')].find(
+    (each) => each.textContent === text,
+  );
+  if (!found) throw new Error(`no token spells ${text}`);
+  return found;
+}
 
 describe('BehaviourCatalogue', () => {
   it('names every sentence in the rail, under the group the suite wrote', () => {
@@ -182,6 +233,49 @@ describe('BehaviourCatalogue', () => {
         screen.getByText(/The cases for widget did not load/),
       ).toBeInTheDocument(),
     );
+  });
+
+  it('states the type behind a token the pointer reached', async () => {
+    const { container } = mountTyped();
+    const token = await waitFor(() => reach(container, 'urn'));
+
+    fireEvent.pointerOver(token);
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent('const urn: URN');
+    expect(token).toHaveAttribute(
+      'aria-describedby',
+      screen.getByRole('tooltip').id,
+    );
+  });
+
+  it('walks the typed tokens from the one tab stop the pane holds', async () => {
+    const { container } = mountTyped();
+    const [first, second] = await waitFor(() => [
+      reach(container, 'urn'),
+      reach(container, 'parse'),
+    ]);
+
+    first?.focus();
+    fireEvent.keyDown(first as HTMLElement, { key: 'ArrowRight' });
+
+    expect(
+      [first, second].map((each) => each?.tabIndex),
+      'A reference page mounts a hundred of these, so the pane offers one ' +
+        'stop and the arrows move it.',
+    ).toEqual([-1, 0]);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'function parse(text: string): URN',
+    );
+  });
+
+  it('takes the card back down on Escape', async () => {
+    const { container } = mountTyped();
+    const token = await waitFor(() => reach(container, 'urn'));
+
+    fireEvent.pointerOver(token);
+    fireEvent.keyDown(token, { key: 'Escape' });
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   it('keeps the cases out of the search index', () => {

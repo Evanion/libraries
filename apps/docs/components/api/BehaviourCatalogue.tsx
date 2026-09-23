@@ -34,10 +34,17 @@ import './behaviour.css';
  * `apps/docs/tools/behaviour-data.mjs` highlights every case during the build
  * and writes `public/behaviour/<library>.json`; this fetches it once per
  * package, when a reader scrolls a catalogue into view. `@evanion/acl`'s file
- * is 604 kB, against 105 entries on `/acl/api/`, so a page holding every case
- * in its HTML would send that to a reader who came for one signature. The
- * names stay in the markup, because they are what Pagefind indexes and
- * `search: { codeblocks: false }` keeps the cases out of the index regardless.
+ * is 76 kB over the wire, against 105 entries on `/acl/api/`, so a page holding
+ * every case in its HTML would send that to a reader who came for one
+ * signature. The names stay in the markup, because they are what Pagefind
+ * indexes and `search: { codeblocks: false }` keeps the cases out of the index
+ * regardless.
+ *
+ * **A token the compiler knows states its type.** Twoslash reads each test file
+ * during the build and the sidecar carries what it found, so a reader can ask
+ * what `report` is without leaving the entry. `@evanion/acl`'s cases hover 7478
+ * tokens between 1193 distinct types, so a type is stored once and every token
+ * that holds it carries its number.
  *
  * **It is a listbox and not a tab set.** A tab strip puts the labels in a row
  * and needs the labels to be short; these are sentences, and there are 26 of
@@ -75,6 +82,8 @@ interface Body {
 interface Sidecar {
   bodies: Record<string, Body>;
   styles: Record<string, string>;
+  /** The types the cases hover, each stored once and cited by its number. */
+  popups: Record<string, string>;
 }
 
 /**
@@ -109,11 +118,11 @@ function load(library: string): Promise<Sidecar> {
  * The highlighter's palette, as one stylesheet.
  *
  * Every token in a sidecar carries a class rather than the two themes' colours
- * in its `style`, which is what takes `@evanion/acl`'s cases from 1.36 MB to
- * 604 kB. The ten rules that give those classes their colours ride along in the
- * sidecar and go into the document once. They are the same values Nextra's own
- * fences carry, read out of the same two github themes, so nothing here picks a
- * colour.
+ * in its `style`, and so does every token of every type a hover states. The
+ * dozen rules that give those classes their colours ride along in the sidecar
+ * and go into the document once, against the case in the pane and against the
+ * card over it. They are the same values Nextra's own fences carry, read out of
+ * the same two github themes, so nothing here picks a colour.
  */
 let painted = false;
 
@@ -126,7 +135,8 @@ function paint(styles: Record<string, string>): void {
   sheet.textContent = Object.entries(styles)
     .map(
       ([token, declarations]) =>
-        `.docs-behaviours__body .${token}{${declarations}}`,
+        `.docs-behaviours__body .${token},` +
+        `.docs-behaviours__type .${token}{${declarations}}`,
     )
     .join('\n');
   document.head.append(sheet);
@@ -158,6 +168,40 @@ function useNarrow(): boolean {
   return narrow;
 }
 
+/** Every token in a case the compiler gave a type to, in reading order. */
+function typed(within: HTMLElement | null): HTMLElement[] {
+  return [...(within?.querySelectorAll<HTMLElement>('[data-pop]') ?? [])];
+}
+
+/** How far the card sits from the token, and from the edge of the window. */
+const GAP = 6;
+const EDGE = 8;
+
+/**
+ * Puts the card beside the token it describes, inside the window.
+ *
+ * The card is `position: fixed` and placed from JavaScript, because the block
+ * is a 26rem frame with `overflow: hidden` and both panes scroll inside it. A
+ * card laid out in the pane's own flow would be cut off by the first ancestor
+ * it grew past, and a card on a phone would open past the right edge. Fixed
+ * placement answers both: the only box it has to fit in is the window.
+ */
+function place(card: HTMLElement, token: HTMLElement): void {
+  const room = document.documentElement.clientWidth;
+  const frame = card.getBoundingClientRect();
+  const at = token.getBoundingClientRect();
+  const above = at.top - frame.height - GAP;
+
+  card.style.left = `${Math.round(
+    Math.min(
+      Math.max(at.left, EDGE),
+      Math.max(room - frame.width - EDGE, EDGE),
+    ),
+  )}px`;
+  card.style.top = `${Math.round(above >= EDGE ? above : at.bottom + GAP)}px`;
+  card.style.visibility = 'visible';
+}
+
 /** Keeps the selected row inside the rail's own scroll, never the page's. */
 function reveal(rail: HTMLElement | null, option: string): void {
   const row = rail?.querySelector<HTMLElement>(`#${CSS.escape(option)}`);
@@ -182,8 +226,13 @@ export default function BehaviourCatalogue({
   const [unread, setUnread] = useState(false);
   const block = useRef<HTMLDivElement>(null);
   const rail = useRef<HTMLDivElement>(null);
+  const code = useRef<HTMLElement>(null);
+  const card = useRef<HTMLDivElement>(null);
   const moved = useRef(false);
   const narrow = useNarrow();
+  const [token, setToken] = useState<HTMLElement | null>(null);
+
+  const cardId = `${prefix}-type`;
 
   const optionId = useCallback(
     (index: number) => `${prefix}-case-${index}`,
@@ -238,6 +287,71 @@ export default function BehaviourCatalogue({
   const row = rows[at];
   const body = sidecar?.bodies[String(row?.id)];
 
+  // Picking another sentence replaces the pane's markup whole, so the tab stop
+  // goes back on the first typed token of whatever now stands in it.
+  useEffect(() => {
+    typed(code.current).forEach((each, index) => {
+      each.tabIndex = index === 0 ? 0 : -1;
+    });
+  }, [body?.html]);
+
+  // The token the card belongs to, where it is still in the pane. The one the
+  // reader reached left the document when the case under it was replaced, and
+  // a card about a case nobody is looking at is a card to take down.
+  const open = token?.isConnected === true ? token : null;
+
+  useEffect(() => {
+    if (!open || !card.current) return;
+
+    open.setAttribute('aria-describedby', cardId);
+    place(card.current, open);
+    return () => open.removeAttribute('aria-describedby');
+  }, [cardId, open]);
+
+  // The token a pointer or a focus reached, or none where neither is on one.
+  const reach = (event: { target: EventTarget | null }) => {
+    const found = (event.target as Element | null)?.closest?.('[data-pop]');
+    setToken(found instanceof HTMLElement ? found : null);
+  };
+
+  /**
+   * The typed tokens as one tab stop with the arrows walking them.
+   *
+   * A reference page mounts a hundred of these catalogues, so a tab stop per
+   * token would put two thousand of them between a reader and the next heading.
+   * One stop per pane and Left and Right inside it is the roving pattern the
+   * rail beside it already uses, and the card opens on focus, which is also
+   * what a tap on a phone produces.
+   */
+  const onCodeKeyDown = (event: KeyboardEvent<HTMLPreElement>) => {
+    if (event.key === 'Escape') {
+      setToken(null);
+      return;
+    }
+
+    const tokens = typed(code.current);
+    const from = tokens.indexOf(document.activeElement as HTMLElement);
+    if (from === -1) return;
+
+    const steps: Record<string, number | undefined> = {
+      ArrowRight: from + 1,
+      ArrowLeft: from - 1,
+      Home: 0,
+      End: tokens.length - 1,
+    };
+    const next = steps[event.key];
+    if (next === undefined) return;
+
+    event.preventDefault();
+    const going = tokens[Math.min(Math.max(next, 0), tokens.length - 1)];
+    if (!going) return;
+
+    tokens.forEach((each) => {
+      each.tabIndex = each === going ? 0 : -1;
+    });
+    going.focus();
+  };
+
   const pane = (
     <div className="docs-behaviours__pane" data-pagefind-ignore="all">
       <p className="docs-behaviours__title">{row?.title}</p>
@@ -249,9 +363,35 @@ export default function BehaviourCatalogue({
           {/* The markup is Shiki's, produced during this build from this
               repository's own test sources. Nothing a reader supplies reaches
               it, and the only tags in it are the highlighter's spans. */}
-          <pre className="docs-behaviours__body">
-            <code dangerouslySetInnerHTML={{ __html: body.html }} />
+          <pre
+            className="docs-behaviours__body twoslash"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget))
+                setToken(null);
+            }}
+            onFocus={reach}
+            onKeyDown={onCodeKeyDown}
+            onPointerLeave={() => {
+              if (!code.current?.contains(document.activeElement))
+                setToken(null);
+            }}
+            onPointerOver={reach}
+          >
+            <code dangerouslySetInnerHTML={{ __html: body.html }} ref={code} />
           </pre>
+          {open ? (
+            /* The type the build read off the compiler, stored once in the
+               sidecar and cited here by the number the token carries. */
+            <div
+              className="docs-behaviours__type twoslash-popup-container"
+              dangerouslySetInnerHTML={{
+                __html: sidecar?.popups[open.dataset.pop ?? ''] ?? '',
+              }}
+              id={cardId}
+              ref={card}
+              role="tooltip"
+            />
+          ) : null}
         </>
       ) : (
         <p className="docs-behaviours__waiting">
