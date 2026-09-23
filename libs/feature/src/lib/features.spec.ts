@@ -260,6 +260,18 @@ describe('precedence', () => {
     expect(afterId).toBe(beforeId);
   });
 
+  it('resolves a rule condition holding a BigInt value', () => {
+    const features = createFeatures([
+      {
+        key: 'k',
+        enabled: true,
+        rules: [{ when: [{ field: 'accountId', op: 'eq', value: 10n }] }],
+      },
+    ]);
+
+    expect(features.resolve({ accountId: 10n }).k.enabled).toBe(true);
+  });
+
   it('names every rule in a breakdown by its content', () => {
     const features = createFeatures([
       {

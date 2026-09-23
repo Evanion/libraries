@@ -102,7 +102,12 @@ describe('ruleId', () => {
   it('reads the zone of a day-of-week condition', () => {
     const stockholm = ruleId({
       when: [
-        { field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon'] },
+        {
+          field: 'now',
+          op: 'day-of-week',
+          zone: 'Europe/Stockholm',
+          value: ['mon'],
+        },
       ],
     });
     const tokyo = ruleId({
@@ -121,13 +126,19 @@ describe('ruleId', () => {
     // Pinned so a Swift or Kotlin port has a value to match. `fnv1a` walks
     // UTF-16 code units, so a surrogate pair contributes two of them.
     expect(ruleId({ when: [{ field: 'tag', op: 'eq', value: '🎯' }] })).toBe(
-      'rule-e532f597',
+      'rule-b9b91345',
     );
   });
 
   it('separates a field ending in an operator prefix from the operator', () => {
     const a = ruleId({ when: [{ field: 'usernot-', op: 'in', value: ['x'] }] });
     const b = ruleId({ when: [{ field: 'user', op: 'not-in', value: ['x'] }] });
+    expect(a).not.toBe(b);
+  });
+
+  it('separates an op from a longer op that would swallow the value boundary', () => {
+    const a = ruleId({ when: [{ field: 'u', op: 'eq', value: 12 }] });
+    const b = ruleId({ when: [{ field: 'u', op: 'eq1' as never, value: 2 }] });
     expect(a).not.toBe(b);
   });
 
@@ -146,10 +157,24 @@ describe('ruleId', () => {
 
   it('separates a zone ending in a weekday from the weekday list', () => {
     const a = ruleId({
-      when: [{ field: 'now', op: 'day-of-week', zone: 'Europe/Oslo', value: ['mon'] }],
+      when: [
+        {
+          field: 'now',
+          op: 'day-of-week',
+          zone: 'Europe/Oslo',
+          value: ['mon'],
+        },
+      ],
     });
     const b = ruleId({
-      when: [{ field: 'now', op: 'day-of-week', zone: 'Europe/Osl', value: ['omon'] as never }],
+      when: [
+        {
+          field: 'now',
+          op: 'day-of-week',
+          zone: 'Europe/Osl',
+          value: ['omon'] as never,
+        },
+      ],
     });
     expect(a).not.toBe(b);
   });
@@ -176,7 +201,7 @@ describe('ruleId', () => {
     const id = ruleId({
       when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
     });
-    expect(id).toBe('rule-239179b0');
+    expect(id).toBe('rule-59e8e8f5');
   });
 
   it('separates an offsetless instant string from the same instant in UTC', () => {
@@ -187,5 +212,22 @@ describe('ruleId', () => {
       when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
     });
     expect(offsetless).not.toBe(utc);
+  });
+
+  it('memoizes the derived id for the same rule object', () => {
+    const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+    expect(ruleId(rule)).toBe(ruleId(rule));
+  });
+
+  it('does not confuse two structurally distinct rule objects sharing the cache', () => {
+    const a: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+    const b: Rule = { when: [{ field: 'role', op: 'eq', value: 'admin' }] };
+
+    const aFirst = ruleId(a);
+    ruleId(b);
+    const aSecond = ruleId(a);
+
+    expect(aSecond).toBe(aFirst);
+    expect(ruleId(b)).not.toBe(aFirst);
   });
 });

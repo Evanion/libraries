@@ -25,4 +25,28 @@ describe('canonical', () => {
   it('separates a nested object from a string that spells it', () => {
     expect(canonical({ a: { b: 1 } })).not.toBe(canonical({ a: '{"b":1}' }));
   });
+
+  it('writes undefined as a string', () => {
+    expect(canonical(undefined)).toBe('undefined');
+  });
+
+  it('writes a bigint with a trailing n', () => {
+    expect(canonical(10n)).toBe('10n');
+  });
+
+  it('separates a bigint from the number of the same value', () => {
+    expect(canonical(10n)).not.toBe(canonical(10));
+  });
+
+  it('writes a function as a string instead of returning undefined', () => {
+    expect(typeof canonical(() => 1)).toBe('string');
+  });
+
+  it('writes a symbol as a string instead of returning undefined', () => {
+    expect(typeof canonical(Symbol('x'))).toBe('string');
+  });
+
+  it('separates two functions with different source', () => {
+    expect(canonical(() => 1)).not.toBe(canonical(() => 2));
+  });
 });
