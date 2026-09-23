@@ -94,26 +94,6 @@ describe('ComposeProvider', () => {
     expect(themeElement).toHaveAttribute('data-color', '#007acc');
   });
 
-  describe('provider', () => {
-    it('renders the children through a provider built by the helper', () => {
-      const providers = [
-        SimpleProvider,
-        provider(ThemeProvider, { theme: 'light', primaryColor: '#ff0000' }),
-      ];
-
-      const { getByText, container } = render(
-        <ComposeProvider providers={providers}>
-          <div>Test content</div>
-        </ComposeProvider>,
-      );
-
-      expect(getByText('Test content')).toBeInTheDocument();
-      const themeElement = container.querySelector('[data-theme]');
-      expect(themeElement).toHaveAttribute('data-theme', 'light');
-      expect(themeElement).toHaveAttribute('data-color', '#ff0000');
-    });
-  });
-
   it('renders the children through several providers that each take props', () => {
     const providers = [
       SimpleProvider,
@@ -582,5 +562,25 @@ describe('the documented examples', () => {
         '<p>3 in the basket</p>' +
         '</div></div></div>',
     );
+  });
+});
+
+describe('provider', () => {
+  it('renders the children through a provider built by the helper', () => {
+    const providers = [
+      SimpleProvider,
+      provider(ThemeProvider, { theme: 'light', primaryColor: '#ff0000' }),
+    ];
+
+    const { getByText, container } = render(
+      <ComposeProvider providers={providers}>
+        <div>Test content</div>
+      </ComposeProvider>,
+    );
+
+    expect(getByText('Test content')).toBeInTheDocument();
+    const themeElement = container.querySelector('[data-theme]');
+    expect(themeElement).toHaveAttribute('data-theme', 'light');
+    expect(themeElement).toHaveAttribute('data-color', '#ff0000');
   });
 });

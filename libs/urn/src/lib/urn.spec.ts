@@ -537,37 +537,10 @@ describe('URN', () => {
   });
 
   describe('percent-encoding helpers', () => {
-    describe('encodeNss', () => {
-      it('encodes everything outside the unreserved set', () => {
-        expect(encodeNss('a b')).toBe('a%20b');
-        expect(encodeNss('a/b')).toBe('a%2Fb');
-        expect(encodeNss('café')).toBe('caf%C3%A9');
-        expect(encodeNss('a-b._~')).toBe('a-b._~');
-      });
-
-      it('produces an NSS the grammar accepts', () => {
-        for (const raw of ['a b', 'café', 'a#b', '?', '/leading']) {
-          expect(URN.nssGrammar.test(encodeNss(raw))).toBe(true);
-        }
-      });
-    });
-
     it('round-trips through decodeNss', () => {
       for (const raw of ['a b', 'café', 'a#b?c/d', '100%', '😀']) {
         expect(decodeNss(encodeNss(raw))).toBe(raw);
       }
-    });
-
-    describe('decodeNss', () => {
-      it('decodes triplets the library itself never produces', () => {
-        expect(decodeNss('a123%2Cz456')).toBe('a123,z456');
-        expect(decodeNss('a123%2cz456')).toBe('a123,z456');
-      });
-
-      it('throws a ValidationError on a malformed percent sequence', () => {
-        expect(() => decodeNss('a%zz')).toThrow(ValidationError);
-        expect(() => decodeNss('a%C3')).toThrow(ValidationError);
-      });
     });
   });
 
@@ -972,5 +945,32 @@ describe('URN', () => {
       }
       expect(caught).toEqual(['InvalidError', 'ValidationError']);
     });
+  });
+});
+
+describe('encodeNss', () => {
+  it('encodes everything outside the unreserved set', () => {
+    expect(encodeNss('a b')).toBe('a%20b');
+    expect(encodeNss('a/b')).toBe('a%2Fb');
+    expect(encodeNss('café')).toBe('caf%C3%A9');
+    expect(encodeNss('a-b._~')).toBe('a-b._~');
+  });
+
+  it('produces an NSS the grammar accepts', () => {
+    for (const raw of ['a b', 'café', 'a#b', '?', '/leading']) {
+      expect(URN.nssGrammar.test(encodeNss(raw))).toBe(true);
+    }
+  });
+});
+
+describe('decodeNss', () => {
+  it('decodes triplets the library itself never produces', () => {
+    expect(decodeNss('a123%2Cz456')).toBe('a123,z456');
+    expect(decodeNss('a123%2cz456')).toBe('a123,z456');
+  });
+
+  it('throws a ValidationError on a malformed percent sequence', () => {
+    expect(() => decodeNss('a%zz')).toThrow(ValidationError);
+    expect(() => decodeNss('a%C3')).toThrow(ValidationError);
   });
 });

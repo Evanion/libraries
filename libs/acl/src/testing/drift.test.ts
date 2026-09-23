@@ -74,14 +74,6 @@ describe('contractDrift', () => {
       expect(report.pinnedVersion).toBe('orders@7');
       expect(report.fetchedVersion).toBe('orders@7');
     });
-
-    describe('assertNoContractDrift', () => {
-      it('passes the assertion', () => {
-        expect(() =>
-          assertNoContractDrift({ pinned, fetched: pinned, cases }),
-        ).not.toThrow();
-      });
-    });
   });
 
   describe('a producer that removed a published key', () => {
@@ -107,20 +99,6 @@ describe('contractDrift', () => {
       expect(describeContractDrift(report)).toContain(
         '1 published key(s) removed, which breaks the contract',
       );
-    });
-
-    describe('assertNoContractDrift', () => {
-      it('throws a ContractDriftError carrying the report', () => {
-        try {
-          assertNoContractDrift({ pinned, fetched, cases });
-          expect.unreachable();
-        } catch (error) {
-          expect(error).toBeInstanceOf(ContractDriftError);
-          expect((error as ContractDriftError).report.removed).toEqual([
-            'orders:order.refund',
-          ]);
-        }
-      });
     });
   });
 
@@ -163,14 +141,6 @@ describe('contractDrift', () => {
       expect(text).toContain('1 decision(s) changed');
       expect(text).not.toContain('breaks the contract');
     });
-
-    describe('assertNoContractDrift', () => {
-      it('fails the assertion', () => {
-        expect(() => assertNoContractDrift({ pinned, fetched, cases })).toThrow(
-          ContractDriftError,
-        );
-      });
-    });
   });
 
   describe('a producer that only added a key', () => {
@@ -189,14 +159,6 @@ describe('contractDrift', () => {
       expect(contractDrift({ pinned, fetched, cases }).added).toEqual([
         'orders:order.archive',
       ]);
-    });
-
-    describe('assertNoContractDrift', () => {
-      it('passes the assertion, because a wider surface breaks nothing', () => {
-        expect(() =>
-          assertNoContractDrift({ pinned, fetched, cases }),
-        ).not.toThrow();
-      });
     });
   });
 
@@ -381,5 +343,84 @@ describe('describeContractDrift', () => {
     expect(describeContractDrift(contractDrift({ pinned, fetched }))).toContain(
       '1 key(s) added: orders:order.archive',
     );
+  });
+});
+
+/**
+ * The assertion over the report, under its own name.
+ *
+ * Its conditions repeat `contractDrift`'s, because the assertion's whole job is
+ * to turn one of those reports into a pass or a throw. They are written here
+ * rather than nested inside that block: a `describe` naming one export inside a
+ * `describe` naming another puts this export's sentences on that export's
+ * reference entry, labelled beside the conditions the suite wrote.
+ */
+describe('assertNoContractDrift', () => {
+  describe('a contract that did not move', () => {
+    it('passes the assertion', () => {
+      expect(() =>
+        assertNoContractDrift({ pinned, fetched: pinned, cases }),
+      ).not.toThrow();
+    });
+  });
+
+  describe('a producer that removed a published key', () => {
+    const fetched: Matrix = { version: 'orders@8', permissions: [cancel] };
+
+    it('throws a ContractDriftError carrying the report', () => {
+      try {
+        assertNoContractDrift({ pinned, fetched, cases });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(ContractDriftError);
+        expect((error as ContractDriftError).report.removed).toEqual([
+          'orders:order.refund',
+        ]);
+      }
+    });
+  });
+
+  describe('a producer that changed a decision', () => {
+    const narrowed: Permission = {
+      ...refund,
+      rules: [
+        {
+          id: 'bookseller-on-tier',
+          when: [
+            { field: 'subject.roles', op: 'contains', value: 'bookseller' },
+            { field: 'subject.tier', op: 'eq', value: 'permanent' },
+          ],
+        },
+      ],
+    };
+    const fetched: Matrix = {
+      version: 'orders@8',
+      permissions: [narrowed, cancel],
+    };
+
+    it('fails the assertion', () => {
+      expect(() => assertNoContractDrift({ pinned, fetched, cases })).toThrow(
+        ContractDriftError,
+      );
+    });
+  });
+
+  describe('a producer that only added a key', () => {
+    const archive: Permission = {
+      key: 'orders:order.archive',
+      object: 'orders:order',
+      action: 'archive',
+      rules: [{ id: 'anyone', when: [] }],
+    };
+    const fetched: Matrix = {
+      version: 'orders@8',
+      permissions: [refund, cancel, archive],
+    };
+
+    it('passes the assertion, because a wider surface breaks nothing', () => {
+      expect(() =>
+        assertNoContractDrift({ pinned, fetched, cases }),
+      ).not.toThrow();
+    });
   });
 });

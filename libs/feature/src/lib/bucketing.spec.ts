@@ -42,19 +42,6 @@ describe('bucketOf', () => {
     expect(bucketOf('', '').toFixed(9)).toBe('0.016881907');
   });
 
-  describe('murmur3', () => {
-    it('hashes with a real MurmurHash3, x86 32-bit', () => {
-      // MurmurHash3's canonical test vectors, from the reference
-      // implementation's own smhasher suite. The pinned buckets above are also
-      // satisfied by any private hash; these say which hash it is, so another
-      // implementation can reproduce a bucket without running this code.
-      expect(murmur3('')).toBe(0);
-      expect(murmur3('a').toString(16)).toBe('3c2569b2');
-      expect(murmur3('abc').toString(16)).toBe('b3dd93fa');
-      expect(murmur3('hello').toString(16)).toBe('248bfa47');
-    });
-  });
-
   it('separates the seed from the value, so seed+value concatenation cannot collide', () => {
     // The naive `value + seed` concatenation hashes ('ab', 'c') and ('a', 'bc')
     // identically, which correlates flags whose keys share a prefix.
@@ -101,5 +88,18 @@ describe('inRollout', () => {
         (members(users, percent, 'checkout-v2').length / users.length) * 100;
       expect(Math.abs(share - percent)).toBeLessThan(1.5);
     }
+  });
+});
+
+describe('murmur3', () => {
+  it('hashes with a real MurmurHash3, x86 32-bit', () => {
+    // MurmurHash3's canonical test vectors, from the reference
+    // implementation's own smhasher suite. The pinned buckets above are also
+    // satisfied by any private hash; these say which hash it is, so another
+    // implementation can reproduce a bucket without running this code.
+    expect(murmur3('')).toBe(0);
+    expect(murmur3('a').toString(16)).toBe('3c2569b2');
+    expect(murmur3('abc').toString(16)).toBe('b3dd93fa');
+    expect(murmur3('hello').toString(16)).toBe('248bfa47');
   });
 });
