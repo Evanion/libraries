@@ -426,6 +426,140 @@ html:not(.dark) [class*='baize-kind-'] {
 }
 
 /*
+ * What the tests state, between the signature and the example.
+ *
+ * Small print against a hairline, because an entry a reader came to for a
+ * signature is already dense and this block can run to thirty lines. The rule
+ * down its inside edge is what lets the eye skip the whole block in one
+ * movement, and takes the kind's hue so the block belongs to the entry above it
+ * rather than reading as a note somebody pasted in.
+ */
+.docs-api-entry__states {
+  margin-block-start: var(--baize-space-4);
+  padding-inline-start: var(--baize-space-4);
+  border-inline-start: 1px solid
+    color-mix(in oklab, var(--baize-kind) 45%, transparent);
+  max-width: var(--baize-measure);
+}
+
+/*
+ * The block's own line: what it is, and how much of it there is.
+ *
+ * The count sits where the filter row's `105 exports` sits, at the end of the
+ * line in the secondary weight, because that is where this page has already
+ * taught a reader to look for how many of something there are. It counts the
+ * sentences on this entry and says `behaviours` rather than `tests`, so it
+ * cannot be read as a share of the suite; the `/testing` section holds the
+ * suite's own totals.
+ */
+.docs-api-entry__states-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--baize-space-3);
+  padding-block-end: var(--baize-space-2);
+  border-block-end: 1px solid var(--baize-rule);
+}
+
+.docs-api-entry__states-heading {
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-chalk);
+  margin: 0;
+}
+
+.docs-api-entry__states-count {
+  margin: 0 0 0 auto;
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-lichen);
+}
+
+/*
+ * A condition the suite wrote, over the sentences that hold under it.
+ *
+ * `diffMatrix` states eleven sentences under `a widening` and nine under `a
+ * narrowing`, and that split is the test author's own structure rather than
+ * anything derived here. Where a suite wrote no such level the entry is one
+ * flat list and nothing invents a heading for it.
+ */
+.docs-api-entry__states-group {
+  margin-block-start: var(--baize-space-3);
+}
+
+.docs-api-entry__states-condition {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  color: var(--baize-chalk);
+  margin: 0;
+}
+
+.docs-api-entry__states-group :where(ul) {
+  padding-inline-start: var(--baize-space-3);
+  border-inline-start: 1px solid var(--baize-rule);
+  margin-inline-start: var(--baize-space-1);
+}
+
+/*
+ * One sentence a test carries, one line.
+ *
+ * No marker: every line here is a statement and a column of discs beside
+ * thirty of them is a texture the reader has to look past. The lines carry the
+ * interpunct the rest of the entry joins with, so a marker would be the second
+ * separator on a line that already has one.
+ */
+.docs-api-entry__states ul {
+  list-style: none;
+  margin-block: var(--baize-space-2);
+  margin-inline: 0;
+  padding-inline-start: 0;
+}
+
+.docs-api-entry__states li {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  line-height: 1.5;
+  color: var(--baize-lichen);
+  margin-block: 0;
+}
+
+/*
+ * What the block leaves open, under the sentences rather than over them.
+ *
+ * A reader meets the names first and the caveat as the block closes, which is
+ * the order that keeps the caveat readable: over the list it is a disclaimer to
+ * scroll past, under it is the answer to the question the list just raised.
+ */
+.docs-api-entry__states-note {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-moss);
+  margin-block-start: var(--baize-space-3);
+  margin-inline: 0;
+  margin-block-end: 0;
+}
+
+/*
+ * The entry whose catalogue is empty, which is a state and not an empty list.
+ *
+ * A dashed rule where the others carry a solid one, and the sentence in the
+ * weight the note carries rather than the weight a behaviour carries. The block
+ * has no count, because there is nothing to count and a `0` invites a reader to
+ * subtract it from something.
+ */
+.docs-api-entry__states--silent {
+  border-inline-start-style: dashed;
+}
+
+.docs-api-entry__states-silence {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-lichen);
+  margin-block: var(--baize-space-2) 0;
+  margin-inline: 0;
+}
+
+/*
  * The sidebar's list dissolves before it reaches the footer.
  *
  * The theme masks the list with two gradients, each running from transparent

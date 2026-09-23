@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { DeclarationError, readReference } from './declarations.mjs';
 import { preamblePath, readPreamble, withPreamble } from './preamble.mjs';
@@ -180,6 +180,178 @@ function signatureFence(reference) {
   ];
 }
 
+/** Where `docs:behaviour-data` writes what each library's tests state. */
+const BEHAVIOURS = join('apps', 'docs', 'components', 'api', 'behaviour');
+
+/** The kinds a reader is owed a catalogue for, empty or not. */
+const STATED_KINDS = new Set(['function', 'class']);
+
+/**
+ * The file holding what the package behind an entry states.
+ *
+ * Named after the package's own directory, which the entry already carries
+ * through its README path. A missing file fails the build, for the reason an
+ * unresolved symbol and a missing README region already do: an entry that
+ * rendered its catalogue as empty because a target had not run would be making
+ * the claim of § 9 without having looked.
+ */
+export function behaviourPath(root, reference) {
+  const packageDir = dirname(join(root, reference.readme));
+  return join(root, BEHAVIOURS, `${basename(packageDir)}.json`);
+}
+
+/** What a package's tests state, read off disk. */
+function readBehaviours(root, reference, file) {
+  const path = behaviourPath(root, reference);
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    throw new Error(
+      `${file}: cannot read '${path}', which is where the behaviours of ` +
+        `'${reference.specifier}' are written. Run ` +
+        `\`npx nx run docs:behaviour-data\`.`,
+    );
+  }
+}
+
+/**
+ * What one export's entry carries, in the order the suite states it.
+ *
+ * The owning segment is dropped along with everything above it, because the
+ * reader is on that export's entry and has just read its name in the heading.
+ * What sits below it is kept, and its first level is kept as structure rather
+ * than folded into the sentence: `diffMatrix > a widening > reports an added
+ * allow branch as granted` states the condition the sentence holds under, and
+ * the suite writes several sentences under each condition. So `a widening` is a
+ * heading over its own sentences, which is the one thing a test reporter gives
+ * a reader that this block can take.
+ *
+ * `loose` holds what the suite states under the export's own name, with nothing
+ * between. A level below the first is joined with the interpunct the rest of an
+ * entry joins with, because three levels of indent inside a block this size
+ * reads as a directory listing.
+ *
+ * A chain that ends at the owning `describe` contributes nothing. That is a
+ * block of generated cases sitting directly under the export's own name, and
+ * the only title it carries is the name the reader is already looking at.
+ */
+export function statedBy(behaviours, name) {
+  const held = behaviours.states[name] ?? [];
+  const loose = [];
+  const conditions = new Map();
+
+  for (const { chain } of held) {
+    const rest = chain.slice(chain.indexOf(name) + 1);
+    if (rest.length === 0) continue;
+
+    if (rest.length === 1) {
+      if (!loose.includes(rest[0])) loose.push(rest[0]);
+      continue;
+    }
+
+    const under = conditions.get(rest[0]) ?? [];
+    const sentence = rest.slice(1).join(' · ');
+    if (!under.includes(sentence)) under.push(sentence);
+    conditions.set(rest[0], under);
+  }
+
+  const stated = [...conditions.values()].reduce(
+    (sum, each) => sum + each.length,
+    loose.length,
+  );
+
+  return { loose, conditions: [...conditions], stated };
+}
+
+/** The sentences under one condition the suite wrote, as its own group. */
+function condition(name, sentences) {
+  return [
+    '<div className="docs-api-entry__states-group">',
+    '',
+    `<p className="docs-api-entry__states-condition">${mdxProse(name)}</p>`,
+    '',
+    ...sentences.map((each) => `- ${mdxProse(each)}`),
+    '',
+    '</div>',
+    '',
+  ];
+}
+
+/**
+ * What the tests state about this export.
+ *
+ * Prose and not a fence. Every `<pre>` on the site carries
+ * `data-pagefind-ignore`, so a sentence inside one is a sentence no search
+ * reaches, and these sentences are the most searchable thing on the entry: a
+ * reader looking for the export that refuses an unknown key is looking for
+ * words a test wrote.
+ *
+ * Shaped like the suite and not like a test report. What a reporter is good at
+ * is making a nesting legible and saying how many cases sit in it, and both of
+ * those are here: the conditions the suite wrote are headings over their own
+ * sentences, and the count says how dense the export's catalogue is before the
+ * reader has read a line of it. What a reporter is built on is status, and none
+ * of that transfers. Every sentence here comes from a suite that passes, so a
+ * tick on each line would carry no information, and a green tick reads as
+ * "verified", which is the one thing this block may not claim. The honesty
+ * argument is made in the prose, and markup that contradicted it would undo it.
+ *
+ * The heading says `state` and the line at the foot says what that leaves open.
+ * The suite's authors wrote these sentences and this block reports them; a
+ * sentence here is a name a test carries, and the assertions under that name
+ * are a question only the test's source answers. `libs/acl/SECURITY.md` is the
+ * other kind of claim: a person wrote each of its rows and chose its tier.
+ *
+ * An export with nothing stated says so, in a block of its own shape. Not a
+ * blank, not an empty list, not a hidden block: an absent catalogue on a page
+ * built for a sceptic is the one output that costs the project something to
+ * publish. It says no test states a behaviour under this name, which is
+ * narrower than untested, because a name with no `describe` of its own can
+ * still be exercised by every case in the file.
+ */
+function statedBlock(reference, behaviours) {
+  const { loose, conditions, stated } = statedBy(behaviours, reference.name);
+  if (stated === 0 && !STATED_KINDS.has(reference.kind)) return [];
+
+  if (stated === 0) {
+    return [
+      '<div className="docs-api-entry__states docs-api-entry__states--silent">',
+      '',
+      '<p className="docs-api-entry__states-heading">What the tests state</p>',
+      '',
+      '<p className="docs-api-entry__states-silence">No test in this package ' +
+        'states a behaviour under this name.</p>',
+      '',
+      '</div>',
+    ];
+  }
+
+  return [
+    '<div className="docs-api-entry__states">',
+    '',
+    '<div className="docs-api-entry__states-head">',
+    '',
+    '<p className="docs-api-entry__states-heading">What the tests state</p>',
+    '',
+    `<p className="docs-api-entry__states-count"><Figure>${stated}</Figure> ` +
+      `${stated === 1 ? 'behaviour' : 'behaviours'}</p>`,
+    '',
+    '</div>',
+    '',
+    ...(loose.length > 0
+      ? [...loose.map((each) => `- ${mdxProse(each)}`), '']
+      : []),
+    ...conditions.flatMap(([name, sentences]) => condition(name, sentences)),
+    // One line, because MDX reads an indented block inside a tag as markdown
+    // and wraps it in a paragraph of its own, which puts a `<p>` inside a `<p>`.
+    '<p className="docs-api-entry__states-note">Each line is the name of a ' +
+      'test in the package. Whether a test proves what its name states is a ' +
+      'question its own source answers.</p>',
+    '',
+    '</div>',
+  ];
+}
+
 /** Everything an entry emits between its heading and its editorial prose. */
 function head(reference) {
   const lines = [];
@@ -237,9 +409,18 @@ function exampleFence(root, reference, region, file) {
   return ['```ts twoslash', ...code.split('\n'), '```'];
 }
 
-/** The two fences that close an entry: what it takes, then what a call is. */
-function foot(root, reference, example, file) {
+/**
+ * What closes an entry: the signature, what the tests state, then a call.
+ *
+ * In that order because it is the order a reader needs it in. The signature
+ * says what the export is, the sentences say what it does, and the example
+ * shows a call.
+ */
+function foot(root, reference, behaviours, example, file) {
   const lines = ['', ...signatureFence(reference)];
+
+  const stated = statedBlock(reference, behaviours);
+  if (stated.length > 0) lines.push('', ...stated);
 
   if (example) {
     lines.push('', ...exampleFence(root, reference, example, file));
@@ -269,13 +450,23 @@ export function expandReferences(
   let fence = null;
   // The entry whose fences have not been emitted yet.
   let open = null;
+  // One read per package rather than one per entry: `/acl/api/` holds 107
+  // entries and every one of them asks the same file the same question.
+  const behaviours = new Map();
+
+  const statedFor = (reference) => {
+    const path = behaviourPath(root, reference);
+    const held = behaviours.get(path) ?? readBehaviours(root, reference, file);
+    behaviours.set(path, held);
+    return held;
+  };
 
   const close = () => {
     if (!open) return;
     // Trailing blank lines belong after the entry, not inside it.
     while (out.length > 0 && out[out.length - 1].trim() === '') out.pop();
     out.push(
-      ...foot(root, open.reference, open.example, file),
+      ...foot(root, open.reference, open.behaviours, open.example, file),
       '',
       '</div>',
       '',
@@ -336,7 +527,8 @@ export function expandReferences(
       throw new Error(`${file}: ${error.message}`);
     }
 
-    onResolve?.(reference);
+    const stated = statedFor(reference);
+    onResolve?.(reference, stated);
 
     const heading = out.splice(at).filter((each) => each.trim() !== '');
     // The name and the chip share a row, so they share a parent. The heading
@@ -356,7 +548,7 @@ export function expandReferences(
       ...head(reference),
     );
 
-    open = { reference, example: example ?? null };
+    open = { reference, behaviours: stated, example: example ?? null };
   }
 
   close();
@@ -382,11 +574,15 @@ export default function mdxReferenceLoader(source) {
     root,
     this.resourcePath,
     readReference,
-    (reference) => {
+    (reference, behaviours) => {
       const readme = join(root, reference.readme);
       this.addDependency(reference.declaration);
       this.addDependency(readme);
       this.addDependency(preamblePath(dirname(readme)));
+      this.addDependency(behaviourPath(root, reference));
+      // The test sources behind the sentences, so editing a test rebuilds the
+      // page quoting it rather than leaving a name the suite no longer carries.
+      for (const each of behaviours.files) this.addDependency(join(root, each));
     },
   );
 }
