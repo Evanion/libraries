@@ -152,7 +152,14 @@
 
 .landing-ribbon__band {
   position: absolute;
-  top: var(--baize-space-3);
+  /*
+   * Off the spacing scale, and a multiple of it. The band is rotated 45
+   * degrees, so the distance from the corner that the eye reads is the offset
+   * times the square root of two, and the scale's own step lands the band
+   * short of the corner it is draped over. One and a half steps is where the
+   * two ends leave through the edges evenly.
+   */
+  top: calc(var(--baize-space-3) * 1.5);
   right: calc(-1 * var(--baize-space-6));
   width: 8rem;
   padding: 2px 0;
