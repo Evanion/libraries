@@ -3,7 +3,10 @@
   "name": "@evanion/repo-checks",
   "targets": {
     "test": {
-      "dependsOn": [{ "projects": "libs/*", "target": "test" }],
+      "dependsOn": [
+        { "projects": "libs/*", "target": "test" },
+        "docs:behaviour-data"
+      ],
       "inputs": [
         "repoChecks",
         { "dependentTasksOutputFiles": "**/report.json" }
