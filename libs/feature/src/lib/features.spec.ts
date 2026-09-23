@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FeatureCycleError } from './errors.js';
+import { DuplicateVariantError, FeatureCycleError } from './errors.js';
 import { createFeatures } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
 
@@ -35,6 +35,21 @@ describe('createFeatures', () => {
         { key: 'c', enabled: true, dependsOn: ['b'] },
       ]),
     ).toThrow(FeatureCycleError);
+  });
+
+  it('refuses a configuration whose variants share a name', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          variants: [
+            { name: 'a', weight: 1 },
+            { name: 'a', weight: 1 },
+          ],
+        },
+      ]),
+    ).toThrow(DuplicateVariantError);
   });
 });
 

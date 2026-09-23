@@ -58,3 +58,31 @@ export class DuplicateFeatureError extends FeatureConfigError {
     this.key = key;
   }
 }
+
+/** Two variants of one feature share a name, so a pin names both. */
+export class DuplicateVariantError extends FeatureConfigError {
+  readonly feature: string;
+  readonly variant: string;
+
+  constructor(feature: string, variant: string) {
+    super(`feature "${feature}" declares the variant "${variant}" twice`);
+    this.name = 'DuplicateVariantError';
+    this.feature = feature;
+    this.variant = variant;
+  }
+}
+
+/** A rule pins a variant its feature does not declare. */
+export class UnknownVariantError extends FeatureConfigError {
+  readonly feature: string;
+  readonly variant: string;
+
+  constructor(feature: string, variant: string) {
+    super(
+      `feature "${feature}" has a rule pinning "${variant}", which it does not declare`,
+    );
+    this.name = 'UnknownVariantError';
+    this.feature = feature;
+    this.variant = variant;
+  }
+}

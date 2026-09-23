@@ -1,5 +1,6 @@
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
+import { validateVariants } from './variants.js';
 import type {
   Decision,
   Decisions,
@@ -92,6 +93,7 @@ export function createFeatures<F extends FeatureKey>(
   const config: FeatureDefinition<F>[] = definitions.map((definition) =>
     deepFreeze(structuredClone(definition)),
   );
+  for (const definition of config) validateVariants(definition);
   const graph = buildGraph(config);
   const index = new Map<F, number>(config.map((d, i) => [d.key, i]));
   const keys = config.map((definition) => definition.key);
