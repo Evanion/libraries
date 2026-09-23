@@ -297,10 +297,9 @@ export function planFeature<F extends FeatureKey>(
   if (definition.freezeTimeAtBuild) available.add('now');
 
   const rules = definition.rules ?? [];
-  // Fields a rule itself is missing. Kept apart from the variant's need below,
-  // because a rule that still needs a field means enablement is not settled --
-  // counting the two needs in one Set would hide that a rule, not only the
-  // split, is why this feature is deferred.
+  // Fields a rule itself is missing. A rule that still needs a field leaves
+  // enablement unresolved, so this loop keeps that need separate from the
+  // variant's need below and never lets the two share one need count.
   const ruleNeeds = new Set<string>();
   let matched = false;
 
@@ -312,32 +311,37 @@ export function planFeature<F extends FeatureKey>(
         continue;
       }
       if (evaluateRule(definition, rule, context).matched) {
-        // Rules are OR-ed: this match settles enablement regardless of what an
-        // earlier rule in the loop still needed, so that partial need is
-        // dropped rather than folded into the entry below.
+        // Rules are OR-ed, so this match settles enablement on its own. The
+        // loop breaks immediately here, and drops any need an earlier rule
+        // in this pass logged: that rule no longer decides anything.
         matched = true;
         break;
       }
     }
   }
 
-  // A feature that resolves on and declares variants still needs its bucketing
-  // field, unless the context already carries it. Enablement can be settled
-  // while the split is not, and the entry below carries both facts.
   const variantField = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
-  const needsVariantField =
-    definition.variants !== undefined &&
-    definition.variants.length > 0 &&
-    !available.has(variantField);
+  const declaresVariants =
+    definition.variants !== undefined && definition.variants.length > 0;
 
-  if (matched) {
+  // Enablement is settled once every one of this feature's own rules has run
+  // against the fields this plan had: a rule matched, or the loop finished
+  // checking every rule and none did (no rules counts as the same case).
+  // `decide` already knows what settles the split, so this block calls it
+  // once and reads `settled.assignment` for the answer.
+  if (deferredNeeds.size === 0 && (matched || ruleNeeds.size === 0)) {
     const settled = decide(definition, context, resolved);
-    if (!needsVariantField) {
-      return { key, resolved: true, needs: [], decision: settled };
+    // `'fallback'` is the one source that means the context left the split
+    // unsettled: `assignVariant` found no usable bucketing value and handed
+    // back the control as a placeholder. Every other source settles the
+    // split, and a feature that resolved off carries no assignment at all,
+    // because it never calls `assignVariant`.
+    if (settled.assignment?.source !== 'fallback') {
+      return { key, resolved: settled.enabled, needs: [], decision: settled };
     }
-    // The matching rule settled enablement; only the split is outstanding.
-    // `decide` still assigned a variant off the fallback because the context
-    // lacks the bucketing field, so strip it before attaching.
+    // The split still waits on the bucketing field. Attaching the
+    // fallback-assigned control here would freeze every subject onto it, so
+    // this entry reports enablement and leaves the split to the request.
     const { variant, value, assignment, ...enablement } = settled;
     return {
       key,
@@ -347,6 +351,11 @@ export function planFeature<F extends FeatureKey>(
     };
   }
 
+  // Enablement itself is still unresolved here: a parent left a need, or a
+  // rule did. `decide` cannot safely run against the incomplete context this
+  // plan had, so this branch lists the variant field as outstanding only when
+  // the context is missing it, without attaching a decision.
+  const needsVariantField = declaresVariants && !available.has(variantField);
   const needs = [
     ...new Set([
       ...deferredNeeds,
@@ -354,31 +363,5 @@ export function planFeature<F extends FeatureKey>(
       ...(needsVariantField ? [variantField] : []),
     ]),
   ].sort();
-  if (needs.length) {
-    const entry: PlanEntry<F> = { key, resolved: 'deferred', needs };
-    // A decision is attached only when this feature's own rules all resolved
-    // against the context this plan had -- none of them contributed a need --
-    // and only the split is outstanding. A rule that still needs a field means
-    // enablement itself rode on that field, so no decision is safe to attach,
-    // even if the variant field happens to be the same field and collapses the
-    // needs into a set of one. A build-time pass reads `resolved` to decide
-    // whether to emit statically, so it still skips this entry, and a caller
-    // that wants the enablement shortcut reads `decision.enabled` deliberately.
-    if (deferredNeeds.size === 0 && ruleNeeds.size === 0 && needsVariantField) {
-      const settled = decide(definition, context, resolved);
-      // The context lacks the bucketing field, so `decide` took the fallback
-      // and assigned the control. Emitting that would freeze every subject onto
-      // it. The entry reports enablement and leaves the split to the request.
-      const { variant, value, assignment, ...enablement } = settled;
-      entry.decision = enablement as Decision<F>;
-    }
-    return entry;
-  }
-
-  return {
-    key,
-    resolved: rules.length === 0,
-    needs: [],
-    decision: decide(definition, context, resolved),
-  };
+  return { key, resolved: 'deferred', needs };
 }
