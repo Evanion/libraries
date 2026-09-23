@@ -157,12 +157,26 @@ resolves on, and `value` too when the assigned variant declares one.
 `assignment` says how: `source` is `'weighted'`, `'pinned'`, `'sticky'` or
 `'fallback'`.
 
-```ts
-features.resolve({ targetingKey: 'user-1' });
-// { 'checkout-cta': { key: 'checkout-cta', enabled: true, reason: 'default-on',
-//   variant: 'control',
-//   assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.17582221026532352 } } }
+<!-- #region variant-result -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+
+features.resolve({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: true, reason: 'default-on', variant: 'control', assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.17582221026532352 } }
 ```
+
+<!-- #endregion variant-result -->
 
 `variant` and `value` are absent on a feature with no `variants` declared,
 and so is `assignment`. All three are absent on a feature that resolved off.
