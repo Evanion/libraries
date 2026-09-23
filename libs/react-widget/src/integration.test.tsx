@@ -133,7 +133,7 @@ describe('Widget System - CMS Integration Example', () => {
     cleanup();
   });
 
-  it('should render a complete e-commerce homepage', () => {
+  it('renders a homepage of five widget types under one factory', () => {
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -251,7 +251,7 @@ describe('Widget System - CMS Integration Example', () => {
     ).toBeInTheDocument();
   });
 
-  it('should handle dynamic content updates', () => {
+  it('replaces the rendered content when the item props change', () => {
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -301,7 +301,7 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.queryByText('Version A')).not.toBeInTheDocument();
   });
 
-  it('should handle mixed widget types in different layouts', () => {
+  it('renders the same widget types across two different layouts', () => {
     const { Widgets } = createWidgets({
       components: {
         heroBanner: HeroBanner,
@@ -371,7 +371,7 @@ describe('Widget System - CMS Integration Example', () => {
     expect(screen.getByText('Send Message')).toBeInTheDocument();
   });
 
-  it('should handle complex nested data structures', () => {
+  it('renders a widget whose props carry a nested array of records', () => {
     const { Widgets } = createWidgets({
       components: {
         productGrid: ProductGrid,

@@ -73,7 +73,7 @@ describe('createWidgets', () => {
       cleanup();
     });
 
-    it('should render widgets with basic configuration', () => {
+    it('renders an item through the component its type names', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -113,7 +113,7 @@ describe('createWidgets', () => {
       expect(screen.getByText('1/15/2024')).toBeInTheDocument();
     });
 
-    it('should handle empty items array gracefully', () => {
+    it('renders nothing for an empty items array', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -125,7 +125,7 @@ describe('createWidgets', () => {
       expect(screen.queryByTestId('news-teaser')).not.toBeInTheDocument();
     });
 
-    it('should skip unknown widget types', () => {
+    it('skips an item whose type names no component', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -171,7 +171,7 @@ describe('createWidgets', () => {
       cleanup();
     });
 
-    it('should render with custom wrapper chrome', () => {
+    it('renders the wrapper chrome around the region', () => {
       const { Widgets } = createWidgets({
         components: {
           productCard: ProductCard,
@@ -217,7 +217,7 @@ describe('createWidgets', () => {
       expect(screen.getByTestId('product-card')).toBeInTheDocument();
     });
 
-    it('should render with custom item wrapper chrome', () => {
+    it('renders the item chrome around each item', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -261,7 +261,7 @@ describe('createWidgets', () => {
       cleanup();
     });
 
-    it('should allow instance-specific component overrides', () => {
+    it('lets an instance override a component the factory declared', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -304,7 +304,7 @@ describe('createWidgets', () => {
       ).toBeInTheDocument();
     });
 
-    it('should allow instance-specific chrome overrides', () => {
+    it('lets an instance override the chrome the factory declared', () => {
       const { Widgets } = createWidgets({
         components: {
           news: NewsTeaser,
@@ -350,7 +350,7 @@ describe('createWidgets', () => {
       cleanup();
     });
 
-    it('should render nested widgets through children', () => {
+    it('renders a child item inside its parent widget', () => {
       const CardWidget = ({
         title,
         children,
@@ -405,7 +405,7 @@ describe('createWidgets', () => {
       expect(screen.getByText('Another nested text')).toBeInTheDocument();
     });
 
-    it('should handle empty children gracefully', () => {
+    it('renders a parent whose children array is empty', () => {
       const CardWidget = ({
         title,
         children,
@@ -439,7 +439,7 @@ describe('createWidgets', () => {
       expect(screen.getByText('Empty Card')).toBeInTheDocument();
     });
 
-    it('should log warnings for unknown widget types', () => {
+    it('warns, naming the type and the item id, for a type it cannot render', () => {
       const consoleSpy = vi
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
@@ -474,7 +474,7 @@ describe('createWidgets', () => {
       cleanup();
     });
 
-    it('should handle CMS-driven blog layout', () => {
+    it('renders a blog layout of author, related-posts and share widgets', () => {
       const AuthorBio = ({
         name,
         bio,
@@ -572,7 +572,7 @@ describe('createWidgets', () => {
       expect(screen.getByText('Share')).toBeInTheDocument();
     });
 
-    it('should handle dashboard with mixed widget types', () => {
+    it('renders a dashboard mixing stat cards and action buttons', () => {
       const StatCard = ({
         title,
         value,

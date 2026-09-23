@@ -72,7 +72,7 @@ describe('CorrelationIdMiddleware', () => {
     middleware = new CorrelationIdMiddleware(service, config);
   });
 
-  it('should be defined', () => {
+  it('constructs from the service and the config it is given', () => {
     expect(middleware).toBeDefined();
   });
 

@@ -47,7 +47,7 @@ const codeFor = (body: string): string => body + checkCharacterFor(body);
 
 describe('createToken', () => {
   describe('the constructed instance', () => {
-    it('should expose the configuration it was given', () => {
+    it('exposes the configuration it was given', () => {
       expect(token.dictionary).toBe(DEFAULT_DICTIONARY);
       expect(token.n).toBe(32);
       expect(token.length).toBe(DEFAULT_LENGTH);
@@ -55,12 +55,12 @@ describe('createToken', () => {
       expect(token.separator).toBe(DEFAULT_SEPARATOR);
     });
 
-    it('should report usable entropy excluding the check character', () => {
+    it('reports usable entropy excluding the check character', () => {
       expect(token.entropyBits).toBe(35);
       expect(createToken({ length: 12 }).entropyBits).toBe(55);
     });
 
-    it('should be frozen', () => {
+    it('is frozen', () => {
       expect(Object.isFrozen(token)).toBe(true);
       expect(() => {
         (token as { length: number }).length = 99;
@@ -69,26 +69,26 @@ describe('createToken', () => {
   });
 
   describe('the default dictionary', () => {
-    it('should be 32 distinct lowercase code points', () => {
+    it('is 32 distinct lowercase code points', () => {
       expect(alphabet).toHaveLength(32);
       expect(new Set(alphabet).size).toBe(32);
       expect(DEFAULT_DICTIONARY).toBe(DEFAULT_DICTIONARY.toLowerCase());
     });
 
-    it('should exclude every confusable character', () => {
+    it('excludes every confusable character', () => {
       for (const char of CONFUSABLE_CHARACTERS) {
         expect(DEFAULT_DICTIONARY).not.toContain(char);
       }
     });
 
-    it('should divide 256, so byte % n is unbiased', () => {
+    it('divides 256, so byte % n is unbiased', () => {
       expect(256 % alphabet.length).toBe(0);
     });
   });
 });
 
 describe('generate', () => {
-  it('should return the code in both its chunked and unchunked forms', () => {
+  it('returns the code in both its chunked and unchunked forms', () => {
     const { value, body, check, prefix } = token.generate();
 
     expect(body).toHaveLength(DEFAULT_LENGTH - 1);
@@ -99,7 +99,7 @@ describe('generate', () => {
     expect(prefix).toBeUndefined();
   });
 
-  it('should draw every character from the dictionary', () => {
+  it('draws every character from the dictionary', () => {
     const { body, check } = token.generate();
 
     for (const char of body + check) {
@@ -107,7 +107,7 @@ describe('generate', () => {
     }
   });
 
-  it('should write the prefix ahead of the code, separated', () => {
+  it('writes the prefix ahead of the code, separated', () => {
     const { value, body, check, prefix } = token.generate({ prefix: 'ORD' });
 
     expect(prefix).toBe('ORD');
@@ -115,14 +115,14 @@ describe('generate', () => {
     expect(raw(value.slice('ORD-'.length))).toBe(body + check);
   });
 
-  it('should emit one chunk when chunkSize equals length', () => {
+  it('emits one chunk when chunkSize equals length', () => {
     const { value } = createToken({ chunkSize: DEFAULT_LENGTH }).generate();
 
     expect(value).not.toContain(DEFAULT_SEPARATOR);
     expect(value).toHaveLength(DEFAULT_LENGTH);
   });
 
-  it('should chunk a longer code evenly', () => {
+  it('chunks a longer code evenly', () => {
     const long = createToken({ length: 12, chunkSize: 3 });
     const widths = long
       .generate()
@@ -132,7 +132,7 @@ describe('generate', () => {
     expect(widths).toEqual([3, 3, 3, 3]);
   });
 
-  it('should produce a code its own validate accepts, over 10,000 draws', () => {
+  it('produces a code its own validate accepts, over 10,000 draws', () => {
     const rejected: string[] = [];
 
     for (let draw = 0; draw < 10_000; draw++) {
@@ -143,7 +143,7 @@ describe('generate', () => {
     expect(rejected).toEqual([]);
   });
 
-  it('should compute the check character from the body alone', () => {
+  it('computes the check character from the body alone', () => {
     // The prefix sits outside the checksum, so one body carries one check
     // character no matter what is written in front of it.
     for (const prefix of ['ORD', 'INVOICE-2026', '']) {
@@ -159,7 +159,7 @@ describe('generate', () => {
 });
 
 describe('the check character', () => {
-  it('should catch a single-character substitution anywhere in the code', () => {
+  it('catches a single-character substitution anywhere in the code', () => {
     const accepted: string[] = [];
 
     for (let draw = 0; draw < 500; draw++) {
@@ -178,7 +178,7 @@ describe('the check character', () => {
     expect(accepted).toEqual([]);
   });
 
-  it('should catch every adjacent transposition but the one pair it cannot', () => {
+  it('catches every adjacent transposition but the one pair it cannot', () => {
     const missed = new Set<string>();
 
     for (let draw = 0; draw < 2_000; draw++) {
@@ -199,7 +199,7 @@ describe('the check character', () => {
     expect([...missed].filter((pair) => pair !== '0z')).toEqual([]);
   });
 
-  it('should miss a swap of the first and last dictionary entries', () => {
+  it('misses a swap of the first and last dictionary entries', () => {
     // A fixed vector: at 1 pair in C(32, 2) = 496 per adjacent slot, a random
     // body would essentially never place `0` beside `z`, and a negative case
     // that never fires is worse than no case at all.
@@ -214,7 +214,7 @@ describe('the check character', () => {
     }
   });
 
-  it('should miss that pair in either order', () => {
+  it('misses that pair in either order', () => {
     // The blind spot is a property of the two dictionary indices, not of which
     // one comes first.
     const body = 'az0bcde';
@@ -228,7 +228,7 @@ describe('the check character', () => {
 });
 
 describe('uniformity', () => {
-  it('should draw every character within 10% of 1/n over 100,000 codes', () => {
+  it('draws every character within 10% of 1/n over 100,000 codes', () => {
     // 10% is about 1.5x the worst deviation measured over 100 independent runs
     // of this size, while the n = 36 alphabet below misses by ~13%. The bound
     // separates the two without being flaky.
@@ -252,7 +252,7 @@ describe('uniformity', () => {
     expect(worst).toBeLessThanOrEqual(0.1);
   });
 
-  it('should reject an alphabet that would bias byte % n', () => {
+  it('rejects an alphabet that would bias byte % n', () => {
     expect(() => createToken({ dictionary: NON_UNIFORM_DICTIONARY })).toThrow(
       InvalidAlphabetError,
     );
@@ -263,7 +263,7 @@ describe('uniformity', () => {
 });
 
 describe('validate', () => {
-  it('should accept a code however its separators are placed', () => {
+  it('accepts a code however its separators are placed', () => {
     const { value, body, check } = token.generate();
     const code = body + check;
     const expected = { valid: true, body };
@@ -275,13 +275,13 @@ describe('validate', () => {
     expect(token.validate(`-${code}-`)).toEqual(expected);
   });
 
-  it('should fold case', () => {
+  it('folds case', () => {
     const { value, body } = token.generate();
 
     expect(token.validate(value.toUpperCase())).toEqual({ valid: true, body });
   });
 
-  it('should report outside-alphabet for a character not in the dictionary', () => {
+  it('reports outside-alphabet for a character not in the dictionary', () => {
     for (const intruder of ['o', 'i', 'l', 'w', '!', 'é']) {
       const { body, check } = token.generate();
 
@@ -292,14 +292,14 @@ describe('validate', () => {
     }
   });
 
-  it('should report outside-alphabet before wrong-length', () => {
+  it('reports outside-alphabet before wrong-length', () => {
     expect(token.validate('oo')).toEqual({
       valid: false,
       reason: 'outside-alphabet',
     });
   });
 
-  it('should report wrong-length for a code of the wrong size', () => {
+  it('reports wrong-length for a code of the wrong size', () => {
     const { value } = token.generate();
 
     expect(token.validate(value.slice(0, -1))).toEqual({
@@ -316,7 +316,7 @@ describe('validate', () => {
     });
   });
 
-  it('should report check-failed for a well-shaped code that does not check out', () => {
+  it('reports check-failed for a well-shaped code that does not check out', () => {
     const { body, check } = token.generate();
     const wrong = alphabet.find((char) => char !== check) as string;
 
@@ -326,7 +326,7 @@ describe('validate', () => {
     });
   });
 
-  it('should reject a prefixed value, which is the caller to strip', () => {
+  it('rejects a prefixed value, which the caller is to strip', () => {
     const { value } = token.generate({ prefix: 'ORD' });
 
     expect(token.validate(value)).toEqual({
@@ -337,7 +337,7 @@ describe('validate', () => {
 });
 
 describe('dictionary constraints', () => {
-  it('should reject a dictionary that is valid for Luhn but confusable', () => {
+  it('rejects a dictionary that is valid for Luhn but confusable', () => {
     // 36 lowercase alphanumerics: even, no repeats, no case pairs, so Luhn is
     // satisfied -- and `i`, `l`, `o` and `w` are all still in it.
     try {
@@ -352,7 +352,7 @@ describe('dictionary constraints', () => {
     }
   });
 
-  it('should reject a dictionary that is unconfusable but not uniform', () => {
+  it('rejects a dictionary that is unconfusable but not uniform', () => {
     try {
       createToken({ dictionary: NON_UNIFORM_DICTIONARY });
       expect.unreachable('a biased dictionary must not be accepted');
@@ -362,7 +362,7 @@ describe('dictionary constraints', () => {
     }
   });
 
-  it('should reject an uppercase dictionary, which case folding cannot reach', () => {
+  it('rejects an uppercase dictionary, which case folding cannot reach', () => {
     try {
       createToken({ dictionary: DEFAULT_DICTIONARY.toUpperCase() });
       expect.unreachable('an uppercase dictionary must not be accepted');
@@ -372,7 +372,7 @@ describe('dictionary constraints', () => {
     }
   });
 
-  it("should let Luhn's own constraints throw", () => {
+  it("lets Luhn's own constraints throw", () => {
     // 31 code points: odd, so no check character is definable over it. The
     // error comes from `@evanion/luhn`, not from this package.
     expect(() =>
@@ -386,7 +386,7 @@ describe('dictionary constraints', () => {
     );
   });
 
-  it('should accept a reordering of the default', () => {
+  it('accepts a reordering of the default', () => {
     // The order decides which index each character occupies, so a reordering
     // is a different alphabet -- and an equally valid one.
     const reordered = createToken({
@@ -408,20 +408,20 @@ describe('shape constraints', () => {
     }
   };
 
-  it('should reject a length that cannot carry a payload and a check', () => {
+  it('rejects a length that cannot carry a payload and a check', () => {
     expect(shapeReason({ length: 1, chunkSize: 1 })).toBe('length');
     expect(shapeReason({ length: 0, chunkSize: 1 })).toBe('length');
     expect(shapeReason({ length: 8.5, chunkSize: 1 })).toBe('length');
     expect(shapeReason({ length: Number.NaN, chunkSize: 1 })).toBe('length');
   });
 
-  it('should reject a chunk size that is not a positive integer', () => {
+  it('rejects a chunk size that is not a positive integer', () => {
     expect(shapeReason({ chunkSize: 0 })).toBe('chunk-size');
     expect(shapeReason({ chunkSize: -4 })).toBe('chunk-size');
     expect(shapeReason({ chunkSize: 2.5 })).toBe('chunk-size');
   });
 
-  it('should reject a chunk size that leaves a short trailing chunk', () => {
+  it('rejects a chunk size that leaves a short trailing chunk', () => {
     expect(shapeReason({ length: 6 })).toBe('chunk-size-indivisible');
     expect(shapeReason({ length: 10, chunkSize: 3 })).toBe(
       'chunk-size-indivisible',
@@ -429,14 +429,14 @@ describe('shape constraints', () => {
     expect(shapeReason({ length: 10, chunkSize: 5 })).toBe('accepted');
   });
 
-  it('should reject a separator validate could not strip', () => {
+  it('rejects a separator validate could not strip', () => {
     expect(shapeReason({ separator: '' })).toBe('separator-empty');
     expect(shapeReason({ separator: 'a' })).toBe('separator-in-dictionary');
     expect(shapeReason({ separator: ' - ' })).toBe('accepted');
     expect(shapeReason({ separator: '.' })).toBe('accepted');
   });
 
-  it('should carry all three shape values on the error', () => {
+  it('carries all three shape values on the error', () => {
     try {
       createToken({ length: 6, chunkSize: 4, separator: '/' });
       expect.unreachable('6 is not a multiple of 4');
@@ -451,7 +451,7 @@ describe('shape constraints', () => {
     }
   });
 
-  it('should round-trip a fully custom configuration', () => {
+  it('round-trips a fully custom configuration', () => {
     const custom = createToken({
       length: 10,
       chunkSize: 5,

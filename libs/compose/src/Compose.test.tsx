@@ -63,7 +63,7 @@ describe('ComposeProvider', () => {
     __resetWarningsForTests();
   });
 
-  it('should render children with simple providers', () => {
+  it('renders the children through a bare provider list', () => {
     const providers = [SimpleProvider];
 
     const { getByText, container } = render(
@@ -76,7 +76,7 @@ describe('ComposeProvider', () => {
     expect(container.querySelector('.simple')).toBeInTheDocument();
   });
 
-  it('should render children with providers that have props (tuple syntax)', () => {
+  it('renders the children through a provider given props as a tuple', () => {
     const providers = [
       SimpleProvider,
       [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
@@ -95,7 +95,7 @@ describe('ComposeProvider', () => {
   });
 
   describe('provider', () => {
-    it('should render children with providers using provider() helper', () => {
+    it('renders the children through a provider built by the helper', () => {
       const providers = [
         SimpleProvider,
         provider(ThemeProvider, { theme: 'light', primaryColor: '#ff0000' }),
@@ -114,7 +114,7 @@ describe('ComposeProvider', () => {
     });
   });
 
-  it('should work with multiple providers with props', () => {
+  it('renders the children through several providers that each take props', () => {
     const providers = [
       SimpleProvider,
       [ThemeProvider, { theme: 'dark', primaryColor: '#00ff00' }] as const,
@@ -139,7 +139,7 @@ describe('ComposeProvider', () => {
     expect(authElement).toHaveAttribute('data-token', 'abc123');
   });
 
-  it('should name the providers prop when only components is passed', () => {
+  it('refuses a components prop, naming providers in its place', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -156,7 +156,7 @@ describe('ComposeProvider', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('should handle deep nesting with 5+ providers', () => {
+  it('nests five providers around the children', () => {
     const Provider1: React.FC<React.PropsWithChildren<{ id: string }>> = ({
       children,
       id,
@@ -223,7 +223,7 @@ describe('ComposeProvider', () => {
     expect(provider1).toContainElement(provider5 as HTMLElement);
   });
 
-  it('should handle mixed providers with and without props', () => {
+  it('accepts a list mixing providers with and without props', () => {
     const providers = [
       SimpleProvider,
       [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
@@ -243,7 +243,7 @@ describe('ComposeProvider', () => {
     expect(getByText('Mixed content')).toBeInTheDocument();
   });
 
-  it('should handle empty provider array without crashing', () => {
+  it('renders the children through an empty provider array', () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -262,7 +262,7 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should handle single provider', () => {
+  it('renders the children through a single provider', () => {
     const providers = [SimpleProvider];
 
     const { getByText, container } = render(
@@ -275,7 +275,7 @@ describe('ComposeProvider', () => {
     expect(container.querySelector('.simple')).toBeInTheDocument();
   });
 
-  it('should apply providers in correct order (pyramid-of-doom reading order)', () => {
+  it('applies the providers in reading order, the first outermost', () => {
     const OuterProvider: React.FC<
       React.PropsWithChildren<{ name: string }>
     > = ({ children, name }) => (
@@ -321,7 +321,7 @@ describe('ComposeProvider', () => {
     expect(inner).toHaveAttribute('data-name', 'inner');
   });
 
-  it('should warn only once per mount, not on every render', () => {
+  it('warns once per mount, not on every render', () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -352,7 +352,7 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should ignore components when providers is also supplied', () => {
+  it('ignores components when providers is also supplied', () => {
     const bothProps = {
       providers: [SimpleProvider],
       components: [
@@ -372,7 +372,7 @@ describe('ComposeProvider', () => {
     expect(container.querySelector('[data-theme]')).toBeNull();
   });
 
-  it('should throw a named error when no providers prop is supplied', () => {
+  it('throws a named error when no providers prop is supplied', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -389,7 +389,7 @@ describe('ComposeProvider', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('should throw a named error when providers is not an array', () => {
+  it('throws a named error when providers is not an array', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -406,7 +406,7 @@ describe('ComposeProvider', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("should not mutate the caller's provider array", () => {
+  it("leaves the caller's provider array unmutated", () => {
     const providers = [
       [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }] as const,
       SimpleProvider,
@@ -424,7 +424,7 @@ describe('ComposeProvider', () => {
     expect(providers[1]).toBe(before[1]);
   });
 
-  it('should render an inline provider array without warning', () => {
+  it('renders an inline provider array without warning', () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -450,7 +450,7 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should render inside StrictMode without warning twice', () => {
+  it('renders inside StrictMode without warning twice', () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -469,7 +469,7 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('should render through react-dom/server', async () => {
+  it('renders through react-dom/server', async () => {
     const { renderToStaticMarkup } = await import('react-dom/server');
 
     const html = renderToStaticMarkup(
@@ -488,7 +488,7 @@ describe('ComposeProvider', () => {
     );
   });
 
-  it('should accept a widened ProviderArray forwarded through a wrapper', () => {
+  it('accepts a widened ProviderArray forwarded through a wrapper', () => {
     const providers: ProviderArray = [
       SimpleProvider,
       [ThemeProvider, { theme: 'dark', primaryColor: '#007acc' }],
@@ -511,7 +511,7 @@ describe('ComposeProvider', () => {
     expect(getByText('Wrapped')).toBeInTheDocument();
   });
 
-  it('should stay silent about an empty array in production', async () => {
+  it('stays silent about an empty array in production', async () => {
     const consoleWarnSpy = vi
       .spyOn(console, 'warn')
       .mockImplementation(() => undefined);
@@ -537,7 +537,7 @@ describe('ComposeProvider', () => {
     }
   });
 
-  it('should expose the prop types on the public surface', () => {
+  it('exposes the prop types on the public surface', () => {
     // Compile-time only: these must be importable by consumers.
     const withProviders: ComposeProviderProps = {
       providers: [SimpleProvider],
