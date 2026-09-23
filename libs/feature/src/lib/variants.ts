@@ -11,13 +11,14 @@ import type { FeatureDefinition, FeatureKey } from './types.js';
  *
  * Every case below is a configuration error with no sensible evaluation result.
  * A set with two names cannot answer which one a pin meant, a set whose weights
- * are all zero has no band to assign into, and a partial `order` declaration
- * mixes two orderings and reads as a typo either way.
+ * are all zero or whose total overflows has no band to assign into, and a
+ * partial `order` declaration mixes two orderings and reads as a typo either
+ * way.
  *
  * @throws {DuplicateVariantError} when two variants share a name.
  * @throws {UnknownVariantError} when a rule pins a variant nobody declared.
- * @throws {FeatureConfigError} for an unusable weight, an unusable order, or an
- * empty set.
+ * @throws {FeatureConfigError} for an unusable weight, an unusable order, an
+ * empty set, or a weight total that is zero or not finite.
  */
 export function validateVariants<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
@@ -69,6 +70,11 @@ export function validateVariants<F extends FeatureKey>(
   if (total <= 0) {
     throw new FeatureConfigError(
       `feature "${key}" gives every variant the weight zero, which leaves no variant to assign`,
+    );
+  }
+  if (!Number.isFinite(total)) {
+    throw new FeatureConfigError(
+      `feature "${key}" gives its variants a weight total of ${String(total)}, which overflows and leaves no usable share`,
     );
   }
 
