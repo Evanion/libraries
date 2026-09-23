@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FeatureCycleError } from './errors.js';
+import { DuplicateVariantError, FeatureCycleError } from './errors.js';
 import { createFeatures } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
 
@@ -35,6 +35,21 @@ describe('createFeatures', () => {
         { key: 'c', enabled: true, dependsOn: ['b'] },
       ]),
     ).toThrow(FeatureCycleError);
+  });
+
+  it('refuses a configuration whose variants share a name', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          variants: [
+            { name: 'a', weight: 1 },
+            { name: 'a', weight: 1 },
+          ],
+        },
+      ]),
+    ).toThrow(DuplicateVariantError);
   });
 });
 
@@ -289,6 +304,165 @@ describe('precedence', () => {
     expect(decision.reason).toBe('no-rule-matched');
     expect(decision.rules?.[0]?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
     expect(decision.rules?.[1]?.rule).toBe('named');
+  });
+
+  it('assigns a variant to a feature that is on with no rules', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50, value: { label: 'Get it' } },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.enabled).toBe(true);
+    expect(decision.reason).toBe('default-on');
+    expect(['control', 'blue']).toContain(decision.variant);
+    expect(decision.assignment?.source).toBe('weighted');
+    expect(decision.assignment?.by).toBe('targetingKey');
+  });
+
+  it("carries the assigned variant's value", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.variant).toBe('only');
+    expect(decision.value).toEqual({ label: 'Buy' });
+  });
+
+  it('carries no value for a variant declaring none', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1 }],
+      },
+    ]);
+
+    expect(features.resolve({ targetingKey: 'u' }).cta.value).toBeUndefined();
+  });
+
+  it('assigns a variant when a rule matched without pinning one', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ rollout: { percent: 100 } }],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.reason).toBe('rule-match');
+    expect(decision.assignment?.source).toBe('weighted');
+    expect(['control', 'blue']).toContain(decision.variant);
+  });
+
+  it('takes the variant a matching rule pins', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 99 },
+          { name: 'blue', weight: 1 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'group', op: 'eq', value: 'staff' }],
+            variant: 'blue',
+          },
+          { rollout: { percent: 100 } },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({
+      targetingKey: 'user-1',
+      group: 'staff',
+    }).cta;
+
+    expect(decision.variant).toBe('blue');
+    expect(decision.assignment?.source).toBe('pinned');
+    expect(decision.assignment?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
+  });
+
+  it('lets a pin beat a prior assignment the context carries', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'group', op: 'eq', value: 'staff' }],
+            variant: 'blue',
+          },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({
+      targetingKey: 'user-1',
+      group: 'staff',
+      stickyVariants: { cta: 'control' },
+    }).cta;
+
+    expect(decision.variant).toBe('blue');
+    expect(decision.assignment?.source).toBe('pinned');
+  });
+
+  it('carries no variant on any of the three off paths', () => {
+    const variants = [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ];
+    const features = createFeatures([
+      { key: 'parent', enabled: false },
+      { key: 'child', enabled: true, dependsOn: ['parent'], variants },
+      { key: 'killed', enabled: false, variants },
+      {
+        key: 'unmatched',
+        enabled: true,
+        variants,
+        rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+      },
+    ]);
+
+    const decisions = features.resolve({
+      targetingKey: 'user-1',
+      role: 'customer',
+    });
+
+    for (const key of ['child', 'killed', 'unmatched'] as const) {
+      expect(decisions[key].enabled).toBe(false);
+      expect(decisions[key].variant).toBeUndefined();
+      expect(decisions[key].value).toBeUndefined();
+      expect(decisions[key].assignment).toBeUndefined();
+    }
+
+    expect(decisions.killed.reason).toBe('explicitly-off');
+    expect(decisions.child.reason).toBe('dependency-off');
+    expect(decisions.unmatched.reason).toBe('no-rule-matched');
   });
 });
 
@@ -646,6 +820,42 @@ describe('plan', () => {
     });
   });
 
+  it('settles a dependant whose parent defers only its own split', () => {
+    const features = createFeatures([
+      {
+        key: 'p',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+      { key: 'c', enabled: true, dependsOn: ['p'] },
+    ]);
+
+    const entry = features.plan().c;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.enabled).toBe(true);
+  });
+
+  it('defers a dependant whose parent defers for its own rules', () => {
+    const features = createFeatures([
+      {
+        key: 'p',
+        enabled: true,
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+      { key: 'c', enabled: true, dependsOn: ['p'] },
+    ]);
+
+    const entry = features.plan().c;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region']);
+  });
+
   it('resolves a dependant off at build time when its parent is off', () => {
     const features = createFeatures([
       { key: 'parent', enabled: false },
@@ -661,5 +871,319 @@ describe('plan', () => {
       resolved: false,
       needs: [],
     });
+  });
+
+  it('defers a feature whose enablement is settled and whose variant is not', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.reason).toBe('default-on');
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
+  it('attaches no variant to a decision on a deferred entry', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.decision?.variant).toBeUndefined();
+    expect(entry.decision?.value).toBeUndefined();
+    expect(entry.decision?.assignment).toBeUndefined();
+  });
+
+  it('needs the field variantBy names', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'accountId',
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    expect(features.plan().cta.needs).toEqual(['accountId']);
+  });
+
+  it('attaches no decision when a rule needs the field the variant needs', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ rollout: { percent: 50 } }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision).toBeUndefined();
+  });
+
+  it('attaches no decision when a rule needs a field and the variant needs another', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region', 'targetingKey']);
+    expect(entry.decision).toBeUndefined();
+  });
+
+  it('attaches a decision when a rule resolved and only the split waits', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+    ]);
+
+    const entry = features.plan({ region: 'eu' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.reason).toBe('rule-match');
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
+  it('settles the split at build time when a rule pins the variant', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ region: 'eu' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+    expect(entry.decision?.assignment?.source).toBe('pinned');
+  });
+
+  it('settles the split at build time from a prior assignment', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ stickyVariants: { cta: 'blue' } }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+    expect(entry.decision?.assignment?.source).toBe('sticky');
+  });
+
+  it('settles the split at build time when the context buckets it', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'user-1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.assignment?.source).toBe('weighted');
+  });
+
+  it('defers the split when nothing settles it', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
+  it('defers when an earlier rule it could not evaluate might have won', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region']);
+  });
+
+  it("agrees with resolve once the skipped rule's field arrives", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const planned = features.plan({ targetingKey: 'u1', region: 'eu' }).cta;
+    const resolved = features.resolve({ targetingKey: 'u1', region: 'eu' }).cta;
+
+    expect(planned.resolved).toBe(true);
+    expect(planned.decision?.variant).toBe('blue');
+    expect(planned.decision?.variant).toBe(resolved.variant);
+    expect(planned.decision?.rule).toBe(resolved.rule);
+  });
+
+  it('still settles a feature whose first rule matched', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          { when: [], variant: 'blue' },
+          { when: [{ field: 'region', op: 'eq', value: 'eu' }] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+  });
+
+  it('resolves a feature whose variant a build-time context settles', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'user-1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBeDefined();
+  });
+
+  it('resolves a feature that is off without needing a bucketing field', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: false,
+        variants: [{ name: 'control', weight: 1 }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe(false);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.enabled).toBe(false);
   });
 });

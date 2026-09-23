@@ -3,14 +3,19 @@ import type { MetaRecord } from 'nextra';
 /**
  * The order a reader meets `@evanion/feature` in: what a dependent toggle is,
  * the shop's two flags end to end, how a feature is written down, how one is
- * resolved, and how a resolved one is held to a share of customers. That is the
- * whole core, in the order it is used.
+ * resolved, how a resolved one is held to a share of customers, and how a
+ * resolved one is split across named variants. That is the whole core, in the
+ * order it is used.
  *
  * Getting Started sits second because it is the section's one narrative: it
  * writes the new checkout and express pickup down, resolves them for a
  * customer, and turns the parent off. Every page after it takes one of those
  * four steps apart, so a reader who has been through it meets each one already
  * holding the example.
+ *
+ * Variants follows Rollouts because variant assignment buckets a subject the
+ * same way a rollout does. A reader who has met bucketing on that page reuses
+ * it here.
  *
  * React follows the core because it decides nothing -- it carries an already
  * built store down a tree -- so it reads as a wiring step once resolution is
@@ -33,6 +38,7 @@ export default {
   configuration: 'Configuration',
   decisions: 'Decisions',
   rollouts: 'Rollouts',
+  variants: 'Variants',
   react: 'React',
   'build-time': 'Build-time Planning',
   api: 'API Reference',

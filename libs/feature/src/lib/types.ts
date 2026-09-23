@@ -73,6 +73,28 @@ export interface Rule {
   id?: string;
   when?: readonly Condition[];
   rollout?: RolloutSpec;
+  /**
+   * Pins the variant when this rule matches, overriding the weights and any
+   * assignment the context carries. Names a variant the feature declares.
+   */
+  variant?: string;
+}
+
+/**
+ * One variant of a feature.
+ *
+ * `weight` is relative. Weights are normalised across the set, so they need not
+ * sum to 100, and an author raising one lowers every other share.
+ *
+ * `order` fixes where this variant sits in the bucketing walk. The array index
+ * supplies it when an author leaves it out, and a control plane writes it
+ * explicitly so a serializer that reorders the array assigns identically.
+ */
+export interface VariantSpec {
+  name: string;
+  weight: number;
+  order?: number;
+  value?: unknown;
 }
 
 /**
@@ -105,6 +127,19 @@ export interface FeatureDefinition<F extends FeatureKey = string> {
    * feature.
    */
   freezeTimeAtBuild?: boolean;
+  /** The variants this feature splits across. One is legal: that is a value flag. */
+  variants?: readonly VariantSpec[];
+  /** The context field variant assignment buckets on. Defaults to `targetingKey`. */
+  variantBy?: string;
+  /**
+   * The variant bucketing seed. Defaults to `${seed ?? key}:variant`.
+   *
+   * The default is distinct from the rollout's seed on purpose. One seed for
+   * both puts every member of a 20% rollout in the lowest 20% of the variant
+   * space, so a 50/50 split hands all of them the control and the experiment
+   * measures nothing.
+   */
+  variantSeed?: string;
 }
 
 /**
@@ -115,6 +150,16 @@ export interface EvaluationContext {
   now?: Date;
   /** The default rollout bucketing field. */
   targetingKey?: string;
+  /**
+   * Prior assignments, keyed by feature. Checked after a rule pin and before
+   * the weights.
+   *
+   * Reweighting a running experiment moves every subject above a changed band
+   * boundary. An application that must hold a subject still stores the
+   * assignment wherever it keeps session state and hands it back here. This
+   * library writes no storage and reads this only.
+   */
+  stickyVariants?: Readonly<Record<string, string>>;
   [field: string]: unknown;
 }
 
@@ -157,8 +202,8 @@ export interface Cause<F extends FeatureKey = string> {
  * One feature's decision.
  *
  * `enabled` is the decision. Everything else is explanation, and is output
- * only -- nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`
- * or `cause` back to decide anything.
+ * only -- nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`,
+ * `cause`, `variant`, `value` or `assignment` back to decide anything.
  */
 export interface Decision<F extends FeatureKey = string> {
   key: F;
@@ -172,6 +217,24 @@ export interface Decision<F extends FeatureKey = string> {
   blockedBy?: F;
   /** The first ancestor off for its own reason, on `dependency-off`. */
   cause?: Cause<F>;
+  /** The assigned variant, on a feature that resolved on and declares variants. */
+  variant?: string;
+  /** The assigned variant's configured value, when it declares one. */
+  value?: unknown;
+  /**
+   * How the variant was chosen. Output only, like `reason`.
+   *
+   * `'pinned'` names the rule that pinned it. `'fallback'` means the context
+   * carried no bucketing value and the subject took the control.
+   */
+  assignment?: {
+    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
+    by: string;
+    /** Absent when the context did not carry the bucketing field. */
+    bucket?: number;
+    /** The pinning rule, on `'pinned'`. */
+    rule?: string;
+  };
 }
 
 export type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
@@ -179,11 +242,22 @@ export type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
 /** One feature's build-time plan. */
 export interface PlanEntry<F extends FeatureKey = string> {
   key: F;
-  /** `'deferred'` when some rule still needs context this plan did not have. */
+  /**
+   * `'deferred'` when some rule, or this feature's variant split, still needs
+   * context this plan did not have.
+   */
   resolved: boolean | 'deferred';
   /** Context fields still needed, sorted. Empty unless `resolved` is deferred. */
   needs: readonly string[];
-  /** Present when `resolved` is a boolean: the decision, with its reason. */
+  /**
+   * The decision, when one is settled.
+   *
+   * Present whenever `resolved` is a boolean. Also present on a deferred entry
+   * whose enablement is settled and whose variant alone is outstanding, and
+   * that decision carries no variant, because the context that produced it
+   * lacked the bucketing field. A decision no longer implies that `resolved` is
+   * a boolean.
+   */
   decision?: Decision<F>;
 }
 

@@ -201,12 +201,18 @@ evaluation because decision 2 gives this library no server to do it on.
 
 One property of rollout bucketing does not carry over. A percentage rollout is
 monotonic, because the bucket does not depend on the percentage and raising it
-only admits more buckets. Reweighting variants moves the range boundaries, so
-every subject above a changed boundary is reassigned. An explicit order with
-cumulative ranges bounds that: appending a variant above every existing `order`
-and taking its weight from the variant currently last reassigns subjects only
-between those two. The `bucketing.ts` doc comment states this alongside the
-three properties it already documents.
+only admits more buckets. A weight change moves the range boundaries, and that
+holds for any reweight: normalisation divides by a total the edit changed, so
+a weight raised in the middle of the set reassigns subjects in bands the edit
+never touched. A 30/30/40 split (`a`/`b`/`c`) moves 117 of 1000 buckets when
+`b`'s weight rises to 50, and 50 of those move out of `a`, the variant before
+the one edited.
+
+One construction keeps the reassignment to a single pair of bands: appending a
+variant above every existing `order` and taking its weight from the variant
+currently last. The total stays unchanged, so normalisation moves nothing
+outside those two bands. The `bucketing.ts` doc comment states this
+construction alongside the three properties it already documents.
 
 A context carrying no usable value at `variantBy` gets the variant first in the
 bucketing order, reported with `source: 'fallback'`. The feature resolved on,

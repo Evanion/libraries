@@ -1,6 +1,9 @@
 import { inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { ruleId } from './rule-id.js';
+import { assignVariant } from './variants.js';
+import type { VariantAssignment } from './variants.js';
 import type {
   Cause,
   Decision,
@@ -12,8 +15,7 @@ import type {
   RuleOutcome,
 } from './types.js';
 
-/** The default context field a rollout buckets on. */
-export const DEFAULT_ROLLOUT_FIELD = 'targetingKey';
+export { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 
 function rolloutField(rule: Rule): string {
   return rule.rollout?.by ?? DEFAULT_ROLLOUT_FIELD;
@@ -142,6 +144,30 @@ function rootCause<F extends FeatureKey>(
   }
 }
 
+/** Copies an assignment onto a decision. A feature with no variants adds nothing. */
+function withVariant<F extends FeatureKey>(
+  decision: Decision<F>,
+  assigned: VariantAssignment | undefined,
+  source: VariantAssignment['source'] | 'pinned' = assigned?.source ??
+    'weighted',
+  rule?: string,
+): Decision<F> {
+  if (!assigned) return decision;
+  const assignment: Decision<F>['assignment'] = { source, by: assigned.by };
+  if (assigned.bucket !== undefined && source !== 'pinned') {
+    assignment.bucket = assigned.bucket;
+  }
+  if (rule !== undefined) assignment.rule = rule;
+
+  const next: Decision<F> = {
+    ...decision,
+    variant: assigned.variant.name,
+    assignment,
+  };
+  if (assigned.variant.value !== undefined) next.value = assigned.variant.value;
+  return next;
+}
+
 /**
  * Decides one feature, given the already-resolved decisions of everything it
  * depends on. Pure in `(definition, context, resolved)`.
@@ -175,19 +201,41 @@ export function decide<F extends FeatureKey>(
 
   const rules = definition.rules ?? [];
   if (rules.length === 0) {
-    return { key: definition.key, enabled: true, reason: 'default-on' };
+    return withVariant(
+      { key: definition.key, enabled: true, reason: 'default-on' },
+      assignVariant(definition, context),
+    );
   }
 
   const outcomes: RuleOutcome[] = [];
   for (const rule of rules) {
     const outcome = evaluateRule(definition, rule, context);
     if (outcome.matched) {
-      return {
+      const base: Decision<F> = {
         key: definition.key,
         enabled: true,
         reason: 'rule-match',
         rule: outcome.rule,
       };
+      const assigned = assignVariant(definition, context);
+      if (!assigned) return base;
+
+      const pinned = rule.variant;
+      if (pinned !== undefined) {
+        const held = definition.variants?.find((each) => each.name === pinned);
+        // `validateVariants` refused a pin naming an undeclared variant at
+        // construction, so `held` is present for any configuration that built.
+        if (held) {
+          return withVariant(
+            base,
+            { ...assigned, variant: held },
+            'pinned',
+            outcome.rule,
+          );
+        }
+      }
+
+      return withVariant(base, assigned);
     }
     outcomes.push(outcome);
   }
@@ -236,7 +284,12 @@ export function planFeature<F extends FeatureKey>(
         decision: decide(definition, context, resolved),
       };
     }
-    if (parentPlan.resolved === 'deferred') {
+    // A deferred parent that carries a `decision` settled its own enablement
+    // and deferred only its split; the cascade below reads that enablement
+    // off `resolved` and needs nothing further from it. A deferred parent
+    // with no `decision` left its own enablement unresolved, and that need
+    // carries to every dependant.
+    if (parentPlan.resolved === 'deferred' && !parentPlan.decision) {
       for (const need of parentPlan.needs) deferredNeeds.add(need);
     }
   }
@@ -249,33 +302,75 @@ export function planFeature<F extends FeatureKey>(
   if (definition.freezeTimeAtBuild) available.add('now');
 
   const rules = definition.rules ?? [];
-  const ownNeeds = new Set<string>();
+  // Fields a rule itself is missing. A rule that still needs a field leaves
+  // enablement unresolved, so this loop keeps that need separate from the
+  // variant's need below and never lets the two share one need count.
+  const ruleNeeds = new Set<string>();
 
   if (deferredNeeds.size === 0) {
     for (const rule of rules) {
       const missing = ruleFields(rule).filter((field) => !available.has(field));
       if (missing.length) {
-        for (const field of missing) ownNeeds.add(field);
+        for (const field of missing) ruleNeeds.add(field);
         continue;
       }
       if (evaluateRule(definition, rule, context).matched) {
-        return {
-          key,
-          resolved: true,
-          needs: [],
-          decision: decide(definition, context, resolved),
-        };
+        // `decide` evaluates rules in order and stops at the first match, so
+        // this loop stops here too. A rule after this one never runs, and a
+        // need that rule would have logged never reaches `ruleNeeds`.
+        break;
       }
     }
   }
 
-  const needs = [...deferredNeeds, ...ownNeeds].sort();
-  if (needs.length) return { key, resolved: 'deferred', needs };
+  const variantField = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
+  const declaresVariants =
+    definition.variants !== undefined && definition.variants.length > 0;
 
-  return {
-    key,
-    resolved: rules.length === 0,
-    needs: [],
-    decision: decide(definition, context, resolved),
-  };
+  // This block settles enablement only when every rule the loop looked at
+  // resolved cleanly, leaving `ruleNeeds` empty. `decide` evaluates rules in
+  // order and stops at the first match, so a rule the loop above skipped for
+  // a missing field could still out-rank a rule that matched after it; a
+  // match by itself does not settle anything while `ruleNeeds` is non-empty.
+  // Once `ruleNeeds` is empty, `decide` already knows what settles the split,
+  // so this block calls it once, reads `settled.assignment.source` to tell a
+  // settled split from a fallback, and takes `resolved` from
+  // `settled.enabled`.
+  if (deferredNeeds.size === 0 && ruleNeeds.size === 0) {
+    const settled = decide(definition, context, resolved);
+    // `'fallback'` is the one source that means the context left the split
+    // unsettled: `assignVariant` found no usable bucketing value and handed
+    // back the control as a placeholder. Every other source settles the
+    // split, and a feature that resolved off carries no assignment at all,
+    // because it never calls `assignVariant`.
+    if (settled.assignment?.source !== 'fallback') {
+      return { key, resolved: settled.enabled, needs: [], decision: settled };
+    }
+    // The bucketing field decides the split, and this context does not carry
+    // it. `decide` computed the control only as a placeholder for the
+    // fallback path. This entry drops that placeholder and reports
+    // enablement only. A later request that supplies the field settles the
+    // split.
+    const { variant, value, assignment, ...enablement } = settled;
+    return {
+      key,
+      resolved: 'deferred',
+      needs: [variantField],
+      decision: enablement as Decision<F>,
+    };
+  }
+
+  // A parent left a need here, or a rule did, so enablement itself is still
+  // unresolved. `decide` cannot safely run against the incomplete context
+  // this plan had, so this branch lists the variant field as outstanding
+  // only when the context is missing it, without attaching a decision.
+  const needsVariantField = declaresVariants && !available.has(variantField);
+  const needs = [
+    ...new Set([
+      ...deferredNeeds,
+      ...ruleNeeds,
+      ...(needsVariantField ? [variantField] : []),
+    ]),
+  ].sort();
+  return { key, resolved: 'deferred', needs };
 }

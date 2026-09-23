@@ -1,5 +1,6 @@
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
+import { validateVariants } from './variants.js';
 import type {
   Decision,
   Decisions,
@@ -66,11 +67,17 @@ function deepFreeze<T>(value: T): T {
  * The dependency graph is validated here rather than at evaluation: a cycle, a
  * dependency on a feature that does not exist and a duplicate key are all
  * configuration errors, and a cycle has no defined resolution order at all, so
- * there is nothing sensible for `resolve` to return for one.
+ * there is nothing sensible for `resolve` to return for one. Variants are
+ * validated here for the same reason: a set with two names cannot answer which
+ * one a pin meant, and a set with no usable band has nothing to assign into.
  *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
  * @throws {DuplicateFeatureError} when two definitions share a key.
+ * @throws {DuplicateVariantError} when two of a feature's variants share a name.
+ * @throws {UnknownVariantError} when a rule pins a variant its feature does not declare.
+ * @throws {FeatureConfigError} when a variant's weight or order is unusable, the
+ * variants array is empty, or the weights have no usable total.
  *
  * @example
  * ```ts
@@ -92,6 +99,7 @@ export function createFeatures<F extends FeatureKey>(
   const config: FeatureDefinition<F>[] = definitions.map((definition) =>
     deepFreeze(structuredClone(definition)),
   );
+  for (const definition of config) validateVariants(definition);
   const graph = buildGraph(config);
   const index = new Map<F, number>(config.map((d, i) => [d.key, i]));
   const keys = config.map((definition) => definition.key);

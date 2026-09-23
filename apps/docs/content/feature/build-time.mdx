@@ -21,13 +21,14 @@ interface PlanEntry<F> {
   key: F;
   resolved: boolean | 'deferred';
   needs: readonly string[]; // sorted; empty unless deferred
-  decision?: Decision<F>; // present when `resolved` is a boolean
+  decision?: Decision<F>; // present when `resolved` is a boolean, and sometimes when it is not
 }
 ```
 
 `resolved: true` or `false` is a settled answer, and `decision` carries it with
-its reason. `resolved: 'deferred'` means some rule still needs context this plan
-did not have, and `needs` lists the fields, sorted.
+its reason. `resolved: 'deferred'` means some rule, or this feature's variant
+split, still needs context this plan did not have, and `needs` lists the
+fields, sorted.
 
 A deferred feature's `needs` includes whatever its deferred parents need, so an
 entry's list is everything the request has to supply before this feature can be
@@ -63,6 +64,30 @@ createFeatures([
 
 A feature with `enabled: false` is `resolved: false` immediately, whatever its
 rules need. A feature with no rules is `resolved: true`, given `enabled`.
+
+## A settled feature with a deferred split
+
+A feature can declare variants and still leave enablement fully resolvable at
+build time. `plan()` settles the two questions separately: `checkout-cta`
+below has no rules and resolves on unconditionally, but its variant still
+needs `targetingKey`, which the first context below does not carry:
+
+```ts twoslash file=libs/feature/README.md region=plan-variant
+
+```
+
+`plan({})`'s `resolved` is `'deferred'`, and `decision` is present anyway,
+carrying enablement and nothing about the variant. `variant` and `value` are
+absent, and so is `assignment`. That is the one case a deferred entry carries
+a decision at all.
+
+`plan({ targetingKey: 'user-1' })` settles both at once: `resolved` reads the
+enabled boolean, and `decision` carries the full assignment. See
+[Variants](/feature/variants) for what settles a variant at all.
+
+A `plan()` context carrying `stickyVariants` also settles the split, but to
+that one subject's stored variant, baking a per-subject answer into the build
+where a later request without that entry would get the weighted answer.
 
 ## `now` is deferred unless the feature opts in
 
