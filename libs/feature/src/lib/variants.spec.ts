@@ -4,7 +4,12 @@ import {
   FeatureConfigError,
   UnknownVariantError,
 } from './errors.js';
-import { validateVariants } from './variants.js';
+import {
+  assignWeighted,
+  bucketingOrder,
+  validateVariants,
+  variantSeedOf,
+} from './variants.js';
 
 describe('validateVariants', () => {
   it('accepts a feature declaring no variants', () => {
@@ -157,5 +162,158 @@ describe('validateVariants', () => {
         ],
       }),
     ).toThrow(/checkout.*blue|blue.*checkout/);
+  });
+});
+
+describe('bucketingOrder', () => {
+  it('walks the array order when no variant declares one', () => {
+    const order = bucketingOrder([
+      { name: 'control', weight: 1 },
+      { name: 'blue', weight: 1 },
+    ]);
+
+    expect(order.map((each) => each.name)).toEqual(['control', 'blue']);
+  });
+
+  it('walks ascending order when every variant declares one', () => {
+    const order = bucketingOrder([
+      { name: 'blue', weight: 1, order: 1 },
+      { name: 'control', weight: 1, order: 0 },
+    ]);
+
+    expect(order.map((each) => each.name)).toEqual(['control', 'blue']);
+  });
+
+  it('walks a permuted array identically once order is declared', () => {
+    const a = bucketingOrder([
+      { name: 'control', weight: 1, order: 0 },
+      { name: 'blue', weight: 1, order: 1 },
+    ]);
+    const b = bucketingOrder([
+      { name: 'blue', weight: 1, order: 1 },
+      { name: 'control', weight: 1, order: 0 },
+    ]);
+
+    expect(a.map((each) => each.name)).toEqual(b.map((each) => each.name));
+  });
+
+  it("leaves the caller's array untouched", () => {
+    const variants = [
+      { name: 'blue', weight: 1, order: 1 },
+      { name: 'control', weight: 1, order: 0 },
+    ];
+    bucketingOrder(variants);
+
+    expect(variants.map((each) => each.name)).toEqual(['blue', 'control']);
+  });
+});
+
+describe('assignWeighted', () => {
+  const evenPair = [
+    { name: 'control', weight: 50 },
+    { name: 'blue', weight: 50 },
+  ];
+
+  it('gives the lower band to a low bucket', () => {
+    expect(assignWeighted(evenPair, 0).name).toBe('control');
+    expect(assignWeighted(evenPair, 0.49).name).toBe('control');
+  });
+
+  it('gives the upper band to a high bucket', () => {
+    expect(assignWeighted(evenPair, 0.51).name).toBe('blue');
+    expect(assignWeighted(evenPair, 0.999).name).toBe('blue');
+  });
+
+  it('gives a bucket landing on a boundary to the upper band', () => {
+    expect(assignWeighted(evenPair, 0.5).name).toBe('blue');
+  });
+
+  it('gives everything to a single variant', () => {
+    const only = [{ name: 'only', weight: 7 }];
+
+    expect(assignWeighted(only, 0).name).toBe('only');
+    expect(assignWeighted(only, 0.999).name).toBe('only');
+  });
+
+  it('never assigns a variant weighted zero', () => {
+    const withZero = [
+      { name: 'off', weight: 0 },
+      { name: 'on', weight: 1 },
+    ];
+
+    for (const bucket of [0, 0.25, 0.5, 0.75, 0.999]) {
+      expect(assignWeighted(withZero, bucket).name).toBe('on');
+    }
+  });
+
+  it('normalises weights that do not sum to 100', () => {
+    const thirds = [
+      { name: 'a', weight: 1 },
+      { name: 'b', weight: 1 },
+      { name: 'c', weight: 1 },
+    ];
+
+    expect(assignWeighted(thirds, 0.0).name).toBe('a');
+    expect(assignWeighted(thirds, 0.5).name).toBe('b');
+    expect(assignWeighted(thirds, 0.9).name).toBe('c');
+  });
+
+  it('assigns every bucket in [0, 1) to some variant', () => {
+    const uneven = [
+      { name: 'a', weight: 30 },
+      { name: 'b', weight: 20 },
+    ];
+
+    for (let i = 0; i < 1000; i += 1) {
+      const assigned = assignWeighted(uneven, i / 1000);
+      expect(['a', 'b']).toContain(assigned.name);
+    }
+  });
+
+  it('moves subjects only between the last two bands when a variant is appended', () => {
+    const before = [
+      { name: 'a', weight: 50 },
+      { name: 'b', weight: 50 },
+    ];
+    const after = [
+      { name: 'a', weight: 50 },
+      { name: 'b', weight: 30 },
+      { name: 'c', weight: 20 },
+    ];
+
+    for (let i = 0; i < 1000; i += 1) {
+      const bucket = i / 1000;
+      const was = assignWeighted(before, bucket).name;
+      const now = assignWeighted(after, bucket).name;
+      if (was === 'a') expect(now).toBe('a');
+      else expect(['b', 'c']).toContain(now);
+    }
+  });
+});
+
+describe('variantSeedOf', () => {
+  it('defaults to the key with a variant suffix', () => {
+    expect(variantSeedOf({ key: 'cta', enabled: true })).toBe('cta:variant');
+  });
+
+  it('builds on the feature seed when one is given', () => {
+    expect(variantSeedOf({ key: 'cta', enabled: true, seed: 'autumn' })).toBe(
+      'autumn:variant',
+    );
+  });
+
+  it('takes an explicit variantSeed unchanged', () => {
+    expect(
+      variantSeedOf({ key: 'cta', enabled: true, variantSeed: 'fixed' }),
+    ).toBe('fixed');
+  });
+
+  it('separates the variant bucket from the rollout bucket', () => {
+    // The correctness point of this feature. One seed for both would put every
+    // member of a 20% rollout in the lowest 20% of the variant space.
+    const definition = { key: 'cta', enabled: true };
+    const rolloutSeed = String(definition.key);
+
+    expect(variantSeedOf(definition)).not.toBe(rolloutSeed);
   });
 });
