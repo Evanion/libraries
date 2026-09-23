@@ -444,4 +444,39 @@ describe('assignVariant', () => {
     expect(assignment?.variant.name).toBe('blue');
     expect(assignment?.source).toBe('sticky');
   });
+
+  it('ignores a prototype property a feature key happens to name', () => {
+    const named = {
+      key: 'constructor',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+    };
+
+    const assignment = assignVariant(named, { targetingKey: 'user-1' });
+
+    expect(assignment?.source).toBe('weighted');
+    expect(['control', 'blue']).toContain(assignment?.variant.name);
+  });
+
+  it('reads an own sticky entry for a feature key that names a prototype property', () => {
+    const named = {
+      key: 'toString',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+    };
+
+    const assignment = assignVariant(named, {
+      targetingKey: 'user-1',
+      stickyVariants: { toString: 'blue' },
+    });
+
+    expect(assignment?.source).toBe('sticky');
+    expect(assignment?.variant.name).toBe('blue');
+  });
 });
