@@ -645,14 +645,15 @@ export interface ConfigIssue {
 }
 
 export type ValidationResult =
-  | { ok: true }
-  | { ok: false; issues: readonly ConfigIssue[] };
+  { ok: true } | { ok: false; issues: readonly ConfigIssue[] };
 
 export function validateConfig(config: FeatureConfig): ValidationResult;
 
 export function parseFeatureConfig<F extends FeatureKey>(
   config: FeatureConfig<F>,
-): { ok: true; features: Features<F> } | { ok: false; issues: readonly ConfigIssue[] };
+):
+  | { ok: true; features: Features<F> }
+  | { ok: false; issues: readonly ConfigIssue[] };
 ```
 
 `validateConfig` reports every issue it finds. A poller showing an

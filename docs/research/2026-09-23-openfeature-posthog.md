@@ -61,17 +61,17 @@ Note the asymmetry: `flag metadata` is optional on `resolution details` and unqu
 
 The reason table, `specification/types.md`:
 
-| Reason | Explanation |
-| --- | --- |
-| STATIC | The resolved value is static (no dynamic evaluation). |
-| DEFAULT | The resolved value fell back to a pre-configured value (no dynamic evaluation occurred or dynamic evaluation yielded no result). |
-| TARGETING_MATCH | The resolved value was the result of a dynamic evaluation, such as a rule or specific user-targeting. |
-| SPLIT | The resolved value was the result of pseudorandom assignment. |
-| CACHED | The resolved value was retrieved from a cache. |
-| DISABLED | The resolved value was the result of the flag being disabled in the management system. |
-| UNKNOWN | The reason for the resolved value could not be determined. |
-| STALE | The resolved value is non-authoritative or possibly out of date |
-| ERROR | The resolved value was the result of an error. |
+| Reason          | Explanation                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| STATIC          | The resolved value is static (no dynamic evaluation).                                                                            |
+| DEFAULT         | The resolved value fell back to a pre-configured value (no dynamic evaluation occurred or dynamic evaluation yielded no result). |
+| TARGETING_MATCH | The resolved value was the result of a dynamic evaluation, such as a rule or specific user-targeting.                            |
+| SPLIT           | The resolved value was the result of pseudorandom assignment.                                                                    |
+| CACHED          | The resolved value was retrieved from a cache.                                                                                   |
+| DISABLED        | The resolved value was the result of the flag being disabled in the management system.                                           |
+| UNKNOWN         | The reason for the resolved value could not be determined.                                                                       |
+| STALE           | The resolved value is non-authoritative or possibly out of date                                                                  |
+| ERROR           | The resolved value was the result of an error.                                                                                   |
 
 The enumeration is open, `specification/types.md`:
 
@@ -111,11 +111,11 @@ Requirement 2.2.9 is only a SHOULD: "The `provider` **SHOULD** populate the `res
 
 Three flag-metadata keys have agreed meanings, in `specification/appendix-d-observability.md`:
 
-| Event Record Attribute | Flag Metadata Key | Requirement level | Type | Notes |
-| --- | --- | --- | --- | --- |
-| `feature_flag.context.id` | `contextId` | `Recommended` | `string` | The context identifier returned in the flag metadata uniquely identifies the subject of the flag evaluation. If not available, the [targeting key](./glossary.md#targeting-key) should be used. |
-| `feature_flag.set.id` | `flagSetId` | `Recommended` | `string` | A logical identifier for the [flag set](./glossary.md#flag-set). |
-| `feature_flag.version` | `version` | `Recommended` | `string` | A version string (format unspecified) for the flag or [flag set](./glossary.md#flag-set). |
+| Event Record Attribute    | Flag Metadata Key | Requirement level | Type     | Notes                                                                                                                                                                                           |
+| ------------------------- | ----------------- | ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feature_flag.context.id` | `contextId`       | `Recommended`     | `string` | The context identifier returned in the flag metadata uniquely identifies the subject of the flag evaluation. If not available, the [targeting key](./glossary.md#targeting-key) should be used. |
+| `feature_flag.set.id`     | `flagSetId`       | `Recommended`     | `string` | A logical identifier for the [flag set](./glossary.md#flag-set).                                                                                                                                |
+| `feature_flag.version`    | `version`         | `Recommended`     | `string` | A version string (format unspecified) for the flag or [flag set](./glossary.md#flag-set).                                                                                                       |
 
 The appendix is a recommendation document, not a set of H5 requirement blocks, so these keys bind nobody. They are the names every telemetry hook already looks for.
 
@@ -756,8 +756,8 @@ Browser emission and dedup, `packages/browser/src/posthog-featureflags.ts` in `p
 The persistence key, `packages/browser/src/constants.ts`:
 
 ```ts
-export const FLAG_CALL_REPORTED = '$flag_call_reported'
-export const FLAG_CALL_REPORTED_SESSION_ID = '$flag_call_reported_session_id'
+export const FLAG_CALL_REPORTED = '$flag_call_reported';
+export const FLAG_CALL_REPORTED_SESSION_ID = '$flag_call_reported_session_id';
 ```
 
 The config doc, `packages/types/src/posthog-config.ts`:
@@ -792,22 +792,30 @@ Node dedup, `packages/node/src/client.ts`:
 Event properties, `packages/core/src/posthog-core.ts`:
 
 ```ts
-      const properties: Record<string, any> = {
-        $feature_flag: key,
-        $feature_flag_response: flagValue,
-        ...maybeAdd('$feature_flag_id', featureFlag?.metadata?.id),
-        ...maybeAdd('$feature_flag_version', featureFlag?.metadata?.version),
-        ...maybeAdd('$feature_flag_reason', featureFlag?.reason?.description ?? featureFlag?.reason?.code),
-        ...maybeAdd('$feature_flag_bootstrapped_response', bootstrappedResponse),
-        ...maybeAdd('$feature_flag_bootstrapped_payload', bootstrappedPayload),
-        $used_bootstrap_value: !this.getPersistedProperty(PostHogPersistedProperty.FlagsEndpointWasHit),
-        ...maybeAdd('$feature_flag_request_id', details?.requestId),
-        ...maybeAdd('$feature_flag_evaluated_at', details?.evaluatedAt),
-        ...maybeAdd('$feature_flag_error', featureFlagError),
-        ...maybeAdd('$feature_flag_has_experiment', featureFlag?.metadata?.has_experiment),
-      }
+const properties: Record<string, any> = {
+  $feature_flag: key,
+  $feature_flag_response: flagValue,
+  ...maybeAdd('$feature_flag_id', featureFlag?.metadata?.id),
+  ...maybeAdd('$feature_flag_version', featureFlag?.metadata?.version),
+  ...maybeAdd(
+    '$feature_flag_reason',
+    featureFlag?.reason?.description ?? featureFlag?.reason?.code,
+  ),
+  ...maybeAdd('$feature_flag_bootstrapped_response', bootstrappedResponse),
+  ...maybeAdd('$feature_flag_bootstrapped_payload', bootstrappedPayload),
+  $used_bootstrap_value: !this.getPersistedProperty(
+    PostHogPersistedProperty.FlagsEndpointWasHit,
+  ),
+  ...maybeAdd('$feature_flag_request_id', details?.requestId),
+  ...maybeAdd('$feature_flag_evaluated_at', details?.evaluatedAt),
+  ...maybeAdd('$feature_flag_error', featureFlagError),
+  ...maybeAdd(
+    '$feature_flag_has_experiment',
+    featureFlag?.metadata?.has_experiment,
+  ),
+};
 
-      this.capture('$feature_flag_called', properties)
+this.capture('$feature_flag_called', properties);
 ```
 
 Suppression is per call, `packages/core/src/types.ts`: "Whether to send a $feature_flag_called event. Defaults to true."
@@ -960,7 +968,7 @@ and the error classification that lands on the next exposure event:
     apiError: (status: number | string) => `api_error_${status}`,
 ```
 
-Browser identifiers, `packages/browser/src/posthog-core.ts` sets `$device_id: uuid` on first visit with the comment "distinct id == $device_id is a proxy for an anonymous user", and sets `properties['$session_id'] = sessionId`. `packages/browser/src/constants.ts` names it: `export const DEVICE_ID = '$device_id'`.
+Browser identifiers, `packages/browser/src/posthog-core.ts` sets `$device_id: uuid` on first visit with the comment "distinct id == $device_id is a proxy for an anonymous user", and sets `properties['$session_id'] = sessionId`. `packages/browser/src/constants.ts`names it:`export const DEVICE_ID = '$device_id'`.
 
 Server-side geoip is opt-out per call, `packages/node/src/client.ts` threads a `disableGeoip` option through `capture` and `identify`.
 
@@ -968,11 +976,7 @@ Default event properties are documented at https://posthog.com/docs/data/events,
 
 PostHog's own OpenFeature provider maps context to PostHog this way, `openfeature-provider/openfeature/contrib/provider/posthog/provider.py` in `posthog-python`:
 
-> Evaluation-context mapping:
->     * ``targeting_key``               -> PostHog ``distinct_id``
->     * reserved attr ``groups``        -> PostHog ``groups``
->     * reserved attr ``group_properties`` -> PostHog ``group_properties``
->     * every other attribute           -> PostHog ``person_properties``
+> Evaluation-context mapping: * `targeting_key` -> PostHog `distinct_id` * reserved attr `groups` -> PostHog `groups` * reserved attr `group_properties` -> PostHog `group_properties` * every other attribute -> PostHog `person_properties`
 
 Every non-reserved context attribute becomes a person property on the evaluation request. That is the PII surface a provider controls.
 
@@ -1004,7 +1008,7 @@ A provider package is a thin set of obligations, and most of the friction is in 
 
 ## What surprised me
 
-The provider must emit its own readiness event. Requirement 2.8.1 explicitly says "Providers must not rely on the SDK to infer status from lifecycle method return values," and 2.8.2 says the emit has to happen *before* `initialize` terminates. An `async initialize` that just resolves leaves the SDK stuck at `NOT_READY`. This is easy to get wrong and silent when you do.
+The provider must emit its own readiness event. Requirement 2.8.1 explicitly says "Providers must not rely on the SDK to infer status from lifecycle method return values," and 2.8.2 says the emit has to happen _before_ `initialize` terminates. An `async initialize` that just resolves leaves the SDK stuck at `NOT_READY`. This is easy to get wrong and silent when you do.
 
 `SPLIT` carries no constraint at all. I expected the spec to tie it to fractional evaluation, given that the glossary defines "Fractional Evaluation" in detail. It does not. Requirement 2.2.5 is one SHOULD listing nine strings "or some other string", so `reason` is closer to a free-text convention than an enum.
 
@@ -1019,7 +1023,7 @@ PostHog's own OpenFeature provider never emits `SPLIT`. `_map_reason` in `postho
 
 A user assigned to the `test` variant by a SHA-1 bucket gets `TARGETING_MATCH`. The comment says PostHog "has no distinct OpenFeature-style reason here", but the server does distinguish: `FlagEvaluationReason.code` would be `condition_match` either way, so the information genuinely is not on the wire. A library that models bucketing explicitly can do better than the reference provider.
 
-Variant keys are the bucketing input, so renaming one re-buckets everyone. `select_variant` walks the declaration order and `MultivariateFlagVariant` has no id field. Reordering variants in the UI reassigns users too. Worse, the variant hash and the rollout hash differ only by the salt `"variant"` versus `""`, both over `"{flag_key}.{identifier}"`, so renaming a *flag* re-rolls both draws at once.
+Variant keys are the bucketing input, so renaming one re-buckets everyone. `select_variant` walks the declaration order and `MultivariateFlagVariant` has no id field. Reordering variants in the UI reassigns users too. Worse, the variant hash and the rollout hash differ only by the salt `"variant"` versus `""`, both over `"{flag_key}.{identifier}"`, so renaming a _flag_ re-rolls both draws at once.
 
 Incomplete variant weights silently strand users. `select_variant` returns `None` when the weights sum below 100, and PostHog has a test asserting exactly that. The caller then falls through to the boolean `enabled` path.
 

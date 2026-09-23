@@ -5,18 +5,18 @@ Method: I cloned the repositories below and read the evaluation code. Documentat
 
 Repositories read (all cloned at `--depth 1` on 2026-09-23):
 
-| Repo | Used for |
-|---|---|
-| `Unleash/unleash-client-node` | Node backend SDK: bucketing, variants, metrics, impressions, bootstrap |
-| `Unleash/unleash-client-go` | Go backend SDK: cross-check of the hash |
-| `Unleash/yggdrasil` | The Rust engine Unleash is consolidating SDKs onto |
-| `Unleash/client-specification` | Cross-SDK conformance fixtures |
-| `Unleash/unleash` (sparse, `src/lib`) | Server: OpenAPI schemas, variant weight normalisation |
-| `Flagsmith/flagsmith` | Server: models, mappers, SDK contract schemas |
-| `Flagsmith/flagsmith-engine` | Python evaluation engine (the reference implementation) |
-| `flagsmith/engine-test-data` | Cross-SDK conformance fixtures |
-| `Flagsmith/flagsmith-python-client` | Server-side SDK: polling, offline, analytics, exposure events |
-| `Flagsmith/flagsmith-js-client` | Client-side SDK: caching, analytics, typing |
+| Repo                                  | Used for                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `Unleash/unleash-client-node`         | Node backend SDK: bucketing, variants, metrics, impressions, bootstrap |
+| `Unleash/unleash-client-go`           | Go backend SDK: cross-check of the hash                                |
+| `Unleash/yggdrasil`                   | The Rust engine Unleash is consolidating SDKs onto                     |
+| `Unleash/client-specification`        | Cross-SDK conformance fixtures                                         |
+| `Unleash/unleash` (sparse, `src/lib`) | Server: OpenAPI schemas, variant weight normalisation                  |
+| `Flagsmith/flagsmith`                 | Server: models, mappers, SDK contract schemas                          |
+| `Flagsmith/flagsmith-engine`          | Python evaluation engine (the reference implementation)                |
+| `flagsmith/engine-test-data`          | Cross-SDK conformance fixtures                                         |
+| `Flagsmith/flagsmith-python-client`   | Server-side SDK: polling, offline, analytics, exposure events          |
+| `Flagsmith/flagsmith-js-client`       | Client-side SDK: caching, analytics, typing                            |
 
 ---
 
@@ -116,7 +116,9 @@ function findOverride(
 ): VariantDefinition | undefined {
   return variants
     .filter((variant) => variant.overrides)
-    .find((variant) => variant.overrides?.some(overrideMatchesContext(context)));
+    .find((variant) =>
+      variant.overrides?.some(overrideMatchesContext(context)),
+    );
 }
 ```
 
@@ -167,7 +169,7 @@ percentage_allocation = models.FloatField(
 
 Weight is a float 0–100. Flagsmith has no fixed/variable distinction. Nothing in the model forces the allocations to sum to 100, and the engine handles a shortfall by falling through to the control value (see the loop quoted in question 2).
 
-There is no separate payload. The variant value *is* the flag value. `MultivariateFeatureOption` extends `AbstractBaseFeatureValueModel`, which stores one of three types (`api/features/feature_states/models.py`):
+There is no separate payload. The variant value _is_ the flag value. `MultivariateFeatureOption` extends `AbstractBaseFeatureValueModel`, which stores one of three types (`api/features/feature_states/models.py`):
 
 ```python
 type = models.CharField(
@@ -201,7 +203,7 @@ To pin one variant at 100%, the operator sets that override's allocations accord
 
 ### Difference
 
-Unleash separates the variant's payload from the flag's boolean. Flagsmith merges them: a multivariate flag's variant *is* its value, so `enabled` and `value` stay independent. Unleash has fixed vs variable weight and server-side renormalisation to 1000; Flagsmith has neither, and a bad sum silently means "some traffic gets control".
+Unleash separates the variant's payload from the flag's boolean. Flagsmith merges them: a multivariate flag's variant _is_ its value, so `enabled` and `value` stay independent. Unleash has fixed vs variable weight and server-side renormalisation to 1000; Flagsmith has neither, and a bad sum silently means "some traffic gets control".
 
 ---
 
@@ -216,7 +218,12 @@ MurmurHash3 x86 32-bit over `"{groupId}:{id}"`, modulo a normaliser, plus one. T
 ```ts
 import * as murmurHash3 from 'murmurhash3js';
 
-function normalizedValue(id: string, groupId: string, normalizer: number, seed = 0): number {
+function normalizedValue(
+  id: string,
+  groupId: string,
+  normalizer: number,
+  seed = 0,
+): number {
   const hash = murmurHash3.x86.hash32(`${groupId}:${id}`, seed);
   return (hash % normalizer) + 1;
 }
@@ -229,7 +236,11 @@ export function normalizedStrategyValue(id: string, groupId: string): number {
 
 const VARIANT_SEED = 86028157;
 
-export function normalizedVariantValue(id: string, groupId: string, normalizer: number): number {
+export function normalizedVariantValue(
+  id: string,
+  groupId: string,
+  normalizer: number,
+): number {
   return normalizedValue(id, groupId, normalizer, VARIANT_SEED);
 }
 ```
@@ -279,26 +290,35 @@ func NormalizedVariantValue(id, groupId string, normalizer int, seed uint32) uin
 Rollout comparison is inclusive. `unleash-client-node/src/strategy/flexible-rollout-strategy.ts`:
 
 ```ts
-const normalizedUserId = normalizedStrategyValue(stickinessId, groupId as string);
+const normalizedUserId = normalizedStrategyValue(
+  stickinessId,
+  groupId as string,
+);
 return percentage > 0 && normalizedUserId <= percentage;
 ```
 
 Variant selection walks the variants in array order, accumulating weight until it reaches the target. `unleash-client-node/src/variant.ts`:
 
 ```ts
-const target = normalizedVariantValue(getSeed(context, stickiness), groupId, totalWeight);
+const target = normalizedVariantValue(
+  getSeed(context, stickiness),
+  groupId,
+  totalWeight,
+);
 
 let counter = 0;
-const variant = variants.find((v: VariantDefinition): VariantDefinition | undefined => {
-  if (v.weight === 0) {
-    return undefined;
-  }
-  counter += v.weight;
-  if (counter < target) {
-    return undefined;
-  }
-  return v;
-});
+const variant = variants.find(
+  (v: VariantDefinition): VariantDefinition | undefined => {
+    if (v.weight === 0) {
+      return undefined;
+    }
+    counter += v.weight;
+    if (counter < target) {
+      return undefined;
+    }
+    return v;
+  },
+);
 ```
 
 `groupId` for feature-level variants is the feature name (`selectVariant` passes `feature.name`). For strategy rollout it is `parameters.groupId || context.featureToggle`.
@@ -453,7 +473,7 @@ Neither product publishes raw hash test vectors. Both publish outcome fixtures.
 
 Unleash hashes `"group:id"` with MurmurHash3 into integer buckets. Flagsmith hashes `"a,b"` with MD5 into a float percentage. Unleash keys the rollout hash on a `groupId` the operator controls, so an operator can deliberately reshuffle. Flagsmith keys it on a feature-state identifier the operator does not control, so reshuffling is not an operator action.
 
-Unleash's variant hash input is the *feature name* (a string an operator can rename). Flagsmith's is a numeric feature-state seed (renaming the flag does not move anyone).
+Unleash's variant hash input is the _feature name_ (a string an operator can rename). Flagsmith's is a numeric feature-state seed (renaming the flag does not move anyone).
 
 ---
 
@@ -559,11 +579,11 @@ The mapper then feeds that seed to the engine in the field the engine already ha
 django_id=feature_state.mv_hashing_seed,
 ```
 
-This makes assignment stable across *version* changes, not across *weight* changes. A weight change still moves the bands.
+This makes assignment stable across _version_ changes, not across _weight_ changes. A weight change still moves the bands.
 
 ### Difference
 
-Neither product stores an assignment. Both reassign on a weight change. Flagsmith has invested in keeping the hash *input* stable across operational churn (versioning, recreation); Unleash's variant hash input is the feature name and its rollout hash input is an operator-editable `groupId`, so Unleash treats reshuffling as a lever, not a hazard.
+Neither product stores an assignment. Both reassign on a weight change. Flagsmith has invested in keeping the hash _input_ stable across operational churn (versioning, recreation); Unleash's variant hash input is the feature name and its rollout hash input is an operator-editable `groupId`, so Unleash treats reshuffling as a lever, not a hazard.
 
 ---
 
@@ -583,7 +603,8 @@ experimentalMode = { type: 'polling', format: 'full' },
 15 second poll, 60 second metrics push. Three transport modes, `src/unleash-config.ts`:
 
 ```ts
-export type Mode = { type: 'polling'; format: 'delta' | 'full' } | { type: 'streaming' };
+export type Mode =
+  { type: 'polling'; format: 'delta' | 'full' } | { type: 'streaming' };
 ```
 
 Streaming is SSE against `/client/streaming` (`src/repository/streaming-fetcher.ts:175`):
@@ -674,7 +695,7 @@ Remote evaluation: the SDK POSTs the identity and traits and gets back a per-use
 > "The Edge API provides a datastore and Edge compute API that is replicated across 8 AWS regions, with latency-based routing and global failover in the event of a region outage." "calls need[] an environment key supplied with each request as an HTTP header named X-Environment-Key."
 > (https://docs.flagsmith.com/performance/edge-api)
 
-Streaming exists. It carries a change *signal*, not a payload. `flagsmith-python-client/flagsmith/streaming_manager.py` opens an SSE connection and maps events; the docs describe the content:
+Streaming exists. It carries a change _signal_, not a payload. `flagsmith-python-client/flagsmith/streaming_manager.py` opens an SSE connection and maps events; the docs describe the content:
 
 > Each event message is "a JSON object containing a Unix epoch timestamp of the environment's last update" in this format: `{ "updated_at": 3133690620000}`.
 > "Real-time flag updates require an Enterprise subscription."
@@ -795,7 +816,12 @@ Docs:
 The JS client has an actual TTL, and this is the one place either product bounds staleness. `flagsmith-js-client/flagsmith-core.ts`:
 
 ```ts
-cacheOptions = {ttl:0, skipAPI: false, loadStale: false, storageKey: undefined as string|undefined}
+cacheOptions = {
+  ttl: 0,
+  skipAPI: false,
+  loadStale: false,
+  storageKey: undefined as string | undefined,
+};
 ```
 
 and the check at line 498:
@@ -809,11 +835,13 @@ if (this.cacheOptions.ttl) {
         this.log("Loading stale cache, timestamp ts:" + json.ts + " ttl: " + this.cacheOptions.ttl + ...)
 ```
 
-Default `ttl: 0` means no expiry. Setting a ttl makes the SDK *ignore* the cache and go to the API, unless `loadStale` is set, in which case the stale cache is used while the API request is in flight. There is a warning for the footgun combination:
+Default `ttl: 0` means no expiry. Setting a ttl makes the SDK _ignore_ the cache and go to the API, unless `loadStale` is set, in which case the stale cache is used while the API request is in flight. There is a warning for the footgun combination:
 
 ```ts
 if (!this.cacheOptions.ttl && this.cacheOptions.skipAPI) {
-    console.warn("Flagsmith: you have set a cache ttl of 0 and are skipping API calls, this means the API will not be hit unless you clear local storage.")
+  console.warn(
+    'Flagsmith: you have set a cache ttl of 0 and are skipping API calls, this means the API will not be hit unless you clear local storage.',
+  );
 }
 ```
 
@@ -896,7 +924,7 @@ with `ANALYTICS_TIMER: typing.Final[int] = 10` and endpoint `analytics/flags/`. 
 
 ```ts
 if (!options?.skipAnalytics && !skipAnalytics) {
-    this.evaluateFlag(key, "VALUE");
+  this.evaluateFlag(key, 'VALUE');
 }
 ```
 
@@ -993,8 +1021,14 @@ The only generation in the Unleash codebase is OpenAPI-driven API client typing,
 Not found as a code generator. The JS SDK does offer type parameters you supply yourself. `flagsmith-js-client/types.d.ts`:
 
 ```ts
-export declare type IFlags<F extends string = string> = Record<F, IFlagsmithFeature>;
-export declare type ITraits<T extends string = string> = Record<T, IFlagsmithTrait>;
+export declare type IFlags<F extends string = string> = Record<
+  F,
+  IFlagsmithFeature
+>;
+export declare type ITraits<T extends string = string> = Record<
+  T,
+  IFlagsmithTrait
+>;
 ```
 
 So `flagsmith<'my_flag' | 'other_flag', 'age'>` narrows flag and trait names, but the union is hand-written.
@@ -1041,7 +1075,7 @@ Reordering strategies changes nothing in evaluation. Strategies are ORed: "Evalu
 
 Inserting a variant moves everyone. The array is alphabetical by name and the walk is cumulative, so a new variant named `aaa` shifts every existing variant's band. Adding a variant also changes `totalWeight`, which changes the modulus, which rerolls the hash target for every subject.
 
-Changing a rollout percentage is monotone and safe. `normalizedStrategyValue` is independent of the percentage, and the test is `normalizedUserId <= percentage`, so raising the percentage only adds subjects and never removes one. Changing the *variant* weights is not safe, per above.
+Changing a rollout percentage is monotone and safe. `normalizedStrategyValue` is independent of the percentage, and the test is `normalizedUserId <= percentage`, so raising the percentage only adds subjects and never removes one. Changing the _variant_ weights is not safe, per above.
 
 The one thing downstream that depends on identity is the hash input. Rollout hashes on `parameters.groupId`, so renaming the group reshuffles the rollout. Feature-level variants hash on the feature name, so renaming the flag reshuffles the variants.
 
@@ -1098,13 +1132,13 @@ def _wins_over(candidate, incumbent) -> bool:
     ) < incumbent.get("priority", constants.DEFAULT_PRIORITY)
 ```
 
-Feature states carry `uuid` and `django_id`, and the bucketing seed is a *lineage* identifier, not a row identifier, as quoted in question 3. So recreating a feature state does not reroll assignments.
+Feature states carry `uuid` and `django_id`, and the bucketing seed is a _lineage_ identifier, not a row identifier, as quoted in question 3. So recreating a feature state does not reroll assignments.
 
 Changing a percentage allocation moves the band boundaries and reassigns, same as Unleash.
 
 ### Difference
 
-Flagsmith gives variants a stable slug (`key`) and orders them by creation. Unleash identifies variants only by name and orders them alphabetically, so the *name you choose* determines where a variant sits in the cumulative walk.
+Flagsmith gives variants a stable slug (`key`) and orders them by creation. Unleash identifies variants only by name and orders them alphabetically, so the _name you choose_ determines where a variant sits in the cumulative walk.
 
 Unleash gives strategies a uuid but evaluation does not use it. Flagsmith makes the feature-state lineage id the bucketing seed and has gone to some trouble to keep it stable.
 
@@ -1138,7 +1172,7 @@ getClientData(): RegistrationData {
 
 `instanceId` defaults to a hostname, which is infrastructure identity, not user identity.
 
-Impression events carry the *entire* Unleash context, including `userId`, `sessionId`, `remoteAddress` and all custom properties (`ImpressionEvent.context: Context` in `src/events.ts`). No hashing, no redaction, no opt-out short of disabling impression data for the flag. It never leaves the process though, so the application decides what to do with it.
+Impression events carry the _entire_ Unleash context, including `userId`, `sessionId`, `remoteAddress` and all custom properties (`ImpressionEvent.context: Context` in `src/events.ts`). No hashing, no redaction, no opt-out short of disabling impression data for the flag. It never leaves the process though, so the application decides what to do with it.
 
 The frontend path is where context crosses the wire: a frontend SDK sends its context to the Frontend API or Edge as request parameters so the server can evaluate. Edge's stated purpose is to stop that context going further:
 
@@ -1181,7 +1215,7 @@ self._buffer.append(
 
 No hashing. The identifier is required, as quoted in question 6, and the stated reason is reconciliation with conversion events.
 
-The larger PII surface is remote evaluation itself, because identities and traits are *persisted*, not just transmitted:
+The larger PII surface is remote evaluation itself, because identities and traits are _persisted_, not just transmitted:
 
 > "Identities are persisted within the Flagsmith platform, along with any traits that have been assigned to them."
 > (https://docs.flagsmith.com/basic-features/managing-identities)
@@ -1265,7 +1299,7 @@ The docs frame the client/server split operationally and factually. They claim n
 
 ### Difference
 
-Flagsmith has a per-flag switch (`is_server_key_only`) and Unleash does not. Unleash's control is coarser (token type, whole environment) but structurally stronger for the flags that do ship, because the frontend payload contains no rule configuration at all. Flagsmith's client-side SDKs in remote evaluation also receive no rules, since the server evaluated them, so the practical gap is smaller than the model suggests; the real gap is that Flagsmith lets you keep a specific flag's *existence* off the client.
+Flagsmith has a per-flag switch (`is_server_key_only`) and Unleash does not. Unleash's control is coarser (token type, whole environment) but structurally stronger for the flags that do ship, because the frontend payload contains no rule configuration at all. Flagsmith's client-side SDKs in remote evaluation also receive no rules, since the server evaluated them, so the practical gap is smaller than the model suggests; the real gap is that Flagsmith lets you keep a specific flag's _existence_ off the client.
 
 ---
 
@@ -1279,7 +1313,7 @@ Variant ordering. Unleash sorts variants alphabetically by name, so adding a var
 
 Weight model. Unleash has fixed vs variable weights, renormalises to 1000 server-side, and rejects a variant set with no variable member. Flagsmith has plain 0–100 floats, no renormalisation, and silently serves control for any uncovered range.
 
-Payload. Unleash's variant payload is a typed `{type, value}` with a string value and four types (json, csv, string, number), orthogonal to the flag's boolean. Flagsmith's variant *is* the flag value, typed string/integer/boolean, with JSON parsed client-side on request.
+Payload. Unleash's variant payload is a typed `{type, value}` with a string value and four types (json, csv, string, number), orthogonal to the flag's boolean. Flagsmith's variant _is_ the flag value, typed string/integer/boolean, with JSON parsed client-side on request.
 
 Variant identity. Flagsmith variants have a uuid and a slug `key`, and `key` is what the engine returns. Unleash variants have only a name.
 
