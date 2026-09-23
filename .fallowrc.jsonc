@@ -12,6 +12,11 @@
     "tools/**/src/**/*.{ts,mts,mjs}",
     "scripts/*.mjs",
 
+    // The docs site's statistics sweep, run by the `docs:testing-data` target
+    // rather than imported. Its own module tree hangs off it, so without this
+    // the sweep and everything it reads report as unreachable.
+    "apps/docs/tools/test-statistics.mjs",
+
     // A package's doctest preamble, read by path rather than imported:
     // `vite.config.ts` reads it through `readPreamble(import.meta.dirname)` and
     // the region loader reads it beside the README it fills a fence from. No
