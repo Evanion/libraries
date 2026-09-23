@@ -34,9 +34,9 @@ The package is unpublished (`private: true`, 404 on npm), so the signature of
     because the same subject must get the same variant on a server, in a
     browser and in a native client.
 11. A variant `value` round-trips through JSON.
-12. Exposure tracking is out of scope. It belongs to the observation seam of
-    `docs/specs/2026-09-21-acl-enterprise-tooling.md` § 5, ported to this
-    package.
+12. Exposure tracking is out of scope, and no seam in this library can hold it.
+    The application emits an exposure at the render site, reading the decision
+    it already holds.
 
 ## Shape
 
@@ -384,11 +384,22 @@ of the 2026-09-11 spec states that the store holds intent and that resolution is
 computed on read and never written back; a callback fired inside `resolve()`
 breaks that.
 
-`docs/specs/2026-09-21-acl-enterprise-tooling.md` § 5 specifies the observation
-seam this belongs in: installed at construction, `(event) => void |
-Promise<unknown>`, the engine attaches a rejection handler and never awaits, and
-an observer may never alter a decision. Porting that seam to this package is its
-own document, and exposure is its first consumer.
+No seam in this library can hold it either, which
+`docs/specs/2026-09-23-feature-observation-seam.md` § 1 establishes against the
+entry points. `resolve` decides every configured feature, so a 40-feature store
+resolves 40 decisions on a request that renders three, and an observer fired
+from it records 37 exposures nobody saw. The React path never reaches the
+library at the render site: `FeatureProvider` resolves once in a `useMemo`
+(`react/index.tsx:59-65`) and `useFeature` reads a plain object (`:90-104`). A
+server render and a browser hydration each decide, so two observers report two
+exposures for one view. Deduplicating per subject per feature per session needs
+storage this library refuses to hold, which is the refusal `stickyVariants`
+already makes above.
+
+So the application emits the exposure where it renders the variant, reading
+`variant`, `assignment.source`, `assignment.bucket` and `rule` off the decision
+it already holds. The observation seam covers decision diagnostics,
+configuration version drift, the `toggle` audit and build-time plan evidence.
 
 Sticky storage. `stickyVariants` reads what an application stored. Storing it
 is the application's, and no entry point here writes.
