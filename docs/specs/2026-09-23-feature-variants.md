@@ -26,7 +26,17 @@ The package is unpublished (`private: true`, 404 on npm), so the signature of
    overload takes an explicit schema for configuration loaded at runtime.
 7. `PlanEntry` may carry a `decision` while `resolved` is `'deferred'`, for a
    feature whose enablement is settled and whose variant is not.
-8. Exposure tracking is out of scope. It belongs to the OpenFeature provider.
+8. A context may carry prior assignments, which win over the weights. The
+   library holds no storage.
+9. The declared order of `variants` is part of the assignment contract. No
+   serialization reorders or drops a variant.
+10. `bucketOf` becomes a cross-language contract with published test vectors,
+    because the same subject must get the same variant on a server, in a
+    browser and in a native client.
+11. A variant `value` round-trips through JSON.
+12. Exposure tracking is out of scope. It belongs to the observation seam of
+    `docs/specs/2026-09-21-acl-enterprise-tooling.md` § 5, ported to this
+    package.
 
 ## Shape
 
@@ -130,6 +140,41 @@ code needs a variant to render, and the control admits nobody to the experiment.
 `evaluateRule` already treats a rollout with no bucketing value as not matching,
 for the same reason: an incomplete context must not ramp anybody in.
 
+## Sticky assignment
+
+```ts
+export interface EvaluationContext {
+  now?: Date;
+  targetingKey?: string;
+  /** Prior assignments, keyed by feature. Checked before the weights. */
+  stickyVariants?: Readonly<Record<string, string>>;
+  [field: string]: unknown;
+}
+```
+
+Reweighting a running experiment moves subjects. A rollout percentage is
+monotonic and raising it only admits more buckets, so nobody who was in leaves.
+Weights are boundaries, so changing one reassigns every subject above it. At
+build time that lands at a deploy. In a service reading its configuration from a
+database, an operator moves a slider and subjects who already saw `control` see
+`blue` on their next render, which is the cohort whose exposure data is now
+worthless.
+
+Statsig and GrowthBook hold subjects still by storing each assignment in a
+datastore. This library performs no I/O at evaluation and holds no storage, for
+the same reason it does no network call, so it cannot do that itself.
+
+`stickyVariants` is the seam that lets an application do it. The application
+stores the assignment wherever it already keeps session state and hands it back
+in the context. A name the feature does not declare falls through to the
+weights, because a variant removed from the configuration must not pin a
+subject to something that no longer exists, and throwing would take down a
+render over stale session data.
+
+The value is checked after a rule pin and before the weights, so an operator
+pinning staff to a variant overrides a subject's history, and the history
+overrides the split.
+
 ## Precedence
 
 The existing order in `decide` is unchanged. Variant assignment hangs off the
@@ -137,10 +182,14 @@ points where a feature resolves on:
 
 1. `enabled === false`. Off, no variant.
 2. A parent resolved off. Off, no variant.
-3. No rules. On, `default-on`, weighted assignment.
+3. No rules. On, `default-on`, assignment.
 4. A rule matched and carries `variant`. On, `rule-match`, pinned.
-5. A rule matched without `variant`. On, `rule-match`, weighted assignment.
+5. A rule matched without `variant`. On, `rule-match`, assignment.
 6. No rule matched. Off, no variant.
+
+Assignment at steps 3 and 5 reads, in order: `stickyVariants[key]` when it names
+a declared variant, then the weights, then the control when the context carries
+no bucketing value.
 
 A feature that resolves off has no variant. Returning a control for an off
 feature would make the two states indistinguishable at the call site, and the
@@ -161,7 +210,7 @@ export interface Decision<
   value?: T;
   /** How the variant was chosen. Output only. */
   assignment?: {
-    source: 'weighted' | 'pinned' | 'fallback';
+    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
     by: string;
     /** Absent when the context did not carry the bucketing field. */
     bucket?: number;
@@ -224,6 +273,27 @@ features.valueOf('cta');    // { readonly label: 'Get it' } | undefined
 features.variantOf('nope'); // error: unknown key
 ```
 
+The two overloads cover a TypeScript consumer and reach no further. Inference
+needs a literal, a configuration served by a control plane carries none, and
+Swift and Kotlin infer nothing at all. So the explicit schema is not a fallback
+for the awkward case; it is the path every platform but a TypeScript literal
+takes, and something has to produce it.
+
+That producer is a `schema` in the configuration envelope, describing the
+context fields the rules read and, per feature, the variant names and the shape
+of their values. `Matrix` carries `schema` for the same reason at
+`@evanion/acl`'s `types.ts:206-210`, and a schema travelling inside the document
+it describes cannot drift from it, which a schema published as a separate file
+can. A generator then emits TypeScript types, Swift structs and Kotlin data
+classes from one versioned source, and the second overload consumes the
+TypeScript it emits.
+
+The envelope, the schema's own shape, and whether a mobile client fetches it
+separately to keep a config push small belong to the configuration distribution
+document. What this document fixes is the requirement: the variant names and
+value shapes are part of the published contract, and a consumer that cannot
+infer them reads them from the schema.
+
 Inferred values are literal and readonly. `createFeatures` deep-freezes every
 definition it stores, so a readonly type states what the runtime provides, and
 literal values make a `switch` over `valueOf` exhaustive. A consumer needing a
@@ -276,20 +346,52 @@ valueOf<K extends keyof S>(key: K, context?: EvaluationContext): S[K]['value'] |
 `useFeature` already returns the `Decision`, which now carries both, so the hook
 is a reader over it. `FeatureProvider` does not change.
 
+## Determinism across processes
+
+The package runs in backend services, in browsers and in native clients, and
+the same subject must get the same variant in all of them at one moment. Five
+things have to agree, and this document owns the first and the last:
+
+1. The hash. `bucketOf` becomes a published contract with test vectors, so a
+   Swift or Kotlin implementation proves it agrees. A subject who gets `blue`
+   on the web and `control` on iOS breaks the experiment silently, and nobody
+   reads that from a dashboard.
+2. The configuration version. Owned by the config distribution spec.
+3. The `targetingKey` value. One process holding it and another not means one
+   buckets and the other takes the control, which `assignment.source` reports
+   as `'fallback'` so the divergence is readable.
+4. `now`, for a feature whose rules carry a window. Clock skew near a boundary
+   is bounded and unavoidable.
+5. The declared order of `variants`. Assignment lays the weights out as
+   cumulative ranges in declaration order, so a serialization that reorders the
+   array reassigns everybody. Reduced serialization may drop a variant's
+   `value` and may never drop or reorder a variant.
+
+Point 5 constrains what a public configuration can hide. A client computing its
+own assignment holds every variant's name and weight, so a variant's existence
+cannot be secret from a process that decides it.
+`docs/specs/2026-09-16-published-policy-contracts.md` § 8 settled the same
+question for `@evanion/acl`: a consumer that needs to decide something holds
+the public document for it, and internal means no consumer decides it. A
+feature whose payloads must not reach a client is internal, the client never
+evaluates it, and a trusted process renders the result.
+
 ## Out of scope
 
 Exposure tracking. Recording which variant a subject saw is what turns
-assignment into an experiment, and it does not belong in the core. Decision 5 of
-the 2026-09-11 spec states that the store holds intent and that resolution is
+assignment into an experiment, and it does not belong in `resolve()`. Decision 5
+of the 2026-09-11 spec states that the store holds intent and that resolution is
 computed on read and never written back; a callback fired inside `resolve()`
-breaks that. Deduplicating to one exposure per subject also needs state the
-store would hold, and that state differs between a server render and the client
-hydration of the same decision.
+breaks that.
 
-The 2026-09-11 spec already plans an OpenFeature provider as a separate package,
-and OpenFeature standardises the evaluation hooks (`before`, `after`, `error`,
-`finally`) that exposure belongs in. A follow-up issue tracks it once this
-lands.
+`docs/specs/2026-09-21-acl-enterprise-tooling.md` § 5 specifies the observation
+seam this belongs in: installed at construction, `(event) => void |
+Promise<unknown>`, the engine attaches a rejection handler and never awaits, and
+an observer may never alter a decision. Porting that seam to this package is its
+own document, and exposure is its first consumer.
+
+Sticky storage. `stickyVariants` reads what an application stored. Storing it
+is the application's, and no entry point here writes.
 
 ## Ordering
 
