@@ -27,7 +27,12 @@
   // The stylesheet resolves through `@evanion/baize-ui`'s exports map to
   // `dist/styles.css`, which the design system's build emits. Source analysis
   // runs before any build, so the specifier resolves to nothing here.
+  // `statistics.json` is written by the `docs:testing-data` target during the
+  // build that produces the page, and `.gitignore:101` keeps it out of the
+  // tree. Source analysis runs before any build, so the specifier resolves to
+  // nothing here for the same reason the stylesheet above does.
   "ignoreUnresolvedImports": [
+    "./statistics.json",
     "@evanion/baize-ui/styles.css",
     "@evanion/baize-ui/styles.css?url",
     "../dist/styles.css",
