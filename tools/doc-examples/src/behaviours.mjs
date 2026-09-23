@@ -113,6 +113,73 @@ function titleOf(node) {
 }
 
 /**
+ * A block of source with the indentation its nesting gave it taken off.
+ *
+ * A case three `describe` levels down is written at six spaces, and the pane
+ * that shows it is narrower than the editor the author wrote it in. The common
+ * indent of the lines below the first is what that nesting added, so taking it
+ * off gives the reader the case at column zero and changes no line's shape
+ * relative to the others.
+ */
+function dedent(text) {
+  const lines = text.split('\n');
+  const depths = lines
+    .slice(1)
+    .filter((line) => line.trim() !== '')
+    .map((line) => line.length - line.trimStart().length);
+  const common = depths.length > 0 ? Math.min(...depths) : 0;
+
+  return lines
+    .map((line, at) => (at === 0 ? line : line.slice(common)))
+    .join('\n')
+    .trim();
+}
+
+/**
+ * What a case does, as the author wrote it.
+ *
+ * The body of the callback and not the whole call, because the call's first
+ * argument is the title and the pane showing this already has the title as its
+ * heading. A reader who opened a sentence wants the assertions under it, and a
+ * repeated title is the one line there that says nothing.
+ *
+ * A seeded case is the exception. Its title is computed per row, so what the
+ * page carries is the `describe` above it and the honest answer to "what does
+ * it assert" is the whole `it.each` call, seeds included.
+ */
+function bodyOf(node, seeded) {
+  const source = node.getSourceFile();
+  if (seeded) return dedent(node.getText(source));
+
+  const callback = node.arguments.find(
+    (each) =>
+      ts.isArrowFunction(each) ||
+      ts.isFunctionExpression(each) ||
+      ts.isIdentifier(each),
+  );
+  if (!callback) return dedent(node.getText(source));
+
+  if (
+    (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
+    callback.body !== undefined &&
+    ts.isBlock(callback.body)
+  ) {
+    const text = callback.body.getText(source);
+    // The braces are the callback's, not the case's, and the pane draws its own
+    // frame around what it shows.
+    return dedent(text.slice(1, -1));
+  }
+
+  return dedent(callback.getText(source));
+}
+
+/** Where a call stands, as a reader would open the file to it. */
+function lineOf(node) {
+  const source = node.getSourceFile();
+  return source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+}
+
+/**
  * Every chain a file states, outermost `describe` first.
  *
  * A generated case carries no sentence of its own. 450 of `@evanion/acl`'s
@@ -125,6 +192,11 @@ function titleOf(node) {
  * A `describe` with a computed title states nothing a reader can be shown, so
  * its cases are dropped rather than attached to a title nobody wrote. A skipped
  * case is dropped because the page may only carry a sentence a run produces.
+ *
+ * Each chain carries the case's own source with it. The reference entry shows
+ * a reader what a sentence asserts by showing them the case, so the parser that
+ * reads the title reads the body at the same position rather than leaving a
+ * second reader to find it again by name.
  */
 export function chainsOf(path) {
   const source = ts.createSourceFile(
@@ -162,12 +234,18 @@ export function chainsOf(path) {
     }
 
     if (chain === null) return;
+    const source = {
+      file: path,
+      line: lineOf(node),
+      body: bodyOf(node, runner.seeded || title === null),
+    };
+
     if (runner.seeded || title === null) {
-      if (chain.length > 0) found.push({ chain, generated: true });
+      if (chain.length > 0) found.push({ chain, generated: true, ...source });
       return;
     }
 
-    found.push({ chain: [...chain, title], generated: false });
+    found.push({ chain: [...chain, title], generated: false, ...source });
   };
 
   visit(source, []);
@@ -192,19 +270,26 @@ const keyOf = (each) =>
  */
 export function behavioursOf(packageRoot) {
   const files = testFilesOf(packageRoot);
+  // One record per chain across the whole package, so a case two entries both
+  // list is one record with one `id` and the sidecar carries its source once.
+  const chains = new Map();
   const states = new Map();
 
   for (const path of files) {
     for (const each of chainsOf(path)) {
+      const key = keyOf(each);
+      const held = chains.get(key) ?? { ...each, id: chains.size };
+      chains.set(key, held);
+
       for (const segment of each.chain) {
-        const held = states.get(segment) ?? new Map();
-        held.set(keyOf(each), each);
-        states.set(segment, held);
+        const under = states.get(segment) ?? new Map();
+        under.set(key, held);
+        states.set(segment, under);
       }
     }
   }
 
-  return { files, states };
+  return { files, chains: [...chains.values()], states };
 }
 
 /** Every name a package's `describe` blocks spell, at any depth. */
