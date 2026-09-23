@@ -107,8 +107,8 @@ why a flag is off:
 const decision = useFeature('express-pickup');
 // { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
 
-const { variant, value } = useVariant('checkout-cta');
-// variant: 'control', value: undefined
+const { variant, value } = useVariant('express-pickup');
+// { variant?, value? }
 ```
 
 The key lookup uses `Object.prototype.hasOwnProperty`, so a key of `constructor`
