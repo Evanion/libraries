@@ -15,9 +15,11 @@ export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
 
 export {
   DuplicateFeatureError,
+  DuplicateVariantError,
   FeatureConfigError,
   FeatureCycleError,
   UnknownDependencyError,
+  UnknownVariantError,
 } from './lib/errors.js';
 
 export type {
@@ -38,6 +40,7 @@ export type {
   Rule,
   RuleOutcome,
   ToggleResult,
+  VariantSpec,
   Weekday,
   WindowCondition,
 } from './lib/types.js';
