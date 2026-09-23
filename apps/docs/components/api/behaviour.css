@@ -155,6 +155,61 @@
   color: var(--shiki-dark);
 }
 
+/*
+ * A token the compiler gave a type, and the card that states it.
+ *
+ * `nextra-theme-docs` already ships every `.twoslash-*` rule, so the card takes
+ * the site's own popup background, border and radius by carrying
+ * `twoslash-popup-container`, and the dotted underline under a typed token
+ * comes from the theme's `.twoslash:hover .twoslash-hover`. What the theme does
+ * not cover is where the card goes: Nextra mounts its own through a React
+ * popover, and this pane draws a static one. So the card is placed from
+ * `BehaviourCatalogue.tsx` against the window, and these rules take the theme's
+ * flow positioning back off it.
+ */
+.docs-behaviours__body .twoslash-hover:focus-visible {
+  outline: 2px solid var(--baize-kind);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.docs-behaviours__body .twoslash-hover:focus {
+  border-block-end-color: var(--twoslash-underline-color);
+}
+
+.docs-behaviours__pane .docs-behaviours__type {
+  position: fixed;
+  z-index: 40;
+  margin: 0;
+  transform: none;
+  visibility: hidden;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  line-height: var(--baize-leading-normal);
+  max-width: min(36rem, calc(100vw - 1rem));
+  max-height: min(20rem, 60vh);
+  overflow: auto;
+}
+
+/*
+ * A signature that wraps arrives as a whole highlighted block, which brings its
+ * own frame with it. The card is the frame.
+ */
+.docs-behaviours__type pre {
+  margin: 0;
+  padding: 0;
+  background: none;
+  white-space: pre;
+}
+
+.docs-behaviours__type :where(span) {
+  color: var(--shiki-light);
+}
+
+:where(.dark) .docs-behaviours__type :where(span) {
+  color: var(--shiki-dark);
+}
+
 .docs-behaviours__waiting {
   font-family: var(--baize-font-text);
   font-size: var(--baize-text-sm);
