@@ -5,6 +5,7 @@ import {
   UnknownVariantError,
 } from './errors.js';
 import {
+  assignVariant,
   assignWeighted,
   bucketingOrder,
   validateVariants,
@@ -315,5 +316,132 @@ describe('variantSeedOf', () => {
     const rolloutSeed = String(definition.key);
 
     expect(variantSeedOf(definition)).not.toBe(rolloutSeed);
+  });
+});
+
+describe('assignVariant', () => {
+  const cta = {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  };
+
+  it('returns nothing for a feature declaring no variants', () => {
+    expect(
+      assignVariant({ key: 'k', enabled: true }, { targetingKey: 'u' }),
+    ).toBeUndefined();
+  });
+
+  it('buckets on targetingKey by default', () => {
+    const assignment = assignVariant(cta, { targetingKey: 'user-1' });
+
+    expect(assignment?.source).toBe('weighted');
+    expect(assignment?.by).toBe('targetingKey');
+    expect(assignment?.bucket).toBeGreaterThanOrEqual(0);
+    expect(assignment?.bucket).toBeLessThan(1);
+    expect(['control', 'blue']).toContain(assignment?.variant.name);
+  });
+
+  it('buckets on the field variantBy names', () => {
+    const byAccount = { ...cta, variantBy: 'accountId' };
+    const assignment = assignVariant(byAccount, { accountId: 'acct-9' });
+
+    expect(assignment?.by).toBe('accountId');
+    expect(assignment?.source).toBe('weighted');
+  });
+
+  it('gives one subject the same variant every time', () => {
+    const first = assignVariant(cta, { targetingKey: 'user-1' });
+    const second = assignVariant(cta, { targetingKey: 'user-1' });
+
+    expect(second?.variant.name).toBe(first?.variant.name);
+  });
+
+  it('buckets a numeric key the same as its string spelling', () => {
+    const asNumber = assignVariant(cta, { targetingKey: 42 as never });
+    const asString = assignVariant(cta, { targetingKey: '42' });
+
+    expect(asNumber?.variant.name).toBe(asString?.variant.name);
+  });
+
+  it('gives the control to a context carrying no bucketing value', () => {
+    const assignment = assignVariant(cta, {});
+
+    expect(assignment?.variant.name).toBe('control');
+    expect(assignment?.source).toBe('fallback');
+    expect(assignment?.bucket).toBeUndefined();
+  });
+
+  it('gives the control when the bucketing field holds an object', () => {
+    const assignment = assignVariant(cta, { targetingKey: {} as never });
+
+    expect(assignment?.source).toBe('fallback');
+  });
+
+  it('reads the control as the first variant in the bucketing order', () => {
+    const reordered = {
+      ...cta,
+      variants: [
+        { name: 'blue', weight: 50, order: 1 },
+        { name: 'control', weight: 50, order: 0 },
+      ],
+    };
+
+    expect(assignVariant(reordered, {})?.variant.name).toBe('control');
+  });
+
+  it('takes a prior assignment the context carries', () => {
+    const assignment = assignVariant(cta, {
+      targetingKey: 'user-1',
+      stickyVariants: { cta: 'blue' },
+    });
+
+    expect(assignment?.variant.name).toBe('blue');
+    expect(assignment?.source).toBe('sticky');
+  });
+
+  it('holds a subject still across a reweighting', () => {
+    const sticky = { targetingKey: 'user-1', stickyVariants: { cta: 'blue' } };
+    const reweighted = {
+      ...cta,
+      variants: [
+        { name: 'control', weight: 90 },
+        { name: 'blue', weight: 10 },
+      ],
+    };
+
+    expect(assignVariant(reweighted, sticky)?.variant.name).toBe('blue');
+  });
+
+  it('ignores a prior assignment for another feature', () => {
+    const assignment = assignVariant(cta, {
+      targetingKey: 'user-1',
+      stickyVariants: { other: 'blue' },
+    });
+
+    expect(assignment?.source).toBe('weighted');
+  });
+
+  it('falls through to the weights for a variant no longer declared', () => {
+    // A variant an operator removed must not pin a subject to something that
+    // does not exist, and throwing would take down a render over stale session
+    // data.
+    const assignment = assignVariant(cta, {
+      targetingKey: 'user-1',
+      stickyVariants: { cta: 'retired' },
+    });
+
+    expect(assignment?.source).toBe('weighted');
+    expect(['control', 'blue']).toContain(assignment?.variant.name);
+  });
+
+  it('takes a prior assignment even with no bucketing value', () => {
+    const assignment = assignVariant(cta, { stickyVariants: { cta: 'blue' } });
+
+    expect(assignment?.variant.name).toBe('blue');
+    expect(assignment?.source).toBe('sticky');
   });
 });
