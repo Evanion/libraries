@@ -8,7 +8,7 @@ describe('Widget System - Performance', () => {
     cleanup();
   });
 
-  it('should not re-render widgets when props have not changed', () => {
+  it('re-renders a widget only when its props change', () => {
     const renderSpy = vi.fn();
 
     const TestWidget = ({ content }: { content: string }) => {
@@ -115,7 +115,7 @@ describe('Widget System - Performance', () => {
     expect(outputRenderSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('should handle large numbers of widgets efficiently', () => {
+  it('renders a fifty-item region with one render per item', () => {
     const renderSpy = vi.fn();
 
     const TestWidget = ({ id }: { id: string }) => {
@@ -153,7 +153,7 @@ describe('Widget System - Performance', () => {
     expect(screen.getByTestId('widget-49')).toBeInTheDocument();
   });
 
-  it('should not re-render when instance components are the same reference', () => {
+  it('skips the re-render when the instance components keep their reference', () => {
     const renderSpy = vi.fn();
 
     const TestWidget = ({ content }: { content: string }) => {
@@ -189,7 +189,7 @@ describe('Widget System - Performance', () => {
     expect(renderSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle rapid prop changes efficiently', () => {
+  it('renders once per prop change across repeated updates', () => {
     const renderSpy = vi.fn();
 
     const CounterWidget = ({ count }: { count: number }) => {
@@ -235,7 +235,7 @@ describe('Widget System - Performance', () => {
     expect(screen.getByText('Count: 3')).toBeInTheDocument();
   });
 
-  it('should handle memoization of components correctly', () => {
+  it('memoises a widget on its props across a re-render', () => {
     const renderSpy = vi.fn();
 
     const TestWidget = ({ content }: { content: string }) => {
@@ -275,7 +275,7 @@ describe('Widget System - Performance', () => {
     expect(renderSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('should handle nested widgets performance correctly', () => {
+  it('renders each nested widget once, and none again on an identical re-render', () => {
     const cardRenderSpy = vi.fn();
     const textRenderSpy = vi.fn();
 

@@ -19,15 +19,15 @@ function namespaceOf(urn: string, nid: string): typeof URN {
 
 describe('URN', () => {
   describe('stringify', () => {
-    it('should stringify basic URN', () => {
+    it('stringifies a basic URN', () => {
       expect(URN.stringify('foo')).toBe('urn:nid:foo');
     });
 
-    it('should stringify with custom nid', () => {
+    it('stringifies with a custom NID', () => {
       expect(URN.stringify('foo', 'bar')).toBe('urn:bar:foo');
     });
 
-    it('should reject a scheme or NID that contains the separator', () => {
+    it('rejects a scheme or NID carrying the separator', () => {
       expect(() => URN.stringify('foo', 'n:i')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'n:i')).toThrow(
         "NID contains invalid character ':' in 'n:i'",
@@ -38,44 +38,44 @@ describe('URN', () => {
       );
     });
 
-    it('should accept an NSS that contains the separator', () => {
+    it('accepts an NSS carrying the separator', () => {
       // Split-then-rejoin on the same delimiter is lossless for the tail, so
       // the NSS can never structurally collide with the separator.
       expect(URN.stringify('a:b', 'nid')).toBe('urn:nid:a:b');
       expect(URN.parse('urn:nid:a:b').nss).toBe('a:b');
     });
 
-    it('should emit an NSS that starts with the NID verbatim', () => {
+    it('emits an NSS that starts with the NID verbatim', () => {
       const UserURN = namespaceOf('urn', 'user');
       expect(UserURN.stringify('user:42')).toBe('urn:user:user:42');
       expect(UserURN.parse('urn:user:user:42').nss).toBe('user:42');
     });
 
-    it('should keep a foreign namespace prefix verbatim in the NSS', () => {
+    it('keeps a foreign namespace prefix verbatim in the NSS', () => {
       expect(URN.stringify('foo:bar', 'example')).toBe('urn:example:foo:bar');
     });
 
-    it("should accept RFC 8141's own example NSS", () => {
+    it("accepts RFC 8141's own example NSS", () => {
       expect(URN.stringify('a123,z456', 'example')).toBe(
         'urn:example:a123,z456',
       );
     });
 
-    it('should throw error if URN parameter contains an invalid character', () => {
+    it('refuses a URN carrying an invalid character', () => {
       expect(() => URN.stringify('foo', 'bar', 'u!n')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'bar', 'u!n')).toThrow(
         "URN contains invalid character '!' in 'u!n'",
       );
     });
 
-    it('should throw error if NID parameter contains an invalid character', () => {
+    it('refuses a NID carrying an invalid character', () => {
       expect(() => URN.stringify('foo', 'b?r')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'b?r')).toThrow(
         "NID contains invalid character '?' in 'b?r'",
       );
     });
 
-    it('should reject a scheme that does not start with a letter', () => {
+    it('rejects a scheme that does not start with a letter', () => {
       expect(() => URN.stringify('foo', 'bar', '1rn')).toThrow(InvalidError);
       expect(() => URN.stringify('foo', 'bar', '1rn')).toThrow(
         /URN is invalid in '1rn': must start with a letter/,
@@ -84,19 +84,19 @@ describe('URN', () => {
   });
 
   describe('NID grammar', () => {
-    it('should accept lengths 2 through 32 on the write path', () => {
+    it('accepts lengths 2 through 32 on the write path', () => {
       expect(() => URN.stringify('x', 'ab')).not.toThrow();
       expect(() => URN.stringify('x', 'a'.repeat(32))).not.toThrow();
     });
 
-    it('should reject a 1-character NID on the write path', () => {
+    it('rejects a 1-character NID on the write path', () => {
       expect(() => URN.stringify('x', 'a')).toThrow(InvalidError);
       expect(() => URN.stringify('x', 'a')).toThrow(
         /NID is invalid in 'a': must be at least 2 characters long/,
       );
     });
 
-    it('should reject a 33-character NID on both paths', () => {
+    it('rejects a 33-character NID on both paths', () => {
       const long = 'a'.repeat(33);
       expect(() => URN.stringify('x', long)).toThrow(
         /NID is invalid in .*: must be at most 32 characters long/,
@@ -104,7 +104,7 @@ describe('URN', () => {
       expect(URN.isValidFormat(`urn:${long}:x`)).toBe(false);
     });
 
-    it('should reject a leading or trailing hyphen on both paths', () => {
+    it('rejects a leading or trailing hyphen on both paths', () => {
       expect(() => URN.stringify('x', '-bad')).toThrow(
         /must not start or end with '-'/,
       );
@@ -115,14 +115,14 @@ describe('URN', () => {
       expect(URN.isValidFormat('urn:bad-:x')).toBe(false);
     });
 
-    it("should reject '_', '.' and '~' in a NID on both paths", () => {
+    it("rejects '_', '.' and '~' in a NID on both paths", () => {
       for (const nid of ['my_ns', 'my.ns', 'my~ns']) {
         expect(() => URN.stringify('x', nid)).toThrow(InvalidError);
         expect(URN.isValidFormat(`urn:${nid}:x`)).toBe(false);
       }
     });
 
-    it('should accept a 1-character NID on the read path only', () => {
+    it('accepts a 1-character NID on the read path only', () => {
       // RFC 2141 permitted a 1-character NID and RFC 8141 Appendix B keeps
       // earlier-valid URNs valid, so parse is lenient where stringify is not.
       expect(URN.parse('urn:x:1')).toEqual({
@@ -134,7 +134,7 @@ describe('URN', () => {
       expect(() => URN.stringify('1', 'x')).toThrow(InvalidError);
     });
 
-    it('should expose the write grammar through nidGrammar', () => {
+    it('exposes the write grammar through nidGrammar', () => {
       expect(URN.nidGrammar.test('ab')).toBe(true);
       expect(URN.nidGrammar.test('a')).toBe(false);
       expect(URN.nidGrammar.test('a'.repeat(32))).toBe(true);
@@ -144,48 +144,48 @@ describe('URN', () => {
   });
 
   describe('NSS grammar', () => {
-    it('should accept the whole pchar set plus slash and percent-triplets', () => {
+    it('accepts the whole pchar set plus slash and percent-triplets', () => {
       expect(URN.nssGrammar.test(PCHAR_SOUP)).toBe(true);
       expect(() => URN.stringify(PCHAR_SOUP, 'example')).not.toThrow();
     });
 
-    it('should reject a leading slash', () => {
+    it('rejects a leading slash', () => {
       expect(URN.nssGrammar.test('/a')).toBe(false);
     });
 
-    it('should reject characters outside pchar', () => {
+    it('rejects characters outside pchar', () => {
       for (const nss of ['user#123', 'user 123', 'a?b', 'a[b', 'a"b', 'a\\b']) {
         expect(URN.nssGrammar.test(nss)).toBe(false);
         expect(() => URN.stringify(nss, 'example')).toThrow(InvalidError);
       }
     });
 
-    it('should accept the RFC 3986 sub-delims, colon and at-sign', () => {
+    it('accepts the RFC 3986 sub-delims, colon and at-sign', () => {
       for (const nss of ['user@123', 'user$123', 'user!123', 'foo/bar']) {
         expect(() => URN.stringify(nss, 'example')).not.toThrow();
       }
     });
 
-    it('should reject a malformed percent-triplet with a structural reason', () => {
+    it('rejects a malformed percent-triplet with a structural reason', () => {
       expect(() => URN.stringify('a%zz', 'example')).toThrow(
         /NSS is invalid in 'a%zz': contains a malformed percent-encoded octet/,
       );
       expect(() => URN.stringify('a%C', 'example')).toThrow(InvalidError);
     });
 
-    it('should not encode or decode on the write path', () => {
+    it('neither encodes nor decodes on the write path', () => {
       // stringify operates on the wire form: it validates, it never encodes.
       expect(() => URN.stringify('a b', 'example')).toThrow(InvalidError);
       expect(URN.stringify('a%20b', 'example')).toBe('urn:example:a%20b');
     });
 
-    it('should return percent-triplets intact on the read path', () => {
+    it('returns percent-triplets intact on the read path', () => {
       expect(URN.parse('urn:nid:a%20b').nss).toBe('a%20b');
     });
   });
 
   describe('scheme grammar', () => {
-    it('should follow RFC 3986 under the default separator', () => {
+    it('follows RFC 3986 under the default separator', () => {
       expect(URN.schemeGrammar.test('urn')).toBe(true);
       expect(URN.schemeGrammar.test('my-scheme')).toBe(true);
       expect(URN.schemeGrammar.test('a+b.c-d')).toBe(true);
@@ -195,17 +195,17 @@ describe('URN', () => {
   });
 
   describe('round-tripping', () => {
-    it('should round-trip the full pchar set through stringify and parse', () => {
+    it('round-trips the full pchar set through stringify and parse', () => {
       const Example = namespaceOf('urn', 'example');
       expect(Example.parse(Example.stringify(PCHAR_SOUP)).nss).toBe(PCHAR_SOUP);
     });
 
-    it('should round-trip an NSS containing the separator', () => {
+    it('round-trips an NSS carrying the separator', () => {
       const Example = namespaceOf('urn', 'example');
       expect(Example.parse(Example.stringify('a:b:c')).nss).toBe('a:b:c');
     });
 
-    it("should round-trip RFC 8141's own example URNs unchanged", () => {
+    it("round-trips RFC 8141's own example URNs unchanged", () => {
       const cases = [
         'urn:example:a123,z456',
         'urn:example:A123,z456',
@@ -227,21 +227,21 @@ describe('URN', () => {
       }
     });
 
-    it('should not be idempotent, and should say so honestly', () => {
+    it('is not idempotent, and says so', () => {
       // stringify is not a normaliser: re-stringifying a URN nests it.
       expect(URN.stringify(URN.stringify('foo'))).toBe('urn:nid:urn:nid:foo');
     });
   });
 
   describe('class inheritance', () => {
-    it('should derive from urn class', () => {
+    it('derives from the URN class', () => {
       class TRN extends URN {
         static override urn = 'trn';
       }
       expect(TRN.stringify('foo', 'bar')).toBe('trn:bar:foo');
     });
 
-    it('should derive from urn class and set separator', () => {
+    it('derives from the URN class and sets the separator', () => {
       class TRN extends URN {
         static override readonly urn = 'trn';
         static override readonly separator = '-';
@@ -249,7 +249,7 @@ describe('URN', () => {
       expect(TRN.stringify('foo', 'bar')).toBe('trn-bar-foo');
     });
 
-    it('should derive from urn class and set nid', () => {
+    it('derives from the URN class and sets the NID', () => {
       class TRN extends URN {
         static override urn = 'trn';
       }
@@ -267,7 +267,7 @@ describe('URN', () => {
       static override readonly separator = '-';
     }
 
-    it('should exclude the separator from the scheme and the NID', () => {
+    it('excludes the separator from the scheme and the NID', () => {
       expect(Dash.nidGrammar.test('n-id')).toBe(false);
       expect(Dash.schemeGrammar.test('t-rn')).toBe(false);
       expect(() => Dash.stringify('ab', 'n-id')).toThrow(InvalidError);
@@ -279,19 +279,19 @@ describe('URN', () => {
       );
     });
 
-    it('should drop the RFC length bounds for the scheme and the NID', () => {
+    it('drops the RFC length bounds for the scheme and the NID', () => {
       expect(() => Dash.stringify('ab', 'a')).not.toThrow();
       expect(() => Dash.stringify('ab', 'a'.repeat(40))).not.toThrow();
     });
 
-    it('should keep the RFC pchar grammar for the NSS', () => {
+    it('keeps the RFC pchar grammar for the NSS', () => {
       expect(Dash.nssGrammar.source).toBe(URN.nssGrammar.source);
       expect(Dash.stringify('a-b', 'nid')).toBe('trn-nid-a-b');
       expect(Dash.parse('trn-nid-a-b').nss).toBe('a-b');
       expect(Dash.stringify('a:b', 'nid')).toBe('trn-nid-a:b');
     });
 
-    it('should round-trip through parse, extractId and isValidFormat', () => {
+    it('round-trips through parse, extractId and isValidFormat', () => {
       class DashUser extends Dash {
         static override readonly nid = 'user';
       }
@@ -304,7 +304,7 @@ describe('URN', () => {
   });
 
   describe('parse', () => {
-    it('should parse URN and return all parts in object', () => {
+    it('parses a URN into its parts', () => {
       class BarTRN extends URN {
         static override urn = 'trn';
         static override readonly nid = 'bar';
@@ -317,7 +317,7 @@ describe('URN', () => {
       });
     });
 
-    it('should retain a foreign NID in the NSS', () => {
+    it('retains a foreign NID in the NSS', () => {
       class BarTRN extends URN {
         static override urn = 'trn';
         static override readonly nid = 'bar';
@@ -330,7 +330,7 @@ describe('URN', () => {
       });
     });
 
-    it('should retain a foreign scheme in the NSS, verbatim', () => {
+    it('retains a foreign scheme in the NSS, verbatim', () => {
       class UserTRN extends URN {
         static override readonly urn = 'trn';
         static override readonly nid = 'user';
@@ -351,7 +351,7 @@ describe('URN', () => {
       });
     });
 
-    it('should distinguish a foreign scheme from the class scheme', () => {
+    it('distinguishes a foreign scheme from the class scheme', () => {
       class UserTRN extends URN {
         static override readonly urn = 'trn';
         static override readonly nid = 'user';
@@ -361,7 +361,7 @@ describe('URN', () => {
       );
     });
 
-    it('should return the original case', () => {
+    it('returns the original case', () => {
       // The scheme and NID match case-insensitively, so nothing is retained,
       // and the returned parts keep the case they were written in.
       expect(URN.parse('URN:NID:Foo')).toEqual({
@@ -371,7 +371,7 @@ describe('URN', () => {
       });
     });
 
-    it('should reject character-invalid input', () => {
+    it('rejects character-invalid input', () => {
       expect(() => URN.parse('urn:us er:hello')).toThrow(ValidationError);
       expect(() => URN.parse('urn:nid:hello world')).toThrow(ValidationError);
       expect(() => URN.parse('urn:my_ns:x')).toThrow(ValidationError);
@@ -381,7 +381,7 @@ describe('URN', () => {
 
   describe('utility methods', () => {
     describe('isValidFormat', () => {
-      it('should return true for valid URN format', () => {
+      it('returns true for a valid URN', () => {
         expect(URN.isValidFormat('urn:user:123')).toBe(true);
         expect(URN.isValidFormat('custom:product:abc-123')).toBe(true);
         expect(URN.isValidFormat('my-scheme:namespace:id_with-dots')).toBe(
@@ -389,7 +389,7 @@ describe('URN', () => {
         );
       });
 
-      it('should return false for invalid URN format', () => {
+      it('returns false for an invalid URN', () => {
         expect(URN.isValidFormat('urn:user')).toBe(false); // Missing NSS
         expect(URN.isValidFormat('user:123')).toBe(false); // Missing URN scheme
         expect(URN.isValidFormat('urn::123')).toBe(false); // Empty NID
@@ -399,7 +399,7 @@ describe('URN', () => {
         expect(URN.isValidFormat('http://a:b')).toBe(false);
       });
 
-      it('should agree with parse on every input', () => {
+      it('agrees with parse on every input', () => {
         const inputs = [
           'urn:user:123',
           'urn:example:a123,z456',
@@ -430,7 +430,7 @@ describe('URN', () => {
     });
 
     describe('extractId', () => {
-      it('should extract the identifier from a URN', () => {
+      it('extracts the identifier from a URN', () => {
         expect(URN.extractId('urn:user:123')).toBe('123');
         expect(URN.extractId('custom:product:abc-123')).toBe('abc-123');
         expect(URN.extractId('my-scheme:namespace:id_with-dots')).toBe(
@@ -438,29 +438,29 @@ describe('URN', () => {
         );
       });
 
-      it('should handle URNs with namespace in NSS', () => {
+      it('extracts the identifier when the NSS carries a namespace', () => {
         expect(URN.extractId('urn:user:other:123')).toBe('other:123');
       });
 
-      it('should throw on character-invalid input', () => {
+      it('throws on character-invalid input', () => {
         expect(() => URN.extractId('urn:my_ns:x')).toThrow(ValidationError);
       });
     });
 
     describe('sameNamespace', () => {
-      it('should return true for URNs in the same namespace', () => {
+      it('returns true for URNs in the same namespace', () => {
         expect(URN.sameNamespace('urn:user:123', 'urn:user:456')).toBe(true);
         expect(
           URN.sameNamespace('custom:product:abc', 'custom:product:def'),
         ).toBe(true);
       });
 
-      it('should fold the case of the scheme and the NID', () => {
+      it('folds the case of the scheme and the NID', () => {
         expect(URN.sameNamespace('URN:user:1', 'urn:user:1')).toBe(true);
         expect(URN.sameNamespace('urn:USER:1', 'urn:user:2')).toBe(true);
       });
 
-      it('should return false for URNs in different namespaces', () => {
+      it('returns false for URNs in different namespaces', () => {
         expect(URN.sameNamespace('urn:user:123', 'urn:product:123')).toBe(
           false,
         );
@@ -469,67 +469,67 @@ describe('URN', () => {
         );
       });
 
-      it('should return false for invalid URNs', () => {
+      it('returns false for invalid URNs', () => {
         expect(URN.sameNamespace('invalid-urn', 'urn:user:123')).toBe(false);
         expect(URN.sameNamespace('urn:user:123', 'invalid-urn')).toBe(false);
       });
     });
 
     describe('belongsToNamespace', () => {
-      it('should return true when URN belongs to specified namespace', () => {
+      it('returns true when the URN belongs to the named namespace', () => {
         expect(URN.belongsToNamespace('urn:user:123', 'user')).toBe(true);
         expect(
           URN.belongsToNamespace('custom:product:abc', 'product', 'custom'),
         ).toBe(true);
       });
 
-      it('should fold the case of the scheme and the NID', () => {
+      it('folds the case of the scheme and the NID', () => {
         expect(URN.belongsToNamespace('URN:user:1', 'user')).toBe(true);
         expect(URN.belongsToNamespace('urn:USER:1', 'user')).toBe(true);
         expect(URN.belongsToNamespace('urn:user:1', 'USER')).toBe(true);
       });
 
-      it('should return false when URN does not belong to specified namespace', () => {
+      it('returns false when the URN does not belong to the named namespace', () => {
         expect(URN.belongsToNamespace('urn:user:123', 'product')).toBe(false);
         expect(
           URN.belongsToNamespace('custom:product:abc', 'product', 'urn'),
         ).toBe(false);
       });
 
-      it('should return false for invalid URNs', () => {
+      it('returns false for invalid URNs', () => {
         expect(URN.belongsToNamespace('invalid-urn', 'user')).toBe(false);
       });
     });
 
     describe('equals', () => {
-      it('should fold the case of the scheme and the NID', () => {
+      it('folds the case of the scheme and the NID', () => {
         expect(URN.equals('URN:Example:a123', 'urn:example:a123')).toBe(true);
       });
 
-      it('should compare the NSS byte for byte', () => {
+      it('compares the NSS byte for byte', () => {
         expect(URN.equals('urn:example:A123', 'urn:example:a123')).toBe(false);
       });
 
-      it('should canonicalise percent-triplet hex digits to uppercase', () => {
+      it('canonicalises percent-triplet hex digits to uppercase', () => {
         expect(
           URN.equals('urn:example:a123%2cz456', 'urn:example:a123%2Cz456'),
         ).toBe(true);
       });
 
-      it('should not treat a percent-triplet as equal to the octet it encodes', () => {
+      it('does not treat a percent-triplet as equal to the octet it encodes', () => {
         // RFC 8141 3.1: percent-encoded octets are not decoded for equivalence.
         expect(
           URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'),
         ).toBe(false);
       });
 
-      it('should not be confused by the class own NID', () => {
+      it('is not confused by a foreign NID the parse folded into the NSS', () => {
         // parse folds a foreign NID into the NSS; equals must not compare that.
         expect(URN.equals('urn:user:1', 'URN:USER:1')).toBe(true);
         expect(URN.equals('urn:user:1', 'urn:user:2')).toBe(false);
       });
 
-      it('should return false for malformed input rather than throwing', () => {
+      it('returns false for malformed input rather than throwing', () => {
         expect(URN.equals('nope', 'urn:example:a')).toBe(false);
         expect(URN.equals('nope', 'nope')).toBe(false);
       });
@@ -538,33 +538,33 @@ describe('URN', () => {
 
   describe('percent-encoding helpers', () => {
     describe('encodeNss', () => {
-      it('should encode everything outside the unreserved set', () => {
+      it('encodes everything outside the unreserved set', () => {
         expect(encodeNss('a b')).toBe('a%20b');
         expect(encodeNss('a/b')).toBe('a%2Fb');
         expect(encodeNss('café')).toBe('caf%C3%A9');
         expect(encodeNss('a-b._~')).toBe('a-b._~');
       });
 
-      it('should produce an NSS the grammar accepts', () => {
+      it('produces an NSS the grammar accepts', () => {
         for (const raw of ['a b', 'café', 'a#b', '?', '/leading']) {
           expect(URN.nssGrammar.test(encodeNss(raw))).toBe(true);
         }
       });
     });
 
-    it('should round-trip through decodeNss', () => {
+    it('round-trips through decodeNss', () => {
       for (const raw of ['a b', 'café', 'a#b?c/d', '100%', '😀']) {
         expect(decodeNss(encodeNss(raw))).toBe(raw);
       }
     });
 
     describe('decodeNss', () => {
-      it('should decode triplets the library itself never produces', () => {
+      it('decodes triplets the library itself never produces', () => {
         expect(decodeNss('a123%2Cz456')).toBe('a123,z456');
         expect(decodeNss('a123%2cz456')).toBe('a123,z456');
       });
 
-      it('should throw a ValidationError on a malformed percent sequence', () => {
+      it('throws a ValidationError on a malformed percent sequence', () => {
         expect(() => decodeNss('a%zz')).toThrow(ValidationError);
         expect(() => decodeNss('a%C3')).toThrow(ValidationError);
       });
@@ -572,41 +572,41 @@ describe('URN', () => {
   });
 
   describe('malformed input', () => {
-    it('should throw instead of leaking the string "undefined:" from parse', () => {
+    it('throws instead of leaking the string "undefined:" from parse', () => {
       expect(() => URN.parse('foo')).toThrow(ValidationError);
       expect(() => URN.parse('')).toThrow(ValidationError);
       expect(() => URN.parse('urn:user')).toThrow(ValidationError);
       expect(() => URN.parse('urn::123')).toThrow(ValidationError);
     });
 
-    it('should name the offending input in the parse error', () => {
+    it('names the offending input in the parse error', () => {
       expect(() => URN.parse('foo')).toThrow(/Invalid URN format: 'foo'/);
     });
 
-    it('should throw a ValidationError, not a bare Error, from extractId', () => {
+    it('throws a ValidationError, not a bare Error, from extractId', () => {
       expect(() => URN.extractId('urn:user')).toThrow(ValidationError);
     });
 
-    it('should not report two identical malformed strings as the same namespace', () => {
+    it('does not report two identical malformed strings as the same namespace', () => {
       expect(URN.sameNamespace('invalid-urn', 'invalid-urn')).toBe(false);
       expect(URN.sameNamespace('', '')).toBe(false);
     });
   });
 
   describe('empty components', () => {
-    it('should reject an empty NSS rather than emitting an unparseable URN', () => {
+    it('rejects an empty NSS rather than emitting an unparseable URN', () => {
       expect(() => URN.stringify('')).toThrow(InvalidError);
       expect(() => URN.stringify('')).toThrow(/NSS must not be empty/);
     });
 
-    it('should reject an empty NID and URN scheme', () => {
+    it('rejects an empty NID and URN scheme', () => {
       expect(() => URN.stringify('foo', '')).toThrow(/NID must not be empty/);
       expect(() => URN.stringify('foo', 'nid', '')).toThrow(
         /URN must not be empty/,
       );
     });
 
-    it('should not consider the empty string a valid component', () => {
+    it('does not consider the empty string a valid component', () => {
       expect(URN.schemeGrammar.test('')).toBe(false);
       expect(URN.nidGrammar.test('')).toBe(false);
       expect(URN.nssGrammar.test('')).toBe(false);
@@ -619,16 +619,16 @@ describe('URN', () => {
       static override readonly nid = 'bar';
     }
 
-    it('should default belongsToNamespace to the subclass scheme', () => {
+    it('defaults belongsToNamespace to the subclass scheme', () => {
       expect(TRN.belongsToNamespace('trn:bar:foo', 'bar')).toBe(true);
       expect(TRN.belongsToNamespace('urn:bar:foo', 'bar')).toBe(false);
     });
 
-    it('should still honour an explicit expectedUrn', () => {
+    it('still honours an explicit expectedUrn', () => {
       expect(TRN.belongsToNamespace('urn:bar:foo', 'bar', 'urn')).toBe(true);
     });
 
-    it('should use the subclass separator when retaining a foreign nid', () => {
+    it('uses the subclass separator when retaining a foreign NID', () => {
       class DashTRN extends URN {
         static override readonly urn = 'trn';
         static override readonly separator = '-';
@@ -642,7 +642,7 @@ describe('URN', () => {
       });
     });
 
-    it('should not let the statics be destructured', () => {
+    it('does not let the statics be destructured', () => {
       // Every static reads `this`, so unlike JSON.stringify they are unbound.
       // The failure comes from the default parameter `nid = this.nid`.
       const { stringify } = URN;
@@ -653,7 +653,7 @@ describe('URN', () => {
   describe('r-, q- and f-components', () => {
     const Example = namespaceOf('urn', 'example');
 
-    it('should leave a component-free URN parsing to exactly three keys', () => {
+    it('parses a component-free URN to exactly three keys', () => {
       // The three component fields are additive: a consumer reading
       // { urn, nid, nss } sees no new keys, not even undefined ones.
       const parsed = URN.parse('urn:nid:foo');
@@ -664,7 +664,7 @@ describe('URN', () => {
       expect('fComponent' in parsed).toBe(false);
     });
 
-    it('should split each component off the NSS', () => {
+    it('splits each component off the NSS', () => {
       expect(Example.parse('urn:example:foo?+r1')).toStrictEqual({
         urn: 'urn',
         nid: 'example',
@@ -693,7 +693,7 @@ describe('URN', () => {
       });
     });
 
-    it("should end the r-component at the first '?='", () => {
+    it("ends the r-component at the first '?='", () => {
       // RFC 8141 2.3.1: the r-component may contain a bare '?', and ends at
       // the first '?=' or '#'.
       expect(Example.parse('urn:example:foo?+a?b?=c?d')).toMatchObject({
@@ -702,7 +702,7 @@ describe('URN', () => {
       });
     });
 
-    it("should take the f-component off before looking for a '?'", () => {
+    it("takes the f-component off before looking for a '?'", () => {
       // '#' terminates the r- and q-components, and both may contain '?', so
       // the f-component has to come off first or a '?' inside it is read as a
       // component introducer.
@@ -718,7 +718,7 @@ describe('URN', () => {
       });
     });
 
-    it('should keep an empty f-component distinct from an absent one', () => {
+    it('keeps an empty f-component distinct from an absent one', () => {
       expect(Example.parse('urn:example:foo#')).toStrictEqual({
         urn: 'urn',
         nid: 'example',
@@ -730,7 +730,7 @@ describe('URN', () => {
       ).toBe('urn:example:foo#');
     });
 
-    it('should keep the components out of the NSS on a foreign namespace', () => {
+    it('keeps the components out of the NSS on a foreign namespace', () => {
       expect(URN.parse('urn:user:123?=q#f')).toStrictEqual({
         urn: 'urn',
         nid: 'user',
@@ -746,7 +746,7 @@ describe('URN', () => {
       });
     });
 
-    it('should emit the components from the object form of stringify', () => {
+    it('emits the components from the object form of stringify', () => {
       expect(
         Example.stringify({
           nss: 'foo',
@@ -758,7 +758,7 @@ describe('URN', () => {
       ).toBe('urn:example:foo?+r1?=q1#f1');
     });
 
-    it('should round-trip a URN with components through parse and stringify', () => {
+    it('round-trips a URN with components through parse and stringify', () => {
       for (const input of [
         'urn:example:weather?=lat=39&lon=-104#today',
         'urn:example:foo?+CCResolve:cc=uk',
@@ -769,7 +769,7 @@ describe('URN', () => {
       }
     });
 
-    it('should reject a component that breaks its grammar', () => {
+    it('rejects a component that breaks its grammar', () => {
       expect(() => Example.parse('urn:example:foo?+r 1')).toThrow(InvalidError);
       expect(() => Example.parse('urn:example:foo?+/r')).toThrow(
         /R-COMPONENT is invalid in '\/r'/,
@@ -788,7 +788,7 @@ describe('URN', () => {
       );
     });
 
-    it("should reject a bare '?' that introduces nothing", () => {
+    it("rejects a bare '?' that introduces nothing", () => {
       expect(() => URN.parse('urn:nid:foo?bar')).toThrow(ValidationError);
       expect(() => URN.parse('urn:nid:foo?bar')).toThrow(
         /A '\?' may only appear as '\?\+' or '\?='/,
@@ -796,14 +796,14 @@ describe('URN', () => {
       expect(URN.isValidFormat('urn:nid:foo?bar')).toBe(false);
     });
 
-    it('should keep the NSS argument of the positional form free of components', () => {
+    it('keeps the NSS argument of the positional form free of components', () => {
       // The positional nss parameter is an NSS, not a tail: it is validated
       // against the NSS grammar rather than split.
       expect(() => URN.stringify('foo?+r', 'example')).toThrow(InvalidError);
       expect(() => URN.stringify('foo#f', 'example')).toThrow(InvalidError);
     });
 
-    it('should exclude the components from equivalence, per RFC 8141 3.1', () => {
+    it('excludes the components from equivalence, per RFC 8141 3.1', () => {
       expect(URN.equals('urn:example:foo?+r1', 'urn:example:foo?+r2')).toBe(
         true,
       );
@@ -817,13 +817,13 @@ describe('URN', () => {
       );
     });
 
-    it('should drop the components from extractId', () => {
+    it('drops the components from extractId', () => {
       expect(URN.extractId('urn:user:123?+r?=q#f')).toBe('123');
       expect(URN.sameNamespace('urn:example:a#f', 'urn:example:b')).toBe(true);
       expect(URN.belongsToNamespace('urn:example:a?=q', 'example')).toBe(true);
     });
 
-    it('should expose the component grammars', () => {
+    it('exposes the component grammars', () => {
       expect(URN.rComponentGrammar.test('a?b/c%20d')).toBe(true);
       expect(URN.rComponentGrammar.test('?a')).toBe(false);
       expect(URN.rComponentGrammar.test('')).toBe(false);
@@ -832,7 +832,7 @@ describe('URN', () => {
       expect(URN.fComponentGrammar.test('a#b')).toBe(false);
     });
 
-    it('should parse components under a custom separator', () => {
+    it('parses components under a custom separator', () => {
       class Dash extends URN {
         static override readonly urn = 'trn';
         static override readonly nid = 'user';
@@ -850,7 +850,7 @@ describe('URN', () => {
       );
     });
 
-    it('should not parse components when the separator contains a delimiter', () => {
+    it('does not parse components when the separator carries a delimiter', () => {
       class Hash extends URN {
         static override readonly urn = 'trn';
         static override readonly nid = 'user';
@@ -870,14 +870,14 @@ describe('URN', () => {
   });
 
   describe('the object form of stringify', () => {
-    it('should accept a parsed URN directly', () => {
+    it('accepts a parsed URN directly', () => {
       const UserURN = namespaceOf('urn', 'user');
       expect(UserURN.stringify(UserURN.parse('urn:user:123'))).toBe(
         'urn:user:123',
       );
     });
 
-    it('should default the scheme and the NID to the class', () => {
+    it('defaults the scheme and the NID to the class', () => {
       const UserURN = namespaceOf('trn', 'user');
       expect(UserURN.stringify({ nss: '123' })).toBe('trn:user:123');
       expect(UserURN.stringify({ nss: '123', nid: 'order' })).toBe(
@@ -888,7 +888,7 @@ describe('URN', () => {
       );
     });
 
-    it('should not invert parse on a foreign namespace', () => {
+    it('does not invert parse on a foreign namespace', () => {
       // parse retains a foreign NID inside the nss so the namespace is not
       // lost, and stringify then prefixes the class's own. The two are
       // inverses only within the parsing class's own namespace.
@@ -898,13 +898,13 @@ describe('URN', () => {
       );
     });
 
-    it('should agree with the positional form', () => {
+    it('agrees with the positional form', () => {
       expect(URN.stringify({ nss: 'foo', nid: 'bar', urn: 'trn' })).toBe(
         URN.stringify('foo', 'bar', 'trn'),
       );
     });
 
-    it('should validate the object form the same way', () => {
+    it('validates the object form the same way', () => {
       expect(() => URN.stringify({ nss: '' })).toThrow(/NSS must not be empty/);
       // The NSS has no class-level fallback, so a JavaScript caller can omit
       // it; without a guard the grammar would pass the string 'undefined'.
@@ -917,7 +917,7 @@ describe('URN', () => {
       );
     });
 
-    it('should round-trip through the object form, not the spread', () => {
+    it('round-trips through the object form, not the spread', () => {
       // stringify's positional arguments are the reverse of parse's return
       // shape, so spreading the parsed object mislabels every part. Only the
       // object form carries the meaning in the keys.
@@ -930,7 +930,7 @@ describe('URN', () => {
   });
 
   describe('error hierarchy', () => {
-    it('should expose InvalidError as a ValidationError', () => {
+    it('exposes InvalidError as a ValidationError', () => {
       const error = new InvalidError('NSS', 'a b', ' ');
       expect(error).toBeInstanceOf(ValidationError);
       expect(error).toBeInstanceOf(Error);
@@ -940,7 +940,7 @@ describe('URN', () => {
       expect(error.invalidChar).toBe(' ');
     });
 
-    it('should carry a structural reason when no single character is at fault', () => {
+    it('carries a structural reason when no single character is at fault', () => {
       try {
         URN.stringify('x', 'a');
         expect.unreachable('stringify should have thrown');
@@ -951,14 +951,14 @@ describe('URN', () => {
       }
     });
 
-    it('should fall back to a generic message when given neither', () => {
+    it('falls back to a generic message when given neither', () => {
       // Not reachable from a library path; covered so the branch is not dead.
       expect(new InvalidError('NSS', 'abc').message).toBe(
         "NSS contains invalid characters in 'abc'",
       );
     });
 
-    it('should let a single catch handle both error kinds', () => {
+    it('lets a single catch handle both error kinds', () => {
       const caught: string[] = [];
       for (const run of [
         () => URN.stringify('bad char'),

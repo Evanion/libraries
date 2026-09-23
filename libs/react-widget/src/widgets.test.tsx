@@ -8,7 +8,7 @@ describe('Default Components', () => {
   });
 
   describe('DefaultWrapper', () => {
-    it('should render DefaultWrapper as a section element', () => {
+    it('renders as a section element', () => {
       render(
         <DefaultWrapper data-testid="wrapper">
           <div>Test content</div>
@@ -20,7 +20,7 @@ describe('Default Components', () => {
       expect(wrapper).toHaveTextContent('Test content');
     });
 
-    it('should pass through HTML props to DefaultWrapper', () => {
+    it('passes HTML props through to the section', () => {
       render(
         <DefaultWrapper
           data-testid="wrapper"
@@ -40,7 +40,7 @@ describe('Default Components', () => {
   });
 
   describe('DefaultItem', () => {
-    it('should render DefaultItem as a div element', () => {
+    it('renders as a div element', () => {
       render(
         <DefaultItem data-testid="item">
           <span>Test content</span>
@@ -52,7 +52,7 @@ describe('Default Components', () => {
       expect(item).toHaveTextContent('Test content');
     });
 
-    it('should pass through HTML props to DefaultItem', () => {
+    it('passes HTML props through to the div', () => {
       render(
         <DefaultItem
           data-testid="item"
@@ -72,7 +72,7 @@ describe('Default Components', () => {
   });
 
   describe('DefaultWrapper', () => {
-    it('should handle multiple children in DefaultWrapper', () => {
+    it('renders every child the section is given', () => {
       render(
         <DefaultWrapper data-testid="wrapper">
           <div>First child</div>
@@ -89,7 +89,7 @@ describe('Default Components', () => {
   });
 
   describe('DefaultItem', () => {
-    it('should handle multiple children in DefaultItem', () => {
+    it('renders every child the div is given', () => {
       render(
         <DefaultItem data-testid="item">
           <span>First span</span>
@@ -106,7 +106,7 @@ describe('Default Components', () => {
   });
 
   describe('DefaultWrapper', () => {
-    it('should handle empty children gracefully', () => {
+    it('renders an empty section when every child is nullish', () => {
       render(
         <DefaultWrapper data-testid="wrapper">
           {null}
@@ -121,7 +121,7 @@ describe('Default Components', () => {
       expect(wrapper).toBeEmptyDOMElement();
     });
 
-    it('should handle complex nested structures', () => {
+    it('renders a nested tree of items and their own children', () => {
       render(
         <DefaultWrapper data-testid="wrapper">
           <DefaultItem data-testid="item1">

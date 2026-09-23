@@ -9,7 +9,7 @@ import {
 const SHAPE = { length: 8, chunkSize: 4, separator: '-' };
 
 describe('TokenError', () => {
-  it('should be an Error', () => {
+  it('is an Error', () => {
     const error = new TokenError('boom');
 
     expect(error).toBeInstanceOf(Error);
@@ -19,7 +19,7 @@ describe('TokenError', () => {
 });
 
 describe('InvalidAlphabetError', () => {
-  it('should be a TokenError carrying a name matching the class', () => {
+  it('is a TokenError carrying a name matching the class', () => {
     const error = new InvalidAlphabetError('non-uniform', 'abcdef');
 
     expect(error).toBeInstanceOf(TokenError);
@@ -27,7 +27,7 @@ describe('InvalidAlphabetError', () => {
     expect(error.constructor.name).toBe('InvalidAlphabetError');
   });
 
-  it('should carry the reason, the dictionary and the offending code points', () => {
+  it('carries the reason, the dictionary and the offending code points', () => {
     const error = new InvalidAlphabetError('confusable', 'abcilo', [
       'i',
       'l',
@@ -39,13 +39,13 @@ describe('InvalidAlphabetError', () => {
     expect(error.offending).toEqual(['i', 'l', 'o']);
   });
 
-  it('should default offending to empty, for the constraints no character owns', () => {
+  it('defaults offending to empty, for the constraints no character owns', () => {
     expect(new InvalidAlphabetError('non-uniform', 'abcdef').offending).toEqual(
       [],
     );
   });
 
-  it('should name the offending code points in the message', () => {
+  it('names the offending code points in the message', () => {
     expect(
       new InvalidAlphabetError('confusable', 'abcilo', ['i', 'l']).message,
     ).toContain('"i", "l"');
@@ -54,7 +54,7 @@ describe('InvalidAlphabetError', () => {
     ).toContain('"A"');
   });
 
-  it('should count the dictionary by code point in the non-uniform message', () => {
+  it('counts the dictionary by code point in the non-uniform message', () => {
     // 6 code points written as 12 UTF-16 units: the message reports what a
     // reader would count, not what `String#length` returns.
     expect(
@@ -64,7 +64,7 @@ describe('InvalidAlphabetError', () => {
 });
 
 describe('InvalidShapeError', () => {
-  it('should be a TokenError carrying a name matching the class', () => {
+  it('is a TokenError carrying a name matching the class', () => {
     const error = new InvalidShapeError('length', SHAPE);
 
     expect(error).toBeInstanceOf(TokenError);
@@ -72,7 +72,7 @@ describe('InvalidShapeError', () => {
     expect(error.constructor.name).toBe('InvalidShapeError');
   });
 
-  it('should carry all three shape values, not only the one it names', () => {
+  it('carries all three shape values, not only the one it names', () => {
     const error = new InvalidShapeError('chunk-size-indivisible', {
       length: 6,
       chunkSize: 4,
@@ -85,7 +85,7 @@ describe('InvalidShapeError', () => {
     expect(error.separator).toBe('/');
   });
 
-  it('should describe each reason distinctly', () => {
+  it('describes each reason distinctly', () => {
     const messages = (
       [
         'length',

@@ -7,7 +7,7 @@ import {
 } from './exceptions.js';
 
 describe('LuhnError', () => {
-  it('should be an Error', () => {
+  it('is an Error', () => {
     const error = new LuhnError('boom');
 
     expect(error).toBeInstanceOf(Error);
@@ -17,20 +17,20 @@ describe('LuhnError', () => {
 });
 
 describe('InvalidDictionaryError', () => {
-  it('should carry a name matching the class', () => {
+  it('carries a name matching the class', () => {
     const error = new InvalidDictionaryError('odd-length', 'abc', []);
 
     expect(error.name).toBe('InvalidDictionaryError');
     expect(error.constructor.name).toBe('InvalidDictionaryError');
   });
 
-  it('should be a LuhnError', () => {
+  it('is a LuhnError', () => {
     expect(new InvalidDictionaryError('odd-length', 'abc', [])).toBeInstanceOf(
       LuhnError,
     );
   });
 
-  it('should keep the fields it was constructed with', () => {
+  it('keeps the fields it was constructed with', () => {
     const error = new InvalidDictionaryError('duplicate', 'aabbccdd', [
       'a',
       'b',
@@ -43,14 +43,14 @@ describe('InvalidDictionaryError', () => {
     expect(error.offending).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('should say dictionary in the message', () => {
+  it('says dictionary in the message', () => {
     const error = new InvalidDictionaryError('odd-length', 'abc', []);
 
     expect(error.message).toContain('dictionary');
     expect(error.message).not.toContain('directory');
   });
 
-  it('should name the offending code points in the message', () => {
+  it('names the offending code points in the message', () => {
     const error = new InvalidDictionaryError('duplicate', 'aabb', ['a', 'b']);
 
     expect(error.message).toContain('a');
@@ -59,7 +59,7 @@ describe('InvalidDictionaryError', () => {
 });
 
 describe('EmptyInputError', () => {
-  it('should be a LuhnError with a name matching the class', () => {
+  it('is a LuhnError with a name matching the class', () => {
     const error = new EmptyInputError('nothing to check');
 
     expect(error).toBeInstanceOf(LuhnError);

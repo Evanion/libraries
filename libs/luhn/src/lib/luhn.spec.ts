@@ -46,7 +46,7 @@ const instances = [
 
 describe('createLuhn', () => {
   describe('the constructed instance', () => {
-    it('should expose the dictionary it was given', () => {
+    it('exposes the dictionary it was given', () => {
       const instance = createLuhn({ dictionary: '0123456789' });
 
       expect(instance.dictionary).toBe('0123456789');
@@ -55,11 +55,11 @@ describe('createLuhn', () => {
       expect(instance.uniformOverBytes).toBe(false);
     });
 
-    it('should count n by code point', () => {
+    it('counts n by code point', () => {
       expect(createLuhn({ dictionary: '0123😀😁😂😃ab' }).n).toBe(10);
     });
 
-    it('should report uniformOverBytes when the size divides 256', () => {
+    it('reports uniformOverBytes when the size divides 256', () => {
       expect(
         createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' })
           .uniformOverBytes,
@@ -67,19 +67,19 @@ describe('createLuhn', () => {
       expect(Luhn.uniformOverBytes).toBe(false);
     });
 
-    it('should be frozen', () => {
+    it('is frozen', () => {
       const instance = createLuhn();
 
       expect(Object.isFrozen(instance)).toBe(true);
     });
 
-    it('should default to the 36 lowercase alphanumerics, folding case', () => {
+    it('defaults to the 36 lowercase alphanumerics, folding case', () => {
       expect(Luhn.dictionary).toBe(DEFAULT_DICTIONARY);
       expect([...Luhn.dictionary]).toHaveLength(36);
       expect(Luhn.caseInsensitive).toBe(true);
     });
 
-    it('should leave folding off for a caller-supplied dictionary', () => {
+    it('leaves folding off for a caller-supplied dictionary', () => {
       expect(
         createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).caseInsensitive,
       ).toBe(false);
@@ -96,7 +96,7 @@ describe('createLuhn', () => {
       throw new Error('expected createLuhn to throw');
     };
 
-    it('should reject a dictionary that is not a string', () => {
+    it('rejects a dictionary that is not a string', () => {
       const error = rejection({
         dictionary: (() => 'abcd') as unknown as string,
       });
@@ -107,19 +107,19 @@ describe('createLuhn', () => {
       expect(error.message).toContain('function');
     });
 
-    it('should reject a dictionary with fewer than 2 code points', () => {
+    it('rejects a dictionary with fewer than 2 code points', () => {
       expect(rejection({ dictionary: '' }).reason).toBe('too-short');
       expect(createLuhn({ dictionary: 'ab' }).n).toBe(2);
     });
 
-    it('should reject an odd number of code points', () => {
+    it('rejects an odd number of code points', () => {
       const error = rejection({ dictionary: 'abc' });
 
       expect(error.reason).toBe('odd-length');
       expect(error.dictionary).toBe('abc');
     });
 
-    it('should reject duplicate code points, naming the repeats', () => {
+    it('rejects duplicate code points, naming the repeats', () => {
       const error = rejection({ dictionary: 'aabbccdd' });
 
       expect(error.reason).toBe('duplicate');
@@ -127,7 +127,7 @@ describe('createLuhn', () => {
       expect(error.offending).toEqual(['a', 'b', 'c', 'd']);
     });
 
-    it('should reject folding over a dictionary with case pairs', () => {
+    it('rejects folding over a dictionary with case pairs', () => {
       const error = rejection({
         dictionary: ALTERNATING_CASE_DICTIONARY,
         caseInsensitive: true,
@@ -139,13 +139,13 @@ describe('createLuhn', () => {
       expect(error.offending).toContain('Zz');
     });
 
-    it('should accept a dictionary with case pairs when not folding', () => {
+    it('accepts a dictionary with case pairs when not folding', () => {
       expect(createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY }).n).toBe(
         62,
       );
     });
 
-    it('should count an astral dictionary by code point, not UTF-16 unit', () => {
+    it('counts an astral dictionary by code point, not UTF-16 unit', () => {
       expect(() => createLuhn({ dictionary: '😀😁' })).not.toThrow();
       expect(rejection({ dictionary: '😀😁😂' }).reason).toBe('odd-length');
     });
@@ -154,7 +154,7 @@ describe('createLuhn', () => {
 
 describe('generate and validate', () => {
   describe.each(instances)('over the %s instance', (_name, instance) => {
-    it(`should round-trip ${SAMPLES} random inputs without a single failure`, () => {
+    it(`round-trips ${SAMPLES} random inputs without a single failure`, () => {
       const random = mulberry32(1);
       const failures: string[] = [];
 
@@ -169,7 +169,7 @@ describe('generate and validate', () => {
       expect(failures).toEqual([]);
     });
 
-    it('should reach every index in the dictionary as a check character', () => {
+    it('reaches every index in the dictionary as a check character', () => {
       const random = mulberry32(2);
       const seen = new Set<string>();
 
@@ -183,7 +183,7 @@ describe('generate and validate', () => {
       expect(seen.size).toBe(instance.n);
     });
 
-    it('should detect a single substituted code point', () => {
+    it('detects a single substituted code point', () => {
       const random = mulberry32(3);
       const chars = [...instance.dictionary];
       let missed = 0;
@@ -209,7 +209,7 @@ describe('generate and validate', () => {
   });
 
   describe('case folding', () => {
-    it('should give mixed-case input the same result as folded input', () => {
+    it('gives mixed-case input the same result as folded input', () => {
       const random = mulberry32(4);
 
       for (let sample = 0; sample < SAMPLES; sample++) {
@@ -222,7 +222,7 @@ describe('generate and validate', () => {
       }
     });
 
-    it('should validate its own token whatever case it arrives in', () => {
+    it('validates its own token whatever case it arrives in', () => {
       const { phrase, checksum } = Luhn.generate('justarandomstringofletters');
 
       expect(Luhn.validate(phrase + checksum).isValid).toBe(true);
@@ -241,40 +241,37 @@ describe('generate and validate', () => {
       '4111111111111111',
       '5500005555555559',
       '6011000990139424',
-    ])('should accept %s', (vector) => {
+    ])('accepts %s', (vector) => {
       expect(digits.validate(vector).isValid).toBe(true);
     });
 
-    it('should reject 79927398710', () => {
+    it('rejects 79927398710', () => {
       expect(digits.validate('79927398710').isValid).toBe(false);
     });
 
-    it('should generate the textbook check digit', () => {
+    it('generates the textbook check digit', () => {
       expect(digits.generate('7992739871').checksum).toBe('3');
     });
   });
 
   describe('the input floor', () => {
-    it.each(['', '!!!!', '!!!!0', 'åäö0'])(
-      'should not validate %o',
-      (input) => {
-        expect(Luhn.validate(input).isValid).toBe(false);
-      },
-    );
+    it.each(['', '!!!!', '!!!!0', 'åäö0'])('does not validate %o', (input) => {
+      expect(Luhn.validate(input).isValid).toBe(false);
+    });
 
-    it('should still validate a two-code-point token', () => {
+    it('still validates a two-code-point token', () => {
       const { phrase, checksum } = Luhn.generate('a');
 
       expect(Luhn.validate(phrase + checksum).isValid).toBe(true);
     });
 
-    it.each(['', '!!!!'])('should refuse to generate over %o', (input) => {
+    it.each(['', '!!!!'])('refuses to generate over %o', (input) => {
       expect(() => Luhn.generate(input)).toThrow(EmptyInputError);
     });
   });
 
   describe('filtering', () => {
-    it('should drop code points outside the dictionary', () => {
+    it('drops code points outside the dictionary', () => {
       const hyphenated = Luhn.generate('foo-baz');
       const accented = Luhn.generate('fooö-baz');
 
@@ -282,17 +279,17 @@ describe('generate and validate', () => {
       expect(accented.checksum).toBe(hyphenated.checksum);
     });
 
-    it('should count the dropped code points', () => {
+    it('counts the dropped code points', () => {
       expect(Luhn.generate('foo-baz').filtered).toBe(1);
       expect(Luhn.generate('fooö-baz').filtered).toBe(2);
       expect(Luhn.generate('foobaz').filtered).toBe(0);
     });
 
-    it('should count an astral code point once', () => {
+    it('counts an astral code point once', () => {
       expect(Luhn.generate('foo😀baz').filtered).toBe(1);
     });
 
-    it('should report the count from validate too', () => {
+    it('reports the count from validate too', () => {
       const result = Luhn.validate('FoO-ö5');
 
       expect(result.phrase).toBe('foo5');
@@ -302,13 +299,13 @@ describe('generate and validate', () => {
 });
 
 describe('the default instance', () => {
-  it('should throw on assignment to dictionary', () => {
+  it('throws on assignment to dictionary', () => {
     expect(() => {
       (Luhn as { dictionary: string }).dictionary = 'x';
     }).toThrow(TypeError);
   });
 
-  it('should keep working when its methods are destructured', () => {
+  it('keeps working when its methods are destructured', () => {
     const { generate, validate } = Luhn;
     const { phrase, checksum } = generate('foo');
 
@@ -317,7 +314,7 @@ describe('the default instance', () => {
 });
 
 describe('the hazards the class removed', () => {
-  it('should have no helper for a subclass to override', () => {
+  it('has no helper for a subclass to override', () => {
     const surface = Object.keys(Luhn).sort();
 
     expect(surface).toEqual([
@@ -330,7 +327,7 @@ describe('the hazards the class removed', () => {
     ]);
   });
 
-  it('should carry generate and validate on the same object as the dictionary', () => {
+  it('carries generate and validate on the same object as the dictionary', () => {
     const other = createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY });
     const random = mulberry32(5);
 
@@ -346,7 +343,7 @@ describe('the hazards the class removed', () => {
     }
   });
 
-  it('should reject the check character 2.0.1 emitted for foo', () => {
+  it('rejects the check character 2.0.1 emitted for foo', () => {
     expect(Luhn.validate('fooI').isValid).toBe(false);
   });
 });

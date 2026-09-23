@@ -29,7 +29,7 @@ describe('CorrelationService', () => {
     ({ service } = await build());
   });
 
-  it('should be defined', () => {
+  it('resolves from the Nest module', () => {
     expect(service).toBeDefined();
   });
 
@@ -70,7 +70,7 @@ describe('CorrelationService', () => {
     expect(seen.sort()).toEqual(['fast', 'slow']);
   });
 
-  it('can have the id of the current context replaced', () => {
+  it('replaces the id of the current context', () => {
     service.run('abc', () => {
       service.setCorrelationId('replaced');
       expect(service.getCorrelationId()).toBe('replaced');
