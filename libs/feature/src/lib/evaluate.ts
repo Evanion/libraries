@@ -1,5 +1,6 @@
 import { inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { ruleId } from './rule-id.js';
 import type {
   Cause,
@@ -12,8 +13,7 @@ import type {
   RuleOutcome,
 } from './types.js';
 
-/** The default context field a rollout buckets on. */
-export const DEFAULT_ROLLOUT_FIELD = 'targetingKey';
+export { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 
 function rolloutField(rule: Rule): string {
   return rule.rollout?.by ?? DEFAULT_ROLLOUT_FIELD;

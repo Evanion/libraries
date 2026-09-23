@@ -1,9 +1,16 @@
+import { bucketOf } from './bucketing.js';
 import {
   DuplicateVariantError,
   FeatureConfigError,
   UnknownVariantError,
 } from './errors.js';
-import type { FeatureDefinition, FeatureKey, VariantSpec } from './types.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
+import type {
+  EvaluationContext,
+  FeatureDefinition,
+  FeatureKey,
+  VariantSpec,
+} from './types.js';
 
 /**
  * Checks a feature's variants at construction, where the dependency graph is
@@ -166,4 +173,59 @@ export function variantSeedOf<F extends FeatureKey>(
 ): string {
   if (definition.variantSeed !== undefined) return definition.variantSeed;
   return `${definition.seed ?? String(definition.key)}:variant`;
+}
+
+/** How a subject reached its variant. Output only. */
+export interface VariantAssignment {
+  variant: VariantSpec;
+  source: 'weighted' | 'sticky' | 'fallback';
+  by: string;
+  /** Absent when the context carried no bucketing value. */
+  bucket?: number;
+}
+
+/**
+ * The variant a context gets, for a feature that resolved on.
+ *
+ * Three answers in order. A prior assignment the application stored wins, when
+ * it names a variant this feature still declares. The weights answer next, for
+ * a context carrying a usable bucketing value. The control answers last.
+ *
+ * The control is the honest answer for an incomplete context. The feature
+ * resolved on, so calling code needs a variant to render, and the control
+ * admits nobody to the experiment. `evaluateRule` refuses a rollout the same
+ * way when the context carries no bucketing value, so neither ramps anybody in
+ * on missing data.
+ *
+ * A pin from a matching rule beats all three, and `decide` applies it, because
+ * only `decide` knows which rule matched.
+ */
+export function assignVariant<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  context: EvaluationContext,
+): VariantAssignment | undefined {
+  const variants = definition.variants;
+  if (!variants || variants.length === 0) return undefined;
+
+  const by = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
+
+  const stored = context.stickyVariants?.[String(definition.key)];
+  if (stored !== undefined) {
+    const held = variants.find((variant) => variant.name === stored);
+    if (held) return { variant: held, source: 'sticky', by };
+  }
+
+  const value = context[by];
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    const [control] = bucketingOrder(variants);
+    return { variant: control as VariantSpec, source: 'fallback', by };
+  }
+
+  const bucket = bucketOf(String(value), variantSeedOf(definition));
+  return {
+    variant: assignWeighted(variants, bucket),
+    source: 'weighted',
+    by,
+    bucket,
+  };
 }
