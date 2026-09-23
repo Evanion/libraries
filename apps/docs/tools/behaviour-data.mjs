@@ -84,7 +84,9 @@ async function highlight(body) {
 
 /** One library's two files, keyed the way the loader and the page look them up. */
 async function filesFor(project) {
-  const { files, chains, states } = behavioursOf(join(workspaceRoot, project.root));
+  const { files, chains, states } = behavioursOf(
+    join(workspaceRoot, project.root),
+  );
 
   const bodies = {};
   for (const each of chains) {
