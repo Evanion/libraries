@@ -3,7 +3,11 @@ import { join, relative, sep } from 'node:path';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
-import { describedBy, testFilesOf } from '@evanion/doc-examples/behaviours';
+import {
+  behavioursOf,
+  describedBy,
+  testFilesOf,
+} from '@evanion/doc-examples/behaviours';
 
 import {
   entriesOf,
@@ -48,6 +52,14 @@ import {
  * the reference pages render from. One walk over the test sources answers both
  * questions, so the rule and the page cannot disagree about which names a
  * package's `describe` blocks spell.
+ *
+ * It also asks that two export names never stack. A `describe` naming an export
+ * inside a `describe` naming another one puts the inner export's sentences on
+ * two entries: its own, and the outer one's, where the rail labels a group with
+ * an export name beside groups labelled `a widening` and `a narrowing`. The
+ * reader on the outer entry then reads another export's catalogue as a
+ * condition of this one. Promoting the inner block to the top level is the fix
+ * and it moves no assertion.
  *
  * What it does not ask. It never asks that every `describe` name an export: a
  * README doctest's heading, `the package entry`, and
@@ -147,6 +159,32 @@ async function subjects(): Promise<Map<string, Subject>> {
 
 const sorted = (values: readonly string[]): string[] => [...values].sort();
 
+/**
+ * Every chain a package states, with the names that package publishes.
+ *
+ * Every published name and not only the callable non-error ones the rule above
+ * governs, because the defect is about what a reference entry renders and an
+ * entry exists for a type and an error class too.
+ */
+async function nesting(): Promise<
+  { name: string; published: Set<string>; chains: readonly string[][] }[]
+> {
+  const documented = await packages();
+  const exported = exportsOf(documented.flatMap(entriesOf));
+
+  return documented.map((item) => ({
+    name: item.name,
+    published: new Set(
+      entriesOf(item).flatMap((entry) =>
+        (exported.get(entry.specifier) ?? [])
+          .map((each) => each.name)
+          .filter((each) => each !== 'default'),
+      ),
+    ),
+    chains: behavioursOf(rootOf(item)).chains.map((each) => each.chain),
+  }));
+}
+
 describe('what the tests state', () => {
   it('finds the packages and their callable exports', async () => {
     const found = await subjects();
@@ -172,6 +210,27 @@ describe('what the tests state', () => {
     }
 
     expect(sorted(failures)).toEqual([]);
+  });
+
+  it('nests no `describe` naming an export inside one naming another', async () => {
+    const failures = new Set<string>();
+
+    for (const { name, published, chains } of await nesting()) {
+      for (const chain of chains) {
+        const named = chain.filter((segment) => published.has(segment));
+        if (named.length < 2) continue;
+
+        failures.add(
+          `${name} nests \`describe('${named[1]}')\` inside ` +
+            `\`describe('${named[0]}')\`, so ${named[1]}'s sentences render ` +
+            `on ${named[0]}'s entry as well as their own, labelled with an ` +
+            `export name beside the conditions the suite wrote. Promote the ` +
+            `inner block to the top level; no assertion moves.`,
+        );
+      }
+    }
+
+    expect(sorted([...failures])).toEqual([]);
   });
 
   /**

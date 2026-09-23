@@ -380,59 +380,6 @@ describe('diffMatrix', () => {
     });
   });
 
-  describe('findingsOf', () => {
-    it('returns only the kind asked for', () => {
-      const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
-      const after = matrix([
-        permission('doc.read', [{ when: [isAdmin] }], [{ when: [locked] }]),
-      ]);
-      const diff = diffMatrix(before, after);
-
-      expect(diff.findings.length).toBeGreaterThan(1);
-      expect(
-        findingsOf(diff, 'withdrawn').every(
-          (each) => each.kind === 'withdrawn',
-        ),
-      ).toBe(true);
-    });
-
-    it("narrows the member, so a caller reads the kind's own fields", () => {
-      const before = matrix([permission('listing.reprice', [])]);
-      const after = matrix([
-        permission('listing.reprice', [{ when: [isOperator] }]),
-      ]);
-
-      const [grant] = findingsOf(diffMatrix(before, after), 'granted');
-
-      // `groups` is on GrantedFinding and on no other member, so this reads
-      // without a cast or a check.
-      expect(grant?.groups.subject).toEqual([isOperator]);
-    });
-
-    it('answers empty for a kind the report has none of', () => {
-      const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
-      const after = matrix([
-        permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
-      ]);
-
-      expect(findingsOf(diffMatrix(before, after), 'withdrawn')).toEqual([]);
-    });
-
-    it('keeps the order the report was built in', () => {
-      const before = matrix([permission('doc.read', [])]);
-      const after = matrix([
-        permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
-      ]);
-      const diff = diffMatrix(before, after);
-
-      expect(findingsOf(diff, 'granted').map((each) => each.when)).toEqual(
-        diff.findings
-          .filter((each) => each.kind === 'granted')
-          .map((each) => each.when),
-      );
-    });
-  });
-
   it('carries both versions, so a report names what it compared', () => {
     const before = matrix([], 'a');
     const after = matrix([], 'b');
@@ -441,5 +388,56 @@ describe('diffMatrix', () => {
       before: 'a',
       after: 'b',
     });
+  });
+});
+
+describe('findingsOf', () => {
+  it('returns only the kind asked for', () => {
+    const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
+    const after = matrix([
+      permission('doc.read', [{ when: [isAdmin] }], [{ when: [locked] }]),
+    ]);
+    const diff = diffMatrix(before, after);
+
+    expect(diff.findings.length).toBeGreaterThan(1);
+    expect(
+      findingsOf(diff, 'withdrawn').every((each) => each.kind === 'withdrawn'),
+    ).toBe(true);
+  });
+
+  it("narrows the member, so a caller reads the kind's own fields", () => {
+    const before = matrix([permission('listing.reprice', [])]);
+    const after = matrix([
+      permission('listing.reprice', [{ when: [isOperator] }]),
+    ]);
+
+    const [grant] = findingsOf(diffMatrix(before, after), 'granted');
+
+    // `groups` is on GrantedFinding and on no other member, so this reads
+    // without a cast or a check.
+    expect(grant?.groups.subject).toEqual([isOperator]);
+  });
+
+  it('answers empty for a kind the report has none of', () => {
+    const before = matrix([permission('doc.read', [{ when: [isAdmin] }])]);
+    const after = matrix([
+      permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
+    ]);
+
+    expect(findingsOf(diffMatrix(before, after), 'withdrawn')).toEqual([]);
+  });
+
+  it('keeps the order the report was built in', () => {
+    const before = matrix([permission('doc.read', [])]);
+    const after = matrix([
+      permission('doc.read', [{ when: [isAdmin] }, { when: [isOperator] }]),
+    ]);
+    const diff = diffMatrix(before, after);
+
+    expect(findingsOf(diff, 'granted').map((each) => each.when)).toEqual(
+      diff.findings
+        .filter((each) => each.kind === 'granted')
+        .map((each) => each.when),
+    );
   });
 });

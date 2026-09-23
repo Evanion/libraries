@@ -113,32 +113,6 @@ describe('CorrelationIdMiddleware', () => {
     expect(service.generate).not.toHaveBeenCalled();
   });
 
-  describe('DEFAULT_CORRELATION_ID_VALIDATOR', () => {
-    it('falls back to a generated id when the incoming value is invalid', () => {
-      const { req, res } = mockReqRes('contains spaces');
-      run(middleware, req, res);
-      expect(service.seen).toEqual(['test123']);
-    });
-
-    it('rejects an incoming id that is too long', () => {
-      const { req, res } = mockReqRes('a'.repeat(129));
-      run(middleware, req, res);
-      expect(service.seen).toEqual(['test123']);
-    });
-
-    it('rejects comma-joined repeated headers', () => {
-      const { req, res } = mockReqRes('aaa, bbb');
-      run(middleware, req, res);
-      expect(service.seen).toEqual(['test123']);
-    });
-
-    it('rejects an array-valued header rather than picking one element', () => {
-      const { req, res } = mockReqRes(['aaa', 'bbb']);
-      run(middleware, req, res);
-      expect(service.seen).toEqual(['test123']);
-    });
-  });
-
   it('allows a custom validator to accept values the default rejects', () => {
     const customMiddleware = new CorrelationIdMiddleware(service, {
       ...config,
@@ -162,5 +136,41 @@ describe('CorrelationIdMiddleware', () => {
     res.setHeader.mockClear();
     run(middleware, req, res);
     expect(res.setHeader).not.toHaveBeenCalled();
+  });
+});
+
+describe('DEFAULT_CORRELATION_ID_VALIDATOR', () => {
+  let service: CorrelationService & { seen: string[] };
+  let middleware: CorrelationIdMiddleware;
+
+  // The validator is what the middleware consults, so every case here drives it
+  // through a request rather than calling it directly.
+  beforeEach(() => {
+    service = mockService();
+    middleware = new CorrelationIdMiddleware(service, config);
+  });
+
+  it('falls back to a generated id when the incoming value is invalid', () => {
+    const { req, res } = mockReqRes('contains spaces');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
+  });
+
+  it('rejects an incoming id that is too long', () => {
+    const { req, res } = mockReqRes('a'.repeat(129));
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
+  });
+
+  it('rejects comma-joined repeated headers', () => {
+    const { req, res } = mockReqRes('aaa, bbb');
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
+  });
+
+  it('rejects an array-valued header rather than picking one element', () => {
+    const { req, res } = mockReqRes(['aaa', 'bbb']);
+    run(middleware, req, res);
+    expect(service.seen).toEqual(['test123']);
   });
 });
