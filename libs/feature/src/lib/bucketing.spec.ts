@@ -90,6 +90,29 @@ describe('inRollout', () => {
       expect(Math.abs(share - percent)).toBeLessThan(1.5);
     }
   });
+
+  it('splits a rollout cohort across variants near the declared weights', () => {
+    // The regression guard for seed separation. Sharing one seed puts every
+    // member of a 20% rollout in the lowest 20% of the variant space, so a
+    // 50/50 split would hand all of them the control.
+    const key = 'cta';
+    const inRolloutKeys: string[] = [];
+    for (let i = 0; i < 20000; i += 1) {
+      const subject = `user-${String(i)}`;
+      if (inRollout(subject, 20, key)) inRolloutKeys.push(subject);
+    }
+
+    expect(inRolloutKeys.length).toBeGreaterThan(3000);
+
+    let lower = 0;
+    for (const subject of inRolloutKeys) {
+      if (bucketOf(subject, `${key}:variant`) < 0.5) lower += 1;
+    }
+
+    const share = lower / inRolloutKeys.length;
+    expect(share).toBeGreaterThan(0.45);
+    expect(share).toBeLessThan(0.55);
+  });
 });
 
 describe('murmur3', () => {
