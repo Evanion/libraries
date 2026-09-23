@@ -32,7 +32,14 @@ export function validateVariants<F extends FeatureKey>(
 ): void {
   const key = String(definition.key);
   const variants = definition.variants;
-  if (!variants) return;
+  if (!variants) {
+    for (const rule of definition.rules ?? []) {
+      if (rule.variant !== undefined) {
+        throw new UnknownVariantError(key, rule.variant);
+      }
+    }
+    return;
+  }
 
   if (variants.length === 0) {
     throw new FeatureConfigError(
@@ -130,9 +137,9 @@ export function bucketingOrder(
  * One property of rollout bucketing does not carry over. A rollout percentage
  * is monotonic, so raising it only admits more subjects and moves none out. A
  * weight is a band boundary, so moving one reassigns every subject above it.
- * Walking in `order` bounds the damage: an author appending a variant and
- * taking its weight from the previously-last one moves subjects only between
- * those two bands.
+ * An author appending a variant and taking its weight from the
+ * previously-last one bounds the damage: the walk in `order` moves subjects
+ * only between those two bands.
  *
  * `validateVariants` has already refused an empty set and a set weighted
  * entirely zero, so the final variant is always reachable and the loop always
@@ -199,6 +206,13 @@ export interface VariantAssignment {
  *
  * A pin from a matching rule beats all three, and `decide` applies it, because
  * only `decide` knows which rule matched.
+ *
+ * This definition must come from `createFeatures`, or have already passed
+ * `validateVariants` on its own. A weight that is non-finite, negative, or
+ * sums to zero across the set never throws here; `assignWeighted` always
+ * returns the last-ordered variant. Two variants sharing an `order` never
+ * throw either; the second one declared wins every tie. Every one of these
+ * outcomes is deterministic and wrong.
  */
 export function assignVariant<F extends FeatureKey>(
   definition: FeatureDefinition<F>,

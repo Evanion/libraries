@@ -51,6 +51,16 @@ describe('validateVariants', () => {
     ).toThrow(UnknownVariantError);
   });
 
+  it('refuses a pin on a feature that declares no variants', () => {
+    expect(() =>
+      validateVariants({
+        key: 'k',
+        enabled: true,
+        rules: [{ variant: 'blue' }],
+      }),
+    ).toThrow(UnknownVariantError);
+  });
+
   it('refuses a negative weight', () => {
     expect(() =>
       validateVariants({
