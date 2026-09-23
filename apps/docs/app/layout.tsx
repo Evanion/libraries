@@ -55,6 +55,24 @@ export const metadata = {
  * `nextra-theme-docs/dist/schemas.js:24-30` parses, so the behaviour of a docs
  * page is the behaviour it already had.
  *
+ * **React warns about the script `ThemeProvider` renders, and the warning is
+ * expected.** "Encountered a script tag while rendering React component" means
+ * a `<script>` in the tree is not executed on a client render. The theme script
+ * is executed: it ships in the document and runs before first paint, which is
+ * how the class is on `html` before React hydrates. What the warning describes
+ * is a client navigation, where the tag does not run again and does not need
+ * to, because the class is already set.
+ *
+ * Nothing here caused it and nothing here can silence it.
+ * `nextra-theme-docs` depends on `next-themes@^0.4.0` and renders a provider in
+ * its own `dist/layout.js`, so the script was on every page before this file
+ * held a provider of its own. `next-themes@0.4.6` exports `ThemeProvider` and
+ * nothing else: there is no separate script component to place in `<head>`,
+ * only `scriptProps` and `nonce`, so the tag is a child of a component by that
+ * package's design. Silencing it means writing the blocking script by hand and
+ * dropping `next-themes`, which is a change to how the site themes for the sake
+ * of a development-mode message.
+ *
  * The theme stylesheet is imported ahead of `global.css`, because global.css is
  * what remaps the theme's own variables onto Baize tokens and the later
  * declaration of a custom property is the one that applies.
