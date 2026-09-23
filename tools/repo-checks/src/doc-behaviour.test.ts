@@ -1,9 +1,9 @@
-import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+
+import { describedBy, testFilesOf } from '@evanion/doc-examples/behaviours';
 
 import {
   entriesOf,
@@ -44,18 +44,17 @@ import {
  * an allowance; every library adopts, so the debt is zero and an allowance would
  * be an empty file whose only function is to let the next export skip the rule.
  *
+ * The chains come from `@evanion/doc-examples/behaviours`, which is the reader
+ * the reference pages render from. One walk over the test sources answers both
+ * questions, so the rule and the page cannot disagree about which names a
+ * package's `describe` blocks spell.
+ *
  * What it does not ask. It never asks that every `describe` name an export: a
  * README doctest's heading, `the package entry`, and
  * `a builder-authored policy published as a contract` each belong to no single
  * export and should not pretend to. It never asks that a type have one. It does
  * not read `it` titles at all.
  */
-
-/** A file the convention is read from. */
-const TEST_FILE = /\.(test|spec)\.tsx?$/;
-
-/** Where the adversarial suite lives, relative to its package root. */
-const SECURITY = join('src', 'security');
 
 /**
  * Names the rule reports and the repository accepts, each with its reason.
@@ -78,62 +77,9 @@ const ACCEPTED: Readonly<Record<string, string>> = {
     'of its own can state without asserting on the helper that set it up.',
 };
 
-/** Every test source under a package, with the exempt suite left out. */
-function testFilesOf(item: DocumentedPackage): string[] {
-  const root = join(workspaceRoot, item.root);
-  const security = join(root, SECURITY);
-
-  function walk(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        return path === security ? [] : walk(path);
-      }
-      return TEST_FILE.test(entry.name) ? [path] : [];
-    });
-  }
-
-  return walk(join(root, 'src'));
-}
-
-/** The literal title of a `describe` call, where it has one. */
-function titleOf(node: ts.CallExpression): string | null {
-  const callee = ts.isPropertyAccessExpression(node.expression)
-    ? node.expression.expression
-    : node.expression;
-  if (!ts.isIdentifier(callee) || callee.text !== 'describe') return null;
-
-  const [first] = node.arguments;
-  if (!first) return null;
-  if (ts.isStringLiteralLike(first)) return first.text;
-  return null;
-}
-
-/** Every literal `describe` title a package's tests carry, at any depth. */
-function describedBy(item: DocumentedPackage): Set<string> {
-  const titles = new Set<string>();
-
-  for (const path of testFilesOf(item)) {
-    const source = ts.createSourceFile(
-      path,
-      readFileSync(path, 'utf8'),
-      ts.ScriptTarget.ESNext,
-      true,
-      /\.tsx$/.test(path) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-    );
-
-    const visit = (node: ts.Node): void => {
-      if (ts.isCallExpression(node)) {
-        const title = titleOf(node);
-        if (title !== null) titles.add(title);
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
-  }
-
-  return titles;
-}
+/** Where a package's tests live, as the shared reader wants it. */
+const rootOf = (item: DocumentedPackage): string =>
+  join(workspaceRoot, item.root);
 
 /** What a package's tests state a behaviour under, and what they do not. */
 interface Subject {
@@ -172,7 +118,7 @@ async function subjects(): Promise<Map<string, Subject>> {
     (item) => [`${join(workspaceRoot, item.root)}${sep}`, item.name] as const,
   );
   const titles = new Map(
-    documented.map((item) => [item.name, describedBy(item)] as const),
+    documented.map((item) => [item.name, describedBy(rootOf(item))] as const),
   );
 
   for (const item of documented) {
@@ -268,7 +214,7 @@ describe('what the tests state', () => {
     const acl = (await packages()).find((item) => item.name === '@evanion/acl');
     expect(acl).toBeDefined();
 
-    const files = testFilesOf(acl as DocumentedPackage).map((path) =>
+    const files = testFilesOf(rootOf(acl as DocumentedPackage)).map((path) =>
       relative(workspaceRoot, path),
     );
 
