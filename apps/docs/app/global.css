@@ -428,18 +428,19 @@ html:not(.dark) [class*='baize-kind-'] {
 /*
  * What the tests state, between the signature and the example.
  *
- * Small print against a hairline, because an entry a reader came to for a
- * signature is already dense and this block can run to thirty lines. The rule
- * down its inside edge is what lets the eye skip the whole block in one
- * movement, and takes the kind's hue so the block belongs to the entry above it
- * rather than reading as a note somebody pasted in.
+ * The rule down its inside edge is what lets the eye skip the whole block in
+ * one movement, and takes the kind's hue so the block belongs to the entry
+ * above it rather than reading as a note somebody pasted in. It runs the
+ * column's full width and not the prose measure, because the rail and the pane
+ * inside it divide that width between them and a 64ch frame would leave the
+ * pane about thirty characters. `components/api/behaviour.css` carries the two
+ * panes themselves.
  */
 .docs-api-entry__states {
   margin-block-start: var(--baize-space-4);
   padding-inline-start: var(--baize-space-4);
   border-inline-start: 1px solid
     color-mix(in oklab, var(--baize-kind) 45%, transparent);
-  max-width: var(--baize-measure);
 }
 
 /*
@@ -472,55 +473,6 @@ html:not(.dark) [class*='baize-kind-'] {
   font-family: var(--baize-font-text);
   font-size: var(--baize-text-sm);
   color: var(--baize-lichen);
-}
-
-/*
- * A condition the suite wrote, over the sentences that hold under it.
- *
- * `diffMatrix` states eleven sentences under `a widening` and nine under `a
- * narrowing`, and that split is the test author's own structure rather than
- * anything derived here. Where a suite wrote no such level the entry is one
- * flat list and nothing invents a heading for it.
- */
-.docs-api-entry__states-group {
-  margin-block-start: var(--baize-space-3);
-}
-
-.docs-api-entry__states-condition {
-  font-family: var(--baize-font-text);
-  font-size: var(--baize-text-sm);
-  font-weight: 600;
-  color: var(--baize-chalk);
-  margin: 0;
-}
-
-.docs-api-entry__states-group :where(ul) {
-  padding-inline-start: var(--baize-space-3);
-  border-inline-start: 1px solid var(--baize-rule);
-  margin-inline-start: var(--baize-space-1);
-}
-
-/*
- * One sentence a test carries, one line.
- *
- * No marker: every line here is a statement and a column of discs beside
- * thirty of them is a texture the reader has to look past. The lines carry the
- * interpunct the rest of the entry joins with, so a marker would be the second
- * separator on a line that already has one.
- */
-.docs-api-entry__states ul {
-  list-style: none;
-  margin-block: var(--baize-space-2);
-  margin-inline: 0;
-  padding-inline-start: 0;
-}
-
-.docs-api-entry__states li {
-  font-family: var(--baize-font-text);
-  font-size: var(--baize-text-sm);
-  line-height: 1.5;
-  color: var(--baize-lichen);
-  margin-block: 0;
 }
 
 /*

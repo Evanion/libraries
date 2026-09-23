@@ -196,8 +196,16 @@ const STATED_KINDS = new Set(['function', 'class']);
  * the claim of § 9 without having looked.
  */
 export function behaviourPath(root, reference) {
-  const packageDir = dirname(join(root, reference.readme));
-  return join(root, BEHAVIOURS, `${basename(packageDir)}.json`);
+  return join(root, BEHAVIOURS, `${libraryOf(reference)}.json`);
+}
+
+/**
+ * The package's own directory, which is what both of its data files are named
+ * after: the one the loader reads during the build, and the one the catalogue
+ * fetches from `/behaviour/` when a reader reaches it.
+ */
+export function libraryOf(reference) {
+  return basename(dirname(join('/', reference.readme)));
 }
 
 /** What a package's tests state, read off disk. */
@@ -215,66 +223,51 @@ function readBehaviours(root, reference, file) {
 }
 
 /**
- * What one export's entry carries, in the order the suite states it.
+ * What one export's entry carries, grouped the way the suite wrote it.
  *
  * The owning segment is dropped along with everything above it, because the
  * reader is on that export's entry and has just read its name in the heading.
  * What sits below it is kept, and its first level is kept as structure rather
  * than folded into the sentence: `diffMatrix > a widening > reports an added
  * allow branch as granted` states the condition the sentence holds under, and
- * the suite writes several sentences under each condition. So `a widening` is a
- * heading over its own sentences, which is the one thing a test reporter gives
- * a reader that this block can take.
+ * the suite writes several sentences under each condition. So `a widening`
+ * labels its own sentences in the rail, which is the one thing a test reporter
+ * gives a reader that this block can take.
  *
- * `loose` holds what the suite states under the export's own name, with nothing
- * between. A level below the first is joined with the interpunct the rest of an
- * entry joins with, because three levels of indent inside a block this size
- * reads as a directory listing.
+ * The sentences the suite states under the export's own name, with nothing
+ * between, are a group too, labelled with that name. They used to render flush
+ * at the top of the block under no label at all, which put them beside the
+ * labelled groups and made them read as belonging to nowhere; the `describe`
+ * they sit under is the export's own, so that is what the rail calls them.
+ *
+ * A level below the first is joined with the interpunct the rest of an entry
+ * joins with, because a third level of indent in a rail this narrow reads as a
+ * directory listing.
  *
  * A chain that ends at the owning `describe` contributes nothing. That is a
  * block of generated cases sitting directly under the export's own name, and
  * the only title it carries is the name the reader is already looking at.
  */
 export function statedBy(behaviours, name) {
-  const held = behaviours.states[name] ?? [];
-  const loose = [];
-  const conditions = new Map();
+  const groups = new Map();
 
-  for (const { chain } of held) {
+  const add = (label, title, id) => {
+    const rows = groups.get(label) ?? [];
+    if (!rows.some((row) => row.title === title)) rows.push({ title, id });
+    groups.set(label, rows);
+  };
+
+  for (const { chain, id } of behaviours.states[name] ?? []) {
     const rest = chain.slice(chain.indexOf(name) + 1);
     if (rest.length === 0) continue;
-
-    if (rest.length === 1) {
-      if (!loose.includes(rest[0])) loose.push(rest[0]);
-      continue;
-    }
-
-    const under = conditions.get(rest[0]) ?? [];
-    const sentence = rest.slice(1).join(' · ');
-    if (!under.includes(sentence)) under.push(sentence);
-    conditions.set(rest[0], under);
+    if (rest.length === 1) add(name, rest[0], id);
+    else add(rest[0], rest.slice(1).join(' · '), id);
   }
 
-  const stated = [...conditions.values()].reduce(
-    (sum, each) => sum + each.length,
-    loose.length,
-  );
+  const under = [...groups].map(([label, rows]) => ({ label, rows }));
+  const stated = under.reduce((sum, each) => sum + each.rows.length, 0);
 
-  return { loose, conditions: [...conditions], stated };
-}
-
-/** The sentences under one condition the suite wrote, as its own group. */
-function condition(name, sentences) {
-  return [
-    '<div className="docs-api-entry__states-group">',
-    '',
-    `<p className="docs-api-entry__states-condition">${mdxProse(name)}</p>`,
-    '',
-    ...sentences.map((each) => `- ${mdxProse(each)}`),
-    '',
-    '</div>',
-    '',
-  ];
+  return { groups: under, stated };
 }
 
 /**
@@ -287,20 +280,28 @@ function condition(name, sentences) {
  * words a test wrote.
  *
  * Shaped like the suite and not like a test report. What a reporter is good at
- * is making a nesting legible and saying how many cases sit in it, and both of
- * those are here: the conditions the suite wrote are headings over their own
- * sentences, and the count says how dense the export's catalogue is before the
- * reader has read a line of it. What a reporter is built on is status, and none
- * of that transfers. Every sentence here comes from a suite that passes, so a
- * tick on each line would carry no information, and a green tick reads as
- * "verified", which is the one thing this block may not claim. The honesty
- * argument is made in the prose, and markup that contradicted it would undo it.
+ * is making a nesting legible, saying how many cases sit in it, and showing a
+ * reader the case behind a line they pick, and all of that is here: the
+ * conditions the suite wrote label their own sentences in the rail, the count
+ * says how dense the export's catalogue is before the reader has read a line of
+ * it, and the pane beside the rail carries the case. What a reporter is built
+ * on is status, and none of that transfers. Every sentence here comes from a
+ * suite that passes, so a tick on each line would carry no information, and a
+ * green tick reads as "verified", which is the one thing this block may not
+ * claim. The honesty argument is made in the prose, and markup that
+ * contradicted it would undo it.
+ *
+ * The pane shows the case verbatim and never a reading of it. A summary of what
+ * a test asserts is this loader's opinion about a suite it did not write, and
+ * decision A of `docs/specs/2026-09-21-docs-api-reference.md` is that the entry
+ * reports what the suite states and infers nothing. The source is the answer a
+ * reader can argue with.
  *
  * The heading says `state` and the line at the foot says what that leaves open.
  * The suite's authors wrote these sentences and this block reports them; a
  * sentence here is a name a test carries, and the assertions under that name
- * are a question only the test's source answers. `libs/acl/SECURITY.md` is the
- * other kind of claim: a person wrote each of its rows and chose its tier.
+ * are in the pane. `libs/acl/SECURITY.md` is the other kind of claim: a person
+ * wrote each of its rows and chose its tier.
  *
  * An export with nothing stated says so, in a block of its own shape. Not a
  * blank, not an empty list, not a hidden block: an absent catalogue on a page
@@ -309,8 +310,8 @@ function condition(name, sentences) {
  * narrower than untested, because a name with no `describe` of its own can
  * still be exercised by every case in the file.
  */
-function statedBlock(reference, behaviours) {
-  const { loose, conditions, stated } = statedBy(behaviours, reference.name);
+function statedBlock(reference, behaviours, library) {
+  const { groups, stated } = statedBy(behaviours, reference.name);
   if (stated === 0 && !STATED_KINDS.has(reference.kind)) return [];
 
   if (stated === 0) {
@@ -338,15 +339,20 @@ function statedBlock(reference, behaviours) {
     '',
     '</div>',
     '',
-    ...(loose.length > 0
-      ? [...loose.map((each) => `- ${mdxProse(each)}`), '']
-      : []),
-    ...conditions.flatMap(([name, sentences]) => condition(name, sentences)),
+    // The rail and the pane, as one client component. Its rows are its props
+    // rather than children it reads off the page, because a static export
+    // prerenders a client component's markup and Pagefind indexes what that
+    // prerender wrote, so the sentences reach the index either way and props
+    // are the shape the keyboard needs.
+    `<BehaviourCatalogue library="${library}" name="${reference.name}" ` +
+      `groups={${JSON.stringify(groups)}} />`,
+    '',
     // One line, because MDX reads an indented block inside a tag as markdown
     // and wraps it in a paragraph of its own, which puts a `<p>` inside a `<p>`.
     '<p className="docs-api-entry__states-note">Each line is the name of a ' +
-      'test in the package. Whether a test proves what its name states is a ' +
-      'question its own source answers.</p>',
+      'test in the package. A test states a behaviour; whether it proves one ' +
+      'is a question its own source answers, and the pane carries that ' +
+      'source.</p>',
     '',
     '</div>',
   ];
@@ -419,7 +425,7 @@ function exampleFence(root, reference, region, file) {
 function foot(root, reference, behaviours, example, file) {
   const lines = ['', ...signatureFence(reference)];
 
-  const stated = statedBlock(reference, behaviours);
+  const stated = statedBlock(reference, behaviours, libraryOf(reference));
   if (stated.length > 0) lines.push('', ...stated);
 
   if (example) {
