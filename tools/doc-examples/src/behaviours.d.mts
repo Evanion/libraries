@@ -16,13 +16,27 @@ export interface Chain {
    * are about.
    */
   generated: boolean;
+  /** The test source the case is written in. */
+  file: string;
+  /** The line the case's own call stands on. */
+  line: number;
+  /** What the case does, as the author wrote it, dedented. */
+  body: string;
+}
+
+/** One chain with the number the package's own walk gave it. */
+export interface Stated extends Chain {
+  /** Its position in `chains`, which is what the sidecar keys a body by. */
+  id: number;
 }
 
 /** What a package's tests state, keyed by the name each `describe` spells. */
 export interface Behaviours {
   /** The test sources the chains were read from. */
   files: string[];
-  states: Map<string, Map<string, Chain>>;
+  /** Every chain the package states, each one once. */
+  chains: Stated[];
+  states: Map<string, Map<string, Stated>>;
 }
 
 export declare function testFilesOf(packageRoot: string): string[];
