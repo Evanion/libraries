@@ -65,7 +65,11 @@ export interface RolloutSpec {
  * `rollout` is present, the bucketed value falls inside it.
  */
 export interface Rule {
-  /** Used in `reason`. Defaults to the rule's index, as `#0`, `#1`, ... */
+  /**
+   * Used in `reason`. A rule that declares none is named by a hash of what it
+   * matches on, which holds when a rule is inserted above it and when an
+   * operator moves a ramp. Name a rule you expect to read in a log.
+   */
   id?: string;
   when?: readonly Condition[];
   rollout?: RolloutSpec;

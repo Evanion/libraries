@@ -1,5 +1,6 @@
 import { inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
+import { ruleId } from './rule-id.js';
 import type {
   Cause,
   Decision,
@@ -13,10 +14,6 @@ import type {
 
 /** The default context field a rollout buckets on. */
 export const DEFAULT_ROLLOUT_FIELD = 'targetingKey';
-
-function ruleId(rule: Rule, index: number): string {
-  return rule.id ?? `#${index}`;
-}
 
 function rolloutField(rule: Rule): string {
   return rule.rollout?.by ?? DEFAULT_ROLLOUT_FIELD;
@@ -47,10 +44,9 @@ export function ruleFields(rule: Rule): readonly string[] {
 export function evaluateRule<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
   rule: Rule,
-  index: number,
   context: EvaluationContext,
 ): RuleOutcome {
-  const id = ruleId(rule, index);
+  const id = ruleId(rule);
 
   for (const condition of rule.when ?? []) {
     if (!evaluateCondition(condition, context)) {
@@ -183,8 +179,8 @@ export function decide<F extends FeatureKey>(
   }
 
   const outcomes: RuleOutcome[] = [];
-  for (const [index, rule] of rules.entries()) {
-    const outcome = evaluateRule(definition, rule, index, context);
+  for (const rule of rules) {
+    const outcome = evaluateRule(definition, rule, context);
     if (outcome.matched) {
       return {
         key: definition.key,
@@ -256,13 +252,13 @@ export function planFeature<F extends FeatureKey>(
   const ownNeeds = new Set<string>();
 
   if (deferredNeeds.size === 0) {
-    for (const [index, rule] of rules.entries()) {
+    for (const rule of rules) {
       const missing = ruleFields(rule).filter((field) => !available.has(field));
       if (missing.length) {
         for (const field of missing) ownNeeds.add(field);
         continue;
       }
-      if (evaluateRule(definition, rule, index, context).matched) {
+      if (evaluateRule(definition, rule, context).matched) {
         return {
           key,
           resolved: true,
