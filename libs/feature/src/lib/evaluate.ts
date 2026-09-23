@@ -284,7 +284,12 @@ export function planFeature<F extends FeatureKey>(
         decision: decide(definition, context, resolved),
       };
     }
-    if (parentPlan.resolved === 'deferred') {
+    // A deferred parent that carries a `decision` settled its own enablement
+    // and deferred only its split; the cascade below reads that enablement
+    // off `resolved` and needs nothing further from it. A deferred parent
+    // with no `decision` left its own enablement unresolved, and that need
+    // carries to every dependant.
+    if (parentPlan.resolved === 'deferred' && !parentPlan.decision) {
       for (const need of parentPlan.needs) deferredNeeds.add(need);
     }
   }
@@ -322,13 +327,15 @@ export function planFeature<F extends FeatureKey>(
   const declaresVariants =
     definition.variants !== undefined && definition.variants.length > 0;
 
-  // Enablement is settled only when every rule the loop looked at resolved
-  // cleanly, leaving `ruleNeeds` empty. `decide` evaluates rules in order and
-  // stops at the first match, so a rule the loop above skipped for a missing
-  // field could still out-rank a rule that matched after it; a match by
-  // itself does not settle anything while `ruleNeeds` is non-empty. Once
-  // `ruleNeeds` is empty, `decide` already knows what settles the split, so
-  // this block calls it once and reads `settled.assignment` for the answer.
+  // This block settles enablement only when every rule the loop looked at
+  // resolved cleanly, leaving `ruleNeeds` empty. `decide` evaluates rules in
+  // order and stops at the first match, so a rule the loop above skipped for
+  // a missing field could still out-rank a rule that matched after it; a
+  // match by itself does not settle anything while `ruleNeeds` is non-empty.
+  // Once `ruleNeeds` is empty, `decide` already knows what settles the split,
+  // so this block calls it once, reads `settled.assignment.source` to tell a
+  // settled split from a fallback, and takes `resolved` from
+  // `settled.enabled`.
   if (deferredNeeds.size === 0 && ruleNeeds.size === 0) {
     const settled = decide(definition, context, resolved);
     // `'fallback'` is the one source that means the context left the split
@@ -341,8 +348,9 @@ export function planFeature<F extends FeatureKey>(
     }
     // The bucketing field decides the split, and this context does not carry
     // it. `decide` computed the control only as a placeholder for the
-    // fallback path. This entry drops that placeholder, reports enablement
-    // only, and leaves the split for a request that supplies the field.
+    // fallback path. This entry drops that placeholder and reports
+    // enablement only. A later request that supplies the field settles the
+    // split.
     const { variant, value, assignment, ...enablement } = settled;
     return {
       key,
@@ -352,10 +360,10 @@ export function planFeature<F extends FeatureKey>(
     };
   }
 
-  // Enablement itself is still unresolved here: a parent left a need, or a
-  // rule did. `decide` cannot safely run against the incomplete context this
-  // plan had, so this branch lists the variant field as outstanding only when
-  // the context is missing it, without attaching a decision.
+  // A parent left a need here, or a rule did, so enablement itself is still
+  // unresolved. `decide` cannot safely run against the incomplete context
+  // this plan had, so this branch lists the variant field as outstanding
+  // only when the context is missing it, without attaching a decision.
   const needsVariantField = declaresVariants && !available.has(variantField);
   const needs = [
     ...new Set([

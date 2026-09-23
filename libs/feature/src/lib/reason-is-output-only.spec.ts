@@ -175,7 +175,10 @@ describe('reason is output only', () => {
     };
     const context: EvaluationContext = {
       now: new Date('2026-09-01T00:00:00Z'),
-      targetingKey: 'user-1',
+      // Buckets to 'control' on this parent's 50/50 split, so mutating
+      // `variant` to 'blue' below is a genuinely different value, not a
+      // no-op that would pass even if the mutation leaked through.
+      targetingKey: 'user-3',
     };
 
     const resolved = new Map<Key, Decision<Key>>();
