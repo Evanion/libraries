@@ -297,22 +297,26 @@ export function planFeature<F extends FeatureKey>(
   if (definition.freezeTimeAtBuild) available.add('now');
 
   const rules = definition.rules ?? [];
-  const ownNeeds = new Set<string>();
+  // Fields a rule itself is missing. Kept apart from the variant's need below,
+  // because a rule that still needs a field means enablement is not settled --
+  // counting the two needs in one Set would hide that a rule, not only the
+  // split, is why this feature is deferred.
+  const ruleNeeds = new Set<string>();
+  let matched = false;
 
   if (deferredNeeds.size === 0) {
     for (const rule of rules) {
       const missing = ruleFields(rule).filter((field) => !available.has(field));
       if (missing.length) {
-        for (const field of missing) ownNeeds.add(field);
+        for (const field of missing) ruleNeeds.add(field);
         continue;
       }
       if (evaluateRule(definition, rule, context).matched) {
-        return {
-          key,
-          resolved: true,
-          needs: [],
-          decision: decide(definition, context, resolved),
-        };
+        // Rules are OR-ed: this match settles enablement regardless of what an
+        // earlier rule in the loop still needed, so that partial need is
+        // dropped rather than folded into the entry below.
+        matched = true;
+        break;
       }
     }
   }
@@ -325,16 +329,42 @@ export function planFeature<F extends FeatureKey>(
     definition.variants !== undefined &&
     definition.variants.length > 0 &&
     !available.has(variantField);
-  if (needsVariantField) ownNeeds.add(variantField);
 
-  const needs = [...deferredNeeds, ...ownNeeds].sort();
+  if (matched) {
+    const settled = decide(definition, context, resolved);
+    if (!needsVariantField) {
+      return { key, resolved: true, needs: [], decision: settled };
+    }
+    // The matching rule settled enablement; only the split is outstanding.
+    // `decide` still assigned a variant off the fallback because the context
+    // lacks the bucketing field, so strip it before attaching.
+    const { variant, value, assignment, ...enablement } = settled;
+    return {
+      key,
+      resolved: 'deferred',
+      needs: [variantField],
+      decision: enablement as Decision<F>,
+    };
+  }
+
+  const needs = [
+    ...new Set([
+      ...deferredNeeds,
+      ...ruleNeeds,
+      ...(needsVariantField ? [variantField] : []),
+    ]),
+  ].sort();
   if (needs.length) {
     const entry: PlanEntry<F> = { key, resolved: 'deferred', needs };
-    // Enablement is settled when this feature's own rules all resolved and only
-    // its variant is outstanding. A build-time pass reads `resolved` to decide
+    // A decision is attached only when this feature's own rules all resolved
+    // against the context this plan had -- none of them contributed a need --
+    // and only the split is outstanding. A rule that still needs a field means
+    // enablement itself rode on that field, so no decision is safe to attach,
+    // even if the variant field happens to be the same field and collapses the
+    // needs into a set of one. A build-time pass reads `resolved` to decide
     // whether to emit statically, so it still skips this entry, and a caller
     // that wants the enablement shortcut reads `decision.enabled` deliberately.
-    if (deferredNeeds.size === 0 && ownNeeds.size === 1 && needsVariantField) {
+    if (deferredNeeds.size === 0 && ruleNeeds.size === 0 && needsVariantField) {
       const settled = decide(definition, context, resolved);
       // The context lacks the bucketing field, so `decide` took the fallback
       // and assigned the control. Emitting that would freeze every subject onto
