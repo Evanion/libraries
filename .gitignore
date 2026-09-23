@@ -99,3 +99,9 @@ apps/storefront/dist/
 # committed figure is right until somebody lands a change without regenerating
 # it, and the page keeps rendering the old one with nothing to say so.
 apps/docs/components/testing/statistics.json
+
+# Written by `nx run docs:behaviour-data` from the libraries' test sources, and
+# read by the reference loader while the site is built. Not committed for the
+# same reason the statistics are not: a committed copy of a suite's own titles
+# goes stale the first time somebody renames a test.
+apps/docs/components/api/behaviour/

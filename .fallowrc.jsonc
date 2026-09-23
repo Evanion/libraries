@@ -17,6 +17,12 @@
     // the sweep and everything it reads report as unreachable.
     "apps/docs/tools/test-statistics.mjs",
 
+    // The reference pages' behaviour catalogue, written by the
+    // `docs:behaviour-data` target rather than imported. Nothing names this
+    // file either, so without it the writer and the parser behind it report as
+    // unreachable.
+    "apps/docs/tools/behaviour-data.mjs",
+
     // A package's doctest preamble, read by path rather than imported:
     // `vite.config.ts` reads it through `readPreamble(import.meta.dirname)` and
     // the region loader reads it beside the README it fills a fence from. No

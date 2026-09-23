@@ -45,9 +45,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { createProjectGraphAsync, parseJson } from '@nx/devkit';
-import { findMatchingProjects } from 'nx/src/devkit-internals.js';
-
+import { libraries } from './libraries.mjs';
 import {
   groupEntries,
   KINDS_OUTSIDE,
@@ -61,26 +59,6 @@ import {
 const docsRoot = join(import.meta.dirname, '..');
 const workspaceRoot = join(docsRoot, '..', '..');
 const output = join(docsRoot, 'components', 'testing', 'statistics.json');
-
-/** The libraries `nx release` versions, which is what the section counts. */
-async function libraries() {
-  const nxJson = parseJson(
-    readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
-    { expectComments: true },
-  );
-  const patterns = nxJson.release?.projects;
-  if (!patterns) throw new Error('nx.json must define release.projects');
-
-  const graph = await createProjectGraphAsync({ exitOnError: false });
-  const names = findMatchingProjects(
-    Array.isArray(patterns) ? patterns : [patterns],
-    graph.nodes,
-  );
-
-  return names
-    .map((name) => ({ name, root: graph.nodes[name].data.root }))
-    .sort((left, right) => left.name.localeCompare(right.name));
-}
 
 /** Where a library's Vite config points the run reporter and the coverage summary. */
 const REPORT = 'test-output/vitest/coverage/report.json';
@@ -183,7 +161,7 @@ function seeded(source) {
   return [...new Set(found)];
 }
 
-const projects = await libraries();
+const projects = await libraries(workspaceRoot);
 const runs = projects.map((project) => ({ project, ...reportsOf(project) }));
 
 const register = parseRegister(
