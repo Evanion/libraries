@@ -893,6 +893,68 @@ describe('plan', () => {
     expect(features.plan().cta.needs).toEqual(['accountId']);
   });
 
+  it('attaches no decision when a rule needs the field the variant needs', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ rollout: { percent: 50 } }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision).toBeUndefined();
+  });
+
+  it('attaches no decision when a rule needs a field and the variant needs another', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region', 'targetingKey']);
+    expect(entry.decision).toBeUndefined();
+  });
+
+  it('attaches a decision when a rule resolved and only the split waits', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+    ]);
+
+    const entry = features.plan({ region: 'eu' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.reason).toBe('rule-match');
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
   it('resolves a feature whose variant a build-time context settles', () => {
     const features = createFeatures([
       {
