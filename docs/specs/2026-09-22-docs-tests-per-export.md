@@ -164,10 +164,12 @@ does not carry`. § 3.2.
 decision never decided` renders as "drops a key the decision never decided"
     on `pickAllowedFields`'s entry, where the reader is already. § 7.1.
 15. **A `describe` whose children carry computed titles renders as one
-    sentence, with the number of cases beneath it.** Measured: 450 of acl's
+    sentence, and the entry's count counts it as one.** Measured: 450 of acl's
     1,095 cases are `it.each` seeds under
     `an overlay that matches nothing changes no decision`, and that title is
-    already a statement. § 7.2.
+    already a statement. A count beneath such a block would be the only number
+    on the entry that was not the number of sentences above it. Settled
+    2026-09-23: one count per entry and none anywhere else. § 7.2, § 13.
 16. **The sentences are read from the test sources, not from a test run.**
     Measured: all 514 statically read titles appear verbatim in the run's
     `fullName` set, so the static read is a strict subset with no invented
@@ -600,9 +602,11 @@ drops a key the decision never decided
 an overlay that matches nothing changes no decision > seed 1
 ```
 
-The page renders the `describe` once and says how many cases ran beneath it. A
+The page renders the `describe` once and the entry's count counts it as one. A
 list of 450 lines reading `seed 1` through `seed 450` would bury the entry. The
-parent title is a better sentence than any of them anyway.
+parent title is a better sentence than any of them anyway, and the pane shows
+the whole `it.each` call, seeds included, so a reader who opens that sentence
+sees what the 450 rows do.
 
 Measured: all 514 of acl's statically readable `it` titles appear verbatim in the
 run's report, and the 581 runtime cases with no static title break down as 450
@@ -617,7 +621,20 @@ emits, below the signature fence and above the example fence. The order is what
 the reader needs in order: the signature says what the export is, the behaviours
 say what it does, the example shows a call.
 
-A count of sentences appears nowhere. § 14.
+As a rail and a pane, in a frame of one height. Settled 2026-09-23, after the
+owner read the first version: a flat grouped list left a reader unable to see
+what any sentence checks, and `policy`'s 32 sentences pushed the next entry off
+the screen. The rail lists the sentences under the `describe` labels the suite
+wrote, the pane carries the case behind the selected one verbatim, and the frame
+is the same height whether the export states 3 sentences or 32. Arrow keys move
+the selection; it is a listbox, not a tab set, because these labels are
+sentences and there can be 32 of them.
+
+The pane shows the case and never a distillation of it. "Asserts that the
+finding names the branch" would be the page's own reading of a suite it did not
+write, which decision A refuses.
+
+One count of sentences appears, at the head of the block. § 13.
 
 ## 8. What the names are actually like
 
@@ -859,11 +876,20 @@ PR #270 builds a `/testing` section making per-package claims from a full run:
 and matching what that spec states. Two pages quoting different numbers from one
 source would be worse than either alone, so three rules.
 
-**The entry prints no count.** No "23 behaviours", no "8 of 1,095 cases", no
-share. The reason is arithmetic: 380 of the 1,007 statically titled cases have an
-owning `describe`, and the sum of every entry's list across `/acl/api/` is 137
-cases against a suite of 1,095. Any count on an entry invites the reader to add
-them up, and the sum is not the suite. Decision A: the entry lists sentences.
+**The entry prints one count, at the head of the block, labelled
+`behaviours`.** Settled by the owner on 2026-09-23, reversing this section's
+first answer, which was that the entry prints none.
+
+The first answer was arithmetic: 380 of the 1,007 statically titled cases have
+an owning `describe`, and the sum of every entry's list across `/acl/api/` is
+137 cases against a suite of 1,095, so a reader who added the entries up would
+land somewhere that is not the suite. What the rendered page showed is that the
+risk was the wrong way round. A reader meeting a rail of sentences wants to know
+how much of it there is before reading a line, and the word `behaviours` is what
+stops the number being read as a share of anything: it counts the sentences on
+this entry, which is a quantity the block itself can be checked against. No
+"8 of 1,095 cases", no percentage, no count per group and none per generated
+block. One number, and it says what it counts.
 
 **The `/testing` section holds every total.** Case counts, file counts, coverage
 percentages and the commands that reproduce them stay there, and the reference
@@ -902,8 +928,9 @@ The empty case, from § 9:
 And the wording that is refused, with the reason. "Untested" is refused because
 an export with no `describe` may have 36 references across 4 test files, as
 `applyDenyOverlay` did before § 4.2. "Not covered" is refused because coverage is
-a different measurement this page does not make. "0 tests" is refused because it
-is a count, and § 13 forbids counts.
+a different measurement this page does not make. "0 tests" is refused because a count of
+cases is not what § 13's count counts, and because an export with nothing stated
+gets no count at all: a `0` invites a reader to subtract it from something.
 
 One line of prose sits under the block heading on every entry that has one, and
 it is the same line everywhere:
