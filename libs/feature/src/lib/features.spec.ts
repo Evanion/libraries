@@ -955,6 +955,91 @@ describe('plan', () => {
     expect(entry.decision?.variant).toBeUndefined();
   });
 
+  it('settles the split at build time when a rule pins the variant', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'region', op: 'eq', value: 'eu' }],
+            variant: 'blue',
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ region: 'eu' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+    expect(entry.decision?.assignment?.source).toBe('pinned');
+  });
+
+  it('settles the split at build time from a prior assignment', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ stickyVariants: { cta: 'blue' } }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('blue');
+    expect(entry.decision?.assignment?.source).toBe('sticky');
+  });
+
+  it('settles the split at build time when the context buckets it', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'user-1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.assignment?.source).toBe('weighted');
+  });
+
+  it('defers the split when nothing settles it', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
   it('resolves a feature whose variant a build-time context settles', () => {
     const features = createFeatures([
       {
