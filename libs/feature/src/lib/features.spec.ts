@@ -233,6 +233,51 @@ describe('precedence', () => {
       );
     }
   });
+
+  it('names a rule by its content when a rule is inserted above it', () => {
+    const before = createFeatures([
+      {
+        key: 'k',
+        enabled: true,
+        rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+      },
+    ]);
+    const after = createFeatures([
+      {
+        key: 'k',
+        enabled: true,
+        rules: [
+          { when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+          { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        ],
+      },
+    ]);
+
+    const beforeId = before.resolve({ role: 'staff' }).k.rule;
+    const afterId = after.resolve({ role: 'staff' }).k.rule;
+
+    expect(beforeId).toMatch(/^rule-[0-9a-f]{8}$/);
+    expect(afterId).toBe(beforeId);
+  });
+
+  it('names every rule in a breakdown by its content', () => {
+    const features = createFeatures([
+      {
+        key: 'k',
+        enabled: true,
+        rules: [
+          { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+          { id: 'named', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({ role: 'customer', plan: 'free' }).k;
+
+    expect(decision.reason).toBe('no-rule-matched');
+    expect(decision.rules?.[0]?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
+    expect(decision.rules?.[1]?.rule).toBe('named');
+  });
 });
 
 describe('cascade', () => {
