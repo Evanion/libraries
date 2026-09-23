@@ -12,14 +12,17 @@ const features = createFeatures([
 ]);
 ```
 
-| Field               | Meaning                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `key`               | the identifier. `string` or `number`                            |
-| `enabled`           | the maintainer wants this on                                    |
-| `dependsOn`         | features that must resolve on for this one to                   |
-| `rules`             | activation rules, OR-ed                                         |
-| `seed`              | bucketing seed for this feature's rollouts. Defaults to the key |
-| `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build       |
+| Field               | Meaning                                                                          |
+| ------------------- | -------------------------------------------------------------------------------- |
+| `key`               | the identifier. `string` or `number`                                             |
+| `enabled`           | the maintainer wants this on                                                     |
+| `dependsOn`         | features that must resolve on for this one to                                    |
+| `rules`             | activation rules, OR-ed                                                          |
+| `seed`              | bucketing seed for this feature's rollouts. Defaults to the key                  |
+| `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build                        |
+| `variants`          | the named variants this feature splits across. See [Variants](/feature/variants) |
+| `variantBy`         | context field variant assignment buckets on. Defaults to `targetingKey`          |
+| `variantSeed`       | bucketing seed for this feature's variant split                                  |
 
 `enabled` records the intent; `rules` decide whether the feature resolves on for
 a given context.
@@ -125,6 +128,10 @@ conditions, `by` and `seed` all match derive the same id. Give such rules
 explicit ids, or a breakdown carries two entries under one name.
 
 A rule with neither `when` nor `rollout` matches unconditionally.
+
+A rule on a feature that declares variants can carry `variant`, naming one of
+them. A matching rule with `variant` set pins that variant on the decision,
+overriding the weights entirely. See [Variants](/feature/variants).
 
 ## Conditions
 
