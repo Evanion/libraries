@@ -171,35 +171,10 @@ describe('misuse', () => {
     expect(() => render(<Orphan />)).toThrow(/FeatureProvider/);
   });
 
-  it('throws for a feature that is not configured', () => {
-    function Unknown() {
-      useFeature('nope' as Key);
-      return null;
-    }
-
-    expect(() =>
-      render(
-        <FeatureProvider
-          features={createFeatures(definitions)}
-          context={inWindow}
-        >
-          <Unknown />
-        </FeatureProvider>,
-      ),
-    ).toThrow(/nope/);
-  });
-
-  it.each([
-    'constructor',
-    'toString',
-    'valueOf',
-    'hasOwnProperty',
-    '__proto__',
-  ])(
-    'throws for the inherited key %s rather than handing it back as a decision',
-    (key) => {
+  describe('useFeature', () => {
+    it('throws for a feature that is not configured', () => {
       function Unknown() {
-        useFeature(key as Key);
+        useFeature('nope' as Key);
         return null;
       }
 
@@ -212,7 +187,34 @@ describe('misuse', () => {
             <Unknown />
           </FeatureProvider>,
         ),
-      ).toThrow(new RegExp(key));
-    },
-  );
+      ).toThrow(/nope/);
+    });
+
+    it.each([
+      'constructor',
+      'toString',
+      'valueOf',
+      'hasOwnProperty',
+      '__proto__',
+    ])(
+      'throws for the inherited key %s rather than handing it back as a decision',
+      (key) => {
+        function Unknown() {
+          useFeature(key as Key);
+          return null;
+        }
+
+        expect(() =>
+          render(
+            <FeatureProvider
+              features={createFeatures(definitions)}
+              context={inWindow}
+            >
+              <Unknown />
+            </FeatureProvider>,
+          ),
+        ).toThrow(new RegExp(key));
+      },
+    );
+  });
 });

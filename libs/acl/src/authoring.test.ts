@@ -22,7 +22,7 @@ type Verbs = { comment: Action | 'publish' };
 
 const subject: Subject = { id: 's1', roles: ['editor'] };
 
-describe('authoring', () => {
+describe('policy', () => {
   it('flattens the chain to a canonical matrix', () => {
     const access = policy<Subject, Objects, Verbs>().for('comment', (p) =>
       p

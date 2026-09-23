@@ -537,17 +537,19 @@ describe('URN', () => {
   });
 
   describe('percent-encoding helpers', () => {
-    it('should encode everything outside the unreserved set', () => {
-      expect(encodeNss('a b')).toBe('a%20b');
-      expect(encodeNss('a/b')).toBe('a%2Fb');
-      expect(encodeNss('café')).toBe('caf%C3%A9');
-      expect(encodeNss('a-b._~')).toBe('a-b._~');
-    });
+    describe('encodeNss', () => {
+      it('should encode everything outside the unreserved set', () => {
+        expect(encodeNss('a b')).toBe('a%20b');
+        expect(encodeNss('a/b')).toBe('a%2Fb');
+        expect(encodeNss('café')).toBe('caf%C3%A9');
+        expect(encodeNss('a-b._~')).toBe('a-b._~');
+      });
 
-    it('should produce an NSS the grammar accepts', () => {
-      for (const raw of ['a b', 'café', 'a#b', '?', '/leading']) {
-        expect(URN.nssGrammar.test(encodeNss(raw))).toBe(true);
-      }
+      it('should produce an NSS the grammar accepts', () => {
+        for (const raw of ['a b', 'café', 'a#b', '?', '/leading']) {
+          expect(URN.nssGrammar.test(encodeNss(raw))).toBe(true);
+        }
+      });
     });
 
     it('should round-trip through decodeNss', () => {
@@ -556,14 +558,16 @@ describe('URN', () => {
       }
     });
 
-    it('should decode triplets the library itself never produces', () => {
-      expect(decodeNss('a123%2Cz456')).toBe('a123,z456');
-      expect(decodeNss('a123%2cz456')).toBe('a123,z456');
-    });
+    describe('decodeNss', () => {
+      it('should decode triplets the library itself never produces', () => {
+        expect(decodeNss('a123%2Cz456')).toBe('a123,z456');
+        expect(decodeNss('a123%2cz456')).toBe('a123,z456');
+      });
 
-    it('should throw a ValidationError on a malformed percent sequence', () => {
-      expect(() => decodeNss('a%zz')).toThrow(ValidationError);
-      expect(() => decodeNss('a%C3')).toThrow(ValidationError);
+      it('should throw a ValidationError on a malformed percent sequence', () => {
+        expect(() => decodeNss('a%zz')).toThrow(ValidationError);
+        expect(() => decodeNss('a%C3')).toThrow(ValidationError);
+      });
     });
   });
 

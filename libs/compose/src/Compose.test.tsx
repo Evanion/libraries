@@ -94,22 +94,24 @@ describe('ComposeProvider', () => {
     expect(themeElement).toHaveAttribute('data-color', '#007acc');
   });
 
-  it('should render children with providers using provider() helper', () => {
-    const providers = [
-      SimpleProvider,
-      provider(ThemeProvider, { theme: 'light', primaryColor: '#ff0000' }),
-    ];
+  describe('provider', () => {
+    it('should render children with providers using provider() helper', () => {
+      const providers = [
+        SimpleProvider,
+        provider(ThemeProvider, { theme: 'light', primaryColor: '#ff0000' }),
+      ];
 
-    const { getByText, container } = render(
-      <ComposeProvider providers={providers}>
-        <div>Test content</div>
-      </ComposeProvider>,
-    );
+      const { getByText, container } = render(
+        <ComposeProvider providers={providers}>
+          <div>Test content</div>
+        </ComposeProvider>,
+      );
 
-    expect(getByText('Test content')).toBeInTheDocument();
-    const themeElement = container.querySelector('[data-theme]');
-    expect(themeElement).toHaveAttribute('data-theme', 'light');
-    expect(themeElement).toHaveAttribute('data-color', '#ff0000');
+      expect(getByText('Test content')).toBeInTheDocument();
+      const themeElement = container.querySelector('[data-theme]');
+      expect(themeElement).toHaveAttribute('data-theme', 'light');
+      expect(themeElement).toHaveAttribute('data-color', '#ff0000');
+    });
   });
 
   it('should work with multiple providers with props', () => {
