@@ -9,6 +9,8 @@ export type { Features } from './lib/features.js';
 
 export { bucketOf, inRollout, murmur3 } from './lib/bucketing.js';
 export { evaluateCondition } from './lib/conditions.js';
+export { canonical } from './lib/canonical.js';
+export { ruleId } from './lib/rule-id.js';
 export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
 
 export {

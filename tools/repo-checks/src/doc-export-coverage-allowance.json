@@ -38,9 +38,11 @@
       "Weekday",
       "WindowCondition",
       "bucketOf",
+      "canonical",
       "evaluateCondition",
       "inRollout",
       "murmur3",
+      "ruleId",
       "useFeature",
       "useFeatureEnabled",
       "useFeatures"
@@ -51,8 +53,10 @@
       "FeatureCycleError",
       "FeatureProvider",
       "UnknownDependencyError",
+      "canonical",
       "evaluateCondition",
       "murmur3",
+      "ruleId",
       "useFeature",
       "useFeatureEnabled",
       "useFeatures"
