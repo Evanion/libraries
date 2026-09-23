@@ -26,11 +26,13 @@ describe('CorrelationModule', () => {
 
   it('exports the service and the config token', () => {
     const { exports: exported = [] } = CorrelationModule.forRoot();
+
     expect(exported).toContain(CorrelationService);
   });
 
   it('defaults the header, generator and validator', async () => {
     const { config } = await configOf();
+
     expect(config.header).toBe(CORRELATION_ID_HEADER);
     expect(config.validate).toBe(DEFAULT_CORRELATION_ID_VALIDATOR);
     expect(config.generator()).toMatch(
@@ -46,6 +48,7 @@ describe('CorrelationModule', () => {
       generator,
       validate,
     });
+
     expect(config.header).toBe('X-Request-Id');
     expect(config.generator).toBe(generator);
     expect(config.validate).toBe(validate);
@@ -53,6 +56,7 @@ describe('CorrelationModule', () => {
 
   it('provides CorrelationService as a singleton', async () => {
     const { module } = await configOf();
+
     expect(module.get(CorrelationService)).toBeInstanceOf(CorrelationService);
     expect(module.get(CorrelationService)).toBe(module.get(CorrelationService));
   });

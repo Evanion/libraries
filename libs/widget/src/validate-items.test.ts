@@ -110,6 +110,7 @@ describe('validateItems', () => {
     'does not accept the inherited Object.prototype key %s as a known type',
     (type) => {
       let problems: ReturnType<typeof validateItems> = [];
+
       expect(() => {
         problems = validateItems([{ id: 'a', type, props: {} }], registry, {
           leaf: ['label'],
@@ -140,6 +141,7 @@ describe('validateItems', () => {
     'treats a required map without an entry for %s as no required fields',
     (type) => {
       let problems: ReturnType<typeof validateItems> = [];
+
       expect(() => {
         problems = validateItems(
           [{ id: 'a', type, props: {} }],
@@ -213,6 +215,7 @@ describe('validateItems', () => {
       ],
       knownTypes,
     );
+
     expect(problems).toEqual([
       {
         index: 1,
@@ -251,6 +254,7 @@ describe('validateItems', () => {
       ],
       knownTypes,
     );
+
     expect(problems).toEqual([
       {
         index: 0,
@@ -270,6 +274,7 @@ describe('validateItems', () => {
       ],
       knownTypes,
     );
+
     expect(problems.map((problem) => problem.message)).toEqual([
       VALIDATION_MESSAGES.UNKNOWN_TYPE,
       VALIDATION_MESSAGES.INVALID_PROPS,

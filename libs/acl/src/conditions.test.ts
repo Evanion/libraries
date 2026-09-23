@@ -24,6 +24,7 @@ describe('evaluateCondition', () => {
       op: 'eq',
       path: 'subject.id',
     };
+
     expect(state(c, ctx)).toBe('holds');
     expect(state(c, { ...ctx, object: { authorId: 'OTHER' } })).toBe('fails');
   });
@@ -69,6 +70,7 @@ describe('evaluateCondition', () => {
 
   it('an absent subject field is a definite miss, negative operators included', () => {
     const absent: EvaluationContext = { subject: { id: 'x' } };
+
     expect(
       state({ field: 'subject.missing', op: 'eq', value: 1 }, absent),
     ).toBe('fails');
@@ -91,6 +93,7 @@ describe('evaluateCondition', () => {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
+
     expect(
       evaluateCondition(
         { field: 'object.status', op: 'eq', value: 'draft' },
@@ -104,6 +107,7 @@ describe('evaluateCondition', () => {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
+
     expect(
       state({ field: 'object.status', op: 'ne', value: 'draft' }, projection),
     ).toBe('unevaluable');
@@ -120,6 +124,7 @@ describe('evaluateCondition', () => {
       subject: { id: 's1' },
       object: { authorId: 's1' },
     };
+
     expect(
       evaluateCondition(
         { field: 'subject.id', op: 'eq', path: 'object.ownerId' },
@@ -133,6 +138,7 @@ describe('evaluateCondition', () => {
       subject: { id: 's1' },
       object: Object.create({ status: 'x' }) as Record<string, unknown>,
     };
+
     expect(
       state({ field: 'object.status', op: 'eq', value: 'x' }, hostile),
     ).toBe('unevaluable');
@@ -150,6 +156,7 @@ describe('evaluateCondition', () => {
       value: '2020-01-01T00:00:00Z',
     };
     const forms = [iso, epoch, new Date(epoch)];
+
     for (const now of forms) {
       expect(state(window, { ...ctx, now })).toBe('holds');
       expect(
@@ -182,6 +189,7 @@ describe('evaluateCondition', () => {
       new Date('not a date'),
       null,
     ];
+
     for (const now of broken) {
       const context = { ...ctx, now } as EvaluationContext;
       expect(() => state(window, context)).not.toThrow();
@@ -204,6 +212,7 @@ describe('evaluateCondition', () => {
       Number.NEGATIVE_INFINITY,
       Number.NaN,
     ];
+
     for (const value of boundaries) {
       const rules: Rule[] = [{ when: [{ field: 'now', op: 'after', value }] }];
       expect(() =>
@@ -233,6 +242,7 @@ describe('evaluateCondition', () => {
 
   it('an absent now reads the wall clock', () => {
     const clockless: EvaluationContext = { subject: ctx.subject };
+
     expect(
       state(
         { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
@@ -249,6 +259,7 @@ describe('evaluateCondition', () => {
 
   it('a context round-tripped through JSON still decides its time window', () => {
     const hydrated = JSON.parse(JSON.stringify(ctx)) as EvaluationContext;
+
     expect(typeof hydrated.now).toBe('string');
     expect(
       state(
@@ -260,6 +271,7 @@ describe('evaluateCondition', () => {
 
   it('an absent object instance makes object-dependent conditions unevaluable', () => {
     const noObj: EvaluationContext = { subject: { id: 's1' } };
+
     expect(
       evaluateCondition(
         { field: 'object.authorId', op: 'eq', path: 'subject.id' },

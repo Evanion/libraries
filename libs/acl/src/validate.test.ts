@@ -56,6 +56,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(DenyWithoutBaselineError);
   });
 
@@ -70,6 +71,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(BangInAllowListError);
   });
 
@@ -89,6 +91,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(
       TargetsTransitionsConflictError,
     );
@@ -107,6 +110,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(Error);
   });
 
@@ -121,6 +125,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(Error);
   });
 
@@ -141,6 +146,7 @@ describe('validateMatrix', () => {
         },
       ],
     } as unknown as Matrix;
+
     expect(() => validateMatrix(matrix)).toThrow(InvalidRuleError);
   });
 
@@ -162,6 +168,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(DuplicateRuleIdError);
   });
 
@@ -177,6 +184,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(DuplicateRuleIdError);
   });
 
@@ -197,6 +205,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).not.toThrow();
   });
 
@@ -219,6 +228,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).toThrow(KeyMismatchError);
   });
 
@@ -227,6 +237,7 @@ describe('validateMatrix', () => {
       ['a.b', 'c'],
       ['a', 'b.c'],
     ];
+
     for (const [object, action] of collide) {
       const matrix: Matrix = {
         permissions: [
@@ -248,6 +259,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).not.toThrow();
   });
 
@@ -338,6 +350,7 @@ describe('validateMatrix', () => {
       { field: 'now', op: 'after', value: null },
       { field: 'now', op: 'before', value: 1, path: 'object.at' },
     ];
+
     for (const condition of cases) {
       expect(() => validateMatrix(withCondition(condition))).toThrow(
         InvalidConditionError,
@@ -415,6 +428,7 @@ describe('validateMatrix', () => {
 
   it('rejects two permissions under one key', () => {
     const node = { key: 'comment.read', object: 'comment', action: 'read' };
+
     expect(() => validateMatrix({ permissions: [node, node] })).toThrow(
       DuplicatePermissionError,
     );
@@ -436,6 +450,7 @@ describe('validateMatrix', () => {
       { permissions: [null] },
       { permissions: [42] },
     ];
+
     for (const matrix of cases) {
       expect(() => validateMatrix(matrix as unknown as Matrix)).toThrow(
         InvalidMatrixError,
@@ -453,6 +468,7 @@ describe('validateMatrix', () => {
         { key: 'comment.read', object: 'comment', action: 'read', rules: {} },
       ],
     } as unknown as Matrix;
+
     expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
   });
 
@@ -464,6 +480,7 @@ describe('validateMatrix', () => {
       { status: { targets: 'published' } },
       { status: { transitions: { draft: 'published' } } },
     ];
+
     for (const fields of cases) {
       const matrix = {
         permissions: [
@@ -485,6 +502,7 @@ describe('validateMatrix', () => {
         },
       ],
     } as unknown as Matrix;
+
     expect(() => validateMatrix(matrix)).toThrow(
       /no field may be called "fields"/,
     );
@@ -502,6 +520,7 @@ describe('validateMatrix', () => {
       ],
       [withWhen(null), 'rules[0]'],
     ];
+
     for (const [matrix, field] of cases) {
       let caught: unknown;
       try {
@@ -532,6 +551,7 @@ describe('validateMatrix', () => {
         },
       ],
     };
+
     expect(() => validateMatrix(matrix)).not.toThrow();
   });
 });

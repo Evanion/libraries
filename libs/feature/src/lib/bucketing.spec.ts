@@ -27,6 +27,7 @@ describe('bucketOf', () => {
 
   it('is stable across evaluations', () => {
     const first = users.map((user) => bucketOf(user, 'checkout-v2'));
+
     const second = users.map((user) => bucketOf(user, 'checkout-v2'));
 
     expect(second).toEqual(first);

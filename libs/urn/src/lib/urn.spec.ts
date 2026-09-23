@@ -47,6 +47,7 @@ describe('URN', () => {
 
     it('emits an NSS that starts with the NID verbatim', () => {
       const UserURN = namespaceOf('urn', 'user');
+
       expect(UserURN.stringify('user:42')).toBe('urn:user:user:42');
       expect(UserURN.parse('urn:user:user:42').nss).toBe('user:42');
     });
@@ -98,6 +99,7 @@ describe('URN', () => {
 
     it('rejects a 33-character NID on both paths', () => {
       const long = 'a'.repeat(33);
+
       expect(() => URN.stringify('x', long)).toThrow(
         /NID is invalid in .*: must be at most 32 characters long/,
       );
@@ -197,11 +199,13 @@ describe('URN', () => {
   describe('round-tripping', () => {
     it('round-trips the full pchar set through stringify and parse', () => {
       const Example = namespaceOf('urn', 'example');
+
       expect(Example.parse(Example.stringify(PCHAR_SOUP)).nss).toBe(PCHAR_SOUP);
     });
 
     it('round-trips an NSS carrying the separator', () => {
       const Example = namespaceOf('urn', 'example');
+
       expect(Example.parse(Example.stringify('a:b:c')).nss).toBe('a:b:c');
     });
 
@@ -238,6 +242,7 @@ describe('URN', () => {
       class TRN extends URN {
         static override urn = 'trn';
       }
+
       expect(TRN.stringify('foo', 'bar')).toBe('trn:bar:foo');
     });
 
@@ -246,6 +251,7 @@ describe('URN', () => {
         static override readonly urn = 'trn';
         static override readonly separator = '-';
       }
+
       expect(TRN.stringify('foo', 'bar')).toBe('trn-bar-foo');
     });
 
@@ -257,6 +263,7 @@ describe('URN', () => {
       class BarTRN extends TRN {
         static override readonly nid = 'bar';
       }
+
       expect(BarTRN.stringify('foo')).toBe('trn:bar:foo');
     });
   });
@@ -295,6 +302,7 @@ describe('URN', () => {
       class DashUser extends Dash {
         static override readonly nid = 'user';
       }
+
       expect(DashUser.stringify('a:b/c')).toBe('trn-user-a:b/c');
       expect(DashUser.parse('trn-user-a:b/c').nss).toBe('a:b/c');
       expect(DashUser.extractId('trn-user-a:b/c')).toBe('a:b/c');
@@ -356,6 +364,7 @@ describe('URN', () => {
         static override readonly urn = 'trn';
         static override readonly nid = 'user';
       }
+
       expect(UserTRN.parse('ftp:user:1').nss).not.toBe(
         UserTRN.parse('trn:user:1').nss,
       );
@@ -619,6 +628,7 @@ describe('URN', () => {
       // Every static reads `this`, so unlike JSON.stringify they are unbound.
       // The failure comes from the default parameter `nid = this.nid`.
       const { stringify } = URN;
+
       expect(() => stringify('a')).toThrow(TypeError);
     });
   });
@@ -630,6 +640,7 @@ describe('URN', () => {
       // The three component fields are additive: a consumer reading
       // { urn, nid, nss } sees no new keys, not even undefined ones.
       const parsed = URN.parse('urn:nid:foo');
+
       expect(Object.keys(parsed)).toEqual(['urn', 'nid', 'nss']);
       expect(parsed).toStrictEqual({ urn: 'urn', nid: 'nid', nss: 'foo' });
       expect('rComponent' in parsed).toBe(false);
@@ -811,6 +822,7 @@ describe('URN', () => {
         static override readonly nid = 'user';
         static override readonly separator = '-';
       }
+
       expect(Dash.parse('trn-user-123?=q#f')).toStrictEqual({
         urn: 'trn',
         nid: 'user',
@@ -829,6 +841,7 @@ describe('URN', () => {
         static override readonly nid = 'user';
         static override readonly separator = '#';
       }
+
       // '#' cannot be both a separator and the f-component introducer, so the
       // whole tail stays in the NSS -- and a component cannot be written.
       expect(Hash.parse('trn#user#123')).toStrictEqual({
@@ -845,6 +858,7 @@ describe('URN', () => {
   describe('the object form of stringify', () => {
     it('accepts a parsed URN directly', () => {
       const UserURN = namespaceOf('urn', 'user');
+
       expect(UserURN.stringify(UserURN.parse('urn:user:123'))).toBe(
         'urn:user:123',
       );
@@ -852,6 +866,7 @@ describe('URN', () => {
 
     it('defaults the scheme and the NID to the class', () => {
       const UserURN = namespaceOf('trn', 'user');
+
       expect(UserURN.stringify({ nss: '123' })).toBe('trn:user:123');
       expect(UserURN.stringify({ nss: '123', nid: 'order' })).toBe(
         'trn:order:123',
@@ -895,6 +910,7 @@ describe('URN', () => {
       // shape, so spreading the parsed object mislabels every part. Only the
       // object form carries the meaning in the keys.
       const parsed = URN.parse('urn:nid:foo');
+
       expect(
         URN.stringify(...(Object.values(parsed) as [string, string, string])),
       ).toBe('foo:nid:urn');
@@ -905,6 +921,7 @@ describe('URN', () => {
   describe('error hierarchy', () => {
     it('exposes InvalidError as a ValidationError', () => {
       const error = new InvalidError('NSS', 'a b', ' ');
+
       expect(error).toBeInstanceOf(ValidationError);
       expect(error).toBeInstanceOf(Error);
       expect(error.name).toBe('InvalidError');
@@ -933,6 +950,7 @@ describe('URN', () => {
 
     it('lets a single catch handle both error kinds', () => {
       const caught: string[] = [];
+
       for (const run of [
         () => URN.stringify('bad char'),
         () => URN.parse('nope'),
@@ -943,6 +961,7 @@ describe('URN', () => {
           if (error instanceof ValidationError) caught.push(error.name);
         }
       }
+
       expect(caught).toEqual(['InvalidError', 'ValidationError']);
     });
   });

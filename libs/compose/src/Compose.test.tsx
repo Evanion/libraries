@@ -523,6 +523,7 @@ describe('ComposeProvider', () => {
       providers: [SimpleProvider],
       children: null,
     };
+
     expect(withProviders.providers).toHaveLength(1);
   });
 });

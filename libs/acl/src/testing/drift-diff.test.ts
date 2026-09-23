@@ -32,6 +32,7 @@ it('accepts the real diffMatrix at the seam', () => {
     fetched: m('v2', true),
     diff: diffMatrix,
   });
+
   // `report.diff` must be typed as the real MatrixDiff, not `never`.
   expect(report.diff?.findings.map((f) => f.kind)).toEqual(['granted']);
   expect(report.diff?.unchanged).toBe(false);

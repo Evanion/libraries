@@ -43,6 +43,7 @@ describe('hydratePolicy', () => {
   it('can evaluates a single decision', () => {
     const access = hydratePolicy(matrix);
     const d = access.can(editor, 'comment', 'update', { authorId: 's1' });
+
     expect(d.allowed).toBe(true);
     expect(d.reason).toBe('allow');
   });
@@ -51,6 +52,7 @@ describe('hydratePolicy', () => {
     const access = hydratePolicy(matrix);
     const comments = [{ authorId: 's1' }, { authorId: 'OTHER' }];
     const ds = access.canMany(editor, 'comment', 'update', comments);
+
     expect(ds).toHaveLength(2);
     expect(ds[0]!.allowed).toBe(true);
     expect(ds[1]!.allowed).toBe(false);
@@ -59,12 +61,14 @@ describe('hydratePolicy', () => {
   it('a foreign matrix fails closed on an unknown permission', () => {
     const access = hydratePolicy(matrix, { closed: true });
     const d = access.can({ id: 's1' }, 'comment', 'delete');
+
     expect(d.allowed).toBe(false);
     expect(d.reason).toBe('unknown-action');
   });
 
   it('a typed (local) matrix throws on an unknown object kind', () => {
     const access = hydratePolicy(matrix);
+
     expect(() => access.can({ id: 's1' }, 'unknown', 'read')).toThrow(
       UnknownObjectKeyError,
     );
@@ -72,6 +76,7 @@ describe('hydratePolicy', () => {
 
   it('a typed (local) matrix throws on an unknown permission', () => {
     const access = hydratePolicy(matrix);
+
     expect(() => access.can({ id: 's1' }, 'comment', 'delete')).toThrow(
       UnknownPermissionError,
     );
@@ -79,6 +84,7 @@ describe('hydratePolicy', () => {
 
   it('exposes the frozen matrix and version', () => {
     const access = hydratePolicy(matrix, { version: 3 });
+
     expect(access.version).toBe(3);
     expect(Object.isFrozen(access.matrix)).toBe(true);
   });
@@ -86,24 +92,28 @@ describe('hydratePolicy', () => {
   it('the matrix round-trips through JSON losslessly', () => {
     const access = hydratePolicy(matrix);
     const round = JSON.parse(JSON.stringify(access.matrix)) as Matrix;
+
     expect(round).toEqual(access.matrix);
   });
 
   describe('version', () => {
     it('is absent from the document when neither source states one', () => {
       const access = hydratePolicy(matrix);
+
       expect(access.version).toBeUndefined();
       expect(Object.hasOwn(access.matrix, 'version')).toBe(false);
     });
 
     it('comes from the document', () => {
       const access = hydratePolicy({ ...matrix, version: 'orders@7' });
+
       expect(access.version).toBe('orders@7');
       expect(access.matrix.version).toBe('orders@7');
     });
 
     it('comes from the options when the document states none', () => {
       const access = hydratePolicy(matrix, { version: 7 });
+
       expect(access.version).toBe(7);
       expect(access.matrix.version).toBe(7);
     });
@@ -113,6 +123,7 @@ describe('hydratePolicy', () => {
         { ...matrix, version: 'orders@7' },
         { version: 'orders@7+veto@41' },
       );
+
       expect(access.version).toBe('orders@7+veto@41');
       // The frozen document carries the winner, so the version that decided is
       // the version that crosses an SSR boundary.
@@ -152,6 +163,7 @@ describe('hydratePolicy', () => {
       { status: 'x' },
       'write',
     );
+
     expect(fd.fields['status']).toBe('denied');
   });
 
@@ -181,6 +193,7 @@ describe('hydratePolicy', () => {
       { authorId: 's1', body: 'hi' },
       'write',
     );
+
     expect(fd.allowed).toBe(false);
     expect(fd.action).toMatchObject({
       key: 'comment.update',
@@ -216,6 +229,7 @@ describe('hydratePolicy', () => {
       { authorId: 's1' },
       'write',
     );
+
     expect(fd.allowed).toBe(true);
     expect(fd.action).toMatchObject({ allowed: true, reason: 'allow' });
   });
@@ -244,6 +258,7 @@ describe('hydratePolicy', () => {
       'write',
       proposed,
     );
+
     expect(fd.action.allowed).toBe(true);
     expect(fd.fields['role']).toBe('denied');
     expect(fd.allowed).toBe(false);
@@ -253,6 +268,7 @@ describe('hydratePolicy', () => {
   it('canFields on an unknown action names the unknown action', () => {
     const access = hydratePolicy(matrix, { closed: true });
     const fd = access.canFields(editor, 'comment', 'delete', {}, 'write');
+
     expect(fd).toEqual({
       allowed: false,
       action: {
@@ -268,6 +284,7 @@ describe('hydratePolicy', () => {
   it('capabilities returns every action-level decision', () => {
     const access = hydratePolicy(matrix);
     const caps = access.capabilities(editor);
+
     expect(caps['comment.read']!.allowed).toBe(true);
     expect(caps['comment.update']!.reason).toBe('unevaluable');
   });
@@ -275,6 +292,7 @@ describe('hydratePolicy', () => {
   it('authorize binds the subject', () => {
     const access = hydratePolicy(matrix);
     const forUser = access.authorize(editor);
+
     expect(forUser.can('comment', 'read').allowed).toBe(true);
   });
 
@@ -311,6 +329,7 @@ describe('hydratePolicy', () => {
         },
       ],
     });
+
     for (const first of [true, false]) {
       expect(() => hydratePolicy(duplicate(first))).toThrow(
         DuplicatePermissionError,
@@ -371,6 +390,7 @@ describe('the context clock', () => {
   it('takes a string, a number and a Date, and all three agree', () => {
     const epoch = Date.parse(OPEN);
     const open = [OPEN, epoch, new Date(epoch)].map(answers);
+
     for (const answer of open) {
       expect(answer).toEqual(answers(new Date(epoch)));
       expect(answer.can).toBe(true);
@@ -387,6 +407,7 @@ describe('the context clock', () => {
     const hydrated = JSON.parse(JSON.stringify({ now: new Date(OPEN) })) as {
       now: string;
     };
+
     expect(answers(hydrated.now)).toEqual(answers(new Date(OPEN)));
     expect(answers(hydrated.now).can).toBe(true);
   });
@@ -402,6 +423,7 @@ describe('the context clock', () => {
       new Date('not a date'),
       'not a date',
     ];
+
     for (const now of unusable) {
       expect(() => answers(now)).not.toThrow();
       expect(answers(now)).toEqual({

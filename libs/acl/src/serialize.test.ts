@@ -73,6 +73,7 @@ describe('serialize', () => {
 
   it('keeps the public permissions and drops every other one', () => {
     const contract = serialize(access, 'reduced');
+
     expect(contract.permissions.map((p) => p.key)).toEqual([
       'invoice.approve',
       'invoice.read',
@@ -89,18 +90,22 @@ describe('serialize', () => {
     const [approve] = serialize(access, 'reduced').permissions;
     const authored = { ...(owner.permissions[0] as Permission) };
     delete authored.visibility;
+
     expect(approve).toEqual(authored);
   });
 
   it('carries the envelope version and freshness budget', () => {
     const stamped = hydratePolicy({ ...owner, maxStale: 60_000 });
+
     const contract = serialize(stamped, 'reduced');
+
     expect(contract.version).toBe('orders@7');
     expect(contract.maxStale).toBe(60_000);
   });
 
   it('keeps the schema entry of a published kind whole', () => {
     const contract = serialize(access, 'reduced');
+
     expect(contract.schema?.objects).toEqual({
       invoice: { fields: { ownerId: 'string', status: 'string' } },
     });
@@ -119,23 +124,27 @@ describe('serialize', () => {
         { key: 'ledger.reconcile', object: 'ledger', action: 'reconcile' },
       ],
     });
+
     expect(serialize(internal, 'reduced')).not.toHaveProperty('schema');
   });
 
   it('reads an unmarked permission as internal', () => {
     const keys = serialize(access, 'reduced').permissions.map((p) => p.key);
+
     expect(keys).not.toContain('invoice.void');
   });
 
   it('publishes nothing out of a contract, so a consumer cannot re-publish', () => {
     const contract = serialize(access, 'reduced');
     const consumer = parseMatrix(contract);
+
     expect(serialize(consumer, 'reduced').permissions).toEqual([]);
   });
 
   it('round-trips a full serialization through parseMatrix unchanged', () => {
     const full = serialize(access, 'full');
     const again = parseMatrix(JSON.parse(JSON.stringify(full)) as Matrix);
+
     expect(again.matrix).toEqual(full);
   });
 
@@ -180,6 +189,7 @@ describe('serialize', () => {
     const contract = serialize(authored, 'reduced', {
       vetoable: ['invoice.approve'],
     });
+
     expect(contract.permissions.map((p) => p.key)).toEqual(['invoice.approve']);
     expect(() =>
       serialize(authored, 'reduced', { vetoable: ['invoice.read'] }),
@@ -202,6 +212,7 @@ describe('serialize', () => {
       },
       { vetoable: ['invoice.approve'] },
     );
+
     expect(checked.permissions[0]?.denyRules).toHaveLength(2);
   });
 });
@@ -270,6 +281,7 @@ describe('a contract and the owner it came from', () => {
     const subject = subjects[0] as Subject;
     const theirs = access.capabilities(subject, 0);
     const ours = contract.capabilities(subject, 0);
+
     expect(Object.keys(ours)).toEqual(['invoice.approve', 'invoice.read']);
     for (const [key, decision] of Object.entries(ours)) {
       expect(decision).toEqual(theirs[key]);

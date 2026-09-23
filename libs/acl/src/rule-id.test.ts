@@ -20,6 +20,7 @@ describe('ruleId', () => {
     };
     const before = [owner, other];
     const after = [other, owner];
+
     expect(ruleId(before[0]!, 'allow')).toBe(ruleId(after[1]!, 'allow'));
   });
 
@@ -27,6 +28,7 @@ describe('ruleId', () => {
     const reordered: Rule = {
       when: [{ op: 'eq', path: 'object.ownerId', field: 'subject.id' }],
     };
+
     expect(ruleId(reordered, 'allow')).toBe(ruleId(owner, 'allow'));
   });
 
@@ -37,6 +39,7 @@ describe('ruleId', () => {
   it('separates two rules that differ only in the value they compare', () => {
     const a: Rule = { when: [{ field: 'subject.role', op: 'eq', value: 'a' }] };
     const b: Rule = { when: [{ field: 'subject.role', op: 'eq', value: 'b' }] };
+
     expect(ruleId(a, 'allow')).not.toBe(ruleId(b, 'allow'));
   });
 
@@ -44,6 +47,7 @@ describe('ruleId', () => {
     const value: Rule = {
       when: [{ field: 'subject.id', op: 'eq', value: 'object.ownerId' }],
     };
+
     expect(ruleId(value, 'allow')).not.toBe(ruleId(owner, 'allow'));
   });
 

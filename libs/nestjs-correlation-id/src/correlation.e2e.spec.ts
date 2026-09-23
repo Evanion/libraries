@@ -197,6 +197,7 @@ describe('correlation id end to end', () => {
     const { body, rawHeaders } = await request(`${base}/id`, {
       [HEADER]: 'from-caller',
     });
+
     expect(JSON.parse(body)).toEqual({ id: 'from-caller' });
     expect(responseHeader(rawHeaders, HEADER)).toBe('from-caller');
   });
@@ -205,12 +206,14 @@ describe('correlation id end to end', () => {
     const { rawHeaders } = await request(`${base}/id`, {
       [HEADER]: 'from-caller',
     });
+
     expect(responseHeaderName(rawHeaders, HEADER)).toBe(HEADER);
   });
 
   it('generates an id when the caller sends none', async () => {
     const { body, rawHeaders } = await request(`${base}/id`);
     const { id } = JSON.parse(body) as { id: string };
+
     expect(id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
@@ -221,6 +224,7 @@ describe('correlation id end to end', () => {
     const { body } = await request(`${base}/id`, {
       [HEADER]: 'contains spaces',
     });
+
     expect(JSON.parse(body).id).not.toBe('contains spaces');
   });
 
@@ -229,6 +233,7 @@ describe('correlation id end to end', () => {
     const results = await Promise.all(
       ids.map((id) => request(`${base}/slow`, { [HEADER]: id })),
     );
+
     expect(results.map((r) => JSON.parse(r.body))).toEqual(
       ids.map((id) => ({ before: id, after: id })),
     );
@@ -237,6 +242,7 @@ describe('correlation id end to end', () => {
   it('forwards the current id to outgoing http calls, with the configured casing', async () => {
     const before = upstream.received.length;
     await request(`${base}/forward`, { [HEADER]: 'outgoing-1' });
+
     expect(upstream.headerOf(before, HEADER)).toBe('outgoing-1');
     expect(upstream.rawNameOf(before, HEADER)).toBe(HEADER);
   });
@@ -245,6 +251,7 @@ describe('correlation id end to end', () => {
     const before = upstream.received.length;
     await request(`${base}/forward`, { [HEADER]: 'outgoing-2' });
     await request(`${base}/forward`, { [HEADER]: 'outgoing-3' });
+
     expect([
       upstream.headerOf(before, HEADER),
       upstream.headerOf(before + 1, HEADER),
@@ -254,6 +261,7 @@ describe('correlation id end to end', () => {
   it('constructs a singleton holding HttpService exactly once across requests', async () => {
     await request(`${base}/forward`);
     await request(`${base}/forward`);
+
     expect(Downstream.constructed).toBe(1);
   });
 

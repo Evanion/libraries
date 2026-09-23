@@ -124,6 +124,7 @@ describe('generate', () => {
 
   it('chunks a longer code evenly', () => {
     const long = createToken({ length: 12, chunkSize: 3 });
+
     const widths = long
       .generate()
       .value.split(DEFAULT_SEPARATOR)

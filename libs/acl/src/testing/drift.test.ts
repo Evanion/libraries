@@ -138,6 +138,7 @@ describe('contractDrift', () => {
 
     it('spells the change as a change and not as a break', () => {
       const text = describeContractDrift(report);
+
       expect(text).toContain('1 decision(s) changed');
       expect(text).not.toContain('breaks the contract');
     });
@@ -177,6 +178,7 @@ describe('contractDrift', () => {
         version: 'orders@8',
         permissions: [refund, reads],
       };
+
       const report = contractDrift({
         pinned,
         fetched,
@@ -204,6 +206,7 @@ describe('contractDrift', () => {
         ],
       };
       const before: Matrix = { version: 'a', permissions: [windowed] };
+
       const report = contractDrift({
         pinned: before,
         fetched: before,
@@ -238,6 +241,7 @@ describe('contractDrift', () => {
           },
         ],
       };
+
       const report = contractDrift({
         pinned: opened,
         fetched: closed,
@@ -257,6 +261,7 @@ describe('contractDrift', () => {
 
     it('names a case after its permission key when the case names nothing', () => {
       const fetched: Matrix = { version: 'orders@8', permissions: [cancel] };
+
       const report = contractDrift({
         pinned,
         fetched,
@@ -268,6 +273,7 @@ describe('contractDrift', () => {
 
     it('applies no freshness budget of its own', () => {
       const budgeted: Matrix = { ...pinned, maxStale: 1 };
+
       const report = contractDrift({
         pinned: budgeted,
         fetched: budgeted,
@@ -297,6 +303,7 @@ describe('contractDrift', () => {
         version: 'orders@8',
         permissions: [refund, cancel],
       };
+
       contractDrift({
         pinned,
         fetched,

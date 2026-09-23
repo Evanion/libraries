@@ -31,6 +31,7 @@ describe('evaluateCondition', () => {
 
     it('accepts epoch milliseconds and a Date', () => {
       const value = Date.UTC(2026, 9, 1);
+
       expect(
         evaluateCondition(
           { field: 'now', op: 'before', value },

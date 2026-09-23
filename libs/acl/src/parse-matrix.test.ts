@@ -29,6 +29,7 @@ describe('parseMatrix', () => {
   it('adopts a foreign matrix and fails closed', () => {
     const access = parseMatrix(json);
     const d = access.can({ id: 's1' }, 'comment', 'delete');
+
     expect(d.allowed).toBe(false);
     expect(d.reason).toBe('unknown-action');
   });
@@ -43,18 +44,21 @@ describe('parseMatrix', () => {
 
   it('exposes the adopted version', () => {
     const access = parseMatrix(json, { version: 7 });
+
     expect(access.version).toBe(7);
   });
 
   it('round-trips through JSON', () => {
     const access = parseMatrix(json);
     const round = JSON.parse(JSON.stringify(access.matrix)) as Matrix;
+
     expect(round).toEqual(access.matrix);
   });
 
   it('a valid permission evaluates locally', () => {
     const access = parseMatrix(json);
     const d = access.can({ id: 's1', roles: ['editor'] }, 'comment', 'read');
+
     expect(d.allowed).toBe(true);
   });
 
@@ -67,6 +71,7 @@ describe('parseMatrix', () => {
       [42, InvalidRuleError],
       [[null], InvalidConditionError],
     ];
+
     for (const [when, expected] of cases) {
       const matrix = {
         permissions: [
@@ -93,6 +98,7 @@ describe('parseMatrix', () => {
         },
       ],
     };
+
     expect(() => parseMatrix(matrix)).toThrow(KeyMismatchError);
   });
 
@@ -103,6 +109,7 @@ describe('parseMatrix', () => {
         { key: 'a.b.c', object: 'a', action: 'b.c', rules: [] },
       ],
     };
+
     expect(() => parseMatrix(matrix)).toThrow(InvalidPermissionError);
   });
 
@@ -117,6 +124,7 @@ describe('parseMatrix', () => {
         },
       ],
     };
+
     expect(parseMatrix(matrix).can({}, 'orders:invoice', 'read').allowed).toBe(
       true,
     );
@@ -141,6 +149,7 @@ describe('parseMatrix', () => {
         },
       ],
     };
+
     expect(() => parseMatrix(deep)).toThrow(InvalidConditionError);
 
     const notIn: Matrix = {
@@ -180,6 +189,7 @@ describe('parseMatrix', () => {
         },
       ],
     } as unknown as Matrix;
+
     expect(() => parseMatrix(matrix)).toThrow(InvalidMatrixError);
   });
 
@@ -203,6 +213,7 @@ describe('parseMatrix', () => {
     } as unknown as Matrix;
 
     const access = parseMatrix(matrix);
+
     expect(Object.isFrozen(access.matrix.permissions[0]?.rules?.[0])).toBe(
       true,
     );

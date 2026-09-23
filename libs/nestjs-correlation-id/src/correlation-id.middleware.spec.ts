@@ -79,12 +79,14 @@ describe('CorrelationIdMiddleware', () => {
   it('reads the incoming id from the raw lower-case header key', () => {
     const { req, res } = mockReqRes('from-caller');
     run(middleware, req, res);
+
     expect(service.seen).toEqual(['from-caller']);
   });
 
   it('sets the correlation id on the request under the canonical lower-case key', () => {
     const { req, res } = mockReqRes(undefined);
     run(middleware, req, res);
+
     expect(req.headers['x-correlation-id']).toBe('test123');
     expect(Object.keys(req.headers)).not.toContain(HEADER);
   });
@@ -92,6 +94,7 @@ describe('CorrelationIdMiddleware', () => {
   it('sets the response header with the configured casing', () => {
     const { req, res, sent } = mockReqRes('test123');
     run(middleware, req, res);
+
     expect(sent.get('x-correlation-id')).toEqual({
       name: HEADER,
       value: 'test123',
@@ -102,6 +105,7 @@ describe('CorrelationIdMiddleware', () => {
     const { req, res } = mockReqRes('test123');
     const next = vi.fn();
     run(middleware, req, res, next);
+
     expect(service.run).toHaveBeenCalledTimes(1);
     expect(service.seen).toEqual(['test123']);
     expect(next).toHaveBeenCalledTimes(1);
@@ -110,6 +114,7 @@ describe('CorrelationIdMiddleware', () => {
   it('does not call the generator when a usable id arrives with the request', () => {
     const { req, res } = mockReqRes('from-caller');
     run(middleware, req, res);
+
     expect(service.generate).not.toHaveBeenCalled();
   });
 
@@ -120,6 +125,7 @@ describe('CorrelationIdMiddleware', () => {
     });
     const { req, res } = mockReqRes('contains spaces');
     run(customMiddleware, req, res);
+
     expect(service.seen).toEqual(['contains spaces']);
   });
 
@@ -127,6 +133,7 @@ describe('CorrelationIdMiddleware', () => {
     const { req, res } = mockReqRes('test123');
     const next = vi.fn();
     run(middleware, req, res, next);
+
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -135,6 +142,7 @@ describe('CorrelationIdMiddleware', () => {
     res.setHeader(HEADER, 'already-set');
     res.setHeader.mockClear();
     run(middleware, req, res);
+
     expect(res.setHeader).not.toHaveBeenCalled();
   });
 });
@@ -153,24 +161,28 @@ describe('DEFAULT_CORRELATION_ID_VALIDATOR', () => {
   it('falls back to a generated id when the incoming value is invalid', () => {
     const { req, res } = mockReqRes('contains spaces');
     run(middleware, req, res);
+
     expect(service.seen).toEqual(['test123']);
   });
 
   it('rejects an incoming id that is too long', () => {
     const { req, res } = mockReqRes('a'.repeat(129));
     run(middleware, req, res);
+
     expect(service.seen).toEqual(['test123']);
   });
 
   it('rejects comma-joined repeated headers', () => {
     const { req, res } = mockReqRes('aaa, bbb');
     run(middleware, req, res);
+
     expect(service.seen).toEqual(['test123']);
   });
 
   it('rejects an array-valued header rather than picking one element', () => {
     const { req, res } = mockReqRes(['aaa', 'bbb']);
     run(middleware, req, res);
+
     expect(service.seen).toEqual(['test123']);
   });
 });

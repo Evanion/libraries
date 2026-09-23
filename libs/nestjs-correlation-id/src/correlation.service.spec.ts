@@ -35,6 +35,7 @@ describe('CorrelationService', () => {
 
   it('is a singleton, so module.get resolves it without a context id', async () => {
     const { module } = await build();
+
     expect(module.get(CorrelationService)).toBe(module.get(CorrelationService));
   });
 
@@ -54,6 +55,7 @@ describe('CorrelationService', () => {
 
   it('does not leak the id past the end of the context', () => {
     service.run('abc', () => undefined);
+
     expect(service.getCorrelationId()).toBeUndefined();
   });
 

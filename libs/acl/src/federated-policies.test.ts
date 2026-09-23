@@ -80,6 +80,7 @@ describe('federatedPolicies', () => {
   describe('the collision check', () => {
     it('refuses two origins claiming one key, naming both', () => {
       let raised: unknown;
+
       try {
         federatedPolicies({
           orders: parseMatrix(bare()),
@@ -136,6 +137,7 @@ describe('federatedPolicies', () => {
   describe('routing', () => {
     it('answers with the decision the holding origin reaches', () => {
       const ordersAccess = parseMatrix(orders);
+
       const fleet = federatedPolicies({
         orders: ordersAccess,
         billing: parseMatrix(billing),
@@ -165,6 +167,7 @@ describe('federatedPolicies', () => {
         ],
       };
       const access = parseMatrix(owned);
+
       const fleet = federatedPolicies({ orders: access });
 
       expect(fleet.can(subject, 'orders:order', 'ship')).toEqual(
@@ -201,6 +204,7 @@ describe('federatedPolicies', () => {
     it('equals the fold over the same origins at one instant', () => {
       const ordersAccess = parseMatrix(orders);
       const billingAccess = parseMatrix(billing);
+
       const fleet = federatedPolicies({
         orders: ordersAccess,
         billing: billingAccess,
@@ -223,6 +227,7 @@ describe('federatedPolicies', () => {
       });
 
       const before = fleet.capabilities(subject, BOUNDARY - 1000);
+
       expect(before['early:window.enter']?.allowed).toBe(true);
       expect(before['late:window.enter']?.allowed).toBe(false);
 
@@ -258,6 +263,7 @@ describe('federatedPolicies', () => {
   describe('the members', () => {
     it('hands back the reference the caller passed', () => {
       const access = parseMatrix(orders);
+
       const fleet = federatedPolicies({ orders: access });
 
       expect(fleet.get('orders')).toBe(access);
@@ -280,6 +286,7 @@ describe('federatedPolicies', () => {
           p.allow('read', p.eq('object.ownerId', 'subject.id')),
         )
         .build();
+
       const fleet = federatedPolicies({
         orders: parseMatrix(orders),
         sessions: own,
@@ -295,6 +302,7 @@ describe('federatedPolicies', () => {
 
     it('mixes provenances and each member keeps its unknown-key behaviour', () => {
       const own = hydratePolicy(billing);
+
       const fleet = federatedPolicies({
         orders: parseMatrix(orders),
         billing: own,
@@ -336,6 +344,7 @@ describe('federatedPolicies', () => {
       );
 
       const plain = federatedPolicies({ orders: parseMatrix(vetoable) });
+
       const narrowed = federatedPolicies({ orders: parseMatrix(overlaid) });
       const row = { region: 'eu' };
 
