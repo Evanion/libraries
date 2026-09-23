@@ -242,11 +242,22 @@ export type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
 /** One feature's build-time plan. */
 export interface PlanEntry<F extends FeatureKey = string> {
   key: F;
-  /** `'deferred'` when some rule still needs context this plan did not have. */
+  /**
+   * `'deferred'` when some rule, or this feature's variant split, still needs
+   * context this plan did not have.
+   */
   resolved: boolean | 'deferred';
   /** Context fields still needed, sorted. Empty unless `resolved` is deferred. */
   needs: readonly string[];
-  /** Present when `resolved` is a boolean: the decision, with its reason. */
+  /**
+   * The decision, when one is settled.
+   *
+   * Present whenever `resolved` is a boolean. Also present on a deferred entry
+   * whose enablement is settled and whose variant alone is outstanding, and
+   * that decision carries no variant, because the context that produced it
+   * lacked the bucketing field. A decision no longer implies that `resolved` is
+   * a boolean.
+   */
   decision?: Decision<F>;
 }
 

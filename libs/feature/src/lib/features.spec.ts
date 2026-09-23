@@ -836,4 +836,95 @@ describe('plan', () => {
       needs: [],
     });
   });
+
+  it('defers a feature whose enablement is settled and whose variant is not', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.reason).toBe('default-on');
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
+  it('attaches no variant to a decision on a deferred entry', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.decision?.variant).toBeUndefined();
+    expect(entry.decision?.value).toBeUndefined();
+    expect(entry.decision?.assignment).toBeUndefined();
+  });
+
+  it('needs the field variantBy names', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'accountId',
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    expect(features.plan().cta.needs).toEqual(['accountId']);
+  });
+
+  it('resolves a feature whose variant a build-time context settles', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'user-1' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBeDefined();
+  });
+
+  it('resolves a feature that is off without needing a bucketing field', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: false,
+        variants: [{ name: 'control', weight: 1 }],
+      },
+    ]);
+
+    const entry = features.plan().cta;
+
+    expect(entry.resolved).toBe(false);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.enabled).toBe(false);
+  });
 });
