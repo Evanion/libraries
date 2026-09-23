@@ -8,6 +8,7 @@ import {
   useFeature,
   useFeatureEnabled,
   useFeatures,
+  useVariant,
 } from './index.js';
 
 type Key = 'payments-v3' | 'checkout-v2' | 'checkout-express';
@@ -158,6 +159,75 @@ describe('useFeatures', () => {
     expect(
       screen.getByText('checkout-express,checkout-v2,payments-v3'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('useVariant', () => {
+  it('reads the assigned variant and its value', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
+      },
+    ]);
+
+    function Reader() {
+      const { variant, value } = useVariant('cta');
+      return (
+        <span data-testid="cta">
+          {`${String(variant)}:${String((value as { label: string }).label)}`}
+        </span>
+      );
+    }
+
+    render(
+      <FeatureProvider features={features} context={{ targetingKey: 'u' }}>
+        <Reader />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('only:Buy');
+  });
+
+  it('reads no variant from a feature that resolved off', () => {
+    const features = createFeatures([
+      { key: 'cta', enabled: false, variants: [{ name: 'only', weight: 1 }] },
+    ]);
+
+    function Reader() {
+      const { variant } = useVariant('cta');
+      return (
+        <span data-testid="cta">
+          {variant === undefined ? 'none' : variant}
+        </span>
+      );
+    }
+
+    render(
+      <FeatureProvider features={features} context={{ targetingKey: 'u' }}>
+        <Reader />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('none');
+  });
+
+  it('throws for a key the provider does not carry', () => {
+    const features = createFeatures([{ key: 'cta', enabled: true }]);
+
+    function Reader() {
+      useVariant('nope' as 'cta');
+      return null;
+    }
+
+    expect(() =>
+      render(
+        <FeatureProvider features={features}>
+          <Reader />
+        </FeatureProvider>,
+      ),
+    ).toThrow(/nope/);
   });
 });
 

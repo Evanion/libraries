@@ -109,3 +109,21 @@ export function useFeatureEnabled<F extends FeatureKey = string>(
 ): boolean {
   return useFeature<F>(key).enabled;
 }
+
+/**
+ * One feature's assigned variant and its value.
+ *
+ * A reader over the decision `useFeature` already returns. Both are absent for
+ * a feature that resolved off and for a feature declaring no variants, so
+ * calling code handles off before it switches on a name.
+ *
+ * Throws for a key the provider does not carry, which `useFeature` does for the
+ * same reason: a silent `undefined` would make a typo indistinguishable from a
+ * feature nobody assigned.
+ */
+export function useVariant<F extends FeatureKey = string>(
+  key: F,
+): { variant?: string; value?: unknown } {
+  const decision = useFeature<F>(key);
+  return { variant: decision.variant, value: decision.value };
+}
