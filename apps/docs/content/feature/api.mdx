@@ -80,7 +80,7 @@ interface FeatureDefinition<F extends FeatureKey = string> {
 
 ```ts
 interface Rule {
-  id?: string; // defaults to '#0', '#1', … by index
+  id?: string; // defaults to a hash of the rule, e.g. 'rule-1ab3300b'
   when?: readonly Condition[];
   rollout?: RolloutSpec;
 }

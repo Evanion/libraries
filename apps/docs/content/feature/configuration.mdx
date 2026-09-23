@@ -115,8 +115,10 @@ All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
 Two rules, OR-ed: a staff account matches the first, everyone else is subject to
 the 10% ramp.
 
-`id` is used in `reason` and defaults to the rule's index, as `#0`, `#1`. Name
-them: an operator reading `rule: '#1'` has to count.
+`id` is used in `reason`. A rule that declares none is named by a hash of what
+it matches on, so the name holds when a rule is inserted above it and when an
+operator moves a ramp. Name a rule you expect to read in a log: `staff-only`
+tells an operator more than a hash does.
 
 A rule with neither `when` nor `rollout` matches unconditionally.
 

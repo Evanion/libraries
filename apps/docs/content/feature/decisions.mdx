@@ -88,7 +88,7 @@ one rule to blame, and the full breakdown sits on that ancestor's own decision.
 ```ts
 features.resolve({ role: 'customer' });
 // { key: 'k', enabled: false, reason: 'no-rule-matched', rules: [
-//   { rule: '#0', matched: false,
+//   { rule: 'rule-1ab3300b', matched: false,
 //     failed: { field: 'role', op: 'eq', value: 'bookseller' } },
 // ] }
 ```
@@ -105,7 +105,10 @@ rollout is why the rule did not match, `rollout` carries the numbers instead:
 whose `when` failed carries no `rollout` at all — conditions are checked first,
 and the rollout is never evaluated.
 
-Rule ids default to `#0`, `#1` and so on. Name them.
+A rule that declares no `id` is named by a hash of what it matches on. The name
+holds when a rule is inserted above it and when an operator moves a ramp, so a
+log line from last week still names the rule it named then. Name a rule you
+expect to read.
 
 ## `toggle`
 
