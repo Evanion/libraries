@@ -44,9 +44,10 @@ Tracks: exposure tracking, routed here by decision 12 of the variants spec.
    point emits one event per feature.
 4. The internal `resolve` calls inside `isEnabled` and `toggle` emit nothing.
    The public entry point the application called is what the event names.
-5. An event carries no `EvaluationContext`. It carries the settled instant and
-   the returned value. Whether it also carries a subject identifier is open,
-   and § 4.2 states the two postures with the evidence behind each.
+5. An event carries no `EvaluationContext`. It carries the settled instant, the
+   returned value, and the subject identifier read from the bucketing field and
+   copied out as a primitive. `correlateBy` is the opt-in derivation for an
+   application that wants a pseudonym on the event.
 6. The observer is installed at construction, through a second optional
    parameter on `createFeatures`.
 7. The signature is `(event) => void | Promise<unknown>`. The engine attaches a
@@ -316,7 +317,7 @@ export interface FeatureOptions {
   onObserveError?: (error: unknown, event: FeatureEvent) => void;
   /**
    * The context field whose value identifies the subject in an event.
-   * Whether this member has a default is unresolved. See § 4.2.
+   * Defaults to `targetingKey`. See § 4.2.
    */
   correlateBy?: string;
   /** The configuration version an event reports. */
@@ -374,74 +375,55 @@ object, it holds whatever attributes the application put on it, and a library
 that hands it to a logging hook has decided what an application logs about its
 own users.
 
-### 4.2 The subject identifier, awaiting the owner's decision
+### 4.2 The subject arrives as a copied primitive
 
-This is the one member in the document the owner has not ruled on. It is
-presented here as open, and the section states both postures because the field
-splits on it.
+ACL answered the identity question with a correlation value threaded through
+`AccessOptions`, because an ACL subject is a bag of attributes. A feature
+subject is one value, the bucketing key, and the package already names the field
+(`types.ts:112-113`, `DEFAULT_ROLLOUT_FIELD` at `evaluate.ts:15`).
 
-The mechanics are settled either way. ACL answered the identity question with a
-correlation value threaded through `AccessOptions`, because an ACL subject is a
-bag of attributes. A feature subject is one value, the bucketing key, and the
-package already names the field (`types.ts:112-113`, `DEFAULT_ROLLOUT_FIELD` at
-`evaluate.ts:15`). The engine reads `context[options.correlateBy]` and copies
-the value onto the event when it is a string or a number. A primitive copy holds
-no reference back into the caller's context, so an observer that writes to
-`event.subject` writes to its own event object and changes nothing. What is open
-is whether `correlateBy` has a default.
+So the engine reads `context[options.correlateBy ?? 'targetingKey']`, and it
+copies the value onto the event when it is a string or a number. A primitive
+copy holds no reference back into the caller's context, so an observer that
+writes to `event.subject` writes to its own event object and changes nothing.
+The event carries the value and never the context object, for the reasons § 4.1
+gives.
 
-LaunchDarkly makes the subject opt-out. The context `key` always travels in
-`feature` and `index` events, and LaunchDarkly protects `key`, `kind`, `_meta`
-and `anonymous` in the evaluation source so an application cannot mark any of
-the four private. Every other attribute travels unless the application names it
-in `privateAttributes` or sets `allAttributesPrivate`. Client-side SDKs still
-send a private attribute to LaunchDarkly for evaluation and withhold it only
-from events. Redaction is itself disclosed back: the SDK sends
-`_meta.redactedAttributes` naming what it removed, so LaunchDarkly learns the
-attribute names even when it does not learn the values. There is no hashing of
-the key anywhere in the event path
-(`docs/research/2026-09-23-launchdarkly.md` § 9).
+The default is the bucketing field, and the argument for it is short. Every
+instance of this package evaluates locally and sends nothing upstream. The
+observer is a callback the application installed in its own process. The value
+on the event is the value that same application put on the `EvaluationContext`
+a moment earlier and handed to `resolve`. A library that returns a caller its
+own data discloses nothing, and an application that then forwards the event off
+the box has made that decision itself. The documentation says that in those
+words where `observe` is introduced, because the sentence an application needs
+is about its own transport and not about the library's default.
 
-Flagsmith goes further in the same direction. Remote evaluation persists the
-identity and its traits in the platform, and transient traits are the opt-in
-escape, so persistence is what an application gets by doing nothing. A
-`$flag_exposure` event carries `identifier` and `traits` verbatim with no
-hashing, and Flagsmith refuses to emit an exposure with no identifier, because
-the identifier is what reconciles an exposure against a conversion event
-(`docs/research/2026-09-23-unleash-flagsmith.md` § 6 and § 9).
+`correlateBy` is the derivation an application reaches for when it wants a
+pseudonym on the event. An application bucketing on a raw email address points
+`correlateBy` at a field carrying a hashed identifier, and the engine reads that
+field instead. The member is opt-in and it changes what the event carries, not
+whether the event carries a subject at all.
 
-Unleash takes the opposite position. Its impression event carries the entire
-context, `userId`, `sessionId`, `remoteAddress` and every custom property, with
-no hashing and no redaction, and the event never leaves the process. The
-application is the transport and the application decides. Unleash Edge exists
-for the frontend case, which is the one where context crosses a wire: Edge
-"evaluates feature flags for frontend SDKs directly on the Edge node, ensuring
-that sensitive user data required for evaluation is never sent upstream to
-Unleash" (`docs/research/2026-09-23-unleash-flagsmith.md` § 9).
+The vendor postures are context here, not an argument. LaunchDarkly makes the
+context `key` travel in `feature` and `index` events and protects `key`, `kind`,
+`_meta` and `anonymous` in the evaluation source so an application cannot mark
+any of the four private, with redaction of the remaining attributes disclosed
+back through `_meta.redactedAttributes`
+(`docs/research/2026-09-23-launchdarkly.md` § 9). Flagsmith persists the
+identity and its traits in the platform, with transient traits as the opt-in
+escape, and its `$flag_exposure` event carries `identifier` and `traits`
+verbatim (`docs/research/2026-09-23-unleash-flagsmith.md` § 6 and § 9). Both
+products evaluate remotely, so the subject identifier reaches a vendor's storage
+by default and their defaults are a live question for their users. This package
+evaluates in the caller's process and the identifier reaches the caller's own
+callback, so the same question does not arise.
 
-So the two postures this seam can take:
-
-`correlateBy` defaults to `targetingKey`. An application gets a correlatable
-stream with no configuration, which is LaunchDarkly's and Flagsmith's answer. An
-application whose bucketing key is a raw email address then puts that address
-into whatever its observer writes to, and it does so by writing no code.
-
-`correlateBy` has no default, and an event carries no subject identifier until
-the application names a field that derives one. An application wanting
-correlation asks for it in one line. An application that never reads this member
-emits no identifier at all.
-
-My recommendation is the second, and the owner may argue against it. Two
-reasons. An observer here is an arbitrary function the application installed,
-and it may be a third-party transport, which is the exact case Unleash built
-Edge to prevent; LaunchDarkly's opt-out posture works because LaunchDarkly owns
-the transport and the retention policy behind it, and this package owns neither.
-The owner is planning a hosted platform, and a default that puts a subject
-identifier on every event is a default the hosted platform inherits before
-anybody writes its privacy policy.
-
-Until the owner rules, `correlateBy?: string` carries no documented default,
-and the documentation at the member says the question is open.
+One case reopens it, and it is not this document. If `@evanion/feature-source`
+ever supplies a first-party observer that posts to a hosted control plane, then
+the library becomes the transport, the subject identifier leaves the box on the
+library's own code path, and the default is a decision that package has to make
+for itself. The question belongs there.
 
 ### 4.3 The type refuses the write, and the freeze makes it true
 
@@ -775,9 +757,10 @@ Nothing here is implemented, so this is what the seam owes.
   that itself throws is not called again for that event.
 - The event carries no reference reachable to the caller's `EvaluationContext`,
   asserted structurally over the emitted object.
-- A subject member, where one appears, is a primitive and writing to it changes
-  no later evaluation in the same call. § 4.2 is unsettled, so the case that
-  asserts a default for `correlateBy` waits on the owner's decision.
+- An event carries the bucketing field's value as `subject` with no
+  `correlateBy` configured, it carries the named field's value when
+  `correlateBy` is set, and the member is a primitive whose mutation changes no
+  later evaluation in the same call.
 - `reason-is-output-only.spec.ts` gains a case: a store with an observer
   installed decides identically to one without. The existing file
   (`libs/feature/src/lib/reason-is-output-only.spec.ts:33-53`) already runs the
@@ -801,11 +784,12 @@ Nothing here is implemented, so this is what the seam owes.
   measured 15 to 18 microseconds on every unobserved `resolve`, against a 20 to
   22 microsecond bare call, is worse. An owner who values uniform behaviour over
   that number should freeze always, and the rest of § 4 is unchanged either way.
-- § 4.2 is open, and it is no longer a guess. The research split the field:
-  LaunchDarkly and Flagsmith make the subject identifier opt-out, Unleash keeps
-  the whole context in the process and built Edge so none of it reaches the
-  control plane. § 4.2 states both postures and recommends no default on
-  `correlateBy`. The owner decides.
+- § 4.2 is settled and is no longer a guess. The owner ruled that the subject
+  identifier travels by default, because the value on the event is the value the
+  application supplied a moment earlier and the library evaluates in that
+  application's own process. The question moves to
+  `@evanion/feature-source` if a first-party observer there ever posts to a
+  hosted control plane.
 - That `isEnabled` warrants its own event. The alternative is one event type
   for every entry point, with the entry point as a member on it. The argument in § 2.2 is about honesty toward an
   auditor, and an auditor of a feature flag stream may not exist. If nobody
