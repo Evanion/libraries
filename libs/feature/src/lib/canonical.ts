@@ -14,8 +14,31 @@
  * `undefined` properties are dropped, so an absent key and a key written as
  * `undefined` agree. A JSON document carries no `undefined`, and a document
  * built in memory can.
+ *
+ * Every input type gets its own branch, so the return type is `string` for
+ * all of them, not only the ones `JSON.stringify` happens to serialize.
+ * `JSON.stringify` returns `undefined` for `undefined`, a function or a
+ * symbol, and throws for a `bigint`; a caller trusting the declared `string`
+ * return type would fail past the type checker on any of the four.
+ *
+ * A `bigint` is written as its digits with a trailing `n`, `10n` for
+ * `BigInt(10)`. `evaluateCondition` compares with `===`, and `10n === 10n` is
+ * true while `10n === 10` is false, so a config authoring `10n` and one
+ * authoring `10` must not canonicalize to the same text. `JSON.stringify`
+ * never emits a bare number followed by `n`, so the tag cannot collide with
+ * any number this function writes.
+ *
+ * A function or a symbol is written from its own `toString()`. Neither
+ * carries a content-addressable value the way a plain object does -- two
+ * functions with the same source at different addresses are, for this
+ * purpose, the same text, which is a reasonable identity for a condition
+ * value nobody expects to compare structurally in the first place.
  */
 export function canonical(value: unknown): string {
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'bigint') return `${value.toString()}n`;
+  if (typeof value === 'function') return `function:${value.toString()}`;
+  if (typeof value === 'symbol') return `symbol:${value.toString()}`;
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (value instanceof Date) return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;

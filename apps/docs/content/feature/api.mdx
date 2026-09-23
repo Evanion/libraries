@@ -55,15 +55,15 @@ import {
 } from '@evanion/feature';
 ```
 
-| Export                             | What it is                                             |
-| ---------------------------------- | ------------------------------------------------------ |
-| `bucketOf(value, seed)`            | the bucket in `[0, 1)`, for snapshot tooling and tests |
-| `inRollout(value, percent, seed)`  | whether that bucket is inside the rollout              |
-| `murmur3(input, seed?)`            | the hash itself, unsigned 32-bit                       |
-| `evaluateCondition(cond, context)` | one condition, for the same reason                     |
+| Export                             | What it is                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `bucketOf(value, seed)`            | the bucket in `[0, 1)`, for snapshot tooling and tests                        |
+| `inRollout(value, percent, seed)`  | whether that bucket is inside the rollout                                     |
+| `murmur3(input, seed?)`            | the hash itself, unsigned 32-bit                                              |
+| `evaluateCondition(cond, context)` | one condition, for the same reason                                            |
 | `canonical(value)`                 | text for a value with its keys sorted, for a hash two producers must agree on |
-| `ruleId(rule)`                     | the id `resolve` gives a rule that declares none       |
-| `DEFAULT_ROLLOUT_FIELD`            | `'targetingKey'`                                       |
+| `ruleId(rule)`                     | the id `resolve` gives a rule that declares none                              |
+| `DEFAULT_ROLLOUT_FIELD`            | `'targetingKey'`                                                              |
 
 ## Types
 
@@ -84,7 +84,7 @@ interface FeatureDefinition<F extends FeatureKey = string> {
 
 ```ts
 interface Rule {
-  id?: string; // defaults to a hash of the rule, e.g. 'rule-1ab3300b'
+  id?: string; // defaults to a hash of the rule, e.g. 'rule-74ffa08d'
   when?: readonly Condition[];
   rollout?: RolloutSpec;
 }
