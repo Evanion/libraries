@@ -78,6 +78,32 @@ describe('validateVariants', () => {
     ).toThrow(FeatureConfigError);
   });
 
+  it('refuses a weight total that overflows to infinity', () => {
+    expect(() =>
+      validateVariants({
+        key: 'k',
+        enabled: true,
+        variants: [
+          { name: 'a', weight: Number.MAX_VALUE },
+          { name: 'b', weight: Number.MAX_VALUE },
+        ],
+      }),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('accepts a large weight that leaves the total finite', () => {
+    expect(() =>
+      validateVariants({
+        key: 'k',
+        enabled: true,
+        variants: [
+          { name: 'a', weight: Number.MAX_VALUE / 4 },
+          { name: 'b', weight: 1 },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
   it('refuses an empty variant array', () => {
     expect(() =>
       validateVariants({ key: 'k', enabled: true, variants: [] }),
