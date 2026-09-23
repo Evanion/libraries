@@ -202,8 +202,8 @@ export interface Cause<F extends FeatureKey = string> {
  * One feature's decision.
  *
  * `enabled` is the decision. Everything else is explanation, and is output
- * only -- nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`
- * or `cause` back to decide anything.
+ * only -- nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`,
+ * `cause`, `variant`, `value` or `assignment` back to decide anything.
  */
 export interface Decision<F extends FeatureKey = string> {
   key: F;
@@ -217,6 +217,24 @@ export interface Decision<F extends FeatureKey = string> {
   blockedBy?: F;
   /** The first ancestor off for its own reason, on `dependency-off`. */
   cause?: Cause<F>;
+  /** The assigned variant, on a feature that resolved on and declares variants. */
+  variant?: string;
+  /** The assigned variant's configured value, when it declares one. */
+  value?: unknown;
+  /**
+   * How the variant was chosen. Output only, like `reason`.
+   *
+   * `'pinned'` names the rule that pinned it. `'fallback'` means the context
+   * carried no bucketing value and the subject took the control.
+   */
+  assignment?: {
+    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
+    by: string;
+    /** Absent when the context did not carry the bucketing field. */
+    bucket?: number;
+    /** The pinning rule, on `'pinned'`. */
+    rule?: string;
+  };
 }
 
 export type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
