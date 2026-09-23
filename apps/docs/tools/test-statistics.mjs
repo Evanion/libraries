@@ -1,5 +1,5 @@
 /**
- * Runs the libraries' suites with coverage and writes what the `/testing`
+ * Reads what the libraries' suites left behind and writes what the `/testing`
  * section renders.
  *
  * Nothing on that section is typed by a person and nothing is copied from
@@ -13,6 +13,21 @@
  * That makes the section's scope the same predicate as the release scope, so a
  * twelfth library appears on the page the day it is released and nothing here
  * is edited.
+ *
+ * This script runs no tests. The `testing-data` target declares
+ * `{ "projects": "libs/*", "target": "test" }`, so Nx schedules every library's
+ * suite in the graph it is already running and this script reads the reports
+ * off disk. Each library's Vite config writes report.json and
+ * coverage-summary.json into `test-output/vitest/coverage`, which the `test`
+ * target declares as its output, so a cache hit restores them and a second run
+ * costs nothing.
+ *
+ * The dependency is a `libs/*` glob and not `^test`. `^test` follows the
+ * project graph, and apps/docs imports eight of the eleven libraries:
+ * `@evanion/astro-widget`, `@evanion/feature` and `@evanion/nestjs-correlation-id`
+ * have no page that imports them, so `^test` would leave the page counting
+ * three libraries whose suites never ran. The glob is the same predicate
+ * `release.projects` carries, so a twelfth library needs no edit here either.
  *
  * A missing or unreadable report fails this script, which fails the build. A
  * failing run writes no coverage summary at all, so the absent file is already
@@ -67,40 +82,7 @@ async function libraries() {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-/**
- * The sweep: one `nx run-many` over the same pattern `release.projects`
- * carries, with coverage on.
- *
- * Through Nx rather than a `vitest` per project, for two reasons. Nx orders
- * each library's own build and its dependencies' builds ahead of its tests,
- * which a bare `vitest` does not, and a library whose type tests resolve a
- * dependency's declarations fails without them. And `npx nx test <package>` is
- * the line the page prints under that package's counts, so the numbers on the
- * page come from the command a reader is told to run.
- *
- * `--outputFile` is relative, so each project's Vitest resolves it against its
- * own root and the reports land one per library. Inside the coverage
- * directory, because that is what the `test` target declares as its output and
- * therefore what a cache replay restores.
- */
-function sweep() {
-  execFileSync(
-    'npx',
-    [
-      'nx',
-      'run-many',
-      '--target=test',
-      '--projects=libs/*',
-      '--coverage',
-      '--coverage.enabled',
-      '--coverage.reporter=json-summary',
-      '--reporter=json',
-      `--outputFile=${REPORT}`,
-    ],
-    { cwd: workspaceRoot, stdio: 'inherit' },
-  );
-}
-
+/** Where a library's Vite config points the run reporter and the coverage summary. */
 const REPORT = 'test-output/vitest/coverage/report.json';
 
 /** What one library's run left behind, read back off disk. */
@@ -202,7 +184,6 @@ function seeded(source) {
 }
 
 const projects = await libraries();
-sweep();
 const runs = projects.map((project) => ({ project, ...reportsOf(project) }));
 
 const register = parseRegister(

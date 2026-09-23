@@ -15,12 +15,24 @@
           "cwd": "{projectRoot}"
         },
         "cache": true,
+        "dependsOn": [
+          {
+            "projects": "libs/*",
+            "target": "test"
+          }
+        ],
         "inputs": [
           "{projectRoot}/tools/test-statistics.mjs",
           "{projectRoot}/tools/statistics.mjs",
-          "{workspaceRoot}/libs/**/*",
+          "{projectRoot}/content/**/*.mdx",
+          "{workspaceRoot}/tools/repo-checks/src/*.test.ts",
           "{workspaceRoot}/tools/repo-checks/src/*-allowance.json",
-          "{workspaceRoot}/nx.json"
+          "{workspaceRoot}/libs/acl/SECURITY.md",
+          "{workspaceRoot}/libs/acl/src/security/tier1-prevented.test.ts",
+          "{workspaceRoot}/nx.json",
+          {
+            "dependentTasksOutputFiles": "**/*.json"
+          }
         ],
         "outputs": [
           "{projectRoot}/components/testing/statistics.json"
