@@ -38,10 +38,31 @@
           "{projectRoot}/components/testing/statistics.json"
         ]
       },
+      "behaviour-data": {
+        "command": "node tools/behaviour-data.mjs",
+        "options": {
+          "cwd": "{projectRoot}"
+        },
+        "cache": true,
+        "inputs": [
+          "{projectRoot}/tools/behaviour-data.mjs",
+          "{projectRoot}/tools/libraries.mjs",
+          "{workspaceRoot}/tools/doc-examples/src/behaviours.mjs",
+          "{workspaceRoot}/libs/*/src/**/*.test.ts",
+          "{workspaceRoot}/libs/*/src/**/*.test.tsx",
+          "{workspaceRoot}/libs/*/src/**/*.spec.ts",
+          "{workspaceRoot}/libs/*/src/**/*.spec.tsx",
+          "{workspaceRoot}/nx.json"
+        ],
+        "outputs": [
+          "{projectRoot}/components/api/behaviour"
+        ]
+      },
       "build": {
         "dependsOn": [
           "^build",
-          "testing-data"
+          "testing-data",
+          "behaviour-data"
         ],
         "outputs": [
           "{projectRoot}/.next",
@@ -51,7 +72,8 @@
       "test": {
         "dependsOn": [
           "^build",
-          "testing-data"
+          "testing-data",
+          "behaviour-data"
         ]
       },
       "lint": {
