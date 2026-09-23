@@ -118,10 +118,74 @@ describe('ruleId', () => {
   });
 
   it('derives a stable id for a non-BMP condition value', () => {
-    const rule: Rule = { when: [{ field: 'tag', op: 'eq', value: '🎯' }] };
     // Pinned so a Swift or Kotlin port has a value to match. `fnv1a` walks
     // UTF-16 code units, so a surrogate pair contributes two of them.
-    expect(ruleId(rule)).toBe(ruleId(rule));
-    expect(ruleId(rule)).toMatch(/^rule-[0-9a-f]{8}$/);
+    expect(ruleId({ when: [{ field: 'tag', op: 'eq', value: '🎯' }] })).toBe(
+      'rule-e532f597',
+    );
+  });
+
+  it('separates a field ending in an operator prefix from the operator', () => {
+    const a = ruleId({ when: [{ field: 'usernot-', op: 'in', value: ['x'] }] });
+    const b = ruleId({ when: [{ field: 'user', op: 'not-in', value: ['x'] }] });
+    expect(a).not.toBe(b);
+  });
+
+  it('separates two conditions from one condition spelling both', () => {
+    const two = ruleId({
+      when: [
+        { field: 'role', op: 'eq', value: 'staff' },
+        { field: 'plan', op: 'eq', value: 'pro' },
+      ],
+    });
+    const one = ruleId({
+      when: [{ field: 'roleeq"staff"plan', op: 'eq', value: 'pro' }],
+    });
+    expect(two).not.toBe(one);
+  });
+
+  it('separates a zone ending in a weekday from the weekday list', () => {
+    const a = ruleId({
+      when: [{ field: 'now', op: 'day-of-week', zone: 'Europe/Oslo', value: ['mon'] }],
+    });
+    const b = ruleId({
+      when: [{ field: 'now', op: 'day-of-week', zone: 'Europe/Osl', value: ['omon'] as never }],
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it('changes the id when two conditions swap places', () => {
+    const a = ruleId({
+      when: [
+        { field: 'role', op: 'eq', value: 'staff' },
+        { field: 'plan', op: 'eq', value: 'pro' },
+      ],
+    });
+    const b = ruleId({
+      when: [
+        { field: 'plan', op: 'eq', value: 'pro' },
+        { field: 'role', op: 'eq', value: 'staff' },
+      ],
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it('derives one id for an offsetless instant string on any host', () => {
+    // ECMA-262 reads this as local time, so Date.parse disagrees between
+    // hosts. The id must not.
+    const id = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
+    });
+    expect(id).toBe('rule-239179b0');
+  });
+
+  it('separates an offsetless instant string from the same instant in UTC', () => {
+    const offsetless = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
+    });
+    const utc = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+    });
+    expect(offsetless).not.toBe(utc);
   });
 });
