@@ -85,6 +85,10 @@ a decision at all.
 enabled boolean, and `decision` carries the full assignment. See
 [Variants](/feature/variants) for what settles a variant at all.
 
+A `plan()` context carrying `stickyVariants` also settles the split, but to
+that one subject's stored variant, baking a per-subject answer into the build
+where a later request without that entry would get the weighted answer.
+
 ## `now` is deferred unless the feature opts in
 
 `now` is deliberately not treated as available, even though `plan()` fills it in

@@ -820,6 +820,42 @@ describe('plan', () => {
     });
   });
 
+  it('settles a dependant whose parent defers only its own split', () => {
+    const features = createFeatures([
+      {
+        key: 'p',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+      { key: 'c', enabled: true, dependsOn: ['p'] },
+    ]);
+
+    const entry = features.plan().c;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.enabled).toBe(true);
+  });
+
+  it('defers a dependant whose parent defers for its own rules', () => {
+    const features = createFeatures([
+      {
+        key: 'p',
+        enabled: true,
+        rules: [{ when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+      },
+      { key: 'c', enabled: true, dependsOn: ['p'] },
+    ]);
+
+    const entry = features.plan().c;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region']);
+  });
+
   it('resolves a dependant off at build time when its parent is off', () => {
     const features = createFeatures([
       { key: 'parent', enabled: false },
