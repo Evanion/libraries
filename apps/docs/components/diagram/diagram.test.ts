@@ -74,14 +74,22 @@ describe('the mermaid fence', () => {
  * at the site.
  */
 describe('the diagram palette', () => {
-  beforeAll(() => {
+  /**
+   * Mermaid is loaded and configured once, ahead of every case.
+   *
+   * The import pulls in a parser per diagram grammar and costs seconds on a
+   * cold module graph. A case that paid it was a case whose own budget covered
+   * somebody else's module load, and on CI the first one timed out at five
+   * seconds having spent 6.5 rendering nothing of its own.
+   */
+  let render: (chart: string) => Promise<string>;
+
+  beforeAll(async () => {
     Object.assign(SVGElement.prototype, {
       getBBox: () => ({ x: 0, y: 0, width: 100, height: 20 }),
       getComputedTextLength: () => 100,
     });
-  });
 
-  async function render(chart: string): Promise<string> {
     const { default: mermaid } = await import('mermaid');
 
     mermaid.initialize({
@@ -94,9 +102,9 @@ describe('the diagram palette', () => {
       flowchart: { useMaxWidth: false, htmlLabels: true },
     });
 
-    const { svg } = await mermaid.render('test', chart);
-    return bindPalette(svg);
-  }
+    render = async (chart) =>
+      bindPalette((await mermaid.render('test', chart)).svg);
+  }, 60_000);
 
   it('finds the site diagrams', () => {
     expect(charts().length).toBeGreaterThan(0);
