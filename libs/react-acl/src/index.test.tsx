@@ -50,96 +50,104 @@ function Row({ id }: { id: string }) {
   );
 }
 
-describe('react-acl', () => {
-  it('useCan returns a decision from the provider context', () => {
-    render(
-      <PolicyProvider
-        access={access}
-        subject={{ id: 's1', roles: ['editor'] }}
-        context={{ now: new Date() }}
-      >
-        <Row id="s1" />
-      </PolicyProvider>,
-    );
-    expect(screen.getByTestId('row-s1')).toHaveTextContent('editable');
-  });
-
-  it('useCanMany returns a parallel decision array', () => {
-    function List() {
-      const decisions = useCanMany('comment', 'update', [
-        { authorId: 's1' },
-        { authorId: 'x' },
-      ]);
-      return (
-        <div>
-          {decisions.map((d, i) => (
-            <span key={i}>{d.allowed ? 'y' : 'n'}</span>
-          ))}
-        </div>
+describe('PolicyProvider', () => {
+  describe('useCan', () => {
+    it('useCan returns a decision from the provider context', () => {
+      render(
+        <PolicyProvider
+          access={access}
+          subject={{ id: 's1', roles: ['editor'] }}
+          context={{ now: new Date() }}
+        >
+          <Row id="s1" />
+        </PolicyProvider>,
       );
-    }
-    render(
-      <PolicyProvider
-        access={access}
-        subject={{ id: 's1' }}
-        context={{ now: new Date() }}
-      >
-        <List />
-      </PolicyProvider>,
-    );
-    expect(screen.getByText('y')).toBeTruthy();
-    expect(screen.getByText('n')).toBeTruthy();
-  });
-
-  it('useCapabilities returns every decision for the subject', () => {
-    function Caps() {
-      const caps = useCapabilities();
-      return <div data-testid="caps">{Object.keys(caps).length}</div>;
-    }
-    render(
-      <PolicyProvider
-        access={access}
-        subject={{ id: 's1', roles: ['editor'] }}
-        context={{ now: new Date() }}
-      >
-        <Caps />
-      </PolicyProvider>,
-    );
-    expect(screen.getByTestId('caps')).toHaveTextContent('2');
-  });
-
-  it('useCanFields returns the field-level decision', () => {
-    const withFields = hydratePolicy({
-      permissions: [
-        {
-          key: 'comment.update',
-          object: 'comment',
-          action: 'update',
-          rules: [
-            {
-              when: [
-                { field: 'subject.roles', op: 'contains', value: 'editor' },
-              ],
-            },
-          ],
-          fields: { fields: ['*', '!status'] },
-        },
-      ],
+      expect(screen.getByTestId('row-s1')).toHaveTextContent('editable');
     });
-    function Form() {
-      const fd = useCanFields('comment', 'update', { status: 'x' }, 'write');
-      return <div data-testid="status">{fd.fields['status']}</div>;
-    }
-    render(
-      <PolicyProvider
-        access={withFields}
-        subject={{ id: 's1', roles: ['editor'] }}
-        context={{ now: new Date() }}
-      >
-        <Form />
-      </PolicyProvider>,
-    );
-    expect(screen.getByTestId('status')).toHaveTextContent('denied');
+  });
+
+  describe('useCanMany', () => {
+    it('useCanMany returns a parallel decision array', () => {
+      function List() {
+        const decisions = useCanMany('comment', 'update', [
+          { authorId: 's1' },
+          { authorId: 'x' },
+        ]);
+        return (
+          <div>
+            {decisions.map((d, i) => (
+              <span key={i}>{d.allowed ? 'y' : 'n'}</span>
+            ))}
+          </div>
+        );
+      }
+      render(
+        <PolicyProvider
+          access={access}
+          subject={{ id: 's1' }}
+          context={{ now: new Date() }}
+        >
+          <List />
+        </PolicyProvider>,
+      );
+      expect(screen.getByText('y')).toBeTruthy();
+      expect(screen.getByText('n')).toBeTruthy();
+    });
+  });
+
+  describe('useCapabilities', () => {
+    it('useCapabilities returns every decision for the subject', () => {
+      function Caps() {
+        const caps = useCapabilities();
+        return <div data-testid="caps">{Object.keys(caps).length}</div>;
+      }
+      render(
+        <PolicyProvider
+          access={access}
+          subject={{ id: 's1', roles: ['editor'] }}
+          context={{ now: new Date() }}
+        >
+          <Caps />
+        </PolicyProvider>,
+      );
+      expect(screen.getByTestId('caps')).toHaveTextContent('2');
+    });
+  });
+
+  describe('useCanFields', () => {
+    it('useCanFields returns the field-level decision', () => {
+      const withFields = hydratePolicy({
+        permissions: [
+          {
+            key: 'comment.update',
+            object: 'comment',
+            action: 'update',
+            rules: [
+              {
+                when: [
+                  { field: 'subject.roles', op: 'contains', value: 'editor' },
+                ],
+              },
+            ],
+            fields: { fields: ['*', '!status'] },
+          },
+        ],
+      });
+      function Form() {
+        const fd = useCanFields('comment', 'update', { status: 'x' }, 'write');
+        return <div data-testid="status">{fd.fields['status']}</div>;
+      }
+      render(
+        <PolicyProvider
+          access={withFields}
+          subject={{ id: 's1', roles: ['editor'] }}
+          context={{ now: new Date() }}
+        >
+          <Form />
+        </PolicyProvider>,
+      );
+      expect(screen.getByTestId('status')).toHaveTextContent('denied');
+    });
   });
 
   it('takes a hydrated string instant for `now`', () => {
@@ -201,10 +209,14 @@ describe('react-acl', () => {
     expect(evaluations(true)).toBe(3);
   });
 
-  it('useCan throws outside a provider', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect(() => render(<Row id="s1" />)).toThrow(/PolicyProvider/);
-    spy.mockRestore();
+  describe('useCan', () => {
+    it('useCan throws outside a provider', () => {
+      const spy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      expect(() => render(<Row id="s1" />)).toThrow(/PolicyProvider/);
+      spy.mockRestore();
+    });
   });
 });
 
@@ -245,73 +257,77 @@ function Untyped() {
   return <div data-testid="untyped">{can.allowed ? 'y' : 'n'}</div>;
 }
 
-describe('a bound policy context', () => {
-  it('decides against the access the factory was given', () => {
-    const { PolicyProvider: Shop } = shopContext;
-    render(
-      <Shop subject={SUBJECT}>
-        <Listing />
-      </Shop>,
-    );
+describe('createPolicyContext', () => {
+  describe('a bound policy context', () => {
+    it('decides against the access the factory was given', () => {
+      const { PolicyProvider: Shop } = shopContext;
+      render(
+        <Shop subject={SUBJECT}>
+          <Listing />
+        </Shop>,
+      );
 
-    expect(screen.getByTestId('listing')).toHaveTextContent('y');
-  });
-
-  it('decides against the access a mount passes instead', () => {
-    const { PolicyProvider: Shop } = shopContext;
-    const stricter = hydratePolicy({
-      permissions: [
-        { key: 'listing.update', object: 'listing', action: 'update' },
-      ],
+      expect(screen.getByTestId('listing')).toHaveTextContent('y');
     });
 
-    render(
-      <Shop access={stricter} subject={SUBJECT}>
-        <Listing />
-      </Shop>,
-    );
+    it('decides against the access a mount passes instead', () => {
+      const { PolicyProvider: Shop } = shopContext;
+      const stricter = hydratePolicy({
+        permissions: [
+          { key: 'listing.update', object: 'listing', action: 'update' },
+        ],
+      });
 
-    expect(screen.getByTestId('listing')).toHaveTextContent('n');
-  });
-
-  it('feeds the package hooks, so a component that took them still reads', () => {
-    const { PolicyProvider: Shop } = shopContext;
-    render(
-      <Shop subject={SUBJECT}>
-        <Untyped />
-      </Shop>,
-    );
-
-    expect(screen.getByTestId('untyped')).toHaveTextContent('y');
-  });
-
-  it('keeps two policies apart when their providers nest', () => {
-    const { PolicyProvider: Shop } = shopContext;
-    const { PolicyProvider: Backoffice } = backofficeContext;
-
-    render(
-      <Shop subject={SUBJECT}>
-        <Backoffice subject={{ id: 's1', roles: ['support'] }}>
-          <Listing />
-          <Ticket />
-        </Backoffice>
-      </Shop>,
-    );
-
-    // The inner provider does not answer for the outer policy's keys.
-    expect(screen.getByTestId('listing')).toHaveTextContent('y');
-    expect(screen.getByTestId('ticket')).toHaveTextContent('y');
-  });
-
-  it('throws outside its own provider, even under the shared one', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    expect(() =>
       render(
-        <PolicyProvider access={shop} subject={SUBJECT}>
+        <Shop access={stricter} subject={SUBJECT}>
           <Listing />
-        </PolicyProvider>,
-      ),
-    ).toThrow(/PolicyProvider/);
-    spy.mockRestore();
+        </Shop>,
+      );
+
+      expect(screen.getByTestId('listing')).toHaveTextContent('n');
+    });
+
+    it('feeds the package hooks, so a component that took them still reads', () => {
+      const { PolicyProvider: Shop } = shopContext;
+      render(
+        <Shop subject={SUBJECT}>
+          <Untyped />
+        </Shop>,
+      );
+
+      expect(screen.getByTestId('untyped')).toHaveTextContent('y');
+    });
+
+    it('keeps two policies apart when their providers nest', () => {
+      const { PolicyProvider: Shop } = shopContext;
+      const { PolicyProvider: Backoffice } = backofficeContext;
+
+      render(
+        <Shop subject={SUBJECT}>
+          <Backoffice subject={{ id: 's1', roles: ['support'] }}>
+            <Listing />
+            <Ticket />
+          </Backoffice>
+        </Shop>,
+      );
+
+      // The inner provider does not answer for the outer policy's keys.
+      expect(screen.getByTestId('listing')).toHaveTextContent('y');
+      expect(screen.getByTestId('ticket')).toHaveTextContent('y');
+    });
+
+    it('throws outside its own provider, even under the shared one', () => {
+      const spy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      expect(() =>
+        render(
+          <PolicyProvider access={shop} subject={SUBJECT}>
+            <Listing />
+          </PolicyProvider>,
+        ),
+      ).toThrow(/PolicyProvider/);
+      spy.mockRestore();
+    });
   });
 });

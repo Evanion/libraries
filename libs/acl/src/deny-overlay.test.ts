@@ -71,412 +71,424 @@ const HOLD: Rule = {
   when: [{ field: 'subject.tier', op: 'eq', value: 'sanctioned' }],
 };
 
-describe('applyDenyOverlay refuses at apply time, naming the key', () => {
-  it('refuses a key the target does not define', () => {
-    expect(() =>
-      applyDenyOverlay(
-        base(),
-        { 'invoice.void': [HOLD] },
-        {
-          vetoable: VETOABLE,
+describe('applyDenyOverlay', () => {
+  describe('applyDenyOverlay refuses at apply time, naming the key', () => {
+    it('refuses a key the target does not define', () => {
+      expect(() =>
+        applyDenyOverlay(
+          base(),
+          { 'invoice.void': [HOLD] },
+          {
+            vetoable: VETOABLE,
+          },
+        ),
+      ).toThrow(UnknownPermissionError);
+
+      expect(() =>
+        applyDenyOverlay(
+          base(),
+          { 'invoice.void': [HOLD] },
+          {
+            vetoable: VETOABLE,
+          },
+        ),
+      ).toThrow(/"invoice\.void"/);
+    });
+
+    it('refuses a vetoable key the target does not define', () => {
+      expect(() =>
+        applyDenyOverlay(base(), {}, { vetoable: ['invoice.void'] }),
+      ).toThrow(/"invoice\.void"/);
+    });
+
+    it('refuses a key the target does not open for veto', () => {
+      expect(() =>
+        applyDenyOverlay(
+          base(),
+          { 'post.read': [HOLD] },
+          {
+            vetoable: ['comment.update'],
+          },
+        ),
+      ).toThrow(UnvetoablePermissionError);
+
+      expect(() =>
+        applyDenyOverlay(
+          base(),
+          { 'post.read': [HOLD] },
+          {
+            vetoable: ['comment.update'],
+          },
+        ),
+      ).toThrow(/"post\.read" is not vetoable/);
+    });
+
+    it('refuses every key when the target opens nothing', () => {
+      expect(() =>
+        applyDenyOverlay(base(), { 'post.read': [HOLD] }, { vetoable: [] }),
+      ).toThrow(UnvetoablePermissionError);
+    });
+
+    it('refuses a condition naming a field the target does not declare', () => {
+      const overlay: DenyOverlay = {
+        'comment.update': [
+          { when: [{ field: 'object.riskBand', op: 'eq', value: 'high' }] },
+        ],
+      };
+
+      expect(() =>
+        applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
+      ).toThrow(UnknownFieldError);
+
+      expect(() =>
+        applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
+      ).toThrow(/"comment\.update".*overlay\[0\]\.when\[0\].*riskBand/s);
+    });
+
+    it('refuses a condition whose operator does not fit the declared type', () => {
+      const overlay: DenyOverlay = {
+        'comment.update': [
+          { when: [{ field: 'object.score', op: 'eq', value: 'high' }] },
+        ],
+      };
+
+      expect(() =>
+        applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
+      ).toThrow(FieldTypeMismatchError);
+
+      expect(() =>
+        applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
+      ).toThrow(/"comment\.update"/);
+    });
+
+    it('checks a contribution against the kind the key names, not another', () => {
+      // `post` and `comment` declare the same fields here, so a fault has to come
+      // from the kind the key names for this to distinguish anything.
+      const narrowed: Matrix = {
+        ...base(),
+        schema: {
+          ...SCHEMA,
+          objects: {
+            comment: { fields: { authorId: 'string' } },
+            post: { fields: { authorId: 'string', status: 'string' } },
+          },
         },
-      ),
-    ).toThrow(UnknownPermissionError);
+      };
 
-    expect(() =>
-      applyDenyOverlay(
-        base(),
-        { 'invoice.void': [HOLD] },
-        {
-          vetoable: VETOABLE,
-        },
-      ),
-    ).toThrow(/"invoice\.void"/);
-  });
+      expect(() =>
+        applyDenyOverlay(
+          narrowed,
+          {
+            'comment.update': [
+              { when: [{ field: 'object.status', op: 'eq', value: 'locked' }] },
+            ],
+          },
+          { vetoable: VETOABLE },
+        ),
+      ).toThrow(UnknownFieldError);
 
-  it('refuses a vetoable key the target does not define', () => {
-    expect(() =>
-      applyDenyOverlay(base(), {}, { vetoable: ['invoice.void'] }),
-    ).toThrow(/"invoice\.void"/);
-  });
-
-  it('refuses a key the target does not open for veto', () => {
-    expect(() =>
-      applyDenyOverlay(
-        base(),
-        { 'post.read': [HOLD] },
-        {
-          vetoable: ['comment.update'],
-        },
-      ),
-    ).toThrow(UnvetoablePermissionError);
-
-    expect(() =>
-      applyDenyOverlay(
-        base(),
-        { 'post.read': [HOLD] },
-        {
-          vetoable: ['comment.update'],
-        },
-      ),
-    ).toThrow(/"post\.read" is not vetoable/);
-  });
-
-  it('refuses every key when the target opens nothing', () => {
-    expect(() =>
-      applyDenyOverlay(base(), { 'post.read': [HOLD] }, { vetoable: [] }),
-    ).toThrow(UnvetoablePermissionError);
-  });
-
-  it('refuses a condition naming a field the target does not declare', () => {
-    const overlay: DenyOverlay = {
-      'comment.update': [
-        { when: [{ field: 'object.riskBand', op: 'eq', value: 'high' }] },
-      ],
-    };
-
-    expect(() =>
-      applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
-    ).toThrow(UnknownFieldError);
-
-    expect(() =>
-      applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
-    ).toThrow(/"comment\.update".*overlay\[0\]\.when\[0\].*riskBand/s);
-  });
-
-  it('refuses a condition whose operator does not fit the declared type', () => {
-    const overlay: DenyOverlay = {
-      'comment.update': [
-        { when: [{ field: 'object.score', op: 'eq', value: 'high' }] },
-      ],
-    };
-
-    expect(() =>
-      applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
-    ).toThrow(FieldTypeMismatchError);
-
-    expect(() =>
-      applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
-    ).toThrow(/"comment\.update"/);
-  });
-
-  it('checks a contribution against the kind the key names, not another', () => {
-    // `post` and `comment` declare the same fields here, so a fault has to come
-    // from the kind the key names for this to distinguish anything.
-    const narrowed: Matrix = {
-      ...base(),
-      schema: {
-        ...SCHEMA,
-        objects: {
-          comment: { fields: { authorId: 'string' } },
-          post: { fields: { authorId: 'string', status: 'string' } },
-        },
-      },
-    };
-
-    expect(() =>
-      applyDenyOverlay(
-        narrowed,
-        {
-          'comment.update': [
-            { when: [{ field: 'object.status', op: 'eq', value: 'locked' }] },
-          ],
-        },
-        { vetoable: VETOABLE },
-      ),
-    ).toThrow(UnknownFieldError);
-
-    expect(() =>
-      applyDenyOverlay(
-        narrowed,
-        {
-          'post.read': [
-            { when: [{ field: 'object.status', op: 'eq', value: 'locked' }] },
-          ],
-        },
-        { vetoable: VETOABLE },
-      ),
-    ).not.toThrow();
-  });
-});
-
-describe('the schema obligation is scoped to the vetoable keys', () => {
-  it('refuses a vetoable key whose object kind is not declared', () => {
-    const matrix: Matrix = {
-      ...base(),
-      schema: { subject: SCHEMA.subject, objects: { post: { fields: {} } } },
-    };
-
-    expect(() =>
-      applyDenyOverlay(matrix, {}, { vetoable: ['comment.update'] }),
-    ).toThrow(MissingVetoSchemaError);
-
-    expect(() =>
-      applyDenyOverlay(matrix, {}, { vetoable: ['comment.update'] }),
-    ).toThrow(/"comment\.update".*"comment"/s);
-  });
-
-  it('refuses a vetoable key when the target carries no schema at all', () => {
-    const matrix: Matrix = { permissions: base().permissions };
-
-    expect(() =>
-      applyDenyOverlay(matrix, {}, { vetoable: ['post.read'] }),
-    ).toThrow(MissingVetoSchemaError);
-  });
-
-  it('owes nothing for a kind no vetoable key names', () => {
-    const matrix: Matrix = {
-      ...base(),
-      schema: {
-        subject: SCHEMA.subject,
-        objects: { comment: SCHEMA.objects?.['comment'] ?? {} },
-      },
-    };
-
-    expect(() =>
-      applyDenyOverlay(
-        matrix,
-        { 'comment.update': [HOLD] },
-        {
-          vetoable: ['comment.update'],
-        },
-      ),
-    ).not.toThrow();
-  });
-
-  it('owes no schema when it opens nothing', () => {
-    const matrix: Matrix = { permissions: base().permissions };
-    expect(() => applyDenyOverlay(matrix, {}, { vetoable: [] })).not.toThrow();
-  });
-});
-
-describe('the structural gate runs over the contribution', () => {
-  it('refuses a rule with no when', () => {
-    expect(() =>
-      applyDenyOverlay(
-        base(),
-        { 'post.read': [{ id: 'x' } as Rule] },
-        {
-          vetoable: VETOABLE,
-        },
-      ),
-    ).toThrow(InvalidRuleError);
-  });
-});
-
-describe('a valid overlay narrows', () => {
-  const overlaid = () =>
-    hydratePolicy(
-      applyDenyOverlay(
-        base(),
-        { 'comment.update': [HOLD] },
-        {
-          vetoable: VETOABLE,
-        },
-      ),
-    );
-
-  const subject = { id: 'u1', roles: [], tier: 'sanctioned' };
-  const object = { authorId: 'u1', status: 'open', score: 1 };
-
-  it('a subject who could, now cannot', () => {
-    const before = hydratePolicy(base()).can(
-      subject,
-      'comment',
-      'update',
-      object,
-    );
-    expect(before.allowed).toBe(true);
-
-    const after = overlaid().can(subject, 'comment', 'update', object);
-    expect(after).toEqual({
-      key: 'comment.update',
-      allowed: false,
-      reason: 'denied',
-      rule: 'compliance-hold',
+      expect(() =>
+        applyDenyOverlay(
+          narrowed,
+          {
+            'post.read': [
+              { when: [{ field: 'object.status', op: 'eq', value: 'locked' }] },
+            ],
+          },
+          { vetoable: VETOABLE },
+        ),
+      ).not.toThrow();
     });
   });
 
-  it('leaves a subject the overlay does not name alone', () => {
-    const clear = { id: 'u1', roles: [], tier: 'ordinary' };
-    expect(overlaid().can(clear, 'comment', 'update', object).allowed).toBe(
-      true,
-    );
-  });
+  describe('the schema obligation is scoped to the vetoable keys', () => {
+    it('refuses a vetoable key whose object kind is not declared', () => {
+      const matrix: Matrix = {
+        ...base(),
+        schema: { subject: SCHEMA.subject, objects: { post: { fields: {} } } },
+      };
 
-  it('leaves the permissions it does not name alone', () => {
-    expect(overlaid().can(subject, 'post', 'read').allowed).toBe(true);
-  });
+      expect(() =>
+        applyDenyOverlay(matrix, {}, { vetoable: ['comment.update'] }),
+      ).toThrow(MissingVetoSchemaError);
 
-  it('appends rather than replaces the target own deny rules', () => {
-    const authored: Matrix = {
-      ...base(),
-      permissions: base().permissions.map((permission) =>
-        permission.key === 'comment.update'
-          ? {
-              ...permission,
-              denyRules: [
-                {
-                  id: 'own',
-                  when: [{ field: 'object.status', op: 'eq', value: 'locked' }],
-                },
-              ],
-            }
-          : permission,
-      ),
-    };
+      expect(() =>
+        applyDenyOverlay(matrix, {}, { vetoable: ['comment.update'] }),
+      ).toThrow(/"comment\.update".*"comment"/s);
+    });
 
-    const result = applyDenyOverlay(
-      authored,
-      { 'comment.update': [HOLD] },
-      {
-        vetoable: VETOABLE,
-      },
-    );
-    const updated = result.permissions.find((p) => p.key === 'comment.update');
+    it('refuses a vetoable key when the target carries no schema at all', () => {
+      const matrix: Matrix = { permissions: base().permissions };
 
-    expect(updated?.denyRules?.map((rule) => rule.id)).toEqual([
-      'own',
-      'compliance-hold',
-    ]);
-  });
+      expect(() =>
+        applyDenyOverlay(matrix, {}, { vetoable: ['post.read'] }),
+      ).toThrow(MissingVetoSchemaError);
+    });
 
-  it('does not touch the matrix it was handed', () => {
-    const authored = base();
-    const snapshot = JSON.stringify(authored);
-    applyDenyOverlay(
-      authored,
-      { 'comment.update': [HOLD] },
-      {
-        vetoable: VETOABLE,
-      },
-    );
-    expect(JSON.stringify(authored)).toBe(snapshot);
-  });
-
-  it('carries the version through unchanged', () => {
-    const result = applyDenyOverlay(
-      base(),
-      { 'comment.update': [HOLD] },
-      {
-        vetoable: VETOABLE,
-      },
-    );
-    expect(result.version).toBe('orders@7');
-  });
-});
-
-describe('an overlay deny that cannot be evaluated refuses', () => {
-  it('reports unevaluable rather than granting', () => {
-    const overlay: DenyOverlay = {
-      'post.read': [
-        {
-          id: 'risk',
-          when: [{ field: 'object.status', op: 'eq', value: 'frozen' }],
+    it('owes nothing for a kind no vetoable key names', () => {
+      const matrix: Matrix = {
+        ...base(),
+        schema: {
+          subject: SCHEMA.subject,
+          objects: { comment: SCHEMA.objects?.['comment'] ?? {} },
         },
-      ],
-    };
+      };
 
-    const access = hydratePolicy(
-      applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
-    );
+      expect(() =>
+        applyDenyOverlay(
+          matrix,
+          { 'comment.update': [HOLD] },
+          {
+            vetoable: ['comment.update'],
+          },
+        ),
+      ).not.toThrow();
+    });
 
-    // `post.read` allows unconditionally, so before the overlay this subject is
-    // allowed with no object at all. The overlay's deny reads one the caller did
-    // not pass.
-    expect(
-      hydratePolicy(base()).can({ id: 'u1' }, 'post', 'read').allowed,
-    ).toBe(true);
-
-    const decision = access.can({ id: 'u1' }, 'post', 'read');
-    expect(decision.allowed).toBe(false);
-    expect(decision.reason).toBe('unevaluable');
-    expect(decision.rule).toBe('risk');
-    expect(decision.missing).toEqual(['object.status']);
+    it('owes no schema when it opens nothing', () => {
+      const matrix: Matrix = { permissions: base().permissions };
+      expect(() =>
+        applyDenyOverlay(matrix, {}, { vetoable: [] }),
+      ).not.toThrow();
+    });
   });
 
-  it('turns an object-independent permission into one that reads the object', () => {
-    const access = hydratePolicy(
-      applyDenyOverlay(
-        base(),
-        {
-          'post.read': [
-            { when: [{ field: 'object.score', op: 'eq', value: 3 }] },
-          ],
-        },
-        { vetoable: VETOABLE },
-      ),
-    );
-
-    expect(hydratePolicy(base()).readsObject('post', 'read')).toBe(false);
-    expect(access.readsObject('post', 'read')).toBe(true);
-  });
-});
-
-describe('the result is still a document', () => {
-  it('round-trips through JSON unchanged', () => {
-    const result = applyDenyOverlay(
-      base(),
-      { 'comment.update': [HOLD] },
-      {
-        vetoable: VETOABLE,
-      },
-    );
-
-    expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+  describe('the structural gate runs over the contribution', () => {
+    it('refuses a rule with no when', () => {
+      expect(() =>
+        applyDenyOverlay(
+          base(),
+          { 'post.read': [{ id: 'x' } as Rule] },
+          {
+            vetoable: VETOABLE,
+          },
+        ),
+      ).toThrow(InvalidRuleError);
+    });
   });
 
-  it('constructs, and the access behaves', () => {
-    const result = applyDenyOverlay(
-      base(),
-      { 'comment.update': [HOLD] },
-      {
-        vetoable: VETOABLE,
-      },
-    );
-    const access = hydratePolicy(JSON.parse(JSON.stringify(result)) as Matrix);
+  describe('a valid overlay narrows', () => {
+    const overlaid = () =>
+      hydratePolicy(
+        applyDenyOverlay(
+          base(),
+          { 'comment.update': [HOLD] },
+          {
+            vetoable: VETOABLE,
+          },
+        ),
+      );
 
-    expect(access.version).toBe('orders@7');
-    expect(access.schema).toEqual(SCHEMA);
-    expect(
-      Object.keys(access.capabilities({ id: 'u1', tier: 'sanctioned' })).sort(),
-    ).toEqual(['comment.update', 'post.read']);
-  });
-});
+    const subject = { id: 'u1', roles: [], tier: 'sanctioned' };
+    const object = { authorId: 'u1', status: 'open', score: 1 };
 
-describe('the authoring party can run it against a published subset', () => {
-  it('needs neither the full matrix nor any private state', () => {
-    // What a compliance team holds: the vetoable keys, their kinds' schema
-    // entries, and nothing else. This is the check it runs in its own CI.
-    const published: Matrix = {
-      version: 'orders@7',
-      schema: { objects: { comment: SCHEMA.objects?.['comment'] ?? {} } },
-      permissions: [
-        { key: 'comment.update', object: 'comment', action: 'update' },
-      ],
-    };
+    it('a subject who could, now cannot', () => {
+      const before = hydratePolicy(base()).can(
+        subject,
+        'comment',
+        'update',
+        object,
+      );
+      expect(before.allowed).toBe(true);
 
-    expect(() =>
-      applyDenyOverlay(
-        published,
-        {
-          'comment.update': [
-            { when: [{ field: 'object.riskBand', op: 'eq', value: 'high' }] },
-          ],
-        },
-        { vetoable: ['comment.update'] },
-      ),
-    ).toThrow(UnknownFieldError);
+      const after = overlaid().can(subject, 'comment', 'update', object);
+      expect(after).toEqual({
+        key: 'comment.update',
+        allowed: false,
+        reason: 'denied',
+        rule: 'compliance-hold',
+      });
+    });
 
-    expect(() =>
-      applyDenyOverlay(
-        published,
+    it('leaves a subject the overlay does not name alone', () => {
+      const clear = { id: 'u1', roles: [], tier: 'ordinary' };
+      expect(overlaid().can(clear, 'comment', 'update', object).allowed).toBe(
+        true,
+      );
+    });
+
+    it('leaves the permissions it does not name alone', () => {
+      expect(overlaid().can(subject, 'post', 'read').allowed).toBe(true);
+    });
+
+    it('appends rather than replaces the target own deny rules', () => {
+      const authored: Matrix = {
+        ...base(),
+        permissions: base().permissions.map((permission) =>
+          permission.key === 'comment.update'
+            ? {
+                ...permission,
+                denyRules: [
+                  {
+                    id: 'own',
+                    when: [
+                      { field: 'object.status', op: 'eq', value: 'locked' },
+                    ],
+                  },
+                ],
+              }
+            : permission,
+        ),
+      };
+
+      const result = applyDenyOverlay(
+        authored,
         { 'comment.update': [HOLD] },
         {
-          vetoable: ['comment.update'],
+          vetoable: VETOABLE,
         },
-      ),
-    ).not.toThrow();
+      );
+      const updated = result.permissions.find(
+        (p) => p.key === 'comment.update',
+      );
+
+      expect(updated?.denyRules?.map((rule) => rule.id)).toEqual([
+        'own',
+        'compliance-hold',
+      ]);
+    });
+
+    it('does not touch the matrix it was handed', () => {
+      const authored = base();
+      const snapshot = JSON.stringify(authored);
+      applyDenyOverlay(
+        authored,
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      );
+      expect(JSON.stringify(authored)).toBe(snapshot);
+    });
+
+    it('carries the version through unchanged', () => {
+      const result = applyDenyOverlay(
+        base(),
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      );
+      expect(result.version).toBe('orders@7');
+    });
+  });
+
+  describe('an overlay deny that cannot be evaluated refuses', () => {
+    it('reports unevaluable rather than granting', () => {
+      const overlay: DenyOverlay = {
+        'post.read': [
+          {
+            id: 'risk',
+            when: [{ field: 'object.status', op: 'eq', value: 'frozen' }],
+          },
+        ],
+      };
+
+      const access = hydratePolicy(
+        applyDenyOverlay(base(), overlay, { vetoable: VETOABLE }),
+      );
+
+      // `post.read` allows unconditionally, so before the overlay this subject is
+      // allowed with no object at all. The overlay's deny reads one the caller did
+      // not pass.
+      expect(
+        hydratePolicy(base()).can({ id: 'u1' }, 'post', 'read').allowed,
+      ).toBe(true);
+
+      const decision = access.can({ id: 'u1' }, 'post', 'read');
+      expect(decision.allowed).toBe(false);
+      expect(decision.reason).toBe('unevaluable');
+      expect(decision.rule).toBe('risk');
+      expect(decision.missing).toEqual(['object.status']);
+    });
+
+    it('turns an object-independent permission into one that reads the object', () => {
+      const access = hydratePolicy(
+        applyDenyOverlay(
+          base(),
+          {
+            'post.read': [
+              { when: [{ field: 'object.score', op: 'eq', value: 3 }] },
+            ],
+          },
+          { vetoable: VETOABLE },
+        ),
+      );
+
+      expect(hydratePolicy(base()).readsObject('post', 'read')).toBe(false);
+      expect(access.readsObject('post', 'read')).toBe(true);
+    });
+  });
+
+  describe('the result is still a document', () => {
+    it('round-trips through JSON unchanged', () => {
+      const result = applyDenyOverlay(
+        base(),
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      );
+
+      expect(JSON.parse(JSON.stringify(result))).toEqual(result);
+    });
+
+    it('constructs, and the access behaves', () => {
+      const result = applyDenyOverlay(
+        base(),
+        { 'comment.update': [HOLD] },
+        {
+          vetoable: VETOABLE,
+        },
+      );
+      const access = hydratePolicy(
+        JSON.parse(JSON.stringify(result)) as Matrix,
+      );
+
+      expect(access.version).toBe('orders@7');
+      expect(access.schema).toEqual(SCHEMA);
+      expect(
+        Object.keys(
+          access.capabilities({ id: 'u1', tier: 'sanctioned' }),
+        ).sort(),
+      ).toEqual(['comment.update', 'post.read']);
+    });
+  });
+
+  describe('the authoring party can run it against a published subset', () => {
+    it('needs neither the full matrix nor any private state', () => {
+      // What a compliance team holds: the vetoable keys, their kinds' schema
+      // entries, and nothing else. This is the check it runs in its own CI.
+      const published: Matrix = {
+        version: 'orders@7',
+        schema: { objects: { comment: SCHEMA.objects?.['comment'] ?? {} } },
+        permissions: [
+          { key: 'comment.update', object: 'comment', action: 'update' },
+        ],
+      };
+
+      expect(() =>
+        applyDenyOverlay(
+          published,
+          {
+            'comment.update': [
+              { when: [{ field: 'object.riskBand', op: 'eq', value: 'high' }] },
+            ],
+          },
+          { vetoable: ['comment.update'] },
+        ),
+      ).toThrow(UnknownFieldError);
+
+      expect(() =>
+        applyDenyOverlay(
+          published,
+          { 'comment.update': [HOLD] },
+          {
+            vetoable: ['comment.update'],
+          },
+        ),
+      ).not.toThrow();
+    });
   });
 });
 
@@ -599,108 +611,113 @@ function decisionsFor(document: Matrix, cases: readonly Case[]): Decision[] {
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
 
-describe('an overlay that matches nothing changes no decision', () => {
-  it.each(SEEDS)('seed %i', (seed) => {
-    const gen = new Gen(rng(seed));
-    const { document, vetoable } = matrix(gen);
-    const cases = Array.from({ length: 6 }, () => evaluationCase(gen));
+describe('applyDenyOverlay', () => {
+  describe('an overlay that matches nothing changes no decision', () => {
+    it.each(SEEDS)('seed %i', (seed) => {
+      const gen = new Gen(rng(seed));
+      const { document, vetoable } = matrix(gen);
+      const cases = Array.from({ length: 6 }, () => evaluationCase(gen));
 
-    // Definite misses for every generated context: `subject.tier` is either
-    // absent, which is a definite miss for a subject path, or one of two values
-    // neither of which is this one.
-    const inert: DenyOverlay = Object.fromEntries(
-      vetoable.map((key) => [
-        key,
-        [
-          {
-            id: 'inert',
-            when: [{ field: 'subject.tier', op: 'eq', value: 'nobody' }],
-          },
-        ],
-      ]),
-    );
+      // Definite misses for every generated context: `subject.tier` is either
+      // absent, which is a definite miss for a subject path, or one of two values
+      // neither of which is this one.
+      const inert: DenyOverlay = Object.fromEntries(
+        vetoable.map((key) => [
+          key,
+          [
+            {
+              id: 'inert',
+              when: [{ field: 'subject.tier', op: 'eq', value: 'nobody' }],
+            },
+          ],
+        ]),
+      );
 
-    const overlaid = applyDenyOverlay(document, inert, { vetoable });
+      const overlaid = applyDenyOverlay(document, inert, { vetoable });
 
-    expect(decisionsFor(overlaid, cases)).toEqual(
-      decisionsFor(document, cases),
-    );
+      expect(decisionsFor(overlaid, cases)).toEqual(
+        decisionsFor(document, cases),
+      );
+    });
   });
-});
 
-describe('an overlay only ever subtracts', () => {
-  it.each(SEEDS)('seed %i', (seed) => {
-    const gen = new Gen(rng(seed));
-    const { document, vetoable } = matrix(gen);
-    const overlay = overlayFor(gen, vetoable);
-    const cases = Array.from({ length: 6 }, () => evaluationCase(gen));
-
-    const overlaid = applyDenyOverlay(document, overlay, { vetoable });
-
-    const authored = decisionsFor(document, cases);
-    const after = decisionsFor(overlaid, cases);
-
-    expect(after).toHaveLength(authored.length);
-    for (const [index, before] of authored.entries()) {
-      const now = after[index] as Decision;
-      expect(now.key).toBe(before.key);
-      // The whole property: no decision moves from refused to allowed.
-      expect(before.allowed === false && now.allowed === true).toBe(false);
-    }
-  });
-});
-
-describe('the generated cases reach the behaviour they claim to cover', () => {
-  it('narrows real decisions, so the monotonicity property is not vacuous', () => {
-    let allowedBefore = 0;
-    let narrowed = 0;
-    let overlaidKeys = 0;
-
-    for (const seed of SEEDS) {
+  describe('an overlay only ever subtracts', () => {
+    it.each(SEEDS)('seed %i', (seed) => {
       const gen = new Gen(rng(seed));
       const { document, vetoable } = matrix(gen);
       const overlay = overlayFor(gen, vetoable);
       const cases = Array.from({ length: 6 }, () => evaluationCase(gen));
 
-      overlaidKeys += Object.keys(overlay).length;
+      const overlaid = applyDenyOverlay(document, overlay, { vetoable });
 
       const authored = decisionsFor(document, cases);
-      const after = decisionsFor(
-        applyDenyOverlay(document, overlay, { vetoable }),
-        cases,
-      );
+      const after = decisionsFor(overlaid, cases);
 
+      expect(after).toHaveLength(authored.length);
       for (const [index, before] of authored.entries()) {
-        if (!before.allowed) continue;
-        allowedBefore += 1;
-        if (!(after[index] as Decision).allowed) narrowed += 1;
+        const now = after[index] as Decision;
+        expect(now.key).toBe(before.key);
+        // The whole property: no decision moves from refused to allowed.
+        expect(before.allowed === false && now.allowed === true).toBe(false);
       }
-    }
-
-    expect(overlaidKeys).toBeGreaterThan(100);
-    expect(allowedBefore).toBeGreaterThan(500);
-    expect(narrowed).toBeGreaterThan(100);
+    });
   });
 
-  it('opens real extension points, so the inert-overlay property is not vacuous', () => {
-    let opened = 0;
-    for (const seed of SEEDS) {
-      opened += matrix(new Gen(rng(seed))).vetoable.length;
-    }
-    expect(opened).toBeGreaterThan(300);
-  });
-});
+  describe('the generated cases reach the behaviour they claim to cover', () => {
+    it('narrows real decisions, so the monotonicity property is not vacuous', () => {
+      let allowedBefore = 0;
+      let narrowed = 0;
+      let overlaidKeys = 0;
 
-describe('an overlaid matrix is still a document', () => {
-  it.each(SEEDS.slice(0, 50))('seed %i round-trips and constructs', (seed) => {
-    const gen = new Gen(rng(seed));
-    const { document, vetoable } = matrix(gen);
-    const overlaid = applyDenyOverlay(document, overlayFor(gen, vetoable), {
-      vetoable,
+      for (const seed of SEEDS) {
+        const gen = new Gen(rng(seed));
+        const { document, vetoable } = matrix(gen);
+        const overlay = overlayFor(gen, vetoable);
+        const cases = Array.from({ length: 6 }, () => evaluationCase(gen));
+
+        overlaidKeys += Object.keys(overlay).length;
+
+        const authored = decisionsFor(document, cases);
+        const after = decisionsFor(
+          applyDenyOverlay(document, overlay, { vetoable }),
+          cases,
+        );
+
+        for (const [index, before] of authored.entries()) {
+          if (!before.allowed) continue;
+          allowedBefore += 1;
+          if (!(after[index] as Decision).allowed) narrowed += 1;
+        }
+      }
+
+      expect(overlaidKeys).toBeGreaterThan(100);
+      expect(allowedBefore).toBeGreaterThan(500);
+      expect(narrowed).toBeGreaterThan(100);
     });
 
-    const cloned = JSON.parse(JSON.stringify(overlaid)) as Matrix;
-    expect(cloned).toEqual(overlaid);
-    expect(() => hydratePolicy(cloned)).not.toThrow();
+    it('opens real extension points, so the inert-overlay property is not vacuous', () => {
+      let opened = 0;
+      for (const seed of SEEDS) {
+        opened += matrix(new Gen(rng(seed))).vetoable.length;
+      }
+      expect(opened).toBeGreaterThan(300);
+    });
+  });
+
+  describe('an overlaid matrix is still a document', () => {
+    it.each(SEEDS.slice(0, 50))(
+      'seed %i round-trips and constructs',
+      (seed) => {
+        const gen = new Gen(rng(seed));
+        const { document, vetoable } = matrix(gen);
+        const overlaid = applyDenyOverlay(document, overlayFor(gen, vetoable), {
+          vetoable,
+        });
+
+        const cloned = JSON.parse(JSON.stringify(overlaid)) as Matrix;
+        expect(cloned).toEqual(overlaid);
+        expect(() => hydratePolicy(cloned)).not.toThrow();
+      },
+    );
   });
 });
