@@ -26,6 +26,11 @@ output-only note above it at `:152-158`; `EvaluationContext` at `:110-115`;
 `PlanEntry` at `:176-184`; `ToggleResult` at `:188`).
 Depends on: issue #245, which replaces the positional rule id with a content
 hash. § 7 says why this seam cannot be released before it.
+Reads: `docs/research/2026-09-23-growthbook-statsig.md`,
+`docs/research/2026-09-23-launchdarkly.md`,
+`docs/research/2026-09-23-unleash-flagsmith.md` and
+`docs/research/2026-09-23-openfeature-posthog.md`. Six products, read at source.
+§ 1, § 4.2 and § 7 cite them.
 Tracks: exposure tracking, routed here by decision 12 of the variants spec.
 
 ## Decisions
@@ -39,8 +44,9 @@ Tracks: exposure tracking, routed here by decision 12 of the variants spec.
    point emits one event per feature.
 4. The internal `resolve` calls inside `isEnabled` and `toggle` emit nothing.
    The public entry point the application called is what the event names.
-5. An event carries no `EvaluationContext`. It carries the settled instant, the
-   returned value, and a subject identifier copied out as a primitive.
+5. An event carries no `EvaluationContext`. It carries the settled instant and
+   the returned value. Whether it also carries a subject identifier is open,
+   and § 4.2 states the two postures with the evidence behind each.
 6. The observer is installed at construction, through a second optional
    parameter on `createFeatures`.
 7. The signature is `(event) => void | Promise<unknown>`. The engine attaches a
@@ -51,10 +57,17 @@ Tracks: exposure tracking, routed here by decision 12 of the variants spec.
 9. The engine deep-freezes the value an entry point returns when an observer is
    installed, so the readonly event type is true at runtime for a JavaScript
    caller.
-10. Issue #245 is merged before this seam is released.
+10. Issue #245 is merged before this seam is released. A control plane assigns
+    a stable rule id at creation, and a content hash covers hand-authored
+    configuration with `rollout.percent` excluded. § 7.
 11. The library performs no network call at evaluation, and this seam does not
-    change that. An observer that writes to a transport writes from whichever
-    process holds it.
+    change that. Every process holds the rules and evaluates them locally,
+    browsers and mobile clients included, so an observer runs wherever the
+    application installed it.
+12. The library evaluates the document it is handed. It owns no policy about
+    where that document came from or how old it is.
+13. A member on an event that reports a version or a capability never enables a
+    downgrade of the evaluation algorithm. § 3.
 
 ## 1. Exposure does not belong in this seam
 
@@ -91,6 +104,60 @@ no subject identity beyond the string the caller passes each call. The variants
 spec already refused storage for the same reason in its "Sticky assignment"
 section, and `stickyVariants` exists because an application stores what the
 library will not.
+
+### Every product researched emits at evaluation, and then dedupes
+
+No product I read offers a render-time hook. Each one fires exposure inside the
+evaluation call, and each one then built machinery against the over-count the
+four facts above predict. That machinery is the evidence.
+
+GrowthBook fires the tracking callback as step 14 of `evalFeature`, after the
+variation is chosen and after the sticky bucket is written
+(`docs/research/2026-09-23-growthbook-statsig.md` § 6). It dedupes in instance
+memory on `hashAttribute + hashValue + experiment.key + variationId`, and that
+set does not outlive the page load. The server-plus-browser double needs a second
+mechanism: a deferred tracking queue that the server exports and the browser
+imports, keyed on the same string. The documented pattern is to pass no
+`trackingCallback` to the constructor, because a client instance that has one
+fires its own exposure and then fires the imported one beside it.
+
+Statsig dedupes twice over and the two halves cannot see each other. The client
+keeps a time map over a rolling ten-minute window
+(`DEDUPER_WINDOW_DURATION_MS = 600_000`), and the server SDKs keep a Set cleared
+every sixty seconds. What actually prevents the duplicate across a server render
+and a browser hydration is unrelated to both dedupers: the client SDK drops every event when it detects
+a Node environment, `loggingEnabled` defaulting to `'browser-only'`. One option
+value flips that off. Server SDKs also sample exposures away under a remote
+`sampling_mode` and write the rate onto the event.
+
+PostHog has no such guard and double-counts. Its browser SDK dedupes on
+`(flag, String(value))` under `$flag_call_reported` in localStorage and a
+cookie, so a repeat visitor emits nothing at all. Its Node SDK dedupes on
+`` `${key}_${response}` `` per `distinctId` in process memory. Neither
+suppresses the other, so a first visit that renders on a server and hydrates in
+a browser emits two exposures for one view, and the next visit emits none
+(`docs/research/2026-09-23-openfeature-posthog.md` § 9).
+
+LaunchDarkly emits inside `_variationInternal` and recurses over prerequisite
+flags. Its `summary` counters dedupe on `flagKey:variation:version`, and the
+full-fidelity `feature` events that experimentation switches on carry no
+deduplication at all (`docs/research/2026-09-23-launchdarkly.md` § 6).
+
+Unleash fires an impression event inside `isEnabled` and `getVariant`, carrying
+the whole context, with no dedup anywhere in the SDK, opt-in per flag by an
+operator (`docs/research/2026-09-23-unleash-flagsmith.md` § 6).
+
+Flagsmith dedupes its `$flag_exposure` event on
+`(feature_name, identifier, value)` for the length of one ten-second flush
+window, and refuses to emit at all without an identifier, because it reconciles
+exposures against conversion events
+(`docs/research/2026-09-23-unleash-flagsmith.md` § 6).
+
+Five of the six built a deduper, and every one of those dedupers is state a
+library holds about a subject over time: a Set, a time map, a localStorage
+entry, a counter keyed on a flag version. This package holds none of that, and
+decision 5 of the toggles spec is why it never will. The double-count § 1
+predicts is what PostHog produces today.
 
 So the application emits exposure, and it emits it where it renders:
 
@@ -249,7 +316,7 @@ export interface FeatureOptions {
   onObserveError?: (error: unknown, event: FeatureEvent) => void;
   /**
    * The context field whose value identifies the subject in an event.
-   * Defaults to `targetingKey`.
+   * Whether this member has a default is unresolved. See § 4.2.
    */
   correlateBy?: string;
   /** The configuration version an event reports. */
@@ -274,6 +341,19 @@ out inside its own hook. `version` sits here provisionally, and
 `docs/specs/2026-09-23-feature-config-distribution.md` owns where the version
 actually lives once the envelope exists.
 
+`version` names a configuration and it must never name a capability. GrowthBook
+shows the failure that rule exists against. Its payload builder strips
+`hashVersion`, `range`, `ranges`, `meta`, `seed`, `name` and `phase` out of
+every rule when the SDK Connection does not declare a `bucketingV2` capability.
+The SDK then reads `experiment.hashVersion || 1` and buckets on the algorithm
+its own source comment calls the "Original biased hashing algorithm", the one
+GrowthBook's spec says "had a flaw that caused bias when running experiments in
+parallel" (`docs/research/2026-09-23-growthbook-statsig.md` § 2). No warning
+reaches the caller and no field on the result names which algorithm ran. So if
+this seam ever carries a version or a capability on an event, that member
+reports what the process already decided under, and no consumer can negotiate a
+downgrade with it.
+
 ## 4. What an observer may see, and how the line is enforced
 
 ### 4.1 No context object
@@ -294,23 +374,74 @@ object, it holds whatever attributes the application put on it, and a library
 that hands it to a logging hook has decided what an application logs about its
 own users.
 
-### 4.2 The subject arrives as a copied primitive
+### 4.2 The subject identifier, awaiting the owner's decision
 
-ACL answered the identity question with a correlation value threaded through
-`AccessOptions`, because an ACL subject is a bag of attributes. A feature
-subject is one value, the bucketing key, and the package already names it
-(`types.ts:112-113`, `DEFAULT_ROLLOUT_FIELD` at `evaluate.ts:15`).
+This is the one member in the document the owner has not ruled on. It is
+presented here as open, and the section states both postures because the field
+splits on it.
 
-So the engine reads `context[options.correlateBy ?? 'targetingKey']`, and it
-copies the value onto the event when it is a string or a number. A primitive
-copy holds no reference back into the caller's context, so an observer that
-writes to `event.subject` writes to its own event object and changes nothing.
+The mechanics are settled either way. ACL answered the identity question with a
+correlation value threaded through `AccessOptions`, because an ACL subject is a
+bag of attributes. A feature subject is one value, the bucketing key, and the
+package already names the field (`types.ts:112-113`, `DEFAULT_ROLLOUT_FIELD` at
+`evaluate.ts:15`). The engine reads `context[options.correlateBy]` and copies
+the value onto the event when it is a string or a number. A primitive copy holds
+no reference back into the caller's context, so an observer that writes to
+`event.subject` writes to its own event object and changes nothing. What is open
+is whether `correlateBy` has a default.
 
-An application whose bucketing key is a raw email address and whose observer
-writes to a log sets `correlateBy` to a field carrying a hashed identifier, or
-it leaves the field unset and correlates through its own transport. The
-documentation names that choice at the member, because the default puts the
-targeting key into whatever the observer writes to.
+LaunchDarkly makes the subject opt-out. The context `key` always travels in
+`feature` and `index` events, and LaunchDarkly protects `key`, `kind`, `_meta`
+and `anonymous` in the evaluation source so an application cannot mark any of
+the four private. Every other attribute travels unless the application names it
+in `privateAttributes` or sets `allAttributesPrivate`. Client-side SDKs still
+send a private attribute to LaunchDarkly for evaluation and withhold it only
+from events. Redaction is itself disclosed back: the SDK sends
+`_meta.redactedAttributes` naming what it removed, so LaunchDarkly learns the
+attribute names even when it does not learn the values. There is no hashing of
+the key anywhere in the event path
+(`docs/research/2026-09-23-launchdarkly.md` § 9).
+
+Flagsmith goes further in the same direction. Remote evaluation persists the
+identity and its traits in the platform, and transient traits are the opt-in
+escape, so persistence is what an application gets by doing nothing. A
+`$flag_exposure` event carries `identifier` and `traits` verbatim with no
+hashing, and Flagsmith refuses to emit an exposure with no identifier, because
+the identifier is what reconciles an exposure against a conversion event
+(`docs/research/2026-09-23-unleash-flagsmith.md` § 6 and § 9).
+
+Unleash takes the opposite position. Its impression event carries the entire
+context, `userId`, `sessionId`, `remoteAddress` and every custom property, with
+no hashing and no redaction, and the event never leaves the process. The
+application is the transport and the application decides. Unleash Edge exists
+for the frontend case, which is the one where context crosses a wire: Edge
+"evaluates feature flags for frontend SDKs directly on the Edge node, ensuring
+that sensitive user data required for evaluation is never sent upstream to
+Unleash" (`docs/research/2026-09-23-unleash-flagsmith.md` § 9).
+
+So the two postures this seam can take:
+
+`correlateBy` defaults to `targetingKey`. An application gets a correlatable
+stream with no configuration, which is LaunchDarkly's and Flagsmith's answer. An
+application whose bucketing key is a raw email address then puts that address
+into whatever its observer writes to, and it does so by writing no code.
+
+`correlateBy` has no default, and an event carries no subject identifier until
+the application names a field that derives one. An application wanting
+correlation asks for it in one line. An application that never reads this member
+emits no identifier at all.
+
+My recommendation is the second, and the owner may argue against it. Two
+reasons. An observer here is an arbitrary function the application installed,
+and it may be a third-party transport, which is the exact case Unleash built
+Edge to prevent; LaunchDarkly's opt-out posture works because LaunchDarkly owns
+the transport and the retention policy behind it, and this package owns neither.
+The owner is planning a hosted platform, and a default that puts a subject
+identifier on every event is a default the hosted platform inherits before
+anybody writes its privacy policy.
+
+Until the owner rules, `correlateBy?: string` carries no documented default,
+and the documentation at the member says the question is open.
 
 ### 4.3 The type refuses the write, and the freeze makes it true
 
@@ -477,15 +608,57 @@ two rules with identical `when` conditions and different `rollout.percent`
 decide differently. If the percent enters the canonical text, then an operator
 raising a rollout from 20 to 30 renames the rule and breaks the join that the
 whole fix exists to protect. If the percent stays out, two rollout rules on one
-feature collide. Issue #245 settles that. This document records only that it
-must be settled before the first event is written, because a stream produced
-under positional ids and a stream produced under stable ids are two formats and
-no analysis joins them.
+feature collide.
+
+LaunchDarkly resolves this and does not use a hash for it. A LaunchDarkly rule
+carries an `id` the control plane assigns at creation, described in the Go data
+model as "a randomized identifier assigned to each rule when it is created" and
+documented as the property that "stays the same even if you rearrange the order
+of the rules". The positional index stays a separate field, `ruleIndex`, and
+both travel in the `reason` object of a `feature` event
+(`docs/research/2026-09-23-launchdarkly.md` § 8):
+
+```json
+"reason": { "kind": "RULE_MATCH", "ruleIndex": 0, "ruleId": "id", "inExperiment": true }
+```
+
+An analysis keyed on `ruleId` joins across a reorder and an analysis keyed on
+`ruleIndex` does not. A rollout's `Seed` lives on the `Rollout` struct inside
+the rule, so an operator changing a percentage or starting a new experiment
+iteration changes neither the rule id nor the bucketing seed.
+
+So #245 resolves into two mechanisms that behave alike across a ramp. A control
+plane assigns a stable id at rule creation and that id derives from nothing in
+the rule's contents, which is what
+`docs/specs/2026-09-23-feature-config-distribution.md` owns. A hand-authored
+configuration with no control plane behind it gets the content hash, with
+`rollout.percent` excluded from the canonical text, so an operator ramping from
+20 to 30 renames nothing. Two rollout rules on one feature with identical `when`
+conditions then collide under the hash, and the author breaks that tie by
+writing an explicit `rule.id`, which `ruleId` already honours ahead of the
+fallback (`evaluate.ts:17-19`).
+
+Two products show what the absence produces. A PostHog release condition carries
+no id and the evaluation reason references it by positional `condition_index`,
+so reordering conditions invalidates every reason reference pointing at them. A
+PostHog variant carries no stable id at all, and the variant key is itself the
+bucketing input, so renaming a variant re-buckets everyone who had it
+(`docs/research/2026-09-23-openfeature-posthog.md` § 10). Flagsmith went the
+other way and gave each variant a `key` slug with `unique_together` against the
+feature, ordering variants by creation so a new one takes the last band and
+shifts none of the existing ones
+(`docs/research/2026-09-23-unleash-flagsmith.md` § 8).
+
+This document records only that #245 must be settled before the first event is
+written, because a stream produced under positional ids and a stream produced
+under stable ids are two formats and no analysis joins them.
 
 ## 8. Multi-process
 
-The package runs in backend services, in browsers and in native clients, and an
-observer runs in whichever one holds it. Four consequences.
+Local evaluation is the default and it is deliberate. Every process holds the
+rules and decides for itself, backend services, browsers and native clients
+alike, and an observer runs in whichever one the application installed it in.
+Four consequences.
 
 The library performs no network call at evaluation. Nothing in
 `libs/feature/src` opens a socket, and `resolve` reads configuration a caller
@@ -498,6 +671,18 @@ writes to a log collector, a browser writes with `navigator.sendBeacon` on
 `visibilitychange` because an unload cancels a `fetch`, and a native client
 writes to a local queue that persists across a process restart. The event shape is the
 same in all of them, which is the point of putting it in the library at all.
+
+Unleash holds this same posture from its own end, and it is the closest thing in
+the field to what § 8 describes. An impression event is an `EventEmitter` event
+that Unleash never sends anywhere; the application subscribes and forwards it
+(`docs/research/2026-09-23-unleash-flagsmith.md` § 6). Unleash Edge then exists
+so that a frontend SDK's context reaches an edge node and goes no further
+upstream. This seam is that arrangement with the vendor removed. The event is an
+in-process callback, and every transport decision after it belongs to the
+application. Decision 12 is the other half: the library evaluates the document
+it was handed and owns no policy about where that document came from or how old
+it is, so an application choosing an edge proxy, a bundled file or a polled
+endpoint changes nothing here.
 
 A subject decided in two processes produces two events. A server renders the
 page and the browser hydrates, and both resolve the same features for the same
@@ -547,9 +732,11 @@ sanctioned channel for an assignment the application stored.
 
 ## 10. What this document does not own
 
-The configuration envelope, `version`, `maxStale`, visibility, serialization
+The configuration envelope, `version`, `configDigest`, the schema, serialization
 and reload: `docs/specs/2026-09-23-feature-config-distribution.md`. The event's
-`version` member reads whatever that document settles.
+`version` member reads whatever that document settles. That document carries
+`maxStale` as an advisory value no entry point reads, and it declares no
+visibility concept, so neither reaches an event.
 
 Hydration and cross-process stability:
 `docs/specs/2026-09-23-feature-hydration.md`. § 8's duplicate-event case is a
@@ -588,6 +775,9 @@ Nothing here is implemented, so this is what the seam owes.
   that itself throws is not called again for that event.
 - The event carries no reference reachable to the caller's `EvaluationContext`,
   asserted structurally over the emitted object.
+- A subject member, where one appears, is a primitive and writing to it changes
+  no later evaluation in the same call. § 4.2 is unsettled, so the case that
+  asserts a default for `correlateBy` waits on the owner's decision.
 - `reason-is-output-only.spec.ts` gains a case: a store with an observer
   installed decides identically to one without. The existing file
   (`libs/feature/src/lib/reason-is-output-only.spec.ts:33-53`) already runs the
@@ -603,28 +793,31 @@ Nothing here is implemented, so this is what the seam owes.
   `toggle` one. The toggle audit is the only consumer with an operator behind
   it today. The other three are inferred from what `@evanion/acl` § 9 needed
   for an auditor, and no user of this package has asked for any of them.
-- That the conditional freeze in § 4.3 is the right trade. It makes the
-  package behave differently by configuration, which is a thing I would
-  normally refuse outright, and I took it because 15 microseconds on every
-  unobserved `resolve` is worse. An owner who values uniform behaviour over
-  that number should freeze always, and the rest of § 4 is unchanged either
-  way.
-- That copying the targeting key onto the event by default is acceptable. It is
-  ergonomically far better than ACL's correlation callback and it puts whatever
-  the application buckets on into whatever the observer writes to. If real
-  applications bucket on raw email addresses, the default should invert and
-  `correlateBy` should be required before any subject appears.
+- That the conditional freeze in § 4.3 is the right trade. This is still my
+  least confident call and the research did not touch it, because no vendor
+  faces the question: none of the six returns a mutable decision record that a
+  hook also holds. It makes the package behave differently by configuration,
+  which is a thing I would normally refuse outright, and I took it because the
+  measured 15 to 18 microseconds on every unobserved `resolve`, against a 20 to
+  22 microsecond bare call, is worse. An owner who values uniform behaviour over
+  that number should freeze always, and the rest of § 4 is unchanged either way.
+- § 4.2 is open, and it is no longer a guess. The research split the field:
+  LaunchDarkly and Flagsmith make the subject identifier opt-out, Unleash keeps
+  the whole context in the process and built Edge so none of it reaches the
+  control plane. § 4.2 states both postures and recommends no default on
+  `correlateBy`. The owner decides.
 - That `isEnabled` warrants its own event. The alternative is one event type
   for every entry point, with the entry point as a member on it. The argument in § 2.2 is about honesty toward an
   auditor, and an auditor of a feature flag stream may not exist. If nobody
   reads these events for compliance, one event type would do and the entry
   point would be a member on it.
-- That § 1's conclusion holds against a real experimentation platform.
-  LaunchDarkly treats a `variation()` call as an exposure, which works because
-  their SDK is called per key at the point of use. This package's React path
-  resolves once in a provider, so the same convention has nothing to hook. If a
-  future entry point reads one key at the render site and nothing else, the
-  question reopens and § 1 is the thing to re-argue.
+- § 1's conclusion held, and this bullet is now closed. Six products emit
+  exposure at evaluation and none of them offers a render-time hook, so the
+  convention I worried about is universal. Five of them then built a deduper
+  against the over-count, and PostHog double-counts a server render plus a
+  hydration anyway. The remaining reopener is unchanged: if a future entry point
+  reads one key at the render site and nothing else, § 1 is the thing to
+  re-argue.
 - The measurements are from one machine (Apple M1 Pro, Node 24.20.0) running
   the TypeScript sources through `tsx`, not the built package, over a synthetic
   store whose features all resolve off through `no-rule-matched`. A store whose
