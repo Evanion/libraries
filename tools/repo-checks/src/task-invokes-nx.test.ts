@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createProjectGraphAsync, workspaceRoot } from '@nx/devkit';
@@ -27,12 +27,18 @@ import { describe, expect, it } from 'vitest';
  * a script performs by spawning a command is ordering Nx learns about when the
  * process is already running.
  *
- * Two places are read. A configured target's own command, which is where an
- * `nx` call is plain to see. And the file that command runs, which is where
- * this one hid. Nothing follows that file's imports, so a helper module three
- * levels down could still spawn Nx and pass here. One level is where the
- * repository's task scripts do their work, and a check that parsed the module
- * graph would cost a resolver for a rule two files need.
+ * Three places are read. A configured target's own command, which is where an
+ * `nx` call is plain to see. The file that command runs, which is where the
+ * `testing-data` one hid. And every test source, because a test is a task too:
+ * `doc-behaviour-run.test.ts` ran the eleven library suites from a `beforeAll`
+ * through `nx run-many`, and the first two rules walked past it, because
+ * `@evanion/repo-checks:test` configures no command of its own and Vitest is
+ * what the inferred target runs.
+ *
+ * Nothing follows a file's imports, so a helper module three levels down could
+ * still spawn Nx and pass here. One level is where the repository's task
+ * scripts do their work, and a check that parsed the module graph would cost a
+ * resolver for a rule three files need.
  *
  * Only configured targets are read. Nx infers `watch-deps` on every buildable
  * project and its command is `npx nx watch ... -- npx nx build-deps ...`, which
@@ -181,6 +187,32 @@ function spawnsIn(path: string): { line: number; program: string }[] {
   return found;
 }
 
+/** A file the runner executes as a task. */
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/** Directories holding nothing a person wrote. */
+const SKIPPED = new Set([
+  'node_modules',
+  'dist',
+  '.next',
+  '.nx',
+  '.git',
+  'out',
+  'coverage',
+  'test-output',
+  '.claude',
+]);
+
+/** Every test source in the repository, as paths from the workspace root. */
+function testSources(dir = workspaceRoot): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) {
+      return SKIPPED.has(entry.name) ? [] : testSources(join(dir, entry.name));
+    }
+    return TEST_FILE.test(entry.name) ? [join(dir, entry.name)] : [];
+  });
+}
+
 describe('a configured nx task', () => {
   it('runs a command that does not start nx again', async () => {
     const found = (await configured())
@@ -214,6 +246,25 @@ describe('a configured nx task', () => {
       found.sort(),
       'A task script that spawns nx runs a second scheduler inside the first. ' +
         'Declare the ordering in the task dependsOn and read what it produced.',
+    ).toEqual([]);
+  });
+
+  it('runs a test that does not start nx again', () => {
+    const found: string[] = [];
+
+    for (const path of testSources()) {
+      for (const { line, program } of spawnsIn(path)) {
+        if (!INVOKES_NX.test(program)) continue;
+        const relative = path.slice(workspaceRoot.length + 1);
+        found.push(`${relative}:${line + 1} starts "${program}"`);
+      }
+    }
+
+    expect(
+      found.sort(),
+      'A test that spawns nx runs a second scheduler inside the one running ' +
+        'the test. Declare the ordering on the project test target and read ' +
+        'what the suites it depends on wrote.',
     ).toEqual([]);
   });
 });

@@ -1,9 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Every sentence a reference entry would carry, held against a run.
@@ -20,11 +19,18 @@ import { beforeAll, describe, expect, it } from 'vitest';
  * shape `security-register.test.ts` uses to hold a register entry, its suite and
  * its published page together on one identifier.
  *
- * The run is this file's own, not the sweep `docs:testing-data` runs. That
- * target runs every library with coverage and writes what the `/testing` section
- * counts; reading its leftovers would couple a reference page's guard to a
- * target it is specified to be independent of. A plain `vitest run` per library
- * needs no build and takes about four seconds.
+ * The report each library's own `test` target writes is what this reads. This
+ * file used to run the libraries itself, through `nx run-many` in a
+ * `beforeAll`. A task that shells back into Nx races the outer run and fails it
+ * with `Recursive task invocation detected`, which is the failure
+ * `task-invokes-nx.test.ts` exists to prevent, and that guard reads a
+ * configured target's command and never a test source. So the dependency is
+ * declared on `@evanion/repo-checks:test` instead, and Nx orders the eleven
+ * library suites ahead of this one and caches each of them on its own.
+ *
+ * `report.json` is the same file `docs:testing-data` reads, and reading it
+ * couples nothing: it is the library's own output, written by the library's own
+ * target, and the `/testing` section happens to read it too.
  */
 
 /** Where `docs:behaviour-data` writes what each library's tests state. */
@@ -82,31 +88,7 @@ function stated(behaviours: Behaviours): Stated[] {
  * outside it would be missing on the first cache replay and the check would
  * fail on a machine that had done nothing wrong.
  */
-const REPORT = join('test-output', 'vitest', 'coverage', 'behaviour.json');
-
-/**
- * The libraries' suites, run once through Nx.
- *
- * Through Nx rather than a `vitest` per package, for the reason
- * `test-statistics.mjs` gives: Nx orders a library's own build and its
- * dependencies' ahead of its tests, and `@evanion/react-acl`'s cases import
- * `@evanion/acl` by its published name, which resolves to a `dist` nothing has
- * built yet on a clean checkout.
- */
-function sweep(): void {
-  execFileSync(
-    'npx',
-    [
-      'nx',
-      'run-many',
-      '--target=test',
-      '--projects=libs/*',
-      '--reporter=json',
-      `--outputFile=${REPORT}`,
-    ],
-    { cwd: workspaceRoot, stdio: 'inherit' },
-  );
-}
+const REPORT = join('test-output', 'vitest', 'coverage', 'report.json');
 
 /** What one library's suite reported, as chains. */
 function chainsOf(directory: string): {
@@ -137,8 +119,6 @@ function chainsOf(directory: string): {
 
 describe('the sentences a reference entry would carry', () => {
   const libraries = data();
-
-  beforeAll(sweep, 600_000);
 
   it('finds a data file for every released library', () => {
     expect(libraries.length).toBeGreaterThan(0);
