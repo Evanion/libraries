@@ -288,12 +288,12 @@ renames every rule declaring no explicit `id`, belongs to that spec until issue
 
 Four outcomes:
 
-| shipped | store | outcome |
-| --- | --- | --- |
-| a version | the same version | agreed, no report |
-| a version | a different version | `kind: 'config-version'`, reported |
-| a version | none | `kind: 'unversioned'`, reported |
-| none | any | `kind: 'unversioned'`, reported once |
+| shipped   | store               | outcome                              |
+| --------- | ------------------- | ------------------------------------ |
+| a version | the same version    | agreed, no report                    |
+| a version | a different version | `kind: 'config-version'`, reported   |
+| a version | none                | `kind: 'unversioned'`, reported      |
+| none      | any                 | `kind: 'unversioned'`, reported once |
 
 Every one of the four renders the shipped decisions.
 

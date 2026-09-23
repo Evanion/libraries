@@ -35,10 +35,12 @@
 ### Task 1: Canonical text
 
 **Files:**
+
 - Create: `libs/feature/src/lib/canonical.ts`
 - Test: `libs/feature/src/lib/canonical.spec.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `export function canonical(value: unknown): string`
 
@@ -134,10 +136,12 @@ git commit -m "feat(feature): render a value as text with its keys in sorted ord
 ### Task 2: The rule id
 
 **Files:**
+
 - Create: `libs/feature/src/lib/rule-id.ts`
 - Test: `libs/feature/src/lib/rule-id.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `canonical(value: unknown): string` from Task 1.
 - Produces: `export function ruleId(rule: Rule): string`
 
@@ -189,32 +193,32 @@ Expected: PASS, 1 test.
 Append to the `describe` block in `libs/feature/src/lib/rule-id.spec.ts`:
 
 ```ts
-  it('derives the same id for one rule wherever it sits in a list', () => {
-    const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
-    const other: Rule = { when: [{ field: 'plan', op: 'eq', value: 'pro' }] };
+it('derives the same id for one rule wherever it sits in a list', () => {
+  const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+  const other: Rule = { when: [{ field: 'plan', op: 'eq', value: 'pro' }] };
 
-    const before = [rule, other].map((each) => ruleId(each));
-    const after = [other, rule].map((each) => ruleId(each));
+  const before = [rule, other].map((each) => ruleId(each));
+  const after = [other, rule].map((each) => ruleId(each));
 
-    expect(before[0]).toBe(after[1]);
-    expect(before[1]).toBe(after[0]);
-  });
+  expect(before[0]).toBe(after[1]);
+  expect(before[1]).toBe(after[0]);
+});
 
-  it('derives different ids for rules with different conditions', () => {
-    const a = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
-    const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'admin' }] });
-    expect(a).not.toBe(b);
-  });
+it('derives different ids for rules with different conditions', () => {
+  const a = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
+  const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'admin' }] });
+  expect(a).not.toBe(b);
+});
 
-  it('derives the same id whatever order a producer wrote the keys in', () => {
-    const a = ruleId({ when: [{ op: 'eq', value: 'staff', field: 'role' }] });
-    const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
-    expect(a).toBe(b);
-  });
+it('derives the same id whatever order a producer wrote the keys in', () => {
+  const a = ruleId({ when: [{ op: 'eq', value: 'staff', field: 'role' }] });
+  const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
+  expect(a).toBe(b);
+});
 
-  it('prefixes a derived id so a reader can tell it from an authored one', () => {
-    expect(ruleId({ when: [] })).toMatch(/^rule-[0-9a-f]{8}$/);
-  });
+it('prefixes a derived id so a reader can tell it from an authored one', () => {
+  expect(ruleId({ when: [] })).toMatch(/^rule-[0-9a-f]{8}$/);
+});
 ```
 
 - [ ] **Step 6: Run the tests and confirm four fail**
@@ -227,27 +231,27 @@ Expected: FAIL. The reorder test passes by accident because every rule currently
 Append to the same `describe` block:
 
 ```ts
-  it('leaves the id alone when an operator moves a ramp', () => {
-    const at20 = ruleId({ rollout: { percent: 20 } });
-    const at30 = ruleId({ rollout: { percent: 30 } });
-    expect(at20).toBe(at30);
-  });
+it('leaves the id alone when an operator moves a ramp', () => {
+  const at20 = ruleId({ rollout: { percent: 20 } });
+  const at30 = ruleId({ rollout: { percent: 30 } });
+  expect(at20).toBe(at30);
+});
 
-  it('changes the id when the bucketing field changes', () => {
-    const byDefault = ruleId({ rollout: { percent: 20 } });
-    const byAccount = ruleId({ rollout: { percent: 20, by: 'accountId' } });
-    expect(byDefault).not.toBe(byAccount);
-  });
+it('changes the id when the bucketing field changes', () => {
+  const byDefault = ruleId({ rollout: { percent: 20 } });
+  const byAccount = ruleId({ rollout: { percent: 20, by: 'accountId' } });
+  expect(byDefault).not.toBe(byAccount);
+});
 
-  it('changes the id when the rollout seed changes', () => {
-    const unseeded = ruleId({ rollout: { percent: 20 } });
-    const seeded = ruleId({ rollout: { percent: 20, seed: 'autumn' } });
-    expect(unseeded).not.toBe(seeded);
-  });
+it('changes the id when the rollout seed changes', () => {
+  const unseeded = ruleId({ rollout: { percent: 20 } });
+  const seeded = ruleId({ rollout: { percent: 20, seed: 'autumn' } });
+  expect(unseeded).not.toBe(seeded);
+});
 
-  it('separates a rule with a rollout from one without', () => {
-    expect(ruleId({ rollout: { percent: 20 } })).not.toBe(ruleId({}));
-  });
+it('separates a rule with a rollout from one without', () => {
+  expect(ruleId({ rollout: { percent: 20 } })).not.toBe(ruleId({}));
+});
 ```
 
 - [ ] **Step 8: Run the tests and confirm the rollout tests fail**
@@ -260,13 +264,13 @@ Expected: FAIL on the three "not.toBe" rollout assertions.
 Append to the same `describe` block:
 
 ```ts
-  it('derives one id for two rules that both match unconditionally', () => {
-    expect(ruleId({})).toBe(ruleId({}));
-  });
+it('derives one id for two rules that both match unconditionally', () => {
+  expect(ruleId({})).toBe(ruleId({}));
+});
 
-  it('reads an absent when and an empty when as the same rule', () => {
-    expect(ruleId({})).toBe(ruleId({ when: [] }));
-  });
+it('reads an absent when and an empty when as the same rule', () => {
+  expect(ruleId({})).toBe(ruleId({ when: [] }));
+});
 ```
 
 - [ ] **Step 10: Run the tests and confirm they pass**
@@ -279,54 +283,59 @@ Expected: These two PASS against the constant implementation. They are the prope
 Append to the same `describe` block:
 
 ```ts
-  it('derives one id for one instant written three ways', () => {
-    const asDate = ruleId({
-      when: [{ field: 'now', op: 'after', value: new Date(1767225600000) }],
-    });
-    const asIso = ruleId({
-      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00.000Z' }],
-    });
-    const asEpoch = ruleId({
-      when: [{ field: 'now', op: 'after', value: 1767225600000 }],
-    });
-
-    expect(asIso).toBe(asDate);
-    expect(asEpoch).toBe(asDate);
+it('derives one id for one instant written three ways', () => {
+  const asDate = ruleId({
+    when: [{ field: 'now', op: 'after', value: new Date(1767225600000) }],
+  });
+  const asIso = ruleId({
+    when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00.000Z' }],
+  });
+  const asEpoch = ruleId({
+    when: [{ field: 'now', op: 'after', value: 1767225600000 }],
   });
 
-  it('separates two different instants', () => {
-    const early = ruleId({
-      when: [{ field: 'now', op: 'after', value: 1767225600000 }],
-    });
-    const late = ruleId({
-      when: [{ field: 'now', op: 'after', value: 1767225600001 }],
-    });
-    expect(early).not.toBe(late);
-  });
+  expect(asIso).toBe(asDate);
+  expect(asEpoch).toBe(asDate);
+});
 
-  it('separates a before window from an after window', () => {
-    const before = ruleId({
-      when: [{ field: 'now', op: 'before', value: 1767225600000 }],
-    });
-    const after = ruleId({
-      when: [{ field: 'now', op: 'after', value: 1767225600000 }],
-    });
-    expect(before).not.toBe(after);
+it('separates two different instants', () => {
+  const early = ruleId({
+    when: [{ field: 'now', op: 'after', value: 1767225600000 }],
   });
+  const late = ruleId({
+    when: [{ field: 'now', op: 'after', value: 1767225600001 }],
+  });
+  expect(early).not.toBe(late);
+});
 
-  it('reads the zone of a day-of-week condition', () => {
-    const stockholm = ruleId({
-      when: [
-        { field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon'] },
-      ],
-    });
-    const tokyo = ruleId({
-      when: [
-        { field: 'now', op: 'day-of-week', zone: 'Asia/Tokyo', value: ['mon'] },
-      ],
-    });
-    expect(stockholm).not.toBe(tokyo);
+it('separates a before window from an after window', () => {
+  const before = ruleId({
+    when: [{ field: 'now', op: 'before', value: 1767225600000 }],
   });
+  const after = ruleId({
+    when: [{ field: 'now', op: 'after', value: 1767225600000 }],
+  });
+  expect(before).not.toBe(after);
+});
+
+it('reads the zone of a day-of-week condition', () => {
+  const stockholm = ruleId({
+    when: [
+      {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'Europe/Stockholm',
+        value: ['mon'],
+      },
+    ],
+  });
+  const tokyo = ruleId({
+    when: [
+      { field: 'now', op: 'day-of-week', zone: 'Asia/Tokyo', value: ['mon'] },
+    ],
+  });
+  expect(stockholm).not.toBe(tokyo);
+});
 ```
 
 - [ ] **Step 12: Run the tests and confirm the instant tests fail**
@@ -339,9 +348,9 @@ Expected: FAIL on the three "not.toBe" assertions.
 Append to the same `describe` block:
 
 ```ts
-  it('returns an authored id that looks derived', () => {
-    expect(ruleId({ id: 'rule-deadbeef', when: [] })).toBe('rule-deadbeef');
-  });
+it('returns an authored id that looks derived', () => {
+  expect(ruleId({ id: 'rule-deadbeef', when: [] })).toBe('rule-deadbeef');
+});
 ```
 
 - [ ] **Step 14: Run the test and confirm it passes**
@@ -354,13 +363,13 @@ Expected: PASS. Nothing detects a collision between an authored id and a derived
 Append to the same `describe` block:
 
 ```ts
-  it('derives a stable id for a non-BMP condition value', () => {
-    const rule: Rule = { when: [{ field: 'tag', op: 'eq', value: '🎯' }] };
-    // Pinned so a Swift or Kotlin port has a value to match. `fnv1a` walks
-    // UTF-16 code units, so a surrogate pair contributes two of them.
-    expect(ruleId(rule)).toBe(ruleId(rule));
-    expect(ruleId(rule)).toMatch(/^rule-[0-9a-f]{8}$/);
-  });
+it('derives a stable id for a non-BMP condition value', () => {
+  const rule: Rule = { when: [{ field: 'tag', op: 'eq', value: '🎯' }] };
+  // Pinned so a Swift or Kotlin port has a value to match. `fnv1a` walks
+  // UTF-16 code units, so a surrogate pair contributes two of them.
+  expect(ruleId(rule)).toBe(ruleId(rule));
+  expect(ruleId(rule)).toMatch(/^rule-[0-9a-f]{8}$/);
+});
 ```
 
 - [ ] **Step 16: Run the test and confirm it passes**
@@ -454,7 +463,8 @@ function fnv1a(text: string): string {
  */
 export function ruleId(rule: Rule): string {
   if (rule.id !== undefined) return rule.id;
-  const text = (rule.when ?? []).map(conditionText).join('') + rolloutText(rule);
+  const text =
+    (rule.when ?? []).map(conditionText).join('') + rolloutText(rule);
   return `rule-${fnv1a(text)}`;
 }
 ```
@@ -476,11 +486,13 @@ git commit -m "feat(feature): name a rule by what it matches on"
 ### Task 3: Wire it into evaluation
 
 **Files:**
+
 - Modify: `libs/feature/src/lib/evaluate.ts:17-19` (the `ruleId` function), `:46-51` (`evaluateRule`'s signature), `:53` (the `ruleId` call), `:170` and `:255` (the two `evaluateRule` call sites)
 - Modify: `libs/feature/src/lib/types.ts:68` (the `Rule.id` doc comment)
 - Test: `libs/feature/src/lib/features.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `ruleId(rule: Rule): string` from Task 2.
 - Produces: `evaluateRule<F extends FeatureKey>(definition: FeatureDefinition<F>, rule: Rule, context: EvaluationContext): RuleOutcome`. The `index: number` parameter is gone. Task 4 and every later plan call it with three arguments.
 
@@ -491,50 +503,50 @@ Read `libs/feature/src/lib/evaluate.ts` fully before starting. The local `ruleId
 Append to `libs/feature/src/lib/features.spec.ts`, inside the existing top-level `describe`:
 
 ```ts
-  it('names a rule by its content when a rule is inserted above it', () => {
-    const before = createFeatures([
-      {
-        key: 'k',
-        enabled: true,
-        rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
-      },
-    ]);
-    const after = createFeatures([
-      {
-        key: 'k',
-        enabled: true,
-        rules: [
-          { when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
-          { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
-        ],
-      },
-    ]);
+it('names a rule by its content when a rule is inserted above it', () => {
+  const before = createFeatures([
+    {
+      key: 'k',
+      enabled: true,
+      rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+    },
+  ]);
+  const after = createFeatures([
+    {
+      key: 'k',
+      enabled: true,
+      rules: [
+        { when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+        { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+      ],
+    },
+  ]);
 
-    const beforeId = before.resolve({ role: 'staff' }).k.rule;
-    const afterId = after.resolve({ role: 'staff' }).k.rule;
+  const beforeId = before.resolve({ role: 'staff' }).k.rule;
+  const afterId = after.resolve({ role: 'staff' }).k.rule;
 
-    expect(beforeId).toMatch(/^rule-[0-9a-f]{8}$/);
-    expect(afterId).toBe(beforeId);
-  });
+  expect(beforeId).toMatch(/^rule-[0-9a-f]{8}$/);
+  expect(afterId).toBe(beforeId);
+});
 
-  it('names every rule in a breakdown by its content', () => {
-    const features = createFeatures([
-      {
-        key: 'k',
-        enabled: true,
-        rules: [
-          { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
-          { id: 'named', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
-        ],
-      },
-    ]);
+it('names every rule in a breakdown by its content', () => {
+  const features = createFeatures([
+    {
+      key: 'k',
+      enabled: true,
+      rules: [
+        { when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        { id: 'named', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+      ],
+    },
+  ]);
 
-    const decision = features.resolve({ role: 'customer', plan: 'free' }).k;
+  const decision = features.resolve({ role: 'customer', plan: 'free' }).k;
 
-    expect(decision.reason).toBe('no-rule-matched');
-    expect(decision.rules?.[0]?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
-    expect(decision.rules?.[1]?.rule).toBe('named');
-  });
+  expect(decision.reason).toBe('no-rule-matched');
+  expect(decision.rules?.[0]?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
+  expect(decision.rules?.[1]?.rule).toBe('named');
+});
 ```
 
 - [ ] **Step 2: Run the tests and confirm they fail**
@@ -628,17 +640,17 @@ to:
 In `libs/feature/src/lib/types.ts`, replace line 68:
 
 ```ts
-  /** Used in `reason`. Defaults to the rule's index, as `#0`, `#1`, ... */
+/** Used in `reason`. Defaults to the rule's index, as `#0`, `#1`, ... */
 ```
 
 with:
 
 ```ts
-  /**
-   * Used in `reason`. Defaults to a hash of what the rule matches on, as
-   * `rule-a3f1b2c8`, which survives the list being edited and a ramp being
-   * moved. Name a rule you expect to read in a log.
-   */
+/**
+ * Used in `reason`. Defaults to a hash of what the rule matches on, as
+ * `rule-a3f1b2c8`, which survives the list being edited and a ramp being
+ * moved. Name a rule you expect to read in a log.
+ */
 ```
 
 - [ ] **Step 7: Run the whole package suite**
@@ -663,6 +675,7 @@ git commit -m "fix(feature): keep a rule's name when the list around it changes"
 ### Task 4: Export it, and correct the documentation
 
 **Files:**
+
 - Modify: `libs/feature/src/index.ts`
 - Modify: `libs/feature/README.md`
 - Modify: `apps/docs/content/feature/api.mdx:82`
@@ -671,6 +684,7 @@ git commit -m "fix(feature): keep a rule's name when the list around it changes"
 - Test: `npx nx test repo-checks`
 
 **Interfaces:**
+
 - Consumes: `ruleId` from Task 2, `canonical` from Task 1.
 - Produces: `ruleId` and `canonical` on the package's public entry, which `docs/specs/2026-09-23-feature-config-distribution.md` decision 4 needs for `configDigest`.
 

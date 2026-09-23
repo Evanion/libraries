@@ -47,6 +47,7 @@ type WeightedVariation struct {
 	Untracked bool
 }
 ```
+
 — https://github.com/launchdarkly/go-server-sdk-evaluation/blob/v3/ldmodel/model_flag.go
 
 Rule shape, quoted from the spec:
@@ -93,16 +94,15 @@ Test vectors: yes, two layers. The Go evaluation engine carries hard-coded preco
 
 Spec, quoted verbatim:
 
-> "1. Concatenate the flag's key, the flag's salt, and the context's attribute value. Concatenate them with periods, `.`. If there is a seed present, concatenate seed and the context's attribute value instead.
-> 2. Copy the first 15 characters of the SHA1 of the above.
-> 3. Convert the resulting base 16 integer to a base 10 integer.
-> 4. Divide the resulting base 10 integer by `0xFFFFFFFFFFFFFFF` (`1152921504606846975`). The result of this division is the context's variation bucket number.
->    1. If the context kind of the rollout or the attribute value for the bucket is not found, set the context variation's bucket number to 0."
+> "1. Concatenate the flag's key, the flag's salt, and the context's attribute value. Concatenate them with periods, `.`. If there is a seed present, concatenate seed and the context's attribute value instead. 2. Copy the first 15 characters of the SHA1 of the above. 3. Convert the resulting base 16 integer to a base 10 integer. 4. Divide the resulting base 10 integer by `0xFFFFFFFFFFFFFFF` (`1152921504606846975`). The result of this division is the context's variation bucket number.
+>
+> 1.  If the context kind of the rollout or the attribute value for the bucket is not found, set the context variation's bucket number to 0."
 >
 > "5. Iterate over the rollout's weighted variations.
->    1. Starting at 0, keep adding the weighted variation's weight divided by 100,000 to the sum.
->    2. When a context's variation bucket is less than the above sum, return the weighted variation's variation index."
-> — https://launchdarkly.com/docs/sdk/concepts/flag-evaluation-rules
+>
+> 1.  Starting at 0, keep adding the weighted variation's weight divided by 100,000 to the sum.
+> 2.  When a context's variation bucket is less than the above sum, return the weighted variation's variation index."
+>     — https://launchdarkly.com/docs/sdk/concepts/flag-evaluation-rules
 
 Go implementation, `computeBucketValue`, quoted from
 https://github.com/launchdarkly/go-server-sdk-evaluation/blob/v3/evaluator_bucketing.go :
@@ -188,6 +188,7 @@ const hashVal = parseInt(this._sha1Hex(hashKey).substring(0, 15), 16);
 // The maximum safe integer representation in JS is 2^53 - 1.
 return [hashVal / 0xfffffffffffffff, true];
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/sdk-server/src/evaluation/Bucketer.ts
 
 Note: `0xfffffffffffffff` exceeds `Number.MAX_SAFE_INTEGER`, and so does a 15-hex-digit `hashVal`. The JS SDK carries an explicit `eslint-disable no-loss-of-precision` and a comment saying the approach "is not ideal". There is a public issue about exactly this: https://github.com/launchdarkly/node-server-sdk/issues/157
@@ -211,18 +212,19 @@ for _, bucket := range r.Rollout.Variations {
 // this case (or changing the scaling, which would potentially change the results for *all* users), we
 // will simply put the user in the last bucket.
 ```
+
 — https://github.com/launchdarkly/go-server-sdk-evaluation/blob/v3/evaluator.go
 
 Hard-coded test vectors (flag key `hashKey`, salt `saltyA`):
 
 | context value | seed | expected bucket |
-|---|---|---|
-| userKeyA | none | 0.42157587 |
-| userKeyB | none | 0.6708485 |
-| userKeyC | none | 0.10343106 |
-| userKeyA | 61 | 0.09801207 |
-| userKeyB | 61 | 0.14483777 |
-| userKeyC | 61 | 0.9242641 |
+| ------------- | ---- | --------------- |
+| userKeyA      | none | 0.42157587      |
+| userKeyB      | none | 0.6708485       |
+| userKeyC      | none | 0.10343106      |
+| userKeyA      | 61   | 0.09801207      |
+| userKeyB      | 61   | 0.14483777      |
+| userKeyC      | 61   | 0.9242641       |
 
 — https://github.com/launchdarkly/go-server-sdk-evaluation/blob/v3/evaluator_bucketing_testdata_test.go
 
@@ -266,10 +268,11 @@ Experiments in a layer share one seed. LaunchDarkly reshuffles a single layer ex
 No stored assignment, quoted verbatim:
 
 > "This calculation is deterministic. The same seed and the same context key always produce the same bucket, which means:
-> * A context receives a consistent variation for as long as the seed stays the same, no matter how many times it evaluates the flag or which SDK evaluates it.
-> * LaunchDarkly does not need to store a record of which variation each context received. It recalculates the assignment on every evaluation.
-> * If the seed changes, every context maps to a new bucket, and contexts move between variations."
-> — https://launchdarkly.com/docs/home/experimentation/traffic-assignment
+>
+> - A context receives a consistent variation for as long as the seed stays the same, no matter how many times it evaluates the flag or which SDK evaluates it.
+> - LaunchDarkly does not need to store a record of which variation each context received. It recalculates the assignment on every evaluation.
+> - If the seed changes, every context maps to a new bucket, and contexts move between variations."
+>   — https://launchdarkly.com/docs/home/experimentation/traffic-assignment
 
 Tracked and untracked buckets:
 
@@ -379,6 +382,7 @@ Server-side:
     }
 }
 ```
+
 — https://launchdarkly.com/docs/sdk/concepts/client-side-server-side
 
 The client-side flag type in the JS SDK matches that payload exactly:
@@ -397,6 +401,7 @@ export interface Flag {
   prerequisites?: string[];
 }
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/sdk-client/src/types/index.ts
 
 The same file documents FDv2 payload versioning:
@@ -421,6 +426,7 @@ if (res.status === 304 && cacheEntry) {
   return { res, body: cacheEntry.body };
 }
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/sdk-server/src/data_sources/Requestor.ts
 
 Actual endpoint paths, from the JS client SDK:
@@ -524,10 +530,13 @@ Summary dedup key, verbatim:
 ```ts
 function counterKey(event: InputEvalEvent) {
   return `${event.key}:${
-    event.variation !== null && event.variation !== undefined ? event.variation : ''
+    event.variation !== null && event.variation !== undefined
+      ? event.variation
+      : ''
   }:${event.version !== null && event.version !== undefined ? event.version : ''}`;
 }
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/common/src/internal/events/EventSummarizer.ts
 
 The same file shows the roll-up: one `SummaryCounter` per key holding `count`, `value`, `default`, `version`, `variation`, plus a per-flag set of context kinds, emitted as a single `summary` event with `startDate` and `endDate`.
@@ -541,10 +550,11 @@ Event kinds:
 When a feature event is sent, verbatim:
 
 > "Feature events are only sent by the SDK in one of these scenarios:
-> * the `trackEvents` or `trackEventsFallthrough` attribute on the flag configuration is sent
-> * the `trackEvents` attribute on a targeting rule is sent
-> * the targeting rule or default rule when on has a rollout of kind `"experiment"` and the variation associated with the event is included in the tracked variations for that rollout"
-> — https://launchdarkly.com/docs/integrations/data-export/schema-reference
+>
+> - the `trackEvents` or `trackEventsFallthrough` attribute on the flag configuration is sent
+> - the `trackEvents` attribute on a targeting rule is sent
+> - the targeting rule or default rule when on has a rollout of kind `"experiment"` and the variation associated with the event is included in the tracked variations for that rollout"
+>   — https://launchdarkly.com/docs/integrations/data-export/schema-reference
 
 Prerequisite events:
 
@@ -598,10 +608,15 @@ if (!matched) {
   const error = new LDClientError(
     `Wrong type "${type}" for feature flag "${flagKey}"; returning default value`,
   );
-  this.emitter.emit('error', this._activeContextTracker.getUnwrappedContext(), error);
+  this.emitter.emit(
+    'error',
+    this._activeContextTracker.getUnwrappedContext(),
+    error,
+  );
   return createErrorEvaluationDetail(ErrorKinds.WrongType, defaultValue);
 }
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/sdk-client/src/LDClientImpl.ts
 
 A public request for generated type-safe flags exists and is closed: https://github.com/launchdarkly/js-sdk-common/issues/32 . I could not read the comment thread through WebFetch, so I do not know the stated reason for closure. See "Where I could not verify".
@@ -646,6 +661,7 @@ type FlagRule struct {
 	TrackEvents bool
 }
 ```
+
 — https://github.com/launchdarkly/go-server-sdk-evaluation/blob/v3/ldmodel/model_flag.go
 
 Stability under reordering, verbatim from the docs. `ruleIndex` is "the positional index of the matched rule (0 for the first rule)"; `ruleId` is:
@@ -667,6 +683,7 @@ What reaches the event stream:
     "bigSegmentsStatus": "HEALTHY"
 }
 ```
+
 — https://launchdarkly.com/docs/integrations/data-export/schema-reference
 
 The same page shows that variations travel as an index, with an optional `variationName`, and never as `_id`:
@@ -721,6 +738,7 @@ if (excluded.length) {
   cloned._meta.redactedAttributes = excluded;
 }
 ```
+
 — https://github.com/launchdarkly/js-core/blob/main/packages/shared/common/src/ContextFilter.ts
 
 The same file implements `allAttributesPrivate` by turning every key of the context into a redaction reference, and implements `redactAnonymousAttributes` as an optional per-call flag.
@@ -744,14 +762,19 @@ Event payloads. A `feature` event:
 
 ```json
 {
-    "kind": "feature",
-    "creationDate": 1462220944000,
-    "contextKeys": { "user": "example-context-key" },
-    "context": { "key": "example-context-key", "kind": "user", "name": "Sandy" },
-    "key": "flag-key",
-    "value": ["evaluation", "result"],
-    "variation": 0,
-    "reason": { "kind": "RULE_MATCH", "ruleIndex": 0, "ruleId": "id", "inExperiment": true }
+  "kind": "feature",
+  "creationDate": 1462220944000,
+  "contextKeys": { "user": "example-context-key" },
+  "context": { "key": "example-context-key", "kind": "user", "name": "Sandy" },
+  "key": "flag-key",
+  "value": ["evaluation", "result"],
+  "variation": 0,
+  "reason": {
+    "kind": "RULE_MATCH",
+    "ruleIndex": 0,
+    "ruleId": "id",
+    "inExperiment": true
+  }
 }
 ```
 
@@ -769,6 +792,7 @@ An `index` event carries the full attribute object, nested values included:
   }
 }
 ```
+
 — https://launchdarkly.com/docs/integrations/data-export/schema-reference
 
 Index event dedup, from the same page:
@@ -863,7 +887,7 @@ The operational framing that client-side flags are advisory, from LaunchDarkly's
 
 **Client-side SDKs do not evaluate.** The name "SDK" suggests local logic. In the client and mobile SDKs, `boolVariation` is a hash-map lookup into pre-evaluated results the backend computed, plus a type check plus an event. Every flag change requires a network round trip. That also means cross-SDK bucketing consistency is not an interoperability problem for client SDKs; there is only one implementation that matters, on LaunchDarkly's side.
 
-**The bucket value loses precision in JavaScript on purpose.** `parseInt(sha1.substring(0, 15), 16)` produces values above `Number.MAX_SAFE_INTEGER`, and the divisor `0xfffffffffffffff` does too. The JS SDK carries `eslint-disable no-loss-of-precision` and a comment reading "This is how this has worked in previous implementations, but it is not ideal." The Go engine's comment about the last bucket says the same thing about the choice to scale to 100000 rather than 99999: "changing the scaling... would potentially change the results for *all* users". Both are frozen because changing them would re-bucket the installed base.
+**The bucket value loses precision in JavaScript on purpose.** `parseInt(sha1.substring(0, 15), 16)` produces values above `Number.MAX_SAFE_INTEGER`, and the divisor `0xfffffffffffffff` does too. The JS SDK carries `eslint-disable no-loss-of-precision` and a comment reading "This is how this has worked in previous implementations, but it is not ideal." The Go engine's comment about the last bucket says the same thing about the choice to scale to 100000 rather than 99999: "changing the scaling... would potentially change the results for _all_ users". Both are frozen because changing them would re-bucket the installed base.
 
 **The redaction list is itself telemetry.** Marking an attribute private removes the value but adds its name to `_meta.redactedAttributes`, which goes to LaunchDarkly. You are disclosing your schema while withholding the data.
 

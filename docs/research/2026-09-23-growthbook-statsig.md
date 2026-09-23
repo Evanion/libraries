@@ -39,7 +39,7 @@ Weights must sum to 1, and the SDK silently replaces them with equal weights whe
 
 The same rule applies when the weights array length does not match the variation count (`packages/sdk-js/src/util.ts:207`). The spec states the contract as `docs/lib/build-your-own.mdx:110`: "**weights** (`float[]`) - How to weight traffic between variations. Must add to 1."
 
-A variation carries a typed payload because the variation *is* the feature value. Feature types are boolean, string, number, JSON (`docs/features/basics.mdx:41`): "Features can be a simple ON/OFF flag or a more complex data type (string, number, or JSON)." The SDK's value type is `JSONValue` (`packages/sdk-js/src/types/growthbook.ts:451`), so a variation payload is any JSON value. JSON flags can also be schema-validated (`docs/features/basics.mdx:54`): "**JSON** flags also support JSON Schema validation, which lets you enforce the structure of the value before it reaches your application."
+A variation carries a typed payload because the variation _is_ the feature value. Feature types are boolean, string, number, JSON (`docs/features/basics.mdx:41`): "Features can be a simple ON/OFF flag or a more complex data type (string, number, or JSON)." The SDK's value type is `JSONValue` (`packages/sdk-js/src/types/growthbook.ts:451`), so a variation payload is any JSON value. JSON flags can also be schema-validated (`docs/features/basics.mdx:54`): "**JSON** flags also support JSON Schema validation, which lets you enforce the structure of the value before it reaches your application."
 
 A targeting rule can force a value for a segment, and GrowthBook is explicit that this is a different rule type from an experiment and that it logs nothing. `docs/features/rules.mdx` rule-type table:
 
@@ -86,15 +86,20 @@ function hashFnv32a(str: string): number {
   const l = str.length;
   for (let i = 0; i < l; i++) {
     hval ^= str.charCodeAt(i);
-    hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
+    hval +=
+      (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
   }
   return hval >>> 0;
 }
 
-export function hash(seed: string, value: string, version: number): number | null {
+export function hash(
+  seed: string,
+  value: string,
+  version: number,
+): number | null {
   // New unbiased hashing algorithm
   if (version === 2) {
-    return (hashFnv32a(hashFnv32a(seed + value) + "") % 10000) / 10000;
+    return (hashFnv32a(hashFnv32a(seed + value) + '') % 10000) / 10000;
   }
   // Original biased hashing algorithm (keep for backwards compatibility)
   if (version === 1) {
@@ -108,8 +113,8 @@ export function hash(seed: string, value: string, version: number): number | nul
 The v1 form matches the old standalone SDK exactly. `growthbook-js` v0.12.0, `src/index.ts:181`:
 
 ```ts
-    // 14. Compute a hash
-    const n = (hashFnv32a(hashValue + experiment.key) % 1000) / 1000;
+// 14. Compute a hash
+const n = (hashFnv32a(hashValue + experiment.key) % 1000) / 1000;
 ```
 
 So v1 is `fnv32a(value + seed) % 1000 / 1000`, with no separator between the two strings, 1000 buckets, and the seed appended after the value. In the old SDK the seed was literally the experiment key. v2 is `fnv32a(fnv32a(seed + value) + "") % 10000 / 10000`: the order flips to seed-first, the result is re-hashed after being converted back to a decimal string, and the bucket count goes to 10000. There is no separator character in either version, which means `seed="ab"`, `value="c"` and `seed="a"`, `value="bc"` collide under v2.
@@ -117,11 +122,7 @@ So v1 is `fnv32a(value + seed) % 1000 / 1000`, with no separator between the two
 The seed is `experiment.seed || experiment.key` (`packages/sdk-js/src/core.ts:655`):
 
 ```ts
-  const n = hash(
-    experiment.seed || key,
-    hashValue,
-    experiment.hashVersion || 1,
-  );
+const n = hash(experiment.seed || key, hashValue, experiment.hashVersion || 1);
 ```
 
 The value is the hash attribute's value, `id` by default, with an optional `fallbackAttribute` when sticky bucketing is on (`packages/sdk-js/src/core.ts:1044`, `getHashAttribute`).
@@ -141,8 +142,8 @@ That one sentence is the entirety of GrowthBook's public explanation that I coul
 New experiments get version 2 and old ones were migrated to it. `packages/back-end/src/util/migrations.ts:758`:
 
 ```ts
-  // Add hashVersion field
-  experiment.hashVersion = experiment.hashVersion || 2;
+// Add hashVersion field
+experiment.hashVersion = experiment.hashVersion || 2;
 ```
 
 `packages/back-end/src/services/features.ts:372` sets `hashVersion: 2` for newly created rules.
@@ -151,13 +152,13 @@ Version 2 can still be stripped back out on the wire. The payload builder filter
 
 ```ts
 export const BUCKETING_V2_RULE_KEYS = [
-  "hashVersion",
-  "range",
-  "ranges",
-  "meta",
-  "seed",
-  "name",
-  "phase",
+  'hashVersion',
+  'range',
+  'ranges',
+  'meta',
+  'seed',
+  'name',
+  'phase',
 ] as const;
 ```
 
@@ -167,21 +168,21 @@ The algorithm is published as a contract that third-party implementations must m
 
 The conformance suite is `packages/sdk-js/test/cases.json`. Its `specVersion` field reads `0.8.1`. Case counts by section, from the file itself:
 
-| Section | Cases |
-| --- | --- |
-| evalCondition | 273 |
-| run | 73 |
-| feature | 55 |
-| contextualBandit | 35 |
-| getQueryStringOverride | 16 |
-| inNamespace | 16 |
-| hash | 15 |
-| getBucketRange | 13 |
-| chooseVariation | 13 |
-| stickyBucket | 13 |
-| decrypt | 10 |
-| getEqualWeights | 6 |
-| urlRedirect | 4 |
+| Section                | Cases |
+| ---------------------- | ----- |
+| evalCondition          | 273   |
+| run                    | 73    |
+| feature                | 55    |
+| contextualBandit       | 35    |
+| getQueryStringOverride | 16    |
+| inNamespace            | 16    |
+| hash                   | 15    |
+| getBucketRange         | 13    |
+| chooseVariation        | 13    |
+| stickyBucket           | 13    |
+| decrypt                | 10    |
+| getEqualWeights        | 6     |
+| urlRedirect            | 4     |
 
 Each entry is a positional array, documented at `docs/lib/build-your-own.mdx:1118`. A hash case is `[seed, value, hashVersion, expected]`, for example `["", "a", 1, 0.22]` and `["ef", "d", 1, 0.652]`. A sticky bucket case carries a name, the SDK context, existing assignment docs, the feature key, the expected `FeatureResult`, and the expected assignment docs after evaluation:
 
@@ -200,12 +201,12 @@ So the suite covers condition evaluation, hashing at both versions, bucket range
 Bucket ranges are `[start, start + coverage * weight]` per variation with a running cumulative start, `packages/sdk-js/src/util.ts:226`:
 
 ```ts
-  let cumulative = 0;
-  return weights.map((w) => {
-    const start = cumulative;
-    cumulative += w;
-    return [start, start + (coverage as number) * w];
-  }) as VariationRange[];
+let cumulative = 0;
+return weights.map((w) => {
+  const start = cumulative;
+  cumulative += w;
+  return [start, start + (coverage as number) * w];
+}) as VariationRange[];
 ```
 
 `inRange` is half-open: `return n >= range[0] && n < range[1]` (`packages/sdk-js/src/util.ts:53`). `chooseVariation` returns the first matching range index and `-1` otherwise (`packages/sdk-js/src/util.ts:66`).
@@ -267,7 +268,7 @@ Salts are server-generated UUIDs per gate, experiment and layer (fixture: `"salt
 
 Layers hold one rule per member experiment, carrying `configDelegate`, with its own allocation salt. From the fixture, layer `a_layer`: rule `experimentAssignment`, `passPercentage 100`, `configDelegate "sample_experiment"`, a `user_bucket` condition with operator `any` over a list of bucket ids, and `additionalValues.salt = "58d96daa-…"`. The docs state the independence explicitly: "Layer allocation and group assignment use different salts, so a user's position in the layer is independent of their group assignment within the experiment." Delegation is `_evalDelegate` in node and `evalDelegate` in Go (`evaluator.go:678`).
 
-Statsig has no analogue of GrowthBook's hash-version switch. Grepping `hashVersion|hash_version` across go-sdk, node-js-server-sdk and statsig-server-core returns no hits. The `hash_used: 'none' | 'sha256' | 'djb2'` field on the client initialize response (`js-client-monorepo: packages/client-core/src/InitializeResponse.ts`) hashes config *names* in the payload, not units. The bucketing hash is fixed SHA-256 everywhere. The nearest thing to a version is a per-spec `configVersion` carried through evaluations and sticky values.
+Statsig has no analogue of GrowthBook's hash-version switch. Grepping `hashVersion|hash_version` across go-sdk, node-js-server-sdk and statsig-server-core returns no hits. The `hash_used: 'none' | 'sha256' | 'djb2'` field on the client initialize response (`js-client-monorepo: packages/client-core/src/InitializeResponse.ts`) hashes config _names_ in the payload, not units. The bucketing hash is fixed SHA-256 everywhere. The nearest thing to a version is a per-spec `configVersion` carried through evaluations and sticky values.
 
 The algorithm is not published as a contract a third-party must match. The docs point at the code: "For more details, go to the open-source SDK evaluator." There is no public conformance suite or vector set that I could find. The cross-SDK check is a private endpoint gated on a Statsig API key:
 
@@ -297,18 +298,19 @@ export function getStickyBucketAttributeKey(attributeName, attributeValue) {
 }
 ```
 
-So the stored shape is `{attributeName, attributeValue, assignments: {"<expKey>__<bucketVersion>": "<variationKey>"}}`, keyed by `"<attributeName>||<attributeValue>"`. The stored value is the variation *key* from `meta`, not the index. Note what is absent: no weights, no coverage, no timestamp, no experiment version beyond the integer `bucketVersion`.
+So the stored shape is `{attributeName, attributeValue, assignments: {"<expKey>__<bucketVersion>": "<variationKey>"}}`, keyed by `"<attributeName>||<attributeValue>"`. The stored value is the variation _key_ from `meta`, not the index. Note what is absent: no weights, no coverage, no timestamp, no experiment version beyond the integer `bucketVersion`.
 
 The SDK writes it. `packages/sdk-js/src/core.ts:765` writes the assignment during evaluation, immediately before the tracking callback fires at line 795, and only when the merged document differs from what was already stored:
 
 ```ts
-    if (changed) {
-      // update local docs
-      ctx.user.stickyBucketAssignmentDocs = ctx.user.stickyBucketAssignmentDocs || {};
-      ctx.user.stickyBucketAssignmentDocs[attrKey] = doc;
-      // save doc
-      ctx.user.saveStickyBucketAssignmentDoc(doc);
-    }
+if (changed) {
+  // update local docs
+  ctx.user.stickyBucketAssignmentDocs =
+    ctx.user.stickyBucketAssignmentDocs || {};
+  ctx.user.stickyBucketAssignmentDocs[attrKey] = doc;
+  // save doc
+  ctx.user.saveStickyBucketAssignmentDoc(doc);
+}
 ```
 
 Where it lands depends on the `StickyBucketService` you inject. `packages/sdk-js/src/sticky-bucket-service.ts` ships `LocalStorageStickyBucketService` (prefix `gbStickyBuckets__`, line 139), `ExpressCookieStickyBucketService` (line 172, default `cookieAttributes = { maxAge: 180 * 24 * 3600 * 1000 }`), `BrowserCookieStickyBucketService` (line 227, js-cookie), and a Redis service. `docs/app/sticky-bucketing.mdx`: "You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies, backend-generated cookies, browser LocalStorage, and Redis stores."
@@ -325,6 +327,7 @@ Weight changes mid-experiment do not disturb stored users, because a found stick
 The operator-facing rules are in `docs/app/making-experiment-changes.mdx`. Changing the traffic split is listed under changes that are not "safe":
 
 > We recommend this approach [new phase, re-randomize] for any change that is not considered "safe" (listed above). This can include (but not limited to):
+>
 > - Changing the traffic split (weights) between variations
 
 and sticky bucketing adds an option to leave existing users alone:
@@ -338,28 +341,28 @@ Starting a new phase clears assignments by default, by incrementing `bucketVersi
 The block path is `minBucketVersion`. `packages/sdk-js/src/core.ts:1130`:
 
 ```ts
-  // users with any blocked bucket version (0 to minExperimentBucketVersion - 1) are excluded from the test
-  if (expMinBucketVersion > 0) {
-    for (let i = 0; i < expMinBucketVersion; i++) {
-      const blockedKey = getStickyBucketExperimentKey(expKey, i);
-      if (assignments[blockedKey] !== undefined) {
-        return { variation: -1, versionIsBlocked: true };
-      }
+// users with any blocked bucket version (0 to minExperimentBucketVersion - 1) are excluded from the test
+if (expMinBucketVersion > 0) {
+  for (let i = 0; i < expMinBucketVersion; i++) {
+    const blockedKey = getStickyBucketExperimentKey(expKey, i);
+    if (assignments[blockedKey] !== undefined) {
+      return { variation: -1, versionIsBlocked: true };
     }
   }
+}
 ```
 
 A stored assignment naming a variation that no longer exists is discarded and the user is re-bucketed. `packages/sdk-js/src/core.ts:1145`:
 
 ```ts
-  const variationKey = assignments[id];
-  if (variationKey === undefined)
-    // no assignment found
-    return { variation: -1 };
-  const variation = expMeta.findIndex((m) => m.key === variationKey);
-  if (variation < 0)
-    // invalid assignment, treat as "no assignment found"
-    return { variation: -1 };
+const variationKey = assignments[id];
+if (variationKey === undefined)
+  // no assignment found
+  return { variation: -1 };
+const variation = expMeta.findIndex((m) => m.key === variationKey);
+if (variation < 0)
+  // invalid assignment, treat as "no assignment found"
+  return { variation: -1 };
 ```
 
 The lookup is by variation key against the current `meta` array, so deleting or renaming a variation drops every user who was stored under it back into fresh hashing. There is no error and no exclusion.
@@ -375,12 +378,18 @@ The stated reason for the default is not given as a sentence. What the docs give
 The fallback read merges two documents, with the primary attribute's assignments winning. `packages/sdk-js/src/core.ts:1188`:
 
 ```ts
-  if (fallbackKey && ctx.user.stickyBucketAssignmentDocs[fallbackKey]) {
-    Object.assign(assignments, ctx.user.stickyBucketAssignmentDocs[fallbackKey].assignments || {});
-  }
-  if (ctx.user.stickyBucketAssignmentDocs[hashKey]) {
-    Object.assign(assignments, ctx.user.stickyBucketAssignmentDocs[hashKey].assignments || {});
-  }
+if (fallbackKey && ctx.user.stickyBucketAssignmentDocs[fallbackKey]) {
+  Object.assign(
+    assignments,
+    ctx.user.stickyBucketAssignmentDocs[fallbackKey].assignments || {},
+  );
+}
+if (ctx.user.stickyBucketAssignmentDocs[hashKey]) {
+  Object.assign(
+    assignments,
+    ctx.user.stickyBucketAssignmentDocs[hashKey].assignments || {},
+  );
+}
 ```
 
 ### Statsig
@@ -389,11 +398,16 @@ Statsig calls it persistent assignment, and it stores a whole frozen evaluation,
 
 ```ts
 export type StickyValues = {
-  value: boolean; json_value: Record<string, unknown>; rule_id: string;
-  group_name: string | null; secondary_exposures: SecondaryExposure[];
+  value: boolean;
+  json_value: Record<string, unknown>;
+  rule_id: string;
+  group_name: string | null;
+  secondary_exposures: SecondaryExposure[];
   undelegated_secondary_exposures: SecondaryExposure[];
-  config_delegate: string | null; explicit_parameters: string[] | null;
-  time: number; configVersion?: number | undefined;
+  config_delegate: string | null;
+  explicit_parameters: string[] | null;
+  time: number;
+  configVersion?: number | undefined;
 };
 export type UserPersistedValues = Record<string, StickyValues>;
 ```
@@ -561,9 +575,9 @@ Eviction is by count, ten users, not by age. The one TTL in the client is unrela
 The SDK emits on evaluation, inside the evaluation function, not on render. `packages/sdk-js/src/core.ts:793`:
 
 ```ts
-  // 14. Fire the tracking callback(s)
-  // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCalls = onExperimentViewed(ctx, experiment, result);
+// 14. Fire the tracking callback(s)
+// Store the promise in case we're awaiting it (ex: browser url redirects)
+const trackingCalls = onExperimentViewed(ctx, experiment, result);
 ```
 
 Step 14 runs after the variation is chosen and after the sticky bucket is written, and it is the last thing before the result is returned. The spec's wording, `docs/lib/build-your-own.mdx:257`: the tracking callback is "A callback function that is executed every time a user is included in an **Experiment**". Rules that only force a value log nothing at all (`docs/features/rules.mdx` table, Targeting rule → Tracking: No). So GrowthBook's exposure is an evaluation event by construction, and the platform offers no render-time hook. The application controls the moment only by controlling when it calls `evalFeature` or `run`.
@@ -584,14 +598,14 @@ export function getExperimentDedupeKey(experiment, result) {
 used at `packages/sdk-js/src/core.ts:81`:
 
 ```ts
-  // Make sure a tracking callback is only fired once per unique experiment
-  if (ctx.user.trackedExperiments) {
-    const k = getExperimentDedupeKey(experiment, result);
-    if (ctx.user.trackedExperiments.has(k)) {
-      return [];
-    }
-    ctx.user.trackedExperiments.add(k);
+// Make sure a tracking callback is only fired once per unique experiment
+if (ctx.user.trackedExperiments) {
+  const k = getExperimentDedupeKey(experiment, result);
+  if (ctx.user.trackedExperiments.has(k)) {
+    return [];
   }
+  ctx.user.trackedExperiments.add(k);
+}
 ```
 
 The spec states the same key as step 14 of the evaluation algorithm, `docs/lib/build-your-own.mdx:980`: "Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before". Because the variation id is part of the key, a user who flips variations mid-session produces two exposures. The set lives on the instance and is cleared on `setAttributes`-style resets (`packages/sdk-js/src/GrowthBook.ts:597`), so it does not survive a page load.
@@ -627,10 +641,14 @@ The deferred queue is a `Map` keyed by the same dedupe key, on both the write an
 Read the guard at `packages/sdk-js/src/core.ts:796` carefully, because it decides whether an evaluation queues or fires:
 
 ```ts
-  const trackingCalls = onExperimentViewed(ctx, experiment, result);
-  if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
-    ctx.global.saveDeferredTrack({ experiment, result, user: getTrackingUserContext(ctx.user) });
-  }
+const trackingCalls = onExperimentViewed(ctx, experiment, result);
+if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
+  ctx.global.saveDeferredTrack({
+    experiment,
+    result,
+    user: getTrackingUserContext(ctx.user),
+  });
+}
 ```
 
 An evaluation queues a deferred call whenever `onExperimentViewed` produced no calls. That covers both "no tracking callback is configured" (the server case, which is what the bridge is for) and "this key was already tracked". The `Map` key makes the second case idempotent.
@@ -682,7 +700,10 @@ Two exposures happen in two cases. First, when the server path uses a server SDK
 Suppression and manual emission, server side (`statsig-io/node-js-server-sdk: src/index.ts`): `manuallyLogGateExposure(user, gateName)`, `manuallyLogConfigExposure`, `manuallyLogExperimentExposure`, `manuallyLogLayerParameterExposure(user, layerName, parameterName)`, alongside `checkGateWithExposureLoggingDisabled`, `getExperimentWithExposureLoggingDisabled`, `getLayerWithExposureLoggingDisabled` and their `...Sync` variants. Server-core SDKs replaced the method pairs with an options field, https://docs.statsig.com/server-core/go-core: methods "accept an optional options parameter with a `DisableExposureLogging` field". Client SDKs use a per-call option, `packages/client-core/src/EvaluationOptions.ts` declaring `disableExposureLog?: boolean;`, and StatsigClientBase.ts:
 
 ```ts
-if (options?.disableExposureLog === true) { this._logger.incrementNonExposureCount(name); return; }
+if (options?.disableExposureLog === true) {
+  this._logger.incrementNonExposureCount(name);
+  return;
+}
 ```
 
 A suppressed check is still counted and reported as `statsig::non_exposed_checks`. Manual exposures are tagged, Go sets `metadata["isManualExposure"] = "true"`. Parameter stores never log on their own: `packages/js-client/src/ParamStoreGetterFactory.ts` defaults to `disableExposureLog: true`.
@@ -734,7 +755,7 @@ Rules carry an opaque id. `packages/sdk-js/src/types/growthbook.ts:24` has `id?:
 
 ```ts
 export function generateRuleId() {
-  return uniqid("fr_");
+  return uniqid('fr_');
 }
 ```
 

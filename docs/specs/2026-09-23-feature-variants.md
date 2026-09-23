@@ -414,14 +414,18 @@ carries no implicit index signature. A consumer writing the obvious
 
 ```ts
 const features = createFeatures([
-  { key: 'cta', enabled: true, variants: [
-    { name: 'control', weight: 50 },
-    { name: 'blue', weight: 50, value: { label: 'Get it' } },
-  ]},
+  {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
 ]);
 
-features.variantOf('cta');  // 'control' | 'blue' | undefined
-features.valueOf('cta');    // { readonly label: 'Get it' } | undefined
+features.variantOf('cta'); // 'control' | 'blue' | undefined
+features.valueOf('cta'); // { readonly label: 'Get it' } | undefined
 features.variantOf('nope'); // error: unknown key
 ```
 
