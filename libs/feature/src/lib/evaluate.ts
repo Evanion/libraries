@@ -317,8 +317,33 @@ export function planFeature<F extends FeatureKey>(
     }
   }
 
+  // A feature that resolves on and declares variants still needs its bucketing
+  // field, unless the context already carries it. Enablement can be settled
+  // while the split is not, and the entry below carries both facts.
+  const variantField = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
+  const needsVariantField =
+    definition.variants !== undefined &&
+    definition.variants.length > 0 &&
+    !available.has(variantField);
+  if (needsVariantField) ownNeeds.add(variantField);
+
   const needs = [...deferredNeeds, ...ownNeeds].sort();
-  if (needs.length) return { key, resolved: 'deferred', needs };
+  if (needs.length) {
+    const entry: PlanEntry<F> = { key, resolved: 'deferred', needs };
+    // Enablement is settled when this feature's own rules all resolved and only
+    // its variant is outstanding. A build-time pass reads `resolved` to decide
+    // whether to emit statically, so it still skips this entry, and a caller
+    // that wants the enablement shortcut reads `decision.enabled` deliberately.
+    if (deferredNeeds.size === 0 && ownNeeds.size === 1 && needsVariantField) {
+      const settled = decide(definition, context, resolved);
+      // The context lacks the bucketing field, so `decide` took the fallback
+      // and assigned the control. Emitting that would freeze every subject onto
+      // it. The entry reports enablement and leaves the split to the request.
+      const { variant, value, assignment, ...enablement } = settled;
+      entry.decision = enablement as Decision<F>;
+    }
+    return entry;
+  }
 
   return {
     key,
