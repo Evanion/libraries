@@ -305,6 +305,165 @@ describe('precedence', () => {
     expect(decision.rules?.[0]?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
     expect(decision.rules?.[1]?.rule).toBe('named');
   });
+
+  it('assigns a variant to a feature that is on with no rules', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50, value: { label: 'Get it' } },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.enabled).toBe(true);
+    expect(decision.reason).toBe('default-on');
+    expect(['control', 'blue']).toContain(decision.variant);
+    expect(decision.assignment?.source).toBe('weighted');
+    expect(decision.assignment?.by).toBe('targetingKey');
+  });
+
+  it("carries the assigned variant's value", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.variant).toBe('only');
+    expect(decision.value).toEqual({ label: 'Buy' });
+  });
+
+  it('carries no value for a variant declaring none', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1 }],
+      },
+    ]);
+
+    expect(features.resolve({ targetingKey: 'u' }).cta.value).toBeUndefined();
+  });
+
+  it('assigns a variant when a rule matched without pinning one', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [{ rollout: { percent: 100 } }],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'user-1' }).cta;
+
+    expect(decision.reason).toBe('rule-match');
+    expect(decision.assignment?.source).toBe('weighted');
+    expect(['control', 'blue']).toContain(decision.variant);
+  });
+
+  it('takes the variant a matching rule pins', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 99 },
+          { name: 'blue', weight: 1 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'group', op: 'eq', value: 'staff' }],
+            variant: 'blue',
+          },
+          { rollout: { percent: 100 } },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({
+      targetingKey: 'user-1',
+      group: 'staff',
+    }).cta;
+
+    expect(decision.variant).toBe('blue');
+    expect(decision.assignment?.source).toBe('pinned');
+    expect(decision.assignment?.rule).toMatch(/^rule-[0-9a-f]{8}$/);
+  });
+
+  it('lets a pin beat a prior assignment the context carries', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [{ field: 'group', op: 'eq', value: 'staff' }],
+            variant: 'blue',
+          },
+        ],
+      },
+    ]);
+
+    const decision = features.resolve({
+      targetingKey: 'user-1',
+      group: 'staff',
+      stickyVariants: { cta: 'control' },
+    }).cta;
+
+    expect(decision.variant).toBe('blue');
+    expect(decision.assignment?.source).toBe('pinned');
+  });
+
+  it('carries no variant on any of the three off paths', () => {
+    const variants = [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ];
+    const features = createFeatures([
+      { key: 'parent', enabled: false },
+      { key: 'child', enabled: true, dependsOn: ['parent'], variants },
+      { key: 'killed', enabled: false, variants },
+      {
+        key: 'unmatched',
+        enabled: true,
+        variants,
+        rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+      },
+    ]);
+
+    const decisions = features.resolve({
+      targetingKey: 'user-1',
+      role: 'customer',
+    });
+
+    for (const key of ['child', 'killed', 'unmatched'] as const) {
+      expect(decisions[key].enabled).toBe(false);
+      expect(decisions[key].variant).toBeUndefined();
+      expect(decisions[key].value).toBeUndefined();
+      expect(decisions[key].assignment).toBeUndefined();
+    }
+
+    expect(decisions.killed.reason).toBe('explicitly-off');
+    expect(decisions.child.reason).toBe('dependency-off');
+    expect(decisions.unmatched.reason).toBe('no-rule-matched');
+  });
 });
 
 describe('cascade', () => {

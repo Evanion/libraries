@@ -2,6 +2,8 @@ import { inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { ruleId } from './rule-id.js';
+import { assignVariant } from './variants.js';
+import type { VariantAssignment } from './variants.js';
 import type {
   Cause,
   Decision,
@@ -142,6 +144,30 @@ function rootCause<F extends FeatureKey>(
   }
 }
 
+/** Copies an assignment onto a decision. A feature with no variants adds nothing. */
+function withVariant<F extends FeatureKey>(
+  decision: Decision<F>,
+  assigned: VariantAssignment | undefined,
+  source: VariantAssignment['source'] | 'pinned' = assigned?.source ??
+    'weighted',
+  rule?: string,
+): Decision<F> {
+  if (!assigned) return decision;
+  const assignment: Decision<F>['assignment'] = { source, by: assigned.by };
+  if (assigned.bucket !== undefined && source !== 'pinned') {
+    assignment.bucket = assigned.bucket;
+  }
+  if (rule !== undefined) assignment.rule = rule;
+
+  const next: Decision<F> = {
+    ...decision,
+    variant: assigned.variant.name,
+    assignment,
+  };
+  if (assigned.variant.value !== undefined) next.value = assigned.variant.value;
+  return next;
+}
+
 /**
  * Decides one feature, given the already-resolved decisions of everything it
  * depends on. Pure in `(definition, context, resolved)`.
@@ -175,19 +201,41 @@ export function decide<F extends FeatureKey>(
 
   const rules = definition.rules ?? [];
   if (rules.length === 0) {
-    return { key: definition.key, enabled: true, reason: 'default-on' };
+    return withVariant(
+      { key: definition.key, enabled: true, reason: 'default-on' },
+      assignVariant(definition, context),
+    );
   }
 
   const outcomes: RuleOutcome[] = [];
   for (const rule of rules) {
     const outcome = evaluateRule(definition, rule, context);
     if (outcome.matched) {
-      return {
+      const base: Decision<F> = {
         key: definition.key,
         enabled: true,
         reason: 'rule-match',
         rule: outcome.rule,
       };
+      const assigned = assignVariant(definition, context);
+      if (!assigned) return base;
+
+      const pinned = rule.variant;
+      if (pinned !== undefined) {
+        const held = definition.variants?.find((each) => each.name === pinned);
+        // `validateVariants` refused a pin naming an undeclared variant at
+        // construction, so `held` is present for any configuration that built.
+        if (held) {
+          return withVariant(
+            base,
+            { ...assigned, variant: held },
+            'pinned',
+            outcome.rule,
+          );
+        }
+      }
+
+      return withVariant(base, assigned);
     }
     outcomes.push(outcome);
   }

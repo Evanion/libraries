@@ -156,4 +156,43 @@ describe('reason is output only', () => {
     expect(byRule.cause?.rule).toBe('window');
     expect(byCascade.cause?.key).toBe('grandparent');
   });
+
+  it('does not let a mutated variant, value or assignment change a later decision', () => {
+    type Key = 'parent' | 'child';
+    const parent: FeatureDefinition<Key> = {
+      key: 'parent',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50, value: { label: 'x' } },
+      ],
+    };
+    const child: FeatureDefinition<Key> = {
+      key: 'child',
+      enabled: true,
+      dependsOn: ['parent'],
+      variants: [{ name: 'only', weight: 1 }],
+    };
+    const context: EvaluationContext = {
+      now: new Date('2026-09-01T00:00:00Z'),
+      targetingKey: 'user-1',
+    };
+
+    const resolved = new Map<Key, Decision<Key>>();
+    const parentDecision = decide(parent, context, resolved);
+    resolved.set('parent', parentDecision);
+    const before = decide(child, context, resolved);
+
+    // A caller that mutates the fields on a decision it was handed must not
+    // change what the cascade decides for a dependant.
+    resolved.set('parent', {
+      ...parentDecision,
+      variant: 'blue',
+      value: { label: 'mutated' },
+      assignment: { source: 'pinned', by: 'nope', rule: 'nope' },
+    });
+    const after = decide(child, context, resolved);
+
+    expect(after).toEqual(before);
+  });
 });
