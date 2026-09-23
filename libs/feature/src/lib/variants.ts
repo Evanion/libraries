@@ -209,7 +209,16 @@ export function assignVariant<F extends FeatureKey>(
 
   const by = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
 
-  const stored = context.stickyVariants?.[String(definition.key)];
+  const key = String(definition.key);
+  const stickyVariants = context.stickyVariants;
+  // A bare index walks the prototype chain, so a feature keyed `constructor`
+  // or `toString` reads a function off `Object.prototype` when no entry is
+  // stored. `useFeature` in react/index.tsx guards the same read the same
+  // way.
+  const stored =
+    stickyVariants && Object.prototype.hasOwnProperty.call(stickyVariants, key)
+      ? stickyVariants[key]
+      : undefined;
   if (stored !== undefined) {
     const held = variants.find((variant) => variant.name === stored);
     if (held) return { variant: held, source: 'sticky', by };
