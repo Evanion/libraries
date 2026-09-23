@@ -21,12 +21,14 @@ describe('ruleId', () => {
   it('derives different ids for rules with different conditions', () => {
     const a = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
     const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'admin' }] });
+
     expect(a).not.toBe(b);
   });
 
   it('derives the same id whatever order a producer wrote the keys in', () => {
     const a = ruleId({ when: [{ op: 'eq', value: 'staff', field: 'role' }] });
     const b = ruleId({ when: [{ field: 'role', op: 'eq', value: 'staff' }] });
+
     expect(a).toBe(b);
   });
 
@@ -37,18 +39,21 @@ describe('ruleId', () => {
   it('leaves the id alone when an operator moves a ramp', () => {
     const at20 = ruleId({ rollout: { percent: 20 } });
     const at30 = ruleId({ rollout: { percent: 30 } });
+
     expect(at20).toBe(at30);
   });
 
   it('changes the id when the bucketing field changes', () => {
     const byDefault = ruleId({ rollout: { percent: 20 } });
     const byAccount = ruleId({ rollout: { percent: 20, by: 'accountId' } });
+
     expect(byDefault).not.toBe(byAccount);
   });
 
   it('changes the id when the rollout seed changes', () => {
     const unseeded = ruleId({ rollout: { percent: 20 } });
     const seeded = ruleId({ rollout: { percent: 20, seed: 'autumn' } });
+
     expect(unseeded).not.toBe(seeded);
   });
 
@@ -86,6 +91,7 @@ describe('ruleId', () => {
     const late = ruleId({
       when: [{ field: 'now', op: 'after', value: 1767225600001 }],
     });
+
     expect(early).not.toBe(late);
   });
 
@@ -96,6 +102,7 @@ describe('ruleId', () => {
     const after = ruleId({
       when: [{ field: 'now', op: 'after', value: 1767225600000 }],
     });
+
     expect(before).not.toBe(after);
   });
 
@@ -115,6 +122,7 @@ describe('ruleId', () => {
         { field: 'now', op: 'day-of-week', zone: 'Asia/Tokyo', value: ['mon'] },
       ],
     });
+
     expect(stockholm).not.toBe(tokyo);
   });
 
@@ -125,6 +133,7 @@ describe('ruleId', () => {
   it('derives a stable id for a non-BMP condition value', () => {
     // Pinned so a Swift or Kotlin port has a value to match. `fnv1a` walks
     // UTF-16 code units, so a surrogate pair contributes two of them.
+
     expect(ruleId({ when: [{ field: 'tag', op: 'eq', value: '🎯' }] })).toBe(
       'rule-b9b91345',
     );
@@ -133,12 +142,14 @@ describe('ruleId', () => {
   it('separates a field ending in an operator prefix from the operator', () => {
     const a = ruleId({ when: [{ field: 'usernot-', op: 'in', value: ['x'] }] });
     const b = ruleId({ when: [{ field: 'user', op: 'not-in', value: ['x'] }] });
+
     expect(a).not.toBe(b);
   });
 
   it('separates an op from a longer op that would swallow the value boundary', () => {
     const a = ruleId({ when: [{ field: 'u', op: 'eq', value: 12 }] });
     const b = ruleId({ when: [{ field: 'u', op: 'eq1' as never, value: 2 }] });
+
     expect(a).not.toBe(b);
   });
 
@@ -152,6 +163,7 @@ describe('ruleId', () => {
     const one = ruleId({
       when: [{ field: 'roleeq"staff"plan', op: 'eq', value: 'pro' }],
     });
+
     expect(two).not.toBe(one);
   });
 
@@ -176,6 +188,7 @@ describe('ruleId', () => {
         },
       ],
     });
+
     expect(a).not.toBe(b);
   });
 
@@ -192,6 +205,7 @@ describe('ruleId', () => {
         { field: 'role', op: 'eq', value: 'staff' },
       ],
     });
+
     expect(a).not.toBe(b);
   });
 
@@ -201,6 +215,7 @@ describe('ruleId', () => {
     const id = ruleId({
       when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
     });
+
     expect(id).toBe('rule-59e8e8f5');
   });
 
@@ -211,11 +226,13 @@ describe('ruleId', () => {
     const utc = ruleId({
       when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
     });
+
     expect(offsetless).not.toBe(utc);
   });
 
   it('memoizes the derived id for the same rule object', () => {
     const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+
     expect(ruleId(rule)).toBe(ruleId(rule));
   });
 
