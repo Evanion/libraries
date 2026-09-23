@@ -1,0 +1,190 @@
+/*
+ * The rail and the pane: what a package's tests state about one export, and
+ * the case behind the sentence a reader picked.
+ *
+ * Every value here is a `--baize-*` property from
+ * `@evanion/baize-ui/styles.css`, bound per theme in `app/global.css`, plus the
+ * two `--shiki-*` colours Nextra's own fences already carry. No colour, radius
+ * or size of its own.
+ */
+
+/*
+ * One height, whatever the export states.
+ *
+ * `policy` states 32 sentences and `ruleId` states 3, and an entry that grew
+ * with its catalogue made the page a column of blocks of random length with no
+ * relation to how important the export is. A fixed frame with both panes
+ * scrolling inside it costs the same 26rem everywhere, which is what lets a
+ * reader scrolling for a signature keep a rhythm.
+ */
+.docs-behaviours {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  height: 26rem;
+  margin-block-start: var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  overflow: hidden;
+  background: var(--baize-ink);
+}
+
+.docs-behaviours__rail {
+  overflow-y: auto;
+  border-inline-end: 1px solid var(--baize-rule);
+  padding-block: var(--baize-space-2);
+}
+
+.docs-behaviours__rail:focus-visible {
+  outline: 2px solid var(--baize-kind);
+  outline-offset: -2px;
+}
+
+/*
+ * The condition the test author wrote, over the sentences that hold under it.
+ *
+ * `diffMatrix` states eleven sentences under `a widening` and nine under `a
+ * narrowing`, and that split is the suite's own structure rather than anything
+ * derived here. The sentences the suite states directly under the export's own
+ * name are a group too, labelled with that name, because a run of unlabelled
+ * rows above the labelled ones reads as belonging to nowhere.
+ */
+.docs-behaviours__label {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--baize-tracking-loose);
+  color: var(--baize-moss);
+  margin: var(--baize-space-3) 0 var(--baize-space-1);
+  padding-inline: var(--baize-space-3);
+}
+
+.docs-behaviours__group:first-child .docs-behaviours__label {
+  margin-block-start: 0;
+}
+
+/*
+ * One sentence a test carries.
+ *
+ * No marker and no status. Every sentence here comes from a suite that passes,
+ * so a tick beside one states nothing, and the selected row is marked by the
+ * kind's own hue, which is the colour the entry's name already carries.
+ */
+.docs-behaviours__row {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  line-height: var(--baize-leading-tight);
+  color: var(--baize-lichen);
+  padding: var(--baize-space-1) var(--baize-space-3);
+  cursor: pointer;
+  border-inline-start: 2px solid transparent;
+}
+
+.docs-behaviours__row:hover {
+  color: var(--baize-chalk);
+}
+
+.docs-behaviours__row[aria-selected='true'] {
+  color: var(--baize-chalk);
+  border-inline-start-color: var(--baize-kind);
+  background: var(--baize-felt);
+}
+
+.docs-behaviours__pane {
+  overflow: auto;
+  padding: var(--baize-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+}
+
+/*
+ * The sentence heads its own case, because a reader who moved down the rail
+ * with the keyboard has the selection behind them and the source in front.
+ */
+.docs-behaviours__title {
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-chalk);
+  margin: 0;
+}
+
+/* The file and the line, so a reader can open what they are reading. */
+.docs-behaviours__where {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  color: var(--baize-moss);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The case, as the author wrote it.
+ *
+ * It scrolls rather than wraps, for the reason every other fence on the site
+ * scrolls: a wrapped line of code loses the indentation that says what is
+ * inside what. The colours come from the sidecar's own palette, which is the
+ * two github themes Nextra highlights the rest of the site against.
+ */
+.docs-behaviours__body {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  line-height: var(--baize-leading-normal);
+  color: var(--baize-lichen);
+  background: var(--baize-felt);
+  border-radius: var(--baize-radius-button);
+  padding: var(--baize-space-3);
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/*
+ * A token takes the theme's colour the way every other fence on the site does.
+ *
+ * The sidecar's own rules bind `--shiki-light` and `--shiki-dark` on each
+ * token's class, and these two pick which of the pair the document is showing.
+ * `nextra-theme-docs` writes the same pair of rules for `.nextra-code span`,
+ * and this block exists because the pane is not one of its fences.
+ */
+.docs-behaviours__body :where(span) {
+  color: var(--shiki-light);
+}
+
+:where(.dark) .docs-behaviours__body :where(span) {
+  color: var(--shiki-dark);
+}
+
+.docs-behaviours__waiting {
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  color: var(--baize-moss);
+  margin: 0;
+}
+
+/*
+ * On a phone the pane opens under the sentence it belongs to.
+ *
+ * Two columns at this width would give the case about 20 characters, so the
+ * rail takes the whole frame and the selected row opens beneath itself, which
+ * is the movement the reader's tap asked for.
+ */
+@media (max-width: 48rem) {
+  .docs-behaviours {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .docs-behaviours__rail {
+    border-inline-end: 0;
+  }
+
+  .docs-behaviours__pane {
+    padding-inline: var(--baize-space-3);
+    padding-block: var(--baize-space-2) var(--baize-space-3);
+  }
+
+  /* The row the pane opened under says the sentence, one line above it. */
+  .docs-behaviours__pane .docs-behaviours__title {
+    display: none;
+  }
+}

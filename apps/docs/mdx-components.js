@@ -9,6 +9,7 @@ import PolicySpecimen from './components/landing/PolicySpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
 import UrnSpecimen from './components/landing/UrnSpecimen';
 import ApiFilter from './components/api/ApiFilter';
+import BehaviourCatalogue from './components/api/BehaviourCatalogue';
 import Case from './components/testing/Case';
 import CaseFilter from './components/testing/CaseFilter';
 import {
@@ -103,6 +104,9 @@ export function useMDXComponents(components) {
     Title,
     Probe,
     ApiFilter,
+    // Not a tag an author writes: `mdx-reference-loader.mjs` emits one under
+    // each reference entry that states a behaviour.
+    BehaviourCatalogue,
     // The `/testing` section. Every one of these reads the file
     // `apps/docs/tools/test-statistics.mjs` wrote during this build, so a page
     // writes a tag and never a number.

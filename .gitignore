@@ -105,3 +105,8 @@ apps/docs/components/testing/statistics.json
 # same reason the statistics are not: a committed copy of a suite's own titles
 # goes stale the first time somebody renames a test.
 apps/docs/components/api/behaviour/
+
+# The other half of the same run: the cases behind those titles, highlighted and
+# served to a reader who opens a catalogue. Same run, same staleness, and 1.4 MB
+# of generated HTML across the eleven libraries.
+apps/docs/public/behaviour/
