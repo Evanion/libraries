@@ -11,7 +11,7 @@
   difficulty={1}
   read={5}
   hands={15}
-  requires={[['Overview', '/acl']]}
+  requires={[['Getting started', '/acl/getting-started']]}
   unlocks={[
     ['Rules that read the object', '/acl/intermediate'],
     ['Can this user do this?', '/acl/asking'],
@@ -45,16 +45,6 @@ You write the twentieth role check by hand and four handlers now disagree: one
 tests `roles.includes('owner')`, another tests `user.isOwner`, a third was
 copied before the role was renamed, and the export endpoint tests nothing at
 all.
-
-## Install acl
-
-`@evanion/acl` installs as one package and brings nothing with it:
-
-```bash
-npm install @evanion/acl
-```
-
-ESM only, Node 20 or newer. No framework reaches the import graph.
 
 ## Write the acl policy
 

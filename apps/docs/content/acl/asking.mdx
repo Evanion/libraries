@@ -1,59 +1,60 @@
 # Can this user do this?
 
+`access.can(subject, kind, action, row)` answers one authorization question and
+returns a decision your handler gates on and your screen renders.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={2}
-  read={7}
+  read={6}
   hands={15}
-  requires={[['Rules that read the subject', '/acl/simple']]}
+  requires={[['Getting started', '/acl/getting-started']]}
   unlocks={[
     ['Why was this refused?', '/acl/refusals'],
     ['What can they do at all?', '/acl/capabilities'],
   ]}
 />
 
-**The concept.** `can` answers one authorization question, over one subject,
-one object kind, one action and one row.
-**What you get.** A `Decision` carrying `allowed` for the handler and `reason`,
-`rule` and `missing` for the screen.
-**Why you want it.** A check written by hand in the handler and again in the
-component states the rule twice, and tightening one leaves the other granting.
-**How the library gets you there.** `can` decides one row, and `canMany` decides
-a page of rows in one call.
+## The problem one acl call solves
 
-## One acl question and its decision
+A customer clicks Edit on a question somebody else asked. Two places need an
+answer, and they need the same one: the save handler has to refuse, and the Edit
+button had to be grey before the click.
 
-`can` answers one authorization question and returns a decision the handler
-gates on and the UI renders. Jo clicks Edit on a question somebody else asked,
-and that one call refuses the save and tells the button what to say. Ask with
-the row in hand, or over a page of forty rows with `canMany`, which answers the
-same question per row.
+One `can` call answers both, because it returns more than a boolean. The handler
+reads one field of the decision and the button reads three others, so the two
+cannot disagree about whether the edit was allowed.
 
-Write the check by hand and you write it twice, once in the handler that refuses
-the save and once in the component that greys out the button. The two drift, and
-the customer sees an enabled button that 403s.
+## The four answers an acl decision comes back in
 
-`authorize` binds the subject so no handler restates it, and
-`access.object(kind)` binds the object kind. `can(subject, kind, action,
-object?, now?)` takes the object kind in `kind`, so you pass `'question'` and
-never `'question.update'`.
+[Getting started](/acl/getting-started) showed two of them, `allow` and
+`no-rule-matched`. There are four, and one policy produces all four. This one
+grants the asker and denies a locked question:
 
-```ts twoslash file=libs/acl/README.md region=quick-start
+```ts twoslash file=libs/acl/README.md region=four-outcomes
 
 ```
 
-The policy above declares one object kind. Chain a `.for()` per kind to put the
-questions and the listings in the same document, and do not build a policy per
-resource.
+Read the four in the order the engine reaches them.
+
+- `allow`. An allow rule matched and no deny rule did.
+- `no-rule-matched`. Nothing granted the action. This is default deny and you
+  configure nothing to get it: no rules, an empty rule list and an unknown
+  action all land here.
+- `denied`. An allow rule matched and a deny rule matched too. A matched deny
+  outranks a matching allow, always.
+- `unevaluable`. The engine could not read a path a rule needs, so the
+  permission is not answerable yet. `missing` names the paths.
+
+`allowed` is `false` for the last three, so a handler gating on `allowed` alone
+is correct for all four.
 
 ## Why an acl decision is not a boolean
 
 A boolean tells the handler whether to run the save and tells the Edit button
 nothing. A component holding only `true` or `false` explains a greyed-out button
-by calling again to work it out or by guessing a string from context.
-
-`allowed` is the answer, and three more fields explain it:
+by calling again or by guessing a string from context.
 
 ```mermaid caption="One call, two consumers. The handler gates on allowed and reads nothing else; the Edit button reads reason, rule and missing to say why it is greyed out. Both read the same decision, so the two cannot disagree."
 flowchart LR
@@ -62,66 +63,52 @@ flowchart LR
   D -->|"reason, rule, missing"| U["the Edit button<br>label and state"]
 ```
 
-`reason` comes back on every decision and says which of the seven answers this
-one is. `rule` names the rule that decided, by its `id` or by `#n` for its
-position; it rides on `allow`, on `denied`, on `unusable-clock`, and on an
-`unevaluable` the deny side raised. `missing` lists the paths the engine could
-not read, and it rides on `unevaluable`. An `unevaluable` the allow side raised
-carries `missing` and no `rule`, because only the deny side names a rule there.
+Three fields carry the explanation, and all three are output only.
 
-All of them are output only. Gate on `allowed`, because a gate on the reason
-string grants what the engine refused. [Why was this refused?](/acl/refusals) is
-what to do with the rest.
+| Field     | What it carries                                        | When it rides along                 |
+| --------- | ------------------------------------------------------ | ----------------------------------- |
+| `reason`  | which answer this is, as one of the four strings above | every decision                      |
+| `rule`    | the rule that decided, named by its `id`               | `allow` and `denied`, and see below |
+| `missing` | the paths the engine could not read                    | `unevaluable`                       |
 
-## The four shapes an acl decision comes back in
+A permission holds allow rules and deny rules, and the engine reads the deny
+rules first. That is why `rule` is sometimes absent on an `unevaluable`: a deny
+rule the engine could not read names itself, and an allow rule the engine could
+not read does not, because no single rule failed. `missing` is there either way,
+so the refetch is the same.
 
-Four shapes come out of `can`, and one policy produces all four:
+Three more `reason` strings exist and none of them comes out of the policy on
+this page. `unknown-action` answers a permission the document never declared.
+`unusable-clock` and `stale-contract` answer a document carrying a time bound.
+[Why was this refused?](/acl/refusals) covers all seven and says which situation
+produces each.
 
-```ts twoslash file=libs/acl/README.md region=four-outcomes
+Gate on `allowed`. A gate on the `reason` string is a second rule you wrote
+yourself, and it will let through something `allowed` refused.
+
+## Asking acl when your query selected half the row
+
+A list query selects the columns the list needs, and a rule reads a column the
+list did not select. `can` takes a partial object, so pass what you have:
+
+```ts twoslash file=libs/acl/README.md region=refetch
 
 ```
 
-Default deny is the floor. No rules, an empty rule list and an unknown action
-all refuse. Above it, a matched deny outranks a matching allow, and a deny the
-engine could not read refuses as well.
+A projection carrying every path the rules read decides definitely. One that
+does not answers `unevaluable`, and `missing` names exactly what to fetch, so
+the second call is the only extra query. Both answers are `allowed: false`, so a
+handler gating on `allowed` is right either way.
 
-## Asking acl with a projection
+`access.readsObject(kind, action)` answers from the document whether a permission
+needs the row at all. Ask it before the query when you want to know which kind of
+permission you are about to ask about.
 
-The object parameter takes a partial. A list query that selected `id` and
-`askedBy` passes what it has, and the typed path checks those field names
-against the object type without demanding the rest of the row.
+The subject has no partial form. An absent `subject.*` path is a definite miss,
+not something to fetch, so a projected subject refuses with `no-rule-matched` and
+names nothing. Your app resolves the subject whole before the call.
 
-`access` below is the policy the quick-start built, and `subject` is the
-customer asking:
-
-```ts
-const subject = { id: 's1' };
-
-access.can(subject, 'question', 'update', { askedBy: 's1' });
-access.object('question').can(subject, 'update', {});
-```
-
-A projection that carries every path the rules read decides definitely. One that
-does not comes back `unevaluable`, with `missing` naming what to fetch. Both are
-`allowed: false`, so gate on `allowed` and both come out right. Gate on `reason`
-and a projection turns into permission the engine never granted. [Caveats and
-pitfalls](/acl/pitfalls) has that one first.
-
-### Asking acl whether a permission needs the row
-
-`access.readsObject(kind, action)` answers, from the document, whether a
-permission needs the row at all. A permission that reads only the subject
-settles with no object. Ask `readsObject` before the database query when you
-hold a projection and want to know which kind of permission you are asking
-about.
-
-### Why an acl subject has no partial form
-
-The subject has no partial form. An absent `subject.*` path is a definite miss.
-If you project the subject, the call refuses with `no-rule-matched` and names
-nothing to fetch. The app resolves the subject whole, and the type says so.
-
-## Asking about a list
+## Asking acl about a page of rows
 
 `canMany` takes the instances and answers per instance:
 
@@ -130,53 +117,36 @@ nothing to fetch. The app resolves the subject whole, and the type says so.
 ```
 
 The array is parallel to the input, so the decision for `rows[i]` is
-`decisions[i]`. Nothing is filtered out, and a refused row keeps its entry, so
-the table draws the refusal beside the row.
-
-A page that lists questions and listings together asks one `canMany` per kind
-against the same `access`.
-
-### What canMany costs
+`decisions[i]`. Nothing is filtered out and a refused row keeps its entry, which
+is what lets the table draw the refusal beside the row.
 
 `canMany` is not a bulk optimisation. It decides each instance separately,
-because a rule reads the object and the objects differ. Two pieces of work it
-does once for the whole list, where a loop of `can` does them per row:
+because the rules read the object and the objects differ. Two things it does once
+for the whole list where a loop of `can` does them per row:
 
-- The clock. `now` is parsed into a single epoch for the list. A loop of `can`
-  with no `now` reads `Date.now()` per row, so a time window can close partway
-  down the page.
-- The object-kind lookup. Each `can` scans the permission list to check the
-  object kind exists. `canMany` scans once.
+- The clock. `now` is parsed into one epoch for the list. A loop of `can` with no
+  `now` reads `Date.now()` per row, so a time window can close partway down the
+  page.
+- The object-kind lookup. Each `can` scans the permission list to check the kind
+  exists; `canMany` scans once.
 
 Prefer `canMany` for the clock. One rendering then reads one instant, and the
 speed is a side effect.
 
-## Binding what an acl call repeats
+## Dropping what every acl call site repeats
 
 Every handler in a request passes the same subject, and most of them name the
-same object kind. `authorize` and `access.object` take those two out of the
-signature once:
+same object kind. Two calls take one of those axes out of every later signature.
+`access.authorize(subject)` binds the subject, and `access.object(kind)` binds the
+object kind. They are alternatives, so bind whichever axis your call sites repeat.
 
-```ts twoslash file=libs/acl/README.md region=server-authorize
-
-```
-
-The two handles are alternatives, so bind the axis the call site repeats:
-
-- `authorize` binds the subject and one instant. With no `now` the instant is
-  the moment you call it, and `authorize(subject, { now })` names the instant
-  yourself. The handle returns `can`, `canMany`, `canFields` and `capabilities`,
-  each with the subject and the clock dropped from its signature.
-- `access.object(kind)` binds the other axis. The handle names one object kind
-  once and returns `can`, `canMany`, `canFields` and `readsObject`, each of
-  which still takes the subject first.
-
-That policy declares `report` and `listing`, so it offers `object('report')` and
-`object('listing')`. A policy chaining four `.for()` calls offers four.
+[Rules that read the subject](/acl/simple) shows `authorize` bound over a real
+policy, which is where the worked example lives.
 
 ## Where to go next
 
 - [Why was this refused?](/acl/refusals). The explanation fields, and what a UI
   does with each.
-- [What can they do at all?](/acl/capabilities). The no-object question.
+- [What can they do at all?](/acl/capabilities). The same question with no row in
+  hand.
 - [Caveats and pitfalls](/acl/pitfalls). Start with what `allowed` means.

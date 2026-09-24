@@ -5,6 +5,24 @@ import type { MetaRecord } from 'nextra';
  * into the stack it runs in, answer the question they arrived with, then look
  * the mechanism up.
  *
+ * `getting-started` heads Setup, above `simple`, and this is the one place this
+ * file changed its mind. The argument below for opening Setup on `simple` is
+ * that each Setup page names a decision about what a rule may read, and that
+ * `simple` is the first of those decisions. That argument is sound about the
+ * three tiers and it answered the wrong question. A reader arriving at Setup has
+ * not yet decided what a rule may read; they have not installed the package.
+ * `npm install @evanion/acl` was written once in this whole section, at
+ * `simple.mdx:54`, below a notice, a page sheet, a four-part brief and two prose
+ * sections, so the first page of Setup taught a concept tier to somebody with
+ * nothing installed. `docs/specs/2026-09-25-documentation-standard.md` § 3 makes
+ * the Setup article stage 2 of the journey and
+ * `tools/repo-checks/src/doc-floor.test.ts` had already recorded the gap in
+ * `doc-floor-allowance.json`.
+ *
+ * The three tiers keep their order and their argument. What changed is that they
+ * now start from a reader who has a policy answering questions, so `simple` is
+ * the first decision rather than the first page.
+ *
  * Setup is staged by one decision, and each title names the decision rather
  * than the rung. `simple` is the page where every condition reads the subject,
  * so nothing can decide `unevaluable`. `intermediate` is the page where a
@@ -79,6 +97,7 @@ export default {
   index: 'Overview',
 
   'group-setup': { type: 'separator', title: 'Setup' },
+  'getting-started': 'Getting started',
   simple: 'Rules that read the subject',
   intermediate: 'Rules that read the object',
   advanced: 'Rules that another service wrote',

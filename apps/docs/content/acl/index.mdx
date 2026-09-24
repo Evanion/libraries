@@ -1,22 +1,21 @@
 # @evanion/acl
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    The implementation is complete and covered by the unit suite plus an
-    adversarial suite held against `libs/acl/SECURITY.md`, against the approved
-    spec at `docs/superpowers/specs/2026-09-14-acl-design.md`. Inside this
-    repository it resolves from source like any other workspace package.
-  </Text>
-</WorkshopNotice>
+You write your authorization rules twice. The handler checks them, the screen
+checks them again, and the two copies drift the first time somebody edits one.
 
-**The concept.** `@evanion/acl` keeps every authorization rule in one JSON
-document, called the matrix.
-**What you get.** A server handler and a browser control that answer from the
-same rules, through the same call.
-**Why you want it.** A rule copied into a second codebase by hand diverges the
-first time somebody edits one copy.
-**How the library gets you there.** `policy()` writes the document, and `can`,
-`canMany`, `canFields` and `capabilities` read it.
+<WorkshopNotice slug="acl" />
+
+## How acl thinks about a permission
+
+acl keeps every rule in one JSON document, called the matrix. The process that
+owns the rules writes the document. Any process holding the document can answer
+from it, with no call back to the process that wrote it.
+
+Three names carry that sentence, and the picture below uses all three.
+`policy()` writes the document and returns an evaluator over it, which this
+documentation always calls `access`. `access.matrix` is the document itself, and
+it is a plain value that survives `JSON.stringify`. `hydratePolicy` takes that
+value on the other side of a process boundary and returns an evaluator again.
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -27,150 +26,82 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-## What the access object answers
+Every answer is a local function call over a frozen object. Nothing waits on a
+network round trip, and nothing keeps a per-subject snapshot in step.
 
-`policy()` writes the JSON document, called the matrix, and hands back an access
-object. Four of its methods carry most of the work.
-
-- `can` decides one action and carries the reasons beside the answer.
-- `capabilities` decides every action at once.
-- `authorize` binds one subject for the length of a request.
-- `canFields` names the fields of a write you may set.
-
-Each method is a local function over the frozen document, so no call waits on a
-network round trip. The matrix answers one question: may this subject take this
-action on this object? Baize, a board game shop, states three rules that way. A
-customer may edit their own question, a bookseller may edit anybody's, and a
-locked question is editable by nobody.
+A question to acl looks like this. Baize, a board game shop, lets the customer
+who asked a question edit it:
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
 ```
 
-`can` answers with a decision. `allowed` is the answer; `reason`, `rule` and
-`missing` are why.
+That is the shape of every answer on every page below: a subject, an object
+kind, an action, and the row the action is aimed at.
 
-One `.for()` block declares one object kind, and a policy chains a block per
-kind. The example declares only `question` because that is all it asks about.
+## The acl vocabulary
 
-The server that enforces the answer and the screen that renders it read the same
-rules, because both run over the same document. A rule copied by hand into a
-second place diverges from the first: you tighten the handler, forget the
-loader, and the UI greys out a button the API would have accepted.
+Five words carry the rest of this section.
 
-<Panel heading="A decision counts where it is made">
-  <Text as="div" size="sm">
-    The same `can` call is authoritative in a trusted environment and advisory
-    in a browser, with the same signature and the same return type in both.
-    Nothing in the types separates them. Client-side evaluation toggles what a
-    user sees; enforcement happens server-side, in every layer, each one
-    deciding for itself. [The security contract](/acl/security) is the rest of
-    that sentence, and it is not optional reading.
-  </Text>
-</Panel>
+- A **subject** is who is acting. The server resolves it before the call.
+- An **object** is what is being acted on: a kind, like `question`, and
+  optionally the row itself.
+- A **permission** is one object kind paired with one action, keyed
+  `` `${object}.${action}` ``.
+- A **rule** is a set of conditions under a permission. The engine ANDs the
+  conditions, and a rule matches when all of them hold.
+- The **matrix** is the whole document: a JSON envelope over a flat list of
+  permissions, with a version and an optional schema.
 
-## When to reach for acl
+A **decision** is what comes back. `allowed` is the answer and nothing else is.
+`reason`, `rule` and `missing` say why, and they are output only.
 
-acl fits rules that read one of these:
+## What acl can do
 
-- Permissions that turn on which object is in front of the user as well as on
-  the role. "The customer who asked may edit their own question", "an open
-  question may be deleted and a locked one may not".
-- The same rules on a server and in a UI. The document crosses an SSR boundary
-  as `access.matrix` and rebuilds on the other side.
-- A UI that explains a block as well as enforcing it: which rule refused, which
-  field is read-only, and what is still missing.
-- A field-level write, where the answer names which fields are yours.
+| The question                                        | The answer                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------------ |
+| May this subject take this action on this row?      | one decision, with the reason beside it                            |
+| May they take it on each of these rows?             | one decision per row, in one call                                  |
+| What may they do at all, with no row in hand?       | every permission in the document at once                           |
+| Which fields of this write may they set?            | a per-field decision, and the write to actually send               |
+| Why was this refused?                               | the rule that refused, or the fields that were missing             |
+| I edited the policy. Who gained or lost access?     | a report over the old document and the new one                     |
+| May I answer from a document another service wrote? | yes, and an action it never declared is refused rather than thrown |
+
+Every one of those is a local call. The rules behind them are the same rules on
+a server and in a browser, because both sides hold the same document.
 
 ## When acl is the wrong tool
 
-acl does not do these four jobs:
+acl does not do these four jobs, and none of them is on a roadmap.
 
 - Anything the document cannot state in the open. The matrix reaches the client
   in full, so every object kind, action, role string, field name and time
-  boundary in it is public. Opaque predicates stay server-side, outside the
+  boundary in it is public. An opaque predicate stays server-side, outside the
   matrix.
 - Filtering a collection in the database. A decision is per instance, and
   generating a `WHERE` clause from the matrix is out of scope.
-- Rules that call a function. Conditions are declarative because the matrix must
-  pass through `JSON.stringify` unchanged.
-- A non-JS backend. Only the JSON crosses, and a .NET or Go service uses its own
-  evaluator.
+- Rules that call a function. Conditions are declarative, because the matrix has
+  to survive `JSON.stringify` unchanged.
+- A non-JS backend. Only the JSON crosses, and a .NET or Go service brings its
+  own evaluator.
 
-[What `@evanion/acl` does not do](/acl/limits) carries four questions the model
-cannot answer, each with the mechanism behind it:
+[What `@evanion/acl` does not do](/acl/limits) carries four more questions the
+model cannot answer, each with the mechanism behind it. Read it before you build
+on this library.
 
-- the floor `maxStale` puts under revocation latency
-- why a relationship across two rows has no expression in a matrix
-- why no call lists the subjects who can take an action
-- why decision records are per consumer
+<Panel heading="A browser answer is advisory">
+  <Text as="div" size="sm">
+    The same `can` call carries the same signature and the same return type on a
+    server and in a browser, and nothing in the types separates them. Only the
+    server's answer guards anything. Hiding a button hides the button, not the
+    request the button would have sent, so every server layer decides for
+    itself. [The security contract](/acl/security) is the rest of that sentence,
+    and it is not optional reading.
+  </Text>
+</Panel>
 
-Read that page before you build on this library.
+## Now that you have the model, install it
 
-## What the acl package exports
-
-The entry point exports these beside `policy()` and `can`:
-
-| Export                                  | What it is                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------ |
-| `policy<Subject, Objects, Verbs>()`     | the typed builder; one `.for()` block per kind, `.build()` at the end          |
-| `hydratePolicy(matrix, options?)`       | an evaluator over a document you already have                                  |
-| `parseMatrix(json, options?)`           | the same, for somebody else's document; fails closed on a key it does not know |
-| `access.can` / `canMany` / `canFields`  | one decision, a decision per instance, the field-level decision                |
-| `pickAllowedFields(decision, proposed)` | the subset of a proposed write to actually write                               |
-| `access.capabilities` / `authorize`     | every decision at once, and a subject bound for the request                    |
-| `access.object` / `readsObject`         | one kind bound, and whether a rule reads the row                               |
-| `access.matrix` / `version` / `schema`  | the frozen document and its two header fields                                  |
-| `serialize(access, mode, options?)`     | the document to hand a consumer                                                |
-| `federatedPolicies(policies)`           | one evaluator per origin, behind one handle                                    |
-| `applyDenyOverlay(matrix, overlay, …)`  | another team's denies, merged before construction                              |
-| `AclConfigError` and its subclasses     | every construction failure; see [Typed authoring](/acl/authoring)              |
-
-The `@evanion/acl` entry point imports no framework. The React provider and
-hooks are a separate package, [`@evanion/react-acl`](/react-acl).
-
-## Where to go next
-
-Setup runs to four pages, separated by what a rule may read:
-
-- [Rules that read the subject](/acl/simple). A handful of permissions, `can`
-  and done.
-- [Rules that read the object](/acl/intermediate). The typed builder, field
-  permissions and the guarded save.
-- [Rules that another service wrote](/acl/advanced). The schema, versioning and
-  the revalidate contract.
-- [One policy behind a screen](/acl/interface). The fetched document driving an
-  action bar, and where the wording of a refusal comes from.
-
-[Platforms](/acl/platforms) follows those: one guide per stack, and
-[Many services](/acl/federation) for a topology that spans them.
-
-Then the question you arrived with:
-
-- [Can this user do this?](/acl/asking). `can`, `canMany`, and what the decision
-  carries beside `allowed`.
-- [What can they do at all?](/acl/capabilities). The no-object contract, and how
-  a menu draws itself from one call.
-- [Which fields may they write?](/acl/writing). `canFields` and
-  `pickAllowedFields`.
-- [Why was this refused?](/acl/refusals). The explanation fields, and the
-  repairable `unevaluable` state.
-- [A policy from another service](/acl/adopting). `parseMatrix` and the closed
-  mode.
-- [Giving my rules to another service](/acl/publishing). `serialize` and the
-  reduced document.
-- [What did this change do to access?](/acl/changes). `diffMatrix`, and the four
-  findings a policy edit produces.
-
-The reference is below those, and one page of it is not optional:
-
-- [What `@evanion/acl` does not do](/acl/limits). The four questions this model
-  cannot answer, and the nine features that will not be added.
-- [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
-  the two gaps it does not defend.
-- [Security contract](/acl/security). What the library prevents, what it hands
-  you, and what remains yours.
-- [The matrix document](/acl/matrix), [Typed authoring](/acl/authoring),
-  [Decisions](/acl/decisions), [Field permissions](/acl/fields). The mechanisms.
-- [API reference](/acl/api). Every export and every type it names, down to the
-  error classes.
+[Getting started](/acl/getting-started) takes the model on this page and gets a
+policy answering questions in your own project, in about ten minutes.

@@ -1,0 +1,99 @@
+# Getting started
+
+By the end of this page a policy of yours answers two questions correctly: it
+lets a customer edit their own question and it refuses a stranger.
+
+<PageSheet
+  difficulty={1}
+  read={4}
+  hands={10}
+  requires={[['Overview', '/acl']]}
+  unlocks={[['Can this user do this?', '/acl/asking']]}
+/>
+
+## Before you start
+
+- Node 20 or newer.
+- An ESM project. `@evanion/acl` ships no CommonJS build.
+- TypeScript 5.5 or newer, if you want the typed builder to check your object
+  kinds and actions. The package runs without it.
+- A subject your server already resolves. acl never authenticates anybody; it
+  takes the subject you hand it.
+
+No API key, no service to run, no environment variable. The matrix is a value in
+your process.
+
+## Install acl
+
+<WorkshopNotice slug="acl" />
+
+Pick the line for your package manager.
+
+```bash
+npm install @evanion/acl
+```
+
+```bash
+yarn add @evanion/acl
+```
+
+```bash
+pnpm add @evanion/acl
+```
+
+Nothing else enters the import graph. The `@evanion/acl` entry point imports no
+framework, and the React provider and hooks are a separate package,
+[`@evanion/react-acl`](/react-acl).
+
+## Write the smallest policy that answers something
+
+A policy needs three calls and nothing else.
+
+- `policy<Subject, Objects>()` names two types. `Subject` is the shape of whoever
+  is acting, so `{ id: string }` at its smallest. `Objects` maps each object kind
+  to the shape of its row, so `{ question: Question }` declares one kind called
+  `question` whose rows are `Question`. Add a kind by adding a key.
+- `.for(key, block)` writes one kind's rules. The `key` is one of the keys you
+  just declared in `Objects`.
+- `.build()` returns the evaluator. Name it `access`; every page in this section
+  calls it that.
+
+Inside a block, `p.allow(action, ...conditions)` grants an action when every
+condition holds. `p.eq(a, b)` compares two paths, one reaching into the subject
+and one into the object.
+
+That is the whole minimum configuration. Baize's rule is that the customer who
+asked a question may edit it:
+
+```ts twoslash file=libs/acl/README.md region=first-policy
+
+```
+
+Two calls, two answers. The asker gets `true`. The stranger gets `false`, and
+`reason` is `no-rule-matched`, which is the engine refusing because nothing in
+the document granted the action. You configured no default and got default deny.
+
+If both calls answered the way the comments say, acl is working in your project.
+
+## Where to put the policy, and what to gate on
+
+Build the policy once, at module scope. `.build()` returns a frozen evaluator
+that answers the same way for the life of the process, so a policy rebuilt per
+request runs the whole flattening again and returns the same object.
+
+Gate on `allowed` and nothing else. `reason` is output only: no part of the
+library reads it back to decide anything. So a handler that branches on `reason`
+is writing its own second rule, and that rule will let something through that
+`allowed` said no to.
+
+`access.matrix` is the document your builder produced. Each `.for()` block
+flattened into a flat list of permissions, and `access.matrix` is that list plus
+a version, as plain JSON. It is what crosses a process boundary to a browser.
+[The matrix document](/acl/matrix) teaches the round trip, and you need none of it
+to answer a question inside one process.
+
+## Now that acl answers, ask it properly
+
+[Can this user do this?](/acl/asking) is the next page. It takes the `can` call
+you just wrote and covers the four answers it can give, asking about a list of
+rows in one call, and what a decision carries besides the boolean.
