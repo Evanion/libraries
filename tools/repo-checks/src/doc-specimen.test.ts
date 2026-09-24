@@ -5,22 +5,25 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * G6 of `docs/specs/2026-09-16-documentation-standard.md` § 12: every landing
+ * G6 of `docs/specs/2026-09-25-documentation-standard.md` § 14: every landing
  * specimen is reachable from a section.
  *
  * A component under `apps/docs/components/landing/` that a reader can operate
  * is registered in `mdx-components.js` and mounted on at least one page of
- * `content/`. That is decision 20: the front page is the only entry point that
- * is not a section, so a control reachable from it alone is reachable from one
- * place, and the reader who follows the tile into the section never sees it
- * again. The rule is the same component in both places.
+ * `content/`. § 14's G6 row is the rule; the argument for it is the superseded
+ * `docs/specs/2026-09-16-documentation-standard.md` § 9, decision 20, which this
+ * standard carries as a guard without restating the reasoning: the front page is
+ * the only entry point that is not a section, so a control reachable from it
+ * alone is reachable from one place, and the reader who follows the tile into the
+ * section never sees it again. The rule is the same component in both places.
  *
  * There is no allowance in this guard and no exemption for a section that
- * already carries a probe. § 9 is explicit that a probe is a different and
- * smaller thing than the card, so a probe does not discharge a specimen.
+ * already carries a probe. The superseded standard's § 9 is explicit that a
+ * probe is a different and smaller thing than the card, so a probe does not
+ * discharge a specimen.
  *
  * What it reaches is that the component is registered and that a page names it.
- * Whether the prose around it teaches is § 12's reviewer list.
+ * Whether the prose around it teaches is § 14's reviewer list.
  */
 
 const DOCS = join(workspaceRoot, 'apps/docs');

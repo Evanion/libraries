@@ -14,10 +14,19 @@ import { parseRegions } from '@evanion/doc-examples';
  *
  * That build is slow and runs late. This runs in `nx test`, so a renamed
  * region is caught in seconds rather than at the end of CI.
+ *
+ * The two keys are matched anywhere in the info string rather than immediately
+ * after the language, because a region fence on this site usually carries
+ * `twoslash` between them and an anchored pattern reads none of those fences at
+ * all. `apps/docs/content/acl` alone writes most of its references that way, so
+ * the anchored form left the majority of the site's regions checked by nothing
+ * but `next build`. `mdx-region-loader.mjs` never had the bug; its own
+ * `/(?:^|\s)file=(\S+)\s+region=([\w-]+)/` reads the keys wherever they sit,
+ * which is why the fixtures below pass while the scan above them saw nothing.
  */
 
 const CONTENT = join(workspaceRoot, 'apps/docs/content');
-const REFERENCE = /```\S*\s+file=(\S+)\s+region=([\w-]+)/g;
+const REFERENCE = /^\s*`{3,}[^\n]*\bfile=(\S+)[^\n]*\bregion=([\w-]+)/gm;
 
 function mdxFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -32,6 +41,27 @@ describe('doc region references', () => {
 
   it('finds the docs content', () => {
     expect(pages.length).toBeGreaterThan(0);
+  });
+
+  it('reads the keys past a twoslash marker, which is how most of the site writes them', () => {
+    const source =
+      '```ts twoslash file=libs/urn/README.md region=equality\n```';
+
+    expect(
+      [...source.matchAll(REFERENCE)].map(([, path, name]) => [path, name]),
+    ).toEqual([['libs/urn/README.md', 'equality']]);
+  });
+
+  it('counts the references the site actually carries', () => {
+    const referenced = pages.reduce(
+      (total, page) =>
+        total + [...readFileSync(page, 'utf8').matchAll(REFERENCE)].length,
+      0,
+    );
+
+    // A guard whose scan matches nothing passes every assertion under it. This
+    // is the floor that says the scan is still reading the site.
+    expect(referenced).toBeGreaterThan(50);
   });
 
   it('every referenced file and region exists', () => {

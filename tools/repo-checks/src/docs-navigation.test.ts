@@ -482,12 +482,13 @@ describe('every _meta file', () => {
   });
 
   /**
-   * The other direction, and the one the documentation standard § 12 calls G1.
+   * The other direction, and the one § 14 of the documentation standard calls
+   * G1.
    *
    * Nextra appends a page no `_meta` key names, after the ordered ones, in
    * filename order. Nothing fails, so a page lands in the sidebar in a position
    * nobody chose and the section's reading order stops being the order the
-   * section teaches. The standard's § 2 asks for a cumulative order; an order
+   * section teaches. The standard's § 1 asks for a cumulative order; an order
    * that is not written down cannot be one.
    */
   it('names every page in its directory', async () => {

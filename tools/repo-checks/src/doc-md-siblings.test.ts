@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { mdSiblings } from '@evanion/doc-examples';
 
 /**
- * The agent surface of § 5a of
- * `docs/specs/2026-09-16-documentation-standard.md`: a `.md` file beside every
+ * The agent surface of § 10 of
+ * `docs/specs/2026-09-25-documentation-standard.md`: a `.md` file beside every
  * page, holding the page's markdown with its code fences filled in.
  *
  * The assertion the surface exists for is that the fences are filled. A
@@ -76,7 +76,7 @@ describe('the .md siblings', () => {
   });
 
   it('serves no llms.txt', () => {
-    // § 5a rejects the file on measurement: 97% of the ~38,000 published across
+    // § 10 rejects the file on measurement: 97% of the ~38,000 published across
     // Ahrefs' May 2026 crawl were never requested, and Google states it ignores
     // them. The siblings are the surface, and a second document to keep current
     // is the cost this avoids paying.

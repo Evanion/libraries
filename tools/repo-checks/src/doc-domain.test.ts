@@ -9,16 +9,16 @@ import { describe, expect, it } from 'vitest';
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 
 /**
- * G9 of `docs/specs/2026-09-16-documentation-standard.md` § 12: the abandoned
+ * G9 of `docs/specs/2026-09-25-documentation-standard.md` § 11: the abandoned
  * domain stays abandoned.
  *
- * § 6 puts every example in one domain, the game shop, because vocabulary that
+ * § 11 puts every example in one domain, the game shop, because vocabulary that
  * survives a section boundary is the one thing a journey inside one section
  * cannot buy. This guard is the half of that a test can reach: it names the
  * five nouns the site left behind -- `post`, `comment`, `invoice`, `article`,
  * `blog` -- and fails a section that still uses one as a domain object.
  *
- * Its limit is the one § 12 states and is worth restating here, because a
+ * Its limit is the one § 14 states and is worth restating here, because a
  * passing run reads stronger than it is: a deny list proves an example left the
  * old domain and can never prove it arrived in the new one. Whether an example
  * is set in the shop is a reading, and it is the reviewer's.
@@ -31,7 +31,7 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * prose at all. A stale paragraph naming a removed noun is the residue sweep in
  * `.claude/agents/docs-reviewer.md`, not this.
  *
- * `domainExempt` on the `navigation.ts` entry is the escape § 6 names, for a
+ * `domainExempt` on the `navigation.ts` entry is the escape § 11 names, for a
  * package whose subject has no shop object in it. `compose` carries the only
  * one: its subject is the nesting of a provider tree, and a cart in the middle
  * of a type failure adds a word per line and no meaning.
@@ -47,7 +47,7 @@ const ALLOWANCE = join(
   'doc-domain-allowance.json',
 );
 
-/** The nouns § 12 names, as whole words and in any case. */
+/** The five nouns § 11 abandons, as whole words and in any case. */
 const ABANDONED = /\b(post|comment|invoice|article|blog)s?\b/gi;
 
 /**
@@ -175,8 +175,8 @@ describe('the abandoned domain', () => {
     expect(
       carrying.sort(),
       'A fence, or a region a page renders, still names one of post, comment, ' +
-        'invoice, article or blog. Documentation standard § 6 maps each to a ' +
-        'shop noun. Rename it, or record a `domainExempt` reason on the ' +
+        'invoice, article or blog. Documentation standard § 11 names the shop ' +
+        'noun to use instead. Rename it, or record a `domainExempt` reason on the ' +
         "section's navigation.ts entry. The allowance in " +
         'tools/repo-checks/src/doc-domain-allowance.json only goes down.',
     ).toEqual([]);

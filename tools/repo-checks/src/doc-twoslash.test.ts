@@ -155,7 +155,7 @@ async function releasedRoots(): Promise<string[]> {
  *
  * A fence that imports nothing continues an earlier fence's context and would
  * fail on symbols it never declares. Those carry the documentation standard's
- * § 5 exemption and bringing them under a compiler is separate work.
+ * § 9 exemption and bringing them under a compiler is separate work.
  */
 async function readmeFences(): Promise<Fence[]> {
   const roots = await releasedRoots();

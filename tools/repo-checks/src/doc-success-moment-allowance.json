@@ -1,0 +1,6 @@
+{
+  "compose": ["getting-started"],
+  "nestjs-correlation-id": ["getting-started"],
+  "react-acl": ["getting-started"],
+  "react-widget": ["getting-started", "playground"]
+}

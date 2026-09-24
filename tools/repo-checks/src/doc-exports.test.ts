@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest';
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 
 /**
- * G5 of `docs/specs/2026-09-16-documentation-standard.md` § 12: no fence
- * imports a name its package does not export.
+ * G5 of `docs/specs/2026-09-25-documentation-standard.md` § 8 and § 14: no
+ * fence imports a name its package does not export.
  *
  * A fence naming a symbol that was renamed or never existed is the failure that
  * costs a reader the most, because the example looks right and the error the
@@ -24,17 +24,17 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  *
  * - The named bindings of every `import … from '@evanion/…'` in any fence.
  * - The `@evanion/…` references in a `mermaid` fence, package and symbol.
- * - The symbol a `signature` fence documents, which § 12 fixes as the backticked
+ * - The symbol a `signature` fence documents, which § 8 fixes as the backticked
  *   text of the `##` heading the fence sits under.
  *
  * What a `signature` fence says inside the block is not read. A signature is
  * full of identifiers no package exports -- `string`, `Date`, `Promise`, a
  * parameter called `now` -- and separating those from a package type needs a
  * list of every TypeScript built-in, which goes stale in the direction that
- * produces false failures. § 12 names that gap and decision 21 is what closes
- * it, by emitting the block from the declarations.
+ * produces false failures. § 14 names that gap, and what closes it is emitting
+ * the block from the declarations rather than hand-writing it.
  *
- * Two more things this reaches past, and both are wider than § 12 says:
+ * Two more things this reaches past, and both are wider than § 8 says:
  *
  * An entry point that is not TypeScript has no export list to hold anything to.
  * `@evanion/astro-widget` publishes `./components/*` as `.astro` files, so a
@@ -44,7 +44,7 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  *
  * The `mermaid` extension matches `@evanion/<package>` and an attached
  * `.Symbol` or `#Symbol`, which is the only spelling that names both halves.
- * § 12 does not say how a diagram spells a symbol, so a diagram naming one bare
+ * § 8 does not say how a diagram spells a symbol, so a diagram naming one bare
  * -- a node labelled `hydratePolicy` -- is invisible here. The site's one
  * diagram names no symbol at all, so the extension catches nothing today and
  * will keep catching nothing until the spelling is decided.
@@ -358,7 +358,7 @@ describe('fences that name a package export', () => {
    * A diagram naming a symbol is the one place a rename leaves no compile error
    * behind, because a `mermaid` fence is drawn rather than run. It catches a
    * renamed symbol and it says nothing about whether the diagram is still true;
-   * § 12 lists that as a reading.
+   * § 14 lists that as a reading.
    */
   it('names only packages and exports in a mermaid diagram', async () => {
     const diagrams = all.filter(

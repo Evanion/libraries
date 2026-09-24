@@ -1,5 +1,5 @@
 /**
- * Wraps a fence carrying one of section 5's exemption tags in `<Listing>`.
+ * Wraps a fence carrying one of section 9's exemption tags in `<Listing>`.
  *
  *     ```astro no-run
  *     ---
@@ -10,12 +10,13 @@
  * becomes a `<Listing mark="no-run">` around the same fence, so the block still
  * highlights as `astro` and carries a mark saying nothing ran it.
  *
- * `docs/specs/2026-09-16-documentation-standard.md` § 5 makes this a
+ * `docs/specs/2026-09-25-documentation-standard.md` § 9 makes this a
  * prerequisite rather than a nicety: it grants five tags that let a fence out of
- * the executed-region rule, and says in the same paragraph that a reader cannot
- * currently tell nine hand-written fences from one executed one, so the site
- * "needs one before the exemptions are safe to grant". Rust marks a listing that
- * does not compile with a Ferris icon; this is that, in the site's own type.
+ * the executed-region rule, and a reader who cannot tell nine hand-written
+ * fences from one executed one gets nothing from the grant. The superseded
+ * standard's § 5 carries the sentence, that the site "needs one before the
+ * exemptions are safe to grant". Rust marks a listing that does not compile with
+ * a Ferris icon; this is that, in the site's own type.
  *
  * The tag stays on the fence rather than moving into the component's props,
  * because the fence is what `tools/repo-checks/src/doc-fence.test.ts` counts and
@@ -27,7 +28,7 @@
  * config carrying a function.
  */
 
-/** Section 5's closed list, with what each one tells the reader. */
+/** Section 9's closed list, with what each one tells the reader. */
 const MARKS = new Set([
   'signature',
   'no-run',

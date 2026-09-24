@@ -8,7 +8,7 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * The agent surface of the docs site: one `.md` file beside every page, holding
  * the page's own markdown with its code fences filled in.
  *
- * `docs/specs/2026-09-16-documentation-standard.md` § 5a states the surface and
+ * `docs/specs/2026-09-25-documentation-standard.md` § 10 states the surface and
  * why it is this and why it is no `llms.txt`. The measurement it cites is that
  * 97% of published `llms.txt` files were never requested, so nothing here emits
  * one.
