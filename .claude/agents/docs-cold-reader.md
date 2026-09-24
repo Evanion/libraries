@@ -42,8 +42,28 @@ already knows the term. There is no version of this brief that is improved by
 more context. If you want a review against the rules, that is
 `.claude/agents/docs-reviewer.md`, and it is a different agent on purpose.
 
-If a page's code fence is empty, say so and move on. The fences are filled at
-build time and you are reading source; an empty fence is not a defect you found.
+**Read the built page, not the `.mdx` source.** A content fence is empty in
+source and the build fills it from a package README, so a reader of the source
+sees a page with no code on it and reports that as the defect. It is not the
+defect; it is you reading the wrong artifact, and a run that makes that mistake
+spends most of its findings on it.
+
+Build the docs first and read the `.md` sibling the build writes beside each
+page, which carries the same prose with every region inlined:
+
+```
+npx nx run docs:build
+```
+
+Then read `apps/docs/out/<section>/<page>.md`. If the sibling does not exist,
+say so in your report and read the `.mdx`, and say in every finding about a fence
+that you never saw its contents.
+
+**Your context may arrive contaminated and you should say so.** The harness
+injects a directory's `AGENTS.md` and `CLAUDE.md` when you open a file under it,
+and `apps/docs/AGENTS.md` describes the page stages and names the standard. You
+cannot prevent that. Report it in your first line when it happens, so the person
+reading you knows which parts of your ignorance survived.
 
 ## What to report
 

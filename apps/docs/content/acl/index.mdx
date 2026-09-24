@@ -7,15 +7,16 @@ checks them again, and the two copies drift the first time somebody edits one.
 
 ## How acl thinks about a permission
 
-acl keeps every rule in one JSON document, called the matrix. The process that
-owns the rules writes the document. Any process holding the document can answer
-from it, with no call back to the process that wrote it.
+Four names carry this section, and the picture below uses all four. `policy()`
+writes the rules and `.build()` returns an evaluator over the finished document,
+which this documentation always calls `access`. `access.can` is how you ask that
+evaluator a question. `access.matrix` is the document itself, a plain value that
+survives `JSON.stringify`. `hydratePolicy` takes that value on the other side of
+a process boundary and returns an evaluator again.
 
-Three names carry that sentence, and the picture below uses all three.
-`policy()` writes the document and returns an evaluator over it, which this
-documentation always calls `access`. `access.matrix` is the document itself, and
-it is a plain value that survives `JSON.stringify`. `hydratePolicy` takes that
-value on the other side of a process boundary and returns an evaluator again.
+acl keeps every rule in that one JSON document, called the matrix. The process
+that owns the rules writes it. Any process holding it can answer from it, with
+no call back to the process that wrote it.
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -26,8 +27,9 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-Every answer is a local function call over a frozen object. Nothing waits on a
-network round trip, and nothing keeps a per-subject snapshot in step.
+acl answers inside the process that asked. No request leaves your server, and
+nothing has to be invalidated when you change a rule, because the rule and the
+answer are the same object.
 
 A question to acl looks like this. Baize, a board game shop, lets the customer
 who asked a question edit it:
@@ -41,7 +43,7 @@ kind, an action, and the row the action is aimed at.
 
 ## The acl vocabulary
 
-Five words carry the rest of this section.
+Six words carry the rest of this section.
 
 - A **subject** is who is acting. The server resolves it before the call.
 - An **object** is what is being acted on: a kind, like `question`, and
@@ -52,9 +54,13 @@ Five words carry the rest of this section.
   conditions, and a rule matches when all of them hold.
 - The **matrix** is the whole document: a JSON envelope over a flat list of
   permissions, with a version and an optional schema.
+- An **evaluator** answers questions from one document. `policy().build()`
+  returns one and `hydratePolicy` returns one, and this documentation always
+  calls it `access`.
 
-A **decision** is what comes back. `allowed` is the answer and nothing else is.
-`reason`, `rule` and `missing` say why, and they are output only.
+A **decision** is what comes back from `access.can`. `allowed` is the answer and
+nothing else is. `reason`, `rule` and `missing` say why, and they are output
+only.
 
 ## What acl can do
 
@@ -86,7 +92,7 @@ acl does not do these four jobs, and none of them is on a roadmap.
 - A non-JS backend. Only the JSON crosses, and a .NET or Go service brings its
   own evaluator.
 
-[What `@evanion/acl` does not do](/acl/limits) carries four more questions the
+[What `@evanion/acl` does not do](/acl/limits) carries five more questions the
 model cannot answer, each with the mechanism behind it. Read it before you build
 on this library.
 
