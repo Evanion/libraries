@@ -25,7 +25,13 @@ your process.
 
 ## Install acl
 
-<WorkshopNotice slug="acl" />
+<WorkshopNotice slug="acl">
+  <Text as="div" size="sm">
+    Until it publishes, the way to run this page is inside this repository,
+    where `@evanion/acl` resolves from source like any other workspace package.
+    The commands below are what to run once it is on the registry.
+  </Text>
+</WorkshopNotice>
 
 Pick the line for your package manager.
 
@@ -41,7 +47,7 @@ yarn add @evanion/acl
 pnpm add @evanion/acl
 ```
 
-Nothing else enters the import graph. The `@evanion/acl` entry point imports no
+The `@evanion/acl` entry point imports no
 framework, and the React provider and hooks are a separate package,
 [`@evanion/react-acl`](/react-acl).
 
@@ -58,9 +64,11 @@ A policy needs three calls and nothing else.
 - `.build()` returns the evaluator. Name it `access`; every page in this section
   calls it that.
 
-Inside a block, `p.allow(action, ...conditions)` grants an action when every
-condition holds. `p.eq(a, b)` compares two paths, one reaching into the subject
-and one into the object.
+`.for()` hands your block one argument, conventionally `p`, and every condition
+comes off it. `p.allow(action, ...conditions)` grants an action when every
+condition holds. `p.eq(a, b)` compares two values named by path, and a path is a
+string rooted at `subject` or at `object`: `p.eq('object.askedBy', 'subject.id')`
+reads `askedBy` off the row and `id` off the subject and asks whether they match.
 
 That is the whole minimum configuration. Baize's rule is that the customer who
 asked a question may edit it:
@@ -69,28 +77,22 @@ asked a question may edit it:
 
 ```
 
-Two calls, two answers. The asker gets `true`. The stranger gets `false`, and
+Two questions, two answers. The asker gets `true`. The stranger gets `false`, and
 `reason` is `no-rule-matched`, which is the engine refusing because nothing in
 the document granted the action. You configured no default and got default deny.
 
 If both calls answered the way the comments say, acl is working in your project.
 
-## Where to put the policy, and what to gate on
+## Two rules for the code around it
 
-Build the policy once, at module scope. `.build()` returns a frozen evaluator
-that answers the same way for the life of the process, so a policy rebuilt per
-request runs the whole flattening again and returns the same object.
+Build the policy once, at module scope. `.build()` reads the whole document and
+freezes it, and a policy rebuilt per request does that work again for an
+evaluator that answers identically.
 
 Gate on `allowed` and nothing else. `reason` is output only: no part of the
 library reads it back to decide anything. So a handler that branches on `reason`
 is writing its own second rule, and that rule will let something through that
 `allowed` said no to.
-
-`access.matrix` is the document your builder produced. Each `.for()` block
-flattened into a flat list of permissions, and `access.matrix` is that list plus
-a version, as plain JSON. It is what crosses a process boundary to a browser.
-[The matrix document](/acl/matrix) teaches the round trip, and you need none of it
-to answer a question inside one process.
 
 ## Now that acl answers, ask it properly
 

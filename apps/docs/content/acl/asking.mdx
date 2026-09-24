@@ -18,9 +18,9 @@ returns a decision your handler gates on and your screen renders.
 
 ## The problem one acl call solves
 
-A customer clicks Edit on a question somebody else asked. Two places need an
-answer, and they need the same one: the save handler has to refuse, and the Edit
-button had to be grey before the click.
+A customer clicks Edit on a question somebody else asked. Two places need the
+same answer. The save handler has to refuse, and the Edit button had to be grey
+before the click.
 
 One `can` call answers both, because it returns more than a boolean. The handler
 reads one field of the decision and the button reads three others, so the two
@@ -28,33 +28,40 @@ cannot disagree about whether the edit was allowed.
 
 ## The four answers an acl decision comes back in
 
-[Getting started](/acl/getting-started) showed two of them, `allow` and
-`no-rule-matched`. There are four, and one policy produces all four. This one
-grants the asker and denies a locked question:
+A decision's `reason` names which branch of the engine answered. Two of them,
+`allow` and `no-rule-matched`, came out of the first policy you wrote. There are
+four, and one policy produces all four.
+
+`p.deny(action, ...conditions)` is the other half of a block, and it refuses when
+its conditions hold. The policy below grants the asker with `p.allow` and refuses
+a locked question with `p.deny`:
 
 ```ts twoslash file=libs/acl/README.md region=four-outcomes
 
 ```
 
-Read the four in the order the engine reaches them.
-
 - `allow`. An allow rule matched and no deny rule did.
 - `no-rule-matched`. Nothing granted the action. This is default deny and you
   configure nothing to get it: no rules, an empty rule list and an unknown
   action all land here.
-- `denied`. An allow rule matched and a deny rule matched too. A matched deny
-  outranks a matching allow, always.
+- `denied`. A deny rule matched. The engine reads the deny side first, so a
+  matched deny answers whatever the allow side would have said.
 - `unevaluable`. The engine could not read a path a rule needs, so the
   permission is not answerable yet. `missing` names the paths.
+
+Those four are a teaching order rather than the engine's.
+[Why deny, then allow, then deny?](/acl/resolution) carries the precedence the
+engine actually walks.
 
 `allowed` is `false` for the last three, so a handler gating on `allowed` alone
 is correct for all four.
 
 ## Why an acl decision is not a boolean
 
-A boolean tells the handler whether to run the save and tells the Edit button
-nothing. A component holding only `true` or `false` explains a greyed-out button
-by calling again or by guessing a string from context.
+A boolean tells the save handler whether to write the question and tells the
+Edit button above it nothing. A component holding only `true` or `false`
+explains a greyed-out button by calling `can` again or by guessing a string from
+context.
 
 ```mermaid caption="One call, two consumers. The handler gates on allowed and reads nothing else; the Edit button reads reason, rule and missing to say why it is greyed out. Both read the same decision, so the two cannot disagree."
 flowchart LR
@@ -72,9 +79,10 @@ Three fields carry the explanation, and all three are output only.
 | `missing` | the paths the engine could not read                    | `unevaluable`                       |
 
 A permission holds allow rules and deny rules, and the engine reads the deny
-rules first. That is why `rule` is sometimes absent on an `unevaluable`: a deny
-rule the engine could not read names itself, and an allow rule the engine could
-not read does not, because no single rule failed. `missing` is there either way,
+rules first. That is why `rule` is sometimes absent on an `unevaluable`. One deny
+rule refuses on its own, so the engine can name the one it could not read. The
+allow rules are alternatives and any of them grants, so when the engine cannot
+read them there is no single rule at fault to name. `missing` arrives either way,
 so the refetch is the same.
 
 Three more `reason` strings exist and none of them comes out of the policy on
@@ -101,8 +109,9 @@ the second call is the only extra query. Both answers are `allowed: false`, so a
 handler gating on `allowed` is right either way.
 
 `access.readsObject(kind, action)` answers from the document whether a permission
-needs the row at all. Ask it before the query when you want to know which kind of
-permission you are about to ask about.
+reads the row at all. A permission whose rules read only the subject answers
+without one, so ask `readsObject` before the query and skip the fetch when it
+says `false`.
 
 The subject has no partial form. An absent `subject.*` path is a definite miss,
 not something to fetch, so a projected subject refuses with `no-rule-matched` and
@@ -110,7 +119,7 @@ names nothing. Your app resolves the subject whole before the call.
 
 ## Asking acl about a page of rows
 
-`canMany` takes the instances and answers per instance:
+`canMany` takes the rows and answers per row:
 
 ```ts twoslash file=libs/acl/README.md region=can-many
 
@@ -120,7 +129,7 @@ The array is parallel to the input, so the decision for `rows[i]` is
 `decisions[i]`. Nothing is filtered out and a refused row keeps its entry, which
 is what lets the table draw the refusal beside the row.
 
-`canMany` is not a bulk optimisation. It decides each instance separately,
+`canMany` is not a bulk optimisation. It decides each row separately,
 because the rules read the object and the objects differ. Two things it does once
 for the whole list where a loop of `can` does them per row:
 
@@ -143,10 +152,8 @@ object kind. They are alternatives, so bind whichever axis your call sites repea
 [Rules that read the subject](/acl/simple) shows `authorize` bound over a real
 policy, which is where the worked example lives.
 
-## Where to go next
+## Now that you can ask, read the answer properly
 
-- [Why was this refused?](/acl/refusals). The explanation fields, and what a UI
-  does with each.
-- [What can they do at all?](/acl/capabilities). The same question with no row in
-  hand.
-- [Caveats and pitfalls](/acl/pitfalls). Start with what `allowed` means.
+[Why was this refused?](/acl/refusals) takes the three explanation fields you
+just met and shows what a screen does with each, including the `unevaluable` a
+reader can repair.
