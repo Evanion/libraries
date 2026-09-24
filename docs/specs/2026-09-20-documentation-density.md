@@ -10,9 +10,14 @@ below as refuted and the rest as open. Decisions 2 to 10 speak about teaching
 pages, which that document does not cover, and G8 still holds every page type to
 the one 1,200-word budget.
 
-This document was written on `docs/density-study` and reached `main` on
-2026-09-24 without the five `apps/docs/content/feature/*.mdx` edits that sat
-beside it on that branch.
+This document was written on `docs/density-study`, without the five
+`apps/docs/content/feature/*.mdx` edits that sat beside it on that branch. An
+earlier revision of this paragraph said it reached `main` on 2026-09-24. It did
+not: the commit sat on `docs/density-study` and then on `docs/prose-density-spec`
+and `main` never carried the file. It reaches `main` through
+`docs/documentation-standard-journey`, cherry-picked there on 2026-09-25 so that
+`docs/specs/2026-09-25-documentation-standard.md` can cite decisions 2 to 10 at a
+path that exists.
 
 Depends on: `docs/specs/2026-09-16-documentation-standard.md` (§ 5 owns the
 1,200-word prose budget and the page types; decisions 1 and 2 below replace one

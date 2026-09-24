@@ -1,6 +1,33 @@
 # The documentation standard
 
-Status: proposed
+Status: **superseded on 2026-09-25 by
+`docs/specs/2026-09-25-documentation-standard.md`**, which replaces this document
+in full. Read that one for anything you are about to write or check. This file is
+kept because the repository keeps a superseded spec and records the supersession,
+the way `docs/specs/2026-09-20-documentation-prose-craft.md` does, and because
+the argument behind several rules is here and is not repeated there.
+
+What the replacement changed, so a reader who arrives here from an old citation
+knows whether this page still answers their question:
+
+- The journey is three stages, Overview then Setup then feature deep-dives,
+  rather than the teaching-page and reference-page split of § 2. The split
+  survives inside the new document as the arrival test for a page entered
+  sideways.
+- The four-part brief that 30 pages carry is deleted, and nothing fixed replaces
+  it. New § 5.
+- Decision 9, the 1,200-word prose budget, is retired along with G8, the guard
+  that reported it. New § 7 and § 14 carry the reason.
+- § 4's page-type floor, § 5's runnable requirement and exemption tags, § 5a's
+  self-containment and `.md` sibling, § 6's domain, § 8's ordering and § 12's
+  guard definitions are carried forward, renumbered. Every guard docblock now
+  cites the new document's section.
+- A success moment is a new requirement, on a page whose reader builds something.
+  New § 6.
+
+Nothing here is deleted, and the section numbers below are the ones every
+pre-2026-09-25 citation means.
+
 Depends on: `2026-09-13-interactive-examples.md` (the probe, the three kinds of
 example, and the per-package verdict this standard promotes from a one-off
 judgement into a rule), `tools/doc-examples` (the region loader and the
