@@ -17,6 +17,44 @@ consumer owns, is the [security contract](#security-contract).
 npm install @evanion/acl
 ```
 
+ESM only. Node 20 or newer. Nothing else enters the import graph.
+
+## The first policy
+
+The smallest policy that answers a question, and the two answers it gives.
+Baize, a board game shop, lets the customer who asked a question edit it and
+nobody else:
+
+<!-- #region first-policy -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { id: string; askedBy: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
+  )
+  .build();
+
+const asker = { id: 'customer-41' };
+const question = { id: 'q7', askedBy: 'customer-41' };
+
+access.can(asker, 'question', 'update', question).allowed; // -> true
+
+const stranger = { id: 'customer-92' };
+
+access.can(stranger, 'question', 'update', question).allowed; // -> false
+access.can(stranger, 'question', 'update', question).reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion first-policy -->
+
+`allowed` is the answer and `reason` says which branch of the engine produced
+it. `no-rule-matched` is the default deny: nothing in the document granted the
+stranger the action, so the engine refused without any rule saying to.
+
 ## Quick start
 
 Three entry points, split by where the document came from:
