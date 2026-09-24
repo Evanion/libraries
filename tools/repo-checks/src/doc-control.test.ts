@@ -6,22 +6,22 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * G4 of `docs/specs/2026-09-16-documentation-standard.md` § 12: every section
- * has a control.
+ * G4 of `docs/specs/2026-09-25-documentation-standard.md` § 9 and § 14: every
+ * section has a control.
  *
  * The page named by `demo` in `apps/docs/app/navigation.ts` mounts one of the
- * site's controls, unless that entry carries a `demoExempt` reason. § 5 names
+ * site's controls, unless that entry carries a `demoExempt` reason. § 9 names
  * the cases where a control is not achievable — a running server, a compile
  * step with no browser runtime, a trust boundary — and a section granted one
  * says so on the page as well, which a guard cannot read.
  *
  * What this reaches is that a control is mounted. Whether the prose around it
- * teaches, and whether the control teaches or is a toy, are readings § 12 lists
- * as resting on a reviewer. It is a per-section floor and it is blind to § 7's
+ * teaches, and whether the control teaches or is a toy, are readings § 14 lists
+ * as resting on a reviewer. It is a per-section floor and it is blind to § 9's
  * per-page rule that a page introducing a concept carries a control of its own.
  *
  * `doc-control-allowance.json` is the ratchet, on the same mechanism as
- * `doc-prose-budget.json`. An allowance is a control that is coming, with the
+ * `doc-fence-allowance.json`. An allowance is a control that is coming, with the
  * step it comes in; a `demoExempt` is a control that is not coming. Keeping the
  * two apart is the point of having both: an allowance is removed when the
  * component lands, and an exemption is argued once and stays.
@@ -52,7 +52,7 @@ const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
  * The controls a demonstration page may mount.
  *
  * The three general ones are named, and the landing specimens are read out of
- * `mdx-components.js` rather than listed, because decision 20 is what puts a
+ * `mdx-components.js` rather than listed, because registration is what puts a
  * specimen on the map in the first place: a component under
  * `components/landing/` that is not registered there cannot be mounted on a
  * page at all, so the map is the set.

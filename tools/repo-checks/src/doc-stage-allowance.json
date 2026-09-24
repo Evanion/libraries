@@ -1,0 +1,7 @@
+{
+  "astro-widget": ["index", "getting-started"],
+  "luhn": ["index"],
+  "nestjs-correlation-id": ["index", "getting-started"],
+  "token": ["index"],
+  "urn": ["index"]
+}

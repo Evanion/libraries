@@ -6,7 +6,7 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * G2 of `docs/specs/2026-09-16-documentation-standard.md` § 12: the floor.
+ * G2 of `docs/specs/2026-09-25-documentation-standard.md` § 14: the floor.
  *
  * Every documented section has an overview, a getting-started page, an API
  * reference, and a demonstration. The first three are filenames. The fourth is
@@ -15,16 +15,25 @@ import { describe, expect, it } from 'vitest';
  * `apps/docs/app/navigation.ts` carries it as `demo`. That field is also what
  * gives `doc-control.test.ts` its target.
  *
- * § 4 lets a section of five pages or fewer put the demonstration role on
+ * The four roles and the five-page allowance are § 7's carry-forward paragraph,
+ * which keeps them from the old standard's § 4 because three guards read them:
+ * a section of five pages or fewer may put the demonstration role on
  * `getting-started`, because below that a separate page splits a concept from
  * its own practice. Above five pages the role owes a page of its own, and this
  * guard holds that bound.
  *
+ * `getting-started.mdx` is what § 3 makes stage 2 of a reader's journey: the
+ * page that carries the prerequisites, the install command, the minimum
+ * configuration that runs and one result the reader sees. So the page this
+ * guard asks for is not a filename a table happened to name -- it is the one
+ * page in a section where a reader has spent effort and received nothing yet,
+ * and `doc-success-moment.test.ts` holds it to the result.
+ *
  * `doc-floor-allowance.json` is the ratchet, on the same mechanism as
- * `doc-prose-budget.json`: a section short of a floor page records which role
- * it is short of, the guard fails on anything not recorded, and an entry is
- * removed rather than edited once the page lands. § 13 steps 9, 10 and 11 are
- * where the recorded ones are written.
+ * `doc-fence-allowance.json`: a section short of a floor page records which
+ * role it is short of, the guard fails on anything not recorded, and an entry
+ * is removed rather than edited once the page lands. § 15 is where the order
+ * they come off in is written.
  */
 
 const CONTENT = join(workspaceRoot, 'apps/docs/content');

@@ -6,14 +6,14 @@ import './listing.css';
  * A code block with a mark saying what was, or was not, done to it.
  *
  * An author does not write this tag. `tools/mdx-listing-loader.mjs` wraps a
- * fence carrying one of documentation standard § 5's five exemption tags in
+ * fence carrying one of documentation standard § 9's five exemption tags in
  * one, so the fence keeps its language and its highlighting and the reader gets
  * the sentence that fence is missing.
  *
- * § 5 grants the tags and makes the mark a condition of granting them: "a reader
- * cannot currently tell `acl/pitfalls`'s nine hand-written fences from
- * `acl/index`'s one executed one", and the tags widen that gap rather than
- * closing it. Rust puts a Ferris icon on a listing that does not compile; this
+ * The mark is a condition of granting the tags, and the superseded standard's
+ * § 5 is where that condition was argued: "a reader cannot currently tell
+ * `acl/pitfalls`'s nine hand-written fences from `acl/index`'s one executed
+ * one", and the tags widen that gap rather than closing it. Rust puts a Ferris icon on a listing that does not compile; this
  * is the same move in type, because this site has no mascot and a line of words
  * survives being read aloud.
  *

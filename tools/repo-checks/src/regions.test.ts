@@ -117,9 +117,12 @@ describe('parseRegions', () => {
 });
 
 /**
- * Decision 17 of `docs/specs/2026-09-16-documentation-standard.md`: a region in
- * a `.ts` or `.tsx` source, so a type-level claim asserted in a `*.test-d.ts`
- * file can be the example a page renders.
+ * `docs/specs/2026-09-25-documentation-standard.md` § 9 and its decision 9 make
+ * `file=… region=…` the only way a TypeScript example reaches a page. A region
+ * in a `.ts` or `.tsx` source is what lets a type-level claim asserted in a
+ * `*.test-d.ts` file be that example. § 9 does not spell out which file kinds
+ * hold a region; the superseded standard's decision 17 is where the `.ts` and
+ * `.tsx` case was argued.
  *
  * The markers are line comments and the extension picks them, so one
  * `parseRegions` serves both and a page's `file=` reference says which by

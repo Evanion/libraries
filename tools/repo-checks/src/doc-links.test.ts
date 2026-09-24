@@ -6,7 +6,7 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * G7 of `docs/specs/2026-09-16-documentation-standard.md` § 12: an internal
+ * G7 of `docs/specs/2026-09-25-documentation-standard.md` § 14: an internal
  * link resolves.
  *
  * Nextra fails a build on a `_meta` key naming a page it cannot find and says
@@ -14,9 +14,8 @@ import { describe, expect, it } from 'vitest';
  * behind every cross-reference to it, and the only thing that finds one is a
  * reader clicking it.
  *
- * § 13 puts this at step 2 so that it is already running when
- * `acl/integrations/` becomes a Platforms band: a link guard that arrives after
- * a URL move has watched nothing.
+ * It runs before `acl/integrations/` becomes a Platforms band, because a link
+ * guard that arrives after a URL move has watched nothing.
  *
  * What is checked is the path. The fragment is not: a heading's anchor is
  * produced by Nextra's slugger during the build, and reproducing that here is a

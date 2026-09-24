@@ -6,12 +6,13 @@ import { describe, expect, it } from 'vitest';
 import { markListings } from '../../tools/mdx-listing-loader.mjs';
 
 /**
- * The mark documentation standard § 5 makes a condition of its exemption tags.
+ * The mark the documentation standard makes a condition of its exemption tags.
  *
- * § 5 grants five tags that let a fence out of the executed-region rule, and in
- * the same paragraph says the site "needs" a rendered mark "before the
- * exemptions are safe to grant", because a reader cannot otherwise tell a
- * hand-written fence from an executed one. The loader is what puts it there and
+ * § 9 grants five tags that let a fence out of the executed-region rule. The
+ * superseded standard's § 5 granted the same five and said in the same paragraph
+ * that the site "needs" a rendered mark "before the exemptions are safe to
+ * grant", because a reader cannot otherwise tell a hand-written fence from an
+ * executed one. The loader is what puts it there and
  * this is what holds it to every tagged fence on the site.
  */
 
@@ -74,7 +75,7 @@ describe('the listing mark', () => {
 
     expect(
       unmarked.sort(),
-      "A fence carrying one of documentation standard § 5's exemption tags " +
+      "A fence carrying one of documentation standard § 9's exemption tags " +
         'has to reach the reader with the mark that says so. Check ' +
         'tools/mdx-listing-loader.mjs against the fence.',
     ).toEqual([]);

@@ -63,12 +63,15 @@ const themeComponents = getThemeComponents();
  * components, so a caller can override a theme element and cannot shadow one of
  * these with it.
  *
- * The landing specimens are here for decision 20 of
- * `docs/specs/2026-09-16-documentation-standard.md` § 9: a control a reader can
- * operate belongs both on the front page, where it sells the package, and on
- * the section's demonstration page, where the reader has the explanation around
- * it. They are the same components the landing page renders, so there is one of
- * each and one test. `landing.css` is imported beside them because the landing
+ * The landing specimens are here for the G6 row of
+ * `docs/specs/2026-09-25-documentation-standard.md` § 14, which keeps the guard
+ * and not the argument: a control a reader can operate belongs both on the front
+ * page, where it sells the package, and on the section's demonstration page,
+ * where the reader has the explanation around it. That argument about front-page
+ * placement is decision 20 of the superseded
+ * `docs/specs/2026-09-16-documentation-standard.md` § 9, and the new standard
+ * carries no section about the front page. They are the same components the
+ * landing page renders, so there is one of each and one test. `landing.css` is imported beside them because the landing
  * page imports it for itself and a specimen mounted anywhere else would arrive
  * unstyled.
  *

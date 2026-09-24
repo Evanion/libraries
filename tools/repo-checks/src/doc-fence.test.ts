@@ -6,41 +6,40 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * G3 of `docs/specs/2026-09-16-documentation-standard.md` § 12: no unexplained
- * fence.
+ * G3 of `docs/specs/2026-09-25-documentation-standard.md` § 9 and § 14: no
+ * unexplained fence.
  *
- * § 5 states the rule. A fence in `apps/docs/content/` is a `file=… region=…`
+ * § 9 states the rule. A fence in `apps/docs/content/` is a `file=… region=…`
  * reference to a doctested region, a shell command, or a block carrying one of
  * five exemption tags, and a hand-written `ts` fence with none of the three is
  * a sample nothing ran and nothing says so.
  *
- * § 5 adds that there is no fourth case. Two constants below are fourth cases,
+ * § 9 adds that there is no fourth case. Two constants below are fourth cases,
  * each with the tree that forced it written beside it: a `mermaid` fence, whose
- * spec landed after § 5 was written, and a `twoslash` fence, which the pilot
+ * spec landed after the rule was written, and a `twoslash` fence, which the pilot
  * section ships six of and which two compilers check.
  *
- * `doc-fence-allowance.json` is the ratchet, on the mechanism
- * `doc-prose-budget.json` and `doc-control-allowance.json` already use: a
- * section carries the number of unexplained fences it has today, and the guard
- * fails when that number goes up. § 13 starts it at step 10 and it runs down
- * one section at a time, because converting a fence means wiring doctest into
+ * `doc-fence-allowance.json` is the ratchet, and `doc-control-allowance.json`
+ * uses the same mechanism: a section carries the number of unexplained fences
+ * it has today, and the guard fails when that number goes up. It runs down one
+ * section at a time, because converting a fence means wiring doctest into
  * the package behind it rather than editing the page.
  *
  * Two things this reaches that a reader cannot:
  *
  * - The count per section, which is the ratchet.
  * - `anti-example` and `no-run` outnumbering the section's executed regions,
- *   which § 5 names as the abuse to expect: they are the two tags a writer
+ *   which § 9 names as the abuse to expect: they are the two tags a writer
  *   reaches for when the alternative is wiring doctest into a package.
  *
  * What it does not reach: whether a region a fence cites shows what the prose
  * above it claims. `doc-regions.test.ts` holds the region to existing and
- * `doc-twoslash.test.ts` compiles it; that the two agree is a reading § 12
+ * `doc-twoslash.test.ts` compiles it; that the two agree is a reading § 14
  * lists as the reviewer's.
  *
  * A fence carrying no info string at all -- the thrown error messages several
  * pages print -- is counted. It is not code, so none of the five tags fits it
- * honestly, and § 5's list is closed and not this guard's to extend. Counting
+ * honestly, and § 9's list is closed and not this guard's to extend. Counting
  * it keeps the number true and the ratchet absorbs it; a tag for output is a
  * change to the standard first.
  */
@@ -51,7 +50,7 @@ const ALLOWANCE = join(
   'doc-fence-allowance.json',
 );
 
-/** § 5's closed list of exemption tags, and nothing beside it. */
+/** § 9's closed list of exemption tags, and nothing beside it. */
 const TAGS = [
   'signature',
   'no-run',
@@ -60,7 +59,7 @@ const TAGS = [
   'elided',
 ];
 
-/** The tags § 5 expects to be abused, and which this guard counts separately. */
+/** The tags § 9 expects to be abused, and which this guard counts separately. */
 const ABUSABLE = ['anti-example', 'no-run'];
 
 /** A command line is a command line; nothing here pretends to run one. */
@@ -71,15 +70,15 @@ const SHELL = ['bash', 'sh', 'shell', 'console'];
  *
  * `2026-09-16-diagrams.md` owns it, `diagram-captions.test.ts` holds it to a
  * caption, and `apps/docs/components/diagram/diagram.test.ts` renders every one
- * on the site. § 5's three cases were written before that spec shipped, and
+ * on the site. § 9's three cases were written before that spec shipped, and
  * asking a picture to name a region would be asking it to be a different thing.
  */
 const DIAGRAM = 'mermaid';
 
 /**
- * A `twoslash` fence is compiled, which § 5's three cases do not account for.
+ * A `twoslash` fence is compiled, which § 9's three cases do not account for.
  *
- * § 5 says there is no fourth case, and the tree says otherwise: `compose` was
+ * § 9 says there is no fourth case, and the tree says otherwise: `compose` was
  * written to this standard and `compose/type-checking.mdx` carries six bare
  * `twoslash` fences, each declaring an `// @errors:` list. Nextra compiles them
  * during `next build` and `doc-twoslash.test.ts` compiles them again in
@@ -142,7 +141,7 @@ function sectionOf(page: string): string {
 }
 
 interface Tally {
-  /** Fences with none of § 5's three cases. */
+  /** Fences with none of § 9's three cases. */
   unexplained: number;
   /** Fences citing a doctested region. */
   regions: number;
@@ -214,7 +213,7 @@ describe('an unexplained fence', () => {
     expect(
       risen.sort(),
       'A fence with no `file=… region=…`, no shell language and no exemption ' +
-        'tag from documentation standard § 5 is a sample nothing ran. Cite a ' +
+        'tag from documentation standard § 9 is a sample nothing ran. Cite a ' +
         'doctested region, or tag the block. The allowance in ' +
         'tools/repo-checks/src/doc-fence-allowance.json only goes down.',
     ).toEqual([]);
@@ -263,7 +262,7 @@ describe('an unexplained fence', () => {
       lopsided.sort(),
       '`anti-example` and `no-run` are the two tags a writer reaches for when ' +
         'the alternative is wiring doctest into the package, which is why ' +
-        'documentation standard § 5 caps them at the number of regions the ' +
+        'documentation standard § 9 caps them at the number of regions the ' +
         'section actually executes. Wire the package.',
     ).toEqual([]);
   });

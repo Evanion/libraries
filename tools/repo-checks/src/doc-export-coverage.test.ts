@@ -24,8 +24,9 @@ import { entriesOf, exportsOf, packages } from './released-exports.js';
  * amounts per kind of export.
  *
  * Documented is every export, a type included. The bar is one `##` heading
- * spelling the name, which is what decision 8 of the documentation standard
- * already fixes an API reference's headings as, so a reader searching for the
+ * spelling the name, which is what § 8 of
+ * `docs/specs/2026-09-25-documentation-standard.md` already fixes an API
+ * reference's headings as, so a reader searching for the
  * name lands on an anchor.
  *
  * Exercised is every export a caller can call or construct, which the type
