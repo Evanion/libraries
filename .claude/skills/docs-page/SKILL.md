@@ -7,8 +7,11 @@ description: Use when writing or retrofitting a page in apps/docs — the verifi
 
 The rules live in three specs, and they divide by subject:
 
-- `docs/specs/2026-09-16-documentation-standard.md` decides structure. Which page
-  a thing belongs on, how a section stands alone, how support fades.
+- `docs/specs/2026-09-25-documentation-standard.md` decides structure. Which
+  stage a page is, what that stage owes, how a section stands alone, how support
+  fades. It replaced `docs/specs/2026-09-16-documentation-standard.md`, which is
+  kept and marked superseded; read the old one only for the argument behind a
+  rule the new one states.
 - `docs/specs/2026-09-20-public-documentation-guidance.md` decides sentences.
   Person, tense, mood, paragraph and list length, terminology, notices, the
   refused words. Each rule names the public guide it comes from, or says it is a
@@ -29,8 +32,8 @@ This file is the procedure and the traps. It holds nothing the spec holds.
 
 Three specs govern this area and they defer to each other rather than repeat:
 
-- `docs/specs/2026-09-16-documentation-standard.md` — page shape, teaching
-  order, the runnable requirement, guards, the retrofit order in § 13.
+- `docs/specs/2026-09-25-documentation-standard.md` — the three stages, what each
+  one owes, the runnable requirement, guards, the retrofit order in § 15.
 - `docs/specs/2026-09-16-diagrams.md` — how a diagram is authored and what it
   costs. The standard defers to this one; if they disagree, this one is right.
 - `docs/specs/2026-09-13-released-by-default.md` — what version of a page a
@@ -38,15 +41,70 @@ Three specs govern this area and they defer to each other rather than repeat:
 
 `apps/docs/AGENTS.md` carries the invariants that apply to every page.
 
-## Pick the work from § 13, not from the page list
+## Pick the work from § 15, not from the page list
 
-The retrofit is fourteen ordered steps over 62 pages, and the order is load
-bearing: several steps exist because a later step mounts something an earlier
-one has to create first. Taking a page because it looks easy produces work that
-step 5 or step 11 then rewrites.
+The retrofit is seven ordered steps, and the order is load bearing: several steps
+exist because a later step leans on something an earlier one has to create first.
+Taking a page because it looks easy produces work a later step rewrites.
 
 If you are asked for a page rather than a step, check which step it belongs to
 before starting.
+
+## Work in this order on one page
+
+Four passes, and the order matters because each one makes the next cheaper. The
+common failure is writing the prose first and then hunting for a region that
+happens to match it, which is how a page ends up describing code it does not
+show.
+
+1. **Decide the stage, then find the example.** § 1 to § 4 of the standard say
+   what the page owes. Before writing a sentence, find the region that carries
+   the page's central example, and read it. If no region fits, that is the first
+   piece of work: add one to the package README between `<!-- #region name -->`
+   markers, with `@import.meta.vitest` on the fence so it executes, and a
+   `// -> value` claim on the line whose result the reader should see. Run
+   `npx nx test @evanion/<pkg>` and confirm the README's own test count went up.
+2. **Write the page around the fence.** The prose above a fence and the fence are
+   one claim. Naming the variables in the fence is how you find out whether the
+   prose is true.
+3. **Cut.** Read it once more and delete every sentence that carries no symbol,
+   no number and no named behaviour. `docs/specs/2026-09-20-public-documentation-guidance.md`
+   decision 22 is the test. This pass removes more than it feels like it should.
+4. **Get it read cold.** `.claude/agents/docs-cold-reader.md` reads the page, and
+   the pages a reader met before it, knowing nothing about the library, and
+   reports where it lost the thread and whether the reading felt jarring. Run it
+   over a sequence rather than one page, because half of what it catches is the
+   size of the step between two pages. `.claude/agents/docs-reviewer.md` is the
+   other half and checks the page against the rules with the source open. Neither
+   substitutes for the other.
+
+Steps 1 to 3 are a loop. A page usually goes round twice, and going round a third
+time means the stage was wrong in step 1.
+
+## The success moment, and where it comes from
+
+A page whose reader builds something owes them a result they can see. § 6 of the
+standard is the rule; this is the mechanic.
+
+`tools/doc-examples/src/expect-comments.ts` rewrites `EXPR; // -> VALUE` into
+`expect(EXPR).toEqual(VALUE)`, so the page renders the readable form and CI holds
+the value. Three constraints, each of which has cost somebody a round trip:
+
+- The claim only works inside a README fence carrying `@import.meta.vitest`, or a
+  JSDoc `@example` fence carrying the same marker. A `// -> value` in a `.ts` or
+  `.tsx` `// #region` is inert — `rewriteJsDoc` only looks inside block comments —
+  and nothing warns you. There is no `// ->` line in any source file the site
+  references today, so you would be the first.
+- The package has to call `docExamples()` in its `vite.config.ts`. `acl`,
+  `astro-widget`, `feature`, `luhn`, `token`, `urn` and `widget` do. `compose`,
+  `nestjs-correlation-id`, `react-acl` and `react-widget` do not, and wiring one
+  is package work rather than page work.
+- One line in, one line out. The rewriter cannot add or remove a line, because
+  vite-plugin-doctest maps blocks back by line number. A claim whose value needs
+  two lines throws rather than being skipped.
+
+A rendered result counts too: a control the reader operates is a result they see.
+A screenshot is a description of one and does not count.
 
 ## Verifying
 
@@ -164,6 +222,10 @@ whitespace that prettier collapses.
 
 ## Reporting
 
-Say which step of § 13 the work belongs to, what you ran, and what you did not
-check. A page is not done because it renders — § 7 defines done, and the guards
-in § 12 say which parts of that a test can reach and which rest on a reviewer.
+Say which step of § 15 the work belongs to, what you ran, and what you did not
+check. A page is not done because it renders — § 13 defines done, and § 14 says
+which parts of that a test can reach and which rest on a reviewer.
+
+If you ran the cold reader, include its report verbatim rather than summarising
+it. Its value is in the sentences it quotes, and a summary of "found the Overview
+abstract" is the one finding that cannot be acted on.

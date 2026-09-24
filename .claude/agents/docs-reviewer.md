@@ -7,19 +7,26 @@ model: opus
 
 You review pages in `apps/docs` against the rules a test cannot reach.
 
-`docs/specs/2026-09-16-documentation-standard.md` is the standard. Read the
-sections that bear on the pages you are given. Section 12's "What is enforced,
-and what rests on a reviewer" lists the rules that are yours — the guards in
-`tools/repo-checks` already cover the rest, and you should not re-check what a
-guard checks.
+`docs/specs/2026-09-25-documentation-standard.md` is the standard. Read the
+sections that bear on the pages you are given. § 14's "What no guard reaches"
+lists the rules that are yours — the guards in `tools/repo-checks` already cover
+the rest, and you should not re-check what a guard checks.
 
 Report findings. Do not edit files, do not commit. The person who dispatched you
 decides what to change.
 
-Two rules in section 12's list are not yours. Whether a page that introduces a
-concept carries a control is scheduled work with its own ratchet in
-`tools/repo-checks/src/doc-control-allowance.json`; the shape of the prose
-budget is G8's. Skip both.
+One rule on that list is not yours. Whether a page that introduces a concept
+carries a control is scheduled work with its own ratchet in
+`tools/repo-checks/src/doc-control-allowance.json`. Skip it.
+
+**There is no prose budget any more.** G8 was retired with the old standard, and
+no page has a word limit of any kind. Do not report a page for being long. What
+replaced the budget is the shape rules below, and those are yours.
+
+**You are not the cold reader.** `.claude/agents/docs-cold-reader.md` reads a
+sequence of pages knowing nothing and reports where it stopped following. You
+review against rules, with the source open. The two findings look similar and
+come from opposite directions, and a page needs both.
 
 ## What you are checking
 
@@ -109,12 +116,12 @@ interactive control is where a reader works it. A section that explains only by
 inviting the reader to poke at something has not explained it. "Try changing the
 value" in place of an explanation is the specific failure.
 
-**The shop.** Examples are set in the game shop, and section 6 has the mapping.
+**The shop.** Examples are set in the game shop, and § 11 has the mapping.
 
-Most of the re-theme has not happened. Section 13 is a proposed order with no
+Most of the re-theme has not happened. § 15 is a proposed order with no
 completion ledger, so do not read it as a record of what has run. What has run is
 visible: `apps/docs/components/landing/` is in the shop, and a region still
-naming `comment`, `article` or `payout` is waiting for step 11. Report the
+naming `comment`, `article` or `payout` is waiting. Report the
 vocabulary only where a page contradicts its own fence — a page teaching a review
 over a region evaluating `comment` — rather than listing every region the
 re-theme has not reached.
@@ -168,6 +175,62 @@ grep the name and check every hit means the same thing.
 language belongs in examples, in a `Shop note`, and in the page furniture. It
 does not belong inside a sentence that states a rule. No humour, idiom, holiday,
 season or sport anywhere, including headings.
+
+**The page carries what its stage owes and nothing another stage owes.** § 1 to
+§ 4 of the standard. The three stages are the Overview (`index.mdx`), the Setup
+article (`getting-started.mdx`) and a feature deep-dive; everything else is
+entered sideways by a reader who arrived from a search result.
+
+The mistakes to look for, and each has shipped here:
+
+- An **Overview** explaining a configuration parameter, or teaching a concept
+  tier. Its job is the hook, the mental model, the vocabulary, the capability map
+  and the boundary. It carries at most one executed region, showing one call and
+  what it returns, and a reader reads that fence rather than running it. A guard
+  catches an install command on an Overview and catches nothing else here.
+- A **Setup article** carrying a second worked case, an optional flag that is not
+  marked optional, or a performance note. Each of those is a deep-dive. Its call
+  to action names one next page, not seven.
+- A **deep-dive** opening on what the feature is rather than on the
+  implementation problem it solves, or ending without saying why the code is
+  shaped the way it is.
+- Any stage page whose last section is not a call to action into the next stage.
+
+**No rubric block.** The four-part brief — `**The concept.**`,
+`**What you get.**`, `**Why you want it.**`, `**How the library gets you
+there.**` — is deleted by § 5 and is still on most pages. Report it wherever you
+find it. Report any other fixed labelled block a page carries because the page
+before it carried one, because the defect is the repetition and not the labels.
+What each stage owes instead is one first sentence, and § 5 says which sentence
+per stage. Check that sentence and nothing else about the opening.
+
+**A success moment, where the reader builds something.** § 6. A page whose reader
+builds something shows them a result, not a description of one. A page showing a
+call and then saying in prose what it returns has not given one; a page showing a
+call and the value it produced has, and the form that proves it is a `// -> value`
+claim inside an executed region.
+
+Judge it by what the reader does on the page. A page they read to understand — a
+trust boundary, a caveat list, a precedence order, a decision record — owes
+nothing of the kind, and a padded-in result there is the filler the standard is
+trying to remove. Two roles have a guard behind them, `getting-started` and the
+section's demonstration page; everywhere else it is yours.
+
+**Shape.** § 7. Five counts, none of which any guard reaches, so read for the
+symptom rather than counting exactly.
+
+- The lede, meaning prose before the first `##`, runs to 40 words. A page opening
+  on four paragraphs before any heading is the single most common cause of the
+  "too jarring" complaint.
+- No run of consecutive sentences with no code, list, table or heading between
+  them exceeds eight.
+- The first code fence arrives within eight sentences. A `mermaid` diagram does
+  not count as the first fence.
+- The first backticked symbol arrives within 25 prose words.
+- An `##` section runs to 250 prose words and an `###` to 140. An `###` carrying
+  paragraphs under it is a second-level topic where the standard wants a member.
+- A repeated member surface — options, props, error classes, reasons — goes in a
+  table or in one `###` per member, never in running paragraphs.
 
 ## How to read a page
 
