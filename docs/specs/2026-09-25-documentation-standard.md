@@ -156,11 +156,11 @@ narrower and more useful, and it subsumes the old one.
 
 Three stages, and a reader walks them in this order:
 
-| Stage | Page | The reader arrives | The page's job |
-| --- | --- | --- | --- |
-| 1 | `index.mdx` | knowing nothing, deciding whether to care | build the mental model |
-| 2 | `getting-started.mdx` | having decided, wanting it running | a first working result |
-| 3 | a deep-dive | running, with a task | teach one piece |
+| Stage | Page                  | The reader arrives                        | The page's job         |
+| ----- | --------------------- | ----------------------------------------- | ---------------------- |
+| 1     | `index.mdx`           | knowing nothing, deciding whether to care | build the mental model |
+| 2     | `getting-started.mdx` | having decided, wanting it running        | a first working result |
+| 3     | a deep-dive           | running, with a task                      | teach one piece        |
 
 Everything outside those three stages is entered sideways, by a reader who
 arrived from a search result or an error message and may have read nothing else.
@@ -285,11 +285,11 @@ What it carries:
 Three kinds of deep-dive, from the meta-prompt, and they map onto bands this site
 already has:
 
-| Kind | Where it lives on this site |
-| --- | --- |
-| Core operations | the Questions band: the task a reader arrived to do |
-| Configuration and scaling | the Setup band's later tiers |
-| Integrations and ecosystem | the Platforms band: one guide per adapter |
+| Kind                       | Where it lives on this site                         |
+| -------------------------- | --------------------------------------------------- |
+| Core operations            | the Questions band: the task a reader arrived to do |
+| Configuration and scaling  | the Setup band's later tiers                        |
+| Integrations and ecosystem | the Platforms band: one guide per adapter           |
 
 A staged sequence inside the Setup band is built only where a reader's prior
 knowledge does not transfer, which is the old standard's decision 4 and is
@@ -514,9 +514,7 @@ adopted, amended or declined here, with the reason.
 - **Decision 8, a repeated member surface goes in a table or in one `###` per
   member, never in paragraphs.** A member whose explanation fits one sentence
   takes a table row; a member needing a code example takes its own `###`.
-- **Decision 9, an `##` carries at most 250 prose words and an `###` at most
-  140.** Our `###` sections run to 1,209 words, against a public range of 36 to
-  136.
+- **Decision 9, an `##` carries at most 250 prose words and an `###` at most 140.** Our `###` sections run to 1,209 words, against a public range of 36 to 136.
 
 **Amended.**
 
@@ -698,20 +696,34 @@ worse than none, because a reader trusts it.
 Nine guards. This standard still asserts what each one checks, so the rule does
 not move and only the docblock's reference does.
 
-| Guard | File | Was | Now |
-| --- | --- | --- | --- |
-| G1 | `docs-navigation.test.ts` | § 12 | § 12 |
-| G3 | `doc-fence.test.ts` | § 12 | § 9 and § 14 |
-| G4 | `doc-control.test.ts` | § 12 | § 9 and § 14 |
-| G5 | `doc-exports.test.ts` | § 12 | § 8 and § 14 |
-| G6 | `doc-specimen.test.ts` | § 12 | § 14 |
-| G7 | `doc-links.test.ts` | § 12 | § 14 |
-| G9 | `doc-domain.test.ts` | § 12 | § 11 |
-| G10 | `doc-export-coverage.test.ts` | decision 8, unnamed file | § 8 and § 14 |
-| — | `doc-md-siblings.test.ts` | § 5a | § 10 |
-| — | `regions.test.ts` | decision 17 | § 9 |
+| Guard | File                          | Was                      | Now          |
+| ----- | ----------------------------- | ------------------------ | ------------ |
+| G1    | `docs-navigation.test.ts`     | § 12                     | § 12         |
+| G3    | `doc-fence.test.ts`           | § 12                     | § 9 and § 14 |
+| G4    | `doc-control.test.ts`         | § 12                     | § 9 and § 14 |
+| G5    | `doc-exports.test.ts`         | § 12                     | § 8 and § 14 |
+| G6    | `doc-specimen.test.ts`        | § 12                     | § 14         |
+| G7    | `doc-links.test.ts`           | § 12                     | § 14         |
+| G9    | `doc-domain.test.ts`          | § 12                     | § 11         |
+| G10   | `doc-export-coverage.test.ts` | decision 8, unnamed file | § 8 and § 14 |
+| —     | `doc-md-siblings.test.ts`     | § 5a                     | § 10         |
+| —     | `regions.test.ts`             | decision 17              | § 9          |
 
-`doc-regions.test.ts` cites nothing and needs no change. G10's docblock named
+`doc-regions.test.ts` cites nothing, and repointing the others found a bug in it
+rather than a citation. Its scan was
+`/```\S*\s+file=(\S+)\s+region=([\w-]+)/g`, which requires `file=` immediately
+after the language and therefore matched no fence carrying `twoslash` between
+them. That is how most of `apps/docs/content/acl` writes a reference, so the
+guard whose whole job is catching a renamed region in `nx test` was skipping the
+majority of the site and leaving it to `next build`. The loader never had the
+bug; its own `/(?:^|\s)file=(\S+)\s+region=([\w-]+)/` reads the keys wherever
+they sit, which is why the file's own fixtures passed while the scan above them
+saw nothing. The scan now matches the keys anywhere in the info string, and two
+assertions hold it: one on a `twoslash` fence, and a floor on the number of
+references found across the site, because a scan that matches nothing passes
+every assertion under it. No region was actually broken.
+
+G10's docblock named
 "decision 8 of the documentation standard" with no filename, which is the one
 citation in the set a rename would not have broken and also the one a reader
 could not follow; it gets a path.
@@ -776,11 +788,13 @@ guard and CI answer "is this a claim" with the same code.
 The escape is `successExempt` on the `navigation.ts` entry, a non-empty string.
 The allowance is `doc-success-moment-allowance.json`, keyed by section, holding
 the roles that do not satisfy it yet, on `doc-floor-allowance.json`'s list-valued
-shape. It starts at four entries: `compose`, `nestjs-correlation-id`,
-`react-acl` and `react-widget`, each because the package does not wire
-`docExamples()` in its `vite.config.ts` and therefore no region of it can carry a
-claim. Both ratchet directions are written, and a section may not be both exempt
-and allowed.
+shape. It starts at four sections and five roles: `compose`,
+`nestjs-correlation-id` and `react-acl` on `getting-started`, and `react-widget`
+on `getting-started` and `playground`. For the first three, `getting-started` is
+also the page the `demo` field names, so one page carries both roles. All four
+fail for one reason: the package does not wire `docExamples()` in its
+`vite.config.ts`, so no region of it can carry a claim. Both ratchet directions
+are written, and a section may not be both exempt and allowed.
 
 **G12, `doc-stage.test.ts`.** § 2's and § 3's boundary, which is the part of the
 meta-prompt that is mechanical. Two assertions:
@@ -793,11 +807,25 @@ meta-prompt that is mechanical. Two assertions:
   command is not stage 2.
 
 Both are greps over filenames that already carry a role, so nothing new is
-declared and no allowance is needed: measured on this tree, no `index.mdx`
-carries an install command and every existing `getting-started.mdx` carries one.
-A guard that passes on landing is worth having here because the failure it
-prevents is the one the owner complained about, and because the two rules read as
-arbitrary without it.
+declared.
+
+An earlier draft of this section said the guard would pass on landing with no
+allowance. That was asserted and not measured, and measuring refuted it. G12
+fails on seven roles across five sections:
+
+| Section                 | Violation                                                      |
+| ----------------------- | -------------------------------------------------------------- |
+| `astro-widget`          | install command on the Overview, and none on the Setup article |
+| `luhn`                  | install command on the Overview                                |
+| `nestjs-correlation-id` | install command on the Overview, and none on the Setup article |
+| `token`                 | install command on the Overview                                |
+| `urn`                   | install command on the Overview                                |
+
+So `doc-stage-allowance.json` starts at five section entries and seven roles, on
+`doc-floor-allowance.json`'s list-valued shape. That number is more useful than
+the zero the draft claimed: five sections put their install command on the page
+the meta-prompt reserves for the mental model, which is the same defect `acl` had
+in reverse, and nobody had counted it.
 
 `WorkshopNotice` renders `npm install <package>` itself, from
 `navigation.ts`, on every page of an unpublished package. The guard reads the
@@ -831,8 +859,37 @@ Longer than the old standard's list, because § 7's shape rules are readings and
   single `# ` heading**. All six carried from the old standard's list unchanged,
   with its reasons.
 
-`.claude/agents/docs-reviewer.md` is where this list is enforced, and the one
-item it must stop skipping is the prose budget, which no longer exists.
+`.claude/agents/docs-reviewer.md` is where this list is enforced. Its brief
+carries every item above, and the one thing it must stop looking for is the prose
+budget, which no longer exists.
+
+### The reader, which is not a guard and is the only instrument that measures the complaint
+
+One thing on the list above cannot be reviewed at all, by a guard or by a
+reviewer, and it is the thing the owner actually complained about. Both a guard
+and a reviewer check a page while already knowing the material, so neither can
+tell you where a reader who has never seen the library stopped following.
+
+`.claude/agents/docs-cold-reader.md` is that instrument, borrowed from the reader-
+testing stage of Anthropic's `doc-coauthoring` skill. It reads a sequence of pages
+in the order a reader meets them, with no spec, no source, no `_meta.ts` and no
+guard, and reports where it lost the thread, every term used before it was
+defined, what it believed the library was for after the first screen, whether it
+could do what the page asked, whether the reading felt jarring, and whether the
+step from the previous page was too large. Its value is entirely its ignorance,
+so its own file says so, because the next person to edit it will want to be
+helpful and hand it the spec.
+
+What was taken from that skill and what was left. Its reader-testing stage is
+here. Its iterative-refinement loop is in `.claude/skills/docs-page/SKILL.md` as
+the order to work in on one page, because this repository writes a page against
+84 siblings under guards rather than co-authoring one document in a conversation.
+Its context-gathering stage with clarifying questions is left out: the context
+here is the source, the package README's regions and these specs, and a page's
+author can read all three without asking anybody.
+
+It is not a measurement and the agent's own brief says so. It is one reader's
+account, which is what the owner asked for.
 
 ## 15. Order
 
@@ -844,13 +901,17 @@ item it must stop skipping is the prose budget, which no longer exists.
 2. **G8 retired, G11 and G12 written.** G11 lands with its four-entry allowance
    and G12 lands green.
 3. **The three-page pilot on `acl`:** the Overview rewritten to § 2,
-   `getting-started.mdx` written to § 3, and one deep-dive rewritten to § 4. This
-   is what the owner judges, and steps 4 onwards do not start until he has.
+   `getting-started.mdx` written to § 3, and `asking.mdx` rewritten to § 4. Read
+   cold by `.claude/agents/docs-cold-reader.md` before it goes out, and its report
+   travels with the change rather than being summarised. This is what the owner
+   judges, and steps 4 onwards do not start until he has.
 4. **The rest of `acl`'s Setup band**, because `simple`, `intermediate` and
    `advanced` each open on the brief and each now has a Setup article above them
    to lean on.
 5. **The 27 remaining pages carrying the brief**, section by section, each
-   section's Overview and Setup article first.
+   section's Overview and Setup article first. This is also the step that retires
+   G12's allowance: five Overviews move their install command down to their Setup
+   article, and `astro-widget` and `nestjs-correlation-id` gain one.
 6. **`docExamples()` wired in `compose`, `nestjs-correlation-id`, `react-acl` and
    `react-widget`**, which is what retires G11's four allowance entries.
 7. **The block classifier**, if the shape rules in § 7 turn out to be violated
@@ -911,12 +972,13 @@ need to know what a configuration block is, which is a reading.
   resolving every `file=… region=…` reference through the repository's own
   `parseRegions` and testing each region body with the repository's own
   `indexOfLineComment`. `acl` is 24 of 32. Counting `acl/api.mdx`'s 29
-  `<!-- reference … example=… -->` directives makes it 43 of 84 and `acl` 25 of
-  32.
+  `<!-- reference … example=… -->` directives makes it 43 of 84 and `acl` 25 of 32.
 - All 36 regions in `libs/acl/README.md` carry at least one claim.
 - Seven packages wire `docExamples()`; four do not.
 - Four sections fail G11 on the two obliged roles: `compose`,
   `nestjs-correlation-id`, `react-acl`, `react-widget`.
+- G12 fails on seven roles across five sections, tabled in § 14. Five Overviews
+  carry an install command and two Setup articles carry none.
 - Only `acl/_meta.ts` carries band separators. Eleven sections have none.
 - `proseWords` and `proseCounts` have no caller outside
   `doc-prose-budget.test.ts`.
@@ -949,9 +1011,12 @@ not this tree. `acl/api.mdx` at 1,637 words across 107 entries is
   them.
 - That the band extension of § 6 is worth building. It agreed with the owner on
   eighteen of nineteen acl pages, which is one section.
-- That G12 will keep passing. It passes on every page today, so it has caught
-  nothing, and a guard that has never failed is a guard whose rule nobody has
-  tested against a real mistake.
+- Whether the five Overviews carrying an install command should lose it or
+  whether the rule should bend. § 14 records the count and § 15 step 5 schedules
+  the fix, and nobody has read those five pages to find out whether the install
+  fence is the best thing on them. A section of four pages whose Overview is the
+  only page a reader opens is a case this standard's three stages may simply not
+  fit, and `urn` and `token` are the candidates.
 
 **Where I am guessing.**
 
