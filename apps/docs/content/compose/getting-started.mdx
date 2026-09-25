@@ -1,8 +1,12 @@
 # Getting started
 
+By the end of this page your shop's root component passes three providers to
+`ComposeProvider` as one array, and the markup it renders nests them in the
+order the array reads.
+
 <PageSheet
   difficulty={1}
-  read={5}
+  read={3}
   hands={10}
   requires={[['Overview', '/compose']]}
   unlocks={[
@@ -11,93 +15,67 @@
   ]}
 />
 
-By the end of this page the shop's root component holds three providers as an
-array, and the markup `ComposeProvider` returns nests them in the order the array
-reads.
+## Before you install compose
+
+- React 18 or 19, the only dependency the package has.
+- An ESM project, or a Node whose `require()` loads ES modules. An older
+  runtime's `require()` fails with `ERR_REQUIRE_ESM`.
+- Node 20 or newer.
+- TypeScript 5.0 or newer for the per-entry checks, because the published types
+  use a `const` type parameter. The component runs without TypeScript.
 
 ## Install compose
+
+Pick the line for your package manager.
 
 ```bash
 npm install @evanion/compose
 ```
 
-React 18 or 19 is a peer dependency and nothing else comes with it. The package
-is ESM only.
+```bash
+yarn add @evanion/compose
+```
 
-## Write the compose array
+```bash
+pnpm add @evanion/compose
+```
 
-`ComposeProvider` takes `providers` and `children`. Each entry of `providers`
-is a provider; the first one ends up outermost, so the array reads in the order
-the rendered tree nests:
+## Compose the shop's providers
 
-```tsx twoslash file=libs/compose/examples/shop.tsx region=stack
+`ComposeProvider` takes two props: `providers`, the array, and `children`, what
+the array wraps. Baize, the board game shop these examples are set in, holds
+three providers at its root and renders them around the page it is given:
+
+```tsx twoslash file=libs/compose/README.md region=first-shop
 
 ```
 
-Three things are worth naming in that listing. `CartProvider` is written bare,
-because every prop it declares is optional. `ThemeProvider` needs a `theme`, so
-it goes through `provider()`, which pairs the component with the props. And
-`children` is never in the props you supply: `ComposeProvider` fills it in with
-the next provider down, or with `Shop`'s own children at the innermost level.
+`CartProvider` and `CurrencyProvider` go in as bare components, because neither
+declares a prop beyond `children`. `ThemeProvider` needs a `theme`, so
+`provider(ThemeProvider, { theme: 'dark' })` pairs it with its props. No entry
+passes `children`: `ComposeProvider` fills each one with the next entry down,
+and the last entry gets `Shop`'s own children.
 
-Render `Shop` at the root of the app and the tree it builds is
-`CartProvider` → `ThemeProvider` → `CurrencyProvider` → your page.
+`markup` is the HTML React wrote for `Shop`. The cart's `div` is outermost and
+the page is innermost, which is the array read from the top. If your own root
+renders its page inside every provider in that order, compose is working in your
+project.
 
-## Read the markup a two-provider array produced
+## Move a compose entry and watch the tree move
 
-`renderToStaticMarkup`, from `react-dom/server`, turns an element into the HTML
-string React would have written. Hand it a two-entry `ComposeProvider` and the
-string shows the nesting:
-
-```tsx twoslash file=libs/compose/README.md region=render-order
-
-```
-
-`Cart` is first in the array and outermost in the string. Swap the two entries and
-the two `div`s swap with them, which is the whole of what `ComposeProvider` does.
-`React.ReactNode` types the children here because the fence declares its
-components inline; `PropsWithChildren` above does the same job.
-
-## Move an entry and watch the compose tree move
-
-The boxes below are the elements `ComposeProvider` returned for the array beside
-them. Move an
-entry up and its box moves outward; move it down and the boxes it used to
-contain close over it.
+The boxes below are the elements `ComposeProvider` returned for the array shown
+with them. Move an entry up and its box moves outward; move it down and the boxes it
+contained close over it.
 
 <ComposeSpecimen />
 
-Nothing is simulated here — the boxes are the elements the published component
-built, so what reorders is a real provider tree.
+The control renders the published `ComposeProvider`, so what reorders is a real
+provider tree. Each move remounts everything inside the outermost box that changed
+position, because React reconciles by position. In an app a remount drops the state under it, so
+keep your array fixed and let a provider handle its own conditional case.
 
-One thing the control deliberately cannot show: React reconciles by position,
-so every reorder unmounts the subtree and mounts it again. There is no state
-under these boxes to lose. In an app there is, which is why a `providers` array
-whose order or length changes while the app runs remounts everything below it.
-Keep the array fixed and let a provider handle its own conditional case.
+## Now that the shop renders, check its entries
 
-## Write a compose entry three ways
-
-`provider()` is one of three forms an entry can take, and all three type-check
-the same way:
-
-```tsx twoslash file=libs/compose/examples/entries.tsx region=entries
-
-```
-
-A bare component is an entry on its own, as long as every prop it declares is
-optional. A `provider()` call pairs a component with props and is checked where
-you write it, so the editor completes on the component's prop names while you
-type the object. A plain `[component, props]` tuple is the same pair without
-the call.
-
-All three reject a missing prop, a wrong value and a prop the component does
-not declare. What separates them is where the compiler notices, and that turns
-out to matter more than it sounds:
-[Where the check happens](/compose/type-checking) is the whole of it.
-
-## Where to go next
-
-- [Where the check happens](/compose/type-checking) — the tuple assigned to a
-  variable, and why it stops being checked
-- [API reference](/compose/api) — every export and every type
+[Where the check happens](/compose/type-checking) is the next page. It shows
+which ways of writing an entry TypeScript checks, and the two declarations that
+compile a missing prop with no error.

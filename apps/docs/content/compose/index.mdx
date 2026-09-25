@@ -1,97 +1,68 @@
 # @evanion/compose
 
+A React app nests its providers one inside the next, so adding one reindents the
+tree and moving one means finding its closing tag. `ComposeProvider` takes the
+same providers as a flat array.
+
 <PageSheet
   difficulty={1}
-  read={4}
+  read={3}
   unlocks={[
     ['Getting started', '/compose/getting-started'],
     ['Where the check happens', '/compose/type-checking'],
   ]}
 />
 
-**The concept.** A React app wraps its tree in providers: a cart, a theme, a
-currency, an error boundary. Written by hand they nest, one inside the next,
-and the file that holds them is a staircase eight levels deep whose closing
-tags you count on your fingers. Adding a provider reindents everything under
-it.
+## How compose reads a provider array
 
-**What you get.** The same tree, written as an array. One entry per
-provider, first entry outermost, and a diff that adds a provider is one line.
+`ComposeProvider` reads the `providers` array as the tree, top to bottom. The
+first entry wraps the second, and the last entry wraps the `children` you pass:
 
-**Why you want it.** The staircase is not hard to read once. It is hard
-to change. Moving a provider means moving its closing tag too, and the two are
-forty lines apart; a reviewer reading the diff sees indentation and cannot tell
-whether the order changed. An array puts the order on screen in three lines,
-and moving an entry is moving a line.
-
-**How the library gets you there.** `ComposeProvider` takes the array on a prop
-called `providers` and nests it for you. `provider()` pairs a component with
-its props, so TypeScript checks the pair where you write it. There is no
-context, no hook and no runtime configuration: the package is a component and a
-helper.
-
-```tsx twoslash file=libs/compose/examples/shop.tsx region=stack
+```tsx twoslash file=libs/compose/README.md region=render-order
 
 ```
 
-`Shop` renders `CartProvider` outermost, `ThemeProvider` inside it and
-`CurrencyProvider` inside that, with whatever `Shop` was given at the centre.
-That is the array read top to bottom.
+`CartProvider` is first in the array and its `div` is outermost in `markup`.
+`ComposeProvider` renders each entry with the next one as its `children`, and
+does nothing else: it calls no hook and creates no context.
 
-## When to reach for compose
+## The compose vocabulary
 
-The whole package is one component and one helper, so whether it suits you is a
-short question:
+Four words carry the rest of this section.
 
-- Three or more providers at the root of an app, where the staircase has
-  stopped being readable.
-- A provider list that changes — a feature adds one, a platform needs a
-  different one — and you want that change to be a line rather than a reindent.
-- A tree that has to compile inside a React Server Component graph.
-  `ComposeProvider` uses no hook, no `createContext` and no class, so it
-  imports into a Next.js root `app/layout.tsx` without a `'use client'`
-  boundary of its own. The providers you hand it are a separate matter: one
-  built on `createContext` is client code and carries its own directive.
+- A **provider** is any component that renders its `children`.
+  `ComposeProvider` asks nothing else of one.
+- An **entry** is one element of the `providers` array.
+- A **bare component** is an entry written as the component alone, like
+  `CartProvider`. It fits a provider whose props are all optional.
+- A **tuple** is an entry pairing a component with its props,
+  `[component, props]`. `provider(component, props)` returns one and checks the
+  props where you call it.
+
+## What compose can do
+
+| You want to                                  | What compose gives you                                                        |
+| -------------------------------------------- | ----------------------------------------------------------------------------- |
+| write a root's providers as one list         | `ComposeProvider`, which nests `providers` around `children`, first outermost |
+| give a provider its props                    | a tuple, or `provider(component, props)`                                      |
+| catch a prop an entry gets wrong             | a compile error on that entry                                                 |
+| wrap `ComposeProvider` in your own component | `ComposeProviderProps<T>`, which keeps the check for your component's callers |
+| mount the tree from a React Server Component | a component that calls no hook and no `createContext`, so no `'use client'`   |
+
+A provider built on `createContext` is still client code and carries its own
+`'use client'`.
 
 ## When compose is the wrong tool
 
-- One or two providers. Two levels of nesting read fine written out, and an
-  array of two is a dependency you did not need.
-- Providers that have to be reordered while the app runs. React reconciles by
-  position, so changing the array's order or its length remounts everything
-  under it and loses the state in it.
-- Anything that is not a provider. `ComposeProvider` wraps its children in each
-  entry in turn; it does not render a list, a route or a layout.
+- One or two providers. Two levels of nesting read fine written out.
+- Providers that change order or count while the app runs. React reconciles by
+  position, so a change to the array remounts everything under it and drops
+  that subtree's state.
+- A list, a route or a layout. `ComposeProvider` wraps its children in each
+  entry and renders nothing of its own.
+  [`@evanion/react-widget`](/react-widget) renders components from data.
 
-## What ships in the compose package
+## Now that you have the model, install compose
 
-The entry point is small enough to list whole:
-
-| Export                       | What it is                                                      |
-| ---------------------------- | --------------------------------------------------------------- |
-| `ComposeProvider`            | the component; takes `providers` and `children`                 |
-| `provider(component, props)` | pairs a component with its props, checked at the call           |
-| `Provider`, `ProviderArray`  | one entry, and the array of them                                |
-| `AnyComponent`               | any provider component, for a generic constraint                |
-| `PropsWithoutChildren<T>`    | what an entry has to supply, which is `T`'s props less children |
-| `ValidateProvider<T>`        | the check applied to one entry                                  |
-| `ValidateProviders<T>`       | that check across a tuple, positions preserved                  |
-| `ValidatedProviders<T>`      | the type of the `providers` prop                                |
-| `ComposeProviderProps<T>`    | the props interface, for a wrapper that needs to name it        |
-
-React 18 or 19 is the only peer dependency, and the package is ESM only: there
-is no `require` condition, so a CommonJS consumer gets `ERR_REQUIRE_ESM`.
-
-## Where to go next
-
-- [Getting started](/compose/getting-started) — install it, write the array,
-  and move an entry to watch the tree move with it
-- [Where the check happens](/compose/type-checking) — why the same entry is
-  checked where you write it and silently unchecked one line away
-- [API reference](/compose/api) — every export and every type
-
-## Related
-
-[`@evanion/react-widget`](/react-widget) renders a region of components from
-data, with no provider and no context at all, which is the other way to keep a
-tree importable from a Server Component.
+[Getting started](/compose/getting-started) installs the package and builds a
+shop's root component from three providers.
