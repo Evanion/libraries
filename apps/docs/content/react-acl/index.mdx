@@ -1,59 +1,60 @@
 # @evanion/react-acl
 
-An Edit button that asks `can` four components down needs your policy, the
-signed-in user and the current time. Passed as props, all three travel through
-three components that never read them.
+An Edit button that asks `@evanion/acl` whether the signed-in user may edit a
+listing needs your rules, that user and the current time. Passed as props, all
+three travel through three components that never read them.
 
 <WorkshopNotice slug="react-acl" />
 
 ## How react-acl holds what a permission check needs
 
-`PolicyProvider` takes the three once, as its `access`, `subject` and `context`
-props, and holds them in a React context for the tree under it. `useCan`,
-`useCanMany`, `useCanFields` and `useCapabilities` read all three out of that
-context and call the `@evanion/acl` method each one is named after.
+`PolicyProvider` takes your rules, the signed-in user and the current time once,
+as its `access`, `subject` and `context` props, and holds them in a React
+context for the tree under it. `useCan` reads all three out of that context and
+asks the rules one question.
 
-```mermaid caption="One PolicyProvider holds the evaluator, the shopper and the instant. ShopPage, ListingView and ActionBar pass none of the three, and EditControl reads all three out of context when it calls useCan."
+```mermaid caption="One PolicyProvider holds the rules, the signed-in user and the current time. ShopPage, ListingView and ActionBar pass none of the three, and EditControl reads all three out of context when it calls useCan."
 flowchart TD
   P["PolicyProvider<br>access, subject, context"] --> S["ShopPage"]
   S --> L["ListingView"]
   L --> A["ActionBar"]
-  A --> E["EditControl<br>useCan(key, action, row)"]:::accent
+  A --> E["EditControl<br>useCan('listing', 'edit', listing)"]:::accent
   P -. "React context" .-> E
 ```
 
-Baize, a board game shop, draws its Edit button four components below the
-listing route. The button names only what it asks about:
+Baize, a board game shop, draws its Edit button with three components between
+it and the provider. The button names only what it asks about:
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 
 ```
 
-`EditControl` passes the object kind `'listing'`, the action `'edit'` and the
-row, and renders the button only when `decision.allowed` is true. The shopper
-and the instant come from the provider above it.
+`EditControl` passes `'listing'`, the kind of record it asks about, the action
+`'edit'` and the listing itself. It renders the button only when
+`decision.allowed` is true. The signed-in user and the current time come from
+the provider above it.
 
-One provider also means one instant. A component handed `now` as a prop can
-read a different time from its sibling, and a rule with a time window then
+One provider also gives the whole screen one current time. A rule can hold only
+inside a time window, such as a discount that ends at 18:00, and two components
+each handed their own `now` can read times either side of it. The rule then
 answers two ways on one screen.
 
 ## The react-acl vocabulary
 
-Six words carry this section. The matrix, the evaluator, the subject and the
-decision belong to `@evanion/acl`, the package that evaluates the rules, and
-react-acl uses them unchanged.
+Every react-acl page uses the terms below. They come from `@evanion/acl`, the
+package that evaluates the rules, and react-acl uses them unchanged.
 
-- The **matrix** is your rules as one JSON document. Your server builds it from
-  your policy and sends it to the browser with the page.
-- An **evaluator** answers questions from one matrix. `hydratePolicy` in
-  `@evanion/acl` builds one from the JSON, and these pages always call it
-  `access`.
+- The **matrix** is your rules as one JSON document. Your server builds it with
+  `@evanion/acl` and sends it to the browser with the page.
+- An **evaluator** answers questions from one matrix. `hydratePolicy` builds one
+  from the JSON, and these pages always call it `access`. `access.can` asks it
+  one question.
 - A **subject** is who is acting: the signed-in user, as a plain object your
-  server resolved.
+  server resolved. In Baize the subject is the shopper.
+- An **object kind** names a kind of record the rules cover, such as
+  `'listing'`. A **row** is one record of that kind, such as one listing.
 - A **decision** is what an evaluator returns for one question. `allowed` is the
-  answer, and `reason` says why and is output only.
-- The **provider** is `PolicyProvider`, the component that holds an evaluator, a
-  subject and an instant for every component under it.
+  answer, and `reason` says why. Code gates on `allowed` alone.
 - The **instant** is the time every time window in the rules is read against.
   `context.now` carries it into the provider.
 
@@ -67,28 +68,25 @@ react-acl uses them unchanged.
 | What may they reach at all, for a menu?                   | `useCapabilities`     |
 | Can the compiler check my object kinds, actions and rows? | `createPolicyContext` |
 
-Each hook returns what the `@evanion/acl` method of the same name returns, for
-the subject and the instant the provider holds.
+Each hook returns what the `@evanion/acl` method it is named after returns, for
+the subject and the instant the provider holds: `useCan` returns what `can`
+returns.
 
 ## When react-acl is the wrong tool
 
-- A server component, a loader or a Server Action. Those call `access.can` from
-  `@evanion/acl` directly. react-acl carries `'use client'` at the top of its
-  entry point and calls `createContext`, so it cannot run in a React Server
-  Component.
-- One component asking one question. A provider for a single call site is a
-  context you keep mounted, and `access.can(subject, key, action, row)` is the
-  same answer in one line.
-- Anywhere the answer has to hold. The hooks read a copy of the matrix as fresh
-  as the render that delivered it, and a browser holding a stale copy keeps
-  granting what the server has revoked.
+- A server component, a loader or a Server Action. Each of those calls
+  `access.can` from `@evanion/acl` directly, because react-acl runs only in
+  client components.
+- One component asking one question.
+  `access.can(shopper, 'listing', 'edit', listing)` returns the same answer
+  without a provider.
 
 <Panel heading="A decision in a browser enforces nothing">
   <Text as="div" size="sm">
     Every hook here toggles what a shopper sees. A hidden Edit button is still a
-    URL, and the shopper can post to it, so every server layer behind it decides
-    again for itself. [The security contract](/acl/security) is the whole of
-    that rule.
+    URL the shopper can post to, and the browser's copy of the matrix can be
+    older than the rules on the server. Every server layer behind the button
+    decides again for itself.
   </Text>
 </Panel>
 
