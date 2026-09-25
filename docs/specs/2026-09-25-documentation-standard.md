@@ -410,16 +410,30 @@ anyway.
 
 ### Which pages owe one
 
-Two roles carry the obligation and both are already decidable from data the
-repository keeps:
+One role carries the obligation a guard can check: **`getting-started.mdx`**, the
+Setup article, whose whole job is a first working result.
 
-- **`getting-started.mdx`**, the Setup article. Its whole job is a first working
-  result.
-- **The page `navigation.ts` names in its `demo` field.** That field exists to
-  say which page is the section's demonstration, and `doc-floor.test.ts` and
-  `doc-control.test.ts` both already read it.
+**The demonstration page owes a result and owes it in the other form.** An
+earlier draft of this section put the obligation on the page `navigation.ts`
+names in its `demo` field as well, and `doc-success-moment.test.ts` shipped
+asking that page for a `// -> value` claim. That is the wrong evidence to ask
+that page for, and `react-widget/playground` is where it showed.
 
-Beyond those two, the obligation follows the band, and for `acl` it lands exactly
+A demonstration page's result is a control the reader operates, which the rule
+above already counts as a success moment. `doc-control.test.ts` requires that
+control on exactly the page the `demo` field names, reads the same field, and
+fails the build without it. So the demonstration page's result already has a
+guard, and G11 asking the same page for a value claim asks for a second result of
+a weaker kind: `playground.mdx` mounts `DataDemo` and `PlaygroundExamples`, the
+reader edits items and watches the region compose again, and a value claim pasted
+onto that page to satisfy a guard is the padding this section names as the defect.
+The `explorer` paragraph below already makes this argument for one page. The demo
+role is where it always holds.
+
+So G11 obliges `getting-started.mdx` and nothing else. The demonstration page's
+result is G4's, under § 9.
+
+Beyond that one role, the obligation follows the band, and for `acl` it lands exactly
 where the owner put it. Under the Setup, Platforms and Questions separators a
 reader builds something and the page owes a result. Under the Reference separator
 a reader reads to understand or looks something up, and the page owes nothing.
@@ -449,16 +463,17 @@ has to cover.
 
 ### Whether it is checked, and how hard
 
-Checked, and it fails the build, on the two decidable roles only. That is
+Checked, and it fails the build, on the Setup article only. That is
 `tools/repo-checks/src/doc-success-moment.test.ts`, new in § 14.
 
 The measurement is what settles the shape. Across 84 pages, 42 render at least
-one region carrying an observed value. Restricted to the two obliged roles across
-12 documented sections, four sections fail: `compose`,
-`nestjs-correlation-id`, `react-acl` and `react-widget`. All four fail for the
-same reason, that the package does not wire `docExamples()`, so the allowance is
+one region carrying an observed value. Restricted to the obliged role across
+12 documented sections, four sections failed on landing: `compose`,
+`nestjs-correlation-id`, `react-acl` and `react-widget`. All four failed for the
+same reason, that the package did not wire `docExamples()`, so the allowance was
 four entries each naming that prerequisite. Four is a migration list somebody can
-work down. Twenty-six, which is what obliging every non-reference page would
+work down, and it has been worked down: all four wire it now and the allowance is
+empty. Twenty-six, which is what obliging every non-reference page would
 open, would mean the rule was wrong.
 
 The band extension is specified here and not written. It needs a closed band-key
@@ -778,22 +793,25 @@ argument for one was measured and failed.
 
 ### New
 
-**G11, `doc-success-moment.test.ts`.** § 6's rule, on the two decidable roles.
-For every `documented: true` section, `getting-started.mdx` and the page the
-`demo` field names each render at least one `file=… region=…` fence whose region
+**G11, `doc-success-moment.test.ts`.** § 6's rule, on the one role a value claim
+is the right evidence for. For every `documented: true` section,
+`getting-started.mdx` renders at least one `file=… region=…` fence whose region
 carries a `// -> value` claim. The claim test is the repository's own:
 `indexOfLineComment` from `tools/doc-examples/src/expect-comments.ts`, so the
 guard and CI answer "is this a claim" with the same code.
 
+The demonstration page is not read here. § 6 says why: its result is a control the
+reader operates, and G4 already requires that control on the page the `demo` field
+names. Asking the same page for a value claim asks twice for one result and gets a
+weaker answer the second time.
+
 The escape is `successExempt` on the `navigation.ts` entry, a non-empty string.
 The allowance is `doc-success-moment-allowance.json`, keyed by section, holding
 the roles that do not satisfy it yet, on `doc-floor-allowance.json`'s list-valued
-shape. It starts at four sections and five roles: `compose`,
-`nestjs-correlation-id` and `react-acl` on `getting-started`, and `react-widget`
-on `getting-started` and `playground`. For the first three, `getting-started` is
-also the page the `demo` field names, so one page carries both roles. All four
-fail for one reason: the package does not wire `docExamples()` in its
-`vite.config.ts`, so no region of it can carry a claim. Both ratchet directions
+shape. It started at four sections: `compose`, `nestjs-correlation-id`,
+`react-acl` and `react-widget`, all four for one reason, that the package did not
+wire `docExamples()` in its `vite.config.ts`, so no region of it could carry a
+claim. All four wire it now and the allowance is empty. Both ratchet directions
 are written, and a section may not be both exempt and allowed.
 
 **G12, `doc-stage.test.ts`.** § 2's and § 3's boundary, which is the part of the
@@ -851,8 +869,10 @@ Longer than the old standard's list, because § 7's shape rules are readings and
 - **Whether a page carries a rubric block.** `**The concept.**` is greppable and
   the next rubric is not, so a guard on the string would catch the brief this
   document deletes and nothing else.
-- **Whether a success moment on a page outside the two obliged roles is present
-  or needed.** The band extension in § 6, pending a band vocabulary.
+- **Whether a success moment on a page outside the Setup article is present or
+  needed.** The band extension in § 6, pending a band vocabulary. The
+  demonstration page is the one case already settled: G4 holds it to a control,
+  which § 6 counts as the result.
 - **The teaching order and its fading**, **whether the teaching layer stands
   alone**, **whether an H2 section survives being cut out**, **whether a diagram
   is still true**, **whether an example is set in the shop**, and **a page's
@@ -911,9 +931,13 @@ account, which is what the owner asked for.
 5. **The 27 remaining pages carrying the brief**, section by section, each
    section's Overview and Setup article first. This is also the step that retires
    G12's allowance: five Overviews move their install command down to their Setup
-   article, and `astro-widget` and `nestjs-correlation-id` gain one.
+   article, and `astro-widget` and `nestjs-correlation-id` gain one. G12's half is
+   done, and `luhn` and `token` needed a Setup article written before the command
+   had anywhere to go. The brief survives on the pages step 5 has not reached.
 6. **`docExamples()` wired in `compose`, `nestjs-correlation-id`, `react-acl` and
-   `react-widget`**, which is what retires G11's four allowance entries.
+   `react-widget`**, which is what retired G11's four allowance entries. Done:
+   each of the four carries a README region whose claim its own test run
+   executes, and each section's Setup article renders that region.
 7. **The block classifier**, if the shape rules in § 7 turn out to be violated
    often enough to be worth a guard. Measured after step 5 and not before, because
    rewriting 30 pages is what tells us whether authors keep the rules without one.
@@ -974,9 +998,11 @@ need to know what a configuration block is, which is a reading.
   `indexOfLineComment`. `acl` is 24 of 32. Counting `acl/api.mdx`'s 29
   `<!-- reference … example=… -->` directives makes it 43 of 84 and `acl` 25 of 32.
 - All 36 regions in `libs/acl/README.md` carry at least one claim.
-- Seven packages wire `docExamples()`; four do not.
-- Four sections fail G11 on the two obliged roles: `compose`,
-  `nestjs-correlation-id`, `react-acl`, `react-widget`.
+- Eleven packages wire `docExamples()`. The four that did not -- `compose`,
+  `nestjs-correlation-id`, `react-acl` and `react-widget` -- wire it now.
+- Four sections failed G11 on `getting-started` when it landed: `compose`,
+  `nestjs-correlation-id`, `react-acl`, `react-widget`. All four wire
+  `docExamples()` now and the allowance is empty.
 - G12 fails on seven roles across five sections, tabled in § 14. Five Overviews
   carry an install command and two Setup articles carry none.
 - Only `acl/_meta.ts` carries band separators. Eleven sections have none.
