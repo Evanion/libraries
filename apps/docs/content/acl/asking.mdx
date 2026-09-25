@@ -12,7 +12,7 @@ returns a decision your handler gates on and your screen renders.
   requires={[['Getting started', '/acl/getting-started']]}
   unlocks={[
     ['Why was this refused?', '/acl/refusals'],
-    ['What can they do at all?', '/acl/capabilities'],
+    ['Listing everything a user may do', '/acl/listing-permissions'],
   ]}
 />
 
@@ -149,7 +149,7 @@ same object kind. Two calls take one of those axes out of every later signature.
 `access.authorize(subject)` binds the subject, and `access.object(kind)` binds the
 object kind. They are alternatives, so bind whichever axis your call sites repeat.
 
-[Rules that read the subject](/acl/simple) shows `authorize` bound over a real
+[Rules about who the user is](/acl/subject-rules) shows `authorize` bound over a real
 policy, which is where the worked example lives.
 
 ## Now that you can ask, read the answer properly

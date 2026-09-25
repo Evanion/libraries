@@ -1,4 +1,4 @@
-# React Server Components
+# Next.js (React Server Components)
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -18,7 +18,7 @@
   requires={[['A policy from another service', '/acl/adopting']]}
   unlocks={[
     ['React Router 8', '/acl/react-router'],
-    ['The matrix document', '/acl/matrix'],
+    ['The matrix: your rules as JSON', '/acl/matrix'],
   ]}
 />
 
@@ -172,7 +172,7 @@ flowchart TD
 `apps/storefront-rsc` asks once per page view, because `cache` scopes the fetch
 to the render, so a rule change reaches this app's gates on the next view. An
 app that holds a document across requests needs a revalidation window, which
-[Platforms](/acl/platforms) sets out.
+[Choosing a framework integration](/acl/choosing-an-integration) sets out.
 
 ## The hooks cannot gate a server tree
 
@@ -284,4 +284,4 @@ and the ownership rule can stop matching.
   trusted side
 - [Security contract](/acl/security) — matrix freshness, the clock, and the
   public document
-- [The matrix document](/acl/matrix) — the envelope and the version contract
+- [The matrix: your rules as JSON](/acl/matrix) — the envelope and the version contract

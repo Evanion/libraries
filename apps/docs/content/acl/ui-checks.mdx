@@ -1,4 +1,4 @@
-# One policy behind a screen
+# Checking permissions in your UI
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -13,7 +13,7 @@
   hands={20}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
-    ['Platforms', '/acl/platforms'],
+    ['Choosing a framework integration', '/acl/choosing-an-integration'],
     ['Why was this refused?', '/acl/refusals'],
   ]}
 />
@@ -72,14 +72,14 @@ Two condition helpers are new in that block:
 - `p.in` tests one subject value against a list written in the rule, and this
   `Shopper` carries `role` as a single string.
 
-The report policy on [rules that read the subject](/acl/simple) carried `roles`
+The report policy on [rules that read the subject](/acl/subject-rules) carried `roles`
 as an array and read it with `p.contains`, which runs the test the other way
 round: one value written in the rule, against a list held on the subject.
 
 The typed builder binds `Listing` to the key `listing`, so it checks
 `object.status` in the deny against the interface as it is written. That binding
 turns a misspelled path into a compile error, and you met it first where [rules
-read the object](/acl/intermediate). Once the builder's types have gone, the
+read the object](/acl/object-rules). Once the builder's types have gone, the
 schema on the document holds a foreign producer to the same paths.
 
 ## What the action bar draws for each shopper
@@ -133,7 +133,7 @@ The decisions the listing's action bar renders are convenience. The same `can`
 runs again in the shop's server runtime, over a subject that runtime resolved
 itself, before any listing is edited or published. A screen that hid the button
 does not excuse the handler the button posts to. [The security contract](/acl/security) is the
-long form, and [Platforms](/acl/platforms) is where the second call sits on each
+long form, and [Choosing a framework integration](/acl/choosing-an-integration) is where the second call sits on each
 stack.
 
 ## Where a refused control gets its wording

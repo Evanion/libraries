@@ -252,7 +252,7 @@ export const packages: readonly DocumentedPackage[] = [
     familyId: 'acl',
     framework: 'universal',
     hue: 'coral',
-    demo: 'interface',
+    demo: 'ui-checks',
     documented: true,
     workshop: true,
   },

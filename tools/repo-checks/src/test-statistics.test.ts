@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
  * So this reads `libs/acl/SECURITY.md`, ranks it with the same module the build
  * ranks it with, and holds the page's `<Case id=…>` blocks against the result.
  * `tools/repo-checks/src/security-register.test.ts` is the other half and holds
- * the register against the suite and against `/acl/register`; this one is about
+ * the register against the suite and against `/acl/attacks`; this one is about
  * the page that renders the cases.
  */
 

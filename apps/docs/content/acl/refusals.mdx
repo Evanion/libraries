@@ -8,7 +8,7 @@
   hands={15}
   requires={[['Can this user do this?', '/acl/asking']]}
   unlocks={[
-    ['Decisions', '/acl/decisions'],
+    ['The Decision object every check returns', '/acl/decision-object'],
     ['Field permissions', '/acl/fields'],
   ]}
 />
@@ -133,7 +133,7 @@ Handle an `unevaluable` by where you meet it.
 | authoring the document   | An `unevaluable` no refetch repairs is a bug in the document, almost always a mistyped field name. A `schema` turns that class into an `UnknownFieldError` at construction. |
 | before the row is loaded | Every object-dependent permission answers `unevaluable`. `access.readsObject(key, action)` tells that case apart from a call that happened to lack data.                    |
 
-[Deciding before the row is loaded](/acl/decisions#deciding-before-the-row-is-loaded)
+[Deciding before the row is loaded](/acl/decision-object#deciding-before-the-row-is-loaded)
 covers the last row.
 
 ### Why only the object

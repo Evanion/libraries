@@ -197,7 +197,7 @@ in `schema.objects`.
 <!-- reference @evanion/acl#diffMatrix example=drift-seam -->
 
 `diffMatrix` compares two matrix documents and reports access rather than text.
-See [What did this change do to access?](/acl/changes).
+See [What did editing my rules change about access?](/acl/rule-changes).
 
 The evaluator ORs the rules on a side, so a side that matched goes on matching
 whatever is appended. An added allow branch can therefore only widen and an
@@ -289,13 +289,13 @@ an object path lands in `object`.
 <!-- reference @evanion/acl#Matrix example=schema-binding -->
 
 `Matrix` is a JSON envelope over a flat list of permissions. See
-[The matrix document](/acl/matrix).
+[The matrix: your rules as JSON](/acl/matrix).
 
 | Type           | What it holds                                                                                                                 |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `Permission`   | one `` `${object}.${action}` `` key, its allow rules, its deny rules and its field rules                                      |
 | `Rule`         | an id and a list of AND-ed conditions                                                                                         |
-| `Condition`    | one comparison; [The matrix document](/acl/matrix#conditions) has the operator table                                          |
+| `Condition`    | one comparison; [The matrix: your rules as JSON](/acl/matrix#conditions) has the operator table                               |
 | `FieldRules`   | the `fields` list, then one key per field carrying a write-axis config, so a field named `fields` cannot be configured        |
 | `FieldConfig`  | `targets` allow-lists the proposed value and `transitions` is a state machine over the current one; see [Fields](/acl/fields) |
 | `MatrixSchema` | optional for a producer, binding where present, per kind: a kind `objects` omits is unchecked                                 |
@@ -347,13 +347,13 @@ an object path lands in `object`.
 
 <!-- reference @evanion/acl#Decision example=federation -->
 
-| Field     | What it carries                                                          |
-| --------- | ------------------------------------------------------------------------ |
-| `key`     | the permission key the query asked about                                 |
-| `allowed` | the gate                                                                 |
-| `reason`  | output only; [Decisions](/acl/decisions) says which reason carries which |
-| `rule`    | output only; the id of the rule that decided                             |
-| `missing` | output only; the paths that did not read                                 |
+| Field     | What it carries                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
+| `key`     | the permission key the query asked about                                                                     |
+| `allowed` | the gate                                                                                                     |
+| `reason`  | output only; [The Decision object every check returns](/acl/decision-object) says which reason carries which |
+| `rule`    | output only; the id of the rule that decided                                                                 |
+| `missing` | output only; the paths that did not read                                                                     |
 
 ## `Reason`
 

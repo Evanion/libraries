@@ -15,7 +15,7 @@
   read={7}
   requires={[['A policy from another service', '/acl/adopting']]}
   unlocks={[
-    ['React Server Components', '/acl/next-rsc'],
+    ['Next.js (React Server Components)', '/acl/nextjs'],
     ['Security contract', '/acl/security'],
   ]}
 />
@@ -82,7 +82,7 @@ on one page cannot decide against two different identities.
 `policyAccess` awaits a fetch only where this process holds no document or the
 revalidation window has closed. Every other request reads a document already
 validated, deep-cloned and deep-frozen, so a decision in a page's frontmatter is
-a function call. [Platforms](/acl/platforms) carries the cache, the window and
+a function call. [Choosing a framework integration](/acl/choosing-an-integration) carries the cache, the window and
 what a failed poll leaves behind.
 
 ## The frontmatter is the loader and the action in one module
@@ -156,7 +156,7 @@ service the form posts to.
 
 - [Security contract](/acl/security) — subject authenticity, complete mediation,
   and the rest of what a consumer owns
-- [React Server Components](/acl/next-rsc) — the same trusted render, with the
+- [Next.js (React Server Components)](/acl/nextjs) — the same trusted render, with the
   write on a second entry point
 - [A policy from another service](/acl/adopting) — closed mode and what a fetched
   document obliges

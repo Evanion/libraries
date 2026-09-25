@@ -34,7 +34,7 @@ import { describe, expect, it } from 'vitest';
 
 const SECURITY = join(workspaceRoot, 'libs/acl/SECURITY.md');
 const SUITE = join(workspaceRoot, 'libs/acl/src/security');
-const PAGE = join(workspaceRoot, 'apps/docs/content/acl/register.mdx');
+const PAGE = join(workspaceRoot, 'apps/docs/content/acl/attacks.mdx');
 
 /** An identifier as the register and the suite both spell it. */
 const ID = /SEC-\d{3}/g;
