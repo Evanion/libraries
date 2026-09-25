@@ -72,6 +72,15 @@ export interface PolicyProviderProps<Keys extends string = string> {
   children?: ReactNode;
 }
 
+/**
+ * Holds one evaluator, one subject and one instant for the tree under it.
+ *
+ * `useCan`, `useCanMany`, `useCanFields` and `useCapabilities` read all three
+ * out of this provider, and each throws when no provider sits above it. The
+ * context value is memoised on the identity of `access`, `subject` and
+ * `context`, so a value rebuilt during render re-evaluates every hook under it.
+ * `context.now` defaults to `new Date()`, read whenever that memo recomputes.
+ */
 export function PolicyProvider<Keys extends string = string>({
   access,
   subject,

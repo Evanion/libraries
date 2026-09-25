@@ -100,28 +100,6 @@
       "withCorrelation"
     ]
   },
-  "@evanion/react-acl": {
-    "undocumented": [
-      "Access",
-      "ActionOf",
-      "AnyObjects",
-      "Condition",
-      "Decision",
-      "EvaluationContext",
-      "FieldDecision",
-      "FieldReason",
-      "FieldState",
-      "FieldType",
-      "Instant",
-      "Matrix",
-      "MatrixSchema",
-      "ObjectSchema",
-      "Permission",
-      "Reason",
-      "Subject"
-    ],
-    "unexplained": ["PolicyProvider"]
-  },
   "@evanion/react-widget": {
     "undocumented": [
       "AnyWidgetComponent",
