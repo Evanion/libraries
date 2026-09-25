@@ -15,22 +15,26 @@ lets a customer edit their own question and it refuses a stranger.
 
 - Node 20 or newer.
 - An ESM project. `@evanion/acl` ships no CommonJS build.
-- TypeScript 5.5 or newer, if you want the typed builder to check your object
-  kinds and actions. The package runs without it.
+- TypeScript 5.5 or newer, if you want the compiler to check your object kinds
+  and actions. The package runs without it.
 - A subject your server already resolves, meaning the user object your auth layer
   loaded with every field on it. acl never authenticates anybody; it takes the
   subject you hand it.
 
-You need no API key, no service to run and no environment variable. Your policy is
-a value in your own process, which [the Overview](/acl) calls the matrix.
+You need no API key, no service to run and no environment variable. `policy()`
+turns your rules into a JSON document in your own process, the document
+[the Overview](/acl) calls the matrix.
 
 ## Install acl
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    Until it publishes, the way to run this page is inside this repository,
-    where `@evanion/acl` resolves from source like any other workspace package.
-    The commands below are what to run once it is on the registry.
+    Until it publishes, run this page inside a clone of
+    [Evanion/libraries](https://github.com/Evanion/libraries), where
+    `@evanion/acl` resolves from source. The example below is a doctest in
+    `libs/acl/README.md`, and `npx nx test @evanion/acl` checks every `// ->`
+    answer in it. The commands below are what to run once it is on the
+    registry.
   </Text>
 </WorkshopNotice>
 
@@ -87,8 +91,8 @@ If both calls answered the way the comments say, acl is working in your project.
 ## Two rules for the code around an acl policy
 
 Build the policy once, at module scope. A policy rebuilt per request hands you an
-evaluator that answers identically, so the rebuild spends a document read and a
-freeze on every request and changes no answer.
+evaluator that answers identically, so the rebuild walks every rule again on
+every request and changes no answer.
 
 Gate on `allowed` and nothing else. No part of the library reads `reason` back to
 decide anything, so a handler that branches on `reason` is writing a second rule of

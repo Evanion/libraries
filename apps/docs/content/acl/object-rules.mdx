@@ -19,8 +19,8 @@ customer who did not.
 
 ## What an acl object condition reads
 
-You and Jo are both customers of Baize with exactly the same permissions. Only
-the `askedBy` field on the question about the Brass: Birmingham listing tells you
+Sam and Jo are both customers of Baize with exactly the same permissions. Only
+the `askedBy` field on the question about the Brass: Birmingham listing tells them
 apart, so the rule that lets a customer edit their own question has to read that
 field off the row in hand.
 
@@ -31,7 +31,7 @@ different, and the bulk close job never had one at all.
 `p.eq('object.askedBy', 'subject.id')` states it once. A subject-only condition
 reads the subject the server resolved whole, so it holds or it fails. A condition
 naming an object path also reads the instance the caller passed, and that
-instance is whatever the query selected.
+instance carries whatever columns your database query selected.
 
 ```mermaid caption="The two inputs a condition can read, and the third outcome the second one adds."
 flowchart LR
@@ -42,7 +42,7 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-A fourth answer arrives with that condition, and it is the subject of this page.
+A fourth answer arrives with that condition, and this page is about it.
 The query chose which fields of the question to select, so the row in hand may not
 carry the field a rule reads, and a decision that cannot be reached is neither yes
 nor no.
@@ -83,10 +83,9 @@ rules read the object.
   </Text>
 </Panel>
 
-An absent `object.*` path is unevaluable whatever the condition asked of it. A
-condition testing that a field differs from something is as unevaluable as
-`p.eq` over the same absent field, because a field nobody read says nothing either
-way.
+An absent `object.*` path is unevaluable whatever the condition asked of it.
+`p.ne('object.status', 'locked')` over an absent `status` is as unevaluable as
+`p.eq` over it, because a field nobody read says nothing either way.
 
 ### Watching an acl decision move between the four answers
 
@@ -96,7 +95,7 @@ reaches the engine.
 
 <UnevaluableDemo />
 
-It opens on a projection that selected neither field, so the decision is
+It opens on a row that carries neither field, so the decision is
 `unevaluable` and `missing` names both paths. Three moves take it elsewhere.
 Select both fields, and the asker's own draft question decides `allow`. Change
 `askedBy` to `s2`, and the allow rule compares two identifiers that differ, which
@@ -106,8 +105,9 @@ which is `denied` whatever the allow side said.
 Clearing a field again shows where the fourth answer comes back and where it does
 not. Clear `status` on the asker's own draft question and the deny side has nothing
 to read, so `missing` names `object.status`. Clear it on somebody else's question
-and the answer stays `no-rule-matched`, because the allow rule already failed on
-data the engine did have. A refetch selects exactly what `missing` named and asks
+and the answer stays `no-rule-matched`. The engine answers a matched deny first
+and a definitely failed allow side second, ahead of a deny it could not read,
+because fetching `status` cannot make that allow rule match. A refetch selects exactly what `missing` named and asks
 again.
 
 ## Where to go next
