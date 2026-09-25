@@ -2270,24 +2270,46 @@ what to do with a mismatch, and rebuilding are the consumer's:
 <!-- #region revalidate -->
 
 ```ts @import.meta.vitest
-import { hydratePolicy } from '@evanion/acl';
+import { parseMatrix } from '@evanion/acl';
 import type { Access, Matrix } from '@evanion/acl';
 
 /** Rebuild when the served document moved; otherwise keep the one in hand. */
 function revalidate(current: Access, served: Matrix): Access {
-  return current.version === served.version ? current : hydratePolicy(served);
+  // `parseMatrix`, so a key the new version dropped refuses and never throws.
+  return current.version === served.version ? current : parseMatrix(served);
 }
 
-const served: Matrix = {
-  version: 'orders@8',
+const read = { key: 'question.read', object: 'question', action: 'read' };
+const held: Matrix = {
+  version: 'orders@7',
   permissions: [
-    { key: 'question.read', object: 'question', action: 'read', rules: [] },
+    { ...read, rules: [{ when: [] }] },
+    {
+      key: 'question.update',
+      object: 'question',
+      action: 'update',
+      rules: [
+        { when: [{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }] },
+      ],
+    },
   ],
 };
 
-let access = hydratePolicy({ ...served, version: 'orders@7' });
+// `orders` withdrew `question.update` and published a new version.
+const served: Matrix = {
+  version: 'orders@8',
+  permissions: [{ ...read, rules: [{ when: [] }] }],
+};
+
+const jo = { id: 'jo' };
+const question = { askedBy: 'jo' };
+
+let access = parseMatrix(held);
+access.can(jo, 'question', 'update', question).allowed; // -> true
+
 access = revalidate(access, served);
 access.version; // -> 'orders@8'
+access.can(jo, 'question', 'update', question).reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion revalidate -->
