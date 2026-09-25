@@ -1,10 +1,6 @@
 # API reference
 
-Everything `@evanion/compose` exports, one heading per symbol. Nothing here
-assumes you have read the pages before it;
-[Where the check happens](/compose/type-checking) is where the type
-relationship is taught, and this page links to it rather than teaching it
-again.
+Everything `@evanion/compose` exports, one heading per symbol.
 
 ## `ComposeProvider`
 
@@ -65,11 +61,11 @@ type AnyComponent = ComponentType<any>;
 ```
 
 For use in a generic constraint. `ComponentType<unknown>` would reject a
-component with concrete props — component props are contravariant, so a
+component with concrete props, because component props are contravariant: a
 `ComponentType<{ theme: string }>` is not assignable to a
-`ComponentType<unknown>` — and TypeScript has no "some component, props
-unknown" type for this position. Inference is unaffected: every check below
-resolves against the component actually passed.
+`ComponentType<unknown>`. TypeScript has no "some component, props unknown"
+type for this position. Inference is unaffected: every check in
+`@evanion/compose` resolves against the component actually passed.
 
 ## `PropsWithoutChildren<T>`
 
@@ -98,16 +94,19 @@ One entry of the array: a component, or a component paired with its props.
 type ProviderArray = readonly Provider[];
 ```
 
-`readonly`, so an array written `as const` is assignable. Annotating a value
-with this type widens away its element identity — see
-[forwarding a compose array through a wrapper](/compose/type-checking).
+`readonly`, so an array written `as const` is assignable. A value annotated
+with this type has lost its length and the type at each position, so
+`ComposeProvider` checks none of its entries.
+[Wrapping compose in your own component](/compose/type-checking#wrapping-compose-in-your-own-component)
+shows the wrapper that keeps the check.
 
 ## `ValidateProvider<T>`
 
-Checks one entry. A valid entry maps to itself; a failing one maps to a carrier
-type naming what is wrong, except for a missing or mistyped prop value, which
-maps to the shape the entry should have had.
-[Reading a compose error](/compose/type-checking) lists the carriers.
+Checks one entry. A valid entry maps to itself. A failing one maps to
+`ComposeError<"message">`, a type naming what is wrong, except for a missing or
+mistyped prop value, which maps to the shape the entry should have had.
+[Reading a compose error](/compose/type-checking#reading-a-compose-error) lists
+the messages.
 
 ## `ValidateProviders<T>`
 
@@ -123,11 +122,13 @@ type ValidatedProviders<T extends ProviderArray> = number extends T['length']
 ```
 
 The type of the `providers` prop. `number extends T['length']` is the standard
-tuple-versus-array test, and gating on it does two things: a widened
-`ProviderArray` is passed through unchecked instead of being compared against a
-repaired shape it cannot match, and a non-tuple array is never compared member
-by member — which would make TypeScript walk `every`, `map` and `reduce` and
-report the variance of a predicate before mentioning the real mismatch.
+tuple-versus-array test, and gating on it does two things:
+
+- A widened `ProviderArray` passes through unchecked. Compared against the shape
+  each entry should have had, it could never match.
+- A non-tuple array is never compared member by member. That comparison makes
+  TypeScript walk `every`, `map` and `reduce` and report the variance of a
+  predicate before it mentions the real mismatch.
 
 `T` stays in the intersection because a bare `ValidateProviders<T>` is a
 non-homomorphic mapped type and therefore not an inference site: TypeScript
@@ -135,7 +136,19 @@ would fall back to the constraint and check nothing.
 
 ## `ComposeProviderProps<T>`
 
-The props interface above, exported for a wrapper that needs to name it.
+```signature
+interface ComposeProviderProps<T extends ProviderArray = ProviderArray> {
+  providers: ValidatedProviders<T>;
+  children: React.ReactNode;
+}
+```
+
+The props of `ComposeProvider`, exported for a wrapper that names them. The
+wrapper keeps the per-entry checks only when it declares its own
+`<const T extends ProviderArray>` and passes `T` here. Under the default `T`,
+`providers` is a plain `ProviderArray`.
+[Wrapping compose in your own component](/compose/type-checking#wrapping-compose-in-your-own-component)
+shows one.
 
 ## Migrating from 1.x
 
