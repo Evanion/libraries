@@ -8,9 +8,10 @@
 </WorkshopNotice>
 
 `@evanion/react-acl` exports one provider, four hooks, a factory that binds them
-to a policy, and three interfaces. `Decision`, `FieldDecision`, `Access`,
-`Subject`, `Matrix` and `Instant` keep their `@evanion/acl` names here, and
-[the core's reference](/acl/api) documents them.
+to a policy, and three interfaces. It also re-exports seventeen of
+`@evanion/acl`'s types under their own names, from [`Access`](#access) down, so
+a component file imports `Decision` from either package. The core's values,
+`hydratePolicy` and `policy` among them, are imported from `@evanion/acl`.
 
 ## `PolicyProvider`
 
@@ -236,6 +237,93 @@ browser rebuilt with `hydratePolicy`, which carries no types of its own.
 
 `subject` takes the type the policy was authored against, so a value missing a
 field that type declares is a compile error at the mount.
+
+## `Access`
+
+<!-- reference @evanion/acl#Access -->
+
+`PolicyProvider` takes one as `access`, and `createPolicyContext` reads its
+three type parameters off the one it is handed.
+
+## `Subject`
+
+<!-- reference @evanion/acl#Subject -->
+
+`PolicyProvider` takes one as `subject`.
+
+## `Instant`
+
+<!-- reference @evanion/acl#Instant -->
+
+`context.now` takes one. The string form holds the hooks' memos across renders,
+where a `Date` is a new object every render.
+
+## `EvaluationContext`
+
+<!-- reference @evanion/acl#EvaluationContext -->
+
+## `Decision`
+
+<!-- reference @evanion/acl#Decision -->
+
+`useCan` returns one, and `useCanMany` returns one per row.
+
+## `Reason`
+
+<!-- reference @evanion/acl#Reason -->
+
+## `FieldDecision`
+
+<!-- reference @evanion/acl#FieldDecision -->
+
+`useCanFields` returns one.
+
+## `FieldState`
+
+<!-- reference @evanion/acl#FieldState -->
+
+## `FieldReason`
+
+<!-- reference @evanion/acl#FieldReason -->
+
+## `Matrix`
+
+<!-- reference @evanion/acl#Matrix -->
+
+The server sends one to the browser, and `hydratePolicy` turns it into the
+`Access` a provider takes.
+
+## `Permission`
+
+<!-- reference @evanion/acl#Permission -->
+
+## `Condition`
+
+<!-- reference @evanion/acl#Condition -->
+
+## `MatrixSchema`
+
+<!-- reference @evanion/acl#MatrixSchema -->
+
+## `ObjectSchema`
+
+<!-- reference @evanion/acl#ObjectSchema -->
+
+## `FieldType`
+
+<!-- reference @evanion/acl#FieldType -->
+
+## `AnyObjects`
+
+<!-- reference @evanion/acl#AnyObjects -->
+
+`PolicyProviderProps` and `createPolicyContext` default their object map to it.
+
+## `ActionOf`
+
+<!-- reference @evanion/acl#ActionOf -->
+
+`PolicyContext` types every hook's `action` parameter with it.
 
 ## Where to go next
 
