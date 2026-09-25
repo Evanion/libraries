@@ -44,8 +44,9 @@ export const shop = policy<Shopper, ShopObjects, ShopVerbs>()
 export const { PolicyProvider: ShopAccess, useCan } = createPolicyContext(shop);
 
 export function EditControl({ listing }: { listing: Listing }) {
-  // 'listing' is a key of the policy. A typo is a compile error here, where the
-  // untyped useCan would pass it through and answer unknown-action at runtime.
+  // 'listing' and 'edit' are checked against the policy. A typo in either is a
+  // compile error here. The untyped useCan compiles it, and the evaluator
+  // throws UnknownObjectKeyError or UnknownPermissionError at render.
   const decision = useCan('listing', 'edit', listing);
 
   if (!decision.allowed) return null;
