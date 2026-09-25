@@ -1,6 +1,6 @@
 # Getting started
 
-By the end of this page a policy of yours answers two questions correctly: it
+By the end of this page your own `policy()` answers two questions correctly: it
 lets a customer edit their own question and it refuses a stranger.
 
 <PageSheet
@@ -8,7 +8,7 @@ lets a customer edit their own question and it refuses a stranger.
   read={4}
   hands={10}
   requires={[['Overview', '/acl']]}
-  unlocks={[['Can this user do this?', '/acl/asking']]}
+  unlocks={[['Rules about who the user is', '/acl/subject-rules']]}
 />
 
 ## Before you start
@@ -17,11 +17,12 @@ lets a customer edit their own question and it refuses a stranger.
 - An ESM project. `@evanion/acl` ships no CommonJS build.
 - TypeScript 5.5 or newer, if you want the typed builder to check your object
   kinds and actions. The package runs without it.
-- A subject your server already resolves. acl never authenticates anybody; it
-  takes the subject you hand it.
+- A subject your server already resolves, meaning the user object your auth layer
+  loaded with every field on it. acl never authenticates anybody; it takes the
+  subject you hand it.
 
-No API key, no service to run, no environment variable. The matrix is a value in
-your process.
+You need no API key, no service to run and no environment variable. Your policy is
+a value in your own process, which [the Overview](/acl) calls the matrix.
 
 ## Install acl
 
@@ -59,7 +60,7 @@ A policy needs three calls and nothing else.
   is acting, so `{ id: string }` at its smallest. `Objects` maps each object kind
   to the shape of its row, so `{ question: Question }` declares one kind called
   `question` whose rows are `Question`. Add a kind by adding a key.
-- `.for(key, block)` writes one kind's rules. The `key` is one of the keys you
+- `.for(kind, block)` writes one kind's rules. The `kind` is one of the keys you
   just declared in `Objects`.
 - `.build()` returns the evaluator. Name it `access`; every page in this section
   calls it that.
@@ -83,19 +84,18 @@ the document granted the action. You configured no default and got default deny.
 
 If both calls answered the way the comments say, acl is working in your project.
 
-## Two rules for the code around it
+## Two rules for the code around an acl policy
 
-Build the policy once, at module scope. `.build()` reads the whole document and
-freezes it, and a policy rebuilt per request does that work again for an
-evaluator that answers identically.
+Build the policy once, at module scope. A policy rebuilt per request hands you an
+evaluator that answers identically, so the rebuild spends a document read and a
+freeze on every request and changes no answer.
 
-Gate on `allowed` and nothing else. `reason` is output only: no part of the
-library reads it back to decide anything. So a handler that branches on `reason`
-is writing its own second rule, and that rule will let something through that
-`allowed` said no to.
+Gate on `allowed` and nothing else. No part of the library reads `reason` back to
+decide anything, so a handler that branches on `reason` is writing a second rule of
+its own, next to the one the policy already holds.
 
-## Now that acl answers, ask it properly
+## Now that acl answers, write the rest of your rules
 
-[Can this user do this?](/acl/asking) is the next page. It takes the `can` call
-you just wrote and covers the four answers it can give, asking about a list of
-rows in one call, and what a decision carries besides the boolean.
+[Rules about who the user is](/acl/subject-rules) is the next page. It takes the
+one rule you just wrote, adds the deny rule that states an exception to it, and
+covers the three answers a policy reading only the subject can give.

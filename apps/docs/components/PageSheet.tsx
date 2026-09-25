@@ -12,7 +12,40 @@ import type { ReactNode } from 'react';
 const RUNGS = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'] as const;
 
 export interface PageSheetProps {
-  /** How hard this page is, 1 to 5. Rendered as the bar and nothing else. */
+  /**
+   * How hard this page is, 1 to 5, rated against the section floor. Rendered as
+   * the bar and nothing else.
+   *
+   * The floor is the section's Overview and its `getting-started.mdx`, and
+   * nothing else. Rate the page for a reader who has those two behind them and
+   * has read no other page in the section, so the number is one page's cost
+   * rather than a position in a chain. `requires` then names what a page needs
+   * above the floor, which is a different fact and the reason both fields are on
+   * the card.
+   *
+   * Two other readings were measured on `acl` and both fail, which is why the
+   * floor is named here rather than left to the author.
+   *
+   * Rating against `requires`, so that the number is what the page costs a
+   * reader who did the ladder, is unfalsifiable from outside: only somebody who
+   * read the prerequisites can check it, and the reader who arrives from a
+   * search result is the one the number would most have helped. `asking.mdx`
+   * carried 2 on that reading and a cold reader put it at 4.
+   *
+   * Rating against nothing, so that the number is what the page costs a reader
+   * holding no page at all, collapses the scale. Seven `acl` pages were read
+   * that way, each by a reader who had seen no other page, and six came back 4:
+   * `getting-started` 3, `subject-rules` 4, `object-rules` 4, `asking` 4,
+   * `ui-checks` 4, `limits` 4, `decision-object` 4. Every one of those readers
+   * lost the same words, and they are the Overview's words: subject, object,
+   * matrix, what `can` returns. So that number measures whether the reader
+   * skipped the Overview, which is the same answer on every page, and a bar that
+   * reads 4 everywhere tells a reader nothing.
+   *
+   * The floor is small, it is named, any reader can acquire it in two pages, and
+   * a reviewer can check a rating by reading those two pages first. That is what
+   * the other two readings each lack.
+   */
   difficulty?: 1 | 2 | 3 | 4 | 5;
   /** Minutes to read it, and minutes to work through it with an editor open. */
   read: number;

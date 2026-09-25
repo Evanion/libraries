@@ -556,6 +556,38 @@ adopted, amended or declined here, with the reason.
   refuted by `docs/specs/2026-09-21-reference-page-budget.md`, whose measurement
   is the one to reread before proposing it again.
 
+### What `<PageSheet difficulty>` is rated against
+
+`apps/docs/components/PageSheet.tsx` renders a 1-to-5 bar, and a number is worth
+nothing until the reader it describes is named. The reader is one who has the
+section's Overview and its `getting-started.mdx` behind them, and no other page in
+the section. Call that the section floor. `requires` then names what the page needs
+above the floor, which is why both fields sit on the card without saying the same
+thing twice.
+
+Two other readings were measured on `acl` and both fail.
+
+Rating the page against its own `requires`, so that the number is what the page
+costs a reader who walked the ladder, cannot be checked from outside: only somebody
+who read the prerequisites can dispute it, and the reader who arrives from a search
+result is the one the number would most have helped. `acl/asking.mdx` carried 2 on
+that reading and a cold reader put it at 4.
+
+Rating the page against nothing, so that the number is what the page costs a reader
+holding no page at all, collapses the scale. Seven acl pages were read that way on
+2026-09-25, one reader per page, each having seen no other page, and six came back
+4: `getting-started` 3, `subject-rules` 4, `object-rules` 4, `asking` 4, `ui-checks`
+4, `limits` 4, `decision-object` 4. Every reader lost the same words, and they are
+the Overview's words: subject, object, matrix, and what `can` returns. So that
+number reports whether the reader skipped the Overview, which is the same answer on
+every page, and a bar reading 4 everywhere tells a reader nothing.
+
+The floor beats both because it is small, it is named, a reader acquires it in two
+pages, and a reviewer can check a rating by reading those two pages and then the
+page under review. The cost is that the number says nothing to a reader who has not
+read the Overview, and § 5's first sentence per stage plus the `requires` list are
+what serve that reader instead.
+
 Carried forward from the old standard's § 4 unchanged, because three guards read
 it: the section floor is four roles, `index`, `getting-started`, `api` and the
 page `navigation.ts`'s `demo` field names; a section of five pages or fewer may

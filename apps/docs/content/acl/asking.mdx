@@ -6,10 +6,13 @@ returns a decision your handler gates on and your screen renders.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={2}
-  read={6}
-  hands={15}
-  requires={[['Getting started', '/acl/getting-started']]}
+  difficulty={3}
+  read={7}
+  hands={10}
+  requires={[
+    ['Rules about who the user is', '/acl/subject-rules'],
+    ['Rules about the thing being accessed', '/acl/object-rules'],
+  ]}
   unlocks={[
     ['Why was this refused?', '/acl/refusals'],
     ['Listing everything a user may do', '/acl/listing-permissions'],
@@ -19,64 +22,41 @@ returns a decision your handler gates on and your screen renders.
 ## The problem one acl call solves
 
 A customer clicks Edit on a question somebody else asked. Two places need the
-same answer. The save handler has to refuse, and the Edit button had to be grey
+same answer: the save handler has to refuse, and the Edit button had to be grey
 before the click.
 
-One `can` call answers both, because it returns more than a boolean. The handler
-reads one field of the decision and the button reads three others, so the two
-cannot disagree about whether the edit was allowed.
+`can` answers both from one call, because it returns a decision rather than a
+boolean:
 
-## The four answers an acl decision comes back in
-
-A decision's `reason` names which branch of the engine answered. Two of them,
-`allow` and `no-rule-matched`, came out of the first policy you wrote. There are
-four, and one policy produces all four.
-
-`p.deny(action, ...conditions)` is the other half of a block, and it refuses when
-its conditions hold. The policy below grants the asker with `p.allow` and refuses
-a locked question with `p.deny`:
-
-```ts twoslash file=libs/acl/README.md region=four-outcomes
+```ts twoslash file=libs/acl/README.md region=quick-start
 
 ```
 
-- `allow`. An allow rule matched and no deny rule did.
-- `no-rule-matched`. Nothing granted the action. This is default deny and you
-  configure nothing to get it: no rules, an empty rule list and an unknown
-  action all land here.
-- `denied`. A deny rule matched. The engine reads the deny side first, so a
-  matched deny answers whatever the allow side would have said.
-- `unevaluable`. The engine could not read a path a rule needs, so the
-  permission is not answerable yet. `missing` names the paths.
-
-Those four are a teaching order rather than the engine's.
-[Why deny, then allow, then deny?](/acl/resolution) carries the precedence the
-engine actually walks.
-
-`allowed` is `false` for the last three, so a handler gating on `allowed` alone
-is correct for all four.
+The handler reads `allowed` and the button reads three other fields, so the two
+cannot disagree about whether the edit was allowed.
 
 ## Why an acl decision is not a boolean
 
 A boolean tells the save handler whether to write the question and tells the
-Edit button above it nothing. A component holding only `true` or `false`
-explains a greyed-out button by calling `can` again or by guessing a string from
-context.
+Edit button above it nothing. A component holding only `true` or `false` explains
+a greyed-out button by calling `can` again or by guessing a string from context.
 
-```mermaid caption="One call, two consumers. The handler gates on allowed and reads nothing else; the Edit button reads reason, rule and missing to say why it is greyed out. Both read the same decision, so the two cannot disagree."
+```mermaid caption="One call, two consumers reading different fields of the one decision."
 flowchart LR
   Q["access.can(subject,<br>'question', 'update', row)"]:::accent --> D["a decision"]
   D -->|"allowed"| H["the handler<br>runs the save, or refuses"]
   D -->|"reason, rule, missing"| U["the Edit button<br>label and state"]
 ```
 
-Three fields carry the explanation, and all three are output only.
+`allowed` is the answer. The three fields beside it explain that answer and are
+output only.
 
-| Field     | What it carries                                        | When it rides along                 |
-| --------- | ------------------------------------------------------ | ----------------------------------- |
-| `reason`  | which answer this is, as one of the four strings above | every decision                      |
-| `rule`    | the rule that decided, named by its `id`               | `allow` and `denied`, and see below |
-| `missing` | the paths the engine could not read                    | `unevaluable`                       |
+| Field     | What it carries                               | When it rides along                 |
+| --------- | --------------------------------------------- | ----------------------------------- |
+| `allowed` | the answer, and the only field to gate on     | every decision                      |
+| `reason`  | which answer this is, as one of seven strings | every decision                      |
+| `rule`    | the name `.id()` gave the rule that decided   | `allow` and `denied`, and see below |
+| `missing` | the paths the engine could not read           | `unevaluable`                       |
 
 A permission holds allow rules and deny rules, and the engine reads the deny
 rules first. That is why `rule` is sometimes absent on an `unevaluable`. One deny
@@ -85,14 +65,28 @@ allow rules are alternatives and any of them grants, so when the engine cannot
 read them there is no single rule at fault to name. `missing` arrives either way,
 so the refetch is the same.
 
-Three more `reason` strings exist and none of them comes out of the policy on
-this page. `unknown-action` answers a permission the document never declared.
-`unusable-clock` and `stale-contract` answer a document carrying a time bound.
-[Why was this refused?](/acl/refusals) covers all seven and says which situation
-produces each.
+### The seven acl reasons, and where four of them were taught
 
-Gate on `allowed`. A gate on the `reason` string is a second rule you wrote
-yourself, and it will let through something `allowed` refused.
+Seven strings can arrive in `reason`. Four of them come out of the rules the two
+pages above wrote, and this page takes those four as read:
+
+| `reason`          | What it says                                | Where it was taught                                       |
+| ----------------- | ------------------------------------------- | --------------------------------------------------------- |
+| `allow`           | an allow rule matched and no deny rule did  | [Rules about who the user is](/acl/subject-rules)         |
+| `no-rule-matched` | nothing granted the action                  | [Rules about who the user is](/acl/subject-rules)         |
+| `denied`          | a deny rule matched and outranked the allow | [Rules about who the user is](/acl/subject-rules)         |
+| `unevaluable`     | a rule read a path the row did not carry    | [Rules about the thing being accessed](/acl/object-rules) |
+
+`allowed` is `false` for the last three, so a handler gating on `allowed` alone is
+correct for all four. The remaining three come out of documents neither page above
+wrote. `unknown-action` answers a permission the document never declared.
+`unusable-clock` answers a rule that compared the clock against a boundary and
+received an instant that does not parse. `stale-contract` answers a document that
+states how long it stays fresh and has passed that bound, which happens where one
+service fetched the document from another.
+[Why was this refused?](/acl/refusals) covers all seven and says which situation
+produces each, and [Why deny, then allow, then deny?](/acl/resolution) carries the
+precedence the engine walks.
 
 ## Asking acl when your query selected half the row
 
@@ -103,19 +97,29 @@ list did not select. `can` takes a partial object, so pass what you have:
 
 ```
 
-A projection carrying every path the rules read decides definitely. One that
-does not answers `unevaluable`, and `missing` names exactly what to fetch, so
-the second call is the only extra query. Both answers are `allowed: false`, so a
+A projection carrying every path the rules read decides definitely. One that does
+not answers `unevaluable`, and `missing` names exactly what to fetch, so the
+second call is the only extra query. Both answers are `allowed: false`, so a
 handler gating on `allowed` is right either way.
+
+The subject has no partial form. An absent `subject.*` path is a definite miss
+that no fetch repairs, so a projected subject refuses with `no-rule-matched` and
+names nothing. Your app resolves the subject whole before the call.
+
+## Skipping the fetch an acl permission does not need
 
 `access.readsObject(kind, action)` answers from the document whether a permission
 reads the row at all. A permission whose rules read only the subject answers
-without one, so ask `readsObject` before the query and skip the fetch when it
+without one, so a caller that asks `readsObject` first can skip the query when it
 says `false`.
 
-The subject has no partial form. An absent `subject.*` path is a definite miss,
-not something to fetch, so a projected subject refuses with `no-rule-matched` and
-names nothing. Your app resolves the subject whole before the call.
+It matters more in the other direction. An HTTP guard that runs ahead of the
+handler which loads the row gets `unevaluable` from every object-dependent
+permission, every time, and cannot tell that apart from a call that happened to
+lack data. `readsObject` tells the guard which permissions it can never settle, so
+the guard refuses loudly there. [The Decision object every check
+returns](/acl/decision-object#deciding-before-the-row-is-loaded) carries the
+worked case.
 
 ## Asking acl about a page of rows
 
@@ -129,31 +133,43 @@ The array is parallel to the input, so the decision for `rows[i]` is
 `decisions[i]`. Nothing is filtered out and a refused row keeps its entry, which
 is what lets the table draw the refusal beside the row.
 
-`canMany` is not a bulk optimisation. It decides each row separately,
-because the rules read the object and the objects differ. Two things it does once
-for the whole list where a loop of `can` does them per row:
+`canMany` is not a bulk optimisation. It decides each row separately, because the
+rules read the object and the objects differ. Two things it does once for the whole
+list where a loop of `can` does them per row:
 
-- The clock. `now` is parsed into one epoch for the list. A loop of `can` with no
-  `now` reads `Date.now()` per row, so a time window can close partway down the
-  page.
 - The object-kind lookup. Each `can` scans the permission list to check the kind
   exists; `canMany` scans once.
+- The clock, for a policy using the `p.before` or `p.after` helpers. `canMany`
+  reads one instant for the whole list where a loop of `can` reads the wall clock
+  per row, so a time boundary cannot fall partway down one page of rows. Every
+  entry point also takes that instant from you, as a trailing argument:
+  `access.canMany(subject, 'question', 'update', rows, now)`. [Why was this
+  refused?](/acl/refusals) covers what `now` accepts and what an instant that does
+  not parse decides.
 
-Prefer `canMany` for the clock. One rendering then reads one instant, and the
-speed is a side effect.
+Prefer `canMany` over a loop of `can`. One rendering then reads one instant, and
+the speed is a side effect.
 
 ## Dropping what every acl call site repeats
 
-Every handler in a request passes the same subject, and most of them name the
-same object kind. Two calls take one of those axes out of every later signature.
+Every handler in a request passes the same subject, and most of them name the same
+object kind. Two calls take one of those axes out of every later signature.
 `access.authorize(subject)` binds the subject, and `access.object(kind)` binds the
 object kind. They are alternatives, so bind whichever axis your call sites repeat.
 
-[Rules about who the user is](/acl/subject-rules) shows `authorize` bound over a real
-policy, which is where the worked example lives.
+```ts twoslash file=libs/acl/README.md region=server-authorize
+
+```
+
+The handle carries `can`, `canMany`, `canFields` and `capabilities` with the
+subject dropped from each signature, which makes the guarded call the shortest one
+to write in a middleware, a loader, an action or a React server component. Binding
+the subject is all the library can do about [complete
+mediation](/acl/security#complete-mediation), because nothing stops a handler
+calling neither.
 
 ## Now that you can ask, read the answer properly
 
-[Why was this refused?](/acl/refusals) takes the three explanation fields you
-just met and shows what a screen does with each, including the `unevaluable` a
-reader can repair.
+[Why was this refused?](/acl/refusals) takes the three explanation fields you just
+met and shows what a screen does with each, including the `unevaluable` a reader
+can repair.
