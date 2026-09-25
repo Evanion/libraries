@@ -8,14 +8,23 @@ Generate and validate check characters over any alphabet you choose. A
 dictionary is validated once, at construction, and the object you get back
 carries `generate` and `validate` bound to it.
 
-```ts
+<!-- #region round-trip -->
+
+```ts @import.meta.vitest
 import { Luhn } from '@evanion/luhn';
 
-const withCheckCharacter = (body: string) => {
-  const { checksum } = Luhn.generate(body);
-  return `${body}-${checksum}`;
-};
+const { checksum } = Luhn.generate('order-2026-0042');
+const code = `order-2026-0042-${checksum}`; // -> 'order-2026-0042-l'
+
+Luhn.validate(code).isValid; // -> true
+Luhn.validate('order-2026-0043-l').isValid; // -> false
 ```
+
+<!-- #endregion round-trip -->
+
+`generate` returns the check character and `validate` accepts the code carrying
+it. One digit of the order number changes and the code is refused without a
+database lookup.
 
 ## Why use it
 
@@ -64,12 +73,16 @@ character over no payload carries no information, and returning one makes
 
 The last dictionary code point of the input is the check character.
 
+<!-- #region validate -->
+
 ```ts @import.meta.vitest
 Luhn.validate('foo5'); // -> { phrase: 'foo5', isValid: true, filtered: 0 }
 Luhn.validate('FOO5'); // -> { phrase: 'foo5', isValid: true, filtered: 0 }
 Luhn.validate('FoO-ö5'); // -> { phrase: 'foo5', isValid: true, filtered: 2 }
 Luhn.validate('bar5'); // -> { phrase: 'bar5', isValid: false, filtered: 0 }
 ```
+
+<!-- #endregion validate -->
 
 Fewer than two surviving code points is not valid — a payload and a check
 character is the minimum:

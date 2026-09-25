@@ -1,0 +1,69 @@
+# Getting started
+
+By the end of this page the shop mints a pickup code a customer can read over
+the phone, and a retyped one is refused before the order table is queried.
+
+## Prerequisites
+
+- Node 20 or newer, or any browser. `generate` draws from
+  `crypto.getRandomValues`, which both supply with no import and no polyfill.
+- ESM. The package ships no `require` condition, so a CommonJS `require()` of it
+  raises `ERR_REQUIRE_ESM`.
+- One dependency, `@evanion/luhn`, installed with it. It supplies the check
+  character.
+
+## Install
+
+```bash
+npm install @evanion/token
+```
+
+```bash
+yarn add @evanion/token
+```
+
+```bash
+pnpm add @evanion/token
+```
+
+## Construct one instance
+
+`createToken` validates its options once and returns a frozen object carrying
+`generate` and `validate`. Build it at module scope, so the validation runs once
+rather than per request:
+
+```ts twoslash file=libs/token/README.md region=construct
+
+```
+
+`length` is 8 by default and counts the check character, so seven of the eight
+characters are random. The code is chunked in fours by a hyphen, which is why
+`value` comes back nine characters long. Every option is on
+[Generating and validating](/token/usage); the shop's pickup codes take the
+defaults.
+
+## Mint a pickup code and check it
+
+`generate` returns the code, and `validate` answers whether a code holds
+together. Every mint draws different characters, so the two values below are what
+the round trip answers rather than what the code came out as:
+
+```ts twoslash file=libs/token/README.md region=round-trip
+
+```
+
+`pickup.value` takes the shape `ORD-a4kp-9mxa`: the prefix, then the seven random
+characters, then the check character. Run it yourself and the seven characters
+differ; the shape does not.
+
+The prefix sits outside the checksum, which is why `slice` cuts it off before
+`validate` sees the code. `a4kp-9mx8` is a fixed code with its check character
+wrong, and `validate` refuses it, so the counter learns the code is bad without
+the order table being queried.
+
+## Next
+
+Now that the shop mints and checks a code,
+[Generating and validating](/token/usage) is where `length`, `chunkSize`,
+`separator` and the prefix are set, and where the three `reason` values are
+listed in the order they are decided.
