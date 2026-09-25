@@ -4,6 +4,12 @@ A correlation id on every request, carried through everything the request
 awaits, and forwarded on outgoing HTTP calls.
 
 ```ts
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import {
+  CorrelationIdMiddleware,
+  CorrelationModule,
+} from '@evanion/nestjs-correlation-id';
+
 @Module({
   imports: [CorrelationModule.forRoot()],
 })
@@ -19,26 +25,12 @@ whichever one you configure — reused where it arrives, minted where it does no
 and forwarded to everything downstream, so a log line in one service can be
 matched to the request that produced it in another.
 
-## Installation
+## One build, one class object
 
-```bash
-npm install @evanion/nestjs-correlation-id
-```
-
-|                 |                                                    |
-| --------------- | -------------------------------------------------- |
-| NestJS          | `^12.0.0`                                          |
-| Node            | 20 or newer                                        |
-| `@nestjs/axios` | `^12.0.0`, optional — only for `withCorrelation()` |
-
-ESM only, matching NestJS 12. There is no CommonJS build, so
-`require('@evanion/nestjs-correlation-id')` will not work. No runtime
-dependencies beyond `tslib`.
-
-One build means one module graph and one `CorrelationService` class object, so
-injecting by class token is always safe. A dual build can hand Nest two
-unrelated copies of the same class, and then an injection that looks correct
-resolves nothing.
+The package ships ESM only, matching NestJS 12. One build means one module graph
+and one `CorrelationService` class object, so injecting by class token is always
+safe. A dual build can hand Nest two unrelated copies of the same class, and then
+an injection that looks correct resolves nothing.
 
 ## How the pieces fit
 
@@ -68,6 +60,13 @@ a peer dependency.
 
 ## Pages
 
-- [Getting started](/nestjs-correlation-id/getting-started) — the middleware, outgoing calls, work with no request
+- [Getting started](/nestjs-correlation-id/getting-started) — installing, the middleware, outgoing calls, work with no request
 - [Configuration](/nestjs-correlation-id/configuration) — header, generator, and the validator
 - [API reference](/nestjs-correlation-id/api)
+
+## Where to start with nestjs-correlation-id
+
+`CorrelationIdMiddleware` is what opens the context, so everything that reads the
+id has to run downstream of it.
+[Getting started](/nestjs-correlation-id/getting-started) installs the package,
+registers the module, and puts an id on every request.

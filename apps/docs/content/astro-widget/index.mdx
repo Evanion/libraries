@@ -27,14 +27,6 @@ Where `page.json` is whatever your CMS writes:
 }
 ```
 
-## Installation
-
-```bash
-npm install @evanion/astro-widget
-```
-
-Astro is a peer dependency, pinned at `^7.3.1`. Node 20 or newer. ESM only.
-
 ## Two entry points
 
 ```ts
@@ -74,6 +66,13 @@ context to read from.
 
 ## Pages
 
-- [Getting started](/astro-widget/getting-started) — the registry, the data shape, chrome
+- [Getting started](/astro-widget/getting-started) — installing, the registry, the data shape, chrome
 - [Validation](/astro-widget/validation) — catching a bad CMS save at build time
 - [API reference](/astro-widget/api)
+
+## Where to start with astro-widget
+
+The registry is what maps an item's `type` to an `.astro` component, and
+`@evanion/astro-widget` reads nothing else to decide what a section renders.
+[Getting started](/astro-widget/getting-started) installs the package and builds
+that registry.
