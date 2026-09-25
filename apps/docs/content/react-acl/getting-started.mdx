@@ -82,8 +82,9 @@ component wherever you import it.
 `useCan` takes the object kind, the action and the row, and returns the
 `Decision` for the subject the provider holds. Below, one rule allows
 `listing.edit`, the `edit` action on the `listing` kind, where the listing's
-`sellerId` equals the subject's `id`. `renderToStaticMarkup`, from
-`react-dom/server`, returns the HTML React writes for each of two sellers:
+`sellerId` equals the subject's `id`. The rule's condition compares `field`
+with the value at `path`. `renderToStaticMarkup`, from `react-dom/server`,
+returns the HTML React writes for each of two sellers:
 
 ```tsx twoslash file=libs/react-acl/README.md region=rendered-decision
 
@@ -105,9 +106,9 @@ the provider.
 
 ## Drive a whole tree from one react-acl provider
 
-The tree below mounts one `PolicyProvider` over the shop's full policy, with
+The tree below mounts one `PolicyProvider` over all of the shop's rules, with
 three components between it and the controls. `ShopPage`, `ListingView` and
-`ActionBar` pass nothing. The policy holds four rules:
+`ActionBar` pass nothing. The shop has four rules:
 
 - Everybody may review a listing.
 - A bookseller or an owner may edit it.
