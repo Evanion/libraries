@@ -42,12 +42,12 @@ can read, against a subject the shopper's own page supplied.
 
 ## Where each layer of a react-acl app decides
 
-| Where                                | Runtime | Decides?                                |
+| Where                                | Runs in | Decides?                                |
 | ------------------------------------ | ------- | --------------------------------------- |
-| Middleware                           | trusted | yes, for what it lets through           |
-| Loader or server component           | trusted | yes, for what it returns or renders     |
+| Middleware                           | server  | yes, for what it lets through           |
+| Loader or server component           | server  | yes, for what it returns or renders     |
 | `PolicyProvider` and its tree        | browser | never; it toggles what the shopper sees |
-| Action, Server Action, route handler | trusted | yes, independently, for what it writes  |
+| Action, Server Action, route handler | server  | yes, independently, for what it writes  |
 
 A caller reaches the last row directly. `curl` posts to the action without
 rendering anything, so the handler resolves the subject from the session, reads
@@ -56,7 +56,7 @@ evaluation and trusts no earlier one, between two of your own services as much
 as between the browser and the server.
 
 `access.can` is synchronous and reads a matrix the server already holds in
-memory, so no decision in the trusted rows waits on the network.
+memory, so no decision in the server rows waits on the network.
 
 ## Why react-acl cannot run in a server component
 
@@ -65,15 +65,16 @@ calls `createContext`. Next.js resolves React under the `react-server` condition
 for a React Server Component (RSC), and that build exports no `createContext`
 and no stateful hook.
 
-An RSC that imports `useCan` gets a client reference, and calling it during the
-server render throws. An RSC may render a client component, such as the
-`ShopAccess` wrapper from Getting started, and every prop it passes is
-serialized on the way to the browser. For its own decisions an RSC calls `access.can` from `@evanion/acl` directly.
+An RSC that imports `useCan` receives a reference to client code in place of
+the function, and calling it during the server render throws. An RSC may render
+a client component, such as the `ShopAccess` wrapper from Getting started, and
+every prop it passes is serialized on the way to the browser. For its own
+decisions an RSC calls `access.can` from `@evanion/acl` directly.
 
 ## What crosses the render in a react-acl app
 
-`Access` is a set of closures over a frozen document, and `JSON.stringify` drops
-every method on it silently. No loader return value and no server component prop
+The server's evaluator is an `Access` from `@evanion/acl`: a set of closures
+over a frozen document. `JSON.stringify` drops every method on it silently. No loader return value and no server component prop
 can carry one. The matrix crosses in its place, and the browser calls
 `hydratePolicy` on it to build its own evaluator, which is the `access` prop
 `ShopAccess` mounts.
@@ -92,9 +93,9 @@ back: on the next request the server resolves its own subject from the session.
 the client's first render agree on the instant and no time window in the policy
 is read against a clock the shopper's machine sets.
 
-```mermaid caption="The trusted side decides and renders the matrix, the subject and the instant into the page. The browser rebuilds an evaluator with hydratePolicy, and its hooks only toggle controls. The action or route handler decides again for itself, and a caller reaches that handler without rendering anything."
+```mermaid caption="The server decides and renders the matrix, the subject and the instant into the page. The browser rebuilds an evaluator with hydratePolicy, and its hooks only toggle controls. The action or route handler decides again for itself, and a caller reaches that handler without rendering anything."
 flowchart LR
-  subgraph trusted["the trusted side"]
+  subgraph server["the server"]
     L["loader or server component<br>access.can(subject, …)"]
     H["action or route handler<br>access.can(subject, …)"]:::accent
   end
