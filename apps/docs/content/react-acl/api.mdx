@@ -121,9 +121,9 @@ function useCanFields(
 The returned [`FieldDecision`](#fielddecision) carries `action`, the
 action-level decision, and `fields`, which the engine fills whatever `action`
 said. Read `action.allowed` before you read a field, or a shopper who may not
-edit the listing at all reaches an input the map called `'allowed'`. Compare a field
-against `'allowed'`; comparing against `'denied'` treats the unevaluable fields
-as writable, which is
+edit the listing at all reaches an input the map called `'allowed'`. Compare a
+field against `'allowed'`; comparing against `'denied'` treats the unevaluable
+fields as writable, which is
 [the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
 
 ```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
@@ -145,7 +145,8 @@ function useCapabilities(): Record<string, Decision>;
 `useCapabilities` passes no object, so a rule that reads one cannot be decided
 here. A menu or a navigation bar asks which actions the shopper may reach at
 all, and a question about one particular row goes to `useCan`.
-[Listing everything a user may do](/acl/listing-permissions) sets out the no-object contract.
+[Listing everything a user may do](/acl/listing-permissions) sets out the
+no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
 
