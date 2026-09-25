@@ -1,13 +1,13 @@
 # Rules that another service wrote
 
 `parseMatrix` evaluates a matrix that another service built and served as JSON.
-The producer's `schema` lets construction refuse a condition that misreads a
-field, and its `version` tells the consumer when its copy is out of date.
+The document's `schema` makes `parseMatrix` throw on a condition that misreads a
+field, and its `version` tells the storefront when its copy is stale.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={7}
   hands={25}
   requires={[['Rules about the thing being accessed', '/acl/object-rules']]}
@@ -17,51 +17,61 @@ field, and its `version` tells the consumer when its copy is out of date.
   ]}
 />
 
-## Publishing an acl matrix with a version and a schema
-
-Baize's `orders` service owns the rules about questions and serves its
-`access.matrix`, the JSON document [the Overview](/acl) introduced, to the
-storefront over HTTP. It passes `version` and `schema` to `policy()`, because
-both belong to the document and travel inside it:
-
-```ts twoslash file=libs/acl/README.md region=typed-document
-
-```
-
-`version` is a string or a number naming this revision of the document.
-`schema` declares the type of every field a condition reads, on the subject and
-per object kind. The `Objects` type that catches a misspelled `object.askedBy`
-stays in the `orders` codebase, so once the document leaves it the schema is
-what checks the paths. Field types are flat strings: `string`, `number`,
-`boolean`, `instant`, a `[]` suffix for an array and a `?` suffix for a field
-that may be absent. A producer in any language can emit one.
-
-The library writes no file and reads none. Serving the document and fetching it
-are the application's.
-
 ## Adopting an acl matrix with `parseMatrix`
 
-The storefront builds its evaluator from the fetched JSON with `parseMatrix` and
-asks it questions through the same `can`. `parseMatrix` is `hydratePolicy` with
-`closed: true`, so a key the document does not carry answers `unknown-action`
-with `allowed: false` and throws nothing:
+Baize's storefront answers questions from a matrix that Baize's `orders` service
+wrote. The storefront builds its evaluator from the fetched JSON with
+`parseMatrix` and asks it questions through the same `can`.
+
+The JSON is what `policy()` flattens to. Each permission carries `key`, `object`,
+`action` and a `rules` list of allow rules. Each rule holds a `when` list of
+conditions, and the engine ANDs them. A condition is `{ field, op, value }`
+against a literal or `{ field, op, path }` against another path, so
+`p.contains('subject.roles', 'bookseller')` becomes the one condition below:
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
-The document grants `question.read` to a bookseller and carries no
-`question.delete`, so asking for `delete` answers `unknown-action`.
+The document grants `question.read` to a subject whose `roles` holds
+`bookseller`, and it carries no `question.delete`. Asking for `delete` answers
+`unknown-action` with `allowed: false`.
 
-`hydratePolicy`, which the Overview used for your own document coming back, runs
-open, and the same question throws `UnknownPermissionError`. A key your own
-policy lacks is a programmer error, and the throw points at the line. A key a
-foreign document lacks means the producer removed the permission, and a throw
-there takes the storefront's page down over a permission nobody holds.
-[A policy from another service](/acl/adopting) lists every check `parseMatrix`
-runs on the way in.
+`hydratePolicy`, the call [the Overview](/acl) uses to rebuild your own document
+in the browser, builds the same evaluator from the same JSON, and that evaluator
+throws `UnknownPermissionError` on the same question. `parseMatrix` is
+`hydratePolicy` with its `closed` option set, and `closed` turns the throw into
+the `unknown-action` answer. A key your own policy lacks is a programmer error,
+and the throw points at the line. A key a foreign document lacks means `orders`
+removed the permission, and a throw there takes the storefront's page down over a
+permission nobody holds.
 
-## What the acl schema refuses at construction
+## The version and schema an acl matrix carries
+
+Baize's `orders` service writes the question rules with `policy()` and serves its
+`access.matrix` to the storefront over HTTP. It passes `version` and `schema` to
+`policy()`, because both belong to the document and travel inside it:
+
+```ts twoslash file=libs/acl/README.md region=typed-document
+
+```
+
+The last line serializes the document the way `orders` serves it, and the
+version comes back out of the JSON.
+
+`version` is a string or a number naming this revision of the document. `schema`
+declares the type of every field a condition reads, on the subject and per object
+kind. The `Objects` type that catches a misspelled `object.askedBy` stays in the
+`orders` codebase, so once the document leaves it the schema is what checks the
+paths. Field types are flat strings: `string`, `number`, `boolean`, `instant` for
+a point in time (an ISO 8601 string or epoch milliseconds), a `[]` suffix for an
+array and a `?` suffix for a field that may be absent. A service in any language
+can emit one.
+
+acl writes no file and makes no request. `orders` serves the document from a
+route of its own, and the storefront fetches it.
+
+## What the acl schema refuses before an evaluator exists
 
 `hydratePolicy` and `parseMatrix` both check a document against its `schema`
 before they return an evaluator. This document declares `status` as a string and
@@ -71,22 +81,23 @@ tests it with `contains`, which tests an array:
 
 ```
 
-Construction throws `FieldTypeMismatchError`, and no evaluator exists to answer
-anything. A condition naming a field the schema does not declare throws
-`UnknownFieldError` the same way.
+`hydratePolicy` throws `FieldTypeMismatchError` and returns no evaluator. A
+condition naming a field the schema does not declare throws `UnknownFieldError`
+the same way.
 
 Without a schema, a misspelled `object.askedBv` builds cleanly and decides
-`unevaluable` on every call, with `missing` naming a path no query ever
-selects. The schema is optional for a producer and binds per object kind, so a
-kind absent from `schema.objects` is unchecked.
+`unevaluable` on every call, with `missing` naming a path no row ever carries. The
+schema is optional in a document and binds per object kind, so a kind absent from
+`schema.objects` is unchecked.
 
-## Refetch when the version moves
+## Refetching an acl matrix when its version moves
 
-The storefront's copy grants what it granted when it was fetched, so a
-permission `orders` withdraws stays granted in the browser until the storefront
-fetches again. The library never pushes an update and never fetches. It exposes
-`access.version` for the consumer to compare with the version the server now
-serves:
+The storefront's copy grants what it granted when the storefront fetched it, so a
+permission `orders` withdraws stays granted in that copy until the storefront
+fetches again. acl never pushes an update and never fetches. The storefront
+fetches the served document on a schedule it chooses and compares the served
+`version` with `access.version`. Below, `question.read` carries a rule with an
+empty `when`, which holds for every subject:
 
 ```ts twoslash file=libs/acl/README.md region=revalidate
 
@@ -95,24 +106,25 @@ serves:
 `revalidate` keeps the evaluator in hand while the versions match and adopts the
 served document when they differ. The held `orders@7` copy granted
 `question.update` to Jo, `orders@8` dropped it, and after the rebuild the same
-call answers `unknown-action`. `revalidate` rebuilds with `parseMatrix` because
-`hydratePolicy` throws `UnknownPermissionError` on the dropped key.
+call answers `unknown-action`. `revalidate` rebuilds with `parseMatrix` because an
+evaluator from `hydratePolicy` would throw `UnknownPermissionError` the next time
+anything asks about `update`.
 
-```mermaid caption="The document's loop across two services. orders builds the matrix with a version and a schema, the storefront adopts it with parseMatrix and answers can from it, and a served version that differs from the held one sends the storefront back for the document."
+```mermaid caption="The document's loop across two services. orders builds the matrix with a version and a schema, the storefront fetches the served document, keeps the evaluator it holds while the versions match, and adopts the served document with parseMatrix when they differ."
 flowchart LR
-  A["orders service<br>policy() + schema"] --> B[("matrix JSON<br>version · schema · permissions")]
-  B --> C["storefront<br>parseMatrix(json)"]:::accent
-  C --> D["can(subject, …)"]
-  C --> V{"served version<br>!== held version?"}
-  V -->|yes| F["fetch the document again"]
-  F --> B
+  A["orders service<br>policy() + version + schema"] --> B[("matrix JSON")]
+  B -->|storefront fetches| V{"served.version<br>!== access.version?"}
+  V -->|yes| P["parseMatrix(served)"]:::accent
+  V -->|no| K["keep access"]
+  P --> C["can(subject, …)"]
+  K --> C
 ```
 
-A document with no `version` leaves `access.version` undefined on both copies,
-so the comparison always matches and the storefront never rebuilds. Any string
-or number works as a version, a content digest included. The `orders` service
-never reads the storefront's copy: it evaluates its own document before it
-writes anything.
+A document with no `version` leaves `access.version` undefined on both copies, so
+the comparison always matches and the storefront never rebuilds. Any string or
+number works as a version, a content digest included. The `orders` service never
+reads the storefront's copy: it evaluates its own document before it writes
+anything.
 
 ## Where to go next
 
@@ -120,7 +132,8 @@ writes anything.
   action bar from the document it adopted.
 - [A policy from another service](/acl/adopting). Every check `parseMatrix` runs
   on the way in, and the `version` option that overrides the document's own.
-- [Giving my rules to another service](/acl/publishing). What the producer
-  publishes, and how long a consumer may keep deciding on it.
+- [Giving my rules to another service](/acl/publishing). What `orders` publishes,
+  and `maxStale`, the limit on how long the storefront may keep deciding on a copy
+  it has not refreshed.
 - [Many services](/acl/federation). One matrix per service, and what a gateway
   holds.
