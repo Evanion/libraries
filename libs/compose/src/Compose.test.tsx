@@ -8,7 +8,7 @@ import type { ComposeProviderProps, ProviderArray } from './index.js';
 // The documentation's own listings, rendered here so a page cannot claim a tree
 // the components do not build.
 import { Shop } from '../examples/shop.js';
-import { Counter } from '../examples/entries.js';
+import { ShopProviders } from '../examples/entries.js';
 
 /**
  * `ComposeProvider` is generic and overloaded, so props built dynamically (a
@@ -553,13 +553,13 @@ describe('the documented examples', () => {
 
   it('gives the three entry forms one tree', () => {
     const { container } = render(
-      <Counter>
+      <ShopProviders>
         <p>3 in the basket</p>
-      </Counter>,
+      </ShopProviders>,
     );
 
     expect(container.innerHTML).toBe(
-      '<div id="currency"><div id="dark"><div id="light">' +
+      '<div id="cart"><div id="dark"><div id="SEK">' +
         '<p>3 in the basket</p>' +
         '</div></div></div>',
     );

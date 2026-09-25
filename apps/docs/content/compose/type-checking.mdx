@@ -1,12 +1,12 @@
 # Where the check happens
 
-`provider(component, props)` checks an entry's props where you call it, and
-`ComposeProvider` checks a `[component, props]` tuple only while the array stays
-a literal tuple.
+`provider(component, props)` checks an entry's props where you call it.
+`ComposeProvider` checks a `[component, props]` tuple where the array reaches
+it, and only while TypeScript knows the type at each position of the array.
 
 <PageSheet
   difficulty={3}
-  read={6}
+  read={8}
   requires={[['Getting started', '/compose/getting-started']]}
   unlocks={[['API reference', '/compose/api']]}
 />
@@ -27,9 +27,11 @@ reaches `ComposeProvider`.
 
 ## An inline compose array is checked entry by entry
 
-A JSX attribute gives the array written in it a contextual type, so TypeScript
-infers a literal tuple and `ComposeProvider` checks each entry against its own
-component. Four broken entries report four errors, one per line:
+A **literal tuple** is an array type that records its length and the type at
+each position. `ComposeProvider` declares its type parameter `const`, so
+TypeScript infers an array written inline as a literal tuple and
+`ComposeProvider` checks each entry against its own component. Four broken
+entries report four errors, one per line:
 
 ```tsx twoslash file=libs/compose/README.md region=checked-inline
 
@@ -39,53 +41,62 @@ component. Four broken entries report four errors, one per line:
 | ----------------------------------------------------- | ------------------------------------------------- |
 | `ThemeProvider`                                       | `this component requires props`                   |
 | `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                     |
-| `[ThemeProvider, { theme: 'baize' }]`                 | `Type 'string' is not assignable to type 'never'` |
+| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'` |
 | `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                           |
 
-`markup` is what the same array rendered. `ComposeProvider` checks nothing at
-runtime beyond whether `providers` is an array, so `id="baize"` reached the
-HTML. The compiler is the only check.
+`markup` is what the same array rendered. The two entries with no `theme`
+rendered a `div` with no `id`. `ComposeProvider` checks no props at runtime, so
+`id="blue"` reached the HTML. The compiler is the only check.
 
 ## Reading a compose error
 
-A failing entry resolves to a type your value is not assignable to, and
-TypeScript quotes that type in the error. For every failure except a missing or
-wrong value, `@evanion/compose` resolves the entry to a type whose property key
-carries the message, so the error opens
-`Property '"ComposeError: unknown prop 'accent'"' is missing in type …`.
+`@evanion/compose` resolves a failing entry to `ComposeError<"message">`, a type
+the entry is not assignable to, so TypeScript prints the message in the first
+line of the error. For `[ThemeProvider, { theme: 'dark', accent: 'green' }]` that
+line ends `… & ComposeError<"unknown prop 'accent'">'`.
 
-| Message                                                                                        | What it means                                               |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `unknown prop 'x'`                                                                             | the props object has a key the component does not declare   |
-| `this component requires props — use provider(Component, props) or a [Component, props] tuple` | a bare component whose props are not all optional           |
-| `first tuple element must be a component`                                                      | the pair is the wrong way round, or the first entry is data |
-| `second tuple element must be props, not another component`                                    | two components in one tuple                                 |
-| `not a valid provider`                                                                         | the entry is neither a component nor a two-element tuple    |
+| Message                                                                                        | What it means                                                         |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `unknown prop 'x'`                                                                             | the props object has a key the component does not declare             |
+| `this component requires props — use provider(Component, props) or a [Component, props] tuple` | a bare component whose props are not all optional                     |
+| `first tuple element must be a component`                                                      | the pair is the wrong way round, or the tuple's first element is data |
+| `second tuple element must be props, not another component`                                    | two components in one tuple                                           |
+| `not a valid provider`                                                                         | the entry is neither a component nor a two-element tuple              |
 
-A missing or wrong value gets no message of its own. The entry resolves to the
-shape it should have had, and inline a wrong value reports against `never`.
-`provider()` reports the same mistake at the call and names both sides:
+A missing or wrong value gets no message of its own. `@evanion/compose`
+resolves that entry to the shape it should have had, so TypeScript names the
+prop. Inline, TypeScript expects your value's type intersected with the declared
+one, and `'blue'` intersected with `'light' | 'dark'` is `never`. `provider()`
+reports the same mistake at the call and names both sides:
 
 ```tsx twoslash file=libs/compose/README.md region=checked-at-call
 
 ```
 
-The error reads `Type '"baize"' is not assignable to type '"light" | "dark"'`.
+The error reads `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 `entry` is the pair `provider()` returned, unchanged, because the check ran in
 the compiler and not when the line ran.
 
-## A named compose array loses the check
+## A named compose array keeps the check only `as const`
 
 TypeScript infers a named array's type at its declaration, where nothing asks
-for a tuple. The declaration then decides what `ComposeProvider` checks:
+for a literal tuple. `ProviderArray` is the package's type for any provider
+array, `readonly Provider[]`, and its length is `number`. The declaration
+decides what `ComposeProvider` checks:
 
-| Declaration                                     | What `ComposeProvider` checks                                  |
-| ----------------------------------------------- | -------------------------------------------------------------- |
-| `providers={[…]}`, inline                       | every entry                                                    |
-| `const providers = […] as const`                | every entry                                                    |
-| `const providers = […]`                         | no entry; a tuple entry fails with an error that names no prop |
-| `const providers: ProviderArray = […]`          | no entry, and no error                                         |
-| `const providers = […] satisfies ProviderArray` | no entry, and no error                                         |
+| Declaration                                     | What `ComposeProvider` checks                             |
+| ----------------------------------------------- | --------------------------------------------------------- |
+| `providers={[…]}`, inline                       | every entry                                               |
+| `const providers = […] as const`                | every entry                                               |
+| `const providers = […]`                         | no entry, and every tuple entry fails, even a correct one |
+| `const providers: ProviderArray = […]`          | no entry, and no error                                    |
+| `const providers = […] satisfies ProviderArray` | no entry, and no error                                    |
+
+Without `as const`, TypeScript widens each `[component, props]` in a named
+array to a plain array, which is not a `Provider`, so the error ends
+`is not assignable to type 'ProviderArray'` and names no prop. Under an
+annotation or `satisfies ProviderArray`, TypeScript infers an array whose length
+is `number`, and `ComposeProvider` checks only a literal tuple.
 
 Below, the annotated array compiles and renders `ThemeProvider` with no `theme`.
 The same entry declared `as const` reports the missing prop:
@@ -95,24 +106,28 @@ The same entry declared `as const` reports the missing prop:
 ```
 
 A `provider()` entry keeps its check in every row, because `provider()` checked
-it at the call. A bare component does not: only `ComposeProvider` refuses a
-bare component whose props are required, and only in a literal tuple.
+it at the call. A bare component has no call to check it, and `ComposeProvider`
+refuses a bare component whose props are required only in a literal tuple.
 
 ## Wrapping compose in your own component
 
 A wrapper whose `providers` prop is typed `ProviderArray` compiles, and its
-callers' entries go unchecked, because a `ProviderArray` has lost the types of
-its entries. Make the wrapper generic over `ComposeProviderProps<T>` and the
-check reaches its callers:
+callers' entries go unchecked, because a `ProviderArray` records no length and
+no type per position. Declare the wrapper's type parameter
+`<const T extends ProviderArray>` and type its props `ComposeProviderProps<T>`,
+and the check reaches its callers:
 
 ```tsx twoslash file=libs/compose/README.md region=wrapper
 
 ```
 
-`AppProviders` hands `providers` to `ComposeProvider` unchanged, and the
-caller's `[ThemeProvider, {}]` reports the missing `theme` as it would inline.
+`extends ProviderArray` only bounds what a caller may pass. `const` makes
+TypeScript infer each caller's inline array as a literal tuple, and without it
+the caller's `[ThemeProvider, {}]` compiles with no error. `AppProviders` hands
+`providers` to `ComposeProvider` unchanged, so the missing `theme` reports as it
+would inline.
 
 ## Every compose export
 
-[API reference](/compose/api) lists every export, including the validation
-types behind the errors on this page.
+[API reference](/compose/api) lists every export, including `ValidateProvider`,
+the type that produces the messages on this page.

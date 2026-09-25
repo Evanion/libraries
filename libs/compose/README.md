@@ -246,7 +246,7 @@ const markup = renderToStaticMarkup(
     providers={[
       ThemeProvider,
       [ThemeProvider, {}],
-      [ThemeProvider, { theme: 'baize' }],
+      [ThemeProvider, { theme: 'blue' }],
       [ThemeProvider, { theme: 'dark', accent: 'green' }],
     ]}
   >
@@ -254,7 +254,7 @@ const markup = renderToStaticMarkup(
   </ComposeProvider>,
 );
 
-markup; // -> '<div><div><div id="baize"><div id="dark"><p>Brass: Birmingham</p></div></div></div></div>'
+markup; // -> '<div><div><div id="blue"><div id="dark"><p>Brass: Birmingham</p></div></div></div></div>'
 ```
 
 <!-- #endregion checked-inline -->
@@ -273,21 +273,20 @@ const ThemeProvider = ({
   <div id={theme}>{children}</div>
 );
 
-const entry = provider(ThemeProvider, { theme: 'baize' });
+const entry = provider(ThemeProvider, { theme: 'blue' });
 
-entry; // -> [ThemeProvider, { theme: 'baize' }]
+entry; // -> [ThemeProvider, { theme: 'blue' }]
 ```
 
 <!-- #endregion checked-at-call -->
 
-Failures that are not just a wrong value carry the explanation in a property
-name, so TypeScript prints it in the first line rather than under a structural
-walk:
+Failures that are not just a wrong value resolve to `ComposeError<"…">`, so
+TypeScript prints the explanation in the first line rather than under a
+structural walk:
 
 ```
-Property '"ComposeError: unknown prop 'accent'"' is missing in type
-'[ThemeProvider, { theme: "dark"; accent: "green"; }]'
-but required in type 'ComposeError<"unknown prop 'accent'">'.
+Type '[…, { theme: "dark"; accent: "green"; }]' is not assignable to type
+'readonly […] & ComposeError<"unknown prop 'accent'">'.
 ```
 
 ## API reference

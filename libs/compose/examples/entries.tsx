@@ -3,10 +3,10 @@
  *
  * Cited by `apps/docs/content/compose/type-checking.mdx` and `api.mdx`
  * through `file=libs/compose/examples/entries.tsx region=entries`, and rendered
- * by `Compose.test.tsx`, which asserts that the three forms produce the same
- * tree. The claim the pages make about them is that they differ in where the
- * compiler checks them and in nothing else, so a test that renders all three is
- * the one that can fail.
+ * by `Compose.test.tsx`, which asserts that the three forms nest into one tree
+ * in array order. The claim the pages make about them is that they differ in
+ * where the compiler checks them and in nothing else, so a test that renders
+ * all three is the one that can fail.
  *
  * The `// @jsx:` line is a Twoslash directive. The pages render these regions
  * as Twoslash fences, which compile them against Twoslash's own defaults --
@@ -22,8 +22,8 @@
 import type { PropsWithChildren } from 'react';
 import { ComposeProvider, provider } from '@evanion/compose';
 
-const CurrencyProvider = ({ children }: PropsWithChildren) => (
-  <div id="currency">{children}</div>
+const CartProvider = ({ children }: PropsWithChildren) => (
+  <div id="cart">{children}</div>
 );
 
 const ThemeProvider = ({
@@ -33,16 +33,23 @@ const ThemeProvider = ({
   <div id={theme}>{children}</div>
 );
 
-export function Counter({ children }: PropsWithChildren) {
+const CurrencyProvider = ({
+  currency,
+  children,
+}: PropsWithChildren<{ currency: 'SEK' | 'GBP' | 'USD' }>) => (
+  <div id={currency}>{children}</div>
+);
+
+export function ShopProviders({ children }: PropsWithChildren) {
   return (
     <ComposeProvider
       providers={[
         // A bare component, for a provider whose props are all optional.
-        CurrencyProvider,
+        CartProvider,
         // A `provider()` call, checked where it is written.
         provider(ThemeProvider, { theme: 'dark' }),
         // A tuple, checked where the array reaches `ComposeProvider`.
-        [ThemeProvider, { theme: 'light' }],
+        [CurrencyProvider, { currency: 'SEK' }],
       ]}
     >
       {children}
