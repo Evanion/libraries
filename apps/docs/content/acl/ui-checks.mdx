@@ -1,15 +1,14 @@
 # Checking permissions in your UI
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    Every example on this page is a region of `libs/acl/README.md` and runs
-    under `nx test @evanion/acl`.
-  </Text>
-</WorkshopNotice>
+An action bar calls `access.can` once per button it might draw and draws the
+buttons whose decision is `allowed`. The rules stay in the policy, so the
+component holds a list of actions and tests no role itself.
+
+<WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={4}
-  read={7}
+  read={6}
   hands={20}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
@@ -18,78 +17,44 @@
   ]}
 />
 
-**The concept.** A component calls `access.can` once per action it might draw,
-over the document the app fetched.
-**What you get.** An action bar carrying no role test of its own.
-**Why you want it.** A component that tests the role itself states the rule a
-second time, and the handler it posts to is the copy somebody tightens.
-**How the library gets you there.** The bar reads `allowed` to decide whether to
-draw a button, and `reason` for the wording when it does not.
+## The listing policy behind Baize's action bar
 
-## The action bar this page builds
+Baize's page for the Brass: Birmingham listing draws an action bar with three
+buttons: Review, Edit and Publish. Baize's `stock` service owns the listing
+rules, and the storefront holds them as a document it adopted from `stock` with
+`parseMatrix`. The document carries four statements:
 
-Baize's Brass: Birmingham listing draws an action bar of three buttons, Review,
-Edit and Publish. Four policy statements decide what that bar draws for whoever
-is signed in:
-
-- Jo the customer sees one button.
-- A bookseller sees two.
-- The owner sees three.
-- Nobody sees Edit once the listing is published.
-
-The bar holds that list of actions and no `if`. Put the rule in the component
-and you have written it twice, once here and once in the handler the button
-posts to. Somebody tightens the handler, the button stays lit, and a bookseller
-presses Edit on a published listing and gets a 403 with no explanation.
-
-The storefront fetched the matrix and hydrated it in [Rules that another service
-wrote](/acl/advanced). The bar calls `access.can` on that evaluator once per
-action and draws from `allowed`, with `reason` as the wording of a disabled
-button.
-
-## The shop's listing policy, in four statements
-
-`listing` is the object kind this screen draws, and the fetched document carries
-four statements for it. The storefront never runs the builder call below; the
-producer ran it:
-
-- Jo reviews a listing, and so does everyone else who is signed in.
-- A bookseller edits a listing.
+- Everyone signed in reviews a listing.
+- A bookseller or the owner edits a listing.
 - The owner publishes a listing.
-- A published listing is closed to edits whoever asks.
+- Nobody edits a published listing.
+
+`stock` runs the `policy()` call below. The storefront never runs it, and
+answers from the matrix that call flattens to:
 
 ```ts twoslash file=libs/acl/README.md region=listing-bar
 
 ```
 
-The `.for('listing', …)` block is one of however many kinds the shop's policy
-holds, and a shop that also sells events chains `.for('event', …)` beside it.
-
 Two condition helpers are new in that block:
 
-- `p.always` is the condition that holds for anybody, so `review` is granted to
-  whoever is signed in.
-- `p.in` tests one subject value against a list written in the rule, and this
-  `Shopper` carries `role` as a single string.
+- `p.always` holds for every subject, so `review` is granted to anybody the
+  storefront asks about.
+- `p.in(path, values)` holds when the value at `path` is one of `values`.
+  `Shopper` carries `role` as one string, so `p.in` tests it against the roles
+  written in the rule.
 
-The report policy on [rules that read the subject](/acl/subject-rules) carried `roles`
-as an array and read it with `p.contains`, which runs the test the other way
-round: one value written in the rule, against a list held on the subject.
+`p.contains` runs the test the other way round: one value written in the rule,
+against an array held on the subject. The deny reads `object.status` off the
+listing in hand, and a deny that matches outranks every allow that matches with
+it.
 
-The typed builder binds `Listing` to the key `listing`, so it checks
-`object.status` in the deny against the interface as it is written. That binding
-turns a misspelled path into a compile error, and you met it first where [rules
-read the object](/acl/object-rules). Once the builder's types have gone, the
-schema on the document holds a foreign producer to the same paths.
+## What Baize's action bar draws for each shopper
 
-## What the action bar draws for each shopper
-
-Baize's listing action bar draws from the four statements in the shop's listing
-policy and nothing else. The bar renders one button per action and calls
-`access.can` once for each: `allowed` says whether to draw the button, and
-`reason` is the wording when it draws the button greyed out.
-
-Every answer the four statements give, per shopper and per listing status:
+The bar loops over `review`, `edit` and `publish`, calls
+`access.can(shopper, 'listing', action, listing)` for each, and draws a button
+where `allowed` is `true`. Every `reason` the four statements produce, per
+shopper and per listing status:
 
 | Signed in as | Listing status | `review` | `edit`            | `publish`         |
 | ------------ | -------------- | -------- | ----------------- | ----------------- |
@@ -99,48 +64,45 @@ Every answer the four statements give, per shopper and per listing status:
 | bookseller   | `published`    | `allow`  | `denied`          | `no-rule-matched` |
 | owner        | `published`    | `allow`  | `denied`          | `allow`           |
 
-Add a fourth control by writing one more statement in the policy and one more
-row in the list of actions. Never add it as a branch in the component, which is
-a rule written somewhere the policy cannot see.
+Publishing the listing moves the bar with no change to the policy. The status
+becomes `published`, the deny matches, and `edit` answers `denied` for the
+bookseller and the owner alike.
 
-## A status change moves the action bar without touching the policy
+Add a fourth button by writing one more statement in the policy and one more
+action in the bar's list. A role test in the component is a rule the policy
+cannot see, and the handler the button posts to never reads it.
 
-Press Publish and `object.status` becomes `published`. The deny in the shop's
-listing policy now matches, so `edit` comes back `denied`. The listing's action
-bar draws no Edit button for any role, the bookseller's and the owner's alike,
-because a deny outranks a matching allow.
+## Try Baize's action bar against the listing policy
 
-The service that published this document evaluates the same four statements
-before it writes the status, so the screen and the write agree by reading one
-document.
-
-## Edit the policy and watch the action bar redraw
-
-The demo below draws the listing's action bar from the shop's four listing
-statements. Sign in as each of the three shoppers and the bar rebuilds itself
-from `access.can`. Press a role inside a grant to strike it out, and the control
-that grant produced leaves while you are looking at it. Press Publish and the
-deny matches, so neither the bookseller nor the owner is offered Edit.
+The demo draws the listing's action bar from the four statements. Sign in as
+each of the three shoppers and the bar rebuilds itself from `access.can`. Press
+a role inside a grant to strike it out, and the button that grant produced
+disappears. Press Publish and the deny matches, so neither the bookseller nor
+the owner is offered Edit.
 
 <AccessDemo />
 
 The policy in the panel is built by the same `policy()` call the region above
-runs, and the buttons are `Decision.allowed` and nothing else.
+runs, and each button is one `Decision.allowed`.
 
-## The browser's copy of the shop's policy decides nothing
+## Only the server's acl decision guards a listing write
 
-The decisions the listing's action bar renders are convenience. The same `can`
-runs again in the shop's server runtime, over a subject that runtime resolved
-itself, before any listing is edited or published. A screen that hid the button
-does not excuse the handler the button posts to. [The security contract](/acl/security) is the
-long form, and [Choosing a framework integration](/acl/choosing-an-integration) is where the second call sits on each
-stack.
+The decisions the action bar draws are convenience. The `stock` service runs the
+same `can` in its own runtime, over a subject it resolved itself, before any
+listing is edited or published. A hidden button leaves the handler it posts to
+reachable, so that handler decides for itself.
+[The security contract](/acl/security) is the long form.
 
-## Where a refused control gets its wording
+## Wording a refused button from the acl decision
 
-The listing's action bar removes a control it may not draw. A bar that greys the
-control out instead has to say why, and `Decision` carries `reason`, `rule` and
-`missing` beside `allowed` for that. What each key means, and which of them are
-repairable, is [Why was this
-refused?](/acl/refusals); the shape itself is in the [API
-reference](/acl/api#decision).
+A bar that greys a button out, where this one removes it, has to say why.
+`Decision` carries `reason` beside `allowed` for that: `denied` means a deny
+matched, and `no-rule-matched` means no allow did. On a `denied` decision,
+`rule` names the deny that matched.
+
+## Where to go next
+
+- [Choosing a framework integration](/acl/choosing-an-integration). Where the
+  server's `can` sits on each stack.
+- [Why was this refused?](/acl/refusals). Every `reason` a decision carries, and
+  which of them a refetch can repair.
