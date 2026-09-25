@@ -33,13 +33,9 @@ first. One handler tests `roles.includes('bookseller')`, another tests
 account is refused in two places out of five. A policy holds the pair once and
 every call site reads the same answer.
 
-`policy()` builds one from three calls, which is the chain
-[Getting started](/acl/getting-started) used for a single rule:
-
-- `policy<Subject, Objects>()` names the subject type and the object kinds.
-- `.for(kind, block)` writes one kind's rules, and `kind` is one of the kinds you
-  declared.
-- `.build()` hands back the evaluator this documentation calls `access`.
+`policy()` builds one from the chain [Getting started](/acl/getting-started)
+used for a single rule: `policy<Subject, Objects>()`, then `.for(kind, block)`
+per object kind, then `.build()`.
 
 A block holds rules and a rule holds conditions. The engine ANDs the conditions,
 so a rule matches when every condition in it holds. `p` is the condition helper
@@ -62,7 +58,7 @@ two rules.
 
 The suspended bookseller satisfies both rules, and the decision is `denied`,
 because a deny that matched outranks an allow that matched with it. The engine
-settles the deny side first. The customer satisfies neither rule, and the
+checks the deny rules first. The customer satisfies neither rule, and the
 decision is `no-rule-matched`, which is the default deny: nothing is allowed
 without an allow rule that matched, and you configure nothing to get that floor.
 
@@ -85,9 +81,10 @@ flowchart TD
 and `rule` are output only, and a handler that branches on the reason string
 grants what the engine refused.
 
-The diagram shows every step a subject-only policy can reach. The engine walks more
-than these, and each of the others needs a rule reading something other than the
-subject, so no policy on this page reaches one.
+The diagram shows every step a subject-only policy can reach. The engine has
+more: `unevaluable` when the row passed to `can` lacks a field a rule reads, and
+`unusable-clock` when a time condition gets a clock that does not parse. Neither
+reads the subject, so no policy on this page reaches one.
 [Why deny, then allow, then deny?](/acl/resolution) carries the order in full.
 
 ## Writing an acl exception where a reader will find it
@@ -113,8 +110,8 @@ flat list of permissions, each keyed `` `${object}.${action}` ``.
 
 ## Where subject-only acl rules stop
 
-The engine settles every permission in a subject-only policy, and your code can
-rely on two things while that holds.
+While every condition in a policy reads only the subject, your code can rely on
+two things.
 
 Your handler always gets a final answer. The server resolves the subject whole
 before the call, so every condition has data to read, and a permission here answers
@@ -134,7 +131,7 @@ it: an answer can come back undecided, and a question has to be loaded first.
 ## Where to go next
 
 - [Rules about the thing being accessed](/acl/object-rules). A rule that reads
-  the row, the typed builder, and the fourth answer a decision can give.
+  the row, and the fourth answer a decision can give.
 - [Listing everything a user may do](/acl/listing-permissions). What
   `capabilities` returns, and how a menu draws itself from one call.
 - [Can this user do this?](/acl/asking). The decision's shape, asking about a
