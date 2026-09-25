@@ -2,8 +2,8 @@
 
 <WorkshopNotice slug="react-acl">
   <Text as="div" size="sm">
-    Every example on this page is a region of `libs/react-acl/examples/` and
-    runs under `nx test @evanion/react-acl`.
+    Every example on this page is a region of `libs/react-acl/examples/` or of
+    `libs/react-acl/README.md`, and runs under `nx test @evanion/react-acl`.
   </Text>
 </WorkshopNotice>
 
@@ -18,17 +18,9 @@
   ]}
 />
 
-**The concept.** `PolicyProvider` holds one evaluator, one subject and one
-clock instant for the whole tree under it.
-
-**What you get.** An action bar three components below the provider that reads
-all three without taking a prop.
-
-**Why you want it.** Without the provider you pass `access`, the subject and
-`now` through every component between the route and the button.
-
-**How the library gets you there.** `PolicyProvider` takes the three props once,
-and `useCan` reads them back out of context.
+By the end of this page an action bar three components below `PolicyProvider`
+draws itself from the shop's policy, and it names neither the evaluator, nor the
+subject, nor the instant.
 
 ## What this page builds with react-acl
 
@@ -100,6 +92,20 @@ carries `allowed: false`.
 
 Call `useCan` outside a `PolicyProvider` and it throws, naming the provider.
 There is no default policy and no silent deny.
+
+### What the provider renders
+
+One rule allows `listing.edit` where the listing's `sellerId` equals the subject's
+`id`, and nothing else is allowed. `renderToStaticMarkup`, from `react-dom/server`,
+gives the HTML string React wrote for each of two sellers:
+
+```tsx twoslash file=libs/react-acl/README.md region=rendered-decision
+
+```
+
+The seller who owns the listing gets the button. The other one gets an empty
+string, because `EditControl` returned `null` and React renders nothing for it.
+That is the whole of what a decision does to a screen.
 
 ## Watch one react-acl provider drive a whole tree
 

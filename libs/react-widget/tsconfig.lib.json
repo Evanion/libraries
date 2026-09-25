@@ -53,6 +53,9 @@
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../../tools/doc-examples"
+    },
+    {
       "path": "../widget/tsconfig.lib.json"
     }
   ]

@@ -11,20 +11,9 @@
   ]}
 />
 
-**The concept.** The overview showed a provider stack written as an array. This
-page is where you write one. The one thing to take from it is that the array is
-the tree: entry one wraps entry two, entry two wraps entry three, and the order
-you read is the order React renders.
-
-**What you get.** A working root component for a shop front end, with
-three providers in it, and a fourth added by typing one line.
-
-**Why you want it.** Everything a provider stack does wrong, it does when
-somebody changes it. A theme that has to sit inside the cart, a currency that
-has to sit outside both — those are facts about the app, and in a staircase
-they are indentation. In an array they are line numbers.
-
-**How the library gets you there.** One import, one component, one prop.
+By the end of this page the shop's root component holds three providers as an
+array, and the markup `ComposeProvider` returns nests them in the order the array
+reads.
 
 ## Install compose
 
@@ -54,10 +43,25 @@ the next provider down, or with `Shop`'s own children at the innermost level.
 Render `Shop` at the root of the app and the tree it builds is
 `CartProvider` → `ThemeProvider` → `CurrencyProvider` → your page.
 
+## Read the markup a two-provider array produced
+
+`renderToStaticMarkup`, from `react-dom/server`, turns an element into the HTML
+string React would have written. Hand it a two-entry `ComposeProvider` and the
+string shows the nesting:
+
+```tsx twoslash file=libs/compose/README.md region=render-order
+
+```
+
+`Cart` is first in the array and outermost in the string. Swap the two entries and
+the two `div`s swap with them, which is the whole of what `ComposeProvider` does.
+`React.ReactNode` types the children here because the fence declares its
+components inline; `PropsWithChildren` above does the same job.
+
 ## Move an entry and watch the compose tree move
 
-The array is the tree, which is a claim you can put your hands on. The boxes
-below are what `ComposeProvider` returned for the array beside them. Move an
+The boxes below are the elements `ComposeProvider` returned for the array beside
+them. Move an
 entry up and its box moves outward; move it down and the boxes it used to
 contain close over it.
 

@@ -4,10 +4,21 @@ import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts';
 import * as path from 'path';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+import { readPreamble } from '@evanion/doc-examples/preamble';
+
+// doc-examples.preamble.ts holds the imports the README's regions stand on, so a
+// region shows the composition rather than the lines above it. The docs app's
+// region loader reads the same file, so a block compiles on a page the way it
+// runs here.
+const examples = docExamples({ preamble: readPreamble(import.meta.dirname) });
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/compose',
+  ...examples,
   plugins: [
+    ...examples.plugins,
     react(),
     // The published `dist/*.d.ts` files come from here, not from tsc: this
     // build owns `dist` and empties it, so tsc emits to a throwaway directory
@@ -55,6 +66,9 @@ export default defineConfig(() => ({
     environment: 'jsdom',
     setupFiles: ['src/test-setup.ts'],
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    // The README's documented examples. The sources are `.tsx` here, so the
+    // glob takes that extension rather than the `.ts` default.
+    includeSource: docExampleSources('tsx'),
     // `apps/docs/tools/test-statistics.mjs` reads report.json and
     // coverage-summary.json out of the coverage directory below, and
     // `tools/repo-checks/src/coverage-config.test.ts` holds every library to

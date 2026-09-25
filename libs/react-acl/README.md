@@ -78,6 +78,60 @@ function CommentList() {
 }
 ```
 
+## What the provider decides
+
+One rule, one listing, two sellers. The markup the tree renders is the whole of
+what a decision does to a screen:
+
+<!-- #region rendered-decision -->
+
+```tsx @import.meta.vitest
+const access = hydratePolicy({
+  permissions: [
+    {
+      key: 'listing.edit',
+      object: 'listing',
+      action: 'edit',
+      rules: [
+        {
+          when: [
+            { field: 'object.sellerId', op: 'eq' as const, path: 'subject.id' },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+const listing = { id: 'urn:game:brass-birmingham', sellerId: 'bookseller-1' };
+
+function EditControl() {
+  const decision = useCan('listing', 'edit', listing);
+  if (!decision.allowed) return null;
+  return <button type="button">Edit listing</button>;
+}
+
+const shelf = (shopper: { id: string }) =>
+  renderToStaticMarkup(
+    <PolicyProvider
+      access={access}
+      subject={shopper}
+      context={{ now: '2026-09-25T09:00:00Z' }}
+    >
+      <EditControl />
+    </PolicyProvider>,
+  );
+
+shelf({ id: 'bookseller-1' }); // -> '<button type="button">Edit listing</button>'
+shelf({ id: 'bookseller-2' }); // -> ''
+```
+
+<!-- #endregion rendered-decision -->
+
+`EditControl` takes no `access` prop and no subject prop. The rule compares
+`object.sellerId` with `subject.id`, so the seller who owns the listing gets the
+button and the other one gets an empty string.
+
 ## Hooks
 
 - `useCan(key, action, object?)` — one decision. `object` is the instance,
