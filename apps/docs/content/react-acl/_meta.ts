@@ -22,7 +22,7 @@ import type { MetaRecord } from 'nextra';
  *
  * `boundary` is titled as the thing rather than as the framework. It is one
  * page about which side of a render decides, and the two framework guides that
- * work it through live under `/acl/platforms`.
+ * work it through are `/acl/react-router` and `/acl/nextjs`.
  *
  * A page not listed here is appended after these, so adding one is not a
  * requirement. Renaming one is: Nextra fails the build on a `_meta` key that
