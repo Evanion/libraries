@@ -425,12 +425,9 @@ import type { Matrix } from '@evanion/acl';
 
 const matrix: Matrix = {
   schema: {
-    subject: { fields: { id: 'string', roles: 'string[]' } },
+    subject: { fields: { id: 'string' } },
     objects: {
-      question: {
-        fields: { askedBy: 'string', status: 'string', tags: 'string[]' },
-        relations: { listing: 'listing' },
-      },
+      question: { fields: { askedBy: 'string', status: 'string' } },
     },
   },
   permissions: [
@@ -690,7 +687,7 @@ const access = policy<{ id: string }, { question: Question }>({
   )
   .build();
 
-JSON.stringify(access.matrix.version); // -> '"orders@7"'
+JSON.parse(JSON.stringify(access.matrix)).version; // -> 'orders@7'
 ```
 
 <!-- #endregion typed-document -->
