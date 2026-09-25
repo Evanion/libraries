@@ -149,8 +149,8 @@ The props interface above, exported for a wrapper that needs to name it.
 `components` is gone from the type surface entirely rather than deprecated. A
 JavaScript caller that still passes it gets a named error:
 
-```
-TypeError: ComposeProvider: `components` was removed in v2.0 — rename it to `providers`.
+```tsx twoslash file=libs/compose/README.md region=removed-components
+
 ```
 
 Keeping it as a second overload is what produced the unreadable diagnostics in
