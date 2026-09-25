@@ -18,11 +18,13 @@ order the array reads.
 ## Before you install compose
 
 - React 18 or 19, the only dependency the package has.
-- An ESM project, or a Node whose `require()` loads ES modules. An older
-  runtime's `require()` fails with `ERR_REQUIRE_ESM`.
 - Node 20 or newer.
-- TypeScript 5.0 or newer for the per-entry checks, because the published types
-  use a `const` type parameter. The component runs without TypeScript.
+- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
+  `require()` loads ES modules. An older `require()` fails with
+  `ERR_REQUIRE_ESM`.
+- TypeScript 5.0 or newer for the compile error on each entry, because the
+  published types use a `const` type parameter. The component runs without
+  TypeScript.
 
 ## Install compose
 
@@ -43,8 +45,10 @@ pnpm add @evanion/compose
 ## Compose the shop's providers
 
 `ComposeProvider` takes two props: `providers`, the array, and `children`, what
-the array wraps. Baize, the board game shop these examples are set in, holds
-three providers at its root and renders them around the page it is given:
+the array wraps. Baize's root holds three providers and renders them around the
+page it is given. Import `ComposeProvider` and `provider` from
+`@evanion/compose`. `renderToStaticMarkup`, from `react-dom/server`, turns `Shop`
+into the HTML string `markup`:
 
 ```tsx twoslash file=libs/compose/README.md region=first-shop
 
@@ -57,22 +61,21 @@ passes `children`: `ComposeProvider` fills each one with the next entry down,
 and the last entry gets `Shop`'s own children.
 
 `markup` is the HTML React wrote for `Shop`. The cart's `div` is outermost and
-the page is innermost, which is the array read from the top. If your own root
-renders its page inside every provider in that order, compose is working in your
-project.
+the page is innermost, which is the array read from the top. In your app, render
+`Shop` where the nested providers sit today, around your routes. A context
+provider renders no element of its own, so check the order in the Components tab
+of React DevTools: each provider sits inside the one before it in the array.
 
 ## Move a compose entry and watch the tree move
 
 The boxes below are the elements `ComposeProvider` returned for the array shown
-with them. Move an entry up and its box moves outward; move it down and the boxes it
-contained close over it.
+with them. Move an entry up and its box moves outward. Move it down and the
+entry below it now wraps it.
 
 <ComposeSpecimen />
 
 The control renders the published `ComposeProvider`, so what reorders is a real
-provider tree. Each move remounts everything inside the outermost box that changed
-position, because React reconciles by position. In an app a remount drops the state under it, so
-keep your array fixed and let a provider handle its own conditional case.
+provider tree.
 
 ## Now that the shop renders, check its entries
 

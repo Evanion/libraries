@@ -16,19 +16,25 @@ same providers as a flat array.
 ## How compose reads a provider array
 
 `ComposeProvider` reads the `providers` array as the tree, top to bottom. The
-first entry wraps the second, and the last entry wraps the `children` you pass:
+first provider in the array wraps the second, and the last one wraps the
+`children` you pass. The two providers below each render a `div`, so the markup
+shows where each one sits. `<p>Brass: Birmingham</p>` stands in for a page of
+Baize, the board game shop these examples are set in:
 
 ```tsx twoslash file=libs/compose/README.md region=render-order
 
 ```
 
-`CartProvider` is first in the array and its `div` is outermost in `markup`.
-`ComposeProvider` renders each entry with the next one as its `children`, and
-does nothing else: it calls no hook and creates no context.
+`renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML
+string `markup`. `CartProvider` is first in the array and its `div` is
+outermost. `ThemeProvider` needs a `theme`, so `provider()` pairs it with its
+props. `ComposeProvider` renders each provider with the next one as its
+`children`. It calls no hook and creates no context.
 
 ## The compose vocabulary
 
-Four words carry the rest of this section.
+Every later compose page names the parts of a `providers` array with four
+words.
 
 - A **provider** is any component that renders its `children`.
   `ComposeProvider` asks nothing else of one.
@@ -37,20 +43,20 @@ Four words carry the rest of this section.
   `CartProvider`. It fits a provider whose props are all optional.
 - A **tuple** is an entry pairing a component with its props,
   `[component, props]`. `provider(component, props)` returns one and checks the
-  props where you call it.
+  props at compile time, where you call it.
 
 ## What compose can do
 
-| You want to                                  | What compose gives you                                                        |
-| -------------------------------------------- | ----------------------------------------------------------------------------- |
-| write a root's providers as one list         | `ComposeProvider`, which nests `providers` around `children`, first outermost |
-| give a provider its props                    | a tuple, or `provider(component, props)`                                      |
-| catch a prop an entry gets wrong             | a compile error on that entry                                                 |
-| wrap `ComposeProvider` in your own component | `ComposeProviderProps<T>`, which keeps the check for your component's callers |
-| mount the tree from a React Server Component | a component that calls no hook and no `createContext`, so no `'use client'`   |
+| You want to                                  | What compose gives you                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| write a root's providers as one list         | `ComposeProvider`, which nests `providers` around `children`, first outermost                     |
+| give a provider its props                    | a tuple, or `provider(component, props)`                                                          |
+| catch a prop an entry gets wrong             | a compile error on that entry, in an array written inline or `as const`                           |
+| wrap `ComposeProvider` in your own component | `ComposeProviderProps<T>`, the props type, so your component's callers get the same compile error |
+| mount the tree from a React Server Component | a component that calls no hook and no `createContext`, so no `'use client'`                       |
 
-A provider built on `createContext` is still client code and carries its own
-`'use client'`.
+The `'use client'` row covers `ComposeProvider` only. A provider you build on
+`createContext` is client code and needs its own `'use client'`.
 
 ## When compose is the wrong tool
 
