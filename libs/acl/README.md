@@ -319,7 +319,7 @@ draws.
 <!-- #region listing-bar -->
 
 ```ts @import.meta.vitest
-import { policy } from '@evanion/acl';
+import { parseMatrix, policy } from '@evanion/acl';
 
 /** Who is signed in. `role` is what the policy reads. */
 interface Shopper {
@@ -331,7 +331,8 @@ interface Listing {
   status: 'draft' | 'published';
 }
 
-const access = policy<
+// `stock` writes the listing rules and serves `stock.matrix` as JSON.
+const stock = policy<
   Shopper,
   { listing: Listing },
   { listing: 'review' | 'edit' | 'publish' }
@@ -345,6 +346,9 @@ const access = policy<
   )
   .build();
 
+// The storefront adopts the document it fetched, and the action bar asks it.
+const access = parseMatrix<Shopper, { listing: Listing }>(stock.matrix);
+
 const bookseller: Shopper = { role: 'bookseller' };
 const draft: Listing = { status: 'draft' };
 
@@ -352,14 +356,19 @@ access.can(bookseller, 'listing', 'review', draft).allowed; // -> true
 access.can(bookseller, 'listing', 'edit', draft).allowed; // -> true
 access.can(bookseller, 'listing', 'publish', draft).reason; // -> 'no-rule-matched'
 access.can(bookseller, 'listing', 'edit', { status: 'published' }).reason; // -> 'denied'
+access.can(bookseller, 'listing', 'edit', {}).reason; // -> 'unevaluable'
+access.can(bookseller, 'listing', 'archive', draft).reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion listing-bar -->
 
-Four statements decide three controls for every role the shop has. Publishing a
-listing changes the fourth answer without anything else moving: the deny reads
-`object.status`, so the same bookseller who could edit the draft cannot edit the
-listing once it is published.
+Four rules decide three controls for every role the shop has. `stock` writes
+them and the storefront adopts the document with `parseMatrix`, so an action the
+document does not carry answers `unknown-action` and a listing without `status`
+answers `unevaluable` for `edit`. Publishing a listing changes the fourth answer
+without anything else moving: the deny reads `object.status`, so the same
+bookseller who could edit the draft cannot edit the listing once it is
+published.
 
 ## The matrix document
 
