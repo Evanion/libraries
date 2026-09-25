@@ -147,7 +147,7 @@ function useCapabilities(): Record<string, Decision>;
 `useCapabilities` passes no object, so a rule that reads one cannot be decided
 here. A menu or a navigation bar asks which actions the shopper may reach at
 all, and a question about one particular row goes to `useCan`.
-[What can they do at all?](/acl/capabilities) sets out the no-object contract.
+[Listing everything a user may do](/acl/listing-permissions) sets out the no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
 
@@ -239,9 +239,9 @@ field that type declares is a compile error at the mount.
 
 ## Where to go next
 
-- [Which side decides](/react-acl/boundary) — what these answers are worth, and
+- [Which side decides](/react-acl/boundary): what these answers are worth, and
   what has to happen on the other side of the render
-- [Core API reference](/acl/api) — every type above, and the functions a server
+- [Core API reference](/acl/api): every type above, and the functions a server
   calls
-- [Decisions](/acl/decisions) — the `Decision` shape, its reasons, and its
-  explanation fields
+- [The Decision object every check returns](/acl/decision-object): the
+  `Decision` shape, its reasons, and its explanation fields
