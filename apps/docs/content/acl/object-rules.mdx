@@ -4,16 +4,11 @@ A condition that names a path beginning `object.` reads the row your handler
 passed to `can`, so one rule can tell the customer who asked a question from the
 customer who did not.
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    Every example on this page is a region of `libs/acl/README.md` and runs
-    under `nx test @evanion/acl`.
-  </Text>
-</WorkshopNotice>
+<WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={3}
-  read={8}
+  read={6}
   hands={15}
   requires={[['Rules about who the user is', '/acl/subject-rules']]}
   unlocks={[
@@ -47,55 +42,15 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-Two things arrive with that one condition. You now name a path into a question,
-so a typo in the path is worth catching at compile time. A question may also be
-half-loaded, so a decision gains a fourth answer.
+One thing arrives with that condition, and it is the subject of this page. A
+question may be half-loaded, so a decision gains a fourth answer.
 
-## Naming the question, so acl can check the paths
-
-`object.askedBy` is a path string and a path string takes typos. Write
-`object.askedBv` with a v and the matrix builds, the tests pass, the permission
-never says yes to anybody, and you find out from a bug report.
-
-Name the shape once and the compiler holds you to it. Four things in the block
-below have not appeared before it, so read them here first.
-
-- `policy<Subject, Objects, Verbs>()` takes a third type parameter.
-  [Rules about who the user is](/acl/subject-rules) passed two. The third maps an
-  object kind to the actions it answers for, and `Action` is the package's union
-  of the default four, `create`, `read`, `update` and `delete`. So
-  `{ question: Action | 'hide' }` gives questions those four plus `hide`. This
-  documentation calls one of those strings an action; the type parameter calls it
-  a verb, and they are the same thing.
-- `p.or(a, b)` matches when either condition holds. The conditions you list inside
-  one `p.allow` are ANDed, so `p.or` is how one rule states two ways to qualify.
-- The condition helpers are `eq`, `ne`, `in`, `notIn`, `contains`, `before`,
-  `after`, `and`, `or` and `always`. `before` and `after` compare the clock
-  against a boundary, and every other one compares two operands you name.
-- `as const` on the question keeps `status` as the literal `'open'` rather than
-  widening it to `string`, which is what lets the compiler check the row against
-  the declared `Question`.
-
-```ts twoslash file=libs/acl/README.md region=typed-authoring
-
-```
-
-Each `.for()` hands the condition helpers to a block, and chaining a second one
-adds a kind without dropping the first, so one policy covers the whole app. The
-block declares `.allow` and `.deny` exactly as a subject-only block does, and a
-deny reads an object path as readily as an allow. The three result lines exercise
-`update` on both kinds; `hide` and `delete` are there to show that one block
-declares every action a kind answers for.
-
-Every helper reads a string beginning `subject.` or `object.` as a path into that
-thing, and any other string as a plain value. So `p.eq('object.status', 'locked')`
-compares the status against the text `locked`, and
-`p.eq('object.askedBy', 'subject.idd')` refuses to compile, with the path you
-mistyped in the message.
-
-`build()` flattens the blocks to a plain matrix, so
-`JSON.stringify(access.matrix)` emits the same JSON envelope a subject-only
-policy flattened to. The types live in your editor and never reach the document.
+Naming a path also opens one way to get it wrong. `object.askedBy` is a string and
+a string takes typos: write `object.askedBv` with a v and the matrix builds, the
+tests pass, the permission never says yes to anybody, and you find out from a bug
+report. Declaring the row shape in `Objects` is what lets the compiler check the
+path against it, and [Typed authoring](/acl/authoring) covers the whole of that,
+including the third type parameter that names a kind's actions.
 
 ## The fourth answer an acl decision can give
 
@@ -106,8 +61,7 @@ fourth, and it arrives when the row in hand does not carry a path the rules read
 Baize's listing page loads forty questions and selects from each only the fields
 it renders. The allow rule reads `object.askedBy` and the deny rule reads
 `object.status`, so a question carrying neither field settles as neither yes nor
-no. The policy below produces all four. It types `status` as a plain `string`
-rather than the union above, so `'draft'` is a status the compiler accepts:
+no. This policy produces all four answers:
 
 ```ts twoslash file=libs/acl/README.md region=four-outcomes
 
@@ -127,9 +81,10 @@ rules read the object.
   </Text>
 </Panel>
 
-An absent `object.*` path is unevaluable for every helper, the negative ones
-included. `p.ne`, `p.notIn` and `p.contains` over an absent path are as unevaluable
-as `p.eq`, because a field nobody read says nothing either way.
+An absent `object.*` path is unevaluable whatever the condition asked of it. A
+condition testing that a field differs from something is as unevaluable as
+`p.eq` over the same absent field, because a field nobody read says nothing either
+way.
 
 ### Watching an acl decision move between the four answers
 
@@ -167,8 +122,11 @@ change has a page.
   action and every key of the write in one pass, and `pickAllowedFields`, which
   applies that decision to the object you hand the database.
 
-Two more pages build on this one.
+Three more pages build on this one.
 
+- [Typed authoring](/acl/authoring). The builder chain in full: the third type
+  parameter that names a kind's actions, every condition helper, and what the
+  compiler checks.
 - [Rules that another service wrote](/acl/advanced). The schema that catches a
   mistyped path at construction, a foreign document, and versioning.
 - [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
