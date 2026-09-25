@@ -20,9 +20,9 @@
     "nextra-theme-docs": {
       "zod": "4.3.0"
     },
-    "@nestjs/common": "12.0.1",
-    "@nestjs/core": "12.0.1",
-    "@nestjs/platform-express": "12.0.1"
+    "@nestjs/common": "12.0.4",
+    "@nestjs/core": "12.0.4",
+    "@nestjs/platform-express": "12.0.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
@@ -101,13 +101,13 @@
     "tools/*"
   ],
   "dependencies": {
-    "@nestjs/axios": "^12.0.0",
-    "@nestjs/common": "12.0.1",
-    "@nestjs/core": "12.0.1",
-    "@nestjs/platform-express": "12.0.1",
+    "@nestjs/axios": "^12.0.1",
+    "@nestjs/common": "12.0.4",
+    "@nestjs/core": "12.0.4",
+    "@nestjs/platform-express": "12.0.4",
     "@tailwindcss/postcss": "^4.3.3",
     "fuse.js": "^7.5.0",
-    "next": "16.3.4",
+    "next": "16.3.6",
     "nextra": "^4.6.1",
     "nextra-theme-docs": "^4.6.1",
     "prism-react-renderer": "^2.4.1",
