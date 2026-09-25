@@ -1,4 +1,3 @@
-import { hydratePolicy } from '@evanion/acl';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
@@ -7,7 +6,11 @@ import { ListingForm } from '../examples/fields.js';
 import { ListingTable } from '../examples/many.js';
 import { ShopMenu } from '../examples/menu.js';
 import { ShopAccess } from '../examples/mount.js';
-import { ListingPage } from '../examples/server.js';
+import {
+  access as serverAccess,
+  editListing,
+  ListingPage,
+} from '../examples/server.js';
 import {
   EditControl as TypedEditControl,
   ShopAccess as TypedAccess,
@@ -22,9 +25,10 @@ import {
  * stops compiling, stops rendering, or starts disagreeing with the sentence
  * above it on the page fails here rather than on the page.
  *
- * One shop policy drives all six. The section teaches one worked case, and a
+ * One shop policy drives all seven. The section teaches one worked case, and a
  * second policy here would let an example drift from the one the pages
- * describe.
+ * describe. `server.tsx` authors the same rules at module scope, less the
+ * field rule the boundary page never asks about.
  */
 const MATRIX = {
   permissions: [
@@ -174,23 +178,41 @@ describe('the table', () => {
   });
 });
 
-describe('the server component', () => {
+describe('the server side', () => {
   /**
-   * No provider and no hook. `ListingPage` takes the evaluator as a prop, which
-   * is what a loader or a server component already holds.
+   * No provider and no hook. `ListingPage` and `editListing` ask the evaluator
+   * `server.tsx` builds at module scope, which is what a loader, a server
+   * component or a handler already holds.
    */
-  it('reads the same policy through the core', () => {
-    render(
-      <ListingPage
-        access={hydratePolicy(MATRIX)}
-        shopper={SHOPPER}
-        listing={OWN_DRAFT}
-      />,
-    );
+  it('builds the shop document without its field rule', () => {
+    expect(serverAccess.matrix).toEqual({
+      permissions: MATRIX.permissions.map(
+        ({ fields: _fields, ...permission }) => permission,
+      ),
+    });
+  });
+
+  it('reads the listing through the core', () => {
+    render(<ListingPage shopper={SHOPPER} listing={OWN_DRAFT} />);
 
     expect(
       screen.getByRole('heading', { name: 'brass-birmingham' }),
     ).toBeInTheDocument();
+  });
+
+  it('writes the edit for the seller who owns a draft', async () => {
+    const response = editListing(SHOPPER, OWN_DRAFT, 'Canals.');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ...OWN_DRAFT, blurb: 'Canals.' });
+  });
+
+  it('answers 403 for a listing somebody else owns', () => {
+    expect(editListing(SHOPPER, OTHER_DRAFT, 'Canals.').status).toBe(403);
+  });
+
+  it('answers 403 once the deny rule matches', () => {
+    expect(editListing(SHOPPER, OWN_PUBLISHED, 'Canals.').status).toBe(403);
   });
 });
 
