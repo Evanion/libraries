@@ -42,8 +42,10 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-One thing arrives with that condition, and it is the subject of this page. A
-question may be half-loaded, so a decision gains a fourth answer.
+A fourth answer arrives with that condition, and it is the subject of this page.
+The query chose which fields of the question to select, so the row in hand may not
+carry the field a rule reads, and a decision that cannot be reached is neither yes
+nor no.
 
 Naming a path also opens one way to get it wrong. `object.askedBy` is a string and
 a string takes typos: write `object.askedBv` with a v and the matrix builds, the

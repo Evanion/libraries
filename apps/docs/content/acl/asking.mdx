@@ -7,7 +7,7 @@ returns a decision your handler gates on and your screen renders.
 
 <PageSheet
   difficulty={3}
-  read={7}
+  read={6}
   hands={10}
   requires={[
     ['Rules about who the user is', '/acl/subject-rules'],
@@ -51,19 +51,20 @@ flowchart LR
 `allowed` is the answer. The three fields beside it explain that answer and are
 output only.
 
-| Field     | What it carries                               | When it rides along                 |
-| --------- | --------------------------------------------- | ----------------------------------- |
-| `allowed` | the answer, and the only field to gate on     | every decision                      |
-| `reason`  | which answer this is, as one of seven strings | every decision                      |
-| `rule`    | the name `.id()` gave the rule that decided   | `allow` and `denied`, and see below |
-| `missing` | the paths the engine could not read           | `unevaluable`                       |
+| Field     | What it carries                               | When it rides along                       |
+| --------- | --------------------------------------------- | ----------------------------------------- |
+| `allowed` | the answer, and the only field to gate on     | every decision                            |
+| `reason`  | which answer this is, as one of seven strings | every decision                            |
+| `rule`    | the name `.id()` gave the rule that decided   | `allow`, `denied`, and some `unevaluable` |
+| `missing` | the paths the engine could not read           | `unevaluable`                             |
 
-A permission holds allow rules and deny rules, and the engine reads the deny
-rules first. That is why `rule` is sometimes absent on an `unevaluable`. One deny
-rule refuses on its own, so the engine can name the one it could not read. The
-allow rules are alternatives and any of them grants, so when the engine cannot
-read them there is no single rule at fault to name. `missing` arrives either way,
-so the refetch is the same.
+`rule` is the one field whose presence takes explaining, and the reason is an
+asymmetry between the two kinds of rule. One deny rule refuses on its own, so when
+the engine cannot read a deny it can name exactly which one stopped it. The allow
+rules are alternatives and any one of them grants, so when the engine cannot read
+them there is no single rule at fault to name. That is why an `unevaluable` carries
+`rule` when the deny side was the unreadable one and carries none when the allow
+side was. `missing` arrives either way, so the refetch is the same.
 
 ### The seven acl reasons, and where four of them were taught
 
@@ -154,19 +155,16 @@ the speed is a side effect.
 
 Every handler in a request passes the same subject, and most of them name the same
 object kind. Two calls take one of those axes out of every later signature.
-`access.authorize(subject)` binds the subject, and `access.object(kind)` binds the
-object kind. They are alternatives, so bind whichever axis your call sites repeat.
+`access.authorize(subject)` returns a handle with the subject bound, and
+`access.object(kind)` returns one with the object kind bound. Either handle carries
+the calls on this page with that argument dropped, which makes the guarded call the
+shortest one to write in a middleware, a loader or an action. [Typed
+authoring](/acl/authoring#a-bound-handle) shows both and says which calls each one
+carries.
 
-```ts twoslash file=libs/acl/README.md region=server-authorize
-
-```
-
-The handle carries `can`, `canMany`, `canFields` and `capabilities` with the
-subject dropped from each signature, which makes the guarded call the shortest one
-to write in a middleware, a loader, an action or a React server component. Binding
-the subject is all the library can do about [complete
-mediation](/acl/security#complete-mediation), because nothing stops a handler
-calling neither.
+Binding the subject is all the library can do about [complete
+mediation](/acl/security#complete-mediation), a rule that every path to your data
+is checked, because nothing stops a handler calling neither.
 
 ## Now that you can ask, read the answer properly
 
