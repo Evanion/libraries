@@ -4,10 +4,21 @@ import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts';
 import * as path from 'path';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+import { readPreamble } from '@evanion/doc-examples/preamble';
+
+// doc-examples.preamble.ts holds the imports the README's regions stand on, so a
+// region shows the provider and the hook rather than the lines above them. The
+// docs app's region loader reads the same file, so a block compiles on a page the
+// way it runs here.
+const examples = docExamples({ preamble: readPreamble(import.meta.dirname) });
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/react-acl',
+  ...examples,
   plugins: [
+    ...examples.plugins,
     react(),
     dts({
       entryRoot: 'src',
@@ -41,6 +52,9 @@ export default defineConfig(() => ({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // The README's documented examples. The sources are `.tsx` here, so the
+    // glob takes that extension rather than the `.ts` default.
+    includeSource: docExampleSources('tsx'),
     typecheck: {
       enabled: true,
       tsconfig: './tsconfig.spec.json',

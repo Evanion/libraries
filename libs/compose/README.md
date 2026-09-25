@@ -60,7 +60,32 @@ const App: React.FC = () => {
 ```
 
 The first entry ends up outermost, so the list reads in the same order as the
-pyramid it replaces.
+pyramid it replaces. Rendered, the array is the tree:
+
+<!-- #region render-order -->
+
+```tsx @import.meta.vitest
+const Cart = (props: { children?: React.ReactNode }) => (
+  <div id="cart">{props.children}</div>
+);
+
+const Theme = (props: { name: string; children?: React.ReactNode }) => (
+  <div id={`theme-${props.name}`}>{props.children}</div>
+);
+
+const markup = renderToStaticMarkup(
+  <ComposeProvider providers={[Cart, provider(Theme, { name: 'baize' })]}>
+    <p>Shelf</p>
+  </ComposeProvider>,
+);
+
+markup; // -> '<div id="cart"><div id="theme-baize"><p>Shelf</p></div></div>'
+```
+
+<!-- #endregion render-order -->
+
+`Cart` is first in the array and outermost in the markup. `Theme` needs a prop, so
+it goes through `provider()`, which pairs the component with the props.
 
 ## Installation
 

@@ -38,6 +38,34 @@ renderer of the same items, for build-time sections with no runtime, is
 npm install @evanion/react-widget
 ```
 
+## One component map, one item array, one region
+
+`components` maps a `type` to a component, an item says which component to render
+and with what props, and `Widgets` renders one against the other. The string below
+is the markup it produced:
+
+<!-- #region region-markup -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+
+const shelf = [
+  { id: 'g1', type: 'listing' as const, props: { title: 'Brass' } },
+];
+
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="g1" data-widget-type="listing"><h3>Brass</h3></div></section>'
+```
+
+<!-- #endregion region-markup -->
+
+The `section` is the region's default wrapper, and `chrome.wrapper` replaces it.
+Inside it the renderer puts each widget in an element carrying the item's `id` and
+`type`, so a widget is findable in the DOM without the widget rendering the
+attributes itself. Add a second item and it renders after the first, in the order
+the array reads.
+
 ## Quick start
 
 ```tsx

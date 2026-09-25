@@ -1,5 +1,31 @@
 # Getting started
 
+By the end of this page an Astro page renders a section list a CMS wrote, with
+no runtime and nothing hydrated in the browser.
+
+## Prerequisites
+
+- Astro `^7.3.1`, as a peer dependency. The package declares no other peer.
+- Node 20 or newer.
+- ESM. There is no `require` condition and no CommonJS artifact.
+- A project whose Astro config compiles `.astro` modules from `node_modules`.
+  `Widgets.astro` is published as source, because Astro's own Vite plugin has to
+  compile it.
+
+## Install
+
+```bash
+npm install @evanion/astro-widget
+```
+
+```bash
+yarn add @evanion/astro-widget
+```
+
+```bash
+pnpm add @evanion/astro-widget
+```
+
 ## The registry
 
 ```ts
@@ -18,7 +44,9 @@ export const registry = defineWidgets({
 [the core's entry](/widget/api#definewidgets) is where it is written down. That declaration is what gives an editor the key union it completes on.
 
 Only the keys are read, so the helper is shown here over stand-ins for the two
-`.astro` modules — what it returns is the object it was handed:
+`.astro` modules. It returns the object it was handed, and the second call checks
+an empty payload against those keys, which is
+[Validation](/astro-widget/validation)'s subject:
 
 ```ts twoslash file=libs/astro-widget/README.md region=registry
 
@@ -26,12 +54,12 @@ Only the keys are read, so the helper is shown here over stand-ins for the two
 
 ## Rendering
 
-Every `.astro` block on this page carries a mark saying nothing executed it,
-and that is the package rather than the budget: an `.astro` module is compiled
-by Astro's own compiler against a project, there is no runtime for one in a
-browser, and no bundler in scope produces one. The half of this package that is
-plain TypeScript — the registry, the item shape, the validator — runs under
-`nx test @evanion/astro-widget` and the pages cite those runs.
+Every `.astro` block on this page carries a mark saying nothing executed it.
+Astro's own compiler is what turns an `.astro` module into a component, it runs
+against a project rather than against this package's build, and no browser has a
+runtime for one. The half of this package that is plain TypeScript — the registry,
+the item shape, the validator — runs under `nx test @evanion/astro-widget`, and
+the executed fences on this page come out of those runs.
 
 ```astro no-run
 ---

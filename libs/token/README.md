@@ -50,6 +50,25 @@ Or with pnpm:
 pnpm add @evanion/token
 ```
 
+## Construct an instance
+
+`createToken` validates every option once and returns a frozen object with
+`generate` and `validate` bound to it. Build it at module scope. The defaults are
+a `length` of 8, which counts the check character, chunked in fours, so `value`
+comes back nine characters long with its one separator:
+
+<!-- #region construct -->
+
+```ts @import.meta.vitest
+import { createToken } from '@evanion/token';
+
+const token = createToken();
+
+token.generate().value.length; // -> 9
+```
+
+<!-- #endregion construct -->
+
 ## Generate a code
 
 ```ts
@@ -64,6 +83,20 @@ token.generate({ prefix: 'ORD' });
 
 `value` is the code as a person sees it. `body` is what the check character was
 computed over, unchunked, which is the form to store and index on.
+
+The value is random, so the round trip is what can be claimed about it: the code
+`generate` minted validates, and a code with one character retyped does not.
+
+<!-- #region round-trip -->
+
+```ts @import.meta.vitest
+const pickup = token.generate({ prefix: 'ORD' });
+
+token.validate(pickup.value.slice('ORD-'.length)).valid; // -> true
+token.validate('a4kp-9mx8').valid; // -> false
+```
+
+<!-- #endregion round-trip -->
 
 Characters are drawn from `crypto.getRandomValues` -- Web Crypto, which is the
 same CSPRNG in Node 20 and in a browser, so the package runs in either with no

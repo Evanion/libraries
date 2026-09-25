@@ -1,9 +1,9 @@
 import type { MetaRecord } from 'nextra';
 
 /**
- * The order a reader meets `@evanion/token` in: what a code looks like, the two
- * calls that mint and check one, then the two things that decide whether the
- * shape they picked is the right one -- which characters a code is drawn from,
+ * The order a reader meets `@evanion/token` in: what a code looks like, how to
+ * get one minted, the two calls that mint and check one, then the two things
+ * that decide whether the shape they picked is the right one -- which characters a code is drawn from,
  * and how many codes that alphabet and length can carry before two collide.
  *
  * Without this file Nextra orders the folder by filename, which opens the
@@ -16,6 +16,7 @@ import type { MetaRecord } from 'nextra';
  */
 export default {
   index: 'Overview',
+  'getting-started': 'Getting Started',
   usage: 'Generating and Validating',
   alphabet: 'The Alphabet',
   entropy: 'Entropy and Collisions',

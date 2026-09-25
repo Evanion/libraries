@@ -22,5 +22,10 @@
     "src/**/*.test-d.ts",
     "vite.config.ts",
     "eslint.config.mjs"
+  ],
+  "references": [
+    {
+      "path": "../../tools/doc-examples"
+    }
   ]
 }

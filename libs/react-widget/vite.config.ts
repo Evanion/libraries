@@ -4,10 +4,21 @@ import react from '@vitejs/plugin-react';
 import dts from 'vite-plugin-dts';
 import * as path from 'path';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+import { readPreamble } from '@evanion/doc-examples/preamble';
+
+// doc-examples.preamble.ts holds the imports the README's regions stand on, so a
+// region shows the factory and the render rather than the lines above them. The
+// docs app's region loader reads the same file, so a block compiles on a page the
+// way it runs here.
+const examples = docExamples({ preamble: readPreamble(import.meta.dirname) });
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/react-widget',
+  ...examples,
   plugins: [
+    ...examples.plugins,
     react(),
     dts({
       entryRoot: 'src',
@@ -79,6 +90,12 @@ export default defineConfig(() => ({
             '{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
           ],
           exclude: ['**/*.server.{test,spec}.{ts,tsx}'],
+          // The README's documented examples. The sources are `.tsx` here, so
+          // the glob takes that extension rather than the `.ts` default. They
+          // run in the jsdom project only: the react-server project resolves a
+          // React with no createContext, and a README example is written for
+          // the runtime a reader has.
+          includeSource: docExampleSources('tsx'),
         },
       },
       // The project that holds this package to its Server Component promise.

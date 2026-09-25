@@ -16,16 +16,6 @@ token.validate('a4kp-9mxa'); // { valid: true, body: 'a4kp9mx' }
 token.validate('a4kp-9mx8'); // { valid: false, reason: 'check-failed' }
 ```
 
-## Installation
-
-```bash
-npm install @evanion/token
-```
-
-Node 20 or newer, or a browser — `generate` draws from
-`crypto.getRandomValues`, which both provide. ESM only. One dependency,
-`@evanion/luhn`.
-
 ## The alphabet and the check character
 
 The alphabet leaves out characters that are confused when read or heard.
@@ -62,14 +52,22 @@ it as a filter in front of a lookup, never as a credential.
 The prefix sits outside the checksum. `ORD-a4kp-9mxa` checksums `a4kp9mx` only,
 and `validate` takes the code without the prefix.
 
+## Related
+
+`@evanion/luhn` supplies the check character and is the package to reach for
+when you have your own identifier and only want to sign it.
+
 ## Pages
 
+- [Getting started](/token/getting-started) — installing, and minting your first code
 - [Generating and validating](/token/usage) — the two operations, separators, prefixes
 - [The alphabet](/token/alphabet) — the default 32, and the constraints on your own
 - [Entropy and collisions](/token/entropy) — sizing `length`
 - [API reference](/token/api)
 
-## Related
+## Where to start with token
 
-`@evanion/luhn` supplies the check character and is the package to reach for
-when you have your own identifier and only want to sign it.
+A passing check on a `@evanion/token` code is a filter in front of a lookup, and
+never a credential.
+[Getting started](/token/getting-started) installs the package and mints a pickup
+code the shop's counter can read out.
