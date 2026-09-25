@@ -21,20 +21,26 @@ component holds a list of actions and tests no role itself.
 
 Baize's page for the Brass: Birmingham listing draws an action bar with three
 buttons: Review, Edit and Publish. Baize's `stock` service owns the listing
-rules, and the storefront holds them as a document it adopted from `stock` with
-`parseMatrix`. The document carries four statements:
+rules, and there are four:
 
 - Everyone signed in reviews a listing.
 - A bookseller or the owner edits a listing.
 - The owner publishes a listing.
 - Nobody edits a published listing.
 
-`stock` runs the `policy()` call below. The storefront never runs it, and
-answers from the matrix that call flattens to:
+`stock` builds them with `policy()` and serves `stock.matrix` as JSON. The
+storefront adopts that document with `parseMatrix`, which builds an evaluator from
+a document another service served and answers `unknown-action` for an action the
+document does not carry. The action bar asks that evaluator:
 
 ```ts twoslash file=libs/acl/README.md region=listing-bar
 
 ```
+
+The third type argument to `policy()` names the actions each object kind may
+declare. A kind it leaves out may declare only `create`, `read`, `update` and
+`delete`, so `review`, `edit` and `publish` are listed there, and a misspelled
+`p.allow('publsh', …)` fails to compile.
 
 Two condition helpers are new in that block:
 
@@ -44,46 +50,48 @@ Two condition helpers are new in that block:
   `Shopper` carries `role` as one string, so `p.in` tests it against the roles
   written in the rule.
 
-`p.contains` runs the test the other way round: one value written in the rule,
-against an array held on the subject. The deny reads `object.status` off the
-listing in hand, and a deny that matches outranks every allow that matches with
-it.
+`.deny('edit', …)` reads `object.status` off the listing in hand. A deny that
+matches outranks every allow that matches with it, so nobody edits a published
+listing, the owner included.
 
 ## What Baize's action bar draws for each shopper
 
 The bar loops over `review`, `edit` and `publish`, calls
 `access.can(shopper, 'listing', action, listing)` for each, and draws a button
-where `allowed` is `true`. Every `reason` the four statements produce, per
-shopper and per listing status:
+where `allowed` is `true`. A granted decision carries the reason `allow`. Every
+`reason` the four rules produce, per shopper and per listing status:
 
 | Signed in as | Listing status | `review` | `edit`            | `publish`         |
 | ------------ | -------------- | -------- | ----------------- | ----------------- |
 | customer     | `draft`        | `allow`  | `no-rule-matched` | `no-rule-matched` |
 | bookseller   | `draft`        | `allow`  | `allow`           | `no-rule-matched` |
 | owner        | `draft`        | `allow`  | `allow`           | `allow`           |
+| customer     | `published`    | `allow`  | `denied`          | `no-rule-matched` |
 | bookseller   | `published`    | `allow`  | `denied`          | `no-rule-matched` |
 | owner        | `published`    | `allow`  | `denied`          | `allow`           |
 
 Publishing the listing moves the bar with no change to the policy. The status
-becomes `published`, the deny matches, and `edit` answers `denied` for the
-bookseller and the owner alike.
+becomes `published`, the deny matches, and `edit` answers `denied` for every
+shopper. The customer gets `denied` too, where no allow would have matched,
+because the engine checks the deny rules before the allow rules.
 
-Add a fourth button by writing one more statement in the policy and one more
-action in the bar's list. A role test in the component is a rule the policy
-cannot see, and the handler the button posts to never reads it.
+A fourth button takes a rule in `stock`'s policy, with its action added to the
+third type argument, and one more action in the bar's list. A role test in the
+component is a rule the policy cannot see, and the handler the button posts to
+never reads it.
 
 ## Try Baize's action bar against the listing policy
 
-The demo draws the listing's action bar from the four statements. Sign in as
-each of the three shoppers and the bar rebuilds itself from `access.can`. Press
-a role inside a grant to strike it out, and the button that grant produced
-disappears. Press Publish and the deny matches, so neither the bookseller nor
-the owner is offered Edit.
+The demo draws the listing's action bar from the four rules. Sign in as each of
+the three shoppers and the bar rebuilds itself from `access.can`. The panel shows
+the roles each `p.in` lists: press a role to strike it out of that list, and the
+button that rule produced disappears. Press Publish and the deny matches, so
+neither the bookseller nor the owner is offered Edit.
 
 <AccessDemo />
 
-The policy in the panel is built by the same `policy()` call the region above
-runs, and each button is one `Decision.allowed`.
+The demo builds its policy with the same `policy()` call `stock` runs and asks it
+directly, and each button is one decision's `allowed`.
 
 ## Only the server's acl decision guards a listing write
 
@@ -91,14 +99,19 @@ The decisions the action bar draws are convenience. The `stock` service runs the
 same `can` in its own runtime, over a subject it resolved itself, before any
 listing is edited or published. A hidden button leaves the handler it posts to
 reachable, so that handler decides for itself.
-[The security contract](/acl/security) is the long form.
 
 ## Wording a refused button from the acl decision
 
-A bar that greys a button out, where this one removes it, has to say why.
-`Decision` carries `reason` beside `allowed` for that: `denied` means a deny
-matched, and `no-rule-matched` means no allow did. On a `denied` decision,
-`rule` names the deny that matched.
+A bar that greys a button out, where Baize's action bar removes it, has to say
+why. `allowed` still decides whether the button works, and `reason` only picks
+the words. Baize's action bar can get four refusals:
+
+| `reason`          | What happened                                                  | What the bar does                                                                   |
+| ----------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `denied`          | A deny matched, and `rule` names it.                           | Says the listing is published.                                                      |
+| `no-rule-matched` | No allow matched.                                              | Says which role the action needs.                                                   |
+| `unevaluable`     | The listing arrived without `status`, so the deny went unread. | Fetches what `missing` names and asks again. The shopper may hold the action.       |
+| `unknown-action`  | The document `stock` served carries no such action.            | Hides the button. `stock` dropped the action, or the storefront's copy predates it. |
 
 ## Where to go next
 
@@ -106,3 +119,5 @@ matched, and `no-rule-matched` means no allow did. On a `denied` decision,
   server's `can` sits on each stack.
 - [Why was this refused?](/acl/refusals). Every `reason` a decision carries, and
   which of them a refetch can repair.
+- [Security contract](/acl/security). Why a decision the browser makes enforces
+  nothing.
