@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -288,8 +289,9 @@ export default function BehaviourCatalogue({
   const body = sidecar?.bodies[String(row?.id)];
 
   // Picking another sentence replaces the pane's markup whole, so the tab stop
-  // goes back on the first typed token of whatever now stands in it.
-  useEffect(() => {
+  // goes back on the first typed token of whatever now stands in it. A layout
+  // effect, so the tokens never paint without a stop for Tab to reach.
+  useLayoutEffect(() => {
     typed(code.current).forEach((each, index) => {
       each.tabIndex = index === 0 ? 0 : -1;
     });
