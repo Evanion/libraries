@@ -58,6 +58,37 @@ request. Everything downstream of it — guards, interceptors, controllers, and
 anything they await — sees that request's id, and concurrent requests stay
 isolated.
 
+Nest builds those two objects for you. Built by hand over one request, this is
+what the handler reads and what it reads outside the context:
+
+<!-- #region one-request -->
+
+```ts @import.meta.vitest
+const config = { header: 'X-Correlation-Id', generator: () => 'mint-0f3a2b7c' };
+const correlation = new CorrelationService(config);
+const middleware = new CorrelationIdMiddleware(correlation, config);
+
+// Nest hands the middleware the adapter's own request and response. These two
+// carry the three members it reads: the request headers, and getHeader and
+// setHeader on the response.
+const request = { headers: { 'x-correlation-id': 'ORD-a4kp-9mxa' } };
+const response = { getHeader: () => undefined, setHeader: () => undefined };
+
+let handled: string | undefined;
+middleware.use(request as never, response as never, () => {
+  handled = correlation.getCorrelationId();
+});
+
+handled; // -> 'ORD-a4kp-9mxa'
+correlation.getCorrelationId(); // -> undefined
+```
+
+<!-- #endregion one-request -->
+
+The caller's header is the id the handler sees, because it passed `validate`. The
+second line is the same service outside any context, where there is genuinely no
+correlation id.
+
 Then forward the id on outgoing HTTP calls by passing `withCorrelation()` to
 `HttpModule.registerAsync`.
 

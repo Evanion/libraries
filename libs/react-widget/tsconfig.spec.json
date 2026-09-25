@@ -32,5 +32,11 @@
     "vite.config.mts",
     "vitest.config.ts",
     "vitest.config.mts"
-  ]
+  ],
+  // `vite.config.ts` imports `@evanion/doc-examples`, which tsconfig.base.json
+  // path-maps to that project's source. Without this reference tsc compiles
+  // those files into this program instead of reading its declarations, and
+  // their `.ts` import specifiers are errors here because
+  // `allowImportingTsExtensions` is that project's option and not this one's.
+  "references": [{ "path": "../../tools/doc-examples" }]
 }

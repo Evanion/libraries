@@ -1,6 +1,9 @@
 # Getting started
 
-## Install
+By the end of this page a page renders a widget region from an item array, and the
+type checker rejects an item naming a component the map does not have.
+
+## Install react-widget
 
 ```bash
 npm install @evanion/react-widget
@@ -30,6 +33,20 @@ it.
 That page can be a Server Component. Nothing in the package forces the widgets
 into the client bundle; a widget that needs client state carries its own
 `'use client'` and nothing else changes.
+
+### The markup one item produced
+
+`renderToStaticMarkup`, from `react-dom/server`, gives the HTML string React wrote
+for one component and one item:
+
+```tsx twoslash file=libs/react-widget/README.md region=region-markup
+
+```
+
+This factory passes no `chrome.wrapper`, so the region takes the default `section`
+the `catalogue` fence above replaced with `<section className="shelf">`. Inside the
+wrapper each widget sits in an element carrying the item's `id` and `type`, so a
+widget is findable in the DOM without the widget writing the attributes itself.
 
 ### Why once at module scope
 

@@ -1,5 +1,32 @@
 # Getting started
 
+By the end of this page every request carries a correlation id, a handler three
+layers down reads it without a parameter, and outgoing `HttpService` calls carry
+it to the next service.
+
+## Prerequisites
+
+- NestJS `^12.0.0`.
+- Node 20 or newer.
+- `@nestjs/axios` `^12.0.0`, optional. Install it only for `withCorrelation()`.
+- ESM. There is no CommonJS build, so
+  `require('@evanion/nestjs-correlation-id')` will not work.
+- No runtime dependencies beyond `tslib`.
+
+## Install
+
+```bash
+npm install @evanion/nestjs-correlation-id
+```
+
+```bash
+yarn add @evanion/nestjs-correlation-id
+```
+
+```bash
+pnpm add @evanion/nestjs-correlation-id
+```
+
 ## Register the module and the middleware
 
 ```ts
@@ -45,6 +72,22 @@ anything applied before it does not.
 
 The generator runs only when nothing usable arrived, so a counter- or
 sequence-backed generator is not advanced for an id that gets discarded.
+
+## What the handler reads
+
+`forRoot()` builds the service and the middleware, and Nest hands the middleware
+the adapter's request and response. The fence below builds all four by hand, so
+that one request can run inside a page rather than inside a server. Nothing in it
+is code to copy into an application:
+
+```ts twoslash file=libs/nestjs-correlation-id/README.md region=one-request
+
+```
+
+The config names no `validate`, so `DEFAULT_CORRELATION_ID_VALIDATOR` ran and
+accepted `ORD-a4kp-9mxa`, and the middleware reused the caller's id rather than
+calling the generator. The last line is the same singleton outside any request,
+where there is genuinely no correlation id to return.
 
 ## Reading the id
 
@@ -198,10 +241,10 @@ header keeps the id the middleware wrote when the request arrived.
 ## Why `@evanion/nestjs-correlation-id` has nothing to click
 
 Every other section on this site puts a control under the reader's hand on its
-demonstration page. This one does not, and the reason is the package rather than
-the budget: the demonstrable unit is two running services and one header between
-them, and nothing inside a documentation page can be the second process. A
-simulated caller would prove something about the simulation.
+demonstration page. This one does not, and the package is the reason: the
+demonstrable unit is two running services and one header between them, and
+nothing inside a documentation page can be the second process. A simulated caller
+would prove something about the simulation.
 
 `apps/shop-api` in this repository is the real pair. It applies
 `CorrelationIdMiddleware` to every route, and the shop's storefront reads the

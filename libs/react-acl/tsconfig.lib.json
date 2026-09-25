@@ -32,5 +32,12 @@
     "src/test-setup.ts"
   ],
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
-  "references": [{ "path": "../acl/tsconfig.lib.json" }]
+  "references": [
+    {
+      "path": "../../tools/doc-examples"
+    },
+    {
+      "path": "../acl/tsconfig.lib.json"
+    }
+  ]
 }

@@ -1,9 +1,17 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 
+import { docExampleSources, docExamples } from '@evanion/doc-examples';
+import { readPreamble } from '@evanion/doc-examples/preamble';
+
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/nestjs-correlation-id',
+  // doc-examples.preamble.ts builds the service and the middleware the README's
+  // regions call, so a region shows the call rather than the wiring around it.
+  // The docs app's region loader reads the same file, so a block compiles on a
+  // page the way it runs here.
+  ...docExamples({ preamble: readPreamble(import.meta.dirname) }),
   test: {
     // No vitest `typecheck` block: there are no *.test-d.ts files here for a
     // glob to match. `nx typecheck` builds tsconfig.json, which references
@@ -13,6 +21,7 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'],
+    includeSource: docExampleSources(),
     // `apps/docs/tools/test-statistics.mjs` reads report.json and
     // coverage-summary.json out of the coverage directory below, and
     // `tools/repo-checks/src/coverage-config.test.ts` holds every library to

@@ -95,9 +95,7 @@
       "DEFAULT_CORRELATION_ID_VALIDATOR"
     ],
     "unexercised": [
-      "CorrelationIdMiddleware",
       "CorrelationModule",
-      "CorrelationService",
       "DEFAULT_CORRELATION_ID_VALIDATOR",
       "withCorrelation"
     ]
