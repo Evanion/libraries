@@ -15,12 +15,6 @@ scheme  NID   NSS
 Nothing downstream has to be told what a bare `1337` refers to. AWS's ARNs are
 the same idea with a longer NSS.
 
-## Installation
-
-```bash
-npm install @evanion/urn
-```
-
 ## Quick start
 
 A subclass is the extension point. Override the statics and every inherited
@@ -44,8 +38,7 @@ UserTRN.stringify('1337'); // 'trn:user:1337'
 UserTRN.parse('trn:user:1337'); // { urn: 'trn', nid: 'user', nss: '1337' }
 ```
 
-[Parsing and namespaces](/urn/getting-started) covers that retention rule in
-full.
+[Getting started](/urn/getting-started) covers that retention rule in full.
 
 ## What is in the package
 
@@ -75,10 +68,17 @@ getters. [The API reference](/urn/api) has them all.
 - It does not resolve. A URN names a resource; finding it is somebody else's
   job. The r- and q-components exist to carry parameters to whoever does.
 
-## Where to go next
+## Pages
 
 - [Getting started](/urn/getting-started) — installing, subclassing, and the
   namespace-retention rule
 - [API reference](/urn/api) — every static, every type, every error
 - [r-, q- and f-components](/urn/components) — the optional RFC 8141 §2.3 tails
 - [Examples](/urn/examples) — worked patterns
+
+## Where to start with urn
+
+A subclass is `@evanion/urn`'s extension point, and its three statics are what
+a namespace overrides.
+[Getting started](/urn/getting-started) installs the package and parses a URN
+through a subclass of your own.
