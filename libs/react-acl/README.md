@@ -103,27 +103,34 @@ const access = hydratePolicy({
   ],
 });
 
-const listing = { id: 'urn:game:brass-birmingham', sellerId: 'bookseller-1' };
+type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
 
-function EditControl() {
+function EditControl({ listing }: { listing: Listing }) {
   const decision = useCan('listing', 'edit', listing);
+
   if (!decision.allowed) return null;
+
   return <button type="button">Edit listing</button>;
 }
 
+const listing: Listing = {
+  id: 'brass-birmingham',
+  sellerId: 'mika',
+  status: 'draft',
+};
+
+// Module scope, like `access`: one identity for every render.
+const context = { now: '2026-09-25T09:00:00Z' };
+
 const shelf = (shopper: { id: string }) =>
   renderToStaticMarkup(
-    <PolicyProvider
-      access={access}
-      subject={shopper}
-      context={{ now: '2026-09-25T09:00:00Z' }}
-    >
-      <EditControl />
+    <PolicyProvider access={access} subject={shopper} context={context}>
+      <EditControl listing={listing} />
     </PolicyProvider>,
   );
 
-shelf({ id: 'bookseller-1' }); // -> '<button type="button">Edit listing</button>'
-shelf({ id: 'bookseller-2' }); // -> ''
+shelf({ id: 'mika' }); // -> '<button type="button">Edit listing</button>'
+shelf({ id: 'jo' }); // -> ''
 ```
 
 <!-- #endregion rendered-decision -->
