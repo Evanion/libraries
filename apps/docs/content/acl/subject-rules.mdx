@@ -1,5 +1,8 @@
 # Rules about who the user is
 
+`p.allow` and `p.deny` write the rules that read the subject: the user object
+your server resolved before the call, with every field on it.
+
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
     Inside this repository the package resolves from source like any other
@@ -8,142 +11,131 @@
 </WorkshopNotice>
 
 <PageSheet
-  difficulty={1}
+  difficulty={2}
   read={5}
-  hands={15}
+  hands={10}
   requires={[['Getting started', '/acl/getting-started']]}
   unlocks={[
     ['Rules about the thing being accessed', '/acl/object-rules'],
-    ['Can this user do this?', '/acl/asking'],
+    ['Listing everything a user may do', '/acl/listing-permissions'],
   ]}
 />
 
-**The concept.** A subject-only rule reads the subject the server resolved and
-nothing else.
-**What you get.** Every permission answered with no database read in front of
-the call.
-**Why you want it.** A role test written by hand in each handler answers
-differently per handler once somebody edits one of them.
-**How the library gets you there.** `policy()` writes the matrix at startup, and
-`can` reads it on every question.
+## What a subject-only acl rule covers
 
-## What a subject-only policy covers
+Baize, [the Overview's](/acl) board game shop, lets any bookseller read its stock
+report and suspends an account that has been abusing it. Both rules read a role
+off the subject, so `can` answers either one with no database read in front of it.
 
-A subject-only rule reads the subject the server resolved and nothing else, so
-`can` answers it with no database read in front of it. Baize's stock report
-carries two such rules: any bookseller may read the report, and only the owner
-may export it.
+You write that pair of checks by hand and the twentieth copy disagrees with the
+first. One handler tests `roles.includes('bookseller')`, another tests
+`user.isStaff`, a third was copied before the role was renamed, and the suspended
+account is refused in two places out of five. A policy holds the pair once and
+every call site reads the same answer.
 
-The matrix holds both permissions, the server resolves the subject once per
-request, and one call answers yes or no for any permission in the document.
-
-`policy()` writes the matrix and hands back an access object over it. `can`
-answers one question, `authorize` binds the subject, and `capabilities` answers
-the whole document at once.
-
-You write the twentieth role check by hand and four handlers now disagree: one
-tests `roles.includes('owner')`, another tests `user.isOwner`, a third was
-copied before the role was renamed, and the export endpoint tests nothing at
-all.
-
-## Write the acl policy
-
-`policy()` builds a policy from three calls:
+`policy()` builds one from three calls, which is the chain
+[Getting started](/acl/getting-started) used for a single rule:
 
 - `policy<Subject, Objects>()` names the subject type and the object kinds.
-- `.for(key, block)` writes one kind's rules.
-- `.build()` hands back the evaluator.
+- `.for(kind, block)` writes one kind's rules, and `kind` is one of the kinds you
+  declared.
+- `.build()` hands back the evaluator this documentation calls `access`.
 
-A block holds allow rules and a rule holds conditions. The engine ANDs the
-conditions, so a rule matches when every condition in it holds. `p` is the
-condition helper the block hands you, and `p.contains(path, value)` reads the
-array at `subject.roles` and asks whether the role is in it. Every condition
-below reads the subject, so `capabilities` answers the whole document at once:
+A block holds rules and a rule holds conditions. The engine ANDs the conditions,
+so a rule matches when every condition in it holds. `p` is the condition helper
+the block hands you, and `p.contains(path, value)` reads the array at
+`subject.roles` and asks whether the role is in it.
 
-```ts twoslash file=libs/acl/README.md region=capabilities
+## Refusing with an acl deny rule
+
+An allow rule is the only thing that grants, and a deny rule is how one
+permission states an exception to its own grants. `report.read` carries the allow
+for a bookseller and the deny for a suspended one:
+
+```ts twoslash file=libs/acl/README.md region=subject-deny
 
 ```
 
-One policy holds every object kind your app has. Chain a `.for()` per kind, and
-do not build a policy per resource.
+`p.deny(action, ...conditions)` takes the same conditions `p.allow` takes and
+means the opposite of a grant. Three subjects produce three answers from those
+two rules.
 
-Nothing is allowed without an allow rule that matched. `report.export` carries
-one such rule, and the bookseller's roles do not satisfy it, so the decision is
-`no-rule-matched`. Default deny is the floor of the engine and you configure
-nothing to get it.
+The suspended bookseller satisfies both rules, and the decision is `denied`,
+because a deny that matched outranks an allow that matched with it. The engine
+settles the deny side first. The customer satisfies neither rule, and the
+decision is `no-rule-matched`, which is the default deny: nothing is allowed
+without an allow rule that matched, and you configure nothing to get that floor.
 
-```mermaid caption="What the engine decides for a permission carrying allow rules only, which is every permission in the policy above. The engine reads those rules against the subject the caller passed. One rule whose conditions all hold answers allow; no such rule answers no-rule-matched, which is the default deny this policy never states."
+`.id(name)` names the rule that a decision reports back in its `rule` field. A
+rule you do not name still reports an id, and the library derives that one by
+hashing the rule's conditions, so a release that changes how a condition is
+represented changes the id and a log line holding the old one stops matching its
+rule. Name the rules whose ids you store.
+
+```mermaid caption="The order the engine settles one permission in, when every condition reads the subject."
 flowchart TD
-  Q["can(subject, 'report', 'export')"] --> R{"an allow rule<br>whose conditions<br>all hold?"}
+  Q["can(subject, 'report', 'read')"] --> D{"a deny rule<br>whose conditions<br>all hold?"}
+  D -->|yes| X["allowed: false<br>reason: denied"]:::accent
+  D -->|no| R{"an allow rule<br>whose conditions<br>all hold?"}
   R -->|yes| A["allowed: true<br>reason: allow"]
-  R -->|no| N["allowed: false<br>reason: no-rule-matched"]:::accent
+  R -->|no| N["allowed: false<br>reason: no-rule-matched"]
 ```
 
-`access.matrix` is what the blocks flattened to: a JSON envelope over a flat
-list of permissions, each carrying a `key` of exactly
-`` `${object}.${action}` ``. That document is what crosses to a client, where
-`hydratePolicy` turns it back into an evaluator.
+`allowed` is the answer in all three cases. Gate on it and nothing else. `reason`
+and `rule` are output only, and a handler that branches on the reason string
+grants what the engine refused.
 
-## Ask acl a question
+The diagram shows the two steps a subject-only policy can reach.
+[Why deny, then allow, then deny?](/acl/resolution) carries all seven the engine
+walks, and the ones this diagram leaves out need a rule reading something other
+than the subject.
 
-`can` takes the subject, the object kind (`report`) and the action (`read`), and
-returns one decision:
+## Writing an acl exception where a reader will find it
 
-```ts
-const decision = access.can(
-  { id: 'u1', roles: ['bookseller'] },
-  'report',
-  'read',
-);
-// { key: 'report.read', allowed: true, reason: 'allow', rule: 'allow-b72dadff' }
-```
+Write the exception into the permission it modifies. One permission never gates
+another, so a deny on `report.read` leaves `report.export` untouched even though
+a person would call reading a precondition for exporting. Two actions that share
+an exception each carry their own copy of it, and a reader of either action sees
+every rule that decides it.
 
-`allowed` is the answer. Gate on it and nothing else. `reason` is output only,
-and a handler that branches on the reason string grants what the engine refused.
-
-## Bind the subject to one acl handle
-
-`authorize` takes the subject once and returns a handle that asks many questions
-about it, over the same report-and-listing policy:
-
-```ts twoslash file=libs/acl/README.md region=server-authorize
-
-```
-
-The handle carries `can`, `canMany`, `canFields` and `capabilities` with the
-subject dropped from each signature, which makes the guarded call the shortest
-one to write. That is all the library can do about [complete
-mediation](/acl/security#complete-mediation).
+One policy holds every object kind your app has. Add a kind by chaining a second
+`.for()`, which [Rules about the thing being accessed](/acl/object-rules) shows
+over two kinds, and do not build a policy per resource. `access.matrix` is what
+those blocks flattened to: the JSON envelope [the Overview](/acl) named, carrying a
+flat list of permissions, each keyed `` `${object}.${action}` ``.
 
 <Panel heading="This decision is authoritative only where it is made">
   <Text as="div" size="sm">
     The same call in a browser toggles what a user sees and enforces nothing.
-    Hiding a button hides the button, not the request the button would have
-    sent. Read [the security contract](/acl/security) before this reaches
-    production.
+    Read [the security contract](/acl/security) before this reaches production.
   </Text>
 </Panel>
 
-## Where subject-only rules stop
+## Where subject-only acl rules stop
 
-The engine settles every permission in a subject-only policy, and two things
-follow:
+The engine settles every permission in a subject-only policy, and your code can
+rely on two things while that holds.
 
-- The server resolves the subject whole before the call, so every permission
-  answers `true` or `false` and nothing answers
-  [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
-- Nothing has to be fetched to ask a question, so `can` takes three arguments
-  and [`capabilities`](/acl/listing-permissions) answers the whole matrix at once.
+Your handler always gets a final answer. The server resolves the subject whole
+before the call, so every condition has data to read, and a permission here answers
+`allow`, `denied` or `no-rule-matched`. None of them answers
+[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which is what the
+engine answers when it cannot tell yet.
 
-Write one rule that reads the object, the customer who asked may edit their own
-question, and both break at once. [Rules that read the
-object](/acl/object-rules) picks up there.
+Your caller asks without fetching anything. `can` needs no row, so
+[`capabilities`](/acl/listing-permissions) answers every permission in the document
+against one subject in a single call, and a navigation menu draws itself from that
+one answer.
+
+Baize's next rule is that the customer who asked a question may edit it, and that
+rule reads the question. Both properties above stop holding the moment you write
+it: an answer can come back undecided, and a question has to be loaded first.
 
 ## Where to go next
 
-- [Rules about the thing being accessed](/acl/object-rules). The typed builder, field
-  permissions and the guarded save.
-- [Can this user do this?](/acl/asking). The decision shape, and asking about a
-  list.
-- [Listing everything a user may do](/acl/listing-permissions). How a menu draws itself from
-  one call.
+- [Rules about the thing being accessed](/acl/object-rules). A rule that reads
+  the row, the typed builder, and the fourth answer a decision can give.
+- [Listing everything a user may do](/acl/listing-permissions). What
+  `capabilities` returns, and how a menu draws itself from one call.
+- [Can this user do this?](/acl/asking). The decision's shape, asking about a
+  list, and binding the subject once per request.

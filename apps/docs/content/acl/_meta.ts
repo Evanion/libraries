@@ -17,7 +17,10 @@ import type { MetaRecord } from 'nextra';
  * `subject-rules` is the page where every condition reads the subject, so
  * nothing can decide `unevaluable`, and it carries the whole allow-and-deny
  * mechanism on that axis: default deny under an express allow, and an express
- * deny that outranks the allow. `object-rules` is the page where a condition
+ * deny that outranks the allow. Nothing else is on it: `listing-permissions`
+ * owns `capabilities` and `asking` owns the bound subject handle, and a cold
+ * reader who met those two here as well called the step onto this page too
+ * large. `object-rules` is the page where a condition
  * reads the object, which brings the typed builder, projections and the
  * `unevaluable` answer with it. The field axis is not on it. `writing` owns
  * that axis, and a reader who has just met a fourth decision state does not

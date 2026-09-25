@@ -228,6 +228,46 @@ The array is parallel to the input, so the decision for `rows[i]` is
 `decisions[i]`. Nothing is filtered out: a refused row still has an entry, which
 is what lets a list render the refusal beside the row rather than dropping it.
 
+A deny rule needs no object. It reads the subject the same way an allow rule
+does, and a policy whose every condition reads the subject still produces three
+of the four reasons.
+
+<!-- #region subject-deny -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+
+// Baize suspends an account without editing anybody's roles. The deny sits
+// beside the allow it overrides, in the permission both belong to, and `.id()`
+// names each rule so a decision can report which one decided.
+const access = policy<Shopper, { report: { id: string } }>()
+  .for('report', (p) =>
+    p
+      .allow('read', p.contains('subject.roles', 'bookseller'))
+      .id('booksellers-read')
+      .deny('read', p.contains('subject.roles', 'suspended'))
+      .id('suspended-reads-nothing'),
+  )
+  .build();
+
+const bookseller = { id: 'u1', roles: ['bookseller'] };
+const suspended = { id: 'u2', roles: ['bookseller', 'suspended'] };
+const customer = { id: 'u3', roles: [] };
+
+access.can(bookseller, 'report', 'read').reason; // -> 'allow'
+access.can(suspended, 'report', 'read').reason; // -> 'denied'
+access.can(suspended, 'report', 'read').rule; // -> 'suspended-reads-nothing'
+access.can(customer, 'report', 'read').reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion subject-deny -->
+
+The suspended bookseller satisfies the allow rule, and the deny settles first, so
+the decision is `denied`. Nothing here can answer `unevaluable`: the app resolves
+the subject whole before the call, so every condition has data to read.
+
 `capabilities` asks the other way — no instance, every permission in the
 document, resolved in document order against one subject.
 
