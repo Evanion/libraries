@@ -7,6 +7,7 @@ import { createTwoslasher } from 'twoslash';
 import { describe, expect, it } from 'vitest';
 
 import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
+import { writesOwnImports } from '@evanion/doc-examples/preamble';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 
@@ -41,7 +42,6 @@ const FENCE = /^(\s*)(`{3,})(.*)$/;
 const ERRORS = /^\s*\/\/\s*@errors:\s*(.+)$/m;
 const QUERY = /^\s*\/\/\s*\^\?\s*$/;
 const DOCTESTED = /@import\.meta\.vitest/;
-const SELF_CONTAINED = /^import[\s{]/m;
 
 interface Fence {
   /** Workspace-relative path, with the line the fence opens on. */
@@ -153,8 +153,10 @@ async function releasedRoots(): Promise<string[]> {
  * and a compile error in one is a documented call the package refuses, and
  * self-contained, so the fence names what it uses.
  *
- * A fence that imports nothing continues an earlier fence's context and would
- * fail on symbols it never declares. Those carry the documentation standard's
+ * A fence that imports no value continues an earlier fence's context, or the
+ * package's preamble, and would fail on symbols it never declares. An
+ * `import type` line alone does not make a fence self-contained, for the reason
+ * `writesOwnImports` gives. Those fences carry the documentation standard's
  * § 9 exemption and bringing them under a compiler is separate work.
  */
 async function readmeFences(): Promise<Fence[]> {
@@ -168,7 +170,7 @@ async function readmeFences(): Promise<Fence[]> {
       ({ info, code }) =>
         ['ts', 'tsx'].includes(info.split(/\s+/)[0] ?? '') &&
         DOCTESTED.test(info) &&
-        SELF_CONTAINED.test(code),
+        writesOwnImports(code),
     );
   });
 }

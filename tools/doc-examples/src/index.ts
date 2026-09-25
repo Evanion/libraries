@@ -21,6 +21,7 @@ export {
   preamblePath,
   readPreamble,
   withPreamble,
+  writesOwnImports,
 } from './preamble.mjs';
 export { RegionError, parseRegions, readRegion } from './regions.mjs';
 export type { Region } from './regions.mjs';
