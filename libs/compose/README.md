@@ -377,16 +377,17 @@ identity of its elements, so there is nothing left to check.
 
 ## Migrating from 1.x
 
-| Before                                                  | After                                 |
-| ------------------------------------------------------- | ------------------------------------- |
-| `<ComposeProvider components={[...]}>`                  | `<ComposeProvider providers={[...]}>` |
-| `LegacyComposeProviderProps`                            | removed                               |
-| `AnyComposeProviderProps`                               | removed                               |
-| forwarding a `ProviderArray` variable failed to compile | compiles, unchecked at that boundary  |
+| 1.0.8                                           | 2.0                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| `<ComposeProvider components={[...]}>`          | `<ComposeProvider providers={[...]}>`                                    |
+| dual CommonJS and ESM builds                    | ESM only; `require('@evanion/compose')` needs Node 20.19, 22.12 or newer |
+| the `Component` type                            | `Provider` or `ProviderArray`                                            |
+| `Provider`, an alias of `Component`             | `AnyComponent \| readonly [AnyComponent, unknown]`                       |
+| `ComposeProvider` typed as a `React.FC`         | a generic function that no longer assigns to `React.FC`                  |
+| a missing `providers` fails reading `undefined` | throws a `TypeError` naming `providers`                                  |
 
-The deprecated `components` prop is gone from the type surface entirely. A
-JavaScript caller that still passes it gets a named error rather than silent
-acceptance:
+The `components` prop is gone from the type surface. A JavaScript caller that
+still passes it gets a named error:
 
 <!-- #region removed-components -->
 
@@ -409,10 +410,6 @@ message; // -> 'ComposeProvider: `components` was removed in v2.0 — rename it 
 ```
 
 <!-- #endregion removed-components -->
-
-Keeping it as a second overload is what produced the unreadable diagnostics in
-1.x: every error on a `providers` call carried a second half about the legacy
-overload that could never match.
 
 ## Contributing
 
