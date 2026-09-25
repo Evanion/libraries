@@ -16,12 +16,19 @@ import { describe, expect, it } from 'vitest';
  * `expect().toEqual()` that the package's own test run executes, so the page
  * renders the readable form and CI holds the value.
  *
- * Two roles carry the obligation, because both are decidable from data the
- * repository already keeps: `getting-started.mdx`, whose whole job § 3 states as
- * a first working result, and the page `navigation.ts` names in its `demo`
- * field, which `doc-floor.test.ts` and `doc-control.test.ts` both already read.
+ * One role carries the obligation a value claim is the right evidence for:
+ * `getting-started.mdx`, whose whole job § 3 states as a first working result.
  * Every other page's obligation follows its band, and § 6 leaves that half to
  * `.claude/agents/docs-reviewer.md`.
+ *
+ * **The demonstration page is not read here, and § 6 says why.** Its result is a
+ * control the reader operates, which § 6 counts as a success moment, and
+ * `doc-control.test.ts` requires that control on the page the `demo` field names,
+ * off the same field, failing the build without it. Asking the same page for a
+ * `// -> value` claim asks twice for one result and gets the weaker answer the
+ * second time: `react-widget/playground` mounts `DataDemo` and
+ * `PlaygroundExamples`, and a claim pasted onto it to satisfy a guard is the
+ * padding § 6 names as the defect.
  *
  * **The band extension in § 6 is not implemented.** It needs a closed band-key
  * vocabulary across the site, and only `apps/docs/content/acl/_meta.ts` carries
@@ -64,7 +71,6 @@ const ALLOWANCE = join(
 interface DocumentedPackage {
   slug: string;
   documented: boolean;
-  demo?: string;
   successExempt?: string;
 }
 
@@ -130,16 +136,12 @@ function showsResult(page: string): boolean {
   return false;
 }
 
-/** The two roles a section owes a result on, as `_meta` keys. */
-function obligedRoles(entry: DocumentedPackage): string[] {
-  return entry.demo === undefined || entry.demo === 'getting-started'
-    ? ['getting-started']
-    : ['getting-started', entry.demo];
-}
+/** The roles a value claim is asked for, as `_meta` keys. */
+const OBLIGED = ['getting-started'];
 
 /** The roles a section has written and which show no result. */
 function silentRoles(entry: DocumentedPackage): string[] {
-  return obligedRoles(entry).filter((role) => {
+  return OBLIGED.filter((role) => {
     const page = pagePath(entry.slug, role);
     return page !== null && !showsResult(page);
   });
@@ -150,7 +152,7 @@ describe('the success moment', () => {
     expect((await documentedSections()).length).toBeGreaterThan(0);
   });
 
-  it('is shown on every getting-started and every demonstration page', async () => {
+  it('is shown on every getting-started page', async () => {
     const silent: string[] = [];
 
     for (const entry of await documentedSections()) {
@@ -164,10 +166,10 @@ describe('the success moment', () => {
 
     expect(
       silent.sort(),
-      'A getting-started page and a demonstration page each render at least ' +
-        'one `file=… region=…` fence whose region carries a `// -> value` ' +
-        'claim, which is documentation standard § 6: the reader sees the result ' +
-        'and the package test run holds it. Write the claim into the region, ' +
+      'A getting-started page renders at least one `file=… region=…` fence ' +
+        'whose region carries a `// -> value` claim, which is documentation ' +
+        'standard § 6: the reader sees the result and the package test run ' +
+        'holds it. Write the claim into the region, ' +
         'record a `successExempt` reason in apps/docs/app/navigation.ts, or ' +
         'record the wait in doc-success-moment-allowance.json.',
     ).toEqual([]);
