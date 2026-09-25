@@ -85,10 +85,10 @@ flowchart TD
 and `rule` are output only, and a handler that branches on the reason string
 grants what the engine refused.
 
-The diagram shows the two steps a subject-only policy can reach.
-[Why deny, then allow, then deny?](/acl/resolution) carries all seven the engine
-walks, and the ones this diagram leaves out need a rule reading something other
-than the subject.
+The diagram shows every step a subject-only policy can reach. The engine walks more
+than these, and each of the others needs a rule reading something other than the
+subject, so no policy on this page reaches one.
+[Why deny, then allow, then deny?](/acl/resolution) carries the order in full.
 
 ## Writing an acl exception where a reader will find it
 
