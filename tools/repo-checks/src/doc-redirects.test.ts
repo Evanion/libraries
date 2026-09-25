@@ -62,10 +62,7 @@ const LINK = /\]\((\/[^)\s]*)\)/g;
  * rather than added to: a page is taken off it when its links are updated, and a
  * page arriving on it means somebody wrote a link to a path that has moved.
  */
-const allowance = [
-  'apps/docs/content/react-acl/api.mdx',
-  'apps/docs/content/react-acl/boundary.mdx',
-];
+const allowance = ['apps/docs/content/react-acl/api.mdx'];
 
 function mdxFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

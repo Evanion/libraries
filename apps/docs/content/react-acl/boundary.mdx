@@ -1,15 +1,14 @@
 # Which side decides
 
-<WorkshopNotice slug="react-acl">
-  <Text as="div" size="sm">
-    The example on this page is a region of `libs/react-acl/examples/` and runs
-    under `nx test @evanion/react-acl`.
-  </Text>
-</WorkshopNotice>
+To enforce a permission, call `access.can` from `@evanion/acl` on the server, in
+the loader and again in the action. `useCan` runs in the shopper's browser and
+decides only which controls render.
+
+<WorkshopNotice slug="react-acl" />
 
 <PageSheet
   difficulty={3}
-  read={7}
+  read={6}
   hands={10}
   requires={[['Getting started', '/react-acl/getting-started']]}
   unlocks={[
@@ -18,44 +17,31 @@
   ]}
 />
 
-**The concept.** `@evanion/react-acl` runs in the shopper's browser and toggles
-controls.
+## What a react-acl app calls on the server
 
-**What you get.** A trusted runtime that makes the decision that counts, and a
-browser copy that decides what the screen shows.
+A loader or a server component calls `access.can` and imports nothing from
+`@evanion/react-acl`. The server component below asks `'read'` before it renders
+anything, and the action behind the Edit button asks the same question with
+`'edit'`:
 
-**Why you want it.** A shopper edits the JavaScript, so a control the browser
-hid is a control the server still has to refuse.
+```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
 
-**How the library gets you there.** The package ships `'use client'` on its
-entry point, so a server component importing `useCan` gets a client reference,
-and calling it during the server render throws.
+```
 
-## Where the line through your app falls
-
-`@evanion/react-acl` runs in the shopper's browser and toggles controls. The
-trusted side, a loader, a server component, an action or a route handler, calls
-`@evanion/acl` and makes the decision that counts. A decision the browser makes
-changes which controls render and nothing else, and the same `can` runs again in
-that trusted runtime before anything is written. `'use client'` sits at the top
-of the package's entry point, so a hook cannot be called on the trusted side at
-all.
-
-`useCan` and `access.can` both compile, both return a `Decision`, and neither
-call says which side enforces. A shopper can work around the browser's answer
-and cannot touch the handler's.
-
-## One decision, two runtimes
+`ListingPage` takes `access` as a prop so the example runs under a test. An app
+builds the evaluator once, at module scope in a server-only module, and calls
+`access.authorize(shopper)` once per request, which drops the subject from every
+call after it.
 
 `useCan('listing', 'edit', listing)` and
 `access.can(shopper, 'listing', 'edit', listing)` evaluate the same rules over
-the same document and return the same `Decision`. `can` is a function over
-frozen JSON and does not know where it is running, so the library draws no
-distinction between the two calls.
+the same matrix and return the same `Decision`. `can` is a function over frozen
+JSON and does not know where it runs, so neither call's type says which side
+enforces. The runtime separates them. The server's call ran where the shopper
+cannot reach the code. The browser's call ran over a matrix the shopper can read,
+against a subject the shopper's own page supplied.
 
-The runtime separates them. One call ran where the shopper could not reach the
-code, and one ran in the shopper's browser, over a document the shopper can
-read, against a subject the shopper's own page supplied.
+## Where each layer of a react-acl app decides
 
 | Where                                | Runtime | Decides?                                |
 | ------------------------------------ | ------- | --------------------------------------- |
@@ -64,56 +50,36 @@ read, against a subject the shopper's own page supplied.
 | `PolicyProvider` and its tree        | browser | never; it toggles what the shopper sees |
 | Action, Server Action, route handler | trusted | yes, independently, for what it writes  |
 
-A caller reaches the last row of that table directly. `curl` posts to the action
-without rendering anything, so the handler re-resolves the subject from the
-session, re-reads the listing from the database, and decides again. No layer may
-lean on "already checked upstream". Every app in the chain runs its own
-evaluation and trusts no earlier layer, and that holds between two of your own
-services as firmly as it holds between the browser and the server.
+A caller reaches the last row directly. `curl` posts to the action without
+rendering anything, so the handler resolves the subject from the session, reads
+the listing from the database, and decides again. Every layer runs its own
+evaluation and trusts no earlier one, between two of your own services as much
+as between the browser and the server.
 
-Each of those evaluations reads a document already in memory. `can` is a
-function over frozen JSON, so nothing in the trusted column waits on a network
-call to decide. A policy service that is slow or down cannot turn a deny into an
-allow.
+Each of those evaluations reads a matrix already in memory. Nothing in the
+trusted rows waits on a network call to decide, so a slow or unreachable policy
+service cannot turn a deny into an allow.
 
-## What a server component calls
+## Why react-acl cannot run in a server component
 
-A loader or a server component calls `access.can` from `@evanion/acl` and
-imports nothing from `@evanion/react-acl`. The loader below asks `'read'` before
-it renders anything, and the Edit button's question is the same call with
-`'edit'`:
+`@evanion/react-acl` carries `'use client'` at the top of its entry point and
+calls `createContext`. Next.js resolves React under the `react-server` condition
+for a React Server Component (RSC), and that build exports no `createContext`
+and no stateful hook.
 
-```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
+An RSC that imports `useCan` gets a client reference, and calling it during the
+server render throws. An RSC may render a client component, such as the
+`ShopAccess` wrapper from Getting started, and every prop it passes is
+serialized on the way to the browser.
+For its own decisions an RSC calls `access.can` from `@evanion/acl` directly.
 
-```
+## What crosses the render in a react-acl app
 
-`ListingPage` takes `access` as a prop here so the example runs under a test.
-An app builds the evaluator at module scope in a server-only module and calls
-`access.authorize(shopper)` once per request, which drops the subject from every
-signature after it. [React Router 8](/acl/react-router) and
-[React Server Components](/acl/next-rsc) each work that through against a real app's file
-layout.
-
-`@evanion/react-acl` cannot run in a React Server Component (RSC) at all. Its
-entry point carries `'use client'` and calls `createContext`, and the
-`react-server` condition Next resolves React under for an RSC exports no
-`createContext` and no stateful hook. An RSC app calls `access.can(...)` from
-`@evanion/acl` directly.
-
-Import the package into an RSC file anyway and the `'use client'` directive
-opens a client boundary around whatever imported it, so the component you wanted
-to keep on the server is sent to the browser with its props serialized.
-
-## What crosses the render
-
-`Access` is a set of closures over a frozen document, and it does not survive
-serialization. `JSON.stringify` drops every method silently, so no loader return
-value and no server component prop can carry one.
-
-[The matrix](/acl/matrix) crosses instead: a JSON envelope carrying its own
-`version` and `schema`, which is why nothing has to travel beside it. The client
-calls `hydratePolicy` on it and gets its own evaluator back, which is the
-`access` prop [Getting started](/react-acl/getting-started) mounts.
+`Access` is a set of closures over a frozen document, and `JSON.stringify` drops
+every method on it silently. No loader return value and no server component prop
+can carry one. The matrix crosses in its place, and the browser calls
+`hydratePolicy` on it to build its own evaluator, which is the `access` prop
+[Getting started](/react-acl/getting-started) mounts.
 
 | What crosses | The form it crosses in                          | What the browser does with it         |
 | ------------ | ----------------------------------------------- | ------------------------------------- |
@@ -122,13 +88,12 @@ calls `hydratePolicy` on it and gets its own evaluator back, which is the
 | the subject  | a plain object, and no credential               | evaluates against it                  |
 | `now`        | an ISO string                                   | keys every hook memo on it            |
 
-The subject crosses too, because the browser needs it to evaluate. It is not a
-credential and nothing reads it back. On the next request the server resolves
-its own subject from the session, and it never trusts the copy it sent.
+The subject crosses because the browser needs it to evaluate. Nothing reads it
+back: on the next request the server resolves its own subject from the session.
 
-`now` crosses as a string. Resolve it on the server so the server render and the
-client's first render agree on the instant, and so a time window in the policy is
-not read against a clock the shopper's machine sets.
+`now` crosses as a string. Resolve it on the server, so the server render and
+the client's first render agree on the instant and no time window in the policy
+is read against a clock the shopper's machine sets.
 
 ```mermaid caption="The trusted side decides and renders the matrix, the subject and the instant into the page. The browser rebuilds an evaluator with hydratePolicy, and its hooks only toggle controls. The action or route handler decides again for itself, and a caller reaches that handler without rendering anything."
 flowchart LR
@@ -146,32 +111,24 @@ flowchart LR
   X(["curl"]) --> H
 ```
 
-## What the browser's copy is worth
+## How fresh the browser's copy of a react-acl matrix is
 
 The matrix in the browser is as fresh as the render that delivered it. Revoke a
-permission and that copy keeps granting until something replaces it, and it has
-no way to notice. `access.version` (the revision stamped on
-[the matrix](/acl/matrix)) is the surface for detecting the gap. Your app writes
-the part that fails closed and refetches.
+permission and that copy keeps granting until something replaces it, and nothing
+in the browser notices. `access.version`, the revision stamped on the matrix, is
+the value to compare. Your app writes the check that fails closed and refetches.
 
-### The server never reads the browser's copy
-
-The server never reads the browser's copy. Every loader, every action and every
-handler evaluates its own.
-
-Treat the browser's answer as a convenience for toggling what a control looks
-like, and nothing else. A shopper shown an Edit button that 403s has been
-misled, and the hooks exist to prevent that. Everything that protects the
-listing happens on the trusted side, in every layer, each one deciding for
-itself.
+The server never reads the browser's copy. Every loader, action and handler
+evaluates its own, so a stale copy can show a shopper an Edit button and the
+action behind it still answers 403.
 
 ## Where to go next
 
-- [Security contract](/acl/security) — the whole trust boundary, time of check
-  to time of use, and what remains yours
-- [React Router 8](/acl/react-router) — middleware, loader, action, and the
-  provider in the shell
-- [React Server Components](/acl/next-rsc) — the server component, the client boundary, and
-  the Server Action behind the button
-- [API reference](/react-acl/api) — the provider, the four hooks and the typed
-  policy factory
+- [Security contract](/acl/security): the whole trust boundary, time of check
+  to time of use, and what remains yours.
+- [React Router 8](/acl/react-router): middleware, loader, action, and the
+  provider in the shell.
+- [Next.js (React Server Components)](/acl/nextjs): the server component, the
+  client boundary, and the Server Action behind the button.
+- [API reference](/react-acl/api): the provider, the four hooks and the typed
+  policy factory.
