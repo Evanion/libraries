@@ -1,11 +1,6 @@
 # API reference
 
-<WorkshopNotice slug="react-acl">
-  <Text as="div" size="sm">
-    Every region on this page is a file under `libs/react-acl/examples/` and
-    runs under `nx test @evanion/react-acl`.
-  </Text>
-</WorkshopNotice>
+<WorkshopNotice slug="react-acl" />
 
 `@evanion/react-acl` exports one provider, four hooks, a factory that binds them
 to a policy, and three interfaces. It also re-exports seventeen of
@@ -15,7 +10,7 @@ a component file imports `Decision` from either package. The core's values,
 
 ## `PolicyProvider`
 
-`PolicyProvider` holds one evaluator, one subject and one clock for the tree
+`PolicyProvider` holds one evaluator, one subject and one instant for the tree
 under it, and renders its children and nothing else. A hook called outside a
 `PolicyProvider` throws, and the message names the provider and the package.
 
@@ -53,11 +48,13 @@ interface PolicyProviderProps<Keys extends string = string> {
 | `context`  | only `now` is read off it, and an omitted `context` re-reads the wall clock whenever `access`, `subject` or `context` changes identity |
 | `children` | the tree the provider renders                                                                                                          |
 
-The types a typed policy carries stop here. The hooks below take `key: string`,
-so a key this provider's document never declared reaches them, and the engine
-throws `UnknownObjectKeyError` at render unless the matrix was hydrated with
-`closed: true`. [`createPolicyContext`](#createpolicycontext) keeps those
-types.
+`PolicyProvider` erases a typed policy's key and row types. The hooks below take
+`key: string`, so a key this provider's document never declared reaches them at
+render. The evaluator then throws `UnknownObjectKeyError` for an object kind the
+document never declared, and `UnknownPermissionError` for an action that kind
+never declared. A matrix hydrated with `closed: true` answers `unknown-action`
+for both instead of throwing. [`createPolicyContext`](#createpolicycontext) keeps
+those types.
 
 ## `useCan`
 
@@ -116,15 +113,15 @@ function useCanFields(
 ): FieldDecision;
 ```
 
-| Name       | What it carries                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| `axis`     | `'read'` for which fields may be shown, `'write'` for which may be set                                             |
-| `proposed` | the write the caller intends; on the write axis the map covers its keys too, including keys the row has never held |
-| `action`   | the action-level decision the field maps hang off; the engine fills `fields` whatever that decision said           |
-| `fields`   | every field name mapped to `'allowed'`, `'denied'` or `'unevaluable'`                                              |
+- `axis` is `'read'` for which fields may be shown, and `'write'` for which may
+  be set.
+- `proposed` is the write the caller intends. On the write axis the map covers
+  its keys too, including keys the row has never held.
 
-Read `action.allowed` before you read a field, or a shopper who may not edit the
-listing at all reaches an input the map called `'allowed'`. Compare a field
+The returned [`FieldDecision`](#fielddecision) carries `action`, the
+action-level decision, and `fields`, which the engine fills whatever `action`
+said. Read `action.allowed` before you read a field, or a shopper who may not
+edit the listing at all reaches an input the map called `'allowed'`. Compare a field
 against `'allowed'`; comparing against `'denied'` treats the unevaluable fields
 as writable, which is
 [the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
