@@ -65,7 +65,6 @@ const LINK = /\]\((\/[^)\s]*)\)/g;
 const allowance = [
   'apps/docs/content/react-acl/api.mdx',
   'apps/docs/content/react-acl/boundary.mdx',
-  'apps/docs/content/react-acl/getting-started.mdx',
 ];
 
 function mdxFiles(dir: string): string[] {

@@ -1,204 +1,131 @@
 # Getting started
 
-<WorkshopNotice slug="react-acl">
-  <Text as="div" size="sm">
-    Every example on this page is a region of `libs/react-acl/examples/` or of
-    `libs/react-acl/README.md`, and runs under `nx test @evanion/react-acl`.
-  </Text>
-</WorkshopNotice>
+By the end of this page `PolicyProvider` holds your policy for a React tree, and
+an Edit button three components below it shows or hides itself on the policy's
+answer.
 
 <PageSheet
   difficulty={2}
-  read={8}
-  hands={20}
+  read={5}
+  hands={15}
   requires={[['Overview', '/react-acl']]}
-  unlocks={[
-    ['Which side decides', '/react-acl/boundary'],
-    ['API reference', '/react-acl/api'],
-  ]}
+  unlocks={[['Which side decides', '/react-acl/boundary']]}
 />
 
-By the end of this page an action bar three components below `PolicyProvider`
-draws itself from the shop's policy, and it names neither the evaluator, nor the
-subject, nor the instant.
+## Before you start
 
-## What this page builds with react-acl
-
-`PolicyProvider` holds an evaluator, a subject and an instant for the whole tree
-under it, and a component under it names none of the three. One provider and one
-hook carry this page, and the hook takes three arguments. The screen is a shop
-listing whose action bar is drawn from the policy, with a role switch at the top
-that changes every control on it.
-
-Thread `access` and `subject` through five components by hand and four of them
-carry values they never read. A refactor that drops those props from one branch
-leaves the button lit in that branch.
+- React 18 or 19, the package's only peer dependency.
+- Node 20 or newer and an ESM project, since `@evanion/react-acl` has no
+  CommonJS build.
+- The matrix your server sends to the browser, which is `access.matrix` on an
+  `@evanion/acl` policy ([Getting started with acl](/acl/getting-started)
+  writes one).
+- A subject your server already resolves: the signed-in user, as a plain object.
 
 ## Install react-acl
 
-Install both packages:
+<WorkshopNotice slug="react-acl">
+  <Text as="div" size="sm">
+    Until it publishes, the way to run this page is inside this repository,
+    where `@evanion/react-acl` resolves from source like any other workspace
+    package. The commands below are what to run once it is on the registry.
+  </Text>
+</WorkshopNotice>
+
+Install react-acl and the core it reads from, with the line for your package
+manager.
 
 ```bash
 npm install @evanion/react-acl @evanion/acl
 ```
 
-The hooks return the core's `Decision` and `hydratePolicy` below is the core's
-function. React 18 or 19 is the only peer dependency, and the package is ESM
-only.
+```bash
+yarn add @evanion/react-acl @evanion/acl
+```
+
+```bash
+pnpm add @evanion/react-acl @evanion/acl
+```
+
+Your code imports from both packages: `hydratePolicy` and the `Matrix` type
+come from `@evanion/acl`, and the hooks return its `Decision`.
 
 ## Mount the react-acl provider
 
-`PolicyProvider` takes three props. `access` is an evaluator, `subject` is
-whoever is signed in, and `context` carries the instant every time window in the
-policy is read against.
-
-A server rarely hands a browser an evaluator. It sends
-[the matrix](/acl/matrix), the JSON document the server rendered with, and
-`hydratePolicy` turns that back into an evaluator:
+`PolicyProvider` takes three props. `access` is the evaluator, `subject` is
+whoever is signed in, and `context` carries `now`, the instant every time
+window in the policy is read against. `hydratePolicy` turns the matrix the
+server sent into the evaluator:
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
 ```
 
-`'use client'` on the example file settles which side `ShopAccess` runs on. The
-package carries the same directive, so `PolicyProvider` is a client component
-wherever you import it.
+Both `useMemo` calls are required. `hydratePolicy` validates, deep-clones and
+deep-freezes the document, so it runs once per matrix. `PolicyProvider`
+memoises on the identity of `access`, `subject` and `context`, and an object
+built during render is a new identity on every pass.
 
-Both `useMemo` calls are load-bearing. `hydratePolicy` deep-clones the document,
-deep-freezes the copy and validates that, so it belongs once per matrix. The
-provider memoises its context value on the identity of `access`, `subject` and
-`context`, and a value rebuilt during render is a new identity on every pass.
+`now` stays a string. The hooks key their memos on it, and a `Date` is a new
+object every render, so a `Date` re-evaluates the policy on each pass.
 
-`now` stays a string. The hooks key their memos on it, and a `Date` is a fresh
-object every render, so a `Date` re-evaluates the matrix on each pass.
+`'use client'` at the top of the file keeps `ShopAccess` in the browser.
+`@evanion/react-acl` carries the same directive, so `PolicyProvider` is a client
+component wherever you import it.
 
 ## Ask react-acl for one decision
 
-`useCan` takes the object kind, the action and the row. It returns the
-`Decision` that [`can`](/acl/asking) returns, with the same `allowed`, `reason`,
-`rule` and `missing` on it:
+`useCan` takes the object kind, the action and the row, and returns the
+`Decision` for the subject the provider holds:
 
 ```tsx twoslash file=libs/react-acl/examples/decision.tsx region=decision
 
 ```
 
-Gate on `allowed` and nothing else. `reason` is output only, and a component
-that branches on the reason string draws a control the engine refused.
+Gate on `allowed` and nothing else. `reason` explains the answer and is output
+only, so a component that branches on it is writing a rule of its own.
 
-The row is the third argument and is optional. Leave it off for the create case,
-where there is no instance yet. A rule that reads the row and is asked without
-one answers [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which
-carries `allowed: false`.
+The row is optional. Leave it off when there is no instance yet, as on a create
+form. A rule that reads the row and is asked without one answers `unevaluable`,
+which carries `allowed: false`.
 
-Call `useCan` outside a `PolicyProvider` and it throws, naming the provider.
-There is no default policy and no silent deny.
+`useCan` throws when no `PolicyProvider` sits above it, and the message names
+the provider. There is no default policy and no silent deny.
 
-### What the provider renders
+## See what the react-acl provider renders
 
-One rule allows `listing.edit` where the listing's `sellerId` equals the subject's
-`id`, and nothing else is allowed. `renderToStaticMarkup`, from `react-dom/server`,
-gives the HTML string React wrote for each of two sellers:
+One rule allows `listing.edit` where the listing's `sellerId` equals the
+subject's `id`. `renderToStaticMarkup`, from `react-dom/server`, returns the
+HTML React writes for each of two sellers:
 
 ```tsx twoslash file=libs/react-acl/README.md region=rendered-decision
 
 ```
 
-The seller who owns the listing gets the button. The other one gets an empty
+The seller who owns the listing gets the button. The other seller gets an empty
 string, because `EditControl` returned `null` and React renders nothing for it.
-That is the whole of what a decision does to a screen.
+If your own tree draws the same two answers, react-acl is working in your
+project.
 
-## Watch one react-acl provider drive a whole tree
+## Drive a whole tree from one react-acl provider
 
-`PolicyProvider` and the controls that read it are three components apart, and
-`ShopPage`, `ListingView` and `ActionBar` in between carry nothing. A code fence
-cannot show the absence of a prop, so the tree below writes every hook call onto
-the box that makes it.
-
-Sign in as somebody else and the provider's `subject` changes. Three boxes down,
-the Edit and Publish badges change with it. Review is granted to everybody, so
-it stays where it is:
+`PolicyProvider` and the controls that read it are three components apart
+below, and `ShopPage`, `ListingView` and `ActionBar` pass nothing. Each box
+shows the hook call it makes and what came back:
 
 <PolicySpecimen />
 
-Publish the listing and only the row `useCan` was asked about changes. Only
-`EditControl` moves, because one rule in the shop's policy reads the row: a deny
-that closes `edit` once the listing is published and outranks every allow that
-matched with it. [Rules that read the object](/acl/intermediate) is where denies
-are written. `no-rule-matched` and `denied` are both refusals and the badge says
-which.
+Sign in as somebody else and the provider's `subject` changes. The Edit and
+Publish badges three boxes down change with it, and Review stays, because the
+shop's policy grants it to everybody.
 
-`PolicyProvider` and `useCan` here are the published ones, running on the shop
-policy behind [One policy behind a screen](/acl/interface).
+Publish the listing and only `EditControl` moves. One deny rule in the shop's
+policy reads the row: it closes `edit` once the listing is published and
+outranks every allow that matched. `no-rule-matched` and `denied` are both
+refusals, and the badge says which.
 
-## Ask react-acl about a list, a menu and a form
+## Now that react-acl answers, check again on the server
 
-`useCanMany`, `useCapabilities` and `useCanFields` each fit a different shape of
-screen.
-
-A table of rows needs one decision per row, and React forbids a hook in a loop.
-`useCanMany` decides the array in the parent and hands each row its answer:
-
-```tsx twoslash file=libs/react-acl/examples/many.tsx region=many
-
-```
-
-A menu needs everything at once. `useCapabilities` returns every action-level
-decision for the current subject, keyed by `` `${object}.${action}` ``:
-
-```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
-
-```
-
-`useCapabilities` passes no object, so a rule that reads one cannot be decided
-here. The menu draws nothing for that entry.
-[What can they do at all?](/acl/capabilities) sets out the no-object contract.
-
-A form needs an answer per input. `useCanFields` takes the axis and returns a
-`FieldDecision`, whose `fields` map covers every field name. `'read'` asks which
-fields may be shown and `'write'` asks which may be set:
-
-```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
-
-```
-
-`!== 'allowed'` is the comparison to write. `!== 'denied'` leaves the
-`unevaluable` fields editable, and nobody said the shopper could write those.
-The engine fills the map whatever the action decided, so a form that a shopper
-may not edit at all reads `decision.action.allowed` first. The server applies
-the same map with [`pickAllowedFields`](/acl/writing) when the form is posted,
-because this one enforces nothing.
-
-## Keep the policy's keys through react-acl
-
-`useCan` and its three siblings take the key as a plain string, because the
-document arrived as JSON. [`policy`](/acl/authoring) names the subject once and
-binds an object type per block, so `'listing'` is a key the compiler knows.
-
-`createPolicyContext` carries that to the hooks. Hand it the built policy and it
-returns a provider and the same four hooks, checking their key against the
-policy and their row against the object type:
-
-```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
-
-```
-
-That policy declares one object kind because this page works one screen. One
-policy holds every kind your app has: chain a `.for()` per kind. You do not
-build a policy, or a context, per resource.
-
-`useCan('lsiting', 'edit', listing)` is a compile error there. The imported
-`useCan` compiles the same call, and the engine then throws
-`UnknownObjectKeyError` when the component renders, or answers `unknown-action`
-where the matrix was hydrated with `closed: true`.
-
-`Shopper` and `Listing` are read back off the argument, so the
-`createPolicyContext` call writes neither. `createContext` fixes its type where
-the context is made, which is why `createPolicyContext` is a factory.
-
-## Where to go next
-
-- [Which side decides](/react-acl/boundary) — what a hook is for, and what has
-  to happen on the other side of the render
-- [API reference](/react-acl/api) — every export, and what each hook memoises on
-- [Which fields may they write?](/acl/writing) — the whole field axis, and the
-  write path the form above posts to
+The Edit button you just drew enforces nothing, because a shopper can post to
+the URL behind it. [Which side decides](/react-acl/boundary) puts the same
+check in the loader and the action, where the shopper cannot reach it.
