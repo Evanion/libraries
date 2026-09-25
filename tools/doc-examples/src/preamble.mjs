@@ -48,6 +48,19 @@ export function preamblePath(packageDir) {
  * declare the same binding twice and the fence would fail to compile.
  */
 export function withPreamble(preamble, code) {
-  if (!preamble || /^import[\s{]/m.test(code)) return code;
+  if (!preamble || writesOwnImports(code)) return code;
   return `${preamble.replace(/\n*$/, '\n')}// ---cut---\n${code}`;
+}
+
+/**
+ * Whether a block imports a value, and so stands without the preamble.
+ *
+ * An `import type` line does not count. vite-plugin-doctest prepends the
+ * preamble without transforming it, so the preamble has to parse as plain
+ * JavaScript and cannot import a type. A block that names a type imports it
+ * itself, the per-block transform erases that line, and the doctest run
+ * executes the block on the preamble. The compiler has to see the same.
+ */
+export function writesOwnImports(code) {
+  return /^import(?!\s+type[\s{])[\s{]/m.test(code);
 }

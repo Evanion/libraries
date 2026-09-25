@@ -13,3 +13,5 @@ export declare function readPreamble(packageDir: string): string;
 export declare function preamblePath(packageDir: string): string;
 
 export declare function withPreamble(preamble: string, code: string): string;
+
+export declare function writesOwnImports(code: string): boolean;
