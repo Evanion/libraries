@@ -19,10 +19,10 @@ import { describe, expect, it } from 'vitest';
  * fact the sentence holds.
  *
  * `simple` and `easy` are on the public lists too, and are NOT checked here.
- * `acl/simple.mdx` is a slug a reader has bookmarked, the word is a legitimate
- * description of a thing that genuinely has few parts, and a pattern cannot
- * tell that use from the dismissive one. Those two are the reviewer's, under
- * the same decision.
+ * Either word is a legitimate description of a thing that genuinely has few
+ * parts, and a pattern cannot tell that use from the dismissive one that tells
+ * a stuck reader the step they are stuck on was easy. Those two are the
+ * reviewer's, under the same decision.
  *
  * Prose only. A fence can carry any of these in a string or a comment, a table
  * cell is not a sentence, and an import line is not prose.

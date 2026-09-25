@@ -11,9 +11,9 @@
   difficulty={4}
   read={10}
   hands={30}
-  requires={[['Rules that read the object', '/acl/intermediate']]}
+  requires={[['Rules about the thing being accessed', '/acl/object-rules']]}
   unlocks={[
-    ['One policy behind a screen', '/acl/interface'],
+    ['Checking permissions in your UI', '/acl/ui-checks'],
     ['Many services', '/acl/federation'],
   ]}
 />
@@ -99,10 +99,10 @@ still an `UnknownFieldError` when the schema does not declare it.
 
 `capabilities` reads a document `orders` wrote exactly as it read the shop's
 report policy in [Rules that read the
-subject](/acl/simple#write-the-acl-policy): every permission in it, against one
+subject](/acl/subject-rules#write-the-acl-policy): every permission in it, against one
 subject, in document order, in a single pass. It passes no object, so a
 permission whose rules read `object.*` decides `unevaluable`. [What can they do
-at all?](/acl/capabilities) has the contract.
+at all?](/acl/listing-permissions) has the contract.
 
 ## Adopt a document somebody else wrote
 
@@ -154,7 +154,7 @@ evaluates its own document before it writes anything.
 
 ## Where to go next
 
-- [One policy behind a screen](/acl/interface). The fetched document turned into
+- [Checking permissions in your UI](/acl/ui-checks). The fetched document turned into
   an action bar, and the wording of a control it refuses.
 - [Many services](/acl/federation). One matrix per service, namespaced kinds,
   and what a gateway holds.

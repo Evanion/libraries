@@ -13,7 +13,7 @@
   hands={20}
   requires={[
     ['A policy from another service', '/acl/adopting'],
-    ['What did this change do to access?', '/acl/changes'],
+    ['What did editing my rules change about access?', '/acl/rule-changes'],
   ]}
   unlocks={[
     ['Why was this refused?', '/acl/refusals'],
@@ -112,7 +112,7 @@ matcher, so a `try`/`catch` around the call, or a framework's own
 
 `MatrixDiffer<D>` is the type of `options.diff`, a `(pinned, fetched) => D`.
 `contractDrift` reads nothing out of the result and carries it onto
-`report.diff`. Pass [`diffMatrix`](/acl/changes) and `report.diff` is a
+`report.diff`. Pass [`diffMatrix`](/acl/rule-changes) and `report.diff` is a
 `MatrixDiff`; pass nothing and it is `undefined`. The replayed cases say what
 this application's own UI does, and the diff says what moved in the document
 behind it.
@@ -170,7 +170,7 @@ for a message a suite assembles itself.
 
 ## Where to go next
 
-- [What did this change do to access?](/acl/changes): the `MatrixDiff`
+- [What did editing my rules change about access?](/acl/rule-changes): the `MatrixDiff`
   `options.diff` carries, and what a `granted` finding does and does not claim
 - [Why was this refused?](/acl/refusals): the seven reasons a decision carries,
   and what `unevaluable` tells a UI

@@ -1,4 +1,4 @@
-# Platforms
+# Choosing a framework integration
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -30,13 +30,13 @@ Five platforms put the authoritative call in five places. Which call decides is
 the only security question of the three, and the only one that changes from
 platform to platform.
 
-| Platform                                 | The call that decides                                   | What is not a boundary                         |
-| ---------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| [Express](/acl/express)                  | the request handler                                     | nothing crosses; the whole app is trusted      |
-| [NestJS](/acl/nestjs)                    | the guard, then the service after the read              | the guard alone, which runs before the row     |
-| [Astro SSR](/acl/astro)                  | the page's frontmatter, once per request                | the rendered markup, and the form posting back |
-| [React Server Components](/acl/next-rsc) | the server component, and each Server Action separately | the client component, and the action's caller  |
-| [React Router 8](/acl/react-router)      | the loader, and each action separately                  | the component tree, and `clientLoader`         |
+| Platform                                         | The call that decides                                   | What is not a boundary                         |
+| ------------------------------------------------ | ------------------------------------------------------- | ---------------------------------------------- |
+| [Express](/acl/express)                          | the request handler                                     | nothing crosses; the whole app is trusted      |
+| [NestJS](/acl/nestjs)                            | the guard, then the service after the read              | the guard alone, which runs before the row     |
+| [Astro SSR](/acl/astro)                          | the page's frontmatter, once per request                | the rendered markup, and the form posting back |
+| [Next.js (React Server Components)](/acl/nextjs) | the server component, and each Server Action separately | the client component, and the action's caller  |
+| [React Router 8](/acl/react-router)              | the loader, and each action separately                  | the component tree, and `clientLoader`         |
 
 The two server-only platforms have one boundary, the request handler. The two
 React platforms have two: the render path and the write path, reached

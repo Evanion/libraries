@@ -28,7 +28,7 @@ side, and any number of rules can match at once. Four outcomes cover most calls:
 | unevaluable | not failing | `unevaluable`, naming both sides |
 
 `libs/acl/src/evaluate.ts` defines the full order, and
-[Decisions](/acl/decisions) has the shape each step hands back:
+[The Decision object every check returns](/acl/decision-object) has the shape each step hands back:
 
 1. a deny rule matches → `denied`
 2. the allow side definitely fails → `no-rule-matched`
@@ -159,7 +159,7 @@ decision, so a layer that re-decides confirms the answer it was handed.
 
 ## Where to go next
 
-- [Decisions](/acl/decisions) — the decision object, `unevaluable` as a third
+- [The Decision object every check returns](/acl/decision-object) — the decision object, `unevaluable` as a third
   state, and the clock
 - [Why was this refused?](/acl/refusals) — which of the seven reasons you got
 - [Security contract](/acl/security) — the trust boundary every layer re-decides

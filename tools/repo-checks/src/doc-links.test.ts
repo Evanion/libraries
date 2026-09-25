@@ -21,6 +21,13 @@ import { describe, expect, it } from 'vitest';
  * produced by Nextra's slugger during the build, and reproducing that here is a
  * second implementation of somebody else's function.
  *
+ * A path in `apps/docs/tools/redirects.mjs` counts as resolving, because the
+ * site serves a file there. The map is the set of paths this site has moved, and
+ * `postbuild` writes an `index.html` at each one carrying a meta refresh, so a
+ * link to one reaches the page rather than a 404. It costs the reader a hop, and
+ * `doc-redirects.test.ts` carries the ratchet that names the pages still paying
+ * it, so accepting the path here does not hide the debt.
+ *
  * The second assertion is the other direction. A package with no section here
  * is linked to its README, and when the section lands the README link keeps
  * resolving -- GitHub serves it, nothing 404s, and three pages went on sending
@@ -59,6 +66,12 @@ async function loadNavigation(): Promise<{
     packages: readonly DocumentedPackage[];
     readmeUrl: (entry: DocumentedPackage) => string;
   };
+}
+
+async function loadRedirects(): Promise<{ movedPages: Map<string, string> }> {
+  return (await import(
+    pathToFileURL(join(DOCS, 'tools', 'redirects.mjs')).href
+  )) as { movedPages: Map<string, string> };
 }
 
 function mdxFiles(dir: string): string[] {
@@ -123,15 +136,20 @@ describe('internal links', () => {
     expect(links.length).toBeGreaterThan(0);
   });
 
-  it('resolve to a page or a route the app defines', () => {
+  it('resolve to a page, a route the app defines, or a path the site redirects', async () => {
     const routes = appRoutes();
+    const { movedPages } = await loadRedirects();
 
     expect(routes.size, 'apps/docs/app defines no route').toBeGreaterThan(0);
 
     const broken = links.filter(({ href }) => {
       const path = (href.split('#')[0] as string).replace(/\/$/, '');
 
-      return !routes.has(path === '' ? '/' : path) && !contentPage(path);
+      return (
+        !routes.has(path === '' ? '/' : path) &&
+        !contentPage(path) &&
+        !movedPages.has(path.replace(/^\//, ''))
+      );
     });
 
     expect(

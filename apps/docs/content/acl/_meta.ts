@@ -5,44 +5,54 @@ import type { MetaRecord } from 'nextra';
  * into the stack it runs in, answer the question they arrived with, then look
  * the mechanism up.
  *
- * `getting-started` heads Setup, above `simple`, and this is the one place this
- * file changed its mind. The argument below for opening Setup on `simple` is
- * that each Setup page names a decision about what a rule may read, and that
- * `simple` is the first of those decisions. That argument is sound about the
- * three tiers and it answered the wrong question. A reader arriving at Setup has
- * not yet decided what a rule may read; they have not installed the package.
- * `npm install @evanion/acl` was written once in this whole section, at
- * `simple.mdx:54`, below a notice, a page sheet, a four-part brief and two prose
- * sections, so the first page of Setup taught a concept tier to somebody with
- * nothing installed. `docs/specs/2026-09-25-documentation-standard.md` § 3 makes
- * the Setup article stage 2 of the journey and
- * `tools/repo-checks/src/doc-floor.test.ts` had already recorded the gap in
- * `doc-floor-allowance.json`.
+ * `getting-started` heads Setup. A reader arriving at this band has installed
+ * nothing, so the band opens on the page that installs the package, and the
+ * three tiers below it address a reader whose policy already answers two
+ * questions. `docs/specs/2026-09-25-documentation-standard.md` § 3 makes that
+ * page stage 2 of the journey and fixes its filename, and
+ * `tools/repo-checks/src/doc-floor.test.ts` requires it of every documented
+ * section.
  *
- * The three tiers keep their order and their argument. What changed is that they
- * now start from a reader who has a policy answering questions, so `simple` is
- * the first decision rather than the first page.
+ * Setup is staged by one decision, and each title names the decision.
+ * `subject-rules` is the page where every condition reads the subject, so
+ * nothing can decide `unevaluable`, and it carries the whole allow-and-deny
+ * mechanism on that axis: default deny under an express allow, and an express
+ * deny that outranks the allow. `object-rules` is the page where a condition
+ * reads the object, which brings the typed builder, projections and the
+ * `unevaluable` answer with it. The field axis is not on it. `writing` owns
+ * that axis, and a reader who has just met a fourth decision state does not
+ * also need a second axis on the same page. `advanced` is the page where one
+ * service evaluates a document a different service wrote, which brings the
+ * schema, the version and `parseMatrix`. The difficulty ladder is on each
+ * page's `<PageSheet>`, and a title that repeated it would say less than the
+ * sheet does. `ui-checks` closes Setup: the storefront `advanced` leaves
+ * holding a fetched, version checked document draws a screen from it, so the
+ * page takes the three preceding pages as read and adds the rendering.
  *
- * Setup is staged by one decision, and each title names the decision rather
- * than the rung. `simple` is the page where every condition reads the subject,
- * so nothing can decide `unevaluable`. `intermediate` is the page where a
- * condition reads the object, which brings projections, the typed builder and
- * the field axis with it. `advanced` is the page where one service evaluates a
- * document a different service wrote, which brings the schema, the version and
- * `parseMatrix`. The difficulty ladder is on each page's `<PageSheet>`, and
- * a title that repeated it would say less than the sheet does. `interface`
- * closes Setup: the storefront `advanced` leaves holding a fetched, version
- * checked document draws a screen from it, so the page takes the three
- * preceding pages as read and adds the rendering.
- *
- * The slugs stay `simple`, `intermediate` and `advanced`. A URL a reader has
- * bookmarked or a search engine has indexed costs more to move than the titles
- * gained by moving it.
+ * The slugs say what the page holds. A reader pastes a URL into a channel and
+ * the path is all the recipient sees before they click, so `/acl/subject-rules`
+ * names the page's subject where `/acl/simple` names a rung only this file can
+ * rank. A moved path still answers: `apps/docs/tools/redirects.mjs` holds the
+ * map from old path to new and writes an `index.html` at every old path
+ * carrying a meta refresh and a canonical link, on the reasoning
+ * `apps/docs/tools/md-siblings.mjs` states. The catch-all route owns every path
+ * on this site, and under `output: 'export'` the deployed site is the contents
+ * of `out/`, so the postbuild step that writes the file is what serves it. `tools/repo-checks/src/doc-redirects.test.ts` fails when an
+ * entry in that map stops resolving. `matrix` keeps its slug, because the title
+ * still names the matrix.
  *
  * Questions are titled as the question, not as the method, because that is what
  * a reader searches for. The method is in the first line of each.
  *
- * `testing` closes Questions, after `changes`. It wires `diffMatrix` into
+ * `asking` heads Questions and takes both rule tiers as read. It names the four
+ * answers, `canMany`, `readsObject` and the clock, and every one of those reads
+ * a deny rule or an `unevaluable`, so `subject-rules` teaches the deny and
+ * `object-rules` teaches the `unevaluable` before a reader gets here. Its
+ * `<PageSheet>` requires both, and the page reminds rather than teaches: a
+ * reader who arrives from a search result meets one sentence per borrowed
+ * concept and a link to the page that taught it.
+ *
+ * `testing` closes Questions, after `rule-changes`. It wires `diffMatrix` into
  * `contractDrift`'s differ seam and takes the `MatrixDiff` vocabulary as read,
  * so the page that teaches that vocabulary comes first. It also takes
  * `adopting` as read, because a consumer replays its questions against two
@@ -62,8 +72,8 @@ import type { MetaRecord } from 'nextra';
  * collapsed group hides the page they came for.
  *
  * Platforms follows Setup: a platform guide is the last step of setup, and each
- * one is wiring over the same API rather than a further tier. `platforms` is
- * the band's overview and heads it. The five guides are ordered by how many
+ * one is wiring over the same API rather than a further tier.
+ * `choosing-an-integration` is the band's overview and heads it. The five guides are ordered by how many
  * places a reader has to write a decision. Express and NestJS are server-only
  * and have one, which is the simplest trust boundary there is. Astro SSR still
  * has one, and it sits in a page's frontmatter, which is the loader and the
@@ -73,14 +83,14 @@ import type { MetaRecord } from 'nextra';
  * enforcing. Many Services closes the band — a topology spans the five rather
  * than being a sixth of them.
  *
- * `resolution` follows `decisions`, and it is the only Reference title phrased
- * as a question. It carries the whole of the precedence order, so `decisions`
- * describes the object a caller holds and `resolution` argues how that object
- * came out the way it did. A reader meets the decision before the order behind
+ * `resolution` follows `decision-object`, and it is the only Reference title
+ * phrased as a question. It carries the whole of the precedence order, so
+ * `decision-object` names the object a caller holds and `resolution` argues how
+ * that object came out the way it did. A reader meets the decision before the order behind
  * it, and no other page restates the seven steps.
  *
- * `register` follows `security`. The contract argues the trust boundary and the
- * register is the ledger a reader checks a class of attack against, so the
+ * `attacks` follows `security`. The contract argues the trust boundary and the
+ * page is the ledger a reader checks a class of attack against, so the
  * argument comes first and the rows a reader scans come after it.
  *
  * `explorer` closes Reference, after `api`. Every other page in the band
@@ -98,41 +108,41 @@ export default {
 
   'group-setup': { type: 'separator', title: 'Setup' },
   'getting-started': 'Getting started',
-  simple: 'Rules that read the subject',
-  intermediate: 'Rules that read the object',
+  'subject-rules': 'Rules about who the user is',
+  'object-rules': 'Rules about the thing being accessed',
   advanced: 'Rules that another service wrote',
-  interface: 'One policy behind a screen',
+  'ui-checks': 'Checking permissions in your UI',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
-  platforms: 'Overview',
+  'choosing-an-integration': 'Choosing a framework integration',
   express: 'Express',
   nestjs: 'NestJS',
   astro: 'Astro SSR',
-  'next-rsc': 'React Server Components',
+  nextjs: 'Next.js (React Server Components)',
   'react-router': 'React Router 8',
   federation: 'Many Services',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   asking: 'Can this user do this?',
-  capabilities: 'What can they do at all?',
+  'listing-permissions': 'Listing everything a user may do',
   writing: 'Which fields may they write?',
   refusals: 'Why was this refused?',
   adopting: 'A policy from another service',
   publishing: 'Giving my rules to another service',
   errors: 'What can throw?',
-  changes: 'What did this change do to access?',
+  'rule-changes': 'What did editing my rules change about access?',
   testing: 'Testing a contract I consume',
 
   'group-reference': { type: 'separator', title: 'Reference' },
   limits: 'What this does not do',
   pitfalls: 'Caveats & Pitfalls',
-  matrix: 'The Matrix Document',
+  matrix: 'The matrix: your rules as JSON',
   authoring: 'Typed Authoring',
-  decisions: 'Decisions',
+  'decision-object': 'The Decision object every check returns',
   resolution: 'Why deny, then allow, then deny?',
   fields: 'Field Permissions',
   security: 'Security Contract',
-  register: 'Security Register',
+  attacks: 'Attack classes and how each is handled',
   api: 'API Reference',
   explorer: 'Explore a document you have',
 } satisfies MetaRecord;

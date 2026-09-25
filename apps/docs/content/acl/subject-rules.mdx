@@ -1,4 +1,4 @@
-# Rules that read the subject
+# Rules about who the user is
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
@@ -13,7 +13,7 @@
   hands={15}
   requires={[['Getting started', '/acl/getting-started']]}
   unlocks={[
-    ['Rules that read the object', '/acl/intermediate'],
+    ['Rules about the thing being accessed', '/acl/object-rules'],
     ['Can this user do this?', '/acl/asking'],
   ]}
 />
@@ -133,17 +133,17 @@ follow:
   answers `true` or `false` and nothing answers
   [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
 - Nothing has to be fetched to ask a question, so `can` takes three arguments
-  and [`capabilities`](/acl/capabilities) answers the whole matrix at once.
+  and [`capabilities`](/acl/listing-permissions) answers the whole matrix at once.
 
 Write one rule that reads the object, the customer who asked may edit their own
 question, and both break at once. [Rules that read the
-object](/acl/intermediate) picks up there.
+object](/acl/object-rules) picks up there.
 
 ## Where to go next
 
-- [Rules that read the object](/acl/intermediate). The typed builder, field
+- [Rules about the thing being accessed](/acl/object-rules). The typed builder, field
   permissions and the guarded save.
 - [Can this user do this?](/acl/asking). The decision shape, and asking about a
   list.
-- [What can they do at all?](/acl/capabilities). How a menu draws itself from
+- [Listing everything a user may do](/acl/listing-permissions). How a menu draws itself from
   one call.
