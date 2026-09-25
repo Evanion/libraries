@@ -1,7 +1,7 @@
 /**
  * The three ways one entry of `providers` can be written, as compiled source.
  *
- * Cited by `apps/docs/content/compose/getting-started.mdx` and `api.mdx`
+ * Cited by `apps/docs/content/compose/type-checking.mdx` and `api.mdx`
  * through `file=libs/compose/examples/entries.tsx region=entries`, and rendered
  * by `Compose.test.tsx`, which asserts that the three forms produce the same
  * tree. The claim the pages make about them is that they differ in where the
