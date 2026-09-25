@@ -2,9 +2,9 @@ import type { MetaRecord } from 'nextra';
 
 /**
  * The order a reader meets `@evanion/luhn` in: what a check character buys
- * them, the two calls that produce and verify one, the one thing the package is
- * configured by, and what the generalisation to an arbitrary alphabet is and is
- * not standardised by.
+ * them, how to get one signing an order code, the two calls that produce and
+ * verify one, the one thing the package is configured by, and what the
+ * generalisation to an arbitrary alphabet is and is not standardised by.
  *
  * Migrating from 2.x sits after that band and before the reference. It is a task
  * rather than a concept, and only a reader already holding 2.x tokens has it.
@@ -19,6 +19,7 @@ import type { MetaRecord } from 'nextra';
  */
 export default {
   index: 'Overview',
+  'getting-started': 'Getting Started',
   usage: 'Generating and Validating',
   dictionaries: 'Dictionaries',
   standards: 'Standards and Modulo Bias',
