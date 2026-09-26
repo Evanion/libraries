@@ -4,7 +4,7 @@ By the end of this page `validateItems` checks a Baize listing page and reports
 the one item whose `type` no component draws.
 
 <PageSheet
-  difficulty={1}
+  difficulty={2}
   read={3}
   hands={10}
   requires={[['Overview', '/widget']]}
@@ -17,14 +17,14 @@ the one item whose `type` no component draws.
 ## Before you install the widget core
 
 - Node 20 or newer.
-- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
-  `require()` loads ES modules. An older `require()` fails with
-  `ERR_REQUIRE_ESM`.
+- An ECMAScript module (ESM) project. A CommonJS project needs Node 20.19,
+  22.12 or newer, whose `require()` loads ES modules. An older `require()`
+  fails with `ERR_REQUIRE_ESM`.
 
-The package has no dependencies. A project that already has
-`@evanion/react-widget` or `@evanion/astro-widget` skips the install below:
-each renderer pins `@evanion/widget` exactly and re-exports every name this page
-uses.
+The package has no dependencies. If your project already depends on
+`@evanion/react-widget` or `@evanion/astro-widget`, skip the install and import
+the names below from that renderer. Each renderer pins `@evanion/widget`
+exactly and re-exports every name this page uses.
 
 ## Install the widget core
 
@@ -45,42 +45,53 @@ pnpm add @evanion/widget
 ## Check a widget item array with validateItems
 
 Each item carries an `id`, the `type` of component that draws it, and that
-component's `props`. Write the listing page as an array of `AnyWidgetItem`,
-list the types your renderer has a component for, and pass both to
-`validateItems`. Import both names from `@evanion/widget`:
+component's `props`. In a file named `check.ts`:
+
+1. Write the listing page as an array of `AnyWidgetItem`.
+2. List the types your renderer has a component for.
+3. Pass both to `validateItems`, importing both names from `@evanion/widget`.
 
 ```ts twoslash file=libs/widget/README.md region=unknown
 
 ```
 
+To print the result, add `console.log(problems);` at the end and run
+`npx tsx check.ts`, which runs a TypeScript file with no build step.
+
 `problems` holds one `WidgetProblem`. The item at `index` 1, `tonight`, names
-the type `featured-shelf`, which is not in `known`, so a renderer would leave
-the shelf off the page. Change its `type` back to `shelf` and `validateItems`
+the type `featured-shelf`, which is not in `known`, so a renderer skips the
+shelf. Change its `type` back to `shelf` and `validateItems`
 returns `[]`.
 
-No renderer calls `validateItems`. Call it wherever a payload enters your
-system, and fail when `problems` is not empty:
+Call `validateItems` wherever a payload enters your system, and throw or exit
+non-zero when `problems` is not empty:
 
-- in the webhook handler your CMS posts a save to
-- in a CI job over the payloads committed to the repository
+- in the webhook handler your content management system posts a save to
+- in a continuous integration (CI) job over the payloads committed to the
+  repository
 - in the build script, before it writes the pages
 - in a test over the fixtures your pages render
 
-## Move a widget item and watch the page recompose
+## Move a widget item and watch the renderer redraw the page
 
-The page below is Baize's back-office counter, drawn by `@evanion/react-widget`
-from seven items. The items are listed under it, with move controls beside each
-one.
+A renderer draws items in array order and nests `children` inside their parent,
+so reordering the array reorders the page. The page below is Baize's
+back-office dashboard, which `@evanion/react-widget` draws from two top-level
+items:
+
+- `week`, a `columns` item holding three `metric` items: games in, games sold
+  and turnaround.
+- `counter`, a `columns` item holding the `tables` board, which carries
+  `meta: { span: 2 }`, and the `reprints` board.
 
 <DataDemo />
 
-`week` holds three figures and `counter` holds two boards, as `children`. Move
+Each item is printed under the page with move controls beside it. Move
 `counter` above `week` and both boards move with it. Move `tables` past
-`reprints` and the wide side of the counter changes sides, because `meta.span`
-belongs to the item it sits on.
+`reprints` and the wide board changes sides, because `meta.span` belongs to the
+item it sits on.
 
 ## Now that the check runs, read every problem it reports
 
 [What it reports](/widget/problems) checks a payload with several faults in one
-call, and lists every message `validateItems` returns and the payload that
-produces it.
+call, and lists every message `validateItems` returns and what produces it.
