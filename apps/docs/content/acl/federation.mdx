@@ -1,14 +1,15 @@
 # Many services
 
-`federatedPolicies` holds one `Access` per service behind a single view and sends
-each question to the service whose keys carry it. No document is merged, so each
-service stays the only author of its rules.
+`federatedPolicies` holds one evaluator per service behind a single view and
+answers each question, in process, from the evaluator whose keys carry it. No
+document is merged, so each service stays the only author of its rules.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={5}
-  read={8}
+  read={12}
+  hands={15}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Giving my rules to another service', '/acl/publishing'],
@@ -22,7 +23,8 @@ Baize's storefront and its stock service both hold rows they call a listing, in
 two databases with two field sets. A namespace on the object kind says so:
 `storefront:listing`, `stock:listing`. The key is still
 `` `${object}.${action}` `` character for character, and the typed builder takes
-the namespaced kind directly:
+the namespaced kind directly. `p.always` is a condition every subject meets, and
+`raised` returns the name of the error a call throws:
 
 ```ts twoslash file=libs/acl/README.md region=namespaced-kind
 
@@ -40,6 +42,10 @@ and the examples on this page are regions of the `@evanion/acl` README.
 `federatedPolicies` takes one `Access` per origin, the evaluator type that
 `.build()`, `hydratePolicy` and `parseMatrix` return. It keeps every document
 whole and returns a view with three members: `can`, `capabilities` and `get`.
+Each origin's document arrives as JSON, so the fence writes both as `Matrix`
+values. A rule's `when` lists conditions as `{ field, op, value }`, and
+`{ field: 'subject.roles', op: 'contains', value: 'owner' }` holds when the
+subject's `roles` array holds `'owner'`.
 
 ```ts twoslash file=libs/acl/README.md region=federation
 
@@ -92,7 +98,7 @@ flowchart LR
 
 ## An unreachable upstream needs no flag in a federated view
 
-Leave an upstream you cannot reach out of the record passed to
+Leave an upstream you cannot reach out of the object passed to
 `federatedPolicies`. Every key it owns then answers
 `{ key, allowed: false, reason: 'unknown-action' }` from the view. No flag
 records the outage, and no option turns that answer into an error.
@@ -138,9 +144,9 @@ allows was allowed by the authored one, for every object and every instant.
 
 A matrix owes a schema for the object kinds of its `vetoable` keys and nothing
 else, so an owner that opens no key owes no schema. The contributing team runs
-the same call in its own build, over the owner's published subset, and finds its
-own mistake there. Apply before serializing: a published authored matrix allows
-what the owner's veto refuses.
+the same call in its own build, over the document the owner publishes, and
+finds its own mistake there. Apply the overlay before `serialize`. A consumer
+given the authored matrix allows what the owner's veto refuses.
 
 ## Publishing the rules from one service to a consumer
 

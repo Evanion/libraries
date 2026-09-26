@@ -8,10 +8,11 @@ A React Router route's loader and action each call `@evanion/acl`'s
 
 <PageSheet
   difficulty={5}
-  read={8}
+  read={15}
+  hands={30}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
-    ['Next.js (React Server Components)', '/acl/nextjs'],
+    ['Many services', '/acl/federation'],
     ['Field permissions', '/acl/fields'],
   ]}
 />
@@ -20,17 +21,16 @@ A React Router route's loader and action each call `@evanion/acl`'s
 
 `apps/admin` is Baize's back office, a React Router 8 framework-mode app with
 `ssr: true`. It authors no rules. `AdminSubject` carries `id`, `roles` and
-`shop`, `AdminObjects` maps each key to the row shape it decides over, and
-`adoptMatrix` turns the document `apps/shop-api` publishes into an evaluator:
+`shop`, `AdminObjects` maps each key to the row shape it decides over,
+`AdminPermission` is the union of the document's keys, and `adoptMatrix` turns
+the document `apps/shop-api` publishes into an evaluator:
 
 ```ts file=apps/admin/app/access.ts region=adopt-matrix
 
 ```
 
-`parseMatrix` and never `hydratePolicy`: the document is foreign input, and
-closed mode makes an unknown permission a refusal where `hydratePolicy` throws
-inside a loader. The version keys the memo, because `parseMatrix` validates,
-deep-clones and deep-freezes.
+The version keys the memo, because `parseMatrix` validates, deep-clones and
+deep-freezes the document on every call.
 
 `access.ts` is not a `.server` module, because the server evaluates the matrix
 to enforce and the browser evaluates it to toggle. The fetch lives in
@@ -109,7 +109,8 @@ the middleware decides against an actor Baize's matrix refuses every write.
 This loader decides whether the bound subject may read the orders page at all.
 `access.capabilities(subject)` returns one decision per permission the document
 carries, `allows` from `app/access.ts` reads one of them, and `telemetry.read`
-belongs to a manager:
+belongs to a manager. `defineLedgerItems([])` is the empty ledger the refused
+page draws:
 
 ```tsx file=apps/admin/app/routes/orders.tsx region=loader-decides
 

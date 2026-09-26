@@ -8,7 +8,8 @@ both the page and the form that posts back to it.
 
 <PageSheet
   difficulty={4}
-  read={6}
+  read={7}
+  hands={20}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Next.js (React Server Components)', '/acl/nextjs'],
@@ -87,7 +88,8 @@ middleware runs once, at build time, against whoever built the site.
 Astro middleware runs ahead of every page's frontmatter. `readSubject` reads the
 visitor's cookie, `ShopApi.forRequest` is the typed client for `apps/shop-api`,
 and `policyAccess` answers with the evaluator over shop-api's published
-document:
+document. The cart cookie and the correlation header are the app's own and carry
+no decision:
 
 ```ts file=apps/storefront/src/middleware.ts region=open-context
 
@@ -107,7 +109,7 @@ shows the cache, the window, and what a failed poll leaves behind.
 `apps/storefront` states its subject to shop-api on the `X-Shop-Subject` header,
 and shop-api believes what it forwards. The cookie the storefront reads is
 unsigned, a demo identity that a deployment replaces with a verified session, so
-this hop is the last place that knows which roles this surface may assert.
+this hop is the last place that knows which roles this app may assert.
 `parseSubject` screens the claim down to `customer`, the one role the app's
 `/session` sign-in route issues:
 
@@ -122,7 +124,7 @@ hand-edited cookie claiming `manager` reaches the API as an anonymous shopper.
 ## An Astro app with no browser copy still has a second decider
 
 `apps/storefront` ships no JavaScript to the browser, so every decision it makes
-happens in its Node process. Those decisions still do not guard the catalogue.
+happens in its Node process. Those decisions still do not guard the orders.
 `apps/shop-api` owns the data, holds the same document, and decides again on
 every request. A storefront that disabled
 the checkout button does not excuse the service the order is posted to.
