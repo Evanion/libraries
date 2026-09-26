@@ -1,39 +1,43 @@
 # API reference
 
 `@evanion/urn` exports one class, two functions, two errors and four types, one
-heading each below. Node 20 or newer, ESM only.
+heading each below. It needs Node 20 or newer and ships ESM only, which
+`require()` loads on Node 20.19, 22.12 or newer.
 
 ## `URN`
 
 <!-- reference @evanion/urn#URN example=basic-usage -->
 
-`URN` is never instantiated. A subclass overrides the three static properties
-below, and every static method reads them off `this`.
+`URN` is never instantiated. A subclass overrides the statics in the first
+three rows. `parse`, `stringify` and `isValidFormat` read all three off `this`.
+`extractId`, `equals` and `sameNamespace` read only `separator`, and
+`belongsToNamespace` reads `separator` and defaults its scheme to `urn`.
 
-| Static              | Default                      | What it is                                                                     |
-| ------------------- | ---------------------------- | ------------------------------------------------------------------------------ |
-| `urn`               | `'urn'`                      | the scheme this class writes and reads as its own                              |
-| `nid`               | `'nid'`                      | the namespace identifier this class writes and reads as its own                |
-| `separator`         | `':'`                        | what the three parts are joined by and split on                                |
-| `schemeGrammar`     | RFC 3986 `scheme`            | a letter, then letters, digits, `+`, `-` and `.`                               |
-| `nidGrammar`        | RFC 8141 `NID`               | letters, digits and interior `-`, 2 to 32 characters, on write                 |
-| `nssGrammar`        | RFC 8141 `NSS`               | `pchar` and percent-triplets, plus `/` after the first character               |
-| `rComponentGrammar` | `pchar *(pchar / "/" / "?")` | the NSS set plus `?` after the first character                                 |
-| `qComponentGrammar` | `pchar *(pchar / "/" / "?")` | the same production as the r-component                                         |
-| `fComponentGrammar` | RFC 3986 `fragment`          | the NSS set plus `?`, no first-character rule, and the only one to accept `''` |
+| Static              | Default                      | What it is                                                                                    |
+| ------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `urn`               | `'urn'`                      | the scheme this class writes and reads as its own                                             |
+| `nid`               | `'nid'`                      | the namespace identifier this class writes and reads as its own                               |
+| `separator`         | `':'`                        | what the three parts are joined by and split on                                               |
+| `schemeGrammar`     | RFC 3986 `scheme`            | a letter, then letters, digits, `+`, `-` and `.`                                              |
+| `nidGrammar`        | RFC 8141 `NID`               | letters, digits and interior `-`, 2 to 32 characters, checked by `stringify`                  |
+| `nssGrammar`        | RFC 8141 `NSS`               | letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets, plus `/` after the first character |
+| `rComponentGrammar` | `pchar *(pchar / "/" / "?")` | the NSS set plus `?` after the first character                                                |
+| `qComponentGrammar` | `pchar *(pchar / "/" / "?")` | the same production as the r-component                                                        |
+| `fComponentGrammar` | RFC 3986 `fragment`          | the NSS set plus `?`, no first-character rule, and the only one to accept `''`                |
 
-`'nid'` is a placeholder, and IANA's URN namespace registry holds the registered
-namespaces. Under a separator other than `:`, `schemeGrammar` and `nidGrammar`
-become a character class that excludes the separator, with no length bounds.
-`parse` accepts a one-character NID, which RFC 2141 permitted and `nidGrammar`
-refuses:
+`'nid'` is a placeholder, not a registered namespace, so every real namespace
+is foreign to the base `URN` class. Under a separator other than `:`,
+`schemeGrammar` and `nidGrammar` become a character class that excludes the
+separator, with no length bounds. `parse` accepts a one-character NID, which
+RFC 2141, the URN syntax RFC 8141 replaced, permitted and `nidGrammar` refuses:
 
 ```ts twoslash file=libs/urn/README.md region=grammars
 
 ```
 
-Every static reads `this`, so a static cannot be destructured or passed as a
-bare callback:
+Passed as a bare callback, a static loses `this`. `stringify`, `parse`,
+`extractId` and `belongsToNamespace` throw a `TypeError`. `isValidFormat`,
+`equals` and `sameNamespace` catch it and return `false`:
 
 ```ts twoslash file=libs/urn/README.md region=unbound
 
@@ -85,7 +89,8 @@ the class's own, compared case-folded, stays in the `nss`:
 
 `extractId(urnString)` returns everything after the scheme and the NID, with
 any r-, q- or f-component dropped. On a foreign namespace it differs from
-`parse(urnString).nss`, which keeps the NID:
+`parse(urnString).nss`, which keeps the NID. The base `URN` class's own NID is
+`'nid'`, so `game` is foreign to it:
 
 ```ts twoslash file=libs/urn/README.md region=extract-id
 
@@ -127,9 +132,8 @@ the r-, q- and f-components are ignored. Malformed input returns `false`:
 
 <!-- reference @evanion/urn#encodeNss example=nss-encoding -->
 
-`encodeNss(raw)` encodes everything outside RFC 3986's `unreserved` set
-(`A-Z a-z 0-9 - . _ ~`) as UTF-8 percent-triplets with uppercase hex, `:`
-included, so the result is valid in any position of an NSS.
+`encodeNss(raw)` leaves `A-Z a-z 0-9 - . _ ~` alone and percent-encodes every
+other character, `:` included.
 
 ## `decodeNss`
 
@@ -154,23 +158,22 @@ URN or not a valid encoding, so catching it covers `InvalidError` too.
 `InvalidError` extends `ValidationError`, and `stringify` and `parse` throw it
 for one part that is empty or breaks its grammar.
 
-| Property      | What it holds                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `property`    | the part: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'`, `'F-COMPONENT'` or `'COMPONENT'` |
-| `value`       | the value of that part                                                                                  |
-| `invalidChar` | the first character outside the part's set, when one is at fault                                        |
-| `reason`      | the structural rule broken when every character is allowed, such as a length bound                      |
+| Property      | What it holds                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `property`    | the part: `'URN'` for the scheme, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'`, `'F-COMPONENT'` or `'COMPONENT'` |
+| `value`       | the value of that part                                                                                                 |
+| `invalidChar` | the first character outside the part's set, when one is at fault                                                       |
+| `reason`      | the structural rule broken when every character is allowed, such as a length bound                                     |
 
 `'COMPONENT'` is the property when a subclass whose separator contains `?` or
 `#` is asked to write a component.
 
 ## `ParsedURN`
 
-<!-- reference @evanion/urn#ParsedURN example=parse -->
+<!-- reference @evanion/urn#ParsedURN example=components -->
 
 `ParsedURN` is what `parse` returns: `urn`, `nid` and `nss`, plus whichever
-components the URN carries. The parts are plain `string`, because `parse` reads
-a runtime string and cannot know their literal types.
+components the URN carries.
 
 ## `URNParts`
 
@@ -194,6 +197,5 @@ syntax.
 <!-- reference @evanion/urn#IFullURN example=full-urn-type -->
 
 `IFullURN<URN, NID, NSS>` is the template literal type
-`` `${URN}:${NID}:${NSS}` ``. It assumes the default `:` separator, so it cannot
-describe a subclass with another one, and `stringify` returns plain `string`
-for the same reason.
+`` `${URN}:${NID}:${NSS}` ``. `stringify` returns plain `string`, because a
+subclass may override the `:`.

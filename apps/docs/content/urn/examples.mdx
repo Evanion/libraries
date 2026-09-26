@@ -4,11 +4,20 @@ A shop's services mostly read URNs that another service wrote. `parse`,
 `isValidFormat` and `equals` do the reading, and `stringify` with `encodeNss`
 does the writing.
 
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={35}
+  requires={[['Getting started', '/urn/getting-started']]}
+  unlocks={[['API reference', '/urn/api']]}
+/>
+
 ## One URN class per namespace
 
 The shop names games and orders, so it has two namespace classes: `GameURN`,
-from Getting started, and an `OrderURN` beside it. No call site names a
-namespace, and `belongsToNamespace` picks one kind out of a mixed list:
+from Getting started, and an `OrderURN` beside it. `stringify` on either class
+needs no NID. `belongsToNamespace` still takes the NID as its second argument,
+and picks one kind out of a mixed list:
 
 ```ts twoslash file=libs/urn/README.md region=class-per-namespace
 
@@ -17,9 +26,10 @@ namespace, and `belongsToNamespace` picks one kind out of a mixed list:
 `belongsToNamespace` returns `false` for `'hive'`, which is not a URN, so a
 filter over untrusted input needs no `try` block.
 
-Each class strips only its own NID on `parse`. A foreign NID stays at the front
-of the `nss`, a foreign scheme keeps the whole identifier, and the case a part
-was written in comes back unchanged:
+Each class strips only its own NID on `parse`, compared without regard to case,
+so `URN:GAME:azul` is in `GameURN`'s namespace. A foreign NID stays at the front
+of the `nss`, a foreign scheme keeps the whole identifier, and every part comes
+back in the case it was written in:
 
 ```ts twoslash file=libs/urn/README.md region=parse
 
@@ -28,8 +38,8 @@ was written in comes back unchanged:
 ## One URN class, the NID per call
 
 When the set of namespaces is open-ended, `stringify` takes the NID and the
-scheme as arguments after the NSS. The object form names each part and matches
-what `parse` returns, so it is the form to prefer:
+scheme as arguments after the NSS. The object form, `{ nss, nid?, urn? }`,
+names each part and matches what `parse` returns, so it is the form to prefer:
 
 ```ts twoslash file=libs/urn/README.md region=stringify-forms
 
@@ -37,7 +47,7 @@ what `parse` returns, so it is the form to prefer:
 
 The base `URN` class's own NID is the placeholder `'nid'`, so every real
 namespace is foreign to it and `URN.parse(x).nss` keeps the NID. `extractId`
-returns the trailing id whatever the namespace:
+returns the id after the NID, whatever the namespace:
 
 ```ts twoslash file=libs/urn/README.md region=extract-id
 
@@ -71,22 +81,23 @@ the rest are minted:
 ```
 
 The NSS grammar is RFC 3986's `pchar`: letters, digits, `-._~!$&'()*+,;=:@` and
-percent-triplets, with `/` allowed after the first character. A space is outside
+percent-triplets such as `%20`, with `/` allowed after the first character. A space is outside
 it. The NID is stricter: letters, digits and interior hyphens, 2 to 32
 characters.
 
 ## Put a game title into a URN
 
-A title a person typed carries spaces and punctuation. `encodeNss`
-percent-encodes everything outside RFC 3986's `unreserved` set, and `decodeNss`
-reverses it. `stringify` and `parse` do neither:
+A title a person typed carries spaces and punctuation. `encodeNss` leaves
+letters, digits and `-._~` alone and percent-encodes every other character, and
+`decodeNss` reverses it. `stringify` and `parse` do neither:
 
 ```ts twoslash file=libs/urn/README.md region=nss-encoding
 
 ```
 
-`encodeNss` also encodes the `:`, which the NSS grammar allows, so its output is
-safe in any position of an NSS.
+`encodeNss` also encodes the `:`, which the NSS grammar allows unencoded. Two
+services that both encode a title write the same NSS, and `equals` treats `%3A`
+and `:` as different characters.
 
 ## Carry a URN in a URL path
 
@@ -111,15 +122,17 @@ the scheme, of the NID and of a percent-triplet's hex digits, and nothing else:
 
 ```
 
-The third and fourth calls are where `===` on lowercased strings goes wrong:
-`equals` never decodes `%3A`, and the NSS keeps its case. Call `equals` wherever
-URNs arrive from more than one producer.
+The third call is where decoding before comparing goes wrong, because `equals`
+never decodes `%3A`. The fourth is where lowercasing goes wrong, because the
+NSS keeps its case. Call `equals` wherever URNs arrive from more than one
+producer.
 
 ## A URN key with a custom separator
 
 A separator other than `:` takes the class outside RFC 8141, which suits a key
 that has to read as a dotted path. The scheme and the NID are then checked
-against a character class that excludes the separator:
+against a character class that excludes the separator. `schemeGrammar` and
+`nidGrammar` hold the pattern each of the two must match:
 
 ```ts twoslash file=libs/urn/README.md region=custom-separator
 
@@ -130,8 +143,10 @@ would be read as a separator.
 
 ## Call URN statics on the class
 
-Every static reads `this`, so a static passed as a bare callback loses its class
-and throws a `TypeError`:
+Every static reads `this`, so a static passed as a bare callback loses its
+class. `stringify`, `parse`, `extractId` and `belongsToNamespace` throw a
+`TypeError`. `isValidFormat`, `equals` and `sameNamespace` catch it and return
+`false`, so `ids.filter(GameURN.isValidFormat)` returns an empty list:
 
 ```ts twoslash file=libs/urn/README.md region=unbound
 
