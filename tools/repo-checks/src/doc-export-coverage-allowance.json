@@ -1,15 +1,4 @@
 {
-  "@evanion/astro-widget": {
-    "undocumented": [
-      "AnyWidgetItem",
-      "ERROR_MESSAGES",
-      "KnownWidgetTypes",
-      "VALIDATION_MESSAGES",
-      "WidgetMeta",
-      "WidgetProblem",
-      "WidgetRegistry"
-    ]
-  },
   "@evanion/feature": {
     "undocumented": [
       "AttributeCondition",
