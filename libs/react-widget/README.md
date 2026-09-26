@@ -52,10 +52,14 @@ const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 const { Widgets } = createWidgets({ components: { listing: ListingCard } });
 
 const shelf = [
-  { id: 'g1', type: 'listing' as const, props: { title: 'Brass' } },
+  {
+    id: 'brass',
+    type: 'listing' as const,
+    props: { title: 'Brass: Birmingham' },
+  },
 ];
 
-const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="g1" data-widget-type="listing"><h3>Brass</h3></div></section>'
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham</h3></div></section>'
 ```
 
 <!-- #endregion region-markup -->
@@ -66,54 +70,9 @@ Inside it the renderer puts each widget in an element carrying the item's `id` a
 attributes itself. Add a second item and it renders after the first, in the order
 the array reads.
 
-## Quick start
-
-```tsx
-import { createWidgets } from '@evanion/react-widget';
-
-const NewsTeaser = ({ title, body }: { title: string; body: string }) => (
-  <article>
-    <h3>{title}</h3>
-    <p>{body}</p>
-  </article>
-);
-
-const UserSidebar = ({
-  username,
-  messages,
-}: {
-  username: string;
-  messages: number;
-}) => (
-  <div>
-    <span>{username}</span>
-    <span>{messages} messages</span>
-  </div>
-);
-
-// Call once, at module scope.
-const { Widgets } = createWidgets({
-  components: { news: NewsTeaser, userInfo: UserSidebar },
-  chrome: {
-    wrapper: ({ children }) => <aside className="sidebar">{children}</aside>,
-  },
-});
-
-export default function Page() {
-  return (
-    <Widgets
-      items={[
-        {
-          id: 'u1',
-          type: 'userInfo',
-          props: { username: 'Evanion', messages: 5 },
-        },
-        { id: 'n1', type: 'news', props: { title: 'Hello', body: '…' } },
-      ]}
-    />
-  );
-}
-```
+Call `createWidgets` once, at module scope. It returns a new `Widgets` component
+on every call, so calling it inside a component remounts the region on every
+render.
 
 That page can be a Server Component. The package uses only React APIs that exist
 under the `react-server` export condition -- `createElement`, `Suspense`,
@@ -122,125 +81,309 @@ under the `react-server` export condition -- `createElement`, `Suspense`,
 ## Typing your items
 
 `createWidgets` infers the allowed `type` values and each item's `props` from the
-component map.
+component map. `defineItems` hands that type to an array held in a variable:
 
-```tsx
+<!-- #region typed-items -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string; price: number }) => (
+  <h3>
+    {props.title}, {props.price} kr
+  </h3>
+);
+
 const { Widgets, defineItems } = createWidgets({
-  components: { news: NewsTeaser, weather: WeatherCard },
+  components: { listing: ListingCard },
 });
 
-const items = defineItems([
-  { id: '1', type: 'news', props: { title: 'Hello', body: '…' } },
-  { id: '2', type: 'nope', props: {} }, // ✗ not in the map
-  { id: '3', type: 'weather', props: { celsius: 'warm' } }, // ✗ celsius is a number
+const shelf = defineItems([
+  { id: 'root', type: 'listing', props: { title: 'Root', price: 499 } },
 ]);
+
+// @ts-expect-error 'raffle' is not a key of the component map
+defineItems([{ id: 'raffle', type: 'raffle', props: {} }]);
+
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root, 499 kr</h3></div></section>'
 ```
 
-`defineItems` is an identity function that exists purely to supply the
-contextual type. A bare `const items = [{ type: 'news', ... }]` widens `type` to
-`string`, which cannot narrow to the map's keys, and the check is silently lost.
-Writing the array inline in JSX works too -- that is already contextually typed.
+<!-- #endregion typed-items -->
+
+A bare `const shelf = [{ type: 'listing', ... }]` widens `type` to `string`,
+which cannot narrow to the map's keys, so `Widgets` refuses it. `defineItems` is
+an identity function that exists to supply the contextual type. An array written
+inline in JSX is already contextually typed and needs neither.
 
 ## Nesting
 
-Nested items render as the parent component's `children`.
+Nested items render as the parent component's `children`:
 
-```tsx
-const Card = ({ title, children }: PropsWithChildren<{ title: string }>) => (
+<!-- #region nesting -->
+
+```tsx @import.meta.vitest
+const Shelf = (props: { title: string; children?: React.ReactNode }) => (
   <section>
-    <h3>{title}</h3>
-    {children}
+    <h2>{props.title}</h2>
+    {props.children}
   </section>
 );
 
-const { Widgets } = createWidgets({ components: { card: Card, text: Text } });
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
-<Widgets
-  items={[
-    {
-      id: 'c1',
-      type: 'card',
-      props: { title: 'My card' },
-      children: [{ id: 't1', type: 'text', props: { content: 'Nested' } }],
-    },
-  ]}
-/>;
+const { Widgets, defineItems } = createWidgets({
+  components: { shelf: Shelf, listing: ListingCard },
+});
+
+const tonight = defineItems([
+  {
+    id: 'tonight',
+    type: 'shelf',
+    props: { title: 'On the table tonight' },
+    children: [{ id: 'hive', type: 'listing', props: { title: 'Hive' } }],
+  },
+]);
+
+defineItems([
+  // @ts-expect-error ListingCard renders no children, so nothing nests under it
+  { id: 'azul', type: 'listing', props: { title: 'Azul' }, children: [] },
+]);
+
+const html = renderToStaticMarkup(<Widgets items={tonight} />); // -> '<section><div data-widget-id="tonight" data-widget-type="shelf"><section><h2>On the table tonight</h2><div data-widget-id="hive" data-widget-type="listing"><h3>Hive</h3></div></section></div></section>'
 ```
+
+<!-- #endregion nesting -->
 
 `children` is type-gated: it is permitted only when the mapped component
 actually accepts `children`, and typed `never` otherwise. Nesting under a widget
 that would drop the child items is a compile error rather than content that
 silently disappears.
 
+## `validateItems`
+
+`WidgetItem<C>` checks items at compile time. `validateItems` checks the data
+that never met the type checker -- a CMS payload, a webhook body, a fixture on
+disk. The standalone export takes a list of type names, so a CI script imports
+no React component:
+
+<!-- #region validate-payload -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/react-widget';
+
+const payload: unknown = JSON.parse(
+  '[{"id":"root","type":"listing","props":{"title":"Root"}},{"id":"raffle","type":"raffle","props":{}}]',
+);
+
+const problems = validateItems(payload, ['listing', 'shelf']); // -> [{ index: 1, id: 'raffle', type: 'raffle', message: 'unknown widget type' }]
+```
+
+<!-- #endregion validate-payload -->
+
+It returns problems and never throws, accumulates rather than stopping at the
+first, and recurses into `children`. It reports: a non-list root, a non-object
+item, a non-string `id` or `type`, an unknown `type`, missing or non-object
+`props`, non-list `children`, and duplicate sibling `id`s.
+
+`createWidgets` returns a second form, bound to the component map, so it takes
+no list of names. Its optional argument maps a widget type to the props that
+must be present and non-blank, where blank means `undefined`, `null` or
+whitespace only -- which is what a CMS text field that was opened and left empty
+arrives as:
+
+<!-- #region validate-bound -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const components = defineWidgets({ listing: ListingCard });
+
+const { validateItems } = createWidgets({ components });
+
+const payload: unknown = [
+  { id: 'root', type: 'listing', props: { title: ' ' } },
+];
+
+const problems = validateItems(payload, { listing: ['title'] }); // -> [{ index: 0, id: 'root', type: 'listing', message: 'missing field title' }]
+```
+
+<!-- #endregion validate-bound -->
+
+`defineWidgets` returns the map it is handed with its keys kept literal, so one
+map declared on its own feeds `createWidgets` here and a standalone
+`validateItems` in a webhook.
+
+`Widgets` does not call either form. The renderer stays defensive instead: an
+item it cannot render is skipped with a development-only `console.warn`, and the
+rest of the region renders:
+
+<!-- #region skipped-item -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+
+const payload = JSON.parse(
+  '[{"id":"raffle","type":"raffle","props":{}},{"id":"root","type":"listing","props":{"title":"Root"}}]',
+);
+
+const html = renderToStaticMarkup(<Widgets items={payload} />); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root</h3></div></section>'
+```
+
+<!-- #endregion skipped-item -->
+
+The warning reads `Unknown widget type "raffle" for widget ID "raffle".
+Skipping render.` Each message is logged once per process, so a stale `type`
+reports once instead of on every re-render and again on hydration. Nothing is
+logged when `NODE_ENV` is `production`.
+
+## Chrome
+
+A widget set has two wrappers. `chrome.wrapper` goes around the whole region and
+receives the region's items beside its `children`. `chrome.item` goes around each
+widget and receives `data-widget-id`, `data-widget-type` and `meta`. The
+defaults, `DefaultWrapper` and `DefaultItem`, are exported, so a custom chrome
+can wrap one:
+
+<!-- #region chrome -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { Widgets } = createWidgets({
+  components: { listing: ListingCard },
+  chrome: {
+    wrapper: (props) => <DefaultWrapper {...props} aria-label="New in" />,
+    item: (props) => <DefaultItem {...props} className="slot" />,
+  },
+});
+
+const shelf = [
+  { id: 'azul', type: 'listing' as const, props: { title: 'Azul' } },
+];
+
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section aria-label="New in"><div data-widget-id="azul" data-widget-type="listing" class="slot"><h3>Azul</h3></div></section>'
+```
+
+<!-- #endregion chrome -->
+
+Keep the `data-widget-*` attributes on the element. CMS click-to-edit overlays,
+analytics and E2E selectors key off them.
+
+`<Widgets>` takes `components` and `chrome` of its own, merged over the
+factory's. `components` is a shallow merge of the two maps; `chrome` is resolved
+field by field, so overriding `wrapper` keeps the factory's `item`:
+
+<!-- #region overrides -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+const FeaturedListing = (props: { title: string }) => <h2>{props.title}</h2>;
+
+const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+
+const shelf = [
+  { id: 'wingspan', type: 'listing' as const, props: { title: 'Wingspan' } },
+];
+
+const page = (
+  <Widgets items={shelf} components={{ listing: FeaturedListing }} />
+);
+
+const html = renderToStaticMarkup(page); // -> '<section><div data-widget-id="wingspan" data-widget-type="listing"><h2>Wingspan</h2></div></section>'
+```
+
+<!-- #endregion overrides -->
+
 ## `meta`: placing a widget without telling it where it is
 
-A dashboard grid, a masonry board or a CMS page with per-block spans needs
-placement data. That data belongs to the wrapper, not to the widget -- a widget
-renders the same at column 1 and at column 7.
+A board of listings needs placement data, and that data belongs to the item
+chrome: a widget renders the same at column 1 and at column 7. `meta` is handed
+to `chrome.item` and is never spread into the widget's props. Annotate
+`chrome.item` with the vocabulary it reads and every item's `meta` is checked
+against it, at the top level and inside `children`:
 
-`meta` is handed to `chrome.item` and is never spread into the widget's props.
+<!-- #region meta-grid -->
 
-```tsx
-type GridMeta = { column: number; columnSpan?: number };
+```tsx @import.meta.vitest
+import type { WidgetItemComponent } from '@evanion/react-widget';
 
-const GridItem: WidgetItemComponent<GridMeta> = ({
+type GridMeta = { column: number; span?: number };
+
+const GridCell: WidgetItemComponent<GridMeta> = ({
   children,
   meta,
   ...rest
 }) => (
   <div
     {...rest}
-    style={{ gridColumn: `${meta?.column} / span ${meta?.columnSpan}` }}
+    style={{
+      gridColumn: `${meta?.column ?? 'auto'} / span ${meta?.span ?? 1}`,
+    }}
   >
     {children}
   </div>
 );
 
-const { Widgets } = createWidgets({
-  components: { chart: Chart },
-  chrome: { item: GridItem },
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { Widgets, defineItems } = createWidgets({
+  components: { listing: ListingCard },
+  chrome: { item: GridCell },
 });
 
-<Widgets
-  items={[
-    {
-      id: 'today',
-      type: 'chart',
-      props: { metric: 'revenue' },
-      meta: { column: 1, columnSpan: 4 },
-      // meta: { colunm: 1 }  ← compile error: not a key GridItem reads
-    },
-  ]}
-/>;
+const board = defineItems([
+  {
+    id: 'root',
+    type: 'listing',
+    props: { title: 'Root' },
+    meta: { column: 2, span: 2 },
+  },
+  // @ts-expect-error GridCell reads `column`, and `col` is not a key of GridMeta
+  { id: 'hive', type: 'listing', props: { title: 'Hive' }, meta: { col: 1 } },
+]);
+
+const html = renderToStaticMarkup(<Widgets items={board} />); // -> '<section><div data-widget-id="root" data-widget-type="listing" style="grid-column:2 / span 2"><h3>Root</h3></div><div data-widget-id="hive" data-widget-type="listing" style="grid-column:auto / span 1"><h3>Hive</h3></div></section>'
 ```
 
-### Typing `meta`
-
-Annotate `chrome.item` with the vocabulary it reads and every item's `meta` is
-checked against it, at the top level and inside `children`. Without that, a
-misspelled key compiles and the item is placed by whatever fallback the chrome
-applies -- a layout that looks deliberate.
+<!-- #endregion meta-grid -->
 
 There is no type argument to pass. `createWidgets` infers the vocabulary from
 the `chrome.item` it is given, through an annotated component, a plain function
-with an annotated parameter object, or a `memo()`-wrapped one. Naming it by hand
-would mean restating the component map type as well, and a set with no
-`chrome.item` has nothing that reads `meta` to check against -- there, and for
-an unannotated chrome, `meta` stays any object as before.
+with an annotated parameter object, or a `memo()`-wrapped one. A set with no
+`chrome.item`, or an unannotated one, leaves `meta` as any object.
 
 Typing `meta` removes the typo, not the narrowing: `meta` is optional on every
 item, so a chrome that needs a key still writes a fallback for the item that
-omits it.
+omits it. `hive` above compiles only under the `@ts-expect-error`, and renders
+through the `auto` fallback.
 
 ## `ctx`: page-level data for every widget
 
-```tsx
-<Widgets ctx={{ locale, currency }} items={items} />
+Every widget receives `ctx` as a prop, from `<Widgets ctx={…}>`. This is the
+counterpart to `@evanion/astro-widget`'s `ctx`, and it exists instead of a
+context provider: React's `react-server` condition has no `createContext`.
+
+<!-- #region ctx -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string; ctx: { currency: string } }) => (
+  <h3>
+    {props.title}, {props.ctx.currency}
+  </h3>
+);
+
+const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+
+const shelf = [
+  { id: 'root', type: 'listing' as const, props: { title: 'Root' } },
+];
+
+const page = <Widgets ctx={{ currency: 'SEK' }} items={shelf} />;
+
+const html = renderToStaticMarkup(page); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root, SEK</h3></div></section>'
 ```
 
-Every widget receives `ctx` as a prop. This is the counterpart to
-`@evanion/astro-widget`'s `ctx`, and it exists instead of a context provider:
-React's `react-server` condition has no `createContext`.
+<!-- #endregion ctx -->
 
 `ctx` is the renderer's to supply, so it is omitted from an item's `props`
 alongside `children`. A widget may declare it required without every item having
@@ -251,22 +394,32 @@ override it -- `ctx` follows the spread, and items are untrusted input.
 
 By default the renderer wraps every widget in its own `<Suspense>` boundary, so
 one suspending widget does not block its siblings. The fallback comes from
-`chrome.suspenseFallback` and defaults to nothing.
+`chrome.suspenseFallback` and defaults to nothing:
 
-```tsx
+<!-- #region suspense-fallback -->
+
+```tsx @import.meta.vitest
+const StockLevel = async (props: { game: string }) => {
+  const count = await Promise.resolve(3);
+  return (
+    <p>
+      {count} of {props.game} in stock
+    </p>
+  );
+};
+
 const { Widgets } = createWidgets({
-  components: { report: AsyncReport },
-  chrome: { suspenseFallback: <Skeleton /> },
+  components: { stock: StockLevel },
+  chrome: { suspenseFallback: <p>Counting stock</p> },
 });
 ```
 
-The boundary lives in the renderer rather than in the item chrome, so replacing
-`chrome.item` cannot silently remove it.
+<!-- #endregion suspense-fallback -->
 
-There is no default skeleton. A region is a dashboard grid for one consumer and
-a table of rows for the next, and one generic placeholder would be wrong in
-both. Set `suspenseFallback` if a blank space during streaming is not what you
-want.
+The boundary lives in the renderer rather than in the item chrome, so replacing
+`chrome.item` cannot silently remove it. There is no default skeleton: a region
+is a grid of cards for one consumer and a table of rows for the next, and one
+generic placeholder would be wrong in both.
 
 ### Synchronous regions: `chrome.suspense`
 
@@ -284,14 +437,28 @@ default chunk size:
 | `per-item`        | 139,233 | 145                 | 5 of 150          |
 | `none`            | 122,069 | 0                   | 150 of 150        |
 
-So for a region whose widgets are all synchronous, say so:
+So for a region whose widgets are all synchronous, say so. `renderToString`
+writes a `<!--$-->` marker pair for each boundary, which shows where they went:
 
-```tsx
-const { Widgets } = createWidgets({
-  components: { row: LedgerRow },
+<!-- #region suspense-none -->
+
+```tsx @import.meta.vitest
+const Row = (props: { title: string }) => <li>{props.title}</li>;
+
+const perItem = createWidgets({ components: { row: Row } });
+
+const none = createWidgets({
+  components: { row: Row },
   chrome: { suspense: 'none' },
 });
+
+const rows = [{ id: 'hive', type: 'row' as const, props: { title: 'Hive' } }];
+
+const bounded = renderToString(<perItem.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><!--$--><li>Hive</li><!--/$--></div></section>'
+const flat = renderToString(<none.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><li>Hive</li></div></section>'
 ```
+
+<!-- #endregion suspense-none -->
 
 **A client that does not run the inline scripts never sees outlined content.**
 It is in the HTML, inside `<div hidden>`, and `$RC` is what moves it. That
@@ -322,67 +489,81 @@ would put a `'use client'` directive on the whole package.
 
 Add your own in a custom `chrome.item`, in your own `'use client'` file:
 
-```tsx
+<!-- #region error-boundary -->
+
+```tsx @import.meta.vitest
 'use client';
 
-export function SafeItem({ children, ...rest }) {
-  return (
-    <div {...rest}>
-      <ErrorBoundary fallback={<p>This widget failed.</p>}>
-        {children}
-      </ErrorBoundary>
-    </div>
-  );
+class ItemBoundary extends React.Component<
+  { children?: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? (
+      <p>This listing failed to load.</p>
+    ) : (
+      this.props.children
+    );
+  }
 }
+
+const SafeItem = (props: React.ComponentProps<typeof DefaultItem>) => (
+  <DefaultItem {...props}>
+    <ItemBoundary>{props.children}</ItemBoundary>
+  </DefaultItem>
+);
 ```
 
-## `validateItems`
+<!-- #endregion error-boundary -->
 
-`WidgetItem<C>` checks items at compile time. `validateItems` checks the data
-that never met the type checker -- a CMS payload, a webhook body, a fixture on
-disk.
+Pass it as `chrome: { item: SafeItem }`. The boundary is then client code and
+the widgets inside it are not.
 
-```ts
-import { validateItems } from '@evanion/react-widget';
+## Large regions
 
-const problems = validateItems(payload, ['news', 'weather', 'card']);
-if (problems.length) {
-  console.error(problems);
-  process.exit(1);
-}
+The renderer renders every item, and there is no windowing option. For
+server-rendered content, put `content-visibility: auto` on the item chrome. The
+browser skips layout and paint for off-screen items, and every one of them stays
+in the HTML:
+
+<!-- #region content-visibility -->
+
+```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { Widgets } = createWidgets({
+  components: { listing: ListingCard },
+  chrome: {
+    item: (props) => (
+      <DefaultItem
+        {...props}
+        style={{
+          contentVisibility: 'auto',
+          containIntrinsicSize: 'auto 240px',
+        }}
+      />
+    ),
+  },
+});
+
+const shelf = [
+  { id: 'crokinole', type: 'listing' as const, props: { title: 'Crokinole' } },
+];
+
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="crokinole" data-widget-type="listing" style="content-visibility:auto;contain-intrinsic-size:auto 240px"><h3>Crokinole</h3></div></section>'
 ```
 
-It returns problems and never throws, accumulates rather than stopping at the
-first, and recurses into `children`. It reports: a non-list root, a non-object
-item, a non-string `id` or `type`, an unknown `type`, missing or non-object
-`props`, non-list `children`, and duplicate sibling `id`s.
+<!-- #endregion content-visibility -->
 
-It takes a third argument: a map of widget type to the props that must be
-present and non-blank, where blank means `undefined`, `null` or whitespace only
--- which is what a CMS text field that was opened and left empty arrives as.
-`WidgetItem<C>` already requires them on the typed path; this is for the data
-that bypassed it.
-
-```ts
-validateItems(payload, ['news'], { news: ['title'] });
-// -> [{ index: 0, id: 'a', type: 'news', message: 'missing field title' }]
-```
-
-Two entry points, so a CI script does not have to import React components it
-will never render:
-
-- `validateItems(items, knownTypes: readonly string[], required?)`, exported
-  standalone
-- `createWidgets(...).validateItems(items, required?)`, bound to the component
-  map
-
-`Widgets` does not call it. Validation is a loud, explicit gate you run at
-ingestion or build time; the renderer underneath stays defensive, skipping a
-malformed item with a dev-only `console.warn` rather than taking a page down.
-
-The renderer warns from render, so each message is logged once per process: a
-stale `type` reports once instead of on every re-render and again on hydration.
-Nothing is logged when `NODE_ENV` is `production`.
+For a client-side list long enough to matter, virtualize in your own
+`'use client'` `chrome.wrapper`. The wrapper receives `items` beside `children`,
+positionally aligned, so it can measure and window by item.
 
 ## API
 
