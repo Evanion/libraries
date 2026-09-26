@@ -78,11 +78,12 @@ export default defineConfig(() => ({
           name: '@evanion/astro-widget',
           include: ['src/**/*.test.ts'],
           exclude: ['src/**/*.astro.test.ts'],
-          // The README's documented examples. `Widgets.astro` is not among
-          // them and cannot be: an `.astro` module is compiled by Astro's own
-          // vite plugin, in a consumer's project rather than here. What runs
-          // is the half of the surface that is plain TypeScript.
-          includeSource: docExampleSources(),
+          // The JSDoc examples in `src`. The README is not collected here:
+          // its examples import `.astro` modules, which only Astro's own vite
+          // plugin compiles, so it runs in the project below.
+          includeSource: docExampleSources().filter(
+            (source) => source !== 'README.md',
+          ),
         },
       },
       './vitest.astro.config.ts',

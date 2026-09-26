@@ -1,0 +1,19 @@
+---
+// #region section
+interface Props {
+  type: string;
+  id: string;
+  meta?: { background?: string };
+}
+
+const { type, id, meta } = Astro.props;
+---
+
+<section
+  id={id}
+  data-widget-type={type}
+  class:list={['widget', meta?.background && `bg-${meta.background}`]}
+>
+  <slot />
+</section>
+{/* #endregion section */}

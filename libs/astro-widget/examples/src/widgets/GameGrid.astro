@@ -1,0 +1,20 @@
+---
+// #region game-grid
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import type { AnyWidgetItem } from '@evanion/astro-widget';
+
+import { cardRegistry } from '../card-registry';
+
+interface Props {
+  title: string;
+  children?: AnyWidgetItem[];
+}
+
+const { title, children = [] } = Astro.props;
+---
+
+<section>
+  <h2>{title}</h2>
+  <Widgets items={children} registry={cardRegistry} />
+</section>
+{/* #endregion game-grid */}
