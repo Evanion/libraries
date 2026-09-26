@@ -51,13 +51,16 @@ function isBlank(value: unknown): boolean {
  *
  * @example
  * ```ts
- * validateItems([{ id: 'a', type: 'nope', props: {} }], ['news']);
- * // [{ index: 0, id: 'a', type: 'nope', message: 'unknown widget type' }]
+ * validateItems(
+ *   [{ id: 'tonight', type: 'featured-shelf', props: {} }],
+ *   ['listing', 'shelf'],
+ * );
+ * // [{ index: 0, id: 'tonight', type: 'featured-shelf', message: 'unknown widget type' }]
  *
- * validateItems([{ id: 'a', type: 'hero', props: {} }], ['hero'], {
- *   hero: ['heading'],
+ * validateItems([{ id: 'root', type: 'listing', props: {} }], ['listing'], {
+ *   listing: ['title'],
  * });
- * // [{ index: 0, id: 'a', type: 'hero', message: 'missing field heading' }]
+ * // [{ index: 0, id: 'root', type: 'listing', message: 'missing field title' }]
  * ```
  */
 export function validateItems(
