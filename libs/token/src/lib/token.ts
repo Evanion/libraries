@@ -50,6 +50,10 @@ export const DEFAULT_SEPARATOR = '-';
  * Types
  * ---------------------------------------------------------------------- */
 
+/**
+ * The shape and alphabet `createToken` builds a token from. Every field is
+ * optional, and `createToken` checks all four once, at construction.
+ */
 export interface TokenOptions {
   /**
    * Total code points in the code, the check character included, so usable
@@ -127,6 +131,10 @@ export interface InvalidToken {
   reason: ValidateFailureReason;
 }
 
+/**
+ * What `validate` returns. Narrow on `valid`: `true` carries the `body` to look
+ * up, and `false` carries the `reason` the code failed first.
+ */
 export type ValidateResult = ValidToken | InvalidToken;
 
 /** A configuration with `generate` and `validate` bound to it. */
