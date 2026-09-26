@@ -51,15 +51,18 @@ const UNRESERVED = /^[A-Za-z0-9\-._~]$/;
  * requires the literal scheme `urn`, and this class allows any scheme through
  * the overridable {@link URN.urn} static.
  *
- * The RFC claim is scoped to the default `:` separator. A subclass that
- * overrides {@link URN.separator} gets separator-derived exclusion for the
- * scheme and the NID instead of the RFC grammars, and is not RFC 8141
- * conformant. The NSS keeps the RFC grammar under every separator.
+ * The class conforms to RFC 8141 only under the default `:` separator. A
+ * subclass that overrides {@link URN.separator} checks the scheme and the NID
+ * against a character class that excludes the separator, with no length
+ * bounds, and is not RFC 8141 conformant. The NSS keeps the RFC grammar under
+ * every separator.
  *
  * The optional r-, q- and f-components of RFC 8141 2.3 are split off the tail
- * before the separator split, and are parsed under every separator except one
- * that itself contains `?` or `#` -- such a separator is indistinguishable
- * from a component delimiter, so the whole tail stays in the NSS there.
+ * before the separator split, under every separator except one that itself
+ * contains `?` or `#`. Such a separator cannot be told apart from a component
+ * introducer, so on that subclass `parse` throws an {@link InvalidError} with
+ * `property: 'NSS'` for any `?` or `#` after the NID, and `stringify` throws
+ * one with `property: 'COMPONENT'` for any component.
  *
  * Every static reads `this`, so they cannot be destructured the way
  * `JSON.stringify` can: `const { stringify } = URN` then `stringify('a')`
@@ -187,7 +190,8 @@ export class URN {
    *
    * False only for a separator that contains one of the delimiter characters,
    * where a delimiter and a separator cannot be told apart. Such a subclass
-   * keeps the whole tail as its NSS and rejects components on write.
+   * keeps the whole tail as its NSS, where the NSS grammar refuses the `?` or
+   * `#`, and rejects components on write.
    */
   private static get parsesComponents(): boolean {
     return !this.separator.includes('?') && !this.separator.includes('#');
