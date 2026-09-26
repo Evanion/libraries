@@ -1,110 +1,130 @@
 # The alphabet
 
-## The default 32
+To mint codes from characters of your own, pass `dictionary` to `createToken`.
+It refuses an alphabet a person would misread or a random byte would draw
+unevenly.
 
-```ts
-token.dictionary; // '0123456789abcdefghjkmnpqrstuvxyz'
-token.n; // 32
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={20}
+  requires={[['Generating and validating', '/token/usage']]}
+  unlocks={[
+    ['Entropy and collisions', '/token/entropy'],
+    ['API reference', '/token/api'],
+  ]}
+/>
+
+## Token's default alphabet
+
+A token instance draws from `DEFAULT_DICTIONARY` unless `dictionary` names
+another:
+
+```ts twoslash file=libs/token/README.md region=default-alphabet
+
 ```
 
-The lowercase alphanumerics without `i`, `l`, `o` and `w`, exported as
-`DEFAULT_DICTIONARY`.
-
-The first three go because they are read as `1`, `1` and `0`. `w` goes because
-it is the one English letter whose name is polysyllabic and contains another
-letter's name — "double-u" — which is what breaks it when a code is dictated.
-
-`1` and `0` survive their own groups because a code is as often typed as spoken,
+The default is the lowercase alphanumerics without `CONFUSABLE_CHARACTERS`,
+which are `i`, `l`, `o` and `w`. The first three go because they are read as
+`1`, `1` and `0`. The digits stay, because a code is as often typed as spoken,
 and a digit is unambiguous on a keypad.
 
-32 is even and free of case pairs, so
+Dropping those three leaves 33 characters, which is odd and does not divide
+256, so a fourth has to go. `w` is the one with an argument attached: its name,
+"double-u", contains another letter's name, and a dictated `w` gets written down
+as `u`.
+
+The size decides the rest. Below, `n` is a dictionary's number of characters,
+which an instance also reports as its `n` property. 32 is even, so
 `@evanion/luhn` can compute a check character over it, and it divides 256, so
 `byte % 32` draws every character with equal probability.
 
-## Supplying your own
+## Supply your own token alphabet
 
-Four constraints hold at once, and all four are checked by `createToken`:
+`createToken` checks four constraints on a `dictionary`, and all four hold at
+once:
 
-| Constraint                      | Enforced by     | Why                                    |
-| ------------------------------- | --------------- | -------------------------------------- |
-| no confusable characters        | this package    | `1`/`l`/`i` and `0`/`o` are the point  |
-| lowercase                       | this package    | input is case folded before it is read |
-| `256 % n === 0`                 | this package    | otherwise `byte % n` is biased         |
-| even size, no repeats, no pairs | `@evanion/luhn` | a check character has to be definable  |
+| Constraint                           | Enforced by      | Why                                                    |
+| ------------------------------------ | ---------------- | ------------------------------------------------------ |
+| no confusable characters             | `@evanion/token` | a reader confuses `1`, `l`, `i` and `0`, `o`           |
+| lowercase                            | `@evanion/token` | `validate` folds input to lowercase before it reads it |
+| `256 % n === 0`                      | `@evanion/token` | otherwise `byte % n` draws some characters more often  |
+| even size, no repeats, no case pairs | `@evanion/luhn`  | Luhn needs an even size and one index per character    |
 
-```ts
-createToken({ dictionary: '0123456789abcdefghijklmnopqrstuvwxyz' });
-// InvalidAlphabetError: Token dictionary must not contain characters that are
-// confused when read or heard; found: "i", "l", "o", "w".
-//   reason: 'confusable', offending: ['i', 'l', 'o', 'w']
+A case pair is a letter alongside its uppercase form, such as `a` and `A`, which
+case folding would turn into one character with two indexes. Over an odd-sized dictionary Luhn's
+doubling step maps two characters to the same value, and a substitution between
+them passes the check.
 
-createToken({ dictionary: '0123456789abcdefghjkmnpqrstuvx' });
-// InvalidAlphabetError: … must contain a number of code points that divides
-// 256 …; 30 does not.
-//   reason: 'non-uniform'
+The three constraints token owns throw `InvalidAlphabetError`. `refusal` below
+returns that error, or `undefined` when the dictionary is accepted:
 
-createToken({ dictionary: '0123456789ABCDEFGHJKMNPQRSTUVXYZ' });
-// InvalidAlphabetError: … must be lowercase, or case folding makes the entry
-// unreachable …
-//   reason: 'unfolded'
+```ts twoslash file=libs/token/README.md region=alphabet-errors
+
 ```
 
-`CONFUSABLE_CHARACTERS` is `'ilow'`, and it is matched without regard to case,
-so an uppercase `I` is rejected as confusable before the lowercase rule sees it.
+`reason` names the constraint: `'confusable'`, `'unfolded'` or `'non-uniform'`.
+`offending` lists the characters that broke it, and is empty for
+`'non-uniform'`, which is about the size. `CONFUSABLE_CHARACTERS` is matched
+without regard to case, so an uppercase `I` is refused as confusable before the
+lowercase rule reads it. Hexadecimal, `'0123456789abcdef'`, passes all four.
 
-The three reasons this package owns are `confusable`, `unfolded` and
-`non-uniform`, all on `InvalidAlphabetError`. A dictionary that fails one of
-Luhn's own constraints throws `InvalidDictionaryError` from `@evanion/luhn`,
-which does not extend `TokenError` — catch `Error` to cover both.
+### Catch a token alphabet error and a Luhn one
 
-## Why `256 % n === 0` is the one that is easy to miss
+`TokenError` is the base class of both token errors, `InvalidAlphabetError` and
+`InvalidShapeError`. A dictionary that fails one of Luhn's constraints throws
+`InvalidDictionaryError` from `@evanion/luhn`, which does not extend
+`TokenError`. Catch the two by name:
 
-`crypto.getRandomValues` yields 0–255, and `byte % n` over-represents the first
-`256 % n` characters. At n = 32 the division is exact and every character is
-equally likely.
+```ts twoslash file=libs/token/README.md region=catch-both
 
-Luhn's own 36-character default is not uniform — `256 % 36` is 4,
-over-representing its first four characters by about 14% — which is why this
-package does not adopt it, even though the check character itself would work
-fine.
+```
+
+The 36-character alphabet fails token's confusable rule. The 31-character one
+fails both Luhn's even-size rule and token's `256 % n` rule, and Luhn's error
+comes out, because `createToken` hands the dictionary to `@evanion/luhn` before
+it checks token's own three constraints.
+
+## Why token requires `256 % n === 0`
+
+`crypto.getRandomValues` yields bytes from 0 to 255, and `byte % n`
+over-represents the first `256 % n` characters. At `n = 32` the division is
+exact and every character is equally likely.
+
+`@evanion/luhn`'s own default dictionary, the 36 lowercase alphanumerics, is
+not uniform. `256 % 36` is 4, which over-represents its first four characters by
+14.3%, so token does not adopt it, even though a check character over it works.
 
 Rejection sampling is the alternative to constraining the alphabet: draw a byte,
-discard it if it lands in the biased tail, draw again. It is correct and it makes
-generation variable-time. The default alphabet shows the constraint is
-satisfiable, so this package constrains the alphabet instead.
+discard it if it lands in the biased tail, draw again. It is correct, and it
+makes generation take a variable time. The default alphabet shows the constraint
+is satisfiable, so token constrains the alphabet.
 
-## Order is part of the alphabet
+## Token alphabet order changes every check character
 
 The order of the dictionary decides which index each character occupies, and
 therefore every check character it produces. Two alphabets with the same
 characters in a different order are different alphabets, and a code minted under
-one does not validate under the other.
+one can fail the check under the other.
 
-Store the string as a constant. Do not sort it, deduplicate it or build it from
-a `Set` whose iteration order you have not pinned.
+Store the dictionary as a constant string and do not sort it.
 
-## A worked alternative
+## A hexadecimal token alphabet
 
-Hexadecimal passes all four constraints — 16 divides 256, it is even, lowercase,
-free of repeats and free of `i`, `l`, `o` and `w`:
+Hexadecimal is even, lowercase, free of repeats and of `i`, `l`, `o` and `w`,
+and 16 divides 256. A Baize gift card printed in hex:
 
-```ts
-const hex = createToken({ dictionary: '0123456789abcdef', length: 12 });
+```ts twoslash file=libs/token/README.md region=hex
 
-hex.n; // 16
-hex.entropyBits; // 44
-hex.generate();
-// { value: '3cfb-46ac-624f', body: '3cfb46ac624', check: 'f', prefix: undefined }
 ```
 
-The trade is four bits per character instead of five, so a hex code needs more
-characters for the same collision budget. Its advantage is that it reads as
-something people already recognise as an identifier.
+`hexCard.n` is 16, so a character carries four bits against five for the
+default. Its twelve characters hold eleven random ones and a check character,
+44 bits, where the default's eight carry 35. A hex code needs more characters to
+reach the same number of bits, and it reads as something people already
+recognise as an identifier.
 
-Sizes that divide 256 and are large enough to be useful: 16, 32, 64, 128. There
-are only 36 lowercase alphanumerics and four of them are confusable, so 32 is the
-largest alphabet reachable without punctuation — which would then collide with
-the separator. That is where the default sits.
-
-Every error names the constraint that failed, so call `createToken` once in a
-test rather than reasoning about all four at once.
+Sizes that divide 256 and are large enough to use are 16, 32, 64 and 128. There
+are 36 lowercase alphanumerics and four are confusable, so 32 is the largest
+alphabet reachable without punctuation, which would then collide with the
+separator. The default sits there.

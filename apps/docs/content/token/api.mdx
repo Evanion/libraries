@@ -1,152 +1,162 @@
 # API reference
 
-## `createToken(options?)`
+`@evanion/token` exports `createToken`, the types it takes and returns, five
+constants and three error classes, one heading each below. It needs Node 20 or
+newer and ships as ESM, which `require()` loads on Node 20.19, 22.12 or newer.
 
-```ts
-function createToken(options?: TokenOptions): Token;
-```
+<ApiFilter />
 
-Validates the options and returns a frozen `Token`.
+## `createToken`
 
-| Option       | Type     | Default              | Meaning                                             |
-| ------------ | -------- | -------------------- | --------------------------------------------------- |
-| `length`     | `number` | `8`                  | total characters, the check character included      |
-| `chunkSize`  | `number` | `4`                  | characters between separators; must divide `length` |
-| `separator`  | `string` | `'-'`                | between chunks, and after a prefix                  |
-| `dictionary` | `string` | `DEFAULT_DICTIONARY` | the alphabet                                        |
+<!-- reference @evanion/token#createToken example=instances -->
 
-Throws `InvalidAlphabetError` when the dictionary is confusable, not lowercase,
-or of a size that biases `byte % n`; `InvalidShapeError` when `length`,
-`chunkSize` and `separator` cannot describe a code; and
-`InvalidDictionaryError` from `@evanion/luhn` when the dictionary cannot carry a
-check character.
+## `Token`
 
-Everything is checked here, once. Nothing is checked at use, so an accepted
-instance cannot produce a code its own `validate` rejects.
+<!-- reference @evanion/token#Token example=hex -->
 
-`chunkSize` defaults to `4`, which does not divide every `length` — a `length`
-that is not a multiple of 4 has to name its own.
+`Token` is the frozen object `createToken` returns.
 
-## The returned object
+| Member                             | What it is                                                 |
+| ---------------------------------- | ---------------------------------------------------------- |
+| `generate`                         | mints a code; never retries and never checks for collision |
+| `validate`                         | reports whether a string is a well-formed code             |
+| `dictionary`                       | the alphabet, as configured                                |
+| `n`                                | the number of characters in the dictionary                 |
+| `length`, `chunkSize`, `separator` | the shape, as configured                                   |
+| `entropyBits`                      | `(length - 1) * log2(n)`, the random bits in one code      |
 
-```ts
-interface Token {
-  readonly dictionary: string;
-  readonly n: number;
-  readonly length: number;
-  readonly chunkSize: number;
-  readonly separator: string;
-  readonly entropyBits: number;
-  generate(options?: GenerateOptions): GenerateResult;
-  validate(input: string): ValidateResult;
-}
-```
+## `TokenOptions`
 
-`entropyBits` is `(length - 1) * log2(n)` — see
-[Entropy and collisions](/token/entropy).
+<!-- reference @evanion/token#TokenOptions example=spoken -->
 
-### `generate(options?)`
+| Option       | Default              | Constraint                                                                 |
+| ------------ | -------------------- | -------------------------------------------------------------------------- |
+| `length`     | `DEFAULT_LENGTH`     | an integer of at least 2, the check character included                     |
+| `chunkSize`  | `DEFAULT_CHUNK_SIZE` | an integer of at least 1 that divides `length`                             |
+| `separator`  | `DEFAULT_SEPARATOR`  | non-empty, and sharing no character with `dictionary`                      |
+| `dictionary` | `DEFAULT_DICTIONARY` | the four constraints under [`InvalidAlphabetError`](#invalidalphabeterror) |
 
-```ts
-interface GenerateOptions {
-  prefix?: string;
-}
+## `GenerateOptions`
 
-interface GenerateResult {
-  value: string; // the code as a person sees it
-  body: string; // the payload the check character was computed over
-  check: string; // the check character
-  prefix: string | undefined; // echoed from the call
-}
-```
+<!-- reference @evanion/token#GenerateOptions example=prefix -->
 
-Draws `length - 1` characters from `crypto.getRandomValues` and appends the check
-character. Never retries, never checks for collisions.
+`prefix` is not checked against the dictionary and is not part of the check
+character.
 
-The prefix is not validated against the alphabet and is not part of the
-checksum: it is written ahead of the code, separated by `separator`, and
-compared by literal string match.
+## `GenerateResult`
 
-### `validate(input)`
+<!-- reference @evanion/token#GenerateResult example=generate -->
 
-```ts
-type ValidateResult =
-  | { valid: true; body: string }
-  | { valid: false; reason: ValidateFailureReason };
+`value` is the chunked code, preceded by `prefix` and `separator` when a prefix
+is given. `body` is what to store and index on.
 
-type ValidateFailureReason =
-  'outside-alphabet' | 'wrong-length' | 'check-failed';
-```
+## `ValidateResult`
 
-Total and free of side effects. Separators are stripped and input is case-folded
-first, so a code typed without them, or grouped differently, still validates.
+<!-- reference @evanion/token#ValidateResult example=lookup -->
 
-The three checks run in the order listed and the first failure is reported. A
-prefix is not part of the code — `validate` reads a leading `ORD-` as three more
-characters of it, and its `o` is outside the alphabet.
+`validate` strips the separator and folds case before it checks, so `body` is
+the same string whatever grouping or case the input used.
 
-`body` on success is the code without its check character, case-folded: the
-string to look up.
+## `ValidToken`
 
-## Constants
+<!-- reference @evanion/token#ValidToken -->
 
-| Export                  | Value                                  |
-| ----------------------- | -------------------------------------- |
-| `DEFAULT_DICTIONARY`    | `'0123456789abcdefghjkmnpqrstuvxyz'`   |
-| `CONFUSABLE_CHARACTERS` | `'ilow'`, excluded from every alphabet |
-| `DEFAULT_LENGTH`        | `8`                                    |
-| `DEFAULT_CHUNK_SIZE`    | `4`                                    |
-| `DEFAULT_SEPARATOR`     | `'-'`                                  |
+`ValidToken` is the `valid: true` half of `ValidateResult`.
 
-## Types
+## `InvalidToken`
 
-`TokenOptions`, `GenerateOptions`, `GenerateResult`, `ValidateResult`,
-`ValidToken`, `InvalidToken`, `ValidateFailureReason`, `TokenShape`,
-`InvalidDictionaryReason`, `InvalidShapeReason`, and the `Token` interface
-above.
+<!-- reference @evanion/token#InvalidToken -->
 
-## Errors
+`InvalidToken` is the `valid: false` half of `ValidateResult`.
 
-### `TokenError`
+## `ValidateFailureReason`
 
-Base class for everything this package throws. All of them are raised by
-`createToken`: `generate` and `validate` are total, so an accepted configuration
-cannot fail at use.
+<!-- reference @evanion/token#ValidateFailureReason example=validate -->
 
-### `InvalidAlphabetError extends TokenError`
+`validate` checks in the order the union lists and reports the first failure. A
+prefix is not part of a code: `validate` reads a leading `ORD-` as three more
+characters, and its `o` is `outside-alphabet`.
 
-The three dictionary constraints this package owns.
+## `DEFAULT_DICTIONARY`
 
-| Property     | Meaning                                                                 |
-| ------------ | ----------------------------------------------------------------------- |
-| `reason`     | `'confusable'`, `'unfolded'` or `'non-uniform'`                         |
-| `dictionary` | the dictionary as supplied                                              |
-| `offending`  | the code points named; empty for `non-uniform`, which is about the size |
+<!-- reference @evanion/token#DEFAULT_DICTIONARY example=default-alphabet -->
 
-### `InvalidShapeError extends TokenError`
+## `CONFUSABLE_CHARACTERS`
 
-`length`, `chunkSize` or `separator` cannot describe a code.
+<!-- reference @evanion/token#CONFUSABLE_CHARACTERS -->
 
-| Property                           | Meaning                 |
-| ---------------------------------- | ----------------------- |
-| `reason`                           | which constraint failed |
-| `length`, `chunkSize`, `separator` | all three, as supplied  |
+`CONFUSABLE_CHARACTERS` is `'ilow'`. `createToken` refuses a dictionary holding
+any of the four, in either case.
 
-```ts
-type InvalidShapeReason =
-  | 'length' // not an integer, or below 2
-  | 'chunk-size' // not an integer, or below 1
-  | 'chunk-size-indivisible' // does not divide length
-  | 'separator-empty'
-  | 'separator-in-dictionary';
-```
+## `DEFAULT_LENGTH`
 
-It carries all three values rather than only the offending one, because the
-constraints are relations between them: the value that has to change is not
-always the value the `reason` names.
+<!-- reference @evanion/token#DEFAULT_LENGTH -->
 
-### From `@evanion/luhn`
+## `DEFAULT_CHUNK_SIZE`
 
-A dictionary that fails Luhn's own constraints — even size, no repeats, no case
-pairs — throws `InvalidDictionaryError`, which does not extend `TokenError`.
-Catch `Error` to cover both hierarchies, or catch the two by name.
+<!-- reference @evanion/token#DEFAULT_CHUNK_SIZE -->
+
+## `DEFAULT_SEPARATOR`
+
+<!-- reference @evanion/token#DEFAULT_SEPARATOR -->
+
+## `TokenError`
+
+<!-- reference @evanion/token#TokenError example=catch-both -->
+
+`InvalidAlphabetError` and `InvalidShapeError` extend `TokenError`.
+
+## `InvalidAlphabetError`
+
+<!-- reference @evanion/token#InvalidAlphabetError example=alphabet-errors -->
+
+| Property     | What it is                                                             |
+| ------------ | ---------------------------------------------------------------------- |
+| `reason`     | an `InvalidDictionaryReason`                                           |
+| `dictionary` | the dictionary as supplied                                             |
+| `offending`  | the characters named; empty for `non-uniform`, which is about the size |
+
+| Constraint                           | Thrown by                                       |
+| ------------------------------------ | ----------------------------------------------- |
+| no confusable characters             | `InvalidAlphabetError`, `reason: 'confusable'`  |
+| lowercase                            | `InvalidAlphabetError`, `reason: 'unfolded'`    |
+| `256 % n === 0`                      | `InvalidAlphabetError`, `reason: 'non-uniform'` |
+| even size, no repeats, no case pairs | `InvalidDictionaryError` from `@evanion/luhn`   |
+
+## `InvalidDictionaryReason`
+
+<!-- reference @evanion/token#InvalidDictionaryReason -->
+
+| `reason`      | The dictionary                               |
+| ------------- | -------------------------------------------- |
+| `confusable`  | holds a character of `CONFUSABLE_CHARACTERS` |
+| `unfolded`    | holds an uppercase character                 |
+| `non-uniform` | has a size that does not divide 256          |
+
+## `InvalidShapeError`
+
+<!-- reference @evanion/token#InvalidShapeError example=shape-errors -->
+
+| Property                           | What it is                               |
+| ---------------------------------- | ---------------------------------------- |
+| `reason`                           | an `InvalidShapeReason`                  |
+| `length`, `chunkSize`, `separator` | all three as resolved, defaults included |
+
+## `InvalidShapeReason`
+
+<!-- reference @evanion/token#InvalidShapeReason -->
+
+| `reason`                  | The shape                                        |
+| ------------------------- | ------------------------------------------------ |
+| `length`                  | `length` is not an integer, or is below 2        |
+| `chunk-size`              | `chunkSize` is not an integer, or is below 1     |
+| `chunk-size-indivisible`  | `chunkSize` does not divide `length`             |
+| `separator-empty`         | `separator` is the empty string                  |
+| `separator-in-dictionary` | `separator` shares a character with `dictionary` |
+
+## `TokenShape`
+
+<!-- reference @evanion/token#TokenShape -->
+
+`InvalidShapeError` takes a `TokenShape` and copies its three fields onto
+itself.

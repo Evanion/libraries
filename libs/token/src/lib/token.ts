@@ -10,14 +10,16 @@ import { InvalidAlphabetError, InvalidShapeError } from './exceptions.js';
  * 32 characters: the lowercase alphanumerics without `i`, `l`, `o` and `w`.
  *
  * The size is the constraint, and it comes first. 32 is even and free of case
- * pairs, so `@evanion/luhn` can compute a check character over it, and it
+ * pairs (a letter alongside its uppercase form), so `@evanion/luhn` can
+ * compute a check character over it, and it
  * divides 256, so `byte % 32` draws every character with equal probability.
  * Any other count either biases the draw or cannot carry a check character.
  *
  * That fixes how many characters leave: four. Three pick themselves, because
  * they are the pairs a person actually confuses — `i` and `l` read as `1`, and
- * `o` reads as `0`. In each pair the letter goes and the digit stays, since a
- * code is more often typed from a screen than dictated.
+ * `o` reads as `0`. In each pair the letter goes and the digit stays, because
+ * a code is as often typed as it is spoken, and a digit reads unambiguously on
+ * a keypad.
  *
  * `w` is the fourth, and it is the weakest of the four. Dropping only the
  * three leaves 33, which is odd and does not divide 256, so a fourth has to
@@ -37,10 +39,10 @@ export const DEFAULT_DICTIONARY = '0123456789abcdefghjkmnpqrstuvxyz';
  */
 export const CONFUSABLE_CHARACTERS = 'ilow';
 
-/** Total code points in a token, the check character included. */
+/** Total characters in a token, the check character included. */
 export const DEFAULT_LENGTH = 8;
 
-/** Code points between separators. Divides {@link DEFAULT_LENGTH} exactly. */
+/** Characters between separators. Divides {@link DEFAULT_LENGTH} exactly. */
 export const DEFAULT_CHUNK_SIZE = 4;
 
 /** Placed between chunks, and between a prefix and the code. */
@@ -50,16 +52,20 @@ export const DEFAULT_SEPARATOR = '-';
  * Types
  * ---------------------------------------------------------------------- */
 
+/**
+ * The shape and alphabet `createToken` builds a token from. Every field is
+ * optional, and `createToken` checks all four once, at construction.
+ */
 export interface TokenOptions {
   /**
-   * Total code points in the code, the check character included, so usable
+   * Total characters in the code, the check character included, so usable
    * entropy is `(length - 1) * log2(dictionary size)`.
    *
    * Defaults to {@link DEFAULT_LENGTH}.
    */
   length?: number;
   /**
-   * Code points between separators. Must divide `length`: a trailing chunk
+   * Characters between separators. Must divide `length`: a trailing chunk
    * shorter than the rest is the thing that is hard to read aloud.
    *
    * Set it equal to `length` for an unchunked code. Defaults to
@@ -69,14 +75,15 @@ export interface TokenOptions {
   chunkSize?: number;
   /**
    * Placed between chunks, and between a prefix and the code. Must share no
-   * code point with the dictionary, so that `validate` can strip it.
+   * character with the dictionary, so that `validate` can strip it.
    *
    * Defaults to {@link DEFAULT_SEPARATOR}.
    */
   separator?: string;
   /**
    * The alphabet. Must be free of confusable characters, lowercase, and of a
-   * size that both divides 256 and satisfies Luhn: even, no repeats.
+   * size that both divides 256 and satisfies Luhn: even, no repeats, no case
+   * pairs.
    *
    * Defaults to {@link DEFAULT_DICTIONARY}.
    */
@@ -87,7 +94,7 @@ export interface TokenOptions {
 export interface GenerateOptions {
   /**
    * Written ahead of the code, separated by `separator`, and left out of the
-   * checksum. Compared by literal string match, which is what a caller reading
+   * check character. Compared by literal string match, which is what a caller reading
    * `value.startsWith('ORD-')` expects.
    */
   prefix?: string;
@@ -99,7 +106,7 @@ export interface GenerateResult {
   value: string;
   /** The payload the check character was computed over, unchunked. */
   body: string;
-  /** The check character, one code point of the dictionary. */
+  /** The check character, one character of the dictionary. */
   check: string;
   /** Echoed from the call, `undefined` when none was given. */
   prefix: string | undefined;
@@ -107,11 +114,11 @@ export interface GenerateResult {
 
 /** Why a code is not well formed. */
 export type ValidateFailureReason =
-  /** A code point outside the dictionary, after separators are stripped. */
+  /** A character outside the dictionary, after separators are stripped. */
   | 'outside-alphabet'
-  /** The stripped code is not `length` code points long. */
+  /** The stripped code is not `length` characters long. */
   | 'wrong-length'
-  /** The last code point does not check out against the ones before it. */
+  /** The last character does not check out against the ones before it. */
   | 'check-failed';
 
 /** A code that is well formed. It does not follow that the code exists. */
@@ -127,12 +134,16 @@ export interface InvalidToken {
   reason: ValidateFailureReason;
 }
 
+/**
+ * What `validate` returns. Narrow on `valid`: `true` carries the `body` to look
+ * up, and `false` carries the `reason` the code failed first.
+ */
 export type ValidateResult = ValidToken | InvalidToken;
 
 /** A configuration with `generate` and `validate` bound to it. */
 export interface Token {
   readonly dictionary: string;
-  /** Code points in the dictionary. */
+  /** Characters in the dictionary. */
   readonly n: number;
   readonly length: number;
   readonly chunkSize: number;
@@ -241,8 +252,9 @@ const assertShape = (
  * Everything is checked here, once. Nothing is checked at use, so an accepted
  * instance cannot produce a code its own `validate` rejects.
  *
- * @throws {InvalidAlphabetError} when the dictionary is confusable, not
- * lowercase, or of a size that biases `byte % n`.
+ * @throws {InvalidAlphabetError} when the dictionary holds a character of
+ * {@link CONFUSABLE_CHARACTERS} or an uppercase one, or has a size that does
+ * not divide 256.
  * @throws {InvalidShapeError} when `length`, `chunkSize` and `separator`
  * cannot describe a code.
  * @throws {InvalidDictionaryError} from `@evanion/luhn`, when the dictionary

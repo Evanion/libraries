@@ -6,19 +6,9 @@ const codePointList = (offending: readonly string[]): string =>
  * `createToken`: `generate` and `validate` are total, so an accepted
  * configuration cannot fail at use.
  *
- * ```ts
- * try {
- *   createToken(options);
- * } catch (error) {
- *   if (error instanceof TokenError) {
- *     // the configuration is unusable
- *   }
- * }
- * ```
- *
  * A dictionary that fails one of Luhn's own constraints throws
  * `InvalidDictionaryError` from `@evanion/luhn` instead, which does not extend
- * this class. Catch `Error` to cover both.
+ * this class. Catch the two by name, or catch `Error` to cover both.
  */
 export class TokenError extends Error {
   constructor(message: string) {
@@ -27,7 +17,11 @@ export class TokenError extends Error {
   }
 }
 
-/** Which of token's own dictionary constraints the alphabet failed. */
+/**
+ * Which of token's own dictionary constraints the alphabet failed, as
+ * `InvalidAlphabetError` carries it. `InvalidDictionaryError` is
+ * `@evanion/luhn`'s class and carries Luhn's reasons, not these.
+ */
 export type InvalidDictionaryReason = 'confusable' | 'unfolded' | 'non-uniform';
 
 const dictionaryMessage = (
@@ -46,11 +40,12 @@ const dictionaryMessage = (
 };
 
 /**
- * Thrown by `createToken` for the dictionary constraints token owns:
- * legibility, reachability under case folding, and uniform sampling from a
- * random byte.
+ * Thrown by `createToken` for the dictionary constraints token owns: no
+ * character of `CONFUSABLE_CHARACTERS`, no uppercase character, which
+ * `validate` folds away before it looks one up, and a size that divides 256, so
+ * that `byte % n` draws every character equally often.
  *
- * The remaining constraints — even length, no duplicates, no case pairs — are
+ * The remaining constraints — even size, no repeats, no case pairs — are
  * Luhn's, and `@evanion/luhn` reports them as its own `InvalidDictionaryError`.
  *
  * One class carrying a `reason` rather than one class per constraint, so a
@@ -61,7 +56,7 @@ export class InvalidAlphabetError extends TokenError {
   readonly reason: InvalidDictionaryReason;
   readonly dictionary: string;
   /**
-   * The code points the constraint named, empty for `non-uniform`, which is a
+   * The characters the constraint named, empty for `non-uniform`, which is a
    * property of the dictionary's size rather than of any one character.
    */
   readonly offending: readonly string[];
@@ -105,7 +100,7 @@ const shapeMessage = (
   }
 };
 
-/** The three options that decide how a token is laid out, as supplied. */
+/** The three options that decide how a token is laid out, as resolved. */
 export interface TokenShape {
   length: number;
   chunkSize: number;

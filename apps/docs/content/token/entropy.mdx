@@ -1,31 +1,46 @@
 # Entropy and collisions
 
-`length` counts the check character, so usable entropy is
-`(length - 1) * log2(n)`. At the defaults — `length: 8`, `n: 32` — that is 35
-bits, and `entropyBits` reports it:
+To size `length` for the number of codes your shop will issue, read
+`entropyBits` on the instance `createToken` returns.
 
-```ts
-const token = createToken();
+<PageSheet
+  difficulty={2}
+  read={8}
+  hands={15}
+  requires={[['Generating and validating', '/token/usage']]}
+  unlocks={[['API reference', '/token/api']]}
+/>
 
-token.entropyBits; // 35
-createToken({ length: 12 }).entropyBits; // 55
-createToken({ length: 13, chunkSize: 13 }).entropyBits; // 60
+## Read token's entropy off an instance
+
+`length` counts the check character, so a code carries
+`(length - 1) * log2(n)` random bits, where `n` is the dictionary's size.
+`entropyBits` reports the figure:
+
+```ts twoslash file=libs/token/README.md region=entropy
+
 ```
 
-## Read it as a collision budget
+The default `length` of 8 and the default 32-character dictionary give 35 bits.
+A `length` of 12 gives 55. A `length` of 13 gives 60, and the example passes
+`chunkSize: 13` because `createToken` throws `InvalidShapeError` when
+`chunkSize` does not divide `length`, and the default of 4 does not divide 13.
 
-35 bits is 34,359,738,368 values. The birthday bound, not the size of the space,
-is what decides when two codes collide:
+## Read a token length as a collision budget
+
+35 bits is 34,359,738,368 values, and two codes collide long before they run
+out. At 35 bits, a collision is even odds after about 218,000 codes:
 
 | Issued codes | Chance at least two collide, at 35 bits |
 | ------------ | --------------------------------------- |
 | 10,000       | about 0.15%                             |
-| 100,000      | about 13%                               |
+| 100,000      | about 14%                               |
 | 218,000      | about 50%                               |
 | 1,000,000    | effectively certain                     |
 
-The 50% point is roughly `1.18 × sqrt(2^bits)`. Five more characters adds 25
-more bits, which moves it from 218,000 to about 1.3 billion:
+That figure is the birthday bound: the 50% point is roughly
+`1.18 × sqrt(2^bits)`. Five more characters add 25 more bits, which moves it
+from 218,000 to about 1.3 billion:
 
 | `length` | bits | 50% collision at |
 | -------- | ---- | ---------------- |
@@ -34,60 +49,60 @@ more bits, which moves it from 218,000 to about 1.3 billion:
 | 10       | 45   | 7,000,000        |
 | 13       | 60   | 1,300,000,000    |
 
-Pick `length` from the row above your expected volume, with room for the volume
-you will have in three years.
+A `length` of 6, 10 or 13 needs a `chunkSize` that divides it. 13 is prime, so
+its code is either one chunk of 13 or 13 chunks of one.
 
-## Uniqueness is a database constraint
+With a unique index on the orders table and a redraw on conflict, a collision
+costs one retry, so the 50% figure marks when retries begin. Size `length`
+against the chance that the next insert conflicts, which is the codes already
+issued divided by `2^bits`: at 218,000 codes and 35 bits, 1 in 158,000. Pick
+the smallest `length` that keeps that ratio as low as you want at the volume you
+expect in three years.
 
-`generate` never retries and never checks for collisions. It cannot: the package
-has no idea what you have issued.
+## Token uniqueness is a database constraint
 
-So put a unique index on the column, and handle the conflict:
+`generate` never retries and never checks for collisions, because the package
+does not know which codes you have issued. The orders table does. Put a unique
+index on `body` and draw again when the insert conflicts:
 
-```ts
-async function issue(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { value, body } = token.generate({ prefix: 'ORD' });
-    try {
-      await db.orders.insert({ code: body });
-      return value;
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-    }
-  }
-  throw new Error('could not allocate an order code');
-}
+```ts twoslash file=libs/token/README.md region=issue
+
 ```
 
-Index on `body`, not on `value`. `body` is the unchunked, prefix-free,
-case-folded form, and it is what `validate` hands back for a lookup — a caller
-who typed the code without its separators has to find the same row.
+`issued` stands in for the unique index, and `insertPickupCode` returns `false`
+where a database raises a unique violation. In your code, catch that violation
+and nothing else. `issuePickupCode` draws up to five times and then throws, so a
+table that has run out of codes raises an error.
 
-The retry loop belongs here because the database is the only participant that
-knows what has been issued.
+`body` is the unchunked, prefix-free, case-folded form, and `validate` hands it
+back for a lookup, so a customer who typed the code without its separators finds
+the same row.
 
-## This is not a guess-resistance budget
+## A token code does not resist guessing
 
-35 bits is not enough to stop an attacker enumerating codes. If the code is a
-capability — a password reset link, a download token, anything where knowing the
-string grants access — this is the wrong package. Use a 128-bit random value and
-do not make it human-readable, because nobody types it.
+35 bits is not enough to stop an attacker enumerating codes. If a code is a
+capability, such as a password reset link or a download token, where knowing
+the string grants access, `@evanion/token` is the wrong package. Use a 128-bit
+random value and do not make it readable, because nobody types it.
 
-What this package is for is a code a person handles: an order reference, a gift
-card, a support ticket, a table number. Those are looked up, not authorised, and
-the thing you are defending against is a transcription error.
+A token code is one a person handles: a pickup code, a support ticket. It is
+looked up, and what it defends against is a transcription error. The shop's
+counter hands an order over after it checks the customer's name as well as the
+pickup code.
 
-If a human-readable code does gate something, rate-limit the lookup and bind it
-to a second factor the guesser does not have — the email address it was issued
-to, for instance.
+If a readable code does gate something, such as a gift card's balance,
+rate-limit the lookup and bind it to a second factor the guesser does not have,
+such as the email address the code was sent to.
 
-## Shortening the code instead
+## Why a token code cannot be shorter
 
-Two ways to spend fewer characters for the same entropy, neither free:
+Two changes would carry the same entropy in fewer characters, and token makes
+neither:
 
-Raise `n`. 64 characters is 6 bits each instead of 5, but the alphabet rules
-forbid uppercase, which is where the extra 32 would have to come from.
-
-Drop the check character. `length: 8` with no check would be 40 bits rather than
-35, and a mistyped code would then cost a database lookup and an unhelpful "not
-found". There is no option to do it.
+- A 64-character dictionary. It carries 6 bits a character against 5, but
+  `createToken` refuses an uppercase character in a dictionary, because
+  `validate` folds case, and uppercase is where the extra 32 would come from.
+  32 is the largest alphanumeric dictionary it accepts.
+- No check character. `length: 8` with no check character would carry 40 bits
+  against 35, and a mistyped code would then cost a database lookup and a "not
+  found". `createToken` has no option to drop it.
