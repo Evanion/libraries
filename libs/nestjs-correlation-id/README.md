@@ -63,9 +63,11 @@ isolated. Two handlers awaiting at the same time each read their own:
 ```ts @import.meta.vitest
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
 
+// The configuration CorrelationModule.forRoot() fills in by default. In an
+// application Nest builds the service, and you inject it.
 const correlation = new CorrelationService({
   header: 'X-Correlation-Id',
-  generator: () => 'orders-0f3a2b',
+  generator: () => crypto.randomUUID(),
 });
 
 // A handler that awaits before it reads the id, as a database call would.
@@ -86,36 +88,39 @@ correlation.getCorrelationId(); // -> undefined
 
 <!-- #endregion concurrent -->
 
-Nest builds the service and the middleware for you. Built by hand over one
-request, this is what the handler reads and what it reads outside the context:
+Nest builds the service and the middleware for you. Built by hand, this is what
+a handler reads for a request that carries an id, for one that carries none, and
+outside any request:
 
-<!-- #region one-request -->
+<!-- #region middleware-by-hand -->
 
 ```ts @import.meta.vitest
 const config = { header: 'X-Correlation-Id', generator: () => 'orders-0f3a2b' };
 const correlation = new CorrelationService(config);
 const middleware = new CorrelationIdMiddleware(correlation, config);
 
-// Nest hands the middleware the adapter's own request and response. These two
+// Nest hands the middleware the adapter's own request and response. These
 // carry the three members it reads: the request headers, and getHeader and
 // setHeader on the response.
-const request = { headers: { 'x-correlation-id': 'storefront-4f1c9a' } };
 const response = { getHeader: () => undefined, setHeader: () => undefined };
+const handle = (headers: Record<string, string>) => {
+  let handled: string | undefined;
+  middleware.use({ headers } as never, response as never, () => {
+    handled = correlation.getCorrelationId();
+  });
+  return handled;
+};
 
-let handled: string | undefined;
-middleware.use(request as never, response as never, () => {
-  handled = correlation.getCorrelationId();
-});
-
-handled; // -> 'storefront-4f1c9a'
+handle({ 'x-correlation-id': 'storefront-4f1c9a' }); // -> 'storefront-4f1c9a'
+handle({}); // -> 'orders-0f3a2b'
 correlation.getCorrelationId(); // -> undefined
 ```
 
-<!-- #endregion one-request -->
+<!-- #endregion middleware-by-hand -->
 
-The caller's header is the id the handler sees, because it passed `validate`. The
-second line is the same service outside any context, where there is genuinely no
-correlation id.
+The caller's header is the id the handler sees, because it passed `validate`. A
+request with no header gets the generator's id. The last line is the same
+service outside any context, where there is no correlation id.
 
 Then forward the id on outgoing HTTP calls by passing `withCorrelation()` to
 `HttpModule.registerAsync`.
@@ -191,7 +196,7 @@ outside.data; // -> 'no id'
 `withCorrelation()` needs `CorrelationModule.forRoot()` to have been called
 somewhere in the application — it is a global module, so once in the root module
 is enough. Without it, Nest fails at boot with
-`Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)`.
+`Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
 
 ## Working outside a request
 
@@ -219,12 +224,12 @@ const worker = await NestFactory.createApplicationContext(
 );
 const correlation = worker.get(CorrelationService);
 
-const minted = correlation.run(correlation.generate(), () =>
+const generated = correlation.run(correlation.generate(), () =>
   correlation.getCorrelationId(),
 );
 
 let replaced: string | undefined;
-correlation.run('restock-7c41d2', () => {
+correlation.run('orders-0f3a2b', () => {
   correlation.setCorrelationId('storefront-4f1c9a');
   replaced = correlation.getCorrelationId();
 });
@@ -237,7 +242,7 @@ try {
 }
 await worker.close();
 
-minted; // -> 'restock-7c41d2'
+generated; // -> 'restock-7c41d2'
 replaced; // -> 'storefront-4f1c9a'
 refused; // -> 'setCorrelationId() was called outside a correlation context. Apply CorrelationIdMiddleware, or wrap the work in CorrelationService.run().'
 ```
@@ -284,9 +289,10 @@ when the request carried none, or carried one that was rejected. The id also
 goes out on the response under the configured header, in the configured casing.
 
 `validate` defaults to `DEFAULT_CORRELATION_ID_VALIDATOR`: 1 to 128 characters
-of `[\w.:-]`. An accepted id reaches a response header and the application's
-logs, both line-oriented sinks, so a validator that lets CR or LF through
-accepts response splitting and log forging. Widen it deliberately.
+of `[\w.:-]`. Node rejects a carriage return (CR) or line feed (LF) in a header
+in both directions, so over HTTP the CR and LF refusal never fires. It covers
+an id from another source, such as a queue message, that reaches your log lines,
+where a CR or LF forges a line. Widen it deliberately.
 
 <!-- #region validator -->
 
@@ -302,24 +308,41 @@ DEFAULT_CORRELATION_ID_VALIDATOR('a'.repeat(129)); // -> false
 
 <!-- #endregion validator -->
 
-The defaults `forRoot()` falls back to, and the injection tokens, are exported
-from the package root:
+The header `forRoot()` falls back to is exported from the package root:
 
-<!-- #region constants -->
+<!-- #region correlation-id-header -->
 
 ```ts @import.meta.vitest
-import {
-  CORRELATION_AXIOS_INTERCEPTOR,
-  CORRELATION_CONFIG_TOKEN,
-  CORRELATION_ID_HEADER,
-} from '@evanion/nestjs-correlation-id';
+import { CORRELATION_ID_HEADER } from '@evanion/nestjs-correlation-id';
 
 CORRELATION_ID_HEADER; // -> 'X-Correlation-Id'
+```
+
+<!-- #endregion correlation-id-header -->
+
+So is the token the resolved configuration is provided under:
+
+<!-- #region correlation-config-token -->
+
+```ts @import.meta.vitest
+import { CORRELATION_CONFIG_TOKEN } from '@evanion/nestjs-correlation-id';
+
 CORRELATION_CONFIG_TOKEN; // -> '@evanion/nestjs-correlation-id:CORRELATION_CONFIG'
+```
+
+<!-- #endregion correlation-config-token -->
+
+And the token of the provider `withCorrelation()` registers:
+
+<!-- #region correlation-axios-interceptor -->
+
+```ts @import.meta.vitest
+import { CORRELATION_AXIOS_INTERCEPTOR } from '@evanion/nestjs-correlation-id';
+
 CORRELATION_AXIOS_INTERCEPTOR; // -> '@evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR'
 ```
 
-<!-- #endregion constants -->
+<!-- #endregion correlation-axios-interceptor -->
 
 ## Adding `correlationId` to logs
 
@@ -381,8 +404,9 @@ Nest application.
 | **NestJS** | 12          |
 | **Node**   | 20 or newer |
 
-Ships ESM only, matching NestJS 12. There is no CommonJS build, so
-`require('@evanion/nestjs-correlation-id')` will not work — use `import`.
+Ships ESM only, matching NestJS 12. There is no CommonJS build. A CommonJS
+project loads it through `require()` on Node 20.19, 22.12 or newer, the same way
+it loads NestJS 12.
 
 One build means one module graph and one `CorrelationService` class object, so
 injecting by class token always resolves the provider the module registered.

@@ -4,56 +4,65 @@ To change the header, the id generator or the check an incoming id passes, pass
 a `Partial<CorrelationConfig>` to `CorrelationModule.forRoot()` in your root
 module.
 
+<PageSheet
+  difficulty={3}
+  read={5}
+  hands={10}
+  requires={[['Getting started', '/nestjs-correlation-id/getting-started']]}
+  unlocks={[['API reference', '/nestjs-correlation-id/api']]}
+/>
+
 | Field       | Default                            | What it does                                   |
 | ----------- | ---------------------------------- | ---------------------------------------------- |
 | `header`    | `'X-Correlation-Id'`               | read from the request, written to the response |
-| `generator` | `randomUUID` from `node:crypto`    | mints an id when none usable arrived           |
+| `generator` | `randomUUID` from `node:crypto`    | generates an id when none usable arrived       |
 | `validate`  | `DEFAULT_CORRELATION_ID_VALIDATOR` | decides whether an incoming id is reused       |
 
 ## Pass a configuration to CorrelationModule.forRoot
 
-Baize's services mint ids of the form `<service>-<6 hex digits>`, carry them in
-`X-Request-Id`, and accept only that shape back. The fence below builds the
-module `forRoot()` returns as a Nest application context, the modules with no
-HTTP server, and reads the resolved configuration back through
-`CORRELATION_CONFIG_TOKEN`:
+The configuration below sets all three fields for Baize's `orders` service. It
+generates ids of the form `<service>-<6 hex digits>`, carries them in
+`X-Request-Id`, and accepts only that shape back. `forRoot()` provides the
+resolved configuration under the injection token `CORRELATION_CONFIG_TOKEN`. The
+fence below builds the module on its own as a Nest application context, which
+starts no HTTP server, and reads the configuration back through that token:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=configure
 
 ```
 
 `forRoot()` fills in every field it is not given, so a provider that injects
-`CORRELATION_CONFIG_TOKEN` always gets a complete object. The last claim checks
-the generator against the validator: an id the service mints has to pass its
-own check when the next service sends it back.
+`CORRELATION_CONFIG_TOKEN` always gets a complete object. `CorrelationConfig`
+still types `validate` as optional, so the fence calls it with `?.`. The last
+line checks the generator against the validator: an id the service generates
+has to pass its own check when the next service sends it back.
 
 ## Choosing the correlation header
 
-No correlation header is registered with IANA, so there is no canonical spelling
-to defer to. `X-Correlation-Id` and `X-Request-Id` are the two in common use;
-pick the one the rest of your stack already sends.
+No correlation header is registered with the Internet Assigned Numbers
+Authority (IANA), so there is no canonical spelling to defer to.
+`X-Correlation-Id` and `X-Request-Id` are the two in common use; pick the one
+the rest of your stack already sends.
 
 The middleware matches the request header case-insensitively, because Node
 lowercases incoming header names. The casing you configure is the casing that
 goes out on the response and on calls through `withCorrelation()`.
-
-The middleware reads one header. It does not try a list of candidates.
 
 ## Choosing the id generator
 
 The middleware calls the generator only when no usable id arrived, so a counter-
 or sequence-backed generator is not advanced for an id that gets discarded.
 
-`randomUUID` produces 36 characters, and the default validator accepts up to 128. A generator that mints longer ids produces ids the same application
-rejects when they come back in as a header.
+`randomUUID` produces 36 characters, and the default validator accepts up to 128. Under the default validator, a generator that returns ids longer than 128
+characters produces ids the same application rejects when they come back in as
+a header.
 
 ## Validating an incoming correlation id
 
 An incoming id that passes `validate` goes into the response header and into
-whatever the application logs, so it is caller-controlled text in two
-line-oriented sinks. `DEFAULT_CORRELATION_ID_VALIDATOR` accepts 1 to 128 word
-characters, dots, colons and hyphens: a subset of the RFC 9110 token
-characters, plus the colon.
+whatever the application logs. `DEFAULT_CORRELATION_ID_VALIDATOR` accepts 1 to
+128 characters, each a letter from A to Z in either case, a digit, an underscore, a dot, a colon or a
+hyphen.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=validator
 
@@ -61,24 +70,27 @@ characters, plus the colon.
 
 What the default check refuses:
 
-- CR and LF fail, which keeps a header value from splitting a response or
-  forging a log line.
-- Anything over 128 characters fails, which bounds what one request can append
-  to every log line it touches.
-- A comma fails. Node joins a repeated request header into one comma-separated
-  string, and the middleware joins an array the same way, so two callers
-  disagreeing about the id get a fresh one.
+- A carriage return (CR) or a line feed (LF). Node already rejects both in a
+  header, incoming and outgoing. The check covers an id from another source,
+  such as a queue message, that reaches your log lines, where a CR or LF forges
+  a line.
+- Anything over 128 characters, which bounds what one request can append to
+  every log line it touches.
+- A comma. Node joins a repeated request header into one comma-separated string,
+  and the middleware joins an array the same way, so one request that carries
+  the header twice gets a fresh id.
 
-An id that fails is replaced by a generated one. The request's own header stays
-as it arrived, because the middleware writes the header only when none was
-there.
+An id that fails is replaced by a generated one, and `getCorrelationId()`
+returns the generated id. `req.headers` keeps the rejected value, because the
+middleware writes the request header only when the request carried none.
 
 ### Replacing DEFAULT_CORRELATION_ID_VALIDATOR
 
-Tightening `validate` to the exact shape your services mint is safe. Baize's
-`/^(storefront|orders|stock)-[0-9a-f]{6}$/` accepts no id the default refuses. A
-validator that accepts CR or LF accepts response splitting and log forging. One with no length bound lets a single
-request write an arbitrarily long string into every log line it touches.
+Tightening `validate` to the exact shape your services generate is safe.
+Baize's `/^(storefront|orders|stock)-[0-9a-f]{6}$/` accepts no id the default
+refuses. A validator that accepts CR or LF lets an id from a queue message forge
+a log line. One with no length bound lets a single request write an arbitrarily
+long string into every log line it touches.
 
 ## Calling CorrelationModule.forRoot once
 
@@ -90,3 +102,7 @@ every consuming module would import `CorrelationModule` itself.
 A second `forRoot()` registers a second configuration under the same token, and
 the last import wins. Nest raises no error and prints no warning, so if two
 feature modules each call it, the header one of them configured stops applying.
+
+There is no `forRootAsync()`. The configuration is a plain object, fixed when the
+root module is declared, so a value from the environment is read from
+`process.env` there.
