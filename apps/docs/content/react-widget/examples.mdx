@@ -1,233 +1,84 @@
-# Examples
+# Writing and checking items
 
-## A CMS-driven page
+`defineItems` types an item array you hold in a variable, `children` nests items
+under a widget, and `validateItems` checks a CMS payload before `Widgets`
+renders it.
 
-The case the package was built for: the component map is the contract between
-the CMS and the front end, `validateItems` is the gate at ingestion, and the
-page itself is a Server Component.
+## Type a react-widget item array held in a variable
 
-```tsx
-// widgets.ts
-import { createWidgets } from '@evanion/react-widget';
-import { Hero } from './blocks/hero';
-import { RichText } from './blocks/rich-text';
-import { ProductGrid } from './blocks/product-grid';
+An array written inline in `<Widgets items={…}>` is checked against the
+component map you passed to `createWidgets`. An array assigned to a variable is
+not: TypeScript widens each `type` to `string`, and `Widgets` refuses the array.
+`defineItems`, which `createWidgets` returns beside `Widgets`, takes the array
+and returns it unchanged, typed against the map:
 
-export const { Widgets, validateItems } = createWidgets({
-  components: { hero: Hero, richText: RichText, productGrid: ProductGrid },
-});
+```tsx twoslash file=libs/react-widget/README.md region=typed-items
+
 ```
 
-```tsx
-// app/[slug]/page.tsx
-import { Widgets } from '../widgets';
+`shelf` keeps `type: 'listing'`, so `Widgets` accepts it and renders Root at
+499 kr. The second call names `raffle`, which the map does not hold, and the
+compiler rejects it; `@ts-expect-error` marks the line where it does.
 
-export default async function Page({ params }: { params: { slug: string } }) {
-  const page = await cms.getPage(params.slug);
+`defineItems` checks each item's `props` against its component the same way. A
+`price` written as `'499'` is a compile error on the line that wrote it.
 
-  return <Widgets items={page.blocks} ctx={{ locale: page.locale }} />;
-}
+## Nest react-widget items under a widget
+
+An item's `children` are more items, and `Widgets` renders them as the parent
+component's `children`, inside the same chrome as every other widget:
+
+```tsx twoslash file=libs/react-widget/README.md region=nesting
+
 ```
 
-```ts
-// scripts/check-content.ts — run in CI, or on the CMS webhook
-import { validateItems } from '../widgets';
+`Shelf` declares `children`, so the `tonight` item may carry Hive under it.
+`ListingCard` declares none, so the compiler rejects `children` on the Azul item.
+Under such a widget the renderer drops nested items and logs nothing. A widget
+renders its nested items by rendering `children`, like any other React
+component.
 
-const problems = validateItems(await cms.getPage(slug).then((p) => p.blocks));
+## Check a CMS payload with react-widget's `validateItems`
 
-if (problems.length) {
-  for (const problem of problems) {
-    console.error(
-      `block ${problem.index} (${problem.type}): ${problem.message}`,
-    );
-  }
-  process.exit(1);
-}
+The compiler checks items you wrote. A payload parsed from a CMS is `unknown`,
+and `validateItems` is the check it gets at runtime. The standalone export takes
+the payload and a list of type names, so a CI script or a webhook imports no
+React component:
+
+```ts twoslash file=libs/react-widget/README.md region=validate-payload
+
 ```
 
-`page.blocks` arrives as `unknown` from the CMS, so nothing about it is checked
-at compile time. `validateItems` is the runtime check for that path.
+`validateItems` returns every problem and throws nothing. Exit non-zero in CI
+when the list is not empty. [What it reports](/widget/problems) lists every
+message and the payload that produces it.
 
-## A dashboard grid
+### The bound form, with required props
 
-`meta` carries placement; the widgets stay ignorant of where they sit.
+`createWidgets` returns a second `validateItems`, bound to the component map,
+so it takes no list of names. Its optional argument maps a widget type to the
+props that must be present and non-blank:
 
-```tsx
-import type { WidgetItemComponent } from '@evanion/react-widget';
+```tsx twoslash file=libs/react-widget/README.md region=validate-bound
 
-type GridMeta = { column: number; span?: number; row?: number };
-
-const GridCell: WidgetItemComponent<GridMeta> = ({
-  children,
-  meta,
-  ...rest
-}) => (
-  <div
-    {...rest}
-    style={{
-      gridColumn: `${meta?.column ?? 'auto'} / span ${meta?.span ?? 1}`,
-      gridRow: meta?.row,
-    }}
-  >
-    {children}
-  </div>
-);
-
-const { Widgets, defineItems } = createWidgets({
-  components: { stat: StatCard, chart: Chart, table: LedgerTable },
-  chrome: {
-    wrapper: ({ children }) => <div className="dashboard-grid">{children}</div>,
-    item: GridCell,
-    suspenseFallback: <div className="tile-skeleton" />,
-  },
-});
-
-const layout = defineItems([
-  {
-    id: 'revenue',
-    type: 'stat',
-    props: { title: 'Revenue', value: '$45,678', trend: '+8%' },
-    meta: { column: 1 },
-  },
-  {
-    id: 'users',
-    type: 'stat',
-    props: { title: 'Total users', value: '1,234', trend: '+12%' },
-    meta: { column: 2 },
-  },
-  {
-    id: 'trend',
-    type: 'chart',
-    props: { metric: 'revenue', window: '90d' },
-    meta: { column: 1, span: 2 },
-  },
-]);
 ```
 
-`meta: { colum: 1 }` does not compile, because `GridCell` is annotated with the
-vocabulary it reads. Without that annotation it would compile and the tile would
-land wherever the `?? 'auto'` fallback put it.
+`undefined`, `null` and a whitespace-only string all count as blank, so Root's
+title of one space is reported. `defineWidgets` returns the map it is handed, keys kept
+literal, so one map declared on its own feeds `createWidgets` and a standalone
+`validateItems` both.
 
-## Widgets that fetch their own data
+## What `Widgets` does with an item it cannot render
 
-A widget can be an async Server Component. It gets its own Suspense boundary by
-default, so a slow one does not hold up its siblings.
+`Widgets` never calls `validateItems`. It skips an item it cannot render, warns,
+and renders the rest of the region:
 
-```tsx
-async function AsyncReport({ reportId }: { reportId: string }) {
-  const rows = await db.report(reportId);
-  return <ReportTable rows={rows} />;
-}
+```tsx twoslash file=libs/react-widget/README.md region=skipped-item
 
-const { Widgets } = createWidgets({
-  components: { report: AsyncReport, stat: StatCard },
-  chrome: { suspenseFallback: <Skeleton /> },
-});
-
-<Widgets
-  items={[
-    { id: 'q3', type: 'report', props: { reportId: 'q3-2026' } },
-    { id: 'q4', type: 'report', props: { reportId: 'q4-2026' } },
-  ]}
-/>;
 ```
 
-Nothing about the widget changes to make this work. There is no loader, no
-registration step, and no `'use client'` anywhere in the chain.
-
-## Nesting
-
-Nested items become the parent's `children`:
-
-```tsx
-const Card = ({ title, children }: PropsWithChildren<{ title: string }>) => (
-  <section className="card">
-    <h3>{title}</h3>
-    {children}
-  </section>
-);
-
-const Text = ({ content }: { content: string }) => <p>{content}</p>;
-const Image = ({ src, alt }: { src: string; alt: string }) => (
-  <img src={src} alt={alt} />
-);
-
-const { Widgets } = createWidgets({
-  components: { card: Card, text: Text, image: Image },
-});
-
-<Widgets
-  items={[
-    {
-      id: 'c1',
-      type: 'card',
-      props: { title: 'My card' },
-      children: [
-        { id: 't1', type: 'text', props: { content: 'Nested text' } },
-        { id: 'i1', type: 'image', props: { src: '/x.jpg', alt: 'Nested' } },
-      ],
-    },
-  ]}
-/>;
-```
-
-`Text` and `Image` declare no `children`, so giving either one nested items is a
-compile error rather than a subtree that disappears at runtime.
-
-## One region, two presentations
-
-Per-instance `components` overrides let the same data render differently on
-different pages:
-
-```tsx
-const { Widgets } = createWidgets({ components: { listing: ListingCard } });
-
-function StorefrontPage() {
-  return (
-    <Widgets items={shelfItems} components={{ listing: FeaturedListing }} />
-  );
-}
-
-function BackOfficePage() {
-  return <Widgets items={shelfItems} />;
-}
-```
-
-`FeaturedListing` has to accept `ListingCard`'s props — the items were checked
-against the factory's map, and an override is a `Partial<C>`, so its entries are
-checked against the same component types.
-
-## A synchronous table
-
-A long region of widgets that never suspend should say so, or every row past the
-first chunk boundary is streamed out of order into a trailing `<div hidden>`:
-
-```tsx
-const { Widgets } = createWidgets({
-  components: { row: LedgerRow },
-  chrome: { suspense: 'none' },
-});
-```
-
-See [Suspense](/react-widget/advanced#suspense) for the measurements.
-
-## Mixed valid and invalid data
-
-The renderer is defensive, so a stale `type` in a payload costs one skipped item
-and one console warning rather than a blank page:
-
-```tsx
-const { Widgets } = createWidgets({ components: { valid: ValidWidget } });
-
-<Widgets
-  items={
-    [
-      { id: 'a', type: 'gone-in-v2', props: {} }, // skipped, warned once
-      { id: 'b', type: 'valid', props: { content: 'renders' } },
-    ] as never // only reachable from untyped data
-  }
-/>;
-```
-
-The `as never` is needed because that array does not typecheck against this
-map. It is what a JSON payload looks like after `JSON.parse`.
+The `raffle` item is gone and Root rendered. The development console reads
+`Unknown widget type "raffle" for widget ID "raffle". Skipping render.` once per
+process, so a stale type does not repeat on every render. Nothing is logged
+when `NODE_ENV` is `production`, which is why a check before the render is the
+one that fails a build.
