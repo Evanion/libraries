@@ -1,11 +1,13 @@
 # What validateItems reports
 
-To find everything wrong with a CMS payload before a renderer draws it, call
-`validateItems(items, known, required?)` once over the whole payload. It walks
-nested items too, throws nothing, and returns one `WidgetProblem` per fault.
+To find everything wrong with a content management system (CMS) payload before
+a renderer draws it, call `validateItems(items, known, required?)` once over
+the whole payload. It walks nested items too, throws nothing, and returns one
+`WidgetProblem` per fault.
 
 <PageSheet
-  read={6}
+  difficulty={3}
+  read={10}
   requires={[['Getting started', '/widget/getting-started']]}
   unlocks={[['API reference', '/widget/api']]}
 />
@@ -14,17 +16,20 @@ nested items too, throws nothing, and returns one `WidgetProblem` per fault.
 
 Getting started checked a listing page with one renamed type. The payload below
 has three faults, one of them in a nested item, and `validateItems` reports all
-three from one call. The `.map` keeps each problem's `message`:
+three from one call. The `.map` keeps each problem's `message`, so `problems`
+here is an array of strings:
 
 ```ts twoslash file=libs/widget/README.md region=sweep
 
 ```
 
-The first `root` has no `props`. The second `root` repeats the first one's `id`
-in the same sibling list. `tonight` is valid, and its one child `hive` names
-`listting`, which is not in `known`. The problems arrive in the order
-`validateItems` walked the items, and the child's comes last because the walk
-reaches `children` after the item that holds them.
+The first item, Root's listing, has no `props`. The second item repeats its
+`id`, `root`, in the same sibling list. `tonight` is valid, and its one child
+`hive` names `listting`, which is not in the list of known types.
+
+`validateItems` reports each item's problems before it walks that item's
+`children`, and it finishes the children before it moves to the next sibling.
+`hive`'s problem comes last here because `tonight` is the last top-level item.
 
 An `id` repeated at two depths is not reported. A renderer keys items per
 sibling list, so only two siblings sharing an `id` collide.
@@ -38,15 +43,15 @@ Each `WidgetProblem` in the array `validateItems` returns carries four fields.
 | `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list |
 | `id`      | the item's `id`, or `-` when the item has none that is a string                  |
 | `type`    | the item's `type`, or `-` when the item has none that is a string                |
-| `message` | one of the `VALIDATION_MESSAGES` strings                                         |
+| `message` | a string from the exported `VALIDATION_MESSAGES` object                          |
 
-`hive` in the payload above reports `index` 0, its position among its own
-siblings. That is the position a CMS editor sees in the section they opened.
+A child's `index` counts from its own parent: `hive`, the only child of
+`tonight`, reports `index: 0`. That is the position a CMS editor sees inside the
+shelf they opened.
 
 ## The messages validateItems returns
 
-`VALIDATION_MESSAGES` exports every string `validateItems` reports, so a caller
-can group, count or translate a report without matching on prose.
+`VALIDATION_MESSAGES` holds every string `validateItems` reports.
 
 | Constant           | Message                     | What produced it                                         |
 | ------------------ | --------------------------- | -------------------------------------------------------- |
@@ -60,38 +65,40 @@ can group, count or translate a report without matching on prose.
 | `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`        |
 | `MISSING_FIELD`    | `missing field <name>`      | a prop `required` demands is absent or blank             |
 
-`MISSING_FIELD` is a function of the field name, so an editor who reads
+Compare a problem's `message` against these constants to group, count or
+translate a report. `MISSING_FIELD` is a function of the field name, so compare
+against `VALIDATION_MESSAGES.MISSING_FIELD('title')`. A CMS editor who reads
 `missing field title` knows which box to fill.
 
-`INVALID_PROPS` fires on an item that left `props` out entirely. A payload
-written against a flat item shape puts the data beside `id` and `type`, where no
-renderer reads it, and a renderer draws that item as an empty widget and logs
-nothing.
+`INVALID_PROPS` also fires on `{ id: 'root', type: 'listing', title: 'Root' }`.
+Both renderers read a widget's data only from `props`, so they draw that item
+empty and print nothing.
 
 ## Required props, and what blank means
 
 `validateItems` takes an optional third argument, `required`, which maps a
 widget type to the props that must be present and not blank. Blank is
-`undefined`, `null`, or a string of whitespace, which is what a CMS text field
-arrives as when an editor opened it and typed nothing:
+`undefined`, `null`, an empty string, or a string of only whitespace. A CMS
+text field arrives blank when an editor opened it and typed nothing:
 
 ```ts twoslash file=libs/widget/README.md region=required
 
 ```
 
-`title` is present and is a string, so a presence check passes it, and the
-listing renders with no name on it.
+`title` is present and is a string. A check for presence alone would pass it
+and render a listing with no name, so `validateItems` also rejects a blank
+value.
 
-Two limits apply to `required`. Its keys are plain strings with no link to the
-registry, so a misspelled widget type there is an entry nothing reads, and
-TypeScript reports nothing. An item whose `type` is unknown is reported once,
-as `unknown widget type`, and its required props are not checked.
+Two limits apply to `required`. Its keys are plain strings, which TypeScript
+does not check against your widget types. A misspelled type there is an entry
+nothing reads. An item whose `type` is unknown is reported once, as
+`unknown widget type`, and its required props are not checked.
 
 ## Check against the registry a renderer draws from
 
 `known`, the second argument to `validateItems`, takes a registry as well as a
 plain array of type names. Passing the registry your renderer draws from keeps
-the check and the renderer agreeing on which types exist. `defineWidgets` builds
+the check and the renderer agreeing on which types exist. `defineWidgets` types
 it:
 
 ```ts twoslash file=libs/widget/README.md region=registry
@@ -99,35 +106,48 @@ it:
 ```
 
 `defineWidgets` returns the object it was handed. Its generic parameter keeps
-the keys `listing` and `shelf` as a union, which an editor completes on.
-Annotating the object as `WidgetRegistry` widens the keys to `string`.
+the keys `listing` and `shelf` as a union, which a code editor completes on.
+`WidgetRegistry` is the type of any registry, and annotating the object as
+`WidgetRegistry` widens the keys to `string`. `validateItems` reads the keys and
+never calls a value, so a continuous integration (CI) job with no components to
+import passes a plain array of names.
 
-`validateItems` reads the keys and never calls a value, so a CI job with no
-components to import passes a plain array of names.
-
-A type matches only an own key of the registry, checked with
-`Object.prototype.hasOwnProperty`. An item typed `constructor`, `toString` or
-`__proto__` is reported as `unknown widget type`, where `in` or a bare index
-would find a function on `Object.prototype` and let it pass. Both renderers
-apply the same rule in their own lookups.
+A type matches only a key set on the registry object itself, which
+`validateItems` checks with `Object.prototype.hasOwnProperty`. An item typed
+`constructor`, `toString` or `__proto__` is therefore reported as
+`unknown widget type`. A lookup with `in` or a bare index finds a function
+inherited from `Object.prototype` and lets the item pass. Both renderers look
+up types the same way.
 
 ## What a widget renderer prints when validateItems never ran
 
 A renderer that meets a `type` it has no component for skips the item and
-warns. `ERROR_MESSAGES` holds the warning text, so React and Astro print the
-same line for the same item:
+warns. `ERROR_MESSAGES` holds that warning text, which is separate from the
+`VALIDATION_MESSAGES` that `validateItems` returns. Both renderers print from
+`ERROR_MESSAGES`, so the same item gets the same line from either one:
 
 ```ts twoslash file=libs/widget/README.md region=warning
 
 ```
 
-Searching a renderer's source for that sentence finds nothing, because
-`@evanion/widget` builds it.
+`@evanion/widget` builds that sentence, so search the core's `ERROR_MESSAGES`
+for it. A renderer passes the sentence to `warnOnce`, which prints each
+distinct message once per process and prints nothing when `NODE_ENV` is
+`production`.
 
-`warnOnce` prints each distinct message once per process, and prints nothing
-when `NODE_ENV` is `production`. The renderer below is the smallest one written
-against it. It draws a listing as a line of text and skips an item whose type it
-cannot draw:
+## Print the widget warning from a renderer of your own
+
+A renderer of your own prints the same warning by passing an `ERROR_MESSAGES`
+string to `warnOnce`. The renderer below draws a listing as a line of text and
+skips an item whose type it cannot draw:
+
+- `Listing` is `AnyWidgetItem<string, { title?: string }>`: an item whose
+  `type` is any string and whose `props` may carry a `title`.
+- `WidgetRegistry<T>` maps each type to a `T`, here a function from props to a
+  line of text.
+- `resetWarnings` clears the set of messages `warnOnce` has printed. A
+  renderer's tests call it before each case, so one case's warning cannot
+  silence the next.
 
 ```ts twoslash file=libs/widget/README.md region=renderer
 
@@ -136,6 +156,5 @@ cannot draw:
 Both calls return Root's line only, so Hive's listing is missing from the page.
 The first call prints `Unknown widget type "listting" for widget ID "hive".
 Skipping render.` and the second prints nothing. With `NODE_ENV` set to
-`production` neither call prints, and only `validateItems` would have caught
-the missing listing. `resetWarnings` clears the printed set, and a renderer's tests call it before
-each case so that one case's warning cannot silence the next.
+`production` neither call prints, and only a `validateItems` call reports the
+missing listing.
