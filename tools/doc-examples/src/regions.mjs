@@ -37,6 +37,19 @@
  *     <button disabled={!mayOrder}>Place the order</button>
  *     {/* #endregion checkout-gate *\/}
  *
+ * A whole component is the one region no marker can open, because nothing may
+ * stand above the frontmatter's opening `---`. So a region whose marker is the
+ * first line inside that fence starts at the fence, and the block shows the
+ * file from its first line:
+ *
+ *     ---
+ *     // #region listing-header
+ *     const { title } = Astro.props;
+ *     ---
+ *
+ *     <h1>{title}</h1>
+ *     {/* #endregion listing-header *\/}
+ *
  * The extracted block is executed, because the file it comes from is executed —
  * the docs app inherits that guarantee rather than adding one.
  */
@@ -90,6 +103,14 @@ function body(lines) {
   return trimmed.map((line) => line.slice(width)).join('\n');
 }
 
+/**
+ * Whether the marker at `index` is the first line inside an `.astro` file's
+ * frontmatter, which makes the region start at the fence above it.
+ */
+function opensFrontmatter(lines, index, file) {
+  return file.endsWith('.astro') && index === 1 && lines[0].trim() === '---';
+}
+
 /** The Shiki language a source file's regions render as. */
 function sourceLang(file) {
   if (file.endsWith('.astro')) return 'astro';
@@ -109,8 +130,9 @@ function parseSourceRegions(source, file) {
 
   let open = null;
   let lines = [];
+  const all = source.split('\n');
 
-  source.split('\n').forEach((line, index) => {
+  all.forEach((line, index) => {
     const start = line.match(SOURCE_REGION);
     if (start) {
       if (open) {
@@ -119,7 +141,7 @@ function parseSourceRegions(source, file) {
         );
       }
       open = { name: start[1], at: index + 1 };
-      lines = [];
+      lines = opensFrontmatter(all, index, file) ? [all[0]] : [];
       return;
     }
 

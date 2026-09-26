@@ -179,6 +179,54 @@ widen(draft).price;`);
     ).toBe('<button disabled={!mayOrder}>Place the order</button>');
   });
 
+  it('starts a region opened on the frontmatter first line at the fence', () => {
+    const component = [
+      '---',
+      '// #region listing-header',
+      'const { title } = Astro.props;',
+      '---',
+      '',
+      '<h1>{title}</h1>',
+      '{/* #endregion listing-header */}',
+    ].join('\n');
+
+    expect(
+      parseRegions(component, 'ListingHeader.astro').get('listing-header')
+        ?.code,
+    ).toBe(
+      [
+        '---',
+        'const { title } = Astro.props;',
+        '---',
+        '',
+        '<h1>{title}</h1>',
+      ].join('\n'),
+    );
+  });
+
+  it('leaves a region opened lower in the frontmatter where it opened', () => {
+    const component = [
+      '---',
+      "import Widgets from './Widgets.astro';",
+      '// #region props',
+      'const { title } = Astro.props;',
+      '// #endregion props',
+      '---',
+    ].join('\n');
+
+    expect(parseRegions(component, 'Header.astro').get('props')?.code).toBe(
+      'const { title } = Astro.props;',
+    );
+  });
+
+  it('adds no fence to a region on the second line of a .ts source', () => {
+    const source = ['---', '// #region x', 'a();', '// #endregion x'].join(
+      '\n',
+    );
+
+    expect(parseRegions(source, 'a.ts').get('x')?.code).toBe('a();');
+  });
+
   it('ignores an HTML comment marker in a source file', () => {
     const html = ['<!-- #region x -->', 'a();', '<!-- #endregion x -->'].join(
       '\n',
