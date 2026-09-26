@@ -54,7 +54,8 @@ const ABANDONED = /\b(post|comment|invoice|article|blog)s?\b/gi;
  * Two spellings that are not domain objects and never will be.
  *
  * `<article>` is an HTML element, and it is the correct element for a card;
- * `method="post"` is an HTTP verb. Both are permanent, both would otherwise
+ * `method="post"` is an HTTP verb, and so is the `'POST'` a handler compares
+ * `request.method` against. Both are permanent, both would otherwise
  * make this guard fail forever on a page that has nothing left to rename, and
  * the fix it would push a writer towards -- a `<div>` where the markup wants a
  * landmark -- is worse than the thing it is guarding against.
@@ -64,7 +65,7 @@ const ABANDONED = /\b(post|comment|invoice|article|blog)s?\b/gi;
  */
 const NOT_A_DOMAIN_OBJECT = [
   /<\/?article\b/gi,
-  /\bmethod\s*[=:]\s*['"]?post['"]?/gi,
+  /\bmethod\s*(?:[!=]==?|[=:])\s*['"]?post['"]?/gi,
 ];
 
 const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
