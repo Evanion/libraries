@@ -1,15 +1,8 @@
 # API reference
 
-Everything `@evanion/widget` exports, one heading per symbol. Nothing here
-assumes you have read the pages before it;
-[Getting started](/widget/getting-started) teaches the item shape and
-[What it reports](/widget/problems) carries the message catalogue, and this
-page links to them rather than teaching either again.
-
-Both renderers re-export every symbol on this page except `warnOnce` and
-`resetWarnings`, and each pins `@evanion/widget` exactly, so the names below
-reach an `@evanion/react-widget` or `@evanion/astro-widget` consumer from that
-package's own entry point.
+Everything `@evanion/widget` exports, one heading per symbol. Both renderers
+re-export every symbol here except `warnOnce` and `resetWarnings`, so a
+renderer's users import these names from the renderer.
 
 ## `defineWidgets`
 
@@ -24,8 +17,8 @@ Returns the registry it was handed, typed as the literal object passed in.
 ```
 
 The generic parameter is the whole job. Annotating the same object as
-`WidgetRegistry` widens its keys to `string`, which takes away the key union an
-editor completes on and the union a renderer types a component against. It has
+`WidgetRegistry` widens its keys to `string`, which takes away the key union a
+code editor completes on and the union a renderer types a component against. It has
 no effect on `validateItems`, whose `required` map is keyed by plain strings.
 
 ## `validateItems`
@@ -74,10 +67,11 @@ then hydrates. Every string in `ERROR_MESSAGES` carries the offending item's
 `type` and `id`, which is what makes the text a usable key: each bad item is
 reported once, and a second bad item is still reported.
 
-This is the seam between the core and a renderer. A consumer has no reason to
-call it, neither renderer re-exports it, and no example on this page runs it,
-because an example that proved the second call stayed quiet would be a test
-rather than something to copy.
+This is the seam between the core and a renderer. A project that draws through
+a published renderer has no reason to call it, and neither renderer re-exports
+it.
+[Print the widget warning from a renderer of your own](/widget/problems#print-the-widget-warning-from-a-renderer-of-your-own)
+runs a minimal renderer that calls it.
 
 ## `resetWarnings`
 
@@ -88,10 +82,10 @@ function resetWarnings(): void;
 Clears the set of messages `warnOnce` has already written. A set that lives as
 long as the process is what a dev server wants and what a test file cannot
 have, since one case's warning would silence the next case that produces the
-same message. Each renderer's test setup calls this before every test. It
-carries no example for the reason `warnOnce` carries none: what an example
-would show is a second call staying quiet, and that is an assertion rather than
-a line to copy.
+same message. Each renderer's test setup calls this before every test, and the
+renderer on
+[What it reports](/widget/problems#print-the-widget-warning-from-a-renderer-of-your-own)
+calls it before its first render.
 
 ## `ERROR_MESSAGES`
 
@@ -102,20 +96,19 @@ same way whether React or Astro drew the page.
 
 ```
 
-| Key                  | Shape                  | Warned when                                            |
-| -------------------- | ---------------------- | ------------------------------------------------------ |
-| `UNKNOWN_WIDGET`     | `(type, id) => string` | an item's type is not a key of the registry            |
-| `MALFORMED_ITEMS`    | `string`               | the `items` prop is not an array                       |
-| `MALFORMED_ITEM`     | `(id, type) => string` | an entry is not an object, or carries no usable `type` |
-| `MALFORMED_CHILDREN` | `(id) => string`       | an item's `children` is present and is not an array    |
-| `UNKNOWN`            | `'unknown'`            | the stand-in a message uses for an id or type it lacks |
+| Key                  | Shape                  | Warned when                                            | Printed by                                                                             |
+| -------------------- | ---------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `UNKNOWN_WIDGET`     | `(type, id) => string` | an item's type is not a key of the registry            | both renderers                                                                         |
+| `MALFORMED_ITEMS`    | `string`               | the `items` prop is not an array                       | both renderers                                                                         |
+| `MALFORMED_ITEM`     | `(id, type) => string` | an entry is not an object, or carries no usable `type` | `@evanion/react-widget`; `@evanion/astro-widget` prints `UNKNOWN_WIDGET` for this item |
+| `MALFORMED_CHILDREN` | `(id) => string`       | an item's `children` is present and is not an array    | `@evanion/react-widget`; an Astro widget receives `children` as data                   |
+| `UNKNOWN`            | `'unknown'`            | the stand-in a message uses for an id or type it lacks | `@evanion/astro-widget`, inside `UNKNOWN_WIDGET`                                       |
 
 ## `VALIDATION_MESSAGES`
 
-The text `validateItems` reports. Exported so a caller can group, count or
-translate a report without matching on prose, and so a test asserts against the
-same strings the library emits. Every key and the payload that produces it is
-on [What it reports](/widget/problems).
+The text `validateItems` reports. Compare a problem's `message` against these
+to group, count or translate a report, and assert against them in a test. Every
+key and what produces it is on [What it reports](/widget/problems).
 
 `MISSING_FIELD` is `(field: string) => string`; the other eight are plain
 strings.
@@ -132,10 +125,12 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
 }
 ```
 
-One item, in the loose form data takes before a registry exists: a CMS payload,
-a fixture, a network response. This is the whole item model, and every renderer
-draws exactly this. A renderer that can type its components against a registry
-offers a checked counterpart, and [`@evanion/react-widget`](/react-widget)'s
+One item, in the loose form data takes before a registry exists: a content
+management system payload, a fixture, a network response. This is the whole
+item model, and every renderer draws exactly this.
+[The Overview](/widget#how-a-widget-item-array-describes-a-page) walks through
+each field. A renderer that can type its components against a registry offers a
+checked counterpart, and [`@evanion/react-widget`](/react-widget)'s
 `WidgetItem<C>` widens to this one.
 
 ```ts twoslash file=libs/widget/README.md region=shape
@@ -162,9 +157,11 @@ factory's reach, so `validateItems` covers that ground at build time.
 type WidgetMeta = Record<string, unknown>;
 ```
 
-The `meta` vocabulary of a widget set whose chrome declares none. Any object,
-so an item carries whatever placement data it likes and a chrome that reads
-`meta` narrows it by hand.
+The `meta` vocabulary of a widget set whose item wrapper declares none. The item
+wrapper is the element a renderer draws around each item, `chrome.item` in
+`@evanion/react-widget`. `WidgetMeta` accepts any object, so an item carries
+whatever placement data it likes and a wrapper that reads `meta` narrows it by
+hand.
 
 ## `WidgetProblem`
 
@@ -189,5 +186,5 @@ type KnownWidgetTypes = WidgetRegistry | readonly string[];
 ```
 
 The set of widget types a payload may use. A plain list of names is accepted
-beside a registry so that a webhook handler or a CI script validates a payload
+beside a registry so that a webhook handler or a continuous integration script validates a payload
 without importing the components it will never draw.

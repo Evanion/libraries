@@ -50,9 +50,6 @@ problems; // -> []
 
 <!-- #endregion shape -->
 
-The same array renders through every adapter and produces the same sequence of
-widgets.
-
 ## Why this package exists
 
 Two renderers held two copies of these rules under two vocabularies, and the
@@ -159,13 +156,28 @@ so a caller can print all of them at once.
 
 ```ts @import.meta.vitest
 import { validateItems } from '@evanion/widget';
+import type { AnyWidgetItem } from '@evanion/widget';
 
-const problems = validateItems(
-  [{ id: 'root', type: 'listting', props: { title: 'Root' } }],
-  ['listing', 'shelf'],
-);
+// The listing page as the CMS saved it, after the shelf's type was renamed.
+const page: AnyWidgetItem[] = [
+  {
+    id: 'brass-birmingham',
+    type: 'listing',
+    props: { title: 'Brass: Birmingham', complexity: 4 },
+  },
+  {
+    id: 'tonight',
+    type: 'featured-shelf',
+    props: { heading: 'On the table tonight' },
+  },
+];
 
-problems; // -> [{ index: 0, id: 'root', type: 'listting', message: 'unknown widget type' }]
+// The widget types the shop's renderer has a component for.
+const known = ['listing', 'shelf'];
+
+const problems = validateItems(page, known);
+
+problems; // -> [{ index: 1, id: 'tonight', type: 'featured-shelf', message: 'unknown widget type' }]
 ```
 
 <!-- #endregion unknown -->
@@ -258,6 +270,55 @@ warning; // -> 'Unknown widget type "listting" for widget ID "root". Skipping re
 when `NODE_ENV` is `production`. Every message carries the offending item's
 `type` and `id`, which is what makes the text a usable key: a second bad item
 is still reported.
+
+A renderer of your own reaches the same seam. This one draws each listing as a
+line of text, skips the item whose type it cannot draw, and warns about it on
+the first render only:
+
+<!-- #region renderer -->
+
+```ts @import.meta.vitest
+import { ERROR_MESSAGES, resetWarnings, warnOnce } from '@evanion/widget';
+import type { AnyWidgetItem, WidgetRegistry } from '@evanion/widget';
+
+type Listing = AnyWidgetItem<string, { title?: string }>;
+
+const registry: WidgetRegistry<(props: { title?: string }) => string> = {
+  listing: (props) => `Listing: ${props.title}`,
+};
+
+function render(items: Listing[]): string[] {
+  return items.flatMap((item) => {
+    // An own key only: a CMS type of `constructor` is unknown.
+    const draw = Object.prototype.hasOwnProperty.call(registry, item.type)
+      ? registry[item.type]
+      : undefined;
+
+    if (draw === undefined) {
+      warnOnce(ERROR_MESSAGES.UNKNOWN_WIDGET(item.type, item.id));
+      return [];
+    }
+    return [draw(item.props)];
+  });
+}
+
+// The set of printed messages lives as long as the process, so a renderer's
+// tests clear it before each case.
+resetWarnings();
+
+const page: Listing[] = [
+  { id: 'root', type: 'listing', props: { title: 'Root' } },
+  { id: 'hive', type: 'listting', props: { title: 'Hive' } },
+];
+
+render(page); // -> ['Listing: Root']
+render(page); // -> ['Listing: Root']
+```
+
+<!-- #endregion renderer -->
+
+The first `render` prints `Unknown widget type "listting" for widget ID "hive".
+Skipping render.` and the second prints nothing.
 
 ## Exports
 
