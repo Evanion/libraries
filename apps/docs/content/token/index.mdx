@@ -1,8 +1,17 @@
 # @evanion/token
 
-A pickup code read over the phone gets misheard, and the shop queries its order
-table for a code nobody issued. `createToken` mints codes without the misheard
-characters and refuses a mistyped one before the query.
+A pickup code read over the phone gets misheard, and the counter reports "no
+such order" for a code nobody issued. `createToken` builds an instance whose
+codes avoid misread characters and whose `validate` refuses a mistyped code.
+
+<PageSheet
+  difficulty={1}
+  read={4}
+  unlocks={[
+    ['Getting started', '/token/getting-started'],
+    ['Generating and validating', '/token/usage'],
+  ]}
+/>
 
 ## How token checks a pickup code
 
@@ -27,14 +36,18 @@ Every later token page uses these six words.
 - A **code** is the string a person reads, such as `a4kp-9mxa`.
 - The **body** is the code's random characters, `a4kp9mx`, without separators
   or check character. The shop stores and indexes on it.
-- The **check character** is the last character of a code. `@evanion/luhn`
-  computes it from the body, and every code carries one.
+- The **check character** is the last character of a code. `@evanion/luhn`, a
+  dependency that installs with token, computes it from the body with the Luhn
+  algorithm, the check-digit scheme on a credit card number.
 - The **dictionary** is the alphabet a code draws from. The default holds 32
-  characters and leaves out `i`, `l`, `o` and `w`.
+  characters. It leaves out `i`, `l` and `o`, which are misread as `1` and `0`,
+  and `w`, whose spoken name "double-u" gets written down as `u`. The check
+  character catches the mistakes the dictionary cannot remove, such as `a`
+  heard as `8`.
 - A **chunk** is a group of characters between two separators. The default is
   four characters, separated by a hyphen.
-- A **prefix**, such as `ORD`, is written ahead of a code and sits outside the
-  check.
+- A **prefix**, such as `ORD`, is written ahead of a code, and the check
+  character does not cover it.
 
 ## What token can do
 
@@ -45,8 +58,8 @@ Every later token page uses these six words.
 | accept a code typed without hyphens or in capitals | `validate`, which strips separators and folds case first    |
 | mark a code as an order's                          | `generate({ prefix: 'ORD' })`                               |
 | set the length, the chunk size or the separator    | `createToken({ length, chunkSize, separator })`             |
-| draw from your own alphabet                        | `createToken({ dictionary })`, checked once at construction |
-| size a code for the number you will issue          | `entropyBits`, the random bits in one code                  |
+| draw from your own alphabet                        | `createToken({ dictionary })`, which checks the alphabet    |
+| size a code for the number you will issue          | `entropyBits`, the instance's count of random bits per code |
 
 ## What token does not do
 
@@ -57,9 +70,10 @@ Every later token page uses these six words.
 - It does not make a credential. A default code carries 35 random bits, which an
   attacker can enumerate. A password reset link wants a 128-bit random value
   that nobody types.
-- It does not check the prefix. `ORD-a4kp-9mxa` checksums `a4kp9mx` only.
-- It does not sign an identifier you already have. `@evanion/luhn` computes a
-  check character over any string.
+- It does not check the prefix. `ORD-a4kp-9mxa` carries a check character over
+  `a4kp9mx` only, and `validate` takes the code with `ORD-` cut off.
+- It does not add a check character to an identifier you already have.
+  `@evanion/luhn` computes one over any string.
 
 ## Now that you know how token reads a code, install it
 

@@ -1,7 +1,18 @@
 # Getting started
 
-By the end of this page `createToken` mints a pickup code for your shop, and
+By the end of this page `generate` mints a pickup code for your shop, and
 `validate` refuses a misheard one before your order table is queried.
+
+<PageSheet
+  difficulty={1}
+  read={3}
+  hands={10}
+  requires={[['Overview', '/token']]}
+  unlocks={[
+    ['Generating and validating', '/token/usage'],
+    ['API reference', '/token/api'],
+  ]}
+/>
 
 ## Before you install token
 
@@ -10,8 +21,6 @@ By the end of this page `createToken` mints a pickup code for your shop, and
 - An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
   `require()` loads ES modules. An older `require()` fails with
   `ERR_REQUIRE_ESM`.
-- `@evanion/luhn`, which installs with the package and computes the check
-  character.
 
 ## Install token
 
@@ -29,10 +38,13 @@ yarn add @evanion/token
 pnpm add @evanion/token
 ```
 
+The package manager installs `@evanion/luhn` with it, which computes the check
+character.
+
 ## Construct a token instance
 
-`createToken` checks its options once and returns a frozen object carrying
-`generate` and `validate`. Build it at module scope, so the check runs once and
+`createToken` checks its options and returns a frozen object carrying `generate`
+and `validate`. Build it at module scope, so the options are checked once and
 not on every request:
 
 ```ts twoslash file=libs/token/README.md region=construct
@@ -46,24 +58,22 @@ which is why `value` comes back nine characters long.
 
 ## Mint a pickup code and check it with token
 
-`generate` returns the code, and `validate` answers whether a code holds
-together. Every call to `generate` draws different characters, so the example
-checks what the round trip answers and not which characters came out:
+`generate` returns an object: `value` is the code a person reads, such as
+`a4kp-9mxa`, and `body` is the string your order table stores. Every call draws
+different characters, so the example checks what the round trip answers and not
+which characters came out:
 
 ```ts twoslash file=libs/token/README.md region=round-trip
 
 ```
 
-`pickup.value` takes the shape `ORD-a4kp-9mxa`: the prefix `ORD`, a hyphen,
-seven random characters and the check character, chunked in fours. Run it and
-the seven characters differ each time. The shape does not.
-
-The prefix sits outside the check, so `slice` cuts `ORD-` off before `validate`
-reads the code. `a4kp-9mx8` is a fixed code whose check character is wrong.
-`validate` refuses it, and the counter learns the code is bad without querying
-the order table.
+`validate` accepts the code `generate` minted and hands back the same `body`,
+which is the key to look the order up by. `a4kp-9mx8` is a fixed code whose
+check character is wrong. `validate` refuses it, and the counter learns the
+code is bad without querying the order table.
 
 ## Now that token mints a pickup code, configure it
 
 [Generating and validating](/token/usage) sets `length`, `chunkSize` and
-`separator`, and lists the three `reason` values `validate` returns.
+`separator`, adds a prefix such as `ORD`, and lists the three `reason` values
+`validate` returns.

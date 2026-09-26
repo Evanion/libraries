@@ -1,21 +1,18 @@
 # API reference
 
 `@evanion/token` exports `createToken`, the types it takes and returns, five
-constants and three error classes, one heading each below. Node 20 or newer,
-ESM only.
+constants and three error classes, one heading each below. It needs Node 20 or
+newer and ships as ESM, which `require()` loads on Node 20.19, 22.12 or newer.
 
 <ApiFilter />
 
 ## `createToken`
 
-<!-- reference @evanion/token#createToken example=at-a-glance -->
-
-The default `chunkSize` of 4 does not divide every `length`, so a `length` that
-is not a multiple of 4 names its own `chunkSize`.
+<!-- reference @evanion/token#createToken example=instances -->
 
 ## `Token`
 
-<!-- reference @evanion/token#Token example=instances -->
+<!-- reference @evanion/token#Token example=hex -->
 
 `Token` is the frozen object `createToken` returns.
 
@@ -50,8 +47,8 @@ character.
 
 <!-- reference @evanion/token#GenerateResult example=generate -->
 
-`value` is `prefix`, `separator` and the chunked code. `body` is what to store
-and index on.
+`value` is the chunked code, preceded by `prefix` and `separator` when a prefix
+is given. `body` is what to store and index on.
 
 ## `ValidateResult`
 
@@ -107,9 +104,7 @@ any of the four, in either case.
 
 <!-- reference @evanion/token#TokenError example=catch-both -->
 
-A dictionary that fails one of Luhn's constraints, even size, no repeats and no
-case pairs, throws `InvalidDictionaryError` from `@evanion/luhn`, which does not
-extend `TokenError`. The example catches the two by name.
+`InvalidAlphabetError` and `InvalidShapeError` extend `TokenError`.
 
 ## `InvalidAlphabetError`
 
@@ -121,12 +116,12 @@ extend `TokenError`. The example catches the two by name.
 | `dictionary` | the dictionary as supplied                                             |
 | `offending`  | the characters named; empty for `non-uniform`, which is about the size |
 
-| Constraint                      | Thrown by                                       |
-| ------------------------------- | ----------------------------------------------- |
-| no confusable characters        | `InvalidAlphabetError`, `reason: 'confusable'`  |
-| lowercase                       | `InvalidAlphabetError`, `reason: 'unfolded'`    |
-| `256 % n === 0`                 | `InvalidAlphabetError`, `reason: 'non-uniform'` |
-| even size, no repeats, no pairs | `InvalidDictionaryError` from `@evanion/luhn`   |
+| Constraint                           | Thrown by                                       |
+| ------------------------------------ | ----------------------------------------------- |
+| no confusable characters             | `InvalidAlphabetError`, `reason: 'confusable'`  |
+| lowercase                            | `InvalidAlphabetError`, `reason: 'unfolded'`    |
+| `256 % n === 0`                      | `InvalidAlphabetError`, `reason: 'non-uniform'` |
+| even size, no repeats, no case pairs | `InvalidDictionaryError` from `@evanion/luhn`   |
 
 ## `InvalidDictionaryReason`
 
