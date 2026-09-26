@@ -1,13 +1,13 @@
 import type { MetaRecord } from 'nextra';
 
 /**
- * The order a reader meets `@evanion/luhn` in: what a check character buys
- * them, how to get one signing an order code, the two calls that produce and
- * verify one, the one thing the package is configured by, and what the
- * generalisation to an arbitrary alphabet is and is not standardised by.
+ * The order a reader meets `@evanion/luhn` in: what a check character catches,
+ * how to put one on an order code, the two calls that produce and verify one,
+ * the dictionary and case folding an instance is built from, and which
+ * dictionary a published standard covers.
  *
- * Migrating from 2.x sits after that band and before the reference. It is a task
- * rather than a concept, and only a reader already holding 2.x tokens has it.
+ * Migrating from 2.x sits after that band and before the reference. Only a
+ * reader already holding codes issued by 2.x has that task.
  *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages

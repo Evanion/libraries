@@ -4,6 +4,14 @@
 checks a code that carries one. Both return the phrase they read, and only
 `generate` can throw.
 
+<PageSheet
+  difficulty={2}
+  read={6}
+  hands={15}
+  requires={[['Getting started', '/luhn/getting-started']]}
+  unlocks={[['Dictionaries', '/luhn/dictionaries']]}
+/>
+
 ## Generate a check character with luhn
 
 `Luhn.generate` takes the code without its check character and returns three
@@ -25,31 +33,32 @@ The phrase, from the Overview, is what the check character was computed over.
 `order-2026-0042` and `ORDER 2026/0042` produce the same phrase, so they get
 the same `l`.
 
-`generate` does not append `checksum`. Where it goes and what separates it is
-yours, and `validate` hands the order number back through `phrase`:
+`generate` does not append `checksum`, so where it goes and what separates it is
+yours to decide. `validate` hands the order number back through `phrase`:
 
 ```ts twoslash file=libs/luhn/README.md region=sign-and-read
 
 ```
 
-`orderNumberIn` slices `phrase` rather than the string it was given. `phrase` is
-the filtered form, so `ORDER 2026 0042 L` and `order-2026-0042-l` both give back
-`order20260042`, which is the value to look the order up by.
+`orderNumberIn` slices `phrase` rather than the string it was given, so
+`ORDER 2026 0042 L` and `order-2026-0042-l` both give back `order20260042`. The
+phrase has lost the hyphens and the case, so store the phrase `generate`
+returned when the order was created, and look the order up by it.
 
 ## Why luhn's generate throws EmptyInputError
 
 `Luhn.generate` throws `EmptyInputError` when no character of its input is in
-the dictionary. A check character over nothing carries no information, and
-returning one would give `''` and `'--'` the same answer. Catch it where the
-input comes from a person:
+the dictionary. Every such input leaves an empty phrase, so a blank form field
+and `'--'` would get the same check character, and that character would check
+nothing. Catch the error where the input comes from a person:
 
 ```ts twoslash file=libs/luhn/README.md region=empty-input
 
 ```
 
-`EmptyInputError` is the only error `generate` or `validate` raises. The
-dictionary was checked when the instance was built, so nothing else can fail at
-the call.
+`EmptyInputError` is the only error a luhn call raises, and only `generate`
+raises it. The dictionary was checked when the instance was built, so nothing
+else can fail at the call.
 
 ## Validate a code with luhn
 
@@ -60,16 +69,24 @@ character and never throws:
 
 ```
 
-`isValid` is `false` for fewer than two surviving characters, because an order
-number and a check character is the minimum. `phrase` here includes the check
-character, which is why `orderNumberIn` above slices one off. `generate`'s
-`phrase` does not, because the check character did not exist yet.
+`isValid` is `false` when `phrase` holds fewer than two characters, because an
+order number and a check character is the minimum. `validate`'s `phrase`
+includes the check character, so the order number is `phrase.slice(0, -1)`.
+`generate`'s `phrase` does not, because the check character did not exist yet.
+
+The code below was issued as `order-2026-0042-l`. Type it back in and the
+verdict follows `isValid`, so case and hyphens make no difference to it. The
+"Change a character" and "Swap two" buttons each break the code, and
+`validate` refuses it.
+
+<LuhnSpecimen initial="order-2026-0042" />
 
 ## Refuse stray characters with luhn's filtered count
 
-`filtered` counts the characters `validate` dropped, so a till that expects a
-scanned code with no separators can refuse anything else without
-reimplementing the filter:
+`filtered` counts the characters `validate` dropped. Baize's receipt prints
+`order-2026-0042-l` for a person to read and carries `order20260042l`, with no
+separators, in its barcode. A till that reads the barcode can refuse anything
+else without reimplementing the filter:
 
 ```ts twoslash file=libs/luhn/README.md region=strict-input
 
@@ -78,12 +95,7 @@ reimplementing the filter:
 Counting is by code point, not by UTF-16 unit, so an emoji typed into the field
 is one dropped character, not two.
 
-Type the code below back in and watch the verdict. Case and grouping make no
-difference to it. Break the code with either button and it is refused.
-
-<LuhnSpecimen initial="order-2026-0042" />
-
-## Now that you can sign and check a code, pick its alphabet
+## Now that you can put a check character on a code, pick its alphabet
 
 [Dictionaries](/luhn/dictionaries) is the next page. It builds an instance over
 the shop's 32-character pickup alphabet with `createLuhn`, and lists what an
