@@ -95,10 +95,9 @@ the value. Three constraints, each of which has cost somebody a round trip:
   `.tsx` `// #region` is inert — `rewriteJsDoc` only looks inside block comments —
   and nothing warns you. There is no `// ->` line in any source file the site
   references today, so you would be the first.
-- The package has to call `docExamples()` in its `vite.config.ts`. `acl`,
-  `astro-widget`, `feature`, `luhn`, `token`, `urn` and `widget` do. `compose`,
-  `nestjs-correlation-id`, `react-acl` and `react-widget` do not, and wiring one
-  is package work rather than page work.
+- The package has to call `docExamples()` in its `vite.config.ts`. Every
+  documented package does today. A new package wires it before its first claim,
+  and that wiring is package work, separate from page work.
 - One line in, one line out. The rewriter cannot add or remove a line, because
   vite-plugin-doctest maps blocks back by line number. A claim whose value needs
   two lines throws rather than being skipped.
