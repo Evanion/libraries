@@ -186,8 +186,7 @@
       "ValidationError",
       "decodeNss",
       "encodeNss"
-    ],
-    "unexercised": ["InvalidError", "ValidationError"]
+    ]
   },
   "@evanion/widget": {
     "unexercised": ["resetWarnings", "warnOnce"]
