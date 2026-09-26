@@ -50,9 +50,6 @@ problems; // -> []
 
 <!-- #endregion shape -->
 
-The same array renders through every adapter and produces the same sequence of
-widgets.
-
 ## Why this package exists
 
 Two renderers held two copies of these rules under two vocabularies, and the
