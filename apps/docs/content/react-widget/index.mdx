@@ -1,57 +1,84 @@
 # @evanion/react-widget
 
-Render a region of React components from structured data — a shop page, a
-back-office view, a configurable shelf — with the data checked against the
-components at compile time. Baize's shelf below is two widget types and the
-items the shop's data gives them.
+A page built from CMS data names a component for each section, and nothing
+checks the name or the props before the page renders.
+`@evanion/react-widget` checks both when TypeScript compiles, and renders the
+page in React.
+
+## How react-widget renders a page from data
+
+`createWidgets` takes a component map, an object from a widget type to the React
+component that draws it, and returns a `Widgets` component. `Widgets` takes an
+array of items and renders each item's component with the item's props, in the
+order the array reads. Baize, a board game shop, maps two types: a listing card
+and the strip that books a table for tonight.
 
 ```tsx twoslash file=libs/react-widget/examples/listing.tsx region=catalogue
 
 ```
 
-The component map drives everything. An unknown `type`, a missing or mistyped
-prop, or `children` on a component that does not accept them is a compile error
-rather than a warning in a console somebody has to be watching.
+`Shelf` renders the booking strip first and the listing second, because that is
+the order of its two items. An item whose `type` is not `listing` or `booking`,
+a `price` written as a string, or nested items under `ListingCard`, which
+renders no `children`, is a compile error.
 
-## Server components
+The package carries no `'use client'` and no React context, so a page that
+renders `<Widgets>` can be a Server Component, and a widget can be an async
+Server Component that fetches its own data.
 
-The package carries no `'use client'`. It uses only what React exports under the
-`react-server` condition — `createElement`, `Suspense`, `memo` — and no
-`createContext`, `useContext`, `Component` or stateful hook. A page that renders
-`<Widgets>` can be a Server Component, and a widget can be an async Server
-Component that fetches its own data.
+## The react-widget vocabulary
 
-There is no provider, no hook and no class error boundary here, because
-`react/package.json` maps the `react-server` condition to a build that does not
-export the APIs those need. What would have been context is a prop: `ctx` for
-page-level data, `meta` for placement.
+Every react-widget page uses the terms below.
 
-## What it gives you
+- The **component map** is the object passed to `createWidgets` as
+  `components`. Its keys are the widget types an item may name.
+- An **item** is one entry of the array `Widgets` renders. It is plain data, so
+  a CMS can write it and a test can paste it.
+- A **region** is what one `<Widgets>` renders: every item of one array, inside
+  one wrapper.
+- The **chrome** is the markup around the widgets. `chrome.wrapper` goes around
+  the whole region, and `chrome.item` goes around each widget.
 
-| Piece           | What it does                                                        |
-| --------------- | ------------------------------------------------------------------- |
-| `createWidgets` | builds a widget set from a component map; call once at module scope |
-| `Widgets`       | renders a list of items                                             |
-| `defineItems`   | supplies the contextual type for an item array held in a variable   |
-| `validateItems` | checks data that never met the type checker, at ingestion or in CI  |
-| `chrome`        | wrapper, per-item wrapper, Suspense boundary and fallback           |
-| `meta`          | placement data that reaches the item chrome and never the widget    |
-| `ctx`           | page-level data passed to every widget as a prop                    |
+An item carries five fields:
 
-## Where to go next
+| Field      | What it holds                                                          |
+| ---------- | ---------------------------------------------------------------------- |
+| `id`       | a stable string, used as the React key and written to `data-widget-id` |
+| `type`     | a key of the component map, naming the component to render             |
+| `props`    | that component's props, less `children` and `ctx`                      |
+| `meta`     | optional placement data, read by `chrome.item` and never by the widget |
+| `children` | optional nested items, rendered as the component's `children`          |
 
-- [Getting started](/react-widget/getting-started) — install, the component map, typing items
-- [API reference](/react-widget/api) — every export, every prop, every type
-- [Chrome, `meta` and Suspense](/react-widget/advanced) — the composition seams
-- [Examples](/react-widget/examples) — worked regions
-- [Playground](/react-widget/playground) — run it in the browser
-- [Migrating from 0.1.x](/react-widget/api#migrating-from-01x) — the RSC redesign
+`ctx` is the page-level data `<Widgets ctx={…}>` hands every widget as a prop.
 
-## Related packages
+## What react-widget can do
 
-`@evanion/astro-widget` is the same idea for Astro: a registry instead of a
-component map, `ctx` instead of a provider, and no recursion into `children`
-because an Astro component receives child content through `<slot />`.
+| The page needs                                         | The export or option |
+| ------------------------------------------------------ | -------------------- |
+| A region rendered from an item array                   | `createWidgets`      |
+| An item array held in a variable, checked all the same | `defineItems`        |
+| A CMS payload checked before anything renders it       | `validateItems`      |
+| A wrapper around the region, or around each widget     | `chrome`             |
+| A widget placed on a grid it knows nothing about       | `meta`               |
+| One value, such as a currency, handed to every widget  | `ctx`                |
+| One `<Suspense>` boundary per widget, or none          | `chrome.suspense`    |
 
-`@evanion/compose` handles the neighbouring problem of nesting providers, for
-the parts of an app that do have context.
+## When react-widget is the wrong tool
+
+- A React context for page-level data. The package creates none, because
+  React's `react-server` build exports no `createContext`, so that data travels
+  as `ctx`.
+- An error boundary. The package ships none, because a boundary is a class
+  component and a class inside the package forces all of it into the client
+  bundle. A custom `chrome.item` in your own `'use client'` file adds one.
+- A list long enough to need windowing. `Widgets` renders every item.
+- An Astro page. `@evanion/astro-widget` renders the same items at build time.
+
+`Widgets` never rejects a payload. It skips an item it cannot render and warns
+in development, so a stale widget type ships as a gap in the page unless
+`validateItems` runs first.
+
+## Now that you have the model, render a region
+
+[Getting started](/react-widget/getting-started) installs react-widget, renders
+one Baize listing through `Widgets`, and prints the HTML React wrote for it.
