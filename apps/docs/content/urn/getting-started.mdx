@@ -3,6 +3,17 @@
 By the end of this page a `GameURN` class of your own writes
 `urn:game:brass-birmingham` and reads it back into its three parts.
 
+<PageSheet
+  difficulty={1}
+  read={2}
+  hands={5}
+  requires={[['Overview', '/urn']]}
+  unlocks={[
+    ['r-, q- and f-components', '/urn/components'],
+    ['Examples', '/urn/examples'],
+  ]}
+/>
+
 ## Before you install urn
 
 - Node 20 or newer.
@@ -32,8 +43,9 @@ pnpm add @evanion/urn
 
 `GameURN` extends `URN` and overrides one static, `nid`, the namespace
 identifier. That is the whole configuration: the scheme defaults to `urn` and
-the separator to `:`. Under TypeScript's `noImplicitOverride`, the `override`
-keyword is required. Import `URN` from `@evanion/urn`:
+the separator to `:`. TypeScript's `noImplicitOverride` requires the `override`
+keyword, and without that flag it is optional. Import `URN` from
+`@evanion/urn`:
 
 ```ts twoslash file=libs/urn/README.md region=basic-usage
 
@@ -44,9 +56,10 @@ class and returns `'urn:game:brass-birmingham'`. `GameURN.parse(id)` splits it
 back into `urn`, `nid` and `nss`. In your code, call `stringify` where a game id
 leaves a service and `parse` where one arrives.
 
-(Optional) Override `urn` as well to mint in a scheme of your own, such as
-`baize:game:azul`. RFC 8141 fixes the scheme at `urn`, so a URN in any other
-scheme is outside the RFC.
+(Optional) Add `static override readonly urn = 'baize'` to mint in a scheme of
+your own, such as `baize:game:azul`. That class's `parse` then reads `baize` as
+its own scheme. RFC 8141 fixes the scheme at `urn`, so a URN in any other scheme
+is outside the RFC.
 
 ## Now that GameURN reads a game, attach an edition to it
 
