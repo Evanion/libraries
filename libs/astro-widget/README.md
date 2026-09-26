@@ -25,8 +25,8 @@ Astro `^7.3.4` is a peer dependency.
 
 ## What it does
 
-`Widgets.astro` takes a list of sections and a registry, and renders each
-section through the component its `type` names. Every example below renders
+`Widgets.astro` takes a list of items and a registry, and renders each
+item through the component its `type` names. Every example below renders
 through Astro's container API, which renders a component outside a request, so
 the HTML each one claims is the HTML Astro wrote. The widgets it renders are
 ordinary `.astro` files under
@@ -41,7 +41,7 @@ import Widgets from '@evanion/astro-widget/components/Widgets.astro';
 
 import { registry } from './examples/src/registry';
 
-const sections = [
+const items = [
   {
     id: 'header',
     type: 'listing-header',
@@ -52,7 +52,7 @@ const sections = [
 
 const container = await AstroContainer.create();
 const html = await container.renderToString(Widgets, {
-  props: { items: sections, registry },
+  props: { items, registry },
 });
 
 html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p class="price">649 kr</p>'
@@ -62,10 +62,10 @@ html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p cla
 
 ## Use
 
-A page imports `Widgets.astro`, the registry and the sections, and renders
+A page imports `Widgets.astro`, the registry and the items, and renders
 them. [`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src)
 holds the whole project: `registry.ts` maps each type to its component,
-`data/brass-birmingham.ts` holds the sections a CMS saved, and
+`data/brass-birmingham.ts` holds the items a CMS saved, and
 `pages/brass-birmingham.astro` renders them. Rendering that page gives the
 listing's HTML:
 
@@ -129,7 +129,7 @@ loud check, run at build time:
 ```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-const sections = [
+const items = [
   {
     id: 'header',
     type: 'listing-header',
@@ -141,7 +141,7 @@ const sections = [
 
 const required = { 'listing-header': ['title'] };
 const problems = validateItems(
-  sections,
+  items,
   ['listing-header', 'price-box'],
   required,
 );
@@ -160,12 +160,12 @@ the type names as a plain list, because a Node process cannot import the
 ```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-import { sections } from './examples/src/data/brass-birmingham';
+import { items } from './examples/src/data/brass-birmingham';
 
 const known = ['listing-header', 'price-box'];
 const required = { 'listing-header': ['title'], 'price-box': ['price'] };
 
-const report = validateItems(sections, known, required).map(
+const report = validateItems(items, known, required).map(
   (problem) =>
     `section ${problem.index} (${problem.id}, ${problem.type}): ${problem.message}`,
 );
@@ -185,12 +185,12 @@ registry and the list of its names report the same thing:
 ```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-import { sections } from './examples/src/data/brass-birmingham';
+import { items } from './examples/src/data/brass-birmingham';
 import { registry } from './examples/src/registry';
 
 Object.keys(registry); // -> ['listing-header', 'price-box']
-validateItems(sections, registry); // -> []
-validateItems(sections, ['listing-header', 'price-box']); // -> []
+validateItems(items, registry); // -> []
+validateItems(items, ['listing-header', 'price-box']); // -> []
 ```
 
 <!-- #endregion known-types -->
