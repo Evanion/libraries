@@ -94,6 +94,6 @@
       "LuhnOptions",
       "ValidateResult"
     ],
-    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"]
+    "unexercised": ["LuhnError"]
   }
 }
