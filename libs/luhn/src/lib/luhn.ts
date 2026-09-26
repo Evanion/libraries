@@ -39,6 +39,11 @@ export interface ValidateResult {
   filtered: number;
 }
 
+/**
+ * What `createLuhn` builds an instance from. Both fields are optional, and
+ * `createLuhn()` with neither builds what {@link Luhn} holds: the 36 lowercase
+ * alphanumerics, folding case.
+ */
 export interface LuhnOptions {
   /**
    * The alphabet. Must be a string of an even number of distinct code points,

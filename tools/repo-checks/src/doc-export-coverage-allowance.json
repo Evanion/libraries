@@ -96,8 +96,7 @@
       "LuhnOptions",
       "ValidateResult"
     ],
-    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"],
-    "unexplained": ["LuhnOptions"]
+    "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"]
   },
   "@evanion/nestjs-correlation-id": {
     "undocumented": [
