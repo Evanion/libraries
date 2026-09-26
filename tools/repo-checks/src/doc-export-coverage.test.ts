@@ -50,6 +50,8 @@ import {
  * checks. A `<!-- reference … example=… -->` directive counts as well: the
  * reference loader emits its example as a `twoslash` fence holding that README
  * region, so the page renders the same executed code a `file=` fence would.
+ * Only the lines a reader sees count, so a name the package's preamble imports
+ * above a `// ---cut---` line is not exercised by being imported.
  *
  * The allowance is the ratchet, on the mechanism `doc-floor.test.ts` uses. The
  * gap this file opens on is real and predates it, so it is recorded per package
@@ -160,7 +162,7 @@ function executableCode(
 
     const body = [
       ...written.flatMap((block, at) =>
-        executable(block.info) ? (expanded[at] as Block).body : [],
+        executable(block.info) ? shown((expanded[at] as Block).body) : [],
       ),
       ...referenceExamples(raw, documented),
     ];
@@ -169,6 +171,19 @@ function executableCode(
   }
 
   return new Map([...bySlug].map(([slug, lines]) => [slug, lines.join('\n')]));
+}
+
+/**
+ * The lines of a fence a reader sees.
+ *
+ * The region loader puts a package's preamble above a `// ---cut---` line in a
+ * `twoslash` fence, and Twoslash compiles everything above that line and
+ * renders none of it. A name imported only there appears in no example the
+ * page shows.
+ */
+function shown(body: readonly string[]): readonly string[] {
+  const cut = body.findIndex((line) => line.trim() === '// ---cut---');
+  return cut === -1 ? body : body.slice(cut + 1);
 }
 
 /**
