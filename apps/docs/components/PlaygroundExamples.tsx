@@ -16,7 +16,7 @@ import { examples } from './playground-examples';
  */
 export default function PlaygroundExamples() {
   const [selectedExample, setSelectedExample] =
-    useState<keyof typeof examples>('basic');
+    useState<keyof typeof examples>('shelf');
 
   return (
     <div>
