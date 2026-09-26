@@ -3,10 +3,19 @@
 To send the correlation id on every call Baize's `orders` service makes to
 `stock`, pass `withCorrelation()` to `HttpModule.registerAsync()`.
 
+<PageSheet
+  difficulty={3}
+  read={5}
+  hands={15}
+  requires={[['Getting started', '/nestjs-correlation-id/getting-started']]}
+  unlocks={[['Carry the id through a job', '/nestjs-correlation-id/jobs']]}
+/>
+
 ## Register HttpModule with withCorrelation
 
-`StockModule` gives `StockClient` an `HttpService` whose calls carry the id of
-the correlation context they are made in, the context `CorrelationIdMiddleware`
+`StockClient` is the `orders` service's own client for `stock`, shown below.
+`StockModule` gives it an `HttpService` whose calls carry the id of the
+correlation context they are made in, the context `CorrelationIdMiddleware`
 opened for the request:
 
 ```ts file=libs/nestjs-correlation-id/examples/stock.module.ts region=forward
@@ -22,7 +31,8 @@ correlation id:
 
 ```
 
-`STOCK_URL` is wherever your `stock` service listens.
+`STOCK_URL` is wherever your `stock` service listens. Import `StockModule` into
+the module whose providers inject `StockClient`.
 
 ## Why withCorrelation reads the id on every call
 
@@ -30,10 +40,12 @@ correlation id:
 `HttpModule` creates. The interceptor calls `getCorrelationId()` as each
 request goes out, so one `HttpService` sends each request's own id.
 
-That keeps `HttpService` a singleton. Options computed once, when the module
-factory runs, would have to come from a request-scoped provider, and Nest would
-then make `HttpService` and every provider holding it request-scoped: rebuilt
-per request, and never given `onModuleInit`.
+That keeps `HttpService` a singleton. Options that carried the id itself would
+have to be built per request, from a request-scoped provider. Nest makes every
+provider that injects a request-scoped one request-scoped too, so `HttpService`,
+`StockClient` and everything holding them would be rebuilt for every request.
+Nest calls no lifecycle hook on a request-scoped provider, so an `onModuleInit`
+on `StockClient` would never run.
 
 ## See the header arrive at the stock service
 
@@ -54,22 +66,23 @@ opened a context carries none.
 
 ## Why nestjs-correlation-id has nothing to click
 
-Other sections on this site mount a control on their demonstration page. This
-one does not, because the demonstrable unit is two running services and one
-header between them, and a page cannot be the second process.
+This page mounts no interactive control, because forwarding needs two running
+services and one header between them, and a page cannot be the second process.
 
-`apps/shop-api` in this repository runs the real thing. Its `OrdersModule`
-registers `HttpModule` with `withCorrelation()`, and its inventory client calls
-the `/inventory` endpoint over HTTP, where `CorrelationIdMiddleware` reuses the
-id. `apps/storefront` sends an id with every call it makes to `shop-api`.
+Baize's own server runs it. In the
+[Evanion/libraries repository](https://github.com/Evanion/libraries/tree/main/apps/shop-api),
+`apps/shop-api` registers `HttpModule` with `withCorrelation()` in its
+`OrdersModule`, and its `InventoryClient` calls the `/inventory` endpoint over
+HTTP, where `CorrelationIdMiddleware` reuses the id. `apps/storefront` sends an
+id with every call it makes to `shop-api`.
 
 ## Where forwarding the correlation id stops
 
 - `withCorrelation()` needs `CorrelationModule.forRoot()` in the application.
   Without it, Nest fails at boot with
-  `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)`.
-- The header name is the one `forRoot()` was configured with, so the next
-  service has to read the same header.
+  `Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
+- The header name is the `header` field of the configuration passed to
+  `forRoot()`, so the next service has to read the same header.
 - Only calls through an `HttpService` registered with `withCorrelation()` carry
   the id. A `fetch` call or a queue message carries it when your code puts it
   there.
