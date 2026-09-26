@@ -88,24 +88,6 @@ html; // -> '<main><header><h1>Brass: Birmingham</h1><p>2-4 players</p></header>
 parameter: annotating the same object as `WidgetRegistry` widens its keys to
 `string`, and the key union is what an editor completes on.
 
-<!-- #region registry -->
-
-```ts @import.meta.vitest
-import { defineWidgets, validateItems } from '@evanion/astro-widget';
-
-// In a project these are `.astro` modules; the helper reads their keys and
-// nothing else, so a stand-in is enough to show what it returns.
-const registry = defineWidgets({
-  'listing-header': () => null,
-  'game-grid': () => null,
-});
-
-Object.keys(registry); // -> ['listing-header', 'game-grid']
-validateItems([], Object.keys(registry)); // -> []
-```
-
-<!-- #endregion registry -->
-
 ## Data shape
 
 An item is `id`, `type`, `props`, and optional `meta` and `children`. `props`
