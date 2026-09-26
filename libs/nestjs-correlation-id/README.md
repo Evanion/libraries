@@ -92,14 +92,14 @@ request, this is what the handler reads and what it reads outside the context:
 <!-- #region one-request -->
 
 ```ts @import.meta.vitest
-const config = { header: 'X-Correlation-Id', generator: () => 'mint-0f3a2b7c' };
+const config = { header: 'X-Correlation-Id', generator: () => 'orders-0f3a2b' };
 const correlation = new CorrelationService(config);
 const middleware = new CorrelationIdMiddleware(correlation, config);
 
 // Nest hands the middleware the adapter's own request and response. These two
 // carry the three members it reads: the request headers, and getHeader and
 // setHeader on the response.
-const request = { headers: { 'x-correlation-id': 'ORD-a4kp-9mxa' } };
+const request = { headers: { 'x-correlation-id': 'storefront-4f1c9a' } };
 const response = { getHeader: () => undefined, setHeader: () => undefined };
 
 let handled: string | undefined;
@@ -107,7 +107,7 @@ middleware.use(request as never, response as never, () => {
   handled = correlation.getCorrelationId();
 });
 
-handled; // -> 'ORD-a4kp-9mxa'
+handled; // -> 'storefront-4f1c9a'
 correlation.getCorrelationId(); // -> undefined
 ```
 

@@ -1,11 +1,13 @@
 import type { MetaRecord } from 'nextra';
 
 /**
- * The order a reader meets `@evanion/nestjs-correlation-id` in: what an id
- * carried across a request buys them, the module and middleware registration
- * that turns it on, then the fields that change the header, the generator and
- * the validation. Configuration follows getting started because every field it
- * documents has a default the registration above already uses.
+ * The order a reader meets `@evanion/nestjs-correlation-id` in: how one id
+ * travels across services, the module and middleware registration that puts an
+ * id on every request, then the two places an id goes beyond the request that
+ * brought it (an outgoing HTTP call, and a job with no request behind it), then
+ * the fields `forRoot()` takes. Configuration comes after the jobs page because
+ * the jobs page reads the resolved configuration's `validate`, and every field
+ * configuration documents has a default the registration already uses.
  *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages
@@ -18,6 +20,8 @@ import type { MetaRecord } from 'nextra';
 export default {
   index: 'Overview',
   'getting-started': 'Getting Started',
+  forwarding: 'Forwarding to the Next Service',
+  jobs: 'Jobs With No Request',
   configuration: 'Configuration',
   api: 'API Reference',
 } satisfies MetaRecord;

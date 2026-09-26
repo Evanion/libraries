@@ -1,0 +1,56 @@
+# Carry the id through a job
+
+A queue consumer or a cron job has no incoming request and no middleware, so it
+opens its own correlation context with `CorrelationService.run()`.
+
+## Open a correlation context in a queue consumer
+
+`RestockJob` handles a restock message in Baize's `orders` service. The message
+carries the correlation id of the request that queued it, when there was one:
+
+```ts file=libs/nestjs-correlation-id/examples/restock.job.ts region=restock-job
+
+```
+
+- `run(id, callback)` runs `callback` inside a correlation context and returns
+  what `callback` returns, so the promise from `stock.level()` comes straight
+  back out of `handle()`.
+- Everything the callback calls or awaits reads `id`. `StockClient` is the
+  client the previous page registered with `withCorrelation()`, so its call to
+  `stock` carries the id.
+- `generate()` mints an id with the configured generator, `randomUUID` unless
+  `forRoot()` was given another.
+
+## Why RestockJob validates the carried id
+
+An id read off a queue message reaches the same log lines and outgoing headers
+as one read off a request, so it passes the same check. `CORRELATION_CONFIG_TOKEN`
+injects the configuration `forRoot()` resolved, and `validate` on it is the
+function `CorrelationIdMiddleware` applies to an incoming header.
+`CorrelationConfig` types `validate` as optional, and `forRoot()` always fills
+it in, so the optional call `validate?.()` always runs.
+
+A carried id that fails the check is dropped, and the job mints its own.
+
+## Replace the id inside a correlation context
+
+`setCorrelationId(id)` replaces the id for the rest of the context it is called
+in. Outside any context it throws. The fence below builds the worker as a Nest
+application context, the modules with no HTTP server, and calls `generate`,
+`run` and `setCorrelationId`:
+
+```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
+
+```
+
+The minted id came from the generator passed to `forRoot()`. Inside `run()`,
+`setCorrelationId` changed what `getCorrelationId()` returns. Outside, the call
+threw, and the message names the two ways to open a context.
+
+Inside a request, `setCorrelationId` leaves the response header alone. The
+header keeps the id the middleware wrote when the request arrived.
+
+## Now that jobs carry the id, configure forRoot
+
+[Configuration](/nestjs-correlation-id/configuration) covers the fields
+`forRoot()` takes, and what an incoming id has to look like to be reused.

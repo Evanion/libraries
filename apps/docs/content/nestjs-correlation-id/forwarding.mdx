@@ -1,0 +1,83 @@
+# Forward the id to the next service
+
+To send the correlation id on every call Baize's `orders` service makes to
+`stock`, pass `withCorrelation()` to `HttpModule.registerAsync()`.
+
+## Register HttpModule with withCorrelation
+
+`StockModule` gives `StockClient` an `HttpService` whose calls carry the id of
+the correlation context they are made in, the context `CorrelationIdMiddleware`
+opened for the request:
+
+```ts file=libs/nestjs-correlation-id/examples/stock.module.ts region=forward
+
+```
+
+`withCorrelation()` takes ordinary `HttpModuleOptions` and hands them to axios
+unchanged, so `timeout: 5000` applies to every call `StockClient` makes.
+`StockClient` is an ordinary `HttpService` consumer, and nothing in it names a
+correlation id:
+
+```ts file=libs/nestjs-correlation-id/examples/stock.client.ts region=stock-client
+
+```
+
+`STOCK_URL` is wherever your `stock` service listens.
+
+## Why withCorrelation reads the id on every call
+
+`withCorrelation()` registers an axios request interceptor on the instance
+`HttpModule` creates. The interceptor calls `getCorrelationId()` as each
+request goes out, so one `HttpService` sends each request's own id.
+
+That keeps `HttpService` a singleton. Options computed once, when the module
+factory runs, would have to come from a request-scoped provider, and Nest would
+then make `HttpService` and every provider holding it request-scoped: rebuilt
+per request, and never given `onModuleInit`.
+
+## See the header arrive at the stock service
+
+The fence below starts a `stock` service that answers with the
+`X-Correlation-Id` header it received. `NestFactory.createApplicationContext()`
+then builds the `orders` service, with no HTTP server, from an inline module
+importing `CorrelationModule.forRoot()` and
+`HttpModule.registerAsync(withCorrelation())`. The fence calls `stock` once
+inside a correlation context and once outside one:
+
+```ts twoslash file=libs/nestjs-correlation-id/README.md region=forward-hop
+
+```
+
+Inside `run('storefront-4f1c9a', …)` the call carried the id. Outside any
+context the interceptor attached no header, so a call from a cron job that never
+opened a context carries none.
+
+## Why nestjs-correlation-id has nothing to click
+
+Other sections on this site mount a control on their demonstration page. This
+one does not, because the demonstrable unit is two running services and one
+header between them, and a page cannot be the second process.
+
+`apps/shop-api` in this repository runs the real thing. Its `OrdersModule`
+registers `HttpModule` with `withCorrelation()`, and its inventory client calls
+the `/inventory` endpoint over HTTP, where `CorrelationIdMiddleware` reuses the
+id. `apps/storefront` sends an id with every call it makes to `shop-api`.
+
+## Where forwarding the correlation id stops
+
+- `withCorrelation()` needs `CorrelationModule.forRoot()` in the application.
+  Without it, Nest fails at boot with
+  `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)`.
+- The header name is the one `forRoot()` was configured with, so the next
+  service has to read the same header.
+- Only calls through an `HttpService` registered with `withCorrelation()` carry
+  the id. A `fetch` call or a queue message carries it when your code puts it
+  there.
+- The package imports `@nestjs/axios` for its types only. An application that
+  never calls `withCorrelation()` does not need it installed.
+
+## Now that the id crosses HTTP, carry it through a job
+
+[Carry the id through a job](/nestjs-correlation-id/jobs) opens a correlation
+context in a queue consumer, where no request and no middleware exist, and
+reuses the id the message carried.
