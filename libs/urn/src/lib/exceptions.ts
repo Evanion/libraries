@@ -61,7 +61,11 @@ export class InvalidError extends ValidationError {
     return `${property} contains invalid characters in '${value}'`;
   }
 
-  /** Which component failed: `'URN'`, `'NID'` or `'NSS'`. */
+  /**
+   * Which part failed: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`,
+   * `'Q-COMPONENT'` or `'F-COMPONENT'`, or `'COMPONENT'` when a subclass whose
+   * separator contains `?` or `#` is asked to write any component.
+   */
   readonly property: string;
   /** The offending component value. */
   readonly value: string;
