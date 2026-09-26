@@ -67,6 +67,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
  * row again, and decides again on the server's own copy of the matrix. A
  * refusal returns and writes nothing.
  */
+// #region action-decides
 export async function action({ context, request, params }: Route.ActionArgs) {
   const subject = context.get(subjectContext);
   const correlationId = context.get(correlationContext);
@@ -111,8 +112,8 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   }
 
   // The whole submitted bag reaches the write axis, which is the shape a form
-  // post has: every `name` attribute the browser was willing to send arrives in
-  // it, including names this form never drew. `availability` is restated in the
+  // submission has: every `name` attribute the browser was willing to send
+  // arrives in it, including names this form never drew. `availability` is restated in the
   // catalogue's vocabulary, because that is what the matrix's `targets` list
   // holds.
   const proposed = {
@@ -120,7 +121,6 @@ export async function action({ context, request, params }: Route.ActionArgs) {
     availability: catalogueAvailability(state as Availability),
   };
 
-  // #region action-decides
   const decision = access.canFields(
     subject,
     'game',
@@ -145,7 +145,6 @@ export async function action({ context, request, params }: Route.ActionArgs) {
 
   setShelfPolicy(urn, state as Availability);
   return { declared: state as Availability };
-  // #endregion action-decides
 }
 
 /**
@@ -163,6 +162,7 @@ function refusal(reason: string) {
     error: `Refused: ${reason}. Availability is declared by the shop that lists the title.`,
   };
 }
+// #endregion action-decides
 
 export default function Title({
   loaderData,
@@ -173,7 +173,7 @@ export default function Title({
 
   // #region tree-toggles
   // A convenience, and the whole of what this decision does: it chooses between
-  // the form and a sentence. The action above decides again and is what stops a
+  // the form and a sentence. `action` decides again and is what stops a
   // write. The shop slug is the only member the rule reads, so it is the only
   // one stated.
   const mayDeclare = useCan('game', 'declare', { shop: row.shop }).allowed;

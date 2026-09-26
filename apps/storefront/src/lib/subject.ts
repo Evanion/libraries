@@ -50,7 +50,6 @@ export const SUBJECT_COOKIE = 'baize_subject';
  */
 // #region storefront-roles
 const STOREFRONT_ROLES: readonly string[] = ['customer'];
-// #endregion storefront-roles
 
 /**
  * A browser that has not signed in.
@@ -92,6 +91,7 @@ export function parseSubject(value: unknown): StorefrontSubject {
 
   return { id, roles: [...(roles as string[])], shop };
 }
+// #endregion storefront-roles
 
 /**
  * The subject the request's cookies state.

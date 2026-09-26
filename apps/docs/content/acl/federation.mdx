@@ -1,91 +1,61 @@
 # Many services
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    The executed examples on this page are regions of `libs/acl/README.md` and
-    run under `nx test @evanion/acl`. No app in this repository runs a federated
-    view: `apps/shop-api` is one origin and the three frontends adopt its
-    document.
-  </Text>
-</WorkshopNotice>
+`federatedPolicies` holds one evaluator per service behind a single view and
+answers each question, in process, from the evaluator whose keys carry it. No
+document is merged, so each service stays the only author of its rules.
+
+<WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={5}
-  read={9}
-  requires={[['A policy from another service', '/acl/adopting']]}
+  read={12}
+  hands={15}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Giving my rules to another service', '/acl/publishing'],
     ['Security contract', '/acl/security'],
   ]}
 />
 
-**The concept.** `federatedPolicies` holds one `Access` per origin behind a
-single view and merges no document.
-
-**What you get.** A view that sends each question to the one origin whose keys
-carry it.
-
-**Why you want it.** A storefront and a stock service that both say `listing`
-mean different rows in different databases, and a merged matrix cannot tell the
-two apart.
-
-**How the library gets you there.** Each origin namespaces its object kinds, and
-the view routes on the namespaced key.
-
-## What a federated view holds, and what it does not
-
-`federatedPolicies` holds one `Access` per origin behind one view and routes
-each question to the single origin whose keys carry it. Each service authors and
-evaluates only what it owns, and the topology holds no merged matrix anywhere. A
-gateway built this way also carries the overlay an owner applies when another
-team publishes a veto.
-
-`applyDenyOverlay` is pure `Matrix → Matrix` and runs inside the owner, before
-it builds its policy.
+## Namespace each acl object kind by origin
 
 Baize's storefront and its stock service both hold rows they call a listing, in
-two databases with two field sets. A merged view answers about a row that does
-not exist.
+two databases with two field sets. A namespace on the object kind says so:
+`storefront:listing`, `stock:listing`. The key is still
+`` `${object}.${action}` `` character for character, and the typed builder takes
+the namespaced kind directly. `p.always` is a condition every subject meets, and
+`raised` returns the name of the error a call throws:
 
-## Namespace the object kind by origin
-
-Two services that both say `listing` mean different rows, with different fields,
-in different databases. The namespace says so: `storefront:listing`,
-`stock:listing`.
-
-`storefront:listing.read` still equals `` `${object}.${action}` `` character for
-character, so `KeyMismatchError` is satisfied by construction and the typed
-builder takes the namespaced key directly:
-
-```ts no-run
-policy<Subject, { 'storefront:listing': Listing }>()
-  .for('storefront:listing', (p) =>
-    p.allow('read', p.eq('object.shop', 'subject.shop')),
-  )
-  .build();
-```
-
-`:` is the separator because `.` is the key delimiter, and a `.` inside
-`object` or `action` is refused at construction:
+```ts twoslash file=libs/acl/README.md region=namespaced-kind
 
 ```
-InvalidPermissionError: permission "storefront.listing.read": "object" carries the
-key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"
-```
 
-## A gateway composes one policy per origin
+`:` is the separator because `.` is the key delimiter. A `.` inside `object` or
+`action` throws `InvalidPermissionError` at construction, and the message says
+that an object kind namespaced by origin is spelled `origin:kind`.
 
-`federatedPolicies` takes one `Access` per origin, keeps every document whole,
-and returns a view carrying three members: `can`, `capabilities` and `get`.
+No app in this repository runs a federated view. `apps/shop-api` is one origin,
+and the examples on this page are regions of the `@evanion/acl` README.
+
+## A gateway composes one acl policy per origin
+
+`federatedPolicies` takes one `Access` per origin, the evaluator type that
+`.build()`, `hydratePolicy` and `parseMatrix` return. It keeps every document
+whole and returns a view with three members: `can`, `capabilities` and `get`.
+Each origin's document arrives as JSON, so the fence writes both as `Matrix`
+values. A rule's `when` lists conditions as `{ field, op, value }`, and
+`{ field: 'subject.roles', op: 'contains', value: 'owner' }` holds when the
+subject's `roles` array holds `'owner'`.
 
 ```ts twoslash file=libs/acl/README.md region=federation
 
 ```
 
-`can` routes by the canonical key. The origin that answers
-`can(subject, 'storefront:listing', 'read')` is the one origin whose key set holds
-`storefront:listing.read`. A key no origin holds answers
-`{ key, allowed: false, reason: 'unknown-action' }` and reaches no member at all.
+| Member                        | What it does                                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `can(subject, kind, action)`  | routes by the key to the one origin whose key set holds it; a key no origin holds answers `unknown-action` and reaches no member         |
+| `capabilities(subject, now?)` | settles one instant and hands it to every origin, so a `before` boundary falls on the same side of every answer in the view              |
+| `get(origin)`                 | returns the `Access` that origin registered, unchanged, which is where `canMany`, `canFields`, `readsObject` and `authorize` are reached |
 
 ```mermaid caption="One Access per origin, each document whole, behind one view. A key goes to the single origin whose key set holds it; a key no origin holds is refused by the view itself and reaches no member."
 flowchart LR
@@ -95,40 +65,27 @@ flowchart LR
   R -->|"no origin"| U["unknown-action"]
 ```
 
-`capabilities(subject, now?)` settles one instant and hands that instant to
-every origin. A view over five origins reads one clock, so a `before` boundary
-falls on the same side of every answer in it.
+A request touching both origins asks both, as `shelf && stock` does in the fence
+above, and the caller writes the AND.
 
-`get(origin)` returns the `Access` that origin was registered with, unchanged.
-`canMany`, `canFields`, `readsObject` and `authorize` are reached through it,
-because each of the four answers about one key and the key names the origin.
+### Two origins claiming one acl key refuse at construction
 
-### Two origins claiming one key refuse at construction
+`federatedPolicies` throws `OriginCollisionError` when two members declare the
+same key, and the message names the key and both origins. Each document is valid
+on its own, and two services can each declare `listing.read` with no namespace.
+The collision exists only in the process holding both, so the check runs there.
 
-`federatedPolicies` throws when two members declare the same key:
-
-```
-OriginCollisionError: permission key "listing.read" is claimed by two origins,
-"storefront" and "stock": each origin's keys must be disjoint for one view to
-hold both
-```
-
-Each document is valid on its own, and two services can each declare
-`{ object: 'listing', action: 'read' }` with no namespace anywhere. The
-collision exists only in the process holding both documents, so the edge is
-where the check runs and the message names both origins.
-
-The check reads `permission.key`. A deny rule carries none, so a key one origin
+The check reads `permission.key`. A deny rule, the kind
+[a deny overlay](#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+appends to another team's permission, carries no key, so a key one origin
 declares and another only vetoes is no collision.
 
-<Panel heading="The edge view is advisory">
-  <Text as="div" size="sm">
-    The view sits in the same tier as a browser's. Every service behind the
-    gateway evaluates its own matrix and never trusts the edge's answer. A
-    gateway that allowed the request does not excuse the service behind it,
-    which a caller reaches directly whenever it wants to.
-  </Text>
-</Panel>
+## A federated acl view at the gateway is advisory
+
+The view `federatedPolicies` returns sits in the same tier as a browser's. Every
+service behind the gateway evaluates its own matrix and never trusts the edge's
+answer. A gateway that allowed the request does not excuse the service behind
+it, which a caller reaches directly whenever it wants to.
 
 ```mermaid caption="Where the gateway's answer counts and where it does not. The edge view routes a key to the origin whose key set holds it and answers in the same tier as a browser; each service behind it evaluates its own matrix on every call, including a call that reached it without passing the gateway at all."
 flowchart LR
@@ -139,43 +96,23 @@ flowchart LR
   CL -->|"directly"| S2
 ```
 
-## An unreachable upstream needs no flag
+## An unreachable upstream needs no flag in a federated view
 
-An upstream the gateway cannot reach is absent from the record, so every key
-that origin owns is already `{ key, allowed: false, reason: 'unknown-action' }`
-from the view itself. No flag records the outage, and no option turns that
-answer into an error the caller has to handle.
+Leave an upstream you cannot reach out of the object passed to
+`federatedPolicies`. Every key it owns then answers
+`{ key, allowed: false, reason: 'unknown-action' }` from the view. No flag
+records the outage, and no option turns that answer into an error.
 
-Each member is still built with `parseMatrix`, for the reason
+Each member is built with `parseMatrix`, for the reason
 [A policy from another service](/acl/adopting) gives: every document in the
-record arrived from a process that is not this one, and the closed mode is what
-makes a key its owner has dropped a refusal.
+record came from another process, and closed mode is what turns a key its owner
+dropped into a refusal.
 
-## One permission never gates another
-
-No permission declares a dependency on another, inside one origin or across two.
-A subject who may read the storefront copy of a listing and may not read the
-stock copy is two questions, and the caller asks both over the `fleet` built
-above:
-
-```ts no-run
-const ok =
-  fleet.can(subject, 'storefront:listing', 'read').allowed &&
-  fleet.can(subject, 'stock:listing', 'read').allowed;
-```
-
-Deny-overrides, written where somebody knows whether they meant AND or OR. The
-library does not guess.
-
-## A cross-cutting deny is an overlay the owner applies
+## A cross-cutting deny is an acl overlay the owner applies
 
 A compliance or fraud team publishes deny rules for permissions it does not own.
-The owning service fetches them and applies them in its own process, before it
-builds its `Access` with `hydratePolicy`:
-
-```
-authored matrix  →  applyDenyOverlay  →  hydratePolicy  →  access
-```
+The owning service fetches them and applies them in its own process with
+`applyDenyOverlay`, then builds its `Access` with `hydratePolicy`:
 
 ```ts twoslash file=libs/acl/README.md region=deny-overlay
 
@@ -186,59 +123,50 @@ that permission's `denyRules` and returns a new matrix. Nothing merges at an
 edge, the owner stays the only authority, and the service that enforces the veto
 is the one that applies it.
 
-### A contribution can only subtract
+### A deny overlay can only subtract
 
-A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`.
-`fields` lives on `Permission`, and an allow rule is a member of a different
-array, so a contribution has no way to express an allow or a field rule.
+A contribution is a `readonly Rule[]`, and a `Rule` is `{ id?, when? }`. `fields`
+lives on `Permission`, and allow rules live in a different array, so a
+contribution cannot express an allow or a field rule. An appended deny rule moves
+the deny side towards a match and never away, so a subject the overlaid matrix
+allows was allowed by the authored one, for every object and every instant.
 
-An appended deny rule moves the deny side towards a match and never away. A
-subject the overlaid matrix allows was allowed by the authored one, for every
-object and every instant.
+### What `applyDenyOverlay` refuses
 
-### Three refusals, all at apply time
+`applyDenyOverlay` throws at apply time, and every error names the key:
 
-`applyDenyOverlay` throws on three contributions:
-
-<Panel heading="Each one names the offending key">
-  <Text as="div" size="sm">
-    A key the target matrix does not define. A key the target does not list in
-    `vetoable`. A condition that does not validate against the target's schema
-    for that key's object kind, which raises the same `UnknownFieldError` and
-    `FieldTypeMismatchError` construction raises, run over the contribution.
-  </Text>
-</Panel>
+| Error                                           | Thrown when                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| `UnknownPermissionError`                        | a `vetoable` key or an overlay key names no permission in the target         |
+| `MissingVetoSchemaError`                        | a `vetoable` key's object kind has no entry in the target's `schema.objects` |
+| `UnvetoablePermissionError`                     | an overlay contributes to a key the target does not list in `vetoable`       |
+| `UnknownFieldError` or `FieldTypeMismatchError` | a contributed condition names a field the schema lacks, or misreads its type |
 
 A matrix owes a schema for the object kinds of its `vetoable` keys and nothing
-else. A key opened whose kind has no `schema.objects` entry is a refusal,
-because no schema checks contributions to it. A consumer that opens nothing owes
-no schema.
+else, so an owner that opens no key owes no schema. The contributing team runs
+the same call in its own build, over the document the owner publishes, and
+finds its own mistake there. Apply the overlay before `serialize`. A consumer
+given the authored matrix allows what the owner's veto refuses.
 
-The contributing team runs the same call in its own build, over the owner's
-published subset, and finds its own mistake there. Apply before serializing: a
-veto is a deny rule, and a published authored matrix allows what the owner
-refuses.
-
-## Publishing the rules to a consumer
+## Publishing the rules from one service to a consumer
 
 `serialize(access, 'reduced')` emits the permissions marked
 `visibility: 'public'`, each kept whole, and the consumer adopts the result with
 `parseMatrix`. `apps/shop-api` serves exactly that at `GET /api/policy`. The
 consumer decides locally, and the owner decides again when the call arrives.
 
-## What this topology does not give you
+## What a federated acl topology does not give you
 
-Integrity of a document in transit belongs to the transport, the same way
-resolving a subject does. The library neither signs a matrix nor verifies one, so
-a document arriving over an unauthenticated channel is a document an attacker
-wrote.
+Serve the matrix over an authenticated channel; `@evanion/acl` neither signs nor
+verifies it. A document arriving over an unauthenticated channel is a document
+an attacker could have written.
 
 ## Where to go next
 
-- [Giving my rules to another service](/acl/publishing) — `serialize`,
-  `visibility` and the freshness budget
-- [A policy from another service](/acl/adopting) — `parseMatrix`, the
-  closed mode, and what construction refuses
-- [Caveats and pitfalls](/acl/pitfalls) — the layer-trust and subject-forgery
-  entries apply directly here
-- [Security contract](/acl/security) — every layer decides for itself
+- [Giving my rules to another service](/acl/publishing). `serialize`,
+  `visibility` and the freshness budget.
+- [A policy from another service](/acl/adopting). `parseMatrix`, closed mode, and
+  what construction refuses.
+- [Caveats and pitfalls](/acl/pitfalls). The layer-trust and subject-forgery
+  entries apply here directly.
+- [Security contract](/acl/security). Every layer decides for itself.

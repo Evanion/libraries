@@ -1,83 +1,65 @@
 # Express
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    Express is the one platform in this band with no app in this repository
-    exercising it. Every fence below is tagged `no-run`: the shapes are derived
-    from the core's real surface and from `apps/shop-api`'s arrangement, and
-    nothing here is executed by a test. Read them as shapes.
-  </Text>
-</WorkshopNotice>
+A middleware binds `access.authorize(subject)` from `@evanion/acl` to
+`res.locals`, and each Express route handler calls `canFields` or `can` on the
+row it loaded.
+
+<WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={2}
-  read={7}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  difficulty={4}
+  read={10}
+  hands={20}
+  requires={[
+    ['Rules about the thing being accessed', '/acl/object-rules'],
+    ['Which fields may they write?', '/acl/writing'],
+  ]}
   unlocks={[
     ['NestJS', '/acl/nestjs'],
     ['Field permissions', '/acl/fields'],
   ]}
 />
 
-**The concept.** An Express app runs every route in a server process and hands
-no tree to a browser, so every `can` it calls enforces.
+## An Express app that decides with `@evanion/acl`
 
-**What you get.** A handler that resolves the subject from the verified session
-and decides on the row it just read.
+Baize's catalogue API lets an operator change the availability of a title their
+own shop lists. The app below is the whole of it: one policy, two middlewares,
+one `PATCH` route, and two requests from Ines, an operator at the Stockholm shop.
 
-**Why you want it.** `app.use` mounts middleware positionally, so a route
-registered above `bindAccess` runs with no evaluator bound and no decision made.
+The policy passes `policy()` a third type argument,
+`{ game: Action | 'declare' }`. `Action` is the default four verbs, `create`,
+`read`, `update` and `delete`, and the map adds `declare` for `game`.
+`p.contains('subject.roles', 'operator')` holds when the subject's `roles` array
+holds `'operator'`, and `.fields({ fields: ['availability'] })` limits what
+`declare` may write to `availability`.
 
-**How the library gets you there.** `@evanion/acl` ships no Express adapter, so
-this page wires `requireSession`, `bindAccess` and one `can` call per
-handler.
+```ts twoslash file=libs/acl/README.md region=express-app
 
-## What an Express app with `@evanion/acl` holds
-
-An Express app hands no client tree anything, so every decision it makes is
-authoritative and the only question is whether the decision happens at all. This
-page builds an API over Baize's catalogue out of three pieces:
-
-- one matrix at module scope,
-- one middleware binding the subject onto `res.locals`,
-- a `can` call in every handler that touches a title.
-
-`@evanion/acl` imports no framework, and `authorize(subject)` returns a plain
-object of closures, so the package ships no Express adapter. An adapter over
-`authorize` is a re-export and a name.
-
-## Complete mediation is registration order
-
-Two middlewares carry complete mediation here, and neither is part of
-`@evanion/acl`. `requireSession` is whatever your app already uses to verify a
-caller and put them on `req.user`: Passport, a JSON Web Token (JWT) check, your
-own cookie code. `bindAccess` is about twenty lines you write once, and Binding
-the subject below is the whole of it. `games` is the router carrying the
-catalogue's own routes, defined in the sections after it.
-
-```ts no-run
-// server.ts — `requireSession` verifies the caller, `bindAccess` binds what it
-// verified, and every route under `api` is reached through both.
-import express from 'express';
-
-import { bindAccess } from './bind-access.js';
-import { games } from './games.router.js';
-import { requireSession } from './session.js';
-
-const api = express.Router();
-
-api.use(requireSession);
-api.use(bindAccess);
-api.use('/games', games);
 ```
 
-`app.use` is positional, so a route registered above the middleware that binds
-the subject never sees it and nothing fails. Mount the binding on the router, as
-`api` does above. The library cannot close a route somebody registered above
-`bindAccess`. The app's own route table can, and the assertion over it is the
-app's test.
+Ines gets 204 for Wingspan, which Stockholm lists, and the catalogue now says
+`preorder`. The `price` in her body is dropped, because `game.declare` allows
+`availability` and nothing else. Gloomhaven is Gothenburg's, so the same request
+gets 403 and writes nothing.
 
-```mermaid caption="Registration order is what mediates. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset, and nothing fails."
+| Piece            | Who writes it              | What it does                                                        |
+| ---------------- | -------------------------- | ------------------------------------------------------------------- |
+| `access`         | you, once, at module scope | holds the rules, validated, deep-cloned and deep-frozen at `build`  |
+| `requireSession` | your session layer         | verifies the caller and sets `res.locals.user`                      |
+| `bindAccess`     | you, in five lines         | binds that user and one `now` with `access.authorize`               |
+| the route        | you, once per route        | loads the row, decides on it, writes what `pickAllowedFields` keeps |
+
+`@evanion/acl` ships no Express adapter, because one over `authorize` would add a
+re-export and a name and nothing else.
+
+## Mount order decides which Express routes acl guards
+
+`router.use` is positional. A route registered on `api` above
+`api.use(bindAccess)` runs with `res.locals.access` unset: a handler that calls
+it throws a `TypeError` and answers 500, and a handler that never calls it
+answers with no decision made.
+
+```mermaid caption="Registration order decides which routes run behind bindAccess. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset."
 flowchart TD
   R["a request"] --> A["requireSession, mounted on api"]
   A --> B["bindAccess, mounted on api"]:::accent
@@ -87,233 +69,70 @@ flowchart TD
   E --> N["the handler runs with<br>res.locals.access unset"]
 ```
 
-## Building Baize's matrix at module scope
+Mount `requireSession` and `bindAccess` on the router that carries the routes,
+before the routes: `api.use(requireSession)`, `api.use(bindAccess)`, then
+`api.use('/games', games)`. `@evanion/acl` cannot see the route table, so it
+cannot close a route registered above `bindAccess`. The app's own test over its
+route table can.
 
-`policy(…).build()` validates, deep-clones and deep-freezes the document, so
-build the matrix once and hold it at module scope. `ShopSubject` and `Game` are
-the app's own types, and `SHOP_MATRIX_VERSION` is the document revision a client
-compares its copy against. The three permissions are the ones `apps/shop-api`
-authors:
+## Binding the acl subject from the Express session
 
-```ts no-run
-// access.ts
-import { policy, type Action } from '@evanion/acl';
+`bindAccess` passes `res.locals.user`, the caller `requireSession` verified, and
+nothing from the request itself. `can` authorizes the subject it is handed and
+cannot ask where that subject came from, so a subject read off a header, a query
+string or the body is the caller's claimed identity, authorized as stated.
 
-import type { Game, ShopSubject } from './types.js';
+`access.authorize(subject, { now })` returns a handle bound to that subject, so
+its `can` and `canFields` take no subject argument. A rule can carry a time
+condition, `before` or `after` an instant. Pinning `now` in the middleware gives
+every such condition one instant for the whole request, so two handlers in one
+request cannot fall on opposite sides of a boundary that closed between them.
 
-export const SHOP_MATRIX_VERSION = 'shop-api@1';
+## Deciding an Express write on the row
 
-// `declare` and `reprice` sit outside the default CRUD vocabulary, so `game`
-// names its own.
-export const access = policy<
-  ShopSubject,
-  { game: Game },
-  { game: Action | 'declare' | 'reprice' }
->({ version: SHOP_MATRIX_VERSION })
-  .for('game', (p) =>
-    p
-      .allow('read', p.always)
-      .allow(
-        'declare',
-        p.contains('subject.roles', 'operator'),
-        p.eq('object.shop', 'subject.shop'),
-      )
-      .fields({ fields: ['availability'] })
-      .allow(
-        'reprice',
-        p.contains('subject.roles', 'manager'),
-        p.eq('object.shop', 'subject.shop'),
-      )
-      .fields({ fields: ['availability', 'price'] }),
-  )
-  .build();
-```
+`canFields('game', 'declare', game, 'write', req.body)` decides every key of the
+body, including keys a game never holds, which is what closes mass assignment.
+`'write'` asks which keys the subject may set; `'read'` asks which fields it may
+see. The decision carries `action`, the answer for `game.declare` itself, and
+`fields`, one answer per key. The route writes
+`pickAllowedFields(decision, req.body)` and nothing else from `req.body`.
 
-A query after the build is a function call over the frozen copy. A rebuild per
-request repeats the clone on every call for a document that did not change.
+- `decision.action.allowed` is checked first. `pickAllowedFields` throws
+  `ActionNotAllowedError` on a refused action, and Express answers a thrown
+  error with 500.
+- An empty `writable` means the action stands and no field of the body was
+  allowed. The route answers 400.
+- A filter written by hand on `!== 'denied'` also writes every field marked
+  `unevaluable`, meaning its rule read a path the row did not carry, and every
+  key the decision does not carry.
 
-## Binding the subject
+The route loads the row before it decides, because `game.declare` reads
+`object.shop`. Loading the row first is safe while the handler sends nothing
+from it. An insecure direct object reference (IDOR) happens when the response
+returns a row the decision refused.
 
-The subject comes from the verified session and nowhere else. `can` authorizes
-the bag it is handed and cannot ask where the bag came from, so a subject read
-off a header or a body is the attacker's claimed identity, faithfully
-authorized.
+## Deciding an Express read, and what a refusal sends back
 
-```ts no-run
-// bind-access.ts
-import type { RequestHandler } from 'express';
+A read route calls `res.locals.access.can('game', 'read', game)` and gates on
+`decision.allowed`. A row loaded as a projection, a subset of its columns, can
+come back `unevaluable`, meaning a rule reads a path the projection did not
+carry. `decision.missing` names those paths, so the route loads them and decides
+again. Branching on `reason` to grant grants what the engine refused.
 
-import { access } from './access.js';
+A decision carries `rule`, the id of the rule that decided, beside `reason`.
+Send `reason` and `rule` to a caller who may read your privilege model, and
+neither to one who may not.
 
-declare module 'express-serve-static-core' {
-  interface Locals {
-    access: ReturnType<typeof access.authorize>;
-  }
-}
-
-export const bindAccess: RequestHandler = (req, res, next) => {
-  // req.user is what `requireSession` verified. Nothing from the request body,
-  // the query string or a header reaches this call.
-  res.locals.access = access.authorize(req.user, { now: new Date() });
-  next();
-};
-```
-
-`authorize` binds the subject, and optionally the clock. The middleware above
-passes both, so a handler asks `can(kind, action, object)` without restating
-either. The region below binds the subject alone:
-
-```ts twoslash file=libs/acl/README.md region=server-authorize
-
-```
-
-The middleware pins `now` at bind time. Every `before`/`after` window in the
-matrix then reads one instant for the whole request, and two handlers in the
-same request cannot land on opposite sides of a boundary that closed between
-them.
-
-## Deciding on a row
-
-`game.declare` reads `object.shop`, so the decision follows the read.
-`catalogue` is the app's own store of titles, keyed by urn:
-
-```ts no-run
-// games.router.ts
-import express from 'express';
-
-import { catalogue } from './catalogue.js';
-
-export const games = express.Router();
-
-games.get('/:urn', async (req, res) => {
-  const game = await catalogue.find(req.params.urn);
-  if (!game) return res.sendStatus(404);
-
-  const decision = res.locals.access.can('game', 'read', game);
-  if (!decision.allowed) return res.sendStatus(403);
-
-  res.json(game);
-});
-```
-
-A fetch before the decision is no leak as long as nothing leaves the handler. An
-insecure direct object reference (IDOR) is what the response gives away, and the
-query gives away nothing.
-
-`decision.allowed` is the gate. A decision can come back `unevaluable`, meaning
-the projection did not carry a path some rule reads, and that is neither an
-error nor a yes. `missing` names the paths, so a thin projection is one refetch
-from an answer:
-
-```ts no-run
-if (decision.reason === 'unevaluable') {
-  // decision.missing is e.g. ['object.shop']
-  const full = await catalogue.find(req.params.urn, {
-    fields: decision.missing,
-  });
-  // decide again against the complete row
-}
-```
-
-A gate on the reason string grants what the engine refused. `allowed` is the
-only gate.
-
-## Writes
-
-A write decides on the field axis and writes what `pickAllowedFields` returns.
-`req.body` is the proposed write. The write axis decides every key of it,
-including keys the title has never held, which is what closes mass assignment:
-
-```ts no-run
-import { pickAllowedFields } from '@evanion/acl';
-
-games.patch('/:urn', async (req, res) => {
-  const current = await catalogue.find(req.params.urn);
-  if (!current) return res.sendStatus(404);
-
-  const decision = res.locals.access.canFields(
-    'game',
-    'declare',
-    current,
-    'write',
-    req.body,
-  );
-  if (!decision.action.allowed) return res.sendStatus(403);
-
-  const writable = pickAllowedFields(decision, req.body);
-  if (Object.keys(writable).length === 0) return res.sendStatus(400);
-
-  await catalogue.update(current.urn, writable);
-  res.sendStatus(204);
-});
-```
-
-`decision.action` is the action-level decision that gates the field map.
-`pickAllowedFields` throws `ActionNotAllowedError` when the action was refused,
-so a handler that skips the check turns a refusal into a 500. A hand-written
-filter on `!== 'denied'` writes the `unevaluable` fields and every key the
-decision does not carry at all.
-
-An empty `writable` is the third case: the action stands, the row is real, and
-the decision allowed no field of the body. `apps/shop-api` answers 400 there.
-
-## Refusals as one handler
-
-One error-handling middleware catches a `Forbidden` the handler throws and
-answers 403 in one place. `Decision` is the shape `can` returns, and `reason`
-is the member naming why:
-
-```ts no-run
-// forbidden.ts
-import type { Decision } from '@evanion/acl';
-
-export class Forbidden extends Error {
-  constructor(readonly decision: Decision) {
-    super(decision.reason);
-  }
-}
-```
-
-```ts no-run
-// Four arguments, registered last: Express selects error middleware by arity.
-app.use((error, _req, res, next) => {
-  if (!(error instanceof Forbidden)) return next(error);
-  res.status(403).json({ reason: error.decision.reason });
-});
-```
-
-A decision names the rule that refused. On an API serving parties who should not
-learn each other's privilege model, `rule` is more than the caller asked for.
-Send `reason` to a caller who may read it, and send neither member to one who
-may not.
-
-## Serving the matrix to a browser client
-
-An Express API in front of a browser app can hand the app its matrix, which is
-the document and nothing else. `serialize` keeps only the permissions marked
-`visibility: 'public'`, each one byte for byte:
-
-```ts no-run
-import { serialize } from '@evanion/acl';
-
-app.get('/policy', (req, res) => {
-  const matrix = serialize(access, 'reduced');
-  res.json({ version: matrix.version, matrix });
-});
-```
-
-`matrix` is an envelope carrying its own `version` and `schema`, so nothing
-travels beside it. `access` itself does not serialize: the value is closures
-over the frozen document, and `JSON.stringify` drops every method in silence.
-
-The client that receives this evaluates for itself. The client's copy toggles
-what the user sees and enforces nothing. This handler and every one above it
-decides again on the next request, against the session it verifies itself, and
-never reads the client's copy of anything.
+A browser client of the same API evaluates its own copy of the document, served
+from a route that returns `serialize(access, 'reduced')`, the permissions marked
+`visibility: 'public'` and nothing else. That copy decides what the client
+draws, and every Express route that writes decides again on the next request.
 
 ## Where to go next
 
-- [Security contract](/acl/security) — subject authenticity, complete mediation,
-  and the rest of what the consumer owns
-- [Field permissions](/acl/fields) — the two axes and the write path
-- [NestJS](/acl/nestjs) — the same boundary, with a guard in front of it
+- [NestJS](/acl/nestjs). The same boundary, with a guard in front of the route.
+- [Field permissions](/acl/fields). The read axis and the write axis.
+- [Giving my rules to another service](/acl/publishing). What `serialize` keeps,
+  and `visibility`.
+- [Security contract](/acl/security). Subject authenticity, complete mediation,
+  and the rest of what an app owns.
