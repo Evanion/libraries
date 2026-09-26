@@ -1,16 +1,15 @@
 # React Router 8
 
-A React Router route reaches the server at two entry points, the loader and the
-action. Each calls `@evanion/acl`'s `access.can` for itself, and the browser
-tree between them toggles controls with `useCan` from `@evanion/react-acl` and
-enforces nothing.
+A React Router route's loader and action each call `@evanion/acl`'s
+`access.can` for themselves. The browser tree between them toggles controls with
+`useCan` from `@evanion/react-acl` and enforces nothing.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={8}
-  requires={[['A policy from another service', '/acl/adopting']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Next.js (React Server Components)', '/acl/nextjs'],
     ['Field permissions', '/acl/fields'],
@@ -71,13 +70,14 @@ fetches from. `apps/admin` has none and loads everything on the server.
 ## React Router middleware answers who is asking
 
 Middleware resolves the subject and binds it, so every loader and action on the
-route runs against one identity. It calls no `can` itself, because a decision
-needs the object being acted on and a refusal needs somewhere to go, and
-middleware holds neither.
+route runs against one identity. It calls no `can` itself: a refusal needs a
+route to render it, and middleware has none.
 
 React Router 8's stable `middleware` and `createContext` carry the subject.
-`demoSubject()` is this app's whole identity story, and `readAccess` and
-`readShelf` are the two fetches the contexts defer:
+`demoSubject()` returns `staff:ines`, an operator at the Stockholm shop, or the
+subject the `ADMIN_SUBJECT` environment variable states. `readAccess` fetches
+and adopts shop-api's document, and `readShelf` fetches the catalogue with its
+stock; the contexts defer both:
 
 ```ts file=apps/admin/app/page-view.server.ts region=bind-subject
 
@@ -93,12 +93,22 @@ that fetch happens after any action.
 ```
 
 The default is a subject with no roles and no shop, so a loader reached without
-the middleware decides against an actor Baize's matrix refuses everywhere.
+the middleware decides against an actor Baize's matrix refuses every write.
+
+<Panel heading="This demo states its subject, and a deployment must not">
+  <Text as="div" size="sm">
+    `demoSubject()` verifies nothing: it reads an environment variable or falls
+    back to Ines. `can` authorizes the subject it is handed and cannot ask where
+    it came from. In production this middleware reads the actor the session
+    layer verified, and nothing else on the page changes.
+  </Text>
+</Panel>
 
 ## What a React Router loader decides
 
 This loader decides whether the bound subject may read the orders page at all.
-`allows` reads one permission out of a capability map, and `telemetry.read`
+`access.capabilities(subject)` returns one decision per permission the document
+carries, `allows` from `app/access.ts` reads one of them, and `telemetry.read`
 belongs to a manager:
 
 ```tsx file=apps/admin/app/routes/orders.tsx region=loader-decides
@@ -106,24 +116,29 @@ belongs to a manager:
 ```
 
 The nav entry pointing here is hidden from every other subject and is still a
-URL, so this loader decides before it reads anything. A thrown `Response` is a
-refusal, which the root `ErrorBoundary` renders through `isRouteErrorResponse`.
-A degraded page returns a field instead: `unavailable?: string`.
+URL, so this loader decides before it reads anything. The refusal is a returned
+`refused: true` member: the component narrows on it and draws a "Not yours to
+read" panel where the ledger would be, and the loader never fetches the events.
 
 ## What crosses from a React Router loader to the tree
 
-Loader return values are the serialization boundary, and `Access` is a set of
-closures that does not cross it. What crosses is the document:
-
-```ts twoslash file=libs/acl/README.md region=matrix-round-trip
-
-```
+Loader return values are the serialization boundary. The loader returns
+`access.matrix`, never `access`, because `Access` holds functions and they do
+not serialize.
+[Choosing a framework integration](/acl/choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
+shows the round trip.
 
 `apps/admin`'s shell loader returns `access.matrix`, the subject and a `now`
 string once for the whole tree. The subject is no credential: the server
 resolves its own on the next request. The shell component adopts the document
-with the same `adoptMatrix` the server used, and composes the providers with
-`ComposeProvider` from `@evanion/compose`:
+with the same `adoptMatrix` the server used.
+
+`PolicyProvider` and `useCan` are the pair
+`createPolicyContext<AdminSubject, AdminObjects>(NO_ACCESS)` returns in
+`app/access.ts`, so the key and the row are both checked where a `useCan` call
+is written. `ComposeProvider` from `@evanion/compose` nests the providers in
+list order; `SessionProvider`, `ThemeProvider` and `CartProvider` are the app's
+own:
 
 ```tsx file=apps/admin/app/shell.tsx region=mount-provider
 
@@ -134,21 +149,24 @@ a `Date` is a new object each render.
 
 ## The React Router tree toggles and enforces nothing
 
-`useCan` comes from `createPolicyContext<AdminSubject, AdminObjects>`, so the
-key and the row are both checked where the call is written:
+A route component reads the provider with `useCan`:
 
 ```tsx file=apps/admin/app/routes/title.tsx region=tree-toggles
 
 ```
 
-Baize grants `game.declare` to an operator whose own shop lists the title. Ines
-works in Stockholm, so `mayDeclare` draws the availability form on Wingspan and
-a sentence naming the declaring shop on Azul, which Gothenburg lists. The action
-behind the form is a URL either way.
+Baize grants `game.declare` to an operator whose own shop lists the title. Ines,
+the subject `demoSubject()` returns, works in Stockholm, so `mayDeclare` draws
+the availability form on Wingspan and a sentence naming the declaring shop on
+Gloomhaven, which Gothenburg lists. The action behind the form is a URL either
+way.
 
 ## Every React Router action decides again
 
-The action takes nothing from the loader and decides on the row it re-reads:
+The action takes nothing from the loader. It reads the subject and the evaluator
+off the context, re-reads the catalogue, and decides on the row it finds.
+`proposed.availability` is restated in the catalogue's vocabulary, which is what
+the matrix's `targets` list holds, and the write stores the form's own `state`:
 
 ```tsx file=apps/admin/app/routes/title.tsx region=action-decides
 

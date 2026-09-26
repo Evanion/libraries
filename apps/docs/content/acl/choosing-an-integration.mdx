@@ -94,16 +94,9 @@ serving, and `hydratePolicy` throws. The three frontends here fetch
 
 ### Narrow a subject before you forward it
 
-`apps/storefront` reads an unsigned cookie and sends `X-Shop-Subject` to
-`apps/shop-api`, so it screens the roles it forwards down to the one a shopper
-can hold:
-
-```ts twoslash file=apps/storefront/src/lib/subject.ts region=storefront-roles
-
-```
-
-A cookie claiming `manager` reaches the API as nothing. That hop is the last
-place that knows which roles this surface may assert.
+An app that forwards its subject to another service screens the roles first.
+[Astro SSR](/acl/astro#narrow-the-roles-before-the-astro-app-forwards-them)
+shows `apps/storefront` doing it.
 
 ## Building the matrix once
 

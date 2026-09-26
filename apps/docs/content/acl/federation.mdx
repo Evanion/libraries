@@ -9,7 +9,7 @@ service stays the only author of its rules.
 <PageSheet
   difficulty={5}
   read={8}
-  requires={[['A policy from another service', '/acl/adopting']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Giving my rules to another service', '/acl/publishing'],
     ['Security contract', '/acl/security'],
@@ -37,8 +37,9 @@ and the examples on this page are regions of the `@evanion/acl` README.
 
 ## A gateway composes one acl policy per origin
 
-`federatedPolicies` takes one `Access` per origin, keeps every document whole,
-and returns a view with three members: `can`, `capabilities` and `get`.
+`federatedPolicies` takes one `Access` per origin, the evaluator type that
+`.build()`, `hydratePolicy` and `parseMatrix` return. It keeps every document
+whole and returns a view with three members: `can`, `capabilities` and `get`.
 
 ```ts twoslash file=libs/acl/README.md region=federation
 
@@ -58,12 +59,8 @@ flowchart LR
   R -->|"no origin"| U["unknown-action"]
 ```
 
-### One permission never gates another
-
-No permission declares a dependency on another, inside one origin or across two.
 A request touching both origins asks both, as `shelf && stock` does in the fence
-above, and the caller writes the AND where somebody knows whether they meant AND
-or OR.
+above, and the caller writes the AND.
 
 ### Two origins claiming one acl key refuse at construction
 
@@ -72,7 +69,9 @@ same key, and the message names the key and both origins. Each document is valid
 on its own, and two services can each declare `listing.read` with no namespace.
 The collision exists only in the process holding both, so the check runs there.
 
-The check reads `permission.key`. A deny rule carries no key, so a key one origin
+The check reads `permission.key`. A deny rule, the kind
+[a deny overlay](#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+appends to another team's permission, carries no key, so a key one origin
 declares and another only vetoes is no collision.
 
 ## A federated acl view at the gateway is advisory
@@ -93,9 +92,10 @@ flowchart LR
 
 ## An unreachable upstream needs no flag in a federated view
 
-An upstream the gateway cannot reach is absent from the record, so every key it
-owns already answers `{ key, allowed: false, reason: 'unknown-action' }` from the
-view. No flag records the outage, and no option turns that answer into an error.
+Leave an upstream you cannot reach out of the record passed to
+`federatedPolicies`. Every key it owns then answers
+`{ key, allowed: false, reason: 'unknown-action' }` from the view. No flag
+records the outage, and no option turns that answer into an error.
 
 Each member is built with `parseMatrix`, for the reason
 [A policy from another service](/acl/adopting) gives: every document in the
@@ -127,16 +127,17 @@ allows was allowed by the authored one, for every object and every instant.
 
 ### What `applyDenyOverlay` refuses
 
-`applyDenyOverlay` throws at apply time, naming the key, on three contributions:
+`applyDenyOverlay` throws at apply time, and every error names the key:
 
-- a key the target matrix does not define,
-- a key the target does not list in `vetoable`,
-- a condition that does not fit the target's schema for that key's object kind,
-  which raises the `UnknownFieldError` or `FieldTypeMismatchError` construction
-  raises.
+| Error                                           | Thrown when                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| `UnknownPermissionError`                        | a `vetoable` key or an overlay key names no permission in the target         |
+| `MissingVetoSchemaError`                        | a `vetoable` key's object kind has no entry in the target's `schema.objects` |
+| `UnvetoablePermissionError`                     | an overlay contributes to a key the target does not list in `vetoable`       |
+| `UnknownFieldError` or `FieldTypeMismatchError` | a contributed condition names a field the schema lacks, or misreads its type |
 
 A matrix owes a schema for the object kinds of its `vetoable` keys and nothing
-else, so a consumer that opens no key owes no schema. The contributing team runs
+else, so an owner that opens no key owes no schema. The contributing team runs
 the same call in its own build, over the owner's published subset, and finds its
 own mistake there. Apply before serializing: a published authored matrix allows
 what the owner's veto refuses.
@@ -150,10 +151,9 @@ consumer decides locally, and the owner decides again when the call arrives.
 
 ## What a federated acl topology does not give you
 
-The transport owns the integrity of a document in transit, the same way the
-application owns resolving a subject. `@evanion/acl` neither signs a matrix nor
-verifies one, so a document arriving over an unauthenticated channel is a
-document an attacker wrote.
+Serve the matrix over an authenticated channel; `@evanion/acl` neither signs nor
+verifies it. A document arriving over an unauthenticated channel is a document
+an attacker could have written.
 
 ## Where to go next
 

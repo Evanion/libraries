@@ -1,13 +1,13 @@
 # Express
 
-`@evanion/acl` ships no Express adapter. A middleware binds
-`access.authorize(subject)` to `res.locals`, and each route handler calls
-`canFields` or `can` on the row it loaded.
+A middleware binds `access.authorize(subject)` from `@evanion/acl` to
+`res.locals`, and each Express route handler calls `canFields` or `can` on the
+row it loaded.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={2}
+  difficulty={4}
   read={6}
   requires={[
     ['Rules about the thing being accessed', '/acl/object-rules'],
@@ -25,6 +25,13 @@ Baize's catalogue API lets an operator change the availability of a title their
 own shop lists. The app below is the whole of it: one policy, two middlewares,
 one `PATCH` route, and two requests from Ines, an operator at the Stockholm shop.
 
+The policy passes `policy()` a third type argument,
+`{ game: Action | 'declare' }`. `Action` is the default four verbs, `create`,
+`read`, `update` and `delete`, and the map adds `declare` for `game`.
+`p.contains('subject.roles', 'operator')` holds when the subject's `roles` array
+holds `'operator'`, and `.fields({ fields: ['availability'] })` limits what
+`declare` may write to `availability`.
+
 ```ts twoslash file=libs/acl/README.md region=express-app
 
 ```
@@ -41,8 +48,8 @@ gets 403 and writes nothing.
 | `bindAccess`     | you, in five lines         | binds that user and one `now` with `access.authorize`               |
 | the route        | you, once per route        | loads the row, decides on it, writes what `pickAllowedFields` keeps |
 
-An adapter over `authorize` adds a re-export and a name and nothing else, so the
-package ships none.
+`@evanion/acl` ships no Express adapter, because one over `authorize` would add a
+re-export and a name and nothing else.
 
 ## Mount order decides which Express routes acl guards
 
@@ -51,7 +58,7 @@ package ships none.
 it throws a `TypeError` and answers 500, and a handler that never calls it
 answers with no decision made.
 
-```mermaid caption="Registration order is what mediates. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset."
+```mermaid caption="Registration order decides which routes run behind bindAccess. Every request under api passes requireSession and then bindAccess before a route runs, so a handler finds the subject on res.locals; a route registered above bindAccess runs with res.locals.access unset."
 flowchart TD
   R["a request"] --> A["requireSession, mounted on api"]
   A --> B["bindAccess, mounted on api"]:::accent
@@ -74,48 +81,51 @@ nothing from the request itself. `can` authorizes the subject it is handed and
 cannot ask where that subject came from, so a subject read off a header, a query
 string or the body is the caller's claimed identity, authorized as stated.
 
-`access.authorize(subject, { now })` returns a handle whose `can`, `canMany`,
-`canFields` and `capabilities` take no subject. Pinning `now` in the middleware
-gives every `before` and `after` window in the matrix one instant for the whole
-request, so two handlers in one request cannot fall on opposite sides of a
-boundary that closed between them.
+`access.authorize(subject, { now })` returns a handle bound to that subject, so
+its `can` and `canFields` take no subject argument. A rule can carry a time
+condition, `before` or `after` an instant. Pinning `now` in the middleware gives
+every such condition one instant for the whole request, so two handlers in one
+request cannot fall on opposite sides of a boundary that closed between them.
 
 ## Deciding an Express write on the row
 
 `canFields('game', 'declare', game, 'write', req.body)` decides every key of the
 body, including keys a game never holds, which is what closes mass assignment.
-The route writes `pickAllowedFields(decision, req.body)` and nothing else from
-`req.body`.
+`'write'` asks which keys the subject may set; `'read'` asks which fields it may
+see. The decision carries `action`, the answer for `game.declare` itself, and
+`fields`, one answer per key. The route writes
+`pickAllowedFields(decision, req.body)` and nothing else from `req.body`.
 
 - `decision.action.allowed` is checked first. `pickAllowedFields` throws
   `ActionNotAllowedError` on a refused action, and Express answers a thrown
   error with 500.
 - An empty `writable` means the action stands and no field of the body was
   allowed. The route answers 400.
-- A filter written by hand on `!== 'denied'` writes the `unevaluable` fields,
-  and every key the decision does not carry.
+- A filter written by hand on `!== 'denied'` also writes every field marked
+  `unevaluable`, meaning its rule read a path the row did not carry, and every
+  key the decision does not carry.
 
 The route loads the row before it decides, because `game.declare` reads
-`object.shop`. A load before the decision leaks nothing while nothing leaves the
-handler: an insecure direct object reference (IDOR) is what the response gives
-away.
+`object.shop`. Loading the row first is safe while the handler sends nothing
+from it. An insecure direct object reference (IDOR) happens when the response
+returns a row the decision refused.
 
 ## Deciding an Express read, and what a refusal sends back
 
 A read route calls `res.locals.access.can('game', 'read', game)` and gates on
-`decision.allowed`. A row loaded as a projection can come back `unevaluable`,
-meaning a rule reads a path the projection did not carry. `decision.missing`
-names those paths, so the route loads them and decides again. Branching on
-`reason` to grant grants what the engine refused.
+`decision.allowed`. A row loaded as a projection, a subset of its columns, can
+come back `unevaluable`, meaning a rule reads a path the projection did not
+carry. `decision.missing` names those paths, so the route loads them and decides
+again. Branching on `reason` to grant grants what the engine refused.
 
-A decision carries `rule`, which names the rule that decided. On an API serving
-callers who may not learn each other's privilege model, send `reason` to a
-caller who may read it and neither member to one who may not.
+A decision carries `rule`, the id of the rule that decided, beside `reason`.
+Send `reason` and `rule` to a caller who may read your privilege model, and
+neither to one who may not.
 
 A browser client of the same API evaluates its own copy of the document, served
-from a route that returns `serialize(access, 'reduced')`. That copy decides what
-the client draws, and every Express route that writes decides again on the next
-request.
+from a route that returns `serialize(access, 'reduced')`, the permissions marked
+`visibility: 'public'` and nothing else. That copy decides what the client
+draws, and every Express route that writes decides again on the next request.
 
 ## Where to go next
 

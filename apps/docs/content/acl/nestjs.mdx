@@ -1,13 +1,13 @@
 # NestJS
 
-`@evanion/acl` ships no NestJS module. In `apps/shop-api`, Baize's Nest service,
-`AclGuard` refuses a request before the row is read wherever the subject alone
-decides it, and `GamesService` decides `game.declare` on the title it loaded.
+In `apps/shop-api`, Baize's Nest service, `AclGuard` calls `@evanion/acl`'s `can`
+before the controller runs, and `GamesService` calls `canFields` on the title it
+loaded.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={3}
+  difficulty={5}
   read={8}
   requires={[
     ['Rules about the thing being accessed', '/acl/object-rules'],
@@ -21,9 +21,20 @@ decides it, and `GamesService` decides `game.declare` on the title it loaded.
 
 ## Baize's acl matrix, built once when the Nest app boots
 
-`apps/shop-api` calls `@evanion/acl` directly, and every fence on this page is a
-region of that app, run by its own test suite. `ShopSubject` carries `id`, `roles` and `shop`, and `ShopObjects` maps each of the
-four object kinds to its row shape:
+`@evanion/acl` ships no NestJS module, so `apps/shop-api` calls it directly.
+Every fence on this page is a region of that app, run by its own test suite.
+`ShopSubject` carries `id`, `roles` and `shop`, and `ShopObjects` maps each of
+the four object kinds to its row shape. The policy fence also uses these names:
+
+| Name                     | What it is                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `ShopVerbs`              | the third type argument, `{ game: Action \| 'declare' \| 'reprice' }`; `Action` is `create`, `read`, `update` and `delete` |
+| `SHOP_MATRIX_VERSION`    | `'shop-api@1'`, the version a consumer compares against the one it holds                                                   |
+| `SHOP_SCHEMA`            | the field types of the subject and each object kind, which every condition is checked against                              |
+| `p.always`               | a condition every subject meets                                                                                            |
+| `p.contains(path, v)`    | holds when the array at `path` holds `v`                                                                                   |
+| `.fields`, `.visibility` | apply to the action the chain declared last                                                                                |
+| `AVAILABILITIES`         | the catalogue's availability states, the values a write may set `availability` to                                          |
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=shop-matrix
 
@@ -35,8 +46,10 @@ marks what the service publishes. `game.declare` lets an operator set
 `object.shop === subject.shop`, so an operator in Gothenburg cannot touch a title
 Stockholm lists.
 
-`SHOP_MATRIX` is the document that builder produced. `hydratePolicy` adopts it,
-because this process wrote it:
+`SHOP_MATRIX` is `SHOP_POLICY.matrix`, the JSON document the builder emits,
+exported so a test can build a second evaluator over the same bytes.
+`buildShopAccess` rebuilds it with `hydratePolicy`, the call for a document this
+process authored:
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
 
@@ -63,24 +76,26 @@ which routes it gates. The token is a package-namespaced string:
 ```
 
 A bare `'ACL_ACCESS'` in a global module collides with any other provider of that
-name, and nothing reports it. A symbol is identity-based, so two copies of the
-package mint two tokens and Nest fails to resolve one of them.
+name, and nothing reports it. A `Symbol` token is unique per copy of the
+package, so two copies mint two tokens and Nest fails to resolve one of them.
 
 ## Resolving the acl subject in a Nest request
 
-`SubjectService` holds the request's subject in an `AsyncLocalStorage`
-singleton. `Scope.REQUEST` propagates upward: under it, every provider depending
-on the subject, `GamesService` and `InventoryClient` among them, becomes
-request-scoped, is rebuilt per request and never receives `onModuleInit`.
+`SubjectService` is a singleton over `AsyncLocalStorage`. Marking it
+`Scope.REQUEST` would make every provider that depends on it request-scoped too,
+`GamesService` and `InventoryClient` among them, rebuilt per request and never
+given `onModuleInit`.
 
 ```ts file=apps/shop-api/src/acl/subject.service.ts region=subject-service
 
 ```
 
-`SubjectMiddleware` fills it. The middleware types its arguments against
-`node:http`, so one class works under the Express and the Fastify adapter.
-`SHOP_SUBJECT_HEADER` is `X-Shop-Subject`, and `subjectFrom` parses it or falls
-back to a shopper who works for no shop:
+`SubjectMiddleware` fills it, and `AppModule.configure` applies it to every route
+with `consumer.apply(CorrelationIdMiddleware, SubjectMiddleware).forRoutes('*')`.
+The middleware types its arguments against `node:http`, so one class works under
+the Express and the Fastify adapter. `SHOP_SUBJECT_HEADER` is `X-Shop-Subject`,
+`singleValue` joins a repeated header so two stated subjects parse as none, and
+`subjectFrom` parses the JSON or falls back to a shopper who works for no shop:
 
 ```ts file=apps/shop-api/src/acl/subject.middleware.ts region=subject-middleware
 
@@ -108,10 +123,13 @@ read and holds both.
 | `AclGuard`     | the subject        | every permission whose rules read the subject alone            |
 | `GamesService` | the subject, a row | `game.declare` and `game.reprice`, on the title it just loaded |
 
-A permission whose rules read `object.*`, asked with no row, answers
-`unevaluable`, which is no refusal. A guard that reads that as a grant lets a
-Gothenburg operator edit a Stockholm title, so the row-level decision belongs in
-the service.
+`access.readsObject(key, action)` is true when any allow or deny rule of that
+permission reads an `object.*` path, whatever the subject. `AclGuard` refuses on
+every permission whose rules read only `subject.*`. On a permission that reads
+`object.*` it passes the request on whatever `can` answered, and `GamesService`
+decides after the read. The guard's pass is no grant: a guard that took
+`unevaluable`, the answer for a rule whose object paths were absent, as a grant
+would let a Gothenburg operator edit a Stockholm title.
 
 ```mermaid caption="The two seats one write passes through. AclGuard holds the subject and no row, so it refuses a permission whose rules read only subject paths and passes on one that readsObject reports as object-dependent; GamesService decides that one after the read, against the title it loaded."
 flowchart TD
@@ -127,8 +145,9 @@ flowchart TD
 ## The Nest guard refuses what the subject decides
 
 `@Requires` writes the permission onto the handler under the metadata key
-`REQUIRES_PERMISSION`. `RequiredPermission` types `key` against `ShopObjects`, so
-a route naming a kind the matrix does not carry fails to compile:
+`REQUIRES_PERMISSION`. `RequiredPermission` is `{ key, action }`, with `key`
+typed against `ShopObjects`, so a route naming a kind the matrix does not carry
+fails to compile:
 
 ```ts file=apps/shop-api/src/acl/requires.decorator.ts region=requires-decorator
 
@@ -138,19 +157,21 @@ a route naming a kind the matrix does not carry fails to compile:
 
 ```
 
-`access.readsObject(key, action)` is true when any allow or deny rule of that
-permission reads an `object.*` path. `order.create` reads the subject's roles
-alone, so the guard refuses a caller who is no customer and `OrdersController`
-never runs. `game.declare` reads the title's shop, so the guard passes it on.
+`order.create` reads the subject's roles alone, so the guard refuses a caller who
+is no customer and `OrdersController` never runs. `game.declare` reads the
+title's shop, so the guard passes it on.
 
-`action` stays a string, so the guard does not catch a `@Requires` naming an
-action the document lacks. `hydratePolicy` builds an open `Access`, where that
-`can` throws `UnknownPermissionError` and Nest renders a 500.
+`action` stays a string, so a `@Requires` naming an action the document lacks
+compiles. `hydratePolicy` builds an `Access` in open mode, where `can` on a
+permission the document does not carry throws `UnknownPermissionError` and Nest
+renders a 500. `requires-coverage.spec.ts` moves that failure to the build: it
+reads the metadata off every controller and holds each pair to `SHOP_MATRIX`.
 
 ## The Nest service decides on the row
 
-`GamesService.declare` loads the title with `findByUrn`, then decides. The action
-comes from the body, because `declare` and `reprice` allow different fields:
+`GamesService.declare` loads the title with `findByUrn`, then decides.
+`GameDeclaration` is the body, `{ availability?, price? }`. The action comes from
+the body, because `declare` and `reprice` allow different fields:
 
 ```ts file=apps/shop-api/src/games/games.service.ts region=row-decision
 
@@ -164,8 +185,10 @@ caller put in it, and the write keeps only the keys the decision marked
 of the endpoint, and the decision answers whether this subject may set it on this
 row, so keep both.
 
-The service spec runs the app's real matrix. The same Stockholm operator changes
-Wingspan and is refused on Gloomhaven:
+The service spec runs the app's real matrix. `serviceFor` builds `GamesService`
+over the real matrix for one subject; `STOCKHOLM_TITLE` is Wingspan and
+`GOTHENBURG_TITLE` is Gloomhaven. The same Stockholm operator changes Wingspan
+and is refused on Gloomhaven:
 
 ```ts file=apps/shop-api/src/games/games.service.spec.ts region=declare-on-the-row
 
@@ -193,9 +216,10 @@ only the subject, with `useValue` on the class token:
 
 ```
 
-A stubbed decision asserts only that the controller called something.
-`acl.guard.spec.ts` covers the guard, `games.service.spec.ts` the service, and
-`orders.e2e.spec.ts` boots the real `AppModule` on a real port.
+A spec that stubbed `ACL_ACCESS` would test only that the controller called it,
+so this spec builds the real one. `acl.guard.spec.ts` covers the guard,
+`games.service.spec.ts` the service, and `orders.e2e.spec.ts` boots the real
+`AppModule` on a real port.
 
 ## Where to go next
 
