@@ -855,6 +855,7 @@ const fd = access.canFields(
   proposed,
 );
 
+fd.action.allowed; // -> true
 fd.fields['status']; // -> 'denied'
 JSON.stringify(pickAllowedFields(fd, proposed)); // -> '{"body":"Wingspan in stock?"}'
 ```

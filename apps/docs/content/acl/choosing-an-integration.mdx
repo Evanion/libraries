@@ -2,8 +2,8 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    The five guides in this band are wiring, not API. Every call they make is on
-    the [API reference](/acl/api); what changes per platform is where the
+    The five platform guides are wiring, not API. Every call they make is on the
+    [API reference](/acl/api); what changes per platform is where the
     authoritative call sits and what leaves the trusted runtime.
   </Text>
 </WorkshopNotice>
@@ -38,25 +38,30 @@ platform to platform.
 | [Next.js (React Server Components)](/acl/nextjs) | the server component, and each Server Action separately | the client component, and the action's caller  |
 | [React Router 8](/acl/react-router)              | the loader, and each action separately                  | the component tree, and `clientLoader`         |
 
-The two server-only platforms have one boundary, the request handler. The two
-React platforms have two: the render path and the write path, reached
+Express and NestJS are server-only and have one boundary, the request handler.
+Next.js and React Router have two: the render path and the write path, reached
 independently by a caller who never renders anything.
+
+The guides' examples are regions of Baize's demo apps in this repository.
+`apps/shop-api` is the NestJS service that owns the catalogue and publishes its
+matrix. `apps/storefront` (Astro), `apps/storefront-rsc` (Next.js) and
+`apps/admin` (React Router) fetch that matrix and decide on it.
 
 [Astro SSR](/acl/astro) is the fifth shape, and server-side rendering (SSR) is
 the whole of its trusted runtime. A prerendered Astro site has no runtime at
 request time, so it belongs in no row of this table. A server-rendered one runs
 a page's frontmatter per request in a process the operator controls, and that
-frontmatter is the loader and the action in one module: `apps/storefront`'s
-`cart.astro` reaches one `order.create` decision that its `POST` branch and its
-checkout button both read.
+frontmatter is the loader and the action in one module. `apps/storefront`'s
+`cart.astro` reaches one `order.create` decision, whether this visitor may place
+an order, and its `POST` branch and its checkout button both read it.
 
 [Many services](/acl/federation) closes this band on a topology, where each
 service authors and evaluates only the objects it owns.
 
 ## What crosses, on the platforms where something does
 
-`Access` is a set of closures over a frozen document, and those closures do not
-serialize. `structuredClone` throws on the functions, and `JSON.stringify`
+`Access`, the evaluator type `.build()` and `hydratePolicy` return, holds
+functions over a frozen document, and functions do not serialize. `structuredClone` throws on the functions, and `JSON.stringify`
 silently drops every method. The document is what crosses a server/client
 boundary, and the client rebuilds the evaluator from it:
 
@@ -64,9 +69,9 @@ boundary, and the client rebuilds the evaluator from it:
 
 ```
 
-The matrix is an envelope carrying its own `version` and `schema`, so nothing
-travels beside it. A payload of `{ matrix, version, subject }` states the
-version twice; `access.matrix` carries the effective one.
+`access.matrix` carries its own `version` and `schema`, so the payload needs no
+separate version field. A payload of `{ matrix, version, subject }` states the
+version twice.
 
 The subject crosses too, because the client needs it to evaluate. The subject is
 no credential: the server resolves its own from its own session on the next
@@ -112,42 +117,40 @@ builder produced:
 
 ## Holding a document you fetched
 
-`HeldPolicy` pairs a parsed document with its revision, and a consumer holds one
-because it has no boot-time document. `ShopApi` is the typed client.
-`apps/storefront` states the window as a constant and asks only when the window
-has closed:
+`apps/storefront` has no document of its own at boot, so it fetches shop-api's
+and holds it at module scope. `HeldPolicy` is the app's own type, the adopted
+`Access` and the version it came from, and `ShopApi` is its typed client for
+shop-api. `POLICY_REVALIDATE_MS` is how long the app serves the held document
+before it asks again:
 
 ```ts file=apps/storefront/src/lib/policy.ts region=policy-cache
 
 ```
 
-`POLICY_REVALIDATE_MS` is the ceiling on how long a rule change takes to reach
-this app's gates. One minute is safe because shop-api re-decides every request
-on its own copy. The in-flight promise holds every render that arrives on an
-expired window to one fetch.
+The window is the ceiling on how long a rule change takes to reach this app's
+gates. One minute is safe because shop-api re-decides every request on its own
+copy. `refresh` adopts a new version and keeps the held document on every
+failure:
 
 ```ts file=apps/storefront/src/lib/policy.ts region=policy-refresh
 
 ```
 
-A version that matches re-uses the adopted object, so the validate, clone and
-freeze are skipped on a poll that changed nothing. A failed response leaves the
-held document in place and the window open, so the next request asks again. A
-document that fails validation replaces nothing.
-
-No `fetchedAt` reaches `parseMatrix` here. Supplying it obliges the document to
-state `maxStale`, and shop-api's document states none, so adoption throws
-`MissingFreshnessBudgetError`. Where an owner does state a budget, `fetchedAt`
-makes every decision past `fetchedAt + min(maxStale, options.maxStale)` answer
-`stale-contract`.
+An owner can state `maxStale` on its document, the longest a consumer may keep
+deciding on a copy it fetched. A consumer that passes `fetchedAt` to
+`parseMatrix` then gets `stale-contract` on every key once that time has passed.
+shop-api's document states no `maxStale`, and `parseMatrix` throws
+`MissingFreshnessBudgetError` on a `fetchedAt` without one, so this app passes
+none. [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+has the arithmetic.
 
 ## Resolving the subject
 
 `can(subject, …)` authorizes the bag it is handed and cannot ask where the bag
 came from. Each guide resolves it from that platform's own verified session
 primitive, server-side, before the first decision. A subject assembled from a
-header, a query parameter or a posted field is the confused deputy, and no
-evaluator detects it.
+header, a query parameter or a posted field is whatever the caller claims, and
+no evaluator detects it.
 
 ## Deciding twice is the design
 
@@ -168,16 +171,17 @@ flowchart TD
 
 ## The write path
 
-An action-level permission carries no field rules, so the whole write stands or
-falls on one `can` call, which is `apps/storefront`'s checkout. A permission
-carrying field rules needs the second call, and the value to write is what
-`pickAllowedFields` returns:
+A permission with no `.fields` call decides the whole write with one `can`
+call, as `apps/storefront`'s checkout does. A permission with `.fields` needs
+`canFields` as well. Its `'write'` argument asks which keys of the proposed body
+the subject may set, and the value to write is what `pickAllowedFields` returns.
+`.fields(['*', '!status'])` below allows every field but `status`:
 
 ```ts twoslash file=libs/acl/README.md region=write-path
 
 ```
 
-Check `decision.action.allowed` first. `pickAllowedFields` throws
+Check `fd.action.allowed` first. `pickAllowedFields` throws
 `ActionNotAllowedError` on a refused action, so the check keeps the refusal off
 the exception path. What the call returns is only the keys the decision marked
 `allowed`. [Field permissions](/acl/fields#writing) has the rest.
