@@ -103,6 +103,7 @@ afterEach(() => {
 });
 
 describe('POST /cart', () => {
+  // #region post-refused
   it('refuses an anonymous visitor and places no order', async () => {
     const calls = shopApiStub();
 
@@ -113,6 +114,7 @@ describe('POST /cart', () => {
     expect(html).toContain('data-refused="order.create"');
     expect(calls.some((call) => call.method === 'POST')).toBe(false);
   });
+  // #endregion post-refused
 
   it('places the order for a signed-in customer', async () => {
     const calls = shopApiStub();

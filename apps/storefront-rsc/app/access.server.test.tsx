@@ -269,6 +269,7 @@ afterEach(() => {
 });
 
 describe('the telemetry widget', () => {
+  // #region gate-refuses-anonymous
   it('renders nothing for an anonymous visitor, and asks for no events', async () => {
     visiting(null);
     const calls = stubShopApi();
@@ -280,6 +281,7 @@ describe('the telemetry widget', () => {
     expect(rendered).toBeNull();
     expect(calls.map((call) => call.path)).toEqual(['/api/policy']);
   });
+  // #endregion gate-refuses-anonymous
 
   it('renders for a manager, who the matrix grants telemetry.read', async () => {
     visiting(MANAGER);
