@@ -138,7 +138,11 @@ holding a document for weeks can say which revision decided:
 version })` overrides the document's own: the document states what a producer
 shipped, the option states what this site is actually running. The option wins,
 and the frozen `access.matrix` carries the winner, so the version that decided is
-the version that crosses a server-side rendering (SSR) boundary.
+the version that crosses a server-side rendering (SSR) boundary:
+
+```ts twoslash file=libs/acl/README.md region=version-override
+
+```
 
 A document stating no version leaves `access.version` undefined, where a `!==`
 decides nothing. [Refetch when the version
