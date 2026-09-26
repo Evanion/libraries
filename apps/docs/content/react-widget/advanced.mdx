@@ -1,267 +1,150 @@
-# Chrome, meta and Suspense
+# Chrome, meta, ctx and Suspense
 
-## Chrome
+`chrome` on `createWidgets` sets the markup around a region and around each
+widget, `meta` places one item inside that markup, `ctx` hands every widget
+page-level data, and `chrome.suspense` decides whether each widget gets its own
+`<Suspense>` boundary.
 
-A widget set has two wrappers. `chrome.wrapper` goes around the whole region;
-`chrome.item` goes around each widget.
+## Wrap a react-widget region and each widget
 
-```tsx
-const { Widgets } = createWidgets({
-  components: { listing: ListingCard, booking: TableBooking },
-  chrome: {
-    wrapper: ({ children }) => (
-      <aside className="shelf">
-        <header>Latest updates</header>
-        <div className="widget-container">{children}</div>
-      </aside>
-    ),
-    item: ({ children, ...rest }) => (
-      <div className="widget-item" {...rest}>
-        {children}
-      </div>
-    ),
-  },
-});
+`chrome.wrapper` renders around the whole region and `chrome.item` renders
+around each widget. The package exports its two defaults, `DefaultWrapper`, a
+`<section>`, and `DefaultItem`, a `<div>` carrying the `data-widget-*`
+attributes, so a custom chrome can pass props through one:
+
+```tsx twoslash file=libs/react-widget/README.md region=chrome
+
 ```
 
-The wrapper receives `children` and an optional `items`, the region's items in
-the order they render. The item chrome receives `children`, `data-widget-id`,
-`data-widget-type` and `meta`.
+| Chrome           | Receives                                                             |
+| ---------------- | -------------------------------------------------------------------- |
+| `chrome.wrapper` | `children`, and `items`: the region's items, aligned with `children` |
+| `chrome.item`    | `children`, `data-widget-id`, `data-widget-type` and `meta`          |
 
-Spread the `data-widget-*` attributes onto the element unless you have a reason
-not to: CMS click-to-edit overlays, analytics and E2E selectors key off them,
-and a custom chrome that drops them silently breaks all three.
+Keep the `data-widget-*` attributes on the element. CMS click-to-edit overlays,
+analytics and end-to-end selectors key off them. `DefaultWrapper` drops `items`
+and `DefaultItem` drops `meta`, because React warns about an unknown attribute
+for each prop that reaches the DOM.
 
-The defaults are `DefaultWrapper` (a `<section>`) and `DefaultItem` (a `<div>`
-with those attributes). Both are exported, so a custom chrome can wrap one
-rather than reimplementing it.
-
-### Per-instance overrides
+### Override the map or the chrome for one region
 
 `<Widgets>` takes `components` and `chrome` of its own, merged over the
-factory's:
+factory's. The Wingspan item below renders through `FeaturedListing` on this
+one region only:
 
-```tsx
-function StorefrontPage() {
-  return (
-    <Widgets
-      items={items}
-      components={{ listing: FeaturedListing }}
-      chrome={{ wrapper: HeroRegion }}
-    />
-  );
-}
+```tsx twoslash file=libs/react-widget/README.md region=overrides
+
 ```
 
-`components` is a shallow merge of the two maps; `chrome` is resolved field by
-field, so overriding `wrapper` keeps the factory's `item`, `suspense` and
-`suspenseFallback`.
+`components` merges the two maps key by key. `chrome` resolves field by field,
+so an instance that overrides `wrapper` keeps the factory's `item`, `suspense`
+and `suspenseFallback`.
 
-## `meta`: placing a widget without telling it where it is
+## Place a react-widget item with `meta`
 
-A dashboard grid, a masonry board or a CMS page with per-block spans needs
-placement data. That data belongs to the wrapper: a widget renders the same at
-column 1 and at column 7.
+An item's `meta` goes to `chrome.item` and never into the widget's props, so a
+listing renders the same at column 1 and at column 7. Annotate `chrome.item`
+with the keys it reads, and `createWidgets` checks every item's `meta` against
+them:
 
-`meta` is handed to `chrome.item` and is never spread into the widget's props.
+```tsx twoslash file=libs/react-widget/README.md region=meta-grid
 
-```tsx
-import type { WidgetItemComponent } from '@evanion/react-widget';
-
-type GridMeta = { column: number; columnSpan?: number };
-
-const GridItem: WidgetItemComponent<GridMeta> = ({
-  children,
-  meta,
-  ...rest
-}) => (
-  <div
-    {...rest}
-    style={{
-      gridColumn: `${meta?.column ?? 'auto'} / span ${meta?.columnSpan ?? 1}`,
-    }}
-  >
-    {children}
-  </div>
-);
-
-const { Widgets } = createWidgets({
-  components: { chart: Chart },
-  chrome: { item: GridItem },
-});
-
-<Widgets
-  items={[
-    {
-      id: 'today',
-      type: 'chart',
-      props: { metric: 'revenue' },
-      meta: { column: 1, columnSpan: 4 },
-      // meta: { colunm: 1 }  ← compile error: not a key GridItem reads
-    },
-  ]}
-/>;
 ```
 
-Annotating `chrome.item` with the vocabulary it reads is what types every item's
-`meta`, at the top level and inside `children`. Without that, a misspelled key
-compiles and the item is placed by whatever fallback the chrome applies — a
-layout that looks deliberate.
+`WidgetItemComponent<GridMeta>` types `GridCell`, and `createWidgets` infers
+`GridMeta` from it with no type argument to pass. Root spans columns 2 and 3.
+The Hive item names `col`, a key `GridCell` does not read, so it compiles only
+under `@ts-expect-error` and renders through the `auto` fallback.
 
-There is no type argument to pass. `createWidgets` infers the vocabulary from
-the `chrome.item` it is given: an annotated component, a plain function with an
-annotated parameter object, or a `memo()`-wrapped one all work.
+`meta` is optional on every item, so a chrome that reads a key still writes a
+fallback for the item that omits it. A set with no `chrome.item`, or an
+unannotated one, accepts any object as `meta`.
 
-Typing `meta` removes the typo, not the narrowing. `meta` is optional on every
-item, so a chrome that needs a key still writes the fallback for the item that
-omits it — the `?? 'auto'` above.
+## Hand every react-widget widget page-level data with `ctx`
 
-`DefaultItem` drops `meta` rather than forwarding it. React warns about an
-unknown attribute for every key of an arbitrary object that reaches a DOM
-element.
+`<Widgets ctx={…}>` passes one object to every widget as its `ctx` prop.
+React's `react-server` build exports no `createContext`, so the package hands
+page-level data down as a prop:
 
-## `ctx`: page-level data for every widget
+```tsx twoslash file=libs/react-widget/README.md region=ctx
 
-```tsx
-<Widgets ctx={{ locale, currency }} items={items} />
 ```
 
-Every widget receives `ctx` as a prop. This exists instead of a context
-provider: React's `react-server` condition has no `createContext`, and the
-package has to be importable from a Server Component.
+`ListingCard` declares `ctx` required, and the Root item still carries only a
+`title`: `ctx` is left out of an item's `props`, the way `children` is. The
+renderer passes `ctx` after the item's props, so an item from untrusted data
+cannot override it.
 
-`ctx` is the renderer's to supply, so it is omitted from an item's `props`
-alongside `children`. A widget may declare it required without every item
-repeating a value `<Widgets>` is going to pass anyway, and an item cannot
-override it — `ctx` follows the props spread, and items are untrusted input.
+## Choose where react-widget's Suspense boundaries go
 
-The counterpart in `@evanion/astro-widget` is the same prop by the same name.
+`Widgets` wraps every widget in its own `<Suspense>` boundary, so one slow
+widget does not hold up its siblings. `chrome.suspenseFallback` is what renders
+while a widget suspends, and it defaults to nothing:
 
-## Suspense
+```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
 
-By default every widget gets its own `<Suspense>` boundary, so one suspending
-widget does not block its siblings. The fallback comes from
-`chrome.suspenseFallback` and defaults to nothing.
-
-```tsx
-const { Widgets } = createWidgets({
-  components: { report: AsyncReport },
-  chrome: { suspenseFallback: <Skeleton /> },
-});
 ```
 
-The boundary lives in the renderer rather than in the item chrome, so replacing
-`chrome.item` cannot silently remove it.
+`StockLevel` is an async Server Component. `Widgets` renders `Counting stock` in
+its place until the count resolves. The boundary lives in the renderer, so a
+custom `chrome.item` cannot remove it.
 
-There is no default skeleton. A region is a dashboard grid for one consumer and
-a table of rows for the next, and one generic placeholder would be wrong in
-both.
+### A synchronous region: `chrome.suspense: 'none'`
 
-### Synchronous regions: `chrome.suspense`
+React's streaming renderer outlines any boundary still open when the shell
+passes `progressiveChunkSize`, 12,800 bytes by default, whether or not anything
+in it suspended. Measured over 150 synchronous items of about 1,000 bytes:
 
-A boundary costs more than its markers when the region is large. React's
-streaming SSR outlines any boundary it has not finished by the time the shell
-passes `progressiveChunkSize` — 12,800 bytes by default — whether or not
-anything in it suspended. The content is written to a trailing `<div hidden>`
-and an inline `<script>$RC(…)</script>` moves it into place.
-
-Measured over 150 synchronous items of about 1,000 bytes each, streamed with the
-default chunk size:
-
-| `chrome.suspense` | bytes   | deferred boundaries | rows in the shell |
+| `chrome.suspense` | Bytes   | Deferred boundaries | Rows in the shell |
 | ----------------- | ------- | ------------------- | ----------------- |
-| `per-item`        | 139,233 | 145                 | 5 of 150          |
-| `none`            | 122,069 | 0                   | 150 of 150        |
+| `'per-item'`      | 139,233 | 145                 | 5 of 150          |
+| `'none'`          | 122,069 | 0                   | 150 of 150        |
 
-So for a region whose widgets are all synchronous, say so:
+A region whose widgets never suspend sets `'none'`. `renderToString` writes a
+`<!--$-->` marker pair per boundary, which shows where they went:
 
-```tsx
-const { Widgets } = createWidgets({
-  components: { row: LedgerRow },
-  chrome: { suspense: 'none' },
-});
+```tsx twoslash file=libs/react-widget/README.md region=suspense-none
+
 ```
 
-A client that does not run the inline scripts never sees outlined content. It is
-in the HTML, inside `<div hidden>`, and `$RC` is what moves it — which covers
-scripts disabled and a Content-Security-Policy rejecting inline script without a
-nonce. Anything reading the HTML in document order sees placeholders where the
-content should be, and the content at the bottom in completion order: a text
-extraction, a reader-mode pass, a diffing snapshot test, `curl | sed`.
+### What outlining does to a reader of the HTML
 
-There is no detection and no heuristic. An `async function` component and
-`React.lazy` are recognisable at runtime; a component calling `use(promise)` is
-not, `memo()` hides both, and an `async function` downlevelled below ES2017
-becomes a plain function. Guessing wrong drops the boundary from a widget that
-does suspend, which is worse than paying for one that does not.
+An outlined widget sits in a trailing `<div hidden>`, and an inline
+`<script>$RC(…)</script>` moves it into place. A client that runs no inline
+script never sees it: scripts turned off, or a Content-Security-Policy with no
+nonce. A text extraction, a reader-mode pass or a snapshot test reads
+placeholders where the widgets should be.
 
-Under `none` a widget that suspends anyway suspends whatever boundary is above
-the region, up to the page. Put your own `<Suspense>` around `<Widgets>` if that
-should be the region rather than the page — which is also how you get one
-boundary for the whole set, since there is no region-wide setting. One boundary
-around the whole set outlines the whole set: over those same 150 items,
-`per-item` keeps 5 rows in the shell and a single region boundary keeps none.
+`Widgets` does not detect which widgets suspend. A component calling
+`use(promise)` looks synchronous at runtime and `memo()` hides the rest. A
+wrong guess drops the boundary from a widget that suspends. Under `'none'` such
+a widget suspends the nearest boundary above the region. Put your own
+`<Suspense>` around `<Widgets>` to stop it at the region.
 
-The host has a knob too: `progressiveChunkSize` on `renderToPipeableStream`
-takes the deferral to zero, and `renderToString` never defers. That is the
-framework's `entry.server` to set, not the library's.
+## Catch a failing react-widget widget
 
-## Error boundaries
+The package ships no error boundary. A boundary is a class component, React
+exports no `Component` under `react-server`, and a class inside the package
+forces `'use client'` onto all of it. Write the boundary in your own
+`'use client'` file and render it inside `DefaultItem`:
 
-The package ships none. A React error boundary requires a class component, which
-React does not expose under the `react-server` condition, so a default boundary
-would put a `'use client'` directive on the whole package and drag every widget
-into the client bundle with it.
+```tsx twoslash file=libs/react-widget/README.md region=error-boundary
 
-Add your own in a custom `chrome.item`, in your own `'use client'` file:
-
-```tsx
-'use client';
-
-import { ErrorBoundary } from 'react-error-boundary';
-
-export function SafeItem({ children, ...rest }) {
-  return (
-    <div {...rest}>
-      <ErrorBoundary fallback={<p>This widget failed.</p>}>
-        {children}
-      </ErrorBoundary>
-    </div>
-  );
-}
 ```
 
-```tsx
-const { Widgets } = createWidgets({
-  components: { listing: ListingCard },
-  chrome: { item: SafeItem },
-});
+Pass `SafeItem` as `chrome.item`. The boundary is then client code, and the
+widgets inside it stay server components.
+
+## Render a long react-widget region
+
+`Widgets` renders every item and has no windowing option. For server-rendered
+content, `content-visibility: auto` on the item chrome lets the browser skip
+layout and paint for off-screen items, and every item stays in the HTML:
+
+```tsx twoslash file=libs/react-widget/README.md region=content-visibility
+
 ```
 
-The boundary is then client code and the widgets inside it are not, which is the
-split the package is arranged to allow.
-
-## Large regions
-
-The renderer is eager: every item in the list is rendered, and there is no
-windowing option. Two recipes cover the cases that made people ask for one.
-
-For server-rendered, SEO-relevant content, do not virtualize — put
-`content-visibility: auto` on the item chrome. It removes the layout and paint
-cost of off-screen blocks while leaving every one of them in the HTML:
-
-```css
-.widget-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
-}
-```
-
-For a client-side dashboard where the list is long enough to matter, virtualize
-in your own `'use client'` `chrome.wrapper` with `@tanstack/react-virtual`. The
-wrapper receives `items` beside `children`, positionally aligned, so it measures
-and windows by item and indexes into `React.Children.toArray(children)` — one
-entry per top-level item, already rendered as elements. That keeps the
-virtualizer a dependency of the application
-rather than of this package. Only the top-level list of a region is ever a
-candidate; nested items are not.
+For a client-side list long enough to need windowing, virtualize in your own
+`'use client'` `chrome.wrapper`. It receives `items` in the same order as
+`children`, one entry per top-level item, so it can measure and window by item.
