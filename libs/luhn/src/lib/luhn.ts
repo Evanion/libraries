@@ -14,8 +14,8 @@ export const DEFAULT_DICTIONARY = '0123456789abcdefghijklmnopqrstuvwxyz';
  * 62 characters, digits followed by `Aa Bb Cc …`. Case-sensitive only: its
  * case pairs make it invalid under `caseInsensitive`.
  *
- * The alternating order is load-bearing — it decides which index each letter
- * occupies, and therefore every check character the dictionary produces.
+ * The alternating order decides which index each letter occupies, and
+ * therefore every check character the dictionary produces.
  */
 export const ALTERNATING_CASE_DICTIONARY =
   '0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz';

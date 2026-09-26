@@ -71,21 +71,6 @@
       "ToggleResult"
     ]
   },
-  "@evanion/luhn": {
-    "undocumented": [
-      "ALTERNATING_CASE_DICTIONARY",
-      "DEFAULT_DICTIONARY",
-      "EmptyInputError",
-      "GenerateResult",
-      "InvalidDictionaryError",
-      "InvalidDictionaryReason",
-      "Luhn",
-      "LuhnError",
-      "LuhnOptions",
-      "ValidateResult"
-    ],
-    "unexercised": ["LuhnError"]
-  },
   "@evanion/nestjs-correlation-id": {
     "undocumented": [
       "CORRELATION_AXIOS_INTERCEPTOR",
