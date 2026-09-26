@@ -35,6 +35,11 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * test run through `includeSource`, which executes it and never type-checks it,
  * so a README could assert the result of a call its own package's types refuse
  * and CI stayed green over it. The second describe closes that.
+ *
+ * A README fence compiles where its test run executes it: from the package's
+ * directory, so a relative import reaches the same file the test run imports,
+ * and with the package's own ambient declarations, which is how an `.astro`
+ * import has a type in `@evanion/astro-widget`'s sources and in its README.
  */
 
 const CONTENT = join(workspaceRoot, 'apps/docs/content');
@@ -48,6 +53,13 @@ interface Fence {
   page: string;
   info: string;
   code: string;
+}
+
+/** The README fences of one package, and the directory they compile from. */
+interface PackageFences {
+  /** Absolute path of the package root, where the README sits. */
+  root: string;
+  fences: Fence[];
 }
 
 function mdxFiles(dir: string): string[] {
@@ -159,25 +171,63 @@ async function releasedRoots(): Promise<string[]> {
  * `writesOwnImports` gives. Those fences carry the documentation standard's
  * § 9 exemption and bringing them under a compiler is separate work.
  */
-async function readmeFences(): Promise<Fence[]> {
+async function readmeFences(): Promise<PackageFences[]> {
   const roots = await releasedRoots();
 
   return roots.flatMap((root) => {
     const readme = join(workspaceRoot, root, 'README.md');
     if (!existsSync(readme)) return [];
 
-    return fencesIn(readFileSync(readme, 'utf8'), relative(readme)).filter(
+    const fences = fencesIn(
+      readFileSync(readme, 'utf8'),
+      relative(readme),
+    ).filter(
       ({ info, code }) =>
         ['ts', 'tsx'].includes(info.split(/\s+/)[0] ?? '') &&
         DOCTESTED.test(info) &&
         writesOwnImports(code),
     );
+
+    return [{ root: join(workspaceRoot, root), fences }];
   });
 }
 
+/**
+ * The ambient declarations a package's sources compile with: every `.d.ts`
+ * under its `src`, keyed by the path the compiler reads it at.
+ */
+function ambientDeclarations(root: string): Record<string, string> {
+  const src = join(root, 'src');
+  if (!existsSync(src)) return {};
+
+  return Object.fromEntries(
+    readdirSync(src, { recursive: true, encoding: 'utf8' })
+      .filter((entry) => entry.endsWith('.d.ts'))
+      .map((entry) => [
+        join('src', entry),
+        readFileSync(join(src, entry), 'utf8'),
+      ]),
+  );
+}
+
+/** A package's README fences that did not compile from its own directory. */
+function readmeFailures(packages: readonly PackageFences[]): string[] {
+  return packages.flatMap(({ root, fences }) =>
+    compileFailures(
+      fences,
+      createTwoslasher({
+        vfsRoot: root,
+        extraFiles: ambientDeclarations(root),
+      }),
+    ),
+  );
+}
+
 /** One line per fence that did not compile, or declares an error it lost. */
-function compileFailures(fences: readonly Fence[]): string[] {
-  const twoslasher = createTwoslasher();
+function compileFailures(
+  fences: readonly Fence[],
+  twoslasher = createTwoslasher(),
+): string[] {
   const failures: string[] = [];
 
   for (const { page, info, code } of fences) {
@@ -253,12 +303,13 @@ describe('twoslash fences', () => {
 
 describe('package README fences', () => {
   it('finds a doctested fence in more than one package', async () => {
-    const fences = await readmeFences();
-    expect(fences.length).toBeGreaterThan(0);
-    expect(new Set(fences.map(({ page }) => page)).size).toBeGreaterThan(1);
+    const packages = (await readmeFences()).filter(
+      ({ fences }) => fences.length > 0,
+    );
+    expect(packages.length).toBeGreaterThan(1);
   });
 
   it('compiles', async () => {
-    expect(compileFailures(await readmeFences())).toEqual([]);
+    expect(readmeFailures(await readmeFences())).toEqual([]);
   });
 });
