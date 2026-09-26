@@ -4,8 +4,8 @@
 
 # @evanion/astro-widget
 
-Render CMS-driven Astro sections from structured widget data. Build-time only —
-no runtime, no hydration, nothing shipped to the browser.
+Render CMS-driven Astro sections from structured widget data. Rendering happens
+when Astro renders the page, and nothing is shipped to the browser.
 
 The item shape, the registry and the validator come from
 [`@evanion/widget`](https://www.npmjs.com/package/@evanion/widget), which this
@@ -21,51 +21,72 @@ order.
 npm install @evanion/astro-widget
 ```
 
-Astro `>=7.3.1` is a peer dependency.
+Astro `^7.3.4` is a peer dependency.
+
+## What it does
+
+`Widgets.astro` takes a list of sections and a registry, and renders each
+section through the component its `type` names. Every example below renders
+through Astro's container API, which renders a component outside a request, so
+the HTML each one claims is the HTML Astro wrote. The widgets it renders are
+ordinary `.astro` files under
+[`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src),
+laid out as an Astro project's `src`.
+
+<!-- #region overview -->
+
+```ts @import.meta.vitest
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+
+import { registry } from './examples/src/registry';
+
+const sections = [
+  {
+    id: 'header',
+    type: 'listing-header',
+    props: { title: 'Brass: Birmingham', players: '2-4' },
+  },
+  { id: 'price', type: 'price-box', props: { price: '649 kr' } },
+];
+
+const container = await AstroContainer.create();
+const html = await container.renderToString(Widgets, {
+  props: { items: sections, registry },
+});
+
+html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p class="price">649 kr</p>'
+```
+
+<!-- #endregion overview -->
 
 ## Use
 
-```ts
-// src/registry.ts
-import { defineWidgets } from '@evanion/astro-widget';
-import ListingHeader from './widgets/ListingHeader.astro';
-import GameGrid from './widgets/GameGrid.astro';
+A page imports `Widgets.astro`, the registry and the sections, and renders
+them. [`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src)
+holds the whole project: `registry.ts` maps each type to its component,
+`data/brass-birmingham.ts` holds the sections a CMS saved, and
+`pages/brass-birmingham.astro` renders them. Rendering that page gives the
+listing's HTML:
 
-export const registry = defineWidgets({
-  'listing-header': ListingHeader,
-  'game-grid': GameGrid,
-});
+<!-- #region first-render -->
+
+```ts @import.meta.vitest
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+
+import BrassBirmingham from './examples/src/pages/brass-birmingham.astro';
+
+const container = await AstroContainer.create();
+const html = await container.renderToString(BrassBirmingham);
+
+html; // -> '<main><header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p class="price">649 kr</p></main>'
 ```
 
-```astro
----
-import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { registry } from '../registry';
-import page from '../data/page.json';
----
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
-```
-
-Where `page.json` is whatever your CMS writes:
-
-```json
-{
-  "sections": [
-    {
-      "id": "header",
-      "type": "listing-header",
-      "props": { "title": "Brass: Birmingham" }
-    }
-  ]
-}
-```
-
-## The registry
+<!-- #endregion first-render -->
 
 `defineWidgets` returns the object it is handed. Its whole job is the generic
 parameter: annotating the same object as `WidgetRegistry` widens its keys to
-`string`, and the key union is what an editor completes on. `validateItems`
-reads its `required` map by plain string, so the union does not reach it.
+`string`, and the key union is what an editor completes on.
 
 <!-- #region registry -->
 
@@ -87,15 +108,10 @@ validateItems([], Object.keys(registry)); // -> []
 
 ## Data shape
 
-```ts
-interface AnyWidgetItem<Type extends string = string, Props = object> {
-  id: string;
-  type: Type; // must be a key in the registry
-  props: Props; // spread into the component
-  meta?: Record<string, unknown>; // placement, read by the chrome
-  children?: AnyWidgetItem[];
-}
-```
+An item is `id`, `type`, `props`, and optional `meta` and `children`. `props`
+is spread into the widget. `meta` goes to the chrome and never to the widget.
+`children` reaches the widget as a prop, and the renderer does not recurse into
+it.
 
 `id` is required, and `props` is a named field rather than "every key the
 renderer does not claim for itself". A renderer's own fields would otherwise be
@@ -104,9 +120,9 @@ away from every payload already written.
 
 ## Validation
 
-`Widgets` skips a type the registry does not hold, with a dev-only
-`console.warn`, so a bad CMS save can never break a render. Catch them loudly at
-build time instead:
+`Widgets.astro` skips a type the registry does not hold, with a dev-only
+`console.warn`, so a bad CMS save cannot break a render. `validateItems` is the
+loud check, run at build time:
 
 <!-- #region validate -->
 
@@ -134,6 +150,50 @@ problems; // -> [{ index: 2, id: 'questions', type: 'answer-wall', message: 'unk
 ```
 
 <!-- #endregion validate -->
+
+A build script runs it over the payload before `astro build`. The script takes
+the type names as a plain list, because a Node process cannot import the
+`.astro` modules the registry holds:
+
+<!-- #region build-gate -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+import { sections } from './examples/src/data/brass-birmingham';
+
+const known = ['listing-header', 'price-box'];
+const required = { 'listing-header': ['title'], 'price-box': ['price'] };
+
+const report = validateItems(sections, known, required).map(
+  (problem) =>
+    `section ${problem.index} (${problem.id}, ${problem.type}): ${problem.message}`,
+);
+
+report; // -> []
+
+if (report.length > 0) throw new Error(report.join('\n'));
+```
+
+<!-- #endregion build-gate -->
+
+`validateItems` reads only the keys of whatever it is handed as `known`, so the
+registry and the list of its names report the same thing:
+
+<!-- #region known-types -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/astro-widget';
+
+import { sections } from './examples/src/data/brass-birmingham';
+import { registry } from './examples/src/registry';
+
+Object.keys(registry); // -> ['listing-header', 'price-box']
+validateItems(sections, registry); // -> []
+validateItems(sections, ['listing-header', 'price-box']); // -> []
+```
+
+<!-- #endregion known-types -->
 
 A `required` map names the props a widget type cannot render without. Blank
 counts as missing, which is what a text field an editor opened and left alone
@@ -240,61 +300,152 @@ problems; // -> []
 
 <!-- #endregion clean-payload -->
 
-Run it over the CMS payload before the build renders it:
+`VALIDATION_MESSAGES` holds every message `validateItems` returns, so a caller
+sorts a report without matching on prose. A webhook can send an unknown type to
+the developers and a blank field back to the editor:
 
-```js
-const problems = validateItems(page.sections, registry, {
+<!-- #region messages -->
+
+```ts @import.meta.vitest
+import { VALIDATION_MESSAGES, validateItems } from '@evanion/astro-widget';
+
+const saved = [
+  { id: 'header', type: 'listing-header', props: { title: '' } },
+  { id: 'questions', type: 'answer-wall', props: {} },
+];
+
+const problems = validateItems(saved, ['listing-header'], {
   'listing-header': ['title'],
 });
-if (problems.length) {
-  for (const p of problems)
-    console.error(`section ${p.index} (${p.id}, ${p.type}): ${p.message}`);
-  process.exit(1);
-}
+const unknown = problems.filter(
+  (problem) => problem.message === VALIDATION_MESSAGES.UNKNOWN_TYPE,
+);
+
+unknown.map((problem) => problem.id); // -> ['questions']
 ```
 
-`index` is scoped to whatever level of the tree it was found at: a problem in a
-top-level section and a problem in one of its `children` can both report
-`index: 0`, meaning different things. `id` is what tells them apart.
+<!-- #endregion messages -->
 
-## Chrome
+## Chrome and `ctx`
 
-Wrap every widget without each widget reimplementing section markup:
+`ctx` reaches every widget as a prop, and `chrome.item` wraps every widget.
+The chrome receives the item's `type`, `id` and `meta`, never its `props`, and
+it has to render `<slot />`. If it does not, Astro drops the wrapped widget with
+no error and no warning.
 
-```astro
-<Widgets items={items} registry={registry} chrome={{ item: Section }} />
+<!-- #region ctx-and-chrome -->
+
+```ts @import.meta.vitest
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+
+import Section from './examples/src/chrome/Section.astro';
+import Stock from './examples/src/widgets/Stock.astro';
+
+const items = [
+  {
+    id: 'stock',
+    type: 'stock',
+    props: { copies: 3 },
+    meta: { background: 'felt' },
+  },
+];
+
+const container = await AstroContainer.create();
+const html = await container.renderToString(Widgets, {
+  props: {
+    items,
+    registry: { stock: Stock },
+    ctx: { store: 'Gothenburg' },
+    chrome: { item: Section },
+  },
+});
+
+html; // -> '<section id="stock" data-widget-type="stock" class="widget bg-felt"><p>3 copies in Gothenburg</p></section>'
 ```
 
-`Section` receives the item's `type`, `id` and `meta` — never its `props`, which
-are the widget's own business — and **must render `<slot />`**. If it doesn't,
-Astro silently drops the wrapped widget: no error, no warning, the section just
-vanishes from the page.
+<!-- #endregion ctx-and-chrome -->
 
 ## Nesting
 
-The renderer does **not** recurse. `children` on an item is forwarded to its
-widget as ordinary prop data, nothing more — Astro projects child content
-through `<slot />`, never through a `children` prop. A widget that wants to
-render its own nested sections must do so itself:
+The renderer does not recurse. `children` on an item reaches its widget as
+ordinary prop data, because an Astro component receives child content through
+`<slot />` and never through a `children` prop. A widget that nests renders its
+own `Widgets` over its children, as `examples/src/widgets/GameGrid.astro` does:
 
-```astro
----
-// GameGrid.astro
+<!-- #region nested -->
+
+```ts @import.meta.vitest
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { registry } from '../registry';
-const { children } = Astro.props;
----
-<Widgets items={children} registry={registry} />
+
+import GameGrid from './examples/src/widgets/GameGrid.astro';
+
+const items = [
+  {
+    id: 'also-on-the-shelf',
+    type: 'game-grid',
+    props: { title: 'Also on the shelf' },
+    children: [
+      { id: 'azul', type: 'game-card', props: { name: 'Azul' } },
+      { id: 'root', type: 'game-card', props: { name: 'Root' } },
+    ],
+  },
+];
+
+const container = await AstroContainer.create();
+const html = await container.renderToString(Widgets, {
+  props: { items, registry: { 'game-grid': GameGrid } },
+});
+
+html; // -> '<section><h2>Also on the shelf</h2><article>Azul</article><article>Root</article></section>'
 ```
+
+<!-- #endregion nested -->
+
+## Unknown types
+
+An item whose `type` is not an own key of the registry renders nothing, and in
+development `console.warn` prints `ERROR_MESSAGES.UNKNOWN_WIDGET` for it once.
+The rest of the page renders:
+
+<!-- #region skip-unknown -->
+
+```ts @import.meta.vitest
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import Widgets from '@evanion/astro-widget/components/Widgets.astro';
+import { ERROR_MESSAGES } from '@evanion/astro-widget';
+
+import { registry } from './examples/src/registry';
+
+const items = [
+  { id: 'questions', type: 'answer-wall', props: {} },
+  { id: 'price', type: 'price-box', props: { price: '649 kr' } },
+];
+
+const container = await AstroContainer.create();
+const html = await container.renderToString(Widgets, {
+  props: { items, registry },
+});
+
+html; // -> '<p class="price">649 kr</p>'
+ERROR_MESSAGES.UNKNOWN_WIDGET('answer-wall', 'questions'); // -> 'Unknown widget type "answer-wall" for widget ID "questions". Skipping render.'
+```
+
+<!-- #endregion skip-unknown -->
+
+The lookup uses `Object.prototype.hasOwnProperty`, so an item typed
+`constructor`, `toString` or `__proto__` is skipped like any other unknown type
+rather than resolving to a function off `Object.prototype`.
 
 ## Differences from @evanion/react-widget
 
-|                         | react-widget                    | astro-widget                                                                                      |
-| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Provider / `useWidgets` | yes                             | **no** — build-time rendering has nothing to provide; use `ctx`                                   |
-| Prop type inference     | inferred from the component map | **no** — Astro components are opaque at the type level. Use `validateItems`                       |
-| Nested `children`       | rendered as the widget's own    | **no recursion** — a widget must render `<Widgets items={children} registry={registry} />` itself |
-| Region chrome           | `chrome.wrapper`                | **none** — a wrapper the library supplied would be markup you did not ask for                     |
+|                         | react-widget                    | astro-widget                                                               |
+| ----------------------- | ------------------------------- | -------------------------------------------------------------------------- |
+| Provider / `useWidgets` | yes                             | no. An Astro component has no render-time context, so use `ctx`            |
+| Prop type inference     | inferred from the component map | no. An `.astro` module's type carries no props, so use `validateItems`     |
+| Nested `children`       | rendered as the widget's own    | no recursion. A widget renders `<Widgets items={children} …>` itself       |
+| Region chrome           | `chrome.wrapper`                | none. The element around `<Widgets>` is the region, and the page writes it |
 
 The data is the same in both. That is the point of the split.
 
@@ -333,9 +484,10 @@ problem on a payload that passed yesterday:
 | `children is not a list`  | `children` is present and not an array      |
 
 `duplicate sibling id` is the one to check first. A CMS that emits a constant id
-per section type — `"listing-header"` on every listing header — or an empty string where an
-left the field alone now fails a build that passed before. Ids only have to be
-unique within one sibling list, so the same id at two depths is still fine.
+per section type, such as `"listing-header"` on every listing header, or an
+empty string where an editor left the field alone, now fails a build that passed
+before. Ids only have to be unique within one sibling list, so the same id at
+two depths is still fine.
 
 `props is not an object` is the rule that catches an unmigrated payload: an item
 with its props still at the top level has no `props` key at all, and without this
@@ -355,8 +507,8 @@ const toWidgetItem = ({ type, id, children, meta, ...props }) => ({
 });
 ```
 
-`id ?? …` is the awkward half. A widget item needs an id — as the key, as the
-identity in a warning, and as what the duplicate-sibling check is about — and a
+`id ?? …` is the awkward half. A widget item needs an id as the key, as the
+identity in a warning, and as what the duplicate-sibling check is about, and a
 CMS with no per-section id has to supply one. An index-derived value is fine as
 long as it is stable across renders.
 

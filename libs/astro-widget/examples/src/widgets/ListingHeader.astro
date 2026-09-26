@@ -1,0 +1,15 @@
+---
+// #region listing-header
+interface Props {
+  title: string;
+  players: string;
+}
+
+const { title, players } = Astro.props;
+---
+
+<header>
+  <h1>{title}</h1>
+  <p>{players} players</p>
+</header>
+{/* #endregion listing-header */}
