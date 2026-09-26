@@ -1004,8 +1004,7 @@ view['storefront:listing.read']?.allowed; // -> false
 fleet.can(subject, 'stock:listing', 'read').allowed; // -> true
 fleet.can(subject, 'shipping:parcel', 'read').reason; // -> 'unknown-action'
 
-// One permission never gates another. A request touching both origins asks
-// both, and the caller writes the AND.
+// A request touching both origins asks both, and the caller writes the AND.
 const shelf = fleet.can(subject, 'storefront:listing', 'read').allowed;
 const stock = fleet.can(subject, 'stock:listing', 'read').allowed;
 shelf && stock; // -> false
@@ -1077,7 +1076,7 @@ const authored: Matrix = {
 };
 
 // What compliance publishes. A contribution is a `Rule[]`, so it can state a
-// deny and nothing else -- no allow, no dependency, no field rule.
+// deny and nothing else -- no allow, no field rule.
 const overlay: DenyOverlay = {
   'refund.issue': [
     {
@@ -1708,8 +1707,8 @@ const requireSession: express.RequestHandler = (req, res, next) => {
   next();
 };
 
-// The subject is what requireSession verified. The clock is pinned once, so
-// every rule in this request reads the same instant.
+// The subject is what requireSession verified. `now` is pinned once, so every
+// `before` or `after` condition in this request reads the same instant.
 const bindAccess: express.RequestHandler = (_req, res, next) => {
   res.locals.access = access.authorize(res.locals.user, { now: new Date() });
   next();
@@ -1769,7 +1768,7 @@ const server = express().use(express.json()).use('/api', api).listen(0);
 await once(server, 'listening');
 const { port } = server.address() as AddressInfo;
 
-const declare = (urn: string, body: Partial<Game>) =>
+const patchTitle = (urn: string, body: Partial<Game>) =>
   fetch(`http://localhost:${port}/api/games/${urn}`, {
     method: 'PATCH',
     headers: {
@@ -1779,7 +1778,7 @@ const declare = (urn: string, body: Partial<Game>) =>
     body: JSON.stringify(body),
   });
 
-const own = await declare('urn:game:wingspan', {
+const own = await patchTitle('urn:game:wingspan', {
   availability: 'preorder',
   price: 1,
 });
@@ -1787,7 +1786,7 @@ own.status; // -> 204
 catalogue.get('urn:game:wingspan')?.availability; // -> 'preorder'
 catalogue.get('urn:game:wingspan')?.price; // -> 59900
 
-const other = await declare('urn:game:gloomhaven', {
+const other = await patchTitle('urn:game:gloomhaven', {
   availability: 'preorder',
 });
 other.status; // -> 403
