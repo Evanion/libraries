@@ -1,14 +1,16 @@
 # API reference
 
-`@evanion/luhn` exports one factory, the default instance, two dictionaries,
-four types and three error classes, one heading each below. Node 20 or newer,
-ESM.
+`@evanion/luhn` exports one factory, the default instance `Luhn` (also the name
+of its type), two dictionaries, four other types and three error classes, one
+heading each below. It runs on Node 20 or newer, as an ES module.
 
 ## `createLuhn`
 
 <!-- reference @evanion/luhn#createLuhn example=pickup-dictionary -->
 
-[`LuhnOptions`](#luhnoptions) lists the two options and their defaults, and
+The example's 32 characters are the default 36 without `i`, `l`, `o` and `w`,
+which are confused when read or heard. [`LuhnOptions`](#luhnoptions) lists the
+two options and their defaults, and
 [`InvalidDictionaryReason`](#invaliddictionaryreason) lists the five
 constraints a dictionary can fail.
 
@@ -52,8 +54,9 @@ exist when the phrase was read.
 
 <!-- reference @evanion/luhn#ValidateResult example=validate -->
 
-`isValid` is `false` for fewer than two surviving code points. `phrase`
-includes the check character, because that is what was validated.
+`isValid` is `false` when `phrase` holds fewer than two code points. `phrase`
+includes the check character, because that is what was validated, so the
+payload without separators is `phrase.slice(0, -1)`.
 
 ## `DEFAULT_DICTIONARY`
 
@@ -84,17 +87,22 @@ characters 2.x produced with `static sensitive = true`.
 
 <!-- reference @evanion/luhn#InvalidDictionaryReason -->
 
-| `reason`       | Constraint the dictionary failed                             |
-| -------------- | ------------------------------------------------------------ |
-| `not-a-string` | the dictionary is a string                                   |
-| `too-short`    | at least 2 code points                                       |
-| `odd-length`   | an even number of code points                                |
-| `duplicate`    | no code point appears twice                                  |
-| `case-pairs`   | no two code points are case variants, when `caseInsensitive` |
+| `reason`       | What the dictionary must be                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `not-a-string` | a string                                                              |
+| `too-short`    | at least 2 code points long                                           |
+| `odd-length`   | an even number of code points long                                    |
+| `duplicate`    | free of repeated code points                                          |
+| `case-pairs`   | free of case variants of one letter, when `caseInsensitive` is `true` |
+
+An odd size is refused because a character at a doubled position contributes
+`floor(2x / n) + (2x mod n)` for its index `x`, and over an odd `n` two indices
+contribute the same amount, so a substitution between them goes uncaught.
 
 ## `EmptyInputError`
 
 <!-- reference @evanion/luhn#EmptyInputError example=empty-input -->
 
-`EmptyInputError` is the only error `generate` or `validate` raises. Every other
-constraint was settled when the instance was built.
+`EmptyInputError` is the only error an instance's calls raise, and only
+`generate` raises it. Every other constraint was settled when the instance was
+built.
