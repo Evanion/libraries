@@ -87,27 +87,5 @@
     ],
     "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"],
     "unexplained": ["LuhnOptions"]
-  },
-  "@evanion/react-widget": {
-    "undocumented": [
-      "AnyWidgetComponent",
-      "AnyWidgetItem",
-      "KnownWidgetTypes",
-      "RenderableWidgetItem",
-      "VALIDATION_MESSAGES",
-      "WidgetChildren",
-      "WidgetDataProps",
-      "WidgetItem",
-      "WidgetItemComponent",
-      "WidgetMeta",
-      "WidgetProblem",
-      "WidgetRegistry",
-      "WidgetSuspenseMode",
-      "WidgetsChrome",
-      "WidgetsConfig",
-      "WidgetsProps",
-      "WidgetsWrapperComponent",
-      "defineWidgets"
-    ]
   }
 }
