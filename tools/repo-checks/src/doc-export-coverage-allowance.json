@@ -151,29 +151,6 @@
     ],
     "unexplained": ["WidgetsChrome"]
   },
-  "@evanion/token": {
-    "undocumented": [
-      "CONFUSABLE_CHARACTERS",
-      "DEFAULT_CHUNK_SIZE",
-      "DEFAULT_DICTIONARY",
-      "DEFAULT_LENGTH",
-      "DEFAULT_SEPARATOR",
-      "GenerateOptions",
-      "GenerateResult",
-      "InvalidAlphabetError",
-      "InvalidDictionaryReason",
-      "InvalidShapeError",
-      "InvalidShapeReason",
-      "InvalidToken",
-      "Token",
-      "TokenError",
-      "TokenOptions",
-      "TokenShape",
-      "ValidToken",
-      "ValidateFailureReason",
-      "ValidateResult"
-    ]
-  },
   "@evanion/urn": {
     "undocumented": [
       "IFullURN",
