@@ -1,30 +1,35 @@
 # Entropy and collisions
 
-`length` counts the check character, so usable entropy is
-`(length - 1) * log2(n)`. At the defaults — `length: 8`, `n: 32` — that is 35
-bits, and `entropyBits` reports it:
+To size `length` for the number of codes your shop will issue, read
+`entropyBits` on the instance `createToken` returns.
 
-```ts
-const token = createToken();
+## Read token's entropy off an instance
 
-token.entropyBits; // 35
-createToken({ length: 12 }).entropyBits; // 55
-createToken({ length: 13, chunkSize: 13 }).entropyBits; // 60
+`length` counts the check character, so a code carries
+`(length - 1) * log2(n)` random bits, where `n` is the dictionary's size.
+`entropyBits` reports the figure:
+
+```ts twoslash file=libs/token/README.md region=entropy
+
 ```
 
-## Read it as a collision budget
+The defaults, `length: 8` and `n: 32`, give 35 bits. A `length` of 12 gives 55.
+A `length` of 13 gives 60, and it names `chunkSize: 13` because the default
+`chunkSize` of 4 does not divide 13.
 
-35 bits is 34,359,738,368 values. The birthday bound, not the size of the space,
-is what decides when two codes collide:
+## Read a token length as a collision budget
+
+35 bits is 34,359,738,368 values. The birthday bound, and not the size of the
+space, decides when two codes collide:
 
 | Issued codes | Chance at least two collide, at 35 bits |
 | ------------ | --------------------------------------- |
 | 10,000       | about 0.15%                             |
-| 100,000      | about 13%                               |
+| 100,000      | about 14%                               |
 | 218,000      | about 50%                               |
 | 1,000,000    | effectively certain                     |
 
-The 50% point is roughly `1.18 × sqrt(2^bits)`. Five more characters adds 25
+The 50% point is roughly `1.18 × sqrt(2^bits)`. Five more characters add 25
 more bits, which moves it from 218,000 to about 1.3 billion:
 
 | `length` | bits | 50% collision at |
@@ -34,60 +39,50 @@ more bits, which moves it from 218,000 to about 1.3 billion:
 | 10       | 45   | 7,000,000        |
 | 13       | 60   | 1,300,000,000    |
 
-Pick `length` from the row above your expected volume, with room for the volume
-you will have in three years.
+A `length` of 6, 10 or 13 needs a `chunkSize` that divides it. Pick `length`
+from the row above your expected volume, with room for the volume you expect in
+three years.
 
-## Uniqueness is a database constraint
+## Token uniqueness is a database constraint
 
-`generate` never retries and never checks for collisions. It cannot: the package
-has no idea what you have issued.
+`generate` never retries and never checks for collisions, because the package
+does not know which codes you have issued. The orders table does. Put a unique
+index on the code and draw again when the insert conflicts:
 
-So put a unique index on the column, and handle the conflict:
+```ts twoslash file=libs/token/README.md region=issue
 
-```ts
-async function issue(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { value, body } = token.generate({ prefix: 'ORD' });
-    try {
-      await db.orders.insert({ code: body });
-      return value;
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-    }
-  }
-  throw new Error('could not allocate an order code');
-}
 ```
 
+`issued` stands in for the unique index, and `insertPickupCode` returns `false`
+where a database raises a unique violation. In your code, catch that violation
+and nothing else. `issuePickupCode` draws up to five times and then throws, so a
+table that has run out of codes raises an error.
+
 Index on `body`, not on `value`. `body` is the unchunked, prefix-free,
-case-folded form, and it is what `validate` hands back for a lookup — a caller
-who typed the code without its separators has to find the same row.
+case-folded form, and it is what `validate` hands back for a lookup, so a
+customer who typed the code without its separators finds the same row.
 
-The retry loop belongs here because the database is the only participant that
-knows what has been issued.
+## A token code is not a guess-resistance budget
 
-## This is not a guess-resistance budget
+35 bits is not enough to stop an attacker enumerating codes. If a code is a
+capability, such as a password reset link or a download token, where knowing
+the string grants access, `@evanion/token` is the wrong package. Use a 128-bit
+random value and do not make it readable, because nobody types it.
 
-35 bits is not enough to stop an attacker enumerating codes. If the code is a
-capability — a password reset link, a download token, anything where knowing the
-string grants access — this is the wrong package. Use a 128-bit random value and
-do not make it human-readable, because nobody types it.
+A token code is one a person handles: a pickup code, a gift card, a support
+ticket. It is looked up and not authorised, and what it defends against is a
+transcription error.
 
-What this package is for is a code a person handles: an order reference, a gift
-card, a support ticket, a table number. Those are looked up, not authorised, and
-the thing you are defending against is a transcription error.
+If a readable code does gate something, rate-limit the lookup and bind it to a
+second factor the guesser does not have, such as the email address the code was
+sent to.
 
-If a human-readable code does gate something, rate-limit the lookup and bind it
-to a second factor the guesser does not have — the email address it was issued
-to, for instance.
+## Shortening a token code
 
-## Shortening the code instead
+Two ways spend fewer characters for the same entropy, and each has a cost:
 
-Two ways to spend fewer characters for the same entropy, neither free:
-
-Raise `n`. 64 characters is 6 bits each instead of 5, but the alphabet rules
-forbid uppercase, which is where the extra 32 would have to come from.
-
-Drop the check character. `length: 8` with no check would be 40 bits rather than
-35, and a mistyped code would then cost a database lookup and an unhelpful "not
-found". There is no option to do it.
+- Raise `n`. 64 characters is 6 bits each against 5, but the alphabet rules
+  forbid uppercase, which is where the extra 32 would have to come from.
+- Drop the check character. `length: 8` with no check would carry 40 bits
+  against 35, and a mistyped code would then cost a database lookup and a "not
+  found". `createToken` has no option to drop it.

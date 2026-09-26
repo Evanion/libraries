@@ -172,8 +172,7 @@
       "ValidToken",
       "ValidateFailureReason",
       "ValidateResult"
-    ],
-    "unexercised": ["InvalidAlphabetError", "InvalidShapeError", "TokenError"]
+    ]
   },
   "@evanion/urn": {
     "undocumented": [
