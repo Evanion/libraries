@@ -262,6 +262,62 @@ describe('rewriteMarkdown', () => {
       'expect(f()).toEqual(1);',
     );
   });
+
+  describe('an import prettier broke across lines', () => {
+    it('rewrites it line for line into the dynamic form', () => {
+      const source = [
+        `${fence}ts @import.meta.vitest`,
+        'import {',
+        '  CorrelationModule,',
+        '  withCorrelation as forward,',
+        '  type CorrelationConfig,',
+        "} from '@evanion/nestjs-correlation-id';",
+        fence,
+      ].join('\n');
+
+      expect(rewriteMarkdown(source, 'README.md').split('\n')).toEqual([
+        `${fence}ts @import.meta.vitest`,
+        'const {',
+        '  CorrelationModule,',
+        '  withCorrelation: forward,',
+        '  // type CorrelationConfig,',
+        "} = await import('@evanion/nestjs-correlation-id');",
+        fence,
+      ]);
+    });
+
+    it('comments out a type-only one on every line', () => {
+      const source = [
+        `${fence}ts @import.meta.vitest`,
+        'import type {',
+        '  CorrelationConfig,',
+        "} from '@evanion/nestjs-correlation-id';",
+        'f(); // -> 1',
+        fence,
+      ].join('\n');
+
+      expect(rewriteMarkdown(source, 'README.md').split('\n')).toEqual([
+        `${fence}ts @import.meta.vitest`,
+        '// import type {',
+        '  // CorrelationConfig,',
+        "// } from '@evanion/nestjs-correlation-id';",
+        'expect(f()).toEqual(1);',
+        fence,
+      ]);
+    });
+
+    it('leaves the same lines alone in an unmarked block', () => {
+      const source = [
+        `${fence}ts`,
+        'import {',
+        '  CorrelationModule,',
+        "} from '@evanion/nestjs-correlation-id';",
+        fence,
+      ].join('\n');
+
+      expect(rewriteMarkdown(source, 'README.md')).toBe(source);
+    });
+  });
 });
 
 describe('rewriteJsDoc', () => {

@@ -277,6 +277,51 @@ function rewriteImport(line: string): string | null {
   return null;
 }
 
+/** A line commented out where it stands, keeping its indent. */
+function commentOut(line: string): string {
+  const indent = line.slice(0, line.length - line.trimStart().length);
+  return `${indent}// ${line.trimStart()}`;
+}
+
+/**
+ * The rewriter for the lines of one code block.
+ *
+ * Prettier breaks an import that does not fit on one line into one binding per
+ * line, and `rewriteImport` reads a single line, so the opening `import {` of a
+ * broken import would reach doctest's function body as a static import. This
+ * carries the import across the lines it spans and rewrites each line in
+ * place, still one line in and one line out: `import {` becomes `const {`, a
+ * binding line keeps its place in the pattern, and `} from 'm';` becomes
+ * `} = await import('m');`. A broken `import type { … }` is commented out line
+ * by line, as the one-line form is.
+ */
+function blockRewriter(file: string): (line: string, number: number) => string {
+  let open: 'value' | 'type' | null = null;
+
+  return (line, number) => {
+    if (open !== null) {
+      const close = line.match(/^(\s*)\}\s*from\s+(['"][^'"]+['"])\s*;?\s*$/);
+      const kind = open;
+      if (close) open = null;
+      if (kind === 'type') return commentOut(line);
+      if (close) return `${close[1]}} = await import(${close[2]});`;
+
+      const binding = line.trim().replace(/,$/, '');
+      // An inline `type` specifier names nothing at runtime.
+      if (/^type\s/.test(binding)) return commentOut(line);
+      return line.replace(/\s+as\s+/, ': ');
+    }
+
+    const opening = line.match(/^(\s*)import\s+(type\s+)?\{\s*$/);
+    if (opening) {
+      open = opening[2] ? 'type' : 'value';
+      return open === 'type' ? commentOut(line) : `${opening[1]}const {`;
+    }
+
+    return rewriteLine(line, file, number);
+  };
+}
+
 /** Whether a fence info string marks the block as a doctest. */
 const isDoctestFence = (info: string): boolean =>
   info.includes('@import.meta.vitest');
@@ -293,6 +338,7 @@ export function rewriteMarkdown(code: string, file: string): string {
   const lines = code.split('\n');
   let fence: string | null = null;
   let running = false;
+  let rewrite = blockRewriter(file);
 
   return lines
     .map((line, index) => {
@@ -301,6 +347,7 @@ export function rewriteMarkdown(code: string, file: string): string {
       if (opening && fence === null) {
         fence = opening[1] as string;
         running = isDoctestFence(opening[2] as string);
+        rewrite = blockRewriter(file);
         return line;
       }
 
@@ -314,7 +361,7 @@ export function rewriteMarkdown(code: string, file: string): string {
         return line;
       }
 
-      return running ? rewriteLine(line, file, index + 1) : line;
+      return running ? rewrite(line, index + 1) : line;
     })
     .join('\n');
 }
@@ -331,6 +378,7 @@ export function rewriteJsDoc(code: string, file: string): string {
   const lines = code.split('\n');
   let inComment = false;
   let running = false;
+  let rewrite = blockRewriter(file);
 
   return lines
     .map((line, index) => {
@@ -346,6 +394,7 @@ export function rewriteJsDoc(code: string, file: string): string {
       const fence = content.match(/^\s*(`{3,})(.*)$/);
       if (fence) {
         running = running ? false : isDoctestFence(fence[2] as string);
+        rewrite = blockRewriter(file);
         if (/\*\//.test(line)) inComment = false;
         return line;
       }
@@ -356,7 +405,7 @@ export function rewriteJsDoc(code: string, file: string): string {
         return line;
       }
 
-      return running ? prefix + rewriteLine(content, file, index + 1) : line;
+      return running ? prefix + rewrite(content, index + 1) : line;
     })
     .join('\n');
 }
