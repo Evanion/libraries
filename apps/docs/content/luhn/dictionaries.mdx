@@ -1,8 +1,16 @@
 # Dictionaries
 
-`createLuhn({ dictionary })` builds an instance over an alphabet you choose. The
-dictionary is the only thing luhn is configured by, and `createLuhn` checks it
-once, when the instance is built.
+`createLuhn({ dictionary })` builds an instance over an alphabet you choose. It
+checks the dictionary once, when the instance is built, and `caseInsensitive`
+decides whether input is folded to lowercase.
+
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={30}
+  requires={[['Generating and validating', '/luhn/usage']]}
+  unlocks={[['Standards and modulo bias', '/luhn/standards']]}
+/>
 
 ## The default luhn dictionary
 
@@ -13,59 +21,64 @@ folds input to lowercase:
 
 ```
 
-`n` is the dictionary's size, which the fold computes modulo. The default holds
-no uppercase letters, which is what makes folding sound over it: `O` becomes
-`o`, and `o` has one position.
+`n` is the dictionary's size, and the Luhn sum from the Overview is computed
+modulo `n`. The default holds no uppercase letters, which is what makes
+lowercasing input sound over it: `O` becomes `o`, and `o` has one index.
 
 ## Build a luhn instance over your own dictionary
 
-Baize's pickup codes draw on 32 characters, the default 36 with `i`, `l`, `o`
-and `w` dropped because they are confused when read aloud. `createLuhn` builds
-an instance over them:
+Baize's pickup codes draw on 32 characters: the default 36 with `i`, `l`, `o`
+and `w` dropped, because they are confused when read or heard. The default
+dictionary still holds all four, which is why an order code can end in `l`.
+`createLuhn` builds an instance over the 32:
 
 ```ts twoslash file=libs/luhn/README.md region=pickup-dictionary
 
 ```
 
 `pickup.generate` and `pickup.validate` are the same calls `Luhn` carries,
-bound to the new alphabet. `caseInsensitive` is `false` because a dictionary you
-supply is not folded unless you ask, for the reason the case sensitivity
-section below gives.
+bound to the new alphabet, and `filtered` counts the characters of the input
+the dictionary does not hold. `caseInsensitive` is `false` because `createLuhn`
+cannot tell whether your alphabet holds case pairs, so it folds only when you
+ask.
 
-The order of the string decides which position each character holds, and so
-every check character the instance produces. `'0123…xyz'` and `'zyx…3210'` are
-different alphabets, and a code signed under one is not guaranteed to validate
-under the other. Keep the string as a constant, and never sort or deduplicate it at
-runtime.
+The order of the string decides which index each character holds, and so every
+check character the instance produces. `'0123…xyz'` and `'zyx…3210'` are
+different alphabets, and a code built under one is not guaranteed to validate
+under the other. Keep the string as a constant, and never sort or deduplicate it
+at runtime.
 
 ## What createLuhn checks in a luhn dictionary
 
 `createLuhn` throws `InvalidDictionaryError` when the dictionary fails one of
 five constraints. The error's `reason` names which:
 
-| `reason`       | Constraint                                                                  |
-| -------------- | --------------------------------------------------------------------------- |
-| `not-a-string` | the dictionary is a string                                                  |
-| `too-short`    | at least 2 code points                                                      |
-| `odd-length`   | an even number of code points                                               |
-| `duplicate`    | no code point appears twice                                                 |
-| `case-pairs`   | no two code points are case variants of each other, when folding is enabled |
+| `reason`       | What the dictionary must be                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `not-a-string` | a string                                                              |
+| `too-short`    | at least 2 code points long                                           |
+| `odd-length`   | an even number of code points long                                    |
+| `duplicate`    | free of repeated code points                                          |
+| `case-pairs`   | free of case variants of one letter, when `caseInsensitive` is `true` |
 
-`offending` lists the characters the constraint named, so a settings screen can
-point at them:
+`offending` names what failed, so a settings screen can point at it: the
+repeated characters for `duplicate`, the case pairs joined as `'Aa'` for
+`case-pairs`, and nothing for the other three:
 
 ```ts twoslash file=libs/luhn/README.md region=constraints
 
 ```
 
-The size has to be even because of the fold. Every second position contributes
-`floor(2x / n) + (2x mod n)` for the character at index `x`, and for an odd `n`
-two indices can contribute the same amount. Over three characters, indices 1
-and 2 both contribute 2, so a 1 typed for a 2 at a doubled position is not
-caught.
+The size has to be even because of the Luhn sum. Counting leftwards from the
+check character, every second character contributes
+`floor(2x / n) + (2x mod n)` for its index `x`, and for an odd `n` two indices
+can contribute the same amount. Over three characters, index 1 doubles to 2 and
+contributes 0 + 2, and index 2 doubles to 4 and contributes 1 + 1. Both
+contribute 2, so a 1 typed for a 2 at a doubled position is not caught.
 
-Nothing is checked when `generate` or `validate` runs. An instance you hold
-cannot produce a code its own `validate` rejects.
+Every constraint is checked when `createLuhn` builds the instance, and none at
+the call. So `generate` and `validate` never fail on the dictionary, and an
+instance you hold cannot produce a code its own `validate` rejects.
 
 ## How luhn counts a dictionary
 
@@ -89,13 +102,15 @@ would halve every one of them.
 ```
 
 The pickup instance refuses `A4KP-9MXA` because `A`, `K`, `P`, `M` and `X` are
-not in its dictionary and are dropped. Turning folding on makes it accept the
-code a customer typed in capitals. `ALTERNATING_CASE_DICTIONARY` is 62
-characters, `0` to `9` then `Aa Bb … Zz`, and it reads case: `Order` and
-`order` sign differently.
+not in its dictionary. `validate` drops them, counts them in `filtered`, and
+checks what is left. Turning folding on makes it accept the code a customer
+typed in capitals. `ALTERNATING_CASE_DICTIONARY` is 62 characters, `0` to `9`
+then `Aa Bb … Zz`, and it reads case: `Order` and `order` get different check
+characters.
 
-Folding over a dictionary holding both `A` and `a` would send both to one
-position and leave the other unreachable, so `createLuhn` refuses it:
+Lowercasing input over a dictionary holding both `A` and `a` would send both to
+the index of `a` and leave the index of `A` unreachable, so `createLuhn` refuses
+it:
 
 ```ts twoslash file=libs/luhn/README.md region=case-pairs
 
@@ -105,16 +120,17 @@ position and leave the other unreachable, so `createLuhn` refuses it:
 
 A random string passes `validate` one time in `n`, so a larger dictionary
 catches more of what is not a code at all. A size that divides 256 is the other
-consideration: it is what makes `byte % n` pick each character equally often
-when you draw random codes over the dictionary, and `uniformOverBytes` reports
-whether it does. 32 satisfies both, which is why the pickup alphabet has 32
+consideration. It makes `byte % n` pick each character equally often when a
+generator such as `@evanion/token` draws random codes over the dictionary, and
+each instance's `uniformOverBytes` property reports whether it does. 32 is the
+largest size under 36 that divides 256, which is why the pickup alphabet has 32
 characters.
 
 ## A luhn dictionary chosen at runtime
 
-A dictionary read from configuration is an instance per dictionary. Building
-one is one pass over the dictionary, the pass that validates it, so cache the
-instance when the same few recur:
+Each dictionary read from configuration needs its own instance. `createLuhn`
+checks the dictionary and builds its lookup table every time it is called, so
+cache the instance when the same few dictionaries recur:
 
 ```ts twoslash file=libs/luhn/README.md region=instance-per-dictionary
 
