@@ -1,75 +1,117 @@
 # NestJS
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    `apps/shop-api` in this repository is the Nest service that authors Baize's
-    matrix, enforces it, and publishes it to the three frontends. Every fence
-    below is a region of that app and runs under `nx test @evanion/shop-api`.
-    There is no `@evanion/nestjs-acl`: the app calls `@evanion/acl` directly.
-  </Text>
-</WorkshopNotice>
+`@evanion/acl` ships no NestJS module. In `apps/shop-api`, Baize's Nest service,
+`AclGuard` refuses a request before the row is read wherever the subject alone
+decides it, and `GamesService` decides `game.declare` on the title it loaded.
+
+<WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={3}
   read={8}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[
+    ['Rules about the thing being accessed', '/acl/object-rules'],
+    ['Which fields may they write?', '/acl/writing'],
+  ]}
   unlocks={[
     ['Express', '/acl/express'],
     ['Many services', '/acl/federation'],
   ]}
 />
 
-**The concept.** A Nest request passes a guard before the row is fetched and a
-service after it, so one write decides twice.
+## Baize's acl matrix, built once when the Nest app boots
 
-**What you get.** A guard that refuses a subject holding no `game.declare` at
-all, and a service that decides on Brass: Birmingham.
+`apps/shop-api` calls `@evanion/acl` directly, and every fence on this page is a
+region of that app, run by its own test suite. `ShopSubject` carries `id`, `roles` and `shop`, and `ShopObjects` maps each of the
+four object kinds to its row shape:
 
-**Why you want it.** A guard asking an object-dependent rule with no instance
-gets `unevaluable` back, which is not a refusal.
+```ts file=apps/shop-api/src/acl/shop.policy.ts region=shop-matrix
 
-**How the library gets you there.** `readsObject` reports which permissions need
-the row, which is what puts each decision where the data is.
+```
 
-## What `apps/shop-api` wires up
+Six permissions, and every one but `inventory.read` carries `visibility`, which
+marks what the service publishes. `game.declare` lets an operator set
+`availability`, and `game.reprice` adds `price` for a manager. Both read
+`object.shop === subject.shop`, so an operator in Gothenburg cannot touch a title
+Stockholm lists.
 
-`apps/shop-api` runs four pieces, and every fence on this page is a region of
-one of them:
+`SHOP_MATRIX` is the document that builder produced. `hydratePolicy` adopts it,
+because this process wrote it:
 
-| Piece          | Where it lives                          | What it does                                |
-| -------------- | --------------------------------------- | ------------------------------------------- |
-| the matrix     | built at boot behind an injection token | holds every rule the service enforces       |
-| the subject    | `AsyncLocalStorage`                     | carries the request's actor to every caller |
-| `AclGuard`     | a global guard                          | refuses what it can refuse before the read  |
-| `GamesService` | the service layer                       | decides `game.declare` on the loaded title  |
+```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
 
-A `CanActivate` guard runs before the controller method and holds the subject
-with no row. The service runs after the read and holds both.
-`access.readsObject(key, action)` tells the guard which permissions it can
-finish, so the guard refuses those and passes the others on. `canFields` and
-`pickAllowedFields` then close the write in the service.
+```
 
-Baize grants `game.declare` to an operator whose own shop lists the title. A
-guard called with no title answers `unevaluable`, and an app reading that as a
-grant lets an operator in Gothenburg edit a Stockholm listing.
+`hydratePolicy` validates, deep-clones and deep-freezes the document. An unknown
+field, or two permissions sharing a key, stops the boot.
 
-## Two seats, and only one of them decides
+## Binding the acl matrix in a global Nest module
 
-A seat is a place in the request pipeline where an app can call `can`, and a
-Nest write passes two of them: the guard, before the row is fetched, and the
-service, after. A guard holds the subject and no row, so it can ask whether this
-subject holds `game.declare` at all and cannot ask whether it holds it on Brass:
-Birmingham.
-An object-dependent rule called with no instance comes back `unevaluable`,
-naming the paths it could not read.
+`AclModule.forRoot()` returns a `global: true` `DynamicModule` with the matrix as
+a `useValue` provider under the token `ACL_ACCESS`, and registers `AclGuard` and
+`PolicyController`:
 
-<Panel heading="The service after the read is the enforcement point">
+```ts file=apps/shop-api/src/acl/acl.module.ts region=acl-module
+
+```
+
+`APP_GUARD` binds the guard to every route, and the `@Requires` metadata decides
+which routes it gates. The token is a package-namespaced string:
+
+```ts twoslash file=apps/shop-api/src/acl/acl.constants.ts region=acl-token
+
+```
+
+A bare `'ACL_ACCESS'` in a global module collides with any other provider of that
+name, and nothing reports it. A symbol is identity-based, so two copies of the
+package mint two tokens and Nest fails to resolve one of them.
+
+## Resolving the acl subject in a Nest request
+
+`SubjectService` holds the request's subject in an `AsyncLocalStorage`
+singleton. `Scope.REQUEST` propagates upward: under it, every provider depending
+on the subject, `GamesService` and `InventoryClient` among them, becomes
+request-scoped, is rebuilt per request and never receives `onModuleInit`.
+
+```ts file=apps/shop-api/src/acl/subject.service.ts region=subject-service
+
+```
+
+`SubjectMiddleware` fills it. The middleware types its arguments against
+`node:http`, so one class works under the Express and the Fastify adapter.
+`SHOP_SUBJECT_HEADER` is `X-Shop-Subject`, and `subjectFrom` parses it or falls
+back to a shopper who works for no shop:
+
+```ts file=apps/shop-api/src/acl/subject.middleware.ts region=subject-middleware
+
+```
+
+<Panel heading="This demo reads a header, and a deployment must not">
   <Text as="div" size="sm">
-    The row-level decision belongs in the service, after the read. A guard that
-    passed is a guard that could not decide, and an app that reads that as a
-    grant leaves an object-dependent permission unenforced. Keep both seats.
+    Baize has no session layer, so a caller states who it is and shop-api
+    believes it. `can` authorizes the subject it is handed and cannot ask where
+    it came from, so a subject read off a header, a query parameter or a posted
+    field is the caller's claim. In production this middleware reads the actor
+    the session layer verified. Nothing else changes, because every caller reads
+    `SubjectService.current()`.
   </Text>
 </Panel>
+
+## Two seats, the Nest guard and the service
+
+A Nest write passes two places that can call `can`. The guard runs before the
+controller method and holds the subject with no row. The service runs after the
+read and holds both.
+
+| Seat           | Holds              | Decides                                                        |
+| -------------- | ------------------ | -------------------------------------------------------------- |
+| `AclGuard`     | the subject        | every permission whose rules read the subject alone            |
+| `GamesService` | the subject, a row | `game.declare` and `game.reprice`, on the title it just loaded |
+
+A permission whose rules read `object.*`, asked with no row, answers
+`unevaluable`, which is no refusal. A guard that reads that as a grant lets a
+Gothenburg operator edit a Stockholm title, so the row-level decision belongs in
+the service.
 
 ```mermaid caption="The two seats one write passes through. AclGuard holds the subject and no row, so it refuses a permission whose rules read only subject paths and passes on one that readsObject reports as object-dependent; GamesService decides that one after the read, against the title it loaded."
 flowchart TD
@@ -82,95 +124,11 @@ flowchart TD
   D --> W["pickAllowedFields, or 403"]
 ```
 
-## Building Baize's matrix once at boot
+## The Nest guard refuses what the subject decides
 
-`ShopSubject` carries `id`, `roles` and `shop`. `Game`, `OrderDraft`,
-`TelemetryEvent` and `Stock` are the four row shapes the four keys decide over,
-`SHOP_SCHEMA` states their field types for the document, `AVAILABILITIES` is the
-catalogue's four availability tokens, and `SHOP_MATRIX_VERSION` is the string a
-frontend compares its copy against.
-
-```ts file=apps/shop-api/src/acl/shop.policy.ts region=shop-matrix
-
-```
-
-Six permissions, each carrying `visibility` except `inventory.read`, which
-shop-api keeps to itself. `game.declare` lets an operator set `availability`;
-`game.reprice` adds `price` and belongs to a manager. Both read the ownership
-axis `object.shop === subject.shop`.
-
-`SHOP_MATRIX` is the document that builder produced and `ShopObjects` maps each
-key to its row shape. `hydratePolicy` adopts it, because this process wrote it:
-
-```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
-
-```
-
-`hydratePolicy` validates, deep-clones and deep-freezes the document. An
-unknown field, or two permissions sharing a key, stops the boot.
-
-## The module that binds the matrix
-
-`AclModule.forRoot()` returns a `global: true` `DynamicModule` with a `useValue`
-provider under a package-namespaced string token. `ACL_ACCESS` is that token,
-`AclGuard` is the guard two sections below, and `PolicyController` is the
-endpoint at the end of this page:
-
-```ts file=apps/shop-api/src/acl/acl.module.ts region=acl-module
-
-```
-
-The token is a namespaced string:
-
-```ts twoslash file=apps/shop-api/src/acl/acl.constants.ts region=acl-token
-
-```
-
-The provider sits in a global module, where a bare `'ACL_ACCESS'` collides in
-silence. A symbol is identity-based, so two copies of the package mint two
-tokens and Nest fails to resolve one of them. `APP_GUARD` binds the guard to
-every route, and the `@Requires` metadata below decides which routes it gates.
-
-## Resolving the subject in a Nest request
-
-`SubjectService` holds the request's subject in an `AsyncLocalStorage`
-singleton. `Scope.REQUEST` propagates _upward_ through the injection graph:
-every dependent of a request-scoped provider becomes request-scoped, is rebuilt
-per request, and never receives `onModuleInit`. `GamesService` and
-`InventoryClient` both depend on the subject, so request scope on it would
-re-scope the application.
-
-```ts file=apps/shop-api/src/acl/subject.service.ts region=subject-service
-
-```
-
-The middleware that fills it types its arguments against `node:http`, so one
-class works under either adapter. `SHOP_SUBJECT_HEADER` is `X-Shop-Subject`,
-`subjectFrom` parses it, and `ANONYMOUS_SUBJECT` is a shopper who works for no
-shop:
-
-```ts file=apps/shop-api/src/acl/subject.middleware.ts region=subject-middleware
-
-```
-
-<Panel heading="This demo reads a header, and a deployment must not">
-  <Text as="div" size="sm">
-    Baize has no session layer, so a caller states who it is and shop-api
-    believes it. `can` authorizes the bag it is handed and has no channel to ask
-    where the bag came from, so a subject assembled from a header, a query
-    parameter or a posted field is the confused deputy. In production this
-    middleware sits behind whatever verifies the session and reads the verified
-    actor. Nothing else in the app changes, because every caller reads
-    `SubjectService.current()`.
-  </Text>
-</Panel>
-
-## The guard refuses what it can refuse
-
-`@Requires` writes the permission onto the handler under the namespaced metadata
-key `REQUIRES_PERMISSION`, and the guard reads it back. `RequiredPermission`
-types `key` against `ShopObjects`, so a route naming a kind the matrix does not
-carry fails to compile:
+`@Requires` writes the permission onto the handler under the metadata key
+`REQUIRES_PERMISSION`. `RequiredPermission` types `key` against `ShopObjects`, so
+a route naming a kind the matrix does not carry fails to compile:
 
 ```ts file=apps/shop-api/src/acl/requires.decorator.ts region=requires-decorator
 
@@ -180,38 +138,40 @@ carry fails to compile:
 
 ```
 
-`readsObject` answers true when any allow rule or any deny rule of that
-permission reads an `object.*` path, on either operand. `order.create` reads the
-subject's roles alone, so a customer-less caller is refused here and never
-reaches `OrdersController`. `game.declare` reads the title's shop, so the guard
-passes it on for `GamesService` to finish.
+`access.readsObject(key, action)` is true when any allow or deny rule of that
+permission reads an `object.*` path. `order.create` reads the subject's roles
+alone, so the guard refuses a caller who is no customer and `OrdersController`
+never runs. `game.declare` reads the title's shop, so the guard passes it on.
 
-The guard does not catch a `@Requires` naming an `action` the document has no
-permission for: `key` is typed and `action` stays a string. On an `Access` built
-open, `can` throws `UnknownPermissionError`, which Nest renders as a 500.
+`action` stays a string, so the guard does not catch a `@Requires` naming an
+action the document lacks. `hydratePolicy` builds an open `Access`, where that
+`can` throws `UnknownPermissionError` and Nest renders a 500.
 
-## The service decides on the row
+## The Nest service decides on the row
 
-`GamesService` holds `SubjectService`, the catalogue and `ACL_ACCESS`.
-`GameDeclaration` is the request body, `findByUrn` loads the title, and the
-action is chosen from the body because the two write actions carry different
-field allow-lists:
+`GamesService.declare` loads the title with `findByUrn`, then decides. The action
+comes from the body, because `declare` and `reprice` allow different fields:
 
 ```ts file=apps/shop-api/src/games/games.service.ts region=row-decision
 
 ```
 
-`decision.action.allowed` is checked first, so the refusal is a
-`ForbiddenException` and never an exception thrown out of `pickAllowedFields`. A
-hand-written read of the field map on `!== 'denied'` writes the `unevaluable`
-fields too. A Nest `@Body()` is the mass-assignment shape, because a caller puts
-whatever it likes in it.
+`decision.action.allowed` is checked first, so a refusal is a
+`ForbiddenException` and never the `ActionNotAllowedError` that
+`pickAllowedFields` throws on a refused action. A `@Body()` carries whatever the
+caller put in it, and the write keeps only the keys the decision marked
+`allowed`. A whitelisting `ValidationPipe` answers whether a key is a legal field
+of the endpoint, and the decision answers whether this subject may set it on this
+row, so keep both.
 
-A whitelisting `ValidationPipe` answers a different question: the pipe says the
-key is a legal field of this endpoint, and the decision says this subject may set
-it on this row. Keep both.
+The service spec runs the app's real matrix. The same Stockholm operator changes
+Wingspan and is refused on Gloomhaven:
 
-## Publishing the matrix to the frontends
+```ts file=apps/shop-api/src/games/games.service.spec.ts region=declare-on-the-row
+
+```
+
+## Publishing the matrix from a Nest controller
 
 `PolicyController` answers `GET /api/policy` with the reduced document:
 
@@ -219,38 +179,30 @@ it on this row. Keep both.
 
 ```
 
-`serialize(access, 'reduced')` emits the permissions marked
-`visibility: 'public'`, each kept whole, and drops `inventory.read`. The three
-frontends fetch this once and evaluate it locally, so no decision any of them
-makes waits on a network call. Each of them decides again anyway, and so does
-this service on the next request it receives.
+`serialize(access, 'reduced')` keeps the permissions marked
+`visibility: 'public'`, each whole, and drops `inventory.read`. Baize's three
+frontends fetch it and evaluate locally, and shop-api decides again on every
+request they send.
 
-## Testing it
+## Testing the Nest wiring against the real matrix
 
-`apps/shop-api` stubs the request context with `useValue` on the class token,
-the idiom the app already uses elsewhere:
+`games.controller.spec.ts` builds a testing module over the real matrix and stubs
+only the subject, with `useValue` on the class token:
 
-```ts no-run
-const module = await Test.createTestingModule({
-  controllers: [GamesController],
-  providers: [
-    GamesService,
-    { provide: ACL_ACCESS, useValue: buildShopAccess() },
-    { provide: SubjectService, useValue: { current: () => subject } },
-  ],
-}).compile();
+```ts file=apps/shop-api/src/games/games.controller.spec.ts region=controller-for
+
 ```
 
-The matrix is the real one, because a stubbed decision only asserts that the
-controller called something. `acl.guard.spec.ts` covers the refusal seat,
-`games.service.spec.ts` the row seat, and `orders.e2e.spec.ts` boots the real
-`AppModule` over a real port.
+A stubbed decision asserts only that the controller called something.
+`acl.guard.spec.ts` covers the guard, `games.service.spec.ts` the service, and
+`orders.e2e.spec.ts` boots the real `AppModule` on a real port.
 
 ## Where to go next
 
-- [Express](/acl/express) — the same boundary with no guard seat
-- [Why deny, then allow, then deny?](/acl/resolution) — where the guard's two
-  branches come from
-- [The Decision object every check returns](/acl/decision-object) — the `unevaluable` state `readsObject` exists for
-- [Security contract](/acl/security) — complete mediation, and why the guard is
-  not it
+- [Express](/acl/express). The same boundary with no guard seat.
+- [The Decision object every check returns](/acl/decision-object). The
+  `unevaluable` answer `readsObject` exists for.
+- [Why deny, then allow, then deny?](/acl/resolution). Where the guard's two
+  branches come from.
+- [Security contract](/acl/security). Complete mediation, and why the guard
+  alone is not it.
