@@ -4,10 +4,18 @@
 standardised check digit on credit card numbers. Over any other dictionary it
 is Luhn mod-N, which no standard defines.
 
-## Luhn mod-10 in @evanion/luhn is normative
+<PageSheet
+  difficulty={4}
+  read={10}
+  requires={[['Dictionaries', '/luhn/dictionaries']]}
+  unlocks={[['API reference', '/luhn/api']]}
+/>
 
-`createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10
-vectors, and signs Baize's order number `20260042` with `5`:
+## Luhn mod-10 in @evanion/luhn matches the published standard
+
+`createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10 test
+vectors, inputs with known check digits. It gives Baize's
+order number, as the digits `20260042`, the check digit `5`:
 
 ```ts twoslash file=libs/luhn/README.md region=mod-10
 
@@ -18,11 +26,12 @@ defines the algorithm. ISO/IEC 7812-1 Annex B specifies it for issuer
 identification numbers, restated in 3GPP TS 23.003 Annex B.2 and in the
 [CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
 
-## Luhn mod-N in @evanion/luhn is not
+## Luhn mod-N in @evanion/luhn has no standard
 
-No RFC, ISO, ITU or ANSI document defines the generalisation to an arbitrary
-alphabet. The `floor(a / n) + (a % n)` formula every implementation uses traces
-to
+No RFC, ISO, ITU or ANSI document defines the Luhn sum over an arbitrary
+alphabet. The formula every implementation uses for a doubled character,
+`floor(2x / n) + (2x mod n)` for index `x` in a dictionary of `n` characters,
+traces to
 [Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899),
 dated 2006-09-06, which was unsourced then and is unsourced now. The
 implementations that exist say in their own comments that they were
@@ -30,23 +39,27 @@ transliterated from that page. With any `n` other than 10, `@evanion/luhn`
 implements that common generalisation and claims nothing more.
 
 - Agreement with another mod-N implementation is a coincidence. Check it
-  against vectors, not against the name.
+  against test vectors, inputs with known check characters, and not against the
+  name.
 - The dictionary's order is part of the algorithm. Two libraries agreeing on the
   formula and disagreeing on the alphabet produce different check characters.
 
-The fold is Luhn's original formulation, not a generalisation of "subtract 9".
-The patent describes "twice the original digit plus an end around carry … the
-addition of any digit standing in the tens position to the digit standing in the
-units position". Subtract-9 is the decimal shortcut for the same thing and does
-not generalise.
+The formula is Luhn's original formulation. The patent describes "twice the
+original digit plus an end around carry … the addition of any digit standing in
+the tens position to the digit standing in the units position", which is adding
+the two base-`n` digits of a doubled index. Decimal Luhn is often taught as
+"subtract 9 from a doubled digit above 9", which gives the same sum when `n` is 10.
 
 ## The one swap @evanion/luhn cannot catch
 
-Every second position contributes `g(x) = floor(2x / n) + (2x mod n)` for the
-character at index `x`. A swap of adjacent indices `a` and `b` goes unnoticed
-exactly when `a + g(b) ≡ b + g(a) (mod n)`. For an even `n` the only pair
-satisfying that is `{0, n - 1}`, the dictionary's first and last characters: `0`
-and `z` in the default, and `0` and `9` in mod-10.
+Counting leftwards from the check character, every second character contributes
+`g(x) = floor(2x / n) + (2x mod n)` for its index `x`, and every other character
+contributes `x`. Take two adjacent characters with index `a` at the undoubled
+position and index `b` at the doubled one. Swapping them goes unnoticed exactly
+when `a + g(b) ≡ b + g(a) (mod n)`. `createLuhn` accepts only an even `n`, and
+for an even `n` the only pair satisfying that is `{0, n - 1}`, the dictionary's
+first and last characters: `0` and `z` in the default, and `0` and `9` in
+mod-10.
 
 ## Modulo bias over a luhn dictionary
 
@@ -65,16 +78,13 @@ nothing about the quality of your bytes, and `crypto.getRandomValues` is the
 source to draw them from.
 
 A dictionary of 32 characters divides 256 and leaves room to drop the four
-confusable characters from 36. Rejection sampling is the alternative: draw a
-byte, discard it when it lands in the biased tail, and draw again. It is correct
-and it makes generation take a variable number of draws, which is why
-`@evanion/token` constrains its alphabet to 32 instead.
+confusable characters `i`, `l`, `o` and `w` from 36. Rejection sampling is the
+alternative: draw a byte, discard it when it lands in the biased tail, and draw
+again. It is correct and it makes generation take a variable number of draws,
+which is why `@evanion/token` constrains its alphabet to 32 instead.
 
-## What a luhn check character is not
+## A luhn check character is not a hash
 
-- It is not a checksum over content. Two different payloads share a check
-  character one time in `n`.
-- It is not authentication. Anyone can compute the check character for any
-  string, because the algorithm and the dictionary are both public.
-- It is not a uniqueness constraint. A valid code is well formed, and whether
-  order `2026-0042` exists is a question for your database.
+A luhn check character is not a hash of the code. Two different order numbers
+share a check character one time in `n`, so the check character catches a
+mistyped code and cannot tell two real orders apart.

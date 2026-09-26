@@ -1,7 +1,15 @@
 # Getting started
 
-By the end of this page your code signs Baize's order number with a check
-character, and `Luhn.validate` refuses the same code with one digit mistyped.
+By the end of this page you put a check character on Baize's order number, and
+`Luhn.validate` refuses the resulting code with one digit mistyped.
+
+<PageSheet
+  difficulty={1}
+  read={3}
+  hands={5}
+  requires={[['Overview', '/luhn']]}
+  unlocks={[['Generating and validating', '/luhn/usage']]}
+/>
 
 ## Before you install luhn
 
@@ -27,14 +35,13 @@ yarn add @evanion/luhn
 pnpm add @evanion/luhn
 ```
 
-## The one thing luhn is configured by
+## The default luhn instance needs no configuration
 
-The dictionary, and the default answers it. `Luhn` is the instance built over
-`'0123456789abcdefghijklmnopqrstuvwxyz'`, and it folds input to lowercase before
-looking a character up. Take the default and there is nothing to call:
+`Luhn` is the instance built over `'0123456789abcdefghijklmnopqrstuvwxyz'`, and
+it folds input to lowercase before looking a character up.
 `import { Luhn } from '@evanion/luhn'` is the whole setup.
 
-## Sign an order code and check it
+## Put a check character on an order code with luhn
 
 `Luhn.generate` returns the check character for an order number, and
 `Luhn.validate` answers whether a code carrying one holds together:
@@ -45,15 +52,15 @@ looking a character up. Take the default and there is nothing to call:
 
 `checksum` is `l`, and `order-2026-0042-l` is the code the shop prints on the
 receipt. `order-2026-0043-l` is the same code with one digit read back wrong,
-and `validate` answers `isValid: false` for it, so your counter refuses the code
-before the database is asked about it.
+and `validate` answers `isValid: false` for it, so the shop's till refuses the
+code before the database is asked about it.
 
-The hyphens are not part of what was checked. `generate` drops every character
-outside the dictionary before computing, so `ORDER20260042L` validates against
-the same `l`.
+The hyphens, including the one before `l`, are not part of what was checked.
+Both calls drop every character outside the dictionary and fold uppercase to
+lowercase, so `ORDER20260042L` validates against the same `l`.
 
-## Now that luhn signs a code, read back what it returns
+## Now that luhn checks a code, read back what it returns
 
 [Generating and validating](/luhn/usage) is the next page. It shows the whole
-result each call returns, including the filtered `phrase` the check character
-was computed over and the `filtered` count you can refuse stray characters on.
+result each call returns, including the `phrase` the check character was
+computed over and a count of the characters each call dropped.
