@@ -121,12 +121,7 @@
       "WidgetsWrapperComponent",
       "defineWidgets"
     ],
-    "unexercised": [
-      "DefaultItem",
-      "DefaultWrapper",
-      "defineWidgets",
-      "validateItems"
-    ],
+    "unexercised": ["validateItems"],
     "unexplained": ["WidgetsChrome"]
   },
   "@evanion/token": {
