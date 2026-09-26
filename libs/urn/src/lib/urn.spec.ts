@@ -631,6 +631,17 @@ describe('URN', () => {
 
       expect(() => stringify('a')).toThrow(TypeError);
     });
+
+    it('lets the unbound predicates answer false', () => {
+      // These three read `this` inside their own try, so the TypeError is
+      // caught and a bare callback reports every URN as invalid.
+      const GameURN = namespaceOf('urn', 'game');
+      const { isValidFormat, equals, sameNamespace } = GameURN;
+
+      expect(isValidFormat('urn:game:azul')).toBe(false);
+      expect(equals('urn:game:azul', 'urn:game:azul')).toBe(false);
+      expect(sameNamespace('urn:game:azul', 'urn:game:hive')).toBe(false);
+    });
   });
 
   describe('r-, q- and f-components', () => {
@@ -851,6 +862,25 @@ describe('URN', () => {
       });
       expect(() => Hash.stringify({ nss: '123', fComponent: 'f' })).toThrow(
         /COMPONENT is invalid in '#'/,
+      );
+    });
+
+    it('refuses a component tail when the separator carries a delimiter', () => {
+      // The tail stays in the NSS, and the NSS grammar has neither `?` nor `#`.
+      class Hash extends URN {
+        static override readonly nid = 'user';
+        static override readonly separator = '#';
+      }
+      class Question extends URN {
+        static override readonly nid = 'user';
+        static override readonly separator = '?';
+      }
+
+      expect(() => Hash.parse('urn#user#123?=q')).toThrow(
+        expect.objectContaining({ name: 'InvalidError', property: 'NSS' }),
+      );
+      expect(() => Question.parse('urn?user?123#f')).toThrow(
+        expect.objectContaining({ name: 'InvalidError', property: 'NSS' }),
       );
     });
   });

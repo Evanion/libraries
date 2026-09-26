@@ -37,9 +37,9 @@ pnpm add @evanion/urn
 
 ## Quick Start
 
-A subclass per namespace is the extension point. Override `nid` and every
-inherited method reads it: `stringify` needs only the identifier, and `parse`
-hands back the three parts.
+A subclass per namespace is the extension point. Override `nid`, and
+`stringify` and `parse` read it: `stringify` needs only the identifier, and
+`parse` hands back the three parts.
 
 <!-- #region basic-usage -->
 
@@ -59,10 +59,10 @@ GameURN.parse(id); // -> { urn: 'urn', nid: 'game', nss: 'brass-birmingham' }
 
 ## Features
 
-- **A `JSON`-shaped API**: `parse` and `stringify`, and the subclass is the
-  only place a scheme or a namespace is named
+- **A `JSON`-shaped API**: `parse` and `stringify`, which read the scheme and
+  the namespace off the subclass
 - **Custom schemes and namespaces**: extend the base class, override the
-  statics, and every inherited method reads the new values
+  statics, and `parse` and `stringify` read the new values
 - **RFC 8141 grammar**: a role-scoped grammar for the scheme, the NID and the
   NSS, rather than one flat character class
 - **Case-folded comparison**: `sameNamespace`, `belongsToNamespace` and
@@ -107,9 +107,9 @@ GameURN.parse('baize:game:azul'); // -> { urn: 'baize', nid: 'game', nss: 'baize
 
 <!-- #endregion parse -->
 
-One subclass per namespace means no call site names a namespace. A message that
-mixes them is sorted with `belongsToNamespace`, which returns `false` for
-malformed input:
+One subclass per namespace means no `stringify` call names a namespace.
+`belongsToNamespace` still takes the NID as an argument, and picks one kind out
+of a mixed message. It returns `false` for malformed input:
 
 <!-- #region class-per-namespace -->
 
@@ -522,8 +522,9 @@ URN.extractId('urn:game:brass-birmingham?=edition=2018#setup'); // -> 'brass-bir
 <!-- #endregion components-ignored -->
 
 A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
-component delimiter. There, the whole tail stays in the NSS and writing a
-component throws.
+component introducer. There, `parse` throws an `InvalidError` with
+`property: 'NSS'` for any `?` or `#` after the NID, and `stringify` throws one
+with `property: 'COMPONENT'` for any component.
 
 ### Custom separators are not RFC 8141
 
@@ -614,7 +615,9 @@ GameURN.stringify(GameURN.stringify('azul')); // -> 'urn:game:urn:game:azul'
 <!-- #endregion round-trip -->
 
 The statics are unbound. Every one of them reads `this`, so unlike
-`JSON.stringify` they cannot be destructured or passed as a bare callback:
+`JSON.stringify` they cannot be destructured or passed as a bare callback. Most
+throw a `TypeError`, and `isValidFormat`, `equals` and `sameNamespace` catch it
+and return `false`:
 
 <!-- #region unbound -->
 
@@ -633,6 +636,8 @@ try {
   failure = (error as Error).name;
 }
 failure; // -> 'TypeError'
+
+ids.filter(GameURN.isValidFormat); // -> []
 ```
 
 <!-- #endregion unbound -->
