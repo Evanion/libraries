@@ -1,139 +1,110 @@
-# Validation
+# Check CMS items before Astro renders them
 
-`Widgets.astro` skips an unknown widget type with a dev-only warning, so a bad
-CMS save can never break a render. Catch them loudly at build time instead.
+`validateItems` checks the items a CMS saved against the widget types you
+render, and returns one problem per fault, so a build script can stop before
+`astro build` publishes a page with an item missing.
 
-This page is the section's demonstration and it has nothing to click. The thing
-worth operating here is a rendered Astro page, and an `.astro` component is
-compiled against a project rather than in a browser, so the honest version of
-that control is the storefront's own build output embedded beside the data that
-produced it. That is not built. Until it is, every example below is executed —
-by `nx test @evanion/astro-widget`, over the real validator — and the reader
-gets evidence rather than a knob.
+## Why astro-widget needs validateItems
 
-`validateItems` takes the sections, the widget types the registry holds, and a
-map of the props each type cannot render without. It returns one problem per
-fault, in order, and throws nothing:
+`Widgets.astro` skips an item whose `type` the registry does not hold, and warns
+only in development. So a CMS save naming a type nothing renders publishes a
+page with a gap in it. `validateItems` takes the items, the widget types, and a
+map of the props each type cannot render without:
 
 ```ts twoslash file=libs/astro-widget/README.md region=validate
 
 ```
 
-The answer wall is not a type this registry holds, so the section would have
-rendered as a gap on the listing page. Run the same call over the payload before
-the build touches it:
+`answer-wall` is not a type the registry holds, so `validateItems` reports the
+third item. Nothing threw, and one call returned every fault in the list.
 
-```js
-import { validateItems } from '@evanion/astro-widget';
-import { registry } from './src/registry';
-import page from './src/data/page.json';
+This check matters more in Astro than in `@evanion/react-widget`, because it is
+the only check a widget's props get. An `.astro` module's type carries no props,
+so the compiler has nothing to check an item against.
 
-const problems = validateItems(page.sections, registry, {
-  'listing-header': ['title'],
-});
+## Fail astro build on a bad CMS save with validateItems
 
-if (problems.length) {
-  for (const problem of problems) {
-    console.error(
-      `section ${problem.index} (${problem.id}, ${problem.type}): ${problem.message}`,
-    );
-  }
-  process.exit(1);
-}
-```
+Run `validateItems` from a script before `astro build`. The script below is the
+whole check for the Baize listing page that Getting started renders, and
+`items` is the list the CMS saved for it:
 
-This matters more here than in `@evanion/react-widget`, because it is the only
-check a widget's props get. An `.astro` component exposes no prop types to infer
-from, so there is no compile-time half.
-
-## What it reports
-
-One `WidgetProblem` per fault: the item's `index` within its own sibling list,
-its `id` and `type`, and the message.
-[What it reports](/widget/problems) in the widget core is the catalogue — every
-message, and the payload that produces each one. The nine below are the same
-nine, run here against this package's own build.
-
-Six of the nine are structural and fire whatever the registry holds. Five of
-them show up in one payload:
-
-```ts twoslash file=libs/astro-widget/README.md region=structural-rules
+```ts file=libs/astro-widget/README.md region=build-gate
 
 ```
 
-The root itself is the ninth, and it reports one problem rather than none: a
-CMS that wrote an object where the schema said array has broken the page, and
-a clean run would say it had not.
+`known` lists the type names, because a Node script cannot import the `.astro`
+modules the registry holds. The `throw` gives the script a non-zero exit code,
+so the build command stops before Astro runs:
 
-```ts twoslash file=libs/astro-widget/README.md region=not-a-list
+```bash
+node scripts/check-content.mjs && astro build
+```
+
+A CMS webhook can run the same check when an editor saves, so the editor sees
+the problem before anyone deploys.
+
+### A registry or a list of names
+
+`validateItems` reads only the keys of `known`, so the registry and a list of its
+type names report the same problems. Code that Astro compiles can import the
+registry and pass it, and then the check and the render read one list of types:
+
+```ts file=libs/astro-widget/README.md region=known-types
 
 ```
 
-A payload with nothing wrong reports nothing, which is the case a build gate
-runs on every deploy:
+## Require props on astro-widget items
 
-```ts twoslash file=libs/astro-widget/README.md region=clean-payload
-
-```
-
-## Required fields
-
-```ts
-validateItems(sections, registry, {
-  'listing-header': ['title'],
-  'game-grid': ['title', 'games'],
-});
-```
-
-The third argument maps a widget type to the prop names that must carry
-something. [What blank means](/widget/problems#required-props-and-what-blank-means)
-is the core's, and the case it catches is the CMS text field an editor opened
-and left empty:
+The third argument maps a widget type to the prop names that must carry a
+value. Blank counts as missing, which is what a CMS text field arrives as when
+an editor opened it and left it empty:
 
 ```ts twoslash file=libs/astro-widget/README.md region=required-fields
 
 ```
 
-Required props are only checked for a widget whose type is in the registry. An
-unknown type reports once, as an unknown type, rather than once plus one per
-prop it does not have.
+`validateItems` checks required props only for an item whose type is known. An
+unknown type reports once, as an unknown type, and nothing for each prop it
+lacks.
 
-## `index` is scoped to its own level
+## What validateItems reports for astro-widget items
 
-The validator recurses into `children`, so a problem in a top-level section and
-a problem inside one of its `children` can both report `index: 0`:
+Six structural rules run over every list, whatever the registry holds. Five of
+them fire on this list:
+
+```ts twoslash file=libs/astro-widget/README.md region=structural-rules
+
+```
+
+A list with nothing wrong reports nothing, which is the case a build gate meets
+on every deploy:
+
+```ts twoslash file=libs/astro-widget/README.md region=clean-payload
+
+```
+
+### A payload that is not a list
+
+A CMS that wrote an object where the schema said array has broken the page, so
+`validateItems` reports one problem with `index: -1`:
+
+```ts twoslash file=libs/astro-widget/README.md region=not-a-list
+
+```
+
+### `index` counts within one level
+
+`validateItems` walks into `children`, so a problem in a top-level item and a
+problem inside its `children` can both report `index: 0`. `id` tells them
+apart, and the list of problems stays flat:
 
 ```ts twoslash file=libs/astro-widget/README.md region=nested-index
 
 ```
 
-`id` is what tells the two apart. The problem list is flat.
+## Every message validateItems returns
 
-## Where to run it
-
-As a script before `astro build`, so a bad payload fails the build rather than
-shipping a page with a section missing:
-
-```json
-{
-  "scripts": {
-    "build": "node ./scripts/check-content.mjs && astro build"
-  }
-}
-```
-
-Or on the CMS webhook, so an editor learns about it at save time rather than at
-deploy time. Both is better: the webhook gives the fast feedback, the build gate
-is the one that cannot be skipped.
-
-A `WidgetRegistry` is `Record<string, unknown>` here, and only its keys are
-read, so a CI script that does not want to pull `.astro` modules into a plain
-Node process can hand it a bare list of names — `validateItems` lives in
-`@evanion/widget` and imports no framework at all:
-
-```ts twoslash file=libs/astro-widget/README.md region=registry
-
-```
-
-The real registry is the better argument where it is already imported, since the
-two cannot then disagree about which types exist.
+[What it reports](/widget/problems), in the widget core, lists each message
+`validateItems` returns and a list that produces it. The
+[API reference](/astro-widget/api) carries `VALIDATION_MESSAGES`, the constant
+that holds them.
