@@ -116,17 +116,5 @@
       "validateItems"
     ],
     "unexplained": ["WidgetsChrome"]
-  },
-  "@evanion/urn": {
-    "undocumented": [
-      "IFullURN",
-      "InvalidError",
-      "ParsedURN",
-      "URNComponents",
-      "URNParts",
-      "ValidationError",
-      "decodeNss",
-      "encodeNss"
-    ]
   }
 }
