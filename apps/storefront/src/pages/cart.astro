@@ -61,12 +61,14 @@ function persist(next: CartLine[]) {
 // #region order-decision
 const decision = decide(access, subject, 'order', 'create');
 const mayOrder = decision?.allowed === true;
-// #endregion order-decision
 
 if (Astro.request.method === 'POST' && !mayOrder) {
   Astro.response.status = 403;
   refusal = refusalText(decision);
-} else if (Astro.request.method === 'POST') {
+}
+// #endregion order-decision
+
+if (Astro.request.method === 'POST' && mayOrder) {
   const form = await Astro.request.formData();
   const intent = form.get('intent');
   const urn = String(form.get('urn') ?? '');

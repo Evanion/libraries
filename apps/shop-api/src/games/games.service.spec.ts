@@ -71,6 +71,7 @@ describe('GamesService', () => {
   });
 
   describe('declare', () => {
+    // #region declare-on-the-row
     it('lets an operator change a title their own shop lists', () => {
       const service = serviceFor(STOCKHOLM_OPERATOR);
 
@@ -89,6 +90,7 @@ describe('GamesService', () => {
         service.declare(GOTHENBURG_TITLE, { availability: 'preorder' }),
       ).toThrow(ForbiddenException);
     });
+    // #endregion declare-on-the-row
 
     it('refuses an anonymous subject', () => {
       const service = serviceFor(ANONYMOUS_SUBJECT);

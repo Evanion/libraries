@@ -18,6 +18,7 @@ import { GamesService } from './games.service.js';
  * request-context fake, and the matrix is the real one, so a rule that stops
  * saying what these tests claim fails here.
  */
+// #region controller-for
 const controllerFor = async (subject: ShopSubject) => {
   const module = await Test.createTestingModule({
     controllers: [GamesController],
@@ -29,6 +30,7 @@ const controllerFor = async (subject: ShopSubject) => {
   }).compile();
   return module.get(GamesController);
 };
+// #endregion controller-for
 
 describe('GamesController', () => {
   it('lists every game', async () => {
