@@ -3,10 +3,22 @@
 To mint a pickup code and check one a customer reads back, call `generate` and
 `validate` on the instance `createToken` returns.
 
+<PageSheet
+  difficulty={3}
+  read={10}
+  hands={25}
+  requires={[['Getting started', '/token/getting-started']]}
+  unlocks={[
+    ['The alphabet', '/token/alphabet'],
+    ['Entropy and collisions', '/token/entropy'],
+  ]}
+/>
+
 ## Configure a token instance
 
-Getting started built one instance on the defaults. Each option below changes
-it, and a gift card code wants more characters than a pickup code:
+Getting started built one instance on the defaults. Pass options to
+`createToken` to build a different instance, and a gift card code wants more
+characters than a pickup code:
 
 ```ts twoslash file=libs/token/README.md region=instances
 
@@ -28,7 +40,8 @@ instance you hold cannot mint a code its own `validate` rejects.
 ### When token refuses a shape
 
 `createToken` throws `InvalidShapeError` when `length`, `chunkSize` and
-`separator` cannot describe a code. `refusal` below returns that error, or
+`separator` cannot describe a code. The error carries a `reason` and the three
+options as resolved, defaults included. `refusal` below returns that error, or
 `undefined` when the options are accepted:
 
 ```ts twoslash file=libs/token/README.md region=shape-errors
@@ -38,29 +51,33 @@ instance you hold cannot mint a code its own `validate` rejects.
 A `chunkSize` of 4 does not divide a `length` of 10, so the last chunk would be
 shorter than the rest, and `reason` is `'chunk-size-indivisible'`. Set
 `chunkSize` equal to `length` for an unchunked code. A `separator` of `'a'` is
-refused because `a` is in the dictionary and `validate` could not strip it. The
-error carries `length`, `chunkSize` and `separator` as resolved, defaults
-included, because the value to change is not always the one `reason` names.
+refused because `a` is in the dictionary and `validate` could not strip it. Its
+error's `length` is the default 8, which you did not pass: the error carries all
+three options because the value to change is not always the one `reason` names.
 
 ## Mint a code with token's `generate`
 
-`generate` returns the code in two forms, and the prefix you passed:
+`generate` returns the code in two forms, `value` and `body`, its check
+character as `check`, and the prefix you passed:
 
 ```ts twoslash file=libs/token/README.md region=generate
 
 ```
 
 `generate` draws `length - 1` characters from `crypto.getRandomValues` with
-`byte % n`. The draw is unbiased because the alphabet's size divides 256, which
-`createToken` enforces, so generation takes the same time on every call. The
-check character is appended, then the whole code is chunked. `body` is the
+`byte % n`, where `n` is the number of characters in the dictionary, which the
+instance reports as `token.n`. `createToken` requires `n` to divide 256, so every
+character is equally likely and `generate` never discards a byte to draw again.
+The check character is appended, then the whole code is chunked. `body` is the
 random part alone, before the check character and before chunking.
 
 `generate` never retries and never checks for collisions.
 
 Mint a pickup code below. The shape control is the `length` and `chunkSize`
-pair, and the alphabet control is the default 32 against hex. Every option
-either control offers is a configuration `createToken` accepts.
+pair, and the alphabet control is the default 32 characters against the 16 of
+hexadecimal, `0123456789abcdef`. Every option either control offers is a
+configuration `createToken` accepts. The caption reports the code's random bits
+and the number of issued codes at which two matching codes become even odds.
 
 <TokenSpecimen initial="a4kp-9mxa" />
 
@@ -109,7 +126,8 @@ differently, or read off a card in capitals still validates:
 ```
 
 A shorter code with a space between two chunks of three reads aloud as two
-words:
+words. `validate` strips the separator its own instance was built with, so
+`counterCode` strips the space:
 
 ```ts twoslash file=libs/token/README.md region=spoken
 
@@ -119,7 +137,7 @@ The separator must share no character with the dictionary, or stripping it
 would remove part of the code. `createToken` refuses one that does with
 `reason: 'separator-in-dictionary'`.
 
-## The token prefix sits outside the checksum
+## The token prefix sits outside the check character
 
 `generate({ prefix: 'ORD' })` writes `ORD` and the separator ahead of the code,
 and the check character covers the code alone:
@@ -132,12 +150,14 @@ and the check character covers the code alone:
 `ORD` contains `o`, which the dictionary excludes as confusable. Folding the
 prefix into the check would require every prefix character to be in the
 dictionary. Comparing the prefix is a literal string match, which is what
-`value.startsWith('ORD-')` does. To have the prefix checked, put it in the body.
+`value.startsWith('ORD-')` does. `generate` draws the whole body at random, so
+no option brings a prefix under the check character.
 
 ## What token's check character catches
 
-`@evanion/luhn` computes the check character, and Luhn catches two kinds of
-mistake over any alphabet:
+`@evanion/luhn` computes the check character with the Luhn algorithm, the
+check-digit scheme on a credit card number, generalised to any even-sized
+dictionary. It catches two kinds of mistake:
 
 - Every single-character substitution, at every position, including the check
   character itself.
@@ -152,9 +172,8 @@ mistake over any alphabet:
 fail. `b0zg-7kqb` and `bz0g-7kqb` differ by a swap of `0` and `z`, and both
 pass.
 
-That blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a swap
-of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n), which
-for even `n` has the single non-trivial solution `{0, n - 1}`. It is the
-textbook mod-10 `{0, 9}` case, generalised.
+The blind spot comes from Luhn's doubling step and holds for every
+even-sized dictionary: the first and last entries swap undetected, the way `0`
+and `9` do on a card number.
 
 Luhn catches nothing else. A code invented from scratch passes one time in 32.

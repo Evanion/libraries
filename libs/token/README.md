@@ -142,16 +142,17 @@ the check character was computed over, unchunked, which is the form to store
 and index on.
 
 The round trip is the other thing that can be claimed: the code `generate`
-minted validates, and a code with one character retyped does not.
+minted validates to the same `body`, and a code with one character retyped does
+not.
 
 <!-- #region round-trip -->
 
 ```ts @import.meta.vitest
 const token = createToken();
-const pickup = token.generate({ prefix: 'ORD' });
+const pickup = token.generate();
 
-token.validate(pickup.value.slice('ORD-'.length)).valid; // -> true
-token.validate('a4kp-9mx8').valid; // -> false
+token.validate(pickup.value); // -> { valid: true, body: pickup.body }
+token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 ```
 
 <!-- #endregion round-trip -->
@@ -269,7 +270,7 @@ const { value } = counterCode.generate();
 
 value.length; // -> 7
 value.charAt(3); // -> ' '
-counterCode.validate(value.replace(' ', '')).valid; // -> true
+counterCode.validate(value).valid; // -> true
 ```
 
 <!-- #endregion spoken -->
