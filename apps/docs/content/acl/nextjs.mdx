@@ -1,16 +1,10 @@
 # Next.js (React Server Components)
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    React Server Components (RSC) is the model this page is about, and Next.js
-    is the implementation it is shown in. `apps/storefront-rsc` in this
-    repository is a Next 16 App Router app with no `'use client'` file in it at
-    all. It adopts `apps/shop-api`'s published document and gates its server
-    components on it, and the fences citing it run under `nx test
-    storefront-rsc`. The client half of this page is guidance for an app that
-    has a client tree; that app is not this one.
-  </Text>
-</WorkshopNotice>
+A Next.js server component calls `@evanion/acl`'s `access.can` in the Node
+process, so its decision enforces what it renders. A Server Action is a second entry point that a caller posts to
+directly, and it decides again.
+
+<WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={4}
@@ -22,57 +16,95 @@
   ]}
 />
 
-**The concept.** A server component renders in the Node process, so a `can`
-call inside it enforces.
+## Adopting shop-api's acl document in a Next.js app
 
-**What you get.** A widget that decides whether the subject may read a title
-before it fetches the title.
+`apps/storefront-rsc` is Baize's Next 16 App Router app, and no file in it
+carries `'use client'`. It authors no rules and adopts the document
+`apps/shop-api` publishes. `PolicyDocument` is the `{ version, matrix }` body
+shop-api answers with, `ShopAccess` is the evaluator typed over this app's
+subject and rows, and `adopt` holds the result:
 
-**Why you want it.** A caller posts to a Server Action directly, and the render
-that hid the button never ran for them.
+```ts file=apps/storefront-rsc/app/access.ts region=version-keyed-memo
 
-**How the library gets you there.** `parseMatrix` adopts shop-api's document
-once per version, so every `can` is a local call over frozen JSON.
+```
 
-## What an RSC app decides, and where
+`parseMatrix` and never `hydratePolicy`. The document crossed the wire from
+another process, so the app adopts it in closed mode, where a key the document
+does not carry decides `unknown-action` and refuses. Under `hydratePolicy` the
+same key throws mid-render.
 
-A server component renders in a trusted runtime, so the render is a place a
-decision can be made. A Server Action is a second trusted entry point into the
-same route, reached without the render ever running, and a decision made at the
-render does not carry to it. Every framework implementing RSC puts the boundary
-in those two places.
+`adopt` compares versions with `!==`. A document republished under a new version
+replaces the held evaluator on the next page view, and a matching version skips
+the validate, deep-clone and deep-freeze.
 
-`apps/storefront-rsc` runs four pieces:
+An app that owns its rules builds them with `policy(…).build()` at module scope,
+as [NestJS](/acl/nestjs) and [Express](/acl/express) both show. Put that module
+behind `import 'server-only'`, so a client component importing it is a build
+error.
 
-| Piece                 | What it does                                       |
-| --------------------- | -------------------------------------------------- |
-| `GET /api/policy`     | fetched once per page view                         |
-| `parseMatrix`         | turns what comes back into an evaluator            |
-| React's `cache`       | holds the result for the render                    |
-| each server component | decides before it fetches the data it would render |
+## One fetch and one subject for a Next.js render
 
-`parseMatrix` turns the fetched document into an evaluator in this process, so
-every `can` after it is a local function call however deep in the tree it sits.
-`access.version` is the revision the memo compares the next fetched document
-against.
+`fetchJson` is this app's typed client for shop-api, `currentSubject` reads the
+visitor's cookie, and `authorize` returns an `Authorized<ShopObjects>` bound to
+that subject and one clock instant:
 
-Baize's spotlight widget shows a staff price line and the activity widget shows
-the order trail. Each fetches its own data and answers "may this visitor see
-this" without a second network call.
+```ts file=apps/storefront-rsc/app/access.ts region=per-request-cache
 
-## The render and the write are two boundaries
+```
+
+React's `cache` scopes to one request. Three widgets render independently, one
+`GET /api/policy` answers all three, and two concurrent page views each get
+their own fetch, which a module-level promise does not give them.
+
+```mermaid caption="What one page view does with the fetched document. React's cache scopes the GET to the render, and adopt compares the fetched version with the one this process holds: a matching version re-uses the held evaluator, and a new version is validated, deep-cloned and deep-frozen once before it replaces the held one."
+flowchart TD
+  V["a page view"] --> F["GET /api/policy, once per render"]
+  F --> C{"version !== the held one?"}:::accent
+  C -->|"no"| R["re-use the held evaluator"]
+  C -->|"yes"| P["parseMatrix: validate,<br>deep-clone, deep-freeze"]
+  P --> H["hold it as the new evaluator"]
+```
+
+A rule change reaches this app's gates on the next page view. An app that holds
+a document across requests needs a revalidation window, which
+[Choosing a framework integration](/acl/choosing-an-integration) sets out.
+
+## A Next.js server component decides before it fetches
+
+`Spotlight` takes a urn and loads the title and its stock. `game.read` gates the
+card and `game.reprice` the staff price line inside it:
+
+```tsx file=apps/storefront-rsc/app/spotlight.tsx region=decide-on-the-row
+
+```
+
+The reprice decision waits for `game`, because the rule compares the title's
+shop with the subject's and nothing answers that without the row.
+
+`Activity` lists what shop-api recorded lately, and `telemetry.read` belongs to a
+manager alone. The gate sits above the fetch, because a widget that renders
+nothing over data it already asked for has still pulled that data into the
+process:
+
+```tsx file=apps/storefront-rsc/app/activity.tsx region=gate-before-fetch
+
+```
+
+The app's test renders `Activity` for an anonymous visitor. It returns `null`,
+and the only request it sent was for the policy:
+
+```tsx file=apps/storefront-rsc/app/access.server.test.tsx region=gate-refuses-anonymous
+
+```
+
+Where a refusal has to be a whole page, `notFound()` is the answer for a title
+that exists. A page saying "forbidden" for a real urn and "not found" for a
+made-up one tells a caller which urns exist.
+
+## The Next.js render and the Server Action are two boundaries
 
 A route has two trusted entry points, the render and each Server Action, and a
 caller reaches either one without the other.
-
-<Panel heading="A Server Action is a public endpoint the page did not guard">
-  <Text as="div" size="sm">
-    The server component that hid the button and the Server Action the button
-    posts to are reached independently. A caller invokes the action's endpoint
-    directly, without rendering anything. The action re-resolves the subject and
-    decides again, or it is unguarded.
-  </Text>
-</Panel>
 
 | Where                     | Runtime | Decides?                               |
 | ------------------------- | ------- | -------------------------------------- |
@@ -91,197 +123,55 @@ flowchart TD
   AD --> W["the write happens, or it throws"]
 ```
 
-## Adopting a document another service owns
+## Every Next.js Server Action decides again
 
-`apps/storefront-rsc` authors no rules and adopts shop-api's contract.
-`PolicyDocument` is the `{ version, matrix }` body the endpoint answers with,
-`ShopAccess` is the evaluator bound to this app's subject and row types, and
-`adopt` is the memo:
+`apps/storefront-rsc` has no Server Action. An app that adds one owes it a
+decision of its own, because the render that hid the button never ran for a
+caller who posts to the action directly. The action below resolves the subject,
+reads the title again and decides on both:
 
-```ts file=apps/storefront-rsc/app/access.ts region=version-keyed-memo
-
-```
-
-`parseMatrix` and never `hydratePolicy`. The document crossed the wire from
-another process, so this app adopts it in closed mode, where a key the contract
-does not carry decides `unknown-action` and refuses. Under `hydratePolicy` the
-same key throws mid-render.
-
-An app that owns its own rules builds them with `policy(…).build()` at module
-scope, which [NestJS](/acl/nestjs) and [Express](/acl/express) both show. Put
-that module behind `import 'server-only'`, so a client component importing it is
-a build error.
-
-## One fetch and one subject for the whole render
-
-`fetchJson` is this app's typed client for shop-api, `currentSubject` reads the
-visitor's cookie, and `authorize` returns an `Authorized<ShopObjects>` bound to
-that subject and one clock instant:
-
-```ts file=apps/storefront-rsc/app/access.ts region=per-request-cache
+```ts twoslash file=libs/acl/README.md region=server-action
 
 ```
 
-React's `cache` scopes to one request. Three widgets render independently, one
-`GET /api/policy` answers all three, and two concurrent page views each get
-their own fetch, which a module-level promise does not give them.
+Ines is a Stockholm operator. Her post for Wingspan writes `availability` and
+drops the `urn` and `price` keys the form also carried, because `game.declare`
+allows `availability` alone. Her post for Gloomhaven, which Gothenburg lists,
+throws `forbidden`. Between the render that showed a control and the action
+arriving, the title can move to another shop, so the action never reuses the
+render's answer.
 
-## The server component decides before it fetches
+## `@evanion/react-acl` cannot gate a Next.js server tree
 
-`Spotlight` takes a urn and loads the title and its stock as this app's own
-`Game` and `Stock` shapes, through `urnPath` for the encoding. `game.read` gates
-the card and `game.reprice` the staff price line inside it:
+`@evanion/react-acl` ships `'use client'` as the first line of its entry point.
+A server component importing `useCan` from it imports a client reference, and
+calling that reference during the server render throws. A server tree decides
+with `@evanion/acl` directly: `parseMatrix` builds the evaluator and
+`access.can` answers in the same process.
 
-```tsx file=apps/storefront-rsc/app/spotlight.tsx region=decide-on-the-row
+## Handing the document to a Next.js client tree
 
-```
-
-The reprice decision waits for `game`, because the matrix compares the title's
-shop against the subject's and nothing can answer that without the row.
-
-`Activity` lists the `TelemetryEvent` rows shop-api recorded lately, and
-`telemetry.read` belongs to a manager alone:
-
-```tsx file=apps/storefront-rsc/app/activity.tsx region=gate-before-fetch
-
-```
-
-The gate sits above the fetch. A widget that renders nothing over data it has
-already asked for has still pulled the events into this process.
-
-Where a refusal has to be a whole page, `notFound()` is the right answer for a
-title that exists. A page saying "forbidden" for a real urn and "not found" for
-a made-up one is an existence oracle.
-
-## Freshness for a consumer
-
-shop-api stamps a version on what it publishes and changes it when the rules
-change. `adopt` compares that string with `!==`, so a document republished under
-a new version replaces the held evaluator on the next page view, and a matching
-version skips the validate, deep-clone and deep-freeze.
-
-```mermaid caption="What one page view does with the fetched document. React's cache scopes the GET to the render, and adopt compares the fetched version with the one this process holds: a matching version re-uses the held evaluator, and a new version is validated, deep-cloned and deep-frozen once before it replaces the held one."
-flowchart TD
-  V["a page view"] --> F["GET /api/policy, once per render"]
-  F --> C{"version !== the held one?"}:::accent
-  C -->|"no"| R["re-use the held evaluator"]
-  C -->|"yes"| P["parseMatrix: validate,<br>deep-clone, deep-freeze"]
-  P --> H["hold it as the new evaluator"]
-```
-
-`apps/storefront-rsc` asks once per page view, because `cache` scopes the fetch
-to the render, so a rule change reaches this app's gates on the next view. An
-app that holds a document across requests needs a revalidation window, which
-[Choosing a framework integration](/acl/choosing-an-integration) sets out.
-
-## The hooks cannot gate a server tree
-
-`@evanion/react-acl` ships `'use client'` as the first line of its entry point,
-and the published build carries the directive too. A server component that
-imports `useCan` from it therefore imports a client reference, not a function,
-and calling that reference during the server render throws. The package is the
-browser half of the model and has no server half.
-
-A server tree decides with `@evanion/acl` directly: `parseMatrix` builds the
-evaluator and `access.can` answers in the same process, with no hook and no
-context. The two halves read the same document and neither trusts the other's
-verdict.
-
-## A client tree, where an app has one
-
-`apps/storefront-rsc` has no client component, so nothing below runs in it. An
-app that does have a client tree hands it the document, because `Access` is a
-closure set over a frozen document and does not serialize. `structuredClone`
-throws on the functions and `JSON.stringify` silently drops every method:
+An app with a client tree hands it the document, because `Access` is a set of
+closures over a frozen document and does not serialize. `structuredClone` throws
+on the functions and `JSON.stringify` drops every method:
 
 ```ts twoslash file=libs/acl/README.md region=matrix-round-trip
 
 ```
 
-`@evanion/react-acl` is the client half. `createPolicyContext` returns a
-provider and the hooks bound to your subject and row types, and a server
-component mounts the provider because it is the side holding the document:
-
-```tsx no-run
-// app/access-boundary.tsx
-'use client';
-
-import { useMemo } from 'react';
-import type { ReactNode } from 'react';
-import { parseMatrix, type Matrix } from '@evanion/acl';
-
-import { PolicyProvider } from './access-context';
-import type { ShopSubject } from './subject';
-
-export default function AccessBoundary({
-  matrix,
-  subject,
-  now,
-  children,
-}: {
-  matrix: Matrix;
-  subject: ShopSubject;
-  now: string;
-  children: ReactNode;
-}) {
-  // parseMatrix validates, deep-clones and deep-freezes. Once per document.
-  const access = useMemo(() => parseMatrix(matrix), [matrix]);
-  const context = useMemo(() => ({ now }), [now]);
-
-  return (
-    <PolicyProvider access={access} subject={subject} context={context}>
-      {children}
-    </PolicyProvider>
-  );
-}
-```
-
-`now` crosses as an ISO string, because the hooks key their memos on it by value
-and a `Date` is a fresh object every render. Resolve `now` on the server, so the
-server render and the client's first render agree. A `now` reaching `can` from a
-client payload hands the client every time window in the matrix.
-
-A `useCan` that returns `null` hides a button. The hidden button does not stop
-anyone posting to the action behind it, so the client decision enforces nothing.
-
-## Every Server Action decides again
-
-A Server Action is a route a caller posts to directly, and the render that hid
-the button never ran for them. `apps/storefront-rsc` has no Server Action, and
-an app that adds one owes it a full decision of its own:
-
-```ts no-run
-// app/games/actions.ts
-'use server';
-
-import { pickAllowedFields } from '@evanion/acl';
-
-import { authorized } from '../access';
-import { catalogue } from '../catalogue-store';
-
-export async function declareAvailability(form: FormData) {
-  const urn = String(form.get('urn'));
-  const game = await catalogue.find(urn);
-  if (!game) throw new Error('not found');
-
-  const proposed = Object.fromEntries(form);
-  const may = await authorized();
-  const decision = may.canFields('game', 'declare', game, 'write', proposed);
-  if (!decision.action.allowed) throw new Error('forbidden');
-
-  await catalogue.update(urn, pickAllowedFields(decision, proposed));
-}
-```
-
-The action re-resolves the subject, re-reads the title, and decides against
-both, because the page did not run for this caller. Between the render that
-showed the control and this action arriving, the title can move to another shop
-and the ownership rule can stop matching.
+A server component passes `access.matrix`, the subject and a `now` string to a
+`'use client'` boundary, which rebuilds the evaluator and mounts
+`@evanion/react-acl`'s provider. [Getting started with
+react-acl](/react-acl/getting-started) builds that boundary. Resolve `now` on the
+server, so the server render and the client's first render agree. A `now` read
+from a client payload hands the client every time window in the matrix. A `useCan` that returns `null` hides a button and stops nobody posting
+to the action behind it.
 
 ## Where to go next
 
-- [React Router 8](/acl/react-router) — the same split with the loader as the
-  trusted side
-- [Security contract](/acl/security) — matrix freshness, the clock, and the
-  public document
-- [The matrix: your rules as JSON](/acl/matrix) — the envelope and the version contract
+- [React Router 8](/acl/react-router). The same split, with the loader as the
+  trusted side.
+- [The matrix: your rules as JSON](/acl/matrix). The envelope and the version
+  contract.
+- [Security contract](/acl/security). Matrix freshness, the clock, and the public
+  document.
