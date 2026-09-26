@@ -1,23 +1,25 @@
 # r-, q- and f-components
 
-RFC 8141 §2.3 allows three optional components after the NSS. They are not part
-of the identifier: the assigned name is `scheme : NID : NSS`, and everything
-after it addresses something about resolving or using the named resource.
+`parse` splits the r-, q- and f-components off a URN into fields of their own,
+and the object form of `stringify` writes them back.
 
-| Component | Introducer | RFC 8141 | Carries                                   |
-| --------- | ---------- | -------- | ----------------------------------------- |
-| r         | `?+`       | §2.3.1   | parameters for the resolution service     |
-| q         | `?=`       | §2.3.2   | parameters for the named resource         |
-| f         | `#`        | §2.3.3   | a secondary resource within the named one |
+## The three URN components
 
-```
-urn:example:weather?+cache=no?=lat=39;lon=-77#today
-└──── assigned name ────┘└─ r ─┘└─── q ───┘└ f ┘
-```
+RFC 8141 §2.3 allows three optional components after the NSS. The identifier is
+`scheme:NID:NSS`, and a component addresses something about resolving or using
+the resource that identifier names.
 
-## Reading them
+| Component | Introducer | RFC 8141 | Carries                                   | In the shop                         |
+| --------- | ---------- | -------- | ----------------------------------------- | ----------------------------------- |
+| r         | `?+`       | §2.3.1   | parameters for the resolution service     | `?+lang=en`, the listing's language |
+| q         | `?=`       | §2.3.2   | parameters for the named resource         | `?=edition=2018`, one edition       |
+| f         | `#`        | §2.3.3   | a secondary resource within the named one | `#setup`, one section of the rules  |
 
-`parse` returns each in its own field and never folds it into the `nss`:
+## Read URN components with parse
+
+`GameURN` is the namespace class from Getting started, whose `nid` is `game`.
+Its `parse` returns each component in its own field and never folds one into
+the `nss`:
 
 ```ts twoslash file=libs/urn/README.md region=components
 
@@ -25,96 +27,82 @@ urn:example:weather?+cache=no?=lat=39;lon=-77#today
 
 <Probe package="urn" probe="components" />
 
-The three keys are absent, not `undefined`, when the URN carries none, so a URN
-without them parses to exactly `{ urn, nid, nss }` and a consumer destructuring
-those three sees the shape it saw before components existed.
+The field above calls `GameURN.parse` on what you type. A URN that carries no
+component parses to exactly `{ urn, nid, nss }`: the three component keys are
+absent, so `'qComponent' in parsed` is `false`. `URNComponents` is the type of
+those three optional fields:
 
-## Writing them
+```ts twoslash file=libs/urn/README.md region=components-type
 
-Only the object form of `stringify` can express them:
-
-```ts
-URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
-// 'urn:example:weather?=lat=39'
-
-URN.stringify({
-  nss: 'foo',
-  nid: 'example',
-  rComponent: 'r',
-  qComponent: 'q',
-  fComponent: '',
-});
-// 'urn:example:foo?+r?=q#'
 ```
 
-The order on the wire is always r, then q, then f, whatever order the keys were
-written in. A `ParsedURN` is assignable to `URNParts`, so
-`stringify(parse(x))` round-trips a URN in the parsing class's own namespace,
-components included.
+## Write URN components with stringify
 
-## How the split works
+Only the object form of `stringify` can express a component. The wire order is
+always r, then q, then f, whatever order the keys were written in:
 
-The NSS grammar needs no change to make this unambiguous: `pchar` contains
-neither `?` nor `#`, so neither delimiter can occur inside an assigned name.
+```ts twoslash file=libs/urn/README.md region=components-write
 
-The order the parser takes them off is fixed by the grammar:
+```
 
-1. The f-component comes off first, at the first `#`. It has to: `#` terminates
-   the r- and q-components, while both of those may contain a bare `?`.
+`GameURN.stringify(GameURN.parse(written))` returns `written`, components
+included, for a URN in the class's own namespace. An empty `fComponent` writes a
+bare `#`.
+
+## How parse finds each URN component
+
+`pchar`, the character set of the NSS, contains neither `?` nor `#`, so neither
+delimiter can occur inside the identifier. `parse` takes the components off in
+the order the grammar fixes:
+
+1. The f-component comes off first, at the first `#`. A `#` ends the r- and
+   q-components, and both of those may contain a bare `?`.
 2. The first `?` of what is left introduces the r-component when followed by
-   `+`, and the q-component when followed by `=`. Anything else is a
-   `ValidationError` — a bare `?` is not a legal introducer.
+   `+`, and the q-component when followed by `=`. A bare `?` throws a
+   `ValidationError`.
 3. An r-component runs to the first following `?=`, which starts the
    q-component.
 
-## Grammars
+## URN component grammars
 
-```ts
-URN.rComponentGrammar; // pchar *(pchar / "/" / "?")
-URN.qComponentGrammar; // the same production
-URN.fComponentGrammar; // RFC 3986 `fragment`
+The r- and q-components take the NSS set plus `?` after the first character. The
+f-component is RFC 3986's `fragment`: the same set, with no first-character rule
+and no minimum length, so `urn:game:azul#` parses to `fComponent: ''`:
+
+```ts twoslash file=libs/urn/README.md region=component-grammars
+
 ```
 
-The r- and q-components take the NSS set plus `?` after the first character.
-The f-component is RFC 3986's `fragment` production: the same set, with no
-first-character rule and no minimum length. It is the one component grammar that
-accepts the empty string, so `urn:example:foo#` is well formed and parses to
-`fComponent: ''`.
-
-Nothing is percent-decoded. A component is carried in its wire form, without its
+`parse` decodes nothing. A component comes back in its wire form, without its
 introducing delimiter.
 
-## What ignores them
+## What ignores URN components
 
-RFC 8141 §3.1 excludes all three from URN equivalence, so two URNs that differ
-only in their components are the same URN:
+RFC 8141 §3.1 excludes all three components from URN equivalence, so `equals`
+ignores them. `extractId` drops them, because a component is not part of the
+identifier:
 
-```ts
-URN.equals('urn:example:foo?+r1#a', 'urn:example:foo?+r2#b'); // true
+```ts twoslash file=libs/urn/README.md region=components-ignored
+
 ```
 
-`extractId` drops them too, because it returns the identifier and a component is
-not part of one:
-
-```ts
-URN.extractId('urn:example:foo?=q#f'); // 'foo'
-```
-
-`sameNamespace` and `belongsToNamespace` only look at the scheme and the NID, so
-components never affect them either.
+`sameNamespace` and `belongsToNamespace` read only the scheme and the NID, so a
+component never changes their answer.
 
 Attach each component to the identifier below and read what `parse` makes of
-it. The line that arrives with them is `URN.equals` answering for the carrying
-form against the bare one, which is §3.1 holding rather than a sentence saying
-it does. Each part is askable: press one for what it names.
+it. The last line is `URN.equals` comparing the form carrying components with
+the bare one. Press a part for what it names.
 
 <UrnSpecimen value="urn:game:brass-birmingham" />
 
-## Custom separators switch this off
+## Custom separators switch URN components off
 
 A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
-component delimiter. There, the whole tail stays in the NSS, and writing a
-component throws an `InvalidError` with `property: 'COMPONENT'` rather than
-emitting something the same class could not read back.
+component delimiter. On such a class `parse` keeps the whole tail in the NSS,
+and `stringify` throws an `InvalidError` with `property: 'COMPONENT'` for any
+component. Every other separator parses components normally.
 
-Every other separator parses components normally.
+## Next: URNs across the shop's services
+
+[Examples](/urn/examples) reads and writes game URNs the way the shop's
+services pass them around.
