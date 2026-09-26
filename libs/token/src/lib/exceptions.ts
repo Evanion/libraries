@@ -6,19 +6,9 @@ const codePointList = (offending: readonly string[]): string =>
  * `createToken`: `generate` and `validate` are total, so an accepted
  * configuration cannot fail at use.
  *
- * ```ts
- * try {
- *   createToken(options);
- * } catch (error) {
- *   if (error instanceof TokenError) {
- *     // the configuration is unusable
- *   }
- * }
- * ```
- *
  * A dictionary that fails one of Luhn's own constraints throws
  * `InvalidDictionaryError` from `@evanion/luhn` instead, which does not extend
- * this class. Catch `Error` to cover both.
+ * this class. Catch the two by name, or catch `Error` to cover both.
  */
 export class TokenError extends Error {
   constructor(message: string) {
