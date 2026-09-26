@@ -5,12 +5,12 @@ import { quote, type Probe } from './probe';
 /**
  * The class the README's components block declares, so the call this probe
  * writes is the call that block makes. `parse` is inherited rather than
- * overridden -- `WeatherURN.parse === URN.parse` -- so what runs is the
+ * overridden -- `GameURN.parse === URN.parse` -- so what runs is the
  * package's own export, and a subclass is only how the block names a
  * namespace.
  */
-export class WeatherURN extends URN {
-  static override readonly nid = 'example';
+export class GameURN extends URN {
+  static override readonly nid = 'game';
 }
 
 /**
@@ -24,9 +24,9 @@ export class WeatherURN extends URN {
  */
 export const components: Probe = {
   label: 'urn',
-  hint: 'Add ?+cache=no for an r-component, or #today for an f-component.',
-  call: (value) => WeatherURN.parse(value),
-  source: (value) => `WeatherURN.parse(${quote(value)})`,
+  hint: 'Put ?+lang=en before ?= for an r-component, or a bare ? to see it refused.',
+  call: (value) => GameURN.parse(value),
+  source: (value) => `GameURN.parse(${quote(value)})`,
   region: { file: 'libs/urn/README.md', name: 'components' },
 };
 
