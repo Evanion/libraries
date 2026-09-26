@@ -153,7 +153,7 @@ const codePointsOf = (
  * lookup tables, and the two operations bound to them.
  *
  * Everything a dictionary has to satisfy is checked here, once. Nothing is
- * checked at use, so an accepted instance cannot produce a token its own
+ * checked at use, so an accepted instance cannot produce a code its own
  * `validate` rejects.
  *
  * @throws {InvalidDictionaryError} when the dictionary fails a constraint.
@@ -261,11 +261,12 @@ export function createLuhn(options: LuhnOptions = {}): Luhn {
 }
 
 /**
- * `createLuhn()`: the 36 lowercase alphanumerics, folding case.
+ * The default instance, which is what `createLuhn()` returns with no options:
+ * the 36 lowercase alphanumerics, folding case.
  *
- * Frozen, so `Luhn.dictionary = x` throws a `TypeError` in a module rather than
- * being accepted and ignored. A second dictionary is a second instance, built
- * with `createLuhn`.
+ * Frozen, so `Luhn.dictionary = x` throws a `TypeError` in strict mode, which
+ * every ES module runs in, rather than being accepted and ignored. A second
+ * dictionary is a second instance, built with `createLuhn`.
  *
  * @example
  * ```ts @import.meta.vitest

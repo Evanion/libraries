@@ -30,8 +30,8 @@ const messageFor = (
  * Base class for every error this library throws. Catch it to handle any
  * failure without naming the subclasses.
  *
- * `@evanion/urn` exports an unrelated `ValidationError`; the name here is
- * package-specific so the two never collide in a consumer's import list.
+ * The name carries the package, so it never collides with another library's
+ * `ValidationError` in a consumer's import list.
  *
  * @example
  * ```ts
