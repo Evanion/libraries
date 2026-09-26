@@ -8,7 +8,8 @@ entry point that a caller posts to directly, and it decides again.
 
 <PageSheet
   difficulty={5}
-  read={8}
+  read={12}
+  hands={25}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['React Router 8', '/acl/react-router'],
@@ -94,8 +95,10 @@ process:
 
 ```
 
-The app's test renders `Activity` for an anonymous visitor. It returns `null`,
-and the only request it sent was for the policy:
+The app's test renders `Activity` for an anonymous visitor. `visiting` sets the
+visitor's cookie, `stubShopApi` records every request the app sends to shop-api,
+and `inOneRequest` runs the render inside one request's `cache` scope. `Activity`
+returns `null`, and the only request it sent was for the policy:
 
 ```tsx file=apps/storefront-rsc/app/access.server.test.tsx region=gate-refuses-anonymous
 
