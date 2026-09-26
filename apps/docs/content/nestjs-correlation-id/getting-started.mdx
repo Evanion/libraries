@@ -1,19 +1,21 @@
 # Getting started
 
-By the end of this page every request carries a correlation id, a handler three
-layers down reads it without a parameter, and outgoing `HttpService` calls carry
-it to the next service.
+By the end of this page every request to your NestJS application carries a
+correlation id, and a handler reads it from `CorrelationService`.
 
-## Prerequisites
+## Before you start
 
-- NestJS `^12.0.0`.
+- NestJS 12, meaning `@nestjs/common` `^12.0.0`, on the Express or the Fastify
+  adapter.
 - Node 20 or newer.
-- `@nestjs/axios` `^12.0.0`, optional. Install it only for `withCorrelation()`.
-- ESM. There is no CommonJS build, so
-  `require('@evanion/nestjs-correlation-id')` will not work.
-- No runtime dependencies beyond `tslib`.
+- An ESM project. The package ships no CommonJS build, so
+  `require('@evanion/nestjs-correlation-id')` fails. The single build also means
+  one `CorrelationService` class object, so injecting it by class resolves the
+  provider the module registered.
+- `@nestjs/axios` `^12.0.1`, only if you forward the id on outgoing calls. It
+  is an optional peer dependency, and this page does not need it.
 
-## Install
+## Install nestjs-correlation-id
 
 ```bash
 npm install @evanion/nestjs-correlation-id
@@ -27,226 +29,71 @@ yarn add @evanion/nestjs-correlation-id
 pnpm add @evanion/nestjs-correlation-id
 ```
 
-## Register the module and the middleware
+The package's one runtime dependency is `tslib`.
 
-```ts
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import {
-  CorrelationIdMiddleware,
-  CorrelationModule,
-} from '@evanion/nestjs-correlation-id';
+## Register CorrelationModule and the middleware
 
-@Module({
-  imports: [CorrelationModule.forRoot()],
-})
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-  }
-}
+`CorrelationModule.forRoot()` provides `CorrelationService` to every module, and
+`CorrelationIdMiddleware` opens a correlation context around each request.
+Register both in your root module:
+
+```ts twoslash file=libs/nestjs-correlation-id/examples/app.module.ts region=register
+
 ```
 
-`forRoot()` provides `CorrelationService` and the resolved configuration; the
-middleware opens a correlation context per request.
+`forRoot()` with no argument is the whole minimum configuration. The middleware
+reads `X-Correlation-Id`, mints a missing id with `randomUUID`, and reuses an
+incoming id only when it passes `DEFAULT_CORRELATION_ID_VALIDATOR`.
 
-`forRoot()` registers a global module, so importing it once in the root module is
-enough. Call it once — a second `forRoot()` registers a second configuration
-provider under the same token, and the last import wins.
+- `forRoot()` registers a global module, so the root module is the one place to
+  call it. A second call registers a second configuration, and the last import
+  wins.
+- `forRoutes('*')` covers every route. On a route the middleware skips,
+  `getCorrelationId()` returns `undefined`.
+- Middleware of your own that reads the id goes after `CorrelationIdMiddleware`
+  in `configure()`, because the context opens there.
 
-Register the middleware early. Everything downstream of it — guards,
-interceptors, controllers, and anything they await — runs inside the context;
-anything applied before it does not.
+## Read the id in a nestjs-correlation-id handler
 
-## What the middleware does per request
+Inject `CorrelationService` and call `getCorrelationId()`. The service is a
+singleton, so injecting it leaves the scope of the provider holding it
+unchanged. `OrdersController` in Baize's `orders` service returns the id with
+the order and writes both to its log line:
 
-1. Reads the configured header, case-insensitively. Node lowercases incoming
-   header names, so only the response casing depends on how you spelled it.
-2. If a value arrived and passes `validate`, that value is the correlation id.
-   Otherwise it calls the generator.
-3. Writes the id onto `req.headers` when the request carried none, so anything
-   reading the header rather than the service — a proxy, an access logger, a
-   framework-level request logger — sees the same id. A header that arrived is
-   left exactly as it came in, including one `validate` rejected.
-4. Sets the response header, unless something has already set it.
-5. Runs the rest of the request inside `CorrelationService.run(id, next)`.
+```ts file=libs/nestjs-correlation-id/examples/orders.controller.ts region=read-the-id
 
-The generator runs only when nothing usable arrived, so a counter- or
-sequence-backed generator is not advanced for an id that gets discarded.
+```
 
-## What the handler reads
+`getCorrelationId()` is synchronous, and nothing passes the id to `find()`: the
+controller reads it from the context the middleware opened.
 
-`forRoot()` builds the service and the middleware, and Nest hands the middleware
-the adapter's request and response. The fence below builds all four by hand, so
-that one request can run inside a page rather than inside a server. Nothing in it
-is code to copy into an application:
+## See the correlation id a request carries
+
+The fence below runs one request without a server. It builds the service and
+the middleware by hand, the way `forRoot()` and Nest build them, hands the
+middleware a request carrying `storefront-4f1c9a`, and reads the id inside the
+handler and outside it:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=one-request
 
 ```
 
-The config names no `validate`, so `DEFAULT_CORRELATION_ID_VALIDATOR` ran and
-accepted `ORD-a4kp-9mxa`, and the middleware reused the caller's id rather than
-calling the generator. The last line is the same singleton outside any request,
-where there is genuinely no correlation id to return.
+The handler read `storefront-4f1c9a`, because the id passed
+`DEFAULT_CORRELATION_ID_VALIDATOR` and the middleware reused it. After the
+request, `getCorrelationId()` returns `undefined`.
 
-## Reading the id
+Check the same thing against your running application:
 
-`CorrelationService` is a singleton. Inject it like any other provider:
-
-```ts
-import { CorrelationService } from '@evanion/nestjs-correlation-id';
-import { Injectable } from '@nestjs/common';
-
-@Injectable()
-export class OrdersService {
-  constructor(private readonly correlation: CorrelationService) {}
-
-  async place(order: Order) {
-    this.logger.log({ correlationId: this.correlation.getCorrelationId() });
-  }
-}
+```bash
+curl -i -H 'X-Correlation-Id: storefront-4f1c9a' http://localhost:3000/orders/order-2026-0042
 ```
 
-`getCorrelationId()` is synchronous and returns `undefined` when there is no
-correlation context. Outside one there genuinely is no correlation id, so it does
-not invent one.
+The response carries `X-Correlation-Id: storefront-4f1c9a`, and the body carries
+the same id from `OrdersController`. Leave the header off and both carry a fresh
+UUID.
 
-Nothing about injecting the service changes the scope of the provider holding
-it.
+## Now that every request carries an id, forward it
 
-## Adding it to logs
-
-```ts
-import { CorrelationService } from '@evanion/nestjs-correlation-id';
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import * as Sentry from '@sentry/node';
-
-@Injectable()
-export class SentryTagMiddleware implements NestMiddleware {
-  constructor(private readonly correlation: CorrelationService) {}
-
-  use(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
-    const correlationId = this.correlation.getCorrelationId();
-    if (correlationId) Sentry.setTag('correlationId', correlationId);
-    next();
-  }
-}
-```
-
-```ts
-configure(consumer: MiddlewareConsumer) {
-  consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-  consumer.apply(SentryTagMiddleware).forRoutes('*');
-}
-```
-
-Order matters: `CorrelationIdMiddleware` is what opens the context, so anything
-reading the id has to be applied after it.
-
-## Forwarding on outgoing calls
-
-```ts
-import { HttpModule } from '@nestjs/axios';
-import { withCorrelation } from '@evanion/nestjs-correlation-id';
-
-@Module({
-  imports: [HttpModule.registerAsync(withCorrelation())],
-  controllers: [UsersController],
-  providers: [UsersService],
-})
-export class UsersModule {}
-```
-
-Use `HttpService` as usual. It stays a singleton: the header is attached by an
-axios request interceptor that reads the current context at the moment the
-request is made, rather than being baked into the options object when the
-factory runs.
-
-```mermaid caption="One id across two processes. The middleware reuses the header the caller sent or mints one, and runs the rest of the request inside that context; the interceptor withCorrelation() installs reads the same context when HttpService calls the next service, which reuses the id in turn."
-flowchart LR
-  C["caller"] -->|"X-Correlation-Id,<br>or no header"| M["CorrelationIdMiddleware<br>reuses it, or mints one"]:::accent
-  M --> H["the handler<br>getCorrelationId()"]
-  H --> X["HttpService<br>withCorrelation()"]
-  X -->|"X-Correlation-Id"| N["the next service<br>reuses the same id"]
-```
-
-That keeps the whole chain singleton-scoped. Options
-computed at factory time would have to come from a request-scoped provider, and
-`HttpService` — and every provider holding it — would become request-scoped with
-it.
-
-`withCorrelation()` takes ordinary `HttpModuleOptions`:
-
-```ts
-HttpModule.registerAsync(withCorrelation({ timeout: 5000 }));
-```
-
-It needs `CorrelationModule.forRoot()` somewhere in the application. Without it,
-Nest fails at boot:
-
-```
-Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS (?)
-```
-
-When there is no correlation context, no header is attached. An outgoing call
-from a cron job that never opened one carries none.
-
-## Work with no request behind it
-
-Queue consumers, cron jobs, scripts — anything with no incoming request — opens
-a context itself:
-
-```ts
-await this.correlation.run(this.correlation.generate(), () =>
-  this.processJob(job),
-);
-```
-
-`run` returns whatever the callback returns, so an async callback's promise comes
-straight back out. Everything the callback awaits, schedules or calls sees the
-id, and overlapping contexts stay isolated.
-
-To carry an id that arrived on the job payload rather than minting one:
-
-```ts
-await this.correlation.run(
-  job.correlationId ?? this.correlation.generate(),
-  () => this.processJob(job),
-);
-```
-
-Validate a payload-supplied id the same way the middleware validates a
-header-supplied one — see
-[the validator](/nestjs-correlation-id/configuration#validating-an-incoming-id). An id
-from a queue reaches the same log lines a header-supplied one does.
-
-## Replacing the id
-
-```ts
-this.correlation.setCorrelationId('some_correlation_id');
-```
-
-It throws outside a correlation context, rather than writing somewhere nothing
-will read:
-
-```
-setCorrelationId() was called outside a correlation context. Apply
-CorrelationIdMiddleware, or wrap the work in CorrelationService.run().
-```
-
-`setCorrelationId` changes the id the rest of the request sees. The response
-header keeps the id the middleware wrote when the request arrived.
-
-## Why `@evanion/nestjs-correlation-id` has nothing to click
-
-Every other section on this site puts a control under the reader's hand on its
-demonstration page. This one does not, and the package is the reason: the
-demonstrable unit is two running services and one header between them, and
-nothing inside a documentation page can be the second process. A simulated caller
-would prove something about the simulation.
-
-`apps/shop-api` in this repository is the real pair. It applies
-`CorrelationIdMiddleware` to every route, and the shop's storefront reads the
-id back off the response, so the runnable version of this page is the shop with
-both processes up.
+[Forward the id to the next service](/nestjs-correlation-id/forwarding) passes
+`withCorrelation()` to `HttpModule`, so Baize's `stock` service receives the id
+the `orders` service was called with.

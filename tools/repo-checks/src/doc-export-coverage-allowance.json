@@ -106,11 +106,7 @@
       "CORRELATION_ID_HEADER",
       "DEFAULT_CORRELATION_ID_VALIDATOR"
     ],
-    "unexercised": [
-      "CorrelationModule",
-      "DEFAULT_CORRELATION_ID_VALIDATOR",
-      "withCorrelation"
-    ]
+    "unexercised": ["DEFAULT_CORRELATION_ID_VALIDATOR"]
   },
   "@evanion/react-widget": {
     "undocumented": [

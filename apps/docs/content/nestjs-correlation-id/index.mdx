@@ -1,72 +1,71 @@
 # @evanion/nestjs-correlation-id
 
-A correlation id on every request, carried through everything the request
-awaits, and forwarded on outgoing HTTP calls.
+One order in Baize crosses three services, `storefront`, `orders` and `stock`,
+and each one writes its own log lines. `@evanion/nestjs-correlation-id` gives
+the request one id that every NestJS service on the path can log.
 
-```ts
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import {
-  CorrelationIdMiddleware,
-  CorrelationModule,
-} from '@evanion/nestjs-correlation-id';
+## How nestjs-correlation-id carries one id across services
 
-@Module({
-  imports: [CorrelationModule.forRoot()],
-})
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-  }
-}
+A correlation id is a string that names one request in every service the
+request reaches. A correlation context is the stretch of work that can read it:
+`CorrelationService.run(id, callback)` opens one, and everything the callback
+calls or awaits gets `id` back from `getCorrelationId()`. Below, a
+`CorrelationService` built by hand runs two handlers at the same time, each
+awaits, and each reads the id its own context was opened with:
+
+```ts twoslash file=libs/nestjs-correlation-id/README.md region=concurrent
+
 ```
 
-The id comes from a header the caller sends — `X-Correlation-Id` by default, or
-whichever one you configure — reused where it arrives, minted where it does not,
-and forwarded to everything downstream, so a log line in one service can be
-matched to the request that produced it in another.
+Outside both contexts `getCorrelationId()` returns `undefined`, because no
+request is in flight there.
 
-## One build, one class object
+`CorrelationIdMiddleware` calls `run()` once per request. It reads the id from
+the `X-Correlation-Id` header, reuses it when it passes validation, and mints a
+new one when the header is missing or rejected. `withCorrelation()` writes the
+id onto each outgoing `HttpService` call, and the next service's middleware
+reuses it.
 
-The package ships ESM only, matching NestJS 12. One build means one module graph
-and one `CorrelationService` class object, so injecting by class token is always
-safe. A dual build can hand Nest two unrelated copies of the same class, and then
-an injection that looks correct resolves nothing.
+```mermaid caption="One id across three services. The storefront sends X-Correlation-Id; the orders service's middleware reuses it and runs the request inside a correlation context; the handler reads it, and HttpService, configured by withCorrelation(), sends it on to the stock service, whose middleware reuses it in turn."
+flowchart LR
+  S["storefront"] -->|"X-Correlation-Id"| M["orders:<br>CorrelationIdMiddleware<br>reuses it, or mints one"]:::accent
+  M --> H["the handler<br>getCorrelationId()"]
+  H --> X["HttpService<br>withCorrelation()"]
+  X -->|"X-Correlation-Id"| N["stock:<br>reuses the same id"]
+```
 
-## How the pieces fit
+`CorrelationService` keeps the id in Node's
+[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html), so it stays a
+singleton. A request-scoped provider would make every provider that injects it
+request-scoped too, `HttpService` included: rebuilt per request, and never given
+`onModuleInit`.
 
-| Export                    | What it does                                                  |
-| ------------------------- | ------------------------------------------------------------- |
-| `CorrelationModule`       | provides the service and the resolved configuration, globally |
-| `CorrelationIdMiddleware` | opens the correlation context around each request             |
-| `CorrelationService`      | reads, replaces and mints the id                              |
-| `withCorrelation()`       | `HttpModule.registerAsync` options that forward the id        |
+## What nestjs-correlation-id exports
 
-The context is an
-[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html), not a
-request-scoped provider. Request-scoping `CorrelationService` would propagate
-upward through the injection graph: every provider that depends on it —
-including `HttpService`, via `withCorrelation` — would become request-scoped
-too, re-instantiated per request and never given `onModuleInit`.
+| Export                             | What it does                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| `CorrelationModule`                | provides `CorrelationService` and the configuration to every module       |
+| `CorrelationIdMiddleware`          | opens a correlation context per request and echoes the id on the response |
+| `CorrelationService`               | reads and replaces the id, mints one, and opens a context for a job       |
+| `withCorrelation()`                | `HttpModule.registerAsync` options that send the id on every call         |
+| `DEFAULT_CORRELATION_ID_VALIDATOR` | the check an incoming id passes before the middleware reuses it           |
 
-Everything downstream of the middleware sees its request's id, and concurrent
-requests stay isolated.
+The middleware reads and writes raw `node:http` headers, so it runs under
+`@nestjs/platform-express` and `@nestjs/platform-fastify` alike.
 
-## Adapter-agnostic
+## What nestjs-correlation-id leaves to you
 
-The middleware is typed against `node:http`'s `IncomingMessage` and
-`ServerResponse` and only reads and writes raw headers, so it works under
-`@nestjs/platform-express` and `@nestjs/platform-fastify` alike. `express` is not
-a peer dependency.
+- It writes no log line. Your logger calls `getCorrelationId()` and adds the
+  value to its own output.
+- It reads one header. There is no list of fallback header names.
+- It forwards the id on `HttpService` calls whose module used
+  `withCorrelation()`. A `fetch` call or a queue message carries the id only
+  when your code puts it there.
+- It records no spans and no timings. A tracer such as OpenTelemetry does that,
+  and can run beside it.
 
-## Pages
+## Now that you know how the id travels, set it up
 
-- [Getting started](/nestjs-correlation-id/getting-started) — installing, the middleware, outgoing calls, work with no request
-- [Configuration](/nestjs-correlation-id/configuration) — header, generator, and the validator
-- [API reference](/nestjs-correlation-id/api)
-
-## Where to start with nestjs-correlation-id
-
-`CorrelationIdMiddleware` is what opens the context, so everything that reads the
-id has to run downstream of it.
 [Getting started](/nestjs-correlation-id/getting-started) installs the package,
-registers the module, and puts an id on every request.
+registers `CorrelationModule` and `CorrelationIdMiddleware`, and shows a handler
+reading the id a caller sent.

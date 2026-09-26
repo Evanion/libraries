@@ -334,7 +334,7 @@ export const packages: readonly DocumentedPackage[] = [
     group: 'standalone',
     framework: 'NestJS',
     hue: 'mint',
-    demo: 'getting-started',
+    demo: 'forwarding',
     demoExempt:
       'The demonstrable unit is two running services and one header between ' +
       'them. Nothing in a page can be the second process, and a simulated one ' +
