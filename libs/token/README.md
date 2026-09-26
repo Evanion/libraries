@@ -25,8 +25,8 @@ token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 
 Two properties make a code usable by a human:
 
-- The alphabet leaves out characters that are confused when read or heard.
-  `1`/`l`/`i` and `0`/`o` are the point.
+- The alphabet leaves out characters that are confused when read or heard, such
+  as `l` and `i` for `1` and `o` for `0`.
 - A wrong code can be rejected **before** an expensive operation. A database
   lookup for a code that was mistyped is a lookup that never needed to happen.
 
@@ -125,6 +125,8 @@ a pickup code is its shape:
 <!-- #region generate -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 const pickup = token.generate({ prefix: 'ORD' });
 
 pickup.prefix; // -> 'ORD'
@@ -145,6 +147,7 @@ minted validates, and a code with one character retyped does not.
 <!-- #region round-trip -->
 
 ```ts @import.meta.vitest
+const token = createToken();
 const pickup = token.generate({ prefix: 'ORD' });
 
 token.validate(pickup.value.slice('ORD-'.length)).valid; // -> true
@@ -163,6 +166,8 @@ collisions. See [Entropy](#entropy).
 <!-- #region validate -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
 token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 token.validate('a4kp-9mxo'); // -> { valid: false, reason: 'outside-alphabet' }
@@ -186,6 +191,7 @@ Narrow on `valid` to reach `body`, and look the order up by it:
 <!-- #region lookup -->
 
 ```ts @import.meta.vitest
+const token = createToken();
 const orders = new Map([['a4kp9mx', 'order-2026-0042']]);
 
 function findOrder(input: string): string {
@@ -217,6 +223,8 @@ Luhn's guarantee, over any alphabet:
 <!-- #region check-catches -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 token.validate('a4kp-9mza').valid; // -> false
 token.validate('a4pk-9mxa').valid; // -> false
 token.validate('b0zg-7kqb').valid; // -> true
@@ -239,6 +247,8 @@ differently, or read off a card in capitals still validates:
 <!-- #region separators -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 token.validate('a4kp9mxa').valid; // -> true
 token.validate('a4-kp-9m-xa').valid; // -> true
 token.validate('A4KP-9MXA'); // -> { valid: true, body: 'a4kp9mx' }
@@ -272,6 +282,8 @@ the prefix:
 <!-- #region prefix -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 const { value } = token.generate({ prefix: 'ORD' });
 
 token.validate(value); // -> { valid: false, reason: 'outside-alphabet' }
@@ -284,8 +296,8 @@ value.startsWith('ORD-'); // -> true
 Folding the prefix in would require every prefix character to be in the
 alphabet, and `ORD` contains `o`, which is excluded precisely because it is
 confusable. Comparing the prefix is a literal string match, which is what a
-caller writing `value.startsWith('ORD-')` expects. If you want the prefix
-authenticated, put it in the body.
+caller writing `value.startsWith('ORD-')` expects. `generate` draws the whole
+body at random, so no option brings a prefix under the check character.
 
 ## Entropy
 
@@ -296,6 +308,8 @@ authenticated, put it in the body.
 <!-- #region entropy -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 token.entropyBits; // -> 35
 createToken({ length: 12 }).entropyBits; // -> 55
 createToken({ length: 13, chunkSize: 13 }).entropyBits; // -> 60
@@ -315,6 +329,8 @@ offers. Draw again when the insert conflicts:
 <!-- #region issue -->
 
 ```ts @import.meta.vitest
+const token = createToken();
+
 /** Stands in for the orders table's unique index on the code's body. */
 const issued = new Set<string>();
 
@@ -367,12 +383,12 @@ digit is unambiguous on a keypad.
 A dictionary you supply has to satisfy four constraints at once, all checked by
 `createToken`:
 
-| Constraint                      | Enforced by     | Why                                    |
-| ------------------------------- | --------------- | -------------------------------------- |
-| no confusable characters        | this package    | `1`/`l`/`i` and `0`/`o` are the point  |
-| lowercase                       | this package    | input is case folded before it is read |
-| `256 % n === 0`                 | this package    | otherwise `byte % n` is biased         |
-| even size, no repeats, no pairs | `@evanion/luhn` | a check character has to be definable  |
+| Constraint                           | Enforced by     | Why                                    |
+| ------------------------------------ | --------------- | -------------------------------------- |
+| no confusable characters             | this package    | `l`, `i` read as `1`, and `o` as `0`   |
+| lowercase                            | this package    | input is case folded before it is read |
+| `256 % n === 0`                      | this package    | otherwise `byte % n` is biased         |
+| even size, no repeats, no case pairs | `@evanion/luhn` | a check character has to be definable  |
 
 The three this package owns throw `InvalidAlphabetError`, with a `reason` and
 the `offending` characters:

@@ -3,9 +3,8 @@ import { createToken } from '@evanion/token';
 import { quote, type Probe } from './probe';
 
 /**
- * The default token, as `libs/token/vite.config.ts` builds it for the README's
- * blocks. The README writes `token.validate(...)`, so the name here is the
- * name there.
+ * The default token, as the README's `validate` block constructs it. The block
+ * writes `token.validate(...)`, so the name here is the name there.
  */
 const token = createToken();
 
