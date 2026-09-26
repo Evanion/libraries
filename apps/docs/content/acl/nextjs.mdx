@@ -1,15 +1,15 @@
 # Next.js (React Server Components)
 
 A Next.js server component calls `@evanion/acl`'s `access.can` in the Node
-process, so its decision enforces what it renders. A Server Action is a second entry point that a caller posts to
-directly, and it decides again.
+process, so its decision enforces what it renders. A Server Action is a second
+entry point that a caller posts to directly, and it decides again.
 
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={8}
-  requires={[['A policy from another service', '/acl/adopting']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['React Router 8', '/acl/react-router'],
     ['The matrix: your rules as JSON', '/acl/matrix'],
@@ -33,28 +33,31 @@ another process, so the app adopts it in closed mode, where a key the document
 does not carry decides `unknown-action` and refuses. Under `hydratePolicy` the
 same key throws mid-render.
 
-`adopt` compares versions with `!==`. A document republished under a new version
-replaces the held evaluator on the next page view, and a matching version skips
-the validate, deep-clone and deep-freeze.
+`adopt` parses only when the fetched version differs from the held one. A
+document republished under a new version replaces the held evaluator on the next
+page view, and a matching version skips the validate, deep-clone and
+deep-freeze.
 
 An app that owns its rules builds them with `policy(…).build()` at module scope,
-as [NestJS](/acl/nestjs) and [Express](/acl/express) both show. Put that module
-behind `import 'server-only'`, so a client component importing it is a build
-error.
+as [Express](/acl/express) shows. Put that module behind `import 'server-only'`,
+so a client component importing it is a build error.
 
 ## One fetch and one subject for a Next.js render
 
-`fetchJson` is this app's typed client for shop-api, `currentSubject` reads the
-visitor's cookie, and `authorize` returns an `Authorized<ShopObjects>` bound to
-that subject and one clock instant:
+`fetchJson` is this app's typed client for shop-api, and `currentSubject` reads
+the visitor's cookie. This app's `ShopObjects` maps the two kinds it asks about,
+`game` and `telemetry`. `authorize` returns an `Authorized<ShopObjects>`, a
+handle bound to that subject and one clock instant, so its `can` takes no
+subject:
 
 ```ts file=apps/storefront-rsc/app/access.ts region=per-request-cache
 
 ```
 
-React's `cache` scopes to one request. Three widgets render independently, one
-`GET /api/policy` answers all three, and two concurrent page views each get
-their own fetch, which a module-level promise does not give them.
+React's `cache` scopes to one request. `Catalogue`, `Spotlight` and `Activity`
+render independently, one `GET /api/policy` answers all three, and two
+concurrent page views each get their own fetch, which a module-level promise
+does not give them.
 
 ```mermaid caption="What one page view does with the fetched document. React's cache scopes the GET to the render, and adopt compares the fetched version with the one this process holds: a matching version re-uses the held evaluator, and a new version is validated, deep-cloned and deep-frozen once before it replaces the held one."
 flowchart TD
@@ -71,8 +74,9 @@ a document across requests needs a revalidation window, which
 
 ## A Next.js server component decides before it fetches
 
-`Spotlight` takes a urn and loads the title and its stock. `game.read` gates the
-card and `game.reprice` the staff price line inside it:
+`Spotlight` takes a urn and loads the title and its stock, and `urnPath` turns
+the urn into a URL segment. `game.read` gates the card and `game.reprice` the
+staff price line inside it:
 
 ```tsx file=apps/storefront-rsc/app/spotlight.tsx region=decide-on-the-row
 
@@ -128,7 +132,10 @@ flowchart TD
 `apps/storefront-rsc` has no Server Action. An app that adds one owes it a
 decision of its own, because the render that hid the button never ran for a
 caller who posts to the action directly. The action below resolves the subject,
-reads the title again and decides on both:
+reads the title again and decides on both. Its policy passes `policy()` a third
+type argument, `{ game: Action | 'declare' }`: `Action` is the default four
+verbs, `create`, `read`, `update` and `delete`, and the map adds `declare`.
+`.fields({ fields: ['availability'] })` limits what `declare` may write:
 
 ```ts twoslash file=libs/acl/README.md region=server-action
 
@@ -151,21 +158,20 @@ with `@evanion/acl` directly: `parseMatrix` builds the evaluator and
 
 ## Handing the document to a Next.js client tree
 
-An app with a client tree hands it the document, because `Access` is a set of
-closures over a frozen document and does not serialize. `structuredClone` throws
-on the functions and `JSON.stringify` drops every method:
-
-```ts twoslash file=libs/acl/README.md region=matrix-round-trip
-
-```
-
-A server component passes `access.matrix`, the subject and a `now` string to a
-`'use client'` boundary, which rebuilds the evaluator and mounts
+A server component passes `access.matrix`, never `access`, to a `'use client'`
+boundary. `Access` holds functions, which do not serialize, and
+[Choosing a framework integration](/acl/choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
+shows the round trip. The boundary receives the matrix, the subject and a `now`
+string, rebuilds the evaluator with `parseMatrix` and mounts
 `@evanion/react-acl`'s provider. [Getting started with
-react-acl](/react-acl/getting-started) builds that boundary. Resolve `now` on the
-server, so the server render and the client's first render agree. A `now` read
-from a client payload hands the client every time window in the matrix. A `useCan` that returns `null` hides a button and stops nobody posting
-to the action behind it.
+react-acl](/react-acl/getting-started) builds that boundary.
+
+Resolve `now` on the server, so the server render and the client's first render
+agree. A server that takes `now` from the request lets the caller pick the
+instant every `before` and `after` rule compares against.
+
+A client component that hides a button when `useCan(...).allowed` is false stops
+nobody posting to the action behind it.
 
 ## Where to go next
 

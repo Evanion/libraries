@@ -7,9 +7,9 @@ both the page and the form that posts back to it.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={3}
+  difficulty={4}
   read={6}
-  requires={[['A policy from another service', '/acl/adopting']]}
+  requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
     ['Next.js (React Server Components)', '/acl/nextjs'],
     ['Security contract', '/acl/security'],
@@ -20,17 +20,21 @@ both the page and the form that posts back to it.
 
 `apps/storefront` is Baize's shop front, an Astro app that renders on the server
 and ships no JavaScript to the browser. Its cart answers `GET` and `POST` at
-`/cart`, and both reach the same frontmatter. `decide` returns the `Decision` for
-`order.create`, or `undefined` where the app holds no document to decide on:
+`/cart`, and both reach the same frontmatter. `access` and `subject` are what
+the middleware put on `Astro.locals`. `decide`, from
+`apps/storefront/src/lib/policy.ts`, calls
+`access.can(subject, 'order', 'create')` and returns `undefined` where the app
+holds no document to decide on:
 
 ```ts file=apps/storefront/src/pages/cart.astro region=order-decision
 
 ```
 
-A refused `POST` gets status 403 and the wording `refusalText` picks, and the
-cart cookie is untouched. Every intent the form carries is decided against
-`order.create`, including the three that only edit the cookie, because a cart
-is the draft of an order.
+A refused `POST` gets status 403 and the sentence `refusalText` picks from the
+decision's `reason`, and the cart cookie is untouched. The form posts one of four
+intents: `add`, `update` and `remove` edit the cookie, and `checkout` places the
+order. All four are decided against `order.create`, because a cart is the draft
+of an order.
 
 A React Router route or a React Server Components (RSC) route reaches its render
 and its write through two entry points, so each owes two decisions written in
@@ -101,24 +105,26 @@ shows the cache, the window, and what a failed poll leaves behind.
 ## Narrow the roles before the Astro app forwards them
 
 `apps/storefront` states its subject to shop-api on the `X-Shop-Subject` header,
-and shop-api believes what it forwards. The cookie it reads is unsigned, so this
-hop is the last place that knows which roles this surface may assert. It screens
-the claim down to the one role `/session` issues:
+and shop-api believes what it forwards. The cookie the storefront reads is
+unsigned, a demo identity that a deployment replaces with a verified session, so
+this hop is the last place that knows which roles this surface may assert.
+`parseSubject` screens the claim down to `customer`, the one role the app's
+`/session` sign-in route issues:
 
-```ts twoslash file=apps/storefront/src/lib/subject.ts region=storefront-roles
+```ts file=apps/storefront/src/lib/subject.ts region=storefront-roles
 
 ```
 
-`parseSubject` discards a payload claiming any role outside that list, the whole
-payload and never part of it. A hand-edited cookie claiming `manager` reaches the
-API as an anonymous shopper.
+`parseSubject` discards a payload claiming any role outside `STOREFRONT_ROLES`,
+the whole payload and never part of it, and answers `ANONYMOUS_SUBJECT`. A
+hand-edited cookie claiming `manager` reaches the API as an anonymous shopper.
 
 ## An Astro app with no browser copy still has a second decider
 
 `apps/storefront` ships no JavaScript to the browser, so every decision it makes
 happens in its Node process. Those decisions still do not guard the catalogue.
 `apps/shop-api` owns the data, holds the same document, and decides again on
-every request, against a subject it resolves itself. A storefront that disabled
+every request. A storefront that disabled
 the checkout button does not excuse the service the order is posted to.
 
 ## Where to go next
