@@ -16,7 +16,11 @@
     "ignoreDeprecations": "6.0",
     "rootDir": "."
   },
+  // `examples/` is compiled here because the docs cite those files by region
+  // and `src/examples.spec.ts` boots them, so they are test input, and the
+  // library build never reaches them.
   "include": [
+    "examples/**/*.ts",
     "vite.config.ts",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
