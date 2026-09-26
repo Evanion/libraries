@@ -80,20 +80,5 @@
       "Reason",
       "ToggleResult"
     ]
-  },
-  "@evanion/luhn": {
-    "undocumented": [
-      "ALTERNATING_CASE_DICTIONARY",
-      "DEFAULT_DICTIONARY",
-      "EmptyInputError",
-      "GenerateResult",
-      "InvalidDictionaryError",
-      "InvalidDictionaryReason",
-      "Luhn",
-      "LuhnError",
-      "LuhnOptions",
-      "ValidateResult"
-    ],
-    "unexercised": ["LuhnError"]
   }
 }
