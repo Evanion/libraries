@@ -2,9 +2,6 @@
  * Base class for every error this library throws. Catch it to handle any
  * validation failure without naming the subclasses.
  *
- * `@evanion/luhn` exports an unrelated `LuhnError` hierarchy, so the two
- * packages' errors never share a base in a consumer's `catch`.
- *
  * @example
  * ```ts
  * try {
@@ -24,7 +21,7 @@ export class ValidationError extends Error {
 }
 
 /**
- * Thrown when a URN component is empty, contains a character outside its
+ * Thrown when one part of a URN is empty, contains a character outside its
  * role's permitted set, or breaks a structural rule of its role's grammar
  * (a length bound, a leading hyphen, a truncated percent-triplet).
  */
@@ -61,14 +58,18 @@ export class InvalidError extends ValidationError {
     return `${property} contains invalid characters in '${value}'`;
   }
 
-  /** Which component failed: `'URN'`, `'NID'` or `'NSS'`. */
+  /**
+   * Which part failed: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`,
+   * `'Q-COMPONENT'` or `'F-COMPONENT'`, or `'COMPONENT'` when a subclass whose
+   * separator contains `?` or `#` is asked to write any component.
+   */
   readonly property: string;
-  /** The offending component value. */
+  /** The value of the part that failed. */
   readonly value: string;
   /** The first disallowed character, when one could be identified. */
   readonly invalidChar?: string;
   /**
-   * Why the component failed when no single character is at fault: every
+   * Why the part failed when no single character is at fault: every
    * character is permitted for the role, but the value breaks a structural
    * rule such as the NID length bounds.
    */

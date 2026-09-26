@@ -1,283 +1,155 @@
 # Examples
 
-Worked patterns.
+A shop's services mostly read URNs that another service wrote. `parse`,
+`isValidFormat` and `equals` do the reading, and `stringify` with `encodeNss`
+does the writing.
 
-## One class per namespace
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={35}
+  requires={[['Getting started', '/urn/getting-started']]}
+  unlocks={[['API reference', '/urn/api']]}
+/>
 
-The common shape. A base class fixes the scheme, one subclass per namespace
-fixes the NID, and no call site ever names a namespace:
+## One URN class per namespace
 
-```ts
-import { URN } from '@evanion/urn';
+The shop names games and orders, so it has two namespace classes: `GameURN`,
+from Getting started, and an `OrderURN` beside it. `stringify` on either class
+needs no NID. `belongsToNamespace` still takes the NID as its second argument,
+and picks one kind out of a mixed list:
 
-class EcommerceURN extends URN {
-  static override readonly urn = 'ecommerce';
-}
+```ts twoslash file=libs/urn/README.md region=class-per-namespace
 
-class ProductURN extends EcommerceURN {
-  static override readonly nid = 'product';
-}
-
-class OrderURN extends EcommerceURN {
-  static override readonly nid = 'order';
-}
-
-class CustomerURN extends EcommerceURN {
-  static override readonly nid = 'customer';
-}
-
-ProductURN.stringify('laptop-123'); // 'ecommerce:product:laptop-123'
-OrderURN.stringify('456'); // 'ecommerce:order:456'
-CustomerURN.stringify('789'); // 'ecommerce:customer:789'
-
-ProductURN.parse('ecommerce:product:laptop-123');
-// { urn: 'ecommerce', nid: 'product', nss: 'laptop-123' }
 ```
 
-Each class only strips its own NID. Hand `ProductURN` an order and it keeps the
-namespace where you can see it:
+`belongsToNamespace` returns `false` for `'hive'`, which is not a URN, so a
+filter over untrusted input needs no `try` block.
 
-```ts
-ProductURN.parse('ecommerce:order:456');
-// { urn: 'ecommerce', nid: 'order', nss: 'order:456' }
+Each class strips only its own NID on `parse`, compared without regard to case,
+so `URN:GAME:azul` is in `GameURN`'s namespace. A foreign NID stays at the front
+of the `nss`, a foreign scheme keeps the whole identifier, and every part comes
+back in the case it was written in:
+
+```ts twoslash file=libs/urn/README.md region=parse
+
 ```
 
-For a payload that mixes namespaces:
+## One URN class, the NID per call
 
-```ts
-function isProduct(urn: string): boolean {
-  return ProductURN.belongsToNamespace(urn, 'product');
-}
+When the set of namespaces is open-ended, `stringify` takes the NID and the
+scheme as arguments after the NSS. The object form, `{ nss, nid?, urn? }`,
+names each part and matches what `parse` returns, so it is the form to prefer:
+
+```ts twoslash file=libs/urn/README.md region=stringify-forms
+
 ```
 
-`belongsToNamespace` returns `false` for malformed input rather than throwing,
-so it is safe on untrusted strings.
+The base `URN` class's own NID is the placeholder `'nid'`, so every real
+namespace is foreign to it and `URN.parse(x).nss` keeps the NID. `extractId`
+returns the id after the NID, whatever the namespace:
 
-## One class, the NID per call
+```ts twoslash file=libs/urn/README.md region=extract-id
 
-When the set of namespaces is open-ended, a single class takes the NID
-positionally instead of needing a subclass for each one:
-
-```ts
-class ResourceURN extends URN {
-  static override readonly urn = 'resource';
-}
-
-ResourceURN.stringify('123', 'user'); // 'resource:user:123'
-ResourceURN.stringify('456', 'product'); // 'resource:product:456'
-ResourceURN.stringify('789', 'order'); // 'resource:order:789'
 ```
 
-`parse` on this class retains every NID in the `nss`, since none of them is its
-own. Use `extractId` when you want the bare identifier and `parse().nid` when
-you want the namespace:
+## Screen untrusted URN input
 
-```ts
-ResourceURN.parse('resource:user:123').nid; // 'user'
-ResourceURN.extractId('resource:user:123'); // '123'
+`isValidFormat` calls `parse` and returns `false` where `parse` would throw, so
+the two never disagree:
+
+```ts twoslash file=libs/urn/README.md region=screening
+
 ```
 
-## A custom separator
+Where the caller needs the reason, catch the error. An `InvalidError` means one
+part broke its grammar, and `property` names the part. A `ValidationError` that
+is not an `InvalidError` means the string is not a URN at all:
 
-A separator other than `:` takes the class outside RFC 8141, which is a fair
-trade when the identifier is internal and has to read as a path:
+```ts twoslash file=libs/urn/README.md region=error-handling
 
-```ts
-class DatabaseURN extends URN {
-  static override readonly urn = 'db';
-  static override readonly separator = '.';
-}
-
-class TableURN extends DatabaseURN {
-  static override readonly nid = 'table';
-}
-
-TableURN.stringify('users'); // 'db.table.users'
-TableURN.parse('db.table.users');
-// { urn: 'db', nid: 'table', nss: 'users' }
 ```
 
-The scheme and the NID are then checked against a generic character class with
-the separator excluded, rather than against the RFC grammars. `db` and `table`
-pass; a scheme containing the separator does not — `DatabaseURN` could not use
-the scheme `my.db`.
+## Mint a batch of game URNs
 
-## Screening untrusted input
+`stringify` throws an `InvalidError` on a part that breaks its grammar. A job
+minting URNs for a batch of slugs catches per slug, so one bad slug skips and
+the rest are minted:
 
-```ts
-import { URN, ValidationError } from '@evanion/urn';
+```ts twoslash file=libs/urn/README.md region=batch-mint
 
-function parseOrNull(input: string) {
-  return URN.isValidFormat(input) ? URN.parse(input) : null;
-}
 ```
 
-`isValidFormat` delegates to `parse`, so the pair can never disagree about what
-is valid, and it never throws. Where you want the reason, catch instead:
+The NSS grammar is RFC 3986's `pchar`: letters, digits, `-._~!$&'()*+,;=:@` and
+percent-triplets such as `%20`, with `/` allowed after the first character. A space is outside
+it. The NID is stricter: letters, digits and interior hyphens, 2 to 32
+characters.
 
-```ts
-function describe(input: string): string {
-  try {
-    const { nid, nss } = URN.parse(input);
-    return `${nss} in ${nid}`;
-  } catch (error) {
-    if (error instanceof ValidationError) return `not a URN: ${error.message}`;
-    throw error;
-  }
-}
+## Put a game title into a URN
+
+A title a person typed carries spaces and punctuation. `encodeNss` leaves
+letters, digits and `-._~` alone and percent-encodes every other character, and
+`decodeNss` reverses it. `stringify` and `parse` do neither:
+
+```ts twoslash file=libs/urn/README.md region=nss-encoding
+
 ```
 
-## Validating before writing
+`encodeNss` also encodes the `:`, which the NSS grammar allows unencoded. Two
+services that both encode a title write the same NSS, and `equals` treats `%3A`
+and `:` as different characters.
 
-`stringify` throws on a part that breaks its grammar, so a batch job that must
-not stop on one bad row catches per item:
+## Carry a URN in a URL path
 
-```ts
-import { URN, InvalidError } from '@evanion/urn';
+`encodeURIComponent` makes a whole URN safe as one path segment, where `:` and
+`%` mean something to a router. `encodeNss` makes a string safe as an NSS. A URN
+built from a title needs both, NSS first:
 
-function mint(items: { id: string; type: string }[]): string[] {
-  const urns: string[] = [];
+```ts twoslash file=libs/urn/README.md region=url-segment
 
-  for (const item of items) {
-    try {
-      urns.push(URN.stringify(item.id, item.type));
-    } catch (error) {
-      if (error instanceof InvalidError) {
-        console.warn(`skipping ${item.id}: ${error.message}`);
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  return urns;
-}
 ```
 
-The NSS grammar is RFC 3986's `pchar`, which includes `!`, `$`, `&`, `'`, `(`,
-`)`, `*`, `+`, `,`, `;`, `=`, `:` and `@`:
+The `%3A` inside the NSS becomes `%253A` in the path, and one
+`decodeURIComponent` turns it back. A second decode would turn `%3A` into `:`
+and `%20` into a space, and `parse` throws on the space.
 
-```ts
-URN.stringify('product!456', 'product'); // 'urn:product:product!456' — valid
-URN.stringify('a b', 'example'); // InvalidError — a space is not
+## Compare URNs from two sources
+
+Two services can write the same URN differently. RFC 8141 §3.1 folds the case of
+the scheme, of the NID and of a percent-triplet's hex digits, and nothing else:
+
+```ts twoslash file=libs/urn/README.md region=equality
+
 ```
 
-The NID is the strict one: letters and digits with interior hyphens, two to
-thirty-two characters. A `type` field copied straight from a CMS is the value
-most likely to fail here.
+The third call is where decoding before comparing goes wrong, because `equals`
+never decodes `%3A`. The fourth is where lowercasing goes wrong, because the
+NSS keeps its case. Call `equals` wherever URNs arrive from more than one
+producer.
 
-## Identifiers a person types
+## A URN key with a custom separator
 
-Anything with a space, an accent or a slash has to be encoded before it is an
-NSS:
+A separator other than `:` takes the class outside RFC 8141, which suits a key
+that has to read as a dotted path. The scheme and the NID are then checked
+against a character class that excludes the separator. `schemeGrammar` and
+`nidGrammar` hold the pattern each of the two must match:
 
-```ts
-import { URN, encodeNss, decodeNss } from '@evanion/urn';
+```ts twoslash file=libs/urn/README.md region=custom-separator
 
-const title = 'Brass: Birmingham';
-
-const urn = URN.stringify(encodeNss(title), 'game');
-// 'urn:game:Brass%3A%20Birmingham'
-
-decodeNss(URN.extractId(urn)); // 'Brass: Birmingham'
 ```
 
-`encodeNss` encodes everything outside `unreserved`, including the `:` that
-would otherwise have been legal, which is what makes its output safe in any
-position. Decoding is equally explicit — `parse` will not do it for you.
+`GameKey` refuses the scheme `baize.shop`, which `URN` accepts, because the `.`
+would be read as a separator.
 
-## Comparing URNs from two sources
+## Call URN statics on the class
 
-Two systems can write the same URN differently and both be right: RFC 8141 makes
-the scheme and the NID case-insensitive, and the hex digits of a percent-triplet
-case-insensitive with them.
+Every static reads `this`, so a static passed as a bare callback loses its
+class. `stringify`, `parse`, `extractId` and `belongsToNamespace` throw a
+`TypeError`. `isValidFormat`, `equals` and `sameNamespace` catch it and return
+`false`, so `ids.filter(GameURN.isValidFormat)` returns an empty list:
 
-```ts
-URN.equals('URN:Example:a123%2cz456', 'urn:example:a123%2Cz456'); // true
-URN.equals('urn:example:a123%2Cz456', 'urn:example:a123,z456'); // false
-URN.equals('urn:example:A123', 'urn:example:a123'); // false
+```ts twoslash file=libs/urn/README.md region=unbound
+
 ```
 
-The second and third are the ones that matter. An encoded octet is never decoded
-for comparison, and the NSS is case-sensitive — both are what the RFC requires,
-and both differ from what a naive `toLowerCase()` comparison would do.
-
-Use `equals` rather than `===` anywhere URNs arrive from more than one producer.
-
-## Carrying request parameters
-
-The q-component is for parameters meant for the named resource, and `equals`
-ignores it, so a cache keyed on URN equivalence treats these as one entry:
-
-```ts
-class WeatherURN extends URN {
-  static override readonly nid = 'example';
-}
-
-const base = WeatherURN.stringify({ nss: 'weather', nid: 'example' });
-// 'urn:example:weather'
-
-const today = WeatherURN.stringify({
-  nss: 'weather',
-  nid: 'example',
-  qComponent: 'lat=39;lon=-77',
-  fComponent: 'today',
-});
-// 'urn:example:weather?=lat=39;lon=-77#today'
-
-WeatherURN.parse(today);
-// { urn: 'urn', nid: 'example', nss: 'weather',
-//   qComponent: 'lat=39;lon=-77', fComponent: 'today' }
-
-URN.equals(base, today); // true — components are excluded from equivalence
-```
-
-See [r-, q- and f-components](/urn/components) for the rest.
-
-## In a React component
-
-Nothing about the library is environment-specific — it is pure string handling —
-but `parse` throws, so a component rendering untrusted data needs the guard:
-
-```tsx
-import { URN } from '@evanion/urn';
-
-function ResourceRow({ urn }: { urn: string }) {
-  if (!URN.isValidFormat(urn)) return <li>malformed identifier</li>;
-
-  const { nid, nss } = URN.parse(urn);
-
-  return (
-    <li>
-      <strong>{nid}</strong> {nss}
-    </li>
-  );
-}
-```
-
-## In an HTTP handler
-
-A URN in a path segment has to be encoded, because `:` and `/` both mean
-something to a router. `encodeURIComponent` on the whole URN is the usual
-answer, and it is not the same thing as `encodeNss`:
-
-```ts
-import { URN, ValidationError } from '@evanion/urn';
-
-app.get('/resource/:urn', (req, res) => {
-  try {
-    const parsed = URN.parse(decodeURIComponent(req.params.urn));
-    res.json({ namespace: parsed.nid, id: parsed.nss });
-  } catch (error) {
-    if (error instanceof ValidationError) {
-      res.status(400).json({ error: error.message });
-      return;
-    }
-    throw error;
-  }
-});
-```
-
-`encodeNss` makes a string safe as the NSS of a URN. `encodeURIComponent` makes
-a whole URN safe as one segment of a URL. Applying the first where you needed
-the second produces a URN that parses and points at the wrong thing.
+Wrap the call in an arrow function, as the first `map` does.

@@ -13,7 +13,7 @@ import { claimsOf, regionOf, seedOf } from './claims';
 import { INPUT_LIMIT, format, quote } from './probe';
 import { probes as luhn } from './luhn';
 import { probes as token } from './token';
-import { WeatherURN, probes as urn } from './urn';
+import { GameURN, probes as urn } from './urn';
 
 /**
  * The probe is the tested example, not a copy of it.
@@ -110,7 +110,7 @@ describe('what a probe calls', () => {
     );
     // The README's block names a namespace with a subclass, which overrides a
     // static and inherits every method, so this is `URN.parse` itself.
-    expect(WeatherURN.parse).toBe(URN.parse);
+    expect(GameURN.parse).toBe(URN.parse);
   });
 
   it.each([

@@ -1,6 +1,31 @@
 # Getting started
 
-## Install
+By the end of this page a `GameURN` class of your own writes
+`urn:game:brass-birmingham` and reads it back into its three parts.
+
+<PageSheet
+  difficulty={1}
+  read={2}
+  hands={5}
+  requires={[['Overview', '/urn']]}
+  unlocks={[
+    ['r-, q- and f-components', '/urn/components'],
+    ['Examples', '/urn/examples'],
+  ]}
+/>
+
+## Before you install urn
+
+- Node 20 or newer.
+- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
+  `require()` loads ES modules. An older `require()` fails with
+  `ERR_REQUIRE_ESM`.
+- Nothing else. The package has no runtime dependencies and no peer
+  dependencies, and it ships its own types.
+
+## Install urn
+
+Pick the line for your package manager.
 
 ```bash
 npm install @evanion/urn
@@ -14,206 +39,30 @@ yarn add @evanion/urn
 pnpm add @evanion/urn
 ```
 
-The package is ESM and ships its own types. Import by name:
+## Write a namespace class for urn
 
-```ts
-import { URN, InvalidError } from '@evanion/urn';
-```
-
-## Your first URN
+`GameURN` extends `URN` and overrides one static, `nid`, the namespace
+identifier. That is the whole configuration: the scheme defaults to `urn` and
+the separator to `:`. TypeScript's `noImplicitOverride` requires the `override`
+keyword, and without that flag it is optional. Import `URN` from
+`@evanion/urn`:
 
 ```ts twoslash file=libs/urn/README.md region=basic-usage
 
 ```
 
-## Subclass per namespace
+`GameURN.stringify('brass-birmingham')` reads the scheme and the NID off the
+class and returns `'urn:game:brass-birmingham'`. `GameURN.parse(id)` splits it
+back into `urn`, `nid` and `nss`. In your code, call `stringify` where a game id
+leaves a service and `parse` where one arrives.
 
-The three statics — `urn`, `nid` and `separator` — are what a subclass
-overrides, and every inherited method reads them off `this`. A subclass per
-namespace means the namespace is never an argument at a call site and cannot be
-mistyped there:
+(Optional) Add `static override readonly urn = 'baize'` to mint in a scheme of
+your own, such as `baize:game:azul`. That class's `parse` then reads `baize` as
+its own scheme. RFC 8141 fixes the scheme at `urn`, so a URN in any other scheme
+is outside the RFC.
 
-```ts
-class EcommerceURN extends URN {
-  static override readonly urn = 'ecommerce';
-}
+## Now that GameURN reads a game, attach an edition to it
 
-class ProductURN extends EcommerceURN {
-  static override readonly nid = 'product';
-}
-
-class OrderURN extends EcommerceURN {
-  static override readonly nid = 'order';
-}
-
-ProductURN.stringify('laptop-123'); // 'ecommerce:product:laptop-123'
-OrderURN.stringify('456'); // 'ecommerce:order:456'
-```
-
-TypeScript's `noImplicitOverride` requires the `override` keyword on each one.
-
-The alternative is one class and the NID per call, which is what an open-ended
-set of namespaces wants:
-
-```ts
-class ResourceURN extends URN {
-  static override readonly urn = 'resource';
-}
-
-ResourceURN.stringify('123', 'user'); // 'resource:user:123'
-ResourceURN.stringify('456', 'product'); // 'resource:product:456'
-```
-
-## Parsing keeps a foreign namespace
-
-`parse` keeps a foreign namespace in the `nss`. It never discards it.
-
-```ts
-class UserTRN extends URN {
-  static override readonly urn = 'trn';
-  static override readonly nid = 'user';
-}
-
-UserTRN.parse('trn:user:1'); // { urn: 'trn', nid: 'user', nss: '1' }
-UserTRN.parse('trn:order:42'); // { urn: 'trn', nid: 'order', nss: 'order:42' }
-UserTRN.parse('ftp:user:1'); // { urn: 'ftp', nid: 'user', nss: 'ftp:user:1' }
-```
-
-A matching scheme and NID give a clean `nss`. A foreign NID stays attached to
-it; a foreign scheme keeps the whole original identifier. Either way a record
-read from another namespace cannot be silently re-labelled as this one.
-
-The base `URN` class is subject to the same rule, and its own NID is the
-placeholder `'nid'`, so almost every namespace is foreign to it:
-
-```ts
-URN.parse('urn:user:123'); // { urn: 'urn', nid: 'user', nss: 'user:123' }
-URN.parse('urn:nid:123'); // { urn: 'urn', nid: 'nid', nss: '123' }
-```
-
-Both comparisons are case-folded, per RFC 8141 §3.1, so `URN:USER:1` is not
-foreign to a `urn` / `user` class. The parts always come back in the case they
-were written in.
-
-When you want the trailing identifier regardless of namespace, `extractId` is
-the structural answer:
-
-```ts
-URN.parse('urn:user:123').nss; // 'user:123'
-URN.extractId('urn:user:123'); // '123'
-```
-
-## Validation
-
-Each of the three roles has its own grammar. There is no single flat
-`isValid` regex — one character class cannot describe three roles across two
-separator regimes.
-
-| Role   | Allowed                                                                                     | Length                     |
-| ------ | ------------------------------------------------------------------------------------------- | -------------------------- |
-| scheme | a letter, then letters, digits, `+`, `-`, `.`                                               | unbounded                  |
-| NID    | letters and digits, plus `-` in the interior                                                | 2–32 writing, 1–32 reading |
-| NSS    | `pchar` — letters, digits, `-._~!$&'()*+,;=:@`, percent-triplets — plus `/` after the first | unbounded                  |
-
-The NSS set is wider than people expect. `!`, `$`, `&`, `'`, `(`, `)`, `*`,
-`+`, `,`, `;`, `=`, `:` and `@` are all `sub-delims` or `pchar` under RFC 3986
-§3.3 and pass without encoding:
-
-```ts
-URN.stringify('invalid!character', 'namespace');
-// 'urn:namespace:invalid!character' — no error, '!' is a valid NSS character
-```
-
-A space is not:
-
-```ts
-URN.stringify('a b', 'example');
-// InvalidError: NSS contains invalid character ' ' in 'a b'
-```
-
-### Read-lenient, write-strict
-
-`stringify` enforces the RFC 8141 NID exactly. `parse` accepts the same
-character set but allows a one-character NID, because RFC 2141 permitted one and
-RFC 8141 §1 keeps earlier-valid URNs valid. Nothing else is relaxed on read:
-
-```ts
-URN.parse('urn:x:1'); // { urn: 'urn', nid: 'x', nss: 'x:1' }
-URN.stringify('1', 'x');
-// InvalidError: NID is invalid in 'x': must be at least 2 characters long
-```
-
-## Percent-encoding the NSS
-
-`stringify` works on the wire form and encodes nothing; `parse` decodes nothing.
-Both helpers are explicit:
-
-```ts twoslash file=libs/urn/README.md region=nss-encoding
-
-```
-
-`encodeNss` encodes everything outside RFC 3986's `unreserved` set as UTF-8
-percent-triplets with uppercase hex, so its output is safe in any NSS position.
-
-## Comparing two URNs
-
-RFC 8141 equivalence is case-insensitive on the scheme and the NID, and exact on
-the NSS except that the hex digits of a percent-triplet canonicalise to
-uppercase. An encoded octet is never decoded for comparison:
-
-```ts twoslash file=libs/urn/README.md region=equality
-
-```
-
-`equals`, `sameNamespace` and `belongsToNamespace` all return `false` for
-malformed input rather than throwing. `parse` and `extractId` throw.
-
-## Error handling
-
-```ts
-import { URN, ValidationError, InvalidError } from '@evanion/urn';
-
-try {
-  return URN.parse(input);
-} catch (error) {
-  if (error instanceof InvalidError) {
-    // A component was empty, held a disallowed character, or broke a
-    // structural rule. error.property, error.value, error.invalidChar,
-    // error.reason say which.
-  } else if (error instanceof ValidationError) {
-    // The string was not a well-formed URN at all.
-  }
-  throw error;
-}
-```
-
-`InvalidError extends ValidationError`, so catching the base covers both. If you
-only want to know whether a string parses, `isValidFormat` never throws:
-
-```ts
-URN.isValidFormat('urn:example:123'); // true
-URN.isValidFormat('not-a-urn'); // false
-```
-
-It delegates to `parse`, so the two can never disagree.
-
-## Two things that will bite
-
-The statics are unbound. Every one of them reads `this`, so unlike
-`JSON.stringify` they cannot be destructured:
-
-```ts
-const { stringify } = URN;
-stringify('a'); // TypeError — the default parameter `nid = this.nid` needs `this`
-```
-
-And the positional arguments to `stringify` are in the reverse order of `parse`'s
-return shape:
-
-```ts
-URN.stringify(...Object.values(URN.parse('urn:nid:foo'))); // 'foo:nid:urn'
-URN.stringify(URN.parse('urn:nid:foo')); // 'urn:nid:foo'
-```
-
-Hand `stringify` the object. Its keys carry the meaning, and only that form can
-express the [r-, q- and f-components](/urn/components).
+[r-, q- and f-components](/urn/components) is the next page. It adds an edition
+and a section of the rules to `urn:game:brass-birmingham` and reads both back
+with the same `GameURN.parse`.

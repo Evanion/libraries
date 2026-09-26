@@ -86,7 +86,7 @@ export interface ParsedURN extends URNComponents {
  * The object form of `URN.stringify`'s arguments.
  *
  * The keys match {@link ParsedURN}, so a parsed URN can be handed straight
- * back: `URN.stringify(URN.parse(x))` returns `x` for a URN in the parsing
+ * back: on one class, `stringify(parse(x))` returns `x` for a URN in that
  * class's own namespace. The scheme and the NID are optional and fall back to
  * the class's own, which is what makes `{ nss }` alone valid.
  */

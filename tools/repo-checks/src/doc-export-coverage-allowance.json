@@ -176,19 +176,6 @@
     "unexercised": ["InvalidAlphabetError", "InvalidShapeError", "TokenError"],
     "unexplained": ["TokenOptions", "ValidateResult"]
   },
-  "@evanion/urn": {
-    "undocumented": [
-      "IFullURN",
-      "InvalidError",
-      "ParsedURN",
-      "URNComponents",
-      "URNParts",
-      "ValidationError",
-      "decodeNss",
-      "encodeNss"
-    ],
-    "unexercised": ["InvalidError", "ValidationError"]
-  },
   "@evanion/widget": {
     "unexercised": ["resetWarnings", "warnOnce"]
   }

@@ -1,347 +1,201 @@
 # API reference
 
-Every export of `@evanion/urn`. Node 20 or newer; the package is ESM only.
+`@evanion/urn` exports one class, two functions, two errors and four types, one
+heading each below. It needs Node 20 or newer and ships ESM only, which
+`require()` loads on Node 20.19, 22.12 or newer.
 
 ## `URN`
 
-A class whose entire surface is static. Nothing is ever instantiated — `URN` is
-a namespace for the operations and a carrier for the three configurable values a
-subclass overrides.
+<!-- reference @evanion/urn#URN example=basic-usage -->
 
-```ts
-class URN {
-  static readonly urn: string; // 'urn'
-  static readonly nid: string; // 'nid'
-  static readonly separator: string; // ':'
+`URN` is never instantiated. A subclass overrides the statics in the first
+three rows. `parse`, `stringify` and `isValidFormat` read all three off `this`.
+`extractId`, `equals` and `sameNamespace` read only `separator`, and
+`belongsToNamespace` reads `separator` and defaults its scheme to `urn`.
 
-  static get schemeGrammar(): RegExp;
-  static get nidGrammar(): RegExp;
-  static get nssGrammar(): RegExp;
-  static get rComponentGrammar(): RegExp;
-  static get qComponentGrammar(): RegExp;
-  static get fComponentGrammar(): RegExp;
+| Static              | Default                      | What it is                                                                                    |
+| ------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `urn`               | `'urn'`                      | the scheme this class writes and reads as its own                                             |
+| `nid`               | `'nid'`                      | the namespace identifier this class writes and reads as its own                               |
+| `separator`         | `':'`                        | what the three parts are joined by and split on                                               |
+| `schemeGrammar`     | RFC 3986 `scheme`            | a letter, then letters, digits, `+`, `-` and `.`                                              |
+| `nidGrammar`        | RFC 8141 `NID`               | letters, digits and interior `-`, 2 to 32 characters, checked by `stringify`                  |
+| `nssGrammar`        | RFC 8141 `NSS`               | letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets, plus `/` after the first character |
+| `rComponentGrammar` | `pchar *(pchar / "/" / "?")` | the NSS set plus `?` after the first character                                                |
+| `qComponentGrammar` | `pchar *(pchar / "/" / "?")` | the same production as the r-component                                                        |
+| `fComponentGrammar` | RFC 3986 `fragment`          | the NSS set plus `?`, no first-character rule, and the only one to accept `''`                |
 
-  static stringify(parts: URNParts): string;
-  static stringify(nss: string, nid?: string, urn?: string): string;
-  static parse(urnString: string): ParsedURN;
-  static isValidFormat(urnString: string): boolean;
-  static extractId(urnString: string): string;
-  static sameNamespace(a: string, b: string): boolean;
-  static belongsToNamespace(
-    urnString: string,
-    nid: string,
-    urn?: string,
-  ): boolean;
-  static equals(a: string, b: string): boolean;
-}
-```
-
-Every static reads `this`, so none of them can be destructured off the class.
-`const { stringify } = URN; stringify('a')` throws a `TypeError`, because the
-default parameter `nid = this.nid` runs with `this` undefined.
-
-### Class properties
-
-| Static      | Default | Meaning                                                   |
-| ----------- | ------- | --------------------------------------------------------- |
-| `urn`       | `'urn'` | the scheme this class writes and recognises as its own    |
-| `nid`       | `'nid'` | the namespace this class writes and recognises as its own |
-| `separator` | `':'`   | what the three parts are joined by and split on           |
-
-`'nid'` is a placeholder, not a registered namespace; IANA's URN namespace
-registry holds the real ones. Overriding `nid` is what makes `stringify(nss)`
-need no namespace argument, and what lets `parse` tell its own namespace from a
-foreign one.
-
-```ts
-class MyURN extends URN {
-  static override readonly urn = 'my-scheme';
-  static override readonly nid = 'my-namespace';
-}
-
-MyURN.stringify('example'); // 'my-scheme:my-namespace:example'
-```
-
-### `stringify(parts)` / `stringify(nss, nid?, urn?)`
-
-Writes a URN string. `nid` and `urn` default to the calling class's own statics.
-
-```ts
-URN.stringify('example', 'my-namespace'); // 'urn:my-namespace:example'
-URN.stringify('example', 'my-namespace', 'custom'); // 'custom:my-namespace:example'
-URN.stringify({ nss: 'example', nid: 'my-namespace' }); // 'urn:my-namespace:example'
-URN.stringify({ nss: 'weather', nid: 'example', qComponent: 'lat=39' });
-// 'urn:example:weather?=lat=39'
-```
-
-Prefer the object form. Its keys match `parse`'s return shape, it is the only
-form that can emit the r-, q- and f-components, and the positional arguments are
-in the reverse order of what `parse` returns — so
-`stringify(...Object.values(parse(x)))` is silently wrong.
-
-It does not deduplicate. Whatever you pass as the NSS is emitted verbatim after
-the scheme and the NID:
-
-```ts
-URN.stringify('my-namespace:example', 'my-namespace');
-// 'urn:my-namespace:my-namespace:example'
-```
-
-That is what keeps a composite key imported from another system recoverable: if
-the repeated segment were dropped, `my-namespace:example` could never be read
-back. Name the namespace you meant instead —
-`URN.stringify('example', 'my-namespace')`.
-
-It is also not idempotent and is not a normaliser:
-
-```ts twoslash file=libs/urn/README.md region=round-trip
-
-```
-
-Throws `InvalidError` when a part is empty or breaks its role's grammar.
-
-### `parse(urnString)`
-
-Reads a URN into `ParsedURN`. Nothing is normalised, nothing is decoded: the
-parts come back in their original case with percent-triplets intact, because RFC
-8141 §3.1 requires that an encoded octet stay opaque for equivalence purposes.
-
-```ts
-URN.parse('urn:nid:example');
-// { urn: 'urn', nid: 'nid', nss: 'example' }
-
-URN.parse('urn:other-namespace:example');
-// { urn: 'urn', nid: 'other-namespace', nss: 'other-namespace:example' }
-
-URN.parse('custom:my-namespace:example');
-// { urn: 'custom', nid: 'my-namespace', nss: 'custom:my-namespace:example' }
-```
-
-A scheme or NID that differs from the parsing class's own is retained inside the
-`nss` rather than discarded. The base class's own NID is `'nid'`, which is why
-the second and third calls above look the way they do — see
-[the namespace rule](/urn/getting-started).
-
-The read path is lenient in exactly one respect: it accepts a one-character NID,
-which RFC 2141 permitted.
-
-Throws `ValidationError` when the string is not a well-formed URN.
-
-### `isValidFormat(urnString)`
-
-`true` when the string parses. It delegates to `parse`, so the two cannot drift
-apart, and it never throws — which makes it the cheap way to screen input before
-committing to `parse`.
-
-### `extractId(urnString)`
-
-Everything after the scheme and the NID, with any r-, q- or f-component dropped.
-
-This is deliberately structural and differs from `parse(urnString).nss` on a
-foreign namespace: `parse` keeps a non-matching NID attached so the namespace is
-not lost, `extractId` always drops it.
-
-```ts
-URN.parse('urn:user:123').nss; // 'user:123'
-URN.extractId('urn:user:123'); // '123'
-```
-
-Reach for `parse` when the namespace matters, `extractId` when you only want the
-trailing identifier. Throws `ValidationError` on malformed input.
-
-### `sameNamespace(a, b)`
-
-`true` when both URNs share a scheme and a NID, compared case-insensitively.
-Returns `false` for malformed input rather than throwing.
-
-```ts
-URN.sameNamespace('urn:user:1', 'URN:User:2'); // true
-URN.sameNamespace('urn:user:1', 'urn:order:2'); // false
-```
-
-### `belongsToNamespace(urnString, nid, urn?)`
-
-`true` when the URN is in the given namespace. `urn` defaults to this class's own
-scheme, so a subclass does not repeat it:
-
-```ts
-class TRN extends URN {
-  static override readonly urn = 'trn';
-  static override readonly nid = 'bar';
-}
-
-TRN.belongsToNamespace('trn:bar:foo', 'bar'); // true
-URN.belongsToNamespace('ftp:user:1', 'user'); // false
-```
-
-### `equals(a, b)`
-
-RFC 8141 §3.1 equivalence. The scheme and the NID fold case; the NSS is compared
-character for character, except that the hex digits of a percent-triplet
-canonicalise to uppercase. An encoded octet is never decoded, so `%2C` and `,`
-are not equivalent. The r-, q- and f-components are excluded.
-
-```ts twoslash file=libs/urn/README.md region=equality
-
-```
-
-Returns `false` for malformed input.
-
-## Functions
-
-### `encodeNss(raw)`
-
-Percent-encodes everything outside RFC 3986's `unreserved` set (`A-Z a-z 0-9`
-and `- . _ ~`) as UTF-8 triplets with uppercase hex, so the result is valid in
-any NSS position.
-
-### `decodeNss(encoded)`
-
-The inverse. Throws `ValidationError` on a malformed or truncated percent
-sequence.
-
-```ts twoslash file=libs/urn/README.md region=nss-encoding
-
-```
-
-Neither `stringify` nor `parse` calls either of these. Encoding is a separate,
-explicit step, so a value can never be double-encoded by accident.
-
-## Grammars
-
-Six getters, all readable off the class, all reactive to a subclass's
-`separator`:
+`'nid'` is a placeholder, not a registered namespace, so every real namespace
+is foreign to the base `URN` class. Under a separator other than `:`,
+`schemeGrammar` and `nidGrammar` become a character class that excludes the
+separator, with no length bounds. `parse` accepts a one-character NID, which
+RFC 2141, the URN syntax RFC 8141 replaced, permitted and `nidGrammar` refuses:
 
 ```ts twoslash file=libs/urn/README.md region=grammars
 
 ```
 
-There is no single flat validation regex. One character class cannot describe
-three roles across two separator regimes; these getters can.
+Passed as a bare callback, a static loses `this`. `stringify`, `parse`,
+`extractId` and `belongsToNamespace` throw a `TypeError`. `isValidFormat`,
+`equals` and `sameNamespace` catch it and return `false`:
 
-| Role            | Allowed                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| scheme          | a letter, then letters, digits, `+`, `-`, `.`                                                  |
-| NID             | letters and digits, plus `-` in the interior; 2–32 writing, 1–32 reading                       |
-| NSS             | `pchar` — letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets — plus `/` after the first |
-| r-, q-component | the NSS set plus `?` after the first character                                                 |
-| f-component     | the NSS set plus `?`, no first-character rule, and may be empty                                |
+```ts twoslash file=libs/urn/README.md region=unbound
 
-Everything outside a role's set must be percent-encoded. `nidGrammar` is the
-write grammar; the read path uses an unexported variant with a floor of one
-character.
-
-### Custom separators are not RFC 8141
-
-A subclass that overrides `separator` gets a generic character class with the
-separator excluded, for the scheme and the NID, and no RFC length bounds. The
-NSS keeps the RFC grammar under every separator, because split-then-rejoin on
-the same delimiter is lossless and the NSS therefore cannot structurally collide
-with it.
-
-```ts
-class DatabaseURN extends URN {
-  static override readonly urn = 'db';
-  static override readonly separator = '.';
-}
-
-DatabaseURN.stringify('users', 'table'); // 'db.table.users'
 ```
 
-A separator containing `?` or `#` also switches component parsing off — see
-[r-, q- and f-components](/urn/components). Such a subclass is not claimed to be
-RFC 8141 conformant.
+### `URN.stringify`
 
-## Types
+`stringify(parts)` and `stringify(nss, nid?, urn?)` write a URN string. `nid`
+and `urn` default to the calling class's own statics. Both forms throw
+`InvalidError` when a part is empty or breaks its grammar:
 
-### `ParsedURN`
+```ts twoslash file=libs/urn/README.md region=stringify-forms
 
-```ts
-interface ParsedURN extends URNComponents {
-  urn: string;
-  nid: string;
-  nss: string;
-}
 ```
 
-The parts are plain strings and deliberately not type parameters: `parse` takes
-a runtime `string`, so it cannot know their literal types, and free type
-parameters would let `URN.parse<'a', 'b', 'c'>(someString)` assert a shape
-nothing verifies.
+The object form's keys match what `parse` returns, and only the object form
+writes the r-, q- and f-components. The positional arguments run in the reverse
+order of `parse`'s return, so `stringify(...Object.values(parse(x)))` puts the
+scheme where the NSS belongs. `stringify` writes the NSS verbatim, so it neither
+deduplicates nor is idempotent:
 
-### `URNParts`
+```ts twoslash file=libs/urn/README.md region=round-trip
 
-```ts
-interface URNParts extends URNComponents {
-  urn?: string; // defaults to the class's own scheme
-  nid?: string; // defaults to the class's own NID
-  nss: string;
-}
 ```
 
-A `ParsedURN` is assignable to it.
+### `URN.parse`
 
-### `URNComponents`
+`parse(urnString)` returns a `ParsedURN`, with every part in the case it was
+written in and every percent-triplet intact. A scheme or NID that differs from
+the class's own, compared case-folded, stays in the `nss`:
 
-```ts
-interface URNComponents {
-  rComponent?: string;
-  qComponent?: string;
-  fComponent?: string;
-}
+```ts twoslash file=libs/urn/README.md region=parse
+
 ```
 
-Absent, not `undefined`, when the URN carries none.
+`parse` throws `ValidationError` for a string that is not a URN, and
+`InvalidError` for a part that breaks its grammar.
 
-### `IFullURN`
+### `URN.isValidFormat`
 
-```ts
-type IFullURN<
-  URN extends string,
-  NID extends string,
-  NSS extends string,
-> = `${URN}:${NID}:${NSS}`;
+`isValidFormat(urnString)` returns `true` when `parse` would succeed. It calls
+`parse`, so the two cannot disagree, and it never throws:
+
+```ts twoslash file=libs/urn/README.md region=screening
+
 ```
 
-For annotating literals in consumer code:
+### `URN.extractId`
 
-```ts
-type UserUrn = IFullURN<'urn', 'user', string>; // `urn:user:${string}`
-const id: UserUrn = 'urn:user:123';
+`extractId(urnString)` returns everything after the scheme and the NID, with
+any r-, q- or f-component dropped. On a foreign namespace it differs from
+`parse(urnString).nss`, which keeps the NID. The base `URN` class's own NID is
+`'nid'`, so `game` is foreign to it:
+
+```ts twoslash file=libs/urn/README.md region=extract-id
+
 ```
 
-It assumes the default `:` separator, so a subclass with a custom one cannot be
-described by it. `stringify` returns plain `string` rather than a template
-literal type for the same reason.
+`extractId` throws `ValidationError` on malformed input.
 
-## Errors
+### `URN.sameNamespace`
 
-### `ValidationError`
+`sameNamespace(a, b)` returns `true` when both URNs have the same scheme and
+the same NID, compared case-folded. Malformed input returns `false`:
 
-Base class for everything the library throws. Catch it to handle any validation
-failure without naming the subclasses.
+```ts twoslash file=libs/urn/README.md region=same-namespace
 
-### `InvalidError extends ValidationError`
-
-A component was empty, contained a disallowed character, or broke a structural
-rule of its grammar.
-
-| Property      | Meaning                                                           |
-| ------------- | ----------------------------------------------------------------- |
-| `property`    | which role failed: `'URN'`, `'NID'`, `'NSS'`, or a component name |
-| `value`       | the offending value                                               |
-| `invalidChar` | the first disallowed character, when one could be identified      |
-| `reason`      | why it failed when no single character is at fault                |
-
-```ts
-URN.stringify('a b', 'example');
-// InvalidError: NSS contains invalid character ' ' in 'a b'
-//   property: 'NSS', value: 'a b', invalidChar: ' '
-
-URN.stringify('1', 'x');
-// InvalidError: NID is invalid in 'x': must be at least 2 characters long
-//   property: 'NID', value: 'x', reason: 'must be at least 2 characters long'
 ```
 
-`parse` and `extractId` throw `ValidationError`; `stringify` throws
-`InvalidError`. Catching `ValidationError` covers both.
+### `URN.belongsToNamespace`
+
+`belongsToNamespace(urnString, nid, urn?)` returns `true` when the URN is in the
+named namespace. `urn` defaults to the calling class's own scheme. Malformed
+input returns `false`:
+
+```ts twoslash file=libs/urn/README.md region=belongs-to-namespace
+
+```
+
+### `URN.equals`
+
+`equals(a, b)` is RFC 8141 §3.1 equivalence. The scheme and the NID fold case.
+The NSS compares character for character, except that the hex digits of a
+percent-triplet fold to uppercase. A percent-encoded octet is never decoded, and
+the r-, q- and f-components are ignored. Malformed input returns `false`:
+
+```ts twoslash file=libs/urn/README.md region=equality
+
+```
+
+## `encodeNss`
+
+<!-- reference @evanion/urn#encodeNss example=nss-encoding -->
+
+`encodeNss(raw)` leaves `A-Z a-z 0-9 - . _ ~` alone and percent-encodes every
+other character, `:` included.
+
+## `decodeNss`
+
+<!-- reference @evanion/urn#decodeNss example=decode-nss -->
+
+`decodeNss(encoded)` reverses `encodeNss`. It throws `ValidationError` on a `%`
+that is not followed by two hex digits, and on triplets that do not decode as
+UTF-8.
+
+## `ValidationError`
+
+<!-- reference @evanion/urn#ValidationError example=error-handling -->
+
+`ValidationError` is the base class of every error `@evanion/urn` throws.
+`parse`, `extractId` and `decodeNss` throw it directly for input that is not a
+URN or not a valid encoding, so catching it covers `InvalidError` too.
+
+## `InvalidError`
+
+<!-- reference @evanion/urn#InvalidError example=invalid-error -->
+
+`InvalidError` extends `ValidationError`, and `stringify` and `parse` throw it
+for one part that is empty or breaks its grammar.
+
+| Property      | What it holds                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `property`    | the part: `'URN'` for the scheme, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'`, `'F-COMPONENT'` or `'COMPONENT'` |
+| `value`       | the value of that part                                                                                                 |
+| `invalidChar` | the first character outside the part's set, when one is at fault                                                       |
+| `reason`      | the structural rule broken when every character is allowed, such as a length bound                                     |
+
+`'COMPONENT'` is the property when a subclass whose separator contains `?` or
+`#` is asked to write a component.
+
+## `ParsedURN`
+
+<!-- reference @evanion/urn#ParsedURN example=components -->
+
+`ParsedURN` is what `parse` returns: `urn`, `nid` and `nss`, plus whichever
+components the URN carries.
+
+## `URNParts`
+
+<!-- reference @evanion/urn#URNParts example=parsed-types -->
+
+`URNParts` is what the object form of `stringify` takes. Only `nss` is
+required, and `urn` and `nid` fall back to the class's own. A `ParsedURN` is
+assignable to it.
+
+## `URNComponents`
+
+<!-- reference @evanion/urn#URNComponents example=components-type -->
+
+`URNComponents` holds `rComponent`, `qComponent` and `fComponent`, each
+optional. A key is absent when the URN carries no such component, and
+`fComponent` may be `''`. [r-, q- and f-components](/urn/components) covers the
+syntax.
+
+## `IFullURN`
+
+<!-- reference @evanion/urn#IFullURN example=full-urn-type -->
+
+`IFullURN<URN, NID, NSS>` is the template literal type
+`` `${URN}:${NID}:${NSS}` ``. `stringify` returns plain `string`, because a
+subclass may override the `:`.
