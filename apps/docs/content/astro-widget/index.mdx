@@ -1,78 +1,73 @@
 # @evanion/astro-widget
 
-Render CMS-driven Astro sections from structured widget data. Build-time only —
-no runtime, no hydration, nothing shipped to the browser.
+A CMS saves a Baize listing page as a list of items, and the Astro page has to
+render each item through the component its `type` names. `Widgets.astro` does
+that as Astro renders the page, and adds no script of its own.
 
-```astro no-run
----
-import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { registry } from '../registry';
-import page from '../data/page.json';
----
+## How astro-widget renders a list of items
 
-<Widgets items={page.sections} registry={registry} ctx={{ site: 'baize.example' }} />
+`Widgets.astro` takes two props. `items` is the list the CMS saved, and
+`registry` maps each item's `type` to an `.astro` component. For each item in
+order, `Widgets.astro` looks up its `type` and renders that component with the
+item's `props`. Below, two items from Baize, the board game shop these examples
+are set in, render through a registry that holds `ListingHeader.astro` and
+`PriceBox.astro`:
+
+```ts file=libs/astro-widget/README.md region=overview
+
 ```
 
-Where `page.json` is whatever your CMS writes:
+`AstroContainer` is Astro's container API, which renders a component outside a
+request, and `html` is the markup Astro wrote. The `listing-header` item became
+the `<header>` and the `price-box` item became the price, in the order the list
+gives them.
 
-```json
-{
-  "sections": [
-    {
-      "id": "header",
-      "type": "listing-header",
-      "props": { "title": "Brass: Birmingham" }
-    }
-  ]
-}
-```
+## The astro-widget vocabulary
 
-## Two entry points
+Every astro-widget page uses these five terms.
 
-```ts
-import { defineWidgets, validateItems } from '@evanion/astro-widget';
-import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-```
+- An **item** is one entry in the list the CMS saved: an `id`, a `type`, the
+  `props` its component takes, and optional `meta` and `children`. Its type is
+  `AnyWidgetItem`.
+- A **widget** is the `.astro` component an item renders through. It receives
+  the item's `props` as its own props.
+- The **registry** maps each `type` to its widget. `defineWidgets` builds one.
+- **`ctx`** is page-level data, such as the store's name, that `Widgets.astro`
+  passes to every widget as a prop.
+- The **chrome** is an optional component that wraps every widget. It reads the
+  item's `meta`, the placement data, and never the item's `props`.
 
-The registry helper, the validator and the types come from `@evanion/widget` and
-are re-exported here as compiled JavaScript. The component is not: an `.astro` module has to be compiled by Astro's own Vite
-plugin, which runs in your project rather than in this package's build, so
-`Widgets.astro` is published as source under `/components/`.
+The item shape, `defineWidgets` and `validateItems` come from `@evanion/widget`,
+which astro-widget pins and re-exports.
 
-## The Astro counterpart to `@evanion/react-widget`
+## What astro-widget can do
 
-The same item data, with the differences Astro forces. One array renders through
-either package and produces the same widgets in the same order.
+| You want to                                  | What astro-widget gives you                            |
+| -------------------------------------------- | ------------------------------------------------------ |
+| render a page from the items a CMS saved     | `Widgets.astro`, with `items` and `registry`           |
+| fail the build on an item nothing can render | `validateItems`, which returns one problem per fault   |
+| give every widget the same page-level data   | the `ctx` prop                                         |
+| wrap every widget in the same markup         | `chrome.item`, which reads each item's `meta`          |
+| render items nested inside an item           | a widget that renders its own `Widgets` over them      |
+| keep the registry's type names typed         | `defineWidgets`, which keeps the keys as literal types |
 
-|                     | react-widget                           | astro-widget                           |
-| ------------------- | -------------------------------------- | -------------------------------------- |
-| Page-level data     | `ctx` prop                             | `ctx` prop, same name                  |
-| Prop type inference | inferred from the component map        | none — see below                       |
-| Item shape          | `AnyWidgetItem`                        | `AnyWidgetItem`, the same type         |
-| Nested `children`   | rendered as the component's `children` | no recursion; a widget renders its own |
-| Region chrome       | `chrome.wrapper`                       | none                                   |
+`Widgets.astro` skips an item whose `type` the registry does not hold and warns
+in development, so one stale type leaves a gap in the page and the rest of the
+page renders. `validateItems` reports that item before the build, so a script
+can fail the build on it.
 
-An `.astro` module's default export is an `AstroComponentFactory`, which carries
-no prop types at all — the props of a `.astro` file live in its frontmatter
-`Props` interface and are not reachable from the factory's type. So there is
-nothing to infer a widget's props from, the way react-widget infers them from a
-`ComponentType`. [`validateItems`](/astro-widget/validation) covers that ground
-at build time instead, and it is the only check a widget's props get.
+## When astro-widget is the wrong tool
 
-Neither package has a provider. react-widget cannot have one, because React's
-`react-server` condition has no `createContext`; this one has nothing to provide
-one for, because an Astro component runs once, top down, with no render-time
-context to read from.
+- A page that has to change after it loads. `Widgets.astro` renders once, when
+  Astro renders the page. `@evanion/react-widget` renders the same items in
+  React, including in an island.
+- A check on a widget's props at compile time. An `.astro` module's type
+  carries no props, so there is nothing to check against. `validateItems` checks
+  `required` props when the build runs, and `@evanion/react-widget` infers props
+  from its components.
+- A page no editor rearranges. Write the components into the page directly.
 
-## Pages
+## Now that you know how astro-widget renders, set it up
 
-- [Getting started](/astro-widget/getting-started) — installing, the registry, the data shape, chrome
-- [Validation](/astro-widget/validation) — catching a bad CMS save at build time
-- [API reference](/astro-widget/api)
-
-## Where to start with astro-widget
-
-The registry is what maps an item's `type` to an `.astro` component, and
-`@evanion/astro-widget` reads nothing else to decide what a section renders.
-[Getting started](/astro-widget/getting-started) installs the package and builds
-that registry.
+[Getting started](/astro-widget/getting-started) installs astro-widget, writes
+one widget and a registry, and renders a Baize listing page from two items.
