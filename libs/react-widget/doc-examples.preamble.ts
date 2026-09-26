@@ -1,4 +1,9 @@
 import * as React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 
-import { createWidgets } from '@evanion/react-widget';
+import {
+  createWidgets,
+  DefaultItem,
+  DefaultWrapper,
+  defineWidgets,
+} from '@evanion/react-widget';
