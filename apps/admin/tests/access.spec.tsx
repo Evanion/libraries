@@ -143,7 +143,7 @@ const manager: AdminSubject = {
 };
 
 const STOCKHOLM_URN = 'urn:game:wingspan';
-const GOTHENBURG_URN = 'urn:game:azul';
+const GOTHENBURG_URN = 'urn:game:gloomhaven';
 
 const catalogue: Game[] = [
   {
@@ -157,11 +157,11 @@ const catalogue: Game[] = [
   },
   {
     urn: GOTHENBURG_URN,
-    title: 'Azul',
-    mechanisms: ['tile laying'],
-    players: '2-4',
-    playtime: '30-45 min',
-    complexity: 1.8,
+    title: 'Gloomhaven',
+    mechanisms: ['co-op', 'legacy', 'tactical combat'],
+    players: '1-4',
+    playtime: '60-120 min',
+    complexity: 3.9,
     shop: 'gothenburg',
   },
 ];
