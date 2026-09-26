@@ -53,8 +53,8 @@ export class AclGuard implements CanActivate {
     const decision = this.access.can(subject, required.key, required.action);
     if (decision.allowed) return true;
 
-    // `unevaluable` means the rules read fields of a row this seat does not
-    // hold. The service decides it after the read, so the request continues.
+    // A permission whose rules read `object.*` is decided by the service on the
+    // row it loads, whatever `can` answered here without one.
     if (this.access.readsObject(required.key, required.action)) return true;
 
     throw new ForbiddenException(decision.reason);
