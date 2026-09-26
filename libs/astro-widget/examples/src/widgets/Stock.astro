@@ -1,0 +1,12 @@
+---
+// #region stock
+interface Props {
+  copies: number;
+  ctx: { store: string };
+}
+
+const { copies, ctx } = Astro.props;
+---
+
+<p>{copies} copies in {ctx.store}</p>
+{/* #endregion stock */}
