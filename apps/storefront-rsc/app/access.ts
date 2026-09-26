@@ -58,19 +58,15 @@ let adopted:
 /**
  * The evaluator over `document`, parsed only when the version moved.
  *
- * `parseMatrix` and not `hydratePolicy`: this document crossed the wire from
- * another service, so it is adopted in the fail-closed mode, where a key the
- * contract does not carry decides `unknown-action` and refuses rather than
- * throwing mid-render. `inventory.read` is such a key. shop-api keeps it
- * internal, and no widget here asks about it.
+ * `parseMatrix` and not `hydratePolicy`: a key the document does not carry,
+ * such as the internal `inventory.read`, refuses with `unknown-action` where
+ * `hydratePolicy` would throw mid-render.
  *
- * The assertion names the subject and the rows this app passes. `parseMatrix`
- * is the foreign path and returns the erased instantiation: a document read at
- * runtime carries no TypeScript view of the shapes its owner wrote it over, and
- * the erased and the named instantiation share no overlap TypeScript can check,
- * which is what the hop through `unknown` says. What holds the two in step is
- * the document's own `schema`, which shop-api publishes and `parseMatrix`
- * checks every condition against.
+ * The cast states this app's subject and row types. `parseMatrix` reads the
+ * document at runtime, so it returns an `Access` over plain records, and
+ * TypeScript cannot check that against `ShopAccess`. The document's `schema`,
+ * which `parseMatrix` checks every condition against, is what keeps shop-api's
+ * rows and these types in step.
  */
 function adopt(document: PolicyDocument): ShopAccess {
   if (adopted && adopted.version === document.version) return adopted.access;
