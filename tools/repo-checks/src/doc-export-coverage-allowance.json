@@ -120,8 +120,7 @@
       "WidgetsProps",
       "WidgetsWrapperComponent",
       "defineWidgets"
-    ],
-    "unexercised": ["validateItems"]
+    ]
   },
   "@evanion/urn": {
     "undocumented": [
