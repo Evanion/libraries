@@ -902,6 +902,46 @@ fields, in different databases. The canonical key is unchanged:
 character. `.` is the key delimiter and is refused inside `object` and `action`
 at construction, which is what makes `:` safe as the namespace separator.
 
+<!-- #region namespaced-kind -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Seller = { id: string; shop: string };
+type Listing = { id: string; shop: string };
+
+const storefront = policy<Seller, { 'storefront:listing': Listing }>()
+  .for('storefront:listing', (p) =>
+    p.allow('read', p.eq('object.shop', 'subject.shop')),
+  )
+  .build();
+
+const ines = { id: 'staff:ines', shop: 'stockholm' };
+const listing = { id: 'wingspan', shop: 'stockholm' };
+
+storefront.matrix.permissions[0]?.key; // -> 'storefront:listing.read'
+storefront.can(ines, 'storefront:listing', 'read', listing).allowed; // -> true
+
+/** The error a call raises, by name, or `undefined` when it raises none. */
+function raised(run: () => unknown): string | undefined {
+  try {
+    run();
+  } catch (error) {
+    return (error as Error).name;
+  }
+  return undefined;
+}
+
+const dotted = () =>
+  policy<Seller, { 'storefront.listing': Listing }>()
+    .for('storefront.listing', (p) => p.allow('read', p.always))
+    .build();
+
+raised(dotted); // -> 'InvalidPermissionError'
+```
+
+<!-- #endregion namespaced-kind -->
+
 A gateway or a BFF holds one `Access` per origin and merges no document.
 `federatedPolicies` composes them: it refuses at construction when two origins
 claim one permission key, routes each question to the one origin holding that
@@ -963,6 +1003,12 @@ view['storefront:listing.read']?.allowed; // -> false
 // The origin holding the key answers it. A key nobody holds reaches no origin.
 fleet.can(subject, 'stock:listing', 'read').allowed; // -> true
 fleet.can(subject, 'shipping:parcel', 'read').reason; // -> 'unknown-action'
+
+// One permission never gates another. A request touching both origins asks
+// both, and the caller writes the AND.
+const shelf = fleet.can(subject, 'storefront:listing', 'read').allowed;
+const stock = fleet.can(subject, 'stock:listing', 'read').allowed;
+shelf && stock; // -> false
 
 // The member itself, with `canMany`, `canFields`, `readsObject` and `authorize`
 // on it, plus the document that origin published.
@@ -1603,6 +1649,264 @@ True when any allow rule or any deny rule of this permission names an
 `object.*` path, on either operand. It takes no subject: the answer is a fact
 about the matrix. Field rules do not count, since a `transitions` config reads the object
 only on the `canFields` write axis, where the caller holds the row already.
+
+### In an Express app
+
+The package ships no Express adapter. A middleware binds `authorize` to
+`res.locals`, and each handler decides on the row it loaded. The order the
+middlewares are mounted in is what puts every route behind the binding:
+
+<!-- #region express-app -->
+
+```ts @import.meta.vitest
+import { once } from 'node:events';
+import type { AddressInfo } from 'node:net';
+
+import express from 'express';
+import { pickAllowedFields, policy, type Action } from '@evanion/acl';
+
+type ShopSubject = { id: string; roles: string[]; shop: string };
+type Game = { urn: string; shop: string; availability: string; price: number };
+
+// Built once, at module scope, and evaluated for every request.
+const access = policy<
+  ShopSubject,
+  { game: Game },
+  { game: Action | 'declare' }
+>()
+  .for('game', (p) =>
+    p
+      .allow(
+        'declare',
+        p.contains('subject.roles', 'operator'),
+        p.eq('object.shop', 'subject.shop'),
+      )
+      .fields({ fields: ['availability'] }),
+  )
+  .build();
+
+declare module 'express-serve-static-core' {
+  interface Locals {
+    user: ShopSubject;
+    access: ReturnType<typeof access.authorize>;
+  }
+}
+
+// Your session layer: Passport, a JWT check, a cookie store. Here, a token the
+// server issued at sign-in.
+const sessions = new Map([
+  [
+    'session-ines',
+    { id: 'staff:ines', roles: ['operator'], shop: 'stockholm' },
+  ],
+]);
+
+const requireSession: express.RequestHandler = (req, res, next) => {
+  const user = sessions.get(req.get('authorization') ?? '');
+  if (!user) return res.sendStatus(401);
+  res.locals.user = user;
+  next();
+};
+
+// The subject is what requireSession verified. The clock is pinned once, so
+// every rule in this request reads the same instant.
+const bindAccess: express.RequestHandler = (_req, res, next) => {
+  res.locals.access = access.authorize(res.locals.user, { now: new Date() });
+  next();
+};
+
+const catalogue = new Map<string, Game>([
+  [
+    'urn:game:wingspan',
+    {
+      urn: 'urn:game:wingspan',
+      shop: 'stockholm',
+      availability: 'in-stock',
+      price: 59900,
+    },
+  ],
+  [
+    'urn:game:gloomhaven',
+    {
+      urn: 'urn:game:gloomhaven',
+      shop: 'gothenburg',
+      availability: 'in-stock',
+      price: 149900,
+    },
+  ],
+]);
+
+const games = express.Router();
+
+games.patch('/:urn', (req, res) => {
+  const game = catalogue.get(req.params.urn);
+  if (!game) return res.sendStatus(404);
+
+  // Every key of the body is decided, including keys a game never holds.
+  const decision = res.locals.access.canFields(
+    'game',
+    'declare',
+    game,
+    'write',
+    req.body,
+  );
+  if (!decision.action.allowed) return res.sendStatus(403);
+
+  const writable = pickAllowedFields(decision, req.body);
+  if (Object.keys(writable).length === 0) return res.sendStatus(400);
+
+  catalogue.set(game.urn, { ...game, ...writable });
+  return res.sendStatus(204);
+});
+
+// Mounted in this order, every route under `api` runs behind both.
+const api = express.Router();
+api.use(requireSession);
+api.use(bindAccess);
+api.use('/games', games);
+
+const server = express().use(express.json()).use('/api', api).listen(0);
+await once(server, 'listening');
+const { port } = server.address() as AddressInfo;
+
+const declare = (urn: string, body: Partial<Game>) =>
+  fetch(`http://localhost:${port}/api/games/${urn}`, {
+    method: 'PATCH',
+    headers: {
+      authorization: 'session-ines',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+const own = await declare('urn:game:wingspan', {
+  availability: 'preorder',
+  price: 1,
+});
+own.status; // -> 204
+catalogue.get('urn:game:wingspan')?.availability; // -> 'preorder'
+catalogue.get('urn:game:wingspan')?.price; // -> 59900
+
+const other = await declare('urn:game:gloomhaven', {
+  availability: 'preorder',
+});
+other.status; // -> 403
+
+server.close();
+```
+
+<!-- #endregion express-app -->
+
+### In a Server Action
+
+A Server Action is an async function a caller can post to directly, and the
+render that drew its form never ran for that caller. The action resolves the
+subject and reads the row again, and decides on both:
+
+<!-- #region server-action -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy, type Action } from '@evanion/acl';
+
+type ShopSubject = { id: string; roles: string[]; shop: string };
+type Game = { urn: string; shop: string; availability: string; price: number };
+
+const access = policy<
+  ShopSubject,
+  { game: Game },
+  { game: Action | 'declare' }
+>()
+  .for('game', (p) =>
+    p
+      .allow(
+        'declare',
+        p.contains('subject.roles', 'operator'),
+        p.eq('object.shop', 'subject.shop'),
+      )
+      .fields({ fields: ['availability'] }),
+  )
+  .build();
+
+const catalogue = new Map<string, Game>([
+  [
+    'urn:game:wingspan',
+    {
+      urn: 'urn:game:wingspan',
+      shop: 'stockholm',
+      availability: 'in-stock',
+      price: 59900,
+    },
+  ],
+  [
+    'urn:game:gloomhaven',
+    {
+      urn: 'urn:game:gloomhaven',
+      shop: 'gothenburg',
+      availability: 'in-stock',
+      price: 149900,
+    },
+  ],
+]);
+
+// Stands in for reading the verified session, which Next.js reaches through
+// `cookies()`.
+const currentSubject = async (): Promise<ShopSubject> => ({
+  id: 'staff:ines',
+  roles: ['operator'],
+  shop: 'stockholm',
+});
+
+async function declareAvailability(form: FormData): Promise<void> {
+  'use server';
+
+  const subject = await currentSubject();
+  const game = catalogue.get(String(form.get('urn')));
+  if (!game) throw new Error('not-found');
+
+  // Whatever the sender put a name on arrives here, `urn` and `price` too.
+  const proposed = Object.fromEntries(form) as Partial<Game>;
+  const decision = access.canFields(
+    subject,
+    'game',
+    'declare',
+    game,
+    'write',
+    proposed,
+  );
+  if (!decision.action.allowed) throw new Error('forbidden');
+
+  catalogue.set(game.urn, {
+    ...game,
+    ...pickAllowedFields(decision, proposed),
+  });
+}
+
+// Two submissions straight to the action, with no render before either.
+const submit = (fields: Record<string, string>) => {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(fields)) form.set(name, value);
+  return declareAvailability(form).then(
+    () => 'written',
+    (error: Error) => error.message,
+  );
+};
+
+const own = await submit({
+  urn: 'urn:game:wingspan',
+  availability: 'preorder',
+  price: '1',
+});
+own; // -> 'written'
+catalogue.get('urn:game:wingspan')?.price; // -> 59900
+
+const other = await submit({
+  urn: 'urn:game:gloomhaven',
+  availability: 'preorder',
+});
+other; // -> 'forbidden'
+```
+
+<!-- #endregion server-action -->
 
 ## What a deploy changed
 
