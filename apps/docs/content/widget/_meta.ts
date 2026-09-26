@@ -1,13 +1,13 @@
 import type { MetaRecord } from 'nextra';
 
 /**
- * The order a reader meets `@evanion/widget` in: what the core is and who has a
- * reason to open it, one payload written and checked end to end, the report
- * `validateItems` hands back, then the surface.
+ * The order a reader meets `@evanion/widget` in: the item model, one payload
+ * installed, written and checked, the whole report `validateItems` hands back,
+ * then the surface.
  *
  * Four pages and no separator. A band groups the pages a reader enters
  * sideways, and below five pages there is nothing to enter sideways from: the
- * teaching order is the whole order, and the two lookup pages sit off the end
+ * teaching order is the whole order, and the API reference sits off the end
  * of it.
  *
  * The demonstration role sits on `getting-started` rather than on a page of its
@@ -15,10 +15,10 @@ import type { MetaRecord } from 'nextra';
  * There is one worked payload to show, and a page of its own would put the
  * practice a click away from the item shape it practises.
  *
- * `problems` is the message catalogue, and it is reference by the arrival test:
- * a reader opens it holding a line their build printed. It comes before the API
- * reference because that is the lookup a reader reaches for first, and after
- * the teaching because nothing on it is a step.
+ * `problems` is the deep-dive on the check: every problem one call reports,
+ * the `required` map, the registry lookup, and the warning a renderer prints
+ * when nobody ran the check. Its tables also serve a reader who arrives holding
+ * a line their build printed, so each section stands alone.
  *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages

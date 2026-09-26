@@ -2,9 +2,9 @@
 
 Everything `@evanion/widget` exports, one heading per symbol. Nothing here
 assumes you have read the pages before it;
-[Getting started](/widget/getting-started) teaches the item shape and
-[What it reports](/widget/problems) carries the message catalogue, and this
-page links to them rather than teaching either again.
+[the Overview](/widget#how-a-widget-item-array-describes-a-page) teaches the
+item shape and [What it reports](/widget/problems) carries the message
+catalogue, and this page links to them rather than teaching either again.
 
 Both renderers re-export every symbol on this page except `warnOnce` and
 `resetWarnings`, and each pins `@evanion/widget` exactly, so the names below
@@ -75,9 +75,9 @@ then hydrates. Every string in `ERROR_MESSAGES` carries the offending item's
 reported once, and a second bad item is still reported.
 
 This is the seam between the core and a renderer. A consumer has no reason to
-call it, neither renderer re-exports it, and no example on this page runs it,
-because an example that proved the second call stayed quiet would be a test
-rather than something to copy.
+call it, and neither renderer re-exports it.
+[What a widget renderer prints](/widget/problems#what-a-widget-renderer-prints-when-validateitems-never-ran)
+runs a minimal renderer that calls it.
 
 ## `resetWarnings`
 
@@ -88,10 +88,10 @@ function resetWarnings(): void;
 Clears the set of messages `warnOnce` has already written. A set that lives as
 long as the process is what a dev server wants and what a test file cannot
 have, since one case's warning would silence the next case that produces the
-same message. Each renderer's test setup calls this before every test. It
-carries no example for the reason `warnOnce` carries none: what an example
-would show is a second call staying quiet, and that is an assertion rather than
-a line to copy.
+same message. Each renderer's test setup calls this before every test, and the
+renderer on
+[What it reports](/widget/problems#what-a-widget-renderer-prints-when-validateitems-never-ran)
+calls it before its first render.
 
 ## `ERROR_MESSAGES`
 
