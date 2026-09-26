@@ -399,15 +399,31 @@ const payload = JSON.parse(
   JSON.stringify(access.matrix),
 ) as typeof access.matrix;
 hydratePolicy(payload).version; // -> 'orders@7'
+```
 
-// The construction site states what it is actually running. The option wins,
-// and the frozen `matrix` carries the winner.
-const vetoed = hydratePolicy(payload, { version: 'orders@7+veto@41' });
+<!-- #endregion matrix-round-trip -->
+
+A construction site that changed the document states the version it runs:
+
+<!-- #region version-override -->
+
+```ts @import.meta.vitest
+import { hydratePolicy } from '@evanion/acl';
+
+const shipped = hydratePolicy({
+  version: 'orders@7',
+  permissions: [
+    { key: 'question.read', object: 'question', action: 'read', rules: [] },
+  ],
+}).matrix;
+
+// The option wins, and the frozen `matrix` carries the winner.
+const vetoed = hydratePolicy(shipped, { version: 'orders@7+veto@41' });
 vetoed.version; // -> 'orders@7+veto@41'
 vetoed.matrix.version; // -> 'orders@7+veto@41'
 ```
 
-<!-- #endregion matrix-round-trip -->
+<!-- #endregion version-override -->
 
 `version` is a string or a number. The revalidate contract compares it with
 `!==`, so a content digest or a composite (`orders@7+veto@41`) works where a
@@ -788,7 +804,6 @@ const fd = access.canFields(
   'read',
 );
 fd.fields['status']; // -> 'denied'
-fd.action.allowed; // -> true
 ```
 
 <!-- #endregion field-permissions -->

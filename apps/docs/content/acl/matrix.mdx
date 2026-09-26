@@ -94,7 +94,11 @@ Comparison is strict on both sides of a JSON boundary:
 ```
 
 `hydratePolicy(matrix, { version })` overrides the document's value, and the
-frozen `access.matrix` carries the winner.
+frozen `access.matrix` carries the winner:
+
+```ts twoslash file=libs/acl/README.md region=version-override
+
+```
 
 A document that states no version leaves `access.version` undefined, and a `!==`
 against undefined decides nothing.
