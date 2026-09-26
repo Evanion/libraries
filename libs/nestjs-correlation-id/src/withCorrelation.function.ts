@@ -21,7 +21,8 @@ const AXIOS_INSTANCE_TOKEN = 'AXIOS_INSTANCE_TOKEN';
  *
  * Requires `CorrelationModule.forRoot()` somewhere in the application. It is a
  * global module, so importing it once in the root module is enough; without it
- * Nest fails with `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS`.
+ * Nest fails with `Nest can't resolve dependencies of the
+ * @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR`, the provider below.
  *
  * The id is read by an axios request interceptor at the moment the request is
  * made, not baked into the options object at factory time: that keeps

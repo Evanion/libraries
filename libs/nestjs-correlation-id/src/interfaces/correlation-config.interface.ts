@@ -14,11 +14,13 @@ export interface CorrelationConfig {
   generator: () => string;
   /**
    * Decides whether an incoming id is used as-is or replaced by a generated
-   * one. An id that passes is echoed back in a response header and reaches the
-   * application's logs, so a validator that accepts CR or LF accepts response
-   * splitting and log forging.
+   * one. An id that passes reaches the application's logs. Node rejects CR and
+   * LF in HTTP headers, so a validator that accepts them lets an id from another
+   * source, such as a queue message, forge a log line.
    *
-   * Defaults to `DEFAULT_CORRELATION_ID_VALIDATOR`.
+   * Optional because `CorrelationIdMiddleware` falls back to
+   * `DEFAULT_CORRELATION_ID_VALIDATOR` for a hand-built configuration without
+   * one. `forRoot()` always sets it.
    */
   validate?: (value: string) => boolean;
 }

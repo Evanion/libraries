@@ -34,7 +34,8 @@ export class CorrelationModule {
    * provider that reads an id all resolve `CORRELATION_CONFIG_TOKEN` from the
    * root injector: without it each consuming module would have to import this
    * one, and `HttpModule.registerAsync(withCorrelation())` fails with
-   * `Nest can't resolve dependencies of the HTTP_MODULE_OPTIONS`.
+   * `Nest can't resolve dependencies of the
+   * @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR`.
    *
    * Call it once. A second `forRoot()` registers a second configuration
    * provider under the same token, and the last import wins.

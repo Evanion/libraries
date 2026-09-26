@@ -269,3 +269,19 @@ describe('correlation id end to end', () => {
     expect(Downstream.initialised).toBe(1);
   });
 });
+
+describe('withCorrelation without CorrelationModule.forRoot', () => {
+  it('fails at boot naming the interceptor provider, the message the pages quote', async () => {
+    const boot = NestFactory.createApplicationContext(
+      {
+        module: class OrdersModule {},
+        imports: [HttpModule.registerAsync(withCorrelation())],
+      },
+      { logger: false, abortOnError: false },
+    );
+
+    await expect(boot).rejects.toThrow(
+      "Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)",
+    );
+  });
+});

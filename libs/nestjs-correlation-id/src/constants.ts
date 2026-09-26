@@ -4,9 +4,9 @@
  *
  * No correlation header is registered with IANA, so there is no canonical
  * spelling to defer to; `X-Correlation-Id` and `X-Request-Id` are the two in
- * common use. The casing here is what goes out on the wire: Node lowercases
- * incoming header names, so the configured casing only ever affects the
- * response.
+ * common use. The casing here is what goes out on the wire, on the response and
+ * on calls through `withCorrelation()`. Node lowercases incoming header names,
+ * so the casing has no effect on reading the request.
  */
 export const CORRELATION_ID_HEADER = 'X-Correlation-Id';
 
@@ -32,14 +32,15 @@ export const CORRELATION_AXIOS_INTERCEPTOR =
 
 /**
  * Accepts an incoming id of 1 to 128 word characters, dots, colons and hyphens,
- * and rejects everything else — in particular CR and LF.
+ * and rejects everything else, CR and LF included.
  *
- * An id that passes is echoed into the response header and carried into
- * whatever the application logs, so it is attacker-controlled text in two sinks
- * that are line-oriented. Restricting it to an RFC 9110 token subset is what
- * keeps a header value from splitting a response or forging a log line, and the
- * 128-character cap bounds what a single request can append to every log line
- * it touches. A UUID, the shape `forRoot()` generates by default, is 36.
+ * An id that passes is carried into whatever the application logs. Node's HTTP
+ * parser answers a CR or LF in a request header with 400, and `setHeader`
+ * throws `ERR_INVALID_CHAR` on one, so over HTTP neither reaches this check.
+ * The CR and LF refusal covers an id from another source, such as a queue
+ * message, where either one would forge a log line. The 128-character cap
+ * bounds what a single request can append to every log line it touches. A
+ * UUID, the shape `forRoot()` generates by default, is 36.
  *
  * @example
  * ```ts
