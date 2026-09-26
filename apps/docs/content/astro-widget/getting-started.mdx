@@ -1,18 +1,17 @@
 # Getting started
 
-By the end of this page an Astro page renders a section list a CMS wrote, with
-no runtime and nothing hydrated in the browser.
+By the end of this page `Widgets.astro` renders a Baize listing page from two
+items a CMS saved, and you have read the HTML Astro wrote for it.
 
-## Prerequisites
+## Before you install astro-widget
 
-- Astro `^7.3.1`, as a peer dependency. The package declares no other peer.
-- Node 20 or newer.
-- ESM. There is no `require` condition and no CommonJS artifact.
-- A project whose Astro config compiles `.astro` modules from `node_modules`.
-  `Widgets.astro` is published as source, because Astro's own Vite plugin has to
-  compile it.
+- Astro `^7.3.4`, the package's only peer dependency.
+- Node 20 or newer and an ESM project, since `@evanion/astro-widget` has no
+  CommonJS build.
 
-## Install
+## Install astro-widget
+
+Pick the line for your package manager.
 
 ```bash
 npm install @evanion/astro-widget
@@ -26,180 +25,74 @@ yarn add @evanion/astro-widget
 pnpm add @evanion/astro-widget
 ```
 
-## The registry
+`@evanion/widget` installs with it. `defineWidgets`, `validateItems` and the
+item types come from that package, and you import them from
+`@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and
+Astro compiles it from `node_modules` with no configuration.
 
-```ts
-// src/registry.ts
-import { defineWidgets } from '@evanion/astro-widget';
-import ListingHeader from './widgets/ListingHeader.astro';
-import GameGrid from './widgets/GameGrid.astro';
+## Write an astro-widget widget
 
-export const registry = defineWidgets({
-  'listing-header': ListingHeader,
-  'game-grid': GameGrid,
-});
-```
+A widget is an ordinary `.astro` component. Save this one as
+`src/widgets/ListingHeader.astro`. It renders the `title` and `players` props a
+`listing-header` item carries:
 
-`defineWidgets` comes from `@evanion/widget` and returns the object unchanged;
-[the core's entry](/widget/api#definewidgets) is where it is written down. That declaration is what gives an editor the key union it completes on.
-
-Only the keys are read, so the helper is shown here over stand-ins for the two
-`.astro` modules. It returns the object it was handed, and the second call checks
-an empty payload against those keys, which is
-[Validation](/astro-widget/validation)'s subject:
-
-```ts twoslash file=libs/astro-widget/README.md region=registry
+```astro file=libs/astro-widget/examples/src/widgets/ListingHeader.astro region=listing-header
 
 ```
 
-## Rendering
+`src/widgets/PriceBox.astro` renders the one `price` prop a `price-box` item
+carries:
 
-Every `.astro` block on this page carries a mark saying nothing executed it.
-Astro's own compiler is what turns an `.astro` module into a component, it runs
-against a project rather than against this package's build, and no browser has a
-runtime for one. The half of this package that is plain TypeScript — the registry,
-the item shape, the validator — runs under `nx test @evanion/astro-widget`, and
-the executed fences on this page come out of those runs.
+```astro file=libs/astro-widget/examples/src/widgets/PriceBox.astro region=price-box
 
-```astro no-run
----
-import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { registry } from '../registry';
-import page from '../data/page.json';
----
-
-<Widgets items={page.sections} registry={registry} />
 ```
 
-| Prop       | Meaning                                                 |
-| ---------- | ------------------------------------------------------- |
-| `items`    | the widgets to render                                   |
-| `registry` | widget type to component                                |
-| `ctx`      | page-level data, passed to every widget as a `ctx` prop |
-| `chrome`   | `{ item }` — a component rendered around every widget   |
+## Register the widgets in an astro-widget registry
 
-An `items` that is not an array renders nothing rather than throwing.
+The registry maps each item's `type` to the widget that renders it.
+`defineWidgets` returns the object it is handed, with the keys kept as literal
+types, so an editor completes the type names. Save the registry as
+`src/registry.ts`:
 
-## The data shape
+```ts file=libs/astro-widget/examples/src/registry.ts region=registry
 
-An item is `id`, `type`, `props`, and optional `meta` and `children`.
-[The widget core's Overview](/widget#how-a-widget-item-array-describes-a-page)
-teaches the item's fields and
-[the core's reference](/widget/api#anywidgetitem) carries the interface. The
-same item an `@evanion/react-widget` consumer writes, which is what makes one
-payload render through both.
-
-What this renderer does with it: a CMS that writes
-
-```json
-{
-  "id": "header",
-  "type": "listing-header",
-  "props": { "title": "Brass: Birmingham", "mechanism": "Economic" }
-}
 ```
 
-renders `<ListingHeader title="Brass: Birmingham" mechanism="Economic" id="header" ctx={ctx} />`.
+## Save the items astro-widget renders
 
-`props` is spread. `id` reaches the widget as well as the chrome, because a
-widget often wants it as an anchor target. `meta` does not: where a widget sits
-is not something the widget should know.
+The CMS writes the listing page as a list of items, and each item's `props` are
+the props its widget takes. Save the list as `src/data/brass-birmingham.ts`. In
+your site the CMS writes the same list as JSON, and the page imports that file:
 
-## `ctx`
+```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 
-```astro no-run
-<Widgets items={sections} registry={registry} ctx={{ site: Astro.site, locale }} />
 ```
 
-Every widget receives `ctx` as a prop. A prop rather than a provider: an Astro
-component runs once, top down, and has no render-time context to read from.
+## Render the items with astro-widget
 
-This is the counterpart to `@evanion/react-widget`'s `ctx`, under the same name,
-so a widget ported between the two reads the same field.
+`Widgets.astro` takes the items and the registry, and renders each item through
+its widget, in order. Save the page as `src/pages/brass-birmingham.astro`:
 
-## Chrome
+```astro file=libs/astro-widget/examples/src/pages/brass-birmingham.astro region=page
 
-Wrap every widget without each widget reimplementing section markup:
-
-```astro no-run
-<Widgets items={items} registry={registry} chrome={{ item: Section }} />
 ```
 
-`Section` receives the item's `type`, `id` and `meta` — never its `props`, which
-are the widget's own business — and it must render `<slot />`:
+## See the HTML astro-widget rendered
 
-```astro no-run
----
-// Section.astro
-interface Props {
-  type: string;
-  id: string;
-  meta?: { background?: string };
-}
+`AstroContainer`, Astro's container API, renders `brass-birmingham.astro`
+outside a request and returns the markup the page renders:
 
-const { type, id, meta } = Astro.props;
----
+```ts file=libs/astro-widget/README.md region=first-render
 
-<section
-  id={id}
-  data-widget-type={type}
-  class:list={['widget', meta?.background && `bg-${meta.background}`]}
->
-  <slot />
-</section>
 ```
 
-An Astro component that does not render its slot discards the content passed to
-it, so a chrome missing `<slot />` makes every widget vanish from the page — with
-nothing thrown and nothing logged. That is the first thing to check when a page
-comes out empty.
+The header and the price render inside `<main>` in the order the items list
+them, and `Widgets.astro` added no element of its own. Run `astro dev` and open
+`/brass-birmingham` to see the header and the price in a browser.
 
-`meta` is the placement channel: grid column, background, CMS edit affordances.
-It is handed to the chrome and never spread into the widget.
+## Now that astro-widget renders the page, check the items first
 
-There is no region wrapper. The container is whatever element you put
-`<Widgets>` inside, and one the library supplied would be markup you did not ask
-for. `@evanion/react-widget` has a `chrome.wrapper` because a React region has
-to return one element; an Astro fragment does not.
-
-## Nesting
-
-The renderer does not recurse. `children` on an item is forwarded to its widget
-as ordinary prop data, nothing more — Astro projects child content through
-`<slot />`, never through a `children` prop, so there is nothing for a renderer
-to pass nested items into.
-
-A widget that wants nested sections renders them itself:
-
-```astro no-run
----
-// GameGrid.astro
-import Widgets from '@evanion/astro-widget/components/Widgets.astro';
-import { registry } from '../registry';
-
-const { children = [], title } = Astro.props;
----
-
-<section>
-  <h2>{title}</h2>
-  <Widgets items={children} registry={registry} />
-</section>
-```
-
-The registry has to be imported again, because the nested `<Widgets>` is a fresh
-call with its own props. Importing it from one module — as
-`src/registry.ts` above — keeps that from becoming a second registry that drifts.
-
-## Unknown types are skipped
-
-An item whose `type` is not a key of the registry renders nothing and draws a
-dev-only `console.warn` naming the type and the id. Nothing throws: a gap in
-build-time validation must not take a page down mid-render.
-
-Run [`validateItems`](/astro-widget/validation) at build time, or a bad CMS save
-is a missing section with only a line in a log to say so.
-
-Registry lookup uses `Object.prototype.hasOwnProperty`, so an item typed
-`constructor`, `toString` or `__proto__` is skipped like any other unknown type
-rather than resolving to a function off `Object.prototype` and reaching Astro as
-a component. Items are CMS data, so any string is reachable.
+`Widgets.astro` skips an item whose `type` the registry does not hold, so a CMS
+save with a stale type publishes a page with a gap in it.
+[Validation](/astro-widget/validation) runs `validateItems` over the items and
+fails the build on that save.
