@@ -99,15 +99,6 @@
     "unexercised": ["EmptyInputError", "InvalidDictionaryError", "LuhnError"],
     "unexplained": ["LuhnOptions"]
   },
-  "@evanion/nestjs-correlation-id": {
-    "undocumented": [
-      "CORRELATION_AXIOS_INTERCEPTOR",
-      "CORRELATION_CONFIG_TOKEN",
-      "CORRELATION_ID_HEADER",
-      "DEFAULT_CORRELATION_ID_VALIDATOR"
-    ],
-    "unexercised": ["DEFAULT_CORRELATION_ID_VALIDATOR"]
-  },
   "@evanion/react-widget": {
     "undocumented": [
       "AnyWidgetComponent",
