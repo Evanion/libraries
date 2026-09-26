@@ -56,10 +56,38 @@ export class AppModule implements NestModule {
 [`AsyncLocalStorage`](https://nodejs.org/api/async_context.html) context for the
 request. Everything downstream of it — guards, interceptors, controllers, and
 anything they await — sees that request's id, and concurrent requests stay
-isolated.
+isolated. Two handlers awaiting at the same time each read their own:
 
-Nest builds those two objects for you. Built by hand over one request, this is
-what the handler reads and what it reads outside the context:
+<!-- #region concurrent -->
+
+```ts @import.meta.vitest
+import { CorrelationService } from '@evanion/nestjs-correlation-id';
+
+const correlation = new CorrelationService({
+  header: 'X-Correlation-Id',
+  generator: () => 'orders-0f3a2b',
+});
+
+// A handler that awaits before it reads the id, as a database call would.
+const handler = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  return correlation.getCorrelationId();
+};
+
+const [first, second] = await Promise.all([
+  correlation.run('storefront-4f1c9a', handler),
+  correlation.run('storefront-9d2e71', handler),
+]);
+
+first; // -> 'storefront-4f1c9a'
+second; // -> 'storefront-9d2e71'
+correlation.getCorrelationId(); // -> undefined
+```
+
+<!-- #endregion concurrent -->
+
+Nest builds the service and the middleware for you. Built by hand over one
+request, this is what the handler reads and what it reads outside the context:
 
 <!-- #region one-request -->
 
@@ -98,15 +126,67 @@ import { withCorrelation } from '@evanion/nestjs-correlation-id';
 
 @Module({
   imports: [HttpModule.registerAsync(withCorrelation())],
-  controllers: [UsersController],
-  providers: [UsersService],
+  providers: [StockClient],
 })
-export class UsersModule {}
+export class StockModule {}
 ```
 
-Use `HttpService` as usual in `UsersService` and `UsersController`. It stays a
-singleton: the correlation header is attached by an axios request interceptor
-that reads the current context when the request is made.
+Use `HttpService` as usual in `StockClient`. It stays a singleton: the
+correlation header is attached by an axios request interceptor that reads the
+current context when the request is made. Below, the `orders` service calls a
+`stock` service that answers with the header it received, once inside a
+correlation context and once outside one:
+
+<!-- #region forward-hop -->
+
+```ts @import.meta.vitest
+/// <reference types="node" />
+import { once } from 'node:events';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { HttpModule, HttpService } from '@nestjs/axios';
+import { NestFactory } from '@nestjs/core';
+import { firstValueFrom } from 'rxjs';
+import {
+  CorrelationModule,
+  CorrelationService,
+  withCorrelation,
+} from '@evanion/nestjs-correlation-id';
+
+// Baize's stock service, answering with the correlation id it received.
+const stock = createServer((request, response) => {
+  response.end(request.headers['x-correlation-id'] ?? 'no id');
+});
+await once(stock.listen(0), 'listening');
+const { port } = stock.address() as AddressInfo;
+const url = `http://127.0.0.1:${port}/stock/urn:game:azul`;
+
+// The orders service, as a Nest application context with no HTTP server.
+const orders = await NestFactory.createApplicationContext(
+  {
+    module: class OrdersModule {},
+    imports: [
+      CorrelationModule.forRoot(),
+      HttpModule.registerAsync(withCorrelation()),
+    ],
+  },
+  { logger: false },
+);
+const http = orders.get(HttpService);
+const correlation = orders.get(CorrelationService);
+
+const inside = await correlation.run('storefront-4f1c9a', () =>
+  firstValueFrom(http.get(url)),
+);
+const outside = await firstValueFrom(http.get(url));
+await orders.close();
+stock.close();
+
+inside.data; // -> 'storefront-4f1c9a'
+outside.data; // -> 'no id'
+```
+
+<!-- #endregion forward-hop -->
 
 `withCorrelation()` needs `CorrelationModule.forRoot()` to have been called
 somewhere in the application — it is a global module, so once in the root module
@@ -121,33 +201,83 @@ context `getCorrelationId()` returns `undefined`, and outgoing calls carry no
 correlation header.
 
 For work with no request behind it — queue consumers, cron jobs, scripts — open
-a context yourself:
+a context yourself with `run`, and replace the id inside one with
+`setCorrelationId`:
 
-```ts
-await this.correlationService.run(this.correlationService.generate(), () =>
-  this.processJob(job),
+<!-- #region outside-a-request -->
+
+```ts @import.meta.vitest
+import { NestFactory } from '@nestjs/core';
+import {
+  CorrelationModule,
+  CorrelationService,
+} from '@evanion/nestjs-correlation-id';
+
+const worker = await NestFactory.createApplicationContext(
+  CorrelationModule.forRoot({ generator: () => 'restock-7c41d2' }),
+  { logger: false },
 );
+const correlation = worker.get(CorrelationService);
+
+const minted = correlation.run(correlation.generate(), () =>
+  correlation.getCorrelationId(),
+);
+
+let replaced: string | undefined;
+correlation.run('restock-7c41d2', () => {
+  correlation.setCorrelationId('storefront-4f1c9a');
+  replaced = correlation.getCorrelationId();
+});
+
+let refused = '';
+try {
+  correlation.setCorrelationId('storefront-4f1c9a');
+} catch (error) {
+  refused = (error as Error).message;
+}
+await worker.close();
+
+minted; // -> 'restock-7c41d2'
+replaced; // -> 'storefront-4f1c9a'
+refused; // -> 'setCorrelationId() was called outside a correlation context. Apply CorrelationIdMiddleware, or wrap the work in CorrelationService.run().'
 ```
+
+<!-- #endregion outside-a-request -->
 
 ## Configuration
 
-`CorrelationModule.forRoot()` accepts a `CorrelationConfig`, exported from the
-package root. Every field is optional.
+`CorrelationModule.forRoot()` accepts a `Partial<CorrelationConfig>` and fills
+in every field it is not given, so the configuration it provides under
+`CORRELATION_CONFIG_TOKEN` is always complete:
 
-```ts
+<!-- #region configure -->
+
+```ts @import.meta.vitest
+import { NestFactory } from '@nestjs/core';
 import {
+  CORRELATION_CONFIG_TOKEN,
   CorrelationModule,
   type CorrelationConfig,
 } from '@evanion/nestjs-correlation-id';
 
-const config: Partial<CorrelationConfig> = {
-  header: 'X-Request-Id', // defaults to 'X-Correlation-Id'
-  generator: () => myId(), // defaults to node:crypto randomUUID
-  validate: (id) => id.startsWith('req-'), // defaults to a strict token check
-};
+const orders = await NestFactory.createApplicationContext(
+  CorrelationModule.forRoot({
+    header: 'X-Request-Id',
+    generator: () => `orders-${crypto.randomUUID().slice(0, 6)}`,
+    validate: (value) => /^(storefront|orders|stock)-[0-9a-f]{6}$/.test(value),
+  }),
+  { logger: false },
+);
+const config = orders.get<CorrelationConfig>(CORRELATION_CONFIG_TOKEN);
+await orders.close();
 
-CorrelationModule.forRoot(config);
+config.header; // -> 'X-Request-Id'
+config.validate?.('storefront-4f1c9a'); // -> true
+config.validate?.('storefront-4f1c9a, orders-0f3a2b'); // -> false
+config.validate?.(config.generator()); // -> true
 ```
+
+<!-- #endregion configure -->
 
 An incoming id that `validate` accepts is reused as-is; `generator` runs only
 when the request carried none, or carried one that was rejected. The id also
@@ -157,6 +287,39 @@ goes out on the response under the configured header, in the configured casing.
 of `[\w.:-]`. An accepted id reaches a response header and the application's
 logs, both line-oriented sinks, so a validator that lets CR or LF through
 accepts response splitting and log forging. Widen it deliberately.
+
+<!-- #region validator -->
+
+```ts @import.meta.vitest
+import { DEFAULT_CORRELATION_ID_VALIDATOR } from '@evanion/nestjs-correlation-id';
+
+DEFAULT_CORRELATION_ID_VALIDATOR('storefront-4f1c9a'); // -> true
+DEFAULT_CORRELATION_ID_VALIDATOR('0f3a2b7c-41d2-4e3a-9f55-2c1d4e6a8b90'); // -> true
+DEFAULT_CORRELATION_ID_VALIDATOR('storefront-4f1c9a, orders-0f3a2b'); // -> false
+DEFAULT_CORRELATION_ID_VALIDATOR('orders-0f3a2b\r\nX-Admin: 1'); // -> false
+DEFAULT_CORRELATION_ID_VALIDATOR('a'.repeat(129)); // -> false
+```
+
+<!-- #endregion validator -->
+
+The defaults `forRoot()` falls back to, and the injection tokens, are exported
+from the package root:
+
+<!-- #region constants -->
+
+```ts @import.meta.vitest
+import {
+  CORRELATION_AXIOS_INTERCEPTOR,
+  CORRELATION_CONFIG_TOKEN,
+  CORRELATION_ID_HEADER,
+} from '@evanion/nestjs-correlation-id';
+
+CORRELATION_ID_HEADER; // -> 'X-Correlation-Id'
+CORRELATION_CONFIG_TOKEN; // -> '@evanion/nestjs-correlation-id:CORRELATION_CONFIG'
+CORRELATION_AXIOS_INTERCEPTOR; // -> '@evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR'
+```
+
+<!-- #endregion constants -->
 
 ## Adding `correlationId` to logs
 
