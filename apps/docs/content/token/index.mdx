@@ -1,73 +1,67 @@
 # @evanion/token
 
-Short codes a person can read aloud, type off a card, or dictate over a phone —
-each carrying a check character, so a mistyped one is rejected before you touch
-the database.
+A pickup code read over the phone gets misheard, and the shop queries its order
+table for a code nobody issued. `createToken` mints codes without the misheard
+characters and refuses a mistyped one before the query.
 
-```ts
-import { createToken } from '@evanion/token';
+## How token checks a pickup code
 
-const token = createToken();
+A default token code is seven random characters followed by one check
+character, which is computed from the seven. `a4kp-9mxa` below is a pickup code
+at Baize, the board game shop these examples are set in:
 
-token.generate();
-// { value: 'a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: undefined }
+```ts twoslash file=libs/token/README.md region=at-a-glance
 
-token.validate('a4kp-9mxa'); // { valid: true, body: 'a4kp9mx' }
-token.validate('a4kp-9mx8'); // { valid: false, reason: 'check-failed' }
 ```
 
-## The alphabet and the check character
+`createToken()` returns an instance carrying `validate`. The last character of
+`a4kp-9mxa`, `a`, is its check character. `a4kp-9mx8` is the same code with that
+`a` heard as `8`, and `validate` refuses it with `reason: 'check-failed'` before
+any order table is read. `body` is the code with its hyphen and its check
+character removed, which is the string the shop stores.
 
-The alphabet leaves out characters that are confused when read or heard.
-`1`/`l`/`i` and `0`/`o` are the point; `w` goes too, because "double-u" is the
-one English letter name that contains another letter's name.
+## The token vocabulary
 
-Every code carries a check character and there is no option to omit it. A
-mistyped code fails the check without a database lookup.
+Every later token page uses these six words.
 
-## `value` and `body`
+- A **code** is the string a person reads, such as `a4kp-9mxa`.
+- The **body** is the code's random characters, `a4kp9mx`, without separators
+  or check character. The shop stores and indexes on it.
+- The **check character** is the last character of a code. `@evanion/luhn`
+  computes it from the body, and every code carries one.
+- The **dictionary** is the alphabet a code draws from. The default holds 32
+  characters and leaves out `i`, `l`, `o` and `w`.
+- A **chunk** is a group of characters between two separators. The default is
+  four characters, separated by a hyphen.
+- A **prefix**, such as `ORD`, is written ahead of a code and sits outside the
+  check.
 
-```ts
-token.generate({ prefix: 'ORD' });
-// { value: 'ORD-a4kp-9mxa', body: 'a4kp9mx', check: 'a', prefix: 'ORD' }
-```
+## What token can do
 
-`value` is the code as a person sees it: prefix, chunks, separators. `body` is
-what the check character was computed over, unchunked — the form to store and
-index on.
+| You want to                                        | What token gives you                                        |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| mint a code a person reads aloud                   | `generate()`, which draws from `crypto.getRandomValues`     |
+| refuse a mistyped code before the lookup           | `validate()`, which returns a `reason` and never throws     |
+| accept a code typed without hyphens or in capitals | `validate`, which strips separators and folds case first    |
+| mark a code as an order's                          | `generate({ prefix: 'ORD' })`                               |
+| set the length, the chunk size or the separator    | `createToken({ length, chunkSize, separator })`             |
+| draw from your own alphabet                        | `createToken({ dictionary })`, checked once at construction |
+| size a code for the number you will issue          | `entropyBits`, the random bits in one code                  |
 
-`validate` returns `body` too, from the stripped and case-folded input, so a
-code typed without its separators still resolves to the same stored key.
+## What token does not do
 
-## What it does not do
+- It does not keep codes unique. `generate` never checks for collisions and
+  never retries, so uniqueness is a unique index on your table.
+- It does not say a code exists. `valid: true` means well formed, and one random
+  string in 32 passes the check under the default dictionary.
+- It does not make a credential. A default code carries 35 random bits, which an
+  attacker can enumerate. A password reset link wants a 128-bit random value
+  that nobody types.
+- It does not check the prefix. `ORD-a4kp-9mxa` checksums `a4kp9mx` only.
+- It does not sign an identifier you already have. `@evanion/luhn` computes a
+  check character over any string.
 
-It does not check for collisions and never retries. Uniqueness is a unique index
-on your table; see [Entropy and collisions](/token/entropy) for the numbers you
-need to size `length`.
+## Now that you know how token reads a code, install it
 
-`valid: true` does not mean the code exists, and it is not authentication. One
-code in `n` passes by construction — one in 32 with the default alphabet. Treat
-it as a filter in front of a lookup, never as a credential.
-
-The prefix sits outside the checksum. `ORD-a4kp-9mxa` checksums `a4kp9mx` only,
-and `validate` takes the code without the prefix.
-
-## Related
-
-`@evanion/luhn` supplies the check character and is the package to reach for
-when you have your own identifier and only want to sign it.
-
-## Pages
-
-- [Getting started](/token/getting-started) — installing, and minting your first code
-- [Generating and validating](/token/usage) — the two operations, separators, prefixes
-- [The alphabet](/token/alphabet) — the default 32, and the constraints on your own
-- [Entropy and collisions](/token/entropy) — sizing `length`
-- [API reference](/token/api)
-
-## Where to start with token
-
-A passing check on a `@evanion/token` code is a filter in front of a lookup, and
-never a credential.
-[Getting started](/token/getting-started) installs the package and mints a pickup
-code the shop's counter can read out.
+[Getting started](/token/getting-started) installs the package and mints a
+pickup code the shop's counter can read out.
