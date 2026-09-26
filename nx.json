@@ -32,6 +32,11 @@
     "repoChecks": ["{workspaceRoot}/**/*"]
   },
   "nxCloudId": "68bf338daff9c334d6ac12a1",
+  // Answers nx's usage-analytics prompt. Without a boolean here, an interactive
+  // nx command asks the question and writes the answer back through
+  // writeFormattedJsonFile, which drops every comment in this file. Off,
+  // because a tracked setting speaks for everyone who clones the repository.
+  "analytics": false,
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
