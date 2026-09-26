@@ -1,86 +1,79 @@
 # @evanion/luhn
 
-A check character over any alphabet you choose. Append one to an identifier and
-a mistyped version of it can be rejected without a database lookup.
+A customer reads an order code back over the phone and one digit comes out
+wrong. `@evanion/luhn` puts a check character on the code, so `Luhn.validate`
+refuses the mistyped one before your database is asked.
 
-```ts
-import { Luhn } from '@evanion/luhn';
+## How luhn catches a mistyped code
 
-const { checksum } = Luhn.generate('4a7f2c9');
-const code = `4a7f2c9${checksum}`; // '4a7f2c9r'
+Baize, the board game shop these examples are set in, prints
+`order-2026-0042-l` on a receipt. The `l` at the end is the check character,
+computed from every character before it. `Luhn.validate` computes it again from
+the code it is given and compares:
 
-Luhn.validate(code).isValid; // true
-Luhn.validate('4a7f2c8r').isValid; // false — one character changed
+```ts twoslash file=libs/luhn/README.md region=catches
+
 ```
 
-That is worth having anywhere a person types an identifier by hand: a licence
-key, a gift-card number, a support reference, an order code read off a receipt
-over the phone.
+The second code has one digit changed. The third has two adjacent digits
+swapped. Neither produces `l` again, so both come back `isValid: false`, and the
+code never reaches the lookup that would have answered "no such order".
 
-## The shape of the API
+`Luhn.generate` is the call that computed the `l`. It drops every character
+outside the dictionary, runs Luhn's fold over the dictionary position of each
+character that remains, and turns the total into one more dictionary character.
+`Luhn.validate` runs the same fold over the whole code, check character
+included, and accepts it when the total is a multiple of the dictionary's size.
 
-A dictionary is validated once, at construction, and you get back a frozen
-object with `generate` and `validate` bound to it:
-
-```ts
-import { createLuhn } from '@evanion/luhn';
-
-const hex = createLuhn({ dictionary: '0123456789abcdef' });
-
-hex.generate('cafe'); // { phrase: 'cafe', checksum: '3', filtered: 0 }
-hex.validate('cafe3').isValid; // true
+```mermaid caption="Luhn.generate drops every character outside the dictionary, folds the dictionary index of each remaining character from the right, and turns the total into one more dictionary character. Luhn.validate runs the same fold over the code with its check character and asks whether the total is a multiple of the dictionary's size."
+flowchart LR
+  I["'order-2026-0042'"] --> F["drop what is not<br>in the dictionary"]
+  F --> P["'order20260042'<br>the phrase"]
+  P --> L["Luhn fold over<br>dictionary indices"]
+  L --> C["'l'<br>the check character"]:::accent
 ```
 
-`Luhn` is `createLuhn()` — the default instance, over 36 lowercase
-alphanumerics, folding case. `Luhn.generate(x)` works without constructing
-anything.
+## The luhn vocabulary
 
-Nothing is checked at use. `createLuhn` settles every constraint on the
-dictionary, so an instance you hold cannot produce a token its own `validate`
-rejects.
+Every later luhn page uses four words.
 
-## What it catches, and what it does not
+- The **dictionary** is the alphabet a code is read against, as one string. Its
+  order decides every check character, so the same letters in a different order
+  are a different dictionary.
+- The **check character** is one character of the dictionary, appended to a
+  code. `generate` returns it as `checksum`.
+- The **phrase** is the input with every character outside the dictionary
+  dropped. It is what the check character is computed over, and both calls
+  return it.
+- An **instance** is a dictionary with `generate` and `validate` bound to it.
+  `Luhn` is the default instance, over `0` to `9` and `a` to `z`.
 
-Luhn's guarantee, over any alphabet:
+## What luhn can do
 
-- Every single-character substitution, at every position, including the check
-  character itself.
-- Every transposition of two adjacent characters, except one pair — the first
-  and last entries of the dictionary.
+| You want to                                 | What luhn gives you                                               |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| put a check character on a code             | `Luhn.generate(code).checksum`                                    |
+| refuse a mistyped code                      | `Luhn.validate(code).isValid`                                     |
+| accept `ORDER 2026 0042 L` as the same code | characters outside the dictionary dropped, and case folded        |
+| check codes drawn from your own alphabet    | `createLuhn({ dictionary })`, which validates the alphabet once   |
+| compute a credit card's check digit         | `createLuhn({ dictionary: '0123456789' })`, which is plain mod-10 |
+| know whether random bytes pick evenly       | `uniformOverBytes`, true when the dictionary's size divides 256   |
 
-That one blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a
-swap of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n),
-which for even `n` has the single non-trivial solution `{0, n - 1}`. It is the
-textbook mod-10 `{0, 9}` case, generalised.
+## What a luhn check character catches, and what it does not
 
-A check character is not a checksum over content, not a hash, and not
-authentication. It catches typing mistakes. One string in `n` passes by
-construction.
+- It catches every single-character substitution, at every position, including
+  the check character itself.
+- It catches every swap of two adjacent characters except one: the first and
+  last entries of the dictionary, `0` and `z` in the default.
+- It does not prove a code exists. A random string passes one time in 36 under
+  the default dictionary, and whether order `2026-0042` was ever placed is a
+  question for your database.
+- It is not authentication. The algorithm and the dictionary are public, so
+  anyone can compute the check character for any string.
+- It does not generate codes. `@evanion/token` draws random pickup codes like
+  `ORD-a4kp-9mxa` and uses this package for their check character.
 
-## Version 3.0 is a different alphabet
+## Now that you know what luhn checks, install it
 
-The default dictionary went from 62 characters to 36, so every index changed and
-every check character with it. Tokens minted by 2.x do not validate under 3.x.
-[Migrating from 2.x](/luhn/migration) is the full list.
-
-## Related
-
-`@evanion/token` is built on this one. It generates human-readable codes over a
-32-character alphabet with the confusable characters removed, and uses
-`@evanion/luhn` for the check character.
-
-## Pages
-
-- [Getting started](/luhn/getting-started) — installing, and signing your first code
-- [Generating and validating](/luhn/usage) — the two operations and what they return
-- [Dictionaries](/luhn/dictionaries) — building one, and the five constraints
-- [Standards and modulo bias](/luhn/standards) — what is normative and what is not
-- [API reference](/luhn/api)
-- [Migrating from 2.x](/luhn/migration)
-
-## Where to start with luhn
-
-The dictionary decides every check character `@evanion/luhn` produces, and that
-is the one thing to settle before signing anything.
-[Getting started](/luhn/getting-started) installs the package, names the default
-dictionary, and signs an order code over it.
+[Getting started](/luhn/getting-started) installs the package and signs Baize's
+order code with the default dictionary.
