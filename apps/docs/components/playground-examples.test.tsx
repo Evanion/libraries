@@ -19,26 +19,27 @@ const expectations: Record<
   keyof typeof examples,
   { wrapperText?: string; items: Array<[id: string, type: string]> }
 > = {
-  basic: {
+  shelf: {
     items: [
-      ['userinfo', 'userInfo'],
-      ['news1', 'news'],
+      ['booking', 'booking'],
+      ['brass', 'listing'],
+      ['wingspan', 'listing'],
     ],
   },
-  ecommerce: {
-    wrapperText: 'Featured Products',
+  newIn: {
+    wrapperText: 'New in at Baize',
     items: [
-      ['banner1', 'banner'],
-      ['product1', 'productCard'],
-      ['product2', 'productCard'],
+      ['new-in', 'shelf'],
+      ['spirit-island', 'listing'],
+      ['hive', 'listing'],
     ],
   },
-  dashboard: {
-    wrapperText: 'Admin Dashboard',
+  counter: {
+    wrapperText: 'Baize at the counter',
     items: [
-      ['stats1', 'statCard'],
-      ['stats2', 'statCard'],
-      ['action1', 'actionButton'],
+      ['tables', 'figure'],
+      ['orders', 'figure'],
+      ['library', 'figure'],
     ],
   },
 };
