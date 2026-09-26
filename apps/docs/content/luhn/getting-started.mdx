@@ -1,16 +1,19 @@
 # Getting started
 
-By the end of this page the shop prints an order code with a check character on
-it, and the counter refuses a mistyped one without asking the database.
+By the end of this page your code signs Baize's order number with a check
+character, and `Luhn.validate` refuses the same code with one digit mistyped.
 
-## Prerequisites
+## Before you install luhn
 
 - Node 20 or newer, or any browser.
-- ESM. The package ships no `require` condition, so a CommonJS `require()` of it
-  raises `ERR_REQUIRE_ESM`.
+- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
+  `require()` loads ES modules. An older `require()` fails with
+  `ERR_REQUIRE_ESM`.
 - No peer dependencies and no runtime dependencies.
 
-## Install
+## Install luhn
+
+Pick the line for your package manager.
 
 ```bash
 npm install @evanion/luhn
@@ -24,40 +27,33 @@ yarn add @evanion/luhn
 pnpm add @evanion/luhn
 ```
 
-## The one thing to configure
+## The one thing luhn is configured by
 
-The alphabet, and the default answers it. `Luhn` is built over
-`'0123456789abcdefghijklmnopqrstuvwxyz'`, in that order, and folds input to
-lowercase before looking a character up. The order is what decides every check
-character the package produces, so two dictionaries holding the same characters
-in a different order are different alphabets.
-
-Take the default and there is nothing to call:
-`import { Luhn } from '@evanion/luhn'` is the whole of the setup. Reach for
-`createLuhn` and a dictionary of your own when the codes you already print draw on
-a narrower set of characters, which [Dictionaries](/luhn/dictionaries) covers.
+The dictionary, and the default answers it. `Luhn` is the instance built over
+`'0123456789abcdefghijklmnopqrstuvwxyz'`, and it folds input to lowercase before
+looking a character up. Take the default and there is nothing to call:
+`import { Luhn } from '@evanion/luhn'` is the whole setup.
 
 ## Sign an order code and check it
 
-`Luhn.generate` returns the check character for a body, and `Luhn.validate`
-answers whether a code carrying one holds together. The import is the fence's
-first line:
+`Luhn.generate` returns the check character for an order number, and
+`Luhn.validate` answers whether a code carrying one holds together:
 
 ```ts twoslash file=libs/luhn/README.md region=round-trip
 
 ```
 
-`order-2026-0042-l` is the code the shop prints on a receipt. Read the order
-number back one digit wrong and `validate` answers `isValid: false`, so the
-counter rejects the code before the database is asked about it.
+`checksum` is `l`, and `order-2026-0042-l` is the code the shop prints on the
+receipt. `order-2026-0043-l` is the same code with one digit read back wrong,
+and `validate` answers `isValid: false` for it, so your counter refuses the code
+before the database is asked about it.
 
 The hyphens are not part of what was checked. `generate` drops every character
-outside the dictionary first, so `ORDER20260042L` and `or-der-2026-0042-l` both
-validate against the same check character.
+outside the dictionary before computing, so `ORDER20260042L` validates against
+the same `l`.
 
-## Next
+## Now that luhn signs a code, read back what it returns
 
-Now that `luhn` signs and checks a code,
-[Generating and validating](/luhn/usage) is where the two calls' full return
-shapes are, including the filtered `phrase` the check was computed over and the
-`filtered` count you can gate strict input on.
+[Generating and validating](/luhn/usage) is the next page. It shows the whole
+result each call returns, including the filtered `phrase` the check character
+was computed over and the `filtered` count you can refuse stray characters on.
