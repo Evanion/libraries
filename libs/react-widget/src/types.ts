@@ -184,8 +184,22 @@ export type WidgetItemComponent<M = WidgetMeta> = ComponentType<{
  */
 export type WidgetSuspenseMode = 'per-item' | 'none';
 
+/**
+ * The markup a widget set renders around its region and around each widget,
+ * and whether each widget gets its own `<Suspense>` boundary.
+ *
+ * Passed as `chrome` to {@link createWidgets} for the whole set, and again to
+ * `<Widgets>` for one region, where it is resolved field by field: an instance
+ * that sets only `wrapper` keeps the factory's `item`, `suspense` and
+ * `suspenseFallback`.
+ *
+ * `M` is the set's `meta` vocabulary. `createWidgets` infers it from `item`, so
+ * annotating that one component types every item's `meta`.
+ */
 export interface WidgetsChrome<M = WidgetMeta> {
+  /** Rendered around the whole region. Defaults to {@link DefaultWrapper}. */
   wrapper?: WidgetsWrapperComponent;
+  /** Rendered around each widget. Defaults to {@link DefaultItem}. */
   item?: WidgetItemComponent<M>;
   /**
    * Whether each widget gets its own `<Suspense>` boundary. Defaults to

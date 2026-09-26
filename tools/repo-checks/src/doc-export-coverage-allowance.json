@@ -109,7 +109,6 @@
       "WidgetsWrapperComponent",
       "defineWidgets"
     ],
-    "unexercised": ["validateItems"],
-    "unexplained": ["WidgetsChrome"]
+    "unexercised": ["validateItems"]
   }
 }
