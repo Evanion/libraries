@@ -139,7 +139,6 @@
       "ValidationError",
       "decodeNss",
       "encodeNss"
-    ],
-    "unexercised": ["InvalidError", "ValidationError"]
+    ]
   }
 }
