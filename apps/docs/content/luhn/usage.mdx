@@ -1,13 +1,21 @@
 # Generating and validating
 
-Two operations, both total apart from one thrown error, and both returning the
-filtered phrase alongside their answer.
+`Luhn.generate` computes the check character for a code, and `Luhn.validate`
+checks a code that carries one. Both return the phrase they read, and only
+`generate` can throw.
 
-```ts
-import { Luhn } from '@evanion/luhn';
-```
+<PageSheet
+  difficulty={2}
+  read={6}
+  hands={15}
+  requires={[['Getting started', '/luhn/getting-started']]}
+  unlocks={[['Dictionaries', '/luhn/dictionaries']]}
+/>
 
-## `generate`
+## Generate a check character with luhn
+
+`Luhn.generate` takes the code without its check character and returns three
+fields:
 
 ```ts twoslash file=libs/luhn/README.md region=generate
 
@@ -15,148 +23,80 @@ import { Luhn } from '@evanion/luhn';
 
 <Probe package="luhn" probe="generate" />
 
-`checksum` is one character drawn from the dictionary. It is not appended for
-you — the caller decides where it goes and what separates it:
+| Field      | What it holds                                                                  |
+| ---------- | ------------------------------------------------------------------------------ |
+| `phrase`   | the input with every character outside the dictionary dropped, and case folded |
+| `checksum` | the check character, one character of the dictionary                           |
+| `filtered` | how many characters of the input were dropped                                  |
 
-```ts
-const body = 'inv0ice';
-const { checksum } = Luhn.generate(body);
+The phrase, from the Overview, is what the check character was computed over.
+`order-2026-0042` and `ORDER 2026/0042` produce the same phrase, so they get
+the same `l`.
 
-`${body}-${checksum}`; // 'inv0ice-g'
+`generate` does not append `checksum`, so where it goes and what separates it is
+yours to decide. `validate` hands the order number back through `phrase`:
+
+```ts twoslash file=libs/luhn/README.md region=sign-and-read
+
 ```
 
-`phrase` is the input with everything outside the dictionary removed, which is
-what the check character was actually computed over. It is returned because the
-two are not always the same string, and a caller storing the phrase should store
-what was checked.
+`orderNumberIn` slices `phrase` rather than the string it was given, so
+`ORDER 2026 0042 L` and `order-2026-0042-l` both give back `order20260042`. The
+phrase has lost the hyphens and the case, so store the phrase `generate`
+returned when the order was created, and look the order up by it.
 
-### Empty input throws
+## Why luhn's generate throws EmptyInputError
 
-```ts
-Luhn.generate('');
-// EmptyInputError: Luhn cannot generate a check character over an input
-// with no dictionary code points (received "").
+`Luhn.generate` throws `EmptyInputError` when no character of its input is in
+the dictionary. Every such input leaves an empty phrase, so a blank form field
+and `'--'` would get the same check character, and that character would check
+nothing. Catch the error where the input comes from a person:
 
-Luhn.generate('!!!!'); // the same error
+```ts twoslash file=libs/luhn/README.md region=empty-input
+
 ```
 
-A check character over no payload carries no information, and returning one
-makes `generate('')` and `generate('!!!!')` indistinguishable. This is the only
-error either operation raises.
+`EmptyInputError` is the only error a luhn call raises, and only `generate`
+raises it. The dictionary was checked when the instance was built, so nothing
+else can fail at the call.
 
-## `validate`
+## Validate a code with luhn
 
-The last dictionary character of the input is the check character.
+`Luhn.validate` treats the last dictionary character of its input as the check
+character and never throws:
 
-```ts
-Luhn.validate('foo5'); // { phrase: 'foo5', isValid: true, filtered: 0 }
-Luhn.validate('FOO5'); // { phrase: 'foo5', isValid: true, filtered: 0 }
-Luhn.validate('FoO-ö5'); // { phrase: 'foo5', isValid: true, filtered: 2 }
-Luhn.validate('bar5'); // { phrase: 'bar5', isValid: false, filtered: 0 }
+```ts twoslash file=libs/luhn/README.md region=validate
+
 ```
 
-It never throws. Fewer than two surviving characters is not valid — a payload
-and a check character is the minimum:
-
-```ts
-Luhn.validate(''); // { phrase: '', isValid: false, filtered: 0 }
-Luhn.validate('!!!!0'); // { phrase: '0', isValid: false, filtered: 4 }
-```
-
-`phrase` here includes the check character, because that is what was validated.
+`isValid` is `false` when `phrase` holds fewer than two characters, because an
+order number and a check character is the minimum. `validate`'s `phrase`
+includes the check character, so the order number is `phrase.slice(0, -1)`.
 `generate`'s `phrase` does not, because the check character did not exist yet.
 
-## Filtering
-
-Characters outside the dictionary are dropped before anything is computed, so a
-hyphenated or accented rendering of the same token checks the same:
-
-```ts
-Luhn.generate('foo-baz'); // { phrase: 'foobaz', checksum: 'p', filtered: 1 }
-Luhn.generate('fooö-baz'); // { phrase: 'foobaz', checksum: 'p', filtered: 2 }
-```
-
-This is what makes a printed code survive being typed back in with the grouping
-in the wrong place, or without it:
-
-```ts
-Luhn.generate('order-2026-0042');
-// { phrase: 'order20260042', checksum: 'l', filtered: 2 }
-
-Luhn.validate('order-2026-0042l').isValid; // true
-Luhn.validate('ORDER20260042L').isValid; // true
-Luhn.validate('or-der-2026-0042-l').isValid; // true
-```
-
-`filtered` counts the dropped characters, so a caller who wants strict input can
-gate on it rather than reimplementing the filter:
-
-```ts
-const result = Luhn.validate(input);
-
-if (!result.isValid) return reject('bad code');
-if (result.filtered > 0) return reject('unexpected characters');
-```
-
-Counting is by code point, not by UTF-16 unit, so an astral character is one
-drop rather than two.
-
-Type the order number below back in and watch the verdict. The grouping and the
-case make no difference to it, because both are filtered before anything is
-computed; break the code with either button and it is refused.
+The code below was issued as `order-2026-0042-l`. Type it back in and the
+verdict follows `isValid`, so case and hyphens make no difference to it. The
+"Change a character" and "Swap two" buttons each break the code, and
+`validate` refuses it.
 
 <LuhnSpecimen initial="order-2026-0042" />
 
-## Case folding
+## Refuse stray characters with luhn's filtered count
 
-The default instance folds input to lowercase before looking it up. That is a
-property of the dictionary rather than of the call — see
-[Dictionaries](/luhn/dictionaries#case-sensitivity) — and it is why `phrase`
-comes back lowercased:
+`filtered` counts the characters `validate` dropped. Baize's receipt prints
+`order-2026-0042-l` for a person to read and carries `order20260042l`, with no
+separators, in its barcode. A till that reads the barcode can refuse anything
+else without reimplementing the filter:
 
-```ts
-Luhn.generate('FoO'); // { phrase: 'foo', checksum: '5', filtered: 0 }
+```ts twoslash file=libs/luhn/README.md region=strict-input
+
 ```
 
-Over a case-sensitive dictionary, the input's case is preserved and is part of
-what is checked:
+Counting is by code point, not by UTF-16 unit, so an emoji typed into the field
+is one dropped character, not two.
 
-```ts
-import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
+## Now that you can put a check character on a code, pick its alphabet
 
-const sensitive = createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY });
-
-sensitive.generate('FoO'); // { phrase: 'FoO', checksum: 'K', filtered: 0 }
-sensitive.validate('FoOK').isValid; // true
-sensitive.validate('fook').isValid; // false
-```
-
-## A minted-identifier helper
-
-Putting the two together, with the check character in a fixed position:
-
-```ts
-import { Luhn } from '@evanion/luhn';
-
-export function sign(body: string): string {
-  const { checksum } = Luhn.generate(body);
-  return `${body}-${checksum}`;
-}
-
-export function verify(code: string): string | null {
-  const { isValid, phrase } = Luhn.validate(code);
-  return isValid ? phrase.slice(0, -1) : null;
-}
-
-sign('4a7f2c9'); // '4a7f2c9-r'
-verify('4a7f2c9-r'); // '4a7f2c9'
-verify('4a7f2c9-x'); // null
-```
-
-`verify` returns the body from `phrase` rather than from the caller's string,
-because `phrase` is the filtered form and is what `sign` checked. Slicing the
-raw input instead would return the separator on a differently-grouped rendering
-of the same code.
-
-If you want this whole shape ready-made — random body, chunking, prefix,
-a confusion-free alphabet — that is [`@evanion/token`](/token).
+[Dictionaries](/luhn/dictionaries) is the next page. It builds an instance over
+the shop's 32-character pickup alphabet with `createLuhn`, and lists what an
+alphabet has to satisfy.

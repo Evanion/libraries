@@ -1,136 +1,108 @@
 # API reference
 
-## `createLuhn(options?)`
+`@evanion/luhn` exports one factory, the default instance `Luhn` (also the name
+of its type), two dictionaries, four other types and three error classes, one
+heading each below. It runs on Node 20 or newer, as an ES module.
 
-```ts
-function createLuhn(options?: LuhnOptions): Luhn;
-```
+## `createLuhn`
 
-Validates the dictionary and returns a frozen `Luhn`.
+<!-- reference @evanion/luhn#createLuhn example=pickup-dictionary -->
 
-| Option            | Type      | Default                                                       |
-| ----------------- | --------- | ------------------------------------------------------------- |
-| `dictionary`      | `string`  | `DEFAULT_DICTIONARY`                                          |
-| `caseInsensitive` | `boolean` | `true` when `dictionary` is omitted, `false` when it is given |
+The example's 32 characters are the default 36 without `i`, `l`, `o` and `w`,
+which are confused when read or heard. [`LuhnOptions`](#luhnoptions) lists the
+two options and their defaults, and
+[`InvalidDictionaryReason`](#invaliddictionaryreason) lists the five
+constraints a dictionary can fail.
 
-Throws `InvalidDictionaryError` when the dictionary fails one of
-[the five constraints](/luhn/dictionaries#the-five-constraints).
+## `Luhn`
 
-## The returned object
-
-```ts
-interface Luhn {
-  readonly dictionary: string;
-  readonly n: number;
-  readonly caseInsensitive: boolean;
-  readonly uniformOverBytes: boolean;
-  generate(input: string): GenerateResult;
-  validate(input: string): ValidateResult;
-}
-```
-
-| Member             | Meaning                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| `dictionary`       | the alphabet, as supplied                                    |
-| `n`                | the modulus: code points in the dictionary                   |
-| `caseInsensitive`  | whether input is folded to lowercase before lookup           |
-| `uniformOverBytes` | whether `n` divides 256, so `byte % n` draws uniformly       |
-| `generate`         | computes the check character                                 |
-| `validate`         | checks a string whose last dictionary character is the check |
-
-`Object.freeze`d, so `luhn.dictionary = x` throws a `TypeError` in a module
-rather than being accepted and ignored.
-
-### `generate(input)`
-
-```ts
-interface GenerateResult {
-  phrase: string; // input with non-dictionary code points removed
-  checksum: string; // the check character
-  filtered: number; // how many code points were dropped
-}
-```
-
-Throws `EmptyInputError` when no code point of `input` is in the dictionary.
-
-`phrase` does not include `checksum` — the check character did not exist when
-the phrase was read.
-
-### `validate(input)`
-
-```ts
-interface ValidateResult {
-  phrase: string; // input with non-dictionary code points removed
-  isValid: boolean;
-  filtered: number;
-}
-```
-
-Never throws. `isValid` is false for fewer than two surviving code points.
-
-`phrase` here does include the check character, because that is what was
-validated.
-
-## Constants
-
-| Export                        | Value                                                    |
-| ----------------------------- | -------------------------------------------------------- |
-| `Luhn`                        | `createLuhn()`, frozen — the default instance            |
-| `DEFAULT_DICTIONARY`          | `'0123456789abcdefghijklmnopqrstuvwxyz'` — 36 characters |
-| `ALTERNATING_CASE_DICTIONARY` | 62 characters: `0-9` then `Aa Bb … Zz`, case-sensitive   |
+<!-- reference @evanion/luhn#Luhn example=frozen -->
 
 `Luhn` names the interface in type space and the default instance in value
-space, so `const luhn: Luhn = Luhn` resolves both.
+space, so `const luhn: Luhn = Luhn` compiles. Every instance `createLuhn`
+returns carries the same members:
 
-## Types
+| Member             | What it is                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `dictionary`       | the alphabet, as supplied                                                              |
+| `n`                | the modulus: the number of code points in the dictionary                               |
+| `caseInsensitive`  | whether input is folded to lowercase before lookup                                     |
+| `uniformOverBytes` | whether `n` divides 256, so `byte % n` picks each character equally often              |
+| `generate(input)`  | returns a [`GenerateResult`](#generateresult); throws `EmptyInputError`                |
+| `validate(input)`  | returns a [`ValidateResult`](#validateresult) for a code ending in its check character |
 
-`LuhnOptions`, `GenerateResult`, `ValidateResult`, `InvalidDictionaryReason`,
-and the `Luhn` interface above.
+## `LuhnOptions`
 
-```ts
-type InvalidDictionaryReason =
-  'not-a-string' | 'too-short' | 'odd-length' | 'duplicate' | 'case-pairs';
-```
+<!-- reference @evanion/luhn#LuhnOptions example=case-sensitivity -->
 
-## Errors
+| Option            | Default                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| `dictionary`      | `DEFAULT_DICTIONARY`                                          |
+| `caseInsensitive` | `true` when `dictionary` is omitted, `false` when it is given |
 
-### `LuhnError`
+`caseInsensitive: true` over a dictionary holding case pairs throws
+`InvalidDictionaryError` with `reason: 'case-pairs'`.
 
-Base class for everything the library throws. Catch it to handle any failure
-without naming the subclasses.
+## `GenerateResult`
 
-The name is package-specific rather than a generic `ValidationError`, so it
-cannot collide with the one `@evanion/urn` exports in a consumer's import list.
-The two hierarchies are unrelated and share no base.
+<!-- reference @evanion/luhn#GenerateResult example=generate -->
 
-### `InvalidDictionaryError extends LuhnError`
+`phrase` does not include `checksum`, because the check character did not
+exist when the phrase was read.
 
-Raised by `createLuhn`. One class carrying a `reason` rather than one class per
-constraint, so a caller that only wants to know whether a dictionary is
-acceptable writes one `catch` arm.
+## `ValidateResult`
 
-| Property     | Meaning                                                                   |
-| ------------ | ------------------------------------------------------------------------- |
-| `reason`     | which constraint failed                                                   |
-| `dictionary` | the dictionary as supplied                                                |
-| `offending`  | the code points the constraint named; empty for the whole-dictionary ones |
+<!-- reference @evanion/luhn#ValidateResult example=validate -->
 
-```ts
-try {
-  createLuhn({ dictionary: 'aabbccdd' });
-} catch (error) {
-  if (error instanceof InvalidDictionaryError) {
-    error.reason; // 'duplicate'
-    error.offending; // ['a', 'b', 'c', 'd']
-  }
-}
-```
+`isValid` is `false` when `phrase` holds fewer than two code points. `phrase`
+includes the check character, because that is what was validated, so the
+payload without separators is `phrase.slice(0, -1)`.
 
-For `case-pairs`, `offending` holds each pair joined into one string — `'Aa'`,
-`'Bb'`. For `not-a-string`, `too-short` and `odd-length` it is empty, because
-those are properties of the dictionary as a whole.
+## `DEFAULT_DICTIONARY`
 
-### `EmptyInputError extends LuhnError`
+<!-- reference @evanion/luhn#DEFAULT_DICTIONARY example=default-dictionary -->
 
-Raised by `generate` when nothing survived the filter. It is the only error
-either operation can raise — every other constraint was settled at construction.
+## `ALTERNATING_CASE_DICTIONARY`
+
+<!-- reference @evanion/luhn#ALTERNATING_CASE_DICTIONARY example=case-pairs -->
+
+`createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` reproduces the check
+characters 2.x produced with `static sensitive = true`.
+
+## `LuhnError`
+
+<!-- reference @evanion/luhn#LuhnError example=catch-any -->
+
+## `InvalidDictionaryError`
+
+<!-- reference @evanion/luhn#InvalidDictionaryError example=constraints -->
+
+| Property     | What it holds                                                                           |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `reason`     | the [`InvalidDictionaryReason`](#invaliddictionaryreason) that failed                   |
+| `dictionary` | the dictionary as supplied                                                              |
+| `offending`  | the repeated code points, or the case pairs joined as `'Aa'`; empty for the other three |
+
+## `InvalidDictionaryReason`
+
+<!-- reference @evanion/luhn#InvalidDictionaryReason -->
+
+| `reason`       | What the dictionary must be                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `not-a-string` | a string                                                              |
+| `too-short`    | at least 2 code points long                                           |
+| `odd-length`   | an even number of code points long                                    |
+| `duplicate`    | free of repeated code points                                          |
+| `case-pairs`   | free of case variants of one letter, when `caseInsensitive` is `true` |
+
+An odd size is refused because a character at a doubled position contributes
+`floor(2x / n) + (2x mod n)` for its index `x`, and over an odd `n` two indices
+contribute the same amount, so a substitution between them goes uncaught.
+
+## `EmptyInputError`
+
+<!-- reference @evanion/luhn#EmptyInputError example=empty-input -->
+
+`EmptyInputError` is the only error an instance's calls raise, and only
+`generate` raises it. Every other constraint was settled when the instance was
+built.

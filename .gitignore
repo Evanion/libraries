@@ -42,8 +42,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
+# Nx's own state. Nothing under .nx is authored, and a cache directory set with
+# NX_CACHE_DIRECTORY lands here beside the default one.
+.nx/
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
@@ -72,10 +73,6 @@ out
 _pagefind/
 .claude/worktrees
 .claude/settings.local.json
-.nx/polygraph
-.nx/self-healing
-.nx/migrate-runs
-.nx/migrate-runs.astro
 apps/storefront/.astro/
 apps/storefront/dist/
 *.tsbuildinfo

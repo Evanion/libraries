@@ -14,8 +14,8 @@ export const DEFAULT_DICTIONARY = '0123456789abcdefghijklmnopqrstuvwxyz';
  * 62 characters, digits followed by `Aa Bb Cc …`. Case-sensitive only: its
  * case pairs make it invalid under `caseInsensitive`.
  *
- * The alternating order is load-bearing — it decides which index each letter
- * occupies, and therefore every check character the dictionary produces.
+ * The alternating order decides which index each letter occupies, and
+ * therefore every check character the dictionary produces.
  */
 export const ALTERNATING_CASE_DICTIONARY =
   '0123456789AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz';
@@ -39,6 +39,11 @@ export interface ValidateResult {
   filtered: number;
 }
 
+/**
+ * What `createLuhn` builds an instance from. Both fields are optional, and
+ * `createLuhn()` with neither builds what {@link Luhn} holds: the 36 lowercase
+ * alphanumerics, folding case.
+ */
 export interface LuhnOptions {
   /**
    * The alphabet. Must be a string of an even number of distinct code points,
@@ -148,7 +153,7 @@ const codePointsOf = (
  * lookup tables, and the two operations bound to them.
  *
  * Everything a dictionary has to satisfy is checked here, once. Nothing is
- * checked at use, so an accepted instance cannot produce a token its own
+ * checked at use, so an accepted instance cannot produce a code its own
  * `validate` rejects.
  *
  * @throws {InvalidDictionaryError} when the dictionary fails a constraint.
@@ -256,11 +261,12 @@ export function createLuhn(options: LuhnOptions = {}): Luhn {
 }
 
 /**
- * `createLuhn()`: the 36 lowercase alphanumerics, folding case.
+ * The default instance, which is what `createLuhn()` returns with no options:
+ * the 36 lowercase alphanumerics, folding case.
  *
- * Frozen, so `Luhn.dictionary = x` throws a `TypeError` in a module rather than
- * being accepted and ignored. A second dictionary is a second instance, built
- * with `createLuhn`.
+ * Frozen, so `Luhn.dictionary = x` throws a `TypeError` in strict mode, which
+ * every ES module runs in, rather than being accepted and ignored. A second
+ * dictionary is a second instance, built with `createLuhn`.
  *
  * @example
  * ```ts @import.meta.vitest

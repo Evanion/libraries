@@ -7,8 +7,14 @@ import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
+import { readRegion } from '@evanion/doc-examples/regions';
 
-import { entriesOf, exportsOf, packages } from './released-exports.js';
+import {
+  entriesOf,
+  exportsOf,
+  packages,
+  type DocumentedPackage,
+} from './released-exports.js';
 
 /**
  * Every name a package publishes is documented, and every callable one is
@@ -41,7 +47,11 @@ import { entriesOf, exportsOf, packages } from './released-exports.js';
  * fence, whose region the loader fills from a source the package's own tests
  * run. Those two are the fences the repository already guarantees; a plain
  * ```ts fence is text, and a symbol named only there is a symbol nothing
- * checks.
+ * checks. A `<!-- reference … example=… -->` directive counts as well: the
+ * reference loader emits its example as a `twoslash` fence holding that README
+ * region, so the page renders the same executed code a `file=` fence would.
+ * Only the lines a reader sees count, so a name the package's preamble imports
+ * above a `// ---cut---` line is not exercised by being imported.
  *
  * The allowance is the ratchet, on the mechanism `doc-floor.test.ts` uses. The
  * gap this file opens on is real and predates it, so it is recorded per package
@@ -57,6 +67,9 @@ const CONTENT = join(workspaceRoot, 'apps/docs/content');
 
 const FENCE = /^(\s*)(`{3,})(.*)$/;
 const HEADING = /^##\s+`([^`]+)`/gm;
+/** The reference loader's directive, with the README region it names. */
+const REFERENCE_EXAMPLE =
+  /^<!--\s*reference\s+(@?[\w./-]+)#[\w$]+\s+example=([\w-]+)\s*-->\s*$/gm;
 
 /** A debt: the name should be documented and is not, yet. */
 interface Allowance {
@@ -126,7 +139,9 @@ function blocksOf(source: string): Block[] {
  * what keeps a `file=` fence counted; expansion fills bodies and neither adds
  * a fence nor removes one, so the two lists line up.
  */
-function executableCode(): Map<string, string> {
+function executableCode(
+  documented: readonly DocumentedPackage[],
+): Map<string, string> {
   const bySlug = new Map<string, string[]>();
 
   for (const page of mdxFiles(CONTENT)) {
@@ -145,14 +160,57 @@ function executableCode(): Map<string, string> {
       );
     }
 
-    const body = written.flatMap((block, at) =>
-      executable(block.info) ? (expanded[at] as Block).body : [],
-    );
+    const body = [
+      ...written.flatMap((block, at) =>
+        executable(block.info) ? shown((expanded[at] as Block).body) : [],
+      ),
+      ...referenceExamples(raw, documented),
+    ];
 
     bySlug.set(slug, [...(bySlug.get(slug) ?? []), ...body]);
   }
 
   return new Map([...bySlug].map(([slug, lines]) => [slug, lines.join('\n')]));
+}
+
+/**
+ * The lines of a fence a reader sees.
+ *
+ * The region loader puts a package's preamble above a `// ---cut---` line in a
+ * `twoslash` fence, and Twoslash compiles everything above that line and
+ * renders none of it. A name imported only there appears in no example the
+ * page shows.
+ */
+function shown(body: readonly string[]): readonly string[] {
+  const cut = body.findIndex((line) => line.trim() === '// ---cut---');
+  return cut === -1 ? body : body.slice(cut + 1);
+}
+
+/**
+ * The code of every README region a reference directive names as its example.
+ *
+ * The directive is an HTML comment in the page as written, so neither fence
+ * list above sees it. `mdx-reference-loader.mjs` reads the region through the
+ * same `readRegion` and emits it as a `ts twoslash` fence, which makes it as
+ * executable as a `file=` fence citing that region.
+ */
+function referenceExamples(
+  raw: string,
+  documented: readonly DocumentedPackage[],
+): string[] {
+  return [...raw.matchAll(REFERENCE_EXAMPLE)].flatMap(
+    ([, specifier, region]) => {
+      const name = (specifier as string).split('/').slice(0, 2).join('/');
+      const owner = documented.find((each) => each.name === name);
+      if (!owner) return [];
+
+      const readme = join(owner.root, 'README.md');
+      const source = readFileSync(join(workspaceRoot, readme), 'utf8');
+      return (
+        readRegion(source, readme, region as string).code as string
+      ).split('\n');
+    },
+  );
 }
 
 /** The symbols an API reference page gives a heading, by section slug. */
@@ -204,10 +262,11 @@ function gaps(): Promise<Map<string, Gap>> {
 }
 
 async function computeGaps(): Promise<Map<string, Gap>> {
-  const entries = (await packages()).flatMap(entriesOf);
+  const documentedPackages = await packages();
+  const entries = documentedPackages.flatMap(entriesOf);
   const exported = exportsOf(entries);
   const headings = documented();
-  const code = executableCode();
+  const code = executableCode(documentedPackages);
   const found = new Map<string, Gap>();
 
   for (const entry of entries) {
@@ -282,8 +341,9 @@ describe('every published name is documented', () => {
       for (const symbol of gap.unexercised) {
         if (allowed.has(symbol)) continue;
         failures.push(
-          `${name} exports \`${symbol}\`, which no \`twoslash\` or \`file=\` ` +
-            `fence calls. A reader gets a signature and no example. Add one. ` +
+          `${name} exports \`${symbol}\`, which no \`twoslash\` fence, ` +
+            `\`file=\` fence or reference \`example=\` region calls. A reader ` +
+            `gets a signature and no example. Add one. ` +
             `If the name is not public API, mark it \`@internal\` and say why ` +
             `in the same docblock; if the example is simply not written yet, ` +
             `record it in doc-export-coverage-allowance.json.`,
