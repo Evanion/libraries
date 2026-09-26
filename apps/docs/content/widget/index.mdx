@@ -1,11 +1,12 @@
 # @evanion/widget
 
-A CMS stores a shop page as a list of sections, and a renderer leaves out any
-section whose `type` it has no component for. `@evanion/widget` defines the
-items in that list and checks them before a renderer draws them.
+A content management system (CMS) saves a page as a list of items, and a
+renderer skips any item whose `type` it has no component for.
+`@evanion/widget`, the widget core, defines those items and checks them before
+a renderer draws them.
 
 <PageSheet
-  difficulty={1}
+  difficulty={2}
   read={4}
   unlocks={[
     ['Getting started', '/widget/getting-started'],
@@ -25,51 +26,55 @@ Root. `validateItems` checks it against the two types the page may use:
 
 ```
 
-`problems` is an empty array, so every item names a type in the list and
-carries its props. `id` identifies an item among its siblings. `meta` is
-placement: `span: 2` goes to the markup a renderer wraps the item in, and never
-into the listing's own props. `children` nests items, so moving `tonight` moves
-Root's listing with it.
+`problems` is an empty array: every item names a type in the list, and every
+item carries a `props` object. Each of the other three fields has one job:
 
-A renderer draws this array. `@evanion/react-widget` draws it in React and
-`@evanion/astro-widget` draws it in Astro, and both produce the same widgets in
-the same order.
+- `id` identifies an item among its siblings.
+- `meta` holds placement. A renderer hands `span: 2` to the element it wraps
+  the listing in, which can make that element two grid columns wide, and the
+  listing's own props never see it.
+- `children` nests items. Root's listing sits inside the `tonight` shelf, so a
+  CMS editor who moves the shelf moves Root's listing with it.
+
+`@evanion/react-widget` draws `children` inside their parent.
+`@evanion/astro-widget` hands them to the parent's component as data, and that
+component renders them.
 
 ## The widget vocabulary
 
-Every later widget page uses these four words.
+The widget core and both renderers use four terms.
 
 - An **item** is one entry in the array: `id`, `type`, `props`, and optional
   `meta` and `children`. `AnyWidgetItem` is its type.
-- A **registry** maps each `type` to what a renderer draws for it.
-  `defineWidgets(registry)` returns one with its keys kept literal, so an editor
-  completes on them.
+- A **registry** maps each `type` to the component a renderer draws for it.
+  `defineWidgets(registry)` returns the same object, typed so that your code
+  editor completes on its keys.
 - A **renderer** is the package that turns items into markup, one per
   framework.
 - A **problem** is one entry in the array `validateItems` returns, typed
-  `WidgetProblem`: the item's position, `id` and `type`, and a message.
+  `WidgetProblem`: the item's `index` among its siblings, its `id` and `type`,
+  and a `message`.
 
 ## What the widget core can do
 
-| You want to                                        | What the widget core gives you                                                      |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| describe a page as data a CMS can write            | `AnyWidgetItem`, plain JSON with no class or builder                                |
-| name the types a page may use                      | a registry from `defineWidgets`, or a plain array of type names                     |
-| reject a bad payload before it renders             | `validateItems(items, known)`, which returns every problem and throws nothing       |
-| demand the props an editor must fill in            | the optional third argument to `validateItems`, a type mapped to its required props |
-| run the check where no renderer is installed       | a package that imports no framework and has no dependencies                         |
-| print the same warning from a renderer of your own | `ERROR_MESSAGES` for the text, and `warnOnce` to print each message once            |
+| You want to                                        | What the widget core gives you                                                   |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| describe a page as data a CMS can write            | `AnyWidgetItem`, plain JSON with no class or builder                             |
+| name the types a page may use                      | a registry from `defineWidgets`, or a plain array of type names                  |
+| reject a bad payload before it renders             | `validateItems(items, known)`, which returns every problem and throws nothing    |
+| demand the props a CMS editor must fill in         | `validateItems` with a `required` map                                            |
+| run the check where no renderer is installed       | `validateItems` from a package that imports no framework and has no dependencies |
+| print the same warning from a renderer of your own | `ERROR_MESSAGES` for the text, and `warnOnce` to print each message once         |
 
 ## What the widget core does not do
 
-- Draw anything. A renderer does, and each one pins this package exactly and
-  re-exports every name on it except `warnOnce` and `resetWarnings`. A project
-  that draws its pages through a renderer never installs the core by hand.
+- Draw anything. A renderer draws the items.
 - Check a prop against its component's type at compile time.
   `@evanion/react-widget` does that, because it knows what a React component
   accepts.
 - Run `validateItems` for you. A renderer that meets an unknown `type` skips the
-  item, and warns in development only. The check runs where you call it.
+  item, and warns only when `NODE_ENV` is not `production`. The check runs
+  where you call it.
 - Fetch or store the payload. Where the array comes from is your application's
   code.
 
