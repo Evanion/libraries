@@ -42,8 +42,10 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
+# Nx's state: the cache, the graph, and wherever NX_CACHE_DIRECTORY points a
+# worktree's own cache. Nothing under it is tracked, and nx reads this file to
+# decide which package.json files are projects.
+.nx/
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
@@ -72,10 +74,6 @@ out
 _pagefind/
 .claude/worktrees
 .claude/settings.local.json
-.nx/polygraph
-.nx/self-healing
-.nx/migrate-runs
-.nx/migrate-runs.astro
 apps/storefront/.astro/
 apps/storefront/dist/
 *.tsbuildinfo
