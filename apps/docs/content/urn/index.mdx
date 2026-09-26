@@ -1,84 +1,71 @@
 # @evanion/urn
 
-Uniform Resource Names, as defined by
-[RFC 8141](https://datatracker.ietf.org/doc/html/rfc8141), with an API shaped
-like the `JSON` class: `stringify` writes one, `parse` reads one.
+A bare `1337` in a message does not say whether it names a game or an order.
+`@evanion/urn` writes and reads Uniform Resource Names (URNs), identifiers that
+carry their namespace: `urn:game:brass-birmingham`.
 
-A URN is an identifier that carries its own namespace:
+## How @evanion/urn reads a URN
 
-```
-urn : user : 1337
- ↑      ↑      ↑
-scheme  NID   NSS
-```
+`parse` splits a URN into three parts, returned as `urn`, `nid` and `nss`, and
+`stringify` joins them. A subclass of `URN` names one namespace by overriding
+its `nid` static, and every method it inherits reads that value. These examples
+are set in Baize, a board game shop, and `GameURN` is its namespace for games:
 
-Nothing downstream has to be told what a bare `1337` refers to. AWS's ARNs are
-the same idea with a longer NSS.
-
-## Quick start
-
-A subclass is the extension point. Override the statics and every inherited
-method reads the new values:
-
-```ts twoslash file=libs/urn/README.md region=basic-usage
+```ts twoslash file=libs/urn/README.md region=namespace-class
 
 ```
 
-`bar` is not this class's own NID — `TRN` inherits the base class's `nid`,
-which is the placeholder `'nid'` — so `parse` keeps it in the `nss` rather than
-discarding the namespace. Give the class its own NID and the `nss` comes back
-clean:
+`GameURN.parse` returns a clean `nss` for a URN in its own namespace. The order
+URN is foreign to `GameURN`, so `parse` keeps `order` at the front of the `nss`,
+and nothing downstream mistakes the order for a game called `order-2026-0042`.
 
-```ts
-class UserTRN extends TRN {
-  static override readonly nid = 'user';
-}
+## The @evanion/urn vocabulary
 
-UserTRN.stringify('1337'); // 'trn:user:1337'
-UserTRN.parse('trn:user:1337'); // { urn: 'trn', nid: 'user', nss: '1337' }
-```
+Every later urn page uses these five terms, shown here on
+`urn:game:brass-birmingham`.
 
-[Getting started](/urn/getting-started) covers that retention rule in full.
+- The **scheme** is the first part, `urn` in every
+  [RFC 8141](https://datatracker.ietf.org/doc/html/rfc8141) URN. `parse` returns
+  it under the key `urn`.
+- The **namespace identifier** (NID) is the second part, `game`. It says
+  what kind of thing the rest names.
+- The **namespace-specific string** (NSS) is everything after the NID,
+  `brass-birmingham`. It names one thing inside the namespace.
+- A **namespace class** is a subclass of `URN` that overrides the `nid` static,
+  and optionally `urn` and `separator`. `GameURN`, whose `nid` is `game`, is
+  one.
+- The **r-, q- and f-components** are optional tails after the NSS, introduced
+  by `?+`, `?=` and `#`. RFC 8141 keeps them out of the identifier.
 
-## What is in the package
+## What @evanion/urn can do
 
-| Export                              | What it is                                         |
-| ----------------------------------- | -------------------------------------------------- |
-| `URN`                               | the class: sixteen statics, all inheritable        |
-| `encodeNss`, `decodeNss`            | percent-encoding, as an explicit step              |
-| `ValidationError`, `InvalidError`   | the error hierarchy                                |
-| `ParsedURN`, `URNParts`, `IFullURN` | the shapes `parse` returns and `stringify` accepts |
-| `URNComponents`                     | the three optional RFC 8141 §2.3 components        |
+| You want to                                      | What urn gives you                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| mint a URN from an id                            | `stringify`, on a namespace class or with the NID as an argument          |
+| read a URN into its parts                        | `parse`, which keeps a foreign namespace in the `nss`                     |
+| check a string before reading it                 | `isValidFormat`, which never throws                                       |
+| get the trailing id, whatever the namespace      | `extractId`                                                               |
+| compare two spellings of one URN                 | `equals`, the equivalence RFC 8141 §3.1 defines                           |
+| sort URNs by namespace                           | `sameNamespace` and `belongsToNamespace`                                  |
+| put a title such as `Brass: Birmingham` in a URN | `encodeNss` and `decodeNss`                                               |
+| carry an edition or a section of the rules       | the q- and f-components, read by `parse` and written by `stringify`       |
+| tell a malformed URN from one bad part           | `ValidationError`, and `InvalidError`, which names the part in `property` |
 
-`URN` carries `stringify`, `parse`, `isValidFormat`, `extractId`,
-`sameNamespace`, `belongsToNamespace` and `equals`, plus the six grammar
-getters. [The API reference](/urn/api) has them all.
+## What @evanion/urn does not do
 
-## What this library does not do
+- It does not normalise. `parse` returns every part in the case it was written
+  in, with percent-triplets intact, because RFC 8141 §3.1 keeps an encoded octet
+  opaque. `equals` is the comparison.
+- It does not encode. `stringify` throws on an NSS containing a literal space,
+  so nothing is encoded twice by accident. `encodeNss` is the explicit step.
+- It does not deduplicate. `stringify('game:azul')` on `GameURN` writes
+  `urn:game:game:azul`, which keeps a composite key from another system
+  recoverable.
+- It does not resolve. A URN names a game, and finding that game's listing is
+  the application's job. The r- and q-components carry parameters to whatever
+  does the finding.
 
-- It does not normalise. `parse` returns every part in the case it was
-  written in, with percent-triplets intact, because RFC 8141 §3.1 requires that
-  an encoded octet stay opaque for equivalence purposes. Use `equals` to compare.
-- It does not encode. `stringify` rejects an NSS containing a literal space
-  rather than encoding it, so nothing can be double-encoded by accident.
-  `encodeNss` is the explicit step.
-- It does not deduplicate. An NSS whose first segment happens to equal the
-  NID survives the round trip, which is what keeps a composite key imported from
-  another system recoverable.
-- It does not resolve. A URN names a resource; finding it is somebody else's
-  job. The r- and q-components exist to carry parameters to whoever does.
+## Now that you know how urn reads a URN, install it
 
-## Pages
-
-- [Getting started](/urn/getting-started) — installing, subclassing, and the
-  namespace-retention rule
-- [API reference](/urn/api) — every static, every type, every error
-- [r-, q- and f-components](/urn/components) — the optional RFC 8141 §2.3 tails
-- [Examples](/urn/examples) — worked patterns
-
-## Where to start with urn
-
-A subclass is `@evanion/urn`'s extension point, and its three statics are what
-a namespace overrides.
-[Getting started](/urn/getting-started) installs the package and parses a URN
-through a subclass of your own.
+[Getting started](/urn/getting-started) installs `@evanion/urn` and writes the
+`GameURN` class from the first example on this page.

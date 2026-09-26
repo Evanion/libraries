@@ -70,9 +70,9 @@ describe('the .md siblings', () => {
   });
 
   it('carries the code of the region a page cites', () => {
-    // `libs/urn/README.md`'s `equality` region, which
+    // `libs/urn/README.md`'s `basic-usage` region, which
     // `content/urn/getting-started.mdx` cites and leaves empty.
-    expect(siblings.get('urn/getting-started.md')).toContain('URN.equals(');
+    expect(siblings.get('urn/getting-started.md')).toContain('GameURN.parse(');
   });
 
   it('serves no llms.txt', () => {
