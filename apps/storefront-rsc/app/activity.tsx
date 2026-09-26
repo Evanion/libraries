@@ -26,9 +26,8 @@ const SHOWN = 6;
 
 export async function Activity({ heading }: { heading: string }) {
   // #region gate-before-fetch
-  // Decided before the fetch, not after it. A gate that renders nothing over
-  // data it already asked for has still pulled the events into this process,
-  // and the whole point of the section is that they never arrive.
+  // Decided before the fetch. A gate that renders nothing over data it already
+  // asked for has still pulled the events into this process.
   const may = await authorized();
   if (!may.can('telemetry', 'read').allowed) return null;
 
