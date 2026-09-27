@@ -5,18 +5,31 @@ checks them again, and the two copies drift the first time somebody edits one.
 
 <WorkshopNotice slug="acl" />
 
-## How acl thinks about a permission
+## How acl shares one set of rules between server and browser
 
-Four names carry this section, and the picture below uses all four. `policy()`
-writes the rules and `.build()` returns an evaluator over the finished document,
-which this documentation always calls `access`. `access.can` is how you ask that
-evaluator a question. `access.matrix` is the document itself, a plain value that
-survives `JSON.stringify`. `hydratePolicy` takes that value on the other side of
-a process boundary and returns an evaluator again.
+acl keeps the rules you write with `policy()` in one JSON document, called the
+matrix. The process that owns the rules writes it, and any process holding a
+copy answers from that copy with no call back to the owner.
 
-acl keeps every rule in that one JSON document, called the matrix. The process
-that owns the rules writes it. Any process holding it can answer from it, with
-no call back to the process that wrote it.
+Every example on these pages is set in Baize, a board game shop, where a
+customer who asked a question may edit it:
+
+```ts twoslash file=libs/acl/README.md region=quick-start
+
+```
+
+`policy` takes two types: the subject's shape, and a map from each object kind
+to the shape of its rows. `.build()` turns the rules into an evaluator, the
+object that answers questions from the matrix, which this documentation always
+calls `access`. `access.can(subject, kind, action, row)` asks whether the user
+acting, the subject, may take an action on one row, and
+`p.eq('object.askedBy', 'subject.id')` compares a field of the row with a field
+of the subject. Every question on the pages below has this shape: a subject, an
+object kind, an action, and the row the action is aimed at.
+
+`access.matrix` is the matrix itself, a plain JSON value. `hydratePolicy` takes
+that value in another process, such as a browser, and returns an evaluator over
+it:
 
 ```mermaid caption="One document, two evaluators. policy() writes the matrix in the process that owns the rules, access.matrix crosses to the browser as JSON, and hydratePolicy rebuilds an evaluator over it. Both sides call can over the same rules, and the service's own answer is the one that guards the write."
 flowchart LR
@@ -27,53 +40,44 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-acl answers inside the process that asked. No request leaves your server, and a
-process holding a copy of the matrix answers from that copy after you change a
-rule, until it
-[fetches the new version](/acl/advanced#refetching-an-acl-matrix-when-its-version-moves).
-
-A question to acl looks like this. Baize, a board game shop, lets the customer
-who asked a question edit it:
-
-```ts twoslash file=libs/acl/README.md region=quick-start
-
-```
-
-That is the shape of every answer on every page below: a subject, an object
-kind, an action, and the row the action is aimed at.
+Every answer is computed inside the process that asked, so no request leaves
+your server. A process holding a copy of the matrix keeps answering with the old
+rules after you change one, until it fetches the new version.
 
 ## The acl vocabulary
 
-Six words carry the rest of this section.
-
-- A **subject** is who is acting. The server resolves it before the call.
+- A **subject** is who is acting, as your auth layer resolved it before the
+  call.
 - An **object** is what is being acted on: a kind, like `question`, and
   optionally the row itself.
-- A **permission** is one object kind paired with one action, keyed
-  `` `${object}.${action}` ``.
-- A **rule** is a set of conditions under a permission. The engine ANDs the
-  conditions, and a rule matches when all of them hold.
-- The **matrix** is the whole document: a JSON envelope over a flat list of
-  permissions, with a version and an optional schema.
-- An **evaluator** answers questions from one document. `policy().build()`
-  returns one and `hydratePolicy` returns one, and this documentation always
-  calls it `access`.
+- A **permission** is one object kind paired with one action, keyed `` `${object}.${action}` ``.
+- A **condition** compares a path into the subject or the row, such as
+  `object.askedBy`, with a value or with another path.
+- A **rule** is a list of conditions, and it matches when all of them hold. An
+  allow rule grants its permission. A deny rule refuses it and outranks every
+  allow, and a permission no allow rule matches is refused.
+- The **matrix** is the whole document: a JSON object holding a flat list of
+  permissions, an optional `version`, and an optional schema that names the
+  fields each object kind carries.
+- An **evaluator** answers questions from one matrix. `policy().build()` and
+  `hydratePolicy` each return one.
 
 A **decision** is what comes back from `access.can`. `allowed` is the answer and
-nothing else is. `reason`, `rule` and `missing` say why, and they are output
-only.
+the only field to act on. `reason` names which of seven outcomes decided it,
+`rule` names the rule that decided, and `missing` lists the row fields the call
+needed and did not pass.
 
 ## What acl can do
 
-| The question                                        | The answer                                                         |
-| --------------------------------------------------- | ------------------------------------------------------------------ |
-| May this subject take this action on this row?      | one decision, with the reason beside it                            |
-| May they take it on each of these rows?             | one decision per row, in one call                                  |
-| What may they do at all, with no row in hand?       | every permission in the document at once                           |
-| Which fields of this write may they set?            | a per-field decision, and the write to actually send               |
-| Why was this refused?                               | the rule that refused, or the fields that were missing             |
-| I edited the policy. Who gained or lost access?     | a report over the old document and the new one                     |
-| May I answer from a document another service wrote? | yes, and an action it never declared is refused rather than thrown |
+| The question                                        | The answer                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| May this subject take this action on this row?      | one decision, with the reason beside it                             |
+| May they take it on each of these rows?             | one decision per row, in one call                                   |
+| What may they do at all, with no row in hand?       | every permission in the document at once                            |
+| Which fields of this write may they set?            | a decision per field, and the write with the refused fields removed |
+| Why was this refused?                               | the rule that refused, or the fields that were missing              |
+| I edited the policy. Who gained or lost access?     | a report over the old document and the new one                      |
+| May I answer from a document another service wrote? | yes; an action that document lacks answers `allowed: false`         |
 
 Every one of those is a local call. The rules behind them are the same rules on
 a server and in a browser, because both sides hold the same document.
@@ -83,9 +87,10 @@ a server and in a browser, because both sides hold the same document.
 acl does not do these four jobs, and none of them is on a roadmap.
 
 - Anything the document cannot state in the open. The matrix reaches the client
-  in full, so every object kind, action, role string, field name and time
-  boundary in it is public. An opaque predicate stays server-side, outside the
-  matrix.
+  in full, so every object kind, action and field name in it is public, and so
+  is every value a condition compares against, such as a role name or a cut-off
+  date. A check that has to stay secret runs in your own server code, outside
+  the matrix.
 - Filtering a collection in the database. A decision is per instance, and
   generating a `WHERE` clause from the matrix is out of scope.
 - Rules that call a function. Conditions are declarative, because the matrix has
@@ -94,8 +99,8 @@ acl does not do these four jobs, and none of them is on a roadmap.
   own evaluator.
 
 [What `@evanion/acl` does not do](/acl/limits) carries five more questions the
-model cannot answer, each with the mechanism behind it. Read it before you build
-on this library.
+model cannot answer, each with the mechanism behind it. Read it before you
+decide on this library.
 
 <Panel heading="A browser answer is advisory">
   <Text as="div" size="sm">
@@ -103,8 +108,8 @@ on this library.
     server and in a browser, and nothing in the types separates them. Only the
     server's answer guards anything. Hiding a button hides the button, not the
     request the button would have sent, so every server layer decides for
-    itself. [The security contract](/acl/security) is the rest of that sentence,
-    and it is not optional reading.
+    itself. [The security contract](/acl/security) says what each server layer
+    checks. Read it before your first deploy.
   </Text>
 </Panel>
 
