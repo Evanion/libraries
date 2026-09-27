@@ -127,14 +127,14 @@ export default {
 
   'group-questions': { type: 'separator', title: 'Questions' },
   asking: 'Can this user do this?',
-  'listing-permissions': 'Listing everything a user may do',
+  'listing-permissions': 'What may this user do at all?',
   writing: 'Which fields may they write?',
   refusals: 'Why was this refused?',
-  adopting: 'A policy from another service',
-  publishing: 'Giving my rules to another service',
+  adopting: 'How do I use rules another service published?',
+  publishing: 'How do I give my rules to another service?',
   errors: 'What can throw?',
   'rule-changes': 'What did editing my rules change about access?',
-  testing: 'Testing a contract I consume',
+  testing: 'How do I test a contract I consume?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
   limits: 'What this does not do',
