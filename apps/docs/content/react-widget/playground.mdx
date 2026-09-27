@@ -1,22 +1,35 @@
 # Playground
 
+`Widgets` renders live on this page: a Baize staff page you rearrange by moving
+its items, and editors whose snippets you change and run.
+
+<PageSheet
+  difficulty={3}
+  read={6}
+  hands={20}
+  requires={[
+    ['Writing and checking items', '/react-widget/examples'],
+    ['Chrome, meta, ctx and Suspense', '/react-widget/advanced'],
+  ]}
+  unlocks={[['API reference', '/react-widget/api']]}
+/>
+
 ## A Baize page as one react-widget region
 
-The counter's view of Baize below is one `Widgets` region: a figures row and two
-boards, composed from the seven items printed under it. Every block is a
-component written once, and the items decide which blocks the page has, what
-sits inside what and how wide each one is.
+The demo below is one `Widgets` region: the page Baize's staff read for the
+week. Two top-level `columns` items compose it. `week` holds three `metric`
+items, and `counter` holds a `tables` item and a `reprints` item, each a titled
+panel around a data table. All seven items are printed under the page.
 
-Move an item with the controls in the gutter and the page is composed again.
-Moving `counter` above `week` carries two boards and three figures as one block,
-which a nested item list expresses and a flat `items.map` cannot. Moving
-`tables` past `reprints` swaps the wide side, because `meta.span` belongs to the
-item and travels with it.
+Move an item with the arrows beside its first line, and `Widgets` renders the
+page again. Moving `counter` above `week` swaps the two rows, each with the
+items nested under it, which a flat `items.map` cannot express. Moving `tables`
+past `reprints` swaps the wide side, because `meta.span`, the number of columns
+the item chrome gives an item, belongs to the item and travels with it.
 
 <DataDemo />
 
-What is on screen is the published renderer over the items printed beside it.
-The same demonstration opens the front page.
+What is on screen is the published renderer over the items printed under it.
 
 ## Edit a react-widget region in the browser
 
@@ -26,9 +39,9 @@ builds a component map with `createWidgets`, writes an item array, and ends in
 
 <PlaygroundExamples />
 
-react-live evaluates each snippet in `noInline` mode against a fixed scope, with
-no module resolution. An `import` line, or a name outside the scope, shows as a
-runtime error in the preview pane.
+The editor runs each snippet against a fixed scope, with no module resolution.
+An `import` line, or a name outside the scope, shows as a runtime error in the
+preview pane.
 
 | In scope                                          | What it is                                                    |
 | ------------------------------------------------- | ------------------------------------------------------------- |
@@ -46,16 +59,17 @@ async widget and the streaming behaviour of
 
 Type errors do not show. The snippets are strings that nothing type-checks, so
 an unknown `type`, a mistyped prop and `children` under a widget that renders
-none all run without complaint. What the editor shows is the rendered output,
-the chrome composing around it, and the console warning when an item names a
-type the map does not have.
+none all run without complaint. The console stays quiet too: this site is a
+production build, and `Widgets` warns only in development. What the editor
+shows is the rendered output and the chrome composing around it.
 
 ## Things to change in a react-widget snippet
 
 - A `type` to one the component map does not hold. The item disappears and the
-  browser console carries one warning naming its `id`.
+  rest of the region renders.
 - A `props` key. Nothing checks it at runtime, and the widget receives
   `undefined`, which is the gap the type checker closes outside this editor.
-- The `chrome.wrapper`, to see how the region container composes.
+- The `chrome.wrapper`. The region's container changes and every widget stays
+  inside it.
 - An item's position in the array. `id` is the React key, so a reorder moves the
   existing element and keeps its state.

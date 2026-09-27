@@ -3,9 +3,19 @@
 By the end of this page `Widgets` renders a Baize listing from one item, and you
 have the HTML React wrote for it.
 
+<PageSheet
+  difficulty={1}
+  read={5}
+  hands={15}
+  requires={[['Overview', '/react-widget']]}
+  unlocks={[['Writing and checking items', '/react-widget/examples']]}
+/>
+
 ## Before you install react-widget
 
 - React 18 or 19, the only peer dependency.
+- `react-dom` at the same version. The example below imports
+  `renderToStaticMarkup` from it.
 - Node 20 or newer.
 - An ESM project, since the package ships no CommonJS build.
 - TypeScript 5.0 or newer for the compile-time check, because the published
@@ -27,8 +37,8 @@ yarn add @evanion/react-widget
 pnpm add @evanion/react-widget
 ```
 
-The item model comes from `@evanion/widget`, which the package pins exactly and
-re-exports, so this one install is enough.
+The item type and `validateItems` come from `@evanion/widget`, which the package
+pins exactly and re-exports, so this one install is enough.
 
 ## Render one react-widget region
 
@@ -41,14 +51,22 @@ renders each item's component with its `props`. `renderToStaticMarkup`, from
 
 ```
 
-`Widgets` wrapped the region in a `<section>`, its default wrapper, and put the
-widget in a `<div>` carrying the item's `id` and `type` as `data-widget-id` and
-`data-widget-type`. `ListingCard` rendered only the `<h3>`. If your own page
-prints the same shape, react-widget is working in your project.
+To run it, import `createWidgets` from `@evanion/react-widget` and
+`renderToStaticMarkup` from `react-dom/server`, then add `console.log(html)` at
+the end. The file prints the string in the `// ->` comment. If it does,
+react-widget is working in your project.
+
+| In the HTML                  | Where it came from                                   |
+| ---------------------------- | ---------------------------------------------------- |
+| `<section>`                  | the default wrapper `Widgets` puts around the region |
+| `<div data-widget-id=…>`     | the default item chrome, carrying the item's `id`    |
+| `data-widget-type="listing"` | the same `<div>`, carrying the item's `type`         |
+| `<h3>Brass: Birmingham</h3>` | `ListingCard`, the only markup the widget wrote      |
 
 `as const` keeps `type` the literal `'listing'`. Without it TypeScript widens
-the type to `string` and `Widgets` refuses the array, because `string` is not a
-key of the component map.
+the type to `string`, and passing the array to `Widgets` is a compile error.
+`defineItems`, from the Overview's capability table, types a whole array at
+once.
 
 Call `createWidgets` once, at module scope. Each call returns a new `Widgets`
 component, so a call inside a component remounts the region on every render.

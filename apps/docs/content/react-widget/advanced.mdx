@@ -5,6 +5,17 @@ widget, `meta` places one item inside that markup, `ctx` hands every widget
 page-level data, and `chrome.suspense` decides whether each widget gets its own
 `<Suspense>` boundary.
 
+<PageSheet
+  difficulty={4}
+  read={12}
+  hands={45}
+  requires={[['Writing and checking items', '/react-widget/examples']]}
+  unlocks={[
+    ['Playground', '/react-widget/playground'],
+    ['API reference', '/react-widget/api'],
+  ]}
+/>
+
 ## Wrap a react-widget region and each widget
 
 `chrome.wrapper` renders around the whole region and `chrome.item` renders
@@ -28,24 +39,24 @@ for each prop that reaches the DOM.
 
 ### Override the map or the chrome for one region
 
-`<Widgets>` takes `components` and `chrome` of its own, merged over the
-factory's. The Wingspan item below renders through `FeaturedListing` on this
-one region only:
+`<Widgets>` takes `components` and `chrome` of its own, merged over the ones
+passed to `createWidgets`. The Wingspan item below renders through
+`FeaturedListing` on this one region only:
 
 ```tsx twoslash file=libs/react-widget/README.md region=overrides
 
 ```
 
 `components` merges the two maps key by key. `chrome` resolves field by field,
-so an instance that overrides `wrapper` keeps the factory's `item`, `suspense`
-and `suspenseFallback`.
+so a `<Widgets>` that overrides `wrapper` keeps every other `chrome` field passed
+to `createWidgets`.
 
 ## Place a react-widget item with `meta`
 
 An item's `meta` goes to `chrome.item` and never into the widget's props, so a
 listing renders the same at column 1 and at column 7. Annotate `chrome.item`
 with the keys it reads, and `createWidgets` checks every item's `meta` against
-them:
+them. `defineItems` types the array, as on the previous page:
 
 ```tsx twoslash file=libs/react-widget/README.md region=meta-grid
 
@@ -56,11 +67,11 @@ them:
 The Hive item names `col`, a key `GridCell` does not read, so it compiles only
 under `@ts-expect-error` and renders through the `auto` fallback.
 
-`meta` is optional on every item, so a chrome that reads a key still writes a
-fallback for the item that omits it. A set with no `chrome.item`, or an
-unannotated one, accepts any object as `meta`.
+`meta` is optional on every item. Write a fallback in the chrome for an item
+that omits a key it reads. A `createWidgets` call with no `chrome.item`, or with
+an unannotated one, accepts any object as `meta`.
 
-## Hand every react-widget widget page-level data with `ctx`
+## Pass page-level data to every widget in a react-widget region
 
 `<Widgets ctx={…}>` passes one object to every widget as its `ctx` prop.
 React's `react-server` build exports no `createContext`, so the package hands
@@ -78,61 +89,70 @@ cannot override it.
 ## Choose where react-widget's Suspense boundaries go
 
 `Widgets` wraps every widget in its own `<Suspense>` boundary, so one slow
-widget does not hold up its siblings. `chrome.suspenseFallback` is what renders
-while a widget suspends, and it defaults to nothing:
+widget does not hold up its siblings. That is `chrome.suspense: 'per-item'`, the
+default. `chrome.suspenseFallback` is what renders while a widget suspends, and
+it defaults to nothing:
 
 ```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
 
 ```
 
-`StockLevel` is an async Server Component. `Widgets` renders `Counting stock` in
-its place until the count resolves. The boundary lives in the renderer, so a
-custom `chrome.item` cannot remove it.
+`StockLevel` is an async Server Component. `renderToStaticMarkup` does not wait
+for a widget that suspends, so its HTML carries `Counting stock` in that
+widget's place. A streaming render sends the same fallback first and replaces it
+when the count resolves. The boundary lives in the renderer, so a custom
+`chrome.item` cannot remove it.
 
 ### A synchronous region: `chrome.suspense: 'none'`
 
-React's streaming renderer outlines any boundary still open when the shell
-passes `progressiveChunkSize`, 12,800 bytes by default, whether or not anything
-in it suspended. Measured over 150 synchronous items of about 1,000 bytes:
+React's streaming renderer sends the shell first: the HTML outside any
+unfinished boundary. Once the shell passes `progressiveChunkSize`, a
+`renderToPipeableStream` option that defaults to 12,800 bytes, React outlines
+every unfinished boundary, whether or not anything in it suspended. It sends the
+content later in a trailing `<div hidden>`, and an inline
+`<script>$RC(…)</script>` moves it into place. Measured over 150 synchronous
+items of about 1,000 bytes:
 
-| `chrome.suspense` | Bytes   | Deferred boundaries | Rows in the shell |
+| `chrome.suspense` | Bytes   | Outlined boundaries | Rows in the shell |
 | ----------------- | ------- | ------------------- | ----------------- |
 | `'per-item'`      | 139,233 | 145                 | 5 of 150          |
 | `'none'`          | 122,069 | 0                   | 150 of 150        |
 
-A region whose widgets never suspend sets `'none'`. `renderToString` writes a
-`<!--$-->` marker pair per boundary, which shows where they went:
+Set `'none'` on a region whose widgets never suspend. `renderToString`, from
+`react-dom/server`, writes a `<!--$-->` marker pair per boundary, which shows
+where they went:
 
 ```tsx twoslash file=libs/react-widget/README.md region=suspense-none
 
 ```
 
+`Widgets` does not detect which widgets suspend: `use(promise)` looks
+synchronous at runtime, and `memo()` hides an async component. If you set
+`'none'` on a region holding a widget that does suspend, that widget suspends
+the nearest boundary above the region. Wrap `<Widgets>` in `<Suspense>` to stop
+it there.
+
 ### What outlining does to a reader of the HTML
 
-An outlined widget sits in a trailing `<div hidden>`, and an inline
-`<script>$RC(…)</script>` moves it into place. A client that runs no inline
-script never sees it: scripts turned off, or a Content-Security-Policy with no
-nonce. A text extraction, a reader-mode pass or a snapshot test reads
-placeholders where the widgets should be.
-
-`Widgets` does not detect which widgets suspend. A component calling
-`use(promise)` looks synchronous at runtime and `memo()` hides the rest. A
-wrong guess drops the boundary from a widget that suspends. Under `'none'` such
-a widget suspends the nearest boundary above the region. Put your own
-`<Suspense>` around `<Widgets>` to stop it at the region.
+A client that runs no inline script never sees an outlined widget: scripts
+turned off, or a Content-Security-Policy with no nonce. A text extraction, a
+reader-mode pass or a snapshot test reads placeholders where the widgets should
+be.
 
 ## Catch a failing react-widget widget
 
-The package ships no error boundary. A boundary is a class component, React
-exports no `Component` under `react-server`, and a class inside the package
+The package ships no error boundary. A boundary is a class component, and React
+exports no `Component` under `react-server`, so a class inside the package
 forces `'use client'` onto all of it. Write the boundary in your own
-`'use client'` file and render it inside `DefaultItem`:
+`'use client'` file, with the directive above its imports, and render it inside
+`DefaultItem`:
 
 ```tsx twoslash file=libs/react-widget/README.md region=error-boundary
 
 ```
 
-Pass `SafeItem` as `chrome.item`. The boundary is then client code, and the
+Import `SafeItem` into the server file that calls `createWidgets`, and pass it
+as `chrome: { item: SafeItem }`. The boundary is then client code, and the
 widgets inside it stay server components.
 
 ## Render a long react-widget region
