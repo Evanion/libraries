@@ -1,28 +1,21 @@
 # Explore a document you have
 
+The [matrix explorer](/matrix-explorer) reads a matrix you paste, such as the
+text `JSON.stringify(access.matrix)` prints for your own policy, and draws what
+it declares and what it decides for one subject.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={2}
+  difficulty={4}
   read={5}
   hands={10}
-  requires={[['The Matrix Document', '/acl/matrix']]}
+  requires={[['The matrix: your rules as JSON', '/acl/matrix']]}
   unlocks={[
     ['How do I use rules another service published?', '/acl/adopting'],
     ['What may this user do at all?', '/acl/listing-permissions'],
   ]}
 />
-
-**The concept.** A matrix document states version, freshness, schema and
-permissions, and a reader holding one reads all four by eye.
-**What you get.** The [matrix explorer](/matrix-explorer), a screen of its own
-that takes a document, a subject and an object row, and draws what the document
-declares and what it decides.
-**Why you want it.** Reading forty permissions to find which ones a subject can
-use is the work `capabilities` already does in one call.
-**How the library gets you there.** `parseMatrix` adopts, `capabilities`
-decides every key against one subject, `readsObject` says which permissions owe
-a row first, and `can` decides those against the row.
 
 <ButtonLink href="/matrix-explorer" variant="primary">
   Open the matrix explorer
@@ -32,41 +25,40 @@ a row first, and `can` decides those against the row.
 
 This site is a static export. There is no server behind these pages, and
 `@evanion/acl` imports no framework and evaluates locally, so a document pasted
-into the explorer is read by JavaScript in the reader's own browser and has
-nowhere to be uploaded to. The tool's own toolbar says the same thing, because
-that is where somebody who arrived at it directly is looking.
+into the explorer is read by JavaScript in your own browser and has nowhere to
+be uploaded to. The tool's own toolbar says the same thing, because that is
+where somebody who arrived at it directly is looking.
 
-The tool takes a paste and a file the reader picks. It reads nothing from the
-URL. A document reachable at `?matrix=https://…` is a link a third party can
-send, and Swagger UI ships the same default off for the same reason. The cost
-of that refusal is a matrix nobody can share by pasting a link, and the way to
-share one is to send the document.
+The tool takes a paste or a file you pick, and reads nothing from the URL,
+because a document reachable at `?matrix=https://…` is a link a third party can
+send. Nobody can share a matrix by pasting a link, so to share one, send the
+document.
 
 A pasted document is also invisible to this site's search. Search indexes the
-HTML the build emitted, and a reader's document reaches the screen after that.
-Everything searchable about the tool is on this page.
+HTML the build emitted, and your document reaches the screen after that.
 
 ## What the acl matrix explorer draws
 
-The explorer adopts with [`parseMatrix`](/acl/api#parsematrix), the closed
-path, on the ground that a document arriving from somewhere else is foreign
-input: a key it does not carry answers `unknown-action` rather than throwing.
-That is the same adoption a consuming service writes, so what the screen shows
-is what that service would get.
+The explorer loads the document with [`parseMatrix`](/acl/api#parsematrix), the
+function a service calls on a matrix another service published, because a
+pasted document is foreign input: a key it does not carry answers
+`unknown-action` rather than throwing. What the screen shows is what that
+service would get from the same document.
 
-Two panes. The left one holds what the reader brought: the document, the
-subject, and one row box per object kind the document reads. The right one
-holds three reports, and each is either the document's own words or one call
-into the package.
+The left pane holds what you brought: the document, the subject as JSON, and one
+row box per object kind the document reads. The right pane holds three reports,
+and each is either the document's own words or one call into the package.
 
 **Decisions** comes first, because it is what moves when an input changes. Its
 `asked` column says which call answered each row: `capabilities` for the one
 pass over the whole document, `can` for a permission that reads the object and
 has a row to read. **What it declares** is `version`, `maxStale`, the schema's
-object kinds and how many permissions carry `visibility: 'public'`, which is
-the set [`serialize(access, 'reduced')`](/acl/publishing) would keep. **What
-each permission says** is its allow rules, its deny rules and its field rules,
-with `needs the row` on every permission `access.readsObject` answers true for.
+object kinds and how many permissions carry `visibility: 'public'`, which is the
+set [`serialize(access, 'reduced')`](/acl/publishing) would keep. **What each
+permission says** is its allow rules, its deny rules and its field rules, with
+`needs the row` on every permission `access.readsObject` answers true for.
+
+### What the acl explorer's sample document answers
 
 The sample the tool offers is a shop matrix over `listing` and `order`. Against
 the seller `{ "id": "u_31", "roles": ["seller"] }` and no row at all it answers
@@ -77,30 +69,29 @@ the seller `{ "id": "u_31", "roles": ["seller"] }` and no row at all it answers
 `allow`, and `{ "sellerId": "u_31", "status": "archived" }` turns it into
 `denied` on the rule named `archived`.
 
-This page carries no copy of that document and no preview of the screen. One
-document lives in one module, which is the tool's, and a preview here would be
-a second empty state to keep in step with the first.
-
 ## How the acl matrix explorer asks about an object
 
-A permission whose rules read no `object.*` path decides the same with a row
-and without one, so the explorer asks for a row only where
-`access.readsObject` answers true, and it asks once per object kind rather than
-offering one box and a picker for which kind it holds. The screen's answer is a
-table with every permission in it, and a picker would leave half of it stale:
-`listing.update` decided against the row in hand while `order.refund` still
-carries the answer it gives with none.
+A permission whose rules read no `object.*` path decides the same with a row and
+without one, so the explorer asks for a row only where `access.readsObject`
+answers true, and it asks once per object kind rather than offering one box and
+a picker for which kind it holds. The screen's answer is a table with every
+permission in it, and a picker would leave half of it stale: `listing.update`
+decided against the row in hand while `order.refund` still carries the answer it
+gives with none.
 
-Each box opens empty and carries a control that fills it. For the sample that
-is a `listing` the subject above owns, which turns `listing.update` from
+Each box opens empty and carries a control that fills it. For the sample that is
+a `listing` the subject above owns, which turns `listing.update` from
 `unevaluable` into `allow`; from there, changing `status` to `"archived"`
 reaches `denied` and changing `sellerId` reaches `no-rule-matched`. For a
-document the reader brought it is one empty value per field
-`schema.objects[kind].fields` declares. For a kind the schema declares no
-fields for, the control is disabled and says so, because a row built from the
-paths a rule happens to read would be the tool guessing at a shape the document
-declined to state. What lands in the box is editable text, so nothing the
-control does is a state a reader cannot also type.
+document you brought it is one empty value per field
+`schema.objects[kind].fields` declares. For a kind the schema declares no fields
+for, which is every kind in a document with no schema, the control is disabled
+and says so, because a row built from the paths a rule happens to read would be
+the tool guessing at a shape the document declined to state. What lands in the
+box is editable text, so nothing the control does is a state you cannot also
+type.
+
+### The three states of an acl explorer row
 
 A row is optional, and the three states it has are all worth reaching:
 
@@ -113,21 +104,19 @@ A row is optional, and the three states it has are all worth reaching:
   answers `no-rule-matched`, because the comparison ran and failed.
 
 An absent path and an empty string are different answers, and the box is where
-a reader tells them apart. [Why was this refused?](/acl/refusals) has the rest
-of that distinction.
+you tell them apart. [Why was this refused?](/acl/refusals) has the rest of that
+distinction.
 
-A malformed row is reported the way a malformed document is, with the message
-`JSON.parse` gave, and the row is not used: the permission stays on the answer
-it gives with no row, rather than being decided against half of one.
+### Why the acl explorer reads no `relations`
 
-The tool reads no `relations`. `ObjectSchema` carries it beside `fields`, and
-it names the kinds one kind points at for the consumers that resolve them. A
+The tool reads no `relations`. `ObjectSchema` carries it beside `fields`, and it
+names the kinds one kind points at for the consumers that resolve them. A
 condition compares one field of one scope, so no condition can name a relation,
 and a box for one would take a value nothing evaluates.
 
 ## What the acl matrix explorer does with a malformed document
 
-Two failures, and the reader's next move differs.
+Two failures, and your next move differs.
 
 Text that is not JSON never reaches the package. The screen says so and quotes
 what `JSON.parse` reported, and no rule has been read at that point.
@@ -149,9 +138,13 @@ and the three properties that locate the value. A condition naming
 still names the one condition to change. [What can throw?](/acl/errors) carries
 every class with the input that raises each one.
 
+A malformed row is reported the way a malformed document is, with the message
+`JSON.parse` gave, and the row is not used: the permission stays on the answer
+it gives with no row, rather than being decided against half of one.
+
 ## What the acl matrix explorer leaves out
 
-Two things a reader might expect, each left out for a reason.
+Two things you might expect, each left out for a reason.
 
 **The field axis.** `canFields` needs a proposed write as well as a row, and it
 answers a different question: which fields of this row may be written, rather
@@ -167,9 +160,9 @@ adoption and a second refusal path on a screen that has one of each today.
 
 - [The matrix explorer](/matrix-explorer). The tool itself, on a screen of its
   own.
-- [A policy from another service](/acl/adopting). The same `parseMatrix`
+- [How do I use rules another service published?](/acl/adopting). The same `parseMatrix`
   adoption, in a service rather than a browser.
-- [Listing everything a user may do](/acl/listing-permissions). The call the subject box
+- [What may this user do at all?](/acl/listing-permissions). The call the subject box
   makes, and what its answers mean.
 - [Why was this refused?](/acl/refusals). Reading `reason` and `missing` off a
   row of the decision table.
