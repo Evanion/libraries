@@ -192,6 +192,53 @@ A permission that stays `unevaluable` after a refetch is a bug in the document,
 almost always a mistyped field name. A `schema` turns that class into an
 `UnknownFieldError` at construction.
 
+### Explaining one
+
+A screen that refuses reads `reason` to say why. The handler behind it still
+gates on `allowed` alone, so the label is the only thing the reason decides:
+
+<!-- #region refusal-label -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+import type { Decision } from '@evanion/acl';
+
+type Question = { askedBy: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .deny('update', p.eq('object.status', 'locked'))
+      .id('locked-question'),
+  )
+  .build();
+
+/** What the Edit button under a question says. */
+function editLabel(decision: Decision): string {
+  if (decision.allowed) return 'Edit';
+  if (decision.reason === 'denied') return `Locked (${decision.rule})`;
+  if (decision.reason === 'unevaluable') return 'Checking';
+  return 'Not your question';
+}
+
+const asker = { id: 'customer-41' };
+const ask = (row: Partial<Question>) =>
+  access.can(asker, 'question', 'update', row);
+
+editLabel(ask({ askedBy: 'customer-41', status: 'open' })); // -> 'Edit'
+editLabel(ask({ askedBy: 'customer-41', status: 'locked' })); // -> 'Locked (locked-question)'
+editLabel(ask({ askedBy: 'customer-92', status: 'open' })); // -> 'Not your question'
+
+// The list query did not select `status`, so the deny rule could not be read.
+const partial = ask({ askedBy: 'customer-41' });
+editLabel(partial); // -> 'Checking'
+partial.rule; // -> 'locked-question'
+partial.missing; // -> ['object.status']
+```
+
+<!-- #endregion refusal-label -->
+
 ## Asking more than one question
 
 `canMany` takes a list of instances and answers per instance. It settles the
@@ -304,11 +351,89 @@ caps['listing.read']?.reason; // -> 'no-rule-matched'
 
 <!-- #endregion capabilities -->
 
-`capabilities` passes no object, so every permission whose rules read `object.*`
-decides `unevaluable` rather than `true` or `false`. That is the contract, not a
-shortfall: without an instance there is nothing to compare against. It answers
-definitely for the permissions that read only the subject, which is the half a
-navigation menu is built from.
+`capabilities` passes no object, so a permission whose rules need `object.*` to
+settle decides `unevaluable` rather than `true` or `false`, with `missing`
+naming the paths. A rule whose subject conditions already fail settles without
+the row, and a permission reading only the subject always settles:
+
+<!-- #region capabilities-object -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+import type { Action } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+type Question = { askedBy: string; status: string };
+
+const access = policy<
+  Shopper,
+  { question: Question },
+  { question: Action | 'hide' }
+>()
+  .for('question', (p) =>
+    p
+      .allow('read', p.always)
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .allow(
+        'hide',
+        p.contains('subject.roles', 'bookseller'),
+        p.eq('object.status', 'open'),
+      ),
+  )
+  .build();
+
+const customer = { id: 'customer-41', roles: [] };
+const caps = access.capabilities(customer);
+
+// Reads only the subject, so it settles.
+caps['question.read'].reason; // -> 'allow'
+
+// Needs the row to settle, and names what it would read.
+caps['question.update'].reason; // -> 'unevaluable'
+caps['question.update'].missing; // -> ['object.askedBy']
+
+// The customer holds no `bookseller` role, so the row cannot change the answer.
+caps['question.hide'].reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion capabilities-object -->
+
+A navigation menu filters its items against the map. A key the document does
+not carry is absent from it, so the filter compares with `=== true`:
+
+<!-- #region capabilities-menu -->
+
+```ts @import.meta.vitest
+import { parseMatrix, policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+
+// `stock` writes the report rules and serves the document as JSON. It declares
+// nothing about listings.
+const stock = policy<Shopper, { report: { id: string } }>()
+  .for('report', (p) =>
+    p.allow('read', p.contains('subject.roles', 'bookseller')),
+  )
+  .build();
+
+const served = JSON.stringify(stock.matrix);
+const access = parseMatrix(JSON.parse(served));
+const caps = access.capabilities({ id: 'u1', roles: ['bookseller'] });
+
+const menu = [
+  { href: '/reports', label: 'Reports', key: 'report.read' },
+  { href: '/listings', label: 'Listings', key: 'listing.read' },
+];
+
+const shown = menu.filter((item) => caps[item.key]?.allowed === true);
+shown.map((item) => item.label); // -> ['Reports']
+
+// Hiding only what the map refuses shows the key the document never declared.
+const leaky = menu.filter((item) => caps[item.key]?.allowed !== false);
+leaky.map((item) => item.label); // -> ['Reports', 'Listings']
+```
+
+<!-- #endregion capabilities-menu -->
 
 ## One policy behind a screen
 
@@ -867,6 +992,123 @@ refused: no field of a refused action is writable, and an empty object would
 read as a lawful write of nothing. A field the action allows but the field rules
 deny is a partial write, so that case returns the allowed subset.
 
+A field carries one of three states, and a filter that drops only the `denied`
+keys writes the other two. Below, the handler loaded the question without
+`status`, so the `transitions` config cannot read the edge it guards:
+
+<!-- #region hand-filter -->
+
+```ts @import.meta.vitest
+import { policy, pickAllowedFields } from '@evanion/acl';
+
+type Question = { askedBy: string; body: string; status: 'open' | 'locked' };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')).fields({
+      fields: ['*'],
+      status: { transitions: { open: ['locked'], locked: [] } },
+    }),
+  )
+  .build();
+
+// The row as the handler loaded it, and the write the form posted.
+const row = { askedBy: 'customer-41', body: 'In stock?' };
+const proposed = { body: 'Is Wingspan in stock?', status: 'open' as const };
+
+const fd = access.canFields(
+  { id: 'customer-41' },
+  'question',
+  'update',
+  row,
+  'write',
+  proposed,
+);
+
+fd.fields['status']; // -> 'unevaluable'
+
+// Dropping only the denied keys writes a status nobody approved.
+const narrowed = Object.fromEntries(
+  Object.entries(proposed).filter(([key]) => fd.fields[key] !== 'denied'),
+);
+Object.keys(narrowed); // -> ['body', 'status']
+Object.keys(pickAllowedFields(fd, proposed)); // -> ['body']
+```
+
+<!-- #endregion hand-filter -->
+
+`fields` names what a write may carry, and a per-field config restricts one
+field's value. `transitions` reads the edge from the value the row holds now to
+the value the write proposes, so it needs the current value to decide:
+
+<!-- #region field-configs -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string; body: string; status: 'open' | 'locked' };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')).fields({
+      fields: ['body'],
+      status: { transitions: { open: ['locked'], locked: [] } },
+    }),
+  )
+  .build();
+
+const asker = { id: 'customer-41' };
+const open = {
+  askedBy: 'customer-41',
+  body: 'In stock?',
+  status: 'open',
+} as const;
+const locked = { ...open, status: 'locked' } as const;
+
+// open -> locked is the one edge the config allows.
+const closing = access.canFields(asker, 'question', 'update', open, 'write', {
+  status: 'locked',
+});
+closing.fields['status']; // -> 'allowed'
+
+// locked names no edge, so nothing moves a question out of it.
+const reopening = access.canFields(
+  asker,
+  'question',
+  'update',
+  locked,
+  'write',
+  { status: 'open' },
+);
+reopening.reasons['status']; // -> 'transition-failed'
+
+// A row loaded without `status` gives the config no edge to read.
+const unread = access.canFields(
+  asker,
+  'question',
+  'update',
+  { askedBy: 'customer-41' },
+  'write',
+  { status: 'locked' },
+);
+unread.reasons['status']; // -> 'missing-field'
+
+// A key only the posted form carries is still decided, by the name list.
+const posted: Partial<Question> = JSON.parse('{"pinned":true}');
+const pinning = access.canFields(
+  asker,
+  'question',
+  'update',
+  open,
+  'write',
+  posted,
+);
+pinning.reasons['pinned']; // -> 'not-listed'
+pinning.reasons['askedBy']; // -> 'not-listed'
+```
+
+<!-- #endregion field-configs -->
+
 ## Foreign matrix
 
 A backend that uses its own ACL can expose its matrix as JSON and the frontend
@@ -904,6 +1146,60 @@ access.can({ id: 's1' }, 'question', 'delete').reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion foreign-matrix -->
+
+`parseMatrix` validates the document before it returns an evaluator, and every
+refusal extends `AclConfigError`. A consumer that fetches on a schedule keeps
+the last document that constructed:
+
+<!-- #region adopt-keep-last -->
+
+```ts @import.meta.vitest
+import { AclConfigError, parseMatrix } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
+
+const refund = {
+  key: 'orders:order.refund',
+  object: 'orders:order',
+  action: 'refund',
+} as const;
+
+const bookseller = {
+  field: 'subject.roles',
+  op: 'contains',
+  value: 'bookseller',
+} as const;
+
+// The last document `orders` served that constructed.
+let adopted = parseMatrix({
+  version: 'orders@7',
+  permissions: [{ ...refund, rules: [{ when: [bookseller] }] }],
+});
+
+/** Adopt a fetched document, or keep the one in hand and name the refusal. */
+function readopt(served: Matrix): string | undefined {
+  try {
+    adopted = parseMatrix(served);
+    return undefined;
+  } catch (error) {
+    if (error instanceof AclConfigError) return error.name;
+    throw error;
+  }
+}
+
+// `orders@8` lost its refund rule's conditions on the way.
+const damaged = {
+  version: 'orders@8',
+  permissions: [{ ...refund, rules: [{ when: null }] }],
+} as never;
+
+readopt(damaged); // -> 'InvalidRuleError'
+adopted.version; // -> 'orders@7'
+
+const staff = { id: 'u1', roles: ['bookseller'] };
+adopted.can(staff, 'orders:order', 'refund').allowed; // -> true
+```
+
+<!-- #endregion adopt-keep-last -->
 
 ## One matrix per service
 
@@ -2106,8 +2402,8 @@ function raised(run: () => unknown): string | undefined {
 }
 
 const read = {
-  key: 'doc.read',
-  object: 'doc',
+  key: 'question.read',
+  object: 'question',
   action: 'read',
   rules: [{ when: [] }],
 };
@@ -2116,12 +2412,12 @@ const noPermissions = { version: 'v1' } as never;
 const objectVersion = { version: {}, permissions: [] } as never;
 const wrongKey = {
   version: 'v1',
-  permissions: [{ ...read, key: 'doc.write' }],
+  permissions: [{ ...read, key: 'question.update' }],
 } as never;
 const twice = { version: 'v1', permissions: [read, read] } as never;
 const noAction = {
   version: 'v1',
-  permissions: [{ key: 'doc.read', object: 'doc' }],
+  permissions: [{ key: 'question.read', object: 'question' }],
 } as never;
 const whenIsString = {
   version: 'v1',
@@ -2172,8 +2468,8 @@ const twoDots = {
   version: 'v1',
   permissions: [
     {
-      key: 'doc.read',
-      object: 'doc',
+      key: 'question.read',
+      object: 'question',
       action: 'read',
       rules: [{ when: [{ field: 'subject.a.b', op: 'eq', value: 1 }] }],
     },
@@ -2188,7 +2484,7 @@ try {
 }
 
 caught?.name; // -> 'InvalidConditionError'
-caught?.key; // -> 'doc.read'
+caught?.key; // -> 'question.read'
 caught?.field; // -> 'subject.a.b'
 caught?.where; // -> 'rules[0].when[0]'
 ```
@@ -2216,16 +2512,16 @@ function raised(run: () => unknown): string | undefined {
 }
 
 const read = {
-  key: 'doc.read',
-  object: 'doc',
+  key: 'question.read',
+  object: 'question',
   action: 'read',
   rules: [{ when: [] }],
 };
-const schema = { objects: { doc: { fields: { title: 'string' } } } };
+const schema = { objects: { question: { fields: { status: 'string' } } } };
 
 const unknownType = {
   version: 'v1',
-  schema: { objects: { doc: { fields: { title: 'nope' } } } },
+  schema: { objects: { question: { fields: { status: 'nope' } } } },
   permissions: [read],
 } as never;
 
@@ -2235,7 +2531,7 @@ const undeclaredField = {
   permissions: [
     {
       ...read,
-      rules: [{ when: [{ field: 'object.missing', op: 'eq', value: 1 }] }],
+      rules: [{ when: [{ field: 'object.pinned', op: 'eq', value: true }] }],
     },
   ],
 } as never;
@@ -2247,7 +2543,7 @@ const containsOnString = {
     {
       ...read,
       rules: [
-        { when: [{ field: 'object.title', op: 'contains', value: 'x' }] },
+        { when: [{ field: 'object.status', op: 'contains', value: 'open' }] },
       ],
     },
   ],
@@ -2260,8 +2556,8 @@ raised(() => parseMatrix(containsOnString)); // -> 'FieldTypeMismatchError'
 const fields = (rules: unknown) =>
   ({ version: 'v1', permissions: [{ ...read, fields: rules }] }) as never;
 
-const bangInList = fields({ fields: ['title', '!price'] });
-const bangNoBaseline = fields({ fields: ['!price'] });
+const bangInList = fields({ fields: ['body', '!status'] });
+const bangNoBaseline = fields({ fields: ['!status'] });
 const bothConfigs = fields({
   status: { targets: ['open'], transitions: { open: [] } },
 });
@@ -2298,26 +2594,31 @@ function raised(run: () => unknown): string | undefined {
 const document = {
   version: 'v1',
   permissions: [
-    { key: 'doc.read', object: 'doc', action: 'read', rules: [{ when: [] }] },
+    {
+      key: 'question.read',
+      object: 'question',
+      action: 'read',
+      rules: [{ when: [] }],
+    },
   ],
 } as never;
 
 const open = hydratePolicy(document);
 const closed = parseMatrix(document);
 
-// The document holds `doc.read` and nothing else. A query naming anything
+// The document holds `question.read` and nothing else. A query naming anything
 // else is typed `never` here, because a caller writing one has already left
 // what the document declares.
 const anyone = {} as never;
-const doc = 'doc' as never;
+const question = 'question' as never;
 const readAction = 'read' as never;
-const noSuchAction = 'write' as never;
-const noSuchKind = 'thing' as never;
+const noSuchAction = 'delete' as never;
+const noSuchKind = 'coupon' as never;
 
-raised(() => open.can(anyone, doc, noSuchAction)); // -> 'UnknownPermissionError'
+raised(() => open.can(anyone, question, noSuchAction)); // -> 'UnknownPermissionError'
 raised(() => open.can(anyone, noSuchKind, readAction)); // -> 'UnknownObjectKeyError'
 
-const refused = closed.can(anyone, doc, noSuchAction);
+const refused = closed.can(anyone, question, noSuchAction);
 
 refused.allowed; // -> false
 refused.reason; // -> 'unknown-action'
@@ -2343,8 +2644,8 @@ function raised(run: () => unknown): string | undefined {
 }
 
 const read = {
-  key: 'doc.read',
-  object: 'doc',
+  key: 'question.read',
+  object: 'question',
   action: 'read',
   rules: [{ when: [] }],
 };
@@ -2378,34 +2679,34 @@ function raised(run: () => unknown): string | undefined {
 }
 
 const read = {
-  key: 'doc.read',
-  object: 'doc',
+  key: 'question.read',
+  object: 'question',
   action: 'read',
   rules: [{ when: [] }],
 };
 const plain = { version: 'v1', permissions: [read] } as never;
 const declared = {
   version: 'v1',
-  schema: { objects: { doc: { fields: { locked: 'boolean' } } } },
+  schema: { objects: { question: { fields: { locked: 'boolean' } } } },
   permissions: [read],
 } as never;
 
 const twoOrigins = { a: parseMatrix(plain), b: parseMatrix(plain) } as never;
-const veto = { 'doc.read': [{ when: [] }] };
+const veto = { 'question.read': [{ when: [] }] };
 const locked = { field: 'object.locked', op: 'eq' as const, value: true };
-const lockedVeto = { 'doc.read': [{ when: [locked] }] };
+const lockedVeto = { 'question.read': [{ when: [locked] }] };
 const noKeyOpened = { vetoable: [] };
-const opened = { vetoable: ['doc.read'] };
+const opened = { vetoable: ['question.read'] };
 
 raised(() => federatedPolicies(twoOrigins)); // -> 'OriginCollisionError'
 raised(() => applyDenyOverlay(plain, veto, noKeyOpened)); // -> 'UnvetoablePermissionError'
 raised(() => applyDenyOverlay(plain, veto, opened)); // -> 'MissingVetoSchemaError'
 raised(() => applyDenyOverlay(declared, lockedVeto, opened)); // -> undefined
 
-const internalOnly = policy<{ id: string }, { doc: { id: string } }>()
-  .for('doc', (p) => p.allow('read', p.always))
+const internalOnly = policy<{ id: string }, { question: { id: string } }>()
+  .for('question', (p) => p.allow('read', p.always))
   .build();
-const asContract = { vetoable: ['doc.read'] } as never;
+const asContract = { vetoable: ['question.read'] } as never;
 
 raised(() => serialize(internalOnly, 'reduced', asContract)); // -> 'UnpublishedVetoableError'
 ```
@@ -2439,15 +2740,20 @@ base instanceof Error; // -> true
 // an object a handler would write. It is not a configuration fault, so it sits
 // outside `AclConfigError`: a startup guard around construction does not catch
 // it, and a request handler has to.
-const access = policy<{ id: string }, { doc: { id: string; title: string } }>()
-  .for('doc', (p) => p.allow('update', p.eq('subject.id', 'nobody')))
+type Question = { askedBy: string; body: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
+  )
   .build();
 
-const row = { id: 'd1', title: 'before' };
-const proposed = { title: 'after' };
+// Somebody else's question, so the action itself is refused.
+const row = { askedBy: 'customer-92', body: 'In stock?' };
+const proposed = { body: 'Is Wingspan in stock?' };
 const decided = access.canFields(
-  { id: 'u1' },
-  'doc',
+  { id: 'customer-41' },
+  'question',
   'update',
   row,
   'write',
@@ -2720,9 +3026,44 @@ shut.allowed; // -> false
 
 Omitting `now` reads the wall clock. A clock that does not parse never throws:
 the permission refuses with `reason: 'unusable-clock'`, which is not repairable
-by a refetch and carries no `missing`. A condition **value** that does not parse
-is a construction error instead — the boundary comes from the document, and the
-document is checked once.
+by a refetch and carries no `missing`.
+
+<!-- #region unusable-clock -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+// Preorders for a new game open at one instant.
+const access = policy<
+  { id: string },
+  { preorder: { game: string } },
+  { preorder: 'place' }
+>()
+  .for('preorder', (p) =>
+    p
+      .allow('place', p.after('now', '2026-10-01T09:00:00Z'))
+      .id('preorders-open'),
+  )
+  .build();
+
+const shopper = { id: 'customer-41' };
+const place = (now: string | number) =>
+  access.can(shopper, 'preorder', 'place', undefined, now);
+
+place('2026-10-02T12:00:00Z').allowed; // -> true
+place(Date.parse('2026-09-30T12:00:00Z')).reason; // -> 'no-rule-matched'
+
+// A header that was never a date. The rule that compared the clock is named.
+const garbled = place('next tuesday');
+garbled.reason; // -> 'unusable-clock'
+garbled.rule; // -> 'preorders-open'
+'missing' in garbled; // -> false
+```
+
+<!-- #endregion unusable-clock -->
+
+A condition **value** that does not parse is a construction error instead,
+because the boundary comes from the document and the document is checked once.
 
 ## Non-goals
 
