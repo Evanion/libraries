@@ -34,9 +34,6 @@ the namespaced kind directly. `p.always` is a condition every subject meets, and
 `action` throws `InvalidPermissionError` at construction, and the message says
 that an object kind namespaced by origin is spelled `origin:kind`.
 
-No app in this repository runs a federated view. `apps/shop-api` is one origin,
-and the examples on this page are regions of the `@evanion/acl` README.
-
 ## A gateway composes one acl policy per origin
 
 `federatedPolicies` takes one `Access` per origin, the evaluator type that
@@ -104,9 +101,9 @@ Leave an upstream you cannot reach out of the object passed to
 records the outage, and no option turns that answer into an error.
 
 Each member is built with `parseMatrix`, for the reason
-[A policy from another service](/acl/adopting) gives: every document in the
-record came from another process, and closed mode is what turns a key its owner
-dropped into a refusal.
+[How do I use rules another service published?](/acl/adopting) gives: every
+document in the record came from another process, and closed mode is what turns
+a key its owner dropped into a refusal.
 
 ## A cross-cutting deny is an acl overlay the owner applies
 
@@ -163,10 +160,10 @@ an attacker could have written.
 
 ## Where to go next
 
-- [Giving my rules to another service](/acl/publishing). `serialize`,
+- [How do I give my rules to another service?](/acl/publishing). `serialize`,
   `visibility` and the freshness budget.
-- [A policy from another service](/acl/adopting). `parseMatrix`, closed mode, and
-  what construction refuses.
+- [How do I use rules another service published?](/acl/adopting). `parseMatrix`,
+  closed mode, and what construction refuses.
 - [Caveats and pitfalls](/acl/pitfalls). The layer-trust and subject-forgery
   entries apply here directly.
 - [Security contract](/acl/security). Every layer decides for itself.
