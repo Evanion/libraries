@@ -16,15 +16,10 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Features } from '../lib/features.js';
-import type {
-  Decision,
-  Decisions,
-  EvaluationContext,
-  FeatureKey,
-} from '../lib/types.js';
+import type { Decision, EvaluationContext, FeatureKey } from '../lib/types.js';
 
 interface FeatureContextValue {
-  decisions: Decisions<FeatureKey>;
+  decisions: Record<FeatureKey, Decision<FeatureKey>>;
 }
 
 const FeatureContext = createContext<FeatureContextValue | null>(null);
@@ -46,7 +41,7 @@ export interface FeatureProviderProps<F extends FeatureKey> {
    * from `plan()`. Supplied decisions are used as they are; `features` and
    * `context` are then only a fallback for what the snapshot does not cover.
    */
-  decisions?: Decisions<F>;
+  decisions?: Record<F, Decision<F>>;
   children?: ReactNode;
 }
 
@@ -58,8 +53,10 @@ export function FeatureProvider<F extends FeatureKey>({
 }: FeatureProviderProps<F>) {
   const value = useMemo<FeatureContextValue>(
     () => ({
-      decisions: (decisions ??
-        features.resolve(context)) as Decisions<FeatureKey>,
+      decisions: (decisions ?? features.resolve(context)) as Record<
+        FeatureKey,
+        Decision<FeatureKey>
+      >,
     }),
     [features, context, decisions],
   );
@@ -70,14 +67,17 @@ export function FeatureProvider<F extends FeatureKey>({
 }
 
 /** Every resolved decision. */
-export function useFeatures<F extends FeatureKey = string>(): Decisions<F> {
+export function useFeatures<F extends FeatureKey = string>(): Record<
+  F,
+  Decision<F>
+> {
   const value = useContext(FeatureContext);
   if (!value) {
     throw new Error(
       'useFeatures must be called inside a <FeatureProvider> (from @evanion/feature/react)',
     );
   }
-  return value.decisions as Decisions<F>;
+  return value.decisions as Record<F, Decision<F>>;
 }
 
 /**

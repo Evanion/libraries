@@ -3,11 +3,9 @@ import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
 import type {
   Decision,
-  Decisions,
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
-  Plan,
   PlanEntry,
   ToggleResult,
 } from './types.js';
@@ -32,14 +30,14 @@ export interface Features<F extends FeatureKey = string> {
   /** Transitive dependants of `key`, in dependency order. */
   dependants(key: F): readonly F[];
   /** Resolves every feature for one context. Writes nothing. */
-  resolve(context?: EvaluationContext): Decisions<F>;
+  resolve(context?: EvaluationContext): Record<F, Decision<F>>;
   isEnabled(key: F, context?: EvaluationContext): boolean;
   /**
    * Partitions every feature into resolvable now and deferred, for build-time
    * evaluation. One engine, not a second code path: the resolvable cases go
    * through the same `decide` as `resolve`.
    */
-  plan(context?: EvaluationContext): Plan<F>;
+  plan(context?: EvaluationContext): Record<F, PlanEntry<F>>;
   /**
    * Writes intent, and reports which dependants go off with it.
    *
@@ -114,7 +112,7 @@ export function createFeatures<F extends FeatureKey>(
     now: context.now ?? new Date(),
   });
 
-  const resolve = (context?: EvaluationContext): Decisions<F> => {
+  const resolve = (context?: EvaluationContext): Record<F, Decision<F>> => {
     const evaluationContext = withNow(context);
     const resolved = new Map<F, Decision<F>>();
 
@@ -128,10 +126,10 @@ export function createFeatures<F extends FeatureKey>(
 
     // Record<F, ...> cannot be built incrementally without a cast; the keys are
     // exactly `keys`, which are F by construction.
-    return Object.fromEntries(resolved) as Decisions<F>;
+    return Object.fromEntries(resolved) as Record<F, Decision<F>>;
   };
 
-  const plan = (context?: EvaluationContext): Plan<F> => {
+  const plan = (context?: EvaluationContext): Record<F, PlanEntry<F>> => {
     const evaluationContext = withNow(context);
     const plans = new Map<F, PlanEntry<F>>();
     const resolved = new Map<F, Decision<F>>();
@@ -144,7 +142,7 @@ export function createFeatures<F extends FeatureKey>(
       if (entry.decision) resolved.set(key, entry.decision);
     }
 
-    return Object.fromEntries(plans) as Plan<F>;
+    return Object.fromEntries(plans) as Record<F, PlanEntry<F>>;
   };
 
   const toggle = (
