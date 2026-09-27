@@ -4,7 +4,7 @@
 
 # @evanion/astro-widget
 
-Render CMS-driven Astro sections from structured widget data. Rendering happens
+Render CMS-driven Astro pages from structured widget data. Rendering happens
 when Astro renders the page, and nothing is shipped to the browser.
 
 The item shape, the registry and the validator come from
@@ -456,7 +456,7 @@ problem on a payload that passed yesterday:
 | `children is not a list`  | `children` is present and not an array      |
 
 `duplicate sibling id` is the one to check first. A CMS that emits a constant id
-per section type, such as `"listing-header"` on every listing header, or an
+per widget type, such as `"listing-header"` on every listing header, or an
 empty string where an editor left the field alone, now fails a build that passed
 before. Ids only have to be unique within one sibling list, so the same id at
 two depths is still fine.
@@ -481,7 +481,7 @@ const toWidgetItem = ({ type, id, children, meta, ...props }) => ({
 
 `id ?? …` is the awkward half. A widget item needs an id as the key, as the
 identity in a warning, and as what the duplicate-sibling check is about, and a
-CMS with no per-section id has to supply one. An index-derived value is fine as
+CMS with no per-item id has to supply one. An index-derived value is fine as
 long as it is stable across renders.
 
 `chrome.item` no longer receives the item's props, only `type`, `id` and `meta`.
