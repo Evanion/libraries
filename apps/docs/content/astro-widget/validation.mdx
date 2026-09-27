@@ -71,7 +71,8 @@ lacks.
 ## What validateItems reports for astro-widget items
 
 Six structural rules run over every list, whatever the registry holds. Five of
-them fire on this list:
+them fire on this list, and the sixth, `item type is not a string`, fires on an
+item whose `type` is missing or not a string:
 
 ```ts twoslash file=libs/astro-widget/README.md region=structural-rules
 

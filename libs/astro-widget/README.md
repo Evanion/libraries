@@ -198,14 +198,15 @@ const nested = [
   },
 ];
 
-validateItems(nested, ['game-grid']); // -> [{ index: 0, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+validateItems(nested, ['game-grid'], { 'game-grid': ['title'] }); // -> [{ index: 0, id: 'grid', type: 'game-grid', message: 'missing field title' }, { index: 0, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
 ```
 
 <!-- #endregion nested-index -->
 
 Six structural rules run over every payload, whatever the registry holds, and
-five of them fire on the one below. Each is a save a CMS can make and a build
-should not ship:
+five of them fire on the one below. The sixth, `item type is not a string`,
+fires on an item whose `type` is missing or not a string. Each is a save a CMS
+can make and a build should not ship:
 
 <!-- #region structural-rules -->
 
@@ -233,7 +234,7 @@ clean run would say it had not:
 ```ts @import.meta.vitest
 import { validateItems } from '@evanion/astro-widget';
 
-validateItems({ sections: [] }, ['listing-header']); // -> [{ index: -1, id: '-', type: '-', message: 'items is not a list' }]
+validateItems({ items: [] }, ['listing-header']); // -> [{ index: -1, id: '-', type: '-', message: 'items is not a list' }]
 ```
 
 <!-- #endregion not-a-list -->
@@ -287,8 +288,12 @@ const problems = validateItems(saved, ['listing-header'], {
 const unknown = problems.filter(
   (problem) => problem.message === VALIDATION_MESSAGES.UNKNOWN_TYPE,
 );
+const blank = problems.filter(
+  (problem) => problem.message === VALIDATION_MESSAGES.MISSING_FIELD('title'),
+);
 
 unknown.map((problem) => problem.id); // -> ['questions']
+blank.map((problem) => problem.id); // -> ['header']
 ```
 
 <!-- #endregion messages -->
