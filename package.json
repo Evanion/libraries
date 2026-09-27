@@ -21,7 +21,7 @@
       "zod": "4.3.0"
     },
     "@nestjs/common": "12.0.4",
-    "@nestjs/core": "12.0.4",
+    "@nestjs/core": "12.1.0",
     "@nestjs/platform-express": "12.0.4"
   },
   "devDependencies": {
@@ -103,7 +103,7 @@
   "dependencies": {
     "@nestjs/axios": "^12.0.1",
     "@nestjs/common": "12.0.4",
-    "@nestjs/core": "12.0.4",
+    "@nestjs/core": "12.1.0",
     "@nestjs/platform-express": "12.0.4",
     "@tailwindcss/postcss": "^4.3.3",
     "fuse.js": "^7.5.0",
