@@ -1,12 +1,11 @@
 # Chrome, meta, ctx and Suspense
 
 `chrome` on `createWidgets` sets the markup around a region and around each
-widget, `meta` places one item inside that markup, `ctx` hands every widget
-page-level data, and `chrome.suspense` decides whether each widget gets its own
-`<Suspense>` boundary.
+widget, and `chrome.suspense` sets the `<Suspense>` boundaries inside it. `meta`
+places one item in that markup, and `ctx` hands every widget page-level data.
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={12}
   hands={45}
   requires={[['Writing and checking items', '/react-widget/examples']]}
@@ -18,10 +17,12 @@ page-level data, and `chrome.suspense` decides whether each widget gets its own
 
 ## Wrap a react-widget region and each widget
 
-`chrome.wrapper` renders around the whole region and `chrome.item` renders
-around each widget. The package exports its two defaults, `DefaultWrapper`, a
-`<section>`, and `DefaultItem`, a `<div>` carrying the `data-widget-*`
-attributes, so a custom chrome can pass props through one:
+A region needs an `aria-label`, or each widget a class for the grid. The
+markup that takes them is the chrome: `chrome.wrapper` renders around the whole
+region and `chrome.item` renders around each widget. The package exports both
+defaults. `DefaultWrapper` renders a `<section>`, and `DefaultItem` renders a
+`<div>` carrying the `data-widget-*` attributes. A custom chrome spreads its
+props into one of them:
 
 ```tsx twoslash file=libs/react-widget/README.md region=chrome
 
@@ -48,15 +49,15 @@ passed to `createWidgets`. The Wingspan item below renders through
 ```
 
 `components` merges the two maps key by key. `chrome` resolves field by field,
-so a `<Widgets>` that overrides `wrapper` keeps every other `chrome` field passed
-to `createWidgets`.
+so a `<Widgets>` that overrides `wrapper` keeps every other `chrome` field
+passed to `createWidgets`.
 
 ## Place a react-widget item with `meta`
 
 An item's `meta` goes to `chrome.item` and never into the widget's props, so a
 listing renders the same at column 1 and at column 7. Annotate `chrome.item`
 with the keys it reads, and `createWidgets` checks every item's `meta` against
-them. `defineItems` types the array, as on the previous page:
+them. `defineItems`, which `createWidgets` returns, types the array:
 
 ```tsx twoslash file=libs/react-widget/README.md region=meta-grid
 
@@ -82,9 +83,11 @@ page-level data down as a prop:
 ```
 
 `ListingCard` declares `ctx` required, and the Root item still carries only a
-`title`: `ctx` is left out of an item's `props`, the way `children` is. The
-renderer passes `ctx` after the item's props, so an item from untrusted data
-cannot override it.
+`title`: `ctx` is left out of an item's `props`, the way `children` is.
+`Widgets` passes `ctx` after the item's props, so an item from untrusted data
+cannot override it. `<Widgets>` types its `ctx` prop as
+`Record<string, unknown>`, so the compiler does not check it against the `ctx`
+a widget declares.
 
 ## Choose where react-widget's Suspense boundaries go
 
@@ -100,23 +103,30 @@ it defaults to nothing:
 `StockLevel` is an async Server Component. `renderToStaticMarkup` does not wait
 for a widget that suspends, so its HTML carries `Counting stock` in that
 widget's place. A streaming render sends the same fallback first and replaces it
-when the count resolves. The boundary lives in the renderer, so a custom
+when the count resolves. The boundary lives in `Widgets`, so a custom
 `chrome.item` cannot remove it.
 
-### A synchronous region: `chrome.suspense: 'none'`
+## Render a synchronous react-widget region: `chrome.suspense: 'none'`
 
-React's streaming renderer sends the shell first: the HTML outside any
-unfinished boundary. Once the shell passes `progressiveChunkSize`, a
-`renderToPipeableStream` option that defaults to 12,800 bytes, React outlines
-every unfinished boundary, whether or not anything in it suspended. It sends the
-content later in a trailing `<div hidden>`, and an inline
-`<script>$RC(…)</script>` moves it into place. Measured over 150 synchronous
-items of about 1,000 bytes:
+By default `Widgets` wraps each widget in its own `<Suspense>` boundary. A
+streaming render, through `renderToPipeableStream`, sends the shell first. Once
+the shell passes `progressiveChunkSize`, an option that defaults to 12,800
+bytes, React stops writing `<Suspense>` boundaries into it and outlines every
+remaining one, whether or not anything in it suspended. An outlined boundary
+leaves a placeholder in the shell and sends its content later, in a trailing
+`<div hidden>`. An inline `<script>$RC(…)</script>` then moves the content into
+place.
 
-| `chrome.suspense` | Bytes   | Outlined boundaries | Rows in the shell |
-| ----------------- | ------- | ------------------- | ----------------- |
-| `'per-item'`      | 139,233 | 145                 | 5 of 150          |
-| `'none'`          | 122,069 | 0                   | 150 of 150        |
+A client that runs no inline script never sees an outlined widget, which covers
+scripts turned off and a Content-Security-Policy that blocks inline scripts. A
+text extraction, a reader-mode pass or a snapshot test reads placeholders where
+the widgets should be. Measured over 150 synchronous items of about 1,000
+bytes:
+
+| `chrome.suspense` | Bytes   | Outlined boundaries | Items in the shell |
+| ----------------- | ------- | ------------------- | ------------------ |
+| `'per-item'`      | 139,233 | 145                 | 5 of 150           |
+| `'none'`          | 122,069 | 0                   | 150 of 150         |
 
 Set `'none'` on a region whose widgets never suspend. `renderToString`, from
 `react-dom/server`, writes a `<!--$-->` marker pair per boundary, which shows
@@ -132,34 +142,28 @@ synchronous at runtime, and `memo()` hides an async component. If you set
 the nearest boundary above the region. Wrap `<Widgets>` in `<Suspense>` to stop
 it there.
 
-### What outlining does to a reader of the HTML
-
-A client that runs no inline script never sees an outlined widget: scripts
-turned off, or a Content-Security-Policy with no nonce. A text extraction, a
-reader-mode pass or a snapshot test reads placeholders where the widgets should
-be.
-
-## Catch a failing react-widget widget
+## Catch an error thrown inside a react-widget region
 
 The package ships no error boundary. A boundary is a class component, and React
 exports no `Component` under `react-server`, so a class inside the package
 forces `'use client'` onto all of it. Write the boundary in your own
-`'use client'` file, with the directive above its imports, and render it inside
+`'use client'` file, with the directive as its first line, and render it inside
 `DefaultItem`:
 
 ```tsx twoslash file=libs/react-widget/README.md region=error-boundary
 
 ```
 
-Import `SafeItem` into the server file that calls `createWidgets`, and pass it
-as `chrome: { item: SafeItem }`. The boundary is then client code, and the
-widgets inside it stay server components.
+Export `SafeItem` from that file, import it into the server file that calls
+`createWidgets`, and pass it as `chrome: { item: SafeItem }`. The boundary is
+then client code, and the widgets inside it stay server components.
 
 ## Render a long react-widget region
 
 `Widgets` renders every item and has no windowing option. For server-rendered
-content, `content-visibility: auto` on the item chrome lets the browser skip
-layout and paint for off-screen items, and every item stays in the HTML:
+content, the CSS property `content-visibility: auto` on the item chrome lets the
+browser skip layout and paint for off-screen items, and every item stays in the
+HTML:
 
 ```tsx twoslash file=libs/react-widget/README.md region=content-visibility
 
@@ -168,3 +172,6 @@ layout and paint for off-screen items, and every item stays in the HTML:
 For a client-side list long enough to need windowing, virtualize in your own
 `'use client'` `chrome.wrapper`. It receives `items` in the same order as
 `children`, one entry per top-level item, so it can measure and window by item.
+
+The [Playground](/react-widget/playground) runs `Widgets` in the browser, with
+nested items and chrome you can edit.
