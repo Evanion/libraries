@@ -6,11 +6,10 @@ or lost access, as findings a reviewer reads before the change deploys.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={8}
   hands={15}
   requires={[
-    ['The matrix: your rules as JSON', '/acl/matrix'],
     ['How do I use rules another service published?', '/acl/adopting'],
   ]}
   unlocks={[
@@ -22,11 +21,16 @@ or lost access, as findings a reviewer reads before the change deploys.
 ## Reviewing an acl rule change with `diffMatrix`
 
 A line-by-line diff of the matrix shows that some JSON moved, and the reviewer
-then runs the precedence order in their head to work out what that JSON did.
-`diffMatrix` states that result as findings. Each condition in the
-document is `{ field, op, value }` against a literal or `{ field, op, path }`
-against another path, the JSON form
-[the matrix reference](/acl/matrix) sets out:
+then works out in their head how the deny and allow rules now combine.
+`diffMatrix` states that result as findings. In a review, `before` is the
+`access.matrix` your main branch builds and `after` is the one the change
+builds.
+
+`diffMatrix` reads the matrix as JSON. Each permission lists its allow rules
+under `rules` and its deny rules under `denyRules`, the two sides of the
+permission. Each rule holds a `when` list of conditions, and a condition is
+`{ field, op, value }` against a literal or `{ field, op, path }` against
+another path, as [the matrix reference](/acl/matrix) sets out:
 
 ```ts twoslash file=libs/acl/README.md region=diff-matrix
 
@@ -37,11 +41,12 @@ against another path, the JSON form
 documents compared. `findingsOf(diff, kind)` returns one kind of finding, typed
 for that kind, for a screen that renders one section of the report.
 
-The `granted` finding carries the added branch whole in `when`, and split for
-reading in `groups`: `subject` is who gained the access, `object` is which rows,
-and `window` is the `now` conditions. A condition comparing a subject path with
-an object path sits in `object`, because it restricts rows. The groups read as
-one sentence: a subject whose `roles` contains `bookseller` may now reprice a
+A branch is one rule. The `granted` finding carries the added branch whole in
+`when`, and split for reading in `groups`: `subject` is who gained the access,
+`object` is which rows, and `window` is the conditions that compare the clock,
+from `p.before` and `p.after`. A condition comparing a subject path with an
+object path sits in `object`, because it restricts rows. The groups read as one
+sentence: a subject whose `roles` contains `bookseller` may now reprice a
 listing whose `sellerId` is their own id.
 
 ## The four kinds of finding an acl diff reports
@@ -62,27 +67,27 @@ because a list of fields carries no conditions.
 
 ## Why an added acl allow branch only widens access
 
-The engine ORs the rules on one side of a permission, so a side that matched
-goes on matching whatever is appended to it. Appending an allow rule cannot
-remove an allow, and appending a deny rule cannot add one. That gives each
-finding a direction.
+One side of a permission matches when any of its rules matches, so a side that
+matched goes on matching whatever is appended to it. Appending an allow rule
+cannot remove an allow, and appending a deny rule cannot add one. That gives
+each finding a direction.
 
-It gives no exact set. An added allow branch contains the newly granted access,
-and it may also contain access the old branches already granted, so read a
-`granted` finding as an upper bound on what widened. A permission whose allow
-side and deny side both moved gets no direction at all: each side alone moves
-one way, the two together do not, and `diffMatrix` reports `both-sides-changed`
-with both versions attached.
+The direction is exact and the size is not. An added allow branch contains the
+newly granted access, and it may also contain access the old branches already
+granted, so read a `granted` finding as an upper bound on what widened. A
+permission whose allow side and deny side both moved gets no direction at all:
+each side alone moves one way, the two together do not, and `diffMatrix` reports
+`both-sides-changed` with both versions attached.
 
 ## Why reordering an acl document reports nothing
 
 `diffMatrix` identifies a rule by the `id` its author gave it, or by a derived
 one: the side it sits on and a hash of its conditions. Either way a rule keeps
-its identity when it moves, so two documents differing only in rule order, or
-in key order inside one condition, come back `unchanged: true`.
+its identity when it moves, so two documents differing only in rule order, or in
+key order inside one condition, come back `unchanged: true`.
 
-An author's `id` is the author's own statement that two versions are one rule.
-A rule that keeps its `id` and changes its conditions reads as one rule edited,
+An author's `id` is the author's own statement that two versions are one rule. A
+rule that keeps its `id` and changes its conditions reads as one rule edited,
 and `diffMatrix` reports `rule-edited` with `before` and `after`.
 
 ## What a withdrawn acl permission does to each holder
@@ -96,11 +101,12 @@ cause is `permission-removed` carries `holders`, a sentence for each kind:
 - `holders.open` describes a holder that built it with `hydratePolicy`: `can`
   throws `UnknownPermissionError` for `listing.reprice`.
 
-A `parseMatrix` holder keeps serving pages. When the removed permission was the
-last of its object kind, the `open` sentence names `UnknownObjectKeyError` and
-says the object kind is no longer configured in the matrix.
+So a `parseMatrix` holder keeps serving pages, and a `hydratePolicy` holder
+throws on its next call. When the removed permission was the last of its object
+kind, the `open` sentence names `UnknownObjectKeyError` and says the object kind
+is no longer configured in the matrix.
 
-## An acl rule change that widens nothing and breaks every caller
+## An acl rule change that widens nothing and breaks callers without the row
 
 A permission that gains a deny rule reading `object.locked` narrows access by
 the locked rows and by nothing else. Every caller that decides without the row
@@ -120,18 +126,18 @@ now holds a decision it has to refetch the row to settle.
 
 ## What `diffMatrix` cannot derive from two acl documents
 
-Each of these fails toward reporting a grant, which is the direction a reviewer
-can check:
+`diffMatrix` reads two documents and nothing else, so four questions stay with
+the reviewer:
 
-| The report does not say                 | Why                                                                                                      |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| how many people a grant reaches         | The matrix lists no people. Count who holds `bookseller` in whatever system stores your users.           |
-| whether a grant was already in force    | The exactly-new set means negating a disjunction of branches, which grows exponentially with them.       |
-| whether an added branch grants anything | `subject.role eq 'owner'` ANDed with `subject.role eq 'bookseller'` matches nobody and reads as a grant. |
-| what an edit in place did               | A rule edit, a two-sided change and a list of fields carrying `*` or `!` come back `undetermined`.       |
+| The report does not say                 | Why                                                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| how many people a grant reaches         | The matrix lists no people. Count who holds `bookseller` in whatever system stores your users.                                       |
+| whether a grant was already in force    | Finding the newly granted set means negating every existing allow rule together, which grows exponentially with the number of rules. |
+| whether an added branch grants anything | A rule requiring `subject.tier` to equal both `probation` and `permanent` matches nobody and reads as a grant.                       |
+| what an edit in place did               | A rule edit, a two-sided change and a list of fields carrying `*` or `!` come back `undetermined`.                                   |
 
 ## Now that you can review a change, test the contracts you consume
 
 [How do I test a contract I consume?](/acl/testing) runs the same comparison in
-a consumer's own CI, against the document it pinned and the one its owner
-publishes now.
+a consumer's own continuous integration (CI), against the document it pinned and
+the one its owner publishes now.
