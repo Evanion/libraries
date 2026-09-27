@@ -7,7 +7,7 @@ process.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={7}
   hands={20}
   requires={[
@@ -28,19 +28,24 @@ first time `orders` changes a rule, and the button stays hidden against a server
 that would have allowed the call.
 
 `.visibility('public')` marks the action the chain declared last for
-publication, and `serialize(access, 'reduced')` keeps the marked permissions and
-drops the rest:
+publication. `serialize(access, 'reduced')` keeps the marked permissions and
+drops the rest, where `serialize(access, 'full')` returns the whole document.
+`policy()` takes the document's `version` as an option,
+`p.contains(path, value)` holds when the array at `path` includes `value`, and
+`p.deny` writes a deny rule, which refuses when it matches and outranks the
+allow:
 
 ```ts twoslash file=libs/acl/README.md region=typed-contract
 
 ```
 
-The reduced document is the contract. It holds `orders:order.refund` and not
-the ledger permission, because an unmarked permission is internal, and so is a
-permission whose author forgot the mark. The storefront adopts the contract with
-`parseMatrix`, which [How do I use rules another service published?](/acl/adopting)
-covers, and answers the refund question with no call back to `orders`. The
-`orders:` prefix names the service that owns the object kind, which
+The reduced document is the contract: the part of your rules another service may
+adopt. It holds `orders:order.refund` and not the ledger permission, because an
+unmarked permission is internal, and so is a permission whose author forgot the
+mark. The storefront adopts the contract with `parseMatrix`, which
+[How do I use rules another service published?](/acl/adopting) covers, and
+answers the refund question with no call back to `orders`. The `orders:` prefix
+names the service that owns the object kind, which
 [Many services](/acl/federation) explains.
 
 ```mermaid caption="What a reduced serialization keeps. A permission marked visibility public goes out with every rule it carries, deny rules included; an unmarked permission stays internal, and an object kind left with no public permission loses its schema entry too."
@@ -59,17 +64,20 @@ matrix when the refund call arrives.
 
 `serialize` emits a kept permission with every rule it carries, deny rules
 included. Below, the document is written as JSON, which is what a service in
-another language emits:
+another language emits. A permission lists its allow rules under `rules` and its
+deny rules under `denyRules`, and a rule with an empty `when` grants everyone.
+`maxStale` on the document and `fetchedAt` on the adoption set how long the
+consumer's copy stays good, which the next section covers:
 
 ```ts twoslash file=libs/acl/README.md region=contract
 
 ```
 
-Drop one deny rule and a refusal becomes an allow. Drop an allow rule or a
-field config and the answer moves the other way. So the refund permission ships
-with its deny rule, and every consumer reads `subject.tier` and the word
-`probation`. A permission whose deny rules read an internal concept discloses
-that concept, so publish it and accept the disclosure, or leave it unmarked.
+Drop one deny rule and a refusal becomes an allow. Drop an allow rule and an
+allow becomes a refusal. So the refund permission ships with its deny rule, and
+every consumer reads `subject.tier` and the word `probation`. A permission whose
+deny rules read an internal concept discloses that concept, so publish it and
+accept the disclosure, or leave it unmarked.
 
 The schema keeps only the object kinds a kept permission names, so the ledger's
 entry is gone. The contract's decisions equal the owner's, key for key: a
@@ -97,7 +105,7 @@ key answers `stale-contract`, and a fetch of the document repairs it.
 | `maxStale` on the document | the owner     | sets the ceiling, in milliseconds              |
 | `maxStale` on the consumer | the consumer  | tightens the owner's ceiling, never extends it |
 | `fetchedAt`                | the consumer  | names the instant the bound measures from      |
-| neither of the two         | nobody        | leaves the consumer claiming no freshness      |
+| no `fetchedAt` reported    | the consumer  | turns the bound off, so the copy never expires |
 
 State `maxStale` on the document before any consumer reports `fetchedAt`. A
 consumer reporting one against a document with no ceiling gets
@@ -105,20 +113,24 @@ consumer reporting one against a document with no ceiling gets
 only one that expires a copy. A consumer that reports no `fetchedAt` runs under
 no bound, which is every matrix a service authors in its own process.
 
-A stale contract errs toward drawing the button. The consumer draws a control
-the owner has since revoked, and the write behind it still fails, because
-`orders` evaluates its own matrix on every call.
+A copy inside its bound can still be out of date: it draws a control the owner
+has since revoked, and the write fails at `orders`, because `orders` evaluates
+its own matrix on every call.
 
 ## A key another team may veto has to be published
 
-`serialize(access, 'reduced', { vetoable })` refuses to drop a key the list
-names, with `UnpublishedVetoableError`. A compliance team checks its own deny
-rules against the published contract with
-[`applyDenyOverlay`](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies),
-which merges another team's deny rules into a document before it is built. An
-internal key that team may veto is absent from the contract, along with its
-object kind's schema entry, so that check refuses every rule it was written to
-accept.
+Another team may need to refuse some of your permissions with deny rules of its
+own, such as a compliance team that blocks refunds on disputed orders. That set
+of rules is a deny overlay, and
+[`applyDenyOverlay`](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+merges it into your document before the evaluator is built. It may touch only
+the keys you list as `vetoable`, the keys that team may veto.
+
+The team tests its overlay against your published contract, so every vetoable
+key has to be in it. A key missing from the contract takes its object kind's
+schema entry with it, and the team's check then refuses every rule it wrote.
+`serialize(access, 'reduced', { vetoable })` throws `UnpublishedVetoableError`
+when the list names a key the contract would drop.
 
 ## Now that you publish a contract, know what can throw
 
