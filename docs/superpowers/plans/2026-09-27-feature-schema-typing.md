@@ -266,7 +266,7 @@ Append to `schema.test-d.ts`:
 
 ```ts
 describe('the never guard', () => {
-  it('omits the variant fields rather than typing them never', () => {
+  it('omits the variant fields for a feature declaring none', () => {
     // `never extends VariantInfo` is true, so a branch without the tuple wrap
     // gives this feature `variant: never` and no error reports it.
     expectTypeOf<Decisions<S>['nav']['variant']>().toEqualTypeOf<
@@ -378,7 +378,7 @@ Change `Features<F extends FeatureKey = string>` to `Features<S extends Schema>`
   ): Decisions<S>[K]['value'];
 ```
 
-Deriving both from `Decisions<S>[K]` rather than from `S[K]` directly keeps them from drifting away from the decision the same key produces.
+Both derive from `Decisions<S>[K]` and not from `S[K]` directly. A reader of `variantOf` then sees the same type the decision for that key carries, and the two cannot drift apart.
 
 - [ ] **Step 4: Write the two overloads**
 
@@ -406,7 +406,7 @@ Append to `features.test-d.ts`:
 describe('the const type parameter', () => {
   it('infers from a bare array literal with no as const', () => {
     // A consumer who must remember `as const` will forget, and the failure is a
-    // silent widening to string rather than an error.
+    // silent widening to string, and no error reports it.
     const features = createFeatures([
       { key: 'cta', enabled: true, variants: [{ name: 'only', weight: 1 }] },
     ]);
