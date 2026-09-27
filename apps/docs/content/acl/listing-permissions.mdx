@@ -7,7 +7,7 @@ fetched.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={2}
+  difficulty={4}
   read={5}
   hands={15}
   requires={[['Can this user do this?', '/acl/asking']]}
@@ -26,9 +26,11 @@ document the day somebody adds a permission to one and not the other.
 
 `capabilities(subject, now?)` resolves every permission in the document against
 one subject, passing no object, and returns a map keyed by permission in
-document order. Each entry is the decision `can` returns: `allowed` is the
-answer, and `reason` says which branch of the engine produced it, as
-[Can this user do this?](/acl/asking) sets out.
+document order. The optional `now` fixes the instant that rules comparing the
+clock read. Each entry is the decision `can` returns: `allowed` is the answer,
+and `reason` names which of seven outcomes decided it, as
+[Can this user do this?](/acl/asking) tables. `p.contains(path, value)` holds
+when the array at `path` includes `value`:
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
 
@@ -36,21 +38,27 @@ answer, and `reason` says which branch of the engine produced it, as
 
 One policy holds every object kind, so the chain of `.for('report')` and
 `.for('listing')` puts both kinds in one document and one call answers across
-them. The third type argument names the actions `report` answers for, because
-`export` is not one of the four `Action` verbs. Only the `owner` role holds
-`report.export` and `listing.read`, so a bookseller gets `no-rule-matched` for
-both.
+them. An object kind's actions default to `Action`: `create`, `read`, `update`
+and `delete`. `policy`'s third type argument widens that for one kind, so
+`{ report: Action | 'export' }` lets `report` declare `export`. Only the `owner`
+role holds `report.export` and `listing.read`, so a bookseller gets
+`no-rule-matched` for both.
 
 ## Why an acl capability map carries `unevaluable` entries
 
-`capabilities` passes no object, and that decides what each entry can mean:
+`capabilities` passes no object, and that decides what each entry can mean. A
+permission settles when it gets a definite `true` or `false`:
 
-- A permission settles when its rules read only `subject.*`, because the
-  server resolves the subject whole before the call. It also settles when a
-  rule that reads `object.*` fails on its subject conditions alone, because no
-  row could make that rule match.
-- A permission that needs the row decides `unevaluable`, the answer for a path
-  a rule needs and the call did not carry, with `missing` naming the paths.
+- A permission whose rules read only `subject.*` settles, because the server
+  resolves the subject whole before the call.
+- A rule that reads `object.*` also settles when one of its subject conditions
+  already fails, because no row could make that rule match. It answers
+  `denied` for a deny rule and `no-rule-matched` for an allow rule.
+- A permission that still needs the row decides `unevaluable`, the answer for a
+  path a rule needs and the call did not carry, with `missing` naming the
+  paths.
+
+`p.always` is the condition that always holds:
 
 ```ts twoslash file=libs/acl/README.md region=capabilities-object
 
@@ -72,32 +80,35 @@ flowchart LR
 
 <Panel heading="Read a capability map as a list of `allowed === true`">
   <Text as="div" size="sm">
-    An `unevaluable` entry carries `allowed: false` and is not a refusal. A menu
-    that reads `allowed === false` as "refused" hides an entry the subject may
-    hold on some rows.
+    An `unevaluable` entry carries `allowed: false` because its answer needs a
+    row. A menu that reads every `allowed: false` as "may never do this" hides
+    an entry the subject holds on some rows.
   </Text>
 </Panel>
 
 ## Drawing a menu from an acl capability map
 
 The menu keeps an item when the map carries its key and the entry allows. The
-storefront below adopted `stock`'s document with `parseMatrix`, the call that
-builds an evaluator over a document another service served:
+storefront below draws its menu from a document the `stock` service serves. It
+adopts that document with `parseMatrix`, the call that builds an evaluator over
+a document another service wrote and answers `unknown-action` for a key the
+document lacks:
 
 ```ts twoslash file=libs/acl/README.md region=capabilities-menu
 
 ```
 
-Compare with `=== true`, and reach the entry with `?.`. A key the document does
-not carry is absent from the map, and `listing.read` is that key here: the
-`leaky` filter hides only what the map refuses, so it shows Listings to every
-subject. This document arrived as JSON, so its keys are `string` and the miss
-happens at runtime. A policy the builder authored types the map by its own
-keys, and `caps['listing.read']` on it is a compile error.
+A key the document does not carry is absent from the map, and `listing.read` is
+that key here. The `leaky` filter hides only what the map refuses, so it shows
+Listings to every subject. This document arrived as JSON, so its keys are
+`string` and the miss happens at runtime; `?.` reaches the absent entry without
+throwing. A policy the builder authored types the map by its own keys, and
+`caps['listing.read']` on it is a compile error.
 
 Make one `capabilities` call per render. It reads the clock once for the whole
-document, where a loop of `can` reads it per permission, so a `p.before` or
-`p.after` boundary can fall between two items of one render.
+document, where a loop of `can` reads it per permission. A rule built with
+`p.before` or `p.after`, the helpers that compare the current instant with a
+fixed one, can otherwise flip between two items of one render.
 
 ## What an acl capability map does not answer
 
