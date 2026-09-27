@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { Inject, Injectable, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
   CORRELATION_CONFIG_TOKEN,
@@ -52,6 +53,65 @@ describe('CorrelationModule', () => {
     expect(config.header).toBe('X-Request-Id');
     expect(config.generator).toBe(generator);
     expect(config.validate).toBe(validate);
+  });
+
+  it('resolves the first of two forRoot calls in one imports list', async () => {
+    @Injectable()
+    class ReadsConfig {
+      constructor(
+        @Inject(CORRELATION_CONFIG_TOKEN) readonly config: CorrelationConfig,
+      ) {}
+    }
+    @Module({ providers: [ReadsConfig], exports: [ReadsConfig] })
+    class Feature {}
+
+    const module = await Test.createTestingModule({
+      imports: [
+        CorrelationModule.forRoot({ header: 'X-Correlation-Id' }),
+        CorrelationModule.forRoot({ header: 'X-Request-Id' }),
+        Feature,
+      ],
+    }).compile();
+
+    expect(module.get(ReadsConfig).config.header).toBe('X-Correlation-Id');
+  });
+
+  it('gives each module that calls forRoot its own service and context', async () => {
+    @Injectable()
+    class Storefront {
+      constructor(
+        @Inject(CorrelationService) readonly correlation: CorrelationService,
+      ) {}
+    }
+    @Injectable()
+    class Stock {
+      constructor(
+        @Inject(CorrelationService) readonly correlation: CorrelationService,
+      ) {}
+    }
+    @Module({
+      imports: [CorrelationModule.forRoot()],
+      providers: [Storefront],
+      exports: [Storefront],
+    })
+    class StorefrontModule {}
+    @Module({
+      imports: [CorrelationModule.forRoot({ header: 'X-Request-Id' })],
+      providers: [Stock],
+      exports: [Stock],
+    })
+    class StockModule {}
+
+    const module = await Test.createTestingModule({
+      imports: [StorefrontModule, StockModule],
+    }).compile();
+    const storefront = module.get(Storefront).correlation;
+    const stock = module.get(Stock).correlation;
+
+    expect(storefront).not.toBe(stock);
+    expect(
+      storefront.run('storefront-4f1c9a', () => stock.getCorrelationId()),
+    ).toBeUndefined();
   });
 
   it('provides CorrelationService as a singleton', async () => {
