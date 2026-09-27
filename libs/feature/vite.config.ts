@@ -45,12 +45,17 @@ export default defineConfig(() => ({
           // Without an explicit tsconfig, vitest falls back to the
           // solution-style tsconfig.json (files: [], include: []). It then
           // typechecks nothing and every expectTypeOf assertion passes
-          // whatever it asserts. Each project names the type tests it owns,
-          // so one mismatch is reported once.
+          // whatever it asserts. Each project's `include` names the type tests
+          // it reports as its own, and both extensions are listed on both
+          // sides: a glob keyed on one extension leaves a file the project
+          // owns unattributed. tsconfig.spec.json reaches every type test in
+          // the package, so a file outside a project's `include` still
+          // compiles and surfaces under the other project as an unhandled
+          // source error.
           typecheck: {
             enabled: true,
             tsconfig: './tsconfig.spec.json',
-            include: ['src/lib/**/*.test-d.ts'],
+            include: ['src/lib/**/*.test-d.{ts,tsx}'],
           },
           // The README's documented examples, executed. The core suite is the
           // one that runs them: every region is a `@evanion/feature` call and
@@ -72,7 +77,7 @@ export default defineConfig(() => ({
           typecheck: {
             enabled: true,
             tsconfig: './tsconfig.spec.json',
-            include: ['src/react/**/*.test-d.tsx'],
+            include: ['src/react/**/*.test-d.{ts,tsx}'],
           },
         },
       },
