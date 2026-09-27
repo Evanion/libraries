@@ -7,7 +7,7 @@ saves.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={3}
+  difficulty={4}
   read={8}
   hands={20}
   requires={[['Rules about the thing being accessed', '/acl/object-rules']]}
@@ -19,21 +19,24 @@ saves.
 
 ## Saving only the fields an acl policy allows
 
-A customer edits the body of a question they asked on the Brass: Birmingham
-listing, and the form posts `status` beside the body. A pick-list written into
-the handler stays correct until somebody adds a column, and then the form posts
-a field nobody listed and the save writes it.
+A customer edits the body of a question they asked on the Wingspan listing, and
+the form posts `status` beside the body. A handler that strips `status` by hand
+holds a second copy of the rule: somebody adds a `pinned` column, the form posts
+it, and the save writes it because nobody added it to the strip list.
 
 ```ts twoslash file=libs/acl/README.md region=write-path
 
 ```
 
-`canFields(subject, kind, action, row, 'write', proposed)` takes the question
-as the database holds it and the write the form posted. `fd.action` is the
-action's decision, the object `can` returns. `fd.fields` gives every field a
-state, and `.fields(['*', '!status'])` on the allow rule denies `status`.
-`pickAllowedFields(fd, proposed)` keeps the keys that decided `allowed`, so
-pass its result to the object-relational mapper (ORM) and pass nothing else.
+`canFields(subject, kind, action, row, axis, proposed)` takes the question as
+the database holds it and the write the form posted. The fifth argument is the
+axis: `'write'` decides a proposed write, and `'read'` decides which fields of a
+fetched row the subject may see. `fd`, the field decision, carries `fd.action`,
+the action's decision in the shape `can` returns, and `fd.fields`, which gives
+every field a state. `.fields(['*', '!status'])` sets the field rules of
+`update`, so `status` decides `denied`. `pickAllowedFields(fd, proposed)` keeps
+the keys that decided `allowed`, so pass its result to the object-relational
+mapper (ORM) and pass nothing else.
 
 ```mermaid caption="The write path, both calls. canFields decides the action and gives every field a state; pickAllowedFields throws on a refused action and otherwise keeps the keys that decided allowed. A denied field and an unevaluable one are both withheld, so the value reaching the ORM is the value the decision approved."
 flowchart LR
@@ -50,10 +53,11 @@ The policy declares one kind because the form edits questions. A `.for()` per
 kind puts the field rules for listings and orders in the same document, under
 the same `access`.
 
-## Naming the fields an acl rule lets a write carry
+## Naming the fields an acl permission lets a write carry
 
-`.fields()` attaches to the rule the chain declared last, and takes three
-shapes:
+`.fields()` sets the field rules of the action the chain declared last,
+whichever allow or deny rule declared it. It takes three shapes, and leaving it
+out is a fourth:
 
 | Shape               | Written as                                     | What a write may carry                   |
 | ------------------- | ---------------------------------------------- | ---------------------------------------- |
@@ -80,12 +84,16 @@ raises `TargetsTransitionsConflictError`.
 
 ```
 
-`closing` takes `status` along the one edge, `open` to `locked`. `reopening`
-starts from `locked`, whose empty array refuses every edge. `unread` passes a
-row loaded without `status`, so the config has no edge to read and `status`
-decides `unevaluable`, with the field reason `missing-field`. `posted` carries
-`pinned`, a key no question row has, and it still gets a state: the name list
-refuses it as `not-listed`, which is how a mass-assignment attempt ends.
+`fd.reasons` gives each field's reason beside its state, one of the
+`FieldReason` strings
+[Why was this refused?](/acl/refusals#explaining-one-field-of-an-acl-field-decision)
+tables. `closing` takes `status` along the one edge, `open` to `locked`.
+`reopening` starts from `locked`, whose empty array refuses every edge, with
+`transition-failed`. `unread` passes a row loaded without `status`, so the
+config has no edge to read and `status` decides `unevaluable`, with
+`missing-field`. `posted` carries `pinned`, a key no question row has, and it
+still gets a state: the name list refuses it as `not-listed`, which is how a
+mass-assignment attempt ends.
 
 ## Why filtering an acl field map by hand writes the wrong fields
 
@@ -109,7 +117,7 @@ A field decision covers four sources of names, because the matrix does not know
 the row's shape:
 
 - every field the row carries,
-- every field the rules name,
+- every field that carries a per-field config,
 - every name in the list `.fields()` was given,
 - and on the write axis, every key of the proposed write.
 
@@ -149,13 +157,16 @@ both booleans as an entry.
 ## Working the acl field axis
 
 The control below runs one `canFields` call and shows both maps beside the
-object `pickAllowedFields` returns from them. Its policy carries the
-`field-configs` example's field rules, and a second allow rule lets a
-bookseller update any question. It opens signed in as Sam Reyes, who asked the
-question, over an open row whose proposed write moves `status` to `locked`.
-Four moves take it elsewhere:
+object `pickAllowedFields` returns from them. Its policy carries the field rules
+from the fence under
+[Naming the fields an acl permission lets a write carry](#naming-the-fields-an-acl-permission-lets-a-write-carry),
+and a second allow rule lets a bookseller update any question. It offers three
+people to sign in as: Sam Reyes, the customer who asked the question; Jo Vainio,
+another customer; and Mika Persson, a bookseller. It opens signed in as Sam over
+an open row whose proposed write moves `status` to `locked`. Four moves take it
+elsewhere:
 
-- Sign in as Jo Vainio, who asked no question here. The action decides
+- Sign in as Jo, who asked no question here. The action decides
   `no-rule-matched`, and `pickAllowedFields` throws `ActionNotAllowedError`.
 - Tick the `pinned` checkbox, which posts a key the name list never mentions.
   `pinned` decides `denied` with `not-listed`, and the write that reaches the
@@ -167,7 +178,7 @@ Four moves take it elsewhere:
 
 <FieldWriteDemo />
 
-## Reading only the fields an acl rule lets a subject see
+## Reading only the fields an acl permission lets a subject see
 
 The `read` axis of `canFields` decides which fields of a fetched row the subject
 may see. It takes no proposed write, and `targets` and `transitions` are write
@@ -177,9 +188,11 @@ concepts, so on `read` only the name list denies:
 
 ```
 
-The call decides a projection and queries nothing. A field decided `denied`
-here was still read out of the database, so drop it before the row leaves the
-server.
+The action is `read` and the axis is `read` as well: the first names the
+permission, and the second picks the field check. The call decides a projection
+and queries nothing. A field decided `denied` here was still read out of the
+database, so drop it before the row leaves the server:
+`pickAllowedFields(fd, row)` keeps the fields that decided `allowed`.
 
 ## Now that a save writes the right fields, explain a refusal
 
