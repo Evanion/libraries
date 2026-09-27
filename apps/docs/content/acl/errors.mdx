@@ -1,5 +1,9 @@
 # What can throw?
 
+Every error `@evanion/acl` throws extends `AclConfigError` except one:
+`pickAllowedFields` throws `ActionNotAllowedError` when the action it was handed
+was refused.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
@@ -7,136 +11,146 @@
   read={7}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
+    ['What did editing my rules change about access?', '/acl/rule-changes'],
     ['Typed Authoring', '/acl/authoring'],
-    ['Why was this refused?', '/acl/refusals'],
   ]}
 />
 
-**The concept.** `AclConfigError` is the base of every class construction
-raises, and `ActionNotAllowedError` is the one throw that sits outside it.
+## Catching every acl configuration fault at once
 
-**What you get.** The malformed input that raises each one, as code that runs.
+A service builds its evaluator at startup, and a malformed document should fail
+the deploy with a message naming the value to change. `AclConfigError` is the
+base of every class construction raises, so one `catch` around construction
+reports the whole set:
 
-**Why you want it.** A refusal names a class, and the class alone does not say
-which value to change.
+```ts twoslash file=libs/acl/README.md region=errors-catching
 
-**How the library gets you there.** Each error carries `key`, `field` or
-`where` beside its message, locating the value inside the document.
+```
 
-## When acl throws, and when it refuses instead
+`ActionNotAllowedError` extends `Error` directly. `pickAllowedFields` raises it
+at request time, on a document that is entirely valid, when the subject may not
+take the action at all. A startup guard around construction does not catch it,
+so the handler that writes has to.
+[When the acl action itself is refused](/acl/writing#when-the-acl-action-itself-is-refused)
+covers the two booleans behind it.
 
-A refusal is a `Decision` carrying `allowed: false`, and a throw ends the call.
-Which one a caller meets is decided by where the document came from.
+The assertions in `@evanion/acl/testing` throw `AclAssertionError`, which
+[How do I test a contract I consume?](/acl/testing) covers.
 
-`hydratePolicy` is the open path, for a document this service authored. A key
-it never held is an authoring mistake, so a query naming one throws.
+## When an acl query throws, and when it refuses
 
-`parseMatrix` is the closed path, for a document another service published. A
-key it never holds is ordinary, because the producer's next release removes
-keys this consumer still asks about, so a query naming one answers
-`unknown-action` and refuses.
+A refusal is a decision carrying `allowed: false`, and a throw ends the call.
+Where the document came from decides which one a query meets:
 
-Everything else throws at construction, which is startup for a local matrix and
-adoption time for a foreign one, so a malformed document fails a deploy rather
-than a request. [The API reference](/acl/api#aclconfigerror) carries every
-class and the properties each one adds.
+- `hydratePolicy` is the open path, for a document this service wrote. A key
+  the document never held is an authoring mistake, so a query naming one
+  throws.
+- `parseMatrix` is the closed path, for a document another service published.
+  The owner's next release can remove a key this consumer still asks about, so
+  a query naming one answers `unknown-action`.
+
+```ts twoslash file=libs/acl/README.md region=errors-query
+
+```
+
+The open path throws `UnknownPermissionError` for an action the document never
+declared, and `UnknownObjectKeyError` for an object kind it never configured.
+Everything else on this page throws at construction, which is startup for your
+own document and adoption for a foreign one, so a malformed document fails a
+deploy and never a request.
 
 ## What refuses an acl document
 
-Each case names its input first, because the name is what the message is about.
-`raised` reports the class, so a case reads as one line.
+Each case names its input first, and `raised` reports the class, so one case
+reads as one line:
 
-```ts file=libs/acl/README.md region=errors-document
-
-```
-
-`InvalidConditionError` covers three faults, and the message tells them apart:
-an unknown `op`, a path nesting below its scope, and a scope that is neither
-`subject`, `object` nor `now`. The properties locate the condition:
-
-```ts file=libs/acl/README.md region=errors-condition-where
+```ts twoslash file=libs/acl/README.md region=errors-document
 
 ```
 
-`where` is the path inside the permission, so a document with forty rules
-identifies the one to fix.
+| Class                      | The input that raises it                                                        |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `InvalidMatrixError`       | no `permissions` array, or a `version` that is not a string or a number         |
+| `KeyMismatchError`         | a `key` that is not exactly `` `${object}.${action}` ``                         |
+| `DuplicatePermissionError` | two permissions sharing one key                                                 |
+| `InvalidPermissionError`   | a permission missing its `action`, or a malformed `object`, `rules` or `fields` |
+| `InvalidRuleError`         | a rule whose `when` is absent or not an array                                   |
+| `InvalidConditionError`    | an unknown `op`, a path nested below its scope, or an unknown scope             |
+
+`InvalidConditionError` carries `key`, `field` and `where`, and `where` is the
+path to the condition inside the permission, so a document with forty rules
+names the one to fix:
+
+```ts twoslash file=libs/acl/README.md region=errors-condition-where
+
+```
 
 ## What refuses an acl schema or field rule
 
-A schema is checked for its own shape first. Every condition naming a declared
-kind is then checked against it, which is what turns a renamed column into a
-failed deploy rather than a permission that silently stops matching. Field
-rules are checked whether a schema is present or not.
+A schema is checked for its own shape first, and then every condition naming a
+declared kind is checked against it. Field rules are checked whether a schema is
+present or not.
 
-```ts file=libs/acl/README.md region=errors-schema-fields
-
-```
-
-`*` and `!name` are authoring syntax and never field names, so
-`BangInAllowListError` and `DenyWithoutBaselineError` are raised by the shape
-of the list rather than by any field it mentions. [Which fields may they
-write?](/acl/writing) has the syntax.
-
-## What an acl query raises
-
-The open path throws and the closed path refuses, over the same document:
-
-```ts file=libs/acl/README.md region=errors-query
+```ts twoslash file=libs/acl/README.md region=errors-schema-fields
 
 ```
 
-A gateway adopting a foreign contract wants the closed path for this reason. A
-producer removing a key takes the consumer's request path with it otherwise.
+| Class                             | The input that raises it                                               |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| `InvalidSchemaError`              | a field type the schema vocabulary does not have                       |
+| `UnknownFieldError`               | a condition naming a field the schema does not declare                 |
+| `FieldTypeMismatchError`          | an operator that does not fit the type, such as `contains` on a string |
+| `BangInAllowListError`            | a `!name` inside a list of names                                       |
+| `DenyWithoutBaselineError`        | a `!name` with no `*` beside it                                        |
+| `TargetsTransitionsConflictError` | one field given both `targets` and `transitions`                       |
 
-Freshness raises where the holder is built rather than where a decision is
-asked for, so a misconfigured holder fails at startup:
+`*` and `!name` are syntax in a list of fields, so the last three are raised by
+the shape of the list. [Which fields may they write?](/acl/writing) has that
+syntax. A typed author meets two more while naming rules, `DuplicateRuleIdError`
+and `AmbiguousRuleIdError`, which
+[Typed authoring](/acl/authoring#construction-errors) tables.
 
-```ts file=libs/acl/README.md region=errors-freshness
+## What refuses an acl consumer's freshness settings
+
+A consumer that reports `fetchedAt` is asking for a freshness budget, and the
+check runs where the evaluator is built, so a misconfigured consumer fails at
+startup:
+
+```ts twoslash file=libs/acl/README.md region=errors-freshness
 
 ```
 
-A holder reporting `fetchedAt` claims it knows when it last validated, and the
-owner has to state how long a validation lasts. [The security
-contract](/acl/security) has the freshness model.
+`MissingFreshnessBudgetError` means the consumer reported `fetchedAt` against a
+document that states no `maxStale`, and the owner has to state how long a check
+lasts. `InvalidFreshnessError` means the consumer's `fetchedAt` does not parse as an
+instant, or its own `maxStale` is not a finite, non-negative number of
+milliseconds.
+[How long a consumer may keep deciding on an acl contract](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+has the budget.
 
 ## What refuses an acl composition
 
-Composition is the third place a document is checked, and each refusal names
-the key it refused:
+Composing documents across services is the last place acl checks one, and each
+refusal names the key it refused:
 
-```ts file=libs/acl/README.md region=errors-composition
-
-```
-
-`OriginCollisionError` is the one a reader meets while wiring services
-together, and [Many Services](/acl/federation) has the topology it comes from.
-The three veto errors belong to [the cross-cutting
-deny](/acl/federation#a-cross-cutting-deny).
-
-## Catching every acl configuration fault at once
-
-`AclConfigError` is the base of every class construction raises, so a startup
-guard catches the set without naming each member.
-
-It does not cover `ActionNotAllowedError`, which extends `Error` directly. That
-one comes from `pickAllowedFields` when the action was refused, on a document
-that is entirely valid, so it is a request-time refusal rather than a
-configuration fault. A handler catches it where the write happens. [Which
-fields may they write?](/acl/writing#the-acl-action-gate) has the pair of
-booleans behind it.
-
-```ts file=libs/acl/README.md region=errors-catching
+```ts twoslash file=libs/acl/README.md region=errors-composition
 
 ```
 
-A service that wraps construction in one `catch (error) { if (error instanceof
-AclConfigError) ... }` reports every malformed document the same way, and still
-has to handle the write refusal where the write is attempted.
+| Class                       | The input that raises it                                           |
+| --------------------------- | ------------------------------------------------------------------ |
+| `OriginCollisionError`      | two origins in `federatedPolicies` claiming one key                |
+| `UnvetoablePermissionError` | a deny overlay reaching a key the owner did not list as `vetoable` |
+| `MissingVetoSchemaError`    | a `vetoable` key whose object kind the schema does not declare     |
+| `UnpublishedVetoableError`  | a `vetoable` key that `serialize(access, 'reduced')` would drop    |
 
-## Where to go next
+[Many services](/acl/federation) has the topology `OriginCollisionError` comes
+from, and
+[the cross-cutting deny](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+is where the three veto errors belong.
 
-- [API reference](/acl/api#aclconfigerror) — every class, and the properties
-  each one carries
-- [Typed Authoring](/acl/authoring#construction-errors) — the same set, tabled
-  by authoring step
-- [Why was this refused?](/acl/refusals) — the refusals that carry no throw
+## Now that you know what throws, review what a rule change did
+
+[What did editing my rules change about access?](/acl/rule-changes) compares two
+documents that both constructed and reports who gained or lost access between
+them.
