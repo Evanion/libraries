@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { createFeatures } from '../lib/features.js';
-import type { Decision, FeatureDefinition } from '../lib/types.js';
+import type { FeatureDefinition } from '../lib/types.js';
 import {
   FeatureProvider,
   useFeature,
@@ -100,9 +100,7 @@ describe('FeatureProvider', () => {
   });
 
   it('accepts decisions resolved elsewhere, such as a build snapshot', () => {
-    const snapshot: Record<Key, Decision<Key>> = createFeatures(
-      definitions,
-    ).resolve(inWindow);
+    const snapshot = createFeatures(definitions).resolve(inWindow);
 
     render(
       <FeatureProvider

@@ -1186,4 +1186,43 @@ describe('plan', () => {
     expect(entry.needs).toEqual([]);
     expect(entry.decision?.enabled).toBe(false);
   });
+
+  it('reads the assigned variant off a resolved feature', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50, value: { label: 'Get it' } },
+        ],
+      },
+    ]);
+
+    const variant = features.variantOf('cta', { targetingKey: 'user-1' });
+
+    expect(['control', 'blue']).toContain(variant);
+  });
+
+  it('reads no variant off a feature that resolved off', () => {
+    const features = createFeatures([
+      { key: 'cta', enabled: false, variants: [{ name: 'only', weight: 1 }] },
+    ]);
+
+    expect(features.variantOf('cta', { targetingKey: 'u' })).toBeUndefined();
+  });
+
+  it("reads the assigned variant's value", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
+      },
+    ]);
+
+    expect(features.valueOf('cta', { targetingKey: 'u' })).toEqual({
+      label: 'Buy',
+    });
+  });
 });
