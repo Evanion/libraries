@@ -1,13 +1,14 @@
 # API reference
 
 `@evanion/react-widget` exports one factory, two default chrome components and
-the types they use. It re-exports the item model from `@evanion/widget`, from
-[`validateItems`](#validateitems) down, so one install covers both.
+the types they use. It also re-exports the item model from `@evanion/widget`,
+so one install covers both; the entries from [`validateItems`](#validateitems)
+on are those re-exports.
 
 ## `createWidgets(config)`
 
-`createWidgets` builds a widget set from a component map and returns the
-`Widgets` component that renders it.
+`createWidgets` takes a component map and optional chrome, and returns the
+`Widgets` component that renders items against them.
 
 ```tsx signature
 function createWidgets<
@@ -31,10 +32,11 @@ function createWidgets<
 | --------------- | ------------------------------------------------------------------------------------------- |
 | `Widgets`       | renders an item array against the map; its props are [`WidgetsProps`](#widgetsprops)        |
 | `defineItems`   | returns the array it is handed, typed `WidgetItem<C, M>[]`, for an array held in a variable |
-| `validateItems` | the core's [`validateItems`](#validateitems) with the map's keys as the known types         |
+| `validateItems` | [`validateItems`](#validateitems) with the map's keys as the known types                    |
 
 `C` is inferred from `config.components` and `M` from `config.chrome.item`.
-Neither is passed by hand: naming `M` costs the inference of `C`. Call
+Pass neither by hand. TypeScript infers no type argument once one is named, so
+naming `M` means writing `C` out as well. Call
 `createWidgets` once, at module scope, because each call returns a new `Widgets`
 and a call inside a component remounts the region on every render.
 
@@ -108,11 +110,14 @@ type WidgetSuspenseMode = 'per-item' | 'none';
 
 `'per-item'` gives each widget its own boundary, so one slow widget does not
 hold up its siblings. `'none'` gives the region no boundary, for widgets that
-never suspend; React's streaming renderer then keeps every item in the shell.
+never suspend. React's streaming renderer then writes every item into the shell,
+the first HTML it sends, and leaves none to a script that moves it into place
+later.
 [A synchronous region](/react-widget/advanced#a-synchronous-region-chromesuspense-none)
 carries the measurement. No mode puts one boundary around the whole region,
-because that one boundary outlines every item at once. A region that wants it
-anyway wraps `<Widgets>` in `<Suspense>` and sets `'none'`.
+because React sends a large unfinished boundary after the shell, every item at
+once. To get one boundary anyway, wrap `<Widgets>` in `<Suspense>` and set
+`'none'`.
 
 ## `WidgetItemComponent`
 
@@ -149,12 +154,13 @@ type WidgetsWrapperComponent = ComponentType<{
 
 `items` and `children` are aligned by position. An item the renderer skipped is
 dropped from both, so index `i` of one is index `i` of the other, and a wrapper
-can group, size or window by item. `Children.toArray` cannot recover an item
-from its child, because the children are the `<Suspense>` elements the renderer
-created. `items` holds the top-level items only.
+can group, size or window by item. A child element's own props are the item's
+`id`, `type` and `meta`, and the item's `props` sit on the widget element nested
+inside it. `items` hands the wrapper each whole item as data, top-level items
+only.
 
-A wrapper that spreads its props onto a DOM element drops `items` first, the way
-`DefaultWrapper` does, or React warns about an unknown attribute.
+If your wrapper spreads its props onto a DOM element, remove `items` first, the
+way `DefaultWrapper` does, or React warns about an unknown attribute.
 
 ## `DefaultWrapper`
 
@@ -191,7 +197,7 @@ CMS click-to-edit overlays, analytics and end-to-end selectors key off the two
 `data-widget-*` attributes. `meta` is dropped because React warns about an
 unknown attribute on every key of it that reaches the DOM. Neither default
 carries a Suspense boundary or an error boundary; the Suspense boundary lives in
-the renderer. The `chrome` region above wraps both defaults.
+the renderer.
 
 ## `WidgetItem`
 
@@ -303,8 +309,10 @@ unchanged from `@evanion/widget`.
 
 The standalone export takes a list of type names or a registry, so a webhook
 or a CI script checks a payload without importing a React component. The bound
-form off `createWidgets` takes no names. Neither checks `props` against a
-component; `WidgetItem` does that at compile time.
+form that `createWidgets` returns takes no names. Both take an optional
+`required` map from a widget type to the props that must be present and
+non-blank. Neither checks a prop's type against a component; `WidgetItem` does
+that at compile time.
 [The core's entry](/widget/api#validateitems) carries the signature, and
 [What it reports](/widget/problems) every message.
 
@@ -326,11 +334,15 @@ annotation keeps them literal too, so the call is optional in this package.
 
 ## `ERROR_MESSAGES`
 
-`ERROR_MESSAGES` is the text `Widgets` warns with when it skips an item,
-re-exported from `@evanion/widget`.
+`ERROR_MESSAGES` is the text `Widgets` warns with in development, re-exported
+from `@evanion/widget`.
 
-Each message names the offending item, so each bad item is warned about once
-per process and a second bad item is still reported.
+`MALFORMED_ITEMS` reports an `items` prop that is not an array, and `Widgets`
+renders nothing. `MALFORMED_CHILDREN` reports nested items that are not an
+array, and `Widgets` renders the widget without them. The rest report an item
+`Widgets` skipped. A message about one item names its `id`, and `Widgets` logs
+each distinct message once per process, so a second bad item still gets its own
+warning.
 [The core's entry](/widget/api#error_messages) lists every key.
 
 ## `VALIDATION_MESSAGES`
@@ -373,7 +385,7 @@ page. [The core's entry](/widget/api#widgetmeta) carries the rest.
 plain list of names. [The core's entry](/widget/api#knownwidgettypes) carries
 the rest.
 
-## Migrating from 0.2.x
+## Migrating react-widget from 0.2.x
 
 The item shape, the props and the data are unchanged. Three type names moved to
 `@evanion/widget` and are re-exported here under the names the whole family
@@ -386,10 +398,10 @@ uses.
 | `WidgetProps`        | `AnyWidgetItem`                      |
 
 `chrome.wrapper` now receives an `items` prop beside its children. It is
-optional, so an existing wrapper keeps compiling. A wrapper that spreads its
-props onto a DOM element drops it.
+optional, so an existing wrapper keeps compiling. If your wrapper spreads its
+props onto a DOM element, remove `items` first.
 
-## Migrating from 0.1.x
+## Migrating react-widget from 0.1.x
 
 0.2.0 removed everything that cannot exist under React's `react-server` export
 condition.

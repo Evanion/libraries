@@ -4,13 +4,20 @@
 under a widget, and `validateItems` checks a CMS payload before `Widgets`
 renders it.
 
+<PageSheet
+  difficulty={2}
+  read={8}
+  hands={30}
+  requires={[['Getting started', '/react-widget/getting-started']]}
+  unlocks={[['Chrome, meta, ctx and Suspense', '/react-widget/advanced']]}
+/>
+
 ## Type a react-widget item array held in a variable
 
-An array written inline in `<Widgets items={…}>` is checked against the
-component map you passed to `createWidgets`. An array assigned to a variable is
-not: TypeScript widens each `type` to `string`, and `Widgets` refuses the array.
-`defineItems`, which `createWidgets` returns beside `Widgets`, takes the array
-and returns it unchanged, typed against the map:
+An array held in a variable loses its literal types, so `Widgets` refuses it
+even when every item is right. Getting started fixed that with `as const` on
+each `type`. `defineItems`, which `createWidgets` returns beside `Widgets`, fixes
+it for the whole array and reports a wrong item on the line that wrote it:
 
 ```tsx twoslash file=libs/react-widget/README.md region=typed-items
 
@@ -34,9 +41,9 @@ component's `children`, inside the same chrome as every other widget:
 
 `Showcase` declares `children`, so the `tonight` item may carry Hive under it.
 `ListingCard` declares none, so the compiler rejects `children` on the Azul item.
-Under such a widget the renderer drops nested items and logs nothing. A widget
-renders its nested items by rendering `children`, like any other React
-component.
+If an untyped payload nests items under such a widget anyway, the renderer drops
+them and logs nothing. A widget renders its nested items by rendering
+`children`, like any other React component.
 
 ## Check a CMS payload with react-widget's `validateItems`
 
@@ -49,9 +56,8 @@ React component:
 
 ```
 
-`validateItems` returns every problem and throws nothing. Exit non-zero in CI
-when the list is not empty. [What it reports](/widget/problems) lists every
-message and the payload that produces it.
+`validateItems` returns every problem and throws nothing. In a CI script, set
+`process.exitCode = 1` when the list is not empty.
 
 ### The bound form, with required props
 
@@ -76,8 +82,15 @@ and renders the rest of the region:
 
 ```
 
-The `raffle` item is gone and Root rendered. The development console reads
+`JSON.parse` returns `any`, which TypeScript passes to `Widgets` unchecked, so
+this payload compiles. The `raffle` item is gone and Root rendered. The
+development console reads
 `Unknown widget type "raffle" for widget ID "raffle". Skipping render.` once per
-process, so a stale type does not repeat on every render. Nothing is logged
-when `NODE_ENV` is `production`, which is why a check before the render is the
-one that fails a build.
+process, so a stale type does not repeat on every render.
+
+Nothing is logged when `NODE_ENV` is `production`, so a stale type in production
+leaves a silent gap. Run `validateItems` in CI or at the webhook to catch it
+before the page renders.
+
+[What it reports](/widget/problems) lists every message `validateItems` returns
+and the payload that produces each.

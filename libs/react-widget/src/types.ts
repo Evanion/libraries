@@ -125,11 +125,11 @@ export interface RenderableWidgetItem {
  * Chrome wrapped around the whole widget set.
  *
  * It is handed the region's items as well as the rendered children, because a
- * container that decides where things go has to know what they are. Without
- * them a wrapper can only reach its children through `Children.toArray`, whose
- * positional `.$` keys lose item identity across a reorder -- and which walks
- * the `<Suspense>` elements `renderWidget` creates rather than the items, so an
- * item cannot be recovered from its child even positionally.
+ * container that decides where things go has to know what they are. Each child
+ * is the `chrome.item` element `renderWidget` creates for one item, keyed by the
+ * item's `id`, whose own props are `data-widget-id`, `data-widget-type` and
+ * `meta`. The item's `props` sit on the widget element nested inside it, behind
+ * the `<Suspense>` boundary. `items` holds the whole item as data.
  */
 export type WidgetsWrapperComponent = ComponentType<{
   children?: ReactNode;
