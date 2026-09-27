@@ -120,23 +120,23 @@ Nested items render as the parent component's `children`:
 <!-- #region nesting -->
 
 ```tsx @import.meta.vitest
-const Shelf = (props: { title: string; children?: React.ReactNode }) => (
-  <section>
+const Showcase = (props: { title: string; children?: React.ReactNode }) => (
+  <div>
     <h2>{props.title}</h2>
     {props.children}
-  </section>
+  </div>
 );
 
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
 const { Widgets, defineItems } = createWidgets({
-  components: { shelf: Shelf, listing: ListingCard },
+  components: { showcase: Showcase, listing: ListingCard },
 });
 
 const tonight = defineItems([
   {
     id: 'tonight',
-    type: 'shelf',
+    type: 'showcase',
     props: { title: 'On the table tonight' },
     children: [{ id: 'hive', type: 'listing', props: { title: 'Hive' } }],
   },
@@ -147,7 +147,7 @@ defineItems([
   { id: 'azul', type: 'listing', props: { title: 'Azul' }, children: [] },
 ]);
 
-const html = renderToStaticMarkup(<Widgets items={tonight} />); // -> '<section><div data-widget-id="tonight" data-widget-type="shelf"><section><h2>On the table tonight</h2><div data-widget-id="hive" data-widget-type="listing"><h3>Hive</h3></div></section></div></section>'
+const html = renderToStaticMarkup(<Widgets items={tonight} />); // -> '<section><div data-widget-id="tonight" data-widget-type="showcase"><div><h2>On the table tonight</h2><div data-widget-id="hive" data-widget-type="listing"><h3>Hive</h3></div></div></div></section>'
 ```
 
 <!-- #endregion nesting -->
@@ -173,7 +173,7 @@ const payload: unknown = JSON.parse(
   '[{"id":"root","type":"listing","props":{"title":"Root"}},{"id":"raffle","type":"raffle","props":{}}]',
 );
 
-const problems = validateItems(payload, ['listing', 'shelf']); // -> [{ index: 1, id: 'raffle', type: 'raffle', message: 'unknown widget type' }]
+const problems = validateItems(payload, ['listing', 'booking']); // -> [{ index: 1, id: 'raffle', type: 'raffle', message: 'unknown widget type' }]
 ```
 
 <!-- #endregion validate-payload -->
@@ -194,9 +194,9 @@ arrives as:
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
-const components = defineWidgets({ listing: ListingCard });
-
-const { validateItems } = createWidgets({ components });
+const { validateItems } = createWidgets({
+  components: { listing: ListingCard },
+});
 
 const payload: unknown = [
   { id: 'root', type: 'listing', props: { title: ' ' } },
@@ -207,9 +207,32 @@ const problems = validateItems(payload, { listing: ['title'] }); // -> [{ index:
 
 <!-- #endregion validate-bound -->
 
-`defineWidgets` returns the map it is handed with its keys kept literal, so one
-map declared on its own feeds `createWidgets` here and a standalone
-`validateItems` in a webhook.
+The standalone export takes the same map as its third argument.
+
+A component map declared on its own, so that `createWidgets`, an item type and a
+standalone `validateItems` share it, goes through `defineWidgets`, which returns
+it with its keys kept literal. The same stale type then fails the compile and
+the payload check:
+
+<!-- #region define-widgets -->
+
+```ts @import.meta.vitest
+import { defineWidgets, validateItems } from '@evanion/react-widget';
+import type { WidgetItem } from '@evanion/react-widget';
+
+const ListingCard = (props: { title: string }) => props.title;
+
+const components = defineWidgets({ listing: ListingCard });
+
+// @ts-expect-error 'raffle' is not a key of components
+const stale: WidgetItem<typeof components>['type'] = 'raffle';
+
+const payload: unknown = [{ id: 'raffle', type: 'raffle', props: {} }];
+
+const problems = validateItems(payload, components); // -> [{ index: 0, id: 'raffle', type: 'raffle', message: 'unknown widget type' }]
+```
+
+<!-- #endregion define-widgets -->
 
 `Widgets` does not call either form. The renderer stays defensive instead: an
 item it cannot render is skipped with a development-only `console.warn`, and the
@@ -296,7 +319,7 @@ const html = renderToStaticMarkup(page); // -> '<section><div data-widget-id="wi
 
 ## `meta`: placing a widget without telling it where it is
 
-A board of listings needs placement data, and that data belongs to the item
+A grid of listings needs placement data, and that data belongs to the item
 chrome: a widget renders the same at column 1 and at column 7. `meta` is handed
 to `chrome.item` and is never spread into the widget's props. Annotate
 `chrome.item` with the vocabulary it reads and every item's `meta` is checked
@@ -331,7 +354,7 @@ const { Widgets, defineItems } = createWidgets({
   chrome: { item: GridCell },
 });
 
-const board = defineItems([
+const grid = defineItems([
   {
     id: 'root',
     type: 'listing',
@@ -342,7 +365,7 @@ const board = defineItems([
   { id: 'hive', type: 'listing', props: { title: 'Hive' }, meta: { col: 1 } },
 ]);
 
-const html = renderToStaticMarkup(<Widgets items={board} />); // -> '<section><div data-widget-id="root" data-widget-type="listing" style="grid-column:2 / span 2"><h3>Root</h3></div><div data-widget-id="hive" data-widget-type="listing" style="grid-column:auto / span 1"><h3>Hive</h3></div></section>'
+const html = renderToStaticMarkup(<Widgets items={grid} />); // -> '<section><div data-widget-id="root" data-widget-type="listing" style="grid-column:2 / span 2"><h3>Root</h3></div><div data-widget-id="hive" data-widget-type="listing" style="grid-column:auto / span 1"><h3>Hive</h3></div></section>'
 ```
 
 <!-- #endregion meta-grid -->
@@ -412,6 +435,12 @@ const { Widgets } = createWidgets({
   components: { stock: StockLevel },
   chrome: { suspenseFallback: <p>Counting stock</p> },
 });
+
+const stock = [
+  { id: 'root-stock', type: 'stock' as const, props: { game: 'Root' } },
+];
+
+const html = renderToStaticMarkup(<Widgets items={stock} />); // -> '<section><div data-widget-id="root-stock" data-widget-type="stock"><p>Counting stock</p></div></section>'
 ```
 
 <!-- #endregion suspense-fallback -->
@@ -443,7 +472,7 @@ writes a `<!--$-->` marker pair for each boundary, which shows where they went:
 <!-- #region suspense-none -->
 
 ```tsx @import.meta.vitest
-const Row = (props: { title: string }) => <li>{props.title}</li>;
+const Row = (props: { title: string }) => <p>{props.title}</p>;
 
 const perItem = createWidgets({ components: { row: Row } });
 
@@ -454,8 +483,8 @@ const none = createWidgets({
 
 const rows = [{ id: 'hive', type: 'row' as const, props: { title: 'Hive' } }];
 
-const bounded = renderToString(<perItem.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><!--$--><li>Hive</li><!--/$--></div></section>'
-const flat = renderToString(<none.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><li>Hive</li></div></section>'
+const bounded = renderToString(<perItem.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><!--$--><p>Hive</p><!--/$--></div></section>'
+const flat = renderToString(<none.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><p>Hive</p></div></section>'
 ```
 
 <!-- #endregion suspense-none -->

@@ -48,7 +48,7 @@ render(<Widgets items={items} />)`,
 
   newIn: {
     title: 'New in, nested',
-    code: `const Shelf = ({ title, children }: { title: string; children?: React.ReactNode }) => (
+    code: `const Showcase = ({ title, children }: { title: string; children?: React.ReactNode }) => (
   <section className="p-5 bg-gray-50 dark:bg-gray-900 rounded-lg my-2">
     <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
     <div className="flex flex-wrap gap-2">{children}</div>
@@ -64,7 +64,7 @@ const ListingCard = ({ title, price }: { title: string; price: number }) => (
 
 const { Widgets } = createWidgets({
   components: {
-    shelf: Shelf,
+    showcase: Showcase,
     listing: ListingCard,
   },
   chrome: {
@@ -82,7 +82,7 @@ const { Widgets } = createWidgets({
 const items = [
   {
     id: 'new-in',
-    type: 'shelf',
+    type: 'showcase',
     props: { title: 'On the table tonight' },
     children: [
       { id: 'spirit-island', type: 'listing', props: { title: 'Spirit Island', price: 799 } },

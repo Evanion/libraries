@@ -29,7 +29,7 @@ const expectations: Record<
   newIn: {
     wrapperText: 'New in at Baize',
     items: [
-      ['new-in', 'shelf'],
+      ['new-in', 'showcase'],
       ['spirit-island', 'listing'],
       ['hive', 'listing'],
     ],
