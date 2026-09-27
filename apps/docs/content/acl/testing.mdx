@@ -7,7 +7,7 @@ and reports what moved between them.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={4}
+  difficulty={5}
   read={8}
   hands={20}
   requires={[
@@ -22,24 +22,29 @@ and reports what moved between them.
 
 ## Catching an acl contract change in your own CI
 
-Baize's storefront draws its refund and cancel buttons from the contract the
-`orders` service publishes. A storefront test that writes a fixture matrix to
-stand in for that contract keeps a second copy of `orders`' rules, and the
+A contract is the matrix another service publishes for yours to adopt with
+`parseMatrix`, as [How do I give my rules to another service?](/acl/publishing)
+covers. Baize's storefront draws its refund and cancel buttons from the contract
+the `orders` service publishes. A storefront test that writes a fixture matrix
+to stand in for that contract keeps a second copy of `orders`' rules, and the
 suite goes on passing after `orders` edits one.
 
-So the storefront pins the contract beside its tests, fetches the current one
-in CI, and hands both to `contractDrift` with the questions its screens ask:
+So the storefront pins the contract: it checks a copy into its repository as a
+JSON file beside its tests. CI fetches the current one from where `orders`
+serves it and hands both to `contractDrift` with the questions the storefront's
+screens ask:
 
 ```ts twoslash file=libs/acl/README.md region=contract-drift
 
 ```
 
 `contractDrift({ pinned, fetched, cases })` adopts both documents with
-`parseMatrix`, the call [How do I use rules another service
-published?](/acl/adopting) covers, and answers every case against each. A case
-holds the arguments of `can` as `subject`, `key`, `action` and an optional
-`object`, plus a `name` for the report and an optional `now`. The report
-carries:
+`parseMatrix`, the call
+[How do I use rules another service published?](/acl/adopting) covers, and
+answers every case against each. A case holds the arguments of `can` as
+`subject`, `key`, `action` and an optional `object`, plus a `name` for the
+report and an optional `now`. Its `key` is the object kind, the second argument
+of `can`, so `'orders:order'` here. The report carries:
 
 | Member           | What it holds                                                    |
 | ---------------- | ---------------------------------------------------------------- |
@@ -54,8 +59,8 @@ A key in `removed` means `orders` broke a published contract. A decision in
 `changed` may be exactly what `orders` intended, and the storefront decides
 whether its screen still reads correctly. `parseMatrix` answers the removed
 refund key with `unknown-action`, so it arrives in `changed` and nothing throws
-partway through. Neither adoption reports a `fetchedAt`, so no case answers
-`stale-contract` for a reason unrelated to the two versions.
+partway through. `contractDrift` reports no `fetchedAt` when it adopts the two
+documents, so no freshness bound applies and no case answers `stale-contract`.
 
 ## Failing the build on acl contract drift
 
@@ -80,25 +85,24 @@ which every assertion in `@evanion/acl/testing` throws, and both are plain
 `options.diff` takes a `MatrixDiffer<D>`, a `(pinned, fetched) => D`.
 `contractDrift` reads nothing out of the result and carries it onto
 `report.diff`, so passing `diffMatrix` types `report.diff` as the `MatrixDiff`
-that [What did editing my rules change about access?](/acl/rule-changes)
-reads:
+that [What did editing my rules change about access?](/acl/rule-changes) reads:
 
 ```ts twoslash file=libs/acl/README.md region=drift-seam
 
 ```
 
-`orders@8` added a supervisor branch to the refund rule. The storefront's cases
-still decide the same, so `changed` is empty, and the diff reports the widening
-as a `granted` finding. The cases say what this application's screens do, and
-the diff says what moved in the document behind them.
+`orders@8` added a supervisor branch to the refund rule. This call passes no
+cases, so `changed` is empty and only the diff reports the widening, as a
+`granted` finding. Cases say what this application's screens do, and the diff
+says what moved in the document behind them.
 
 ## Reaching `stale-contract` in an acl test on purpose
 
 `stale-contract` is the refusal a consumer's screen meets in production and
-never in development, because a document authored in the same process reports
-no `fetchedAt` and runs under no bound. `fixtureClock(matrix, options?)`
-computes a document's freshness budget the way the engine does and names the
-two instants that bracket it:
+never in development, because a document authored in the same process reports no
+`fetchedAt` and runs under no bound. `fixtureClock(matrix, options?)` computes a
+document's freshness budget the way the engine does and names the two instants
+that bracket it:
 
 ```ts twoslash file=libs/acl/README.md region=fixture-clock
 
@@ -106,10 +110,11 @@ two instants that bracket it:
 
 `clock.fresh` is the last instant every key still decides on, and `clock.stale`
 is the first that answers `stale-contract`. `clock.options` is the
-`AccessOptions` those two came from, so the evaluator and the test cannot
-disagree about the budget. `FixtureClock` also carries `budget`, `expiresAt`
-and `at(ms)` for an instant of your own. A document stating no `maxStale` makes
-`fixtureClock` itself throw `MissingFreshnessBudgetError`.
+`AccessOptions`, the options object `parseMatrix` takes, that those two came
+from, so the evaluator and the test cannot disagree about the budget. The
+`FixtureClock` it returns also carries `budget`, `expiresAt` and `at(ms)` for an
+instant of your own. A document stating no `maxStale` makes `fixtureClock`
+itself throw `MissingFreshnessBudgetError`.
 
 ## Asserting which acl refusal arrived
 
@@ -127,17 +132,17 @@ assertions below name the key, the reason, the rule and the missing paths:
 
 ```
 
-Which refusal arrived matters because a screen treats three reasons
-differently: `unevaluable` asks for a refetch of the row, `stale-contract` for
-a refetch of the document, and `denied` for neither. `assertFieldState` reports
-a field the decision carries no entry for apart from a field in the wrong
-state, because an absent name means the test named a field the permission
-never had.
+A handler gates on `allowed`, and a screen picks its next move from `reason`:
+`unevaluable` asks for a refetch of the row, `stale-contract` for a refetch of
+the document, and `denied` for neither. So a test asserts which reason arrived.
+`assertFieldState` reports a field the decision carries no entry for separately
+from a field in the wrong state, because an absent name means the test named a
+field the permission never had.
 
 ## What `@evanion/acl/testing` leaves out
 
-A test that calls `can` and reads the decision needs no library. The entry
-point adds no faster way to build an evaluator, because building one over a
+A test that calls `can` and reads the decision needs no library. The entry point
+adds no faster way to build an evaluator, because building one over a
 200-permission document takes single-digit milliseconds. It adds no shorter way
 to author a document either, because a second authoring surface produces test
 documents that differ from production ones in ways nobody reviews.
@@ -149,5 +154,5 @@ engine pulls none of it into its bundle.
 
 ## Now that your suite checks the contract, check your code
 
-[Caveats & Pitfalls](/acl/pitfalls) lists the mistakes a working acl
-integration still makes, each beside the form to write.
+[Caveats & Pitfalls](/acl/pitfalls) lists the mistakes a working acl integration
+still makes, each beside the form to write.
