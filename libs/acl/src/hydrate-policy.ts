@@ -299,9 +299,10 @@ export interface Authorized<R = AnyObjects, Keys extends string = string> {
  * Every object parameter takes `Partial<Obj>`. A caller holding a projection --
  * a list row carrying `{ id, ownerId }` -- is the case `unevaluable` and
  * `missing` answer, and the engine reads every object field through an own-key
- * guard. The subject stays complete: an absent `subject.*` path is a definite
- * miss, so a projected subject refuses with `no-rule-matched` and names nothing
- * to fetch.
+ * guard. The subject stays complete: an absent `subject.*` path fails its
+ * condition and names nothing to fetch. An allow rule that reads it does not
+ * grant, and a deny rule that reads it does not refuse, so a projected subject
+ * can pass a deny its full record would have matched.
  */
 export interface BoundKind<Sub, Obj, Act extends string = string> {
   can(
