@@ -42,6 +42,16 @@ export default defineConfig(() => ({
           globals: true,
           environment: 'node',
           include: ['src/lib/**/*.{test,spec}.ts'],
+          // Without an explicit tsconfig, vitest falls back to the
+          // solution-style tsconfig.json (files: [], include: []). It then
+          // typechecks nothing and every expectTypeOf assertion passes
+          // whatever it asserts. Each project names the type tests it owns,
+          // so one mismatch is reported once.
+          typecheck: {
+            enabled: true,
+            tsconfig: './tsconfig.spec.json',
+            include: ['src/lib/**/*.test-d.ts'],
+          },
           // The README's documented examples, executed. The core suite is the
           // one that runs them: every region is a `@evanion/feature` call and
           // none of them touches a DOM.
@@ -59,6 +69,11 @@ export default defineConfig(() => ({
           environment: 'jsdom',
           setupFiles: ['./src/test-setup.ts'],
           include: ['src/react/**/*.{test,spec}.tsx'],
+          typecheck: {
+            enabled: true,
+            tsconfig: './tsconfig.spec.json',
+            include: ['src/react/**/*.test-d.tsx'],
+          },
         },
       },
     ],
