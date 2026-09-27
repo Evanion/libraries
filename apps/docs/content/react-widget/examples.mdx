@@ -32,7 +32,7 @@ component's `children`, inside the same chrome as every other widget:
 
 ```
 
-`Shelf` declares `children`, so the `tonight` item may carry Hive under it.
+`Showcase` declares `children`, so the `tonight` item may carry Hive under it.
 `ListingCard` declares none, so the compiler rejects `children` on the Azul item.
 Under such a widget the renderer drops nested items and logs nothing. A widget
 renders its nested items by rendering `children`, like any other React
@@ -64,9 +64,8 @@ props that must be present and non-blank:
 ```
 
 `undefined`, `null` and a whitespace-only string all count as blank, so Root's
-title of one space is reported. `defineWidgets` returns the map it is handed, keys kept
-literal, so one map declared on its own feeds `createWidgets` and a standalone
-`validateItems` both.
+title of one space is reported. The standalone export takes the same map as its
+third argument.
 
 ## What `Widgets` does with an item it cannot render
 

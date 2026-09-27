@@ -13,7 +13,7 @@
  * the compiler on the automatic runtime this repo builds with. Twoslash strips
  * the line, so no reader sees it.
  *
- * A source file, so `Shelf` is a component the test can import and render. The
+ * A source file, so `ShopPage` is a component the test can import and render. The
  * README's regions carry the `// -> value` claims the other react-widget pages
  * show; a region here cannot, because the claim rewriter reads README fences
  * and JSDoc blocks only.
@@ -48,12 +48,9 @@ const TableBooking = ({
 // Call once, at module scope.
 const { Widgets } = createWidgets({
   components: { listing: ListingCard, booking: TableBooking },
-  chrome: {
-    wrapper: ({ children }) => <section className="shelf">{children}</section>,
-  },
 });
 
-export function Shelf() {
+export function ShopPage() {
   return (
     <Widgets
       items={[
