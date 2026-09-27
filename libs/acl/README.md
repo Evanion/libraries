@@ -259,9 +259,9 @@ const access = policy<{ id: string }, { question: Question }>()
   .build();
 
 const rows = [
-  { id: 'c1', askedBy: 's1' },
-  { id: 'c2', askedBy: 's2' },
-  { id: 'c3' }, // the projection this row came back in lacks the field
+  { id: 'q1', askedBy: 's1' },
+  { id: 'q2', askedBy: 's2' },
+  { id: 'q3' }, // the projection this row came back in lacks the field
 ];
 
 const decisions = access.canMany({ id: 's1' }, 'question', 'update', rows);
@@ -538,14 +538,21 @@ import { hydratePolicy } from '@evanion/acl';
 const shipped = hydratePolicy({
   version: 'orders@7',
   permissions: [
-    { key: 'question.read', object: 'question', action: 'read', rules: [] },
+    {
+      key: 'orders:order.refund',
+      object: 'orders:order',
+      action: 'refund',
+      rules: [],
+    },
   ],
 }).matrix;
 
-// The option wins, and the frozen `matrix` carries the winner.
-const vetoed = hydratePolicy(shipped, { version: 'orders@7+veto@41' });
-vetoed.version; // -> 'orders@7+veto@41'
-vetoed.matrix.version; // -> 'orders@7+veto@41'
+// This process merged deny overlay 41 into `orders@7` before construction, so
+// it runs a revision `orders` never shipped. The option names that revision,
+// and the frozen `matrix` carries it.
+const effective = hydratePolicy(shipped, { version: 'orders@7+veto@41' });
+effective.version; // -> 'orders@7+veto@41'
+effective.matrix.version; // -> 'orders@7+veto@41'
 ```
 
 <!-- #endregion version-override -->
@@ -898,9 +905,9 @@ const orders = policy<
 const contract = serialize(orders, 'reduced');
 contract.permissions.map((p) => p.key); // -> ['orders:order.refund']
 
-const bff = parseMatrix<Subject, { 'orders:order': Order }>(contract);
+const storefront = parseMatrix<Subject, { 'orders:order': Order }>(contract);
 const bookseller = { id: 'u1', roles: ['bookseller'], tier: 'permanent' };
-bff.can(bookseller, 'orders:order', 'refund').allowed; // -> true
+storefront.can(bookseller, 'orders:order', 'refund').allowed; // -> true
 ```
 
 <!-- #endregion typed-contract -->
@@ -968,11 +975,11 @@ const access = policy<
   )
   .build();
 
-const current = { askedBy: 'c1', body: 'In stock?', status: 'open' };
+const current = { askedBy: 'customer-41', body: 'In stock?', status: 'open' };
 const proposed = { body: 'Wingspan in stock?', status: 'locked' };
 
 const fd = access.canFields(
-  { id: 'c1' },
+  { id: 'customer-41' },
   'question',
   'update',
   current,
@@ -1491,11 +1498,11 @@ Object.keys(contract.schema?.objects ?? {}); // -> ['orders:order']
 
 // The consumer adopts it the way it adopts any foreign document, and reports
 // when it last checked the contract was current.
-const bff = parseMatrix(contract, { fetchedAt: Date.now() });
+const storefront = parseMatrix(contract, { fetchedAt: Date.now() });
 const bookseller = { id: 'u1', roles: ['bookseller'], tier: 'permanent' };
 
-bff.can(bookseller, 'orders:order', 'refund').allowed; // -> true
-bff.can(bookseller, 'orders:ledger', 'reconcile').reason; // -> 'unknown-action'
+storefront.can(bookseller, 'orders:order', 'refund').allowed; // -> true
+storefront.can(bookseller, 'orders:ledger', 'reconcile').reason; // -> 'unknown-action'
 ```
 
 <!-- #endregion contract -->
@@ -1644,14 +1651,14 @@ class every refusal in this entry point raises.
 <!-- #region drift-assert -->
 
 ```ts @import.meta.vitest
-import { AclAssertionError } from '@evanion/acl/testing';
-import { ContractDriftError } from '@evanion/acl/testing';
+import { AclAssertionError, ContractDriftError } from '@evanion/acl/testing';
 import { assertNoContractDrift } from '@evanion/acl/testing';
 import { describeContractDrift } from '@evanion/acl/testing';
 import type { Matrix } from '@evanion/acl';
 
-const refund = (role: string): Matrix => ({
-  version: role === 'bookseller' ? 'orders@7' : 'orders@8',
+// One refund permission, held by whoever carries `role`.
+const refund = (version: string, role: string): Matrix => ({
+  version,
   permissions: [
     {
       key: 'orders:order.refund',
@@ -1673,8 +1680,8 @@ const staff = { id: 'u1', roles: ['bookseller'] };
 let caught: unknown;
 try {
   assertNoContractDrift({
-    pinned: refund('bookseller'),
-    fetched: refund('supervisor'),
+    pinned: refund('orders@7', 'bookseller'),
+    fetched: refund('orders@8', 'supervisor'),
     cases: [
       {
         name: 'the refund button',
@@ -1819,12 +1826,9 @@ on their own for a message a test assembles itself.
 
 ```ts @import.meta.vitest
 import { parseMatrix } from '@evanion/acl';
-import { AclAssertionError } from '@evanion/acl/testing';
-import { assertAllowed } from '@evanion/acl/testing';
-import { assertFieldState } from '@evanion/acl/testing';
-import { assertRefused } from '@evanion/acl/testing';
-import { explainDecision } from '@evanion/acl/testing';
-import { explainFieldDecision } from '@evanion/acl/testing';
+import { AclAssertionError, assertAllowed } from '@evanion/acl/testing';
+import { assertFieldState, assertRefused } from '@evanion/acl/testing';
+import { explainDecision, explainFieldDecision } from '@evanion/acl/testing';
 import type { Matrix } from '@evanion/acl';
 
 const contract: Matrix = {
@@ -1859,6 +1863,7 @@ const shopper = { id: 'u2', roles: [] };
 const refused = storefront.can(shopper, 'orders:order', 'update');
 assertRefused(refused, 'no-rule-matched', 'the order editor').allowed; // -> false
 
+// No proposed write, so the decision covers the row's fields and the listed names.
 const fields = storefront.canFields(
   staff,
   'orders:order',
@@ -2719,7 +2724,6 @@ raised(() => serialize(internalOnly, 'reduced', asContract)); // -> 'Unpublished
 
 ```ts @import.meta.vitest
 import { AclConfigError, parseMatrix } from '@evanion/acl';
-import { pickAllowedFields, policy } from '@evanion/acl';
 
 const malformed = { version: 'v1' } as never;
 
@@ -2734,12 +2738,21 @@ try {
 // startup guard catches the set without naming each member.
 base instanceof AclConfigError; // -> true
 base instanceof Error; // -> true
+```
 
-// `pickAllowedFields` is the one throw outside construction and query. No
-// field of a refused action is writable, so it refuses rather than returning
-// an object a handler would write. It is not a configuration fault, so it sits
-// outside `AclConfigError`: a startup guard around construction does not catch
-// it, and a request handler has to.
+<!-- #endregion errors-catching -->
+
+`pickAllowedFields` is the one throw outside construction and query. No field
+of a refused action is writable, so it throws where it would otherwise return
+an object a handler writes. It is not a configuration fault, so it sits outside
+`AclConfigError`, and the request handler catches it:
+
+<!-- #region errors-action-refused -->
+
+```ts @import.meta.vitest
+import { AclConfigError, ActionNotAllowedError } from '@evanion/acl';
+import { pickAllowedFields, policy } from '@evanion/acl';
+
 type Question = { askedBy: string; body: string };
 
 const access = policy<{ id: string }, { question: Question }>()
@@ -2769,12 +2782,11 @@ try {
   refusedWrite = error as Error;
 }
 
-refusedWrite?.name; // -> 'ActionNotAllowedError'
+refusedWrite instanceof ActionNotAllowedError; // -> true
 refusedWrite instanceof AclConfigError; // -> false
-refusedWrite instanceof Error; // -> true
 ```
 
-<!-- #endregion errors-catching -->
+<!-- #endregion errors-action-refused -->
 
 ## Security contract
 
