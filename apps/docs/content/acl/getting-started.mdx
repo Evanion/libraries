@@ -16,7 +16,8 @@ lets a customer edit their own question and it refuses a stranger.
 - Node 20 or newer.
 - An ESM project. `@evanion/acl` ships no CommonJS build.
 - TypeScript 5.5 or newer, if you want the compiler to check your object kinds
-  and actions. The package runs without it.
+  and actions. The package runs without it, and the example below runs as
+  JavaScript once you delete its `type` line and the `<…>` after `policy`.
 - A subject your server already resolves, meaning the user object your auth layer
   loaded with every field on it. acl never authenticates anybody; it takes the
   subject you hand it.
@@ -29,11 +30,12 @@ turns your rules into a JSON document in your own process, the document
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    Until it publishes, run this page inside a clone of
-    [Evanion/libraries](https://github.com/Evanion/libraries), where
-    `@evanion/acl` resolves from source. The example below is a doctest in
-    `libs/acl/README.md`, and `npx nx test @evanion/acl` checks every `// ->`
-    answer in it. The commands below are what to run once it is on the
+    Until it publishes, install it from a clone of
+    [Evanion/libraries](https://github.com/Evanion/libraries). In the clone, run
+    `npm ci` and `npx nx build @evanion/acl`, then run `npm pack` inside
+    `libs/acl`. In your project, run `npm install` with the path to the `.tgz`
+    file `npm pack` printed. The clone and build add to this page's hands-on
+    estimate, and the commands below are what to run once acl is on the
     registry.
   </Text>
 </WorkshopNotice>
@@ -52,13 +54,12 @@ yarn add @evanion/acl
 pnpm add @evanion/acl
 ```
 
-The `@evanion/acl` entry point imports no
-framework, and the React provider and hooks are a separate package,
-[`@evanion/react-acl`](/react-acl).
+The `@evanion/acl` entry point imports no framework, and the React provider and
+hooks are a separate package, [`@evanion/react-acl`](/react-acl).
 
 ## Write the smallest policy that answers something
 
-A policy needs three calls and nothing else.
+Three calls build a policy.
 
 - `policy<Subject, Objects>()` names two types. `Subject` is the shape of whoever
   is acting, so `{ id: string }` at its smallest. `Objects` maps each object kind
@@ -72,8 +73,9 @@ A policy needs three calls and nothing else.
 `.for()` hands your block one argument, conventionally `p`, and every condition
 comes off it. `p.allow(action, ...conditions)` grants an action when every
 condition holds. `p.eq(a, b)` compares two values named by path, and a path is a
-string rooted at `subject` or at `object`: `p.eq('object.askedBy', 'subject.id')`
-reads `askedBy` off the row and `id` off the subject and asks whether they match.
+string rooted at `subject` or at `object`:
+`p.eq('object.askedBy', 'subject.id')` reads `askedBy` off the row and `id` off
+the subject and asks whether they match.
 
 That is the whole minimum configuration. Baize's rule is that the customer who
 asked a question may edit it:
@@ -82,24 +84,28 @@ asked a question may edit it:
 
 ```
 
-Two questions, two answers. The asker gets `true`. The stranger gets `false`, and
-`reason` is `no-rule-matched`, which is the engine refusing because nothing in
-the document granted the action. You configured no default and got default deny.
+Two questions, two answers. The asker gets `true`. The stranger gets `false`,
+and `reason` is `no-rule-matched`, which is the evaluator refusing because
+nothing in the document granted the action. You configured no default and got
+default deny.
 
-If both calls answered the way the comments say, acl is working in your project.
+Each `// ->` comment is the value its line returns. Paste the fence into a
+module your project runs and wrap those lines in `console.log`: they print
+`true`, `false` and `no-rule-matched`, and acl is working in your project.
 
 ## Two rules for the code around an acl policy
 
-Build the policy once, at module scope. A policy rebuilt per request hands you an
-evaluator that answers identically, so the rebuild walks every rule again on
-every request and changes no answer.
+Build the policy once, at module scope. A rebuild per request walks every rule
+again and returns an evaluator that gives the same answers, so the rebuild is
+wasted work.
 
-Gate on `allowed` and nothing else. No part of the library reads `reason` back to
-decide anything, so a handler that branches on `reason` is writing a second rule of
-its own, next to the one the policy already holds.
+Gate on `allowed` and nothing else. No part of the library reads `reason` back
+to decide anything, so a handler that branches on `reason` is writing a second
+rule of its own, next to the one the policy already holds.
 
 ## Now that acl answers, write the rest of your rules
 
-[Rules about who the user is](/acl/subject-rules) is the next page. It takes the
-one rule you just wrote, adds the deny rule that states an exception to it, and
-covers the three answers a policy reading only the subject can give.
+[Rules about who the user is](/acl/subject-rules) is the next page. It pairs an
+allow rule with a deny rule that states an exception to it, and shows the three
+reasons a policy that reads only the subject returns: `allow`, `no-rule-matched`
+and `denied`.
