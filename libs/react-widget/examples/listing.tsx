@@ -45,7 +45,7 @@ const TableBooking = ({
   </div>
 );
 
-// Call once, at module scope.
+// Call once, at module scope: each call returns a new Widgets.
 const { Widgets } = createWidgets({
   components: { listing: ListingCard, booking: TableBooking },
 });
