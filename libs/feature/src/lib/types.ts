@@ -109,8 +109,25 @@ export interface VariantInfo {
  * A consumer writes one of these to type a store built from configuration that
  * arrived as JSON, where there are no literals for `InferSchema` to read. A
  * store built from a literal gets its schema inferred and nobody writes this.
+ *
+ * This alias annotates a value. A generic that takes a schema constrains it
+ * self-referentially, `S extends Record<keyof S, VariantInfo | never>`, the way
+ * `Decisions` and `Plan` do: the index signature this alias carries rejects the
+ * `interface` a consumer writes by hand.
  */
 export type Schema = Record<string, VariantInfo | never>;
+
+/**
+ * The value type one variant declares.
+ *
+ * `V[number]['value']` over a whole variant array collapses to `unknown` as
+ * soon as one member declares no value: the property access falls back to
+ * `VariantSpec`'s own `value?: unknown` and the compiler reports nothing. This
+ * conditional takes one member at a time, so the union distributes and each
+ * member contributes the value type it declares. A member that declares no
+ * value contributes `never`, which drops out of the union.
+ */
+export type VariantValue<M> = M extends { value: infer T } ? T : never;
 
 /**
  * The schema a definitions array implies.
@@ -122,7 +139,7 @@ export type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
   [E in D[number] as E['key']]: E extends {
     variants: infer V extends readonly VariantSpec[];
   }
-    ? { variant: V[number]['name']; value: V[number]['value'] }
+    ? { variant: V[number]['name']; value: VariantValue<V[number]> }
     : never;
 };
 
@@ -271,18 +288,31 @@ export interface Decision<
 }
 
 /**
+ * The decision one schema entry implies.
+ *
+ * The `[E] extends [never]` guard is what keeps a variant-free feature honest.
+ * `never` is a subtype of every type, so a plain `E extends VariantInfo` check
+ * takes the variant branch for a feature that declares none and hands it
+ * `variant: never`, and no error reports it. The tuple wrap suppresses
+ * distribution and asks the question the branch means to ask. The `Omit` drops
+ * both keys, so a feature declaring no variants has the decision shape a plain
+ * on/off feature has.
+ */
+export type DecisionOf<K, E> = [E] extends [never]
+  ? Omit<Decision<K & FeatureKey>, 'variant' | 'value'>
+  : E extends VariantInfo
+    ? Decision<K & FeatureKey, E['variant'], E['value']>
+    : never;
+
+/**
  * One decision per feature, each narrowed to what its own variants allow.
  *
- * The `[S[K]] extends [never]` guard is what keeps a variant-free feature
- * honest. `never` is a subtype of every type, so a plain `S[K] extends
- * VariantInfo` check takes the variant branch for a feature that declares none
- * and hands it `variant: never`, and no error reports it. The tuple wrap
- * suppresses distribution and asks the question the branch means to ask.
+ * The constraint names `keyof S`. An index signature in that position rejects
+ * the schema a consumer writes as an `interface`, which is the one case the
+ * hand-written schema exists for.
  */
-export type Decisions<S extends Schema> = {
-  [K in keyof S]: [S[K]] extends [never]
-    ? Decision<K & FeatureKey>
-    : Decision<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+export type Decisions<S extends Record<keyof S, VariantInfo | never>> = {
+  [K in keyof S]: DecisionOf<K, S[K]>;
 };
 
 /** One feature's build-time plan. */
@@ -312,10 +342,14 @@ export interface PlanEntry<
 }
 
 /** One plan entry per feature, guarded on `never` exactly as `Decisions` is. */
-export type Plan<S extends Schema> = {
+export type Plan<S extends Record<keyof S, VariantInfo | never>> = {
   [K in keyof S]: [S[K]] extends [never]
-    ? PlanEntry<K & FeatureKey>
-    : PlanEntry<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+    ? Omit<PlanEntry<K & FeatureKey>, 'decision'> & {
+        decision?: DecisionOf<K, S[K]>;
+      }
+    : S[K] extends VariantInfo
+      ? PlanEntry<K & FeatureKey, S[K]['variant'], S[K]['value']>
+      : never;
 };
 
 export type ToggleResult<F extends FeatureKey = string> =
