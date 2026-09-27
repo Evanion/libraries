@@ -28,6 +28,11 @@
     // the region loader reads it beside the README it fills a fence from. No
     // module names the file, so the reachability walk cannot see it.
     "libs/*/doc-examples.preamble.ts",
+
+    // A package's example project, imported by its README's doctested fences
+    // and cut into regions by the docs pages. fallow reads neither a Markdown
+    // fence nor a region reference, so nothing it walks reaches these files.
+    "libs/*/examples/**/*.{ts,tsx,astro}",
   ],
 
   // The stylesheet resolves through `@evanion/baize-ui`'s exports map to
