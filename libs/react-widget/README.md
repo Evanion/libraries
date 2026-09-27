@@ -209,6 +209,37 @@ const problems = validateItems(payload, { listing: ['title'] }); // -> [{ index:
 
 The standalone export takes the same map as its third argument.
 
+`validateItems` returns a list, not a type guard, so a payload that passes is
+still `unknown`. Once the list is empty, cast the payload to the item type and
+render it:
+
+<!-- #region render-validated -->
+
+```tsx @import.meta.vitest
+import type { WidgetItem } from '@evanion/react-widget';
+
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const components = { listing: ListingCard };
+
+const { Widgets, validateItems } = createWidgets({ components });
+
+const payload: unknown = JSON.parse(
+  '[{"id":"root","type":"listing","props":{"title":"Root"}}]',
+);
+
+const problems = validateItems(payload, { listing: ['title'] }); // -> []
+
+const items = payload as WidgetItem<typeof components>[];
+
+const html = renderToStaticMarkup(<Widgets items={items} />); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root</h3></div></section>'
+```
+
+<!-- #endregion render-validated -->
+
+The cast asserts the prop types, which `validateItems` does not check. The
+`required` map is what guarantees the props a widget cannot render without.
+
 A component map declared on its own, so that `createWidgets`, an item type and a
 standalone `validateItems` share it, goes through `defineWidgets`, which returns
 it with its keys kept literal. The same stale type then fails the compile and
