@@ -20,8 +20,9 @@ class CorrelationModule {
 `forRoot()` fills in every unset field of `config` and returns the module,
 registered `global: true`. It provides and exports `CorrelationService`, and the
 configuration under [`CORRELATION_CONFIG_TOKEN`](#correlation_config_token).
-Call it once, in the root module: a second call registers a second
-configuration under the same token, and the last import wins.
+Call it once, in the root module. A second call creates a second
+`CorrelationService` and configuration, and a provider holding the copy the
+middleware did not use reads `undefined` inside every request.
 
 ```ts twoslash file=libs/nestjs-correlation-id/examples/app.module.ts region=register
 
@@ -60,8 +61,8 @@ Per request it does five things, in order:
 5. Calls `next` inside `CorrelationService.run(id, next)`.
 
 `req` and `res` are typed against `node:http`, so the class runs under the
-Express and the Fastify adapters. Middleware that reads the id has to be applied
-after this one.
+Express and the Fastify adapters. Apply middleware that reads the id after this
+one.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=middleware-by-hand
 
@@ -70,7 +71,8 @@ after this one.
 ## `CorrelationService`
 
 `CorrelationService` reads, replaces and generates the correlation id, and opens a
-correlation context.
+correlation context. A correlation context is the callback passed to `run()`,
+plus everything it calls or awaits.
 
 ```ts signature
 @Injectable()
@@ -91,9 +93,11 @@ class CorrelationService {
 | `generate()`           | a fresh id from the configured generator                              |
 
 The service is a singleton over `AsyncLocalStorage`, and injecting it leaves the
-scope of the provider holding it unchanged. `setCorrelationId` leaves the
-response header with the id the middleware wrote on arrival. The fence below
-builds a worker with no HTTP server, whose generator returns `restock-7c41d2`:
+scope of the provider holding it unchanged. Call `setCorrelationId` in a context
+opened before the right id was known, such as a queue consumer that wraps every
+handler in `run(generate(), …)` and reads the message's id afterwards. It leaves
+the response header with the id the middleware wrote on arrival. The code below
+builds a worker with no HTTP server, whose generator returns `orders-7c41d2`:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
 
@@ -116,11 +120,15 @@ the context as each request goes out. No header is attached outside a context.
 It requires `CorrelationModule.forRoot()` somewhere in the application; without
 it Nest fails at boot with
 `Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
-The package imports `@nestjs/axios` for its types only, so an application that
-never calls `withCorrelation` does not need it installed.
+The provider reaches the axios instance through `'AXIOS_INSTANCE_TOKEN'`, the
+string token `@nestjs/axios` registers it under, and the package imports
+`@nestjs/axios` for its types only. An application that never calls
+`withCorrelation` does not need `@nestjs/axios` installed.
 
-In the fence below, `StockClient` is the application's own `HttpService`
-consumer, and `StockModule` registers it:
+In the code below, `StockClient` is the application's own `HttpService`
+consumer, shown on
+[Forward the id to the next service](/nestjs-correlation-id/forwarding), and
+`StockModule` registers it:
 
 ```ts file=libs/nestjs-correlation-id/examples/stock.module.ts region=forward
 
@@ -148,8 +156,8 @@ interface CorrelationConfig {
 `forRoot()` takes a `Partial<CorrelationConfig>` and fills in every field,
 `validate` included, so a provider injecting the token never sees a partial
 object. `validate` is optional in the type because `CorrelationIdMiddleware`
-falls back to `DEFAULT_CORRELATION_ID_VALIDATOR` for a hand-built configuration
-without one.
+falls back to `DEFAULT_CORRELATION_ID_VALIDATOR` for a configuration built
+without `forRoot()`, as a unit test builds one, that has no `validate`.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=configure
 
@@ -195,7 +203,8 @@ would fail to resolve one of them.
 Inject it with `@Inject`. `RestockJob`, a queue consumer in Baize's `orders`
 service, injects it to check an id a queue message carried with the same
 `validate` the middleware applies. `StockClient` is the service's own
-`HttpService` consumer.
+`HttpService` consumer, shown on
+[Forward the id to the next service](/nestjs-correlation-id/forwarding).
 [Carry the id through a job](/nestjs-correlation-id/jobs) explains the consumer.
 
 ```ts file=libs/nestjs-correlation-id/examples/restock.job.ts region=restock-job
@@ -221,8 +230,9 @@ registers the interceptor.
 
 ## `DEFAULT_CORRELATION_ID_VALIDATOR`
 
-`DEFAULT_CORRELATION_ID_VALIDATOR` accepts an incoming id of 1 to 128 word
-characters, dots, colons and hyphens, and rejects everything else.
+`DEFAULT_CORRELATION_ID_VALIDATOR` accepts an incoming id of 1 to 128
+characters, each a letter from A to Z in either case, a digit, an underscore, a
+dot, a colon or a hyphen, and rejects everything else.
 
 ```ts signature
 const DEFAULT_CORRELATION_ID_VALIDATOR: (value: string) => boolean;
@@ -231,9 +241,9 @@ const DEFAULT_CORRELATION_ID_VALIDATOR: (value: string) => boolean;
 An accepted id reaches the response header and the application's logs. Node
 rejects a carriage return (CR) or line feed (LF) in a header, incoming and
 outgoing, so the validator's CR and LF refusal covers an id from another source,
-such as a queue message, that reaches your log lines. The 128-character cap
-bounds what one request appends to every log line it touches. A universally
-unique identifier (UUID) from `randomUUID` is 36.
+such as a queue message, that your code passes through it. The 128-character
+cap bounds what one request appends to every log line it touches. A universally
+unique identifier (UUID) from `randomUUID` is 36 characters.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=validator
 

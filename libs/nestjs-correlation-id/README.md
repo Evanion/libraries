@@ -63,8 +63,9 @@ isolated. Two handlers awaiting at the same time each read their own:
 ```ts @import.meta.vitest
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
 
-// The configuration CorrelationModule.forRoot() fills in by default. In an
-// application Nest builds the service, and you inject it.
+// The header to read and the function that generates a missing id, as
+// CorrelationModule.forRoot() defaults them. In an application Nest builds the
+// service, and you inject it.
 const correlation = new CorrelationService({
   header: 'X-Correlation-Id',
   generator: () => crypto.randomUUID(),
@@ -219,7 +220,7 @@ import {
 } from '@evanion/nestjs-correlation-id';
 
 const worker = await NestFactory.createApplicationContext(
-  CorrelationModule.forRoot({ generator: () => 'restock-7c41d2' }),
+  CorrelationModule.forRoot({ generator: () => 'orders-7c41d2' }),
   { logger: false },
 );
 const correlation = worker.get(CorrelationService);
@@ -242,7 +243,7 @@ try {
 }
 await worker.close();
 
-generated; // -> 'restock-7c41d2'
+generated; // -> 'orders-7c41d2'
 replaced; // -> 'storefront-4f1c9a'
 refused; // -> 'setCorrelationId() was called outside a correlation context. Apply CorrelationIdMiddleware, or wrap the work in CorrelationService.run().'
 ```
