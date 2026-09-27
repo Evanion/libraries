@@ -1,8 +1,14 @@
 # API reference
 
 `@evanion/astro-widget` publishes one component, `Widgets.astro`, and re-exports
-nine names from `@evanion/widget`, which it pins to one exact version. Each
-re-exported name links to the widget core's entry for it.
+nine names from the widget core, `@evanion/widget`, which it pins to one exact
+version. Each re-exported name links to the widget core's entry for it.
+
+<PageSheet
+  difficulty={3}
+  read={15}
+  unlocks={[['@evanion/widget API reference', '/widget/api']]}
+/>
 
 ## `Widgets.astro`
 
@@ -24,8 +30,9 @@ from a Baize listing page render through a registry of two widgets:
 | `chrome`   | `{ item?: unknown }`      | optional; `item` is a component wrapped around every widget |
 
 Each widget receives the item's `props` spread as its own props, plus `id`,
-`ctx` and `children`. It never receives `meta`. An `items` that is present and
-is not an array renders nothing and warns in development.
+`ctx` and `children`, which are set after the spread and win over a prop of the
+same name. It never receives `meta`. An `items` that is present and is not an
+array renders nothing and warns in development.
 
 ### `ctx`
 
@@ -44,7 +51,8 @@ same name.
 
 `chrome.item` wraps every widget. It receives the item's `type`, `id` and
 `meta`, never its `props`, and it has to render `<slot />`, because an Astro
-component that renders no slot drops the widget with no error and no warning:
+component that renders no slot drops the widget with no error and no warning.
+`Section.astro` is one:
 
 ```astro file=libs/astro-widget/examples/src/chrome/Section.astro region=section
 
@@ -57,19 +65,31 @@ Rendered with `ctx` and that chrome, one `stock` item carrying
 
 ```
 
-There is no `chrome.wrapper`. The element you put `<Widgets>` inside is the
-region's container.
+`@evanion/react-widget` accepts a `chrome.wrapper` around the whole list.
+astro-widget has none, so put `<Widgets>` inside the element you want around
+the list.
 
 ### Nested items
 
-`Widgets.astro` does not recurse into `children`. An Astro component receives
-child content through `<slot />` and never through a `children` prop, so the
-item's `children` reach its widget as data. A widget that nests renders its own
-`Widgets` over them, through a registry of its own:
+`Widgets.astro` does not render an item's `children`. It passes them to the
+widget as a prop named `children` that holds the items as data, because an Astro
+component takes rendered child content through `<slot />`. A widget that nests
+renders its own `Widgets` over them, through a registry of its own:
 
 ```astro file=libs/astro-widget/examples/src/widgets/GameGrid.astro region=game-grid
 
 ```
+
+`cardRegistry` sits in `src/card-registry.ts`, so `GameGrid` never imports
+itself. It maps `game-card` to `GameCard.astro`, which renders
+`<article>{name}</article>`:
+
+```ts file=libs/astro-widget/examples/src/card-registry.ts region=card-registry
+
+```
+
+One `game-grid` item with two `game-card` children, rendered through a registry
+that holds `GameGrid`, gives this markup:
 
 ```ts file=libs/astro-widget/README.md region=nested
 
@@ -78,8 +98,9 @@ item's `children` reach its widget as data. A widget that nests renders its own
 ### Unknown types
 
 An item whose `type` is not an own key of the registry renders nothing, and the
-rest of the list renders. In development `console.warn` prints
-`ERROR_MESSAGES.UNKNOWN_WIDGET` for the item, once per message:
+rest of the list renders. Unless `NODE_ENV` is `production`, `console.warn`
+prints [`ERROR_MESSAGES.UNKNOWN_WIDGET`](#error_messages) for the item. It
+prints each distinct message once for the life of the process:
 
 ```ts file=libs/astro-widget/README.md region=skip-unknown
 
@@ -96,8 +117,8 @@ function defineWidgets<R extends WidgetRegistry>(registry: R): R;
 ```
 
 `defineWidgets` returns the registry it was handed, typed as the literal object
-passed in, so an editor completes the type names. Annotating the same object as
-`WidgetRegistry` widens its keys to `string`.
+passed in, so a code editor completes the type names. Annotating the same object
+as `WidgetRegistry` widens its keys to `string`.
 [The widget core's entry](/widget/api#definewidgets) carries the rest.
 
 ```ts file=libs/astro-widget/examples/src/registry.ts region=registry
@@ -116,14 +137,14 @@ function validateItems(
 
 `validateItems` walks `items` and their `children`, and returns every problem it
 finds. It never throws and never stops at the first problem, so one call reports
-a whole list. It is the only check an astro-widget item's props get, because an
-`.astro` module's type carries no props for the compiler to check against.
+a whole list. It is the only check an astro-widget item's props get.
 
 ```ts twoslash file=libs/astro-widget/README.md region=validate
 
 ```
 
-[Validation](/astro-widget/validation) runs it before `astro build`, and
+[Check CMS items before Astro renders them](/astro-widget/validation) runs it
+before `astro build`, and
 [the widget core's entry](/widget/api#validateitems) carries the parameters.
 
 ## `AnyWidgetItem`
@@ -140,16 +161,17 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
 
 `AnyWidgetItem` is one item as the CMS saved it. `Widgets.astro` spreads `props`
 into the widget, hands `meta` to the chrome, and passes `children` to the widget
-as data:
+as data. The Baize listing page's two items carry only `id`, `type` and
+`props`:
 
 ```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 
 ```
 
 `@evanion/react-widget` offers `WidgetItem<C>`, a checked counterpart inferred
-from its components. astro-widget has none, because an `.astro` module's type
-carries no props. [The widget core's entry](/widget/api#anywidgetitem) carries
-the fields.
+from its components. astro-widget has none, for the reason under
+[`WidgetRegistry`](#widgetregistry).
+[The widget core's entry](/widget/api#anywidgetitem) carries the fields.
 
 ## `WidgetRegistry`
 
@@ -157,7 +179,7 @@ the fields.
 type WidgetRegistry<T = unknown> = Record<string, T>;
 ```
 
-`WidgetRegistry` maps a widget type to whatever the renderer resolves it to.
+`WidgetRegistry` maps a widget type to the component that renders it.
 astro-widget leaves `T` at `unknown`. An `.astro` module's default export is an
 `AstroComponentFactory`, and its props live in the file's frontmatter `Props`
 interface, out of the factory type's reach, so a narrower `T` would check
@@ -187,9 +209,9 @@ interface WidgetProblem {
 ```
 
 `WidgetProblem` is one line of the report `validateItems` returns. `index` is
-the item's position in its own sibling list, and `-1` when the payload is not a
-list. `id` and `type` are the item's own, or `-` when the item has none a reader
-could use, so `id` tells apart two problems at `index: 0` on different levels.
+the item's position in its own sibling list, and `-1` when `items` is not an
+array. `id` and `type` are the item's own, or `-` when that field is not a
+string, so `id` tells apart two problems at `index: 0` on different levels.
 [The widget core's entry](/widget/api#widgetproblem) carries the rest.
 
 ## `KnownWidgetTypes`
@@ -199,25 +221,27 @@ type KnownWidgetTypes = WidgetRegistry | readonly string[];
 ```
 
 `KnownWidgetTypes` is the set of widget types a list may use: a registry, or a
-plain list of type names. `validateItems` reads only the keys, so both report
-the same problems, and a Node script that cannot import `.astro` modules passes
-the names:
+plain list of type names. `validateItems` reads only a registry's keys, so both
+report the same problems. A script run under plain Node, which cannot import
+`.astro` modules, passes the names. The example passes both:
 
 ```ts file=libs/astro-widget/README.md region=known-types
 
 ```
 
+[The widget core's entry](/widget/api#knownwidgettypes) carries the rest.
+
 ## `ERROR_MESSAGES`
 
-`ERROR_MESSAGES` holds the text a renderer warns with, shared by both renderers
-so a stale type reads the same way whether React or Astro drew the page.
-`Widgets.astro` uses three of the five keys:
+`ERROR_MESSAGES` holds the text `Widgets.astro` and `@evanion/react-widget`
+warn with, so a stale type reads the same way whether React or Astro drew the
+page. `Widgets.astro` uses three of the five keys:
 
-| Key               | `Widgets.astro` warns with it when                     |
-| ----------------- | ------------------------------------------------------ |
-| `UNKNOWN_WIDGET`  | an item's `type` is not an own key of the registry     |
-| `MALFORMED_ITEMS` | `items` is present and is not an array                 |
-| `UNKNOWN`         | the stand-in for an item with no string `type` or `id` |
+| Key               | `Widgets.astro` uses it                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `UNKNOWN_WIDGET`  | to warn that an item's `type` is not an own key of the registry |
+| `MALFORMED_ITEMS` | to warn that `items` is present and is not an array             |
+| `UNKNOWN`         | in that warning, for a `type` or `id` that is not a string      |
 
 Only `@evanion/react-widget` warns with `MALFORMED_ITEM` and
 `MALFORMED_CHILDREN`. The [Unknown types](#unknown-types) example prints
@@ -228,7 +252,8 @@ lists all five.
 
 `VALIDATION_MESSAGES` holds every message `validateItems` reports, so a caller
 sorts a report without matching on prose. `MISSING_FIELD` is a function of the
-field name, and the other eight keys are strings:
+field name, and the other eight keys are strings.
+[The widget core's entry](/widget/api#validation_messages) carries the rest.
 
 | Key                | Message                     |
 | ------------------ | --------------------------- |
@@ -242,8 +267,8 @@ field name, and the other eight keys are strings:
 | `DUPLICATE_ID`     | `duplicate sibling id`      |
 | `MISSING_FIELD`    | `missing field <field>`     |
 
-A CMS webhook can send an unknown type to the developers and a blank field back
-to the editor:
+A CMS webhook splits one report by message, unknown types for the developers
+and blank fields for the editor:
 
 ```ts twoslash file=libs/astro-widget/README.md region=messages
 
