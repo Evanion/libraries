@@ -1,71 +1,60 @@
 # How do I use rules another service published?
 
+`parseMatrix(json)` builds an evaluator over a matrix another service published,
+and answers `unknown-action` for any permission that document does not carry.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={3}
-  read={8}
+  read={7}
   hands={20}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
   unlocks={[
-    ['Many services', '/acl/federation'],
+    ['How do I give my rules to another service?', '/acl/publishing'],
     ['The matrix: your rules as JSON', '/acl/matrix'],
   ]}
 />
 
-**The concept.** `parseMatrix` builds an evaluator over a policy document
-another service published.
-**What you get.** An evaluator that answers for the keys the document carries
-and refuses every key it does not.
-**Why you want it.** A team that rewrites another service's rules locally
-diverges from them the first time that service edits one.
-**How the library gets you there.** `parseMatrix` validates the document at
-adoption time and runs closed, so an unknown key answers `unknown-action`
-instead of throwing.
+## Adopting another service's acl matrix with `parseMatrix`
 
-## What parseMatrix builds
+Baize's storefront draws buttons from rules another Baize service owns. A
+storefront that writes those rules a second time is right until the owner
+changes one: the owner keeps refusing correctly, no alarm fires, and the button
+stays hidden against a server that would have allowed the call.
 
-`parseMatrix` builds an evaluator over a JSON matrix this process did not write,
-which answers for the keys the document carries and refuses every key it does
-not. `parseMatrix` validates that document on the way in and runs closed, so a
-key the document does not carry answers `unknown-action` and the page stays up.
-A `schema` in the document checks the paths the rules name.
-
-A backend with its own access control list (ACL) publishes its matrix as JSON;
-a frontend or a peer service adopts it. Baize's orders service owns the rules
-about refunds and publishes its matrix, and the storefront adopts that document
-to grey out the refund button.
+The matrix is the JSON document a policy flattens to, which
+[the Overview](/acl) introduces. The owner serves it, and the storefront fetches
+it and hands it to `parseMatrix`:
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
-The `permissions` array there holds one entry, so one key answers. A real
-document holds every key the producer publishes across every object kind it
-owns, and that whole list builds one evaluator.
+Each permission carries `key`, `object`, `action` and a `rules` list, and each
+rule holds a `when` list of conditions the engine ANDs. This document grants
+`question.read` to a subject whose `roles` holds `bookseller`. It carries no
+`question.delete`, so asking for `delete` answers `unknown-action` with
+`allowed: false`. A real document holds every key its owner publishes, across
+every object kind it owns, and the whole list builds one evaluator.
 
-Write the rules a second time in the storefront and they are right until orders
-changes one. Orders keeps refusing correctly, so no alarm fires, and the refund
-button stays hidden against a server that would have allowed the call.
-
-## Closed mode is the whole difference
+## Why `parseMatrix` answers where `hydratePolicy` throws
 
 `parseMatrix(json, options?)` is `hydratePolicy(json, { ...options, closed: true })`.
 The flag is written last, so no option a caller passes re-opens a foreign
-document. Which of the two a document gets is a question of provenance:
-`hydratePolicy` for your own document coming back, `parseMatrix` for somebody
-else's arriving.
+document. The two differ only on a key the document does not carry:
 
-Ask a key the document does not carry, on the open path, and `hydratePolicy`
-throws: `UnknownObjectKeyError` for an object kind it has never heard of,
-`UnknownPermissionError` for an action it has not got. Ask the same key on the
-closed path and `parseMatrix` answers
-`{ allowed: false, reason: 'unknown-action' }` for both.
+- `hydratePolicy` throws `UnknownObjectKeyError` for an object kind the
+  document lacks, and `UnknownPermissionError` for an action it lacks.
+- `parseMatrix` answers `unknown-action` with `allowed: false` for both.
 
-A key a local typed policy does not carry is a programmer error, and the throw
-points at the line. A key a foreign document does not carry means the producer
-removed a permission or this consumer was written against an older revision, and
-a throw there takes down a page over a permission nobody has.
+A malformed document throws at construction on either path.
+
+Which path a document gets depends on where it came from. A key your own policy
+lacks is a programmer error, and the throw points at the line. A key a foreign
+document lacks means its owner removed the permission, or this consumer was
+written against an older revision, and a throw there takes a page down over a
+permission nobody holds.
 
 ```mermaid caption="Closed mode on the consumer's side. parseMatrix answers from the adopted rules for every key the document carries, and answers unknown-action with allowed false for every key it does not, so a permission the producer removed does not take the page down. Orders decides again on its own matrix when the refund call arrives."
 flowchart LR
@@ -77,90 +66,73 @@ flowchart LR
   C --> O["orders decides again<br>on its own matrix"]
 ```
 
-Neither path grants. `unknown-action` is `allowed: false`, so the closed path
-refuses the call it could not decide, and the producing service decides for
-itself when the call reaches it.
+Neither path grants a key it does not hold. The owning service decides again on
+its own matrix when the call reaches it.
 
-## Adopting a document still validates it
+## What `parseMatrix` refuses before an acl evaluator exists
 
-`parseMatrix` holds a foreign document to every check a local matrix passes, at
-adoption time:
+`parseMatrix` holds a foreign document to every check a local one passes, and
+each refusal extends `AclConfigError`:
 
-| Refused at construction    | When                                                   |
-| -------------------------- | ------------------------------------------------------ |
-| `InvalidMatrixError`       | not an envelope, no `permissions` array, bad `version` |
-| `InvalidPermissionError`   | a malformed `object`, `action`, `rules` or `fields`    |
-| `InvalidRuleError`         | a rule whose `when` is absent or not an array          |
-| `InvalidConditionError`    | an unusable shape, namespace, path depth, or operator  |
-| `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``       |
-| `DuplicatePermissionError` | two permissions share a key                            |
+| Refused at construction    | When                                                       |
+| -------------------------- | ---------------------------------------------------------- |
+| `InvalidMatrixError`       | not an envelope, no `permissions` array, a bad `version`   |
+| `InvalidPermissionError`   | a malformed `object`, `action`, `rules` or `fields`        |
+| `InvalidRuleError`         | a rule whose `when` is absent or not an array              |
+| `InvalidConditionError`    | an unusable shape, path, depth or operator                 |
+| `KeyMismatchError`         | `key` is not exactly `` `${object}.${action}` ``           |
+| `DuplicatePermissionError` | two permissions share a key                                |
+| `UnknownFieldError`        | a condition names a field the document's `schema` omits    |
+| `FieldTypeMismatchError`   | an operator that does not fit the `schema`'s declared type |
 
-`InvalidRuleError` covers a document that lost its conditions in transit
-(`null`, absent, a string), so such a document never becomes a permission that
-grants everything. The unconditional grant is spelled as an empty `when`, which
-is the form that survives a JSON round trip.
+A document fetched over the network can fail for reasons your process cannot
+fix, so keep the last document that constructed:
 
-`parseMatrix` on a payload from the network can fail for reasons this process
-cannot fix, so catch `AclConfigError`, keep the last document that constructed,
-and alarm.
-
-## Check a foreign document against a schema
-
-The producer's `schema` checks the paths its rules name, so a consumer with no
-local `Question` type still gets those paths validated at construction:
-
-```ts twoslash file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/README.md region=adopt-keep-last
 
 ```
 
-The document above declares `status` as a string and then tests it with
-`contains`, which tests an array, so `hydratePolicy` refuses it with
-`FieldTypeMismatchError`. A condition naming a field the schema does not declare
-at all is `UnknownFieldError`. Without a schema, `object.askedBt` raises
-nothing: that misspelling is a path that never reads, so the permission decides
-`unevaluable` forever and a UI refetches forever.
+`orders@8` lost its rule's conditions in transit, and `InvalidRuleError` refuses
+it, so a damaged document never becomes a permission that grants everyone. An
+unconditional grant is spelled as an empty `when`. The storefront keeps
+answering from `orders@7`, and `readopt` returns the class name for an alarm.
 
-`schema.objects` declares one entry per object kind, and `hydratePolicy` checks
-the rules of each kind against its own entry. A permission on an object kind
-absent from `schema.objects` is unchecked, so a partial schema checks part of
-the document.
+The `schema` rows bind per object kind: a permission on a kind absent from
+`schema.objects` is unchecked, and a document with no schema checks no path.
+[What the acl schema refuses](/acl/advanced#what-the-acl-schema-refuses-before-an-evaluator-exists)
+works one through.
 
-## Know which document acl is running
+## Which revision of an acl document is answering
 
-`version` travels on the envelope and survives the round trip, so a consumer
-holding a document for weeks can say which revision decided:
-
-```ts twoslash file=libs/acl/README.md region=matrix-round-trip
-
-```
-
-`version` is a string or a number, compared with `!==`. `hydratePolicy(matrix, {
-version })` overrides the document's own: the document states what a producer
-shipped, the option states what this site is actually running. The option wins,
-and the frozen `access.matrix` carries the winner, so the version that decided is
-the version that crosses a server-side rendering (SSR) boundary:
+`version` is a string or a number on the document's envelope, and it survives
+the JSON round trip, so a consumer holding a document for weeks can say which
+revision decided. `hydratePolicy(matrix, { version })` overrides the document's
+own:
 
 ```ts twoslash file=libs/acl/README.md region=version-override
 
 ```
 
-A document stating no version leaves `access.version` undefined, where a `!==`
-decides nothing. [Refetch when the version
-moves](/acl/advanced#refetch-when-the-version-moves) is the contract; the
-library supplies the comparison and nothing else.
+The document states what its owner shipped, and the option states what this
+process runs, which the owner cannot know. The option wins, and the frozen
+`access.matrix` carries the winner, so the version that decided is the version
+that crosses a server-side rendering (SSR) boundary. A document stating no
+version leaves `access.version` undefined, and a comparison against it decides
+nothing.
+[Refetching an acl matrix when its version moves](/acl/advanced#refetching-an-acl-matrix-when-its-version-moves)
+sets out the comparison.
 
-## What adopting a document does not give you
+## What adopting an acl document does not verify
 
-The library does not sign a document or verify one. A matrix arriving over an
-unauthenticated channel is a matrix an attacker wrote, and every construction
-check above reads the shape and says nothing about where the bytes came from.
-Integrity belongs to the transport, the same way [resolving a
-subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it) belongs to the
-session layer.
+The library neither signs a document nor verifies a signature. A matrix arriving
+over an unauthenticated channel is a matrix an attacker wrote, and every check
+above reads the shape and says nothing about where the bytes came from.
+Integrity belongs to the transport, the same way
+[resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it)
+belongs to the session layer.
 
-## Where to go next
+## Now that you can adopt a document, publish your own
 
-- [Many services](/acl/federation) — a map of adopted documents, one per origin
-- [The matrix: your rules as JSON](/acl/matrix) — the reference: the envelope, the
-  conditions, the version
-- [Caveats and pitfalls](/acl/pitfalls) — what a foreign document cannot state
+[How do I give my rules to another service?](/acl/publishing) is the other side
+of this page: the document an owner serves, and how long a consumer may keep
+deciding on it.
