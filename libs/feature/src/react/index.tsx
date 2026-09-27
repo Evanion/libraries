@@ -16,7 +16,13 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Features } from '../lib/features.js';
-import type { Decision, EvaluationContext, FeatureKey } from '../lib/types.js';
+import type {
+  Decision,
+  Decisions,
+  EvaluationContext,
+  FeatureKey,
+  VariantInfo,
+} from '../lib/types.js';
 
 interface FeatureContextValue {
   decisions: Record<FeatureKey, Decision<FeatureKey>>;
@@ -24,8 +30,10 @@ interface FeatureContextValue {
 
 const FeatureContext = createContext<FeatureContextValue | null>(null);
 
-export interface FeatureProviderProps<F extends FeatureKey> {
-  features: Features<F>;
+export interface FeatureProviderProps<
+  S extends Record<keyof S, VariantInfo | never>,
+> {
+  features: Features<S>;
   /**
    * The evaluation context. Resolution is memoised on this object's identity, so
    * pass a stable reference -- an object literal written inline re-resolves on
@@ -41,19 +49,16 @@ export interface FeatureProviderProps<F extends FeatureKey> {
    * from `plan()`. Supplied decisions are used as they are; `features` and
    * `context` are then only a fallback for what the snapshot does not cover.
    */
-  decisions?: Record<F, Decision<F>>;
+  decisions?: Decisions<S>;
   children?: ReactNode;
 }
 
-export function FeatureProvider<F extends FeatureKey>({
-  features,
-  context,
-  decisions,
-  children,
-}: FeatureProviderProps<F>) {
+export function FeatureProvider<
+  S extends Record<keyof S, VariantInfo | never>,
+>({ features, context, decisions, children }: FeatureProviderProps<S>) {
   const value = useMemo<FeatureContextValue>(
     () => ({
-      decisions: (decisions ?? features.resolve(context)) as Record<
+      decisions: (decisions ?? features.resolve(context)) as unknown as Record<
         FeatureKey,
         Decision<FeatureKey>
       >,

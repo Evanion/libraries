@@ -3,11 +3,15 @@ import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
 import type {
   Decision,
+  Decisions,
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  InferSchema,
+  Plan,
   PlanEntry,
   ToggleResult,
+  VariantInfo,
 } from './types.js';
 
 /**
@@ -21,23 +25,51 @@ import type {
  * that did not, and destroy the distinction between "someone turned this off"
  * and "the system turned it off" -- the one an operator needs at 3am.
  */
-export interface Features<F extends FeatureKey = string> {
+export interface Features<S extends Record<keyof S, VariantInfo | never>> {
   /** Every key, in the order the definitions were supplied. */
-  readonly keys: readonly F[];
+  readonly keys: readonly (keyof S & FeatureKey)[];
   /** The stored intent, deeply frozen, in the order it was supplied. */
-  readonly config: readonly FeatureDefinition<F>[];
-  definition(key: F): FeatureDefinition<F> | undefined;
+  readonly config: readonly FeatureDefinition<keyof S & FeatureKey>[];
+  definition(
+    key: keyof S & FeatureKey,
+  ): FeatureDefinition<keyof S & FeatureKey> | undefined;
   /** Transitive dependants of `key`, in dependency order. */
-  dependants(key: F): readonly F[];
+  dependants(key: keyof S & FeatureKey): readonly (keyof S & FeatureKey)[];
   /** Resolves every feature for one context. Writes nothing. */
-  resolve(context?: EvaluationContext): Record<F, Decision<F>>;
-  isEnabled(key: F, context?: EvaluationContext): boolean;
+  resolve(context?: EvaluationContext): Decisions<S>;
+  isEnabled(key: keyof S & FeatureKey, context?: EvaluationContext): boolean;
+  /**
+   * The assigned variant, or `undefined` for a feature that resolved off.
+   *
+   * The type comes off `Decisions<S>[K]`, so a reader of `variantOf` sees what
+   * the decision for that key carries and the two cannot drift apart. The
+   * `[S[K]] extends [never]` guard answers for a feature that declares no
+   * variants: `DecisionOf` drops `variant` for that case, and an indexed read
+   * of a dropped optional property infers `unknown`.
+   */
+  variantOf<K extends keyof S>(
+    key: K,
+    context?: EvaluationContext,
+  ): [S[K]] extends [never]
+    ? undefined
+    : Decisions<S>[K] extends { variant?: infer V }
+      ? V | undefined
+      : undefined;
+  /** The assigned variant's configured value, when it declares one. */
+  valueOf<K extends keyof S>(
+    key: K,
+    context?: EvaluationContext,
+  ): [S[K]] extends [never]
+    ? undefined
+    : Decisions<S>[K] extends { value?: infer T }
+      ? T | undefined
+      : undefined;
   /**
    * Partitions every feature into resolvable now and deferred, for build-time
    * evaluation. One engine, not a second code path: the resolvable cases go
    * through the same `decide` as `resolve`.
    */
-  plan(context?: EvaluationContext): Record<F, PlanEntry<F>>;
+  plan(context?: EvaluationContext): Plan<S>;
   /**
    * Writes intent, and reports which dependants go off with it.
    *
@@ -46,11 +78,38 @@ export interface Features<F extends FeatureKey = string> {
    * before applying, a script can ignore it.
    */
   toggle(
-    key: F,
+    key: keyof S & FeatureKey,
     enabled: boolean,
     context?: EvaluationContext,
-  ): ToggleResult<F>;
+  ): ToggleResult<keyof S & FeatureKey>;
 }
+
+/**
+ * The schema one call resolves to: the one a caller named, or the one the
+ * definitions imply.
+ *
+ * A caller who types the store by hand names the schema as `S`. A caller who
+ * names nothing leaves `S` at its `never` default, and the definitions in `D`
+ * supply the schema.
+ */
+export type ChosenSchema<
+  S,
+  D extends readonly FeatureDefinition<FeatureKey>[],
+> = [S] extends [never] ? InferSchema<D> : S;
+
+/**
+ * A schema in the form a generic accepts.
+ *
+ * `Features` constrains its parameter self-referentially. The compiler cannot
+ * prove that `ChosenSchema` satisfies that constraint before a call resolves:
+ * `InferSchema` remaps its keys, and `S` is a bare type parameter. This copy
+ * tests every entry against `VariantInfo`, which is the test the constraint
+ * applies, and the constraint then holds. Each entry keeps the type it had,
+ * including the `never` that a feature declaring no variants maps to.
+ */
+export type AsSchema<T> = {
+  [K in keyof T]: T[K] extends VariantInfo ? T[K] : never;
+};
 
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
@@ -68,6 +127,12 @@ function deepFreeze<T>(value: T): T {
  * there is nothing sensible for `resolve` to return for one. Variants are
  * validated here for the same reason: a set with two names cannot answer which
  * one a pin meant, and a set with no usable band has nothing to assign into.
+ *
+ * There are two ways to type the store. A call that passes a literal array
+ * needs no type argument: the definitions supply the keys, the variant names
+ * and each variant's value. A call whose configuration arrived as JSON has no
+ * literals for the compiler to read, so the caller names a schema:
+ * `createFeatures<MyFlags>(config)`.
  *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
@@ -88,21 +153,28 @@ function deepFreeze<T>(value: T): T {
  * features.toggle('checkout', false).willDisable; // ['express-checkout']
  * ```
  */
-export function createFeatures<F extends FeatureKey>(
-  definitions: readonly FeatureDefinition<F>[],
-): Features<F> {
+export function createFeatures<
+  S extends Record<keyof S, VariantInfo | never> = never,
+  const D extends readonly FeatureDefinition<FeatureKey>[] =
+    readonly FeatureDefinition<FeatureKey>[],
+>(definitions: D): Features<AsSchema<ChosenSchema<S, D>>>;
+export function createFeatures(
+  definitions: readonly FeatureDefinition<FeatureKey>[],
+): Features<Record<FeatureKey, VariantInfo>> {
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
   // resolved.
-  const config: FeatureDefinition<F>[] = definitions.map((definition) =>
-    deepFreeze(structuredClone(definition)),
+  const config: FeatureDefinition<FeatureKey>[] = definitions.map(
+    (definition) => deepFreeze(structuredClone(definition)),
   );
   for (const definition of config) validateVariants(definition);
   const graph = buildGraph(config);
-  const index = new Map<F, number>(config.map((d, i) => [d.key, i]));
+  const index = new Map<FeatureKey, number>(config.map((d, i) => [d.key, i]));
   const keys = config.map((definition) => definition.key);
 
-  const definitionOf = (key: F): FeatureDefinition<F> | undefined => {
+  const definitionOf = (
+    key: FeatureKey,
+  ): FeatureDefinition<FeatureKey> | undefined => {
     const at = index.get(key);
     return at === undefined ? undefined : config[at];
   };
@@ -112,9 +184,14 @@ export function createFeatures<F extends FeatureKey>(
     now: context.now ?? new Date(),
   });
 
-  const resolve = (context?: EvaluationContext): Record<F, Decision<F>> => {
+  // The body's own view of a resolved set: one loose `Decision` per key. The
+  // public `resolve` casts this to the schema-mapped form once, and the two
+  // readers take their fields off it, where every `Decision` field is present.
+  const resolveAll = (
+    context?: EvaluationContext,
+  ): Record<FeatureKey, Decision<FeatureKey>> => {
     const evaluationContext = withNow(context);
-    const resolved = new Map<F, Decision<F>>();
+    const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
     // `graph.order`, not `keys`: see FeatureGraph.order for why the cascade
     // needs it.
@@ -124,15 +201,20 @@ export function createFeatures<F extends FeatureKey>(
       resolved.set(key, decide(definition, evaluationContext, resolved));
     }
 
-    // Record<F, ...> cannot be built incrementally without a cast; the keys are
-    // exactly `keys`, which are F by construction.
-    return Object.fromEntries(resolved) as Record<F, Decision<F>>;
+    // A record cannot be built incrementally without a cast; the keys are
+    // exactly `keys`, which the definitions supplied.
+    return Object.fromEntries(resolved) as Record<
+      FeatureKey,
+      Decision<FeatureKey>
+    >;
   };
 
-  const plan = (context?: EvaluationContext): Record<F, PlanEntry<F>> => {
+  const plan = (
+    context?: EvaluationContext,
+  ): Plan<Record<FeatureKey, VariantInfo>> => {
     const evaluationContext = withNow(context);
-    const plans = new Map<F, PlanEntry<F>>();
-    const resolved = new Map<F, Decision<F>>();
+    const plans = new Map<FeatureKey, PlanEntry<FeatureKey>>();
+    const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
     for (const key of graph.order) {
       const definition = definitionOf(key);
@@ -142,14 +224,14 @@ export function createFeatures<F extends FeatureKey>(
       if (entry.decision) resolved.set(key, entry.decision);
     }
 
-    return Object.fromEntries(plans) as Record<F, PlanEntry<F>>;
+    return Object.fromEntries(plans) as Plan<Record<FeatureKey, VariantInfo>>;
   };
 
   const toggle = (
-    key: F,
+    key: FeatureKey,
     enabled: boolean,
     context?: EvaluationContext,
-  ): ToggleResult<F> => {
+  ): ToggleResult<FeatureKey> => {
     const at = index.get(key);
     const current = at === undefined ? undefined : config[at];
     if (at === undefined || !current) {
@@ -159,15 +241,17 @@ export function createFeatures<F extends FeatureKey>(
     // One context for both sides of the comparison, so `willDisable` is not an
     // artefact of the clock moving between the two evaluations.
     const evaluationContext = withNow(context);
-    const before = resolve(evaluationContext);
+    const before = resolveAll(evaluationContext);
 
     config[at] = deepFreeze({ ...current, enabled });
 
-    const after = resolve(evaluationContext);
+    const after = resolveAll(evaluationContext);
     const willDisable = graph
       .dependants(key)
       .filter(
-        (dependant) => before[dependant].enabled && !after[dependant].enabled,
+        (dependant) =>
+          (before[dependant]?.enabled ?? false) &&
+          !(after[dependant]?.enabled ?? false),
       );
 
     return { ok: true, key, enabled, willDisable };
@@ -176,12 +260,19 @@ export function createFeatures<F extends FeatureKey>(
   return {
     keys,
     get config() {
-      return config as readonly FeatureDefinition<F>[];
+      return config as readonly FeatureDefinition<FeatureKey>[];
     },
     definition: definitionOf,
     dependants: graph.dependants,
-    resolve,
-    isEnabled: (key, context) => resolve(context)[key]?.enabled ?? false,
+    resolve: (context) =>
+      resolveAll(context) as Decisions<Record<FeatureKey, VariantInfo>>,
+    isEnabled: (key, context) => resolveAll(context)[key]?.enabled ?? false,
+    // Both returns are cast. A generic method whose return type is conditional
+    // has no type an implementation can write: the compiler resolves neither
+    // conditional for an unresolved `K`, and the runtime answer is the field
+    // the decision carries either way.
+    variantOf: (key, context) => resolveAll(context)[key]?.variant as never,
+    valueOf: (key, context) => resolveAll(context)[key]?.value as never,
     plan,
     toggle,
   };
