@@ -25,5 +25,8 @@
   // `astro check` -- which does -- would then type-check Widgets.astro through
   // this project rather than the library one, where its deliberate `as never`
   // registry casts are errors. Vitest runs the file; tsc does not read it.
-  "exclude": ["src/**/*.astro.test.ts"]
+  // The registries at the root of `examples/src` import `.astro` modules too,
+  // and `astro check` in an app that references this project reports each of
+  // those modules as missing from this file list.
+  "exclude": ["src/**/*.astro.test.ts", "examples/src/*.ts"]
 }
