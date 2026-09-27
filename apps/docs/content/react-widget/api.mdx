@@ -310,17 +310,19 @@ component; `WidgetItem` does that at compile time.
 
 ## `defineWidgets`
 
-`defineWidgets` returns the registry it is handed, typed as the literal object,
-re-exported from `@evanion/widget`.
+`defineWidgets` returns the component map it is handed, typed as the literal
+object, re-exported from `@evanion/widget`.
 
-```tsx twoslash file=libs/react-widget/README.md region=validate-bound
+```ts twoslash file=libs/react-widget/README.md region=define-widgets
 
 ```
 
-`createWidgets` already infers literal keys from `components`, so `defineWidgets`
-is for a map declared on its own and handed to both `createWidgets` and
-`validateItems`. [The core's entry](/widget/api#definewidgets) carries the
-signature.
+One map declared on its own types `WidgetItem`, feeds `createWidgets` and
+feeds the standalone `validateItems`, so the `raffle` type fails the compile and
+the runtime check alike. Annotating that map as `WidgetRegistry` widens its keys
+to `string`, and `defineWidgets` keeps them literal. A map declared with no
+annotation keeps them literal too, so the call is optional in this package.
+[The core's entry](/widget/api#definewidgets) carries the signature.
 
 ## `ERROR_MESSAGES`
 
