@@ -1,5 +1,9 @@
 # Why was this refused?
 
+Every decision `access.can` returns carries `reason`, `rule` and `missing`
+beside `allowed`, and a screen reads those three to tell a customer why an
+action is off.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
@@ -8,106 +12,110 @@
   hands={15}
   requires={[['Can this user do this?', '/acl/asking']]}
   unlocks={[
+    ['How do I use rules another service published?', '/acl/adopting'],
     ['The Decision object every check returns', '/acl/decision-object'],
-    ['Field permissions', '/acl/fields'],
   ]}
 />
 
-**The concept.** Every `Decision` carries `reason`, `rule` and `missing` beside
-`allowed`.
+## Turning an acl refusal into what the screen says
 
-**What you get.** Which of the seven values `reason` took, and which rule
-produced it.
+The Edit button under a question is off, and the customer wants to know why. A
+button that says "Not allowed" for every refusal tells a customer whose row is
+still loading that they may never edit their own question.
 
-**Why you want it.** Three of the seven mean the engine never reached an answer,
-and a screen drawing those as a refusal tells the customer the wrong thing.
+`allowed` is still the only field a handler gates on, as
+[Can this user do this?](/acl/asking) sets out. The label is the one thing the
+other three fields decide:
 
-**How the library gets you there.** `missing` names the paths the object did not
-carry, which is the list to refetch.
+```ts twoslash file=libs/acl/README.md region=refusal-label
 
-## The seven reasons a decision carries
+```
 
-`reason` says why the answer came out the way it did, and takes one of seven
-values.
+`editLabel` reads `allowed` first and then `reason`. `denied` means a deny rule
+matched, and `rule` names it, because `.id('locked-question')` gave the rule
+that name. The last call passed a row without `status`, so the deny rule could
+not be read: the decision is `unevaluable`, `missing` names `object.status`, and
+the button says Checking while the screen fetches that one field.
 
-| `reason`          | Carries   | What the UI has                                |
+## The seven reasons an acl decision carries
+
+`reason` takes one of seven values, and each one tells a screen something
+different:
+
+| `reason`          | Carries   | What the screen has                            |
 | ----------------- | --------- | ---------------------------------------------- |
 | `allow`           | `rule`    | nothing to explain                             |
-| `no-rule-matched` | —         | a plain no; this subject, this row             |
+| `no-rule-matched` | none      | a plain no, for this subject on this row       |
 | `denied`          | `rule`    | a plain no, and which rule to name in a log    |
-| `unknown-action`  | —         | this document carries no such key; fail closed |
+| `unknown-action`  | none      | this document carries no such key; fail closed |
 | `unevaluable`     | `missing` | a refetch; the engine never decided            |
 | `unusable-clock`  | `rule`    | the `now` this call passed is not an instant   |
-| `stale-contract`  | —         | fetch the document again; this copy is old     |
+| `stale-contract`  | none      | fetch the document again; this copy is old     |
 
-`reason`, `rule` and `missing` are output only. `allowed` is the gate, and
-nothing else on the decision should ever reach an `if`.
+`reason`, `rule` and `missing` are output only. No part of the library reads
+them back, so a handler that branches on `reason` to allow something has written
+a rule of its own beside the policy.
 
-`unevaluable` names paths in `missing`, and one refetch settles it. No refetch
-changes `unusable-clock`: fix the `now` the call passes.
+`stale-contract` comes from a document another service published. The consumer
+tells `parseMatrix` when it last fetched its copy, as `fetchedAt`, and every key
+answers `stale-contract` once that copy is older than the `maxStale` the
+document states. A fresh fetch repairs it, and
+[How long a consumer may keep deciding on an acl contract](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+sets out the bound.
 
-<Panel heading="`unevaluable` is not `denied`">
-  <Text as="div" size="sm">
-    Both carry `allowed: false`, and only one of them is an answer. A `denied`
-    says the rules refused this subject on this row. An `unevaluable` says the
-    engine could not read a path it needed, so a UI that draws it as forbidden
-    hides a control the customer is entitled to.
-  </Text>
-</Panel>
+### When the acl clock decides `unusable-clock`
 
-A fresh fetch of the document repairs `stale-contract`. Tell `parseMatrix` when
-your process last validated its copy, with `fetchedAt`, and every key answers
-`stale-contract` once that copy is older than the `maxStale` the document
-states. A holder reporting no `fetchedAt` never sees the reason.
+`can`, `canMany`, `canFields` and `capabilities` take `now` as a trailing
+argument: an ISO 8601 string, epoch milliseconds or a `Date`. Omit it and the
+call reads the wall clock. A rule built with `p.after` or `p.before` compares
+that instant against a boundary:
 
-## `rule`, which rule decided
+```ts twoslash file=libs/acl/README.md region=unusable-clock
 
-`rule` names the rule behind a decision a rule made. A rule that states an `id`
-reports that `id`. A rule that states none reports a derived id, the side it
-sits on and a hash of its conditions, as `allow-b72dadff`. That id holds when
-the list is reordered and when another producer emits the same document, so a
-log line keeps its meaning. Give the rules a UI has to name an `id` anyway:
-`locked-question` reads better in a support answer than a hash.
+```
 
-A typed author writes that `id` with
-[`p.id(name)`](/acl/authoring#naming-a-rule-with-pid) on the `allow` or `deny`
-that wrote the rule.
+A `now` that does not parse never throws. The permission refuses with
+`unusable-clock`, names the rule that compared the clock, and carries no
+`missing`, because no refetch repairs it. Fix the value the call passes.
 
-Store an `id` an author wrote, and do not store a derived one. A derived id
-holds across documents at one version of this library and not across versions
-of the library itself: it hashes the rule's conditions, so a release that adds
-a field to `Condition` changes every id derived from one. An audit trail
-holding `allow-b72dadff` stops matching its rule after a dependency bump, and
-nothing reports that it has.
+## `rule`, the acl rule that decided
 
-Treat `rule` as a log line and a support answer ("denied by `locked-question`").
-Never branch on it: two rules can grant the same thing, and which one matched is
-not a property the app should depend on.
+`rule` names the rule behind a decision a rule made. `allow`, `denied` and
+`unusable-clock` always carry it. An `unevaluable` carries it when the deny
+side was unreadable and carries none when the allow side was, because one deny
+rule refuses on its own and the allow rules are alternatives.
 
-`allow`, `denied` and `unusable-clock` always carry `rule`. An `unevaluable`
-carries it when the deny side raised it, and carries none when the allow side
-did, because the deny side is the only one that names a rule on that path.
+The name comes from one of two places:
+
+- A rule the author named reports that name. A typed author writes it with
+  [`.id(name)`](/acl/authoring#naming-a-rule-with-pid) after the `allow` or
+  `deny` that wrote the rule.
+- A rule nobody named reports a derived id, the side it sits on and a hash of
+  its conditions, such as `allow-b72dadff`.
+
+Store a name the author wrote, and never store a derived one. A release of this
+library that adds a field to `Condition` changes every derived id, so an audit
+row holding `allow-b72dadff` stops matching its rule with nothing to report it.
+
+Treat `rule` as a log line and a support answer, such as "denied by
+`locked-question`". Never branch on it: two rules can grant the same thing, and
+which one matched is not a fact the app should depend on.
 
 ## When the answer is `unevaluable`
 
 `unevaluable` says the engine never reached an answer. `allowed` is already
-`false`, so nothing leaks, and `missing` names exactly what to fetch.
-
-A caller meets it in two situations:
-
-- No instance at all. `can(subject, 'question', 'create')` against a permission
-  whose rules read `object.*`. This is the create toggle: there is nothing to
-  compare against yet.
-- A projection that does not carry the field. The list query selected `id` and
-  `body`; the rule reads `object.askedBy`.
+`false`, so nothing leaks, and `missing` names exactly what to fetch. A caller
+meets it with no row at all, as a create button does, or with a projection that
+lacks a field a rule reads:
 
 ```ts twoslash file=libs/acl/README.md region=refetch
 
 ```
 
-One policy carries every object kind, so the same `access` answers this way for
-listings and orders. Both sides' unreadable paths come back in one `missing`, so
-one refetch settles the permission however many rules read the object:
+Both sides' unreadable paths arrive in one `missing`, so one query settles the
+permission however many rules read the row. Every operator treats an absent
+`object.*` path as unevaluable, `ne` and `not-in` included, because "not equal
+to `locked`" states no fact about a field nobody read.
 
 ```mermaid caption="The repair loop for one unevaluable. Both sides' unreadable paths arrive in one missing array, so a single query fetches all of them and the second ask decides. An unevaluable that survives the refetch is a mistyped field name in the document."
 flowchart LR
@@ -118,45 +126,44 @@ flowchart LR
   Q --> C
 ```
 
-Every operator treats an absent `object.*` path as unevaluable, the negative
-ones included. "It is not equal to `published`" states no fact about a field
-nobody read, so `ne`, `not-in` and `contains` answer there exactly as `eq` does.
+### What to do with an acl `unevaluable`
 
-### What to do with an unevaluable
-
-Handle an `unevaluable` by where you meet it.
-
-| Where you meet it        | What you do                                                                                                                                                                 |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a server, enforcing      | Treat it as a refusal. Fetch the named paths and re-ask, or return a 403.                                                                                                   |
-| a client, rendering      | Draw the control as _pending_. Fetch `missing`, ask once more. A UI that draws it as permitted is broken.                                                                   |
-| authoring the document   | An `unevaluable` no refetch repairs is a bug in the document, almost always a mistyped field name. A `schema` turns that class into an `UnknownFieldError` at construction. |
-| before the row is loaded | Every object-dependent permission answers `unevaluable`. `access.readsObject(key, action)` tells that case apart from a call that happened to lack data.                    |
+| Where you meet it        | What you do                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a server, enforcing      | Treat it as a refusal. Fetch the named paths and ask again, or return a 403.                                                                          |
+| a client, rendering      | Draw the control as pending. Fetch `missing` and ask once more. A screen that draws it as permitted is broken.                                        |
+| authoring the document   | An `unevaluable` no refetch repairs is a mistyped field name. A `schema` turns that into an `UnknownFieldError` at construction.                      |
+| before the row is loaded | Every permission that reads the row answers `unevaluable`. `access.readsObject(key, action)` tells that case apart from a call that lacked one field. |
 
 [Deciding before the row is loaded](/acl/decision-object#deciding-before-the-row-is-loaded)
-covers the last row.
+works the last row through.
 
-### Why only the object
+### Why only an absent `object.*` path is unevaluable
 
-An absent `object.*` path is unevaluable; an absent `subject.*` path is a plain
-miss. Your query chose the object projection, so a field it lacks says nothing
-about the row. The app resolves the subject whole before the call and never
-projects it, so a subject carrying no `roles` has none.
+An absent `subject.*` path is a plain miss. Your query chose the row's
+projection, so a field it lacks says nothing about the row. The server resolves
+the subject whole before the call and never projects it, so a subject carrying
+no `roles` has none.
 
-## Explaining one field of an acl decision
+## Explaining one field of an acl field decision
 
-`FieldReason` is a vocabulary of its own, and every read-only input carries one.
-`not-listed` means the rules exclude the name. `targets-failed` and
-`transition-failed` point at a value rather than at the name: the proposed one
-in the first case, the edge out of the current one in the second.
-`missing-field` is the field-level `unevaluable` and wants the same refetch.
-[Field permissions](/acl/fields) has every `FieldReason` in one table,
-including `proposed-required`.
+`canFields` gives every field a state and a `FieldReason`, and a read-only input
+names its reason the way a refused button does:
 
-## Where to go next
+| `FieldReason`       | What it points at                                                     |
+| ------------------- | --------------------------------------------------------------------- |
+| `allow`             | nothing; the field is writable                                        |
+| `not-listed`        | the name, which the rule's list of fields excludes                    |
+| `targets-failed`    | the proposed value, which `targets` does not list                     |
+| `transition-failed` | the edge from the current value, which `transitions` does not list    |
+| `missing-field`     | the current value, which the row lacked; the same refetch as the row  |
+| `proposed-required` | the proposed value, which a field with a config needs and did not get |
 
-- [Why deny, then allow, then deny?](/acl/resolution) — the full precedence
-  order and why it is in that order
-- [Caveats and pitfalls](/acl/pitfalls) — `unevaluable` is not `denied`, and
-  four other things to check
-- [Can this user do this?](/acl/asking) — where the decision came from
+[Which fields may they write?](/acl/writing) builds a policy that produces the
+first five, and [Field permissions](/acl/fields) is the reference.
+
+## Now that you can explain a refusal, answer from another service's rules
+
+[How do I use rules another service published?](/acl/adopting) builds an
+evaluator over a document another service served, where `unknown-action` and
+`stale-contract` come from.
