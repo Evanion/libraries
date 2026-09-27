@@ -31,14 +31,18 @@ export class CorrelationModule {
    * `global: true`.
    *
    * Global because `CorrelationIdMiddleware`, `withCorrelation()` and every
-   * provider that reads an id all resolve `CORRELATION_CONFIG_TOKEN` from the
-   * root injector: without it each consuming module would have to import this
-   * one, and `HttpModule.registerAsync(withCorrelation())` fails with
+   * provider that reads an id resolve `CorrelationService` or
+   * `CORRELATION_CONFIG_TOKEN` from the root injector: without it each
+   * consuming module would have to import this one, and
+   * `HttpModule.registerAsync(withCorrelation())` fails with
    * `Nest can't resolve dependencies of the
    * @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR`.
    *
-   * Call it once. A second `forRoot()` registers a second configuration
-   * provider under the same token, and the last import wins.
+   * Call it once. A second `forRoot()` creates a second `CorrelationService`
+   * and a second configuration; a module resolves the copy it imported, or the
+   * first one registered. Each copy has its own `AsyncLocalStorage`, so a
+   * provider holding a copy the middleware did not use reads `undefined`
+   * inside every request. Nest raises no error.
    */
   static forRoot(config?: Partial<CorrelationConfig>): DynamicModule {
     const correlationConfigProvider: Provider = {

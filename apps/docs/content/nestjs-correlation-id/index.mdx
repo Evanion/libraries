@@ -6,7 +6,7 @@ another's. `@evanion/nestjs-correlation-id` gives the request one id every
 NestJS service can log.
 
 <PageSheet
-  difficulty={1}
+  difficulty={2}
   read={5}
   unlocks={[['Getting started', '/nestjs-correlation-id/getting-started']]}
 />
@@ -14,28 +14,32 @@ NestJS service can log.
 ## How nestjs-correlation-id carries one id across services
 
 A correlation id is a string that names one request in every service the
-request reaches. A correlation context is the callback passed to
-`CorrelationService.run(id, callback)`, plus everything it calls or awaits.
-Inside it, `getCorrelationId()` returns `id`. `CorrelationService` keeps the id
-in Node's [`AsyncLocalStorage`](https://nodejs.org/api/async_context.html).
+request reaches. `CorrelationService` is the provider that holds the current id,
+in Node's [`AsyncLocalStorage`](https://nodejs.org/api/async_context.html). A
+correlation context is the scope `CorrelationService.run(id, callback)` opens:
+the callback, plus everything it calls or awaits. Inside it, the service's
+`getCorrelationId()` returns `id`.
 
-Below, two handlers run at the same time, each awaits, and each reads the id its
-own context was opened with:
+In an application `CorrelationIdMiddleware` opens the context for each request,
+so a handler only reads the id. Below, two contexts are opened by hand. The two
+handlers run at the same time, each awaits, and each reads the id its own
+context was opened with:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=concurrent
 
 ```
 
 Outside both contexts `getCorrelationId()` returns `undefined`, because no
-request is in flight there.
+context is open there.
 
-`CorrelationIdMiddleware` calls `run()` once per request. It reads the id from
-the `X-Correlation-Id` header and reuses it when it passes a format check, which
-by default accepts up to 128 letters, digits, underscores, dots, colons and
-hyphens. When the header is missing or fails the check, the middleware generates
-a new id. It sets the same header on the response. `withCorrelation()`
-configures `HttpModule` from `@nestjs/axios` so that every outgoing
-`HttpService` call carries the id, and the next service's middleware reuses it.
+`CorrelationIdMiddleware` reads the id from the `X-Correlation-Id` header and
+reuses it when it passes a format check. When the header is missing or fails the
+check, the middleware generates a new id. It sets the same header on the
+response.
+
+`withCorrelation()` configures `HttpModule` from `@nestjs/axios` so that every
+outgoing `HttpService` call carries the id, and the next service's middleware
+reuses it:
 
 ```mermaid caption="One X-Correlation-Id header carried from storefront through orders to stock."
 flowchart LR
@@ -47,23 +51,23 @@ flowchart LR
 
 ## What nestjs-correlation-id provides
 
-| Export                             | What it does                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| `CorrelationModule`                | provides `CorrelationService` and the configuration to every module       |
-| `CorrelationIdMiddleware`          | opens a correlation context per request and sets the id on the response   |
-| `CorrelationService`               | reads, replaces and generates the id, and opens a context with no request |
-| `withCorrelation()`                | `HttpModule.registerAsync` options that send the id on every call         |
-| `DEFAULT_CORRELATION_ID_VALIDATOR` | the format check an incoming id passes before the middleware reuses it    |
+| Export                             | What it does                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `CorrelationModule`                | provides `CorrelationService` and the configuration to every module      |
+| `CorrelationIdMiddleware`          | opens a correlation context per request and sets the id on the response  |
+| `CorrelationService`               | reads and generates the id, and opens a context for work with no request |
+| `withCorrelation()`                | `HttpModule.registerAsync` options that send the id on every call        |
+| `DEFAULT_CORRELATION_ID_VALIDATOR` | the format check an incoming id passes before the middleware reuses it   |
 
 A queue consumer or a cron job has no request, so it opens its own context with
-`run()`. The middleware reads and writes raw `node:http` headers, so it runs
-under `@nestjs/platform-express` and `@nestjs/platform-fastify` alike.
+`run()`.
 
 ## What nestjs-correlation-id leaves to you
 
-- It writes no log line. Your logger calls `getCorrelationId()` and adds the
-  value to its own output.
-- It reads one header. There is no list of fallback header names.
+- It writes no log line. Your logger injects `CorrelationService`, calls
+  `getCorrelationId()` and adds the value to its own output.
+- It reads one header, `X-Correlation-Id` unless you configure another. There
+  is no list of fallback header names.
 - It forwards the id on `HttpService` calls whose module used
   `withCorrelation()`. A `fetch` call or a queue message carries the id only
   when your code puts it there.

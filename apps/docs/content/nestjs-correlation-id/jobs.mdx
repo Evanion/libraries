@@ -5,7 +5,7 @@ opens its own correlation context with `CorrelationService.run()`.
 
 <PageSheet
   difficulty={4}
-  read={5}
+  read={8}
   hands={30}
   requires={[
     ['Getting started', '/nestjs-correlation-id/getting-started'],
@@ -16,12 +16,13 @@ opens its own correlation context with `CorrelationService.run()`.
 
 ## Open a correlation context in a queue consumer
 
-`RestockJob` handles a restock message in Baize's `orders` service. The service
-that queued the message set its `correlationId` from `getCorrelationId()` while
-it handled a request, so the message carries that request's id when there was
+`RestockJob` handles a restock message in Baize's `orders` service by asking
+`stock` for the game's current level. The code that queued the message, such as
+a request handler in `orders`, copied `getCorrelationId()` into its
+`correlationId` field, so the message carries that request's id when there was
 one. `RestockJob` injects `CorrelationService`, the configuration `forRoot()`
-resolved under `CORRELATION_CONFIG_TOKEN`, and `StockClient`, the `orders`
-service's client for `stock`:
+resolved (a `CorrelationConfig`, provided under `CORRELATION_CONFIG_TOKEN`), and
+`StockClient`, the `orders` service's client for `stock`:
 
 ```ts file=libs/nestjs-correlation-id/examples/restock.job.ts region=restock-job
 
@@ -30,20 +31,24 @@ service's client for `stock`:
 - `run(id, callback)` runs `callback` inside a correlation context and returns
   what `callback` returns, so the promise from `stock.level()` comes straight
   back out of `handle()`.
-- Everything the callback calls or awaits reads `id`. `StockModule` registers
-  `StockClient`'s `HttpService` with `withCorrelation()`, so its call to `stock`
-  carries the id.
+- Everything the callback calls or awaits reads `id`. `StockModule`, on
+  [Forward the id to the next service](/nestjs-correlation-id/forwarding),
+  registers `StockClient`'s `HttpService` with `withCorrelation()`, so its call
+  to `stock` carries the id.
 - `generate()` returns a new id from the configured generator, `randomUUID`
-  unless `forRoot()` was given another.
+  unless `forRoot()` was given another. A cron job has no id to carry, so it runs
+  its work inside `run(generate(), …)`.
+
+Call `handle()` from your queue library's consumer.
 
 ## Why RestockJob validates the carried id
 
 An id read off a queue message reaches the same log lines and outgoing headers
-as one read off a request, so it passes the same check. `validate` on the
-injected configuration is the function `CorrelationIdMiddleware` applies to an
-incoming header, `DEFAULT_CORRELATION_ID_VALIDATOR` unless `forRoot()` was given
-another. A carried id that fails the check is dropped, and the job generates its
-own.
+as one read off a request, so `RestockJob` runs it through the same check.
+`validate` on the injected configuration is the function
+`CorrelationIdMiddleware` applies to an incoming header,
+`DEFAULT_CORRELATION_ID_VALIDATOR` unless `forRoot()` was given another. A
+carried id that fails the check is dropped, and the job generates its own.
 
 `CorrelationConfig` types `validate` as optional, which is why `RestockJob`
 calls it with `?.`. `forRoot()` always sets it, so the call always runs.
@@ -55,7 +60,7 @@ in. A consumer that opens its context before it has read the message, for
 instance with `run(generate(), …)` around every handler, calls it once it has
 read the id the message carried. Outside any context it throws.
 
-The fence below builds the worker as a Nest application context, which starts no
+The code below builds the worker as a Nest application context, which starts no
 HTTP server, and calls `generate`, `run` and `setCorrelationId`:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
@@ -70,7 +75,7 @@ context.
 Inside a request, `setCorrelationId` leaves the response header alone. The
 header keeps the id the middleware wrote when the request arrived.
 
-## Configure what nestjs-correlation-id accepts
+## Now that a job carries the id, configure what nestjs-correlation-id accepts
 
 [Configuration](/nestjs-correlation-id/configuration) covers the fields
 `forRoot()` takes, and what an incoming id has to look like to be reused.
