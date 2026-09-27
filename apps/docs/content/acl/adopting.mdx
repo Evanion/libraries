@@ -6,7 +6,7 @@ and answers `unknown-action` for any permission that document does not carry.
 <WorkshopNotice slug="acl" />
 
 <PageSheet
-  difficulty={3}
+  difficulty={4}
   read={7}
   hands={20}
   requires={[['Rules that another service wrote', '/acl/advanced']]}
@@ -23,26 +23,29 @@ storefront that writes those rules a second time is right until the owner
 changes one: the owner keeps refusing correctly, no alarm fires, and the button
 stays hidden against a server that would have allowed the call.
 
-The matrix is the JSON document a policy flattens to, which
-[the Overview](/acl) introduces. The owner serves it, and the storefront fetches
-it and hands it to `parseMatrix`:
+The matrix is the JSON document a policy flattens to, which [the Overview](/acl)
+introduces. The owner serves it, and the storefront fetches it and hands it to
+`parseMatrix`:
 
 ```ts twoslash file=libs/acl/README.md region=foreign-matrix
 
 ```
 
-Each permission carries `key`, `object`, `action` and a `rules` list, and each
-rule holds a `when` list of conditions the engine ANDs. This document grants
-`question.read` to a subject whose `roles` holds `bookseller`. It carries no
-`question.delete`, so asking for `delete` answers `unknown-action` with
-`allowed: false`. A real document holds every key its owner publishes, across
-every object kind it owns, and the whole list builds one evaluator.
+Each permission carries `key`, `object`, `action` and a `rules` list of allow
+rules, and each rule holds a `when` list of conditions that must all hold. This
+document grants `question.read` to a subject whose `roles` array holds
+`bookseller`. It carries no `question.delete`, so asking for `delete` answers
+`unknown-action` with `allowed: false`. A real document holds every key its
+owner publishes, across every object kind it owns, and the whole list builds one
+evaluator.
 
 ## Why `parseMatrix` answers where `hydratePolicy` throws
 
-`parseMatrix(json, options?)` is `hydratePolicy(json, { ...options, closed: true })`.
-The flag is written last, so no option a caller passes re-opens a foreign
-document. The two differ only on a key the document does not carry:
+`parseMatrix(json, options?)` is
+`hydratePolicy(json, { ...options, closed: true })`. `closed: true` is the flag
+that turns a missing key into a refusal, and it sits after the spread, so no
+option a caller passes turns it off. The two calls differ only on a key the
+document does not carry:
 
 - `hydratePolicy` throws `UnknownObjectKeyError` for an object kind the
   document lacks, and `UnknownPermissionError` for an action it lacks.
@@ -51,19 +54,21 @@ document. The two differ only on a key the document does not carry:
 A malformed document throws at construction on either path.
 
 Which path a document gets depends on where it came from. A key your own policy
-lacks is a programmer error, and the throw points at the line. A key a foreign
+lacks is a programmer error, and the throw points at the line. A browser
+rebuilding your own `access.matrix` with `hydratePolicy` is on that path too,
+because your own code wrote both the document and the question. A key a foreign
 document lacks means its owner removed the permission, or this consumer was
 written against an older revision, and a throw there takes a page down over a
 permission nobody holds.
 
-```mermaid caption="Closed mode on the consumer's side. parseMatrix answers from the adopted rules for every key the document carries, and answers unknown-action with allowed false for every key it does not, so a permission the producer removed does not take the page down. Orders decides again on its own matrix when the refund call arrives."
+```mermaid caption="Closed mode on the consumer's side. parseMatrix answers from the adopted rules for every key the document carries, and answers unknown-action with allowed false for every key it does not, so a permission the producer removed does not take the page down. The owning service decides again on its own matrix when the call arrives."
 flowchart LR
   J["the producer's matrix,<br>as JSON"] --> P["parseMatrix(json)<br>closed"]:::accent
   P --> K{"does the document<br>carry this key?"}
   K -->|"yes"| D["a decision<br>from the adopted rules"]
   K -->|"no"| U["unknown-action<br>allowed false"]
-  D --> C["the storefront draws<br>the refund button"]
-  C --> O["orders decides again<br>on its own matrix"]
+  D --> C["the storefront draws<br>the button"]
+  C --> O["the owner decides again<br>on its own matrix"]
 ```
 
 Neither path grants a key it does not hold. The owning service decides again on
@@ -71,8 +76,8 @@ its own matrix when the call reaches it.
 
 ## What `parseMatrix` refuses before an acl evaluator exists
 
-`parseMatrix` holds a foreign document to every check a local one passes, and
-each refusal extends `AclConfigError`:
+`parseMatrix` holds a foreign document to the same checks a local one passes,
+and each refusal extends `AclConfigError`. The common ones:
 
 | Refused at construction    | When                                                       |
 | -------------------------- | ---------------------------------------------------------- |
@@ -85,40 +90,47 @@ each refusal extends `AclConfigError`:
 | `UnknownFieldError`        | a condition names a field the document's `schema` omits    |
 | `FieldTypeMismatchError`   | an operator that does not fit the `schema`'s declared type |
 
-A document fetched over the network can fail for reasons your process cannot
-fix, so keep the last document that constructed:
+[What can throw?](/acl/errors) tables the rest. A document fetched over the
+network can fail for reasons your process cannot fix, so keep the last document
+that constructed. The `orders:` prefix on the object kind names the service that
+owns it:
 
 ```ts twoslash file=libs/acl/README.md region=adopt-keep-last
 
 ```
 
 `orders@8` lost its rule's conditions in transit, and `InvalidRuleError` refuses
-it, so a damaged document never becomes a permission that grants everyone. An
-unconditional grant is spelled as an empty `when`. The storefront keeps
-answering from `orders@7`, and `readopt` returns the class name for an alarm.
+it, so a damaged document never becomes a permission that grants everyone. A
+rule with an empty `when` grants everyone, and a permission with an empty
+`rules` list grants nobody. The storefront keeps answering from `orders@7`, and
+`readopt` returns the class name for an alarm.
 
-The `schema` rows bind per object kind: a permission on a kind absent from
-`schema.objects` is unchecked, and a document with no schema checks no path.
+A document may carry a `schema`, which lists the fields of each object kind
+under `schema.objects`. It binds per object kind: a permission on a kind the
+schema does not list is unchecked, and a document with no schema checks no path.
 [What the acl schema refuses](/acl/advanced#what-the-acl-schema-refuses-before-an-evaluator-exists)
 works one through.
 
 ## Which revision of an acl document is answering
 
-`version` is a string or a number on the document's envelope, and it survives
+`version` is a string or a number at the top of the document, and it survives
 the JSON round trip, so a consumer holding a document for weeks can say which
-revision decided. `hydratePolicy(matrix, { version })` overrides the document's
-own:
+revision decided. A process that changes a document before building an evaluator
+over it runs a revision the owner never shipped. A deny overlay does that: it
+merges another team's deny rules into the document, as
+[Many services](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+covers. `hydratePolicy(matrix, { version })` names the revision this process
+runs, and `parseMatrix` takes the same option:
 
 ```ts twoslash file=libs/acl/README.md region=version-override
 
 ```
 
-The document states what its owner shipped, and the option states what this
-process runs, which the owner cannot know. The option wins, and the frozen
-`access.matrix` carries the winner, so the version that decided is the version
-that crosses a server-side rendering (SSR) boundary. A document stating no
-version leaves `access.version` undefined, and a comparison against it decides
-nothing.
+The option wins over the document's own `version`, and `access.matrix`, which
+the evaluator freezes, carries the winner. So the version that decided is the
+version that crosses a server-side rendering (SSR) boundary. A document stating
+no version leaves `access.version` undefined, and a comparison against it
+decides nothing.
 [Refetching an acl matrix when its version moves](/acl/advanced#refetching-an-acl-matrix-when-its-version-moves)
 sets out the comparison.
 
@@ -128,8 +140,8 @@ The library neither signs a document nor verifies a signature. A matrix arriving
 over an unauthenticated channel is a matrix an attacker wrote, and every check
 above reads the shape and says nothing about where the bytes came from.
 Integrity belongs to the transport, the same way
-[resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it)
-belongs to the session layer.
+[resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it) belongs
+to the session layer.
 
 ## Now that you can adopt a document, publish your own
 
