@@ -5,7 +5,7 @@ under a widget, and `validateItems` checks a CMS payload before `Widgets`
 renders it.
 
 <PageSheet
-  difficulty={2}
+  difficulty={3}
   read={8}
   hands={30}
   requires={[['Getting started', '/react-widget/getting-started']]}
@@ -16,8 +16,8 @@ renders it.
 
 An array held in a variable loses its literal types, so `Widgets` refuses it
 even when every item is right. Getting started fixed that with `as const` on
-each `type`. `defineItems`, which `createWidgets` returns beside `Widgets`, fixes
-it for the whole array and reports a wrong item on the line that wrote it:
+each `type`. `defineItems`, which `createWidgets` returns beside `Widgets`,
+fixes it for the whole array and reports a wrong item on the line that wrote it:
 
 ```tsx twoslash file=libs/react-widget/README.md region=typed-items
 
@@ -40,17 +40,18 @@ component's `children`, inside the same chrome as every other widget:
 ```
 
 `Showcase` declares `children`, so the `tonight` item may carry Hive under it.
-`ListingCard` declares none, so the compiler rejects `children` on the Azul item.
-If an untyped payload nests items under such a widget anyway, the renderer drops
-them and logs nothing. A widget renders its nested items by rendering
+`ListingCard` declares none, so the compiler rejects `children` on the Azul
+item. If an untyped payload nests items under such a widget anyway, `Widgets`
+drops them and logs nothing. A widget renders its nested items by rendering
 `children`, like any other React component.
 
 ## Check a CMS payload with react-widget's `validateItems`
 
 The compiler checks items you wrote. A payload parsed from a CMS is `unknown`,
-and `validateItems` is the check it gets at runtime. The standalone export takes
-the payload and a list of type names, so a CI script or a webhook imports no
-React component:
+and `validateItems` is the check it gets at runtime. The package exports it
+standalone, and `createWidgets` returns a second, bound form. The standalone
+export takes the payload and a list of type names, so a CI script or the
+handler of the CMS's publish webhook imports no React component:
 
 ```ts twoslash file=libs/react-widget/README.md region=validate-payload
 
@@ -73,6 +74,19 @@ props that must be present and non-blank:
 title of one space is reported. The standalone export takes the same map as its
 third argument.
 
+### Render a payload that passed
+
+`validateItems` returns a list, not a type guard, so a payload that passes is
+still `unknown`. Once the list is empty, cast the payload to `WidgetItem` over
+the component map and hand it to `Widgets`:
+
+```tsx twoslash file=libs/react-widget/README.md region=render-validated
+
+```
+
+The cast asserts the prop types, which `validateItems` does not check. The
+`required` map is what guarantees the props a widget cannot render without.
+
 ## What `Widgets` does with an item it cannot render
 
 `Widgets` never calls `validateItems`. It skips an item it cannot render, warns,
@@ -85,12 +99,16 @@ and renders the rest of the region:
 `JSON.parse` returns `any`, which TypeScript passes to `Widgets` unchecked, so
 this payload compiles. The `raffle` item is gone and Root rendered. The
 development console reads
-`Unknown widget type "raffle" for widget ID "raffle". Skipping render.` once per
-process, so a stale type does not repeat on every render.
+`Unknown widget type "raffle" for widget ID "raffle". Skipping render.` Each
+distinct message is logged once per process, so a stale type does not repeat on
+every render, and a second stale item still gets its own warning.
 
 Nothing is logged when `NODE_ENV` is `production`, so a stale type in production
 leaves a silent gap. Run `validateItems` in CI or at the webhook to catch it
 before the page renders.
 
-[What it reports](/widget/problems) lists every message `validateItems` returns
-and the payload that produces each.
+[What it reports](/widget/problems), in the `@evanion/widget` docs, lists every
+message `validateItems` returns and the payload that produces each.
+
+[Chrome, meta, ctx and Suspense](/react-widget/advanced) wraps the region and
+places each item.
