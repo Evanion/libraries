@@ -121,14 +121,14 @@ const items = [
   { id: 'questions', type: 'answer-wall', props: {} },
 ];
 
-const required = { 'listing-header': ['title'] };
+const required = { 'listing-header': ['title'], 'price-box': ['price'] };
 const problems = validateItems(
   items,
   ['listing-header', 'price-box'],
   required,
 );
 
-problems; // -> [{ index: 2, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
+problems; // -> [{ index: 1, id: 'price', type: 'price-box', message: 'missing field price' }, { index: 2, id: 'questions', type: 'answer-wall', message: 'unknown widget type' }]
 ```
 
 <!-- #endregion validate -->
@@ -220,7 +220,9 @@ const saved = [
   { id: 'grid', type: 'game-grid' },
 ];
 
-validateItems(saved, ['listing-header', 'game-grid']).map((p) => p.message); // -> ['item is not an object', 'item id is not a string', 'children is not a list', 'duplicate sibling id', 'props is not an object']
+const problems = validateItems(saved, ['listing-header', 'game-grid']);
+
+problems.map((p) => [p.index, p.message]); // -> [[0, 'item is not an object'], [1, 'item id is not a string'], [2, 'children is not a list'], [3, 'duplicate sibling id'], [3, 'props is not an object']]
 ```
 
 <!-- #endregion structural-rules -->
