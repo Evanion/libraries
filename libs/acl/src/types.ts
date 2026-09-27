@@ -237,13 +237,14 @@ export interface Matrix {
 /**
  * Why a decision landed where it did. Output only.
  *
- * `unevaluable` and `unusable-clock` both refuse and both mean "the engine could
- * not reach an answer", and they are two reasons because the caller's move
- * differs: `unevaluable` names paths in `missing` and one refetch settles it,
+ * `unevaluable` and `unusable-clock` both answer `allowed: false` and both mean
+ * "the engine could not reach an answer", so neither is a refusal. They are two
+ * reasons because the caller's move differs: `unevaluable` names paths in
+ * `missing` and one refetch settles it,
  * `unusable-clock` says the instant the call supplied does not parse and only a
  * different argument settles it.
  *
- * `stale-contract` is the third refusal with a caller's move attached, and the
+ * `stale-contract` is the third reason with a caller's move attached, and the
  * move is a fetch of the document itself. The holder is past the freshness
  * budget `Matrix.maxStale` states, so the document carries no claim about the
  * present and every key answers this, including a key it does not hold.
