@@ -6,7 +6,7 @@ have the HTML React wrote for it.
 <PageSheet
   difficulty={1}
   read={5}
-  hands={15}
+  hands={20}
   requires={[['Overview', '/react-widget']]}
   unlocks={[['Writing and checking items', '/react-widget/examples']]}
 />
@@ -37,8 +37,8 @@ yarn add @evanion/react-widget
 pnpm add @evanion/react-widget
 ```
 
-The item type and `validateItems` come from `@evanion/widget`, which the package
-pins exactly and re-exports, so this one install is enough.
+`validateItems` comes from `@evanion/widget`, which this package pins exactly
+and re-exports, so this one install is enough.
 
 ## Render one react-widget region
 
@@ -51,10 +51,18 @@ renders each item's component with its `props`. `renderToStaticMarkup`, from
 
 ```
 
-To run it, import `createWidgets` from `@evanion/react-widget` and
-`renderToStaticMarkup` from `react-dom/server`, then add `console.log(html)` at
-the end. The file prints the string in the `// ->` comment. If it does,
-react-widget is working in your project.
+To run it:
+
+1. Save the code above as `render.tsx`.
+2. Import `createWidgets` from `@evanion/react-widget` and
+   `renderToStaticMarkup` from `react-dom/server` at the top.
+3. Add `console.log(html)` at the end.
+4. Set `"jsx": "react-jsx"` under `compilerOptions` in `tsconfig.json`. The
+   file imports no `React`, and the classic JSX transform needs it in scope.
+5. Run `npx tsx render.tsx`.
+
+The file prints the string in the `// ->` comment. If it does, react-widget is
+working in your project.
 
 | In the HTML                  | Where it came from                                   |
 | ---------------------------- | ---------------------------------------------------- |
@@ -64,9 +72,10 @@ react-widget is working in your project.
 | `<h3>Brass: Birmingham</h3>` | `ListingCard`, the only markup the widget wrote      |
 
 `as const` keeps `type` the literal `'listing'`. Without it TypeScript widens
-the type to `string`, and passing the array to `Widgets` is a compile error.
-`defineItems`, from the Overview's capability table, types a whole array at
-once.
+the type to `string`, and passing the array to `Widgets` is a compile error. An
+array written inline in the JSX, as on the Overview, is typed in place and needs
+no `as const`. `defineItems`, from the Overview's capability table, types a
+whole array held in a variable.
 
 Call `createWidgets` once, at module scope. Each call returns a new `Widgets`
 component, so a call inside a component remounts the region on every render.
