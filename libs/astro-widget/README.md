@@ -133,34 +133,19 @@ problems; // -> [{ index: 2, id: 'questions', type: 'answer-wall', message: 'unk
 
 <!-- #endregion validate -->
 
-A build script runs it over the payload before `astro build`. The script takes
-the type names as a plain list, because a Node process cannot import the
-`.astro` modules the registry holds:
-
-<!-- #region build-gate -->
+A build script runs it over the items before `astro build`.
+[`examples/scripts/check-content.ts`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/scripts/check-content.ts)
+is one, and throws on any problem, so
+`npx tsx scripts/check-content.ts && astro build` stops before Astro runs. It takes the type names as a plain list, because a
+Node process cannot import the `.astro` modules the registry holds. Importing
+it runs it over the listing page's items:
 
 ```ts @import.meta.vitest
-import { validateItems } from '@evanion/astro-widget';
-
-import { items } from './examples/src/data/brass-birmingham';
-
-const known = ['listing-header', 'price-box'];
-const required = { 'listing-header': ['title'], 'price-box': ['price'] };
-
-const report = validateItems(items, known, required).map(
-  (problem) =>
-    `section ${problem.index} (${problem.id}, ${problem.type}): ${problem.message}`,
-);
-
-report; // -> []
-
-if (report.length > 0) throw new Error(report.join('\n'));
+await import('./examples/scripts/check-content');
 ```
 
-<!-- #endregion build-gate -->
-
-`validateItems` reads only the keys of whatever it is handed as `known`, so the
-registry and the list of its names report the same thing:
+`validateItems` reads a registry's keys and never its values, so the registry
+and the list of its names report the same thing:
 
 <!-- #region known-types -->
 

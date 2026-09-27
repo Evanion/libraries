@@ -26,9 +26,10 @@ so the compiler has nothing to check an item against.
 
 Run `validateItems` from a script before `astro build`. The script below is the
 whole check for the Baize listing page that Getting started renders, and
-`items` is the list the CMS saved for it:
+`items` is the list the CMS saved for it. Save it as
+`scripts/check-content.ts`:
 
-```ts file=libs/astro-widget/README.md region=build-gate
+```ts file=libs/astro-widget/examples/scripts/check-content.ts region=build-gate
 
 ```
 
@@ -37,7 +38,7 @@ modules the registry holds. The `throw` gives the script a non-zero exit code,
 so the build command stops before Astro runs:
 
 ```bash
-node scripts/check-content.mjs && astro build
+npx tsx scripts/check-content.ts && astro build
 ```
 
 A CMS webhook can run the same check when an editor saves, so the editor sees
