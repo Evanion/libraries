@@ -5,5 +5,4 @@ import {
   createWidgets,
   DefaultItem,
   DefaultWrapper,
-  defineWidgets,
 } from '@evanion/react-widget';

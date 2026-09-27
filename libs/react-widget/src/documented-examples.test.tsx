@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { Shelf } from '../examples/listing.js';
+import { ShopPage } from '../examples/listing.js';
 
 /**
  * The listings the documentation renders, run.
@@ -10,15 +10,15 @@ import { Shelf } from '../examples/listing.js';
  * page shows whatever that file says. Rendering it here is what makes the
  * page's claim about the output a claim something can fail on: the page states
  * that items render in array order, each inside the identifying element the
- * renderer adds, and all of it inside the chrome wrapper. That is what is
+ * renderer adds, and all of it inside the default wrapper. That is what is
  * asserted below.
  */
 describe('the documented examples', () => {
-  it('renders the shelf in the order the array is written, inside the wrapper', () => {
-    const { container } = render(<Shelf />);
+  it('renders the page in the order the array is written, inside the wrapper', () => {
+    const { container } = render(<ShopPage />);
 
     expect(container.innerHTML).toBe(
-      '<section class="shelf">' +
+      '<section>' +
         '<div data-widget-id="b1" data-widget-type="booking">' +
         '<div class="booking"><span>4 tables</span><span>tonight</span></div>' +
         '</div>' +
