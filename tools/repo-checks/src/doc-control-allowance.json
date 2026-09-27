@@ -1,3 +1,3 @@
 {
-  "astro-widget": "The control is the storefront's rendered output embedded beside the data that produced it, generated at docs build time. Step 13 designed it and did not build it: an .astro component compiles against a project, so the markup has to be produced by a build step outside apps/docs and handed over as an artifact."
+  "astro-widget": "The control is achievable: libs/astro-widget already renders Widgets.astro through Astro's container API in its tests. A follow-up unit builds a payload picker whose rendered output the container API produces at docs build time. The wait holds until that unit merges or 2026-11-01, whichever comes first."
 }
