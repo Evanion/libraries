@@ -1,10 +1,22 @@
 # Getting started
 
 By the end of this page `Widgets.astro` renders a Baize listing page from two
-items a CMS saved, and you have read the HTML Astro wrote for it.
+items a CMS saved, and you have opened the page in `astro dev`.
+
+<PageSheet
+  difficulty={1}
+  read={5}
+  hands={15}
+  requires={[['Overview', '/astro-widget']]}
+  unlocks={[
+    ['Check CMS items before Astro renders them', '/astro-widget/validation'],
+    ['API reference', '/astro-widget/api'],
+  ]}
+/>
 
 ## Before you install astro-widget
 
+- An Astro project. `npm create astro@latest` makes one.
 - Astro `^7.3.4`, the package's only peer dependency.
 - Node 20 or newer and an ESM project, since `@evanion/astro-widget` has no
   CommonJS build.
@@ -23,12 +35,12 @@ yarn add @evanion/astro-widget
 pnpm add @evanion/astro-widget
 ```
 
-`@evanion/widget` installs with it. `defineWidgets`, `validateItems` and the
-item types come from that package, and you import them from
-`@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and
-Astro compiles it from `node_modules` with no configuration.
+Import everything from `@evanion/astro-widget`. It re-exports `defineWidgets`,
+`validateItems` and the item types from `@evanion/widget`, which installs with
+it. `Widgets.astro` is published as `.astro` source, and Astro compiles it from
+`node_modules` with no configuration.
 
-## Write an astro-widget widget
+## Write a widget for astro-widget
 
 A widget is an ordinary `.astro` component. Save this one as
 `src/widgets/ListingHeader.astro`. It renders the `title` and `players` props a
@@ -49,7 +61,7 @@ carries:
 
 The registry maps each item's `type` to the widget that renders it.
 `defineWidgets` returns the object it is handed, with the keys kept as literal
-types, so an editor completes the type names. Save the registry as
+types, so your code editor completes the type names. Save the registry as
 `src/registry.ts`:
 
 ```ts file=libs/astro-widget/examples/src/registry.ts region=registry
@@ -60,7 +72,8 @@ types, so an editor completes the type names. Save the registry as
 
 The CMS writes the listing page as a list of items, and each item's `props` are
 the props its widget takes. Save the list as `src/data/brass-birmingham.ts`. In
-your site the CMS writes the same list as JSON, and the page imports that file:
+your site the CMS writes the same list as a JSON file, and the page imports that
+JSON file in its place:
 
 ```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 
@@ -77,20 +90,19 @@ its widget, in order. Save the page as `src/pages/brass-birmingham.astro`:
 
 ## See the HTML astro-widget rendered
 
-`AstroContainer`, Astro's container API, renders `brass-birmingham.astro`
-outside a request and returns the markup the page renders:
+Run `astro dev` and open `/brass-birmingham`. The header and the price render
+inside `<main>` in the order the items list them, and `Widgets.astro` adds no
+element of its own. The package's tests render the same page, saved in the
+package as `examples/src/pages/brass-birmingham.astro`, with Astro's container
+API, and check that its HTML is this:
 
 ```ts file=libs/astro-widget/README.md region=first-render
 
 ```
 
-The header and the price render inside `<main>` in the order the items list
-them, and `Widgets.astro` added no element of its own. Run `astro dev` and open
-`/brass-birmingham` to see the header and the price in a browser.
-
 ## Now that astro-widget renders the page, check the items first
 
 `Widgets.astro` skips an item whose `type` the registry does not hold, so a CMS
 save with a stale type publishes a page with a gap in it.
-[Validation](/astro-widget/validation) runs `validateItems` over the items and
-fails the build on that save.
+[Check CMS items before Astro renders them](/astro-widget/validation) runs
+`validateItems` over the items and fails the build on that save.
