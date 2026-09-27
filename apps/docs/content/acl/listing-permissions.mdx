@@ -1,62 +1,66 @@
 # What may this user do at all?
 
+`access.capabilities(subject)` answers every permission in the matrix for one
+subject in one call, so a navigation menu draws its items before any row is
+fetched.
+
 <WorkshopNotice slug="acl" />
 
 <PageSheet
   difficulty={2}
   read={5}
   hands={15}
-  requires={[['Rules about who the user is', '/acl/subject-rules']]}
+  requires={[['Can this user do this?', '/acl/asking']]}
   unlocks={[
-    ['Can this user do this?', '/acl/asking'],
+    ['Which fields may they write?', '/acl/writing'],
     ['Many services', '/acl/federation'],
   ]}
 />
 
-**The concept.** `capabilities` resolves every permission in the document
-against one subject, passing no object.
-**What you get.** A map keyed by permission, each entry a full decision, which a
-navigation menu filters its items against.
-**Why you want it.** A menu holding its own list of permission keys stops
-matching the document the day somebody adds a key to one and not the other.
-**How the library gets you there.** `capabilities` walks the whole document in
-one pass, in document order.
+## One acl call behind a whole navigation menu
 
-## What one capabilities call returns
+Baize's sidebar draws its Reports and Listings entries before the page has
+fetched a report or a listing. A sidebar calling `can` once per entry keeps its
+own list of permission keys beside the policy, and that list stops matching the
+document the day somebody adds a permission to one and not the other.
 
 `capabilities(subject, now?)` resolves every permission in the document against
-one subject, passing no object, keyed by permission, in document order, in one
-pass. Every entry is a full decision, and the menu filters the map. Baize's
-sidebar renders before any listing, order or report has been fetched, and Jo
-sees two of its six entries.
-
-A menu calling `can` once per entry reads the clock six times and scans the
-permission list six times, and its hand-written list of keys goes stale the day
-somebody adds a permission. One call at the top of a render replaces that loop.
+one subject, passing no object, and returns a map keyed by permission in
+document order. Each entry is the decision `can` returns: `allowed` is the
+answer, and `reason` says which branch of the engine produced it, as
+[Can this user do this?](/acl/asking) sets out.
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
 
 ```
 
-One policy holds every object kind the app has. The one above chains
-`.for('report')` and `.for('listing')`, and `capabilities` answers across both
-in the single call.
+One policy holds every object kind, so the chain of `.for('report')` and
+`.for('listing')` puts both kinds in one document and one call answers across
+them. The third type argument names the actions `report` answers for, because
+`export` is not one of the four `Action` verbs. Only the `owner` role holds
+`report.export` and `listing.read`, so a bookseller gets `no-rule-matched` for
+both.
 
-## The no-object contract in acl
+## Why an acl capability map carries `unevaluable` entries
 
-`capabilities` passes no object, and that decides what its answers can mean:
+`capabilities` passes no object, and that decides what each entry can mean:
 
-- A permission whose rules read only `subject.*` decides definitely. The subject
-  was resolved whole before the call, so a field it lacks is a field it does not
-  have.
-- A permission the subject alone cannot settle decides `unevaluable`, with
-  `missing` naming the object paths. `false` would overstate what the engine
-  knows.
+- A permission settles when its rules read only `subject.*`, because the
+  server resolves the subject whole before the call. It also settles when a
+  rule that reads `object.*` fails on its subject conditions alone, because no
+  row could make that rule match.
+- A permission that needs the row decides `unevaluable`, the answer for a path
+  a rule needs and the call did not carry, with `missing` naming the paths.
 
-A rule that reads the object still settles when its subject conditions decide
-the rule on their own. A rule requiring `subject.roles` to contain `bookseller`
-fails definitely for a customer, whatever `object.*` paths sit beside it, and
-the permission answers `no-rule-matched` without the row:
+```ts twoslash file=libs/acl/README.md region=capabilities-object
+
+```
+
+The customer's `question.update` entry is `unevaluable` because its one rule
+compares `object.askedBy` with the subject's id and no question was passed.
+`false` there would say the customer may edit no question, which is wrong for
+the ones they asked. `question.hide` settles without the row: its rule also
+requires `bookseller` in `subject.roles`, and the customer holds no roles.
 
 ```mermaid caption="One subject against the whole document, in one pass. A permission whose rules read only subject.* settles. A permission whose object rules the subject already decides settles too, as denied or no-rule-matched. What is left is the permission that needs the row, and it comes back unevaluable with missing naming the paths."
 flowchart LR
@@ -66,83 +70,48 @@ flowchart LR
   P -->|"the rules still need the row"| U["unevaluable<br>missing names the paths"]
 ```
 
-<Panel heading="`unevaluable` in a capability map is normal">
+<Panel heading="Read a capability map as a list of `allowed === true`">
   <Text as="div" size="sm">
-    All three rules above read `subject.roles`, so all three entries decide
-    definitely. Add a rule that needs `object.*` to settle and its entry comes
-    back `unevaluable` for every subject the rule's own conditions do not
-    already decide. That is not a misconfiguration. Read the map as a list of
-    `allowed === true`, and never read `allowed === false` as "refused".
+    An `unevaluable` entry carries `allowed: false` and is not a refusal. A menu
+    that reads `allowed === false` as "refused" hides an entry the subject may
+    hold on some rows.
   </Text>
 </Panel>
 
-## Driving a menu from an acl capability map
+## Drawing a menu from an acl capability map
 
-A navigation menu asks the object-free question: is there any point showing this
-section. One `capabilities` call at the top of a render answers it, and each
-item is one lookup.
+The menu keeps an item when the map carries its key and the entry allows. The
+storefront below adopted `stock`'s document with `parseMatrix`, the call that
+builds an evaluator over a document another service served:
 
-The policy below declares `report` and stops there. Chain the app's other kinds
-onto the same `policy()` call and the map grows the keys with it, and the menu
-code does not change.
+```ts twoslash file=libs/acl/README.md region=capabilities-menu
 
-```ts twoslash
-import { policy } from '@evanion/acl';
-
-const access = policy<{ id: string }, { report: { ownerId: string } }>()
-  .for('report', (p) => p.allow('read', p.always))
-  .build();
-
-const subject = { id: 's1' };
-// ---cut---
-const caps = access.capabilities(subject);
-//    ^?
-```
-
-so the menu is a filter over it:
-
-```ts twoslash
-import { parseMatrix } from '@evanion/acl';
-import type { Matrix } from '@evanion/acl';
-
-declare const document: Matrix;
-const access = parseMatrix(document);
-const subject = { id: 's1' };
-const caps = access.capabilities(subject);
-// ---cut---
-const items = [
-  { href: '/reports', label: 'Reports', key: 'report.read' },
-  { href: '/listings', label: 'Listings', key: 'listing.read' },
-].filter((item) => caps[item.key]?.allowed === true);
 ```
 
 Compare with `=== true`, and reach the entry with `?.`. A key the document does
-not carry is absent from the map, and `listing.read` above is that case. A menu
-built on `!caps[key]?.allowed` shows every item the matrix has never heard of.
+not carry is absent from the map, and `listing.read` is that key here: the
+`leaky` filter hides only what the map refuses, so it shows Listings to every
+subject. This document arrived as JSON, so its keys are `string` and the miss
+happens at runtime. A policy the builder authored types the map by its own
+keys, and `caps['listing.read']` on it is a compile error.
 
-This document arrived as JSON, so its keys are `string` and the miss happens at
-runtime. A policy the builder authored carries its keys in the type, and
-`caps['listing.read']` is then a compile error and never an absent entry.
+Make one `capabilities` call per render. It reads the clock once for the whole
+document, where a loop of `can` reads it per permission, so a `p.before` or
+`p.after` boundary can fall between two items of one render.
 
-Make one `capabilities` call for the whole menu, because it settles one instant
-for the whole document. A loop of `can` settles the clock per permission, so a
-`before` boundary can fall between two items of one render.
+## What an acl capability map does not answer
 
-## What an acl capability map does not replace
+A control on one row, such as the Edit button under one question, needs that
+row. Ask `can` with the question, or
+[`canMany`](/acl/asking#asking-acl-about-a-page-of-rows) with the page of rows.
+An entry that came back `unevaluable` is the map saying so.
 
-A row-level control (the edit button on one question) is a `can` with that
-question, or a [`canMany`](/acl/asking#asking-about-a-list) over the page of
-rows. A capability map cannot answer it, and an entry that came back
-`unevaluable` is the map saying so.
+A capability map is also not a copy of the rules to ship to a browser. Ship
+`access.matrix` and let the browser rebuild an evaluator with `hydratePolicy`,
+as [the Overview](/acl) draws it. A map computed per subject is a second
+document to keep fresh.
 
-`capabilities` is also not a per-subject projection to ship to a client. Ship
-the client `access.matrix` and let the client evaluate it locally, which is the
-package's whole premise. A per-subject projection is a second artifact to keep
-fresh.
+## Now that the menu draws, decide what a form may write
 
-## Where to go next
-
-- [Can this user do this?](/acl/asking). The per-instance question.
-- [Why was this refused?](/acl/refusals). Reading `reason` and `missing` out of
-  a capability map.
-- [Many services](/acl/federation). Folding one view out of several origins.
+[Which fields may they write?](/acl/writing) takes one row the menu led to and
+decides, field by field, what a save may carry.
