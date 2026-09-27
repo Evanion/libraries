@@ -5,6 +5,10 @@ on:
     branches:
       - main
   pull_request:
+  # The merge queue tests a group of pull requests rebased together on main,
+  # and merges them only when the checks the ruleset requires report on that
+  # group. Those checks are the jobs below, so they run on the group's commit.
+  merge_group:
 
 permissions:
   actions: read
