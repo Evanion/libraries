@@ -2,7 +2,7 @@
  * A feature identifier.
  *
  * `string | number` rather than `string`, so a consumer can key features on a
- * numeric enum and still get exhaustiveness from `Decisions<F>`.
+ * numeric enum and still get exhaustiveness from `Decisions`.
  */
 export type FeatureKey = string | number;
 
@@ -96,6 +96,35 @@ export interface VariantSpec {
   order?: number;
   value?: unknown;
 }
+
+/** What a schema records about one feature: its variant names and their values. */
+export interface VariantInfo {
+  variant: string;
+  value?: unknown;
+}
+
+/**
+ * A map from feature key to what that feature's variants are.
+ *
+ * A consumer writes one of these to type a store built from configuration that
+ * arrived as JSON, where there are no literals for `InferSchema` to read. A
+ * store built from a literal gets its schema inferred and nobody writes this.
+ */
+export type Schema = Record<string, VariantInfo | never>;
+
+/**
+ * The schema a definitions array implies.
+ *
+ * A definition that declares no variants maps to `never`, and `Decisions` and
+ * `Plan` read that `never` as "this feature has no variants".
+ */
+export type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
+  [E in D[number] as E['key']]: E extends {
+    variants: infer V extends readonly VariantSpec[];
+  }
+    ? { variant: V[number]['name']; value: V[number]['value'] }
+    : never;
+};
 
 /**
  * Stored intent for one feature. This is configuration: evaluation never writes
@@ -205,7 +234,11 @@ export interface Cause<F extends FeatureKey = string> {
  * only -- nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`,
  * `cause`, `variant`, `value` or `assignment` back to decide anything.
  */
-export interface Decision<F extends FeatureKey = string> {
+export interface Decision<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   enabled: boolean;
   reason: Reason;
@@ -218,9 +251,9 @@ export interface Decision<F extends FeatureKey = string> {
   /** The first ancestor off for its own reason, on `dependency-off`. */
   cause?: Cause<F>;
   /** The assigned variant, on a feature that resolved on and declares variants. */
-  variant?: string;
+  variant?: V;
   /** The assigned variant's configured value, when it declares one. */
-  value?: unknown;
+  value?: T;
   /**
    * How the variant was chosen. Output only, like `reason`.
    *
@@ -237,10 +270,27 @@ export interface Decision<F extends FeatureKey = string> {
   };
 }
 
-export type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
+/**
+ * One decision per feature, each narrowed to what its own variants allow.
+ *
+ * The `[S[K]] extends [never]` guard is what keeps a variant-free feature
+ * honest. `never` is a subtype of every type, so a plain `S[K] extends
+ * VariantInfo` check takes the variant branch for a feature that declares none
+ * and hands it `variant: never`, and no error reports it. The tuple wrap
+ * suppresses distribution and asks the question the branch means to ask.
+ */
+export type Decisions<S extends Schema> = {
+  [K in keyof S]: [S[K]] extends [never]
+    ? Decision<K & FeatureKey>
+    : Decision<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+};
 
 /** One feature's build-time plan. */
-export interface PlanEntry<F extends FeatureKey = string> {
+export interface PlanEntry<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   /**
    * `'deferred'` when some rule, or this feature's variant split, still needs
@@ -258,10 +308,15 @@ export interface PlanEntry<F extends FeatureKey = string> {
    * lacked the bucketing field. A decision no longer implies that `resolved` is
    * a boolean.
    */
-  decision?: Decision<F>;
+  decision?: Decision<F, V, T>;
 }
 
-export type Plan<F extends FeatureKey = string> = Record<F, PlanEntry<F>>;
+/** One plan entry per feature, guarded on `never` exactly as `Decisions` is. */
+export type Plan<S extends Schema> = {
+  [K in keyof S]: [S[K]] extends [never]
+    ? PlanEntry<K & FeatureKey>
+    : PlanEntry<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+};
 
 export type ToggleResult<F extends FeatureKey = string> =
   | {

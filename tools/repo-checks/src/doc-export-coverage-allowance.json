@@ -16,6 +16,7 @@
       "FeatureDefinition",
       "FeatureKey",
       "FeatureProviderProps",
+      "InferSchema",
       "Instant",
       "Plan",
       "PlanEntry",
@@ -23,10 +24,12 @@
       "RolloutSpec",
       "Rule",
       "RuleOutcome",
+      "Schema",
       "ToggleResult",
       "UnknownDependencyError",
       "UnknownVariantError",
       "VariantAssignment",
+      "VariantInfo",
       "VariantSpec",
       "Weekday",
       "WindowCondition",
@@ -64,10 +67,8 @@
     ],
     "unexplained": [
       "Condition",
-      "Decisions",
       "FeatureProvider",
       "FeatureProviderProps",
-      "Plan",
       "Reason",
       "ToggleResult"
     ]
