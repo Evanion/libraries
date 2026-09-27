@@ -100,7 +100,8 @@ that holds `GameGrid`, gives this markup:
 An item whose `type` is not an own key of the registry renders nothing, and the
 rest of the list renders. Unless `NODE_ENV` is `production`, `console.warn`
 prints [`ERROR_MESSAGES.UNKNOWN_WIDGET`](#error_messages) for the item. It
-prints each distinct message once for the life of the process:
+prints each distinct message once for the life of the process. Below, the
+registry holds no `answer-wall`, so only the price renders:
 
 ```ts file=libs/astro-widget/README.md region=skip-unknown
 
@@ -137,7 +138,9 @@ function validateItems(
 
 `validateItems` walks `items` and their `children`, and returns every problem it
 finds. It never throws and never stops at the first problem, so one call reports
-a whole list. It is the only check an astro-widget item's props get.
+a whole list. It is the only check an astro-widget item's props get. Below,
+`answer-wall` is not in the list of known types, and the `price-box` item has no
+`price`:
 
 ```ts twoslash file=libs/astro-widget/README.md region=validate
 

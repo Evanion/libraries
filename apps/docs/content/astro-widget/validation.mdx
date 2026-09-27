@@ -54,9 +54,9 @@ npx tsx scripts/check-content.ts && astro build
 
 The second argument, `known`, takes a registry or a list of type names. From a
 registry `validateItems` reads only the keys, and from a list it reads the
-names, so both report the same problems. Code that Astro or Vite compiles, such as a Vitest
-test or a page's frontmatter, can import the registry and pass it, and then the
-check and the render read one list of types:
+names, so both report the same problems. Code that Astro or Vite compiles, such
+as a Vitest test or a page's frontmatter, can import the registry and pass it,
+and then the check and the render read one list of types:
 
 ```ts file=libs/astro-widget/README.md region=known-types
 
