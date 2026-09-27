@@ -27,9 +27,10 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-acl answers inside the process that asked. No request leaves your server, and
-nothing has to be invalidated when you change a rule, because the rule and the
-answer are the same object.
+acl answers inside the process that asked. No request leaves your server, and a
+process holding a copy of the matrix answers from that copy after you change a
+rule, until it
+[fetches the new version](/acl/advanced#refetching-an-acl-matrix-when-its-version-moves).
 
 A question to acl looks like this. Baize, a board game shop, lets the customer
 who asked a question edit it:
