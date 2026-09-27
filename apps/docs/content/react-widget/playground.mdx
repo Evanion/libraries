@@ -4,7 +4,7 @@
 its items, and editors whose snippets you change and run.
 
 <PageSheet
-  difficulty={3}
+  difficulty={4}
   read={6}
   hands={20}
   requires={[
@@ -17,19 +17,23 @@ its items, and editors whose snippets you change and run.
 ## A Baize page as one react-widget region
 
 The demo below is one `Widgets` region: the page Baize's staff read for the
-week. Two top-level `columns` items compose it. `week` holds three `metric`
-items, and `counter` holds a `tables` item and a `reprints` item, each a titled
-panel around a data table. All seven items are printed under the page.
+week. It holds two top-level items of type `columns`, a row that lays its nested
+items side by side. The item with id `week` nests three `metric` items, each one
+figure. The item with id `counter`, the shop counter's row, nests a `tables`
+item and a `reprints` item, each a titled panel around a data table. The
+`tables` item carries `meta.span: 2`, so the item chrome gives it two columns.
+All seven items are printed under the page.
 
-Move an item with the arrows beside its first line, and `Widgets` renders the
-page again. Moving `counter` above `week` swaps the two rows, each with the
-items nested under it, which a flat `items.map` cannot express. Moving `tables`
-past `reprints` swaps the wide side, because `meta.span`, the number of columns
-the item chrome gives an item, belongs to the item and travels with it.
+Move an item with the arrows beside the line that opens it in that listing, and
+`Widgets` renders the page again. Moving `counter` above `week` swaps the two
+rows, and each row takes its nested items with it. Moving `tables` past
+`reprints` puts the two-column panel on the other side, because `meta.span`
+belongs to the item and travels with it.
 
 <DataDemo />
 
-What is on screen is the published renderer over the items printed under it.
+The published `Widgets` renders this demo from the items printed under it, and
+nothing is simulated.
 
 ## Edit a react-widget region in the browser
 
@@ -60,8 +64,8 @@ async widget and the streaming behaviour of
 Type errors do not show. The snippets are strings that nothing type-checks, so
 an unknown `type`, a mistyped prop and `children` under a widget that renders
 none all run without complaint. The console stays quiet too: this site is a
-production build, and `Widgets` warns only in development. What the editor
-shows is the rendered output and the chrome composing around it.
+production build, and `Widgets` warns only in development. The preview shows
+only the HTML `Widgets` rendered, inside the chrome the snippet passed.
 
 ## Things to change in a react-widget snippet
 
@@ -71,5 +75,5 @@ shows is the rendered output and the chrome composing around it.
   `undefined`, which is the gap the type checker closes outside this editor.
 - The `chrome.wrapper`. The region's container changes and every widget stays
   inside it.
-- An item's position in the array. `id` is the React key, so a reorder moves the
-  existing element and keeps its state.
+- An item's position in the array. The region renders the items in the new
+  order.
