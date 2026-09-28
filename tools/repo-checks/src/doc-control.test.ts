@@ -51,19 +51,26 @@ const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
 /**
  * The controls a demonstration page may mount.
  *
- * The three general ones are named, and the landing specimens are read out of
+ * The three general ones are named, and the rest are read out of
  * `mdx-components.js` rather than listed, because registration is what puts a
- * specimen on the map in the first place: a component under
- * `components/landing/` that is not registered there cannot be mounted on a
- * page at all, so the map is the set.
+ * control on the map in the first place: a component that is not registered
+ * there cannot be mounted on a page at all, so the map is the set. Two kinds of
+ * directory hold controls. `components/landing/` holds the front page's
+ * specimens, and a directory named for a documented section, such as
+ * `components/acl/`, holds the controls that belong to that section's pages.
  */
-function controls(): string[] {
+function controls(slugs: string[]): string[] {
   const source = readFileSync(MAP, 'utf8');
-  const specimens = [
-    ...source.matchAll(/^import\s+(\w+)\s+from\s+'\.\/components\/landing\//gm),
-  ].map(([, name]) => name as string);
+  const homes = new Set(['landing', ...slugs]);
+  const registered = [
+    ...source.matchAll(
+      /^import\s+(\w+)\s+from\s+'\.\/components\/([\w-]+)\//gm,
+    ),
+  ]
+    .filter(([, , home]) => homes.has(home as string))
+    .map(([, name]) => name as string);
 
-  return ['Probe', 'WidgetPlayground', 'PlaygroundExamples', ...specimens];
+  return ['Probe', 'WidgetPlayground', 'PlaygroundExamples', ...registered];
 }
 
 async function documentedSections(): Promise<DocumentedPackage[]> {
@@ -88,15 +95,22 @@ function mountsControl(slug: string, page: string, names: string[]): boolean {
 }
 
 describe('the section control', () => {
-  it('finds the controls the site registers', () => {
-    expect(controls().length).toBeGreaterThan(0);
+  it('finds the controls the site registers', async () => {
+    const slugs = (await documentedSections()).map((entry) => entry.slug);
+
+    expect(controls([]).length).toBeGreaterThan(3);
+    expect(
+      controls(slugs),
+      "A control under a section directory counts as that section's control.",
+    ).toContain('FieldWriteDemo');
   });
 
   it('is mounted on the page every section names as its demonstration', async () => {
-    const names = controls();
+    const sections = await documentedSections();
+    const names = controls(sections.map((entry) => entry.slug));
     const bare: string[] = [];
 
-    for (const entry of await documentedSections()) {
+    for (const entry of sections) {
       if (entry.demoExempt !== undefined) continue;
       if (entry.slug in allowance) continue;
       if (entry.demo === undefined) continue;
@@ -116,10 +130,11 @@ describe('the section control', () => {
   });
 
   it('records no wait a section has already ended', async () => {
-    const names = controls();
+    const sections = await documentedSections();
+    const names = controls(sections.map((entry) => entry.slug));
     const stale: string[] = [];
 
-    for (const entry of await documentedSections()) {
+    for (const entry of sections) {
       if (!(entry.slug in allowance)) continue;
       if (entry.demo === undefined) continue;
 
