@@ -5,8 +5,10 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Two claims `docs/specs/2026-09-23-feature-observation-seam.md` puts on the
- * documentation itself, read back where the spec puts them.
+ * The claims `docs/specs/2026-09-23-feature-observation-seam.md` puts on the
+ * documentation itself, read back where the spec puts them. The spec names four
+ * sections that word the documentation, and this file holds each placement one
+ * of them asks for.
  *
  * § 1 closes by requiring the exposure warning at the member, because an
  * operator who reads "the library supports an observer" assumes the observer
@@ -30,15 +32,22 @@ import { describe, expect, it } from 'vitest';
  * survives an edit to the prose around it, and a whole-sentence match would
  * turn every rewording into a failure.
  *
+ * § 5 measures the engine's own guard and requires the measurement beside the
+ * latency argument, because a reader who benchmarks a blocking observer sees the
+ * transport dominate the call and attributes that time to the library. The
+ * Observing page, the member and the API reference entry all argue the latency,
+ * so all three carry the measurement.
+ *
  * The scope is this one seam. A general rule that documentation carries every
- * sentence a spec asks for has no way to find the pairs, and the spec names
- * these two placements itself.
+ * sentence a spec asks for has no way to find the placements, and the spec names
+ * each one itself.
  */
 
-/** Where each notice sits, and the phrases that carry its claim. */
+/** The spec section each notice answers, where it sits, and the phrases that carry its claim. */
 const NOTICES = [
   {
     what: 'the exposure warning on the `observe` member',
+    spec: '§ 1',
     file: 'libs/feature/src/lib/observe.ts',
     from: '   * Called once per public entry point call',
     until: '  observe?: (event',
@@ -51,6 +60,7 @@ const NOTICES = [
   },
   {
     what: 'the exposure warning on the API reference entry',
+    spec: '§ 1',
     file: 'apps/docs/content/feature/api.mdx',
     from: '### `FeatureOptions<S>`',
     until: '### `FrozenWhenObserved',
@@ -63,6 +73,7 @@ const NOTICES = [
   },
   {
     what: 'the loss-at-exit note on the `observe` member',
+    spec: '§ 6',
     file: 'libs/feature/src/lib/observe.ts',
     from: '   * Called once per public entry point call',
     until: '  observe?: (event',
@@ -75,6 +86,7 @@ const NOTICES = [
   },
   {
     what: 'the loss-at-exit note on the API reference entry',
+    spec: '§ 6',
     file: 'apps/docs/content/feature/api.mdx',
     from: '### `FeatureOptions<S>`',
     until: '### `FrozenWhenObserved',
@@ -87,6 +99,7 @@ const NOTICES = [
   },
   {
     what: 'the drain shape on the Observing page',
+    spec: '§ 8',
     file: 'apps/docs/content/feature/observing.mdx',
     from: '## Records in flight are lost at exit',
     until: '## `correlateBy`',
@@ -101,7 +114,42 @@ const NOTICES = [
     ],
   },
   {
+    what: "the guard's measurement on the Observing page",
+    spec: '§ 5',
+    file: 'apps/docs/content/feature/observing.mdx',
+    from: '## An observer never awaits and never changes an outcome',
+    until: '## When an observer throws',
+    phrases: [
+      'stays within run-to-run noise of the bare call',
+      'between 20 and 22 microseconds',
+      'the number anyone should care about is what their own hook body does',
+    ],
+  },
+  {
+    what: "the guard's measurement on the `observe` member",
+    spec: '§ 5',
+    file: 'libs/feature/src/lib/observe.ts',
+    from: '   * Called once per public entry point call',
+    until: '  observe?: (event',
+    phrases: [
+      'stays within run-to-run noise of the bare call',
+      'the number anyone should care about is what their own hook body does',
+    ],
+  },
+  {
+    what: "the guard's measurement on the API reference entry",
+    spec: '§ 5',
+    file: 'apps/docs/content/feature/api.mdx',
+    from: '### `FeatureOptions<S>`',
+    until: '### `FrozenWhenObserved',
+    phrases: [
+      'stays within run-to-run noise of the bare call',
+      'the number anyone should care about is what their own hook body does',
+    ],
+  },
+  {
     what: 'the disclosure sentence beside `correlateBy`',
+    spec: '§ 4.2',
     file: 'apps/docs/content/feature/observing.mdx',
     from: '## `correlateBy` and what reaches an event',
     until: '## Exposure tracking',
@@ -138,5 +186,24 @@ describe.each(NOTICES)('$what', ({ file, from, until, phrases }) => {
     const text = passage(file, from, until);
 
     expect(text).toContain(phrase);
+  });
+});
+
+/**
+ * The docblock above names a spec section per notice, so a reader who adds a
+ * notice for a new section finds the section listed or fails here. A count
+ * written in prose drifts the moment someone adds a placement, and this case
+ * fails on the drift.
+ */
+describe('the docblock', () => {
+  const source = readFileSync(
+    join(workspaceRoot, 'tools/repo-checks/src/doc-observer-notices.test.ts'),
+    'utf8',
+  );
+  const docblock = source.slice(0, source.indexOf('const NOTICES'));
+  const sections = [...new Set(NOTICES.map((notice) => notice.spec))];
+
+  it.each(sections)('names %s', (spec) => {
+    expect(docblock).toContain(spec);
   });
 });

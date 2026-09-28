@@ -468,7 +468,9 @@ type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
 
 `observe` is called once per public entry point call and the engine never awaits
 it. `onObserveError` replaces the `console.warn` the engine writes when an
-observer throws or rejects.
+observer throws or rejects. The engine's own guard stays within run-to-run noise
+of the bare call, measured at forty features, so the number anyone should care
+about is what their own hook body does.
 
 `observe` does not count exposures. `resolve` decides every configured feature,
 so an observer fired from it reports a decision for every feature the request
