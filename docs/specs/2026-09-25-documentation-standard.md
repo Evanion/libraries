@@ -531,6 +531,14 @@ adopted, amended or declined here, with the reason.
   takes a table row; a member needing a code example takes its own `###`.
 - **Decision 9, an `##` carries at most 250 prose words and an `###` at most 140.** Our `###` sections run to 1,209 words, against a public range of 36 to 136.
 
+**How the counts are taken.** A list item's sentences count toward no rule,
+because a list is structure. A JSX component such as `<DataDemo />` breaks a
+prose run. The text a JSX wrapper such as `<Panel>` or `<WorkshopNotice>` holds
+is prose. A shell fence (`bash`, `sh`, `shell`, `console`) is not the first
+fence, because decision 6 counts a fence that shows code a reader reads; a
+`file=… region=…` fence and a `<!-- reference … -->` directive count, and a
+Mermaid diagram does not. An inline code span in the lede counts as words.
+
 **Amended.**
 
 - **Decision 2, a guide or concept page carries at most 1,050 prose words.**
@@ -885,17 +893,25 @@ guard that failed every Overview of every unpublished package would be measuring
 the component. The duplicate rendering on `simple.mdx` is a page defect and the
 pilot fixes it by moving the install to stage 2.
 
+**G13, `doc-shape.test.ts`.** § 7's decisions 3, 5, 6 and 7: the lede, the
+prose run, the sentences before the first fence and the words before the first
+backticked symbol. One block classifier reads every `.mdx` page under
+`apps/docs/content/` as headings, fences, lists, tables, JSX and prose, on the
+counter in `docs/specs/2026-09-20-documentation-density.md` § 1, and all four
+counts read that one classification. G13 encodes § 7's "How the counts are
+taken", and each answer has a fixture test.
+
+`doc-shape-allowance.json` holds each failing page's count per rule, keyed by
+page, on `doc-fence-allowance.json`'s numeric shape. It starts at 29 pages and
+53 counts. Both ratchet directions are written: a page's count may not rise
+above its entry, and an entry above the page's count, or on a rule the page now
+meets, fails as stale.
+
 ### What no guard reaches
 
 Longer than the old standard's list, because § 7's shape rules are readings and
 § 5's replacement for the brief is a judgement about a sentence.
 
-- **The lede length, the run length, the distance to the first fence and the
-  distance to the first symbol.** Each is a count and each could be guarded. None
-  is, because the block classifier they all need is the counter the density study
-  asked for and § 7 declined to commit. Writing the classifier is the one piece
-  of machinery that would move four rules from this list to the one above, and it
-  is a guard to write rather than a rule to decide.
 - **Whether a page's first sentence does its stage's job.** § 5's four sentences
   are four different jobs and no count separates them.
 - **Whether a page carries a rubric block.** `**The concept.**` is greppable and
@@ -973,6 +989,8 @@ account, which is what the owner asked for.
 7. **The block classifier**, if the shape rules in § 7 turn out to be violated
    often enough to be worth a guard. Measured after step 5 and not before, because
    rewriting 30 pages is what tells us whether authors keep the rules without one.
+   Done: pages rewritten under steps 3 to 5 broke the rules on `main`, and G13 in
+   § 14 now carries the lede, the run, the first fence and the first symbol.
 
 ## Testing
 
