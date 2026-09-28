@@ -254,7 +254,7 @@ export const packages: readonly DocumentedPackage[] = [
     hue: 'coral',
     demo: 'ui-checks',
     documented: true,
-    workshop: true,
+    workshop: false,
   },
   {
     name: '@evanion/react-acl',

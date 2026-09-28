@@ -1,7 +1,6 @@
 {
   "name": "@evanion/acl",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "A declarative, serializable access-control matrix authored once and evaluated locally on whatever JS runtime is running: a Node backend, a frontend SSR graph, a browser SPA, or a hybrid JS platform.",
   "keywords": [
     "authorization",
