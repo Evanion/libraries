@@ -494,9 +494,11 @@ definition it stores, so a readonly type states what the runtime provides, and
 literal values make a `switch` over `valueOf` exhaustive. A consumer needing a
 mutable copy clones it.
 
-`Features<F extends FeatureKey>` becomes `Features<S>` over a schema. A plain
-key union remains a valid schema, so a definition set declaring no variants
-keeps the types it has today.
+`Features<F extends FeatureKey>` becomes `Features<S>` over a schema. A schema
+is always a record from feature key to what that feature's variants are, so a
+key union on its own does not satisfy the constraint. A feature that declares no
+variants maps to `never`, and its decision carries no `variant` key and no
+`value` key, which is the shape a decision had before variants existed.
 
 ## Build-time planning
 
