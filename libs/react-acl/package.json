@@ -1,7 +1,6 @@
 {
   "name": "@evanion/react-acl",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "The React binding for @evanion/acl: a provider and hooks over an already-built access matrix.",
   "keywords": [
     "react",
