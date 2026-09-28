@@ -21,9 +21,9 @@ the callback, plus everything it calls or awaits. Inside it, the service's
 `getCorrelationId()` returns `id`.
 
 In an application `CorrelationIdMiddleware` opens the context for each request,
-so a handler only reads the id. Below, two contexts are opened by hand. The two
-handlers run at the same time, each awaits, and each reads the id its own
-context was opened with:
+so a handler only reads the id. Below, two contexts are opened by hand and one
+handler runs in both at the same time: each run awaits, then reads the id its
+own context was opened with:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=concurrent
 
