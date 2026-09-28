@@ -346,15 +346,21 @@ describe('resolve and isEnabled', () => {
   });
 
   it('answers what the store decided when an observer rewrites the decision', () => {
+    let rewrites = 0;
     const features = createFeatures(defs, {
       observe: (event) => {
         if (event.type !== 'is-enabled') return;
         (event.decision as { enabled: boolean }).enabled = false;
+        rewrites += 1;
       },
     });
 
     const enabled = features.isEnabled('cta', { targetingKey: 'u1' });
 
+    // The count is what makes the boolean a contract. An `isEnabled` that
+    // emitted nothing would answer `true` as well, so this case proves the
+    // observer ran and rewrote the decision the answer came off.
+    expect(rewrites).toBe(1);
     expect(enabled).toBe(true);
   });
 
@@ -407,7 +413,10 @@ describe('resolve and isEnabled', () => {
 
     features.resolve({ targetingKey: 'u1', account: { id: 'a1' } });
 
-    expect(observe.mock.calls[0]?.[0].subject).toBeUndefined();
+    // The key is absent, not present holding `undefined`. A consumer that
+    // branches on `'subject' in event` reads the same answer as one that
+    // reads the field.
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('subject');
   });
 
   it('carries the version the application configured', () => {
@@ -425,7 +434,9 @@ describe('resolve and isEnabled', () => {
 
     features.resolve({ targetingKey: 'u1' });
 
-    expect(observe.mock.calls[0]?.[0].version).toBeUndefined();
+    // The key is absent, not present holding `undefined`, for the same reason
+    // an absent subject carries no key.
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('version');
   });
 
   it('emits nothing from the resolution isEnabled runs internally', () => {
