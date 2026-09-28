@@ -1,0 +1,115 @@
+name: Re-cut docs
+
+# Re-cuts one released version of a package's documentation from a later commit
+# on main, as a pull request that changes one entry of apps/docs/archives.json.
+# docs/specs/2026-09-13-released-by-default.md § 7 is the design: the pull
+# request is the control, and its body carries the diff of the section between
+# the commit the version is cut from today and the one it would be cut from, so
+# the review sees how the released pages change. Nothing here pushes to main.
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "The package's section, as in apps/docs/app/navigation.ts: luhn, urn"
+        type: string
+        required: true
+      segment:
+        description: 'The release line: v3 at or above 1.0.0, v0.2 below it'
+        type: string
+        required: true
+      sha:
+        description: 'The commit on main to cut from. Empty for the head of main.'
+        type: string
+        default: ''
+      reason:
+        description: 'Why the released pages change. Written into the pin and the pull request.'
+        type: string
+        required: true
+
+permissions:
+  contents: write # push the branch the pull request is opened from
+  pull-requests: write # open the pull request
+  actions: write # start CI on the branch, which a GITHUB_TOKEN pull request does not
+
+concurrency:
+  group: docs-recut
+  cancel-in-progress: false
+
+jobs:
+  recut:
+    runs-on: ubuntu-latest
+    steps:
+      # The whole history and the tags: the guards ask whether the commit
+      # descends from the release's tag and is on main, and the dry run reads
+      # the commits since the tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Inputs reach the script as environment variables. A `${{ }}`
+      # interpolation is substituted into the script text before the shell sees
+      # it, so an input containing shell syntax would run as part of this step.
+      #
+      # recut.mjs refuses a line that was never released, a commit that does not
+      # descend from its tag or is not on main, a reason another pin gives, and
+      # a commit `nx release version --dry-run` versions as another release. It
+      # writes the pin and the pull request body, and nothing else.
+      - name: Re-cut
+        id: recut
+        env:
+          SLUG: ${{ inputs.slug }}
+          SEGMENT: ${{ inputs.segment }}
+          SHA: ${{ inputs.sha }}
+          REASON: ${{ inputs.reason }}
+          NX_NO_CLOUD: 'true'
+          NX_DAEMON: 'false'
+        run: |
+          set -euo pipefail
+          target=$(git rev-parse --verify "${SHA:-HEAD}^{commit}")
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON apps/docs/tools/recut.mjs \
+            --slug "$SLUG" --segment "$SEGMENT" --sha "$target" --reason "$REASON" \
+            --body "$RUNNER_TEMP/body.md"
+          echo "branch=docs/recut-$SLUG-$SEGMENT-${target:0:7}" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+      # The commit runs the repository's hooks like any other: the pre-commit
+      # hook lints the affected projects through nx, and commitlint holds a body
+      # line to 100 characters. A reason is one line of any length, so the body
+      # is the reason folded at spaces.
+      - name: Open the pull request
+        env:
+          SLUG: ${{ inputs.slug }}
+          SEGMENT: ${{ inputs.segment }}
+          REASON: ${{ inputs.reason }}
+          BRANCH: ${{ steps.recut.outputs.branch }}
+          SHORT: ${{ steps.recut.outputs.short }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NX_NO_CLOUD: 'true'
+          NX_DAEMON: 'false'
+        run: |
+          set -euo pipefail
+          title="docs(docs): re-cut the $SLUG $SEGMENT documentation from $SHORT"
+          git switch -c "$BRANCH"
+          git commit -m "$title" -m "$(printf '%s\n' "$REASON" | fold -s -w 100)" \
+            -- apps/docs/archives.json
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" --title "$title" \
+            --body-file "$RUNNER_TEMP/body.md"
+          # A pull request a GITHUB_TOKEN opens starts no workflow run, so the
+          # checks the main ruleset requires would never report on it. A
+          # dispatch is the one event that token may start, and CI's jobs report
+          # on the branch's head commit, which is the pull request's.
+          gh workflow run ci.yml --ref "$BRANCH"
