@@ -108,3 +108,8 @@ apps/docs/components/api/behaviour/
 # served to a reader who opens a catalogue. Same run, same staleness, and 1.4 MB
 # of generated HTML across the eleven libraries.
 apps/docs/public/behaviour/
+
+# Written by `nx run docs:widget-renders`, which renders the astro-widget
+# README's payloads through Astro during the build. Not committed: a committed
+# render is right until somebody changes a widget without rendering again.
+apps/docs/components/astro-widget/renders.json
