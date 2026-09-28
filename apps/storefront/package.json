@@ -9,7 +9,7 @@
     "@evanion/astro-widget": "*",
     "@evanion/baize-ui": "*",
     "@evanion/urn": "*",
-    "astro": "^7.3.4",
+    "astro": "^7.3.5",
     "cookie": "^2.0.1"
   }
 }

@@ -60,6 +60,6 @@
     "@evanion/widget": "0.1.0"
   },
   "peerDependencies": {
-    "astro": "^7.3.4"
+    "astro": "^7.3.5"
   }
 }
