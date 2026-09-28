@@ -28,6 +28,8 @@ export type {
   DeepReadonly,
   FeatureEvent,
   FeatureOptions,
+  FrozenWhenObserved,
+  ObservedOptions,
   ReadonlyDate,
 } from './lib/observe.js';
 

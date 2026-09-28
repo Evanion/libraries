@@ -33,6 +33,17 @@ export type DeepReadonly<T> = T extends Date
         : T;
 
 /**
+ * The deeply readonly form of `T` for a store that freezes what it answers, and
+ * `T` itself for a store that freezes nothing.
+ *
+ * `Frozen` is naked, so a store whose observation the compiler cannot settle
+ * distributes to the union of both forms and a reader narrows it.
+ */
+export type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
+  ? DeepReadonly<T>
+  : T;
+
+/**
  * What an entry point reports after it answered.
  *
  * One event per public call, carrying the value the caller received. `resolve`
@@ -136,6 +147,26 @@ export interface FeatureOptions<
   correlateBy?: string;
   /** The configuration version an event reports. */
   version?: string;
+}
+
+/**
+ * The options an application passes when it installs an observer.
+ *
+ * `FeatureOptions` declares `observe` optionally, so an argument carrying one
+ * and an argument carrying none have the same type there. This form requires
+ * the member, and `createFeatures` overloads on it: a call that installs an
+ * observer answers a store whose entry points return the frozen form, and a
+ * call that installs none answers a store whose entry points return the
+ * mutable form. A variable annotated `FeatureOptions<S>` carries an observer
+ * the compiler cannot see, and such a call takes the unobserved overload.
+ */
+export interface ObservedOptions<
+  S extends Record<keyof S, VariantInfo | never> = Record<
+    FeatureKey,
+    VariantInfo | never
+  >,
+> extends FeatureOptions<S> {
+  observe: (event: FeatureEvent<S>) => void | Promise<unknown>;
 }
 
 /**

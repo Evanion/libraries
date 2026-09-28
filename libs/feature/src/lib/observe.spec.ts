@@ -1000,3 +1000,69 @@ describe('what an observer cannot change', () => {
     expect(features.keys).toEqual(['parent', 'child']);
   });
 });
+
+describe('what an observer can reach from plan and toggle', () => {
+  const defs = [{ key: 'cta', enabled: true }] as const;
+
+  it('hands the observer a frozen plan', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    const plan = features.plan({ targetingKey: 'u1' });
+
+    expect(Object.isFrozen(plan)).toBe(true);
+    expect(observe.mock.calls[0]?.[0].plan).toBe(plan);
+  });
+
+  it('hands the observer a frozen toggle result', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    const result = features.toggle('cta', false);
+
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(observe.mock.calls[0]?.[0].result).toBe(result);
+  });
+
+  it('lets no observer change what a later call answers', () => {
+    const features = createFeatures(
+      [
+        { key: 'parent', enabled: true },
+        { key: 'child', enabled: true, dependsOn: ['parent'] },
+      ] as const,
+      {
+        observe: (event) => {
+          if (event.type !== 'resolve') return;
+          try {
+            (event.decisions.parent as { enabled: boolean }).enabled = false;
+          } catch {
+            // a frozen object refuses in strict mode, which is what we want
+          }
+        },
+      },
+    );
+
+    features.resolve({ targetingKey: 'u1' });
+    const second = features.resolve({ targetingKey: 'u1' });
+
+    expect(second.child.enabled).toBe(true);
+  });
+
+  it('leaves the plan unfrozen when nobody is observing', () => {
+    const features = createFeatures(defs);
+
+    const plan = features.plan({ targetingKey: 'u1' });
+
+    // The freeze exists to make the event's readonly type true. A store with no
+    // observer pays none of its cost.
+    expect(Object.isFrozen(plan)).toBe(false);
+  });
+
+  it('leaves the toggle result unfrozen when nobody is observing', () => {
+    const features = createFeatures(defs);
+
+    const result = features.toggle('cta', false);
+
+    expect(Object.isFrozen(result)).toBe(false);
+  });
+});

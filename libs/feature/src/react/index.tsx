@@ -16,6 +16,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
 import type { Features } from '../lib/features.js';
+import type { DeepReadonly } from '../lib/observe.js';
 import type {
   Decision,
   Decisions,
@@ -43,6 +44,21 @@ export type AnyDecisions = Readonly<Record<FeatureKey, Decision<FeatureKey>>>;
 
 interface FeatureContextValue {
   decisions: AnyDecisions;
+}
+
+/**
+ * Reads what `resolve` answered at the erased type.
+ *
+ * A store carrying an observer answers the deeply readonly form of
+ * `Decisions<S>`, and `DeepReadonly` does not reduce over a schema the compiler
+ * has not resolved, so neither form assigns to {@link AnyDecisions} on its own.
+ * Both hold one decision per key, and the context reads those decisions and
+ * writes none of them.
+ */
+function erased<S extends Record<keyof S, VariantInfo | never>>(
+  resolved: Decisions<S> | DeepReadonly<Decisions<S>>,
+): AnyDecisions {
+  return resolved as AnyDecisions;
 }
 
 const SharedContext = createContext<FeatureContextValue | null>(null);
@@ -112,7 +128,7 @@ export function FeatureProvider<
   S extends Record<keyof S, VariantInfo | never>,
 >({ features, context, decisions, children }: FeatureProviderProps<S>) {
   const value = useMemo<FeatureContextValue>(
-    () => ({ decisions: decisions ?? features.resolve(context) }),
+    () => ({ decisions: decisions ?? erased(features.resolve(context)) }),
     [features, context, decisions],
   );
 
@@ -277,7 +293,7 @@ export function createFeatureContext<
     FeatureProvider({ features: given, context, decisions, children }) {
       const value = useMemo<FeatureContextValue>(
         () => ({
-          decisions: decisions ?? (given ?? features).resolve(context),
+          decisions: decisions ?? erased((given ?? features).resolve(context)),
         }),
         [given, context, decisions],
       );
