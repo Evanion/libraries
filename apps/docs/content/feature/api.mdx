@@ -36,10 +36,10 @@ every definition's key against `keyof Flags`, so a definition naming a feature
 A caller who holds the definitions in a variable writes
 `as const satisfies Definitions<Flag>` after the array literal. `satisfies`
 checks the literal and leaves the variable the literal's own type, so the first
-overload still reads the variant names off it. The annotation
+overload reads the variant names off it. The annotation
 `const definitions: Definitions<Flag> = [...]` gives the variable the wider type,
-whose `variants` is optional, and every key of the inferred schema then maps to
-`never`.
+whose `variants` is optional, and `variantOf` then answers `string | undefined`
+for every key it covers.
 
 Throws `FeatureCycleError`, `UnknownDependencyError` or
 `DuplicateFeatureError`. All three are configuration errors and all three are
