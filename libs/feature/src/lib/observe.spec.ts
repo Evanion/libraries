@@ -346,12 +346,17 @@ describe('resolve and isEnabled', () => {
   });
 
   it('answers what the store decided when an observer rewrites the decision', () => {
-    let rewrites = 0;
+    let attempts = 0;
+    let refused = false;
     const features = createFeatures(defs, {
       observe: (event) => {
         if (event.type !== 'is-enabled') return;
-        (event.decision as { enabled: boolean }).enabled = false;
-        rewrites += 1;
+        attempts += 1;
+        try {
+          (event.decision as { enabled: boolean }).enabled = false;
+        } catch {
+          refused = true;
+        }
       },
     });
 
@@ -359,9 +364,62 @@ describe('resolve and isEnabled', () => {
 
     // The count is what makes the boolean a contract. An `isEnabled` that
     // emitted nothing would answer `true` as well, so this case proves the
-    // observer ran and rewrote the decision the answer came off.
-    expect(rewrites).toBe(1);
+    // observer ran and tried to rewrite the decision the answer came off.
+    expect(attempts).toBe(1);
+    expect(refused).toBe(true);
     expect(enabled).toBe(true);
+  });
+
+  it('hands the observer the frozen record resolve returns', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    const decisions = features.resolve({ targetingKey: 'u1' });
+
+    expect(Object.isFrozen(decisions)).toBe(true);
+    expect(Object.isFrozen(decisions.cta)).toBe(true);
+    expect(observe.mock.calls[0]?.[0].decisions).toBe(decisions);
+  });
+
+  it('answers the record the store decided when an observer rewrites it', () => {
+    let attempts = 0;
+    let refused = false;
+    const features = createFeatures(defs, {
+      observe: (event) => {
+        if (event.type !== 'resolve') return;
+        attempts += 1;
+        try {
+          (event.decisions.cta as { enabled: boolean }).enabled = false;
+        } catch {
+          refused = true;
+        }
+      },
+    });
+
+    const decisions = features.resolve({ targetingKey: 'u1' });
+
+    expect(attempts).toBe(1);
+    expect(refused).toBe(true);
+    expect(decisions.cta.enabled).toBe(true);
+  });
+
+  it('hands the observer a frozen decision on an is-enabled event', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.isEnabled('cta', { targetingKey: 'u1' });
+
+    expect(Object.isFrozen(observe.mock.calls[0]?.[0].decision)).toBe(true);
+  });
+
+  it('leaves the record unfrozen when nobody is observing', () => {
+    const features = createFeatures(defs);
+
+    const decisions = features.resolve({ targetingKey: 'u1' });
+
+    // The freeze makes the event's readonly type true for a JavaScript
+    // observer. A store with nobody observing pays none of its cost.
+    expect(Object.isFrozen(decisions)).toBe(false);
   });
 
   it('carries the instant the caller supplied', () => {
@@ -436,6 +494,54 @@ describe('resolve and isEnabled', () => {
 
     // The key is absent, not present holding `undefined`, for the same reason
     // an absent subject carries no key.
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('version');
+  });
+
+  it('carries the instant, the subject and the version on an is-enabled event', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe, version: '2026-01-01' });
+
+    features.isEnabled('cta', { targetingKey: 'u1', now });
+
+    // `is-enabled` carries the envelope `resolve` carries. The cases above
+    // pin it on one entry point, and a cast sits on both emits, so an edit
+    // that dropped the envelope from this one would compile.
+    const event = observe.mock.calls[0]?.[0];
+
+    expect(event.at.getTime()).toBe(now.getTime());
+    expect(event.at).not.toBe(now);
+    expect(event.subject).toBe('u1');
+    expect(event.version).toBe('2026-01-01');
+  });
+
+  it('carries the field correlateBy names on an is-enabled event', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, {
+      observe,
+      correlateBy: 'pseudonym',
+    });
+
+    features.isEnabled('cta', { targetingKey: 'u1', pseudonym: 'p1' });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('p1');
+  });
+
+  it('carries no subject on an is-enabled event for a field holding an object', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe, correlateBy: 'account' });
+
+    features.isEnabled('cta', { targetingKey: 'u1', account: { id: 'a1' } });
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('subject');
+  });
+
+  it('carries no version on an is-enabled event when none is configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.isEnabled('cta', { targetingKey: 'u1' });
+
     expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('version');
   });
 
