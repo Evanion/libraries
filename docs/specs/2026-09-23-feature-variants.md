@@ -430,8 +430,16 @@ an array type answers nothing and every key maps to `never`. A consumer who
 assigns the configuration to a `const definitions: FeatureDefinition<K>[]` and
 then calls `createFeatures(definitions)` would get `variantOf` typed `undefined`
 while the store hands back a real variant name. The tuple constraint rejects that
-call. The consumer annotates the variable `Definitions<K>` and keeps the
-inference, or names a schema and takes the second overload.
+call.
+
+A consumer who keeps the configuration in a variable writes `as const satisfies
+Definitions<K>` after the array literal. `satisfies` checks the literal against
+`Definitions<K>` and leaves the variable the literal's own type, so the first
+overload still reads the variant names off it. A type annotation, `const
+definitions: Definitions<K> = [...]`, gives the variable `Definitions<K>` itself,
+and `Definitions` is built from `FeatureDefinition`, which declares `variants`
+optionally, so the annotation reproduces the same `never` collapse. A consumer
+whose configuration arrived as JSON names a schema and takes the second overload.
 
 The second overload wraps its key type in `NoInfer`. Without it the compiler
 infers `S` backwards out of the argument, fills every entry with `any`, and a

@@ -93,11 +93,17 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
  * rejection is deliberate. `FeatureDefinition` declares `variants` optionally, so
  * `InferSchema` finds no `variants` property on a member it reads off an array
  * type and maps every key to `never`. `variantOf` then types as `undefined`
- * while the store hands back a real variant name at runtime. A caller who holds
- * the configuration in a variable annotates it with this type, and the inferring
- * overload reads the keys off it. A caller whose configuration arrived as JSON
- * has no annotation to write, so that caller names the schema and the second
- * overload narrows for them.
+ * while the store hands back a real variant name at runtime.
+ *
+ * A caller who holds the configuration in a variable writes `as const satisfies
+ * Definitions<K>` after the array literal. `satisfies` checks the literal
+ * against this type and leaves the variable the literal's own type, so the
+ * inferring overload still reads the variant names off it. A caller who writes
+ * the annotation `const definitions: Definitions<K> = [...]` gives the variable
+ * this type itself, and this type declares `variants` optionally, so that caller
+ * gets the same `never` collapse the tuple constraint exists to stop. A
+ * caller whose configuration arrived as JSON has no literal to check, so that
+ * caller names the schema and the second overload narrows for them.
  */
 export type Definitions<K extends FeatureKey = FeatureKey> = readonly [
   FeatureDefinition<K>,

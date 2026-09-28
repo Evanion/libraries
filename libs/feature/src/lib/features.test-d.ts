@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { createFeatures } from './features.js';
+import { createFeatures, type Definitions } from './features.js';
 import type { FeatureDefinition } from './types.js';
 
 describe('createFeatures, inferring', () => {
@@ -103,5 +103,50 @@ describe('the never guard on the two readers', () => {
 
     expectTypeOf(features.variantOf('plain')).toEqualTypeOf<undefined>();
     expectTypeOf(features.valueOf('plain')).toEqualTypeOf<undefined>();
+  });
+});
+
+describe('a definitions variable', () => {
+  const satisfied = [
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50, value: { label: 'Buy' } },
+        { name: 'blue', weight: 50, value: { label: 'Get it' } },
+      ],
+    },
+  ] as const satisfies Definitions<'cta'>;
+
+  const annotated: Definitions<'cta'> = [
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50, value: { label: 'Buy' } },
+        { name: 'blue', weight: 50, value: { label: 'Get it' } },
+      ],
+    },
+  ];
+
+  it('keeps the variant names through as const satisfies', () => {
+    const features = createFeatures(satisfied);
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+    expectTypeOf(features.valueOf('cta')).toEqualTypeOf<
+      { readonly label: 'Buy' } | { readonly label: 'Get it' } | undefined
+    >();
+  });
+
+  it('loses them through a type annotation', () => {
+    // `Definitions` declares `variants` optionally, so the annotation gives the
+    // variable a type carrying no variant names and `InferSchema` maps the key
+    // to `never`. This pins why the docblock sends a caller to `satisfies`.
+    const features = createFeatures(annotated);
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<undefined>();
+    expectTypeOf(features.valueOf('cta')).toEqualTypeOf<undefined>();
   });
 });
