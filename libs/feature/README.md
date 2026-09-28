@@ -574,6 +574,173 @@ withVariants.plan({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'che
 
 <!-- #endregion plan-variant -->
 
+## Observing
+
+An application installs one observer at construction, and the store calls it
+once per public entry point call with the value that call returned.
+
+<!-- #region observe-install -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureEvent } from '@evanion/feature';
+
+const seen: FeatureEvent[] = [];
+
+const features = createFeatures(
+  [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+  {
+    observe: (event) => {
+      seen.push(event);
+    },
+    version: '2026-11-01',
+  },
+);
+
+const now = new Date('2026-11-01T00:00:00Z');
+
+features.resolve({ targetingKey: 'cust-0042', now });
+
+seen.length; // -> 1
+seen[0]; // -> { type: 'resolve', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', version: '2026-11-01', decisions: { 'new-checkout': { key: 'new-checkout', enabled: true, reason: 'default-on' }, 'express-pickup': { key: 'express-pickup', enabled: true, reason: 'default-on' } } }
+```
+
+<!-- #endregion observe-install -->
+
+One call, one event. `resolve` reports every decision in that single event, so
+an auditor reading it knows the application asked for every feature.
+
+<!-- #region observe-one-key -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureEvent } from '@evanion/feature';
+
+const seen: FeatureEvent[] = [];
+
+const features = createFeatures(
+  [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+  {
+    observe: (event) => {
+      seen.push(event);
+    },
+  },
+);
+
+const now = new Date('2026-11-01T00:00:00Z');
+
+features.isEnabled('express-pickup', { targetingKey: 'cust-0042', now });
+
+seen.length; // -> 1
+seen[0]; // -> { type: 'is-enabled', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', key: 'express-pickup', decision: { key: 'express-pickup', enabled: true, reason: 'default-on' } }
+```
+
+<!-- #endregion observe-one-key -->
+
+`isEnabled` resolves every feature to answer about one, and it reports the one
+decision the caller received. `toggle` reports its own result the same way. A
+write that names an unconfigured key is reported too, carrying the
+`unknown-feature` result the caller received.
+
+<!-- #region observe-toggle -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureEvent } from '@evanion/feature';
+
+const seen: FeatureEvent[] = [];
+
+const features = createFeatures(
+  [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+  {
+    observe: (event) => {
+      seen.push(event);
+    },
+  },
+);
+
+const now = new Date('2026-11-01T00:00:00Z');
+
+features.toggle('new-checkout', false, { now });
+
+seen[0]; // -> { type: 'toggle', at: new Date('2026-11-01T00:00:00Z'), result: { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup'] } }
+```
+
+<!-- #endregion observe-toggle -->
+
+An observer changes no outcome. The engine never awaits it, and an observer
+that throws or rejects reaches `onObserveError` while the caller keeps the
+value the entry point computed.
+
+<!-- #region observe-failure -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const failures: string[] = [];
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }], {
+  observe: () => {
+    throw new Error('audit transport down');
+  },
+  onObserveError: (error) => {
+    failures.push(String(error));
+  },
+});
+
+features.isEnabled('new-checkout'); // -> true
+failures; // -> ['Error: audit transport down']
+```
+
+<!-- #endregion observe-failure -->
+
+An event carries no `EvaluationContext`. It carries the instant the call
+settled on, the value it returned, and a subject identifier copied out as a
+primitive. `correlateBy` names the context field that identifier is read off,
+and it defaults to `targetingKey`.
+
+<!-- #region observe-correlate -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureEvent } from '@evanion/feature';
+
+const seen: FeatureEvent[] = [];
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }], {
+  observe: (event) => {
+    seen.push(event);
+  },
+  correlateBy: 'analyticsId',
+});
+
+const now = new Date('2026-11-01T00:00:00Z');
+
+features.resolve({ targetingKey: 'cust-0042', analyticsId: 'anon-7f3c', now });
+
+seen[0]?.subject; // -> 'anon-7f3c'
+```
+
+<!-- #endregion observe-correlate -->
+
+An application bucketing on a raw identifier points `correlateBy` at a field
+carrying a pseudonym, and the raw identifier stays out of the event.
+
+This seam does not record exposure. `resolve` decides every configured feature,
+so an observer fired from it records an exposure for every feature the request
+never rendered. The application records exposure at the render site, off the
+decision it already holds. See the Observing page in the docs for the whole
+argument.
+
 ## Cycles
 
 A dependency cycle is rejected by `createFeatures`, with the path in the error:

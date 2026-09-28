@@ -5,18 +5,33 @@
 Two entry points. `@evanion/feature` is the core; `@evanion/feature/react` is
 the adapter.
 
-## `createFeatures(definitions)`
+## `createFeatures(definitions, options?)`
 
 ```ts
-function createFeatures<const D extends Definitions>(
+function createFeatures<
+  const D extends Definitions,
+  O extends Record<
+    Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+    never
+  >,
+>(
   definitions: D,
-): Features<AsSchema<InferSchema<D>>>;
+  options?: O & FeatureOptions<AsSchema<InferSchema<D>>>,
+): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
 
 function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
   definitions: readonly FeatureDefinition<
     NoInfer<Extract<keyof S, FeatureKey>>
   >[],
-): Features<S>;
+  options?: UnobservedOptions<S>,
+): Features<S, false>;
+
+function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: readonly FeatureDefinition<
+    NoInfer<Extract<keyof S, FeatureKey>>
+  >[],
+  options: FeatureOptions<S>,
+): Features<S, true>;
 ```
 
 Validates the dependency graph, deep-clones and freezes the configuration, and
@@ -44,6 +59,37 @@ for every key it covers.
 Throws `FeatureCycleError`, `UnknownDependencyError` or
 `DuplicateFeatureError`. All three are configuration errors and all three are
 raised here rather than at evaluation.
+
+The options settle the second type argument. The first signature reads them as
+the type parameter `O` and answers `'observe' extends keyof O ? true : false`,
+so a call that writes `observe` at the call site gets the frozen store and a
+call that passes no options at all gets the mutable one. `O`'s constraint,
+`Record<Exclude<keyof O, keyof FeatureOptions<S>>, never>`, names no member of
+`FeatureOptions` and the parameter intersects the two. A type parameter inferred
+from an object literal takes the literal's own type, so the compiler runs no
+excess property check of its own, and that constraint is what keeps a misspelled
+option an error at the property that carries it.
+
+The pair below it exists because TypeScript infers no type argument once a
+caller supplies one. `createFeatures<Flags>(config, { observe })` would read `O`
+from its default and answer the unobserved form, so the schema-naming case takes
+one signature per answer: `UnobservedOptions<S>`, which pins `observe` to
+`undefined`, answers `Features<S, false>`, and `FeatureOptions<S>` answers
+`Features<S, true>`.
+
+The list stops at three signatures. TypeScript elaborates every candidate for a
+failed call while a signature list holds three or fewer, and reports a single
+candidate against the argument nodes once the list holds more, which put the
+error for a misspelled option on the definitions array.
+
+A call whose options settle neither question answers the frozen form. Options
+held in a variable annotated `FeatureOptions<S>`, and a wrapper that forwards an
+optional `observe` parameter, both hide the observer from the compiler and both
+take that branch, so the compiler refuses a write the runtime refuses once the
+observer turns out to be there. A caller who installs no observer writes
+`satisfies UnobservedOptions<S>` on the options to get the mutable form back.
+
+See [Observing](/feature/observing) for what an observer receives.
 
 ## `Features<S>`
 
@@ -357,6 +403,112 @@ type ToggleResult<F extends FeatureKey = string> =
   | { ok: false; key: F; error: 'unknown-feature' };
 ```
 
+### `FeatureEvent<S>`
+
+```ts signature
+type FeatureEvent<S extends Record<keyof S, VariantInfo | never>> =
+  | {
+      readonly type: 'resolve';
+      readonly at: ReadonlyDate;
+      readonly decisions: DeepReadonly<Decisions<S>>;
+      readonly subject?: string | number;
+      readonly version?: string;
+    }
+  | {
+      [K in keyof S & FeatureKey]: {
+        readonly type: 'is-enabled';
+        readonly at: ReadonlyDate;
+        readonly key: K;
+        readonly decision: DeepReadonly<Decisions<S>[K]>;
+        readonly subject?: string | number;
+        readonly version?: string;
+      };
+    }[keyof S & FeatureKey]
+  | {
+      readonly type: 'plan';
+      readonly at: ReadonlyDate;
+      readonly plan: DeepReadonly<Plan<S>>;
+      readonly subject?: string | number;
+      readonly version?: string;
+    }
+  | {
+      readonly type: 'toggle';
+      readonly at: ReadonlyDate;
+      readonly result: DeepReadonly<ToggleResult<keyof S & FeatureKey>>;
+      readonly subject?: string | number;
+      readonly version?: string;
+    };
+```
+
+One event per public entry point call, carrying the value the caller received.
+The `is-enabled` member is written as a mapped type the union closes over, so
+one member pairs `key: 'checkout-cta'` with the decision that key resolves to. A
+flat object typing `key` as the union of every key and `decision` as the union
+of every decision would let a consumer who narrowed on `key` read a decision
+belonging to another feature.
+
+No event carries an `EvaluationContext`. `at` is the instant the call settled
+on, `subject` is the identifier `correlateBy` names, copied out as a primitive,
+and `version` is the configuration version the store was built with. See
+[Observing](/feature/observing).
+
+### `FeatureOptions<S>` and `UnobservedOptions<S>`
+
+```ts signature
+interface FeatureOptions<S extends Record<keyof S, VariantInfo | never>> {
+  observe?: (event: FeatureEvent<S>) => void | Promise<unknown>;
+  onObserveError?: (error: unknown, event: FeatureEvent<S>) => void;
+  correlateBy?: string; // defaults to 'targetingKey'
+  version?: string;
+}
+
+type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
+  FeatureOptions<S> & { observe?: undefined };
+```
+
+`observe` is called once per public entry point call and the engine never awaits
+it. `onObserveError` replaces the `console.warn` the engine writes when an
+observer throws or rejects.
+
+`FeatureOptions` declares `observe` optionally, so options carrying an observer
+and options carrying none both satisfy it. `UnobservedOptions` pins the member
+to `undefined`, so only a value whose type proves the absence satisfies it, and
+that is the type the second `createFeatures` signature takes.
+
+### `FrozenWhenObserved<Frozen, T>`, `DeepReadonly<T>` and `ReadonlyDate`
+
+```ts signature
+type ReadonlyDate = Omit<Date, `set${string}`>;
+
+type DeepReadonly<T> = T extends Date
+  ? ReadonlyDate
+  : T extends (...args: never[]) => unknown
+    ? T
+    : T extends readonly (infer E)[]
+      ? readonly DeepReadonly<E>[]
+      : T extends object
+        ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+        : T;
+
+type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
+  ? DeepReadonly<T>
+  : T;
+```
+
+A store carrying an observer freezes what it emits and answers the caller with
+that same object, so its `resolve`, `plan` and `toggle` answer
+`DeepReadonly<T>`. A store carrying none freezes nothing and answers `T`.
+
+`ReadonlyDate` drops the mutators. `Readonly<Date>` marks the properties
+readonly and leaves `setTime`, `setHours` and the rest callable, and each of
+those writes an internal slot that `Object.freeze` does not cover. Every mutator
+on `Date` has a name starting with `set`, so the template literal names all of
+them and `Omit` drops them.
+
+`Frozen` is naked in `FrozenWhenObserved`, so a store whose observation the
+compiler cannot settle distributes to the union of both forms and a reader
+narrows it.
+
 ### `FeatureKey` and `Instant`
 
 `FeatureKey` is `string | number`, so a consumer can key features on a numeric
@@ -396,7 +548,7 @@ import {
 | Export                           | Signature                                              |
 | -------------------------------- | ------------------------------------------------------ |
 | `FeatureProvider`                | `{ features, context?, decisions?, children? }`        |
-| `createFeatureContext(features)` | `FeatureContext<S>`: a provider and the four hooks     |
+| `createFeatureContext(features)` | `FeatureContext<S, Frozen>`: a provider and four hooks |
 | `useFeatures()`                  | `AnyDecisions`                                         |
 | `useFeature(key)`                | `Decision<FeatureKey>`; throws for an unconfigured key |
 | `useFeatureEnabled(key)`         | `boolean`                                              |
@@ -408,7 +560,21 @@ is `unknown`. `createFeatureContext(features)` returns the same four hooks bound
 to one store's schema: each bound hook names `keyof S`, and `useVariant` answers
 the variant union that store declares.
 
-`FeatureProviderProps<S>`, `BoundFeatureProviderProps<S>`, `FeatureContext<S>`
-and `AnyDecisions` are exported as types. See
+Both providers accept either form of a resolved record on `decisions`:
+`Decisions<S> | DeepReadonly<Decisions<S>>`. A server that resolves with an
+observed store and serialises the result hands the browser the frozen form, and
+a store built with no observer hands it the mutable one.
+
+`createFeatureContext` and `FeatureContext` carry the same
+`Frozen extends boolean = boolean` parameter as `Features`, read off the store
+the factory was given. So the bound `useFeatures` answers
+`FrozenWhenObserved<Frozen, Decisions<S>>` and the bound `useFeature` answers
+`FrozenWhenObserved<Frozen, Decisions<S>[K]>`, and a factory built from a store
+with no observer keeps the mutable form on both. `BoundFeatureProviderProps`
+carries `Frozen` too, so a substituted store whose freeze differs from the
+factory store's is a compile error at the mount.
+
+`FeatureProviderProps<S>`, `BoundFeatureProviderProps<S, Frozen>`,
+`FeatureContext<S, Frozen>` and `AnyDecisions` are exported as types. See
 [React](/feature/react#binding-the-hooks-to-a-store) for the factory and for the
 memoisation rule on `context`.
