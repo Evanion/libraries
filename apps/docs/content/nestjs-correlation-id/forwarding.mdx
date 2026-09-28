@@ -7,8 +7,8 @@ To send the correlation id on every call Baize's `orders` service makes to
   difficulty={3}
   read={8}
   hands={15}
-  requires={[['Getting started', '/nestjs-correlation-id/getting-started']]}
-  unlocks={[['Carry the id through a job', '/nestjs-correlation-id/jobs']]}
+  requires={[['Getting started', '../getting-started']]}
+  unlocks={[['Carry the id through a job', '../jobs']]}
 />
 
 ## Register HttpModule with withCorrelation
@@ -112,6 +112,6 @@ Baize's demo server shows the hop. In the
 
 ## Now that the id crosses HTTP, carry it through a job
 
-[Carry the id through a job](/nestjs-correlation-id/jobs) opens a correlation
+[Carry the id through a job](../jobs) opens a correlation
 context in a queue consumer, where no request and no middleware exist, and
 reuses the id the message carried.

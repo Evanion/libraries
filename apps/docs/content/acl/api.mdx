@@ -27,14 +27,14 @@ service published.
 
 An unknown object kind or action answers `unknown-action` and nothing throws.
 `Keys` is the union the consumer expects, unchecked against the document. See
-[Adopting a foreign matrix](/acl/matrix#adopting-a-foreign-matrix).
+[Adopting a foreign matrix](../matrix#adopting-a-foreign-matrix).
 
 ## `policy`
 
 <!-- reference @evanion/acl#policy example=field-permissions -->
 
 `policy` returns the typed builder, one `.for()` per object kind. See
-[Typed authoring](/acl/authoring).
+[Typed authoring](../authoring).
 
 | Type parameter | What it is                                                                                                                         |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -92,7 +92,7 @@ Both are document fields, so they land in the flattened JSON.
 | `matrix`, `version`, `schema` | the frozen document, and the two envelope fields off it     |
 
 Every object parameter takes a partial: a projection is the
-[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case. An absent
+[`unevaluable`](../refusals#when-the-answer-is-unevaluable) case. An absent
 `subject.*` path is a definite miss.
 
 ## `Authorized`
@@ -133,7 +133,7 @@ it to `allowEach`.
 
 `pickAllowedFields` returns the subset of a proposed write the decision marked
 `allowed`, and throws `ActionNotAllowedError` on a refused action. See
-[the write path](/acl/fields#writing).
+[the write path](../fields#writing).
 
 ## `serialize`
 
@@ -142,7 +142,7 @@ it to `allowEach`.
 `full` hands back `access.matrix`. `reduced` keeps each permission marked
 `visibility: 'public'` whole, strips the marking, and adds the `schema` entries
 for the kinds they name. See
-[Many services](/acl/federation#publishing-the-rules-to-a-consumer).
+[Many services](../federation#publishing-the-rules-to-a-consumer).
 
 ## `SerializeMode`
 
@@ -161,7 +161,7 @@ policy.
 <!-- reference @evanion/acl#federatedPolicies example=federation -->
 
 `federatedPolicies` composes one `Access` per origin and merges no document. See
-[Many services](/acl/federation).
+[Many services](../federation).
 
 ## `FederatedAccess`
 
@@ -176,7 +176,7 @@ holds answers `unknown-action`. `capabilities` settles one instant for all.
 
 `applyDenyOverlay` appends another team's deny rules to the keys this document
 opens for veto. See
-[Many services](/acl/federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
+[Many services](../federation#a-cross-cutting-deny-is-an-overlay-the-owner-applies).
 
 ## `DenyOverlay`
 
@@ -196,7 +196,7 @@ in `schema.objects`.
 <!-- reference @evanion/acl#diffMatrix example=drift-seam -->
 
 `diffMatrix` compares two matrix documents and reports access rather than text.
-See [What did editing my rules change about access?](/acl/rule-changes).
+See [What did editing my rules change about access?](../rule-changes).
 
 The evaluator ORs the rules on a side, so a side that matched goes on matching
 whatever is appended. An added allow branch can therefore only widen and an
@@ -288,19 +288,19 @@ an object path lands in `object`.
 <!-- reference @evanion/acl#Matrix example=schema-binding -->
 
 `Matrix` is a JSON envelope over a flat list of permissions. See
-[The matrix: your rules as JSON](/acl/matrix).
+[The matrix: your rules as JSON](../matrix).
 
-| Type           | What it holds                                                                                                                 |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `Permission`   | one `` `${object}.${action}` `` key, its allow rules, its deny rules and its field rules                                      |
-| `Rule`         | an id and a list of AND-ed conditions                                                                                         |
-| `Condition`    | one comparison; [The matrix: your rules as JSON](/acl/matrix#conditions) has the operator table                               |
-| `FieldRules`   | the `fields` list, then one key per field carrying a write-axis config, so a field named `fields` cannot be configured        |
-| `FieldConfig`  | `targets` allow-lists the proposed value and `transitions` is a state machine over the current one; see [Fields](/acl/fields) |
-| `MatrixSchema` | optional for a producer, binding where present, per kind: a kind `objects` omits is unchecked                                 |
-| `ObjectSchema` | a kind's field types, and the `relations` naming the kinds it points at, one hop; no condition compares a relation            |
-| `FieldType`    | a flat string any language emits by reflection, where `?` marks a field that may be absent                                    |
-| `Instant`      | an ISO 8601 string, epoch milliseconds, or a `Date`; the string and number forms survive JSON                                 |
+| Type           | What it holds                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `Permission`   | one `` `${object}.${action}` `` key, its allow rules, its deny rules and its field rules                                    |
+| `Rule`         | an id and a list of AND-ed conditions                                                                                       |
+| `Condition`    | one comparison; [The matrix: your rules as JSON](../matrix#conditions) has the operator table                               |
+| `FieldRules`   | the `fields` list, then one key per field carrying a write-axis config, so a field named `fields` cannot be configured      |
+| `FieldConfig`  | `targets` allow-lists the proposed value and `transitions` is a state machine over the current one; see [Fields](../fields) |
+| `MatrixSchema` | optional for a producer, binding where present, per kind: a kind `objects` omits is unchecked                               |
+| `ObjectSchema` | a kind's field types, and the `relations` naming the kinds it points at, one hop; no condition compares a relation          |
+| `FieldType`    | a flat string any language emits by reflection, where `?` marks a field that may be absent                                  |
+| `Instant`      | an ISO 8601 string, epoch milliseconds, or a `Date`; the string and number forms survive JSON                               |
 
 ## `Permission`
 
@@ -346,13 +346,13 @@ an object path lands in `object`.
 
 <!-- reference @evanion/acl#Decision example=federation -->
 
-| Field     | What it carries                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------ |
-| `key`     | the permission key the query asked about                                                                     |
-| `allowed` | the gate                                                                                                     |
-| `reason`  | output only; [The Decision object every check returns](/acl/decision-object) says which reason carries which |
-| `rule`    | output only; the id of the rule that decided                                                                 |
-| `missing` | output only; the paths that did not read                                                                     |
+| Field     | What it carries                                                                                            |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `key`     | the permission key the query asked about                                                                   |
+| `allowed` | the gate                                                                                                   |
+| `reason`  | output only; [The Decision object every check returns](../decision-object) says which reason carries which |
+| `rule`    | output only; the id of the rule that decided                                                               |
+| `missing` | output only; the paths that did not read                                                                   |
 
 ## `Reason`
 
@@ -373,7 +373,7 @@ an object path lands in `object`.
 
 <!-- reference @evanion/acl#FieldState -->
 
-See [Pitfalls](/acl/pitfalls#never-hand-filter-the-field-map).
+See [Pitfalls](../pitfalls#never-hand-filter-the-field-map).
 
 ## `FieldReason`
 
@@ -471,7 +471,7 @@ per call.
 consumer of a published contract writes. `@evanion/acl` re-exports none of it,
 so an application importing the engine pulls none of it into its bundle, and
 nothing here imports a test framework. See [Testing a contract I
-consume](/acl/testing).
+consume](../testing).
 
 ```ts twoslash
 import {
@@ -652,7 +652,7 @@ message.
 <!-- reference @evanion/acl#AclConfigError example=errors-catching -->
 
 `AclConfigError` is the base of every class below. [Typed
-authoring](/acl/authoring#construction-errors) tables the same set by authoring
+authoring](../authoring#construction-errors) tables the same set by authoring
 step.
 
 | Error                             | Raised when                                                                                       |
@@ -716,7 +716,7 @@ Two rules of one permission carrying the same `id`. `diffMatrix` indexes each
 side by rule id, so the second rule under a taken id replaces the first there
 and a branch added beside it is reported as no change. The allow side and the
 deny side of one permission share one id space. [Naming a
-rule](/acl/authoring#naming-a-rule-with-pid) has the example.
+rule](../authoring#naming-a-rule-with-pid) has the example.
 
 ## `AmbiguousRuleIdError`
 

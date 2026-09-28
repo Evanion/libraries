@@ -10,10 +10,10 @@ customer why an action is off.
   difficulty={4}
   read={8}
   hands={15}
-  requires={[['Can this user do this?', '/acl/asking']]}
+  requires={[['Can this user do this?', '../asking']]}
   unlocks={[
-    ['How do I use rules another service published?', '/acl/adopting'],
-    ['The Decision object every check returns', '/acl/decision-object'],
+    ['How do I use rules another service published?', '../adopting'],
+    ['The Decision object every check returns', '../decision-object'],
   ]}
 />
 
@@ -24,7 +24,7 @@ button that says "Not allowed" for every `allowed: false` tells a customer whose
 row is still loading that they may never edit their own question.
 
 `allowed` is still the only field a handler gates on, as
-[Can this user do this?](/acl/asking) sets out. `reason`, `rule` and `missing`
+[Can this user do this?](../asking) sets out. `reason`, `rule` and `missing`
 decide the label. The policy below carries a deny rule, written with `p.deny`,
 which refuses whenever it matches and outranks the allow, and `.id(name)` gives
 that rule the name a decision reports:
@@ -64,7 +64,7 @@ holding a copy tells `parseMatrix`, the call that adopts a foreign document,
 when it last fetched that copy, as `fetchedAt`. The document states how long a
 copy stays good, as `maxStale` in milliseconds, and past that bound every key
 answers `stale-contract`. A fresh fetch repairs it, and
-[How long a consumer may keep deciding on an acl contract](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+[How long a consumer may keep deciding on an acl contract](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
 sets out the bound.
 
 ### When the acl clock decides `unusable-clock`
@@ -95,7 +95,7 @@ of them could have granted, so no single rule is named.
 The name comes from one of two places:
 
 - A rule the author named reports that name. A policy written with `policy()`
-  names a rule with [`.id(name)`](/acl/authoring#naming-a-rule-with-pid) after
+  names a rule with [`.id(name)`](../authoring#naming-a-rule-with-pid) after
   the `allow` or `deny` that wrote it.
 - A rule nobody named reports a derived id, the side it sits on and a hash of
   its conditions, such as `allow-b72dadff`.
@@ -116,7 +116,7 @@ which one matched is not a fact the app should depend on.
 leaks, and `missing` names exactly what to fetch. A caller meets it with no row
 at all, as a create button does, or with a projection, a row loaded with only
 some of its columns.
-[Can this user do this?](/acl/asking#asking-acl-when-your-query-selected-half-the-row)
+[Can this user do this?](../asking#asking-acl-when-your-query-selected-half-the-row)
 works the refetch through.
 
 Both sides' unreadable paths arrive in one `missing`, so one query settles the
@@ -144,13 +144,13 @@ flowchart LR
 | authoring the document   | An `unevaluable` no refetch repairs is a mistyped field name. A `schema`, the optional list of fields each object kind carries, turns that into an `UnknownFieldError` when the evaluator is built. |
 | before the row is loaded | Every permission that reads the row answers `unevaluable`. `access.readsObject(kind, action)` tells that case apart from a call that lacked one field.                                              |
 
-[Deciding before the row is loaded](/acl/decision-object#deciding-before-the-row-is-loaded)
+[Deciding before the row is loaded](../decision-object#deciding-before-the-row-is-loaded)
 works the last row through.
 
 ## Explaining one field of an acl field decision
 
 `canFields` decides each field of a write separately, as
-[Which fields may they write?](/acl/writing) covers, and gives every field a
+[Which fields may they write?](../writing) covers, and gives every field a
 state and a `FieldReason`. A read-only input names its reason the way a refused
 button does:
 
@@ -163,12 +163,12 @@ button does:
 | `missing-field`     | the current value, which the row lacked; the same refetch as the row  |
 | `proposed-required` | the proposed value, which a field with a config needs and did not get |
 
-[Which fields may they write?](/acl/writing) builds a policy that produces
+[Which fields may they write?](../writing) builds a policy that produces
 `allow`, `not-listed`, `transition-failed` and `missing-field`, and
-[Field permissions](/acl/fields) is the reference.
+[Field permissions](../fields) is the reference.
 
 ## Now that you can explain a refusal, answer from another service's rules
 
-[How do I use rules another service published?](/acl/adopting) builds an
+[How do I use rules another service published?](../adopting) builds an
 evaluator over a document another service served, where `unknown-action` and
 `stale-contract` come from.

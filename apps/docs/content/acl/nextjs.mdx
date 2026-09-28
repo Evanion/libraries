@@ -10,10 +10,10 @@ entry point that a caller posts to directly, and it decides again.
   difficulty={5}
   read={12}
   hands={25}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['React Router 8', '/acl/react-router'],
-    ['The matrix: your rules as JSON', '/acl/matrix'],
+    ['React Router 8', '../react-router'],
+    ['The matrix: your rules as JSON', '../matrix'],
   ]}
 />
 
@@ -40,7 +40,7 @@ page view, and a matching version skips the validate, deep-clone and
 deep-freeze.
 
 An app that owns its rules builds them with `policy(…).build()` at module scope,
-as [Express](/acl/express) shows. Put that module behind `import 'server-only'`,
+as [Express](../express) shows. Put that module behind `import 'server-only'`,
 so a client component importing it is a build error.
 
 ## One fetch and one subject for a Next.js render
@@ -71,7 +71,7 @@ flowchart TD
 
 A rule change reaches this app's gates on the next page view. An app that holds
 a document across requests needs a revalidation window, which
-[Choosing a framework integration](/acl/choosing-an-integration) sets out.
+[Choosing a framework integration](../choosing-an-integration) sets out.
 
 ## A Next.js server component decides before it fetches
 
@@ -163,7 +163,7 @@ with `@evanion/acl` directly: `parseMatrix` builds the evaluator and
 
 A server component passes `access.matrix`, never `access`, to a `'use client'`
 boundary. `Access` holds functions, which do not serialize, and
-[Choosing a framework integration](/acl/choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
+[Choosing a framework integration](../choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
 shows the round trip. The boundary receives the matrix, the subject and a `now`
 string, rebuilds the evaluator with `parseMatrix` and mounts
 `@evanion/react-acl`'s provider. [Getting started with
@@ -178,9 +178,9 @@ nobody posting to the action behind it.
 
 ## Where to go next
 
-- [React Router 8](/acl/react-router). The same split, with the loader as the
+- [React Router 8](../react-router). The same split, with the loader as the
   trusted side.
-- [The matrix: your rules as JSON](/acl/matrix). The envelope and the version
+- [The matrix: your rules as JSON](../matrix). The envelope and the version
   contract.
-- [Security contract](/acl/security). Matrix freshness, the clock, and the public
+- [Security contract](../security). Matrix freshness, the clock, and the public
   document.

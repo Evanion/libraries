@@ -10,10 +10,10 @@ field, and its `version` tells the storefront when its copy is stale.
   difficulty={5}
   read={7}
   hands={25}
-  requires={[['Rules about the thing being accessed', '/acl/object-rules']]}
+  requires={[['Rules about the thing being accessed', '../object-rules']]}
   unlocks={[
-    ['Checking permissions in your UI', '/acl/ui-checks'],
-    ['Many services', '/acl/federation'],
+    ['Checking permissions in your UI', '../ui-checks'],
+    ['Many services', '../federation'],
   ]}
 />
 
@@ -37,7 +37,7 @@ The document grants `question.read` to a subject whose `roles` holds
 `bookseller`, and it carries no `question.delete`. Asking for `delete` answers
 `unknown-action` with `allowed: false`.
 
-`hydratePolicy`, the call [the Overview](/acl) uses to rebuild your own document
+`hydratePolicy`, the call [the Overview](../) uses to rebuild your own document
 in the browser, builds the same evaluator from the same JSON, and that evaluator
 throws `UnknownPermissionError` on the same question. `parseMatrix` is
 `hydratePolicy` with its `closed` option set, and `closed` turns the throw into
@@ -128,13 +128,13 @@ anything.
 
 ## Where to go next
 
-- [Checking permissions in your UI](/acl/ui-checks). The storefront draws an
+- [Checking permissions in your UI](../ui-checks). The storefront draws an
   action bar from the document it adopted.
-- [How do I use rules another service published?](/acl/adopting). Every check
+- [How do I use rules another service published?](../adopting). Every check
   `parseMatrix` runs on the way in, and the `version` option that overrides the
   document's own.
-- [How do I give my rules to another service?](/acl/publishing). What `orders`
+- [How do I give my rules to another service?](../publishing). What `orders`
   publishes, and `maxStale`, the limit on how long the storefront may keep
   deciding on a copy it has not refreshed.
-- [Many services](/acl/federation). One matrix per service, and what a gateway
+- [Many services](../federation). One matrix per service, and what a gateway
   holds.

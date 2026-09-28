@@ -8,8 +8,8 @@ every letter, so a code 2.x produced validates under 3.x only by coincidence.
   difficulty={4}
   read={6}
   hands={30}
-  requires={[['Dictionaries', '/luhn/dictionaries']]}
-  unlocks={[['API reference', '/luhn/api']]}
+  requires={[['Dictionaries', '../dictionaries']]}
+  unlocks={[['API reference', '../api']]}
 />
 
 ## Codes issued by luhn 2.x
@@ -95,5 +95,5 @@ exported for the 62 characters, and reads case.
 2.x configured each extra dictionary on a subclass. 3.x builds an instance per
 dictionary with `createLuhn`, which checks the dictionary each time it is
 called, so cache the instance when the same few recur.
-[A luhn dictionary chosen at runtime](/luhn/dictionaries#a-luhn-dictionary-chosen-at-runtime)
+[A luhn dictionary chosen at runtime](../dictionaries#a-luhn-dictionary-chosen-at-runtime)
 shows the cache.

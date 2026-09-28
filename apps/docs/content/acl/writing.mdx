@@ -10,10 +10,10 @@ saves.
   difficulty={4}
   read={8}
   hands={20}
-  requires={[['Rules about the thing being accessed', '/acl/object-rules']]}
+  requires={[['Rules about the thing being accessed', '../object-rules']]}
   unlocks={[
-    ['Why was this refused?', '/acl/refusals'],
-    ['Field permissions', '/acl/fields'],
+    ['Why was this refused?', '../refusals'],
+    ['Field permissions', '../fields'],
   ]}
 />
 
@@ -86,7 +86,7 @@ raises `TargetsTransitionsConflictError`.
 
 `fd.reasons` gives each field's reason beside its state, one of the
 `FieldReason` strings
-[Why was this refused?](/acl/refusals#explaining-one-field-of-an-acl-field-decision)
+[Why was this refused?](../refusals#explaining-one-field-of-an-acl-field-decision)
 tables. `closing` takes `status` along the one edge, `open` to `locked`.
 `reopening` starts from `locked`, whose empty array refuses every edge, with
 `transition-failed`. `unread` passes a row loaded without `status`, so the
@@ -141,7 +141,7 @@ every field is allowed. `fd.action.allowed` reports the action on its own.
 `pickAllowedFields` throws `ActionNotAllowedError` when the action is refused,
 because no field of a refused action is writable. Where the action is allowed
 and the field rules deny some keys, it returns the allowed subset.
-[Caveats and pitfalls](/acl/pitfalls#read-allowed-not-actionallowed) carries
+[Caveats and pitfalls](../pitfalls#read-allowed-not-actionallowed) carries
 both booleans as an entry.
 
 <Panel heading="`fd.fields` is filled even when the action is refused">
@@ -196,5 +196,5 @@ database, so drop it before the row leaves the server:
 
 ## Now that a save writes the right fields, explain a refusal
 
-[Why was this refused?](/acl/refusals) reads `reason`, `rule` and `missing` off
+[Why was this refused?](../refusals) reads `reason`, `rule` and `missing` off
 a refused decision and turns each one into what a screen says.

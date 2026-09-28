@@ -47,7 +47,7 @@ a whole payload.
 
 A type is matched as an own key of `known`, so an item typed `constructor` or
 `__proto__` is unknown. Ids are checked for duplicates within one sibling list
-only. [What it reports](/widget/problems) lists every message and what produces
+only. [What it reports](../problems) lists every message and what produces
 it.
 
 ## `warnOnce`
@@ -70,7 +70,7 @@ reported once, and a second bad item is still reported.
 This is the seam between the core and a renderer. A project that draws through
 a published renderer has no reason to call it, and neither renderer re-exports
 it.
-[Print the widget warning from a renderer of your own](/widget/problems#print-the-widget-warning-from-a-renderer-of-your-own)
+[Print the widget warning from a renderer of your own](../problems#print-the-widget-warning-from-a-renderer-of-your-own)
 runs a minimal renderer that calls it.
 
 ## `resetWarnings`
@@ -84,7 +84,7 @@ long as the process is what a dev server wants and what a test file cannot
 have, since one case's warning would silence the next case that produces the
 same message. Each renderer's test setup calls this before every test, and the
 renderer on
-[What it reports](/widget/problems#print-the-widget-warning-from-a-renderer-of-your-own)
+[What it reports](../problems#print-the-widget-warning-from-a-renderer-of-your-own)
 calls it before its first render.
 
 ## `ERROR_MESSAGES`
@@ -108,7 +108,7 @@ same way whether React or Astro drew the page.
 
 The text `validateItems` reports. Compare a problem's `message` against these
 to group, count or translate a report, and assert against them in a test. Every
-key and what produces it is on [What it reports](/widget/problems).
+key and what produces it is on [What it reports](../problems).
 
 `MISSING_FIELD` is `(field: string) => string`; the other eight are plain
 strings.
@@ -128,7 +128,7 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
 One item, in the loose form data takes before a registry exists: a content
 management system payload, a fixture, a network response. This is the whole
 item model, and every renderer draws exactly this.
-[The Overview](/widget#how-a-widget-item-array-describes-a-page) walks through
+[The Overview](../#how-a-widget-item-array-describes-a-page) walks through
 each field. A renderer that can type its components against a registry offers a
 checked counterpart, and [`@evanion/react-widget`](/react-widget)'s
 `WidgetItem<C>` widens to this one.

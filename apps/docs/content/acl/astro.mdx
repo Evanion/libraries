@@ -10,10 +10,10 @@ both the page and the form that posts back to it.
   difficulty={4}
   read={7}
   hands={20}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['Next.js (React Server Components)', '/acl/nextjs'],
-    ['Security contract', '/acl/security'],
+    ['Next.js (React Server Components)', '../nextjs'],
+    ['Security contract', '../security'],
   ]}
 />
 
@@ -101,7 +101,7 @@ per request, so two blocks on one page cannot decide against two identities.
 `policyAccess` adopts the document with `parseMatrix` and holds it across
 requests. It fetches only where the process holds no document or the
 revalidation window has closed, so a decision in a frontmatter is a local
-function call. [Choosing a framework integration](/acl/choosing-an-integration)
+function call. [Choosing a framework integration](../choosing-an-integration)
 shows the cache, the window, and what a failed poll leaves behind.
 
 ## Narrow the roles before the Astro app forwards them
@@ -131,9 +131,9 @@ the checkout button does not excuse the service the order is posted to.
 
 ## Where to go next
 
-- [Next.js (React Server Components)](/acl/nextjs). The same trusted render,
+- [Next.js (React Server Components)](../nextjs). The same trusted render,
   with the write on a second entry point.
-- [How do I use rules another service published?](/acl/adopting). Closed mode,
+- [How do I use rules another service published?](../adopting). Closed mode,
   and what a fetched document obliges.
-- [Security contract](/acl/security). Subject authenticity, complete mediation,
+- [Security contract](../security). Subject authenticity, complete mediation,
   and the rest of what a consumer owns.

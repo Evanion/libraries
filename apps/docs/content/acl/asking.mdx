@@ -10,12 +10,12 @@ returns a decision your handler gates on and your screen renders.
   read={6}
   hands={10}
   requires={[
-    ['Rules about who the user is', '/acl/subject-rules'],
-    ['Rules about the thing being accessed', '/acl/object-rules'],
+    ['Rules about who the user is', '../subject-rules'],
+    ['Rules about the thing being accessed', '../object-rules'],
   ]}
   unlocks={[
-    ['Why was this refused?', '/acl/refusals'],
-    ['What may this user do at all?', '/acl/listing-permissions'],
+    ['Why was this refused?', '../refusals'],
+    ['What may this user do at all?', '../listing-permissions'],
   ]}
 />
 
@@ -72,18 +72,18 @@ same fields to fetch.
 Seven strings can arrive in `reason`. Four come out of rules that read the
 subject or the row, and the table names the page that teaches each:
 
-| `reason`          | What it says                                | Where it was taught                                       |
-| ----------------- | ------------------------------------------- | --------------------------------------------------------- |
-| `allow`           | an allow rule matched and no deny rule did  | [Rules about who the user is](/acl/subject-rules)         |
-| `no-rule-matched` | nothing granted the action                  | [Rules about who the user is](/acl/subject-rules)         |
-| `denied`          | a deny rule matched and outranked the allow | [Rules about who the user is](/acl/subject-rules)         |
-| `unevaluable`     | a rule read a path the row did not carry    | [Rules about the thing being accessed](/acl/object-rules) |
+| `reason`          | What it says                                | Where it was taught                                     |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------- |
+| `allow`           | an allow rule matched and no deny rule did  | [Rules about who the user is](../subject-rules)         |
+| `no-rule-matched` | nothing granted the action                  | [Rules about who the user is](../subject-rules)         |
+| `denied`          | a deny rule matched and outranked the allow | [Rules about who the user is](../subject-rules)         |
+| `unevaluable`     | a rule read a path the row did not carry    | [Rules about the thing being accessed](../object-rules) |
 
 `allowed` is `false` for `no-rule-matched`, `denied` and `unevaluable`, so a
 handler gating on `allowed` alone is correct for all four. Three more,
 `unknown-action`, `unusable-clock` and `stale-contract`, come from the document
-or the call, and [Why was this refused?](/acl/refusals) says which situation
-produces each. [Why deny, then allow, then deny?](/acl/resolution) sets out the
+or the call, and [Why was this refused?](../refusals) says which situation
+produces each. [Why deny, then allow, then deny?](../resolution) sets out the
 order in which the evaluator weighs deny and allow rules.
 
 ## Asking acl when your query selected half the row
@@ -127,7 +127,7 @@ reads the row, every time, and cannot tell that apart from a call that happened
 to lack data. `readsObject` names the permissions the guard can never settle, so
 the guard refuses those requests outright, or marks each one as a decision the
 handler still owes once it has loaded the row.
-[The Decision object every check returns](/acl/decision-object#deciding-before-the-row-is-loaded)
+[The Decision object every check returns](../decision-object#deciding-before-the-row-is-loaded)
 carries the worked case.
 
 ## Asking acl about a page of rows
@@ -153,10 +153,10 @@ of `can` does them per row:
   whole list where a loop of `can` reads the wall clock per row, so a time
   boundary cannot fall partway down one page of rows.
 
-`can`, `canMany`, [`canFields`](/acl/writing) and `capabilities` also take that
+`can`, `canMany`, [`canFields`](../writing) and `capabilities` also take that
 instant from you, as a trailing argument:
 `access.canMany(subject, 'question', 'update', rows, now)`.
-[Why was this refused?](/acl/refusals) covers what `now` accepts and what an
+[Why was this refused?](../refusals) covers what `now` accepts and what an
 instant that does not parse decides. Prefer `canMany` over a loop of `can`, so
 one rendering reads one instant.
 
@@ -178,14 +178,14 @@ The handle carries `can`, `canMany`, `canFields` and `capabilities`, each with
 the subject dropped. `readsObject` stays on `access`, because it reads the
 document and takes no subject. `access.object(kind)` binds the object kind
 instead, and carries `can`, `canMany`, `canFields` and `readsObject`.
-[Typed authoring](/acl/authoring#a-bound-handle) shows both.
+[Typed authoring](../authoring#a-bound-handle) shows both.
 
 Binding the subject is all the library can do about
-[complete mediation](/acl/security#complete-mediation), the rule that every path
+[complete mediation](../security#complete-mediation), the rule that every path
 to your data is checked. Nothing stops a handler that never calls `can` at all.
 
 ## Now that you can ask, list what a user may do
 
-[What may this user do at all?](/acl/listing-permissions) answers every
+[What may this user do at all?](../listing-permissions) answers every
 permission for one subject in one call, which is how a navigation menu draws
 before any row is fetched.

@@ -9,12 +9,10 @@ or lost access, as findings a reviewer reads before the change deploys.
   difficulty={5}
   read={8}
   hands={15}
-  requires={[
-    ['How do I use rules another service published?', '/acl/adopting'],
-  ]}
+  requires={[['How do I use rules another service published?', '../adopting']]}
   unlocks={[
-    ['How do I test a contract I consume?', '/acl/testing'],
-    ['Caveats & Pitfalls', '/acl/pitfalls'],
+    ['How do I test a contract I consume?', '../testing'],
+    ['Caveats & Pitfalls', '../pitfalls'],
   ]}
 />
 
@@ -30,7 +28,7 @@ builds.
 under `rules` and its deny rules under `denyRules`, the two sides of the
 permission. Each rule holds a `when` list of conditions, and a condition is
 `{ field, op, value }` against a literal or `{ field, op, path }` against
-another path, as [the matrix reference](/acl/matrix) sets out:
+another path, as [the matrix reference](../matrix) sets out:
 
 ```ts twoslash file=libs/acl/README.md region=diff-matrix
 
@@ -138,6 +136,6 @@ the reviewer:
 
 ## Now that you can review a change, test the contracts you consume
 
-[How do I test a contract I consume?](/acl/testing) runs the same comparison in
+[How do I test a contract I consume?](../testing) runs the same comparison in
 a consumer's own continuous integration (CI), against the document it pinned and
 the one its owner publishes now.

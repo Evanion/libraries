@@ -9,10 +9,10 @@ answer.
   read={8}
   hands={15}
   requires={[
-    ['Overview', '/react-acl'],
+    ['Overview', '../'],
     ['Getting started with acl', '/acl/getting-started'],
   ]}
-  unlocks={[['Which side decides', '/react-acl/boundary']]}
+  unlocks={[['Which side decides', '../boundary']]}
 />
 
 ## Before you start
@@ -129,6 +129,6 @@ the only one that reads the row. A refused badge shows the decision's `reason`:
 ## Now that react-acl answers, check again on the server
 
 The Edit button you just drew enforces nothing, because a shopper can post to
-the URL behind it. [Which side decides](/react-acl/boundary) asks the same
+the URL behind it. [Which side decides](../boundary) asks the same
 question in the server component that renders the listing and in the handler
 behind the button, where the shopper cannot reach it.

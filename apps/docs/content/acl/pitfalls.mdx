@@ -48,7 +48,7 @@ handed, and `missing` names what to fetch. One refetch turns it into an answer:
 
 An `unevaluable` that survives a refetch is a mistyped field name in the
 document. A `schema` turns that class into an `UnknownFieldError` at
-construction. [The refusal fields](/acl/refusals) has both halves.
+construction. [The refusal fields](../refusals) has both halves.
 
 ### A key the document does not carry is absent, not false
 
@@ -264,6 +264,6 @@ plain, already-resolved objects.
 
 ## Where this comes from
 
-The package holds itself to [a register](/acl/attacks), one row per class of
+The package holds itself to [a register](../attacks), one row per class of
 attack, each naming the test that proves it under `nx test @evanion/acl`. The
-[security contract](/acl/security) covers the same material in prose.
+[security contract](../security) covers the same material in prose.

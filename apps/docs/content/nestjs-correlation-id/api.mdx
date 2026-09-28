@@ -127,7 +127,7 @@ string token `@nestjs/axios` registers it under, and the package imports
 
 In the code below, `StockClient` is the application's own `HttpService`
 consumer, shown on
-[Forward the id to the next service](/nestjs-correlation-id/forwarding), and
+[Forward the id to the next service](../forwarding), and
 `StockModule` registers it:
 
 ```ts file=libs/nestjs-correlation-id/examples/stock.module.ts region=forward
@@ -204,8 +204,8 @@ Inject it with `@Inject`. `RestockJob`, a queue consumer in Baize's `orders`
 service, injects it to check an id a queue message carried with the same
 `validate` the middleware applies. `StockClient` is the service's own
 `HttpService` consumer, shown on
-[Forward the id to the next service](/nestjs-correlation-id/forwarding).
-[Carry the id through a job](/nestjs-correlation-id/jobs) explains the consumer.
+[Forward the id to the next service](../forwarding).
+[Carry the id through a job](../jobs) explains the consumer.
 
 ```ts file=libs/nestjs-correlation-id/examples/restock.job.ts region=restock-job
 

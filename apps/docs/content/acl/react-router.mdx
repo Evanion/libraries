@@ -10,10 +10,10 @@ A React Router route's loader and action each call `@evanion/acl`'s
   difficulty={5}
   read={15}
   hands={30}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['Many services', '/acl/federation'],
-    ['Field permissions', '/acl/fields'],
+    ['Many services', '../federation'],
+    ['Field permissions', '../fields'],
   ]}
 />
 
@@ -126,7 +126,7 @@ read" panel where the ledger would be, and the loader never fetches the events.
 Loader return values are the serialization boundary. The loader returns
 `access.matrix`, never `access`, because `Access` holds functions and they do
 not serialize.
-[Choosing a framework integration](/acl/choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
+[Choosing a framework integration](../choosing-an-integration#what-crosses-on-the-platforms-where-something-does)
 shows the round trip.
 
 `apps/admin`'s shell loader returns `access.matrix`, the subject and a `now`
@@ -209,10 +209,10 @@ that the action called something. The browser half needs a data router, because
 
 ## Where to go next
 
-- [Next.js (React Server Components)](/acl/nextjs). The same split, with a
+- [Next.js (React Server Components)](../nextjs). The same split, with a
   server component as the trusted side.
-- [What may this user do at all?](/acl/listing-permissions). The capability map
+- [What may this user do at all?](../listing-permissions). The capability map
   a loader reads.
-- [Field permissions](/acl/fields). The write axis an action decides on.
-- [Security contract](/acl/security). Time of check to time of use, and matrix
+- [Field permissions](../fields). The write axis an action decides on.
+- [Security contract](../security). Time of check to time of use, and matrix
   freshness.

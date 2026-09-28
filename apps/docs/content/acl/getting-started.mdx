@@ -7,8 +7,8 @@ lets a customer edit their own question and it refuses a stranger.
   difficulty={1}
   read={4}
   hands={10}
-  requires={[['Overview', '/acl']]}
-  unlocks={[['Rules about who the user is', '/acl/subject-rules']]}
+  requires={[['Overview', '../']]}
+  unlocks={[['Rules about who the user is', '../subject-rules']]}
 />
 
 ## Before you start
@@ -23,7 +23,7 @@ lets a customer edit their own question and it refuses a stranger.
   subject you hand it.
 - Nothing else: no API key, no service to run and no environment variable.
   `policy()` turns your rules into a JSON document in your own process, the
-  document [the Overview](/acl) calls the matrix.
+  document [the Overview](../) calls the matrix.
 - No framework. The `@evanion/acl` entry point imports none, and the React
   provider and hooks are a separate package, [`@evanion/react-acl`](/react-acl).
 
@@ -103,7 +103,7 @@ rule of its own, next to the one the policy already holds.
 
 ## Now that acl answers, write the rest of your rules
 
-[Rules about who the user is](/acl/subject-rules) is the next page. It pairs an
+[Rules about who the user is](../subject-rules) is the next page. It pairs an
 allow rule with a deny rule that states an exception to it, and shows the three
 reasons a policy that reads only the subject returns: `allow`, `no-rule-matched`
 and `denied`.

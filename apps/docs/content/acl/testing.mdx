@@ -11,19 +11,19 @@ and reports what moved between them.
   read={8}
   hands={20}
   requires={[
-    ['How do I use rules another service published?', '/acl/adopting'],
-    ['What did editing my rules change about access?', '/acl/rule-changes'],
+    ['How do I use rules another service published?', '../adopting'],
+    ['What did editing my rules change about access?', '../rule-changes'],
   ]}
   unlocks={[
-    ['Caveats & Pitfalls', '/acl/pitfalls'],
-    ['API Reference', '/acl/api'],
+    ['Caveats & Pitfalls', '../pitfalls'],
+    ['API Reference', '../api'],
   ]}
 />
 
 ## Catching an acl contract change in your own CI
 
 A contract is the matrix another service publishes for yours to adopt with
-`parseMatrix`, as [How do I give my rules to another service?](/acl/publishing)
+`parseMatrix`, as [How do I give my rules to another service?](../publishing)
 covers. Baize's storefront draws its refund and cancel buttons from the contract
 the `orders` service publishes. A storefront test that writes a fixture matrix
 to stand in for that contract keeps a second copy of `orders`' rules, and the
@@ -40,7 +40,7 @@ screens ask:
 
 `contractDrift({ pinned, fetched, cases })` adopts both documents with
 `parseMatrix`, the call
-[How do I use rules another service published?](/acl/adopting) covers, and
+[How do I use rules another service published?](../adopting) covers, and
 answers every case against each. A case holds the arguments of `can` as
 `subject`, `key`, `action` and an optional `object`, plus a `name` for the
 report and an optional `now`. Its `key` is the object kind, the second argument
@@ -85,7 +85,7 @@ which every assertion in `@evanion/acl/testing` throws, and both are plain
 `options.diff` takes a `MatrixDiffer<D>`, a `(pinned, fetched) => D`.
 `contractDrift` reads nothing out of the result and carries it onto
 `report.diff`, so passing `diffMatrix` types `report.diff` as the `MatrixDiff`
-that [What did editing my rules change about access?](/acl/rule-changes) reads:
+that [What did editing my rules change about access?](../rule-changes) reads:
 
 ```ts twoslash file=libs/acl/README.md region=drift-seam
 
@@ -154,5 +154,5 @@ engine pulls none of it into its bundle.
 
 ## Now that your suite checks the contract, check your code
 
-[Caveats & Pitfalls](/acl/pitfalls) lists the mistakes a working acl integration
+[Caveats & Pitfalls](../pitfalls) lists the mistakes a working acl integration
 still makes, each beside the form to write.
