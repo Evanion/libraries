@@ -243,6 +243,12 @@ describe('the observer the inferring overload installs', () => {
         expectTypeOf(event.type).toEqualTypeOf<
           'resolve' | 'is-enabled' | 'plan' | 'toggle'
         >();
+        if (event.type !== 'is-enabled') return;
+
+        expectTypeOf(event.key).toEqualTypeOf<'cta'>();
+        expectTypeOf(event.decision.variant).toEqualTypeOf<
+          'control' | 'blue' | undefined
+        >();
       },
     });
   });
