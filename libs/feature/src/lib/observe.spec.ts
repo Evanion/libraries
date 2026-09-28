@@ -304,25 +304,58 @@ describe('resolve and isEnabled', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe });
 
-    features.resolve({ targetingKey: 'u1' });
+    const decisions = features.resolve({ targetingKey: 'u1' });
 
     expect(observe).toHaveBeenCalledTimes(1);
     const event = observe.mock.calls[0]?.[0];
     expect(event.type).toBe('resolve');
     expect(Object.keys(event.decisions)).toEqual(['cta', 'nav']);
+    // The event reports the record the caller received, so an auditor reading
+    // the event stream reads what the application acted on.
+    expect(event.decisions).toBe(decisions);
   });
 
   it('emits one is-enabled event naming the key the caller asked for', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe });
 
-    features.isEnabled('cta', { targetingKey: 'u1' });
+    const enabled = features.isEnabled('cta', { targetingKey: 'u1' });
 
     expect(observe).toHaveBeenCalledTimes(1);
     const event = observe.mock.calls[0]?.[0];
     expect(event.type).toBe('is-enabled');
     expect(event.key).toBe('cta');
     expect(event.decision.key).toBe('cta');
+    expect(event.decision.enabled).toBe(enabled);
+  });
+
+  it('reports a disabled feature as the caller saw it', () => {
+    const observe = vi.fn();
+    const features = createFeatures(
+      [
+        { key: 'cta', enabled: true },
+        { key: 'nav', enabled: false },
+      ] as const,
+      { observe },
+    );
+
+    const enabled = features.isEnabled('nav', { targetingKey: 'u1' });
+
+    expect(enabled).toBe(false);
+    expect(observe.mock.calls[0]?.[0].decision.enabled).toBe(false);
+  });
+
+  it('answers what the store decided when an observer rewrites the decision', () => {
+    const features = createFeatures(defs, {
+      observe: (event) => {
+        if (event.type !== 'is-enabled') return;
+        (event.decision as { enabled: boolean }).enabled = false;
+      },
+    });
+
+    const enabled = features.isEnabled('cta', { targetingKey: 'u1' });
+
+    expect(enabled).toBe(true);
   });
 
   it('carries the instant the caller supplied', () => {
@@ -332,7 +365,19 @@ describe('resolve and isEnabled', () => {
 
     features.resolve({ targetingKey: 'u1', now });
 
-    expect(observe.mock.calls[0]?.[0].at).toBe(now);
+    expect(observe.mock.calls[0]?.[0].at.getTime()).toBe(now.getTime());
+  });
+
+  it('copies the instant the caller supplied', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe });
+
+    features.resolve({ targetingKey: 'u1', now });
+
+    // An observer holding the caller's own `Date` could call `setTime` on it
+    // and move every later rule that reads `now`.
+    expect(observe.mock.calls[0]?.[0].at).not.toBe(now);
   });
 
   it('carries the bucketing field as the subject', () => {
