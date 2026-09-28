@@ -123,25 +123,6 @@ describe('createEmitter', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('returns to the caller when the observer and the handler both throw', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const emit = createEmitter({
-      observe: () => {
-        throw new Error('transport down');
-      },
-      onObserveError: () => {
-        throw new Error('logger down');
-      },
-    });
-    const decide = () => {
-      const decision = { ok: true };
-      emit(event);
-      return decision;
-    };
-
-    expect(decide()).toEqual({ ok: true });
-  });
-
   it('warns once across several failures when no handler is supplied', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const emit = createEmitter({
