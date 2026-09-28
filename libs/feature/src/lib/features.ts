@@ -237,13 +237,15 @@ export function createFeatures(
   /**
    * The members every event carries, whatever entry point reports it.
    *
-   * `at` comes off the settled context, so an event names the instant its own
-   * decisions resolved under and the engine reads the clock once per call.
+   * `at` copies the settled context's instant, so an event names the instant its
+   * own decisions resolved under and the engine reads the clock once per call.
+   * The copy holds no handle on a `Date` the caller still owns, so an observer
+   * that calls `setTime` on `event.at` moves its own copy and nothing else.
    */
   const envelope = (context: SettledContext) => {
     const subject = subjectOf(context);
     return {
-      at: context.now,
+      at: new Date(context.now),
       ...(subject === undefined ? {} : { subject }),
       ...(options.version === undefined ? {} : { version: options.version }),
     };
@@ -353,6 +355,11 @@ export function createFeatures(
     isEnabled: (key, context) => {
       const evaluationContext = withNow(context);
       const decision = resolveAll(evaluationContext)[key];
+      // Read before the emit. `emit` calls a synchronous observer before it
+      // returns, and the observer holds the same decision object this answer
+      // comes off, so an observer that writes to `event.decision.enabled` must
+      // not change the boolean the caller receives.
+      const enabled = decision?.enabled ?? false;
 
       emit({
         type: 'is-enabled',
@@ -361,7 +368,7 @@ export function createFeatures(
         decision,
       } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
 
-      return decision?.enabled ?? false;
+      return enabled;
     },
     // Both returns are cast. A generic method whose return type is conditional
     // has no type an implementation can write: the compiler resolves neither
