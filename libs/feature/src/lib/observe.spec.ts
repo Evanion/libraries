@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFeatures } from './features.js';
 import { createEmitter } from './observe.js';
 import type { FeatureEvent } from './observe.js';
-import type { ToggleResult } from './types.js';
+import type { FeatureDefinition, ToggleResult } from './types.js';
 
 const event: FeatureEvent = {
   type: 'toggle',
@@ -926,5 +926,41 @@ describe('what an observer cannot change', () => {
     // that loads the configuration.
     expect(Object.isFrozen(held)).toBe(true);
     expect(held.self).toBe(held);
+  });
+
+  it('refuses a write through the config array the store still holds', () => {
+    const onObserveError = vi.fn();
+    const features = createFeatures(defs, {
+      observe: () => {
+        // The cast is the JavaScript observer. A TypeScript observer cannot
+        // write here, because `Features` declares `config` readonly.
+        (features.config as FeatureDefinition<string>[]).push({
+          key: 'ghost',
+          enabled: true,
+        });
+      },
+      onObserveError,
+    });
+
+    features.isEnabled('parent', { targetingKey: 'u1' });
+
+    // `deepFreeze` covers each definition and never the array holding them, so
+    // a push through the getter would put an entry in the store that nobody
+    // configured and every later `resolve` would report it.
+    expect(features.config.map((definition) => definition.key)).toEqual([
+      'parent',
+      'child',
+    ]);
+    expect(onObserveError).toHaveBeenCalledTimes(1);
+    expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('refuses a truncation of the config array', () => {
+    const features = createFeatures(defs);
+
+    expect(() => {
+      (features.config as unknown as unknown[]).length = 0;
+    }).toThrow(TypeError);
+    expect(features.isEnabled('parent', { targetingKey: 'u1' })).toBe(true);
   });
 });
