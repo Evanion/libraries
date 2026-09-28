@@ -7,10 +7,10 @@ items a CMS saved, and you have opened the page in `astro dev`.
   difficulty={1}
   read={5}
   hands={15}
-  requires={[['Overview', '/astro-widget']]}
+  requires={[['Overview', '../']]}
   unlocks={[
-    ['Check CMS items before Astro renders them', '/astro-widget/validation'],
-    ['API reference', '/astro-widget/api'],
+    ['Check CMS items before Astro renders them', '../validation'],
+    ['API reference', '../api'],
   ]}
 />
 
@@ -104,5 +104,5 @@ API, and check that its HTML is this:
 
 `Widgets.astro` skips an item whose `type` the registry does not hold, so a CMS
 save with a stale type publishes a page with a gap in it.
-[Check CMS items before Astro renders them](/astro-widget/validation) runs
+[Check CMS items before Astro renders them](../validation) runs
 `validateItems` over the items and fails the build on that save.

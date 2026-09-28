@@ -10,10 +10,10 @@ it declares and what it decides for one subject.
   difficulty={4}
   read={5}
   hands={10}
-  requires={[['The matrix: your rules as JSON', '/acl/matrix']]}
+  requires={[['The matrix: your rules as JSON', '../matrix']]}
   unlocks={[
-    ['How do I use rules another service published?', '/acl/adopting'],
-    ['What may this user do at all?', '/acl/listing-permissions'],
+    ['How do I use rules another service published?', '../adopting'],
+    ['What may this user do at all?', '../listing-permissions'],
   ]}
 />
 
@@ -51,7 +51,7 @@ HTML the build emitted, and your document reaches the screen after that.
 
 ## What the acl matrix explorer draws
 
-The explorer loads the document with [`parseMatrix`](/acl/api#parsematrix), the
+The explorer loads the document with [`parseMatrix`](../api#parsematrix), the
 function a service calls on a matrix another service published, because a
 pasted document is foreign input: a key it does not carry answers
 `unknown-action` rather than throwing. What the screen shows is what that
@@ -66,7 +66,7 @@ and each is either the document's own words or one call into the package.
 pass over the whole document, `can` for a permission that reads the object and
 has a row to read. **What it declares** is `version`, `maxStale`, the schema's
 object kinds and how many permissions carry `visibility: 'public'`, which is the
-set [`serialize(access, 'reduced')`](/acl/publishing) would keep. **What each
+set [`serialize(access, 'reduced')`](../publishing) would keep. **What each
 permission says** is its allow rules, its deny rules and its field rules, with
 `needs the row` on every permission `access.readsObject` answers true for.
 
@@ -116,7 +116,7 @@ A row is optional, and the three states it has are all worth reaching:
   answers `no-rule-matched`, because the comparison ran and failed.
 
 An absent path and an empty string are different answers, and the box is where
-you tell them apart. [Why was this refused?](/acl/refusals) has the rest of that
+you tell them apart. [Why was this refused?](../refusals) has the rest of that
 distinction.
 
 ### Why the acl explorer reads no `relations`
@@ -134,7 +134,7 @@ Text that is not JSON never reaches the package. The screen says so and quotes
 what `JSON.parse` reported, and no rule has been read at that point.
 
 A document that parsed and that the package refused raises an
-[`AclConfigError`](/acl/errors), and the screen renders the class, the message
+[`AclConfigError`](../errors), and the screen renders the class, the message
 and the three properties that locate the value. A condition naming
 `object.seller_id` against a schema declaring `sellerId` gives this:
 
@@ -147,7 +147,7 @@ and the three properties that locate the value. A condition naming
 | `where`       | `rules[0].when[0]`                                                                                                      |
 
 `where` is a position inside the permission, so a document with forty rules
-still names the one condition to change. [What can throw?](/acl/errors) carries
+still names the one condition to change. [What can throw?](../errors) carries
 every class with the input that raises each one.
 
 A malformed row is reported the way a malformed document is, with the message
@@ -161,20 +161,20 @@ Two things you might expect, each left out for a reason.
 **The field axis.** `canFields` needs a proposed write as well as a row, and it
 answers a different question: which fields of this row may be written, rather
 than whether the action is allowed at all. That is a third box for a question
-[Which fields may they write?](/acl/writing) teaches against a scenario built
+[Which fields may they write?](../writing) teaches against a scenario built
 for it.
 
 **A diff between two documents.** `diffMatrix` is a second document, a second
 adoption and a second refusal path on a screen that has one of each today.
-[What did editing my rules change about access?](/acl/rule-changes) has it.
+[What did editing my rules change about access?](../rule-changes) has it.
 
 ## Where to go next
 
 - [The matrix explorer](/matrix-explorer). The tool itself, on a screen of its
   own.
-- [How do I use rules another service published?](/acl/adopting). The same `parseMatrix`
+- [How do I use rules another service published?](../adopting). The same `parseMatrix`
   adoption, in a service rather than a browser.
-- [What may this user do at all?](/acl/listing-permissions). The call the subject box
+- [What may this user do at all?](../listing-permissions). The call the subject box
   makes, and what its answers mean.
-- [Why was this refused?](/acl/refusals). Reading `reason` and `missing` off a
+- [Why was this refused?](../refusals). Reading `reason` and `missing` off a
   row of the decision table.

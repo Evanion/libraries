@@ -9,10 +9,10 @@ it was handed was refused.
 <PageSheet
   difficulty={4}
   read={7}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['What did editing my rules change about access?', '/acl/rule-changes'],
-    ['Typed Authoring', '/acl/authoring'],
+    ['What did editing my rules change about access?', '../rule-changes'],
+    ['Typed Authoring', '../authoring'],
   ]}
 />
 
@@ -43,11 +43,11 @@ take the action at all:
 
 `ActionNotAllowedError` extends `Error` directly, so a startup guard around
 construction does not catch it, and the handler that writes has to.
-[When the acl action itself is refused](/acl/writing#when-the-acl-action-itself-is-refused)
+[When the acl action itself is refused](../writing#when-the-acl-action-itself-is-refused)
 covers `fd.allowed` and `fd.action.allowed`, the two booleans behind it.
 
 The assertions in `@evanion/acl/testing` throw `AclAssertionError`, which
-[How do I test a contract I consume?](/acl/testing) covers.
+[How do I test a contract I consume?](../testing) covers.
 
 ## When an acl query throws, and when it refuses
 
@@ -70,14 +70,14 @@ declared, and `UnknownObjectKeyError` for an object kind it never configured.
 Everything else on this page throws at construction: at startup for your own
 document, and at adoption for a foreign one. A consumer that adopts a fetched
 document while serving a request meets the throw there, and
-[keeping the last document that constructed](/acl/adopting#what-parsematrix-refuses-before-an-acl-evaluator-exists)
+[keeping the last document that constructed](../adopting#what-parsematrix-refuses-before-an-acl-evaluator-exists)
 answers it.
 
 ## What refuses an acl document
 
 The fixtures below are matrix JSON. Each permission has `key`, `object`,
 `action` and a `rules` list, and each rule holds a `when` list of conditions;
-[The matrix: your rules as JSON](/acl/matrix) has the full form. Each case names
+[The matrix: your rules as JSON](../matrix) has the full form. Each case names
 its input first, and `raised` reports the class, so one case reads as one line:
 
 ```ts twoslash file=libs/acl/README.md region=errors-document
@@ -121,10 +121,10 @@ present or not.
 | `TargetsTransitionsConflictError` | one field given both `targets` and `transitions`                                        |
 
 `*` and `!name` are syntax in a list of fields, so the last three are raised by
-the shape of the list. [Which fields may they write?](/acl/writing) has that
+the shape of the list. [Which fields may they write?](../writing) has that
 syntax. A typed author meets two more while naming rules, `DuplicateRuleIdError`
 and `AmbiguousRuleIdError`, which
-[Typed authoring](/acl/authoring#construction-errors) tables.
+[Typed authoring](../authoring#construction-errors) tables.
 
 ## What refuses an acl consumer's freshness settings
 
@@ -142,7 +142,7 @@ document that states no `maxStale`, and the owner has to state how long a check
 lasts. `InvalidFreshnessError` means the consumer's `fetchedAt` does not parse
 as an instant, or its own `maxStale` is not a finite, non-negative number of
 milliseconds.
-[How long a consumer may keep deciding on an acl contract](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+[How long a consumer may keep deciding on an acl contract](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
 has the budget.
 
 ## What refuses an acl composition
@@ -164,13 +164,13 @@ it refused:
 | `MissingVetoSchemaError`    | a `vetoable` key whose object kind the schema does not declare     |
 | `UnpublishedVetoableError`  | a `vetoable` key that `serialize(access, 'reduced')` would drop    |
 
-[Many services](/acl/federation) has the topology `OriginCollisionError` comes
+[Many services](../federation) has the topology `OriginCollisionError` comes
 from, and
-[the cross-cutting deny](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+[the cross-cutting deny](../federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
 is where the three veto errors belong.
 
 ## Now that your documents construct, review what a rule change did
 
-[What did editing my rules change about access?](/acl/rule-changes) compares two
+[What did editing my rules change about access?](../rule-changes) compares two
 documents that both constructed and reports who gained or lost access between
 them.

@@ -9,16 +9,16 @@ your server resolved before the call, with every field on it.
   difficulty={2}
   read={5}
   hands={10}
-  requires={[['Getting started', '/acl/getting-started']]}
+  requires={[['Getting started', '../getting-started']]}
   unlocks={[
-    ['Rules about the thing being accessed', '/acl/object-rules'],
-    ['What may this user do at all?', '/acl/listing-permissions'],
+    ['Rules about the thing being accessed', '../object-rules'],
+    ['What may this user do at all?', '../listing-permissions'],
   ]}
 />
 
 ## What a subject-only acl rule covers
 
-Baize, [the Overview's](/acl) board game shop, lets any bookseller read its
+Baize, [the Overview's](../) board game shop, lets any bookseller read its
 stock report, except a bookseller whose account the shop has suspended. Both
 rules read a role off the subject, so `can` answers either one with no database
 read in front of it.
@@ -26,7 +26,7 @@ read in front of it.
 Written by hand in every handler, that pair drifts: one tests
 `roles.includes('bookseller')`, another tests `user.isStaff`, and the suspended
 account is refused in two places out of five. A policy holds the pair once,
-built from the chain [Getting started](/acl/getting-started) used:
+built from the chain [Getting started](../getting-started) used:
 `policy<Subject, Objects>()`, then `.for(kind, block)` per object kind, then
 `.build()`.
 
@@ -83,16 +83,16 @@ an exception each carry their own copy of it, and a reader of either action sees
 every rule that decides it.
 
 One policy holds every object kind your app has. Add a kind by chaining a second
-`.for()`, which [Rules about the thing being accessed](/acl/object-rules) shows
+`.for()`, which [Rules about the thing being accessed](../object-rules) shows
 over two kinds, and do not build a policy per resource. `access.matrix` is what
-those blocks flattened to: the JSON document [the Overview](/acl) calls the
+those blocks flattened to: the JSON document [the Overview](../) calls the
 matrix, carrying a flat list of permissions, each keyed
 `` `${object}.${action}` ``.
 
 <Panel heading="This decision is authoritative only where it is made">
   <Text as="div" size="sm">
     The same call in a browser toggles what a user sees and enforces nothing.
-    Read [the security contract](/acl/security) before this reaches production.
+    Read [the security contract](../security) before this reaches production.
   </Text>
 </Panel>
 
@@ -104,20 +104,20 @@ two things.
 Your handler always gets a final answer. The server resolves the subject whole
 before the call, so every condition has data to read, and a permission here
 answers `allow`, `denied` or `no-rule-matched`. None of them answers
-[`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable), which `can`
+[`unevaluable`](../refusals#when-the-answer-is-unevaluable), which `can`
 answers when it cannot tell yet.
 
 Your caller asks without fetching anything. `can` needs no row, so
-[`capabilities`](/acl/listing-permissions) answers every permission in the
+[`capabilities`](../listing-permissions) answers every permission in the
 document against one subject in a single call, and a navigation menu draws
 itself from that one answer.
 
-The rule from [Getting started](/acl/getting-started), that the customer who
+The rule from [Getting started](../getting-started), that the customer who
 asked a question may edit it, reads the question. Both properties above stop
 holding the moment you add it: an answer can come back undecided, and a question
 has to be loaded first.
 
 ## Now that the subject decides, write a rule about the row
 
-[Rules about the thing being accessed](/acl/object-rules) writes the rule that
+[Rules about the thing being accessed](../object-rules) writes the rule that
 reads the question, and the fourth answer a decision can give.

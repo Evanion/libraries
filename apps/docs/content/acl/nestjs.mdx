@@ -11,12 +11,12 @@ loaded.
   read={15}
   hands={30}
   requires={[
-    ['Rules about the thing being accessed', '/acl/object-rules'],
-    ['Which fields may they write?', '/acl/writing'],
+    ['Rules about the thing being accessed', '../object-rules'],
+    ['Which fields may they write?', '../writing'],
   ]}
   unlocks={[
-    ['Astro SSR', '/acl/astro'],
-    ['Many services', '/acl/federation'],
+    ['Astro SSR', '../astro'],
+    ['Many services', '../federation'],
   ]}
 />
 
@@ -224,10 +224,10 @@ so this spec builds the real one. `acl.guard.spec.ts` covers the guard,
 
 ## Where to go next
 
-- [Express](/acl/express). The same boundary with no guard seat.
-- [The Decision object every check returns](/acl/decision-object). The
+- [Express](../express). The same boundary with no guard seat.
+- [The Decision object every check returns](../decision-object). The
   `unevaluable` answer `readsObject` exists for.
-- [Why deny, then allow, then deny?](/acl/resolution). Where the guard's two
+- [Why deny, then allow, then deny?](../resolution). Where the guard's two
   branches come from.
-- [Security contract](/acl/security). Complete mediation, and why the guard
+- [Security contract](../security). Complete mediation, and why the guard
   alone is not it.

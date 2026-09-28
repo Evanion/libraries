@@ -8,8 +8,8 @@ module. `CorrelationConfig` has three fields, each with a default.
   difficulty={3}
   read={8}
   hands={10}
-  requires={[['Getting started', '/nestjs-correlation-id/getting-started']]}
-  unlocks={[['API reference', '/nestjs-correlation-id/api']]}
+  requires={[['Getting started', '../getting-started']]}
+  unlocks={[['API reference', '../api']]}
 />
 
 | Field       | Default                            | What it does                                              |
@@ -83,7 +83,7 @@ What the default check refuses:
   header, incoming and outgoing. The check also covers an id from another
   source, such as a queue message, when your consumer passes it through
   `validate` the way `RestockJob` does on
-  [Carry the id through a job](/nestjs-correlation-id/jobs). A CR or LF in a log
+  [Carry the id through a job](../jobs). A CR or LF in a log
   line forges a second line.
 - Anything over 128 characters, which bounds what one request can append to
   every log line it touches.

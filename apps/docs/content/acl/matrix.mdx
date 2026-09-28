@@ -19,7 +19,7 @@ A matrix has no bare-array form, and a producer in any language states
 - `version`: what the revalidate contract compares, optional.
 - `schema`: the shapes the conditions read, optional and binding where present.
 - `maxStale`: how many milliseconds a consumer may keep deciding on a copy it
-  fetched, optional. [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+  fetched, optional. [How long a consumer may keep deciding](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
   has the arithmetic.
 - `permissions`: the flat list, one entry per object-and-action pair.
 
@@ -178,4 +178,4 @@ including through the exposed `access.matrix`.
 
 The subject and the object are not copied. The engine reads the app's data live
 as the decision walks the rules. What that implies for a lazy ORM row is in [the
-security contract](/acl/security).
+security contract](../security).

@@ -10,12 +10,12 @@ step that applies, once the document is fresh and holds the key.
   difficulty={4}
   read={9}
   requires={[
-    ['Rules about who the user is', '/acl/subject-rules'],
-    ['The Decision object every check returns', '/acl/decision-object'],
+    ['Rules about who the user is', '../subject-rules'],
+    ['The Decision object every check returns', '../decision-object'],
   ]}
   unlocks={[
-    ['Security contract', '/acl/security'],
-    ['Many services', '/acl/federation'],
+    ['Security contract', '../security'],
+    ['Many services', '../federation'],
   ]}
 />
 
@@ -127,13 +127,13 @@ match, whether `can` or `cannot`. CASL's guide names the hazard: "the order of
 rules matters: `cannot` declarations should follow after `can`, otherwise they
 will be overridden by `can`".
 
-A [matrix](/acl/matrix) is the frozen JSON document one service publishes and
-[another service adopts](/acl/adopting). Three things break there under
+A [matrix](../matrix) is the frozen JSON document one service publishes and
+[another service adopts](../adopting). Three things break there under
 order-dependence:
 
 - Identical rules in a different order decide differently, so a publishing
   service that reorders its own output changes what a consumer grants.
-- [`applyDenyOverlay`](/acl/federation) appends another team's deny rules to a
+- [`applyDenyOverlay`](../federation) appends another team's deny rules to a
   permission's `denyRules`. Under last-declaration-wins, the veto would depend
   on where the append put them.
 - A reviewer could not say what a matrix grants without reading every rule in
@@ -197,7 +197,7 @@ and `now`, and no array order or per-process setting. A browser, the server
 behind it and a downstream service holding the same document, subject, object
 and `now` reach the same decision. A layer that re-decides therefore confirms
 the answer the layer before it gave. Every app in the chain evaluates for itself
-and trusts no earlier layer, and [the security contract](/acl/security) argues
+and trusts no earlier layer, and [the security contract](../security) argues
 why.
 
 Two inputs differ between layers unless the caller aligns them:
@@ -212,9 +212,9 @@ Two inputs differ between layers unless the caller aligns them:
 
 ## Where to go next
 
-- [The Decision object every check returns](/acl/decision-object): the fields
+- [The Decision object every check returns](../decision-object): the fields
   each step fills, `unevaluable` as a third state, and the clock.
-- [Why was this refused?](/acl/refusals): which rule decided a refusal, and what
+- [Why was this refused?](../refusals): which rule decided a refusal, and what
   to do with an `unevaluable`.
-- [Security contract](/acl/security): the trust boundary every layer re-decides
+- [Security contract](../security): the trust boundary every layer re-decides
   across, and the clock a decision reads.

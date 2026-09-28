@@ -9,10 +9,10 @@ and answers `unknown-action` for any permission that document does not carry.
   difficulty={4}
   read={7}
   hands={20}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['How do I give my rules to another service?', '/acl/publishing'],
-    ['The matrix: your rules as JSON', '/acl/matrix'],
+    ['How do I give my rules to another service?', '../publishing'],
+    ['The matrix: your rules as JSON', '../matrix'],
   ]}
 />
 
@@ -23,7 +23,7 @@ storefront that writes those rules a second time is right until the owner
 changes one: the owner keeps refusing correctly, no alarm fires, and the button
 stays hidden against a server that would have allowed the call.
 
-The matrix is the JSON document a policy flattens to, which [the Overview](/acl)
+The matrix is the JSON document a policy flattens to, which [the Overview](../)
 introduces. The owner serves it, and the storefront fetches it and hands it to
 `parseMatrix`:
 
@@ -90,7 +90,7 @@ and each refusal extends `AclConfigError`. The common ones:
 | `UnknownFieldError`        | a condition names a field the document's `schema` omits    |
 | `FieldTypeMismatchError`   | an operator that does not fit the `schema`'s declared type |
 
-[What can throw?](/acl/errors) tables the rest. A document fetched over the
+[What can throw?](../errors) tables the rest. A document fetched over the
 network can fail for reasons your process cannot fix, so keep the last document
 that constructed. The `orders:` prefix on the object kind names the service that
 owns it:
@@ -108,7 +108,7 @@ rule with an empty `when` grants everyone, and a permission with an empty
 A document may carry a `schema`, which lists the fields of each object kind
 under `schema.objects`. It binds per object kind: a permission on a kind the
 schema does not list is unchecked, and a document with no schema checks no path.
-[What the acl schema refuses](/acl/advanced#what-the-acl-schema-refuses-before-an-evaluator-exists)
+[What the acl schema refuses](../advanced#what-the-acl-schema-refuses-before-an-evaluator-exists)
 works one through.
 
 ## Which revision of an acl document is answering
@@ -118,7 +118,7 @@ the JSON round trip, so a consumer holding a document for weeks can say which
 revision decided. A process that changes a document before building an evaluator
 over it runs a revision the owner never shipped. A deny overlay does that: it
 merges another team's deny rules into the document, as
-[Many services](/acl/federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+[Many services](../federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
 covers. `hydratePolicy(matrix, { version })` names the revision this process
 runs, and `parseMatrix` takes the same option:
 
@@ -131,7 +131,7 @@ the evaluator freezes, carries the winner. So the version that decided is the
 version that crosses a server-side rendering (SSR) boundary. A document stating
 no version leaves `access.version` undefined, and a comparison against it
 decides nothing.
-[Refetching an acl matrix when its version moves](/acl/advanced#refetching-an-acl-matrix-when-its-version-moves)
+[Refetching an acl matrix when its version moves](../advanced#refetching-an-acl-matrix-when-its-version-moves)
 sets out the comparison.
 
 ## What adopting an acl document does not verify
@@ -140,11 +140,11 @@ The library neither signs a document nor verifies a signature. A matrix arriving
 over an unauthenticated channel is a matrix an attacker wrote, and every check
 above reads the shape and says nothing about where the bytes came from.
 Integrity belongs to the transport, the same way
-[resolving a subject](/acl/pitfalls#the-subject-is-whatever-you-hand-it) belongs
+[resolving a subject](../pitfalls#the-subject-is-whatever-you-hand-it) belongs
 to the session layer.
 
 ## Now that you can adopt a document, publish your own
 
-[How do I give my rules to another service?](/acl/publishing) is the other side
+[How do I give my rules to another service?](../publishing) is the other side
 of this page: the document an owner serves, and how long a consumer may keep
 deciding on it.

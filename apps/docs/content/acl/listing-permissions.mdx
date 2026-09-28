@@ -10,10 +10,10 @@ fetched.
   difficulty={4}
   read={5}
   hands={15}
-  requires={[['Can this user do this?', '/acl/asking']]}
+  requires={[['Can this user do this?', '../asking']]}
   unlocks={[
-    ['Which fields may they write?', '/acl/writing'],
-    ['Many services', '/acl/federation'],
+    ['Which fields may they write?', '../writing'],
+    ['Many services', '../federation'],
   ]}
 />
 
@@ -29,7 +29,7 @@ one subject, passing no object, and returns a map keyed by permission in
 document order. The optional `now` fixes the instant that rules comparing the
 clock read. Each entry is the decision `can` returns: `allowed` is the answer,
 and `reason` names which of seven outcomes decided it, as
-[Can this user do this?](/acl/asking) tables. `p.contains(path, value)` holds
+[Can this user do this?](../asking) tables. `p.contains(path, value)` holds
 when the array at `path` includes `value`:
 
 ```ts twoslash file=libs/acl/README.md region=capabilities
@@ -114,15 +114,15 @@ fixed one, can otherwise flip between two items of one render.
 
 A control on one row, such as the Edit button under one question, needs that
 row. Ask `can` with the question, or
-[`canMany`](/acl/asking#asking-acl-about-a-page-of-rows) with the page of rows.
+[`canMany`](../asking#asking-acl-about-a-page-of-rows) with the page of rows.
 An entry that came back `unevaluable` is the map saying so.
 
 A capability map is also not a copy of the rules to ship to a browser. Ship
 `access.matrix` and let the browser rebuild an evaluator with `hydratePolicy`,
-as [the Overview](/acl) draws it. A map computed per subject is a second
+as [the Overview](../) draws it. A map computed per subject is a second
 document to keep fresh.
 
 ## Now that the menu draws, decide what a form may write
 
-[Which fields may they write?](/acl/writing) takes one row the menu led to and
+[Which fields may they write?](../writing) takes one row the menu led to and
 decides, field by field, what a save may carry.

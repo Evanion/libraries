@@ -10,10 +10,10 @@ document is merged, so each service stays the only author of its rules.
   difficulty={5}
   read={12}
   hands={15}
-  requires={[['Rules that another service wrote', '/acl/advanced']]}
+  requires={[['Rules that another service wrote', '../advanced']]}
   unlocks={[
-    ['How do I give my rules to another service?', '/acl/publishing'],
-    ['Security contract', '/acl/security'],
+    ['How do I give my rules to another service?', '../publishing'],
+    ['Security contract', '../security'],
   ]}
 />
 
@@ -101,7 +101,7 @@ Leave an upstream you cannot reach out of the object passed to
 records the outage, and no option turns that answer into an error.
 
 Each member is built with `parseMatrix`, for the reason
-[How do I use rules another service published?](/acl/adopting) gives: every
+[How do I use rules another service published?](../adopting) gives: every
 document in the record came from another process, and closed mode is what turns
 a key its owner dropped into a refusal.
 
@@ -160,10 +160,10 @@ an attacker could have written.
 
 ## Where to go next
 
-- [How do I give my rules to another service?](/acl/publishing). `serialize`,
+- [How do I give my rules to another service?](../publishing). `serialize`,
   `visibility` and the freshness budget.
-- [How do I use rules another service published?](/acl/adopting). `parseMatrix`,
+- [How do I use rules another service published?](../adopting). `parseMatrix`,
   closed mode, and what construction refuses.
-- [Caveats and pitfalls](/acl/pitfalls). The layer-trust and subject-forgery
+- [Caveats and pitfalls](../pitfalls). The layer-trust and subject-forgery
   entries apply here directly.
-- [Security contract](/acl/security). Every layer decides for itself.
+- [Security contract](../security). Every layer decides for itself.

@@ -5,10 +5,10 @@
 <PageSheet
   difficulty={1}
   read={8}
-  requires={[['Overview', '/acl']]}
+  requires={[['Overview', '../']]}
   unlocks={[
-    ['Security contract', '/acl/security'],
-    ['Caveats and pitfalls', '/acl/pitfalls'],
+    ['Security contract', '../security'],
+    ['Caveats and pitfalls', '../pitfalls'],
   ]}
 />
 
@@ -133,7 +133,7 @@ the service that owns the row are access evidence. Every layer re-evaluates and
 no layer takes an earlier layer's answer as an assertion. A browser's `can`
 decides what the screen draws and never what the write is permitted to do, so an
 audit presenting a browser's decision log as an access record presents the wrong
-artifact. [The security contract](/acl/security) states where a decision binds.
+artifact. [The security contract](../security) states where a decision binds.
 
 | What a compliance reviewer asks          | What answers it                                             |
 | ---------------------------------------- | ----------------------------------------------------------- |

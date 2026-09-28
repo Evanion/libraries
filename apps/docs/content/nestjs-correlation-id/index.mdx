@@ -8,7 +8,7 @@ NestJS service can log.
 <PageSheet
   difficulty={2}
   read={5}
-  unlocks={[['Getting started', '/nestjs-correlation-id/getting-started']]}
+  unlocks={[['Getting started', './getting-started']]}
 />
 
 ## How nestjs-correlation-id carries one id across services
@@ -76,6 +76,6 @@ A queue consumer or a cron job has no request, so it opens its own context with
 
 ## Now that you know how the id travels, set it up
 
-[Getting started](/nestjs-correlation-id/getting-started) installs the package,
+[Getting started](./getting-started) installs the package,
 registers `CorrelationModule` and `CorrelationIdMiddleware`, and shows a handler
 reading the id a caller sent.

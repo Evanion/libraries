@@ -8,10 +8,10 @@ opens its own correlation context with `CorrelationService.run()`.
   read={8}
   hands={30}
   requires={[
-    ['Getting started', '/nestjs-correlation-id/getting-started'],
-    ['Forward the id to the next service', '/nestjs-correlation-id/forwarding'],
+    ['Getting started', '../getting-started'],
+    ['Forward the id to the next service', '../forwarding'],
   ]}
-  unlocks={[['Configuration', '/nestjs-correlation-id/configuration']]}
+  unlocks={[['Configuration', '../configuration']]}
 />
 
 ## Open a correlation context in a queue consumer
@@ -32,7 +32,7 @@ resolved (a `CorrelationConfig`, provided under `CORRELATION_CONFIG_TOKEN`), and
   what `callback` returns, so the promise from `stock.level()` comes straight
   back out of `handle()`.
 - Everything the callback calls or awaits reads `id`. `StockModule`, on
-  [Forward the id to the next service](/nestjs-correlation-id/forwarding),
+  [Forward the id to the next service](../forwarding),
   registers `StockClient`'s `HttpService` with `withCorrelation()`, so its call
   to `stock` carries the id.
 - `generate()` returns a new id from the configured generator, `randomUUID`
@@ -77,5 +77,5 @@ header keeps the id the middleware wrote when the request arrived.
 
 ## Now that a job carries the id, configure what nestjs-correlation-id accepts
 
-[Configuration](/nestjs-correlation-id/configuration) covers the fields
+[Configuration](../configuration) covers the fields
 `forRoot()` takes, and what an incoming id has to look like to be reused.

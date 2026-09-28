@@ -72,14 +72,14 @@ it does not.
 
 ## Three tiers
 
-The package holds itself to [a register](/acl/attacks) running under
+The package holds itself to [a register](../attacks) running under
 `nx test @evanion/acl`, one row per class of attack, each row naming the test
 that proves it and the tier it sits in:
 
 - Tier 1, where the library refuses or throws a construction error, from mass
   assignment to matrix shapes that exhaust the process.
 - Tier 2, where the library supplies the primitive and the consumer calls it:
-  [`pickAllowedFields`](/acl/fields#writing) for a write, `allowed` for a gate.
+  [`pickAllowedFields`](../fields#writing) for a write, `allowed` for a gate.
 - Tier 3, structurally out of scope, and every section below sits here.
 
 ## Subject authenticity
@@ -214,7 +214,7 @@ A client holds the matrix it last fetched, and rebuilds when the served
   dropped answers `unknown-action`.
 - An owner that states `maxStale` bounds the wait for a consumer that passes
   `fetchedAt`: past `fetchedAt + maxStale` every key answers `stale-contract`.
-  [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+  [How long a consumer may keep deciding](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
   has the arithmetic.
 - The comparison is `===`, so a digest or a composite covering every input works
   as well as a counter.

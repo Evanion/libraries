@@ -7,10 +7,8 @@ correlation id, and a handler reads it from `CorrelationService`.
   difficulty={2}
   read={4}
   hands={10}
-  requires={[['Overview', '/nestjs-correlation-id']]}
-  unlocks={[
-    ['Forward the id to the next service', '/nestjs-correlation-id/forwarding'],
-  ]}
+  requires={[['Overview', '../']]}
+  unlocks={[['Forward the id to the next service', '../forwarding']]}
 />
 
 ## Before you install nestjs-correlation-id
@@ -107,6 +105,6 @@ callback for the second read the generated id. After both requests,
 
 ## Now that every request carries an id, forward it
 
-[Forward the id to the next service](/nestjs-correlation-id/forwarding) passes
+[Forward the id to the next service](../forwarding) passes
 `withCorrelation()` to `HttpModule`, so Baize's `stock` service receives the id
 the `orders` service was called with.

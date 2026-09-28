@@ -11,12 +11,12 @@ row it loaded.
   read={10}
   hands={20}
   requires={[
-    ['Rules about the thing being accessed', '/acl/object-rules'],
-    ['Which fields may they write?', '/acl/writing'],
+    ['Rules about the thing being accessed', '../object-rules'],
+    ['Which fields may they write?', '../writing'],
   ]}
   unlocks={[
-    ['NestJS', '/acl/nestjs'],
-    ['Field permissions', '/acl/fields'],
+    ['NestJS', '../nestjs'],
+    ['Field permissions', '../fields'],
   ]}
 />
 
@@ -130,9 +130,9 @@ draws, and every Express route that writes decides again on the next request.
 
 ## Where to go next
 
-- [NestJS](/acl/nestjs). The same boundary, with a guard in front of the route.
-- [Field permissions](/acl/fields). The read axis and the write axis.
-- [How do I give my rules to another service?](/acl/publishing). What
+- [NestJS](../nestjs). The same boundary, with a guard in front of the route.
+- [Field permissions](../fields). The read axis and the write axis.
+- [How do I give my rules to another service?](../publishing). What
   `serialize` keeps, and `visibility`.
-- [Security contract](/acl/security). Subject authenticity, complete mediation,
+- [Security contract](../security). Subject authenticity, complete mediation,
   and the rest of what an app owns.

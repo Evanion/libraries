@@ -97,7 +97,7 @@ type ProviderArray = readonly Provider[];
 `readonly`, so an array written `as const` is assignable. A value annotated
 with this type has lost its length and the type at each position, so
 `ComposeProvider` checks none of its entries.
-[Wrapping compose in your own component](/compose/type-checking#wrapping-compose-in-your-own-component)
+[Wrapping compose in your own component](../type-checking#wrapping-compose-in-your-own-component)
 shows the wrapper that keeps the check.
 
 ## `ValidateProvider<T>`
@@ -105,7 +105,7 @@ shows the wrapper that keeps the check.
 Checks one entry. A valid entry maps to itself. A failing one maps to
 `ComposeError<"message">`, a type naming what is wrong, except for a missing or
 mistyped prop value, which maps to the shape the entry should have had.
-[Reading a compose error](/compose/type-checking#reading-a-compose-error) lists
+[Reading a compose error](../type-checking#reading-a-compose-error) lists
 the messages.
 
 ## `ValidateProviders<T>`
@@ -147,7 +147,7 @@ The props of `ComposeProvider`, exported for a wrapper that names them. The
 wrapper keeps the per-entry checks only when it declares its own
 `<const T extends ProviderArray>` and passes `T` here. Under the default `T`,
 `providers` is a plain `ProviderArray`.
-[Wrapping compose in your own component](/compose/type-checking#wrapping-compose-in-your-own-component)
+[Wrapping compose in your own component](../type-checking#wrapping-compose-in-your-own-component)
 shows one.
 
 ## Migrating from 1.x

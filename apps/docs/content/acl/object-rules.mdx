@@ -10,10 +10,10 @@ customer who did not.
   difficulty={3}
   read={6}
   hands={15}
-  requires={[['Rules about who the user is', '/acl/subject-rules']]}
+  requires={[['Rules about who the user is', '../subject-rules']]}
   unlocks={[
-    ['Can this user do this?', '/acl/asking'],
-    ['Which fields may they write?', '/acl/writing'],
+    ['Can this user do this?', '../asking'],
+    ['Which fields may they write?', '../writing'],
   ]}
 />
 
@@ -57,7 +57,7 @@ Naming a path also opens one way to get it wrong. `object.askedBy` is a string a
 a string takes typos: write `object.askedBv` with a v and the matrix builds, the
 tests pass, the permission never says yes to anybody, and you find out from a bug
 report. Declaring the row shape in `Objects` is what lets the compiler check the
-path against it, and [Typed authoring](/acl/authoring) covers the whole of that,
+path against it, and [Typed authoring](../authoring) covers the whole of that,
 including the third type parameter that names a kind's actions.
 
 ## The fourth answer an acl decision can give
@@ -85,7 +85,7 @@ rules read the object.
     `allowed` is already `false`, so nothing leaks. The answer is repairable
     though: fetch what `missing` names and ask once more. A UI that renders it
     as forbidden hides something the user can have. [Why was this
-    refused?](/acl/refusals) has both halves.
+    refused?](../refusals) has both halves.
   </Text>
 </Panel>
 
@@ -123,21 +123,21 @@ again.
 A rule reading the object changes two things about how you call `access`, and each
 change has a page.
 
-- [Can this user do this?](/acl/asking). A row arrives as whatever your query
+- [Can this user do this?](../asking). A row arrives as whatever your query
   selected, and a page renders forty of them. Covers the decision's own shape,
   `readsObject` for the guard that runs before the fetch, and `canMany` for the
   list.
-- [Which fields may they write?](/acl/writing). A question has fields and a write
+- [Which fields may they write?](../writing). A question has fields and a write
   proposes new values for some of them. Covers `canFields`, which decides the
   action and every key of the write in one pass, and `pickAllowedFields`, which
   applies that decision to the object you hand the database.
 
 Three more pages build on this one.
 
-- [Typed authoring](/acl/authoring). The builder chain in full: the third type
+- [Typed authoring](../authoring). The builder chain in full: the third type
   parameter that names a kind's actions, every condition helper, and what the
   compiler checks.
-- [Rules that another service wrote](/acl/advanced). The schema that catches a
+- [Rules that another service wrote](../advanced). The schema that catches a
   mistyped path at construction, a foreign document, and versioning.
-- [Caveats and pitfalls](/acl/pitfalls). The mistakes this API makes easy, and
+- [Caveats and pitfalls](../pitfalls). The mistakes this API makes easy, and
   what to write in their place.
