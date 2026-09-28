@@ -239,6 +239,105 @@ partial.missing; // -> ['object.status']
 
 <!-- #endregion refusal-label -->
 
+### The order the two sides settle in
+
+The engine settles the deny side before the allow side, and a matched deny
+refuses wherever the policy declared it. A deny the engine could not read
+refuses an allow that matched, and leaves a definite no-allow as
+`no-rule-matched`:
+
+<!-- #region resolution-order -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .deny('update', p.eq('object.status', 'locked'))
+      .id('locked-is-final')
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .id('asker-edits-own'),
+  )
+  .build();
+
+const asker = { id: 'customer-41' };
+
+// Step 1: the deny matched, so the allow that also matched does not count.
+const locked = access.can(asker, 'question', 'update', {
+  askedBy: 'customer-41',
+  status: 'locked',
+});
+locked.reason; // -> 'denied'
+locked.rule; // -> 'locked-is-final'
+
+// Step 2: no allow rule can match, so the unread `status` changes nothing.
+const theirs = access.can(asker, 'question', 'update', {
+  askedBy: 'customer-92',
+});
+theirs.reason; // -> 'no-rule-matched'
+
+// Step 4: the allow rule matched and the deny side could not be read.
+const unread = access.can(asker, 'question', 'update', {
+  askedBy: 'customer-41',
+});
+unread.reason; // -> 'unevaluable'
+unread.rule; // -> 'locked-is-final'
+unread.missing; // -> ['object.status']
+
+// Step 5: the deny side definitely failed, so the allow grants.
+const draft = access.can(asker, 'question', 'update', {
+  askedBy: 'customer-41',
+  status: 'draft',
+});
+draft.rule; // -> 'asker-edits-own'
+```
+
+<!-- #endregion resolution-order -->
+
+A deny rule that reads a clock which does not parse holds up the permission the
+same way, as `unusable-clock`, and it too sits below a definite no-allow:
+
+<!-- #region resolution-clock -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+
+const access = policy<Shopper, { order: { id: string } }, { order: 'place' }>()
+  .for('order', (p) =>
+    p
+      .allow('place', p.contains('subject.roles', 'customer'))
+      .id('customers-order')
+      .deny(
+        'place',
+        p.after('now', '2026-12-27T00:00:00Z'),
+        p.before('now', '2026-12-29T00:00:00Z'),
+      )
+      .id('stocktake-closes-orders'),
+  )
+  .build();
+
+const customer = { id: 'customer-41', roles: ['customer'] };
+const visitor = { id: 'visitor-7', roles: [] };
+
+const stocktake = '2026-12-28T10:00:00Z';
+access.can(customer, 'order', 'place', undefined, stocktake).reason; // -> 'denied'
+
+// Step 3: the allow rule matched, and the deny rule's clock does not parse.
+const garbled = access.can(customer, 'order', 'place', undefined, 'soon');
+garbled.reason; // -> 'unusable-clock'
+garbled.rule; // -> 'stocktake-closes-orders'
+
+// Step 2 comes first: no allow rule matches the visitor, clock or no clock.
+access.can(visitor, 'order', 'place', undefined, 'soon').reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion resolution-clock -->
+
 ## Asking more than one question
 
 `canMany` takes a list of instances and answers per instance. It settles the
