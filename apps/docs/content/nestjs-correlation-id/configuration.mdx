@@ -125,7 +125,10 @@ registered. Each copy keeps its own `AsyncLocalStorage`, so a provider holding a
 copy the middleware did not use reads `undefined` inside every request. Nest
 raises no error and prints no warning.
 
-There is no `forRootAsync()`. The configuration is a plain object, fixed when the
-root module is declared, and `ConfigService` cannot be injected into it. Read an
-environment value from `process.env` in the `forRoot()` call, for example
+## Read the nestjs-correlation-id configuration from the environment
+
+`CorrelationModule` has no `forRootAsync()`. The configuration is a plain
+object, fixed when the root module is declared, and `ConfigService` cannot be
+injected into it. Read an environment value from `process.env` in the
+`forRoot()` call, for example
 `forRoot({ header: process.env['CORRELATION_HEADER'] })`.
