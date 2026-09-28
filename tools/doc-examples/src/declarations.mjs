@@ -27,7 +27,14 @@ import ts from 'typescript';
  * them from this module.
  */
 
-/** A package resolved once, with its program and checker held for reuse. */
+/**
+ * A package resolved once, with its program and checker held for reuse.
+ *
+ * Keyed by the root as well as the specifier. The archive generator reads the
+ * same package out of several commits in one process, each materialised under a
+ * root of its own, and a program held for one commit answers nothing about
+ * another.
+ */
 const programs = new Map();
 
 /** An export, as the reference page needs it. */
@@ -143,7 +150,8 @@ function entryOf(root, specifier) {
 
 /** The program over one entry point, built once and kept. */
 function programOf(root, specifier) {
-  const held = programs.get(specifier);
+  const key = `${root}\0${specifier}`;
+  const held = programs.get(key);
   if (held) return held;
 
   const { packageDir, declaration } = entryOf(root, specifier);
@@ -167,7 +175,7 @@ function programOf(root, specifier) {
     program,
     checker: program.getTypeChecker(),
   };
-  programs.set(specifier, built);
+  programs.set(key, built);
   return built;
 }
 
