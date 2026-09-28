@@ -297,12 +297,20 @@ A UI that confirms a toggle against `willDisable` would then tell an operator
 that nothing goes off with it. The observer would have changed an outcome, and
 the outcome is the one an operator reads before pulling a kill switch.
 
-`toggle`'s event is a write record, not a decision record, so it carries its
-own members.
+`toggle`'s event is a write record, so it carries the `ToggleResult` the caller
+received, under `result`.
 
 ```ts
-{ type: 'toggle', at: Date, key: F, enabled: boolean, willDisable: readonly F[], subject?: string, version?: string }
+{ type: 'toggle', at: Date, result: ToggleResult<F>, subject?: string, version?: string }
 ```
+
+`ToggleResult<F>` (`types.ts:367-378`) is a union: `{ ok: true, key: F, enabled: boolean, willDisable: readonly F[] }`
+for a write the store accepted, and `{ ok: false, key: F, error: 'unknown-feature' }`
+for a key nobody configured. An event spreading `key`, `enabled` and
+`willDisable` across its own members has no shape for the refused write, and
+decision 3 says the event carries the value the caller received. An auditor
+wants the refused write as much as the accepted one, so the result stays whole
+under one member.
 
 ## 3. Where the observer is installed
 

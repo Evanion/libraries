@@ -79,6 +79,37 @@ describe('FeatureEvent, discriminating on type', () => {
   });
 });
 
+describe('FeatureEvent, reporting the result a toggle returned', () => {
+  it('carries the refused write the flat members cannot express', () => {
+    const read = (event: Branch<'toggle'>) => {
+      if (event.result.ok) {
+        expectTypeOf(event.result.enabled).toEqualTypeOf<boolean>();
+        expectTypeOf(event.result.willDisable).toEqualTypeOf<
+          readonly 'cta'[]
+        >();
+        return;
+      }
+
+      expectTypeOf(event.result.error).toEqualTypeOf<'unknown-feature'>();
+    };
+
+    expectTypeOf(read).toBeFunction();
+  });
+
+  it('keeps the result members off the event itself', () => {
+    const read = (event: Branch<'toggle'>) => {
+      // @ts-expect-error a toggle event reports enabled under result
+      const enabled: boolean = event.enabled;
+      // @ts-expect-error a toggle event reports willDisable under result
+      const willDisable: readonly 'cta'[] = event.willDisable;
+
+      return [enabled, willDisable] as const;
+    };
+
+    expectTypeOf(read).toBeFunction();
+  });
+});
+
 describe('FeatureEvent, narrowing the one decision isEnabled reports', () => {
   it('reads the variant names the schema declares', () => {
     expectTypeOf<Branch<'is-enabled'>['decision']['variant']>().toEqualTypeOf<
