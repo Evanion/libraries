@@ -115,7 +115,17 @@ export interface FeatureOptions<
    * handler to anything thenable and moves on.
    */
   observe?: (event: FeatureEvent<S>) => void | Promise<unknown>;
-  /** Reports an observer that threw or rejected. Replaces the default warning. */
+  /**
+   * Reports an observer that threw or rejected. Replaces the default warning.
+   *
+   * The engine calls this inside the same catch that swallowed the failure. If
+   * this handler itself throws, the engine reports that through the warning and
+   * does not call this handler again for that event. One level of recovery, no
+   * recursion.
+   *
+   * An application that configures neither `observe` nor this member gets a
+   * failure caught, warned once in development, and silent in production.
+   */
   onObserveError?: (error: unknown, event: FeatureEvent<S>) => void;
   /**
    * The context field whose value identifies the subject on an event. Defaults
@@ -141,17 +151,35 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
+/** The default warning when the application installed no `onObserveError`. */
+const OBSERVER_FAILED =
+  '@evanion/feature: an observer failed. Pass onObserveError to handle this and replace this warning.';
+
+/** The warning when the application's `onObserveError` threw. */
+const HANDLER_FAILED =
+  '@evanion/feature: onObserveError threw. The engine reports the failure here and does not call onObserveError again for this event.';
+
+/** Reads the text that keys a warning, for an error of any shape. */
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Builds the function an entry point calls to report what it returned.
  *
  * The returned function calls the installed observer and returns. It never
  * awaits the observer, and an observer that throws or rejects reaches
- * `onObserveError`, or a single `console.warn` when the application installed
- * no handler. The caller keeps the value the entry point computed either way.
+ * `onObserveError`, or a `console.warn` when the application installed no
+ * handler. An `onObserveError` that throws reaches the same warning, and the
+ * engine does not call it again for that event. The caller keeps the value the
+ * entry point computed on every one of those paths.
  *
- * Each emitter carries its own warned flag. One process holds one emitter per
- * engine, so a broken transport produces one warning per engine and no test
- * resets module state to stay order-independent.
+ * Each emitter carries its own set of warned messages, keyed on the message so
+ * a second distinct failure is still reported. One process holds one emitter
+ * per engine, so a broken transport produces one warning per engine and no test
+ * resets module state to stay order-independent. The warning stays silent when
+ * `NODE_ENV` is `production`, which `libs/widget/src/warn.ts` does for the same
+ * reason.
  */
 export function createEmitter<
   S extends Record<keyof S, VariantInfo | never> = Record<
@@ -167,18 +195,26 @@ export function createEmitter<
     };
   }
 
-  let warned = false;
+  const warned = new Set<string>();
+  const warn = (notice: string, error: unknown) => {
+    if (process.env.NODE_ENV === 'production') return;
+    const key = `${notice} ${messageOf(error)}`;
+    if (warned.has(key)) return;
+    warned.add(key);
+    console.warn(notice, error);
+  };
+
   const report = (error: unknown, event: FeatureEvent<S>) => {
-    if (options.onObserveError) {
-      options.onObserveError(error, event);
+    const handler = options.onObserveError;
+    if (!handler) {
+      warn(OBSERVER_FAILED, error);
       return;
     }
-    if (warned) return;
-    warned = true;
-    console.warn(
-      '@evanion/feature: an observer failed. Pass onObserveError to handle this and replace this warning.',
-      error,
-    );
+    try {
+      handler(error, event);
+    } catch (handlerError) {
+      warn(HANDLER_FAILED, handlerError);
+    }
   };
 
   return (event) => {
