@@ -1,120 +1,139 @@
 import { workspaceRoot } from '@nx/devkit';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { pinFaults, type Pin, type PinInputs } from './docs-archive';
 import {
-  archiveCandidates,
-  missingArchives,
-  type ArchiveInputs,
-} from './docs-archive';
+  CONTENT,
+  DOCS,
+  NEXT,
+  servedSections,
+  type ServedVersion,
+} from './docs-content';
 
 /**
- * The invariant: no superseded major of a released package has documentation at
- * its tag and nowhere to read it.
+ * The invariant: each package's bare path serves its newest release, every
+ * version directory holds what its release shipped and nothing that resolves
+ * against `main`, and the pin file says only true things about releases.
  *
- * `docs/specs/2026-09-13-versioned-docs.md` builds the release labelling now and
- * defers the archive, because the whole buildable archive today is four pages.
- * Deferring is safe -- snapshots come from git tags, which are permanent, so the
- * machinery built later captures every release in between -- and its one cost is
- * that somebody has to notice when it stops being deferrable. This is what
- * notices.
- *
- * What trips it is a package taking a major after a tag that carried pages.
- * `@evanion/urn@2.0.0` has four and `@evanion/compose@2.0.0` has one, so the
- * next major of either goes red. Every other package's newest tag predates its
- * section and carries nothing, so it goes red one release later -- the release
- * that supersedes the first tag holding its pages.
- *
- * `docs-navigation.test.ts` is what holds the package list below against
- * `release.projects`, so a released package cannot be missing from this check by
- * being missing from the navigation.
+ * `docs/specs/2026-09-13-released-by-default.md` § 11 lists the guards,
+ * ordered by how silently each failure ships. The ones over the static export
+ * are `docs-export.test.ts`'s. These read the repository and the directories
+ * `nx run docs:archives` wrote, which this project's test target depends on.
  */
 
-const docsRoot = join(workspaceRoot, 'apps', 'docs');
-const contentRoot = join(docsRoot, 'content');
+interface DocumentedPackage {
+  name: string;
+  slug: string;
+  documented: boolean;
+  workshop: boolean;
+  unversioned?: string;
+}
 
-/**
- * Superseded majors that are deliberately not archived yet, each carrying the
- * reason next to it.
- *
- * Adding an entry means writing down why, in the same place the check lives.
- * That is the friction: the spec's answer to a failure is either the archive or
- * a migration page, and a migration page is a legitimate answer once.
- */
-const deferred: readonly { tag: string; reason: string }[] = [
-  {
-    tag: '@evanion/urn@1.1.1',
-    reason:
-      'urn 1.x is four pages differing from the 2.x tag by 51 added and 3 ' +
-      'removed lines, all of them in api.mdx. Publishing those 51 lines costs ' +
-      'the whole snapshot pipeline: a worktree per tag, region inlining against ' +
-      'the README at that tag, live-element stripping, the page-for-page ' +
-      'switcher and a Pagefind version filter. Section 2 of ' +
-      'docs/specs/2026-09-13-versioned-docs.md is that measurement.',
-  },
-];
+async function load<T>(path: string): Promise<T> {
+  return (await import(pathToFileURL(join(DOCS, path)).href)) as T;
+}
+
+const navigation = () =>
+  load<{ packages: readonly DocumentedPackage[] }>('app/navigation.ts');
+const versions = () =>
+  load<{
+    segmentOf: (version: string) => string;
+    releaseLines: (
+      name: string,
+      tags: readonly string[],
+    ) => { segment: string; releases: { tag: string; version: string }[] }[];
+    taggedAfter: (
+      name: string,
+      tags: readonly string[],
+      version: string,
+    ) => string[];
+  }>('tools/versions.mjs');
+const seed = () =>
+  load<{
+    dryRunAt: (root: string, sha: string, name: string) => string | null;
+  }>('tools/seed.mjs');
+const cut = () =>
+  load<{ surfaceFaults: (source: string) => string[] }>('tools/cut.mjs');
 
 function git(args: readonly string[]): string {
   return execFileSync('git', args as string[], {
     cwd: workspaceRoot,
     encoding: 'utf-8',
     maxBuffer: 32 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'ignore'],
   }).trim();
 }
 
-function lines(output: string): string[] {
-  return output === '' ? [] : output.split('\n');
+function commit(ref: string): string | null {
+  try {
+    return git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+  } catch {
+    return null;
+  }
 }
 
-const tags = lines(git(['tag', '--list']));
-
-/** How many files the tree at `tag` carries under `content/<slug>/`. */
-function pagesAtTag(tag: string, slug: string): number {
-  return lines(
-    git([
-      'ls-tree',
-      '-r',
-      '--name-only',
-      tag,
-      '--',
-      `apps/docs/content/${slug}/`,
-    ]),
-  ).length;
+function isAncestor(ancestor: string, descendant: string): boolean {
+  try {
+    git(['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-/** Whether an archived section for that major exists and holds anything. */
-function hasArchive(slug: string, major: number): boolean {
-  const directory = join(contentRoot, slug, `v${major}`);
+const tags = git(['tag', '--list']).split('\n').filter(Boolean);
+const pins = JSON.parse(
+  readFileSync(join(DOCS, 'archives.json'), 'utf-8'),
+) as Record<string, Record<string, Pin>>;
 
-  return existsSync(directory) && readdirSync(directory).length > 0;
+/** A release line's directory inside a bare section: `v1`, `v0.2`. */
+const LINE = /^v\d+(\.\d+)?$/;
+
+/**
+ * The pages of one version directory: every `.mdx` under it, except the
+ * release lines a bare section holds, which are versions of their own.
+ */
+function pagesIn(directory: string, top = true): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory())
+      return top && LINE.test(entry.name) ? [] : pagesIn(path, false);
+    return entry.name.endsWith('.mdx') ? [path] : [];
+  });
 }
 
-async function documentedPackages(): Promise<
-  readonly { name: string; slug: string }[]
-> {
-  const module_ = (await import(
-    pathToFileURL(join(docsRoot, 'app', 'navigation.ts')).href
-  )) as { packages: readonly { name: string; slug: string }[] };
-
-  return module_.packages;
+/** Every version directory the generator cut from git, with where it is. */
+function cutVersions(): {
+  at: string;
+  directory: string;
+  served: ServedVersion;
+}[] {
+  return Object.entries(servedSections()).flatMap(([slug, section]) => [
+    ...(section.current.from === 'cut'
+      ? [
+          {
+            at: `/${slug}/`,
+            directory: join(CONTENT, slug),
+            served: section.current,
+          },
+        ]
+      : []),
+    ...section.lines.map((line) => ({
+      at: `/${slug}/${line.segment}/`,
+      directory: join(CONTENT, slug, line.segment as string),
+      served: line,
+    })),
+  ]);
 }
 
-async function inputs(): Promise<ArchiveInputs> {
-  return {
-    packages: await documentedPackages(),
-    tags,
-    pagesAtTag,
-    hasArchive,
-  };
-}
-
-describe('the docs archive', () => {
+describe('the pin file', () => {
   /**
-   * A clone with no tags answers this check vacuously, which is a guard that
-   * cannot fail. `.github/workflows/ci.yml` checks out with `fetch-depth: 0` for
-   * exactly this and for the release notice's own tag lookup.
+   * A clone with no tags answers every check here vacuously, which is a guard
+   * that cannot fail. `.github/workflows/ci.yml` checks out with
+   * `fetch-depth: 0` for this and for the release notice's own tag lookup.
    */
   it('is checked against a repository that has its tags', () => {
     expect(
@@ -124,148 +143,371 @@ describe('the docs archive', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('exists for every superseded major that has pages at its tag', async () => {
-    const excused = new Set(deferred.map((entry) => entry.tag));
-    const missing = missingArchives(await inputs()).filter(
-      (candidate) => !excused.has(candidate.tag),
-    );
+  it('pins only releases that happened, at commits on main, and says why where it deviates', async () => {
+    const { packages } = await navigation();
+    const { segmentOf, taggedAfter } = await versions();
+    const main = commit('origin/main');
 
     expect(
-      missing.map(
-        (candidate) =>
-          `${candidate.name} ${candidate.major}.x: ${candidate.pages} pages at ` +
-          `${candidate.tag} and no apps/docs/content/${candidate.slug}/v${candidate.major}/`,
-      ),
-      'A major this repository has moved past still has documentation at its ' +
-        'tag, and the site no longer shows it. Build the archive -- ' +
-        'docs/specs/2026-09-13-versioned-docs.md, sections 4 to 8 -- or write ' +
-        'the migration page and add the tag to `deferred` in this file with ' +
-        'the reason.',
-    ).toEqual([]);
-  });
+      main,
+      'No origin/main in this checkout, so no pin can be shown to be on it.',
+    ).not.toBeNull();
 
-  /**
-   * An exception naming a tag that does not exist excuses nothing and reads as
-   * though it does. That happens when a tag is renamed or deleted, and it turns
-   * the check off for whatever the tag was standing in for.
-   */
-  it('has no deferred exception that outlives its tag', () => {
-    const known = new Set(tags);
+    const { dryRunAt } = await seed();
 
     expect(
-      deferred.map((entry) => entry.tag).filter((tag) => !known.has(tag)),
-    ).toEqual([]);
-  });
-
-  /** An excuse for a major that now has its archive is an excuse nobody reads. */
-  it('has no deferred exception for a major that is already archived', async () => {
-    const candidates = archiveCandidates(await inputs());
-
-    expect(
-      deferred
-        .map((entry) => candidates.find((it) => it.tag === entry.tag))
-        .filter(
-          (candidate) =>
-            candidate === undefined ||
-            hasArchive(candidate.slug, candidate.major),
-        )
-        .map((candidate) => candidate?.tag ?? '(no candidate)'),
-      'Remove the entry from `deferred` in this file: it excuses nothing.',
+      pinFaults({
+        pins,
+        packages: packages.filter((entry) => entry.documented),
+        commit,
+        isAncestor,
+        main: main as string,
+        dryRunAt: (sha, name) => dryRunAt(workspaceRoot, sha, name),
+        segmentOf,
+        taggedAfter: (name, version) => taggedAfter(name, tags, version),
+      }),
+      'apps/docs/archives.json decides what a release is documented by. ' +
+        'docs/specs/2026-09-13-released-by-default.md § 7 is what a pin may say.',
     ).toEqual([]);
   });
 });
 
-/**
- * The rule itself, against fixtures.
- *
- * The repository has one case today and a different set after the next release,
- * so asserting the rule against it asserts this week's history. These fixtures
- * are the four clauses of the rule, each failing without its clause.
- */
-describe('the archive rule', () => {
-  const packages = [{ name: '@evanion/luhn', slug: 'luhn' }];
+describe('the generated sections', () => {
+  /**
+   * § 11.3: a release that reached npm and whose documentation was not cut
+   * leaves the site calling an old version current, with no error anywhere.
+   */
+  it("serve each package's newest release at its bare path", async () => {
+    const { packages } = await navigation();
+    const { releaseLines } = await versions();
+    const sections = servedSections();
 
-  function check(
-    tags: readonly string[],
-    pages: Record<string, number>,
-    archives: readonly string[] = [],
-  ) {
-    return missingArchives({
-      packages,
-      tags,
-      pagesAtTag: (tag) => pages[tag] ?? 0,
-      hasArchive: (slug, major) => archives.includes(`${slug}/v${major}`),
-    }).map((candidate) => candidate.tag);
-  }
+    const wrong = packages
+      .filter((entry) => entry.documented && !entry.unversioned)
+      .flatMap((entry) => {
+        // A workshop package publishes nothing, whatever a release run tagged.
+        const newest = entry.workshop
+          ? null
+          : (releaseLines(entry.name, tags)[0]?.releases[0]?.version ?? null);
+        // `null` on both sides is a package with no release, served from main.
+        const section = sections[entry.slug];
+        const served = section ? section.current.version : 'nothing';
 
-  it('fails a superseded major that has pages and no archive', () => {
-    expect(
-      check(['@evanion/luhn@2.0.1', '@evanion/luhn@3.0.0'], {
-        '@evanion/luhn@2.0.1': 6,
+        return served === newest
+          ? []
+          : [
+              `/${entry.slug}/ serves ${served}, and the newest release is ${newest}`,
+            ];
+      });
+
+    expect(wrong).toEqual([]);
+  });
+
+  /**
+   * § 11.4: a copy step that dropped files leaves a section with fewer pages
+   * than its release shipped and nothing to say so.
+   */
+  it('hold every page their release shipped', () => {
+    const versions = cutVersions();
+    expect(versions.length).toBeGreaterThan(0);
+
+    const short = versions.flatMap(({ at, directory, served }) => {
+      if (!existsSync(join(directory, 'index.mdx')))
+        return [`${at}: no index.mdx`];
+
+      const shipped = git([
+        'ls-tree',
+        '-r',
+        '--name-only',
+        served.sha as string,
+        '--',
+        `${served.dir}/`,
+      ])
+        .split('\n')
+        .filter((file) => file.endsWith('.mdx')).length;
+      const written = pagesIn(directory).length;
+
+      return written >= shipped
+        ? []
+        : [
+            `${at}: ${written} pages, and ${served.dir} at ${served.sha?.slice(0, 7)} has ${shipped}`,
+          ];
+    });
+
+    expect(short).toEqual([]);
+  });
+
+  /** § 11.5: every generated directory was planned, and every plan was written. */
+  it('are exactly the directories the plan names', async () => {
+    const { packages } = await navigation();
+    const sections = servedSections();
+    const versioned = packages.filter(
+      (entry) => entry.documented && !entry.unversioned,
+    );
+
+    const planned = new Set(
+      Object.entries(sections).flatMap(([slug, section]) => [
+        slug,
+        ...section.lines.map((line) => `${slug}/${line.segment}`),
+      ]),
+    );
+    const written = new Set(
+      versioned.flatMap((entry) => {
+        const bare = join(CONTENT, entry.slug);
+        if (!existsSync(bare)) return [];
+
+        return [
+          entry.slug,
+          ...readdirSync(bare, { withFileTypes: true })
+            .filter((child) => child.isDirectory() && LINE.test(child.name))
+            .map((child) => `${entry.slug}/${child.name}`),
+        ];
       }),
-    ).toEqual(['@evanion/luhn@2.0.1']);
-  });
+    );
 
-  it('passes once that major has an archive', () => {
-    expect(
-      check(
-        ['@evanion/luhn@2.0.1', '@evanion/luhn@3.0.0'],
-        { '@evanion/luhn@2.0.1': 6 },
-        ['luhn/v2'],
-      ),
-    ).toEqual([]);
-  });
-
-  it('passes a superseded major whose tag has no pages', () => {
-    expect(check(['@evanion/luhn@2.0.1', '@evanion/luhn@3.0.0'], {})).toEqual(
-      [],
+    expect([...written].sort()).toEqual([...planned].sort());
+    expect(Object.keys(sections).sort()).toEqual(
+      versioned.map((entry) => entry.slug).sort(),
     );
   });
 
   /**
-   * The current major's pages document the version that is on npm. Filing them
-   * as an archive would put two documents under one version number and freeze
-   * the one that was replaced.
+   * § 11.7: `/next/` exists for exactly the packages that have a bare section.
+   * A section in one tree and not the other is a switcher entry that 404s.
    */
-  it('does not consider the current major however many pages it has', () => {
+  it('have a /next/ tree exactly where they have a bare path', async () => {
+    const { packages } = await navigation();
+
     expect(
-      check(['@evanion/luhn@3.0.0'], { '@evanion/luhn@3.0.0': 6 }),
-    ).toEqual([]);
+      packages
+        .filter((entry) => entry.documented)
+        .map(
+          (entry) =>
+            `${entry.slug} ${existsSync(join(NEXT, entry.slug))} ${
+              !entry.unversioned && existsSync(join(CONTENT, entry.slug))
+            }`,
+        ),
+    ).toEqual(
+      packages
+        .filter((entry) => entry.documented)
+        .map(
+          (entry) =>
+            `${entry.slug} ${!entry.unversioned} ${!entry.unversioned}`,
+        ),
+    );
   });
 
-  /** A 0.x package is saying its API is not stable, so it has no major to retain. */
-  it('skips a package that has not reached 1.0.0', () => {
+  /**
+   * § 11.11, the second of the three mechanisms. The cut refuses such a page
+   * when it writes it; this asks again of what is on disk, so a page edited
+   * after the cut, or a cut from before a component was listed, cannot ship.
+   */
+  it('carry nothing on a cut page that resolves against main', async () => {
+    const { surfaceFaults } = await cut();
+
+    const faults = cutVersions().flatMap(({ directory, at }) =>
+      pagesIn(directory).flatMap((page) =>
+        surfaceFaults(readFileSync(page, 'utf-8')).map(
+          (fault) => `${at}${page.slice(directory.length + 1)}: ${fault}`,
+        ),
+      ),
+    );
+
+    expect(faults).toEqual([]);
+  });
+
+  /**
+   * A reference entry for a function or a class always says what the tests
+   * state, even when that is nothing, so an entry without the block is one
+   * the cut expanded without its release's behaviour data.
+   */
+  it('state the behaviours of every function and class on a cut reference page', () => {
+    const entry = /<div className="docs-api-entry baize-kind-([a-z-]+)">/;
+    let stated = 0;
+
+    const silent = cutVersions().flatMap(({ directory, at }) =>
+      pagesIn(directory).flatMap((page) => {
+        const [, ...entries] = readFileSync(page, 'utf-8').split(entry);
+        const missing = [];
+        for (let i = 0; i < entries.length; i += 2) {
+          const [kind, body = ''] = [entries[i], entries[i + 1]];
+          if (kind !== 'function' && kind !== 'class') continue;
+          stated += 1;
+          if (!body.includes('What the tests state'))
+            missing.push(
+              `${at}${page.slice(directory.length + 1)}: ${body.match(/^#+ .*$/m)?.[0]}`,
+            );
+        }
+        return missing;
+      }),
+    );
+
+    expect(silent).toEqual([]);
+    expect(stated).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The pin rules, against fixtures: one package, a linear history, and a dry
+ * run that answers what each case needs. The repository's own pins change with
+ * every release, so asserting the rules against them asserts this week.
+ */
+describe('a pin', () => {
+  const history = ['v2tag00', 'tag000', 'docs001', 'fix0002', 'head003'];
+  const tagged: Record<string, string> = {
+    '@evanion/luhn@2.0.1': 'v2tag00',
+    '@evanion/luhn@3.0.0': 'tag000',
+  };
+  const refs: Record<string, string> = {
+    ...tagged,
+    elsewhere: 'elsewhere',
+    ...Object.fromEntries(history.map((sha) => [sha, sha])),
+  };
+
+  function faults(
+    pin: Pin,
+    dryRunAt: PinInputs['dryRunAt'] = () => null,
+    extra: Record<string, Pin> = {},
+  ): string[] {
+    return pinFaults({
+      pins: { luhn: { v3: pin, ...extra } },
+      packages: [{ name: '@evanion/luhn', slug: 'luhn', workshop: false }],
+      commit: (ref) => refs[ref] ?? null,
+      isAncestor: (a, b) =>
+        history.indexOf(a) !== -1 && history.indexOf(a) <= history.indexOf(b),
+      main: 'head003',
+      dryRunAt,
+      segmentOf: (version) =>
+        version.startsWith('0.')
+          ? `v0.${version.split('.')[1]}`
+          : `v${version.split('.')[0]}`,
+      taggedAfter: (_name, version) =>
+        Object.keys(tagged).filter(
+          (tag) => tag.slice(tag.lastIndexOf('@') + 1) > version,
+        ),
+    });
+  }
+
+  const release = { version: '3.0.0', tag: '@evanion/luhn@3.0.0' };
+
+  it("passes the release's own tag with no reason", () => {
+    expect(faults({ ...release, sha: 'tag000' })).toEqual([]);
+  });
+
+  it('refuses a pinned commit the repository does not have', () => {
+    expect(faults({ ...release, sha: 'deadbee', reason: 'a re-cut' })).toEqual([
+      'luhn.v3: deadbee is not a commit in this repository',
+    ]);
+  });
+
+  it('refuses a seed of a package nx release would bump', () => {
     expect(
-      check(['@evanion/luhn@0.1.0', '@evanion/luhn@0.2.0'], {
-        '@evanion/luhn@0.1.0': 6,
+      faults(
+        {
+          ...release,
+          sha: 'fix0002',
+          reason:
+            'seed: nx release version --dry-run computes 3.0.0 at this SHA',
+        },
+        () => '3.0.1',
+      ),
+    ).toEqual([
+      'luhn.v3: nx release version --dry-run at fix0002 computes 3.0.1, not 3.0.0',
+    ]);
+  });
+
+  it('passes a seed nx release versions as the release', () => {
+    expect(
+      faults({
+        ...release,
+        sha: 'docs001',
+        reason: 'seed: nx release version --dry-run computes 3.0.0 at this SHA',
       }),
     ).toEqual([]);
   });
 
-  it('takes the newest tag in a superseded major, not the first', () => {
-    expect(
-      check(
-        ['@evanion/luhn@2.0.0', '@evanion/luhn@2.0.1', '@evanion/luhn@3.0.0'],
-        { '@evanion/luhn@2.0.1': 6 },
-      ),
-    ).toEqual(['@evanion/luhn@2.0.1']);
+  it('refuses a commit past the tag that gives no reason', () => {
+    expect(faults({ ...release, sha: 'docs001' })).toEqual([
+      'luhn.v3: pins a commit past its tag and gives no reason',
+    ]);
   });
 
-  /** Lexicographic tag order puts `9.0.0` after `10.0.0`, which inverts "current". */
-  it('orders majors numerically', () => {
+  it('refuses a commit off the line from the tag to main', () => {
     expect(
-      check(['@evanion/luhn@9.0.0', '@evanion/luhn@10.0.0'], {
-        '@evanion/luhn@9.0.0': 6,
+      faults({ ...release, sha: 'elsewhere', reason: 'a re-cut' }),
+    ).toEqual([
+      'luhn.v3: elsewhere does not descend from @evanion/luhn@3.0.0',
+      'luhn.v3: elsewhere is not on main',
+    ]);
+  });
+
+  /**
+   * The dry run measures from the newest tag, so at a commit past 3.0.0 it
+   * computes no change and cannot tell that 2.0.1 is not what it documents.
+   */
+  it("refuses a superseded line pinned past a later release's tag", () => {
+    expect(
+      faults({ ...release, sha: 'tag000' }, () => null, {
+        v2: {
+          version: '2.0.1',
+          tag: '@evanion/luhn@2.0.1',
+          sha: 'docs001',
+          reason: 'a re-cut',
+        },
       }),
-    ).toEqual(['@evanion/luhn@9.0.0']);
+    ).toEqual([
+      'luhn.v2: docs001 carries @evanion/luhn@3.0.0, a later release than 2.0.1',
+    ]);
   });
 
-  it('reports every superseded major, not only the newest', () => {
+  it('refuses a pin for a workshop package', () => {
     expect(
-      check(
-        ['@evanion/luhn@1.0.0', '@evanion/luhn@2.0.0', '@evanion/luhn@3.0.0'],
-        { '@evanion/luhn@1.0.0': 4, '@evanion/luhn@2.0.0': 6 },
-      ),
-    ).toEqual(['@evanion/luhn@1.0.0', '@evanion/luhn@2.0.0']);
+      pinFaults({
+        pins: { luhn: { v3: { ...release, sha: 'tag000' } } },
+        packages: [{ name: '@evanion/luhn', slug: 'luhn', workshop: true }],
+        commit: (ref) => refs[ref] ?? null,
+        isAncestor: () => true,
+        main: 'head003',
+        dryRunAt: () => null,
+        segmentOf: () => 'v3',
+        taggedAfter: () => [],
+      }),
+    ).toEqual([
+      'luhn: @evanion/luhn is private, so npm has no release of it to document',
+    ]);
+  });
+
+  it('refuses a release that never happened', () => {
+    expect(
+      faults({ version: '3.1.0', tag: '@evanion/luhn@3.1.0', sha: 'tag000' }),
+    ).toEqual([
+      'luhn.v3: @evanion/luhn@3.1.0 was never released, the repository has no such tag',
+    ]);
+  });
+
+  it('refuses a release filed under another line', () => {
+    expect(
+      faults({ version: '2.0.1', tag: '@evanion/luhn@2.0.1', sha: 'tag000' }),
+    ).toContain('luhn.v3: 2.0.1 is in the line v2, not v3');
+  });
+
+  it('refuses a release served from /next/ with no reason', () => {
+    expect(faults({ ...release, next: true })).toEqual([
+      'luhn.v3: is served from /next/ and gives no reason',
+    ]);
+  });
+
+  /** A copied justification is one nobody wrote. */
+  it('refuses two pins giving one reason', () => {
+    expect(
+      faults({ ...release, next: true, reason: 'no pages' }, () => null, {
+        v2: {
+          version: '2.0.1',
+          tag: '@evanion/luhn@2.0.1',
+          next: true,
+          reason: 'no pages',
+        },
+      }),
+    ).toContain('luhn.v2: gives the same reason as luhn.v3');
   });
 });

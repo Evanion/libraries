@@ -1,145 +1,168 @@
 /**
- * Which superseded majors owe the docs site an archived section.
+ * What `apps/docs/archives.json` may say about a release.
  *
- * `docs/specs/2026-09-13-versioned-docs.md` builds the release labelling and
- * defers the archive itself, on a measurement: the whole buildable archive today
- * is four `@evanion/urn` 1.x pages differing from the 2.x tag's by 51 lines.
- * What makes deferring safe is that snapshots are read from git tags, which are
- * permanent, so the machinery built later captures every release in between. The
- * cost of deferring is forgetting, and this is what replaces remembering.
+ * `docs/specs/2026-09-13-released-by-default.md` § 7 and § 11.10 are the rules.
+ * A pin is the one line that decides what a release's documentation is cut
+ * from, and a re-cut changes that line in a reviewed pull request. So each pin
+ * has to name a release that happened, point at a commit a reviewer could have
+ * seen on `main`, and say why when it is not the release's own tag:
  *
- * The rule, and each clause earns its place:
+ * - The package is published. A workshop package is `private`: a release run
+ *   tags it, npm never has it, and the site serves it as unreleased.
+ * - The tag exists, spells the package and the version, and the version is in
+ *   the line the pin is filed under.
+ * - A pinned commit exists, descends from the tag, and is on `main`. Pinning
+ *   released documentation to an unrelated commit, or to one no review has
+ *   seen, is the quiet rewrite the pin file exists to make visible. A commit on
+ *   a pull request's branch is neither: `main` is rebase-only, so the merge
+ *   writes that commit again under another SHA.
+ * - No later version's tag is an ancestor of the pinned commit. Such a commit
+ *   documents that later version, whatever the dry run below computes: the dry
+ *   run measures from the package's newest tag, so it cannot see that a v1
+ *   pin names a commit past 2.0.0.
+ * - A pin that is not the tag's own commit, or that reads another path, or that
+ *   serves the release from `/next/`, carries a reason, and no two reasons are
+ *   the same. A copied justification is a justification nobody wrote.
+ * - At a commit that is not the tag's, `nx release version --dry-run` computes
+ *   the version the pin records. That is the seed predicate of § 5, and it
+ *   holds a re-cut to the same standard: a commit that has changed the package
+ *   is not documentation of the release before it.
  *
- * - A package below 1.0.0 has no majors to retain. `0.x` is the statement that
- *   the API is not stable, and archiving each minor of an unstable API archives
- *   noise. Same reading as `adjustSemverBumpsForZeroMajorVersion` in `nx.json`.
- * - The current major is never considered however many pages it has. Those pages
- *   document the version that is still on npm; filing them as an archive would
- *   put two documents under one version number.
- * - A superseded major whose newest tag has no pages under `content/<slug>/` owes
- *   nothing. There is no document to preserve.
- *
- * The IO is passed in so the rule can be asserted against fixtures. The real
- * repository has exactly one case today and a different set after the next
- * release, so a test that reads only this repository tests today's history.
+ * The IO is passed in so the rules can be asserted against fixtures. This
+ * repository's pins change with every release.
  */
 
-/** The version part of a release tag, which `nx.json` writes as `{name}@{version}`. */
-export interface Version {
-  major: number;
-  minor: number;
-  patch: number;
-  /** A prerelease sorts below the release of the same triple. */
-  prerelease: string | null;
-}
-
-export interface ArchiveCandidate {
-  /** The package's folder under `content/`. */
-  slug: string;
-  /** The published package name. */
-  name: string;
-  /** The superseded major, as the URL segment would spell it: `v1` is `1`. */
-  major: number;
-  /** The newest tag in that major, which is what a snapshot would be taken from. */
+export interface Pin {
+  version: string;
   tag: string;
-  /** How many pages that tag carries under `content/<slug>/`. */
-  pages: number;
+  sha?: string;
+  path?: string;
+  next?: true;
+  reason?: string;
 }
 
-export interface ArchiveInputs {
+export interface PinInputs {
+  /** The pin file, by slug and then by line segment. */
+  pins: Record<string, Record<string, Pin>>;
   /** The documented packages, as `apps/docs/app/navigation.ts` lists them. */
-  packages: readonly { name: string; slug: string }[];
-  /** Every tag in the repository. */
-  tags: readonly string[];
-  /** Files under `apps/docs/content/<slug>/` in the tree at a tag. */
-  pagesAtTag: (tag: string, slug: string) => number;
-  /** Whether `apps/docs/content/<slug>/v<major>/` exists and holds pages. */
-  hasArchive: (slug: string, major: number) => boolean;
+  packages: readonly { name: string; slug: string; workshop: boolean }[];
+  /** The commit a ref names, or `null` when the repository has none. */
+  commit: (ref: string) => string | null;
+  /** Whether the first commit is an ancestor of the second, or the same. */
+  isAncestor: (ancestor: string, descendant: string) => boolean;
+  /** The tip of `main`, which every pinned commit is an ancestor of. */
+  main: string;
+  /**
+   * The version `nx release version --dry-run` computes for a package with
+   * the tree at a commit, or `null` when it computes no change.
+   */
+  dryRunAt: (sha: string, name: string) => string | null;
+  /**
+   * The line a version belongs to, `v3` or `v0.2`: `segmentOf` from
+   * `apps/docs/tools/versions.mjs`, which the generator files lines by.
+   */
+  segmentOf: (version: string) => string;
+  /**
+   * The tags of a package's versions above a version: `taggedAfter` from
+   * `apps/docs/tools/versions.mjs`, over the repository's tags.
+   */
+  taggedAfter: (name: string, version: string) => readonly string[];
 }
 
-export function parseVersion(text: string): Version | null {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(text);
+/** Every rule a pin file breaks, as one line each. */
+export function pinFaults(inputs: PinInputs): string[] {
+  const faults: string[] = [];
+  const reasons = new Map<string, string>();
 
-  if (!match) return null;
+  for (const [slug, lines] of Object.entries(inputs.pins)) {
+    const entry = inputs.packages.find((each) => each.slug === slug);
 
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-    prerelease: match[4] ?? null,
-  };
-}
-
-function compare(a: Version, b: Version): number {
-  return (
-    a.major - b.major ||
-    a.minor - b.minor ||
-    a.patch - b.patch ||
-    Number(a.prerelease === null) - Number(b.prerelease === null) ||
-    (a.prerelease ?? '').localeCompare(b.prerelease ?? '')
-  );
-}
-
-/** A package's release tags, newest first. */
-function releases(
-  name: string,
-  tags: readonly string[],
-): { tag: string; version: Version }[] {
-  const prefix = `${name}@`;
-
-  return tags
-    .filter((tag) => tag.startsWith(prefix))
-    .map((tag) => ({ tag, version: parseVersion(tag.slice(prefix.length)) }))
-    .filter(
-      (entry): entry is { tag: string; version: Version } =>
-        entry.version !== null,
-    )
-    .sort((a, b) => compare(b.version, a.version));
-}
-
-/**
- * Every superseded major that has pages at its tag, whether or not it has an
- * archive. The candidates a reader could be sent to if the archive existed.
- */
-export function archiveCandidates(
-  inputs: Omit<ArchiveInputs, 'hasArchive'>,
-): ArchiveCandidate[] {
-  const candidates: ArchiveCandidate[] = [];
-
-  for (const entry of inputs.packages) {
-    const tagged = releases(entry.name, inputs.tags);
-    const current = tagged[0];
-
-    if (!current || current.version.major < 1) continue;
-
-    const superseded = new Map<number, string>();
-
-    for (const { tag, version } of tagged) {
-      if (version.major >= current.version.major) continue;
-      // `tagged` is newest first, so the first tag seen in a major is its newest.
-      if (!superseded.has(version.major)) superseded.set(version.major, tag);
+    if (!entry) {
+      faults.push(`${slug}: no documented package has this slug`);
+      continue;
+    }
+    if (entry.workshop) {
+      faults.push(
+        `${slug}: ${entry.name} is private, so npm has no release of it to document`,
+      );
+      continue;
     }
 
-    for (const [major, tag] of superseded) {
-      const pages = inputs.pagesAtTag(tag, entry.slug);
+    for (const [segment, pin] of Object.entries(lines)) {
+      const at = `${slug}.${segment}`;
 
-      if (pages > 0)
-        candidates.push({
-          slug: entry.slug,
-          name: entry.name,
-          major,
-          tag,
-          pages,
-        });
+      if (pin.tag !== `${entry.name}@${pin.version}`)
+        faults.push(
+          `${at}: ${pin.tag} is not the tag of ${entry.name} ${pin.version}`,
+        );
+
+      let line: string | null = null;
+      try {
+        line = inputs.segmentOf(pin.version);
+      } catch {
+        faults.push(`${at}: '${pin.version}' is not a version`);
+      }
+      if (line !== null && line !== segment)
+        faults.push(
+          `${at}: ${pin.version} is in the line ${line}, not ${segment}`,
+        );
+
+      const tagged = inputs.commit(pin.tag);
+      if (!tagged) {
+        faults.push(
+          `${at}: ${pin.tag} was never released, the repository has no such tag`,
+        );
+        continue;
+      }
+
+      const deviates = pin.next === true || pin.path !== undefined;
+
+      if (pin.sha !== undefined) {
+        const pinned = inputs.commit(pin.sha);
+
+        if (!pinned) {
+          faults.push(`${at}: ${pin.sha} is not a commit in this repository`);
+          continue;
+        }
+        if (!inputs.isAncestor(tagged, pinned))
+          faults.push(`${at}: ${pin.sha} does not descend from ${pin.tag}`);
+        if (!inputs.isAncestor(pinned, inputs.main))
+          faults.push(`${at}: ${pin.sha} is not on main`);
+
+        for (const later of inputs.taggedAfter(entry.name, pin.version)) {
+          const released = inputs.commit(later);
+          if (released && inputs.isAncestor(released, pinned))
+            faults.push(
+              `${at}: ${pin.sha} carries ${later}, a later release than ${pin.version}`,
+            );
+        }
+
+        if (pinned !== tagged) {
+          if (!pin.reason)
+            faults.push(
+              `${at}: pins a commit past its tag and gives no reason`,
+            );
+
+          const computed = inputs.dryRunAt(pinned, entry.name);
+          if (computed !== null)
+            faults.push(
+              `${at}: nx release version --dry-run at ${pin.sha} computes ${computed}, not ${pin.version}`,
+            );
+        }
+      }
+
+      if (deviates && !pin.reason)
+        faults.push(
+          `${at}: ${pin.next ? 'is served from /next/' : 'reads another path'} and gives no reason`,
+        );
+
+      if (pin.reason) {
+        const held = reasons.get(pin.reason);
+        if (held) faults.push(`${at}: gives the same reason as ${held}`);
+        else reasons.set(pin.reason, at);
+      }
     }
   }
 
-  return candidates.sort((a, b) => a.tag.localeCompare(b.tag));
-}
-
-/** The candidates with no archived section on disk: what the check fails on. */
-export function missingArchives(inputs: ArchiveInputs): ArchiveCandidate[] {
-  return archiveCandidates(inputs).filter(
-    (candidate) => !inputs.hasArchive(candidate.slug, candidate.major),
-  );
+  return faults;
 }
