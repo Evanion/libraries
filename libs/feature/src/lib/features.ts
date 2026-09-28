@@ -211,7 +211,20 @@ export function createFeatures(
   };
 
   const emit = createEmitter(options);
+  const observed = options.observe !== undefined;
   const correlateBy = options.correlateBy ?? DEFAULT_CORRELATE_FIELD;
+
+  /**
+   * Freezes what an entry point emits and returns, when an application
+   * installed an observer.
+   *
+   * An entry point emits the same object it answers with, so a write inside an
+   * observer would change what the application acts on. A frozen object refuses
+   * that write. A store with nobody observing hands the object to nobody else,
+   * so it pays no freezing cost.
+   */
+  const frozenWhenObserved = <T>(value: T): T =>
+    observed ? deepFreeze(value) : value;
 
   const withNow = (context: EvaluationContext = {}): SettledContext => ({
     ...context,
@@ -342,7 +355,7 @@ export function createFeatures(
     // cannot name an unknown key, and `isEnabled` answers `false` for one.
     resolve: (context) => {
       const evaluationContext = withNow(context);
-      const decisions = resolveAll(evaluationContext);
+      const decisions = frozenWhenObserved(resolveAll(evaluationContext));
 
       emit({
         type: 'resolve',
@@ -354,11 +367,11 @@ export function createFeatures(
     },
     isEnabled: (key, context) => {
       const evaluationContext = withNow(context);
-      const decision = resolveAll(evaluationContext)[key];
+      const decision = frozenWhenObserved(resolveAll(evaluationContext))[key];
       // Read before the emit. `emit` calls a synchronous observer before it
       // returns, and the observer holds the same decision object this answer
-      // comes off, so an observer that writes to `event.decision.enabled` must
-      // not change the boolean the caller receives.
+      // comes off. The freeze refuses an observer's write, and this local
+      // answers the caller whether or not the freeze is installed.
       const enabled = decision?.enabled ?? false;
 
       emit({
