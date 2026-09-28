@@ -114,6 +114,69 @@ problem in a top-level item and a problem inside its `children` can both report
 
 ```
 
+## What Widgets.astro renders for items validateItems reports
+
+`validateItems` and `Widgets.astro` read the same items. `validateItems`
+returns every fault it finds. `Widgets.astro` renders every item it can and
+throws on none, so a page built from a bad save publishes with a gap in it.
+Unless `NODE_ENV` is `production`, which `astro build` sets, `Widgets.astro`
+also prints a warning through `console.warn`, once per message:
+
+- An item whose `type` the registry does not hold renders nothing, and prints
+  `ERROR_MESSAGES.UNKNOWN_WIDGET`. An item that is not an object prints the
+  same message with `unknown` as its type and its id.
+- A prop an item lacks reaches its widget as `undefined`, and Astro writes
+  nothing in its place. A `price-box` item with no `price` renders
+  `<p class="price"></p>`.
+- An `items` that is not a list renders nothing, and prints
+  `ERROR_MESSAGES.MALFORMED_ITEMS`.
+- An item that breaks one of the other structural rules, such as a missing `id`
+  or a duplicate one, still renders when the registry holds its `type`. A
+  `children` that is not a list reaches the widget as it is, and a widget that
+  renders `Widgets` over it prints `ERROR_MESSAGES.MALFORMED_ITEMS`.
+
+The example below renders through Astro's container API, as the test in
+Getting started did. The `answer-wall` item renders nothing, and the price
+after it renders:
+
+```ts file=libs/astro-widget/README.md region=skip-unknown
+
+```
+
+## Items that pass validateItems and still render wrong in Widgets.astro
+
+`validateItems` returns `[]` when every `type` is in `known` and every prop
+`required` names has a value. It checks nothing else, and a widget that nests
+items can render them through a registry `known` does not describe. The
+package's example `GameGrid.astro` renders its `children` with its own
+`Widgets` and a registry that holds only `game-card`, a card for one game:
+
+```astro file=libs/astro-widget/examples/src/widgets/GameGrid.astro region=game-grid
+
+```
+
+Take a list holding a `listing-header` titled Root and a `game-grid` whose one
+child is a `listing-header` titled Azul. With `known` set to both types and
+`required` naming `title` for `listing-header`, `validateItems` returns `[]`:
+
+| Item                          | What renders                                                              | Why `validateItems` passed it            |
+| ----------------------------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| `game-grid`, with no `title`  | `Widgets.astro` renders an empty `<h2>`                                   | `required` names no prop for `game-grid` |
+| Azul, the `game-grid`'s child | `GameGrid.astro` skips it, because its registry holds no `listing-header` | `known` holds `listing-header`           |
+
+The control below holds seven of the lists this page checks, Root and Azul
+among them. Pick one to see the `items`, `known` and `required` its example
+passes to `validateItems`, the problems it returned, and the HTML
+`Widgets.astro` rendered for the same items. Where the example passes a list of
+names, the control renders through a registry holding the `examples/src/widgets`
+widget for each name.
+
+A browser cannot compile an `.astro` component, so Astro's container API
+rendered each list when this site was built, as `astro dev` would, and the
+warnings it printed are shown too. The lists are fixed:
+
+<AstroRenderDemo />
+
 ## Look up a validateItems message
 
 [What it reports](/widget/problems), in the `@evanion/widget` docs, lists each
