@@ -32,10 +32,6 @@
   "acl/pitfalls.mdx": {
     "lede": 58
   },
-  "acl/resolution.mdx": {
-    "lede": 70,
-    "firstFence": 35
-  },
   "acl/security.mdx": {
     "lede": 59,
     "firstFence": 21
