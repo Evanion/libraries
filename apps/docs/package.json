@@ -57,11 +57,36 @@
           "{projectRoot}/public/behaviour"
         ]
       },
+      "widget-renders": {
+        "command": "node tools/widget-renders.mjs",
+        "options": {
+          "cwd": "{projectRoot}"
+        },
+        "cache": true,
+        "inputs": [
+          "{projectRoot}/tools/widget-renders.mjs",
+          "{workspaceRoot}/tools/doc-examples/src/regions.mjs",
+          "{workspaceRoot}/libs/astro-widget/README.md",
+          "{workspaceRoot}/libs/astro-widget/src/**/*",
+          "{workspaceRoot}/libs/astro-widget/examples/**/*",
+          "{workspaceRoot}/libs/widget/src/**/*",
+          {
+            "externalDependencies": [
+              "astro",
+              "vite"
+            ]
+          }
+        ],
+        "outputs": [
+          "{projectRoot}/components/astro-widget/renders.json"
+        ]
+      },
       "build": {
         "dependsOn": [
           "^build",
           "testing-data",
-          "behaviour-data"
+          "behaviour-data",
+          "widget-renders"
         ],
         "outputs": [
           "{projectRoot}/.next",
@@ -72,12 +97,14 @@
         "dependsOn": [
           "^build",
           "testing-data",
-          "behaviour-data"
+          "behaviour-data",
+          "widget-renders"
         ]
       },
       "lint": {
         "dependsOn": [
-          "testing-data"
+          "testing-data",
+          "widget-renders"
         ]
       }
     }
