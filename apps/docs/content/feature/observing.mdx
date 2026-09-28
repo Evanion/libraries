@@ -103,6 +103,46 @@ An `onObserveError` that throws, or returns a promise that rejects, reaches the
 warning carrying both errors, and the engine does not call the handler again for
 that event. One level of recovery, no recursion.
 
+## Records in flight are lost at exit
+
+The engine never awaits an observer, so a promise it never awaited and a buffer
+the application has not drained are both gone when the process exits. A rolling
+deploy replaces every replica, each replica loses whatever it had not written,
+and a configuration change is the moment an operator reads those records.
+
+The hook shape this page documents works in every runtime: the observer pushes
+onto a buffer synchronously and returns, and the application drains that buffer
+at a concurrency it owns.
+
+```ts no-run
+const pending: FeatureEvent<Flags>[] = [];
+
+const features = createFeatures(definitions, {
+  observe: (event) => {
+    pending.push(event);
+  },
+});
+
+process.on('SIGTERM', async () => {
+  await transport.send(pending.splice(0));
+});
+```
+
+A server drains on `SIGTERM`. A browser drains on `visibilitychange` and writes
+with `navigator.sendBeacon`, because an unload cancels a `fetch` the page had
+already started. A native client writes to a local queue that persists across a
+process restart. The event shape is the same in all of them, and every transport
+decision after the event belongs to the application.
+
+A phone's operating system suspends a process without warning, and whatever the
+buffer held at that moment is gone. An experiment missing a tail of mobile
+records reads as a result, so an application that reports from a phone drains on
+the background transition and does not wait for a clean exit.
+
+`Features` declares no `drain()`. A handle that drained would hold the set of
+pending promises, which is state a `Features` does not otherwise carry, and every
+real transport already owns a flush that this one would have to agree with.
+
 ## `correlateBy` and what reaches an event
 
 An event carries no `EvaluationContext`. It carries the settled instant, the

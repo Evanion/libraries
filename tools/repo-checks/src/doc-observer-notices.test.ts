@@ -15,6 +15,12 @@ import { describe, expect, it } from 'vitest';
  * `observe` or through the API reference entry, and neither path crosses the
  * Observing page, so the warning sits on both.
  *
+ * § 6 closes on the records lost at exit, and § 8 names the per-runtime
+ * transports and the phone an operating system suspends without warning. A
+ * reader who wires an observer to an audit or an experiment transport reads
+ * neither spec, so the Observing page carries the drain shape and the member
+ * carries the one-paragraph form of it.
+ *
  * § 4.2 requires the disclosure sentence where `observe` is introduced, because
  * a reader weighing `correlateBy` asks what the default sends off the box. The
  * library sends nothing, and the subject on an event is the value the
@@ -53,6 +59,45 @@ const NOTICES = [
       'the request never rendered',
       'look plausible and are wrong',
       'at its render site',
+    ],
+  },
+  {
+    what: 'the loss-at-exit note on the `observe` member',
+    file: 'libs/feature/src/lib/observe.ts',
+    from: '   * Called once per public entry point call',
+    until: '  observe?: (event',
+    phrases: [
+      'lost at exit',
+      'gone when the process exits',
+      'suspends a process without warning',
+      'on `SIGTERM` and on the background transition',
+    ],
+  },
+  {
+    what: 'the loss-at-exit note on the API reference entry',
+    file: 'apps/docs/content/feature/api.mdx',
+    from: '### `FeatureOptions<S>`',
+    until: '### `FrozenWhenObserved',
+    phrases: [
+      'lost at exit',
+      'suspends a process without warning',
+      '`navigator.sendBeacon` on `visibilitychange`',
+      '/feature/observing#records-in-flight-are-lost-at-exit',
+    ],
+  },
+  {
+    what: 'the drain shape on the Observing page',
+    file: 'apps/docs/content/feature/observing.mdx',
+    from: '## Records in flight are lost at exit',
+    until: '## `correlateBy`',
+    phrases: [
+      'gone when the process exits',
+      'drains that buffer at a concurrency it owns',
+      'drains on `SIGTERM`',
+      '`navigator.sendBeacon`',
+      'persists across a process restart',
+      'suspends a process without warning',
+      'declares no `drain()`',
     ],
   },
   {

@@ -479,6 +479,15 @@ carries. See
 [Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries)
 for the whole argument.
 
+An event in flight is lost at exit. The engine awaits nothing, so a buffer the
+application has not drained is gone when the process exits, and a phone's
+operating system suspends a process without warning. The application drains that
+buffer on `SIGTERM` and on the background transition, and each runtime carries
+its own transport: a service writes to a log collector, and a browser writes with
+`navigator.sendBeacon` on `visibilitychange`. See
+[Observing](/feature/observing#records-in-flight-are-lost-at-exit) for the hook
+shape.
+
 `FeatureOptions` declares `observe` optionally, so options carrying an observer
 and options carrying none both satisfy it. `UnobservedOptions` pins the member
 to `undefined`, so only a value whose type proves the absence satisfies it, and

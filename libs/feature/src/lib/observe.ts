@@ -132,6 +132,13 @@ export interface FeatureOptions<
    * The application writes an exposure record at its render site, off the
    * `variant`, `assignment.source`, `assignment.bucket` and `rule` fields the
    * decision it already holds carries.
+   *
+   * An event in flight is lost at exit. The engine awaits nothing, so a promise
+   * it never awaited and a buffer the application has not drained are both gone
+   * when the process exits, and a phone's operating system suspends a process
+   * without warning. The observer pushes onto a buffer synchronously and
+   * returns, and the application drains that buffer on `SIGTERM` and on the
+   * background transition.
    */
   observe?: (event: FeatureEvent<S>) => void | Promise<unknown>;
   /**
