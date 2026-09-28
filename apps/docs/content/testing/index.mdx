@@ -1,17 +1,20 @@
 # How this project is tested
 
+Every figure on this page comes from a run the deploy made, and every case is
+the text of a test in `libs/acl/src/security` that the run executed.
+
+<Provenance />
+
+## What a reader can check on this page
+
 This project is written with heavy AI assistance, and a reader evaluating an
 authorization library on that basis wants to check the claims rather than read
-them. Every figure below comes from a run the deploy made, and every case is
-the text of a test that run executed. The block under this sentence is one of
-them: a write carrying a `role` the policy excludes, and the decision the
-engine returned.
+them. The block below is one case: a write carrying a `role` the policy
+excludes, and the decision the engine returned.
 
 ```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-001
 
 ```
-
-<Provenance />
 
 <Panel heading="Three things this page does not establish">
   <Text as="div" size="sm">
@@ -20,7 +23,8 @@ engine returned.
     present, and none of them checks that it is right. The coverage figures
     count lines a run executed, which is a different claim from the assertions
     being any good. [What this page cannot prove](#what-this-page-cannot-prove)
-    is each of those at length, after the material they are about.
+    covers the first two and three more, after the material they are about.
+    [What coverage measures](/testing/coverage) covers the third.
   </Text>
 </Panel>
 
@@ -397,18 +401,20 @@ count here:
 
 ## What this page cannot prove
 
-**A test suite covers the cases somebody thought of.** Each of the
-thirty-six register entries is a class somebody named. The thirty-seventh is in
-no register, in no suite, and nothing on this page would look different if it
-existed. SEC-019 draws generated writes from a seeded generator, which is the
-narrowest exception and still generates within a shape somebody chose, against
-a property somebody stated.
+### A test suite covers the cases somebody thought of
 
-**The guards check shape, and never correctness.** The export-coverage check
-refuses a published export with no example, and it has no opinion about whether
-the example is any good or whether the export should exist. The twoslash check
-proves a fence compiles, which is a different claim from the fence being the
-right way to use the API.
+Each of the thirty-six register entries is a class somebody named. The
+thirty-seventh is in no register, in no suite, and nothing on this page would
+look different if it existed. SEC-019 draws generated writes from a seeded
+generator, which is the narrowest exception and still generates within a shape
+somebody chose, against a property somebody stated.
+
+### The guards check shape, and never correctness
+
+The export-coverage check refuses a published export with no example, and it
+has no opinion about whether the example is any good or whether the export
+should exist. The twoslash check proves a fence compiles, which is a different
+claim from the fence being the right way to use the API.
 
 <Guards />
 
@@ -416,19 +422,25 @@ Both allowance files default an unlisted entry to zero, so the backlog above
 cannot grow. It has not been paid down either, and a guard quoted without its
 own backlog is the marketing a sceptic came expecting.
 
-**The register describes one library, at one layer.** Eight entries are tier 3,
-and [the security contract](/acl/security) is what they mean: in a browser the
-control disappears and the request it would have sent does not. A reader taking
-this page as evidence that an application using `@evanion/acl` is secure has
-drawn a conclusion the register's own tier 3 refutes.
+### The register describes one library, at one layer
 
-**Nothing here is an audit.** No third party has reviewed this code. Projects
-of comparable subject link a sponsored external audit or publish an audit
-report in the repository, and this project has neither.
+Eight entries are tier 3, and [the security contract](/acl/security) is what
+they mean: in a browser the control disappears and the request it would have
+sent does not. A reader taking this page as evidence that an application using
+`@evanion/acl` is secure has drawn a conclusion the register's own tier 3
+refutes.
 
-**The numbers describe one commit.** The provenance line at the top names it.
-If the deploy stops running the suite, that commit stops moving with the site,
-and a reader can see the mismatch from this page.
+### Nothing here is an audit
+
+No third party has reviewed this code. Projects of comparable subject link a
+sponsored external audit or publish an audit report in the repository, and this
+project has neither.
+
+### The numbers describe one commit
+
+The provenance line at the top names the commit. If the deploy stops running
+the suite, that commit stops moving with the site, and a reader can see the
+mismatch from this page.
 
 ## Coverage
 
