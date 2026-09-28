@@ -12,17 +12,10 @@
     "firstSymbol": 33
   },
   "acl/explorer.mdx": {
-    "lede": 110,
-    "run": 14,
-    "firstFence": 61,
-    "firstSymbol": 70
-  },
-  "acl/getting-started.mdx": {
-    "firstFence": 14
+    "firstFence": 48
   },
   "acl/index.mdx": {
-    "firstFence": 14,
-    "firstSymbol": 38
+    "firstSymbol": 33
   },
   "acl/limits.mdx": {
     "lede": 75,
@@ -46,11 +39,6 @@
   "acl/security.mdx": {
     "lede": 59,
     "firstFence": 21
-  },
-  "acl/subject-rules.mdx": {
-    "lede": 44,
-    "run": 9,
-    "firstFence": 13
   },
   "feature/api.mdx": {
     "run": 11
