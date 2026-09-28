@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import { createFeatures } from './features.js';
+import type { FeatureDefinition } from './types.js';
 
 describe('createFeatures, inferring', () => {
   it('narrows variantOf to the names a feature declares', () => {
@@ -53,5 +54,54 @@ describe('the const type parameter', () => {
     ]);
 
     expectTypeOf(features.variantOf('cta')).toEqualTypeOf<'only' | undefined>();
+  });
+});
+
+describe('the explicit schema checks the definitions', () => {
+  interface MyFlags {
+    cta: { variant: 'control' | 'blue'; value: { label: string } };
+  }
+
+  it('refuses a definition naming a key the schema does not declare', () => {
+    createFeatures<MyFlags>([
+      // @ts-expect-error the schema declares `cta`, and `keys` would report a
+      // feature the store never holds.
+      { key: 'totally-unrelated', enabled: true },
+    ]);
+  });
+
+  it('accepts a definition naming a key the schema declares', () => {
+    const features = createFeatures<MyFlags>([{ key: 'cta', enabled: true }]);
+
+    expectTypeOf(features.keys).toEqualTypeOf<readonly 'cta'[]>();
+  });
+});
+
+describe('a definitions array with no literals to read', () => {
+  const definitions: FeatureDefinition<'cta'>[] = [
+    { key: 'cta', enabled: true, variants: [{ name: 'only', weight: 1 }] },
+  ];
+
+  it('refuses the inferring form, which would map every variant to never', () => {
+    createFeatures(
+      // @ts-expect-error `FeatureDefinition` declares `variants` optionally, so
+      // an array type carries no variant names to infer. Name the schema.
+      definitions,
+    );
+  });
+
+  it('narrows through a named schema', () => {
+    const features = createFeatures<{ cta: { variant: 'only' } }>(definitions);
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<'only' | undefined>();
+  });
+});
+
+describe('the never guard on the two readers', () => {
+  it('types both readers as undefined for a feature declaring no variants', () => {
+    const features = createFeatures([{ key: 'plain', enabled: true }]);
+
+    expectTypeOf(features.variantOf('plain')).toEqualTypeOf<undefined>();
+    expectTypeOf(features.valueOf('plain')).toEqualTypeOf<undefined>();
   });
 });

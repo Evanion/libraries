@@ -398,12 +398,21 @@ it. OpenFeature's `SPLIT` reason maps onto `reason: 'rule-match'` with
 Two overloads on one name, verified against TypeScript 6.0.3:
 
 ```ts
-export function createFeatures<const D extends readonly FeatureDefinition[]>(
+export type Definitions<K extends FeatureKey = FeatureKey> = readonly [
+  FeatureDefinition<K>,
+  ...FeatureDefinition<K>[],
+];
+
+export function createFeatures<const D extends Definitions>(
   definitions: D,
 ): Features<InferSchema<D>>;
 export function createFeatures<
   S extends Record<keyof S, { variant: string; value?: unknown }>,
->(definitions: readonly FeatureDefinition[]): Features<S>;
+>(
+  definitions: readonly FeatureDefinition<
+    NoInfer<Extract<keyof S, FeatureKey>>
+  >[],
+): Features<S>;
 ```
 
 The first overload infers, and the `const` type parameter removes the `as
@@ -411,6 +420,23 @@ const` a consumer would otherwise write. The second takes an explicit schema,
 for configuration that arrives as JSON and carries no literal types to infer
 from. TypeScript performs no partial type argument inference, so one signature
 cannot do both, and overload resolution selects on the type-argument count.
+
+Two constraints in that pair carry weight beyond what they look like.
+
+The first overload's `D` is a non-empty tuple, not `readonly
+FeatureDefinition[]`. `FeatureDefinition` declares `variants` optionally, and
+`InferSchema` asks each member for a `variants` property, so a member read off
+an array type answers nothing and every key maps to `never`. A consumer who
+assigns the configuration to a `const definitions: FeatureDefinition<K>[]` and
+then calls `createFeatures(definitions)` would get `variantOf` typed `undefined`
+while the store hands back a real variant name. The tuple constraint rejects that
+call. The consumer annotates the variable `Definitions<K>` and keeps the
+inference, or names a schema and takes the second overload.
+
+The second overload wraps its key type in `NoInfer`. Without it the compiler
+infers `S` backwards out of the argument, fills every entry with `any`, and a
+definition naming a key the schema never declared passes with `keys` and
+`variantOf` both reporting a feature the store does not hold.
 
 The constraint on `S` is self-referential. `S extends Schema` where `Schema`
 declares `[k: string]` rejects an `interface`
