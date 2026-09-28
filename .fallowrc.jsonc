@@ -23,6 +23,10 @@
     // unreachable.
     "apps/docs/tools/behaviour-data.mjs",
 
+    // The astro-widget payload renders, written by the `docs:widget-renders`
+    // target rather than imported.
+    "apps/docs/tools/widget-renders.mjs",
+
     // A package's doctest preamble, read by path rather than imported:
     // `vite.config.ts` reads it through `readPreamble(import.meta.dirname)` and
     // the region loader reads it beside the README it fills a fence from. No

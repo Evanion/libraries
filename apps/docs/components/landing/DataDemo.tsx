@@ -1,33 +1,11 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { jsonTokens } from '../json-tokens';
-import '../json-tokens.css';
+import { JsonHighlight } from '../JsonHighlight';
 import { Widgets } from './counter';
 import { moved, openingNodes, rows, within, type Node } from './tree';
 
 type Items = Parameters<typeof Widgets>[0]['items'];
-
-/**
- * The text as JSON tokens, each in the colour its kind takes.
- *
- * `components/json-tokens.ts` does the splitting and `json-tokens.css` holds
- * the three colours, because the matrix explorer highlights a document a
- * reader typed and the two surfaces must not hold two tokenizers or two
- * palettes. The colours are the ones this section had: keys in the reading
- * colour, strings in the package hue, the rest stepped back.
- */
-function Highlight({ text }: { text: string }) {
-  return jsonTokens(text).map((token, index) =>
-    token.kind === undefined ? (
-      token.text
-    ) : (
-      <span key={index} className={`json-token--${token.kind}`}>
-        {token.text}
-      </span>
-    ),
-  );
-}
 
 interface HandleProps {
   label: string;
@@ -143,7 +121,7 @@ export default function DataDemo() {
                   ) : null}
                 </span>
                 <span className="landing-items__code">
-                  <Highlight text={row.text} />
+                  <JsonHighlight text={row.text} />
                 </span>
               </span>
             ))}
