@@ -1,67 +1,58 @@
 # Why deny, then allow, then deny?
 
-`@evanion/acl` settles every permission in seven steps that run in one fixed
-order, and nothing a caller passes reorders them. Each `Decision` that
-`access.can` returns comes from the first step that applied.
+`@evanion/acl` checks the deny rules, then the allow rules, then the deny rules
+again, in seven fixed steps. `access.can` returns the `Decision` of the first
+step that applies, once the document is fresh and holds the key.
 
 <WorkshopNotice slug="acl" />
 
+<PageSheet
+  difficulty={4}
+  read={9}
+  requires={[
+    ['Rules about who the user is', '/acl/subject-rules'],
+    ['The Decision object every check returns', '/acl/decision-object'],
+  ]}
+  unlocks={[
+    ['Security contract', '/acl/security'],
+    ['Many services', '/acl/federation'],
+  ]}
+/>
+
 ## The seven steps acl resolves a permission in
 
-A permission in `@evanion/acl` carries a deny side, `denyRules`, and an allow
-side, `rules`. Rules within one side are OR-ed, so one matching rule settles its
-side. The engine reads the deny side first, and the first step that applies
-returns the decision:
+A permission in `@evanion/acl` carries its deny rules in `denyRules` and its
+allow rules in `rules`. The rules within one side are OR-ed, so each side
+settles to one of four states:
 
-1. a deny rule matches → `denied`, naming the deny rule
+| A side's state   | When                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| matched          | every condition of one rule holds                                                                                              |
+| definitely fails | every rule has a condition that is false, or the side has no rules                                                             |
+| unusable clock   | no rule matched, and a rule with no false condition reads `now` from a clock that does not parse                               |
+| unevaluable      | no rule matched or has an unusable clock, and a rule with no false condition reads an `object.*` field the object passed lacks |
+
+Seven steps check the two sides in order, and the first that applies decides:
+
+1. a deny rule matched → `denied`, naming the deny rule
 2. the allow side definitely fails → `no-rule-matched`
-3. the deny side reads an unusable clock → `unusable-clock`, naming the deny
-   rule
+3. the deny side has an unusable clock → `unusable-clock`, naming the deny rule
 4. the deny side is unevaluable → `unevaluable`, naming the deny rule, with
    both sides' unread paths in `missing`
-5. an allow rule matches → `allow`, naming the allow rule
-6. the allow side reads an unusable clock → `unusable-clock`, naming the allow
+5. an allow rule matched → `allow`, naming the allow rule
+6. the allow side has an unusable clock → `unusable-clock`, naming the allow
    rule
 7. the allow side is unevaluable → `unevaluable`, with the allow side's unread
    paths in `missing`
 
-Step 5 is the only one that answers `allowed: true`. Four calls on one Baize
-question land on steps 1, 2, 4 and 5:
-
-```ts twoslash file=libs/acl/README.md region=resolution-order
-
-```
-
-The policy declares its deny rule first. The builder writes every `deny()` to
-`denyRules` and every `allow()` to `rules`, so the order a policy declares the
-two sides in never reaches the document. [The Decision object every check
-returns](/acl/decision-object) documents each field a step fills.
-
-## Why acl reads the deny side twice
-
-`@evanion/acl` reads the deny side at step 1 for a match, and again at steps 3
-and 4 for a read it could not finish. Step 2 sits between them because no fetch
-repairs a definite "no allow rule matched", and answering `unevaluable` there
-would send a UI to refetch and ask again forever.
-
-Steps 3 and 4 sit above step 5 because the side that refuses is decided before
-the engine hands out a grant. An undecided deny turns an `allow` into
-`unevaluable` or `unusable-clock`, and leaves a definite no-allow as
-`no-rule-matched`. A Baize order rule that closes ordering for a stocktake shows
-steps 2 and 3 on the clock, where `'soon'` does not parse as an instant:
-
-```ts twoslash file=libs/acl/README.md region=resolution-clock
-
-```
-
-```mermaid caption="The seven steps as one chain. The deny side is read first and settled first, clock included; the single branch that reaches allow is the one where the deny side definitely fails and an allow rule matched."
+```mermaid caption="The seven steps as one chain. The deny side is checked first and settled first, clock included; the single branch that reaches allow is the one where the deny side definitely fails and an allow rule matched."
 flowchart TD
   D{"a deny rule<br>matched?"}
   A{"the allow side<br>definitely fails?"}
-  C{"the deny side<br>reads a bad clock?"}
+  C{"the deny side has<br>an unusable clock?"}
   U{"the deny side<br>unevaluable?"}
   M{"an allow rule<br>matched?"}
-  K{"the allow side<br>reads a bad clock?"}
+  K{"the allow side has<br>an unusable clock?"}
 
   DENIED["denied"]
   NONE["no-rule-matched"]
@@ -83,32 +74,81 @@ flowchart TD
   K -->|no| UNEV
 ```
 
+Step 5 is the only step that answers `allowed: true`. Four calls on one Baize
+question reach steps 1, 2, 4 and 5:
+
+```ts twoslash file=libs/acl/README.md region=resolution-order
+
+```
+
+`.id()` names the rule declared before it, and `rule` returns that name. `can`
+takes the object as `Partial<Question>`, so a call may leave `status` out. The
+builder writes every `deny()` to `denyRules` and every `allow()` to `rules`, so
+the order a policy declares the two sides in never reaches the document.
+
+Two reasons come before step 1. `stale-contract` answers when more than
+`maxStale` has passed since the holder's `fetchedAt`, and `unknown-action`
+answers when an `Access` built with `closed: true` does not hold the key.
+
+## Why acl checks the deny side before and after the allow side
+
+`@evanion/acl` checks the deny side's result at two points: at step 1 for a
+deny rule that matched, and at steps 3 and 4 for a deny rule it could not read.
+Step 2 (the allow side definitely fails) sits between those points. A caller
+settles an `unevaluable` answer by fetching the fields `missing` names and
+asking again, and no fetch turns a definite no-allow into a grant. An
+`unevaluable` answer at step 2 would send a UI to fetch and ask again forever.
+
+Steps 3 and 4 come before step 5 (an allow rule matched), because a deny rule
+the engine could not read might have matched. With the deny side undecided, the
+allow side settles the answer this way:
+
+| The deny side  | The allow side   | The answer        | Step |
+| -------------- | ---------------- | ----------------- | ---- |
+| unusable clock | matched          | `unusable-clock`  | 3    |
+| unevaluable    | matched          | `unevaluable`     | 4    |
+| unusable clock | definitely fails | `no-rule-matched` | 2    |
+| unevaluable    | definitely fails | `no-rule-matched` | 2    |
+
+A Baize order rule that closes ordering during a stocktake shows steps 1, 3 and
+2 on the clock. `p.after('now', …)` and `p.before('now', …)` read the instant
+passed as `can`'s fifth argument, and `'soon'` does not parse as one. The third
+type argument to `policy` names `place` as the order's action:
+
+```ts twoslash file=libs/acl/README.md region=resolution-clock
+
+```
+
 ## Why acl declines last-declaration-wins
 
-CASL lets the last matching declaration decide. `_indexAndAnalyzeRules` walks the raw rules
-backwards so the last declaration is scanned first, and `relevantRuleFor`
-returns the first conditional match, inverted or not. CASL's guide names the
-hazard: "the order of rules matters: `cannot` declarations should follow after
-`can`, otherwise they will be overridden by `can`".
+CASL lets the last matching declaration decide. It scans an ability's rules from
+the last declared to the first and returns the first rule whose conditions
+match, whether `can` or `cannot`. CASL's guide names the hazard: "the order of
+rules matters: `cannot` declarations should follow after `can`, otherwise they
+will be overridden by `can`".
 
-A [matrix](/acl/matrix) is a frozen JSON document one service emits and another
-adopts with `parseMatrix`. Three things break there under order-dependence:
+A [matrix](/acl/matrix) is the frozen JSON document one service publishes and
+[another service adopts](/acl/adopting). Three things break there under
+order-dependence:
 
-- Identical rules in a different order decide differently, so a producer that
-  reorders its own output changes what a consumer grants.
-- [`federatedPolicies`](/acl/federation) would resolve two origins by the order
-  their documents were concatenated in.
+- Identical rules in a different order decide differently, so a publishing
+  service that reorders its own output changes what a consumer grants.
+- [`applyDenyOverlay`](/acl/federation) appends another team's deny rules to a
+  permission's `denyRules`. Under last-declaration-wins, the veto would depend
+  on where the append put them.
 - A reviewer could not say what a matrix grants without reading every rule in
   sequence, and matrix review is the only control over an over-broad grant.
 
-In `@evanion/acl` the position of a rule inside `rules` or `denyRules` decides
-neither `allowed` nor `reason`. When two rules on one side match, `rule` names
-the one earlier in the array.
+`@evanion/acl` answers the same `allowed` and `reason` for any order of `rules`
+or `denyRules`. Rule order changes two fields: `rule` names the earliest rule
+that settled its side, and `missing` lists paths in the order the rules read them.
 
-## Deny-overrides, and the names XACML gave it
+## How acl's deny-overrides compares with four other engines
 
-`@evanion/acl` runs deny-overrides and exposes no setting for it. Four other
-engines put that choice where a caller can change it:
+`@evanion/acl` runs deny-overrides and exposes no setting for it. CASL, the
+eXtensible Access Control Markup Language (XACML) 3.0, AWS Identity and Access
+Management (IAM) and Casbin combine rules as follows, and three of them let a
+caller change the choice:
 
 | Engine    | How it combines                                        | Where that choice lives                       | What it answers                            |
 | --------- | ------------------------------------------------------ | --------------------------------------------- | ------------------------------------------ |
@@ -119,30 +159,30 @@ engines put that choice where a caller can change it:
 | acl       | deny-overrides, and nothing configures it              | nowhere: the seven steps above are the engine | `allow`, a refusal, or `unevaluable`       |
 
 Where the algorithm is configurable, a consumer adopting a foreign policy
-inherits whichever one the producer picked. Three engines write the algorithm
+inherits whichever one the publisher picked. Three engines write the algorithm
 down:
 
-- XACML 3.0. OASIS named the combining algorithms in Appendix C of the
-  eXtensible Access Control Markup Language (XACML) 3.0: deny-overrides,
-  permit-overrides, first-applicable and only-one-applicable, alongside ordered
-  and `deny-unless-permit` variants. XACML states deny-overrides as "if a single
-  `<Rule>` or `<Policy>` element is encountered that evaluates to 'Deny', then,
-  regardless of the evaluation result of the other … elements in the applicable
-  policy, the combined result is 'Deny'".
+- XACML 3.0. Appendix C of the standard names the combining algorithms:
+  deny-overrides, permit-overrides, first-applicable and only-one-applicable,
+  alongside ordered and `deny-unless-permit` variants. XACML states
+  deny-overrides as "if a single `<Rule>` or `<Policy>` element is encountered
+  that evaluates to 'Deny', then, regardless of the evaluation result of the
+  other … elements in the applicable policy, the combined result is 'Deny'".
 - AWS IAM. "By default, all requests are implicitly denied", a policy must
   explicitly allow them, and "An explicit deny overrides an explicit allow."
-  Those are steps 1, 2 and 5 of `@evanion/acl` with the undecided steps taken
-  out.
+  Those are acl's step 1 (a deny rule matched), step 2 (no allow rule matched)
+  and step 5 (an allow rule matched), with no undecided steps.
 - Casbin. The `[policy_effect]` section takes allow-override, deny-override, the
   conjunction of the two, or `priority(p.eft) || deny`, which is
   first-applicable.
 
-## The third state, and what XACML calls Indeterminate
+## acl's `unevaluable` beside XACML's Indeterminate
 
 `unevaluable` is the third answer `@evanion/acl` gives: `allowed` is `false`,
 and `missing` names the object paths the engine could not read, so a caller can
-fetch them and ask again. Steps 4 and 7 produce it. CASL, AWS IAM and Casbin
-each answer a boolean and have no such state.
+fetch them and ask again. Step 4 (the deny side is unevaluable) and step 7 (the
+allow side is unevaluable) produce it. CASL, IAM and Casbin each answer a
+boolean and have no such state.
 
 XACML is the exception. Its decision values are Permit, Deny, NotApplicable and
 Indeterminate, and its extended `Indeterminate{D}`, `{P}` and `{DP}` variants
@@ -152,21 +192,29 @@ element SHOULD be included in the Status".
 
 ## Why a fixed order lets every acl layer re-decide
 
-`@evanion/acl` in a browser toggles what a user sees and enforces nothing. A
-trusted environment makes the decision that counts, and every app in the chain
-evaluates for itself and trusts no earlier layer, which [the security
-contract](/acl/security) argues in full.
+The seven steps of `@evanion/acl` read the permission, the subject, the object
+and `now`, and no array order or per-process setting. A browser, the server
+behind it and a downstream service holding the same document, subject, object
+and `now` reach the same decision. A layer that re-decides therefore confirms
+the answer the layer before it gave. Every app in the chain evaluates for itself
+and trusts no earlier layer, and [the security contract](/acl/security) argues
+why.
 
-Every step reads the permission and the context, and no array order,
-construction option or per-process setting. A browser, the server behind it and
-a downstream service holding the same document and subject reach the same
-decision, so a layer that re-decides confirms the answer it was handed.
+Two inputs differ between layers unless the caller aligns them:
+
+- `can` reads each machine's wall clock when the caller omits `now`, so two
+  layers deciding a `p.before` or `p.after` rule near its boundary can disagree.
+  Pass the same `now` to every layer that has to agree.
+- `fetchedAt`, `maxStale` and `closed` are options each holder passes to
+  `hydratePolicy`, and they act before step 1. A holder built with different
+  values can answer `stale-contract` or `unknown-action` where another reaches
+  the seven steps.
 
 ## Where to go next
 
 - [The Decision object every check returns](/acl/decision-object): the fields
   each step fills, `unevaluable` as a third state, and the clock.
-- [Why was this refused?](/acl/refusals): the seven reasons a decision carries,
-  and which rule decided.
+- [Why was this refused?](/acl/refusals): which rule decided a refusal, and what
+  to do with an `unevaluable`.
 - [Security contract](/acl/security): the trust boundary every layer re-decides
-  across.
+  across, and the clock a decision reads.
