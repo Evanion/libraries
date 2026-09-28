@@ -74,7 +74,7 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
           {body}
           <span className="landing-specimen__mark">{check}</span>
         </span>
-        <output className="landing-sr-only" aria-live="polite">
+        <output className="baize-visually-hidden" aria-live="polite">
           {value}
         </output>
         <span className="landing-specimen__action">
@@ -99,7 +99,7 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
           {tokenShapes.map((option, index) => (
             <label key={shapeLabel(option)} className="landing-seg__option">
               <input
-                className="landing-sr-only"
+                className="baize-visually-hidden"
                 type="radio"
                 name={`${id}-shape-option`}
                 checked={shape === index}
@@ -123,7 +123,7 @@ export default function TokenSpecimen({ initial }: { initial: string }) {
           {tokenAlphabets.map((option, index) => (
             <label key={option.label} className="landing-seg__option">
               <input
-                className="landing-sr-only"
+                className="baize-visually-hidden"
                 type="radio"
                 name={`${id}-alphabet-option`}
                 checked={alphabet === index}

@@ -470,7 +470,7 @@ export default function ExplorerScreen() {
                 <h2 className="explorer__block-title">Decisions</h2>
                 {subject.state === 'ready' ? (
                   <table className="explorer__table">
-                    <caption className="explorer__sr-only">
+                    <caption className="baize-visually-hidden">
                       Every permission decided against this subject
                     </caption>
                     <thead>
@@ -565,7 +565,7 @@ export default function ExplorerScreen() {
         </section>
       </div>
 
-      <output aria-live="polite" className="explorer__sr-only">
+      <output aria-live="polite" className="baize-visually-hidden">
         {adoption.state === 'empty'
           ? 'No document yet.'
           : adoption.state === 'unparsed'

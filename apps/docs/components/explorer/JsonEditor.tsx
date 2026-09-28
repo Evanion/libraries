@@ -90,7 +90,7 @@ export default function JsonEditor({
           ))}
         </code>
       </pre>
-      <label className="explorer__sr-only" htmlFor={id}>
+      <label className="baize-visually-hidden" htmlFor={id}>
         {label}
       </label>
       <textarea

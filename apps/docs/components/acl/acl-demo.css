@@ -176,18 +176,6 @@
   font-style: italic;
 }
 
-/* For a screen reader only: the decision behind the panes that changed. */
-.acl-demo__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .acl-demo__seg-face {
     transition: none;

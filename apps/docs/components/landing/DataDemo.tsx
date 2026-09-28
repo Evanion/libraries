@@ -129,7 +129,7 @@ export default function DataDemo() {
         </pre>
       </div>
 
-      <output className="landing-sr-only" aria-live="polite">
+      <output className="baize-visually-hidden" aria-live="polite">
         {notice}
       </output>
     </div>

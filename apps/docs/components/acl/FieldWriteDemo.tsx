@@ -125,7 +125,7 @@ export default function FieldWriteDemo() {
             {askers.map((asker) => (
               <label key={asker.id} className="acl-demo__seg-option">
                 <input
-                  className="acl-demo__sr-only"
+                  className="baize-visually-hidden"
                   type="radio"
                   name={`${id}-who`}
                   value={asker.id}
@@ -269,7 +269,7 @@ export default function FieldWriteDemo() {
         </section>
       </div>
 
-      <output className="acl-demo__sr-only" aria-live="polite">
+      <output className="baize-visually-hidden" aria-live="polite">
         {`Signed in as ${who.name}. The action is ${
           decision.action.allowed ? 'allowed' : 'refused'
         }, reason ${decision.action.reason}. ${rows

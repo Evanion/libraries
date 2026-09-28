@@ -110,7 +110,7 @@ export default function LuhnSpecimen({ initial }: { initial: string }) {
         </span>
       </div>
 
-      <output htmlFor={id} className="landing-sr-only" aria-live="polite">
+      <output htmlFor={id} className="baize-visually-hidden" aria-live="polite">
         {verdict.isValid
           ? `${typed} is accepted.`
           : `${typed} is rejected: this is not the code that was issued.`}
