@@ -1,7 +1,13 @@
+import type { ReactElement } from 'react';
 import { describe, expectTypeOf, it } from 'vitest';
 import { createFeatures } from '../lib/features.js';
 import type { Decision, FeatureKey } from '../lib/types.js';
-import { createFeatureContext, useFeature, useVariant } from './index.js';
+import {
+  createFeatureContext,
+  FeatureProvider,
+  useFeature,
+  useVariant,
+} from './index.js';
 
 const features = createFeatures([
   {
@@ -53,5 +59,44 @@ describe('the bound hooks', () => {
   it('refuse a key the store does not carry', () => {
     // @ts-expect-error the store declares no such key
     bound.useFeature('nope');
+  });
+});
+
+describe('the provider', () => {
+  const observed = createFeatures(
+    [
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50, value: { label: 'Get it' } },
+        ],
+      },
+      { key: 'banner', enabled: false },
+    ] as const,
+    { observe: () => undefined },
+  );
+
+  it('takes the decisions an observed store resolved', () => {
+    // The server-render handoff the react page documents. An observed store
+    // answers the deeply readonly form, and a prop typed on the mutable form
+    // alone refuses it.
+    const decisions = observed.resolve({ targetingKey: 'u1' });
+    const element: ReactElement = (
+      <FeatureProvider features={observed} decisions={decisions} />
+    );
+
+    expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+
+  it('takes them on the bound provider too', () => {
+    const bound = createFeatureContext(observed);
+    const decisions = observed.resolve({ targetingKey: 'u1' });
+    const element: ReactElement = (
+      <bound.FeatureProvider decisions={decisions} />
+    );
+
+    expectTypeOf(element).toEqualTypeOf<ReactElement>();
   });
 });
