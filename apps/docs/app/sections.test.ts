@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { packageFor } from './sections';
+import { packageFor, versionOptions } from './sections';
 
 /**
  * The invariant: a route names one package, one version of it, and one page,
@@ -62,5 +62,64 @@ describe('the section a route is in', () => {
       segment: null,
       page: ['version'],
     });
+  });
+});
+
+/**
+ * The invariant: every version the switcher offers is a page the export wrote,
+ * and an entry that cannot keep the reader on their page says so.
+ */
+describe('the versions of a page', () => {
+  const urn = {
+    current: { version: '2.0.0', segment: 'v2', pages: ['', 'api'] },
+    lines: [{ version: '1.1.1', segment: 'v1', pages: ['', 'api'] }],
+    next: { pages: ['', 'api', 'components'] },
+  };
+
+  it('goes to the same page in each version', () => {
+    const section = packageFor(['urn', 'api']);
+
+    expect(section && versionOptions(section, urn)).toEqual([
+      { label: '2.0.0', href: '/urn/api/', active: true, missing: false },
+      { label: '1.1.1', href: '/urn/v1/api/', active: false, missing: false },
+      { label: 'main', href: '/next/urn/api/', active: false, missing: false },
+    ]);
+  });
+
+  it('goes to the index of a version that has no such page, and says so', () => {
+    const section = packageFor(['next', 'urn', 'components']);
+
+    expect(section && versionOptions(section, urn)).toEqual([
+      { label: '2.0.0', href: '/urn/', active: false, missing: true },
+      { label: '1.1.1', href: '/urn/v1/', active: false, missing: true },
+      {
+        label: 'main',
+        href: '/next/urn/components/',
+        active: true,
+        missing: false,
+      },
+    ]);
+  });
+
+  it('marks the release line the reader is on', () => {
+    const section = packageFor(['urn', 'v1']);
+
+    expect(
+      section && versionOptions(section, urn).map((option) => option.active),
+    ).toEqual([false, true, false]);
+  });
+
+  /** With no release, the bare path and `/next/` are the same pages. */
+  it('offers nothing for a package with no release', () => {
+    const section = packageFor(['react-acl']);
+
+    expect(
+      section &&
+        versionOptions(section, {
+          current: { version: null, segment: null, pages: [''] },
+          lines: [],
+          next: { pages: [''] },
+        }),
+    ).toEqual([]);
   });
 });

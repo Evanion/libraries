@@ -37,11 +37,12 @@ export const metadata = {
  * The document every route renders inside: the element, the fonts, the ground
  * and the theme, and nothing that belongs to one kind of page.
  *
- * The docs chrome is one level down. `(site)/layout.tsx` holds
- * `nextra-theme-docs`'s `Layout` -- the navbar, the sidebar, the search -- over
- * the landing page and the content tree, and `(tool)/` is a sibling group whose
- * routes render a full-viewport tool with chrome of its own. Neither group
- * names a URL segment, so every existing path is unchanged. In the App Router a
+ * The docs chrome is further down. `chrome.tsx` holds `nextra-theme-docs`'s
+ * `Layout` -- the navbar, the sidebar, the search -- and the layouts of
+ * `(home)`, `(site)` and `(next)` mount it over the landing page, the released
+ * content tree and `/next/`. `(tool)/` is a sibling group whose routes render a
+ * full-viewport tool with chrome of its own. No group names a URL segment, so
+ * every existing path is unchanged. In the App Router a
  * root layout applies to every route, so moving the chrome down is the only way
  * a route escapes it.
  *

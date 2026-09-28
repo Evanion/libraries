@@ -91,12 +91,18 @@ export interface DocumentedPackage {
   name: string;
   /** The package's directory in this repository. */
   root: string;
-  /** Its folder under `content/`, and the first segment of its URL. */
+  /**
+   * Its folder under `content/next/`, and the first segment of its URL.
+   *
+   * The pages a person writes live at `content/next/<slug>/` and are served at
+   * `/next/<slug>/`. What the bare path `/<slug>/` serves is generated from
+   * them and from the release tags by `tools/write-archives.mjs`.
+   */
   slug: string;
   /** What the sidebar calls it. */
   title: string;
   /**
-   * Whether `content/<slug>/` exists.
+   * Whether `content/next/<slug>/` exists.
    *
    * Nextra throws on a `_meta` key that names no page, so a package waiting for
    * its section cannot simply be listed: it is listed as a link to the README
@@ -120,6 +126,16 @@ export interface DocumentedPackage {
    * `private` off a package moves it out of Workshop or fails the build.
    */
   workshop: boolean;
+  /**
+   * Why this section is served as written from `content/<slug>/`, with no
+   * `/next/` tree and no release lines, when it is.
+   *
+   * Every other section is authored under `content/next/` and versioned by the
+   * archive generator. A section carrying this is left out of both, and
+   * `tools/repo-checks/src/docs-archive.test.ts` holds the field to the
+   * directory, so it cannot outlive the move that ends it.
+   */
+  unversioned?: string;
   /** Which entry of `groups` this package sits under. */
   group: string;
   /**
@@ -353,6 +369,9 @@ export const packages: readonly DocumentedPackage[] = [
     demo: 'rollouts',
     documented: true,
     workshop: true,
+    unversioned:
+      'Its pages have not moved under content/next/. It is private and has ' +
+      'no release, so its bare path serves the pages as written.',
   },
 ];
 

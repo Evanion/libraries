@@ -1,0 +1,81 @@
+{
+  "react-widget": {
+    "v0.3": {
+      "version": "0.3.0",
+      "tag": "@evanion/react-widget@0.3.0",
+      "sha": "aabd81abaaa420781bf4da42c29e31bfdebc12b6"
+    },
+    "v0.2": {
+      "version": "0.2.0",
+      "tag": "@evanion/react-widget@0.2.0",
+      "sha": "d50a1c697033ad7fb721e4c478ba602ff04cd781",
+      "path": "apps/docs/content/widget",
+      "reason": "0.2.0's pages were at content/widget/, before the section took the package's name and the core took the slug"
+    }
+  },
+  "astro-widget": {
+    "v0.3": {
+      "version": "0.3.0",
+      "tag": "@evanion/astro-widget@0.3.0",
+      "sha": "aabd81abaaa420781bf4da42c29e31bfdebc12b6"
+    }
+  },
+  "widget": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/widget@0.1.0",
+      "next": true,
+      "reason": "not seeded: nx release version --dry-run computes 0.1.1; @evanion/widget@0.1.0 carries no pages"
+    }
+  },
+  "acl": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/acl@0.1.0",
+      "sha": "d618051d725fb1c757969c41361d128396d3a697"
+    }
+  },
+  "urn": {
+    "v2": {
+      "version": "2.0.0",
+      "tag": "@evanion/urn@2.0.0",
+      "sha": "d50a1c697033ad7fb721e4c478ba602ff04cd781"
+    },
+    "v1": {
+      "version": "1.1.1",
+      "tag": "@evanion/urn@1.1.1",
+      "sha": "c2979eaf0cc95ae74d8c06f74c93d7e44a91c7e6"
+    }
+  },
+  "luhn": {
+    "v3": {
+      "version": "3.0.0",
+      "tag": "@evanion/luhn@3.0.0",
+      "next": true,
+      "reason": "not seeded: nx release version --dry-run computes 3.0.1; @evanion/luhn@3.0.0 carries no pages"
+    }
+  },
+  "token": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/token@0.1.0",
+      "next": true,
+      "reason": "not seeded: nx release version --dry-run computes 0.1.1, @evanion/luhn computes 3.0.1; @evanion/token@0.1.0 carries no pages"
+    }
+  },
+  "compose": {
+    "v2": {
+      "version": "2.0.0",
+      "tag": "@evanion/compose@2.0.0",
+      "sha": "d50a1c697033ad7fb721e4c478ba602ff04cd781"
+    }
+  },
+  "nestjs-correlation-id": {
+    "v2": {
+      "version": "2.0.0",
+      "tag": "@evanion/nestjs-correlation-id@2.0.0",
+      "next": true,
+      "reason": "not seeded: nx release version --dry-run computes 2.1.0; @evanion/nestjs-correlation-id@2.0.0 carries no pages"
+    }
+  }
+}

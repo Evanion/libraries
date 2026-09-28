@@ -48,6 +48,35 @@ describe('the release notice', () => {
     ).toBeInTheDocument();
   });
 
+  /** Under `/next/` the reader on the release has somewhere else to be. */
+  it('links the released pages from main when the release shipped some', () => {
+    render(
+      <ReleaseNotice
+        slug="urn"
+        published="2.0.0"
+        ahead={true}
+        next
+        releaseHref="/urn/"
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Unreleased changes' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'documented here' }),
+    ).toHaveAttribute('href', '/urn/');
+  });
+
+  it('says the release shipped no pages when it links nowhere', () => {
+    render(<ReleaseNotice slug="luhn" published="3.0.0" ahead={true} next />);
+
+    expect(
+      screen.getByText(/shipped no documentation of its own/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
   /** A slug the navigation does not carry is a route this component cannot describe. */
   it('refuses a slug no package has', () => {
     expect(() =>

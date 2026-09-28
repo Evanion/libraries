@@ -81,12 +81,39 @@
           "{projectRoot}/components/astro-widget/renders.json"
         ]
       },
+      "archives": {
+        "command": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/write-archives.mjs",
+        "options": {
+          "cwd": "{projectRoot}"
+        },
+        "cache": false,
+        "outputs": [
+          "{projectRoot}/content/versions.json"
+        ]
+      },
       "build": {
         "dependsOn": [
           "^build",
           "testing-data",
           "behaviour-data",
-          "widget-renders"
+          "widget-renders",
+          "archives"
+        ],
+        "inputs": [
+          "default",
+          "^default",
+          {
+            "externalDependencies": [
+              "next"
+            ]
+          },
+          {
+            "dependentTasksOutputFiles": "**/*.d.ts",
+            "transitive": true
+          },
+          {
+            "dependentTasksOutputFiles": "**/content/versions.json"
+          }
         ],
         "outputs": [
           "{projectRoot}/.next",
@@ -105,6 +132,11 @@
         "dependsOn": [
           "testing-data",
           "widget-renders"
+        ]
+      },
+      "dev": {
+        "dependsOn": [
+          "archives"
         ]
       }
     }
