@@ -142,7 +142,7 @@
     }
   },
   "scripts": {
-    "postbuild": "node tools/md-siblings.mjs && node tools/write-redirects.mjs && pagefind --site out --output-path out/_pagefind"
+    "postbuild": "node tools/md-siblings.mjs && node tools/write-redirects.mjs && node tools/write-sitemap.mjs && pagefind --site out --output-path out/_pagefind"
   },
   "dependencies": {
     "@evanion/acl": "*",
