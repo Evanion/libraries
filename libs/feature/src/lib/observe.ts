@@ -123,8 +123,9 @@ export interface FeatureOptions<
    * does not call this handler again for that event. One level of recovery, no
    * recursion.
    *
-   * An application that configures neither `observe` nor this member gets a
-   * failure caught, warned once in development, and silent in production.
+   * An application that configures `observe` but not this member gets a failure
+   * caught and warned once in development. The warning stays silent when
+   * `NODE_ENV` is `production`.
    */
   onObserveError?: (error: unknown, event: FeatureEvent<S>) => void;
   /**
@@ -159,27 +160,26 @@ const OBSERVER_FAILED =
 const HANDLER_FAILED =
   '@evanion/feature: onObserveError threw. The engine reports the failure here and does not call onObserveError again for this event.';
 
-/** Reads the text that keys a warning, for an error of any shape. */
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Builds the function an entry point calls to report what it returned.
  *
  * The returned function calls the installed observer and returns. It never
  * awaits the observer, and an observer that throws or rejects reaches
  * `onObserveError`, or a `console.warn` when the application installed no
- * handler. An `onObserveError` that throws reaches the same warning, and the
- * engine does not call it again for that event. The caller keeps the value the
- * entry point computed on every one of those paths.
+ * handler. An `onObserveError` that throws reaches the same warning, which
+ * carries the handler's error and the observer's error, and the engine does not
+ * call the handler again for that event. The caller keeps the value the entry
+ * point computed on every one of those paths.
  *
- * Each emitter carries its own set of warned messages, keyed on the message so
- * a second distinct failure is still reported. One process holds one emitter
- * per engine, so a broken transport produces one warning per engine and no test
- * resets module state to stay order-independent. The warning stays silent when
- * `NODE_ENV` is `production`, which `libs/widget/src/warn.ts` does for the same
- * reason.
+ * Each emitter carries its own set of warned notices, keyed on the two notice
+ * constants. A transport whose error text names a request id or a timestamp
+ * still warns once, and a set keyed on that text would grow for the life of the
+ * process and warn on every call. One process holds one emitter per engine, so
+ * a broken transport produces one warning per engine and no test resets module
+ * state to stay order-independent. The warning stays silent when `NODE_ENV` is
+ * `production`, which `libs/widget/src/warn.ts` does for the same reason. A
+ * runtime that defines no `process` global, such as a browser loading this
+ * package as unbundled ESM, warns.
  */
 export function createEmitter<
   S extends Record<keyof S, VariantInfo | never> = Record<
@@ -196,12 +196,15 @@ export function createEmitter<
   }
 
   const warned = new Set<string>();
-  const warn = (notice: string, error: unknown) => {
-    if (process.env.NODE_ENV === 'production') return;
-    const key = `${notice} ${messageOf(error)}`;
-    if (warned.has(key)) return;
-    warned.add(key);
-    console.warn(notice, error);
+  const warn = (notice: string, ...details: unknown[]) => {
+    if (
+      typeof process !== 'undefined' &&
+      process.env?.NODE_ENV === 'production'
+    )
+      return;
+    if (warned.has(notice)) return;
+    warned.add(notice);
+    console.warn(notice, ...details);
   };
 
   const report = (error: unknown, event: FeatureEvent<S>) => {
@@ -213,7 +216,7 @@ export function createEmitter<
     try {
       handler(error, event);
     } catch (handlerError) {
-      warn(HANDLER_FAILED, handlerError);
+      warn(HANDLER_FAILED, handlerError, error);
     }
   };
 

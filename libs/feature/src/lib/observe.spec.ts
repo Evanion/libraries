@@ -95,6 +95,8 @@ describe('createEmitter', () => {
     expect(onObserveError).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toContain('onObserveError threw');
+    expect(warn.mock.calls[0]?.[1]).toEqual(new Error('logger down'));
+    expect(warn.mock.calls[0]?.[2]).toEqual(new Error('transport down'));
   });
 
   it('warns and leaves no unhandled rejection when onObserveError throws on the async path', async () => {
@@ -119,7 +121,7 @@ describe('createEmitter', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('hands the caller its value when the observer and the handler both throw', () => {
+  it('returns to the caller when the observer and the handler both throw', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const emit = createEmitter({
       observe: () => {
@@ -153,13 +155,12 @@ describe('createEmitter', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('warns again for a second distinct failure', () => {
+  it('warns once when a transport fails with varying message text', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const messages = ['transport down', 'transport down', 'quota exceeded'];
     let call = 0;
     const emit = createEmitter({
       observe: () => {
-        throw new Error(messages[call++]);
+        throw new Error(`connection reset, request ${call++}`);
       },
     });
 
@@ -167,7 +168,39 @@ describe('createEmitter', () => {
     emit(event);
     emit(event);
 
-    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows an error that has no primitive conversion', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const hostile = Object.create(null) as object;
+    const emit = createEmitter({
+      observe: () => {
+        throw hostile;
+      },
+    });
+
+    expect(() => emit(event)).not.toThrow();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[1]).toBe(hostile);
+  });
+
+  it('warns in a runtime that defines no process global', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const emit = createEmitter({
+      observe: () => {
+        throw new Error('transport down');
+      },
+    });
+    vi.stubGlobal('process', undefined);
+
+    try {
+      expect(() => emit(event)).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it('stays silent in production when no handler is supplied', () => {
