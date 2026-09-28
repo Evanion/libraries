@@ -119,8 +119,12 @@ export interface FeatureProviderProps<
    * Decisions resolved elsewhere -- a server render, or the build-time snapshot
    * from `plan()`. Supplied decisions are used as they are; `features` and
    * `context` are then only a fallback for what the snapshot does not cover.
+   *
+   * Both forms are accepted, because a store carrying an observer answers the
+   * deeply readonly one. The provider reads these decisions and writes none of
+   * them.
    */
-  decisions?: Decisions<S>;
+  decisions?: Decisions<S> | DeepReadonly<Decisions<S>>;
   children?: ReactNode;
 }
 
@@ -128,7 +132,7 @@ export function FeatureProvider<
   S extends Record<keyof S, VariantInfo | never>,
 >({ features, context, decisions, children }: FeatureProviderProps<S>) {
   const value = useMemo<FeatureContextValue>(
-    () => ({ decisions: decisions ?? erased(features.resolve(context)) }),
+    () => ({ decisions: erased(decisions ?? features.resolve(context)) }),
     [features, context, decisions],
   );
 
@@ -189,7 +193,7 @@ export interface BoundFeatureProviderProps<
 > {
   features?: Features<S>;
   context?: EvaluationContext;
-  decisions?: Decisions<S>;
+  decisions?: Decisions<S> | DeepReadonly<Decisions<S>>;
   children?: ReactNode;
 }
 
@@ -222,8 +226,10 @@ export interface FeatureContext<
   S extends Record<keyof S, VariantInfo | never>,
 > {
   FeatureProvider(props: BoundFeatureProviderProps<S>): ReactElement;
-  useFeatures(): Decisions<S>;
-  useFeature<K extends keyof S & FeatureKey>(key: K): Decisions<S>[K];
+  useFeatures(): Decisions<S> | DeepReadonly<Decisions<S>>;
+  useFeature<K extends keyof S & FeatureKey>(
+    key: K,
+  ): Decisions<S>[K] | DeepReadonly<Decisions<S>[K]>;
   useFeatureEnabled<K extends keyof S & FeatureKey>(key: K): boolean;
   useVariant<K extends keyof S & FeatureKey>(key: K): BoundVariant<S, K>;
 }
@@ -233,13 +239,34 @@ export interface FeatureContext<
  *
  * This is the one place the erased value is narrowed. It holds because a bound
  * context is created inside a single {@link createFeatureContext} call and
- * written by exactly one component, whose props type every entry as
- * `Decisions<S>`.
+ * written by exactly one component, whose props type every entry as one of the
+ * two forms of `Decisions<S>`.
+ *
+ * The answer keeps both forms. A provider fed by a store carrying an observer
+ * publishes frozen decisions, and a hook promising the mutable form alone would
+ * let a component write a field the runtime refuses.
  */
 function atSchema<S extends Record<keyof S, VariantInfo | never>>(
   decisions: AnyDecisions,
-): Decisions<S> {
+): Decisions<S> | DeepReadonly<Decisions<S>> {
   return decisions as Decisions<S>;
+}
+
+/**
+ * Reads one key off a bound provider's decisions, at the schema.
+ *
+ * `DeepReadonly<Decisions<S>>` is a conditional type the compiler cannot reduce
+ * while `S` is a parameter, so nothing indexes it by `K`. Indexing first and
+ * mapping the one decision answers the same type for a settled `S`.
+ */
+function decisionAtSchema<
+  S extends Record<keyof S, VariantInfo | never>,
+  K extends keyof S & FeatureKey,
+>(
+  decisions: AnyDecisions,
+  key: K,
+): Decisions<S>[K] | DeepReadonly<Decisions<S>[K]> {
+  return (decisions as Decisions<S>)[key];
 }
 
 /**
@@ -293,7 +320,7 @@ export function createFeatureContext<
     FeatureProvider({ features: given, context, decisions, children }) {
       const value = useMemo<FeatureContextValue>(
         () => ({
-          decisions: decisions ?? erased((given ?? features).resolve(context)),
+          decisions: erased(decisions ?? (given ?? features).resolve(context)),
         }),
         [given, context, decisions],
       );
@@ -312,7 +339,7 @@ export function createFeatureContext<
     useFeature(key) {
       const decisions = useContextValue(BoundContext).decisions;
       requireDecision(decisions, key);
-      return atSchema<S>(decisions)[key];
+      return decisionAtSchema<S, typeof key>(decisions, key);
     },
     useFeatureEnabled(key) {
       return requireDecision(useContextValue(BoundContext).decisions, key)

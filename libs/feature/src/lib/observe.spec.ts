@@ -1014,6 +1014,31 @@ describe('what an observer can reach from plan and toggle', () => {
     expect(observe.mock.calls[0]?.[0].plan).toBe(plan);
   });
 
+  it('refuses an observer that writes into a plan entry', () => {
+    let attempts = 0;
+    let refused = false;
+    const features = createFeatures(defs, {
+      observe: (event) => {
+        if (event.type !== 'plan') return;
+        attempts += 1;
+        try {
+          (event.plan.cta as { resolved: boolean }).resolved = false;
+        } catch {
+          refused = true;
+        }
+      },
+    });
+
+    const plan = features.plan({ targetingKey: 'u1' });
+
+    // The top-level freeze alone leaves every entry writable, so this case
+    // reads a field one level down and asserts the write was refused.
+    expect(attempts).toBe(1);
+    expect(refused).toBe(true);
+    expect(Object.isFrozen(plan.cta)).toBe(true);
+    expect(plan.cta.resolved).toBe(true);
+  });
+
   it('hands the observer a frozen toggle result', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe });
