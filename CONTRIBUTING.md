@@ -147,7 +147,8 @@ JSON and cannot hold comments, so every entry is explained here.
 - **`@nestjs/common`**, **`@nestjs/core`**, **`@nestjs/platform-express`** --
   `@nx/nest@23.1.1` peers Nest at `>=10.0.0 <12.0.0` while
   `@evanion/nestjs-correlation-id@2.0.0` requires `^12.0.0`. The override
-  forces 12.0.1, asserting a compatibility upstream denies. Remove once
+  pins all three to the version root `package.json` lists, asserting a
+  compatibility upstream denies. Raise the three together. Remove once
   `@nx/nest` widens its peer range (nrwl/nx#36938).
 
 ### A note on `typecheck` and `check`
