@@ -73,11 +73,15 @@ random part alone, before the check character and before chunking.
 
 `generate` never retries and never checks for collisions.
 
-Mint a pickup code below. The shape control is the `length` and `chunkSize`
-pair, and the alphabet control is the default 32 characters against the 16 of
-hexadecimal, `0123456789abcdef`. Every option either control offers is a
-configuration `createToken` accepts. The caption reports the code's random bits
-and the number of issued codes at which two matching codes become even odds.
+Mint a pickup code below. Every option the two controls offer is a
+configuration `createToken` accepts:
+
+- The shape control sets the `length` and `chunkSize` pair.
+- The alphabet control picks the default 32 characters or the 16 of
+  hexadecimal, `0123456789abcdef`.
+
+The caption reports the code's random bits and the number of issued codes at
+which two matching codes become even odds.
 
 <TokenSpecimen initial="a4kp-9mxa" />
 
