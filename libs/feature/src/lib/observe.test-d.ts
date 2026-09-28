@@ -184,7 +184,7 @@ describe('FeatureEvent, pairing an is-enabled key with its own decision', () => 
       decision: {
         key: 'banner',
         enabled: true,
-        reason: 'default',
+        reason: 'default-on',
         variant: 'on',
       },
     } as const;
@@ -199,6 +199,27 @@ describe('FeatureEvent, pairing an is-enabled key with its own decision', () => 
     };
 
     expectTypeOf(mismatched).not.toBeNever();
+  });
+
+  it('accepts the decision the key owns', () => {
+    const paired: Extract<
+      FeatureEvent<InterfaceFlags>,
+      { type: 'is-enabled' }
+    > = {
+      type: 'is-enabled',
+      at: new Date(),
+      key: 'banner',
+      decision: {
+        key: 'banner',
+        enabled: true,
+        reason: 'default-on',
+        variant: 'on',
+      },
+    };
+
+    expectTypeOf(paired.decision.variant).toEqualTypeOf<
+      'off' | 'on' | undefined
+    >();
   });
 });
 
