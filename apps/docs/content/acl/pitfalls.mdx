@@ -2,41 +2,28 @@
 
 <WorkshopNotice slug="acl">
   <Text as="div" size="sm">
-    Every behaviour on this page was executed against `libs/acl/src` before it
-    was written down, including the two gaps at the bottom.
+    Every behaviour here ran against `libs/acl/src` before it was written down,
+    the two gaps at the bottom included.
   </Text>
 </WorkshopNotice>
 
-Every decision `@evanion/acl` returns carries one gate, `allowed`, and several
-explanation fields that gate nothing. Each heading below names a mistake this
-API invites and the form that holds, and this repository has made several of
-them.
-
-## The names these fences share
-
-Every fence on this page reuses one set of names:
-
-| Name         | What it holds                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `access`     | the evaluator `policy().build()` or `hydratePolicy(matrix)` handed back                                     |
-| `subject`    | the bookseller the server resolved from the session                                                         |
-| `decision`   | what `can` or `canFields` answered                                                                          |
-| `current`    | the row as it stands                                                                                        |
-| `projection` | a partial of `current`                                                                                      |
-| `proposed`   | the write a form submitted                                                                                  |
-| `p`          | the block parameter `.for()` passes its block, carrying `allow`, `deny`, `fields` and the condition helpers |
+Each heading names a mistake the `@evanion/acl` API invites, several of them
+made in this repository, and the form that holds.
 
 ## Reading a decision
 
+Every decision `@evanion/acl` returns carries one gate, `allowed`, and several
+explanation fields that gate nothing.
+
 ### Gate on `allowed`, not on `reason`
 
-```ts
-if (decision.reason !== 'denied') proceed(); // wrong
-if (decision.allowed) proceed(); // right
+```ts twoslash file=libs/acl/README.md region=gate-on-allowed
+
 ```
 
 `reason` is output only, and its seven values do not split into two buckets.
-Each of these refuses, and the first form proceeds through every one:
+Each of these refuses, and a gate written as `reason !== 'denied'` proceeds
+through every one:
 
 - `no-rule-matched`
 - `unknown-action`
@@ -46,15 +33,16 @@ Each of these refuses, and the first form proceeds through every one:
 
 ### `unevaluable` is not `denied`
 
-```ts
-if (!decision.allowed) return <ReadOnly />; // loses a repairable answer
+`unevaluable` means the engine could not reach the decision with the data it was
+handed, and `missing` names what to fetch. One refetch turns it into an answer:
+
+```ts twoslash file=libs/acl/README.md region=refetch
+
 ```
 
-`unevaluable` means the engine could not reach the decision with the data it was
-handed, and `missing` names what to fetch.
-
 - `allowed` is already `false`, so a server that refuses on it is safe.
-- A UI that refuses on it hides something the user can have.
+- A UI that renders the control read-only because `first.allowed` is `false`
+  hides something the user can have.
 - Render the control as pending, fetch what `missing` names, and ask once more.
 - A caller who reads `unevaluable` as permission has a hole.
 
@@ -64,38 +52,32 @@ construction. [The refusal fields](/acl/refusals) has both halves.
 
 ### A key the document does not carry is absent, not false
 
-`items` below is the menu the app is about to draw, each entry carrying the
-permission key it needs.
+`menu` below is the navigation the app is about to draw, each entry carrying
+the permission key it needs.
 
-```ts
-const caps = access.capabilities(subject);
-items.filter((item) => !caps[item.key]?.allowed); // shows every unknown key
-items.filter((item) => caps[item.key]?.allowed === true); // right
+```ts twoslash file=libs/acl/README.md region=capabilities-menu
+
 ```
 
 A capability map holds an entry per permission in the document.
 
-- A key the document does not carry reads `undefined`, and negating
-  `undefined?.allowed` is `true`.
-- A menu written the first way grows an item whenever somebody renames a
+- A key the document does not carry reads `undefined`, and
+  `undefined !== false` is `true`.
+- A menu filtered with `!== false` grows an item whenever somebody renames a
   permission.
 
 ## Writing fields
 
 ### Never hand-filter the field map
 
-```ts
-// wrong
-Object.entries(proposed).filter(([key]) => decision.fields[key] !== 'denied');
+```ts twoslash file=libs/acl/README.md region=hand-filter
 
-// right
-pickAllowedFields(decision, proposed);
 ```
 
 `FieldState` has three values. `transitions` is a state machine over a field's
-current value, and a field whose config the object did not carry that value for
-comes back `unevaluable`. The first form writes a value the decision declined to
-approve, in two ways:
+current value, and when the row lacks that value, `canFields` decides the field
+`unevaluable`. A filter that drops only the `denied` keys writes a value the
+decision declined to approve, in two ways:
 
 - a key that decided `unevaluable`, since `'unevaluable' !== 'denied'` is `true`
 - a key the decision does not carry at all, since `undefined !== 'denied'` is
@@ -106,9 +88,8 @@ rest.
 
 ### A name absent from `fields` is not a denial
 
-```ts
-const fd = access.canFields(subject, 'question', 'update', projection, 'read');
-fd.fields['status']; // undefined: the projection did not carry it
+```ts twoslash file=libs/acl/README.md region=projection-fields
+
 ```
 
 `canFields` keys the map by the union of four sets:
@@ -125,18 +106,8 @@ decided `allowed`, so the default direction is the safe one.
 
 ### Read `allowed`, not `action.allowed`
 
-```ts
-const fd = access.canFields(
-  subject,
-  'user',
-  'update',
-  current,
-  'write',
-  proposed,
-);
+```ts twoslash file=libs/acl/README.md region=field-decision
 
-fd.action.allowed; // true: the action is permitted
-fd.allowed; // false: a field in this write is not
 ```
 
 `canFields` returns two booleans named `allowed`, one nested inside the other,
@@ -157,12 +128,8 @@ and they disagree exactly when the narrowing is doing its job.
 
 ### A `targets` or `transitions` config is not an allow-list
 
-```ts
-p.fields({ status: { transitions: { draft: ['published'] } } }); // every other key is open
-p.fields({
-  fields: ['*', '!id'],
-  status: { transitions: { draft: ['published'] } },
-});
+```ts twoslash file=libs/acl/README.md region=config-not-allow-list
+
 ```
 
 A per-field config restricts the field it names and no other.
@@ -175,17 +142,16 @@ A per-field config restricts the field it names and no other.
 
 ### A condition may only read fields the subject cannot write
 
-```ts
-p.allow('read', p.eq('object.sharedWith', 'subject.id')); // self-authorizing
-p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
+```ts twoslash file=libs/acl/README.md region=self-authorizing
+
 ```
 
 If the subject can write `sharedWith`, they authorize themselves for the
-document. The engine cannot see this: it does not know which object fields the
+wishlist. The engine cannot see this: it does not know which object fields the
 subject can write, and the write that opens the door is a different action from
-the read. Keep the field out of every write path the rule guards, or key the
-rule on something out of reach: ownership set at creation, or a field only the
-server writes.
+the read. Let no action the subject holds write the field a read rule keys on,
+or key the rule on something out of reach: ownership set at creation, or a field
+only the server writes.
 
 ### The matrix is public in its names, not only its values
 
@@ -279,15 +245,8 @@ so a time-gated deny goes on denying:
 
 ### The subject and object bags are read live
 
-```ts
-let reads = 0;
-const lazy = {
-  get status() {
-    return reads++ === 0 ? 'draft' : 'locked'; // an ORM row, a refilling cache
-  },
-};
-access.can(subject, 'question', 'update', lazy); // -> allowed: true
-access.can(subject, 'question', 'update', { status: 'locked' }); // -> reason: 'denied'
+```ts twoslash file=libs/acl/README.md region=live-bag
+
 ```
 
 Conditions read `subject` and `object` field by field as the decision walks the

@@ -28,10 +28,16 @@ You write that comparison by hand, as an `if` in the handler beside the code tha
 does the work. Six months later there are forty of them, three are subtly
 different, and the bulk close job never had one at all.
 
-`p.eq('object.askedBy', 'subject.id')` states it once. A subject-only condition
-reads the subject the server resolved whole, so it holds or it fails. A condition
-naming an object path also reads the instance the caller passed, and that
-instance carries whatever columns your database query selected.
+`p.eq('object.askedBy', 'subject.id')` states it once:
+
+```ts twoslash file=libs/acl/README.md region=object-condition
+
+```
+
+A subject-only condition reads the subject the server resolved whole, so it
+holds or it fails. A condition naming an object path also reads the instance the
+caller passed, and that instance carries whatever columns your database query
+selected.
 
 ```mermaid caption="The two inputs a condition can read, and the third outcome the second one adds."
 flowchart LR
@@ -96,11 +102,13 @@ reaches the engine.
 <UnevaluableDemo />
 
 It opens on a row that carries neither field, so the decision is
-`unevaluable` and `missing` names both paths. Three moves take it elsewhere.
-Select both fields, and the asker's own draft question decides `allow`. Change
-`askedBy` to `s2`, and the allow rule compares two identifiers that differ, which
-is `no-rule-matched`. Change `status` to `locked`, and the deny rule matches,
-which is `denied` whatever the allow side said.
+`unevaluable` and `missing` names both paths. Three moves take it elsewhere:
+
+- Select both fields, and the asker's own draft question decides `allow`.
+- Change `askedBy` to `s2`, and the allow rule compares two identifiers that
+  differ, which is `no-rule-matched`.
+- Change `status` to `locked`, and the deny rule matches, which is `denied`
+  whatever the allow side said.
 
 Clearing a field again shows where the fourth answer comes back and where it does
 not. Clear `status` on the asker's own draft question and the deny side has nothing

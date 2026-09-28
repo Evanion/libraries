@@ -1,14 +1,14 @@
 # @evanion/acl
 
 You write your authorization rules twice. The handler checks them, the screen
-checks them again, and the two copies drift the first time somebody edits one.
+checks them again, and the two copies drift at the first edit.
 
 <WorkshopNotice slug="acl" />
 
 ## How acl shares one set of rules between server and browser
 
-acl keeps the rules you write with `policy()` in one JSON document, called the
-matrix. The process that owns the rules writes it, and any process holding a
+`@evanion/acl` keeps the rules you write with `policy()` in one JSON document,
+called the matrix. The process that owns the rules writes it, and any process holding a
 copy answers from that copy with no call back to the owner.
 
 Every example on these pages is set in Baize, a board game shop, where a
@@ -100,7 +100,7 @@ acl does not do these four jobs, and none of them is on a roadmap.
 - A non-JS backend. Only the JSON crosses, and a .NET or Go service brings its
   own evaluator.
 
-[What `@evanion/acl` does not do](/acl/limits) carries five more questions the
+[What `@evanion/acl` does not do](/acl/limits) carries four more questions the
 model cannot answer, each with the mechanism behind it. Read it before you
 decide on this library.
 

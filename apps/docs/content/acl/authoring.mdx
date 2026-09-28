@@ -74,12 +74,11 @@ runs in `validateMatrix`, so a document that arrived as JSON meets it too.
 
 The builder reads an operand as a path when its type matches
 `` `subject.${string}` | `object.${string}` | 'now' ``, and as a literal value
-otherwise:
+otherwise. The matrix records a literal as `value` and a path as `path`, and a
+path the bound types do not carry is a compile error naming the path:
 
-```ts
-p.eq('object.status', 'locked'); // compares against the string 'locked'
-p.eq('object.askedBy', 'subject.id'); // compares two paths
-p.eq('object.askedBy', 'subject.idd'); // compile error naming the path
+```ts twoslash file=libs/acl/README.md region=paths-and-literals
+
 ```
 
 ## What is checked, and what is not
@@ -160,10 +159,8 @@ schema is binding wherever it is present.
 
 `access.object(key)` binds one object kind so the key is named once:
 
-```ts
-const questions = access.object('question');
-questions.can(subject, 'update', question);
-questions.canFields(subject, 'update', question, 'write', proposed);
+```ts twoslash file=libs/acl/README.md region=bound-handle
+
 ```
 
 A bound handle carries `can`, `canMany`, `canFields` and `readsObject`.

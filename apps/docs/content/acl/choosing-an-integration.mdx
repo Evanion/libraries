@@ -1,16 +1,74 @@
 # Choosing a framework integration
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    The five platform guides are wiring, not API. Every call they make is on the
-    [API reference](/acl/api); what changes per platform is where the
-    authoritative call sits and what leaves the trusted runtime.
-  </Text>
-</WorkshopNotice>
+<WorkshopNotice slug="acl" />
 
 `@evanion/acl` imports no framework, so every platform answers the same three
 questions: where the matrix is built, where the subject comes from, and which
 call decides.
+
+## Building the matrix once
+
+The guides' examples are regions of Baize's demo apps in this repository:
+
+- `apps/shop-api` is the NestJS service that owns the catalogue and publishes
+  its matrix.
+- `apps/storefront` (Astro), `apps/storefront-rsc` (Next.js) and `apps/admin`
+  (React Router) fetch that matrix and decide on it.
+
+`hydratePolicy` validates the document, deep-clones it and deep-freezes it, and
+every decision after that is a local function call over the frozen copy. Build
+the matrix once per process and hold it at module scope. `apps/shop-api` does
+that at boot, over the document `SHOP_MATRIX`, its subject type `ShopSubject`
+and the row map `ShopObjects` its builder produced. `hydratePolicy` returns an
+`Access`, the evaluator every later decision calls:
+
+```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
+
+```
+
+## Holding a document you fetched
+
+`apps/storefront` has no document of its own at boot, so it fetches shop-api's
+and holds it at module scope. `HeldPolicy` is the app's own type, the adopted
+`Access` and the version it came from, and `ShopApi` is its typed client for
+shop-api. `POLICY_REVALIDATE_MS` is how long the app serves the held document
+before it asks again:
+
+```ts file=apps/storefront/src/lib/policy.ts region=policy-cache
+
+```
+
+The window is the ceiling on how long a rule change takes to reach this app's
+gates. One minute is safe because shop-api re-decides every request on its own
+copy. `refresh` adopts a new version with `parseMatrix`, the call for a
+document another service published, and keeps the held document on every
+failure:
+
+```ts file=apps/storefront/src/lib/policy.ts region=policy-refresh
+
+```
+
+An owner can state `maxStale` on its document, the longest a consumer may keep
+deciding on a copy it fetched. A consumer that passes `fetchedAt` to
+`parseMatrix` then gets `stale-contract` on every key once that time has passed.
+shop-api's document states no `maxStale`, and `parseMatrix` throws
+`MissingFreshnessBudgetError` on a `fetchedAt` without one, so this app passes
+none. [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+has the arithmetic.
+
+## Resolving the subject
+
+`can(subject, …)` authorizes the bag it is handed and cannot ask where the bag
+came from. Each guide resolves it from that platform's own verified session
+primitive, server-side, before the first decision. A subject assembled from a
+header, a query parameter or a posted field is whatever the caller claims, and
+no evaluator detects it.
+
+## Where the boundary sits
+
+The five platform guides are wiring over one API. Every call they make is on the
+[API reference](/acl/api), and what changes per platform is where the
+authoritative call sits and what leaves the trusted runtime.
 
 <Panel heading="Enforcement is server-side, and the browser copy toggles">
   <Text as="div" size="sm">
@@ -24,11 +82,7 @@ call decides.
   </Text>
 </Panel>
 
-## Where the boundary sits
-
-Five platforms put the authoritative call in five places. Which call decides is
-the only security question of the three, and the only one that changes from
-platform to platform.
+Five platforms put the authoritative call in five places:
 
 | Platform                                         | The call that decides                                   | What is not a boundary                         |
 | ------------------------------------------------ | ------------------------------------------------------- | ---------------------------------------------- |
@@ -41,11 +95,6 @@ platform to platform.
 Express and NestJS are server-only and have one boundary, the request handler.
 Next.js and React Router have two: the render path and the write path, reached
 independently by a caller who never renders anything.
-
-The guides' examples are regions of Baize's demo apps in this repository.
-`apps/shop-api` is the NestJS service that owns the catalogue and publishes its
-matrix. `apps/storefront` (Astro), `apps/storefront-rsc` (Next.js) and
-`apps/admin` (React Router) fetch that matrix and decide on it.
 
 [Astro SSR](/acl/astro) is the fifth shape, and server-side rendering (SSR) is
 the whole of its trusted runtime. A prerendered Astro site has no runtime at
@@ -94,63 +143,14 @@ flowchart TD
 ```
 
 When the owner removes a permission, `parseMatrix` refuses the action and keeps
-serving, and `hydratePolicy` throws. The three frontends here fetch
-`apps/shop-api`'s matrix and adopt it closed.
+serving, and `hydratePolicy` throws. `apps/storefront`, `apps/storefront-rsc`
+and `apps/admin` fetch `apps/shop-api`'s matrix and adopt it closed.
 
 ### Narrow a subject before you forward it
 
 An app that forwards its subject to another service screens the roles first.
 [Astro SSR](/acl/astro#narrow-the-roles-before-the-astro-app-forwards-them)
 shows `apps/storefront` doing it.
-
-## Building the matrix once
-
-`hydratePolicy` validates the document, deep-clones it and deep-freezes it, and
-every decision after that is a local function call over the frozen copy. Build
-the matrix once per process and hold it at module scope. `apps/shop-api` does
-that at boot, over the document `SHOP_MATRIX` and the row map `ShopObjects` its
-builder produced:
-
-```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
-
-```
-
-## Holding a document you fetched
-
-`apps/storefront` has no document of its own at boot, so it fetches shop-api's
-and holds it at module scope. `HeldPolicy` is the app's own type, the adopted
-`Access` and the version it came from, and `ShopApi` is its typed client for
-shop-api. `POLICY_REVALIDATE_MS` is how long the app serves the held document
-before it asks again:
-
-```ts file=apps/storefront/src/lib/policy.ts region=policy-cache
-
-```
-
-The window is the ceiling on how long a rule change takes to reach this app's
-gates. One minute is safe because shop-api re-decides every request on its own
-copy. `refresh` adopts a new version and keeps the held document on every
-failure:
-
-```ts file=apps/storefront/src/lib/policy.ts region=policy-refresh
-
-```
-
-An owner can state `maxStale` on its document, the longest a consumer may keep
-deciding on a copy it fetched. A consumer that passes `fetchedAt` to
-`parseMatrix` then gets `stale-contract` on every key once that time has passed.
-shop-api's document states no `maxStale`, and `parseMatrix` throws
-`MissingFreshnessBudgetError` on a `fetchedAt` without one, so this app passes
-none. [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
-has the arithmetic.
-
-## Resolving the subject
-
-`can(subject, …)` authorizes the bag it is handed and cannot ask where the bag
-came from. Each guide resolves it from that platform's own verified session
-primitive, server-side, before the first decision. A subject assembled from a
-header, a query parameter or a posted field is whatever the caller claims, and
-no evaluator detects it.
 
 ## Deciding twice is the design
 
