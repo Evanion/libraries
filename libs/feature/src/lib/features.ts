@@ -348,20 +348,26 @@ export function createFeatures(
     },
     definition: definitionOf,
     dependants: graph.dependants,
-    // Every event is cast, for the same reason both readers below are. The
-    // engine holds the loose record and the event type holds the schema-mapped
-    // form, `FeatureKey` admits a number where a mapped key is a string, and
-    // the decision an unknown key reads is `undefined`. A TypeScript caller
-    // cannot name an unknown key, and `isEnabled` answers `false` for one.
+    // Every event is cast. The engine holds the loose record of `Decision` and
+    // the event type holds the schema-mapped `Decisions<S>`, and `FeatureKey`
+    // admits a number where a mapped key is a string. The two readers below
+    // are cast for an unrelated reason, which their own comment gives.
+    //
+    // Both emits sit behind `observed`. JavaScript evaluates an argument
+    // before the call whatever the callee does, so an unguarded `emit` would
+    // charge a store with nobody observing for an envelope and an event object
+    // that nothing reads.
     resolve: (context) => {
       const evaluationContext = withNow(context);
       const decisions = frozenWhenObserved(resolveAll(evaluationContext));
 
-      emit({
-        type: 'resolve',
-        ...envelope(evaluationContext),
-        decisions,
-      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+      if (observed) {
+        emit({
+          type: 'resolve',
+          ...envelope(evaluationContext),
+          decisions,
+        } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+      }
 
       return decisions as Decisions<Record<FeatureKey, VariantInfo>>;
     },
@@ -374,12 +380,19 @@ export function createFeatures(
       // answers the caller whether or not the freeze is installed.
       const enabled = decision?.enabled ?? false;
 
-      emit({
-        type: 'is-enabled',
-        ...envelope(evaluationContext),
-        key,
-        decision,
-      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+      // A key nobody configured resolves to no decision, and `FeatureEvent`
+      // declares `decision` present on every `is-enabled` event. The engine
+      // reports that call to nobody rather than hand an observer an event
+      // whose own type says the missing member is there. Only a JavaScript
+      // caller names such a key, and the answer it receives is `false`.
+      if (observed && decision !== undefined) {
+        emit({
+          type: 'is-enabled',
+          ...envelope(evaluationContext),
+          key,
+          decision,
+        } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+      }
 
       return enabled;
     },

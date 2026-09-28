@@ -409,7 +409,13 @@ describe('resolve and isEnabled', () => {
 
     features.isEnabled('cta', { targetingKey: 'u1' });
 
-    expect(Object.isFrozen(observe.mock.calls[0]?.[0].decision)).toBe(true);
+    const event = observe.mock.calls[0]?.[0];
+
+    // `Object.isFrozen` answers `true` for `undefined`, so the presence check
+    // carries the weight here. An event that dropped its decision would pass
+    // the freeze assertion on its own.
+    expect(event.decision).toBeDefined();
+    expect(Object.isFrozen(event.decision)).toBe(true);
   });
 
   it('leaves the record unfrozen when nobody is observing', () => {
@@ -555,5 +561,39 @@ describe('resolve and isEnabled', () => {
     // application asked about every feature when it asked about one.
     expect(observe).toHaveBeenCalledTimes(1);
     expect(observe.mock.calls[0]?.[0].type).toBe('is-enabled');
+  });
+
+  it('emits nothing for a key nobody configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+    // The cast is the JavaScript caller. A TypeScript caller cannot name a key
+    // the definitions never declared.
+    const ask = features.isEnabled as (key: string) => boolean;
+
+    const enabled = ask('ghost');
+
+    // `FeatureEvent` declares `decision` on every `is-enabled` event, and this
+    // call resolved none. An event carrying `undefined` there would break the
+    // first observer that reads `event.decision.key`.
+    expect(enabled).toBe(false);
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it('builds no event when nobody is observing', () => {
+    let reads = 0;
+    const features = createFeatures(defs, {
+      get version() {
+        reads += 1;
+        return '1.0.0';
+      },
+    });
+
+    features.resolve({ targetingKey: 'u1' });
+    features.isEnabled('cta', { targetingKey: 'u1' });
+
+    // `envelope` is the only reader of `version`, and an entry point calls it
+    // to build an event. A store with nobody observing builds none, so nothing
+    // reads the field.
+    expect(reads).toBe(0);
   });
 });
