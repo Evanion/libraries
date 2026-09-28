@@ -118,6 +118,53 @@ function sourceLang(file) {
 }
 
 /**
+ * The region a start marker on `line` opens, or an error when one is already
+ * open.
+ */
+function openRegion(open, name, file, line) {
+  if (open) {
+    throw new RegionError(
+      `${file}:${line}: region '${name}' opens inside region '${open.name}'`,
+    );
+  }
+  return { name, at: line };
+}
+
+/** An error unless the end marker named `name` closes the open region. */
+function closeRegion(open, name, file, line) {
+  if (!open) {
+    throw new RegionError(
+      `${file}:${line}: #endregion '${name}' closes nothing`,
+    );
+  }
+  if (name !== open.name) {
+    throw new RegionError(
+      `${file}:${line}: #endregion '${name}' closes region '${open.name}'`,
+    );
+  }
+}
+
+/**
+ * Records a closed region, or an error when the file already defined one of
+ * that name.
+ */
+function addRegion(regions, name, file, line, region) {
+  if (regions.has(name)) {
+    throw new RegionError(`${file}:${line}: region '${name}' is defined twice`);
+  }
+  regions.set(name, region);
+}
+
+/** An error when the file ends with a region still open. */
+function assertClosed(open, file) {
+  if (open) {
+    throw new RegionError(
+      `${file}:${open.at}: region '${open.name}' is never closed`,
+    );
+  }
+}
+
+/**
  * Every named region in a `.ts`, `.tsx` or `.astro` source.
  *
  * No fence to delimit the block, so the region is the lines between the
@@ -135,34 +182,18 @@ function parseSourceRegions(source, file) {
   all.forEach((line, index) => {
     const start = line.match(SOURCE_REGION);
     if (start) {
-      if (open) {
-        throw new RegionError(
-          `${file}:${index + 1}: region '${start[1]}' opens inside region '${open.name}'`,
-        );
-      }
-      open = { name: start[1], at: index + 1 };
+      open = openRegion(open, start[1], file, index + 1);
       lines = opensFrontmatter(all, index, file) ? [all[0]] : [];
       return;
     }
 
     const end = line.match(SOURCE_ENDREGION);
     if (end) {
-      if (!open) {
-        throw new RegionError(
-          `${file}:${index + 1}: #endregion '${end[1]}' closes nothing`,
-        );
-      }
-      if (end[1] !== open.name) {
-        throw new RegionError(
-          `${file}:${index + 1}: #endregion '${end[1]}' closes region '${open.name}'`,
-        );
-      }
-      if (regions.has(open.name)) {
-        throw new RegionError(
-          `${file}:${index + 1}: region '${open.name}' is defined twice`,
-        );
-      }
-      regions.set(open.name, { lang: sourceLang(file), code: body(lines) });
+      closeRegion(open, end[1], file, index + 1);
+      addRegion(regions, open.name, file, index + 1, {
+        lang: sourceLang(file),
+        code: body(lines),
+      });
       open = null;
       return;
     }
@@ -170,11 +201,7 @@ function parseSourceRegions(source, file) {
     if (open) lines.push(line);
   });
 
-  if (open) {
-    throw new RegionError(
-      `${file}:${open.at}: region '${open.name}' is never closed`,
-    );
-  }
+  assertClosed(open, file);
 
   return regions;
 }
@@ -200,39 +227,23 @@ function parseMarkdownRegions(source, file) {
   lines.forEach((line, index) => {
     const start = line.match(REGION);
     if (start && fence === null) {
-      if (open) {
-        throw new RegionError(
-          `${file}:${index + 1}: region '${start[1]}' opens inside region '${open.name}'`,
-        );
-      }
-      open = { name: start[1], at: index + 1 };
+      open = openRegion(open, start[1], file, index + 1);
       blocks = 0;
       return;
     }
 
     const end = line.match(ENDREGION);
     if (end && fence === null) {
-      if (!open) {
-        throw new RegionError(
-          `${file}:${index + 1}: #endregion '${end[1]}' closes nothing`,
-        );
-      }
-      if (end[1] !== open.name) {
-        throw new RegionError(
-          `${file}:${index + 1}: #endregion '${end[1]}' closes region '${open.name}'`,
-        );
-      }
+      closeRegion(open, end[1], file, index + 1);
       if (blocks !== 1) {
         throw new RegionError(
           `${file}:${open.at}: region '${open.name}' wraps ${blocks} code blocks, expected exactly 1`,
         );
       }
-      if (regions.has(open.name)) {
-        throw new RegionError(
-          `${file}:${index + 1}: region '${open.name}' is defined twice`,
-        );
-      }
-      regions.set(open.name, { lang, code: body.join('\n') });
+      addRegion(regions, open.name, file, index + 1, {
+        lang,
+        code: body.join('\n'),
+      });
       open = null;
       return;
     }
@@ -258,11 +269,7 @@ function parseMarkdownRegions(source, file) {
     if (fence !== null) body.push(line);
   });
 
-  if (open) {
-    throw new RegionError(
-      `${file}:${open.at}: region '${open.name}' is never closed`,
-    );
-  }
+  assertClosed(open, file);
 
   return regions;
 }
