@@ -19,6 +19,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A published library's peerDependencies range is the floor its consumers
+    # must meet. Dependabot's npm default raises every range to the new
+    # version, so each patch release of a peer would become a new floor. This
+    # strategy leaves a range alone when it already admits the new version,
+    # and the lockfile still moves to it.
+    versioning-strategy: increase-if-necessary
     # A monorepo with three published libraries produces a lot of update noise
     # if every package moves on its own PR. Group the routine ones; security
     # updates are unaffected by grouping and still come through individually.
