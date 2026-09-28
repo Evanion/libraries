@@ -25,7 +25,8 @@ returns the store.
 The first overload reads the schema off the definitions, so a call that passes an
 array literal names no type argument. The literal supplies the keys, the variant
 names and each variant's value. The `const` type parameter is what keeps those
-literal types, so no call site writes `as const`.
+literal types, so a call that passes the array literal inline writes no
+`as const`.
 
 The second overload takes a schema the caller names, for configuration that
 arrived as JSON and carries no literals. `createFeatures<Flags>(config)` checks
@@ -258,10 +259,12 @@ type Decisions<S extends Record<keyof S, VariantInfo | never>> = {
 `V` and `T` default to `string` and `unknown`, so a bare `Decision` is the
 widened shape the React context publishes.
 
-`Decisions<S>` narrows each entry to the schema entry for its own key. A
-decision for a feature that declares no variants carries `key`, `enabled` and
-`reason` alone, and `features.resolve()['checkout-cta'].variant` over the store
-[Variants](/feature/variants) builds is `'control' | 'blue' | undefined`.
+`Decisions<S>` narrows each entry to the schema entry for its own key. The entry
+for a feature that declares no variants drops `variant` and `value` and keeps
+every other field `Decision` declares, so `rule`, `rules`, `blockedBy`, `cause`
+and `assignment` stay on it as optional fields. Over the store
+[Variants](/feature/variants) builds,
+`features.resolve()['checkout-cta'].variant` is `'control' | 'blue' | undefined`.
 
 The `[S[K]] extends [never]` guard is what drops `variant` and `value` for a
 feature declaring none. `never` is a subtype of every type, so an unguarded
@@ -338,8 +341,11 @@ type ToggleResult<F extends FeatureKey = string> =
 
 ### `FeatureKey` and `Instant`
 
-`FeatureKey` is `string | number` rather than `string`, so a consumer can key
-features on a numeric enum and still get exhaustiveness from `Decisions<F>`.
+`FeatureKey` is `string | number`, so a consumer can key features on a numeric
+enum. A numeric key union goes in a schema, `Record<Flag, VariantInfo | never>`,
+and `Decisions` takes that schema. `Decisions<Flag>` over the key union on its
+own is a compile error, since `Decisions<S>` constrains `S` to
+`Record<keyof S, VariantInfo | never>`.
 
 `Instant` is `string | number | Date`: a string is parsed as ISO 8601, a number
 as epoch milliseconds.
