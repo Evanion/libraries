@@ -45,6 +45,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { authoredPages } from './authored.mjs';
 import { libraries } from './libraries.mjs';
 import {
   groupEntries,
@@ -79,19 +80,6 @@ function reportsOf(project) {
   };
 }
 
-/** Every `.mdx` page under `content/`, so the fences in them can be counted. */
-function pages(directory) {
-  const found = [];
-
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) found.push(...pages(path));
-    else if (entry.name.endsWith('.mdx')) found.push(path);
-  }
-
-  return found;
-}
-
 /**
  * What the site's own content carries: compiled fences and region references.
  *
@@ -101,7 +89,7 @@ function pages(directory) {
  * lines and a count taken from the info string counts references.
  */
 function content() {
-  const sources = pages(join(docsRoot, 'content')).map((path) =>
+  const sources = authoredPages(docsRoot).map((path) =>
     readFileSync(path, 'utf8'),
   );
 

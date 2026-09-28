@@ -11,9 +11,9 @@ export const metadata = {
  *
  * In `(tool)`, a route group with no layout of its own, so the only thing above
  * it is `app/layout.tsx`: the element, the fonts, the ground and the theme. The
- * docs chrome lives in the sibling `(site)` group, which is what lets this
- * route fill a viewport instead of sitting in a column with a sidebar beside it
- * and a table of contents opposite.
+ * docs chrome lives in the sibling groups, which is what lets this route fill a
+ * viewport instead of sitting in a column with a sidebar beside it and a table
+ * of contents opposite.
  *
  * At the root rather than under `/acl/`, because a section's URL space is the
  * content tree and a tool is not a page of it. The documentation for the tool

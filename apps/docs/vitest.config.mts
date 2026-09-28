@@ -62,5 +62,9 @@ export default defineConfig({
     // are what decide whether the docs build stops.
     include: ['{app,components}/**/*.test.{ts,tsx}', 'tools/**/*.test.mjs'],
     reporters: ['default'],
+    // The archive and re-cut tests build a git repository per case and run
+    // git against it dozens of times, which takes several seconds beside a
+    // docs build.
+    testTimeout: 60_000,
   },
 });

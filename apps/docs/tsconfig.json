@@ -51,6 +51,9 @@
     "components/**/*.jsx",
     "components/**/*.ts",
     "components/**/*.tsx",
+    // `components/archive/surface.mjs`, the list of elements a cut page may
+    // carry. Plain ESM so the archive generator can read it from `node`.
+    "components/**/*.mjs",
     // `components/testing/statistics.json`, which `nx run docs:testing-data`
     // writes from a run of the libraries' suites. Listed so `tsc` has the
     // shape the /testing components read off it.
