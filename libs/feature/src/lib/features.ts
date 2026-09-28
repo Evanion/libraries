@@ -124,9 +124,89 @@ const DEFAULT_CORRELATE_FIELD = 'targetingKey';
  */
 type SettledContext = EvaluationContext & { now: Date };
 
+/**
+ * The mutators a `Date` carries.
+ *
+ * Each one writes the instant in the internal slot, which `Object.freeze` does
+ * not cover, and each one has a name starting with `set`. `ReadonlyDate` in
+ * `observe.ts` removes the same set at the type level.
+ */
+const DATE_MUTATORS = Object.getOwnPropertyNames(Date.prototype).filter(
+  (name) => name.startsWith('set'),
+);
+
+/** The mutators a `Map` carries. They write the internal entry list. */
+const MAP_MUTATORS = ['set', 'delete', 'clear'];
+
+/** The mutators a `Set` carries. They write the internal entry list. */
+const SET_MUTATORS = ['add', 'delete', 'clear'];
+
+/**
+ * Replaces a built-in's mutators with own properties that throw, then the
+ * caller freezes the object.
+ *
+ * `Object.freeze` locks an object's own properties and covers no internal slot.
+ * A frozen `Date` still answers `setTime`, and a frozen `Map` still answers
+ * `set`, because each of those methods lives on the prototype and writes
+ * storage that no property describes. An own property shadows the prototype
+ * method, and the freeze that follows makes the shadow permanent.
+ *
+ * The replacement throws a `TypeError`, which is what a write to a frozen
+ * property throws under the strict mode every module runs in.
+ */
+function sealMutators(
+  value: object,
+  type: string,
+  methods: readonly string[],
+): void {
+  for (const method of methods) {
+    Object.defineProperty(value, method, {
+      value: () => {
+        throw new TypeError(
+          `@evanion/feature: ${type}.${method} was called on a frozen value. The store hands out the object it holds, and a caller changes no outcome.`,
+        );
+      },
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+  }
+}
+
+/**
+ * Freezes a value and everything it holds.
+ *
+ * A `Date` keeps its instant in an internal slot, and a `Map` or a `Set` keeps
+ * its entries in one, so this seals their mutators before the freeze. The store
+ * clones its configuration once at construction and then hands the same objects
+ * to every caller, so a variant value that a caller could still write would
+ * corrupt the configuration every later caller reads.
+ *
+ * A value that is already frozen was sealed on the way there, so this returns
+ * it untouched. That guard also stops the recursion on an object that holds
+ * itself, and it keeps {@link sealMutators} from redefining a property it made
+ * non-configurable.
+ */
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
-  if (value instanceof Date) return Object.freeze(value);
+  if (Object.isFrozen(value)) return value;
+  if (value instanceof Date) {
+    sealMutators(value, 'Date', DATE_MUTATORS);
+    return Object.freeze(value);
+  }
+  if (value instanceof Map) {
+    for (const [key, held] of value) {
+      deepFreeze(key);
+      deepFreeze(held);
+    }
+    sealMutators(value, 'Map', MAP_MUTATORS);
+    return Object.freeze(value);
+  }
+  if (value instanceof Set) {
+    for (const held of value) deepFreeze(held);
+    sealMutators(value, 'Set', SET_MUTATORS);
+    return Object.freeze(value);
+  }
   for (const nested of Object.values(value)) deepFreeze(nested);
   return Object.freeze(value);
 }

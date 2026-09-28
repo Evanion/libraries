@@ -671,3 +671,94 @@ describe('plan and toggle', () => {
     });
   });
 });
+
+describe('what an observer cannot change', () => {
+  const defs = [
+    { key: 'parent', enabled: true },
+    { key: 'child', enabled: true, dependsOn: ['parent'] },
+  ] as const;
+
+  const valued = [
+    {
+      key: 'banner',
+      enabled: true,
+      variants: [
+        {
+          name: 'only',
+          weight: 1,
+          value: { until: new Date(1000), copy: new Map([['title', 'Hi']]) },
+        },
+      ],
+    },
+  ] as const;
+
+  it('leaves willDisable alone when an observer writes to the result it received', () => {
+    const onObserveError = vi.fn();
+    const features = createFeatures(defs, {
+      observe: (observed) => {
+        if (observed.type !== 'toggle' || !observed.result.ok) return;
+        // The cast is the JavaScript observer. A TypeScript observer cannot
+        // write here, because the event declares the list readonly.
+        (observed.result.willDisable as string[]).push('ghost');
+      },
+      onObserveError,
+    });
+
+    const result = features.toggle('parent', false, { targetingKey: 'u1' });
+
+    // The list an operator reads before pulling a kill switch. The write above
+    // reaches a frozen array and throws, and the caller receives what the
+    // engine computed.
+    expect(result.ok && result.willDisable).toEqual(['child']);
+    expect(onObserveError).toHaveBeenCalledTimes(1);
+    expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('refuses a write through a Date the store still holds', () => {
+    const onObserveError = vi.fn();
+    const features = createFeatures(valued, {
+      observe: (observed) => {
+        if (observed.type !== 'resolve') return;
+        const value = observed.decisions.banner.value as unknown as {
+          until: Date;
+        };
+        value.until.setTime(0);
+      },
+      onObserveError,
+    });
+
+    features.resolve({ targetingKey: 'u1' });
+
+    // The store clones its configuration once at construction, so the value a
+    // decision carries is the object every later caller reads.
+    const held = features.config[0]?.variants?.[0]?.value as unknown as {
+      until: Date;
+    };
+
+    expect(held.until.getTime()).toBe(1000);
+    expect(onObserveError).toHaveBeenCalledTimes(1);
+    expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('refuses a write through a Map the store still holds', () => {
+    const onObserveError = vi.fn();
+    const features = createFeatures(valued, {
+      observe: (observed) => {
+        if (observed.type !== 'is-enabled') return;
+        const value = observed.decision.value as { copy: Map<string, string> };
+        value.copy.set('title', 'Bye');
+      },
+      onObserveError,
+    });
+
+    features.isEnabled('banner', { targetingKey: 'u1' });
+
+    const held = features.config[0]?.variants?.[0]?.value as unknown as {
+      copy: Map<string, string>;
+    };
+
+    expect(held.copy.get('title')).toBe('Hi');
+    expect(onObserveError).toHaveBeenCalledTimes(1);
+    expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
+  });
+});
