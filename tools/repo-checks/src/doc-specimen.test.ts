@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * G6 of `docs/specs/2026-09-25-documentation-standard.md` § 14: every landing
@@ -28,7 +29,6 @@ import { describe, expect, it } from 'vitest';
 
 const DOCS = join(workspaceRoot, 'apps/docs');
 const LANDING = join(DOCS, 'components', 'landing');
-const CONTENT = join(DOCS, 'content');
 const MAP = join(DOCS, 'mdx-components.js');
 
 /**
@@ -65,20 +65,9 @@ function registered(): string[] {
   );
 }
 
-/** Every `.mdx` and `.md` page under `content/`, as one string per page. */
+/** Every page a person wrote, as one string per page. */
 function pages(): string[] {
-  const out: string[] = [];
-
-  function walk(directory: string): void {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) walk(path);
-      else if (/\.mdx?$/.test(entry.name)) out.push(readFileSync(path, 'utf8'));
-    }
-  }
-
-  walk(CONTENT);
-  return out;
+  return authoredPages().map((page) => readFileSync(page, 'utf8'));
 }
 
 describe('the landing specimens', () => {

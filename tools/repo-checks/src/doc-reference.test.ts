@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
 import { createTwoslasher } from 'twoslash';
@@ -10,6 +10,7 @@ import {
   readReference,
 } from '@evanion/doc-examples/declarations';
 import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
+import { authoredPages } from './docs-content';
 
 /**
  * The reference loader, over the package the reference page is built on.
@@ -120,7 +121,7 @@ describe('reading an export off its declarations', () => {
 });
 
 describe('expanding a reference directive', () => {
-  const page = 'apps/docs/content/acl/api.mdx';
+  const page = 'apps/docs/content/next/acl/api.mdx';
 
   it('wraps the entry in the kind that colours its name', () => {
     const out = expandReferences(
@@ -245,7 +246,6 @@ describe('expanding a reference directive', () => {
  * same nodes drive both and `next build` is slow and runs late.
  */
 describe('a reference entry hovers the package', () => {
-  const CONTENT = join(workspaceRoot, 'apps/docs/content');
   const DIRECTIVE = /<!--\s*reference\s+(\S+)#(\w+)/g;
   const twoslasher = createTwoslasher();
 
@@ -257,15 +257,7 @@ describe('a reference entry hovers the package', () => {
    */
   const MERGING = new Set(['function', 'interface']);
 
-  function pages(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) return pages(path);
-      return entry.name.endsWith('.mdx') ? [path] : [];
-    });
-  }
-
-  const referenced = pages(CONTENT).flatMap((path) =>
+  const referenced = authoredPages().flatMap((path) =>
     [...readFileSync(path, 'utf8').matchAll(DIRECTIVE)].map((match) => ({
       page: relative(workspaceRoot, path),
       specifier: match[1] as string,

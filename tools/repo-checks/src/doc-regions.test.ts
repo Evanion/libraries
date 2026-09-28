@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
 import { parseRegions } from '@evanion/doc-examples';
+import { authoredPages } from './docs-content';
 
 /**
  * The docs app fills `file=… region=…` code blocks from the packages' READMEs
@@ -18,26 +19,17 @@ import { parseRegions } from '@evanion/doc-examples';
  * The two keys are matched anywhere in the info string rather than immediately
  * after the language, because a region fence on this site usually carries
  * `twoslash` between them and an anchored pattern reads none of those fences at
- * all. `apps/docs/content/acl` alone writes most of its references that way, so
+ * all. `apps/docs/content/next/acl` alone writes most of its references that way, so
  * the anchored form left the majority of the site's regions checked by nothing
  * but `next build`. `mdx-region-loader.mjs` never had the bug; its own
  * `/(?:^|\s)file=(\S+)\s+region=([\w-]+)/` reads the keys wherever they sit,
  * which is why the fixtures below pass while the scan above them saw nothing.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const REFERENCE = /^\s*`{3,}[^\n]*\bfile=(\S+)[^\n]*\bregion=([\w-]+)/gm;
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 describe('doc region references', () => {
-  const pages = mdxFiles(CONTENT);
+  const pages = authoredPages();
 
   it('finds the docs content', () => {
     expect(pages.length).toBeGreaterThan(0);

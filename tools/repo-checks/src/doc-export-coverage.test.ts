@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
@@ -15,6 +15,7 @@ import {
   packages,
   type DocumentedPackage,
 } from './released-exports.js';
+import { authoredPages, sectionOf } from './docs-content';
 
 /**
  * Every name a package publishes is documented, and every callable one is
@@ -63,7 +64,6 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ALLOWANCE = join(HERE, 'doc-export-coverage-allowance.json');
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 
 const FENCE = /^(\s*)(`{3,})(.*)$/;
 const HEADING = /^##\s+`([^`]+)`/gm;
@@ -85,14 +85,6 @@ const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
 
 /** The shortest reason that can say anything, in characters. */
 const REASON_FLOOR = 30;
-
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
 
 /** Whether a fence's info string marks a block the repository compiles. */
 function executable(info: string): boolean {
@@ -144,8 +136,8 @@ function executableCode(
 ): Map<string, string> {
   const bySlug = new Map<string, string[]>();
 
-  for (const page of mdxFiles(CONTENT)) {
-    const slug = relative(CONTENT, page).split(sep)[0] as string;
+  for (const page of authoredPages()) {
+    const slug = sectionOf(page);
     const raw = readFileSync(page, 'utf8');
     const written = blocksOf(raw);
     const expanded = blocksOf(
@@ -217,8 +209,8 @@ function referenceExamples(
 function documented(): Map<string, Set<string>> {
   const found = new Map<string, Set<string>>();
 
-  for (const page of mdxFiles(CONTENT)) {
-    const slug = relative(CONTENT, page).split(sep)[0] as string;
+  for (const page of authoredPages()) {
+    const slug = sectionOf(page);
     const text = readFileSync(page, 'utf8');
     const names = found.get(slug) ?? new Set<string>();
     for (const [, heading] of text.matchAll(HEADING)) {

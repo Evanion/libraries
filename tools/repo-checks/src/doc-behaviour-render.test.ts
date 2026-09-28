@@ -55,7 +55,7 @@ function read(_root: string, specifier: string, name: string) {
   };
 }
 
-const page = 'apps/docs/content/acl/api.mdx';
+const page = 'apps/docs/content/next/acl/api.mdx';
 
 /** One rail row in the props the loader emits: its sentence and its case. */
 const ROW = /\{"title":("(?:[^"\\]|\\.)*"),"id":(\d+)\}/g;

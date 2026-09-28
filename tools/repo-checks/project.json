@@ -6,7 +6,8 @@
       "dependsOn": [
         { "projects": "libs/*", "target": "test" },
         "docs:behaviour-data",
-        "docs:widget-renders"
+        "docs:widget-renders",
+        "docs:archives"
       ],
       "inputs": [
         "repoChecks",
