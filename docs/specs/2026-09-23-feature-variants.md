@@ -398,10 +398,8 @@ it. OpenFeature's `SPLIT` reason maps onto `reason: 'rule-match'` with
 Two overloads on one name, verified against TypeScript 6.0.3:
 
 ```ts
-export type Definitions<K extends FeatureKey = FeatureKey> = readonly [
-  FeatureDefinition<K>,
-  ...FeatureDefinition<K>[],
-];
+export type Definitions<K extends FeatureKey = FeatureKey> =
+  readonly FeatureDefinition<K>[];
 
 export function createFeatures<const D extends Definitions>(
   definitions: D,
@@ -421,25 +419,31 @@ for configuration that arrives as JSON and carries no literal types to infer
 from. TypeScript performs no partial type argument inference, so one signature
 cannot do both, and overload resolution selects on the type-argument count.
 
-Two constraints in that pair carry weight beyond what they look like.
+`InferSchema` decides per member, and it separates a definition that declares no
+variants from one whose variant names the compiler cannot read. A member with no
+`variants` key at all maps to `never`, which `Decisions` and `Plan` read as "this
+feature has no variants". A member typed `FeatureDefinition<K>`, which every
+element of a plain array type is, carries a `variants` key the compiler cannot
+read names off, because `FeatureDefinition` declares the property optionally.
+That member maps to `{ variant: string; value?: unknown }`, so `variantOf`
+answers `string | undefined` for it. `never` in that position would type the same
+reader as `undefined` while the store hands back a real variant name.
 
-The first overload's `D` is a non-empty tuple, not `readonly
-FeatureDefinition[]`. `FeatureDefinition` declares `variants` optionally, and
-`InferSchema` asks each member for a `variants` property, so a member read off
-an array type answers nothing and every key maps to `never`. A consumer who
-assigns the configuration to a `const definitions: FeatureDefinition<K>[]` and
-then calls `createFeatures(definitions)` would get `variantOf` typed `undefined`
-while the store hands back a real variant name. The tuple constraint rejects that
-call.
+The first overload's constraint is therefore a plain array, not a non-empty
+tuple. A tuple constraint rejects two calls it has no reason to reject. It
+rejects `createFeatures([...parents, definition])`, where the spread carries
+members whose variant names are genuinely unreadable and the literal beside it
+carries its own. It also fails to reject the case it was written for: `const
+definitions: Definitions<K> = [...]` satisfies a tuple constraint and still
+hands `InferSchema` a member with an optional `variants` property.
 
 A consumer who keeps the configuration in a variable writes `as const satisfies
 Definitions<K>` after the array literal. `satisfies` checks the literal against
 `Definitions<K>` and leaves the variable the literal's own type, so the first
-overload still reads the variant names off it. A type annotation, `const
-definitions: Definitions<K> = [...]`, gives the variable `Definitions<K>` itself,
-and `Definitions` is built from `FeatureDefinition`, which declares `variants`
-optionally, so the annotation reproduces the same `never` collapse. A consumer
-whose configuration arrived as JSON names a schema and takes the second overload.
+overload reads the variant names off it. A type annotation, `const definitions:
+Definitions<K> = [...]`, gives the variable `Definitions<K>` itself, so
+`variantOf` widens to `string | undefined`. A consumer who wants the union back
+moves to `satisfies` or names a schema and takes the second overload.
 
 The second overload wraps its key type in `NoInfer`. Without it the compiler
 infers `S` backwards out of the argument, fills every entry with `any`, and a
