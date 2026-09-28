@@ -162,6 +162,7 @@ export const { Widgets, defineItems } = createWidgets({
  * block, which is the thing worth seeing; moving `tables` past `reprints` swaps
  * which side of the counter is wide, because `meta.span` travels with the item.
  */
+// #region counter-items
 export const counterItems = defineItems([
   {
     id: 'week',
@@ -204,3 +205,4 @@ export const counterItems = defineItems([
     ],
   },
 ]);
+// #endregion counter-items

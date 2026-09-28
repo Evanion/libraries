@@ -18,17 +18,27 @@ its items, and editors whose snippets you change and run.
 
 The demo below is one `Widgets` region: the page Baize's staff read for the
 week. It holds two top-level items of type `columns`, a row that lays its nested
-items side by side. The item with id `week` nests three `metric` items, each one
-figure. The item with id `counter`, the shop counter's row, nests a `tables`
-item and a `reprints` item, each a titled panel around a data table. The
-`tables` item carries `meta.span: 2`, so the item chrome gives it two columns.
-All seven items are printed under the page.
+items side by side:
 
-Move an item with the arrows beside the line that opens it in that listing, and
-`Widgets` renders the page again. Moving `counter` above `week` swaps the two
-rows, and each row takes its nested items with it. Moving `tables` past
-`reprints` puts the two-column panel on the other side, because `meta.span`
-belongs to the item and travels with it.
+- `week` nests three `metric` items, each one figure.
+- `counter`, the shop counter's row, nests a `tables` item and a `reprints`
+  item, each a titled panel around a data table.
+
+The `tables` item carries `meta.span: 2`. An item's `meta` goes to
+`chrome.item` and never into the widget's props, and the demo's item chrome
+gives an item as many columns as its `span` names. The demo opens on these
+items:
+
+```tsx file=apps/docs/components/landing/counter.tsx region=counter-items
+
+```
+
+The demo prints the same seven items under the page. Move an item with the
+arrows beside the line that opens it in that printout, and `Widgets` renders the
+page again. Moving `counter` above `week` swaps the two rows, and each row takes
+its nested items with it. Moving `tables` past `reprints` puts the two-column
+panel on the other side, because `meta.span` belongs to the item and travels
+with it.
 
 <DataDemo />
 
