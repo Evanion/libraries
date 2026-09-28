@@ -125,4 +125,52 @@ describe('the never guard', () => {
     expectTypeOf<Decisions<S>['nav']>().toHaveProperty('enabled');
     expectTypeOf<Decisions<S>['nav']>().toHaveProperty('reason');
   });
+
+  it('keeps every other field Decision declares on a variant-free entry', () => {
+    // `Omit<Decision, 'variant' | 'value'>` drops those two keys and nothing
+    // else, so the api reference cannot say a variant-free decision carries
+    // `key`, `enabled` and `reason` alone.
+    expectTypeOf<Decisions<S>['nav']>().toHaveProperty('rule');
+    expectTypeOf<Decisions<S>['nav']>().toHaveProperty('rules');
+    expectTypeOf<Decisions<S>['nav']>().toHaveProperty('blockedBy');
+    expectTypeOf<Decisions<S>['nav']>().toHaveProperty('cause');
+    expectTypeOf<Decisions<S>['nav']>().toHaveProperty('assignment');
+  });
+});
+
+enum Flag {
+  Cta = 1,
+  Nav = 2,
+}
+
+describe('a numeric key', () => {
+  interface NumericSchema {
+    [Flag.Cta]: { variant: 'control' | 'blue' };
+    [Flag.Nav]: never;
+  }
+
+  it('narrows a schema keyed on a numeric enum', () => {
+    expectTypeOf<Decisions<NumericSchema>[Flag.Cta]['variant']>().toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+    expectTypeOf<
+      Decisions<NumericSchema>[Flag.Cta]['key']
+    >().toEqualTypeOf<Flag.Cta>();
+  });
+
+  it('drops the variant fields for the numeric key declaring none', () => {
+    expectTypeOf<Decisions<NumericSchema>[Flag.Nav]>().not.toHaveProperty(
+      'variant',
+    );
+  });
+
+  it('refuses the key union on its own', () => {
+    // `Decisions<S>` constrains `S` to `Record<keyof S, VariantInfo | never>`,
+    // so a schema is a record and the key union alone does not satisfy it.
+    type Bad = Decisions<
+      // @ts-expect-error TS2344: Type 'Flag' does not satisfy the constraint
+      Flag.Cta | Flag.Nav
+    >;
+    expectTypeOf<Bad>().not.toBeNever();
+  });
 });
