@@ -1,96 +1,30 @@
-import { generateStaticParamsFor, importPage } from 'nextra/pages';
-import { categoricalClass } from '@evanion/baize-ui/tokens';
-import { useMDXComponents as getMDXComponents } from '../../../mdx-components';
-import ReleaseNotice from '../../../components/ReleaseNotice';
-import { releaseState } from '../../release-state';
-import { packageFor, type Section } from '../../sections';
-
-const listPages = generateStaticParamsFor('mdxPath');
+import ContentPage, { contentMetadata, contentPaths } from '../../content-page';
 
 /**
- * Enumerates one route per MDX file under `content/`.
- *
- * `output: 'export'` in next.config.ts has no server to render an unlisted
- * route, so a page missing from this list is missing from the deployed site.
+ * Every content page outside `/next/`: the released package sections, their
+ * release lines, and the sections with no version.
  *
  * The segment is a required catch-all, `[...mdxPath]`, because `/` is
- * `app/page.tsx` -- the landing page, which is not an MDX document and does
- * not render inside the theme's article frame -- and Next refuses an optional
- * catch-all beside a page of the same specificity. Nextra lists the root route
- * as an empty path, so it is dropped here rather than handed to a segment that
- * cannot take it.
+ * `app/(home)/page.tsx` -- the landing page, which is not an MDX document and
+ * does not render inside the theme's article frame -- and Next refuses an
+ * optional catch-all beside a page of the same specificity. The `/next/` tree is
+ * `(next)/next/[...mdxPath]`'s, under its own sidebar, so it is left out here:
+ * two routes listing one path fail the export.
  */
 export async function generateStaticParams() {
-  return (await listPages()).filter(
-    (entry) => entry.mdxPath?.length && entry.mdxPath[0] !== '',
-  );
+  return (await contentPaths())
+    .filter((mdxPath) => mdxPath[0] !== 'next')
+    .map((mdxPath) => ({ mdxPath }));
 }
-
-interface GenerateMetadataProps {
-  params: Promise<{ mdxPath: string[] }>;
-}
-
-export async function generateMetadata(props: GenerateMetadataProps) {
-  const params = await props.params;
-  const { metadata } = await importPage(params.mdxPath);
-  return metadata;
-}
-
-/**
- * The theme's page frame: table of contents, breadcrumbs, edit link and footer.
- * Rendering MDX content without it produces the body of a docs page with none
- * of the chrome around it.
- */
-const Wrapper = getMDXComponents().wrapper;
 
 interface PageProps {
   params: Promise<{ mdxPath: string[] }>;
 }
 
-/**
- * The class that binds a page's package colour.
- *
- * A page in a package section belongs to that package whichever version of it
- * the route names, so `/urn/api`, `/urn/v1/api` and `/next/urn/api` all take
- * URN's colour: everything below it -- the title, the rule under it, the anchor
- * links -- reads `--baize-hue`. A page outside a package section gets no class
- * and falls back to the ground, which is what the library's own rules already
- * do.
- */
-function identity(section: Section | null): string {
-  return section ? `docs-identity ${categoricalClass(section.entry.hue)}` : '';
+export async function generateMetadata({ params }: PageProps) {
+  return contentMetadata((await params).mdxPath);
 }
 
-/**
- * The release notice for the section this page is in, or nothing outside one.
- *
- * It mounts here rather than in each MDX file, the way `WorkshopNotice` does,
- * because it says the same thing on every page of a section and there are forty
- * of them: written per page it is forty chances to be left off a new one. The
- * route already knows the package, through `packageFor`, so nothing has to be
- * written down for this to be complete.
- */
-function releaseNotice(section: Section | null) {
-  const state = section ? releaseState(section.entry.slug) : null;
-
-  return state ? <ReleaseNotice {...state} /> : null;
-}
-
-export default async function Page(props: PageProps) {
-  const params = await props.params;
-  const {
-    default: MDXContent,
-    toc,
-    metadata,
-    sourceCode,
-  } = await importPage(params.mdxPath);
-  const section = packageFor(params.mdxPath);
-  return (
-    <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
-      <div className={identity(section)}>
-        {releaseNotice(section)}
-        <MDXContent {...props} params={params} />
-      </div>
-    </Wrapper>
-  );
+export default async function Page({ params }: PageProps) {
+  return <ContentPage mdxPath={(await params).mdxPath} />;
 }

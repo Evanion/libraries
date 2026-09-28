@@ -573,6 +573,44 @@ html:not(.dark) [class*='baize-kind-'] {
 }
 
 /*
+ * The versions of the page, one line above the notice that says which one this
+ * is. Small and set in the reading colour, because it is a way out and not the
+ * content; the version the reader is on is the one entry in the package's hue.
+ */
+.docs-versions {
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-1) var(--baize-space-3);
+  margin-block: 0 var(--baize-space-3);
+  font-size: var(--baize-text-sm);
+}
+
+.docs-versions__label {
+  color: var(--baize-lichen);
+}
+
+.docs-versions__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-1) var(--baize-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-versions__item a[aria-current='page'] {
+  color: var(--baize-hue, var(--baize-chalk));
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docs-versions__missing {
+  color: var(--baize-lichen);
+}
+
+/*
  * A diagram and the sentence under it.
  *
  * The colours are not here. `components/diagram/palette.ts` binds every one of

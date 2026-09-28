@@ -1,19 +1,30 @@
 import { Panel, Text } from '@evanion/baize-ui';
+import type { ReactNode } from 'react';
 
 /**
- * How the pages a notice sits on were produced.
+ * Which release the pages a notice sits on stand for.
  *
- * - `tag`: cut from the release's own tag.
- * - `seed`: cut from a later commit that `nx release` versions as the release,
- *   because the release shipped no pages of its own.
- * - `line`: cut from the newest release of a superseded line.
- * - `next`: `main`, served at the release's path because the release shipped no
- *   pages and `main` has moved past it.
+ * - `current`: the newest release, at the section's bare path.
+ * - `line`: the newest release of a superseded line, at `/<slug>/v<seg>/`.
+ * - `next`: a release that shipped no pages of its own, at the bare path, whose
+ *   pages are `main`'s.
  */
-export type ArchiveKind = 'tag' | 'seed' | 'line' | 'next';
+export type ArchiveKind = 'current' | 'line' | 'next';
+
+/**
+ * Which commit the values on a cut page came from.
+ *
+ * - `tag`: the release's own tag.
+ * - `seed`: a later commit that `nx release` versions as the same release,
+ *   because the release shipped no pages.
+ * - `recut`: a later commit a pull request re-cut the release from.
+ */
+export type ArchiveSource = 'tag' | 'seed' | 'recut';
 
 export interface ArchiveNoticeProps {
   kind: ArchiveKind;
+  /** How the pages were cut. Absent for `next`, which is not cut. */
+  source?: ArchiveSource;
   /** The published package name. */
   package: string;
   /** The release these pages stand for. */
@@ -26,21 +37,59 @@ export interface ArchiveNoticeProps {
   href?: string;
 }
 
+/** Where a cut page's values came from, as one sentence. */
+function provenance(
+  source: ArchiveSource | undefined,
+  version: string,
+  sha: string | undefined,
+): ReactNode {
+  if (source === 'seed')
+    return (
+      <>
+        Values on this page were produced by running the source at{' '}
+        <code>{sha}</code>, which <code>nx release</code> versions as {version},
+        and are not re-executed.
+      </>
+    );
+
+  if (source === 'recut')
+    return (
+      <>
+        Values on this page were produced by running the source at{' '}
+        <code>{sha}</code>, a later commit than the {version} tag, and are not
+        re-executed.
+      </>
+    );
+
+  return (
+    <>
+      Values on this page were produced by running {version} in CI at{' '}
+      <code>{sha}</code> and are not re-executed.
+    </>
+  );
+}
+
 /**
  * Where the values on a page came from, stated on the page.
  *
- * The archive generator writes one under the title of every page it cuts, with
- * every prop a literal. That keeps a cut page's statement about itself inside
- * the page, so the `.md` sibling an agent reads says it too, and it keeps this
- * component free of anything that reads the repository: it imports no module of
- * the site's own and no package, and renders the same whatever `main` becomes.
+ * The archive generator writes one under the title of every page it serves for
+ * a release, with every prop a literal. That keeps a page's statement about
+ * itself inside the page, so the `.md` sibling an agent reads says it too, and
+ * it keeps this component free of anything that reads the repository: it
+ * imports no module of the site's own and no package, and renders the same
+ * whatever `main` becomes.
  *
  * `docs/specs/2026-09-13-released-by-default.md` § 8 is the claim each form
  * restates: every value on the site was produced by running the version the
  * page documents, in CI, at a named commit.
+ *
+ * `data-release` names the release in the markup, so a check over the static
+ * export can hold each version directory to what `content/versions.json` says
+ * it serves.
  */
 export default function ArchiveNotice({
   kind,
+  source,
   package: name,
   version,
   sha,
@@ -49,7 +98,7 @@ export default function ArchiveNotice({
 }: ArchiveNoticeProps) {
   if (kind === 'next')
     return (
-      <div className="docs-release">
+      <div className="docs-release" data-release={version}>
         <Panel heading="No documentation for this release">
           <Text size="sm">
             <code>npm install {name}</code> gives you {version}, and no
@@ -63,7 +112,7 @@ export default function ArchiveNotice({
 
   if (kind === 'line')
     return (
-      <div className="docs-release">
+      <div className="docs-release" data-release={version}>
         <Panel heading="An earlier release">
           <Text size="sm">
             These pages document{' '}
@@ -76,32 +125,19 @@ export default function ArchiveNotice({
                 , documented <a href={href}>here</a>
               </>
             ) : null}
-            . Values on this page were produced by running {version} in CI at{' '}
-            <code>{sha}</code> and are not re-executed.
+            . {provenance(source, version, sha)}
           </Text>
         </Panel>
       </div>
     );
 
   return (
-    <div className="docs-release">
+    <div className="docs-release" data-release={version}>
       <Text size="sm" tone="moss">
         <code>
           {name} {version}
         </code>
-        .{' '}
-        {kind === 'seed' ? (
-          <>
-            Values on this page were produced by running the source at{' '}
-            <code>{sha}</code>, which <code>nx release</code> versions as{' '}
-            {version}, and are not re-executed.
-          </>
-        ) : (
-          <>
-            Values on this page were produced by running {version} in CI at{' '}
-            <code>{sha}</code> and are not re-executed.
-          </>
-        )}
+        . {provenance(source, version, sha)}
       </Text>
     </div>
   );

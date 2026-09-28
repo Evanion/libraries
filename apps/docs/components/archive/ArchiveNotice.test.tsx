@@ -15,7 +15,8 @@ describe('the archive notice', () => {
   it('names the tag commit a release was cut at', () => {
     render(
       <ArchiveNotice
-        kind="tag"
+        kind="current"
+        source="tag"
         package="@evanion/acl"
         version="0.1.0"
         sha="d618051"
@@ -30,7 +31,8 @@ describe('the archive notice', () => {
   it('states the seed predicate beside a seeded commit', () => {
     render(
       <ArchiveNotice
-        kind="seed"
+        kind="current"
+        source="seed"
         package="@evanion/luhn"
         version="3.0.0"
         sha="115516f"
@@ -44,6 +46,7 @@ describe('the archive notice', () => {
     render(
       <ArchiveNotice
         kind="line"
+        source="tag"
         package="@evanion/urn"
         version="1.1.1"
         sha="c2979ea"
@@ -59,6 +62,23 @@ describe('the archive notice', () => {
       'href',
       '/urn/',
     );
+  });
+
+  /** A re-cut commit is past the tag, so the sentence cannot say it ran the tag. */
+  it('names a re-cut commit as later than the tag it stands for', () => {
+    render(
+      <ArchiveNotice
+        kind="current"
+        source="recut"
+        package="@evanion/urn"
+        version="2.0.0"
+        sha="a1b2c3d"
+      />,
+    );
+
+    expect(
+      screen.getByText(/a later commit than the 2\.0\.0 tag/),
+    ).toBeInTheDocument();
   });
 
   it('says no documentation was published when the pages are main', () => {

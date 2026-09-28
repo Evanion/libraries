@@ -113,3 +113,13 @@ apps/docs/public/behaviour/
 # README's payloads through Astro during the build. Not committed: a committed
 # render is right until somebody changes a widget without rendering again.
 apps/docs/components/astro-widget/renders.json
+
+# Written by `nx run docs:archives`: each package's bare section, cut from git at
+# the commit `apps/docs/archives.json` pins or copied from `content/next/`, and
+# its retained release lines. What a person writes under `content/` is the
+# sidebar, the `/next/` tree, the sections with no version, and nothing else.
+apps/docs/content/*
+!apps/docs/content/_meta.ts
+!apps/docs/content/next/
+!apps/docs/content/testing/
+!apps/docs/content/feature/

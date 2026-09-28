@@ -76,10 +76,90 @@ export function redirectDocument(to) {
 `;
 }
 
-/** Every file a build owes, as a map from path under `out/` to its contents. */
-export function redirectFiles() {
+/**
+ * The moved pages, in every tree a section is served in.
+ *
+ * A package section is served at its bare path and again under `/next/`, and
+ * a link to a moved path can be written in either: a page under `/next/` links
+ * its own section relatively, so an old path it links resolves under `/next/`.
+ * So a moved package page answers in both trees. A page outside a package
+ * section has one copy, and one stub.
+ *
+ * `main` is where a page is renamed, so under `/next/` the old path always
+ * answers with the new one. The bare path serves the newest release, which can
+ * still have the page under its old name: that path is the release's page and
+ * gets no stub until a release ships without it. A release that has neither
+ * name sends the old path to the page under `/next/`.
+ *
+ * @param {Record<string, { current: { pages: readonly string[] } }>} sections
+ *   what `content/versions.json` records, by slug
+ */
+export function movedPaths(sections) {
+  const paths = new Map();
+
+  for (const [from, to] of movedPages) {
+    const slug = from.split('/')[0];
+    const section = sections[slug];
+
+    if (!section) {
+      paths.set(from, to);
+      continue;
+    }
+
+    paths.set(`next/${from}`, `next/${to}`);
+
+    const released = new Set(section.current.pages);
+    const page = (path) => path.slice(slug.length + 1);
+
+    if (released.has(page(from))) continue;
+    paths.set(from, released.has(page(to)) ? to : `next/${to}`);
+  }
+
+  return paths;
+}
+
+/**
+ * The pages a section has under `/next/` and not at its bare path, each
+ * pointing at its copy under `/next/`.
+ *
+ * A bare path serves what a release shipped, and a release that shipped fewer
+ * pages than `main` has leaves the rest out: `@evanion/urn` 2.0.0 has no
+ * `components` page, and `main` does. The path is one a search engine already
+ * holds and other pages link, so it answers with the page that exists rather
+ * than with a 404, and the notice on that page says it documents `main`.
+ *
+ * @param {Record<string, { current: { pages: string[] }, next: { pages: string[] } }>} sections
+ *   what `content/versions.json` records, by slug
+ */
+export function unreleasedPaths(sections) {
+  const paths = new Map();
+
+  for (const [slug, section] of Object.entries(sections)) {
+    const released = new Set(section.current.pages);
+
+    for (const page of section.next.pages) {
+      if (page !== '' && !released.has(page))
+        paths.set(`${slug}/${page}`, `next/${slug}/${page}`);
+    }
+  }
+
+  return paths;
+}
+
+/**
+ * Every file a build owes, as a map from path under `out/` to its contents.
+ *
+ * @param {Record<string, { current: { pages: string[] }, next: { pages: string[] } }>} sections
+ *   what `content/versions.json` records, by slug
+ */
+export function redirectFiles(sections = {}) {
+  const moved = movedPaths(sections);
+  const unreleased = [...unreleasedPaths(sections)].filter(
+    ([from]) => !moved.has(from),
+  );
+
   return new Map(
-    [...movedPages].map(([from, to]) => [
+    [...moved, ...unreleased].map(([from, to]) => [
       `${from}/index.html`,
       redirectDocument(to),
     ]),
