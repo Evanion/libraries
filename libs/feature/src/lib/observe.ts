@@ -119,9 +119,9 @@ export interface FeatureOptions<
    * Reports an observer that threw or rejected. Replaces the default warning.
    *
    * The engine calls this inside the same catch that swallowed the failure. If
-   * this handler itself throws, the engine reports that through the warning and
-   * does not call this handler again for that event. One level of recovery, no
-   * recursion.
+   * this handler itself throws, or returns a promise that rejects, the engine
+   * reports that through the warning and does not call this handler again for
+   * that event. One level of recovery, no recursion.
    *
    * An application that configures `observe` but not this member gets a failure
    * caught and warned once in development. The warning stays silent when
@@ -152,6 +152,23 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
+/**
+ * Reads the text a failure is keyed on.
+ *
+ * An `Error` supplies its message, so two distinct failures warn separately and
+ * a transport that fails the same way on every call warns once. Any other value
+ * goes through `String`, which throws for an object that carries no `toString`,
+ * so this function catches that and keys the failure on one fixed text.
+ */
+function keyOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return String(error);
+  } catch {
+    return '[an error with no text]';
+  }
+}
+
 /** The default warning when the application installed no `onObserveError`. */
 const OBSERVER_FAILED =
   '@evanion/feature: an observer failed. Pass onObserveError to handle this and replace this warning.';
@@ -171,15 +188,15 @@ const HANDLER_FAILED =
  * call the handler again for that event. The caller keeps the value the entry
  * point computed on every one of those paths.
  *
- * Each emitter carries its own set of warned notices, keyed on the two notice
- * constants. A transport whose error text names a request id or a timestamp
- * still warns once, and a set keyed on that text would grow for the life of the
- * process and warn on every call. One process holds one emitter per engine, so
- * a broken transport produces one warning per engine and no test resets module
- * state to stay order-independent. The warning stays silent when `NODE_ENV` is
- * `production`, which `libs/widget/src/warn.ts` does for the same reason. A
- * runtime that defines no `process` global, such as a browser loading this
- * package as unbundled ESM, warns.
+ * Each emitter carries its own set of warned failures, keyed on the notice and
+ * the failing error's message, which is the shape `libs/widget/src/warn.ts`
+ * uses. A transport that fails the same way on every call warns once, and a
+ * second, unrelated failure still reaches the log. One process holds one
+ * emitter per engine, and no test resets module state to stay order-independent.
+ * The warning stays silent when `NODE_ENV` is `production`, which
+ * `libs/widget/src/warn.ts` does for the same reason. A runtime that defines no
+ * `process` global, such as a browser loading this package as unbundled ESM,
+ * warns.
  */
 export function createEmitter<
   S extends Record<keyof S, VariantInfo | never> = Record<
@@ -196,15 +213,16 @@ export function createEmitter<
   }
 
   const warned = new Set<string>();
-  const warn = (notice: string, ...details: unknown[]) => {
+  const warn = (notice: string, error: unknown, ...details: unknown[]) => {
     if (
       typeof process !== 'undefined' &&
       process.env?.NODE_ENV === 'production'
     )
       return;
-    if (warned.has(notice)) return;
-    warned.add(notice);
-    console.warn(notice, ...details);
+    const key = `${notice}\n${keyOf(error)}`;
+    if (warned.has(key)) return;
+    warned.add(key);
+    console.warn(notice, error, ...details);
   };
 
   const report = (error: unknown, event: FeatureEvent<S>) => {
@@ -214,7 +232,12 @@ export function createEmitter<
       return;
     }
     try {
-      handler(error, event);
+      const returned = handler(error, event);
+      if (isThenable(returned)) {
+        returned.then(undefined, (handlerError: unknown) => {
+          warn(HANDLER_FAILED, handlerError, error);
+        });
+      }
     } catch (handlerError) {
       warn(HANDLER_FAILED, handlerError, error);
     }
