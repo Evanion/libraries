@@ -120,7 +120,7 @@ describe('reason is output only', () => {
     // reasons and must make no difference to the dependant's decision.
     type Key = 'child' | 'parent' | 'grandparent';
     const child = (parents: readonly FeatureDefinition<Key>[]) =>
-      createFeatures<Record<Key, never>>([
+      createFeatures([
         ...parents,
         { key: 'child', enabled: true, dependsOn: ['parent'] },
       ]).resolve({ now: new Date('2026-09-01T00:00:00Z') }).child;
