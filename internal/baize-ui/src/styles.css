@@ -37,6 +37,22 @@
 }
 
 /*
+ * Text a screen reader announces and the page does not draw. The element keeps
+ * its place in the accessibility tree and the tab order, so an input hidden this
+ * way still takes focus and its label still draws the ring.
+ */
+.baize-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
  * The mechanism hue, bound once per family and read by the chip that carries one.
  *
  * Mechanism is categorical and the colour ladder is ordinal, and the design spends
