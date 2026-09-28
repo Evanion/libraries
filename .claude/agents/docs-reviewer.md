@@ -216,8 +216,10 @@ nothing of the kind, and a padded-in result there is the filler the standard is
 trying to remove. Two roles have a guard behind them, `getting-started` and the
 section's demonstration page; everywhere else it is yours.
 
-**Shape.** § 7. Five counts, none of which any guard reaches, so read for the
-symptom rather than counting exactly.
+**Shape.** § 7. `tools/repo-checks/src/doc-shape.test.ts` counts the first four
+below on every page, and a page over a limit fails `nx test` unless
+`doc-shape-allowance.json` records its count. No guard reaches the last two, so
+read for the symptom there.
 
 - The lede, meaning prose before the first `##`, runs to 40 words. A page opening
   on four paragraphs before any heading is the single most common cause of the
