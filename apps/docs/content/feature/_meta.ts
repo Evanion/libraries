@@ -24,6 +24,13 @@ import type { MetaRecord } from 'nextra';
  * have the evaluation context, and a reader who never renders statically never
  * needs it.
  *
+ * Observing comes last of the pages a reader learns from. An observer reports
+ * what an entry point returned, so the four events name a decision, a plan and
+ * a toggle result, and a reader who has met all three reads an event as a
+ * record of work already understood. It also carries the argument that exposure
+ * tracking belongs at the render site, which a reader can only weigh once they
+ * know that `resolve` decides every configured feature.
+ *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages
  * repeat: the section is already called Feature.
@@ -41,5 +48,6 @@ export default {
   variants: 'Variants',
   react: 'React',
   'build-time': 'Build-time Planning',
+  observing: 'Observing',
   api: 'API Reference',
 } satisfies MetaRecord;

@@ -1,0 +1,183 @@
+# Observing
+
+<WorkshopNotice slug="feature" />
+
+An operator asking why a customer did not get express pickup wants the decision
+the store made, and the caller usually reads `enabled` and discards the rest.
+`observe` is the one function an application installs to receive it. The store
+calls that function once per public entry point call, with the value the call
+returned.
+
+## Where an observer installs
+
+`createFeatures` takes the options as its second argument, and `observe` is a
+member of them.
+
+```ts twoslash file=libs/feature/README.md region=observe-install
+
+```
+
+That is the whole report for one `resolve` call. The event names the instant
+the call settled on, the customer it decided for, the configuration version the
+store was built with, and every decision the call produced.
+
+## The four events
+
+| `type`       | Entry point                 | What the event carries                           |
+| ------------ | --------------------------- | ------------------------------------------------ |
+| `resolve`    | `resolve(context?)`         | `decisions`, one decision per configured feature |
+| `is-enabled` | `isEnabled(key, context?)`  | `key`, and `decision` for that key alone         |
+| `plan`       | `plan(context?)`            | `plan`, the build-time partition                 |
+| `toggle`     | `toggle(key, enabled, ...)` | `result`, the write's own answer                 |
+
+Every event carries the same envelope beside its payload: `at`, the instant the
+call settled on; `subject`, the identifier read out of the context; and
+`version`, the configuration version, when the application supplied one.
+
+`variantOf` and `valueOf` report nothing. Each one resolves a set to read one
+field off it, and an application that wants an event for that question calls
+`resolve` or `isEnabled`.
+
+`isEnabled` resolves every feature to answer about one, and it reports the one
+decision the caller asked for.
+
+```ts twoslash file=libs/feature/README.md region=observe-one-key
+
+```
+
+The resolution `isEnabled` runs to produce that answer reports nothing on its
+own, so one call produces one event and never one event per feature. `toggle`
+resolves twice to compute `willDisable`, and both of those resolutions are
+silent for the same reason.
+
+```ts twoslash file=libs/feature/README.md region=observe-toggle
+
+```
+
+`toggle` reports the write it accepted and the write it refused. A call naming
+an unconfigured key answers `{ ok: false, key, error: 'unknown-feature' }`, and
+the event carries that same result, so an auditor sees the attempt.
+
+A key the store was never configured with has no decision, and `isEnabled`
+answers `false` for it and emits no event. `FeatureEvent` declares `decision`
+present on every `is-enabled` event, so an event for that call would promise a
+member the engine has no value for. The engine stays silent and the caller still
+gets `false`.
+
+## An observer never awaits and never changes an outcome
+
+The signature is `(event) => void | Promise<unknown>`. The engine calls the
+observer, attaches a rejection handler when the observer returned something
+thenable, and returns. No entry point waits for an observer to settle. A
+decision takes under a microsecond and an audit transport on a bad day takes
+forty milliseconds, so an observer that blocked would turn observability into an
+availability incident.
+
+Every payload is deeply readonly. A store carrying an observer freezes the
+record before it emits it and answers the caller with that same object, so
+`event.decisions['new-checkout'].enabled = false` is a compile error for a
+TypeScript consumer and a `TypeError` for a JavaScript one. A store carrying no
+observer hands its answer to nobody else and freezes nothing, which is what
+`FrozenWhenObserved` on `resolve`, `plan` and `toggle` reports.
+
+`event.at` is a copy of the settled instant, so an observer calling
+`event.at.setTime(0)` moves its own copy and no decision.
+
+## When an observer throws
+
+```ts twoslash file=libs/feature/README.md region=observe-failure
+
+```
+
+The engine catches the throw, and it catches a rejection through the handler it
+attached. Either one reaches `onObserveError(error, event)`, and the caller
+keeps the value the entry point computed on both paths.
+
+An application that installs `observe` and no `onObserveError` gets one
+`console.warn` per distinct failure. The warning stays silent when `NODE_ENV` is
+`production`. One emitter warns about at most twenty distinct failures, writes
+one last warning at that limit, and stays quiet from then on; `onObserveError`
+receives every failure whatever the warning does.
+
+An `onObserveError` that throws, or returns a promise that rejects, reaches the
+warning carrying both errors, and the engine does not call the handler again for
+that event. One level of recovery, no recursion.
+
+## `correlateBy` and what reaches an event
+
+An event carries no `EvaluationContext`. It carries the settled instant, the
+value the call returned, and a subject identifier copied out as a primitive.
+`correlateBy` names the context field that identifier comes from, and it
+defaults to `targetingKey`.
+
+```ts twoslash file=libs/feature/README.md region=observe-correlate
+
+```
+
+An application bucketing on a raw identifier points `correlateBy` at a field
+carrying a pseudonym, and the raw identifier stays out of every event. The
+engine copies the value when it is a string or a number, and leaves `subject`
+off the event for a value of any other type.
+
+A primitive copy holds no reference into the caller's context, so an observer
+writing to `event.subject` writes to its own event object.
+
+`version` is the other envelope field the application supplies. A rollout that
+replaces the configuration across replicas gives each replica a version, and an
+event then says which configuration produced the decision it reports.
+
+## Exposure tracking is not what this seam carries
+
+An exposure record answers "this customer saw this variant of this feature".
+This seam cannot produce that record, and an observer wired to an experiment
+platform produces numbers that look plausible and are wrong.
+
+`resolve` decides every configured feature in one call. A store holding forty
+features resolves forty decisions on a request that renders three, so an
+observer fired from `resolve` writes thirty-seven exposures for features nobody
+rendered, and an experiment computed over those records measures the wrong
+denominator. A decision is not a view of the thing it decided.
+
+The React path removes even the per-key call. `FeatureProvider` resolves once in
+a `useMemo`, and `useFeature` reads a key out of the record that memo already
+holds. No library code runs at the render site, so a seam installed on
+`createFeatures` sees nothing at the moment the customer sees the button.
+
+A server render and a browser hydration both resolve the same features for the
+same customer, and the library holds nothing that tells the two apart.
+Deduplication is the application's state: an experiment wants one exposure per
+subject per feature per session, and this library holds no session and no
+storage, and no subject identity beyond the string each call passes it.
+
+So the application records exposure where it renders, off the decision it
+already holds:
+
+```tsx no-run
+function Cta() {
+  const { variant, value } = useVariant('checkout-cta');
+  useEffect(() => {
+    analytics.exposure({
+      feature: 'checkout-cta',
+      variant,
+      subject: customerId,
+    });
+  }, [variant]);
+  return <Button label={value?.label ?? 'Buy'} />;
+}
+```
+
+A decision carries everything that record needs. `variant` names the assigned
+variant, `assignment.source` says whether the weights, a rule pin, a stored
+assignment or the control produced it, `assignment.bucket` carries the number
+the split used, and `rule` names the rule that matched. See
+[Variants](/feature/variants) for what each of those fields holds and
+[React](/feature/react) for where the render site reads them.
+
+## What the seam does cover
+
+Decisions, as decisions. An operator reads the `no-rule-matched` breakdown and
+the `dependency-off` cause off a `resolve` event, which is the material a caller
+discards. An auditor reads a `toggle` event to see who turned what off and which
+dependants went with it. A `version` on every event shows which configuration
+each replica decided under during a rollout. See
+[Decisions](/feature/decisions) for the fields those questions read.
