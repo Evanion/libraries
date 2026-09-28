@@ -123,7 +123,9 @@ export interface FeatureOptions<
    * An observer that blocks turns an observability feature into an availability
    * incident. A decision costs under a microsecond and an audit transport on a
    * bad day costs forty milliseconds, so the engine attaches a rejection
-   * handler to anything thenable and moves on.
+   * handler to anything thenable and moves on. The engine's own guard stays
+   * within run-to-run noise of the bare call, measured at forty features, so
+   * the number anyone should care about is what their own hook body does.
    *
    * This member does not count exposures. `resolve` decides every configured
    * feature, so an observer fired from it reports a decision for every feature

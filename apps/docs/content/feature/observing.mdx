@@ -73,6 +73,13 @@ decision takes under a microsecond and an audit transport on a bad day takes
 forty milliseconds, so an observer that blocked would turn observability into an
 availability incident.
 
+The engine's own guard stays within run-to-run noise of the bare call. Measured
+at forty features on an Apple M1 Pro under Node 24.20.0, a synchronous no-op
+observer and the bare call both ran between 20 and 22 microseconds, and an
+`async` no-op observer, with the thenable check and the attached rejection
+handler, ran in the same band. So the number anyone should care about is what
+their own hook body does.
+
 Every payload is deeply readonly. A store carrying an observer freezes the
 record before it emits it and answers the caller with that same object, so
 `event.decisions['new-checkout'].enabled = false` is a compile error for a
