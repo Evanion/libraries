@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredSection } from './docs-content';
 
 /**
  * G4 of `docs/specs/2026-09-25-documentation-standard.md` § 9 and § 14: every
@@ -28,7 +29,6 @@ import { describe, expect, it } from 'vitest';
  */
 
 const DOCS = join(workspaceRoot, 'apps/docs');
-const CONTENT = join(DOCS, 'content');
 const MAP = join(DOCS, 'mdx-components.js');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -84,7 +84,7 @@ async function documentedSections(): Promise<DocumentedPackage[]> {
 /** Whether the page mounts one of the controls, as a JSX tag. */
 function mountsControl(slug: string, page: string, names: string[]): boolean {
   const path = ['.mdx', '.md']
-    .map((extension) => join(CONTENT, slug, `${page}${extension}`))
+    .map((extension) => join(authoredSection(slug), `${page}${extension}`))
     .find((candidate) => existsSync(candidate));
 
   if (path === undefined) return false;

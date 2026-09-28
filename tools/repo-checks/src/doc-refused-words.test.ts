@@ -1,8 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { readFileSync } from 'node:fs';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * No page tells a reader the thing they are stuck on is easy.
@@ -27,8 +26,6 @@ import { describe, expect, it } from 'vitest';
  * Prose only. A fence can carry any of these in a string or a comment, a table
  * cell is not a sentence, and an import line is not prose.
  */
-
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 
 /** Refused outright, with the reason each one is refused. */
 const REFUSED: readonly { pattern: RegExp; instead: string }[] = [
@@ -58,14 +55,6 @@ const REFUSED: readonly { pattern: RegExp; instead: string }[] = [
   },
 ];
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /** The page's prose: no fences, no tables, no import lines. */
 function prose(source: string): { line: number; text: string }[] {
   const lines = source.split('\n');
@@ -90,7 +79,7 @@ describe('documentation prose', () => {
   it('does not tell a reader the step they are on is easy', () => {
     const found: string[] = [];
 
-    for (const page of mdxFiles(CONTENT)) {
+    for (const page of authoredPages()) {
       const source = readFileSync(page, 'utf8');
       const relative = page.slice(workspaceRoot.length + 1);
 

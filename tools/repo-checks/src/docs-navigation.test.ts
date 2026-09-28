@@ -5,6 +5,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { NEXT, authoredDirectories, authoredSection } from './docs-content';
 
 /**
  * The invariant: the docs site's navigation names every package the repository
@@ -37,6 +38,7 @@ interface DocumentedPackage {
   title: string;
   documented: boolean;
   workshop: boolean;
+  unversioned?: string;
   group: string;
   familyId?: string;
   framework: string;
@@ -55,7 +57,6 @@ interface ReleasedProject {
 }
 
 const docsRoot = join(workspaceRoot, 'apps', 'docs');
-const contentRoot = join(docsRoot, 'content');
 
 async function loadNavigation(): Promise<readonly DocumentedPackage[]> {
   return (await loadNavigationModule()).packages;
@@ -108,41 +109,40 @@ const released: Promise<ReleasedProject[]> = (async () => {
   });
 })();
 
-/** Every `_meta` module under `content/`, with the directory it orders. */
+/**
+ * Every written `_meta` module, with the directory it orders.
+ *
+ * Written ones only. The directories `nx run docs:archives` generates carry the
+ * `_meta` a release shipped, which ordered the pages that release had and is
+ * not edited after it.
+ */
 async function metaFiles(): Promise<
-  { directory: string; meta: Record<string, unknown> }[]
+  { directory: string; path: string; meta: Record<string, unknown> }[]
 > {
-  const found: { directory: string; meta: Record<string, unknown> }[] = [];
+  const found: {
+    directory: string;
+    path: string;
+    meta: Record<string, unknown>;
+  }[] = [];
 
-  const walk = async (directory: string): Promise<void> => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
+  for (const directory of authoredDirectories()) {
+    for (const name of readdirSync(directory)) {
+      if (!/^_meta\.(js|jsx|ts|tsx)$/.test(name)) continue;
 
-      if (entry.isDirectory()) {
-        await walk(path);
-      } else if (/^_meta\.(js|jsx|ts|tsx)$/.test(entry.name)) {
-        const module_ = (await import(pathToFileURL(path).href)) as {
-          default: Record<string, unknown>;
-        };
-        found.push({ directory, meta: module_.default });
-      }
+      const path = join(directory, name);
+      const module_ = (await import(pathToFileURL(path).href)) as {
+        default: Record<string, unknown>;
+      };
+      found.push({ directory, path, meta: module_.default });
     }
-  };
+  }
 
-  await walk(contentRoot);
   return found;
 }
 
-/** Every directory under `content/` that holds a page or a subdirectory. */
+/** Every directory holding a written page, subdirectory or `_meta`. */
 function contentDirectories(): string[] {
-  const walk = (directory: string): string[] => [
-    directory,
-    ...readdirSync(directory, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .flatMap((entry) => walk(join(directory, entry.name))),
-  ];
-
-  return walk(contentRoot);
+  return authoredDirectories();
 }
 
 /**
@@ -164,10 +164,15 @@ function pagesIn(directory: string): string[] {
 
 /** Whether a `_meta` key resolves to a page Nextra will find. */
 function pageExists(directory: string, name: string): boolean {
-  return ['.mdx', '.md'].some(
-    (extension) =>
-      existsSync(join(directory, `${name}${extension}`)) ||
-      existsSync(join(directory, name, `index${extension}`)),
+  return (
+    ['.mdx', '.md'].some(
+      (extension) =>
+        existsSync(join(directory, `${name}${extension}`)) ||
+        existsSync(join(directory, name, `index${extension}`)),
+    ) ||
+    // A folder with no index of its own, which Nextra takes as a key: `next`,
+    // the tree of pages written on `main`.
+    existsSync(join(directory, name, `_meta.ts`))
   );
 }
 
@@ -440,7 +445,7 @@ describe('the docs navigation', () => {
     ).toEqual(
       navigation.map(
         (entry) =>
-          `${entry.slug} ${existsSync(join(contentRoot, entry.slug, 'index.mdx'))}`,
+          `${entry.slug} ${existsSync(join(authoredSection(entry.slug), 'index.mdx'))}`,
       ),
     );
   });
@@ -533,8 +538,90 @@ describe('every _meta file', () => {
 
     expect(
       missing.map((directory) => relative(workspaceRoot, directory)).sort(),
-      'Every directory under apps/docs/content needs a `_meta` file. Without ' +
+      'Every written directory under apps/docs/content needs a `_meta` file. Without ' +
         'one Nextra orders the directory by filename.',
     ).toEqual([]);
+  });
+});
+
+/**
+ * A section's `_meta` is copied into every release cut from it, and served
+ * from `main` for as long as that release is retained. One that imports
+ * `app/navigation.ts` makes every archived sidebar follow the current
+ * navigation, and one that imports a workspace package runs `main`'s code in
+ * an old sidebar. `docs/specs/2026-09-13-released-by-default.md` § 6.
+ */
+describe('a section _meta file', () => {
+  const IMPORT = /\bfrom\s+['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]/g;
+
+  it('imports nothing from outside its own directory and no workspace package', async () => {
+    const faults: string[] = [];
+    const sections = (await metaFiles()).filter(({ directory }) =>
+      relative(NEXT, directory).match(/^[^.]/),
+    );
+
+    expect(sections.length).toBeGreaterThan(0);
+
+    for (const { directory, path } of sections) {
+      for (const match of readFileSync(path, 'utf-8').matchAll(IMPORT)) {
+        const specifier = (match[1] ?? match[2]) as string;
+        const where = relative(workspaceRoot, path);
+
+        if (specifier.startsWith('@evanion/'))
+          faults.push(`${where}: imports ${specifier}`);
+        else if (
+          specifier.startsWith('.') &&
+          relative(directory, join(directory, specifier)).startsWith('..')
+        )
+          faults.push(`${where}: imports ${specifier}`);
+      }
+    }
+
+    expect(
+      faults,
+      'A section _meta is cut into every release of the section. Write what ' +
+        'it needs into it.',
+    ).toEqual([]);
+  });
+});
+
+/**
+ * `v2`, `v0.2` and `next` are paths the generator writes a version into. A
+ * page or directory by that name in a written section is the same URL as a
+ * release line, and the static export keeps whichever file it wrote last.
+ */
+describe('a written package section', () => {
+  const RESERVED = /^(v\d+(\.\d+)?|next)$/;
+
+  it('names no page or directory a version is served at', () => {
+    const taken = readdirSync(NEXT, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((section) =>
+        readdirSync(join(NEXT, section.name))
+          .filter((name) => RESERVED.test(name.replace(/\.mdx?$/, '')))
+          .map((name) => `content/next/${section.name}/${name}`),
+      );
+
+    expect(taken).toEqual([]);
+  });
+
+  /**
+   * `unversioned` is what keeps a section out of the generator and its pages
+   * at `content/<slug>/`. Held to the directory both ways, so the flag goes
+   * when the section moves under `content/next/`, and a section cannot stop
+   * being versioned without saying why.
+   */
+  it('is marked unversioned exactly when it is written outside content/next/', async () => {
+    const navigation = await loadNavigation();
+
+    expect(
+      navigation
+        .filter((entry) => entry.documented)
+        .map((entry) => `${entry.slug} ${Boolean(entry.unversioned)}`),
+    ).toEqual(
+      navigation
+        .filter((entry) => entry.documented)
+        .map((entry) => `${entry.slug} ${!existsSync(join(NEXT, entry.slug))}`),
+    );
   });
 });

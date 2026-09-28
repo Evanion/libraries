@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages, sectionOf } from './docs-content';
 
 /**
  * G3 of `docs/specs/2026-09-25-documentation-standard.md` § 9 and § 14: no
@@ -44,7 +44,6 @@ import { describe, expect, it } from 'vitest';
  * change to the standard first.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
   'doc-fence-allowance.json',
@@ -99,14 +98,6 @@ const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
   number
 >;
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /**
  * The info string of every fence in one document.
  *
@@ -135,11 +126,6 @@ function fenceInfo(source: string): string[] {
   return info;
 }
 
-/** The section a page belongs to: the first segment under `content/`. */
-function sectionOf(page: string): string {
-  return relative(CONTENT, page).split(sep)[0] as string;
-}
-
 interface Tally {
   /** Fences with none of § 9's three cases. */
   unexplained: number;
@@ -149,11 +135,11 @@ interface Tally {
   abusable: number;
 }
 
-/** Every section under `content/`, with what its fences are. */
+/** Every written section, with what its fences are. */
 function tally(): Map<string, Tally> {
   const sections = new Map<string, Tally>();
 
-  for (const page of mdxFiles(CONTENT)) {
+  for (const page of authoredPages()) {
     const section = sectionOf(page);
     const held = sections.get(section) ?? {
       unexplained: 0,

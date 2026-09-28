@@ -1,8 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { readFileSync } from 'node:fs';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * No page states a fact as a figure of speech.
@@ -30,8 +29,6 @@ import { describe, expect, it } from 'vitest';
  * Prose only. A fence carries identifiers and comments of its own, a table cell
  * is not a sentence, and an import line is not prose.
  */
-
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 
 /** Refused, with what the sentence should state instead. */
 const FIGURES: readonly { pattern: RegExp; instead: string }[] = [
@@ -78,14 +75,6 @@ const FIGURES: readonly { pattern: RegExp; instead: string }[] = [
   },
 ];
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /** The page's prose: no fences, no tables, no import lines. */
 function prose(source: string): { line: number; text: string }[] {
   const lines = source.split('\n');
@@ -110,7 +99,7 @@ describe('documentation prose', () => {
   it('states a fact rather than a figure of speech', () => {
     const found: string[] = [];
 
-    for (const page of mdxFiles(CONTENT)) {
+    for (const page of authoredPages()) {
       const source = readFileSync(page, 'utf8');
       const relative = page.slice(workspaceRoot.length + 1);
 

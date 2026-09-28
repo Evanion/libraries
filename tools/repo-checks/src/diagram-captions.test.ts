@@ -1,8 +1,6 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { workspaceRoot } from '@nx/devkit';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * A diagram on the docs site is a figure, and a figure says what it shows.
@@ -17,23 +15,14 @@ import { describe, expect, it } from 'vitest';
  * Nothing in the build fails without one, which is why this does.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const FENCE = /^```mermaid([^\n]*)$/gm;
 const CAPTION = /(?:^|\s)caption="[^"]+"/;
-
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
 
 describe('docs diagrams', () => {
   it('every mermaid fence carries a caption', () => {
     const uncaptioned: string[] = [];
 
-    for (const page of mdxFiles(CONTENT)) {
+    for (const page of authoredPages()) {
       const source = readFileSync(page, 'utf8');
 
       for (const [, meta] of source.matchAll(FENCE)) {
