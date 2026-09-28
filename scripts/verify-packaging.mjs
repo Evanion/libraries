@@ -57,6 +57,27 @@ const LIBS = [
 const run = (cmd, args, cwd) =>
   execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' });
 
+/** Every file under `root`, at any depth, whose name matches `name`. */
+const emittedFiles = (root, name) =>
+  readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && name.test(entry.name))
+    .map((entry) => join(entry.parentPath, entry.name));
+
+/**
+ * The files among `files` that import one of `specifiers` or a subpath of it,
+ * relative to `root`.
+ */
+const importersOf = (files, root, specifiers) => {
+  const pattern = new RegExp(
+    `(?:from|import)\\s*["'](?:${specifiers.join('|')})(?:/[^"']*)?["']`,
+  );
+  return files
+    .filter((file) => pattern.test(readFileSync(file, 'utf8')))
+    .map((file) => file.slice(root.length + 1));
+};
+
+const FRAMEWORKS = ['react', 'astro', 'svelte', 'vue', 'solid-js'];
+
 const dir = mkdtempSync(join(tmpdir(), 'evanion-packaging-'));
 let failed = false;
 
@@ -567,32 +588,21 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     'widget',
     'dist',
   );
-  const widgetCoreModules = readdirSync(widgetCoreDist, {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
-    .map((entry) => join(entry.parentPath, entry.name));
+  const widgetCoreModules = emittedFiles(widgetCoreDist, /\.js$/);
 
   if (widgetCoreModules.length === 0) {
     throw new Error('@evanion/widget ships no modules at all');
   }
 
-  const frameworks = ['react', 'astro', 'svelte', 'vue', 'solid-js'];
-  const frameworkImporters = widgetCoreModules.filter((file) => {
-    const source = readFileSync(file, 'utf8');
-    return frameworks.some((framework) =>
-      new RegExp(`(?:from|import)\\s*["']${framework}(?:/[^"']*)?["']`).test(
-        source,
-      ),
-    );
-  });
+  const frameworkImporters = importersOf(
+    widgetCoreModules,
+    widgetCoreDist,
+    FRAMEWORKS,
+  );
   if (frameworkImporters.length) {
     throw new Error(
       '@evanion/widget imports a framework: ' +
-        frameworkImporters
-          .map((file) => file.slice(widgetCoreDist.length + 1))
-          .join(', ') +
+        frameworkImporters.join(', ') +
         '. The core is what every adapter shares, so nothing under it may import one.',
     );
   }
@@ -604,31 +614,21 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   // Same silent-breakage risk as the widget core, so the same check: every
   // emitted module is scanned for a framework import.
   const authzCoreDist = join(dir, 'node_modules', '@evanion', 'acl', 'dist');
-  const authzCoreModules = readdirSync(authzCoreDist, {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
-    .map((entry) => join(entry.parentPath, entry.name));
+  const authzCoreModules = emittedFiles(authzCoreDist, /\.js$/);
 
   if (authzCoreModules.length === 0) {
     throw new Error('@evanion/acl ships no modules at all');
   }
 
-  const authzFrameworkImporters = authzCoreModules.filter((file) => {
-    const source = readFileSync(file, 'utf8');
-    return ['react', 'astro', 'svelte', 'vue', 'solid-js'].some((framework) =>
-      new RegExp(`(?:from|import)\\s*["']${framework}(?:/[^"']*)?["']`).test(
-        source,
-      ),
-    );
-  });
+  const authzFrameworkImporters = importersOf(
+    authzCoreModules,
+    authzCoreDist,
+    FRAMEWORKS,
+  );
   if (authzFrameworkImporters.length) {
     throw new Error(
       '@evanion/acl imports a framework: ' +
-        authzFrameworkImporters
-          .map((file) => file.slice(authzCoreDist.length + 1))
-          .join(', ') +
+        authzFrameworkImporters.join(', ') +
         '. The core is what every runtime shares, so nothing under it may import one.',
     );
   }
@@ -739,35 +739,19 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   // enough: `dist/index.js` only re-exports, and a React import three files deep
   // would pass. Every core module is checked.
   const featureDist = join(dir, 'node_modules', '@evanion', 'feature', 'dist');
-  const coreModules = readdirSync(featureDist, {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        entry.name.endsWith('.js') &&
-        !join(entry.parentPath, entry.name).includes(
-          join(featureDist, 'react'),
-        ),
-    )
-    .map((entry) => join(entry.parentPath, entry.name));
+  const coreModules = emittedFiles(featureDist, /\.js$/).filter(
+    (file) => !file.includes(join(featureDist, 'react')),
+  );
 
   if (coreModules.length === 0) {
     throw new Error('@evanion/feature ships no core modules at all');
   }
 
-  const reactImporters = coreModules.filter((file) =>
-    /(?:from|import)\s*["']react(?:\/[^"']*)?["']/.test(
-      readFileSync(file, 'utf8'),
-    ),
-  );
+  const reactImporters = importersOf(coreModules, featureDist, ['react']);
   if (reactImporters.length) {
     throw new Error(
       '@evanion/feature core entry imports React: ' +
-        reactImporters
-          .map((file) => file.slice(featureDist.length + 1))
-          .join(', ') +
+        reactImporters.join(', ') +
         '. The core must be usable from the API and at build time, so nothing under it may import react.',
     );
   }
@@ -933,14 +917,9 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   // the import from the JavaScript, so the sabotage leaves the entry clean and
   // shows up as a second stylesheet in the output. One CSS file, and it is the
   // one the exports map names.
-  const baizeStylesheets = readdirSync(baizeDist, {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.css'))
-    .map((entry) =>
-      join(entry.parentPath, entry.name).slice(baizeDist.length + 1),
-    );
+  const baizeStylesheets = emittedFiles(baizeDist, /\.css$/).map((file) =>
+    file.slice(baizeDist.length + 1),
+  );
   if (baizeStylesheets.join() !== 'styles.css') {
     throw new Error(
       '@evanion/baize-ui ships stylesheets it does not export: ' +
@@ -1035,12 +1014,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
     const declared = 'tslib' in (manifest.dependencies ?? {});
 
-    const modules = readdirSync(join(root, 'dist'), {
-      recursive: true,
-      withFileTypes: true,
-    })
-      .filter((entry) => entry.isFile() && /\.(?:js|cjs|mjs)$/.test(entry.name))
-      .map((entry) => join(entry.parentPath, entry.name));
+    const modules = emittedFiles(join(root, 'dist'), /\.(?:js|cjs|mjs)$/);
 
     const importers = modules.filter((file) =>
       /(?:from|import|require\s*\()\s*["']tslib(?:\/[^"']*)?["']/.test(
