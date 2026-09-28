@@ -354,3 +354,26 @@ describe('what an entry point answers, over the freeze the store applies', () =>
     >();
   });
 });
+
+describe('what the compiler says about a misconfigured call', () => {
+  it('reports the call and leaves the definitions argument alone', (): void => {
+    // TypeScript elaborates every candidate while a call carries three
+    // overloads or fewer, and reports one candidate's failure against the
+    // argument nodes once a call carries more. A fourth signature moved the
+    // error for a misspelled option onto the definitions array, where it named
+    // `FeatureDefinition<never>` and sent the caller to the wrong argument.
+    // This directive sits on the options argument, so an error that moves onto
+    // the definitions fails the case twice: once unexpected there, once unused
+    // here.
+    const store = createFeatures(
+      [
+        { key: 'cta', enabled: true, dependsOn: ['nav'] },
+        { key: 'nav', enabled: true, description: 'the navigation bar' },
+      ] as const,
+      // @ts-expect-error the options object names a member the type does not declare
+      { observe: () => undefined, onObserveErrors: () => undefined },
+    );
+
+    expectTypeOf(store).not.toBeAny();
+  });
+});

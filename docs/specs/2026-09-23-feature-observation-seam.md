@@ -3,7 +3,8 @@
 Status: proposed
 Packages: `@evanion/feature`. One new optional parameter on `createFeatures`,
 four new exported types, one new internal module for the swallowed-failure
-warning. `@evanion/feature/react` changes in neither runtime nor types.
+warning. `@evanion/feature/react` runs the same code it ran before. Its types move in
+one narrow way, which § 4.3 records.
 Depends on: `docs/specs/2026-09-21-acl-enterprise-tooling.md` § 5, which
 designed this seam for `@evanion/acl` and settled the line that governs it.
 Depends on: `docs/specs/2026-09-11-feature-toggles.md` decision 5, which says
@@ -454,6 +455,21 @@ a `structuredClone` of the result added 58. So the clone is the wrong order of
 magnitude, as it was for `@evanion/acl`, and the freeze is comparable to the
 cheapest hook body anyone writes (a `JSON.stringify` of the same record added
 15 microseconds).
+
+The return types say which branch a store took. `Features` carries a second
+parameter, `Frozen`, and `resolve`, `plan` and `toggle` answer the deeply
+readonly form for a store that carries an observer and the mutable form for a
+store that carries none. Without that, `tsc` accepts a write into what
+`resolve` answered and the runtime throws on it, which is the same lie this
+section removed from the event payload.
+
+`@evanion/feature/react` moves with those return types, in types only. The
+`decisions` prop of both providers accepts the deeply readonly form as well as
+the mutable one, so the server-render handoff `react.mdx` documents compiles
+for a store that carries an observer. `createFeatureContext` and
+`FeatureContext` carry the same `Frozen` parameter, so the bound hooks answer
+what the store the factory was given answers. A component over a store built
+with no observer keeps the exact types it had before this seam.
 
 The freeze happens only when an observer is installed, and that is the one
 uncomfortable part of this section. An application that installs an observer

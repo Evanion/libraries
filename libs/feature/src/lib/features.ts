@@ -255,14 +255,21 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * against `keyof MyFlags`, so a configuration that names a feature the schema
  * does not declare is an error at the call.
  *
- * Each of those two forms is overloaded again on the options. A call that
- * passes an object literal holding `observe` answers a store whose `resolve`,
- * `plan` and `toggle` return the deeply readonly form, because such a store
- * freezes what it emits and answers with that same object. A call that passes
- * no observer answers the mutable form. A caller who holds the options in a
- * variable annotated `FeatureOptions<S>` installs an observer the compiler
- * cannot see, so that call takes the unobserved overload and the freeze still
- * happens at runtime.
+ * The options decide the return types. A call that passes an object literal
+ * holding `observe` answers a store whose `resolve`, `plan` and `toggle` return
+ * the deeply readonly form, because such a store freezes what it emits and
+ * answers with that same object. A call that passes no observer answers the
+ * mutable form. The inferring form reads that off the options type parameter
+ * `O`, and the form that names a schema takes one signature per case, because
+ * TypeScript infers no type argument once a caller supplies one and `O` would
+ * come from its default. A caller who holds the options in a variable annotated
+ * `FeatureOptions<S>` installs an observer the compiler cannot see, so that call
+ * answers the mutable form and the freeze still happens at runtime.
+ *
+ * The signature count stops at three. TypeScript elaborates every candidate for
+ * a failed call while a signature list holds three or fewer, and reports one
+ * candidate against the argument nodes once the list holds more, which put the
+ * error for a misspelled option on the definitions array.
  *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
@@ -283,18 +290,27 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * features.toggle('checkout', false).willDisable; // ['express-checkout']
  * ```
  */
-export function createFeatures<const D extends Definitions>(
-  definitions: D,
-  options: ObservedOptions<AsSchema<InferSchema<D>>>,
-): Features<AsSchema<InferSchema<D>>, true>;
 /**
- * The same store, built without an observer. Every entry point answers the
- * mutable form, because the store freezes nothing.
+ * `O` carries the options a caller wrote at the call site, and the return type
+ * reads `observe` off it. The `Record<Exclude<...>, never>` half of the
+ * constraint is what keeps a misspelled option an error: a type parameter
+ * inferred from an object literal takes the literal's own type, so the
+ * compiler runs no excess property check against the constraint's first half.
  */
-export function createFeatures<const D extends Definitions>(
+export function createFeatures<
+  const D extends Definitions,
+  O extends FeatureOptions<AsSchema<InferSchema<D>>> &
+    Record<
+      Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+      never
+    >,
+>(
   definitions: D,
-  options?: FeatureOptions<AsSchema<InferSchema<D>>>,
-): Features<AsSchema<InferSchema<D>>, false>;
+  options?: O,
+): Features<
+  AsSchema<InferSchema<D>>,
+  O extends { observe: object } ? true : false
+>;
 /**
  * Builds the store over a schema the caller names. Every definition's key is
  * checked against `keyof S`.
@@ -320,11 +336,11 @@ export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
   given: object = {},
 ): Features<Record<FeatureKey, VariantInfo>, boolean> {
-  // The four signatures above are what a caller sees, and this one is checked
+  // The three signatures above are what a caller sees, and this one is checked
   // against each of them with its type parameters erased. An erased
-  // `ObservedOptions<AsSchema<InferSchema<D>>>` relates to no options type
-  // that declares `observe`, so this parameter declares none and the body
-  // reads the options at the erased schema.
+  // `ObservedOptions<S>` relates to no options type that declares `observe`,
+  // so this parameter declares none and the body reads the options at the
+  // erased schema.
   const options = given as FeatureOptions<Record<FeatureKey, VariantInfo>>;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was

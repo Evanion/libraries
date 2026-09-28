@@ -16,7 +16,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
 import type { Features } from '../lib/features.js';
-import type { DeepReadonly } from '../lib/observe.js';
+import type { DeepReadonly, FrozenWhenObserved } from '../lib/observe.js';
 import type {
   Decision,
   Decisions,
@@ -221,15 +221,21 @@ export type BoundVariant<
  *
  * Each hook names `keyof S`, so a misspelled key is a compile error and the
  * variant a reader switches on is the union that store declares.
+ *
+ * `Frozen` carries the store's own answer. A store built with no observer
+ * freezes nothing and its hooks answer the mutable decisions, a store built
+ * with one answers the deeply readonly form, and a store whose observation the
+ * compiler cannot settle answers the union of the two.
  */
 export interface FeatureContext<
   S extends Record<keyof S, VariantInfo | never>,
+  Frozen extends boolean = boolean,
 > {
   FeatureProvider(props: BoundFeatureProviderProps<S>): ReactElement;
-  useFeatures(): Decisions<S> | DeepReadonly<Decisions<S>>;
+  useFeatures(): FrozenWhenObserved<Frozen, Decisions<S>>;
   useFeature<K extends keyof S & FeatureKey>(
     key: K,
-  ): Decisions<S>[K] | DeepReadonly<Decisions<S>[K]>;
+  ): FrozenWhenObserved<Frozen, Decisions<S>[K]>;
   useFeatureEnabled<K extends keyof S & FeatureKey>(key: K): boolean;
   useVariant<K extends keyof S & FeatureKey>(key: K): BoundVariant<S, K>;
 }
@@ -242,14 +248,17 @@ export interface FeatureContext<
  * written by exactly one component, whose props type every entry as one of the
  * two forms of `Decisions<S>`.
  *
- * The answer keeps both forms. A provider fed by a store carrying an observer
- * publishes frozen decisions, and a hook promising the mutable form alone would
- * let a component write a field the runtime refuses.
+ * The answer follows the store. A provider fed by a store carrying an observer
+ * publishes frozen decisions, and a hook promising the mutable form there would
+ * let a component write a field the runtime refuses. The compiler resolves
+ * neither branch of `FrozenWhenObserved` while `Frozen` is a parameter, so the
+ * cast states the answer the two branches share.
  */
-function atSchema<S extends Record<keyof S, VariantInfo | never>>(
-  decisions: AnyDecisions,
-): Decisions<S> | DeepReadonly<Decisions<S>> {
-  return decisions as Decisions<S>;
+function atSchema<
+  S extends Record<keyof S, VariantInfo | never>,
+  Frozen extends boolean,
+>(decisions: AnyDecisions): FrozenWhenObserved<Frozen, Decisions<S>> {
+  return decisions as unknown as FrozenWhenObserved<Frozen, Decisions<S>>;
 }
 
 /**
@@ -262,11 +271,15 @@ function atSchema<S extends Record<keyof S, VariantInfo | never>>(
 function decisionAtSchema<
   S extends Record<keyof S, VariantInfo | never>,
   K extends keyof S & FeatureKey,
+  Frozen extends boolean,
 >(
   decisions: AnyDecisions,
   key: K,
-): Decisions<S>[K] | DeepReadonly<Decisions<S>[K]> {
-  return (decisions as Decisions<S>)[key];
+): FrozenWhenObserved<Frozen, Decisions<S>[K]> {
+  return (decisions as Decisions<S>)[key] as unknown as FrozenWhenObserved<
+    Frozen,
+    Decisions<S>[K]
+  >;
 }
 
 /**
@@ -313,7 +326,8 @@ function decisionAtSchema<
  */
 export function createFeatureContext<
   S extends Record<keyof S, VariantInfo | never>,
->(features: Features<S>): FeatureContext<S> {
+  Frozen extends boolean = boolean,
+>(features: Features<S, Frozen>): FeatureContext<S, Frozen> {
   const BoundContext = createContext<FeatureContextValue | null>(null);
 
   return {
@@ -334,12 +348,12 @@ export function createFeatureContext<
       );
     },
     useFeatures() {
-      return atSchema<S>(useContextValue(BoundContext).decisions);
+      return atSchema<S, Frozen>(useContextValue(BoundContext).decisions);
     },
     useFeature(key) {
       const decisions = useContextValue(BoundContext).decisions;
       requireDecision(decisions, key);
-      return decisionAtSchema<S, typeof key>(decisions, key);
+      return decisionAtSchema<S, typeof key, Frozen>(decisions, key);
     },
     useFeatureEnabled(key) {
       return requireDecision(useContextValue(BoundContext).decisions, key)

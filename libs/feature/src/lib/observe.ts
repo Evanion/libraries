@@ -154,11 +154,13 @@ export interface FeatureOptions<
  *
  * `FeatureOptions` declares `observe` optionally, so an argument carrying one
  * and an argument carrying none have the same type there. This form requires
- * the member, and `createFeatures` overloads on it: a call that installs an
- * observer answers a store whose entry points return the frozen form, and a
- * call that installs none answers a store whose entry points return the
- * mutable form. A variable annotated `FeatureOptions<S>` carries an observer
- * the compiler cannot see, and such a call takes the unobserved overload.
+ * the member, and the two signatures of `createFeatures` that name a schema
+ * split on it: a call that installs an observer answers a store whose entry
+ * points return the frozen form, and a call that installs none answers a store
+ * whose entry points return the mutable form. The inferring signature reads the
+ * same distinction off its options type parameter and needs no such pair. A
+ * variable annotated `FeatureOptions<S>` carries an observer the compiler cannot
+ * see, and such a call answers the mutable form.
  */
 export interface ObservedOptions<
   S extends Record<keyof S, VariantInfo | never> = Record<
