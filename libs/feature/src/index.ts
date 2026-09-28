@@ -24,7 +24,12 @@ export {
   UnknownVariantError,
 } from './lib/errors.js';
 
-export type { FeatureEvent, FeatureOptions } from './lib/observe.js';
+export type {
+  DeepReadonly,
+  FeatureEvent,
+  FeatureOptions,
+  ReadonlyDate,
+} from './lib/observe.js';
 
 export type {
   AttributeCondition,

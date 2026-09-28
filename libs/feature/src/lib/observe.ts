@@ -2,8 +2,8 @@ import type {
   Decisions,
   FeatureKey,
   Plan,
-  Schema,
   ToggleResult,
+  VariantInfo,
 } from './types.js';
 
 /**
@@ -50,7 +50,12 @@ export type DeepReadonly<T> = T extends Date
  * call settled on, the value it returned, and a subject identifier copied out
  * as a primitive.
  */
-export type FeatureEvent<S extends Schema = Schema> =
+export type FeatureEvent<
+  S extends Record<keyof S, VariantInfo | never> = Record<
+    FeatureKey,
+    VariantInfo | never
+  >,
+> =
   | {
       readonly type: 'resolve';
       readonly at: ReadonlyDate;
@@ -59,17 +64,26 @@ export type FeatureEvent<S extends Schema = Schema> =
       readonly version?: string;
     }
   | {
-      readonly type: 'is-enabled';
-      readonly at: ReadonlyDate;
-      readonly key: keyof S & FeatureKey;
       /**
-       * The one decision the caller's key resolved to, narrowed by the schema
-       * exactly as the matching member of a `resolve` event's `decisions` is.
+       * The mapped type distributes over the schema's keys and the union closes
+       * over the members it produces, so one member pairs `key: 'cta'` with the
+       * decision `'cta'` resolves to. A flat object typing `key` as the union of
+       * every key and `decision` as the union of every decision lets a consumer
+       * who narrows on `key` read a decision belonging to another feature.
        */
-      readonly decision: DeepReadonly<Decisions<S>[keyof S & FeatureKey]>;
-      readonly subject?: string | number;
-      readonly version?: string;
-    }
+      [K in keyof S & FeatureKey]: {
+        readonly type: 'is-enabled';
+        readonly at: ReadonlyDate;
+        readonly key: K;
+        /**
+         * The one decision the caller's key resolved to, narrowed by the schema
+         * exactly as the matching member of a `resolve` event's `decisions` is.
+         */
+        readonly decision: DeepReadonly<Decisions<S>[K]>;
+        readonly subject?: string | number;
+        readonly version?: string;
+      };
+    }[keyof S & FeatureKey]
   | {
       readonly type: 'plan';
       readonly at: ReadonlyDate;
@@ -86,7 +100,12 @@ export type FeatureEvent<S extends Schema = Schema> =
     };
 
 /** What an application installs at construction. */
-export interface FeatureOptions<S extends Schema = Schema> {
+export interface FeatureOptions<
+  S extends Record<keyof S, VariantInfo | never> = Record<
+    FeatureKey,
+    VariantInfo | never
+  >,
+> {
   /**
    * Called once per public entry point call. The engine never awaits it.
    *
