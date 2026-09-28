@@ -155,12 +155,17 @@ describe('createEmitter', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('warns once when a transport fails with varying message text', () => {
+  it('warns once per distinct failure message when no handler is supplied', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const messages = [
+      'connection refused',
+      'connection refused',
+      'payload too large',
+    ];
     let call = 0;
     const emit = createEmitter({
       observe: () => {
-        throw new Error(`connection reset, request ${call++}`);
+        throw new Error(messages[call++]);
       },
     });
 
@@ -168,7 +173,37 @@ describe('createEmitter', () => {
     emit(event);
     emit(event);
 
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0]?.[1]).toEqual(new Error('connection refused'));
+    expect(warn.mock.calls[1]?.[1]).toEqual(new Error('payload too large'));
+  });
+
+  it('warns and leaves no unhandled rejection when onObserveError rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', record);
+    const emit = createEmitter({
+      observe: () => {
+        throw new Error('transport down');
+      },
+      onObserveError: async () => {
+        await Promise.resolve();
+        throw new Error('audit post failed');
+      },
+    });
+
+    expect(() => emit(event)).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off('unhandledRejection', record);
+
+    expect(unhandled).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain('onObserveError threw');
+    expect(warn.mock.calls[0]?.[1]).toEqual(new Error('audit post failed'));
+    expect(warn.mock.calls[0]?.[2]).toEqual(new Error('transport down'));
   });
 
   it('swallows an error that has no primitive conversion', () => {
