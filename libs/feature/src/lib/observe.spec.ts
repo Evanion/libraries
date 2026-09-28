@@ -609,10 +609,16 @@ describe('plan and toggle', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe });
 
-    features.plan({ targetingKey: 'u1' });
+    const partition = features.plan({ targetingKey: 'u1' });
+    const event = observe.mock.calls[0]?.[0];
 
+    // The event names the partition the caller received. An event that
+    // announces a plan and carries none passes a check on `type` alone, and an
+    // auditor reading the event stream sees nothing wrong.
     expect(observe).toHaveBeenCalledTimes(1);
-    expect(observe.mock.calls[0]?.[0].type).toBe('plan');
+    expect(event.type).toBe('plan');
+    expect(event.plan).toBe(partition);
+    expect(Object.keys(event.plan)).toEqual(['parent', 'child']);
   });
 
   it('emits one toggle event and nothing from its two resolutions', () => {
@@ -694,9 +700,11 @@ describe('what an observer cannot change', () => {
 
   it('leaves willDisable alone when an observer writes to the result it received', () => {
     const onObserveError = vi.fn();
+    let seen: readonly string[] | undefined;
     const features = createFeatures(defs, {
       observe: (observed) => {
         if (observed.type !== 'toggle' || !observed.result.ok) return;
+        seen = observed.result.willDisable;
         // The cast is the JavaScript observer. A TypeScript observer cannot
         // write here, because the event declares the list readonly.
         (observed.result.willDisable as string[]).push('ghost');
@@ -706,6 +714,10 @@ describe('what an observer cannot change', () => {
 
     const result = features.toggle('parent', false, { targetingKey: 'u1' });
 
+    // An event that carried no list would throw a TypeError on the push and
+    // leave the caller's list untouched, which the two assertions below accept.
+    // This one says the observer read the list the engine computed.
+    expect(seen).toEqual(['child']);
     // The list an operator reads before pulling a kill switch. The write above
     // reaches a frozen array and throws, and the caller receives what the
     // engine computed.
@@ -716,12 +728,14 @@ describe('what an observer cannot change', () => {
 
   it('refuses a write through a Date the store still holds', () => {
     const onObserveError = vi.fn();
+    let seen: { until: Date } | undefined;
     const features = createFeatures(valued, {
       observe: (observed) => {
         if (observed.type !== 'resolve') return;
         const value = observed.decisions.banner.value as unknown as {
           until: Date;
         };
+        seen = value;
         value.until.setTime(0);
       },
       onObserveError,
@@ -735,6 +749,10 @@ describe('what an observer cannot change', () => {
       until: Date;
     };
 
+    // An event carrying no `value` throws a TypeError on the read below it and
+    // leaves the store alone, which the two assertions after this one accept.
+    // This one says the decision carried the variant's value.
+    expect(seen?.until.getTime()).toBe(1000);
     expect(held.until.getTime()).toBe(1000);
     expect(onObserveError).toHaveBeenCalledTimes(1);
     expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
@@ -742,10 +760,12 @@ describe('what an observer cannot change', () => {
 
   it('refuses a write through a Map the store still holds', () => {
     const onObserveError = vi.fn();
+    let seen: { copy: Map<string, string> } | undefined;
     const features = createFeatures(valued, {
       observe: (observed) => {
         if (observed.type !== 'is-enabled') return;
         const value = observed.decision.value as { copy: Map<string, string> };
+        seen = value;
         value.copy.set('title', 'Bye');
       },
       onObserveError,
@@ -757,6 +777,10 @@ describe('what an observer cannot change', () => {
       copy: Map<string, string>;
     };
 
+    // An event carrying no `value` throws a TypeError on the read below it and
+    // leaves the store alone, which the two assertions after this one accept.
+    // This one says the decision carried the variant's value.
+    expect(seen?.copy.get('title')).toBe('Hi');
     expect(held.copy.get('title')).toBe('Hi');
     expect(onObserveError).toHaveBeenCalledTimes(1);
     expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
