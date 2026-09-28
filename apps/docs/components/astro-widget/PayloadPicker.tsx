@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { JsonHighlight } from '../JsonHighlight';
 import type { Render } from './renders';
+import '../demo.css';
 import './astro-demo.css';
 
 /** A value as the README region would print it, indented. */
@@ -49,9 +50,9 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
   if (payload === undefined) return null;
 
   return (
-    <div className="astro-demo">
+    <div className="demo astro-demo">
       <fieldset className="astro-demo__picker">
-        <legend className="astro-demo__legend">List</legend>
+        <legend className="demo__legend">List</legend>
         {payloads.map((each, index) => (
           <label key={each.region} className="astro-demo__option">
             <input
@@ -66,34 +67,34 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
         ))}
       </fieldset>
 
-      <div className="astro-demo__panes">
-        <section className="astro-demo__pane">
-          <h4 className="astro-demo__head">
+      <div className="demo__panes">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>items</code>
           </h4>
-          <pre className="astro-demo__code">
+          <pre className="demo__code">
             <code>
               <JsonHighlight text={json(payload.items)} />
             </code>
           </pre>
-          <h4 className="astro-demo__head">
+          <h4 className="demo__pane-head">
             <code>known</code>
           </h4>
           {payload.registry ? (
-            <p className="astro-demo__hint">
+            <p className="demo__note">
               The registry from <code>examples/src/registry.ts</code>.{' '}
               <code>validateItems</code> reads its keys:
             </p>
           ) : null}
-          <pre className="astro-demo__code">
+          <pre className="demo__code">
             <code>
               <JsonHighlight text={json(payload.known)} />
             </code>
           </pre>
-          <h4 className="astro-demo__head">
+          <h4 className="demo__pane-head">
             <code>required</code>
           </h4>
-          <pre className="astro-demo__code">
+          <pre className="demo__code">
             <code>
               {payload.required === null ? (
                 'not passed'
@@ -104,8 +105,8 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
           </pre>
         </section>
 
-        <section className="astro-demo__pane">
-          <h4 className="astro-demo__head">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>
               {payload.required === null
                 ? 'validateItems(items, known)'
@@ -113,11 +114,11 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
             </code>
           </h4>
           {payload.problems.length === 0 ? (
-            <p className="astro-demo__clean">
+            <p className="demo__note">
               <code>[]</code>, no problems. A build gate lets this through.
             </p>
           ) : (
-            <table className="astro-demo__table">
+            <table className="demo__table">
               <thead>
                 <tr>
                   <th scope="col">index</th>
@@ -140,11 +141,11 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
           )}
         </section>
 
-        <section className="astro-demo__pane astro-demo__pane--wide">
-          <h4 className="astro-demo__head">
+        <section className="demo__pane astro-demo__pane--wide">
+          <h4 className="demo__pane-head">
             <code>{'<Widgets items={items} registry={registry} />'}</code>
           </h4>
-          <p className="astro-demo__hint">
+          <p className="demo__note">
             {payload.registry ? (
               'The same registry.'
             ) : (
@@ -156,7 +157,7 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
             )}
           </p>
           {payload.html === '' ? (
-            <p className="astro-demo__clean">Astro rendered nothing.</p>
+            <p className="demo__note">Astro rendered nothing.</p>
           ) : (
             <>
               <iframe
@@ -165,16 +166,16 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
                 srcDoc={frame(payload.html)}
                 sandbox=""
               />
-              <pre className="astro-demo__code">
+              <pre className="demo__code">
                 <code>{payload.html}</code>
               </pre>
             </>
           )}
-          <h4 className="astro-demo__head">
+          <h4 className="demo__pane-head">
             <code>console.warn</code> under <code>astro dev</code>
           </h4>
           {payload.warnings.length === 0 ? (
-            <p className="astro-demo__clean">Nothing.</p>
+            <p className="demo__note">Nothing.</p>
           ) : (
             <ul className="astro-demo__warnings">
               {payload.warnings.map((warning) => (

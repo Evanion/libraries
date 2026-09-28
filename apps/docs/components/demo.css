@@ -1,0 +1,95 @@
+/*
+ * The figure a demonstration on a teaching page draws: a band of controls above
+ * panes that hold what the package returned.
+ *
+ * A demonstration puts `demo` and its own block class on the root, and its own
+ * stylesheet holds the controls and scopes what differs under that block class.
+ * The colours are the baize tokens the docs app rebinds per theme in
+ * `app/global.css`, and `--baize-hue` is the section's, bound on the page
+ * wrapper.
+ */
+
+.demo {
+  display: grid;
+  gap: var(--baize-space-4);
+  margin: var(--baize-space-5) 0;
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-button);
+  background: var(--baize-felt);
+  font-size: var(--baize-text-sm);
+}
+
+.demo__legend {
+  padding: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  text-transform: lowercase;
+}
+
+.demo__code {
+  margin: 0;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  overflow-x: auto;
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.demo__panes {
+  display: grid;
+  gap: var(--baize-space-3);
+}
+
+.demo__pane {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  padding: var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-chip);
+  background: var(--baize-ink);
+}
+
+.demo__pane-head {
+  margin: 0;
+  color: var(--baize-moss);
+  font-size: var(--baize-text-xs);
+  font-weight: 400;
+  letter-spacing: var(--baize-tracking-loose);
+}
+
+.demo__note {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  line-height: 1.5;
+}
+
+.demo__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--baize-text-xs);
+}
+
+.demo__table th,
+.demo__table td {
+  padding: 2px var(--baize-space-2) 2px 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+}
+
+.demo__table thead th {
+  color: var(--baize-moss);
+  border-bottom: 1px solid var(--baize-rule);
+}
+
+.demo__table td {
+  color: var(--baize-chalk);
+}
