@@ -467,7 +467,12 @@ export function createFeatures(
   return {
     keys,
     get config() {
-      return config as readonly FeatureDefinition<FeatureKey>[];
+      // A frozen copy. `deepFreeze` runs on each definition and never on the
+      // array around them, and `toggle` writes one slot of that array, so the
+      // array itself stays writable. A caller that pushed onto the held array,
+      // truncated it or replaced a slot would change what `definition`,
+      // `resolve`, `plan` and `toggle` read for the rest of the process.
+      return Object.freeze([...config]);
     },
     definition: definitionOf,
     dependants: graph.dependants,
