@@ -1050,6 +1050,7 @@ describe('what an observer can reach from plan and toggle', () => {
   });
 
   it('lets no observer change what a later call answers', () => {
+    let refused = false;
     const features = createFeatures(
       [
         { key: 'parent', enabled: true },
@@ -1061,15 +1062,22 @@ describe('what an observer can reach from plan and toggle', () => {
           try {
             (event.decisions.parent as { enabled: boolean }).enabled = false;
           } catch {
-            // a frozen object refuses in strict mode, which is what we want
+            refused = true;
           }
         },
       },
     );
 
-    features.resolve({ targetingKey: 'u1' });
+    const first = features.resolve({ targetingKey: 'u1' });
     const second = features.resolve({ targetingKey: 'u1' });
 
+    // `resolveAll` builds a fresh record per call and reads no prior decision,
+    // so the second call answers `true` whether or not the freeze holds. The
+    // first two assertions are the ones the freeze can fail: a frozen object
+    // refuses the write in strict mode, and the record the caller holds keeps
+    // the value the engine computed.
+    expect(refused).toBe(true);
+    expect(first.parent.enabled).toBe(true);
     expect(second.child.enabled).toBe(true);
   });
 

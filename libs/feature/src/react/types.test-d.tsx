@@ -90,6 +90,13 @@ describe('the provider', () => {
     expectTypeOf(element).toEqualTypeOf<ReactElement>();
   });
 
+  it('binds hooks that answer what an observed store resolves', () => {
+    const bound = createFeatureContext(observed);
+    const decisions = observed.resolve({ targetingKey: 'u1' });
+
+    expectTypeOf(bound.useFeatures()).toEqualTypeOf<typeof decisions>();
+  });
+
   it('takes them on the bound provider too', () => {
     const bound = createFeatureContext(observed);
     const decisions = observed.resolve({ targetingKey: 'u1' });
@@ -98,5 +105,23 @@ describe('the provider', () => {
     );
 
     expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+});
+
+describe('the bound hooks over a store with no observer', () => {
+  it('answer the mutable decisions the store resolves', () => {
+    const bound = createFeatureContext(features);
+    const resolved = features.resolve({ targetingKey: 'u1' });
+
+    expectTypeOf(bound.useFeatures()).toEqualTypeOf<typeof resolved>();
+  });
+
+  it('answer the mutable decision for one key', () => {
+    const bound = createFeatureContext(features);
+    const resolved = features.resolve({ targetingKey: 'u1' });
+
+    expectTypeOf(bound.useFeature('cta')).toEqualTypeOf<
+      (typeof resolved)['cta']
+    >();
   });
 });
