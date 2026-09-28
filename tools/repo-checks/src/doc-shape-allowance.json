@@ -63,35 +63,5 @@
   "feature/variants.mdx": {
     "lede": 60,
     "firstSymbol": 64
-  },
-  "nestjs-correlation-id/configuration.mdx": {
-    "run": 9
-  },
-  "nestjs-correlation-id/index.mdx": {
-    "firstFence": 9
-  },
-  "react-acl/api.mdx": {
-    "lede": 52
-  },
-  "react-widget/playground.mdx": {
-    "run": 9,
-    "firstFence": 21
-  },
-  "testing/coverage.mdx": {
-    "lede": 67,
-    "run": 9,
-    "firstFence": 13,
-    "firstSymbol": 284
-  },
-  "testing/index.mdx": {
-    "lede": 143,
-    "run": 11,
-    "firstSymbol": 62
-  },
-  "token/usage.mdx": {
-    "run": 9
-  },
-  "widget/index.mdx": {
-    "lede": 41
   }
 }
