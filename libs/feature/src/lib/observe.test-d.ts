@@ -1,6 +1,15 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import { createFeatures } from './features.js';
-import type { FeatureEvent } from './observe.js';
+import type {
+  DeepReadonly as EntryDeepReadonly,
+  ReadonlyDate as EntryReadonlyDate,
+} from '../index.js';
+import type {
+  DeepReadonly,
+  FeatureEvent,
+  FeatureOptions,
+  ReadonlyDate,
+} from './observe.js';
 
 const defs = [
   {
@@ -121,5 +130,111 @@ describe('FeatureEvent, refusing a write', () => {
     };
 
     expectTypeOf(write).toBeFunction();
+  });
+});
+
+interface InterfaceFlags {
+  cta: { variant: 'control' | 'blue'; value: { label: string } };
+  banner: { variant: 'off' | 'on' };
+}
+
+describe('FeatureEvent and FeatureOptions, over a schema written as an interface', () => {
+  it('names both types over an interface the consumer hand-wrote', () => {
+    const observe = (event: FeatureEvent<InterfaceFlags>): void => {
+      if (event.type === 'is-enabled') expectTypeOf(event.key).not.toBeNever();
+    };
+    const options: FeatureOptions<InterfaceFlags> = { observe };
+
+    expectTypeOf(options.observe).toEqualTypeOf<
+      | ((event: FeatureEvent<InterfaceFlags>) => void | Promise<unknown>)
+      | undefined
+    >();
+  });
+});
+
+describe('FeatureEvent, pairing an is-enabled key with its own decision', () => {
+  it('narrows the decision when the consumer narrows the key', () => {
+    const read = (
+      event: Extract<FeatureEvent<InterfaceFlags>, { type: 'is-enabled' }>,
+    ) => {
+      if (event.key === 'cta') {
+        expectTypeOf(event.decision.variant).toEqualTypeOf<
+          'control' | 'blue' | undefined
+        >();
+        expectTypeOf(event.decision.value).toEqualTypeOf<
+          { readonly label: string } | undefined
+        >();
+        return;
+      }
+
+      expectTypeOf(event.key).toEqualTypeOf<'banner'>();
+      expectTypeOf(event.decision.variant).toEqualTypeOf<
+        'off' | 'on' | undefined
+      >();
+    };
+
+    expectTypeOf(read).toBeFunction();
+  });
+
+  it('refuses a decision belonging to another feature', () => {
+    const banner = {
+      type: 'is-enabled',
+      at: new Date(),
+      key: 'banner',
+      decision: {
+        key: 'banner',
+        enabled: true,
+        reason: 'default',
+        variant: 'on',
+      },
+    } as const;
+
+    // @ts-expect-error the cta key never pairs with the banner decision
+    const mismatched: Extract<
+      FeatureEvent<InterfaceFlags>,
+      { type: 'is-enabled' }
+    > = {
+      ...banner,
+      key: 'cta',
+    };
+
+    expectTypeOf(mismatched).not.toBeNever();
+  });
+});
+
+describe('the observer the inferring overload installs', () => {
+  it('types the event against the schema createFeatures inferred from defs', () => {
+    createFeatures(defs, {
+      observe: (event) => {
+        if (event.type !== 'is-enabled') return;
+
+        expectTypeOf(event.key).toEqualTypeOf<'cta'>();
+        expectTypeOf(event.decision.variant).toEqualTypeOf<
+          'control' | 'blue' | undefined
+        >();
+      },
+    });
+  });
+
+  it('types the error reporter against the same schema', () => {
+    createFeatures(defs, {
+      onObserveError: (_error, event) => {
+        expectTypeOf(event.type).toEqualTypeOf<
+          'resolve' | 'is-enabled' | 'plan' | 'toggle'
+        >();
+      },
+    });
+  });
+});
+
+describe('the package entry, over the types a FeatureEvent member is typed with', () => {
+  it('exports the instant type an event carries', () => {
+    expectTypeOf<EntryReadonlyDate>().toEqualTypeOf<ReadonlyDate>();
+  });
+
+  it('exports the readonly mapping every payload runs through', () => {
+    expectTypeOf<EntryDeepReadonly<{ a: { b: number } }>>().toEqualTypeOf<
+      DeepReadonly<{ a: { b: number } }>
+    >();
   });
 });
