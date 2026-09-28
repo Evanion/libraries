@@ -178,7 +178,7 @@ export const INERT_COLOURS = [
   // by `look: neo` and the state diagram.
   '#000000',
   // The drop shadow under a `look: neo` node. Every rule carrying it is behind
-  // `[data-look="neo"]`, and `Diagram.tsx` pins the look to `classic`.
+  // `[data-look="neo"]`, and `config.ts` pins the look to `classic`.
   'rgba(185,185,185,1)',
 ] as const;
 

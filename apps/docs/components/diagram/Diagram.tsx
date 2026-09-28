@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { bindPalette, diagramThemeCss, diagramThemeVariables } from './palette';
+import { diagramConfig } from './config';
+import { bindPalette } from './palette';
 
 /**
  * A Mermaid diagram, drawn in the site's own colours.
@@ -67,28 +68,7 @@ export default function Diagram({ chart, caption }: DiagramProps) {
       try {
         const { default: mermaid } = await import('mermaid');
 
-        mermaid.initialize({
-          startOnLoad: false,
-          // The charts come from the repo's own content. `loose` is what would
-          // let a label carry raw HTML and a click handler, and nothing here
-          // needs either.
-          securityLevel: 'strict',
-          theme: 'base',
-          // Mermaid's other looks draw a gradient stroke and a grey drop
-          // shadow that no theme variable reaches, so they would be the one
-          // place its own palette survives.
-          look: 'classic',
-          themeVariables: diagramThemeVariables,
-          themeCSS: diagramThemeCss,
-          flowchart: {
-            // With this on, Mermaid pins the SVG to the container's width, and
-            // a diagram wider than a phone is scaled down until its labels are
-            // a few pixels tall. Off, the SVG keeps the size its text needs and
-            // the frame around it scrolls.
-            useMaxWidth: false,
-            htmlLabels: true,
-          },
-        });
+        mermaid.initialize(diagramConfig);
 
         const { svg: rendered } = await mermaid.render(id, chart);
         if (live) setSvg(bindPalette(rendered));
