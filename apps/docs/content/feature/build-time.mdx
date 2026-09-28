@@ -17,11 +17,15 @@ as `resolve` does.
 ## A plan entry
 
 ```ts
-interface PlanEntry<F> {
+interface PlanEntry<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   resolved: boolean | 'deferred';
   needs: readonly string[]; // sorted; empty unless deferred
-  decision?: Decision<F>; // present when `resolved` is a boolean, and sometimes when it is not
+  decision?: Decision<F, V, T>; // present when `resolved` is a boolean, and sometimes when it is not
 }
 ```
 

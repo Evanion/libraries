@@ -597,7 +597,7 @@ import {
   useVariant,
 } from '@evanion/feature/react';
 
-const features = createFeatures(config);
+const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
 const context = { targetingKey: user.id, now: new Date() };
 
 <FeatureProvider features={features} context={context}>
@@ -617,23 +617,42 @@ function Checkout() {
 - `useFeatureEnabled(key)` -- the boolean.
 - `useVariant(key)` -- `{ variant?, value? }`, read off the same decision.
   Throws for the same unconfigured key `useFeature` does.
+- `createFeatureContext(features)` -- the provider and the same four hooks, bound
+  to one store's schema. Each bound hook names `keyof S`, so a misspelled key is
+  a compile error and `useVariant` answers the variant union that store declares.
 
 Resolution is memoised on the `context` object's identity, so keep that
 reference stable. Pass `decisions` to hand the provider results resolved
 elsewhere -- a server render, or a `plan()` snapshot.
 
-## Typed keys
+## Typing the keys and the variants
+
+A store built from an array literal needs no type argument. `createFeatures`
+reads the keys, the variant names and each variant's value off the literal, so a
+typo is a compile error and not an `undefined` at runtime.
+
+Name a schema when the configuration arrives as JSON, or from a variable typed
+`FeatureDefinition<Flag>[]`, because a value with no literals in it carries
+nothing for the compiler to read. An entry is `never` for a feature that declares
+no variants, and that feature's decision then carries no `variant` key and no
+`value` key.
 
 ```ts
-type Flag = 'new-checkout' | 'express-pickup';
-const features = createFeatures<Flag>(config);
+interface Flags {
+  'new-checkout': never;
+  'express-pickup': { variant: 'control' | 'blue'; value: never };
+}
+
+const features = createFeatures<Flags>(config);
 
 features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
-features.isEnabled('express-delivery'); // compile error: not a Flag
+features.variantOf('express-pickup'); // 'control' | 'blue' | undefined
+features.isEnabled('express-delivery'); // compile error: not a key of Flags
 ```
 
-Passing a literal key union makes the decision record exact, so a typo is a
-compile error instead of an `undefined` at runtime.
+`createFeatures<Flags>(config)` checks every definition's key against
+`keyof Flags`, so a definition naming a feature `Flags` does not declare is a
+compile error at the call.
 
 ## API
 
@@ -642,6 +661,8 @@ compile error instead of an `undefined` at runtime.
 | `createFeatures(definitions)`                                                                | Builds the store. Validates the graph.                             |
 | `.resolve(context?)`                                                                         | A decision per feature.                                            |
 | `.isEnabled(key, context?)`                                                                  | One boolean.                                                       |
+| `.variantOf(key, context?)`                                                                  | The assigned variant, at the type the schema declares.             |
+| `.valueOf(key, context?)`                                                                    | That variant's configured value.                                   |
 | `.plan(context?)`                                                                            | Build-time partition.                                              |
 | `.toggle(key, enabled, context?)`                                                            | Writes intent, reports `willDisable`.                              |
 | `.config`                                                                                    | The stored intent, deeply frozen.                                  |

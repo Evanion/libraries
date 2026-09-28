@@ -32,7 +32,11 @@ questions.
 ## A decision
 
 ```ts
-interface Decision<F> {
+interface Decision<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   enabled: boolean;
   reason: Reason;
@@ -40,8 +44,8 @@ interface Decision<F> {
   rules?: RuleOutcome[]; // the per-rule breakdown, on 'no-rule-matched'
   blockedBy?: F; // the immediate parent, on 'dependency-off'
   cause?: Cause<F>; // the first ancestor off for its own reason
-  variant?: string; // the assigned variant, on a feature that resolved on and declares variants
-  value?: unknown; // the assigned variant's configured value, when it declares one
+  variant?: V; // the assigned variant, on a feature that resolved on and declares variants
+  value?: T; // the assigned variant's configured value, when it declares one
   assignment?: {
     source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
     by: string;
