@@ -13,6 +13,7 @@ import {
   type Proposal,
   type Status,
 } from './field-write';
+import '../demo.css';
 import './acl-demo.css';
 
 /** One line of JSON, indented, for a pane that shows an object. */
@@ -116,10 +117,10 @@ export default function FieldWriteDemo() {
   }
 
   return (
-    <div className="acl-demo">
+    <div className="demo acl-demo">
       <div className="acl-demo__controls">
         <fieldset className="acl-demo__group">
-          <legend className="acl-demo__legend">Signed in as</legend>
+          <legend className="demo__legend">Signed in as</legend>
           <div className="acl-demo__seg">
             {askers.map((asker) => (
               <label key={asker.id} className="acl-demo__seg-option">
@@ -142,7 +143,7 @@ export default function FieldWriteDemo() {
         </fieldset>
 
         <fieldset className="acl-demo__group">
-          <legend className="acl-demo__legend">The proposed write</legend>
+          <legend className="demo__legend">The proposed write</legend>
           <div className="acl-demo__field">
             <label htmlFor={`${id}-body`}>body</label>
             <input
@@ -170,7 +171,7 @@ export default function FieldWriteDemo() {
         </fieldset>
 
         <fieldset className="acl-demo__group">
-          <legend className="acl-demo__legend">The row as it stands</legend>
+          <legend className="demo__legend">The row as it stands</legend>
           <Choice
             id={`${id}-current`}
             label="status now"
@@ -193,7 +194,7 @@ export default function FieldWriteDemo() {
         </fieldset>
       </div>
 
-      <pre className="acl-demo__call">
+      <pre className="demo__code">
         <code>{`access.canFields(
   ${json(who).replace(/\n/g, '\n  ')},
   'question',
@@ -204,9 +205,9 @@ export default function FieldWriteDemo() {
 )`}</code>
       </pre>
 
-      <div className="acl-demo__panes">
-        <section className="acl-demo__pane">
-          <h4 className="acl-demo__pane-head">
+      <div className="demo__panes">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>fd.action</code>
           </h4>
           <dl className="acl-demo__pairs">
@@ -223,11 +224,11 @@ export default function FieldWriteDemo() {
           </dl>
         </section>
 
-        <section className="acl-demo__pane">
-          <h4 className="acl-demo__pane-head">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>fd.fields</code>
           </h4>
-          <table className="acl-demo__table">
+          <table className="demo__table">
             <thead>
               <tr>
                 <th scope="col">field</th>
@@ -249,16 +250,16 @@ export default function FieldWriteDemo() {
           </table>
         </section>
 
-        <section className="acl-demo__pane">
-          <h4 className="acl-demo__pane-head">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>pickAllowedFields(fd, proposed)</code>
           </h4>
           {picked.kind === 'object' ? (
-            <pre className="acl-demo__out">
+            <pre className="demo__code acl-demo__out">
               <code>{json(picked.value)}</code>
             </pre>
           ) : (
-            <pre className="acl-demo__out" data-state="denied">
+            <pre className="demo__code acl-demo__out" data-state="denied">
               <code>
                 {picked.name} thrown{'\n'}
                 {picked.message}

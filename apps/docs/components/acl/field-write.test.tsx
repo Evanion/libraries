@@ -6,7 +6,7 @@ import { decide, opening, pick, type Proposal } from './field-write';
 
 /** The rows of the `fd.fields` pane, as `field: state / reason`. */
 function fieldMap(container: HTMLElement): Record<string, string> {
-  const rows = container.querySelectorAll('.acl-demo__table tbody tr');
+  const rows = container.querySelectorAll('.demo__table tbody tr');
   return Object.fromEntries(
     [...rows].map((row) => {
       const cells = [...row.children].map((cell) => cell.textContent ?? '');

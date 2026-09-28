@@ -1,22 +1,10 @@
 /*
  * The payload picker on `/astro-widget/validation`.
  *
- * The same figure the acl demonstrations draw: a band of controls above panes
- * that hold what the package returned. The colours are the baize tokens the
- * docs app rebinds per theme in `app/global.css`, and `--baize-hue` is the
- * section's, bound on the page wrapper.
+ * `components/demo.css` draws the figure. This file holds the picker, the
+ * frame and the warnings, and what differs from the shared figure under
+ * `.astro-demo`.
  */
-
-.astro-demo {
-  display: grid;
-  gap: var(--baize-space-4);
-  margin: var(--baize-space-5) 0;
-  padding: var(--baize-space-4);
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-button);
-  background: var(--baize-felt);
-  font-size: var(--baize-text-sm);
-}
 
 .astro-demo__picker {
   display: flex;
@@ -28,13 +16,8 @@
   border: 0;
 }
 
-.astro-demo__legend {
+.astro-demo .demo__legend {
   margin-bottom: var(--baize-space-2);
-  padding: 0;
-  color: var(--baize-moss);
-  font-size: var(--baize-text-xs);
-  letter-spacing: var(--baize-tracking-loose);
-  text-transform: lowercase;
 }
 
 .astro-demo__option {
@@ -65,21 +48,8 @@
   accent-color: var(--baize-hue);
 }
 
-.astro-demo__panes {
-  display: grid;
+.astro-demo .demo__panes {
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--baize-space-3);
-}
-
-.astro-demo__pane {
-  display: grid;
-  align-content: start;
-  gap: var(--baize-space-2);
-  min-width: 0;
-  padding: var(--baize-space-3);
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-chip);
-  background: var(--baize-ink);
 }
 
 /* The render takes a row of its own: HTML reads badly in a narrow column. */
@@ -87,55 +57,7 @@
   grid-column: 1 / -1;
 }
 
-.astro-demo__head {
-  margin: 0;
-  color: var(--baize-moss);
-  font-size: var(--baize-text-xs);
-  font-weight: 400;
-  letter-spacing: var(--baize-tracking-loose);
-}
-
-.astro-demo__hint,
-.astro-demo__clean {
-  margin: 0;
-  color: var(--baize-lichen);
-  font-size: var(--baize-text-xs);
-  line-height: 1.5;
-}
-
-.astro-demo__code {
-  margin: 0;
-  padding: var(--baize-space-2) var(--baize-space-3);
-  overflow-x: auto;
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-chip);
-  color: var(--baize-lichen);
-  font-size: var(--baize-text-xs);
-  line-height: 1.5;
-  white-space: pre;
-}
-
-.astro-demo__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--baize-text-xs);
-}
-
-.astro-demo__table th,
-.astro-demo__table td {
-  padding: 2px var(--baize-space-2) 2px 0;
-  text-align: left;
-  font-weight: 400;
-  vertical-align: top;
-}
-
-.astro-demo__table thead th {
-  color: var(--baize-moss);
-  border-bottom: 1px solid var(--baize-rule);
-}
-
-.astro-demo__table td {
-  color: var(--baize-chalk);
+.astro-demo .demo__table td {
   font-family: ui-monospace, monospace;
   overflow-wrap: anywhere;
 }

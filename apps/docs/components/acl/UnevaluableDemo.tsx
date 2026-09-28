@@ -11,6 +11,7 @@ import {
   subject,
   type Query,
 } from './unevaluable';
+import '../demo.css';
 import './acl-demo.css';
 
 /** What each reason means, in the one sentence the pane has room for. */
@@ -58,10 +59,10 @@ export default function UnevaluableDemo() {
   }
 
   return (
-    <div className="acl-demo">
+    <div className="demo acl-demo">
       <div className="acl-demo__controls">
         <fieldset className="acl-demo__group">
-          <legend className="acl-demo__legend">What the query selected</legend>
+          <legend className="demo__legend">What the query selected</legend>
           {selectable.map((entry) => (
             <div key={entry.field} className="acl-demo__row">
               <div className="acl-demo__check">
@@ -110,8 +111,8 @@ export default function UnevaluableDemo() {
         </fieldset>
 
         <fieldset className="acl-demo__group">
-          <legend className="acl-demo__legend">The question in hand</legend>
-          <pre className="acl-demo__out">
+          <legend className="demo__legend">The question in hand</legend>
+          <pre className="demo__code acl-demo__out">
             <code>{JSON.stringify(question, null, 2)}</code>
           </pre>
           <Button
@@ -129,15 +130,15 @@ export default function UnevaluableDemo() {
         </fieldset>
       </div>
 
-      <pre className="acl-demo__call">
+      <pre className="demo__code">
         <code>{`access.can(${JSON.stringify(subject)}, 'question', 'update', ${JSON.stringify(
           question,
         )})`}</code>
       </pre>
 
-      <div className="acl-demo__panes">
-        <section className="acl-demo__pane">
-          <h4 className="acl-demo__pane-head">
+      <div className="demo__panes">
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">
             <code>decision</code>
           </h4>
           <dl className="acl-demo__pairs">
@@ -164,9 +165,9 @@ export default function UnevaluableDemo() {
           </dl>
         </section>
 
-        <section className="acl-demo__pane">
-          <h4 className="acl-demo__pane-head">What that answer is</h4>
-          <p className="acl-demo__meaning">{meaning[decision.reason]}</p>
+        <section className="demo__pane">
+          <h4 className="demo__pane-head">What that answer is</h4>
+          <p className="demo__note">{meaning[decision.reason]}</p>
         </section>
       </div>
 

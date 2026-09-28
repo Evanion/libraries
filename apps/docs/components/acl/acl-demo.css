@@ -1,26 +1,17 @@
 /*
  * The two acl demonstrations that mount inside a teaching page.
  *
- * Both draw the same figure: a band of controls, the call they compose, and the
- * panes holding what the package returned. One stylesheet rather than two,
- * because a reader who works the field axis on one page and the repair loop on
- * another should be looking at the same object.
+ * Both draw the figure `components/demo.css` holds: a band of controls, the
+ * call they compose, and the panes holding what the package returned. This file
+ * holds their controls and what differs from the shared figure under
+ * `.acl-demo`. One stylesheet rather than two, because a reader who works the
+ * field axis on one page and the repair loop on another should be looking at
+ * the same object.
  *
  * The colours are the baize tokens the docs app rebinds per theme in
  * `app/global.css`, so nothing here is a second palette. `--baize-hue` is the
  * package's own, bound by `docs-identity` on the page wrapper.
  */
-
-.acl-demo {
-  display: grid;
-  gap: var(--baize-space-4);
-  margin: var(--baize-space-5) 0;
-  padding: var(--baize-space-4);
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-button);
-  background: var(--baize-felt);
-  font-size: var(--baize-text-sm);
-}
 
 .acl-demo__controls {
   display: grid;
@@ -36,14 +27,6 @@
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-.acl-demo__legend {
-  padding: 0;
-  color: var(--baize-moss);
-  font-size: var(--baize-text-xs);
-  letter-spacing: var(--baize-tracking-loose);
-  text-transform: lowercase;
 }
 
 /* A control and its label on one line, wrapping to two when the column is narrow. */
@@ -132,19 +115,9 @@
   outline-offset: 2px;
 }
 
-/* The call the controls compose, which is the call the panes below answered. */
-.acl-demo__call,
-.acl-demo__out {
-  margin: 0;
-  padding: var(--baize-space-2) var(--baize-space-3);
-  overflow-x: auto;
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-chip);
+/* Every code block here takes the ink ground, on felt or in a pane. */
+.acl-demo .demo__code {
   background: var(--baize-ink);
-  color: var(--baize-lichen);
-  font-size: var(--baize-text-xs);
-  line-height: 1.5;
-  white-space: pre;
 }
 
 .acl-demo__out[data-state='denied'] {
@@ -157,29 +130,8 @@
  * the lesson is that the action decision and the field map can disagree, and
  * stacking keeps both on the same scroll rather than hiding one off the side.
  */
-.acl-demo__panes {
-  display: grid;
+.acl-demo .demo__panes {
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: var(--baize-space-3);
-}
-
-.acl-demo__pane {
-  display: grid;
-  align-content: start;
-  gap: var(--baize-space-2);
-  min-width: 0;
-  padding: var(--baize-space-3);
-  border: 1px solid var(--baize-rule);
-  border-radius: var(--baize-radius-chip);
-  background: var(--baize-ink);
-}
-
-.acl-demo__pane-head {
-  margin: 0;
-  color: var(--baize-moss);
-  font-size: var(--baize-text-xs);
-  font-weight: 400;
-  letter-spacing: var(--baize-tracking-loose);
 }
 
 .acl-demo__pairs {
@@ -201,31 +153,8 @@
   overflow-wrap: anywhere;
 }
 
-.acl-demo__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--baize-text-xs);
-}
-
-.acl-demo__table th,
-.acl-demo__table td {
-  padding: 2px var(--baize-space-2) 2px 0;
-  text-align: left;
-  font-weight: 400;
-  vertical-align: top;
-}
-
-.acl-demo__table thead th {
-  color: var(--baize-moss);
-  border-bottom: 1px solid var(--baize-rule);
-}
-
-.acl-demo__table tbody th {
+.acl-demo .demo__table tbody th {
   color: var(--baize-lichen);
-}
-
-.acl-demo__table td {
-  color: var(--baize-chalk);
 }
 
 /*
@@ -245,13 +174,6 @@
 
 .acl-demo [data-state='unevaluable'] {
   font-style: italic;
-}
-
-.acl-demo__meaning {
-  margin: 0;
-  color: var(--baize-lichen);
-  font-size: var(--baize-text-xs);
-  line-height: 1.5;
 }
 
 /* For a screen reader only: the decision behind the panes that changed. */
