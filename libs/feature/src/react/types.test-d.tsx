@@ -148,6 +148,18 @@ describe('the bound provider, over the store it is handed', () => {
     expectTypeOf(element).toEqualTypeOf<ReactElement>();
   });
 
+  it('takes a store that freezes nothing under a factory whose store freezes', () => {
+    // Only one of the two mismatched mounts is an error. TypeScript widens a
+    // mutable `Decisions<S>` into `DeepReadonly<Decisions<S>>`, so this store
+    // satisfies the frozen slot and the bound hooks type as readonly an object
+    // no code froze. `api.mdx` documents the pair this way.
+    const bound = createFeatureContext(watched);
+
+    const element: ReactElement = <bound.FeatureProvider features={plain} />;
+
+    expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+
   it('refuses a store whose freeze the bound hooks do not describe', () => {
     // The hooks answer the factory store's own form. A store that freezes what
     // it resolves, mounted under a factory built from a store that freezes

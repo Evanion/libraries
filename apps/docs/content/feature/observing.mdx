@@ -110,6 +110,14 @@ value the call returned, and a subject identifier copied out as a primitive.
 `correlateBy` names the context field that identifier comes from, and it
 defaults to `targetingKey`.
 
+That default discloses nothing on its own. Every instance of this package
+evaluates in the caller's own process and sends nothing upstream, and the
+observer is a callback the application installed there. The value on the event
+is the value that same application put on its own `EvaluationContext` a moment
+earlier and handed to `resolve`. A library that returns a caller its own data
+discloses nothing, and an application that then forwards the event off the box
+has made that decision itself.
+
 ```ts twoslash file=libs/feature/README.md region=observe-correlate
 
 ```

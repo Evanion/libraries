@@ -124,6 +124,14 @@ export interface FeatureOptions<
    * incident. A decision costs under a microsecond and an audit transport on a
    * bad day costs forty milliseconds, so the engine attaches a rejection
    * handler to anything thenable and moves on.
+   *
+   * This member does not count exposures. `resolve` decides every configured
+   * feature, so an observer fired from it reports a decision for every feature
+   * the request never rendered, and an experiment computed over those records
+   * measures the wrong denominator. The numbers look plausible and are wrong.
+   * The application writes an exposure record at its render site, off the
+   * `variant`, `assignment.source`, `assignment.bucket` and `rule` fields the
+   * decision it already holds carries.
    */
   observe?: (event: FeatureEvent<S>) => void | Promise<unknown>;
   /**
