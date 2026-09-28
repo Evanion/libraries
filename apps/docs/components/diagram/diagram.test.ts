@@ -4,12 +4,8 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { expandDiagrams } from '../../tools/mdx-diagram-loader.mjs';
-import {
-  bindPalette,
-  diagramThemeCss,
-  diagramThemeVariables,
-  strayColours,
-} from './palette';
+import { diagramConfig } from './config';
+import { bindPalette, strayColours } from './palette';
 
 const CONTENT = join(import.meta.dirname, '../../content');
 const FENCE = /^```mermaid([^\n]*)\n([\s\S]*?)^```$/gm;
@@ -92,15 +88,7 @@ describe('the diagram palette', () => {
 
     const { default: mermaid } = await import('mermaid');
 
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: 'base',
-      look: 'classic',
-      themeVariables: diagramThemeVariables,
-      themeCSS: diagramThemeCss,
-      flowchart: { useMaxWidth: false, htmlLabels: true },
-    });
+    mermaid.initialize(diagramConfig);
 
     render = async (chart) =>
       bindPalette((await mermaid.render('test', chart)).svg);
