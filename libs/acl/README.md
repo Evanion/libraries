@@ -273,7 +273,7 @@ const locked = access.can(asker, 'question', 'update', {
 locked.reason; // -> 'denied'
 locked.rule; // -> 'locked-is-final'
 
-// Step 2: no allow rule can match, so the unread `status` changes nothing.
+// Step 2: no allow rule can match, so the absent `status` changes nothing.
 const theirs = access.can(asker, 'question', 'update', {
   askedBy: 'customer-92',
 });
@@ -292,6 +292,8 @@ const draft = access.can(asker, 'question', 'update', {
   askedBy: 'customer-41',
   status: 'draft',
 });
+draft.allowed; // -> true
+draft.reason; // -> 'allow'
 draft.rule; // -> 'asker-edits-own'
 ```
 
@@ -324,6 +326,7 @@ const access = policy<Shopper, { order: { id: string } }, { order: 'place' }>()
 const customer = { id: 'customer-41', roles: ['customer'] };
 const visitor = { id: 'visitor-7', roles: [] };
 
+// Step 1: the stocktake window is open, so the deny rule matched.
 const stocktake = '2026-12-28T10:00:00Z';
 access.can(customer, 'order', 'place', undefined, stocktake).reason; // -> 'denied'
 
