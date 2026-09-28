@@ -27,6 +27,13 @@
     // target rather than imported.
     "apps/docs/tools/widget-renders.mjs",
 
+    // The docs site's version directories, written by the `docs:archives`
+    // target rather than imported, and the two commands a person or the
+    // re-cut workflow runs to change what `apps/docs/archives.json` pins.
+    "apps/docs/tools/write-archives.mjs",
+    "apps/docs/tools/cut-releases.mjs",
+    "apps/docs/tools/recut.mjs",
+
     // A package's doctest preamble, read by path rather than imported:
     // `vite.config.ts` reads it through `readPreamble(import.meta.dirname)` and
     // the region loader reads it beside the README it fills a fence from. No

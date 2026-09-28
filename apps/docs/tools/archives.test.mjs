@@ -254,6 +254,34 @@ describe('the plan for a package', () => {
   });
 
   /**
+   * A shallow clone has no tags, and cutting from one would serve `main` at
+   * every bare path without a word. The pin file names tags, so it is what
+   * notices.
+   */
+  it('refuses a checkout that has no tag a pin names', () => {
+    const root = repository([
+      { files: { 'apps/docs/content/next/luhn/index.mdx': page('Draft.') } },
+    ]);
+
+    expect(() =>
+      plan({
+        packages: luhn,
+        git: gitAt(root),
+        pins: {
+          luhn: {
+            v3: {
+              version: '3.0.0',
+              tag: '@evanion/luhn@3.0.0',
+              next: true,
+              reason: 'no pages',
+            },
+          },
+        },
+      }),
+    ).toThrow(/pins @evanion\/luhn@3\.0\.0, which this checkout has no tag/);
+  });
+
+  /**
    * A pin names the release it was made for. A later release in the same line
    * is cut from its own tag until somebody pins it, so a re-cut of 3.0.0 never
    * silently becomes the documentation of 3.0.1.
