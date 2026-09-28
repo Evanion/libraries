@@ -281,14 +281,17 @@ export function createFeatures(
 ): Features<Record<FeatureKey, VariantInfo>> {
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
-  // resolved.
-  const config: FeatureDefinition<FeatureKey>[] = definitions.map(
-    (definition) => deepFreeze(structuredClone(definition)),
+  // resolved. The freeze covers the array as well as each definition in it, and
+  // `toggle` replaces the whole array on a write.
+  let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
+    definitions.map((definition) => deepFreeze(structuredClone(definition))),
   );
   for (const definition of config) validateVariants(definition);
   const graph = buildGraph(config);
   const index = new Map<FeatureKey, number>(config.map((d, i) => [d.key, i]));
-  const keys = config.map((definition) => definition.key);
+  const keys: readonly FeatureKey[] = Object.freeze(
+    config.map((definition) => definition.key),
+  );
 
   const definitionOf = (
     key: FeatureKey,
@@ -450,7 +453,9 @@ export function createFeatures(
     // still run.
     const before = resolveAll(evaluationContext);
 
-    config[at] = deepFreeze({ ...current, enabled });
+    const next = [...config];
+    next[at] = deepFreeze({ ...current, enabled });
+    config = Object.freeze(next);
 
     const after = resolveAll(evaluationContext);
     const willDisable = graph
@@ -467,12 +472,14 @@ export function createFeatures(
   return {
     keys,
     get config() {
-      // A frozen copy. `deepFreeze` runs on each definition and never on the
-      // array around them, and `toggle` writes one slot of that array, so the
-      // array itself stays writable. A caller that pushed onto the held array,
-      // truncated it or replaced a slot would change what `definition`,
-      // `resolve`, `plan` and `toggle` read for the rest of the process.
-      return Object.freeze([...config]);
+      // This getter hands out the store's own array. `Object.freeze` covers
+      // that array at construction and covers the new array `toggle` builds on
+      // every write, so a push or a slot assignment through this getter throws
+      // and `definition`, `resolve`, `plan` and `toggle` keep reading what the
+      // store was configured with. Two reads between writes return the same
+      // reference, so a caller can key a memo on it, and a read after a write
+      // returns the array the store now holds.
+      return config;
     },
     definition: definitionOf,
     dependants: graph.dependants,

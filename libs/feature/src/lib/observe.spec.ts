@@ -944,9 +944,9 @@ describe('what an observer cannot change', () => {
 
     features.isEnabled('parent', { targetingKey: 'u1' });
 
-    // `deepFreeze` covers each definition and never the array holding them, so
-    // a push through the getter would put an entry in the store that nobody
-    // configured and every later `resolve` would report it.
+    // The getter returns the store's own array, so the freeze on that array is
+    // what refuses this push. Without it the push would put an entry in the
+    // store that nobody configured and every later `resolve` would report it.
     expect(features.config.map((definition) => definition.key)).toEqual([
       'parent',
       'child',
@@ -962,5 +962,41 @@ describe('what an observer cannot change', () => {
       (features.config as unknown as unknown[]).length = 0;
     }).toThrow(TypeError);
     expect(features.isEnabled('parent', { targetingKey: 'u1' })).toBe(true);
+  });
+
+  it('returns the same config reference from two reads', () => {
+    const features = createFeatures(defs);
+
+    // A consumer keys a memo on `features.config`, which the React binding
+    // does inside `useMemo`. A getter that allocated a copy per read would
+    // hand back a new identity every time and the memo would recompute on
+    // every render.
+    expect(features.config).toBe(features.config);
+  });
+
+  it('reports a toggled definition through a config reference taken before it', () => {
+    const features = createFeatures(defs);
+    const before = features.config;
+
+    features.toggle('parent', false, { targetingKey: 'u1' });
+
+    // `toggle` replaces the array, so the store's current array carries the
+    // write and the reference taken before it carries what the store held
+    // then.
+    expect(features.config[0]?.enabled).toBe(false);
+    expect(features.config).not.toBe(before);
+    expect(before[0]?.enabled).toBe(true);
+  });
+
+  it('refuses a write through the keys array', () => {
+    const features = createFeatures(defs);
+
+    expect(() => {
+      (features.keys as string[]).push('ghost');
+    }).toThrow(TypeError);
+    expect(() => {
+      (features.keys as unknown as unknown[]).length = 0;
+    }).toThrow(TypeError);
+    expect(features.keys).toEqual(['parent', 'child']);
   });
 });
