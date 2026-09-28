@@ -126,3 +126,71 @@ export interface FeatureOptions<
   /** The configuration version an event reports. */
   version?: string;
 }
+
+/**
+ * Reads whether a value is a thenable.
+ *
+ * An observer that returns a promise-like object gets a rejection handler. An
+ * observer that returns a plain value gets none.
+ */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+/**
+ * Builds the function an entry point calls to report what it returned.
+ *
+ * The returned function calls the installed observer and returns. It never
+ * awaits the observer, and an observer that throws or rejects reaches
+ * `onObserveError`, or a single `console.warn` when the application installed
+ * no handler. The caller keeps the value the entry point computed either way.
+ *
+ * Each emitter carries its own warned flag. One process holds one emitter per
+ * engine, so a broken transport produces one warning per engine and no test
+ * resets module state to stay order-independent.
+ */
+export function createEmitter<
+  S extends Record<keyof S, VariantInfo | never> = Record<
+    FeatureKey,
+    VariantInfo | never
+  >,
+>(options: FeatureOptions<S>): (event: FeatureEvent<S>) => void {
+  const observe = options.observe;
+  if (!observe) {
+    return () => {
+      // The engine calls this once per entry point call when no observer is
+      // installed.
+    };
+  }
+
+  let warned = false;
+  const report = (error: unknown, event: FeatureEvent<S>) => {
+    if (options.onObserveError) {
+      options.onObserveError(error, event);
+      return;
+    }
+    if (warned) return;
+    warned = true;
+    console.warn(
+      '@evanion/feature: an observer failed. Pass onObserveError to handle this and replace this warning.',
+      error,
+    );
+  };
+
+  return (event) => {
+    try {
+      const returned = observe(event);
+      if (isThenable(returned)) {
+        returned.then(undefined, (error: unknown) => {
+          report(error, event);
+        });
+      }
+    } catch (error) {
+      report(error, event);
+    }
+  };
+}
