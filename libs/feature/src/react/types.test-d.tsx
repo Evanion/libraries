@@ -12,6 +12,7 @@ const features = createFeatures([
       { name: 'blue', weight: 50, value: { label: 'Get it' } },
     ],
   },
+  { key: 'banner', enabled: false },
 ]);
 
 describe('the wide hooks', () => {
@@ -40,6 +41,13 @@ describe('the bound hooks', () => {
     expectTypeOf(bound.useVariant('cta').variant).toEqualTypeOf<
       'control' | 'blue' | undefined
     >();
+  });
+
+  it('answer undefined for a key the store declares no variants on', () => {
+    expectTypeOf(bound.useVariant('banner')).toEqualTypeOf<{
+      variant?: undefined;
+      value?: undefined;
+    }>();
   });
 
   it('refuse a key the store does not carry', () => {
