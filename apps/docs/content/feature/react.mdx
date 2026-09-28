@@ -7,6 +7,7 @@
 
 import {
   FeatureProvider,
+  createFeatureContext,
   useFeature,
   useFeatureEnabled,
   useFeatures,
@@ -14,9 +15,9 @@ import {
 } from '@evanion/feature/react';
 ```
 
-A provider and four hooks over an already-built store. Nothing here decides
-anything — evaluation lives in the core, and this layer carries the result down
-the tree.
+A provider, four hooks and a factory that binds them, over an already-built
+store. Nothing here decides anything — evaluation lives in the core, and this
+layer carries the result down the tree.
 
 The entry is separate from `@evanion/feature` because `'use client'` is a
 per-module directive and a bundle is one module. Keeping the core entry free of
@@ -29,7 +30,7 @@ not install it.
 ## `FeatureProvider`
 
 ```tsx
-const features = createFeatures(config);
+const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
 const context = { targetingKey: user.id, now: new Date() };
 
 <FeatureProvider features={features} context={context}>
@@ -124,18 +125,27 @@ and for a feature declaring no variants, so a component checks `variant` for
 reason `useFeature` does, on the same unconfigured key. See
 [Variants](/feature/variants) for how the assignment itself is made.
 
-## Typing the keys
+## Binding the hooks to a store
+
+`createFeatureContext` takes a store and returns a provider and the four hooks
+bound to that store's schema:
 
 ```tsx
-type Flag = 'new-checkout' | 'express-pickup';
-
-const decisions = useFeatures<Flag>();
-const enabled = useFeatureEnabled<Flag>('express-pickup');
+export const { FeatureProvider, useFeature, useVariant } =
+  createFeatureContext(features);
 ```
 
-The hooks take the key union as a type parameter, defaulting to `string`. Pass
-the same union you passed `createFeatures` and a typo is a compile error rather
-than a thrown one.
+A bound hook names `keyof S`, so a misspelled key is a compile error against the
+store the factory was given. `useVariant` answers the variant union that store
+declares: over the store [Variants](/feature/variants) builds,
+`useVariant('checkout-cta').variant` is `'control' | 'blue' | undefined`, and
+`value` is the type that variant's `value` has. The factory call is one line at
+module scope, and nothing at a call site restates a key union.
+
+A bound provider publishes to the shared context as well as to its own, so a
+component that calls the package's own `useFeature` underneath one reads the
+same decisions. The top-level hooks keep working with no type argument, which is
+what the two examples above use.
 
 ## Server components
 

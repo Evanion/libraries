@@ -8,33 +8,73 @@ the adapter.
 ## `createFeatures(definitions)`
 
 ```ts
-function createFeatures<F extends FeatureKey>(
-  definitions: readonly FeatureDefinition<F>[],
-): Features<F>;
+function createFeatures<const D extends Definitions>(
+  definitions: D,
+): Features<AsSchema<InferSchema<D>>>;
+
+function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: readonly FeatureDefinition<
+    NoInfer<Extract<keyof S, FeatureKey>>
+  >[],
+): Features<S>;
 ```
 
 Validates the dependency graph, deep-clones and freezes the configuration, and
 returns the store.
 
+The first overload reads the schema off the definitions, so a call that passes an
+array literal names no type argument. The literal supplies the keys, the variant
+names and each variant's value. The `const` type parameter is what keeps those
+literal types, so no call site writes `as const`.
+
+The second overload takes a schema the caller names, for configuration that
+arrived as JSON and carries no literals. `createFeatures<Flags>(config)` checks
+every definition's key against `keyof Flags`, so a definition naming a feature
+`Flags` does not declare is a compile error at the call.
+
+A caller who holds the definitions in a variable writes
+`as const satisfies Definitions<Flag>` after the array literal. `satisfies`
+checks the literal and leaves the variable the literal's own type, so the first
+overload still reads the variant names off it. The annotation
+`const definitions: Definitions<Flag> = [...]` gives the variable the wider type,
+whose `variants` is optional, and every key of the inferred schema then maps to
+`never`.
+
 Throws `FeatureCycleError`, `UnknownDependencyError` or
 `DuplicateFeatureError`. All three are configuration errors and all three are
 raised here rather than at evaluation.
 
-## `Features<F>`
+## `Features<S>`
 
-| Member                           | Returns                             | Notes                                  |
-| -------------------------------- | ----------------------------------- | -------------------------------------- |
-| `keys`                           | `readonly F[]`                      | every key, in configuration order      |
-| `config`                         | `readonly FeatureDefinition<F>[]`   | the stored intent, deeply frozen       |
-| `definition(key)`                | `FeatureDefinition<F> \| undefined` |                                        |
-| `dependants(key)`                | `readonly F[]`                      | transitive, in dependency order        |
-| `resolve(context?)`              | `Decisions<F>`                      | a decision per feature; writes nothing |
-| `isEnabled(key, context?)`       | `boolean`                           | `false` for an unknown key             |
-| `plan(context?)`                 | `Plan<F>`                           | build-time partition                   |
-| `toggle(key, enabled, context?)` | `ToggleResult<F>`                   | the only writer; reports `willDisable` |
+`S` is the schema, so every key position is `keyof S & FeatureKey` and every
+variant position is what that key's schema entry declares. `K` below is
+`keyof S`.
 
-`resolve`, `plan` and `toggle` all default `context.now` to `new Date()` at the
-call.
+| Member                           | Returns                                                | Notes                                       |
+| -------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| `keys`                           | `readonly (keyof S & FeatureKey)[]`                    | every key, in configuration order           |
+| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`   | the stored intent, deeply frozen            |
+| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined` |                                             |
+| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                    | transitive, in dependency order             |
+| `resolve(context?)`              | `Decisions<S>`                                         | a decision per feature; writes nothing      |
+| `isEnabled(key, context?)`       | `boolean`                                              | `false` for an unknown key                  |
+| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                         | `undefined` for a key declaring no variants |
+| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                           | `undefined` for a key declaring no variants |
+| `plan(context?)`                 | `Plan<S>`                                              | build-time partition                        |
+| `toggle(key, enabled, context?)` | `ToggleResult<keyof S & FeatureKey>`                   | the only writer; reports `willDisable`      |
+
+`resolve`, `plan`, `variantOf`, `valueOf` and `toggle` all default `context.now`
+to `new Date()` at the call.
+
+`variantOf` and `valueOf` take their types off `Decisions<S>[K]`, so a reader of
+either sees what the decision for that key carries. Over the store
+[Variants](/feature/variants) builds,
+`features.variantOf('checkout-cta', { targetingKey: 'user-1' })` answers
+`'control'`, and `features.valueOf` on the same key and context answers
+`undefined`, because the control variant declares no value.
+
+Both answer `undefined` for a feature that resolved off. On a key whose schema
+entry is `never` the return type is `undefined` on its own.
 
 ## Core exports
 
@@ -148,10 +188,49 @@ interface EvaluationContext {
 }
 ```
 
-### `Decision<F>` and `Decisions<F>`
+### `VariantInfo`, `Schema` and `InferSchema`
+
+```ts signature
+interface VariantInfo {
+  variant: string;
+  value?: unknown;
+}
+
+type Schema = Record<string, VariantInfo | never>;
+
+type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
+  [E in D[number] as E['key']]: E extends {
+    variants: infer V extends readonly VariantSpec[];
+  }
+    ? { variant: V[number]['name']; value: VariantValue<V[number]> }
+    : never;
+};
+```
+
+A schema maps each feature key to what that feature's variants are. A feature
+that declares no variants maps to `never`, and `Decisions`, `Plan` and the bound
+hooks read that `never` as the variant-free case.
+
+`Schema` annotates a value. A generic over a schema constrains its parameter
+self-referentially, `S extends Record<keyof S, VariantInfo | never>`, because the
+index signature `Schema` carries rejects the `interface` a consumer writes by
+hand.
+
+`InferSchema` is what the first `createFeatures` overload applies to a
+definitions literal, and `AsSchema` then tests each entry against `VariantInfo`
+so the result satisfies that self-referential constraint. A call site names
+neither. `VariantValue`, the helper the fence above names, is internal to the
+package: it distributes over the variant union so that a member declaring no
+`value` contributes `never` and drops out of the value type.
+
+### `Decision<F, V, T>` and `Decisions<S>`
 
 ```ts
-interface Decision<F extends FeatureKey = string> {
+interface Decision<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   enabled: boolean;
   reason: Reason;
@@ -159,8 +238,8 @@ interface Decision<F extends FeatureKey = string> {
   rules?: readonly RuleOutcome[];
   blockedBy?: F;
   cause?: Cause<F>;
-  variant?: string; // on a feature that resolved on and declares variants
-  value?: unknown; // the assigned variant's configured value, when it declares one
+  variant?: V; // on a feature that resolved on and declares variants
+  value?: T; // the assigned variant's configured value, when it declares one
   assignment?: {
     source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
     by: string;
@@ -169,8 +248,25 @@ interface Decision<F extends FeatureKey = string> {
   };
 }
 
-type Decisions<F extends FeatureKey = string> = Record<F, Decision<F>>;
+type Decisions<S extends Record<keyof S, VariantInfo | never>> = {
+  [K in keyof S]: [S[K]] extends [never]
+    ? Omit<Decision<K & FeatureKey>, 'variant' | 'value'>
+    : Decision<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+};
 ```
+
+`V` and `T` default to `string` and `unknown`, so a bare `Decision` is the
+widened shape the React context publishes.
+
+`Decisions<S>` narrows each entry to the schema entry for its own key. A
+decision for a feature that declares no variants carries `key`, `enabled` and
+`reason` alone, and `features.resolve()['checkout-cta'].variant` over the store
+[Variants](/feature/variants) builds is `'control' | 'blue' | undefined`.
+
+The `[S[K]] extends [never]` guard is what drops `variant` and `value` for a
+feature declaring none. `never` is a subtype of every type, so an unguarded
+check takes the variant branch for that feature and types its `variant` as
+`never`, which no error reports.
 
 `Reason` is
 `'default-on' | 'rule-match' | 'explicitly-off' | 'no-rule-matched' | 'dependency-off'`.
@@ -201,18 +297,32 @@ interface Cause<F extends FeatureKey = string> {
 }
 ```
 
-### `PlanEntry<F>` and `Plan<F>`
+### `PlanEntry<F, V, T>` and `Plan<S>`
 
 ```ts
-interface PlanEntry<F extends FeatureKey = string> {
+interface PlanEntry<
+  F extends FeatureKey = string,
+  V extends string = string,
+  T = unknown,
+> {
   key: F;
   resolved: boolean | 'deferred';
   needs: readonly string[];
-  decision?: Decision<F>; // present when `resolved` is a boolean, and sometimes when it is not
+  decision?: Decision<F, V, T>; // present when `resolved` is a boolean, and sometimes when it is not
 }
 
-type Plan<F extends FeatureKey = string> = Record<F, PlanEntry<F>>;
+type Plan<S extends Record<keyof S, VariantInfo | never>> = {
+  [K in keyof S]: [S[K]] extends [never]
+    ? Omit<PlanEntry<K & FeatureKey>, 'decision'> & {
+        decision?: Omit<Decision<K & FeatureKey>, 'variant' | 'value'>;
+      }
+    : PlanEntry<K & FeatureKey, S[K]['variant'], S[K]['value']>;
+};
 ```
+
+`Plan<S>` is guarded on `never` exactly as `Decisions<S>` is, so a feature
+declaring no variants gets a plan entry whose decision carries no `variant` key
+and no `value` key.
 
 A deferred entry carries a `decision` too when enablement settled and only
 the variant split is outstanding. That decision carries enablement and no
@@ -251,6 +361,7 @@ fail mid-evaluation.
 ```ts
 import {
   FeatureProvider,
+  createFeatureContext,
   useFeatures,
   useFeature,
   useFeatureEnabled,
@@ -258,13 +369,22 @@ import {
 } from '@evanion/feature/react';
 ```
 
-| Export                      | Signature                                       |
-| --------------------------- | ----------------------------------------------- |
-| `FeatureProvider`           | `{ features, context?, decisions?, children? }` |
-| `useFeatures<F>()`          | `Decisions<F>`                                  |
-| `useFeature<F>(key)`        | `Decision<F>`; throws for an unconfigured key   |
-| `useFeatureEnabled<F>(key)` | `boolean`                                       |
-| `useVariant<F>(key)`        | `{ variant?: string; value?: unknown }`         |
+| Export                           | Signature                                              |
+| -------------------------------- | ------------------------------------------------------ |
+| `FeatureProvider`                | `{ features, context?, decisions?, children? }`        |
+| `createFeatureContext(features)` | `FeatureContext<S>`: a provider and the four hooks     |
+| `useFeatures()`                  | `AnyDecisions`                                         |
+| `useFeature(key)`                | `Decision<FeatureKey>`; throws for an unconfigured key |
+| `useFeatureEnabled(key)`         | `boolean`                                              |
+| `useVariant(key)`                | `{ variant?: string; value?: unknown }`                |
 
-`FeatureProviderProps<F>` is exported as a type. See
-[React](/feature/react) for the memoisation rule on `context`.
+The four top-level hooks take no type argument. They read the shared context,
+which holds `Decision<FeatureKey>` per key, so `variant` is `string` and `value`
+is `unknown`. `createFeatureContext(features)` returns the same four hooks bound
+to one store's schema: each bound hook names `keyof S`, and `useVariant` answers
+the variant union that store declares.
+
+`FeatureProviderProps<S>`, `BoundFeatureProviderProps<S>`, `FeatureContext<S>`
+and `AnyDecisions` are exported as types. See
+[React](/feature/react#binding-the-hooks-to-a-store) for the factory and for the
+memoisation rule on `context`.

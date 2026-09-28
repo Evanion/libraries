@@ -195,18 +195,39 @@ condition over `constructor` or `toString` does not read a function off
 `Object.prototype` and evaluate against it. A context is caller data and a field
 name is configuration; neither is trusted with the prototype chain.
 
-## Typed keys
+## Typing the keys and the variants
+
+A store built from an array literal needs no type argument. `createFeatures`
+reads the keys, the variant names and each variant's value off the literal, and
+the decision record is exact, so a typo is a compile error and not an
+`undefined` at runtime.
+
+Name a schema when the configuration arrives from elsewhere, as JSON or as a
+variable typed `FeatureDefinition<Flag>[]`. A value with no literals in it
+carries nothing for the compiler to read.
 
 ```ts
-type Flag = 'new-checkout' | 'express-pickup';
+interface Flags {
+  'new-checkout': never;
+  'express-pickup': { variant: 'control' | 'blue'; value: never };
+}
 
-const features = createFeatures<Flag>(config);
+const features = createFeatures<Flags>(config);
 
 features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
-features.isEnabled('express-delivery'); // compile error: not a Flag
+features.variantOf('express-pickup'); // 'control' | 'blue' | undefined
+features.isEnabled('express-delivery'); // compile error: not a key of Flags
 ```
 
-Passing a literal key union makes the decision record exact, so a typo is a
-compile error instead of an `undefined` at runtime. Without it, `F` infers as
-the union of the literal keys in the array you passed, which is usually the same
-thing — declare the type when the configuration arrives from elsewhere.
+A schema is a record with one entry per feature. An entry is `never` for a
+feature that declares no variants, and that feature's decision then carries no
+`variant` key and no `value` key. An entry for a feature with variants names them
+as `{ variant: <the names>; value: <the value type> }`, and `never` in the
+`value` position says that no variant of that feature declares one. An
+`interface` works
+here: the constraint `createFeatures` applies is self-referential and accepts
+one, which an index signature would refuse.
+
+`createFeatures<Flags>(config)` checks every definition's key against
+`keyof Flags`, so a definition naming a feature `Flags` does not declare is a
+compile error at the call.
