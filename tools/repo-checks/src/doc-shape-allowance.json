@@ -1,0 +1,147 @@
+{
+  "acl/adopting.mdx": {
+    "lede": 80,
+    "firstFence": 13
+  },
+  "acl/api.mdx": {
+    "lede": 58
+  },
+  "acl/attacks.mdx": {
+    "firstFence": 11
+  },
+  "acl/choosing-an-integration.mdx": {
+    "lede": 140,
+    "run": 10,
+    "firstFence": 24,
+    "firstSymbol": 33
+  },
+  "acl/errors.mdx": {
+    "lede": 77,
+    "firstFence": 18
+  },
+  "acl/explorer.mdx": {
+    "lede": 110,
+    "run": 14,
+    "firstFence": 61,
+    "firstSymbol": 70
+  },
+  "acl/index.mdx": {
+    "firstFence": 14,
+    "firstSymbol": 38
+  },
+  "acl/limits.mdx": {
+    "lede": 75,
+    "run": 9,
+    "firstFence": 17
+  },
+  "acl/listing-permissions.mdx": {
+    "lede": 82,
+    "firstFence": 13
+  },
+  "acl/matrix.mdx": {
+    "firstSymbol": 43
+  },
+  "acl/object-rules.mdx": {
+    "run": 13,
+    "firstFence": 18
+  },
+  "acl/pitfalls.mdx": {
+    "lede": 58
+  },
+  "acl/publishing.mdx": {
+    "lede": 102,
+    "run": 9,
+    "firstFence": 19
+  },
+  "acl/refusals.mdx": {
+    "lede": 76,
+    "run": 13,
+    "firstFence": 35
+  },
+  "acl/resolution.mdx": {
+    "lede": 70,
+    "firstFence": 35
+  },
+  "acl/rule-changes.mdx": {
+    "lede": 111,
+    "run": 9,
+    "firstFence": 16
+  },
+  "acl/security.mdx": {
+    "lede": 59,
+    "firstFence": 21
+  },
+  "acl/subject-rules.mdx": {
+    "lede": 44,
+    "run": 9,
+    "firstFence": 13
+  },
+  "acl/testing.mdx": {
+    "lede": 135,
+    "run": 10,
+    "firstFence": 22
+  },
+  "acl/writing.mdx": {
+    "lede": 72,
+    "run": 10,
+    "firstFence": 14
+  },
+  "feature/api.mdx": {
+    "run": 11
+  },
+  "feature/build-time.mdx": {
+    "lede": 66
+  },
+  "feature/configuration.mdx": {
+    "lede": 57,
+    "run": 10
+  },
+  "feature/getting-started.mdx": {
+    "lede": 48
+  },
+  "feature/index.mdx": {
+    "lede": 108
+  },
+  "feature/react.mdx": {
+    "lede": 95,
+    "firstSymbol": 37
+  },
+  "feature/rollouts.mdx": {
+    "lede": 94,
+    "firstSymbol": 46
+  },
+  "feature/variants.mdx": {
+    "lede": 60,
+    "firstSymbol": 64
+  },
+  "nestjs-correlation-id/configuration.mdx": {
+    "run": 9
+  },
+  "nestjs-correlation-id/index.mdx": {
+    "firstFence": 9
+  },
+  "react-acl/api.mdx": {
+    "lede": 52
+  },
+  "react-widget/playground.mdx": {
+    "run": 10,
+    "firstFence": 21
+  },
+  "testing/coverage.mdx": {
+    "lede": 67,
+    "run": 9,
+    "firstFence": 13,
+    "firstSymbol": 284
+  },
+  "testing/index.mdx": {
+    "lede": 143,
+    "run": 18,
+    "firstSymbol": 62
+  },
+  "token/usage.mdx": {
+    "run": 9
+  },
+  "widget/index.mdx": {
+    "lede": 41
+  }
+}
