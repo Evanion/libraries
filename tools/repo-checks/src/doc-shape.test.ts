@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages, pageKey } from './docs-content';
 
 /**
  * G13 of `docs/specs/2026-09-25-documentation-standard.md` § 7 and § 14: the
@@ -74,7 +74,6 @@ import { describe, expect, it } from 'vitest';
  * author wrote.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
   'doc-shape-allowance.json',
@@ -440,19 +439,11 @@ function measure(blocks: Block[]): Shape {
   return { lede, run: longest, firstFence: toFence, firstSymbol: toSymbol };
 }
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
-/** Every page under `content/`, keyed `<section>/<page>.mdx`. */
+/** Every written page, keyed `<section>/<page>.mdx`. */
 function pages(): Map<string, Shape> {
   return new Map(
-    mdxFiles(CONTENT).map((page) => [
-      relative(CONTENT, page).split(sep).join('/'),
+    authoredPages().map((page) => [
+      pageKey(page),
       measure(classify(readFileSync(page, 'utf8'))),
     ]),
   );

@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
+import { authoredPages, sectionOf } from './docs-content';
 
 /**
  * G5 of `docs/specs/2026-09-25-documentation-standard.md` § 8 and § 14: no
@@ -50,7 +51,6 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * will keep catching nothing until the spelling is decided.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const NAVIGATION = join(workspaceRoot, 'apps/docs/app/navigation.ts');
 
 const FENCE = /^(\s*)(`{3,})(.*)$/;
@@ -202,14 +202,6 @@ async function exportsBySpecifier(
   return found;
 }
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /**
  * Every fenced block in one document, closing on a marker of its own width,
  * carrying the `##` heading in force where it opens.
@@ -259,13 +251,11 @@ function fencesIn(source: string, page: string, slug: string): Fence[] {
 
 /** Every fence on the site, with its regions already filled in. */
 function fences(): Fence[] {
-  return mdxFiles(CONTENT).flatMap((page) => {
-    const within = relative(CONTENT, page);
-
+  return authoredPages().flatMap((page) => {
     return fencesIn(
       expandRegions(readFileSync(page, 'utf8'), workspaceRoot, page),
       relative(workspaceRoot, page),
-      within.split(sep)[0] as string,
+      sectionOf(page),
     );
   });
 }

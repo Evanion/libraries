@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * The render `/astro-widget/validation`'s control shows is the render the
@@ -24,7 +25,6 @@ import { describe, expect, it } from 'vitest';
 
 const DOCS = join(workspaceRoot, 'apps/docs');
 const RENDERS = join(DOCS, 'components/astro-widget/renders.json');
-const CONTENT = join(DOCS, 'content');
 const README = 'libs/astro-widget/README.md';
 
 interface Renders {
@@ -45,14 +45,6 @@ function renders(): Renders {
     true,
   );
   return JSON.parse(readFileSync(RENDERS, 'utf8')) as Renders;
-}
-
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
 }
 
 describe('the astro-widget render the docs build writes', () => {
@@ -101,7 +93,7 @@ describe('the astro-widget render the docs build writes', () => {
   });
 
   it('offers only payloads whose code the page mounting it renders', () => {
-    const pages = mdxFiles(CONTENT)
+    const pages = authoredPages()
       .map((path) => readFileSync(path, 'utf8'))
       .filter((source) => /<AstroRenderDemo[\s/>]/.test(source));
 

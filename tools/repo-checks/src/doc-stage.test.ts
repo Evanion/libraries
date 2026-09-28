@@ -1,9 +1,9 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages, sectionOf } from './docs-content';
 
 /**
  * G12 of `docs/specs/2026-09-25-documentation-standard.md` § 2 and § 3: the
@@ -41,7 +41,6 @@ import { describe, expect, it } from 'vitest';
  * empties.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
   'doc-stage-allowance.json',
@@ -62,22 +61,9 @@ const SHELL = ['bash', 'sh', 'shell', 'console'];
  */
 const INSTALL = ['npm install', 'npm i ', 'yarn add', 'pnpm add', 'bun add'];
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /** The pages whose filename gives them a role, as paths. */
 function pagesNamed(role: string): string[] {
-  return mdxFiles(CONTENT).filter((page) => page.endsWith(`${sep}${role}.mdx`));
-}
-
-/** The section a page belongs to: the first segment under `content/`. */
-function sectionOf(page: string): string {
-  return relative(CONTENT, page).split(sep)[0] as string;
+  return authoredPages().filter((page) => page.endsWith(`${sep}${role}.mdx`));
 }
 
 /**

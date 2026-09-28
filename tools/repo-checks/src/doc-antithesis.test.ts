@@ -1,8 +1,7 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { readFileSync } from 'node:fs';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredPages } from './docs-content';
 
 /**
  * No page states a thing by first stating its opposite.
@@ -23,18 +22,8 @@ import { describe, expect, it } from 'vitest';
  * cell text that is not a sentence, and neither reads as an argument.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
-
 /** A negation and a `but` in the same sentence, with the two close enough to pair. */
 const ANTITHESIS = /\bnot\b[^.!?;:]{2,60}?\bbut\b/i;
-
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
 
 /** The page's prose: no fences, no tables, no import lines. */
 function prose(source: string): { line: number; text: string }[] {
@@ -60,7 +49,7 @@ describe('documentation prose', () => {
   it('states what is so without first stating what is not', () => {
     const found: string[] = [];
 
-    for (const page of mdxFiles(CONTENT)) {
+    for (const page of authoredPages()) {
       const source = readFileSync(page, 'utf8');
       const relative = page.slice(workspaceRoot.length + 1);
 

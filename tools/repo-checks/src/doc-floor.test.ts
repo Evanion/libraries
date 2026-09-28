@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredSection } from './docs-content';
 
 /**
  * G2 of `docs/specs/2026-09-25-documentation-standard.md` § 14: the floor.
@@ -36,7 +37,6 @@ import { describe, expect, it } from 'vitest';
  * they come off in is written.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const NAVIGATION = join(workspaceRoot, 'apps/docs/app/navigation.ts');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -69,16 +69,16 @@ async function documentedSections(): Promise<DocumentedPackage[]> {
   return module_.packages.filter((entry) => entry.documented);
 }
 
-/** Whether `content/<slug>/` carries the page a `_meta` key would name. */
+/** Whether the written section carries the page a `_meta` key would name. */
 function pageExists(slug: string, name: string): boolean {
   return ['.mdx', '.md'].some((extension) =>
-    existsSync(join(CONTENT, slug, `${name}${extension}`)),
+    existsSync(join(authoredSection(slug), `${name}${extension}`)),
   );
 }
 
 /** How many pages a section has, which is what § 4's allowance turns on. */
 function pageCount(slug: string): number {
-  return readdirSync(join(CONTENT, slug)).filter(
+  return readdirSync(authoredSection(slug)).filter(
     (name) => /\.mdx?$/.test(name) && !name.startsWith('_'),
   ).length;
 }

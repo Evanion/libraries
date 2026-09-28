@@ -10,6 +10,7 @@ import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
 import { writesOwnImports } from '@evanion/doc-examples/preamble';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
+import { authoredPages } from './docs-content';
 
 /**
  * A `twoslash` fence in the docs content is compiled by Nextra during
@@ -42,7 +43,6 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * import has a type in `@evanion/astro-widget`'s sources and in its README.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const FENCE = /^(\s*)(`{3,})(.*)$/;
 const ERRORS = /^\s*\/\/\s*@errors:\s*(.+)$/m;
 const QUERY = /^\s*\/\/\s*\^\?\s*$/;
@@ -60,14 +60,6 @@ interface PackageFences {
   /** Absolute path of the package root, where the README sits. */
   root: string;
   fences: Fence[];
-}
-
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
 }
 
 /** Every fenced block in one document, closing on a marker of its own width. */
@@ -119,7 +111,7 @@ const relative = (path: string): string => path.slice(workspaceRoot.length + 1);
  * nothing checks before the build.
  */
 function twoslashFences(): Fence[] {
-  return mdxFiles(CONTENT).flatMap((page) => {
+  return authoredPages().flatMap((page) => {
     const source = readFileSync(page, 'utf8');
     const expanded = expandRegions(
       expandReferences(source, workspaceRoot, page),

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseRegions, readValueClaim } from '@evanion/doc-examples';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
+import { authoredSection } from './docs-content';
 
 /**
  * G11 of `docs/specs/2026-09-25-documentation-standard.md` § 6 and § 14: a page
@@ -31,7 +32,7 @@ import { describe, expect, it } from 'vitest';
  * padding § 6 names as the defect.
  *
  * **The band extension in § 6 is not implemented.** It needs a closed band-key
- * vocabulary across the site, and only `apps/docs/content/acl/_meta.ts` carries
+ * vocabulary across the site, and only `apps/docs/content/next/acl/_meta.ts` carries
  * separators today, with the keys `group-setup`, `group-platforms`,
  * `group-questions` and `group-reference`. A rule written against those keys
  * would be derived from a sample of one section in twelve, so it waits for a
@@ -57,7 +58,6 @@ import { describe, expect, it } from 'vitest';
  * allowance says it is.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const NAVIGATION = join(workspaceRoot, 'apps/docs/app/navigation.ts');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -102,7 +102,7 @@ async function documentedSections(): Promise<DocumentedPackage[]> {
 function pagePath(slug: string, role: string): string | null {
   return (
     ['.mdx', '.md']
-      .map((extension) => join(CONTENT, slug, `${role}${extension}`))
+      .map((extension) => join(authoredSection(slug), `${role}${extension}`))
       .find((candidate) => existsSync(candidate)) ?? null
   );
 }

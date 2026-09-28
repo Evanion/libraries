@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
+import { CONTENT, authoredPages, sectionOf } from './docs-content';
 
 /**
  * G9 of `docs/specs/2026-09-25-documentation-standard.md` § 11: the abandoned
@@ -40,7 +41,6 @@ import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
  * records what it still carries and the number only goes down.
  */
 
-const CONTENT = join(workspaceRoot, 'apps/docs/content');
 const NAVIGATION = join(workspaceRoot, 'apps/docs/app/navigation.ts');
 const ALLOWANCE = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -91,14 +91,6 @@ async function exemptSections(): Promise<Set<string>> {
   );
 }
 
-function mdxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return mdxFiles(path);
-    return entry.name.endsWith('.mdx') ? [path] : [];
-  });
-}
-
 /**
  * The body of every fence in one document, with `file=` fences filled.
  *
@@ -135,12 +127,12 @@ function fencedCode(source: string, page: string): string[] {
   return blocks;
 }
 
-/** Every section under `content/`, with the abandoned nouns its code still has. */
+/** Every written section, with the abandoned nouns its code still has. */
 function tally(): Map<string, number> {
   const sections = new Map<string, number>();
 
-  for (const page of mdxFiles(CONTENT)) {
-    const section = relative(CONTENT, page).split(sep)[0] as string;
+  for (const page of authoredPages()) {
+    const section = sectionOf(page);
     const source = readFileSync(page, 'utf8');
     const code = NOT_A_DOMAIN_OBJECT.reduce(
       (text, pattern) => text.replace(pattern, ''),

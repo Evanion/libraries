@@ -50,8 +50,14 @@ function files(dir: string): string[] {
 describe('the .md siblings', () => {
   const siblings = mdSiblings(CONTENT, workspaceRoot);
 
+  /**
+   * Every page, in every tree: the pages written under `content/next/` and the
+   * ones `nx run docs:archives` generated for each release, which that target
+   * writes before this check runs.
+   */
   it('gives every page one', () => {
     expect(siblings.size).toBe(countPages(CONTENT));
+    expect(siblings.has('next/urn/getting-started.md')).toBe(true);
     expect(siblings.has('urn/getting-started.md')).toBe(true);
   });
 
@@ -71,8 +77,22 @@ describe('the .md siblings', () => {
 
   it('carries the code of the region a page cites', () => {
     // `libs/urn/README.md`'s `basic-usage` region, which
-    // `content/urn/getting-started.mdx` cites and leaves empty.
-    expect(siblings.get('urn/getting-started.md')).toContain('GameURN.parse(');
+    // `content/next/urn/getting-started.mdx` cites and leaves empty.
+    expect(siblings.get('next/urn/getting-started.md')).toContain(
+      'GameURN.parse(',
+    );
+  });
+
+  /**
+   * A page links its own section relatively, and a browser resolves that
+   * against the page's URL, which ends in a slash. The sibling is served one
+   * segment above it, so the same href would name a different page.
+   */
+  it('names each relative link by the path it has on the page', () => {
+    const api = siblings.get('next/acl/api.md') ?? '';
+
+    expect(api).toContain('](/next/acl/matrix#adopting-a-foreign-matrix)');
+    expect(api).not.toMatch(/\]\(\.{1,2}\//);
   });
 
   it('serves no llms.txt', () => {
