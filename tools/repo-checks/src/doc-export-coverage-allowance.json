@@ -1,8 +1,11 @@
 {
   "@evanion/feature": {
     "undocumented": [
+      "AnyDecisions",
       "AsSchema",
       "AttributeCondition",
+      "BoundFeatureProviderProps",
+      "BoundVariant",
       "Cause",
       "Condition",
       "DEFAULT_ROLLOUT_FIELD",
@@ -14,6 +17,7 @@
       "DuplicateVariantError",
       "EvaluationContext",
       "FeatureConfigError",
+      "FeatureContext",
       "FeatureCycleError",
       "FeatureDefinition",
       "FeatureKey",
@@ -38,6 +42,7 @@
       "assignVariant",
       "bucketOf",
       "canonical",
+      "createFeatureContext",
       "evaluateCondition",
       "inRollout",
       "murmur3",
@@ -58,6 +63,7 @@
       "UnknownVariantError",
       "assignVariant",
       "canonical",
+      "createFeatureContext",
       "evaluateCondition",
       "murmur3",
       "ruleId",

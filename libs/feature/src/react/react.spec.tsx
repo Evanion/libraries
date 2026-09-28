@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { createFeatures, type Definitions } from '../lib/features.js';
 import {
+  createFeatureContext,
   FeatureProvider,
   useFeature,
   useFeatureEnabled,
@@ -31,7 +32,7 @@ const inWindow = { now: new Date('2026-10-15T00:00:00Z') };
 const outsideWindow = { now: new Date('2026-09-01T00:00:00Z') };
 
 function Flag({ name }: { name: Key }) {
-  const decision = useFeature<Key>(name);
+  const decision = useFeature(name);
   return (
     <span data-testid={name}>
       {decision.enabled ? 'on' : `off:${decision.reason}`}
@@ -120,9 +121,7 @@ describe('FeatureProvider', () => {
 describe('useFeatureEnabled', () => {
   it('returns the boolean decision', () => {
     function Gate() {
-      return (
-        <span>{useFeatureEnabled<Key>('checkout-v2') ? 'on' : 'off'}</span>
-      );
+      return <span>{useFeatureEnabled('checkout-v2') ? 'on' : 'off'}</span>;
     }
 
     render(
@@ -141,7 +140,7 @@ describe('useFeatureEnabled', () => {
 describe('useFeatures', () => {
   it('returns every decision at once', () => {
     function All() {
-      const decisions = useFeatures<Key>();
+      const decisions = useFeatures();
       return <span>{Object.keys(decisions).sort().join(',')}</span>;
     }
 
@@ -284,5 +283,152 @@ describe('misuse', () => {
         ).toThrow(new RegExp(key));
       },
     );
+  });
+});
+
+describe('createFeatureContext', () => {
+  const cta = createFeatures([
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
+    },
+  ]);
+
+  it('renders the bound provider and answers its own hooks', () => {
+    const bound = createFeatureContext(cta);
+
+    function Reader() {
+      const { variant, value } = bound.useVariant('cta');
+      const enabled = bound.useFeatureEnabled('cta');
+      return (
+        <span data-testid="cta">
+          {`${String(enabled)}:${String(variant)}:${String(
+            (value as { label: string }).label,
+          )}`}
+        </span>
+      );
+    }
+
+    render(
+      <bound.FeatureProvider context={{ targetingKey: 'u' }}>
+        <Reader />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('true:only:Buy');
+  });
+
+  it('publishes to the package context, so the plain hooks read the same decisions', () => {
+    const bound = createFeatureContext(cta);
+
+    function Plain() {
+      return (
+        <span data-testid="plain">{String(useFeature('cta').variant)}</span>
+      );
+    }
+
+    render(
+      <bound.FeatureProvider context={{ targetingKey: 'u' }}>
+        <Plain />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('plain')).toHaveTextContent('only');
+  });
+
+  it('resolves a store handed to the provider over the one the factory holds', () => {
+    const bound = createFeatureContext(cta);
+    const off = createFeatures([
+      { key: 'cta', enabled: false, variants: [{ name: 'only', weight: 1 }] },
+    ]);
+
+    function Reader() {
+      return (
+        <span data-testid="cta">
+          {bound.useFeatureEnabled('cta') ? 'on' : 'off'}
+        </span>
+      );
+    }
+
+    render(
+      <bound.FeatureProvider features={off} context={{ targetingKey: 'u' }}>
+        <Reader />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('off');
+  });
+
+  it('keeps each factory reading its own store when two nest', () => {
+    const outer = createFeatureContext(cta);
+    const inner = createFeatureContext(
+      createFeatures([{ key: 'banner', enabled: false }]),
+    );
+
+    function Reader() {
+      const outerEnabled = outer.useFeatureEnabled('cta');
+      const innerEnabled = inner.useFeatureEnabled('banner');
+      return (
+        <span data-testid="both">{`${String(outerEnabled)}:${String(
+          innerEnabled,
+        )}`}</span>
+      );
+    }
+
+    render(
+      <outer.FeatureProvider context={{ targetingKey: 'u' }}>
+        <inner.FeatureProvider>
+          <Reader />
+        </inner.FeatureProvider>
+      </outer.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('both')).toHaveTextContent('true:false');
+  });
+
+  it('reads a feature keyed by a numeric enum', () => {
+    // FeatureKey is string | number and types.ts:3-6 states the numeric case is
+    // deliberate, so a numeric key reaches the hook and indexes the schema.
+    enum Flag {
+      Cta = 1,
+    }
+    const numeric = createFeatures([
+      { key: Flag.Cta, enabled: true, variants: [{ name: 'only', weight: 1 }] },
+    ]);
+    const bound = createFeatureContext(numeric);
+
+    function Reader() {
+      return (
+        <span data-testid="numeric">
+          {String(bound.useVariant(Flag.Cta).variant)}
+        </span>
+      );
+    }
+
+    render(
+      <bound.FeatureProvider context={{ targetingKey: 'u' }}>
+        <Reader />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('numeric')).toHaveTextContent('only');
+  });
+
+  it('throws for a key the bound provider does not carry', () => {
+    const bound = createFeatureContext(cta);
+
+    function Reader() {
+      bound.useFeature('nope' as 'cta');
+      return null;
+    }
+
+    expect(() =>
+      render(
+        <bound.FeatureProvider>
+          <Reader />
+        </bound.FeatureProvider>,
+      ),
+    ).toThrow(/nope/);
   });
 });
