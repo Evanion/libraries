@@ -2,19 +2,17 @@
 
 <WorkshopNotice slug="acl" />
 
-<Panel heading="In a browser, `can` decides what the user sees">
-  <Text as="div" size="sm">
-    The control disappears; the data behind it stays, and so does the request
-    the control would have sent. Enforcement happens in a trusted environment,
-    and a page that hid the button does not excuse the handler the button posts
-    to.
-  </Text>
-</Panel>
-
 `can` answers authoritatively in a trusted environment and advisory everywhere
 else. The runtime decides which answer a caller holds.
 
 ## Where a `can` decision binds
+
+The server's evaluator and the one a browser rebuilds from the same document
+return the same `Decision` for the same question:
+
+```ts twoslash file=libs/acl/README.md region=one-call-both-sides
+
+```
 
 | Where `can` runs                           | What the answer does                        |
 | ------------------------------------------ | ------------------------------------------- |
@@ -25,6 +23,15 @@ else. The runtime decides which answer a caller holds.
 
 - `can` keeps one signature and one return type in every row above.
 - Nothing in the types separates an authoritative answer from an advisory one.
+
+<Panel heading="In a browser, `can` decides what the user sees">
+  <Text as="div" size="sm">
+    The control disappears; the data behind it stays, and so does the request
+    the control would have sent. Enforcement happens in a trusted environment,
+    and a page that hid the button does not excuse the handler the button posts
+    to.
+  </Text>
+</Panel>
 
 ## Every layer decides for itself
 
@@ -133,17 +140,8 @@ caller passes.
 | a browser wall clock                                          | the clock the subject controls | a closed window the subject re-opens by setting it back |
 | `null`, `NaN`, an `Invalid Date`, a string that is not a date | nothing it can parse           | `{ allowed: false, reason: 'unusable-clock' }`          |
 
-```ts no-run
-const decision = access.can(
-  subject,
-  'sale',
-  'buy',
-  undefined,
-  new Date('nope'),
-);
+```ts twoslash file=libs/acl/README.md region=unusable-clock
 
-decision.allowed; // -> false
-decision.reason; // -> 'unusable-clock'
 ```
 
 - A `now` that reaches `can` from a client payload (a request body, a query
@@ -186,9 +184,8 @@ The matrix the engine evaluates is a frozen deep copy for this reason.
 
 A condition may read only fields the subject cannot write.
 
-```ts anti-example
-p.allow('read', p.eq('object.sharedWith', 'subject.id')); // the subject writes it
-p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
+```ts twoslash file=libs/acl/README.md region=self-authorizing
+
 ```
 
 - A rule that keys on an object field within the subject's reach is
@@ -197,26 +194,30 @@ p.allow('read', p.eq('object.ownerId', 'subject.id')); // set at creation
 - The engine cannot see this, because it does not know which fields the subject
   can write, and the write that opens the door is a different action from the
   read.
-- Keep the field out of every write path the rule guards, or key the rule on
-  something the subject cannot reach: ownership set at creation, or a field the
-  server alone writes.
+- Let no action the subject holds write the field a read rule keys on, or key
+  the rule on something the subject cannot reach: ownership set at creation, or
+  a field the server alone writes.
 
 ## Matrix freshness
 
-A client holds the matrix it last fetched.
+A client holds the matrix it last fetched, and rebuilds when the served
+`version` moved:
 
-```ts no-run
-if (access.version !== fetchedVersion) {
-  await refetchMatrix(); // refuse the action until the copy catches up
-}
+```ts twoslash file=libs/acl/README.md region=revalidate
+
 ```
 
 - When an owner revokes a permission, the client keeps granting it until it
-  refetches, and it has no way to notice.
-- `access.version` detects a mismatch and resolves none. Compare it, fail
-  closed, and force a refetch.
-- The comparison is a `!==`, so a digest or a composite covering every input
-  works as well as a counter.
-- A document that states no version leaves `access.version` undefined, where a
-  `!==` decides nothing.
+  refetches.
+- `revalidate` keeps the held evaluator while `access.version` equals the served
+  `version`, and otherwise rebuilds with `parseMatrix`, so a key the new version
+  dropped answers `unknown-action`.
+- An owner that states `maxStale` bounds the wait for a consumer that passes
+  `fetchedAt`: past `fetchedAt + maxStale` every key answers `stale-contract`.
+  [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+  has the arithmetic.
+- The comparison is `===`, so a digest or a composite covering every input works
+  as well as a counter.
+- A document that states no version leaves `access.version` undefined, so two
+  such documents compare equal and `revalidate` never rebuilds.
 - The server never depends on a client's copy; it evaluates its own.

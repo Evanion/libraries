@@ -2,41 +2,36 @@
 
 <WorkshopNotice slug="acl" />
 
-A matrix is a plain JSON envelope over a flat list of permissions. The matrix is
-the whole configuration, and what it does not say the library does not know.
+A `Matrix` is a plain JSON envelope over a flat list of permissions. The matrix
+is the whole configuration, and what it does not say the library does not know.
 
 ## The envelope
 
-```json
-{ "version": 3, "schema": { "objects": {} }, "permissions": [] }
+`JSON.stringify(access.matrix)` prints the envelope a typed policy flattens to:
+
+```ts twoslash file=libs/acl/README.md region=matrix-text
+
 ```
 
 A matrix has no bare-array form, and a producer in any language states
 `version` and `schema` in the JSON it emits.
 
-- `version`: what the revalidate contract compares.
+- `version`: what the revalidate contract compares, optional.
 - `schema`: the shapes the conditions read, optional and binding where present.
+- `maxStale`: how many milliseconds a consumer may keep deciding on a copy it
+  fetched, optional. [How long a consumer may keep deciding](/acl/publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
+  has the arithmetic.
 - `permissions`: the flat list, one entry per object-and-action pair.
 
 ## One permission
 
 A `Permission` names one object-and-action pair and carries the rules that
-decide it.
+decide it. `rules` are the allows and `denyRules` the denies, each list OR-ed, and
+a matched deny wins. A rule's `when` is AND-ed, and its `id` is what a decision
+reports as `rule`, derived from `when` where the rule states none.
 
-```ts
-interface Permission {
-  key: string; // exactly `${object}.${action}`
-  object: string;
-  action: string;
-  rules?: Rule[]; // allows, OR-ed
-  denyRules?: Rule[]; // denies, OR-ed; a matched deny wins
-  fields?: FieldRules; // the field axis
-}
+```ts twoslash file=libs/acl/README.md region=permission-shape
 
-interface Rule {
-  id?: string; // what a decision reports as `rule`; derived from `when` when absent
-  when?: Condition[]; // AND-ed
-}
 ```
 
 One document holds every object kind, so `question.update` and
@@ -53,10 +48,8 @@ string raises a construction error.
 
 One condition reads one path and compares it to one comparand.
 
-```ts
-{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }  // path comparand
-{ field: 'subject.roles', op: 'contains', value: 'bookseller' } // literal comparand
-{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }
+```ts twoslash file=libs/acl/README.md region=condition-forms
+
 ```
 
 | `op`       | Comparand         | Holds when                                   |

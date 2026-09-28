@@ -2,12 +2,11 @@
 
 <WorkshopNotice slug="acl" />
 
-`@evanion/acl` exports the evaluator, the typed builder, the document types and
-the construction errors, one heading each below. Node 20 or newer, ESM only.
-`@evanion/acl/testing` is a second entry point holding the assertions a
-consumer of a published contract writes, and its exports are headed the same
-way from [`contractDrift`](#contractdrift) down. The React provider and hooks
-are [`@evanion/react-acl`](/react-acl/api).
+`@evanion/acl` exports the evaluator, typed builder, document types and
+construction errors, one heading each below. Node 20 or newer, ESM only. The
+second entry point, [`@evanion/acl/testing`](#evanionacltesting), is headed from
+[`contractDrift`](#contractdrift) down. The React provider and hooks are
+[`@evanion/react-acl`](/react-acl/api).
 
 <ApiFilter />
 
@@ -468,9 +467,10 @@ per call.
 
 ## `@evanion/acl/testing`
 
-`@evanion/acl/testing` is the second entry point. `@evanion/acl` re-exports
-none of it, so an application importing the engine pulls none of it into its
-bundle, and nothing here imports a test framework. See [Testing a contract I
+`@evanion/acl/testing` is the second entry point, holding the assertions a
+consumer of a published contract writes. `@evanion/acl` re-exports none of it,
+so an application importing the engine pulls none of it into its bundle, and
+nothing here imports a test framework. See [Testing a contract I
 consume](/acl/testing).
 
 ```ts twoslash

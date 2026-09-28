@@ -21,6 +21,18 @@ it declares and what it decides for one subject.
   Open the matrix explorer
 </ButtonLink>
 
+## The document the acl matrix explorer reads
+
+The explorer takes the envelope `access.matrix` holds: an optional `version`,
+`schema` and `maxStale`, and the flat `permissions` list. It adopts the pasted
+text with `parseMatrix`, the function a service calls on a matrix another
+service published, and `parseMatrix` refuses a bare permission list as
+`InvalidMatrixError`:
+
+```ts twoslash file=libs/acl/README.md region=matrix-text
+
+```
+
 ## Where the acl matrix explorer runs
 
 This site is a static export. There is no server behind these pages, and

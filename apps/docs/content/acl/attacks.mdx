@@ -8,9 +8,15 @@ security contract](/acl/security) argues the same material in prose.
 ## How to read a row
 
 Each row names the Common Weakness Enumeration (CWE) and the Open Worldwide
-Application Security Project (OWASP) entry for its class. The suite in
-`libs/acl/src/security` holds one test per row, under the row's identifier, and
-runs under `nx test @evanion/acl`.
+Application Security Project (OWASP) entry for its class, and one test proves
+it:
+
+- `libs/acl/src/security` holds the suite, one test per row under the row's
+  identifier.
+- The package's own `src/**/*.{test,spec}.ts` include matches the suite, so
+  `nx test @evanion/acl` runs it with no project to forget.
+- A unit test asserts what a function does. A register test is the test a row
+  of the tier tables below names, and it asserts that an attack fails.
 
 ## The three tiers
 
@@ -81,10 +87,3 @@ the clause is still written down; SEC-207 and SEC-208 also pin the gap.
 | SEC-206 | Disclosure through the matrix itself      | CWE-200           | Every key, role string and window ships. Name things to be read           |
 | SEC-207 | A caller-supplied clock                   | CWE-807, CWE-367  | A clock that parses is taken as given, sliding every window               |
 | SEC-208 | The subject and object are read live      | CWE-367           | The matrix is frozen; the app's data is not. Pass resolved objects        |
-
-## Where the suite lives
-
-`libs/acl/src/security` holds the suite, matched by the package's own
-`src/**/*.{test,spec}.ts` include, so CI runs it with no project to forget. A
-unit test asserts what a function does; a register test asserts that an attack
-fails.

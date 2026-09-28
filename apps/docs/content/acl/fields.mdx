@@ -17,15 +17,12 @@ beside the policy below carries its own field rules in the same document.
 
 ## What `canFields` returns
 
-`canFields` returns the field maps plus the action decision.
+`canFields` returns a `FieldDecision`: the field maps `fields` and `reasons`,
+the action-level `Decision` they hang off as `action`, and `allowed`, which is
+true when the action is allowed and every field is allowed.
 
-```ts
-interface FieldDecision {
-  allowed: boolean; // the action is allowed AND every field is allowed
-  action: Decision; // the action-level decision the field maps hang off
-  fields: Record<string, FieldState>; // 'allowed' | 'denied' | 'unevaluable'
-  reasons: Record<string, FieldReason>;
-}
+```ts twoslash file=libs/acl/README.md region=field-decision
+
 ```
 
 Every name in `fields` carries one `FieldState`:
@@ -54,14 +51,8 @@ gated on the action, and that flag composes both halves. A caller who reads the 
 `fields` takes either a name list or an object carrying one plus the per-field
 configs.
 
-```ts
-p.fields(['*', '!status']); // everything except status
-p.fields(['title', 'price']); // exactly these two
-p.fields({
-  fields: ['*', '!id'],
-  status: { transitions: { draft: ['published'], published: [] } },
-  visibility: { targets: ['public', 'private'] },
-});
+```ts twoslash file=libs/acl/README.md region=field-lists
+
 ```
 
 `*` is the baseline and `!name` subtracts from it. Both are authoring syntax and
@@ -154,8 +145,8 @@ the narrowing. The narrowed result is safe to spread onto a row.
 
 The `read` axis answers which fields of an instance this subject may see.
 
-```ts
-const view = access.canFields(subject, 'question', 'read', question, 'read');
+```ts twoslash file=libs/acl/README.md region=read-axis
+
 ```
 
 `canFields` decides a projection on `read` and runs no query: the row was

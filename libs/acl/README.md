@@ -92,6 +92,37 @@ decision.allowed; // -> true
 
 <!-- #endregion quick-start -->
 
+## Rules that read the row
+
+A subject condition cannot tell apart two customers who hold the same roles. A
+condition on an `object.*` path reads the row the call carries, so one rule
+tells the customer who asked a question from the customer who did not:
+
+<!-- #region object-condition -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Customer = { id: string; roles: string[] };
+type Question = { listing: string; askedBy: string };
+
+const access = policy<Customer, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
+  )
+  .build();
+
+// The same roles, so nothing on the subject tells them apart.
+const sam = { id: 'sam', roles: ['customer'] };
+const jo = { id: 'jo', roles: ['customer'] };
+const question = { listing: 'urn:game:brass-birmingham', askedBy: 'sam' };
+
+access.can(sam, 'question', 'update', question).allowed; // -> true
+access.can(jo, 'question', 'update', question).allowed; // -> false
+```
+
+<!-- #endregion object-condition -->
+
 ## A decision explains itself
 
 `allowed` is the answer. `reason`, `rule` and `missing` are the explanation,
@@ -154,6 +185,99 @@ passed did not carry a path some rule reads. `missing` names those paths, so one
 refetch settles the permission. An absent `object.*` path is unevaluable for
 every operator, negative ones included; an absent `subject.*` path is an
 ordinary miss, because the app resolves the subject whole and never projects it.
+
+### The whole decision
+
+A `Decision` is one plain object. `rule` and `missing` appear only on the
+reasons that carry them, so a decision whose deny side could not be read holds
+all five fields:
+
+<!-- #region decision-shape -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+import type { Decision } from '@evanion/acl';
+
+type Question = { askedBy: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .deny('update', p.eq('object.status', 'locked'))
+      .id('locked-question'),
+  )
+  .build();
+
+// The list query selected `askedBy` and not `status`.
+const decision: Decision = access.can({ id: 's1' }, 'question', 'update', {
+  askedBy: 's1',
+});
+decision; // -> { key: 'question.update', allowed: false, reason: 'unevaluable', rule: 'locked-question', missing: ['object.status'] }
+```
+
+<!-- #endregion decision-shape -->
+
+### Gating on one
+
+Five reasons refuse without any deny rule matching. A gate that tests
+`reason !== 'denied'` proceeds through every one of them, and a gate on
+`allowed` proceeds through none:
+
+<!-- #region gate-on-allowed -->
+
+```ts @import.meta.vitest
+import { parseMatrix } from '@evanion/acl';
+
+// A contract fetched at 10:00, which its owner lets a holder keep for a minute.
+const access = parseMatrix(
+  {
+    maxStale: 60_000,
+    permissions: [
+      {
+        key: 'question.update',
+        object: 'question',
+        action: 'update',
+        rules: [
+          { when: [{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }] },
+        ],
+      },
+      {
+        key: 'preorder.place',
+        object: 'preorder',
+        action: 'place',
+        rules: [
+          {
+            when: [
+              { field: 'now', op: 'after', value: '2026-10-01T09:00:00Z' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  { fetchedAt: '2026-10-01T10:00:00Z' },
+);
+
+const shopper = { id: 'customer-41' };
+const now = '2026-10-01T10:00:30Z';
+const later = '2026-10-01T10:05:00Z';
+
+const refusals = [
+  access.can(shopper, 'question', 'update', { askedBy: 'customer-92' }, now),
+  access.can(shopper, 'question', 'delete', undefined, now),
+  access.can(shopper, 'question', 'update', {}, now),
+  access.can(shopper, 'preorder', 'place', undefined, 'soon'),
+  access.can(shopper, 'question', 'update', { askedBy: 'customer-41' }, later),
+];
+
+refusals.map((decision) => decision.reason); // -> ['no-rule-matched', 'unknown-action', 'unevaluable', 'unusable-clock', 'stale-contract']
+
+refusals.filter((decision) => decision.reason !== 'denied').length; // -> 5
+refusals.filter((decision) => decision.allowed).length; // -> 0
+```
+
+<!-- #endregion gate-on-allowed -->
 
 ### Repairing one
 
@@ -377,6 +501,42 @@ The array is parallel to the input, so the decision for `rows[i]` is
 `decisions[i]`. Nothing is filtered out: a refused row still has an entry, which
 is what lets a list render the refusal beside the row rather than dropping it.
 
+`canMany` is one of three calls that answer more than one question at once.
+`capabilities` answers every permission in the document for one subject, and
+`authorize` binds the subject so every later call leaves it out:
+
+<!-- #region many-questions -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('read', p.always)
+      .allow('update', p.eq('object.askedBy', 'subject.id')),
+  )
+  .build();
+
+const subject = { id: 's1' };
+const mine = { askedBy: 's1' };
+const rows = [mine, { askedBy: 's2' }];
+
+// One decision per row.
+access.canMany(subject, 'question', 'update', rows).map((d) => d.allowed); // -> [true, false]
+
+// Every permission, keyed.
+Object.keys(access.capabilities(subject)); // -> ['question.read', 'question.update']
+
+// A handle with the subject bound.
+const forSubject = access.authorize(subject);
+forSubject.can('question', 'update', mine).allowed; // -> true
+```
+
+<!-- #endregion many-questions -->
+
 A deny rule needs no object. It reads the subject the same way an allow rule
 does, and a policy whose every condition reads the subject still produces three
 of the four reasons.
@@ -599,11 +759,42 @@ published.
 
 ## The matrix document
 
-A matrix is an envelope, never a bare array:
+A matrix is an envelope, never a bare array. `JSON.stringify(access.matrix)`
+prints the text a producer serves:
 
-```json
-{ "version": 3, "schema": { "objects": {} }, "permissions": [] }
+<!-- #region matrix-text -->
+
+```ts @import.meta.vitest
+import { parseMatrix, policy } from '@evanion/acl';
+
+type Question = { askedBy: string };
+
+const access = policy<{ id: string }, { question: Question }>({
+  version: 3,
+  schema: { objects: { question: { fields: { askedBy: 'string' } } } },
+})
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')),
+  )
+  .build();
+
+const text = JSON.stringify(access.matrix);
+text; // -> '{"version":3,"schema":{"objects":{"question":{"fields":{"askedBy":"string"}}}},"permissions":[{"key":"question.update","object":"question","action":"update","rules":[{"when":[{"field":"object.askedBy","op":"eq","path":"subject.id"}]}]}]}'
+
+const adopted = parseMatrix(JSON.parse(text));
+adopted.can({ id: 's1' }, 'question', 'update', { askedBy: 's1' }).allowed; // -> true
+
+// The permission list on its own is no document.
+let refused = '';
+try {
+  parseMatrix(JSON.parse(text).permissions);
+} catch (error) {
+  refused = (error as Error).name;
+}
+refused; // -> 'InvalidMatrixError'
 ```
+
+<!-- #endregion matrix-text -->
 
 `version` and `schema` belong to the document, so a producer in any language
 states both in the JSON it emits, and one value crosses an SSR boundary with
@@ -670,6 +861,87 @@ document states what a producer shipped; the option states what the construction
 site is actually running, which the producer cannot know. The option wins, and
 the frozen `access.matrix` carries the winner, so the version that decided is the
 version that crosses.
+
+### One permission
+
+A `Permission` names one object-and-action pair and carries the rules that
+decide it. Its allow rules are OR-ed, its deny rules are OR-ed, and a matched
+deny wins. A rule's `when` is AND-ed, and its `id` is what a decision reports as
+`rule`:
+
+<!-- #region permission-shape -->
+
+```ts @import.meta.vitest
+import { hydratePolicy } from '@evanion/acl';
+import type { Permission } from '@evanion/acl';
+
+const update: Permission = {
+  key: 'question.update', // exactly `${object}.${action}`
+  object: 'question',
+  action: 'update',
+  rules: [
+    {
+      id: 'asker-edits',
+      when: [{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }],
+    },
+  ],
+  denyRules: [
+    {
+      id: 'locked-is-final',
+      when: [{ field: 'object.status', op: 'eq', value: 'locked' }],
+    },
+  ],
+  fields: { fields: ['*', '!status'] }, // the field axis
+};
+
+const access = hydratePolicy({ permissions: [update] });
+const ask = (status: string) =>
+  access.can({ id: 's1' }, 'question', 'update', { askedBy: 's1', status });
+
+ask('open').rule; // -> 'asker-edits'
+ask('locked').rule; // -> 'locked-is-final'
+```
+
+<!-- #endregion permission-shape -->
+
+### Conditions
+
+One condition reads one path and compares it with a `path` comparand or a
+literal `value`. The bare `now` reads the clock:
+
+<!-- #region condition-forms -->
+
+```ts @import.meta.vitest
+import { hydratePolicy } from '@evanion/acl';
+import type { Condition } from '@evanion/acl';
+
+const when: Condition[] = [
+  { field: 'object.askedBy', op: 'eq', path: 'subject.id' }, // path comparand
+  { field: 'subject.roles', op: 'contains', value: 'customer' }, // literal comparand
+  { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }, // the clock
+];
+
+const access = hydratePolicy({
+  permissions: [
+    {
+      key: 'question.update',
+      object: 'question',
+      action: 'update',
+      rules: [{ when }],
+    },
+  ],
+});
+
+const customer = { id: 'customer-41', roles: ['customer'] };
+const question = { askedBy: 'customer-41' };
+const ask = (now: string) =>
+  access.can(customer, 'question', 'update', question, now);
+
+ask('2026-06-01T00:00:00Z').allowed; // -> true
+ask('2025-06-01T00:00:00Z').allowed; // -> false
+```
+
+<!-- #endregion condition-forms -->
 
 ## The schema
 
@@ -813,6 +1085,35 @@ otherwise. That shape is the only discriminator, and it is what makes
 `p.eq('object.status', 'published')` a comparison against a literal while
 `p.eq('object.askedBy', 'subject.idd')` is a compile error naming the path.
 
+<!-- #region paths-and-literals -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for(
+    'question',
+    (p) =>
+      p
+        .deny('update', p.eq('object.status', 'locked')) // compares against the string 'locked'
+        .allow('update', p.eq('object.askedBy', 'subject.id')), // compares two paths
+  )
+  .build();
+
+const [update] = access.matrix.permissions;
+update?.denyRules?.[0]?.when; // -> [{ field: 'object.status', op: 'eq', value: 'locked' }]
+update?.rules?.[0]?.when; // -> [{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }]
+
+policy<{ id: string }, { question: Question }>().for('question', (p) =>
+  // @ts-expect-error `subject.idd` names no field of the subject type
+  p.allow('update', p.eq('object.askedBy', 'subject.idd')),
+);
+```
+
+<!-- #endregion paths-and-literals -->
+
 Action names and comparand value types are not checked at compile time. An
 action the matrix does not carry is a legitimate question with a
 `unknown-action` answer, so nothing refuses it.
@@ -842,6 +1143,39 @@ hands back an `Access` carrying the subject type and the key -> object-type map,
 so every query checks its key and its object against what the blocks declared.
 `.matrix` is the document on its own, for a caller that wants to overlay or ship
 it. `JSON.stringify(access.matrix)` emits what a foreign backend would produce.
+
+### A bound handle
+
+`access.object(key)` binds one object kind, so every call on the handle names
+the kind once. `access.authorize(subject)` binds the subject the same way:
+
+<!-- #region bound-handle -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string; body: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')).fields(['body']),
+  )
+  .build();
+
+const subject = { id: 's1' };
+const question = { askedBy: 's1', body: 'In stock?' };
+const proposed = { body: 'Is Wingspan in stock?' };
+
+const questions = access.object('question');
+questions.can(subject, 'update', question).allowed; // -> true
+
+const fd = questions.canFields(subject, 'update', question, 'write', proposed);
+fd.fields; // -> { askedBy: 'denied', body: 'allowed' }
+
+access.authorize(subject).can('question', 'update', question).allowed; // -> true
+```
+
+<!-- #endregion bound-handle -->
 
 ### Naming a rule
 
@@ -1049,10 +1383,178 @@ It can still be allowed or denied by name through the list. A matrix that gives
 it a config is refused at construction with an `InvalidPermissionError` naming
 the clash.
 
+`fields` takes a name list, where `*` is the baseline and `!name` subtracts from
+it, or that list inside an object beside the per-field configs:
+
+<!-- #region field-lists -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Listing = {
+  id: string;
+  title: string;
+  price: number;
+  status: 'draft' | 'published';
+  visibility: string;
+};
+
+const access = policy<
+  { id: string },
+  { listing: Listing },
+  { listing: 'read' | 'update' | 'publish' }
+>()
+  .for('listing', (p) =>
+    p
+      .allow('read', p.always)
+      .fields(['*', '!status']) // everything except status
+      .allow('update', p.always)
+      .fields(['title', 'price']) // exactly these two
+      .allow('publish', p.always)
+      .fields({
+        fields: ['*', '!id'],
+        status: { transitions: { draft: ['published'], published: [] } },
+        visibility: { targets: ['public', 'private'] },
+      }),
+  )
+  .build();
+
+const bookseller = { id: 'u1' };
+const listing: Listing = {
+  id: 'l1',
+  title: 'Wingspan',
+  price: 499,
+  status: 'draft',
+  visibility: 'private',
+};
+
+const read = access.canFields(bookseller, 'listing', 'read', listing, 'read');
+read.fields['status']; // -> 'denied'
+
+const update = access.canFields(
+  bookseller,
+  'listing',
+  'update',
+  listing,
+  'write',
+  {
+    title: 'Wingspan (second edition)',
+    status: 'published',
+  },
+);
+update.fields['title']; // -> 'allowed'
+update.fields['status']; // -> 'denied'
+
+const publish = access.canFields(
+  bookseller,
+  'listing',
+  'publish',
+  listing,
+  'write',
+  {
+    id: 'l2',
+    status: 'published',
+    visibility: 'secret',
+  },
+);
+publish.reasons; // -> { id: 'not-listed', title: 'allow', price: 'allow', status: 'allow', visibility: 'targets-failed' }
+```
+
+<!-- #endregion field-lists -->
+
 A field decision carries the action decision it hangs off, and `fd.allowed` is
 true only when the action is allowed and every field is allowed. The field maps
 are filled in whatever the action says, so a blocked caller still sees which
 fields would be editable once the action is unblocked.
+
+<!-- #region field-decision -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+import type { FieldDecision } from '@evanion/acl';
+
+type Listing = {
+  sellerId: string;
+  title: string;
+  price: number;
+  status: string;
+};
+
+const access = policy<{ id: string }, { listing: Listing }>()
+  .for('listing', (p) =>
+    p
+      .allow('update', p.eq('object.sellerId', 'subject.id'))
+      .fields(['title', 'price']),
+  )
+  .build();
+
+const current = {
+  sellerId: 's1',
+  title: 'Wingspan',
+  price: 499,
+  status: 'draft',
+};
+const proposed = { price: 449, status: 'published' };
+
+const fd: FieldDecision = access.canFields(
+  { id: 's1' },
+  'listing',
+  'update',
+  current,
+  'write',
+  proposed,
+);
+
+fd.action.allowed; // -> true
+fd.allowed; // -> false
+fd.fields; // -> { sellerId: 'denied', title: 'allowed', price: 'allowed', status: 'denied' }
+fd.reasons; // -> { sellerId: 'not-listed', title: 'allow', price: 'allow', status: 'not-listed' }
+```
+
+<!-- #endregion field-decision -->
+
+### Passing a projection
+
+The maps are keyed by the union of the object's own keys, the proposed write's
+keys, the names the rules configure and the names in the list. A projection
+shrinks that union, and a name it leaves out that nothing else names is absent
+from the maps:
+
+<!-- #region projection-fields -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Listing = {
+  sellerId: string;
+  title: string;
+  price: number;
+  status: string;
+};
+
+const access = policy<{ id: string }, { listing: Listing }>()
+  .for('listing', (p) =>
+    p
+      .allow('update', p.eq('object.sellerId', 'subject.id'))
+      .fields(['title', 'price']),
+  )
+  .build();
+
+// The list query selected two columns, and no `status`.
+const projection = { sellerId: 's1', title: 'Wingspan' };
+const fd = access.canFields(
+  { id: 's1' },
+  'listing',
+  'update',
+  projection,
+  'read',
+);
+
+Object.keys(fd.fields); // -> ['sellerId', 'title', 'price']
+fd.fields['status']; // -> undefined
+```
+
+<!-- #endregion projection-fields -->
 
 ### Writing
 
@@ -1217,6 +1719,92 @@ pinning.reasons['askedBy']; // -> 'not-listed'
 ```
 
 <!-- #endregion field-configs -->
+
+A per-field config restricts the field it names and no other. With no name list
+beside it, every key the config leaves unnamed stays writable:
+
+<!-- #region config-not-allow-list -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Listing = { sellerId: string; title: string; status: string };
+type Objects = { listing: Listing };
+
+const transitions = { draft: ['published'] };
+
+// A config and nothing else.
+const open = policy<{ id: string }, Objects>()
+  .for('listing', (p) =>
+    p
+      .allow('update', p.eq('object.sellerId', 'subject.id'))
+      .fields({ status: { transitions } }),
+  )
+  .build();
+
+// The same config, beside a name list that closes `sellerId`.
+const closed = policy<{ id: string }, Objects>()
+  .for('listing', (p) =>
+    p
+      .allow('update', p.eq('object.sellerId', 'subject.id'))
+      .fields({ fields: ['*', '!sellerId'], status: { transitions } }),
+  )
+  .build();
+
+const seller = { id: 's1' };
+const listing = { sellerId: 's1', title: 'Wingspan', status: 'draft' };
+
+// The form published the listing and handed it to another seller.
+const posted = { status: 'published', sellerId: 's9' };
+
+const ask = (access: typeof open) =>
+  access.canFields(seller, 'listing', 'update', listing, 'write', posted);
+
+pickAllowedFields(ask(open), posted); // -> { status: 'published', sellerId: 's9' }
+pickAllowedFields(ask(closed), posted); // -> { status: 'published' }
+```
+
+<!-- #endregion config-not-allow-list -->
+
+### Reading
+
+The `read` axis decides which fields of a row this subject may see. It runs no
+query: the row was fetched already, and a field decided `denied` here was still
+read out of the database.
+
+<!-- #region read-axis -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Question = { askedBy: string; body: string; askerEmail: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('read', p.always).fields(['*', '!askerEmail']),
+  )
+  .build();
+
+// The row as the handler fetched it, email included.
+const question = {
+  askedBy: 'customer-41',
+  body: 'Is Wingspan in stock?',
+  askerEmail: 'customer-41@example.com',
+};
+
+const view = access.canFields(
+  { id: 'customer-92' },
+  'question',
+  'read',
+  question,
+  'read',
+);
+
+view.fields['askerEmail']; // -> 'denied'
+pickAllowedFields(view, question); // -> { askedBy: 'customer-41', body: 'Is Wingspan in stock?' }
+```
+
+<!-- #endregion read-axis -->
 
 ## Foreign matrix
 
@@ -1636,6 +2224,45 @@ Measuring from the last check is what expires a consumer whose poll silently
 stopped: such a consumer believes it is fresh and would never start a clock of
 its own. A holder that reports no `fetchedAt` claims no freshness and runs under
 no bound, which is every matrix a service authors in its own process.
+
+With `maxStale: 1000`, `fetchedAt: 0` and a settled clock of 5000, the expiry
+reaches every call that decides, and `readsObject` goes on answering, because it
+states a fact about the document and none about the present:
+
+<!-- #region stale-contract -->
+
+```ts @import.meta.vitest
+import { hydratePolicy } from '@evanion/acl';
+
+const access = hydratePolicy(
+  {
+    version: 'orders@7',
+    maxStale: 1000,
+    permissions: [
+      {
+        key: 'question.update',
+        object: 'question',
+        action: 'update',
+        rules: [
+          { when: [{ field: 'object.askedBy', op: 'eq', path: 'subject.id' }] },
+        ],
+      },
+    ],
+  },
+  { fetchedAt: 0 },
+);
+
+const subject = { id: 's1' };
+const question = { askedBy: 's1' };
+const now = 5000;
+
+access.can(subject, 'question', 'update', question, now).reason; // -> 'stale-contract'
+access.can(subject, 'question', 'delete', question, now).reason; // -> 'stale-contract'
+access.capabilities(subject, now)['question.update']?.reason; // -> 'stale-contract'
+access.readsObject('question', 'update'); // -> true
+```
+
+<!-- #endregion stale-contract -->
 
 A stale contract is stale-permissive, and that is survivable for one reason: the
 owner re-evaluates on its own matrix on every call and refuses. A stale consumer
@@ -2067,6 +2694,44 @@ True when any allow rule or any deny rule of this permission names an
 `object.*` path, on either operand. It takes no subject: the answer is a fact
 about the matrix. Field rules do not count, since a `transitions` config reads the object
 only on the `canFields` write axis, where the caller holds the row already.
+
+A guard ahead of the fetch decides what the subject alone settles, and hands
+every permission that reads the row to the handler that loads it:
+
+<!-- #region guard-before-row -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+type Listing = { id: string; locked: boolean };
+
+const access = policy<Shopper, { listing: Listing }>()
+  .for('listing', (p) =>
+    p
+      .allow('read', p.contains('subject.roles', 'owner'))
+      .allow('update', p.contains('subject.roles', 'owner'))
+      .deny('update', p.eq('object.locked', true)),
+  )
+  .build();
+
+/** What an HTTP guard does before the handler loads the listing. */
+function guard(subject: Shopper, action: 'read' | 'update') {
+  // Never decidable here: the handler owes the decision on the row it loads.
+  if (access.readsObject('listing', action)) return 'handler-decides';
+  return access.can(subject, 'listing', action).allowed ? 'pass' : 'refuse';
+}
+
+const owner = { id: 'u1', roles: ['owner'] };
+const customer = { id: 'u2', roles: ['customer'] };
+
+guard(owner, 'read'); // -> 'pass'
+guard(customer, 'read'); // -> 'refuse'
+guard(owner, 'update'); // -> 'handler-decides'
+access.can(owner, 'listing', 'update').reason; // -> 'unevaluable'
+```
+
+<!-- #endregion guard-before-row -->
 
 ### In an Express app
 
@@ -2598,6 +3263,46 @@ caught?.where; // -> 'rules[0].when[0]'
 
 <!-- #endregion errors-condition-where -->
 
+A path reads one field of one scope. A condition that walks from the row to a
+second row, the shop the question belongs to and then that shop's owner, is
+refused at construction:
+
+<!-- #region nested-path -->
+
+```ts @import.meta.vitest
+import { hydratePolicy } from '@evanion/acl';
+import type { Matrix } from '@evanion/acl';
+
+// `object.shop` is the shop, and `.ownerId` a field of that second row.
+const hop: Matrix = {
+  version: 'v1',
+  permissions: [
+    {
+      key: 'question.edit',
+      object: 'question',
+      action: 'edit',
+      rules: [
+        {
+          when: [
+            { field: 'object.shop.ownerId', op: 'eq', path: 'subject.id' },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+let refused = '';
+try {
+  hydratePolicy(hop);
+} catch (error) {
+  refused = `${(error as Error).name}: ${(error as Error).message}`;
+}
+refused; // -> 'InvalidConditionError: permission "question.edit": condition rules[0].when[0] on "object.shop.ownerId" nests below its scope: a path reads one field of a scope, so at most one dot is resolvable'
+```
+
+<!-- #endregion nested-path -->
+
 ## What refuses a schema or a field rule
 
 A schema is checked for its own shape, and then every condition naming a
@@ -2899,6 +3604,30 @@ a browser the same `can` call, with the same signature and the same return
 type, only toggles what the user sees. Nothing in the types separates the two;
 the runtime does.
 
+<!-- #region one-call-both-sides -->
+
+```ts @import.meta.vitest
+import { hydratePolicy, policy } from '@evanion/acl';
+
+type Question = { askedBy: string };
+
+// The server's evaluator, and the one a browser rebuilds from the JSON it sent.
+const server = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('update', p.eq('object.askedBy', 'subject.id')).id('asker-edits'),
+  )
+  .build();
+const browser = hydratePolicy(JSON.parse(JSON.stringify(server.matrix)));
+
+const asker = { id: 'customer-41' };
+const question = { askedBy: 'customer-41' };
+
+server.can(asker, 'question', 'update', question); // -> { key: 'question.update', allowed: true, reason: 'allow', rule: 'asker-edits' }
+browser.can(asker, 'question', 'update', question); // -> { key: 'question.update', allowed: true, reason: 'allow', rule: 'asker-edits' }
+```
+
+<!-- #endregion one-call-both-sides -->
+
 Every app in the chain evaluates for itself and trusts no earlier layer. A
 gateway or a BFF that already allowed the request does not excuse the service
 behind it from deciding again. There is no transitive trust and no "already
@@ -2984,6 +3713,42 @@ matrix the engine evaluates is a frozen deep copy for exactly this reason; the
 subject and the object are not copied, because they are the app's data and
 copying them would hide the cost. Pass plain, already-resolved objects.
 
+<!-- #region live-bag -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { askedBy: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .deny('update', p.eq('object.status', 'locked')),
+  )
+  .build();
+
+const subject = { id: 's1' };
+
+// An ORM row whose `status` refills between two reads.
+let reads = 0;
+const lazy = {
+  askedBy: 's1',
+  get status() {
+    return reads++ === 0 ? 'draft' : 'locked';
+  },
+};
+
+access.can(subject, 'question', 'update', lazy).allowed; // -> true
+lazy.status; // -> 'locked'
+
+// The same row, resolved before the call.
+const row = { askedBy: 's1', status: 'locked' };
+access.can(subject, 'question', 'update', row).reason; // -> 'denied'
+```
+
+<!-- #endregion live-bag -->
+
 ### What a condition may read
 
 A condition may read only fields the subject cannot write. A rule that keys on
@@ -2994,6 +3759,60 @@ a user to put their own id in the share field and be authorized for it. Either k
 the field out of every write path the rule guards, or key the rule on something
 the subject cannot reach — ownership set at creation, a role on the subject, a
 field the server alone writes.
+
+Below, the share dialog writes `sharedWith` and any customer reaches it, so a
+read rule keyed on `sharedWith` hands the list to whoever shares it with
+themselves. The rule keyed on `ownerId` holds, because no write path carries
+`ownerId`:
+
+<!-- #region self-authorizing -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Customer = { id: string; roles: string[] };
+type Wishlist = { ownerId: string; sharedWith: string; title: string };
+
+const access = policy<
+  Customer,
+  { wishlist: Wishlist },
+  { wishlist: 'read' | 'share' }
+>()
+  .for('wishlist', (p) =>
+    p
+      .allow('read', p.eq('object.sharedWith', 'subject.id')) // the subject writes it
+      .allow('read', p.eq('object.ownerId', 'subject.id')) // set at creation
+      .allow('share', p.contains('subject.roles', 'customer'))
+      .fields(['sharedWith']),
+  )
+  .build();
+
+const intruder = { id: 'customer-92', roles: ['customer'] };
+const list = {
+  ownerId: 'customer-41',
+  sharedWith: 'customer-7',
+  title: 'Birthday games',
+};
+
+access.can(intruder, 'wishlist', 'read', list).allowed; // -> false
+
+// The share dialog submits both fields, and only `sharedWith` is written.
+const posted = { sharedWith: 'customer-92', ownerId: 'customer-92' };
+const share = access.canFields(
+  intruder,
+  'wishlist',
+  'share',
+  list,
+  'write',
+  posted,
+);
+const saved = { ...list, ...pickAllowedFields(share, posted) };
+
+saved.ownerId; // -> 'customer-41'
+access.can(intruder, 'wishlist', 'read', saved).allowed; // -> true
+```
+
+<!-- #endregion self-authorizing -->
 
 ### Matrix freshness
 

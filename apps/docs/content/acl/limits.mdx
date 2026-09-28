@@ -12,25 +12,35 @@
   ]}
 />
 
-`@evanion/acl` decides from two inputs: a frozen JSON document, and the subject
-and object bags a caller already holds. Four questions sit outside those inputs.
-Each of the four is a property of the model, so no release of this package
-closes one, and the section covering it names the tool that does. Two further
-sections follow the four: which decision record counts as an access record, and
-the nine features `@evanion/acl` will not add.
+`@evanion/acl` decides from a frozen JSON document and the subject and object
+bags a caller already holds. Four questions sit outside that model, so no
+release closes one, and each section names the tool that does:
 
-## Revocation reaches a consumer no sooner than `maxStale`
+- [how soon a revocation reaches a consumer](#a-revocation-reaches-a-consumer-within-maxstale)
+- [a relationship across two rows](#a-relationship-across-two-rows-has-no-expression-in-a-matrix)
+- [which subjects can take an action](#no-evanionacl-call-lists-the-subjects-who-can-take-an-action)
+- [a decision record another consumer wrote](#every-evanionacl-consumer-keeps-its-own-decision-records)
 
-`expiryOf` (`libs/acl/src/hydrate-policy.ts:188-205`) settles the instant past
+Two further sections follow:
+
+- [which decision record counts as an access record](#which-decision-record-is-the-evanionacl-access-record)
+- [the nine features `@evanion/acl` will not add](#the-nine-features-evanionacl-will-not-add)
+
+## A revocation reaches a consumer within `maxStale`
+
+`expiryOf` (`libs/acl/src/hydrate-policy.ts:197-214`) settles the instant past
 which every key answers `stale-contract`, at
 `fetchedAt + min(matrix.maxStale, options.maxStale)`. A consumer holding a
 document fetched before the owner edited it goes on deciding from the old rules
 until it revalidates. `hydratePolicy` and `parseMatrix` both take a consumer's
 own `maxStale`, which shortens that bound and never extends it, so the shorter
-of the two budgets is the floor on revocation latency.
+of the two budgets is the ceiling on revocation latency.
 
-Executed against `libs/acl/src` with `maxStale: 1000`, `fetchedAt: 0` and a
-settled clock of 5000:
+With `maxStale: 1000`, `fetchedAt: 0` and a settled clock of 5000:
+
+```ts twoslash file=libs/acl/README.md region=stale-contract
+
+```
 
 - a key the document carries answers `stale-contract`
 - a key the document does not carry answers `stale-contract`
@@ -55,11 +65,11 @@ names the role it honours and never the person.
 matrix condition reads one field of one scope. `readPath`
 (`libs/acl/src/conditions.ts:76-92`) splits a path at its first dot and reads
 the remainder as a single own key off the `subject` or `object` bag.
-`pathFault` (`libs/acl/src/validate.ts:57-72`) refuses the deeper form at
+`pathFault` (`libs/acl/src/validate.ts:58-74`) refuses the deeper form at
 construction, so a policy naming one throws before it decides anything:
 
-```text no-run
-InvalidConditionError: permission "question.edit": condition rules[0].when[0] on "object.shop.ownerId" nests below its scope: a path reads one field of a scope, so at most one dot is resolvable
+```ts twoslash file=libs/acl/README.md region=nested-path
+
 ```
 
 `ObjectSchema.relations` (`libs/acl/src/types.ts:176-183`) declares which kinds
@@ -88,14 +98,18 @@ answer into the first needs the list of subjects, which a matrix does not carry.
 
 Attribute-based access control (ABAC) carries this limit generally, so it
 belongs to the model and not to this implementation. National Institute of
-Standards and Technology (NIST) Special Publication (SP) 800-162 §3.1.2.3 calls
-the review of who holds access before any request is made a before-the-fact
-audit, often necessary for demonstrating compliance, and states that "An ABAC
-system may not lend itself well to conducting these audits efficiently". The
-same page records that determining who can reach an object may require
-simulating the request for every known subject. The join belongs to the identity
-directory, and what a matrix contributes to it is a machine-readable statement
-of the conditions per permission.
+Standards and Technology (NIST) Special Publication (SP) 800-162 §3.1.2.3 records
+two things about it:
+
+- It calls the review of who holds access before any request is made a
+  before-the-fact audit, often necessary for demonstrating compliance, and
+  states that "An ABAC system may not lend itself well to conducting these
+  audits efficiently".
+- Determining who can reach an object may require simulating the request for
+  every known subject.
+
+The join belongs to the identity directory, and what a matrix contributes to it
+is a machine-readable statement of the conditions per permission.
 
 The inverse question is answerable and is the stronger evidence. What gated
 `order.refund` on 3 March is the document at the version deployed on 3 March.

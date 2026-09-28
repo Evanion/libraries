@@ -3,16 +3,12 @@
 <WorkshopNotice slug="acl" />
 
 `Decision` is what every entry point of `@evanion/acl` answers with. `allowed`
-is the answer, and the other three fields explain it without a second call.
+is the answer, and `reason`, `rule` and `missing` explain it without a second
+call. A decision whose deny rule could not read `status` carries all five
+fields:
 
-```ts
-interface Decision {
-  key: string;
-  allowed: boolean;
-  reason: Reason;
-  rule?: string; // the rule that decided; see the table for which reasons carry it
-  missing?: string[]; // the paths that did not read, on 'unevaluable'
-}
+```ts twoslash file=libs/acl/README.md region=decision-shape
+
 ```
 
 ## What `can` hands back
@@ -109,10 +105,8 @@ A caller sees it in two situations:
 - A projection that does not carry the field. A list query selected `id` and
   `body`, and the rule reads `object.askedBy`.
 
-```ts
-const decision = access.can(subject, 'question', 'update', { status: 'draft' });
-// { key: 'question.update', allowed: false, reason: 'unevaluable',
-//   missing: ['object.askedBy'] }
+```ts twoslash file=libs/acl/README.md region=refetch
+
 ```
 
 What to do with one depends on where the call is:
@@ -139,13 +133,12 @@ call that happened to lack data.
 ```
 
 `listing.read` reads only `subject.roles`. `listing.update` carries a deny on
-`object.locked`, so a guard ahead of the fetch only ever holds `unevaluable`:
+`object.locked`, so a guard ahead of the fetch only ever holds `unevaluable`.
+The guard decides what the subject settles and records that the handler owes
+the rest:
 
-```ts
-if (access.readsObject('listing', 'update')) {
-  // Never decidable here. Refuse loudly, or record that the handler still owes
-  // the real decision. Do not wave the request through.
-}
+```ts twoslash file=libs/acl/README.md region=guard-before-row
+
 ```
 
 `readsObject` is true when any allow or deny rule of this permission names an
@@ -169,13 +162,11 @@ plain miss.
 
 ## Asking more than one question
 
-`canMany`, `capabilities` and `authorize` each answer more than one question per
-call:
+`canMany` and `capabilities` answer more than one question per call, and
+`authorize` binds the subject so every later call leaves it out:
 
-```ts
-access.canMany(subject, 'question', 'update', rows); // one decision per row
-access.capabilities(subject); // every permission, keyed
-access.authorize(subject); // a handle with the subject bound
+```ts twoslash file=libs/acl/README.md region=many-questions
+
 ```
 
 | Call           | What it answers                                                                                                  |
