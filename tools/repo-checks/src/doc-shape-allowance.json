@@ -1,41 +1,4 @@
 {
-  "acl/api.mdx": {
-    "lede": 58
-  },
-  "acl/attacks.mdx": {
-    "firstFence": 11
-  },
-  "acl/choosing-an-integration.mdx": {
-    "lede": 140,
-    "run": 10,
-    "firstFence": 24,
-    "firstSymbol": 33
-  },
-  "acl/explorer.mdx": {
-    "firstFence": 48
-  },
-  "acl/index.mdx": {
-    "firstSymbol": 33
-  },
-  "acl/limits.mdx": {
-    "lede": 75,
-    "run": 9,
-    "firstFence": 17
-  },
-  "acl/matrix.mdx": {
-    "firstSymbol": 43
-  },
-  "acl/object-rules.mdx": {
-    "run": 10,
-    "firstFence": 18
-  },
-  "acl/pitfalls.mdx": {
-    "lede": 58
-  },
-  "acl/security.mdx": {
-    "lede": 59,
-    "firstFence": 21
-  },
   "feature/api.mdx": {
     "run": 11
   },
