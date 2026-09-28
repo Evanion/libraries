@@ -424,7 +424,7 @@ describe('resolve and isEnabled', () => {
     const decisions = features.resolve({ targetingKey: 'u1' });
 
     // The freeze makes the event's readonly type true for a JavaScript
-    // observer. A store with nobody observing pays none of its cost.
+    // observer. A store with nobody observing freezes nothing.
     expect(Object.isFrozen(decisions)).toBe(false);
   });
 

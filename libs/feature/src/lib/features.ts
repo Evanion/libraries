@@ -221,7 +221,7 @@ export function createFeatures(
    * An entry point emits the same object it answers with, so a write inside an
    * observer would change what the application acts on. A frozen object refuses
    * that write. A store with nobody observing hands the object to nobody else,
-   * so it pays no freezing cost.
+   * so it freezes nothing.
    */
   const frozenWhenObserved = <T>(value: T): T =>
     observed ? deepFreeze(value) : value;
@@ -355,8 +355,7 @@ export function createFeatures(
     //
     // Both emits sit behind `observed`. JavaScript evaluates an argument
     // before the call whatever the callee does, so an unguarded `emit` would
-    // charge a store with nobody observing for an envelope and an event object
-    // that nothing reads.
+    // build an envelope and an event object that nothing reads.
     resolve: (context) => {
       const evaluationContext = withNow(context);
       const decisions = frozenWhenObserved(resolveAll(evaluationContext));
@@ -382,9 +381,9 @@ export function createFeatures(
 
       // A key nobody configured resolves to no decision, and `FeatureEvent`
       // declares `decision` present on every `is-enabled` event. The engine
-      // reports that call to nobody rather than hand an observer an event
-      // whose own type says the missing member is there. Only a JavaScript
-      // caller names such a key, and the answer it receives is `false`.
+      // emits nothing for such a call, so no observer receives an event whose
+      // own type says the missing member is there. The caller receives
+      // `false`.
       if (observed && decision !== undefined) {
         emit({
           type: 'is-enabled',
