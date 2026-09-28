@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createFeatures } from './features.js';
 import { createEmitter } from './observe.js';
 import type { FeatureEvent } from './observe.js';
 
@@ -290,5 +291,107 @@ describe('createEmitter', () => {
     }
 
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolve and isEnabled', () => {
+  const defs = [
+    { key: 'cta', enabled: true },
+    { key: 'nav', enabled: true },
+  ] as const;
+
+  it('emits one resolve event carrying every decision', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.resolve({ targetingKey: 'u1' });
+
+    expect(observe).toHaveBeenCalledTimes(1);
+    const event = observe.mock.calls[0]?.[0];
+    expect(event.type).toBe('resolve');
+    expect(Object.keys(event.decisions)).toEqual(['cta', 'nav']);
+  });
+
+  it('emits one is-enabled event naming the key the caller asked for', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.isEnabled('cta', { targetingKey: 'u1' });
+
+    expect(observe).toHaveBeenCalledTimes(1);
+    const event = observe.mock.calls[0]?.[0];
+    expect(event.type).toBe('is-enabled');
+    expect(event.key).toBe('cta');
+    expect(event.decision.key).toBe('cta');
+  });
+
+  it('carries the instant the caller supplied', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe });
+
+    features.resolve({ targetingKey: 'u1', now });
+
+    expect(observe.mock.calls[0]?.[0].at).toBe(now);
+  });
+
+  it('carries the bucketing field as the subject', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.resolve({ targetingKey: 'u1' });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('u1');
+  });
+
+  it('carries the field correlateBy names', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, {
+      observe,
+      correlateBy: 'pseudonym',
+    });
+
+    features.resolve({ targetingKey: 'u1', pseudonym: 'p1' });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('p1');
+  });
+
+  it('carries no subject for a field holding an object', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe, correlateBy: 'account' });
+
+    features.resolve({ targetingKey: 'u1', account: { id: 'a1' } });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBeUndefined();
+  });
+
+  it('carries the version the application configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe, version: '2026-01-01' });
+
+    features.resolve({ targetingKey: 'u1' });
+
+    expect(observe.mock.calls[0]?.[0].version).toBe('2026-01-01');
+  });
+
+  it('carries no version when the application configured none', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.resolve({ targetingKey: 'u1' });
+
+    expect(observe.mock.calls[0]?.[0].version).toBeUndefined();
+  });
+
+  it('emits nothing from the resolution isEnabled runs internally', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.isEnabled('cta', { targetingKey: 'u1' });
+
+    // One event, not two. A resolve event here would tell an auditor the
+    // application asked about every feature when it asked about one.
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe.mock.calls[0]?.[0].type).toBe('is-enabled');
   });
 });

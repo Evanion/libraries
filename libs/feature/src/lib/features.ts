@@ -1,7 +1,8 @@
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
-import type { FeatureOptions } from './observe.js';
+import { createEmitter } from './observe.js';
+import type { FeatureEvent, FeatureOptions } from './observe.js';
 import type {
   Decision,
   Decisions,
@@ -108,6 +109,21 @@ export type AsSchema<T> = {
   [K in keyof T]: T[K] extends VariantInfo ? T[K] : never;
 };
 
+/**
+ * The context field an event reads its subject identifier off when the
+ * application names none. It is the field the engine already buckets on.
+ */
+const DEFAULT_CORRELATE_FIELD = 'targetingKey';
+
+/**
+ * A context whose instant the engine has settled.
+ *
+ * `withNow` fills `now` once per entry point call, and every resolution and
+ * every event downstream of that call reads the instant off this type. A
+ * function taking this type cannot be handed a context whose clock nobody read.
+ */
+type SettledContext = EvaluationContext & { now: Date };
+
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
   if (value instanceof Date) return Object.freeze(value);
@@ -174,7 +190,7 @@ export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
 ): Features<S>;
 export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
-  _options?: FeatureOptions<Record<FeatureKey, VariantInfo>>,
+  options: FeatureOptions<Record<FeatureKey, VariantInfo>> = {},
 ): Features<Record<FeatureKey, VariantInfo>> {
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
@@ -194,18 +210,56 @@ export function createFeatures(
     return at === undefined ? undefined : config[at];
   };
 
-  const withNow = (context: EvaluationContext = {}): EvaluationContext => ({
+  const emit = createEmitter(options);
+  const correlateBy = options.correlateBy ?? DEFAULT_CORRELATE_FIELD;
+
+  const withNow = (context: EvaluationContext = {}): SettledContext => ({
     ...context,
     now: context.now ?? new Date(),
   });
 
+  /**
+   * Reads the subject identifier an event carries.
+   *
+   * The engine copies the value out of the correlation field when it is a
+   * string or a number, and carries nothing for a value of any other type. A
+   * primitive copy holds no reference into the caller's context, so an observer
+   * that writes to `event.subject` writes to its own event object.
+   */
+  const subjectOf = (
+    context: EvaluationContext,
+  ): string | number | undefined => {
+    const value = context[correlateBy];
+    if (typeof value === 'string' || typeof value === 'number') return value;
+    return undefined;
+  };
+
+  /**
+   * The members every event carries, whatever entry point reports it.
+   *
+   * `at` comes off the settled context, so an event names the instant its own
+   * decisions resolved under and the engine reads the clock once per call.
+   */
+  const envelope = (context: SettledContext) => {
+    const subject = subjectOf(context);
+    return {
+      at: context.now,
+      ...(subject === undefined ? {} : { subject }),
+      ...(options.version === undefined ? {} : { version: options.version }),
+    };
+  };
+
+  // The internal resolution. It reports nothing, and every public entry point
+  // that needs a resolved set wraps it and emits its own event. `isEnabled`
+  // asked about one feature, so the resolution it runs to answer that stays
+  // silent and `isEnabled` reports the one decision the caller received.
+  //
   // The body's own view of a resolved set: one loose `Decision` per key. The
   // public `resolve` casts this to the schema-mapped form once, and the two
   // readers take their fields off it, where every `Decision` field is present.
   const resolveAll = (
-    context?: EvaluationContext,
+    context: SettledContext,
   ): Record<FeatureKey, Decision<FeatureKey>> => {
-    const evaluationContext = withNow(context);
     const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
     // `graph.order`, not `keys`: see FeatureGraph.order for why the cascade
@@ -213,7 +267,7 @@ export function createFeatures(
     for (const key of graph.order) {
       const definition = definitionOf(key);
       if (!definition) continue;
-      resolved.set(key, decide(definition, evaluationContext, resolved));
+      resolved.set(key, decide(definition, context, resolved));
     }
 
     // A record cannot be built incrementally without a cast; the keys are
@@ -279,15 +333,44 @@ export function createFeatures(
     },
     definition: definitionOf,
     dependants: graph.dependants,
-    resolve: (context) =>
-      resolveAll(context) as Decisions<Record<FeatureKey, VariantInfo>>,
-    isEnabled: (key, context) => resolveAll(context)[key]?.enabled ?? false,
+    // Every event is cast, for the same reason both readers below are. The
+    // engine holds the loose record and the event type holds the schema-mapped
+    // form, `FeatureKey` admits a number where a mapped key is a string, and
+    // the decision an unknown key reads is `undefined`. A TypeScript caller
+    // cannot name an unknown key, and `isEnabled` answers `false` for one.
+    resolve: (context) => {
+      const evaluationContext = withNow(context);
+      const decisions = resolveAll(evaluationContext);
+
+      emit({
+        type: 'resolve',
+        ...envelope(evaluationContext),
+        decisions,
+      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+
+      return decisions as Decisions<Record<FeatureKey, VariantInfo>>;
+    },
+    isEnabled: (key, context) => {
+      const evaluationContext = withNow(context);
+      const decision = resolveAll(evaluationContext)[key];
+
+      emit({
+        type: 'is-enabled',
+        ...envelope(evaluationContext),
+        key,
+        decision,
+      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+
+      return decision?.enabled ?? false;
+    },
     // Both returns are cast. A generic method whose return type is conditional
     // has no type an implementation can write: the compiler resolves neither
     // conditional for an unresolved `K`, and the runtime answer is the field
     // the decision carries either way.
-    variantOf: (key, context) => resolveAll(context)[key]?.variant as never,
-    valueOf: (key, context) => resolveAll(context)[key]?.value as never,
+    variantOf: (key, context) =>
+      resolveAll(withNow(context))[key]?.variant as never,
+    valueOf: (key, context) =>
+      resolveAll(withNow(context))[key]?.value as never,
     plan,
     toggle,
   };
