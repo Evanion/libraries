@@ -24,6 +24,8 @@ export {
   UnknownVariantError,
 } from './lib/errors.js';
 
+export type { FeatureEvent, FeatureOptions } from './lib/observe.js';
+
 export type {
   AttributeCondition,
   Cause,
