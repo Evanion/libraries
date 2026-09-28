@@ -183,31 +183,38 @@ function sealMutators(
  * corrupt the configuration every later caller reads.
  *
  * A value that is already frozen was sealed on the way there, so this returns
- * it untouched. That guard also stops the recursion on an object that holds
- * itself, and it keeps {@link sealMutators} from redefining a property it made
- * non-configurable.
+ * it untouched. That guard keeps {@link sealMutators} from redefining a
+ * property it made non-configurable.
+ *
+ * The freeze happens after the walk, so an object that holds itself is still
+ * unfrozen when the walk reaches it a second time. `walked` records every
+ * object the walk entered, and a second visit returns at once. A variant value
+ * that points back at itself survives `structuredClone`, so a configuration
+ * carrying one reaches this function.
  */
-function deepFreeze<T>(value: T): T {
+function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
   if (value === null || typeof value !== 'object') return value;
   if (Object.isFrozen(value)) return value;
+  if (walked.has(value)) return value;
+  walked.add(value);
   if (value instanceof Date) {
     sealMutators(value, 'Date', DATE_MUTATORS);
     return Object.freeze(value);
   }
   if (value instanceof Map) {
     for (const [key, held] of value) {
-      deepFreeze(key);
-      deepFreeze(held);
+      deepFreeze(key, walked);
+      deepFreeze(held, walked);
     }
     sealMutators(value, 'Map', MAP_MUTATORS);
     return Object.freeze(value);
   }
   if (value instanceof Set) {
-    for (const held of value) deepFreeze(held);
+    for (const held of value) deepFreeze(held, walked);
     sealMutators(value, 'Set', SET_MUTATORS);
     return Object.freeze(value);
   }
-  for (const nested of Object.values(value)) deepFreeze(nested);
+  for (const nested of Object.values(value)) deepFreeze(nested, walked);
   return Object.freeze(value);
 }
 

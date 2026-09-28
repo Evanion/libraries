@@ -676,6 +676,124 @@ describe('plan and toggle', () => {
       result: { ok: false, key: 'ghost', error: 'unknown-feature' },
     });
   });
+
+  it('carries the instant, the subject and the version on a plan event', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe, version: '2026-01-01' });
+
+    features.plan({ targetingKey: 'u1', now });
+
+    // A `plan` event carries the envelope a `resolve` event carries. A cast
+    // sits on every emit, and it checks the field the variant names and not
+    // the members every variant shares, so an edit that dropped the envelope
+    // from this emit would compile.
+    const event = observe.mock.calls[0]?.[0];
+
+    expect(event.at.getTime()).toBe(now.getTime());
+    expect(event.at).not.toBe(now);
+    expect(event.subject).toBe('u1');
+    expect(event.version).toBe('2026-01-01');
+  });
+
+  it('carries the field correlateBy names on a plan event', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, {
+      observe,
+      correlateBy: 'pseudonym',
+    });
+
+    features.plan({ targetingKey: 'u1', pseudonym: 'p1' });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('p1');
+  });
+
+  it('carries no subject on a plan event for a field holding an object', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe, correlateBy: 'account' });
+
+    features.plan({ targetingKey: 'u1', account: { id: 'a1' } });
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('subject');
+  });
+
+  it('carries no version on a plan event when none is configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.plan({ targetingKey: 'u1' });
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('version');
+  });
+
+  it('carries the instant, the subject and the version on a toggle event', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe, version: '2026-01-01' });
+
+    features.toggle('parent', false, { targetingKey: 'u1', now });
+
+    const event = observe.mock.calls[0]?.[0];
+
+    expect(event.at.getTime()).toBe(now.getTime());
+    expect(event.at).not.toBe(now);
+    expect(event.subject).toBe('u1');
+    expect(event.version).toBe('2026-01-01');
+  });
+
+  it('carries the field correlateBy names on a toggle event', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, {
+      observe,
+      correlateBy: 'pseudonym',
+    });
+
+    features.toggle('parent', false, { targetingKey: 'u1', pseudonym: 'p1' });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('p1');
+  });
+
+  it('carries no subject on a toggle event for a field holding an object', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe, correlateBy: 'account' });
+
+    features.toggle('parent', false, {
+      targetingKey: 'u1',
+      account: { id: 'a1' },
+    });
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('subject');
+  });
+
+  it('carries no version on a toggle event when none is configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.toggle('parent', false, { targetingKey: 'u1' });
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('version');
+  });
+
+  it('carries the envelope on a refused toggle', () => {
+    const observe = vi.fn();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const features = createFeatures(defs, { observe, version: '2026-01-01' });
+    // The cast is the JavaScript caller. A TypeScript caller cannot name a key
+    // the definitions never declared.
+    const write = features.toggle as (
+      key: string,
+      enabled: boolean,
+      context?: { targetingKey: string; now: Date },
+    ) => ToggleResult<string>;
+
+    write('ghost', false, { targetingKey: 'u1', now });
+
+    const event = observe.mock.calls[0]?.[0];
+
+    expect(event.at.getTime()).toBe(now.getTime());
+    expect(event.subject).toBe('u1');
+    expect(event.version).toBe('2026-01-01');
+  });
 });
 
 describe('what an observer cannot change', () => {
@@ -784,5 +902,29 @@ describe('what an observer cannot change', () => {
     expect(held.copy.get('title')).toBe('Hi');
     expect(onObserveError).toHaveBeenCalledTimes(1);
     expect(onObserveError.mock.calls[0]?.[0]).toBeInstanceOf(TypeError);
+  });
+
+  it('freezes a variant value that holds itself', () => {
+    const cyclic: { self?: unknown } = {};
+    cyclic.self = cyclic;
+    const definitions = [
+      {
+        key: 'banner',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1, value: cyclic }],
+      },
+    ];
+
+    const features = createFeatures(definitions);
+    const held = features.config[0]?.variants?.[0]?.value as {
+      self?: unknown;
+    };
+
+    // `structuredClone` keeps the cycle, so the freeze walks a value that
+    // points back at itself. A walk that records nothing re-enters the value
+    // and exhausts the stack, which takes down construction for every replica
+    // that loads the configuration.
+    expect(Object.isFrozen(held)).toBe(true);
+    expect(held.self).toBe(held);
   });
 });
