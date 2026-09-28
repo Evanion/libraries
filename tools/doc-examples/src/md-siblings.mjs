@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, posix, relative, sep } from 'node:path';
 
 import { expandReferences } from './mdx-reference-loader.mjs';
 import { expandRegions } from './mdx-region-loader.mjs';
@@ -23,6 +23,13 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * nowhere in the page's own source, so a sibling built from raw MDX would hand
  * an agent an HTML comment where the API is.
  *
+ * A relative link is made absolute. A page links to a page in its own section
+ * relatively, so the link stays inside whichever version of the section the
+ * reader is in, and a browser resolves it against the page's URL, which ends in
+ * a slash. A sibling is served one level up from that, at `/urn/api.md`, so the
+ * same href would resolve one segment short. Resolved here against the page's
+ * own route, the link names the page it named in the browser.
+ *
  * Nothing else is rewritten. A ```mermaid fence stays a fence, because the
  * `<Diagram>` the browser gets is markup around this same source and the fence
  * is what a reader with no browser can use. The components a page mounts stay
@@ -36,6 +43,59 @@ function mdxFiles(dir) {
     if (entry.isDirectory()) return mdxFiles(path);
     return entry.name.endsWith('.mdx') ? [path] : [];
   });
+}
+
+/**
+ * The URL a page is served at, which is what its relative links resolve
+ * against: `urn/api.mdx` is `/urn/api/` and `urn/index.mdx` is `/urn/`.
+ */
+function pageUrl(route) {
+  const path = route.replace(/\.mdx$/, '').replace(/(^|\/)index$/, '');
+
+  return path === '' ? '/' : `/${path}/`;
+}
+
+/**
+ * Every relative link on a page, made absolute against the page's URL.
+ *
+ * A markdown link target and a quoted attribute value are the two places a
+ * page writes one: `[Usage](../usage)` in prose and
+ * `requires={[['Usage', '../usage']]}` on a component. A fence is left alone,
+ * because what is inside it is code a reader copies.
+ */
+export function absoluteLinks(markdown, route) {
+  const base = pageUrl(route);
+  const resolve = (href) => {
+    const [path, ...hash] = href.split('#');
+    const resolved = posix.join(base, path);
+
+    return [resolved, ...hash].join('#');
+  };
+  let fence = null;
+
+  return markdown
+    .split('\n')
+    .map((line) => {
+      const marker = line.match(/^\s*(`{3,}|~{3,})/);
+
+      if (marker) {
+        if (fence === null) fence = marker[1];
+        else if (marker[1].startsWith(fence)) fence = null;
+        return line;
+      }
+      if (fence !== null) return line;
+
+      return line
+        .replace(
+          /\]\((\.{1,2}\/[^)\s]*)\)/g,
+          (_, href) => `](${resolve(href)})`,
+        )
+        .replace(
+          /(['"])(\.{1,2}\/[^'"\s]*)\1/g,
+          (_, quote, href) => `${quote}${resolve(href)}${quote}`,
+        );
+    })
+    .join('\n');
 }
 
 /**
@@ -61,10 +121,13 @@ export function mdSiblings(contentDir, root) {
 
     siblings.set(
       route.replace(/\.mdx$/, '.md'),
-      expandRegions(
-        expandReferences(readFileSync(page, 'utf8'), root, page),
-        root,
-        page,
+      absoluteLinks(
+        expandRegions(
+          expandReferences(readFileSync(page, 'utf8'), root, page),
+          root,
+          page,
+        ),
+        route,
       ),
     );
   }

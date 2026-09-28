@@ -10,3 +10,5 @@ export declare function mdSiblings(
   contentDir: string,
   root: string,
 ): Map<string, string>;
+
+export declare function absoluteLinks(markdown: string, route: string): string;
