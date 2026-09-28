@@ -1,7 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 /**
  * Whether a release that shipped no pages may be documented by `main`'s.
@@ -96,7 +102,9 @@ export function seedPin({ name, tag, version, main, computed, dependencies }) {
  *
  * Run in a detached worktree at that commit, sharing the workspace's installed
  * dependencies, so the tree nx reads is the pinned one and the history it
- * reads is the repository's.
+ * reads is the repository's. Every `node_modules` a project holds of its own is
+ * shared too: nx loads each project's build config to compute the graph, and a
+ * project that pins its own version of a tool resolves it from beside itself.
  */
 export function dryRunAt(root, sha, name) {
   const dir = mkdtempSync(join(tmpdir(), 'docs-seed-'));
@@ -107,7 +115,20 @@ export function dryRunAt(root, sha, name) {
   git('worktree', 'add', '--detach', dir, sha);
 
   try {
-    symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'), 'dir');
+    const installed = [
+      'node_modules',
+      ...['apps', 'libs', 'internal', 'tools'].flatMap((group) =>
+        existsSync(join(root, group))
+          ? readdirSync(join(root, group))
+              .map((project) => join(group, project, 'node_modules'))
+              .filter((path) => existsSync(join(root, path)))
+          : [],
+      ),
+    ];
+
+    for (const path of installed)
+      if (existsSync(dirname(join(dir, path))))
+        symlinkSync(join(root, path), join(dir, path), 'dir');
 
     return dryRunVersion(
       execFileSync(
