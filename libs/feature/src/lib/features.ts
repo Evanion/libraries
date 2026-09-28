@@ -1,6 +1,7 @@
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
+import type { FeatureOptions } from './observe.js';
 import type {
   Decision,
   Decisions,
@@ -155,6 +156,7 @@ function deepFreeze<T>(value: T): T {
  */
 export function createFeatures<const D extends Definitions>(
   definitions: D,
+  options?: FeatureOptions<AsSchema<InferSchema<D>>>,
 ): Features<AsSchema<InferSchema<D>>>;
 /**
  * Builds the store over a schema the caller names. Every definition's key is
@@ -168,9 +170,11 @@ export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
   definitions: readonly FeatureDefinition<
     NoInfer<Extract<keyof S, FeatureKey>>
   >[],
+  options?: FeatureOptions<S>,
 ): Features<S>;
 export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
+  _options?: FeatureOptions<Record<FeatureKey, VariantInfo>>,
 ): Features<Record<FeatureKey, VariantInfo>> {
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
