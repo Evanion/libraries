@@ -134,10 +134,11 @@
     "minTokens": 30,
     "minLines": 3,
 
-    // Today's figure is 3.0%. The ceiling is a ratchet, not a target: it fails
-    // the run that adds the next copy and is lowered whenever a clone group is
+    // A ratchet, not a target: it sits half a point above the figure measured
+    // when it was last lowered, so an ordinary change has room and a new copy
+    // of a real block does not. It is lowered whenever a clone group is
     // consolidated.
-    "threshold": 4.0,
+    "threshold": 3.5,
 
     "ignore": [
       // Each app in the demo chain restates the subject contract it will
