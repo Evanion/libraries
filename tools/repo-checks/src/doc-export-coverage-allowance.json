@@ -1,6 +1,7 @@
 {
   "@evanion/feature": {
     "undocumented": [
+      "AsSchema",
       "AttributeCondition",
       "Cause",
       "Condition",
@@ -8,6 +9,7 @@
       "DayOfWeekCondition",
       "Decision",
       "Decisions",
+      "Definitions",
       "DuplicateFeatureError",
       "DuplicateVariantError",
       "EvaluationContext",
