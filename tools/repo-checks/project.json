@@ -5,11 +5,13 @@
     "test": {
       "dependsOn": [
         { "projects": "libs/*", "target": "test" },
-        "docs:behaviour-data"
+        "docs:behaviour-data",
+        "docs:widget-renders"
       ],
       "inputs": [
         "repoChecks",
-        { "dependentTasksOutputFiles": "**/report.json" }
+        { "dependentTasksOutputFiles": "**/report.json" },
+        { "dependentTasksOutputFiles": "**/renders.json" }
       ]
     }
   }

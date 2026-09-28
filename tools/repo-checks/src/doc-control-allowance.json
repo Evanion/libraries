@@ -1,3 +1,1 @@
-{
-  "astro-widget": "The control is achievable: libs/astro-widget already renders Widgets.astro through Astro's container API in its tests. A follow-up unit builds a payload picker whose rendered output the container API produces at docs build time. The wait holds until that unit merges or 2026-11-01, whichever comes first."
-}
+{}
