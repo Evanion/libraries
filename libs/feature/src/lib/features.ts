@@ -308,7 +308,19 @@ export function createFeatures(
       if (entry.decision) resolved.set(key, entry.decision);
     }
 
-    return Object.fromEntries(plans) as Plan<Record<FeatureKey, VariantInfo>>;
+    const partition = frozenWhenObserved(
+      Object.fromEntries(plans) as Plan<Record<FeatureKey, VariantInfo>>,
+    );
+
+    if (observed) {
+      emit({
+        type: 'plan',
+        ...envelope(evaluationContext),
+        plan: partition,
+      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+    }
+
+    return partition;
   };
 
   const toggle = (
@@ -316,15 +328,39 @@ export function createFeatures(
     enabled: boolean,
     context?: EvaluationContext,
   ): ToggleResult<FeatureKey> => {
+    // One context for both sides of the comparison, so `willDisable` is not an
+    // artefact of the clock moving between the two evaluations. The refused
+    // write reads its instant off the same context.
+    const evaluationContext = withNow(context);
+
+    // Reports the write and answers the caller with the same object. An
+    // auditor receives the refused write as well as the accepted one, so both
+    // exits below go through here.
+    const reported = (result: ToggleResult<FeatureKey>) => {
+      const answer = frozenWhenObserved(result);
+
+      if (observed) {
+        emit({
+          type: 'toggle',
+          ...envelope(evaluationContext),
+          result: answer,
+        } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+      }
+
+      return answer;
+    };
+
     const at = index.get(key);
     const current = at === undefined ? undefined : config[at];
     if (at === undefined || !current) {
-      return { ok: false, key, error: 'unknown-feature' };
+      return reported({ ok: false, key, error: 'unknown-feature' });
     }
 
-    // One context for both sides of the comparison, so `willDisable` is not an
-    // artefact of the clock moving between the two evaluations.
-    const evaluationContext = withNow(context);
+    // The two resolutions below go through `resolveAll`, which reports
+    // nothing. An observer holding `before` could write `enabled` to `false`
+    // on a dependant and `willDisable` would come back short, which is the
+    // list an operator reads before pulling a kill switch. Both resolutions
+    // still run.
     const before = resolveAll(evaluationContext);
 
     config[at] = deepFreeze({ ...current, enabled });
@@ -338,7 +374,7 @@ export function createFeatures(
           !(after[dependant]?.enabled ?? false),
       );
 
-    return { ok: true, key, enabled, willDisable };
+    return reported({ ok: true, key, enabled, willDisable });
   };
 
   return {
