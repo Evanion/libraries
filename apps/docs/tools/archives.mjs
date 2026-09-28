@@ -259,6 +259,21 @@ export function plan({ packages, git, pins }) {
   const tags = git.tags();
   const sections = [];
 
+  // A pin names a release, so a checkout without its tag is a checkout without
+  // the history the site is cut from -- a shallow clone -- and building from it
+  // would serve `main` at every bare path and say nothing.
+  const known = new Set(tags);
+  const missing = Object.values(pins)
+    .flatMap((lines) => Object.values(lines))
+    .map((pin) => pin.tag)
+    .filter((tag) => !known.has(tag));
+  if (missing.length > 0)
+    throw new Error(
+      `${PIN_FILE} pins ${missing.join(', ')}, which this checkout has no tag ` +
+        'for. The site is cut from the release tags: fetch them ' +
+        '(`fetch-depth: 0` in a workflow).',
+    );
+
   for (const entry of packages) {
     if (!entry.documented || entry.unversioned) continue;
 
