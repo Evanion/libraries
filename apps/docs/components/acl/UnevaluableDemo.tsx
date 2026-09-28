@@ -81,7 +81,7 @@ export default function UnevaluableDemo() {
               <div className="acl-demo__field">
                 <label
                   htmlFor={`${id}-${entry.field}-value`}
-                  className="acl-demo__sr-only"
+                  className="baize-visually-hidden"
                 >
                   the value {entry.label} holds
                 </label>
@@ -171,7 +171,7 @@ export default function UnevaluableDemo() {
         </section>
       </div>
 
-      <output className="acl-demo__sr-only" aria-live="polite">
+      <output className="baize-visually-hidden" aria-live="polite">
         {`allowed ${decision.allowed}, reason ${decision.reason}${
           missing.length === 0 ? '' : `, missing ${missing.join(' and ')}`
         }. ${meaning[decision.reason]}`}

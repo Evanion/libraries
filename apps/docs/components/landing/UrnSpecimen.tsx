@@ -134,7 +134,7 @@ export default function UrnSpecimen({ value }: { value: string }) {
           </span>
         ))}
 
-        <output className="landing-sr-only" aria-live="polite">
+        <output className="baize-visually-hidden" aria-live="polite">
           {shown}
         </output>
       </p>

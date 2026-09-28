@@ -27,7 +27,7 @@ export function RoleSwitch({ role, onChange }: RoleSwitchProps) {
       {roles.map((option) => (
         <label key={option} className="landing-seg__option">
           <input
-            className="landing-sr-only"
+            className="baize-visually-hidden"
             type="radio"
             name={`${group}-role`}
             value={option}

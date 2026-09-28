@@ -188,7 +188,7 @@ export function PayloadPicker({ payloads }: { payloads: Render[] }) {
         </section>
       </div>
 
-      <output className="astro-demo__sr-only" aria-live="polite">
+      <output className="baize-visually-hidden" aria-live="polite">
         {`${payload.label}. validateItems returned ${
           payload.problems.length === 0
             ? 'no problems'

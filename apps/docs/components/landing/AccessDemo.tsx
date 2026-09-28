@@ -188,7 +188,7 @@ export default function AccessDemo() {
           ))}
         </div>
 
-        <output className="landing-sr-only" aria-live="polite">
+        <output className="baize-visually-hidden" aria-live="polite">
           {`Signed in as ${person.name}, ${role}. ${
             granted.length === 0
               ? 'No controls.'
