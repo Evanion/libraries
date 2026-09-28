@@ -240,7 +240,7 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
                 <form method="post" action="/cart" class="cart__quantity">
                   <input type="hidden" name="intent" value="update" />
                   <input type="hidden" name="urn" value={line.urn} />
-                  <label class="sr-only" for={`qty-${line.urn}`}>
+                  <label class="baize-visually-hidden" for={`qty-${line.urn}`}>
                     Copies of {item?.title ?? line.urn}
                   </label>
                   <input

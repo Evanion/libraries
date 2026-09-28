@@ -132,7 +132,7 @@ const orderable = sellable && mayOrder;
               <input type="hidden" name="intent" value="add" />
               <input type="hidden" name="urn" value={game.value.urn} />
               <input type="hidden" name="back" value={Astro.url.pathname} />
-              <label class="sr-only" for="quantity">
+              <label class="baize-visually-hidden" for="quantity">
                 Copies
               </label>
               <input
