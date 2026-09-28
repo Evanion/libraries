@@ -274,7 +274,7 @@ export const packages: readonly DocumentedPackage[] = [
     // made of belongs to `acl`, and these pages link to the page that owns it
     // rather than teaching it twice.
     demo: 'getting-started',
-    workshop: true,
+    workshop: false,
   },
   {
     name: '@evanion/urn',
