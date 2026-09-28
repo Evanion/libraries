@@ -4,7 +4,8 @@ import type { Route } from './+types/shelf';
 import { shelfContext } from '../page-context.js';
 import { shelfTotals } from '../shelf.js';
 import { Ledger, defineLedgerItems, ledgerColumns } from '../regions/ledger.js';
-import { Panel, Stat, StatLine, Text, Title } from '@evanion/baize-ui';
+import { Panel, Text, Title } from '@evanion/baize-ui';
+import { FigureLine } from '../ui/figure-line.js';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Shelf · Baize' }];
 
@@ -99,15 +100,7 @@ export default function Shelf({ loaderData }: Route.ComponentProps) {
         <Title as="h1" size="lg">
           Shelf
         </Title>
-        <StatLine label="Shelf totals">
-          {figures.map((figure) => (
-            <Stat
-              figure={figure.value}
-              key={figure.label}
-              label={figure.label}
-            />
-          ))}
-        </StatLine>
+        <FigureLine label="Shelf totals" figures={figures} />
       </header>
       <Ledger items={items} chrome={{ wrapper: ShelfTable }} />
     </>

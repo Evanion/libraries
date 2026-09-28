@@ -9,7 +9,8 @@ import { allows } from '../access.js';
 import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
 import { Ledger, defineLedgerItems, ledgerColumns } from '../regions/ledger.js';
-import { Panel, Stat, StatLine, Text, Title } from '@evanion/baize-ui';
+import { Panel, Text, Title } from '@evanion/baize-ui';
+import { FigureLine } from '../ui/figure-line.js';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Orders · Baize' }];
 
@@ -144,15 +145,7 @@ export default function Orders({ loaderData }: Route.ComponentProps) {
         <Title as="h1" size="lg">
           Orders
         </Title>
-        <StatLine label="Order totals">
-          {figures.map((figure) => (
-            <Stat
-              figure={figure.value}
-              key={figure.label}
-              label={figure.label}
-            />
-          ))}
-        </StatLine>
+        <FigureLine label="Order totals" figures={figures} />
       </header>
       <div className="page-note">
         <Text measured size="sm">

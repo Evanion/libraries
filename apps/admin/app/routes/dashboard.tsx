@@ -10,7 +10,8 @@ import { ordersFromTelemetry, orderTotals } from '../orders.js';
 import { availabilityCounts, shelfTotals } from '../shelf.js';
 import { ShopApiUnavailable, listTelemetry } from '../shop-api.server.js';
 import { Dashboard, defineDashboardItems } from '../regions/dashboard.js';
-import { Panel, Stat, StatLine, Text } from '@evanion/baize-ui';
+import { Panel, Text } from '@evanion/baize-ui';
+import { FigureLine } from '../ui/figure-line.js';
 
 export const meta: Route.MetaFunction = () => [{ title: 'Today · Baize' }];
 
@@ -166,15 +167,7 @@ export default function Today({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="page-head">
-        <StatLine label="Today at Baize" size="lg">
-          {figures.map((figure) => (
-            <Stat
-              figure={figure.value}
-              key={figure.label}
-              label={figure.label}
-            />
-          ))}
-        </StatLine>
+        <FigureLine label="Today at Baize" size="lg" figures={figures} />
       </header>
       <Dashboard items={items} ctx={{ shop, asOf }} />
     </>
