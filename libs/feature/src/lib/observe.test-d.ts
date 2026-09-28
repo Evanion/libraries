@@ -11,6 +11,7 @@ import type {
   FeatureEvent,
   FeatureOptions,
   ReadonlyDate,
+  UnobservedOptions,
 } from './observe.js';
 
 const defs = [
@@ -346,12 +347,72 @@ describe('what an entry point answers, over the freeze the store applies', () =>
     expectTypeOf(plain.resolve().cta.enabled).toEqualTypeOf<boolean>();
   });
 
+  it('freezes what a wrapper forwarding an optional observer builds', (): void => {
+    const build = (observe?: (event: FeatureEvent<Flags>) => void) =>
+      createFeatures(defs, { observe });
+    const features = build(() => undefined);
+
+    // `observe` here is typed `Fn | undefined`, which proves no absence. The
+    // runtime installs the observer the wrapper was called with and freezes
+    // what `resolve` answers, so the compiler refuses the write.
+    // @ts-expect-error the options prove no absent observer, so the store is frozen
+    features.resolve().cta.enabled = false;
+
+    expectTypeOf(features.resolve().cta.variant).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+  });
+
+  it('freezes what options annotated FeatureOptions build', (): void => {
+    const config: FeatureDefinition<'cta'>[] = [{ key: 'cta', enabled: true }];
+    const options: FeatureOptions<Flags> = { observe: () => undefined };
+    const features = createFeatures<Flags>(config, options);
+
+    // @ts-expect-error the options prove no absent observer, so the store is frozen
+    features.resolve().cta.enabled = false;
+
+    expectTypeOf(features.resolve().cta.variant).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+  });
+
+  it('leaves options that prove no observer on the mutable form', (): void => {
+    const config: FeatureDefinition<'cta'>[] = [{ key: 'cta', enabled: true }];
+    const options = {
+      correlateBy: 'tenant',
+    } satisfies UnobservedOptions<Flags>;
+    const features = createFeatures<Flags>(config, options);
+
+    features.resolve().cta.enabled = false;
+
+    expectTypeOf(features.resolve().cta.enabled).toEqualTypeOf<boolean>();
+  });
+
   it('answers both forms for a store whose observation is open', (): void => {
     const read = (features: Features<Flags>) => features.resolve();
 
     expectTypeOf(read).returns.toEqualTypeOf<
       Decisions<Flags> | DeepReadonly<Decisions<Flags>>
     >();
+  });
+
+  it('assigns to neither form under an annotation that leaves Frozen open', (): void => {
+    const config: FeatureDefinition<'cta'>[] = [{ key: 'cta', enabled: true }];
+    const open: Features<Flags> = createFeatures<Flags>(config);
+    const settled: Features<Flags, false> = createFeatures<Flags>(config);
+
+    // `Features<Flags>` leaves `Frozen` at `boolean`, so `resolve` answers the
+    // union of both forms. `DeepReadonly` maps the `Date` a rule outcome can
+    // carry to a `ReadonlyDate`, and that one field is what keeps the frozen
+    // member out of `Decisions<Flags>`. The api page tells a caller to take the
+    // type off `createFeatures`, and to name the second parameter where a
+    // declaration demands the type itself.
+    // @ts-expect-error the open annotation answers a union neither form accepts
+    const wide: Decisions<Flags> = open.resolve();
+    const narrow: Decisions<Flags> = settled.resolve();
+
+    expectTypeOf(wide).toEqualTypeOf<Decisions<Flags>>();
+    expectTypeOf(narrow).toEqualTypeOf<Decisions<Flags>>();
   });
 });
 

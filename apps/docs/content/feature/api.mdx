@@ -51,18 +51,36 @@ raised here rather than at evaluation.
 variant position is what that key's schema entry declares. `K` below is
 `keyof S`.
 
-| Member                           | Returns                                                | Notes                                       |
-| -------------------------------- | ------------------------------------------------------ | ------------------------------------------- |
-| `keys`                           | `readonly (keyof S & FeatureKey)[]`                    | every key, in configuration order           |
-| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`   | the stored intent, deeply frozen            |
-| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined` |                                             |
-| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                    | transitive, in dependency order             |
-| `resolve(context?)`              | `Decisions<S>`                                         | a decision per feature; writes nothing      |
-| `isEnabled(key, context?)`       | `boolean`                                              | `false` for an unknown key                  |
-| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                         | `undefined` for a key declaring no variants |
-| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                           | `undefined` for a key declaring no variants |
-| `plan(context?)`                 | `Plan<S>`                                              | build-time partition                        |
-| `toggle(key, enabled, context?)` | `ToggleResult<keyof S & FeatureKey>`                   | the only writer; reports `willDisable`      |
+The second parameter is `Frozen`. A store built with an observer freezes what it
+emits and answers the caller with that same object, so `resolve`, `plan` and
+`toggle` answer the deeply readonly form for such a store and the mutable form
+for a store built without one.
+
+Take this type off `createFeatures`, and name it in an annotation only where a
+declaration demands one. `const store = createFeatures([...])` carries the
+`Frozen` the call settled, and `store.resolve()` then answers one form. The
+annotation `const store: Features<Flags> = createFeatures([...])` leaves
+`Frozen` at its `boolean` default and `resolve` answers the union of both forms,
+which assigns to neither `Decisions<Flags>` nor `DeepReadonly<Decisions<Flags>>`.
+`DeepReadonly` maps the `Date` a rule outcome can carry to a `ReadonlyDate`, and
+that one field is what the union splits on. A declaration that must name the
+type names the second parameter with it, `Features<Flags, false>` for a store
+built with no observer and `Features<Flags, true>` for one built with an
+observer. A function that takes either store names both parameters and stays
+generic over `Frozen`.
+
+| Member                           | Returns                                                          | Notes                                       |
+| -------------------------------- | ---------------------------------------------------------------- | ------------------------------------------- |
+| `keys`                           | `readonly (keyof S & FeatureKey)[]`                              | every key, in configuration order           |
+| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`             | the stored intent, deeply frozen            |
+| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined`           |                                             |
+| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                              | transitive, in dependency order             |
+| `resolve(context?)`              | `FrozenWhenObserved<Frozen, Decisions<S>>`                       | a decision per feature; writes nothing      |
+| `isEnabled(key, context?)`       | `boolean`                                                        | `false` for an unknown key                  |
+| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                                   | `undefined` for a key declaring no variants |
+| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants |
+| `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                        |
+| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`      |
 
 `resolve`, `plan`, `variantOf`, `valueOf` and `toggle` all default `context.now`
 to `new Date()` at the call.

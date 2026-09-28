@@ -29,8 +29,8 @@ export type {
   FeatureEvent,
   FeatureOptions,
   FrozenWhenObserved,
-  ObservedOptions,
   ReadonlyDate,
+  UnobservedOptions,
 } from './lib/observe.js';
 
 export type {

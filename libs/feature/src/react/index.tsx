@@ -187,11 +187,18 @@ export function useVariant(
  * factory already holds a store, and a mount that supplies the context alone is
  * the common one. Pass it to resolve a different store with the same schema --
  * a per-tenant configuration, or the copy a browser rebuilt from JSON.
+ *
+ * `Frozen` comes from the factory's own store, and a substituted store carries
+ * the same parameter. The hooks type their decisions off the factory's answer,
+ * so a store that freezes what it resolves under a factory built from a store
+ * that freezes nothing would publish frozen decisions to hooks promising the
+ * mutable form. The parameter here turns that mount into a compile error.
  */
 export interface BoundFeatureProviderProps<
   S extends Record<keyof S, VariantInfo | never>,
+  Frozen extends boolean = boolean,
 > {
-  features?: Features<S>;
+  features?: Features<S, Frozen>;
   context?: EvaluationContext;
   decisions?: Decisions<S> | DeepReadonly<Decisions<S>>;
   children?: ReactNode;
@@ -231,7 +238,7 @@ export interface FeatureContext<
   S extends Record<keyof S, VariantInfo | never>,
   Frozen extends boolean = boolean,
 > {
-  FeatureProvider(props: BoundFeatureProviderProps<S>): ReactElement;
+  FeatureProvider(props: BoundFeatureProviderProps<S, Frozen>): ReactElement;
   useFeatures(): FrozenWhenObserved<Frozen, Decisions<S>>;
   useFeature<K extends keyof S & FeatureKey>(
     key: K,
