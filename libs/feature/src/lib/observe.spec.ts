@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFeatures } from './features.js';
 import { createEmitter } from './observe.js';
 import type { FeatureEvent } from './observe.js';
+import type { ToggleResult } from './types.js';
 
 const event: FeatureEvent = {
   type: 'toggle',
@@ -595,5 +596,78 @@ describe('resolve and isEnabled', () => {
     // to build an event. A store with nobody observing builds none, so nothing
     // reads the field.
     expect(reads).toBe(0);
+  });
+});
+
+describe('plan and toggle', () => {
+  const defs = [
+    { key: 'parent', enabled: true },
+    { key: 'child', enabled: true, dependsOn: ['parent'] },
+  ] as const;
+
+  it('emits one plan event carrying the partition', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.plan({ targetingKey: 'u1' });
+
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe.mock.calls[0]?.[0].type).toBe('plan');
+  });
+
+  it('emits one toggle event and nothing from its two resolutions', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.toggle('parent', false, { targetingKey: 'u1' });
+
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe.mock.calls[0]?.[0].type).toBe('toggle');
+  });
+  it('still reports which dependants a toggle will disable', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    const result = features.toggle('parent', false, { targetingKey: 'u1' });
+
+    // The two resolutions toggle compares are silent, and they still run. A
+    // change that silenced them by skipping them would empty this list.
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.willDisable).toEqual(['child']);
+  });
+
+  it('reports the same willDisable with no observer installed', () => {
+    const observed = createFeatures(defs, { observe: vi.fn() });
+    const plain = createFeatures(defs);
+
+    const a = observed.toggle('parent', false, { targetingKey: 'u1' });
+    const b = plain.toggle('parent', false, { targetingKey: 'u1' });
+
+    expect(a).toEqual(b);
+  });
+
+  it('emits one event for a key nobody configured', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+    // The cast is the JavaScript caller. A TypeScript caller cannot name a key
+    // the definitions never declared.
+    const write = features.toggle as (
+      key: string,
+      enabled: boolean,
+    ) => ToggleResult<string>;
+
+    const result = write('ghost', false);
+
+    // An auditor wants the refused write as much as the accepted one.
+    expect(result).toEqual({
+      ok: false,
+      key: 'ghost',
+      error: 'unknown-feature',
+    });
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe.mock.calls[0]?.[0]).toMatchObject({
+      type: 'toggle',
+      result: { ok: false, key: 'ghost', error: 'unknown-feature' },
+    });
   });
 });
