@@ -1,6 +1,7 @@
 import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import FieldWriteDemo from './components/acl/FieldWriteDemo';
 import UnevaluableDemo from './components/acl/UnevaluableDemo';
+import AstroRenderDemo from './components/astro-widget/AstroRenderDemo';
 import AccessDemo from './components/landing/AccessDemo';
 import ComposeSpecimen from './components/landing/ComposeSpecimen';
 import DataDemo from './components/landing/DataDemo';
@@ -82,10 +83,11 @@ const themeComponents = getThemeComponents();
  * shop vocabulary in their props -- the mechanism tag, the availability pill, the
  * box art -- are left out: this site sells nothing.
  *
- * `components/acl` holds the controls that belong to one teaching page rather
- * than to the front page. They carry their own stylesheet, imported by the
- * component the way `components/listing` imports its own, so a page that mounts
- * neither of them loads neither sheet.
+ * A directory named for a section, such as `components/acl`, holds the controls
+ * that belong to that section's teaching pages rather than to the front page.
+ * Each carries its own stylesheet, imported by the component the way
+ * `components/listing` imports its own, so a page that mounts none of them
+ * loads none of the sheets.
  */
 export function useMDXComponents(components) {
   return {
@@ -139,6 +141,7 @@ export function useMDXComponents(components) {
     AccessDemo,
     FieldWriteDemo,
     UnevaluableDemo,
+    AstroRenderDemo,
     ComposeSpecimen,
     DataDemo,
     LuhnSpecimen,
