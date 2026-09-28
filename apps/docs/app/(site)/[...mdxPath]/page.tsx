@@ -2,8 +2,8 @@ import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { useMDXComponents as getMDXComponents } from '../../../mdx-components';
 import ReleaseNotice from '../../../components/ReleaseNotice';
-import { packages } from '../../navigation';
 import { releaseState } from '../../release-state';
+import { packageFor, type Section } from '../../sections';
 
 const listPages = generateStaticParamsFor('mdxPath');
 
@@ -48,18 +48,17 @@ interface PageProps {
 }
 
 /**
- * The class that binds a page's package colour, from the first path segment.
+ * The class that binds a page's package colour.
  *
- * A page under `content/urn/` is a URN page, which is the only thing the route
- * knows and all this needs: everything below it -- the title, the rule under it,
- * the anchor links -- reads `--baize-hue` and takes the package's colour. A page
- * outside a package section gets no class and falls back to the ground, which
- * is what the library's own rules already do.
+ * A page in a package section belongs to that package whichever version of it
+ * the route names, so `/urn/api`, `/urn/v1/api` and `/next/urn/api` all take
+ * URN's colour: everything below it -- the title, the rule under it, the anchor
+ * links -- reads `--baize-hue`. A page outside a package section gets no class
+ * and falls back to the ground, which is what the library's own rules already
+ * do.
  */
-function identity(mdxPath: string[]): string {
-  const entry = packages.find((item) => item.slug === mdxPath[0]);
-
-  return entry ? `docs-identity ${categoricalClass(entry.hue)}` : '';
+function identity(section: Section | null): string {
+  return section ? `docs-identity ${categoricalClass(section.entry.hue)}` : '';
 }
 
 /**
@@ -68,12 +67,11 @@ function identity(mdxPath: string[]): string {
  * It mounts here rather than in each MDX file, the way `WorkshopNotice` does,
  * because it says the same thing on every page of a section and there are forty
  * of them: written per page it is forty chances to be left off a new one. The
- * route already knows the package -- the first path segment is what `identity()`
- * reads -- so nothing has to be written down for this to be complete.
+ * route already knows the package, through `packageFor`, so nothing has to be
+ * written down for this to be complete.
  */
-function releaseNotice(mdxPath: string[]) {
-  const slug = mdxPath[0];
-  const state = slug === undefined ? null : releaseState(slug);
+function releaseNotice(section: Section | null) {
+  const state = section ? releaseState(section.entry.slug) : null;
 
   return state ? <ReleaseNotice {...state} /> : null;
 }
@@ -86,10 +84,11 @@ export default async function Page(props: PageProps) {
     metadata,
     sourceCode,
   } = await importPage(params.mdxPath);
+  const section = packageFor(params.mdxPath);
   return (
     <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
-      <div className={identity(params.mdxPath)}>
-        {releaseNotice(params.mdxPath)}
+      <div className={identity(section)}>
+        {releaseNotice(section)}
         <MDXContent {...props} params={params} />
       </div>
     </Wrapper>
