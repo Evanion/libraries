@@ -42,28 +42,20 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
    * The assigned variant, or `undefined` for a feature that resolved off.
    *
    * The type comes off `Decisions<S>[K]`, so a reader of `variantOf` sees what
-   * the decision for that key carries and the two cannot drift apart. The
-   * `[S[K]] extends [never]` guard answers for a feature that declares no
-   * variants: `DecisionOf` drops `variant` for that case, and an indexed read
-   * of a dropped optional property infers `unknown`.
+   * the decision for that key carries and the two cannot drift apart. A feature
+   * declaring no variants needs no guard here: `DecisionOf` drops `variant` for
+   * that case, `infer V` off an absent optional property answers `never`, and
+   * `never | undefined` is `undefined`.
    */
   variantOf<K extends keyof S>(
     key: K,
     context?: EvaluationContext,
-  ): [S[K]] extends [never]
-    ? undefined
-    : Decisions<S>[K] extends { variant?: infer V }
-      ? V | undefined
-      : undefined;
+  ): Decisions<S>[K] extends { variant?: infer V } ? V | undefined : undefined;
   /** The assigned variant's configured value, when it declares one. */
   valueOf<K extends keyof S>(
     key: K,
     context?: EvaluationContext,
-  ): [S[K]] extends [never]
-    ? undefined
-    : Decisions<S>[K] extends { value?: infer T }
-      ? T | undefined
-      : undefined;
+  ): Decisions<S>[K] extends { value?: infer T } ? T | undefined : undefined;
   /**
    * Partitions every feature into resolvable now and deferred, for build-time
    * evaluation. One engine, not a second code path: the resolvable cases go
@@ -85,30 +77,21 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
 }
 
 /**
- * A definitions array `InferSchema` can read a schema off: a tuple of at least
- * one member, which is what an array literal at a call site produces under the
- * `const` type parameter.
+ * The configuration `createFeatures` takes: one definition per feature, keyed on
+ * `K`.
  *
- * A plain `readonly FeatureDefinition<K>[]` fails this constraint, and the
- * rejection is deliberate. `FeatureDefinition` declares `variants` optionally, so
- * `InferSchema` finds no `variants` property on a member it reads off an array
- * type and maps every key to `never`. `variantOf` then types as `undefined`
- * while the store hands back a real variant name at runtime.
- *
- * A caller who holds the configuration in a variable writes `as const satisfies
- * Definitions<K>` after the array literal. `satisfies` checks the literal
+ * Name this type in a `satisfies` clause, not in an annotation. `const
+ * definitions = [...] as const satisfies Definitions<K>` checks the literal
  * against this type and leaves the variable the literal's own type, so the
- * inferring overload still reads the variant names off it. A caller who writes
- * the annotation `const definitions: Definitions<K> = [...]` gives the variable
- * this type itself, and this type declares `variants` optionally, so that caller
- * gets the same `never` collapse the tuple constraint exists to stop. A
- * caller whose configuration arrived as JSON has no literal to check, so that
- * caller names the schema and the second overload narrows for them.
+ * inferring overload reads the variant names off it. The annotation `const
+ * definitions: Definitions<K> = [...]` gives the variable this type itself, and
+ * this type declares `variants` optionally, so `InferSchema` reads no names off
+ * it and `variantOf` widens to `string | undefined`. A caller who wants the
+ * union back either moves to `satisfies` or names a schema, which the second
+ * overload narrows for them.
  */
-export type Definitions<K extends FeatureKey = FeatureKey> = readonly [
-  FeatureDefinition<K>,
-  ...FeatureDefinition<K>[],
-];
+export type Definitions<K extends FeatureKey = FeatureKey> =
+  readonly FeatureDefinition<K>[];
 
 /**
  * A schema in the form a generic accepts.
@@ -144,11 +127,12 @@ function deepFreeze<T>(value: T): T {
  * There are two ways to type the store. A call that passes an array literal
  * needs no type argument: the definitions supply the keys, the variant names
  * and each variant's value. A call whose configuration arrived as JSON, or sits
- * in a variable typed `FeatureDefinition<K>[]`, has no literals for the compiler
- * to read, so the caller names a schema: `createFeatures<MyFlags>(config)`. The
- * second form checks every definition's key against `keyof MyFlags`, so a
- * configuration that names a feature the schema does not declare is an error at
- * the call.
+ * in a variable annotated `Definitions<K>`, has no literals for the compiler to
+ * read, so the inferring overload widens every variant of such a definition to
+ * `string`. A caller who wants the union back names a schema:
+ * `createFeatures<MyFlags>(config)`. That form checks every definition's key
+ * against `keyof MyFlags`, so a configuration that names a feature the schema
+ * does not declare is an error at the call.
  *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.

@@ -134,13 +134,25 @@ export type VariantValue<M> = M extends { value: infer T } ? T : never;
  *
  * A definition that declares no variants maps to `never`, and `Decisions` and
  * `Plan` read that `never` as "this feature has no variants".
+ *
+ * Three cases, and the middle one is why the `'variants' extends keyof E` test
+ * is here. A member whose `variants` property is required and literal supplies
+ * its names. A member with no `variants` key at all declares no variants, and
+ * `never` records that. A member typed `FeatureDefinition<K>`, which every
+ * element of a plain array type is, carries a `variants` key the compiler cannot
+ * read names off, because `FeatureDefinition` declares the property optionally.
+ * That member maps to `VariantInfo`, so `variantOf` answers `string | undefined`
+ * for it. `never` would type that same reader as `undefined` while the store
+ * hands back a real variant name.
  */
 export type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
   [E in D[number] as E['key']]: E extends {
     variants: infer V extends readonly VariantSpec[];
   }
     ? { variant: V[number]['name']; value: VariantValue<V[number]> }
-    : never;
+    : 'variants' extends keyof E
+      ? VariantInfo
+      : never;
 };
 
 /**

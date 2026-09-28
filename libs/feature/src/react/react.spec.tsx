@@ -13,7 +13,7 @@ import {
 
 type Key = 'payments-v3' | 'checkout-v2' | 'checkout-express';
 
-const definitions: Definitions<Key> = [
+const definitions = [
   {
     key: 'payments-v3',
     enabled: true,
@@ -26,7 +26,7 @@ const definitions: Definitions<Key> = [
   },
   { key: 'checkout-v2', enabled: true, dependsOn: ['payments-v3'] },
   { key: 'checkout-express', enabled: true, dependsOn: ['checkout-v2'] },
-];
+] as const satisfies Definitions<Key>;
 
 const inWindow = { now: new Date('2026-10-15T00:00:00Z') };
 const outsideWindow = { now: new Date('2026-09-01T00:00:00Z') };

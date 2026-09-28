@@ -607,7 +607,7 @@ describe('the store holds intent', () => {
   });
 
   it('restores a dependant when a window reopens, with no write in between', () => {
-    const definitions: Definitions<'parent' | 'child'> = [
+    const definitions = [
       {
         key: 'parent',
         enabled: true,
@@ -622,7 +622,7 @@ describe('the store holds intent', () => {
         ],
       },
       { key: 'child', enabled: true, dependsOn: ['parent'] },
-    ];
+    ] as const satisfies Definitions<'parent' | 'child'>;
     const features = createFeatures(definitions);
     const snapshot = JSON.stringify(definitions);
     const childAt = (iso: string) =>
@@ -699,7 +699,9 @@ describe('toggle', () => {
   });
 
   it('replaces the definition instead of mutating it', () => {
-    const definitions: Definitions<'a'> = [{ key: 'a', enabled: true }];
+    const definitions = [
+      { key: 'a', enabled: true },
+    ] as const satisfies Definitions<'a'>;
     const features = createFeatures(definitions);
 
     features.toggle('a', false);
