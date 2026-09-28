@@ -85,24 +85,31 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
 }
 
 /**
- * The schema one call resolves to: the one a caller named, or the one the
- * definitions imply.
+ * A definitions array `InferSchema` can read a schema off: a tuple of at least
+ * one member, which is what an array literal at a call site produces under the
+ * `const` type parameter.
  *
- * A caller who types the store by hand names the schema as `S`. A caller who
- * names nothing leaves `S` at its `never` default, and the definitions in `D`
- * supply the schema.
+ * A plain `readonly FeatureDefinition<K>[]` fails this constraint, and the
+ * rejection is deliberate. `FeatureDefinition` declares `variants` optionally, so
+ * `InferSchema` finds no `variants` property on a member it reads off an array
+ * type and maps every key to `never`. `variantOf` then types as `undefined`
+ * while the store hands back a real variant name at runtime. A caller who holds
+ * the configuration in a variable annotates it with this type, and the inferring
+ * overload reads the keys off it. A caller whose configuration arrived as JSON
+ * has no annotation to write, so that caller names the schema and the second
+ * overload narrows for them.
  */
-export type ChosenSchema<
-  S,
-  D extends readonly FeatureDefinition<FeatureKey>[],
-> = [S] extends [never] ? InferSchema<D> : S;
+export type Definitions<K extends FeatureKey = FeatureKey> = readonly [
+  FeatureDefinition<K>,
+  ...FeatureDefinition<K>[],
+];
 
 /**
  * A schema in the form a generic accepts.
  *
  * `Features` constrains its parameter self-referentially. The compiler cannot
- * prove that `ChosenSchema` satisfies that constraint before a call resolves:
- * `InferSchema` remaps its keys, and `S` is a bare type parameter. This copy
+ * prove that `InferSchema<D>` satisfies that constraint before a call resolves:
+ * `InferSchema` remaps its keys, and `D` is a bare type parameter. This copy
  * tests every entry against `VariantInfo`, which is the test the constraint
  * applies, and the constraint then holds. Each entry keeps the type it had,
  * including the `never` that a feature declaring no variants maps to.
@@ -128,11 +135,14 @@ function deepFreeze<T>(value: T): T {
  * validated here for the same reason: a set with two names cannot answer which
  * one a pin meant, and a set with no usable band has nothing to assign into.
  *
- * There are two ways to type the store. A call that passes a literal array
+ * There are two ways to type the store. A call that passes an array literal
  * needs no type argument: the definitions supply the keys, the variant names
- * and each variant's value. A call whose configuration arrived as JSON has no
- * literals for the compiler to read, so the caller names a schema:
- * `createFeatures<MyFlags>(config)`.
+ * and each variant's value. A call whose configuration arrived as JSON, or sits
+ * in a variable typed `FeatureDefinition<K>[]`, has no literals for the compiler
+ * to read, so the caller names a schema: `createFeatures<MyFlags>(config)`. The
+ * second form checks every definition's key against `keyof MyFlags`, so a
+ * configuration that names a feature the schema does not declare is an error at
+ * the call.
  *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
@@ -153,11 +163,22 @@ function deepFreeze<T>(value: T): T {
  * features.toggle('checkout', false).willDisable; // ['express-checkout']
  * ```
  */
-export function createFeatures<
-  S extends Record<keyof S, VariantInfo | never> = never,
-  const D extends readonly FeatureDefinition<FeatureKey>[] =
-    readonly FeatureDefinition<FeatureKey>[],
->(definitions: D): Features<AsSchema<ChosenSchema<S, D>>>;
+export function createFeatures<const D extends Definitions>(
+  definitions: D,
+): Features<AsSchema<InferSchema<D>>>;
+/**
+ * Builds the store over a schema the caller names. Every definition's key is
+ * checked against `keyof S`.
+ *
+ * `NoInfer` is what makes the check happen. Without it the compiler infers `S`
+ * backwards out of the argument, fills every entry with `any`, and a definition
+ * naming a key the schema never declared passes.
+ */
+export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: readonly FeatureDefinition<
+    NoInfer<Extract<keyof S, FeatureKey>>
+  >[],
+): Features<S>;
 export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
 ): Features<Record<FeatureKey, VariantInfo>> {

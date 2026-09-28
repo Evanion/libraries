@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DuplicateVariantError, FeatureCycleError } from './errors.js';
-import { createFeatures } from './features.js';
+import { createFeatures, type Definitions } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
 
 const WINDOW = '2026-10-01T00:00:00Z';
@@ -13,7 +13,7 @@ const WINDOW = '2026-10-01T00:00:00Z';
  */
 type Link = 'a' | 'b' | 'c' | 'd' | 'e';
 
-const chain = (): FeatureDefinition<Link>[] => [
+const chain = (): [FeatureDefinition<Link>, ...FeatureDefinition<Link>[]] => [
   { key: 'a', enabled: true },
   { key: 'b', enabled: true, dependsOn: ['a'] },
   { key: 'c', enabled: true, dependsOn: ['b'] },
@@ -217,7 +217,7 @@ describe('precedence', () => {
   it('defaults the bucketing seed to the feature key', () => {
     // Same rollout, same user, two features: the cohorts must differ. A shared
     // seed would make every 5% rollout contain the same users.
-    const definitions = (key: string): FeatureDefinition[] => [
+    const definitions = <const K extends string>(key: K): Definitions<K> => [
       { key, enabled: true, rules: [{ rollout: { percent: 5 } }] },
     ];
     const a = createFeatures(definitions('checkout-v2'));
@@ -607,7 +607,7 @@ describe('the store holds intent', () => {
   });
 
   it('restores a dependant when a window reopens, with no write in between', () => {
-    const definitions: FeatureDefinition<'parent' | 'child'>[] = [
+    const definitions: Definitions<'parent' | 'child'> = [
       {
         key: 'parent',
         enabled: true,
@@ -699,7 +699,7 @@ describe('toggle', () => {
   });
 
   it('replaces the definition instead of mutating it', () => {
-    const definitions: FeatureDefinition[] = [{ key: 'a', enabled: true }];
+    const definitions: Definitions<'a'> = [{ key: 'a', enabled: true }];
     const features = createFeatures(definitions);
 
     features.toggle('a', false);
@@ -768,7 +768,9 @@ describe('plan', () => {
   });
 
   it('defers a time window unless the feature opts into freezing it', () => {
-    const definitions = (freezeTimeAtBuild: boolean): FeatureDefinition[] => [
+    const definitions = (
+      freezeTimeAtBuild: boolean,
+    ): Definitions<'windowed'> => [
       {
         key: 'windowed',
         enabled: true,
@@ -1186,7 +1188,9 @@ describe('plan', () => {
     expect(entry.needs).toEqual([]);
     expect(entry.decision?.enabled).toBe(false);
   });
+});
 
+describe('variantOf', () => {
   it('reads the assigned variant off a resolved feature', () => {
     const features = createFeatures([
       {
@@ -1198,10 +1202,19 @@ describe('plan', () => {
         ],
       },
     ]);
+    const subjects = Array.from({ length: 40 }, (_, i) => `user-${i}`);
 
-    const variant = features.variantOf('cta', { targetingKey: 'user-1' });
+    const variants = subjects.map((targetingKey) => {
+      const variant = features.variantOf('cta', { targetingKey });
 
-    expect(['control', 'blue']).toContain(variant);
+      // Tied to the decision `resolve` computes for the same context. A reader
+      // that answered with the feature's first declared name, ignoring the
+      // assignment, passes a membership check and fails this one.
+      expect(variant).toBe(features.resolve({ targetingKey }).cta.variant);
+      return variant;
+    });
+
+    expect(new Set(variants)).toEqual(new Set(['control', 'blue']));
   });
 
   it('reads no variant off a feature that resolved off', () => {
@@ -1211,18 +1224,41 @@ describe('plan', () => {
 
     expect(features.variantOf('cta', { targetingKey: 'u' })).toBeUndefined();
   });
+});
 
+describe('valueOf', () => {
   it("reads the assigned variant's value", () => {
     const features = createFeatures([
       {
         key: 'cta',
         enabled: true,
+        variants: [
+          { name: 'control', weight: 50, value: { label: 'Buy' } },
+          { name: 'blue', weight: 50, value: { label: 'Get it' } },
+        ],
+      },
+    ]);
+    const subjects = Array.from({ length: 40 }, (_, i) => `user-${i}`);
+
+    const values = subjects.map((targetingKey) => {
+      const value = features.valueOf('cta', { targetingKey });
+
+      expect(value).toEqual(features.resolve({ targetingKey }).cta.value);
+      return value?.label;
+    });
+
+    expect(new Set(values)).toEqual(new Set(['Buy', 'Get it']));
+  });
+
+  it('reads no value off a feature that resolved off', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: false,
         variants: [{ name: 'only', weight: 1, value: { label: 'Buy' } }],
       },
     ]);
 
-    expect(features.valueOf('cta', { targetingKey: 'u' })).toEqual({
-      label: 'Buy',
-    });
+    expect(features.valueOf('cta', { targetingKey: 'u' })).toBeUndefined();
   });
 });

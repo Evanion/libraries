@@ -1,8 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { createFeatures } from '../lib/features.js';
-import type { FeatureDefinition } from '../lib/types.js';
+import { createFeatures, type Definitions } from '../lib/features.js';
 import {
   FeatureProvider,
   useFeature,
@@ -13,7 +12,7 @@ import {
 
 type Key = 'payments-v3' | 'checkout-v2' | 'checkout-express';
 
-const definitions: FeatureDefinition<Key>[] = [
+const definitions: Definitions<Key> = [
   {
     key: 'payments-v3',
     enabled: true,
