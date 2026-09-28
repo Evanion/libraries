@@ -9,6 +9,10 @@ on:
   # and merges them only when the checks the ruleset requires report on that
   # group. Those checks are the jobs below, so they run on the group's commit.
   merge_group:
+  # A pull request opened with a GITHUB_TOKEN starts no run, and docs-recut.yml
+  # opens one. It dispatches this workflow on the pull request's branch, which
+  # that token may do, so the required checks report on its head commit.
+  workflow_dispatch:
 
 permissions:
   actions: read
