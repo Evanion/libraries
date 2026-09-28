@@ -157,12 +157,14 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
  *
  * An `Error` supplies its message, so two distinct failures warn separately and
  * a transport that fails the same way on every call warns once. Any other value
- * goes through `String`, which throws for an object that carries no `toString`,
- * so this function catches that and keys the failure on one fixed text.
+ * goes through `String`. Both reads sit inside the same `try`. An `Error`
+ * subclass may compute `message` in a getter that throws, and `String` throws
+ * for an object that carries no `toString`. This function catches either and
+ * keys the failure on one fixed text.
  */
 function keyOf(error: unknown): string {
-  if (error instanceof Error) return error.message;
   try {
+    if (error instanceof Error) return error.message;
     return String(error);
   } catch {
     return '[an error with no text]';
@@ -177,6 +179,12 @@ const OBSERVER_FAILED =
 const HANDLER_FAILED =
   '@evanion/feature: onObserveError threw. The engine reports the failure here and does not call onObserveError again for this event.';
 
+/** How many distinct failures one emitter warns about. */
+const WARN_LIMIT = 20;
+
+/** The last warning an emitter writes, once it has warned {@link WARN_LIMIT} times. */
+const WARN_LIMIT_REACHED = `@evanion/feature: an observer has now failed in ${WARN_LIMIT} distinct ways. The engine stops warning about this emitter. Pass onObserveError to receive every failure.`;
+
 /**
  * Builds the function an entry point calls to report what it returned.
  *
@@ -189,10 +197,17 @@ const HANDLER_FAILED =
  * point computed on every one of those paths.
  *
  * Each emitter carries its own set of warned failures, keyed on the notice and
- * the failing error's message, which is the shape `libs/widget/src/warn.ts`
- * uses. A transport that fails the same way on every call warns once, and a
- * second, unrelated failure still reaches the log. One process holds one
- * emitter per engine, and no test resets module state to stay order-independent.
+ * the failing error's message. A transport that fails the same way on every
+ * call warns once, and a second, unrelated failure still reaches the log. One
+ * process holds one emitter per engine, and no test resets module state to stay
+ * order-independent.
+ *
+ * The set holds at most {@link WARN_LIMIT} keys. An application's transport may
+ * stamp a request identifier into the text it throws, which makes every failure
+ * a distinct key, so the emitter writes one last warning at the limit and stays
+ * silent from then on. `onObserveError` still receives every failure, and the
+ * emitter keeps no key for a failure it did not warn about.
+ *
  * The warning stays silent when `NODE_ENV` is `production`, which
  * `libs/widget/src/warn.ts` does for the same reason. A runtime that defines no
  * `process` global, such as a browser loading this package as unbundled ESM,
@@ -213,14 +228,21 @@ export function createEmitter<
   }
 
   const warned = new Set<string>();
+  let capped = false;
   const warn = (notice: string, error: unknown, ...details: unknown[]) => {
     if (
       typeof process !== 'undefined' &&
       process.env?.NODE_ENV === 'production'
     )
       return;
+    if (capped) return;
     const key = `${notice}\n${keyOf(error)}`;
     if (warned.has(key)) return;
+    if (warned.size >= WARN_LIMIT) {
+      capped = true;
+      console.warn(WARN_LIMIT_REACHED);
+      return;
+    }
     warned.add(key);
     console.warn(notice, error, ...details);
   };

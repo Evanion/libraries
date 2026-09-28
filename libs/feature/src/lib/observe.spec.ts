@@ -53,15 +53,17 @@ describe('createEmitter', () => {
 
   it('swallows a synchronous throw and reports it', () => {
     const onObserveError = vi.fn();
+    const thrown = new Error('transport down');
     const emit = createEmitter({
       observe: () => {
-        throw new Error('transport down');
+        throw thrown;
       },
       onObserveError,
     });
 
     expect(() => emit(event)).not.toThrow();
     expect(onObserveError).toHaveBeenCalledTimes(1);
+    expect(onObserveError.mock.calls[0]?.[0]).toBe(thrown);
     expect(onObserveError.mock.calls[0]?.[1]).toBe(event);
   });
 
@@ -218,6 +220,58 @@ describe('createEmitter', () => {
     expect(() => emit(event)).not.toThrow();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[1]).toBe(hostile);
+  });
+
+  it('swallows an error whose message getter throws', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const hostile = new Error('transport down');
+    Object.defineProperty(hostile, 'message', {
+      get() {
+        throw new Error('message getter down');
+      },
+    });
+    const emit = createEmitter({
+      observe: () => {
+        throw hostile;
+      },
+    });
+
+    expect(() => emit(event)).not.toThrow();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[1]).toBe(hostile);
+  });
+
+  it('stops warning once twenty distinct failures have warned', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let call = 0;
+    const emit = createEmitter({
+      observe: () => {
+        throw new Error(`request ${call++} failed`);
+      },
+    });
+
+    for (let i = 0; i < 200; i++) emit(event);
+
+    expect(warn).toHaveBeenCalledTimes(21);
+    expect(warn.mock.calls[20]?.[0]).toContain(
+      'The engine stops warning about this emitter',
+    );
+  });
+
+  it('reports every distinct failure to onObserveError past the warning limit', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const onObserveError = vi.fn();
+    let call = 0;
+    const emit = createEmitter({
+      observe: () => {
+        throw new Error(`request ${call++} failed`);
+      },
+      onObserveError,
+    });
+
+    for (let i = 0; i < 200; i++) emit(event);
+
+    expect(onObserveError).toHaveBeenCalledTimes(200);
   });
 
   it('warns in a runtime that defines no process global', () => {
