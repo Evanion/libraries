@@ -470,6 +470,15 @@ type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
 it. `onObserveError` replaces the `console.warn` the engine writes when an
 observer throws or rejects.
 
+`observe` does not count exposures. `resolve` decides every configured feature,
+so an observer fired from it reports a decision for every feature the request
+never rendered, and an experiment computed over those records measures the wrong
+denominator. The numbers look plausible and are wrong. The application writes an
+exposure record at its render site, off the fields the decision it already holds
+carries. See
+[Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries)
+for the whole argument.
+
 `FeatureOptions` declares `observe` optionally, so options carrying an observer
 and options carrying none both satisfy it. `UnobservedOptions` pins the member
 to `undefined`, so only a value whose type proves the absence satisfies it, and
@@ -571,8 +580,13 @@ the factory was given. So the bound `useFeatures` answers
 `FrozenWhenObserved<Frozen, Decisions<S>>` and the bound `useFeature` answers
 `FrozenWhenObserved<Frozen, Decisions<S>[K]>`, and a factory built from a store
 with no observer keeps the mutable form on both. `BoundFeatureProviderProps`
-carries `Frozen` too, so a substituted store whose freeze differs from the
-factory store's is a compile error at the mount.
+carries `Frozen` too, and it refuses one of the two mismatched mounts. A store
+that freezes what it resolves, mounted under a factory built from a store that
+freezes nothing, is a compile error, because the hooks there promise the mutable
+form. The opposite mount compiles: TypeScript widens `Decisions<S>` into
+`DeepReadonly<Decisions<S>>`, so a store that freezes nothing satisfies a factory
+bound to one that freezes, and the bound hooks then type as readonly an object
+no code froze.
 
 `FeatureProviderProps<S>`, `BoundFeatureProviderProps<S, Frozen>`,
 `FeatureContext<S, Frozen>` and `AnyDecisions` are exported as types. See
