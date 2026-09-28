@@ -3,8 +3,6 @@ import {
   Figure,
   MechanismTag,
   Panel,
-  Stat,
-  StatLine,
   Text,
   Title,
   ComplexityRamp,
@@ -24,6 +22,7 @@ import {
   complexityStop,
   type Availability,
 } from '../ui/catalogue.js';
+import { FigureLine, type StatFigure } from '../ui/figure-line.js';
 
 /**
  * The dashboard's widget set.
@@ -245,14 +244,8 @@ function Memo({
 }
 
 /** A small figure group inside the note, to give nesting something to render. */
-function Figures({ figures }: { figures: { label: string; value: string }[] }) {
-  return (
-    <StatLine label="Buying targets">
-      {figures.map((figure) => (
-        <Stat figure={figure.value} key={figure.label} label={figure.label} />
-      ))}
-    </StatLine>
-  );
+function Figures({ figures }: { figures: StatFigure[] }) {
+  return <FigureLine label="Buying targets" figures={figures} />;
 }
 
 /**
