@@ -3,10 +3,9 @@
 <WorkshopNotice slug="react-acl" />
 
 `@evanion/react-acl` exports one provider, four hooks, a factory that binds them
-to a policy, and three interfaces. It also re-exports seventeen of
-`@evanion/acl`'s types under their own names, from [`Access`](#access) down, so
-a component file imports `Decision` from either package. The core's values,
-`hydratePolicy` and `policy` among them, are imported from `@evanion/acl`.
+to a policy, and three interfaces. It re-exports seventeen `@evanion/acl` types,
+names unchanged, from [`Access`](#access) down. The core's values, such as
+`hydratePolicy` and `policy`, come from `@evanion/acl`.
 
 ## `PolicyProvider`
 
@@ -264,7 +263,8 @@ where a `Date` is a new object every render.
 
 <!-- reference @evanion/acl#Decision -->
 
-`useCan` returns one, and `useCanMany` returns one per row.
+`useCan` returns one, and `useCanMany` returns one per row. A component file
+imports `Decision` from `@evanion/react-acl` or from `@evanion/acl`.
 
 ## `Reason`
 
