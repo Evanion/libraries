@@ -114,3 +114,13 @@
   color: var(--baize-lichen);
   font-size: var(--baize-text-xs);
 }
+
+/*
+ * A frozen probe keeps the field and disables it. The dotted rule stays, so
+ * the affordance reads as the same control, and the cursor says it takes no
+ * typing.
+ */
+.probe__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}

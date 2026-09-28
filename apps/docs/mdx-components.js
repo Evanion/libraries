@@ -26,6 +26,8 @@ import {
   SuiteTable,
 } from './components/testing/Numbers';
 import Probe from './components/Probe';
+import ArchiveNotice from './components/archive/ArchiveNotice';
+import FrozenProbe from './components/archive/FrozenProbe';
 import Diagram from './components/diagram/Diagram';
 import Listing from './components/listing/Listing';
 import WidgetPlayground from './components/WidgetPlayground';
@@ -148,5 +150,10 @@ export function useMDXComponents(components) {
     PolicySpecimen,
     TokenSpecimen,
     UrnSpecimen,
+    // Not tags an author writes: the archive generator puts them on the pages
+    // it cuts, a notice under each title and a frozen probe where the release
+    // had a live one. `components/archive/surface.mjs` carries why.
+    ArchiveNotice,
+    FrozenProbe,
   };
 }
