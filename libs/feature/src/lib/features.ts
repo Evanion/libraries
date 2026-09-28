@@ -2,7 +2,12 @@ import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
 import { createEmitter } from './observe.js';
-import type { FeatureEvent, FeatureOptions } from './observe.js';
+import type {
+  FeatureEvent,
+  FeatureOptions,
+  FrozenWhenObserved,
+  ObservedOptions,
+} from './observe.js';
 import type {
   Decision,
   Decisions,
@@ -27,7 +32,10 @@ import type {
  * that did not, and destroy the distinction between "someone turned this off"
  * and "the system turned it off" -- the one an operator needs at 3am.
  */
-export interface Features<S extends Record<keyof S, VariantInfo | never>> {
+export interface Features<
+  S extends Record<keyof S, VariantInfo | never>,
+  Frozen extends boolean = boolean,
+> {
   /** Every key, in the order the definitions were supplied. */
   readonly keys: readonly (keyof S & FeatureKey)[];
   /** The stored intent, deeply frozen, in the order it was supplied. */
@@ -37,8 +45,17 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
   ): FeatureDefinition<keyof S & FeatureKey> | undefined;
   /** Transitive dependants of `key`, in dependency order. */
   dependants(key: keyof S & FeatureKey): readonly (keyof S & FeatureKey)[];
-  /** Resolves every feature for one context. Writes nothing. */
-  resolve(context?: EvaluationContext): Decisions<S>;
+  /**
+   * Resolves every feature for one context. Writes nothing.
+   *
+   * A store carrying an observer answers the deeply readonly form, because it
+   * freezes the record before it emits it and hands the caller that same
+   * object. A store carrying none answers the mutable form and freezes
+   * nothing.
+   */
+  resolve(
+    context?: EvaluationContext,
+  ): FrozenWhenObserved<Frozen, Decisions<S>>;
   isEnabled(key: keyof S & FeatureKey, context?: EvaluationContext): boolean;
   /**
    * The assigned variant, or `undefined` for a feature that resolved off.
@@ -63,7 +80,7 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
    * evaluation. One engine, not a second code path: the resolvable cases go
    * through the same `decide` as `resolve`.
    */
-  plan(context?: EvaluationContext): Plan<S>;
+  plan(context?: EvaluationContext): FrozenWhenObserved<Frozen, Plan<S>>;
   /**
    * Writes intent, and reports which dependants go off with it.
    *
@@ -75,7 +92,7 @@ export interface Features<S extends Record<keyof S, VariantInfo | never>> {
     key: keyof S & FeatureKey,
     enabled: boolean,
     context?: EvaluationContext,
-  ): ToggleResult<keyof S & FeatureKey>;
+  ): FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>;
 }
 
 /**
@@ -238,6 +255,15 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * against `keyof MyFlags`, so a configuration that names a feature the schema
  * does not declare is an error at the call.
  *
+ * Each of those two forms is overloaded again on the options. A call that
+ * passes an object literal holding `observe` answers a store whose `resolve`,
+ * `plan` and `toggle` return the deeply readonly form, because such a store
+ * freezes what it emits and answers with that same object. A call that passes
+ * no observer answers the mutable form. A caller who holds the options in a
+ * variable annotated `FeatureOptions<S>` installs an observer the compiler
+ * cannot see, so that call takes the unobserved overload and the freeze still
+ * happens at runtime.
+ *
  * @throws {FeatureCycleError} when `dependsOn` closes a loop.
  * @throws {UnknownDependencyError} when `dependsOn` names an unconfigured key.
  * @throws {DuplicateFeatureError} when two definitions share a key.
@@ -259,8 +285,16 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  */
 export function createFeatures<const D extends Definitions>(
   definitions: D,
+  options: ObservedOptions<AsSchema<InferSchema<D>>>,
+): Features<AsSchema<InferSchema<D>>, true>;
+/**
+ * The same store, built without an observer. Every entry point answers the
+ * mutable form, because the store freezes nothing.
+ */
+export function createFeatures<const D extends Definitions>(
+  definitions: D,
   options?: FeatureOptions<AsSchema<InferSchema<D>>>,
-): Features<AsSchema<InferSchema<D>>>;
+): Features<AsSchema<InferSchema<D>>, false>;
 /**
  * Builds the store over a schema the caller names. Every definition's key is
  * checked against `keyof S`.
@@ -273,12 +307,25 @@ export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
   definitions: readonly FeatureDefinition<
     NoInfer<Extract<keyof S, FeatureKey>>
   >[],
+  options: ObservedOptions<S>,
+): Features<S, true>;
+/** The same store over a named schema, built without an observer. */
+export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: readonly FeatureDefinition<
+    NoInfer<Extract<keyof S, FeatureKey>>
+  >[],
   options?: FeatureOptions<S>,
-): Features<S>;
+): Features<S, false>;
 export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
-  options: FeatureOptions<Record<FeatureKey, VariantInfo>> = {},
-): Features<Record<FeatureKey, VariantInfo>> {
+  given: object = {},
+): Features<Record<FeatureKey, VariantInfo>, boolean> {
+  // The four signatures above are what a caller sees, and this one is checked
+  // against each of them with its type parameters erased. An erased
+  // `ObservedOptions<AsSchema<InferSchema<D>>>` relates to no options type
+  // that declares `observe`, so this parameter declares none and the body
+  // reads the options at the erased schema.
+  const options = given as FeatureOptions<Record<FeatureKey, VariantInfo>>;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
   // resolved. The freeze covers the array as well as each definition in it, and
