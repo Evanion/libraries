@@ -6,7 +6,7 @@ import type {
   FeatureEvent,
   FeatureOptions,
   FrozenWhenObserved,
-  ObservedOptions,
+  UnobservedOptions,
 } from './observe.js';
 import type {
   Decision,
@@ -31,6 +31,18 @@ import type {
  * store disagree between a process that slept through a window boundary and one
  * that did not, and destroy the distinction between "someone turned this off"
  * and "the system turned it off" -- the one an operator needs at 3am.
+ *
+ * Read this type off `createFeatures`, and name it in an annotation only where
+ * a declaration demands one. `const store = createFeatures([...])` carries a
+ * settled `Frozen`, and `resolve` then answers one form. The annotation `const
+ * store: Features<Flags> = createFeatures([...])` leaves `Frozen` at its
+ * `boolean` default, `resolve` answers the union of both forms, and that union
+ * assigns to neither `Decisions<Flags>` nor `DeepReadonly<Decisions<Flags>>`,
+ * because `DeepReadonly` maps the `Date` a rule outcome can carry to a
+ * `ReadonlyDate`. A declaration that must name the type carries the second
+ * parameter with it: `Features<Flags, false>` for a store built with no
+ * observer, `Features<Flags, true>` for one built with an observer. A function
+ * taking either store names both parameters and stays generic over `Frozen`.
  */
 export interface Features<
   S extends Record<keyof S, VariantInfo | never>,
@@ -258,13 +270,20 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * The options decide the return types. A call that passes an object literal
  * holding `observe` answers a store whose `resolve`, `plan` and `toggle` return
  * the deeply readonly form, because such a store freezes what it emits and
- * answers with that same object. A call that passes no observer answers the
- * mutable form. The inferring form reads that off the options type parameter
- * `O`, and the form that names a schema takes one signature per case, because
- * TypeScript infers no type argument once a caller supplies one and `O` would
- * come from its default. A caller who holds the options in a variable annotated
- * `FeatureOptions<S>` installs an observer the compiler cannot see, so that call
- * answers the mutable form and the freeze still happens at runtime.
+ * answers with that same object. A call whose options prove no observer answers
+ * the mutable form. The inferring form reads that off the options type
+ * parameter `O`, and the form that names a schema takes one signature per case,
+ * because TypeScript infers no type argument once a caller supplies one and `O`
+ * would come from its default.
+ *
+ * A call whose options settle neither question answers the frozen form. Options
+ * held in a variable annotated `FeatureOptions<S>`, and a wrapper that forwards
+ * an optional `observe` parameter, both hide the observer from the compiler and
+ * both take this branch. The compiler then refuses a write into what such a
+ * store answers, which the runtime refuses too once the caller does install an
+ * observer. A caller who installs none writes `satisfies UnobservedOptions<S>`
+ * on the options, or passes the literal at the call site, to get the mutable
+ * form back.
  *
  * The signature count stops at three. TypeScript elaborates every candidate for
  * a failed call while a signature list holds three or fewer, and reports one
@@ -292,53 +311,70 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  */
 /**
  * `O` carries the options a caller wrote at the call site, and the return type
- * reads `observe` off it. The `Record<Exclude<...>, never>` half of the
+ * asks whether `O` names `observe` at all. The `Record<Exclude<...>, never>`
  * constraint is what keeps a misspelled option an error: a type parameter
- * inferred from an object literal takes the literal's own type, so the
- * compiler runs no excess property check against the constraint's first half.
+ * inferred from an object literal takes the literal's own type, so the compiler
+ * runs no excess property check against `FeatureOptions` on its own.
+ *
+ * The constraint names no member of `FeatureOptions`, and the parameter
+ * intersects the two. That split is what makes the question answerable. A call
+ * that passes no options infers nothing for `O`, `O` falls back to a constraint
+ * naming no key, and the store answers the mutable form the runtime hands it.
+ * The intersection still types the observer's `event` parameter against the
+ * schema.
+ *
+ * Naming `observe` is the question, and the type behind the name is not, so a
+ * call that cannot settle the runtime answers the frozen form. A wrapper
+ * forwarding an optional callback writes `{ observe }`, and options held in a
+ * variable annotated `FeatureOptions<S>` name the member too. Both answer the
+ * frozen form, and the compiler then refuses the write that the runtime refuses
+ * once the observer turns out to be there.
  */
 export function createFeatures<
   const D extends Definitions,
-  O extends FeatureOptions<AsSchema<InferSchema<D>>> &
-    Record<
-      Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
-      never
-    >,
+  O extends Record<
+    Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+    never
+  >,
 >(
   definitions: D,
-  options?: O,
-): Features<
-  AsSchema<InferSchema<D>>,
-  O extends { observe: object } ? true : false
->;
+  options?: O & FeatureOptions<AsSchema<InferSchema<D>>>,
+): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
 /**
- * Builds the store over a schema the caller names. Every definition's key is
- * checked against `keyof S`.
+ * Builds the store over a schema the caller names, with no observer the
+ * compiler can see. Every definition's key is checked against `keyof S`.
  *
  * `NoInfer` is what makes the check happen. Without it the compiler infers `S`
  * backwards out of the argument, fills every entry with `any`, and a definition
  * naming a key the schema never declared passes.
+ *
+ * This signature comes first of the pair, and it takes the options that prove
+ * no observer. Every other call falls to the one below it and answers the
+ * frozen form.
  */
 export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
   definitions: readonly FeatureDefinition<
     NoInfer<Extract<keyof S, FeatureKey>>
   >[],
-  options: ObservedOptions<S>,
-): Features<S, true>;
-/** The same store over a named schema, built without an observer. */
+  options?: UnobservedOptions<S>,
+): Features<S, false>;
+/**
+ * The same store over a named schema, for options that carry an observer or
+ * prove nothing about one.
+ */
 export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
   definitions: readonly FeatureDefinition<
     NoInfer<Extract<keyof S, FeatureKey>>
   >[],
-  options?: FeatureOptions<S>,
-): Features<S, false>;
+  options: FeatureOptions<S>,
+): Features<S, true>;
 export function createFeatures(
   definitions: readonly FeatureDefinition<FeatureKey>[],
   given: object = {},
 ): Features<Record<FeatureKey, VariantInfo>, boolean> {
   // The three signatures above are what a caller sees, and this one is checked
   // against each of them with its type parameters erased. An erased
-  // `ObservedOptions<S>` relates to no options type that declares `observe`,
+  // `UnobservedOptions<S>` relates to no options type that declares `observe`,
   // so this parameter declares none and the body reads the options at the
   // erased schema.
   const options = given as FeatureOptions<Record<FeatureKey, VariantInfo>>;

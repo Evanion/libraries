@@ -150,26 +150,27 @@ export interface FeatureOptions<
 }
 
 /**
- * The options an application passes when it installs an observer.
+ * The options of a call that provably installs no observer.
  *
- * `FeatureOptions` declares `observe` optionally, so an argument carrying one
- * and an argument carrying none have the same type there. This form requires
- * the member, and the two signatures of `createFeatures` that name a schema
- * split on it: a call that installs an observer answers a store whose entry
- * points return the frozen form, and a call that installs none answers a store
- * whose entry points return the mutable form. The inferring signature reads the
- * same distinction off its options type parameter and needs no such pair. A
- * variable annotated `FeatureOptions<S>` carries an observer the compiler cannot
- * see, and such a call answers the mutable form.
+ * `FeatureOptions` declares `observe` optionally, so an argument that carries
+ * an observer and an argument that carries none both satisfy it. This form
+ * pins the member to `undefined`, so only an argument whose type proves the
+ * absence satisfies it.
+ *
+ * The distinction decides which store a call answers, and the answer leans one
+ * way when the compiler cannot settle it. A call whose options satisfy this
+ * type answers the mutable form, and every other call answers the frozen form.
+ * An options value typed `FeatureOptions<S>`, and an object literal whose
+ * `observe` field holds `Fn | undefined`, both fail this type, so both answer
+ * the frozen form. The compiler then refuses a write the runtime would refuse
+ * too. The opposite lean lets the compiler accept a write that throws.
  */
-export interface ObservedOptions<
+export type UnobservedOptions<
   S extends Record<keyof S, VariantInfo | never> = Record<
     FeatureKey,
     VariantInfo | never
   >,
-> extends FeatureOptions<S> {
-  observe: (event: FeatureEvent<S>) => void | Promise<unknown>;
-}
+> = FeatureOptions<S> & { observe?: undefined };
 
 /**
  * Reads whether a value is a thenable.

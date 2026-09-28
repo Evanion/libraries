@@ -125,3 +125,41 @@ describe('the bound hooks over a store with no observer', () => {
     >();
   });
 });
+
+describe('the bound provider, over the store it is handed', () => {
+  const defs = [
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50, value: { label: 'Get it' } },
+      ],
+    },
+  ] as const;
+  const plain = createFeatures(defs);
+  const watched = createFeatures(defs, { observe: () => undefined });
+
+  it('takes a substituted store that freezes what the factory store freezes', () => {
+    const bound = createFeatureContext(plain);
+
+    const element: ReactElement = <bound.FeatureProvider features={plain} />;
+
+    expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+
+  it('refuses a store whose freeze the bound hooks do not describe', () => {
+    // The hooks answer the factory store's own form. A store that freezes what
+    // it resolves, mounted under a factory built from a store that freezes
+    // nothing, would publish frozen decisions to hooks promising the mutable
+    // form, and a component writing one of those fields throws.
+    const bound = createFeatureContext(plain);
+
+    const element: ReactElement = (
+      // @ts-expect-error the factory store freezes nothing and this one freezes
+      <bound.FeatureProvider features={watched} />
+    );
+
+    expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+});
