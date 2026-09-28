@@ -1,11 +1,11 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { hydratePolicy } from '@evanion/acl';
 import { PolicyProvider, useCan } from '@evanion/react-acl';
 
-import { buildAccess, openingGrants, roles, type Role } from './access';
+import { buildAccess, openingGrants, type Role } from './access';
 import {
   treeControls,
   listings,
@@ -14,45 +14,7 @@ import {
   type TreeControl,
   type Status,
 } from './policy-tree';
-
-/** A role, as the switch names it. */
-function label(role: Role): string {
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
-interface RoleSwitchProps {
-  role: Role;
-  onChange: (role: Role) => void;
-}
-
-/**
- * Who is signed in, and the control that changes it.
- *
- * Radio inputs, for the reason `AccessDemo` gives: one of three is what a radio
- * group is, and a browser already supplies the arrow keys, the single tab stop
- * and the announcement.
- */
-function RoleSwitch({ role, onChange }: RoleSwitchProps) {
-  const group = useId();
-
-  return (
-    <div className="landing-seg" role="group" aria-label="Signed in as">
-      {roles.map((option) => (
-        <label key={option} className="landing-seg__option">
-          <input
-            className="landing-sr-only"
-            type="radio"
-            name={`${group}-role`}
-            value={option}
-            checked={role === option}
-            onChange={() => onChange(option)}
-          />
-          <span className="landing-seg__face">{label(option)}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
+import { RoleSwitch } from './RoleSwitch';
 
 interface NodeProps {
   name: string;
