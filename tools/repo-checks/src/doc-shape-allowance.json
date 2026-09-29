@@ -1,7 +1,4 @@
 {
-  "feature/api.mdx": {
-    "run": 11
-  },
   "feature/build-time.mdx": {
     "lede": 66
   },
