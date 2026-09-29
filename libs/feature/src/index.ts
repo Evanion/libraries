@@ -34,6 +34,26 @@ export type {
 } from './lib/observe.js';
 
 export type {
+  BaseFieldType,
+  ConfigEnvelope,
+  ConfigIssue,
+  ConfigIssueCode,
+  ContextSchema,
+  FeatureConfig,
+  FeatureSchema,
+  FeatureShape,
+  FieldType,
+  ReloadResult,
+  SerializedCondition,
+  SerializedDefinition,
+  SerializedInstant,
+  SerializedRule,
+  SerializedWindowCondition,
+  ValidationResult,
+  ValueShape,
+} from './lib/config.js';
+
+export type {
   AttributeCondition,
   Cause,
   Condition,
