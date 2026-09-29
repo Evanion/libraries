@@ -101,15 +101,26 @@ it, tested it, and replaced it. Flag a page that uses an earlier page's concept
 with nothing, and flag one that re-teaches something three pages old at full
 length.
 
-**An H2 section stands on its own.** Retrieval hands an agent a section, not a
-page. No pronoun whose referent is in a previous section, and a fact adjacent to
-the sentence that uses it.
+A reminder is a pointer: one clause naming the concept and what it does, linked
+to the section that taught it. The shorter reminder after that is the linked
+name alone. Flag a repeat as well, and § 1 says how to find one. Search the
+section's earlier teaching pages for the reminder's sentence, and read each fence
+against the fences those pages render. A sentence found on an earlier page, or a
+fence showing again code an earlier page showed, is a repeat whatever its
+length: `urn` renders a `class GameURN` declaration in nine fences. Code a fence
+needs only to compile belongs above a Twoslash `// ---cut---`.
 
-The rule also asks that a heading name the package as well as the operation.
-Applied to every heading it fires on nearly all of them and usefully on none, so
-raise it only where the heading alone would be ambiguous across packages —
-`## Errors`, `## Validation`, `## Querying`. A heading already carrying a symbol
-or a distinctive noun is fine.
+**An H2 section stands on its own.** Retrieval hands an agent a section, not a
+page. No pronoun whose referent is in a previous section, the package named in
+the section's first sentence, and a fact adjacent to the sentence that uses it.
+Read the heading and the first sentence as if they were the whole chunk, and if
+the two do not say which package the section is about, that is the finding.
+
+A heading names the package only where the heading alone would be ambiguous
+across packages: `## Errors`, `## Validation`, `## Querying`. A heading already
+carrying a symbol or a distinctive noun is fine. A page whose every H2 repeats
+the package is a finding too, because § 10 dropped that rule after readers took
+it for a template.
 
 **Prose before playground.** Text, diagrams and code teach the concept; the
 interactive control is where a reader works it. A section that explains only by
@@ -130,7 +141,8 @@ re-theme has not reached.
 charged for it. On a teaching page a link out is that cost; on a reference page,
 question page or platform guide the link is the point and re-teaching inline is
 the error. A structured prerequisites box is allowed; body prose that sends the
-reader away is not.
+reader away is not. A fading reminder's link back to the page that taught a
+concept is allowed, because its clause already carries what the reader needs.
 
 Fragment links (`#some-heading`) are not checked by any guard, so treat one as a
 liability: verify the heading exists, and say so if the page would be fine
@@ -194,7 +206,11 @@ The mistakes to look for, and each has shipped here:
 - A **deep-dive** opening on what the feature is rather than on the
   implementation problem it solves, or ending without saying why the code is
   shaped the way it is.
-- Any stage page whose last section is not a call to action into the next stage.
+- Any stage page whose last section does not name what the reader now has and
+  link the next stage.
+- A closing written to a template. Read a section's closing headings and
+  sentences side by side: `## Now that …` on every page, or any other wording
+  the pages share, is a rubric under § 5.
 
 **No rubric block.** The four-part brief — `**The concept.**`,
 `**What you get.**`, `**Why you want it.**`, `**How the library gets you
