@@ -8,9 +8,9 @@ import { gitAt } from './archives.mjs';
 import { recutBody, recutPin } from './recut.mjs';
 
 /**
- * The invariant: a re-cut opens a pull request only for a version that was
- * released, from a commit on `main` past its tag that `nx release` still
- * versions as that release, and says why.
+ * The invariant: a re-cut opens a pull request only for a line's x.y.0
+ * release, from a commit on `main` past its tag that `nx release` still
+ * versions as that x.y, and says why.
  *
  * Against a fixture repository whose history each case needs.
  */
@@ -126,6 +126,24 @@ describe('a re-cut', () => {
     expect(() => request(fixture, { sha: fixture.fix })).toThrow(
       /carries @evanion\/luhn@4\.0\.0, so it is not documentation of 3\.0\.0/,
     );
+  });
+
+  /**
+   * A documentation fix made after 3.0.1 is a re-cut of 3.0.0, which 3.0.1 is
+   * documented by, from a commit that carries the patch's tag.
+   */
+  it("re-cuts a line's x.y.0 from a commit past a patch release of it", () => {
+    const fixture = repository();
+    execFileSync('git', ['tag', '@evanion/luhn@3.0.1', fixture.typo], {
+      cwd: fixture.root,
+    });
+
+    expect(request(fixture).pin).toEqual({
+      version: '3.0.0',
+      tag: '@evanion/luhn@3.0.0',
+      sha: fixture.typo,
+      reason: 'fixes a typo the release shipped',
+    });
   });
 
   it('refuses a line that was never released', () => {

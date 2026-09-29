@@ -114,12 +114,20 @@ function taggedVersions(name, tags) {
 }
 
 /**
- * A package's releases, newest first, grouped by line.
+ * A package's releases, newest first, grouped by line, and the release each
+ * line's documentation is cut from.
  *
  * Returns one entry per line, each holding its tags newest first, and the
  * lines themselves newest first. A prerelease is in no line: `npm install`
  * resolves the `latest` dist-tag, which a prerelease does not move, so the
  * bare path and a line's directory document what a reader installs.
+ *
+ * `cut` is the release the line's documentation is cut from: its newest
+ * release whose patch number is 0. Only a release that changes the major or
+ * the minor number gets documentation of its own, and a patch is documented
+ * by its x.y.0 (`docs/specs/2026-09-13-released-by-default.md` decision 1).
+ * A line whose newest x.y has no x.y.0 tag, because that x.y was released
+ * before this repository tagged, is cut from the first tag the x.y has.
  *
  * @param {string} name
  * @param {readonly string[]} tags
@@ -131,30 +139,46 @@ export function releaseLines(name, tags) {
     if (release.parsed.prerelease !== null) continue;
 
     const segment = segmentOf(release.parsed);
-    const line = lines.get(segment) ?? { segment, releases: [] };
+    const line = lines.get(segment) ?? { segment, releases: [], parsed: [] };
     line.releases.push({ tag: release.tag, version: release.version });
+    line.parsed.push(release.parsed);
     lines.set(segment, line);
   }
 
-  return [...lines.values()];
+  return [...lines.values()].map(({ segment, releases, parsed }) => {
+    const [newest] = parsed;
+    const patches = parsed.filter(
+      (each) => each.major === newest.major && each.minor === newest.minor,
+    ).length;
+
+    return { segment, cut: releases[patches - 1], releases };
+  });
 }
 
 /**
- * The tags of a package's versions above `version`, prereleases included.
+ * The tags of a package's versions in a later x.y than `version`'s,
+ * prereleases included.
  *
- * A commit that one of these is an ancestor of has changed the package since
- * `version`, whatever `nx release version --dry-run` computes there: the dry
- * run measures from the newest tag, and says nothing about an older line.
+ * A commit that one of these is an ancestor of has changed the package past
+ * the documentation `version` is cut for, whatever `nx release version
+ * --dry-run` computes there: the dry run measures from the newest tag, and
+ * says nothing about an older line. A patch of the same x.y is not among
+ * them, because the x.y.0 documentation is that patch's documentation too.
  *
  * @param {string} name
  * @param {readonly string[]} tags
  * @param {string} version
  */
-export function taggedAfter(name, tags, version) {
+export function taggedPast(name, tags, version) {
   const parsed = parseVersion(version);
   if (!parsed) throw new Error(`'${version}' is not a version`);
 
   return taggedVersions(name, tags)
-    .filter((release) => compareVersions(release.parsed, parsed) > 0)
+    .filter(
+      (release) =>
+        release.parsed.major > parsed.major ||
+        (release.parsed.major === parsed.major &&
+          release.parsed.minor > parsed.minor),
+    )
     .map((release) => release.tag);
 }

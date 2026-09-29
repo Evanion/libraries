@@ -8,16 +8,20 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 /**
  * Whether a release that shipped no pages may be documented by `main`'s.
  *
- * `docs/specs/2026-09-13-released-by-default.md` § 5 is the rule. A package
- * seeds -- its bare path is cut from `main` rather than from its tag -- iff
- * `nx release version --dry-run` computes the version its newest tag already
- * names, and every workspace dependency of it seeds too. The dependency clause
- * follows from `updateDependents: "always"` in `nx.json`: a package bumps when a
- * dependency does, so a seed is only honest if its dependencies are unchanged.
+ * `docs/specs/2026-09-13-released-by-default.md` § 5 is the rule. The release
+ * asked about is the current line's x.y.0, which the line is documented by: a
+ * patch's pages are not the line's, so a patch that shipped pages does not
+ * answer it. A package seeds -- its bare path is cut from `main` rather than
+ * from that tag -- iff `nx release version --dry-run` computes the version its
+ * newest tag already names, and every workspace dependency of it seeds too.
+ * The dependency clause follows from `updateDependents: "always"` in
+ * `nx.json`: a package bumps when a dependency does, so a seed is only honest
+ * if its dependencies are unchanged.
  *
  * The dry run is run, never reimplemented. `nx release` attributes a commit by
  * its scope, and counts it against every project `nx affected` names for it:
@@ -37,10 +41,15 @@ import { dirname, join } from 'node:path';
  * The version a dry run computes for one project, or `null` when it computes
  * no change.
  *
- * @param {string} output what `nx release version --dry-run` printed
+ * Read without its colours: nx colours a project's name when the process it
+ * runs under asks for colour, as a test runner's does, and a coloured line
+ * starts with an escape and not with the name.
+ *
+ * @param {string} printed what `nx release version --dry-run` printed
  * @param {string} name the project
  */
-export function dryRunVersion(output, name) {
+export function dryRunVersion(printed, name) {
+  const output = stripVTControlCharacters(printed);
   const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
   const bumped = output.match(
     new RegExp(`^${escaped} .*to get new version (\\S+)`, 'm'),
@@ -58,19 +67,32 @@ export function dryRunVersion(output, name) {
  *
  * A seed pins `main`'s commit and says so in its reason, which is the predicate
  * as it held when the cut was made. A package that would bump is served from
- * `/next/` under a notice until its next release, and its reason is the dry
- * run's answer.
+ * `/next/` under a notice until its next x.y.0 release, and its reason is the
+ * dry run's answer.
+ *
+ * `version` and `tag` are the x.y.0's, which the pin is keyed by, and
+ * `published` the line's newest release, which a dry run that computes no
+ * change leaves the package at.
  *
  * @param {{
  *   name: string,
  *   tag: string,
  *   version: string,
+ *   published?: string,
  *   main: string,
  *   computed: (name: string) => string | null,
  *   dependencies: (name: string) => readonly string[],
  * }} release
  */
-export function seedPin({ name, tag, version, main, computed, dependencies }) {
+export function seedPin({
+  name,
+  tag,
+  version,
+  published = version,
+  main,
+  computed,
+  dependencies,
+}) {
   const blocking = [];
   const seen = new Set();
   const check = (each) => {
@@ -88,7 +110,7 @@ export function seedPin({ name, tag, version, main, computed, dependencies }) {
       version,
       tag,
       sha: main,
-      reason: `seed: nx release version --dry-run computes ${version} at this SHA`,
+      reason: `seed: ${tag} carries no pages, and nx release version --dry-run computes ${published} at this SHA`,
     };
 
   return {

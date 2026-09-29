@@ -24,19 +24,22 @@ import { releaseLines } from './versions.mjs';
  *
  * `docs/specs/2026-09-13-released-by-default.md` is the design. The pages a
  * person writes are at `content/next/<slug>/` and are served at `/next/<slug>/`.
- * The bare path `/<slug>/` serves the package's newest release, and
- * `/<slug>/v<seg>/` the newest release of the line before it. Both are written
- * here before `next build`, into directories git ignores, because Nextra reads
- * one content root at config load and every version has to be a directory
- * under it.
+ * The bare path `/<slug>/` serves the package's current release line, and
+ * `/<slug>/v<seg>/` the line before it. Both are written here before
+ * `next build`, into directories git ignores, because Nextra reads one content
+ * root at config load and every version has to be a directory under it.
+ *
+ * A line is documented by its newest x.y.0 release (`releaseLines` in
+ * `versions.mjs`), so a patch release changes nothing here: its pages are its
+ * x.y.0's, and the notice on them names the patch as the version on npm.
  *
  * A version directory is cut from git. `apps/docs/archives.json` pins what a
- * release line is cut from; a line whose newest release it does not name is cut
- * from that release's own tag. So a release needs no commit here to be
- * documented -- the push that tags it rebuilds the site, and the tag is what the
- * build reads -- and a pin exists only to record a decision a person made about
- * a release: a seed, a re-cut, a section that lived at another path, or a
- * release that shipped no pages at all.
+ * line's x.y.0 is cut from; an x.y.0 it does not name is cut from its own tag.
+ * So a release needs no commit here to be documented -- the push that tags it
+ * rebuilds the site, and the tag is what the build reads -- and a pin exists
+ * only to record a decision a person made about a release: a seed, a re-cut, a
+ * section that lived at another path, or a release that shipped no pages at
+ * all.
  */
 
 /** The pin file, relative to the workspace root. */
@@ -117,9 +120,9 @@ export function gitAt(root) {
 /**
  * The pin file, checked for shape.
  *
- * One entry per (slug, segment). An entry names the release it applies to, so
- * a pin for 3.0.0 says nothing about 3.0.1 and a release in the same line is cut
- * from its own tag until somebody pins it.
+ * One entry per (slug, segment). An entry names the x.y.0 release it applies
+ * to, so a pin for 3.0.0 holds through 3.0.1 and says nothing about 3.1.0,
+ * which is cut from its own tag until somebody pins it.
  *
  * @returns {Record<string, Record<string, {
  *   version: string, tag: string, sha?: string, path?: string,
@@ -182,19 +185,21 @@ function sourceDir(git, sha, slug, path) {
 }
 
 /**
- * How a line's newest release is served.
+ * How a line is served: cut for the release `releaseLines` names, and naming
+ * the newest release of the line as the one on npm.
  *
  * The pin decides when it names that release. Otherwise the release's own tag,
  * and when the tag carries no section index, `main` under a notice.
  */
 function resolveLine(git, entry, line, pins) {
-  const newest = line.releases[0];
-  const tagged = git.commit(newest.tag);
+  const { cut } = line;
+  const tagged = git.commit(cut.tag);
   const pin = pins[entry.slug]?.[line.segment];
-  const pinned = pin?.version === newest.version ? pin : null;
+  const pinned = pin?.version === cut.version ? pin : null;
   const release = {
-    version: newest.version,
-    tag: newest.tag,
+    version: cut.version,
+    published: line.releases[0].version,
+    tag: cut.tag,
     segment: line.segment,
   };
 
@@ -204,7 +209,7 @@ function resolveLine(git, entry, line, pins) {
   const sha = pinned ? git.commit(pinned.sha) : tagged;
   if (!sha)
     throw new Error(
-      `${PIN_FILE}: ${entry.slug}.${line.segment} pins ${pinned?.sha ?? newest.tag}, which is not a commit in this repository`,
+      `${PIN_FILE}: ${entry.slug}.${line.segment} pins ${pinned?.sha ?? cut.tag}, which is not a commit in this repository`,
     );
 
   const dir = sourceDir(git, sha, entry.slug, pinned?.path);
@@ -216,7 +221,7 @@ function resolveLine(git, entry, line, pins) {
     return {
       ...release,
       from: 'next',
-      reason: `${newest.tag} carries no pages`,
+      reason: `${cut.tag} carries no pages`,
     };
   }
 
@@ -288,7 +293,14 @@ export function plan({ packages, git, pins }) {
 
     section.current = current
       ? resolveLine(git, entry, current, pins)
-      : { version: null, tag: null, segment: null, from: 'next', reason: null };
+      : {
+          version: null,
+          published: null,
+          tag: null,
+          segment: null,
+          from: 'next',
+          reason: null,
+        };
 
     if (previous) {
       const line = resolveLine(git, entry, previous, pins);
@@ -300,6 +312,50 @@ export function plan({ packages, git, pins }) {
   }
 
   return sections;
+}
+
+/**
+ * The pin file without the pins a release made dead, and those pins.
+ *
+ * The site reads a pin only for the current line and the one before it, and
+ * only while the pin names the x.y.0 its line is cut from. A later x.y.0 in
+ * the pin's line replaces that release, and a new line pushes the pin's line
+ * past the two; either leaves the pin read by nothing. A patch release does
+ * neither. `cut-releases.mjs` writes what this keeps.
+ *
+ * A pin for a release that has no tag, for a slug no package has, or for a
+ * private package is a mistake a person made and not one a release made, so it
+ * is kept for the pin check to refuse.
+ *
+ * @param {{
+ *   packages: readonly { name: string, slug: string, workshop: boolean }[],
+ *   pins: ReturnType<typeof parsePins>,
+ *   tags: readonly string[],
+ * }} inputs
+ */
+export function prunePins({ packages, pins, tags }) {
+  const known = new Set(tags);
+  const kept = {};
+  const dropped = [];
+
+  for (const [slug, lines] of Object.entries(pins)) {
+    const entry = packages.find((each) => each.slug === slug);
+    const retained =
+      entry && !entry.workshop
+        ? releaseLines(entry.name, tags).slice(0, 2)
+        : null;
+
+    for (const [segment, pin] of Object.entries(lines)) {
+      const read = retained?.find((line) => line.segment === segment)?.cut;
+      if (retained && known.has(pin.tag) && read?.version !== pin.version) {
+        dropped.push({ slug, segment, pin, read: read ?? null });
+        continue;
+      }
+      kept[slug] = { ...kept[slug], [segment]: pin };
+    }
+  }
+
+  return { pins: kept, dropped };
 }
 
 /** Every file under a directory, relative to it, with `/` separators. */
@@ -343,6 +399,15 @@ function underTitle(source, element) {
 }
 
 /**
+ * The newest release of a line when it is a patch of the release the line is
+ * cut from, which the notice names as the version on npm; `undefined` when
+ * the two are the same release.
+ */
+function patchOf(release) {
+  return release.published !== release.version ? release.published : undefined;
+}
+
+/**
  * The bare path of a release that shipped no pages, as `main`'s pages under a
  * notice saying so.
  *
@@ -353,19 +418,21 @@ function underTitle(source, element) {
 function mirror(contentDir, section) {
   const from = join(contentDir, 'next', section.slug);
   const to = join(contentDir, section.slug);
-  const version = section.current.version;
+  const { version } = section.current;
+  const published = patchOf(section.current);
+  const notice = [
+    `<ArchiveNotice kind="next" package=${JSON.stringify(section.name)}`,
+    `version=${JSON.stringify(version)}`,
+    ...(published ? [`published=${JSON.stringify(published)}`] : []),
+    '/>',
+  ].join(' ');
 
   for (const file of walk(from)) {
     const source = readFileSync(join(from, file), 'utf8');
 
     write(
       join(to, file),
-      file.endsWith('.mdx') && version
-        ? underTitle(
-            source,
-            `<ArchiveNotice kind="next" package=${JSON.stringify(section.name)} version=${JSON.stringify(version)} />`,
-          )
-        : source,
+      file.endsWith('.mdx') && version ? underTitle(source, notice) : source,
     );
   }
 
@@ -722,6 +789,7 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
                 source: current.source,
                 package: section.name,
                 version: current.version,
+                published: patchOf(current),
                 sha: current.sha.slice(0, 7),
               },
             )
@@ -741,6 +809,7 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
             source: line.source,
             package: section.name,
             version: line.version,
+            published: patchOf(line),
             sha: line.sha.slice(0, 7),
             current: line.current,
             href: `/${section.slug}/`,

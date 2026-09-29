@@ -5,7 +5,7 @@
  *
  *     [/next] /<slug> [/v<seg>] /<page>
  *
- * The bare path is the package's newest release, `/<slug>/v<seg>/` is a
+ * The bare path is the package's current release line, `/<slug>/v<seg>/` is a
  * superseded release line, and `/next/<slug>/` is `main`. Every segment is
  * fixed-length and `<slug>` is exactly one segment, so the grammar reads left to
  * right with no lookahead and no ambiguity: a first segment of `next` opens the

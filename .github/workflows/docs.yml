@@ -37,7 +37,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Each package's bare path is cut from git at its newest release tag, or
+      # Each package's bare path is cut from git at its newest x.y.0 tag, or
       # at the commit apps/docs/archives.json pins for it, and the release
       # notice under /next/ reads the newest tag and `git rev-list` from it to
       # HEAD. The default checkout fetches one commit and no tags, which fails

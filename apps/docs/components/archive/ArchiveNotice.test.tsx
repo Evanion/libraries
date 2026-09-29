@@ -27,6 +27,51 @@ describe('the archive notice', () => {
     expect(screen.getByText('d618051')).toBeInTheDocument();
   });
 
+  /**
+   * A line is documented by its x.y.0, so a reader who installed a later patch
+   * is told these pages are the documentation of what they have.
+   */
+  it('names the patch on npm that the pages of its x.y.0 document', () => {
+    render(
+      <ArchiveNotice
+        kind="current"
+        source="tag"
+        package="@evanion/luhn"
+        version="3.0.0"
+        published="3.0.1"
+        sha="360f5bf"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /and its patch releases up to 3\.0\.1, the version on npm/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/running 3\.0\.0 in CI at/)).toBeInTheDocument();
+  });
+
+  it('names the patches a superseded line documents', () => {
+    render(
+      <ArchiveNotice
+        kind="line"
+        source="tag"
+        package="@evanion/urn"
+        version="2.0.0"
+        published="2.0.3"
+        sha="d50a1c6"
+        current="3.0.1"
+        href="/urn/"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /and its patch releases up to 2\.0\.3\. .*gives you 3\.0\.1/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   /** The seed's SHA is `main`'s, so the clause after it is the predicate. */
   it('states the seed predicate beside a seeded commit', () => {
     render(
@@ -92,6 +137,39 @@ describe('the archive notice', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText(/gives you 3\.0\.0/)).toBeInTheDocument();
+  });
+
+  it('names the patch on npm when its x.y.0 shipped no pages', () => {
+    render(
+      <ArchiveNotice
+        kind="next"
+        package="@evanion/luhn"
+        version="3.0.0"
+        published="3.0.1"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /gives you 3\.0\.1, a patch of 3\.0\.0, and no documentation was published with 3\.0\.0/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  /** `nx release` computes the newest tag's version at a seed, not the x.y.0's. */
+  it('states the seed predicate with the version on npm', () => {
+    render(
+      <ArchiveNotice
+        kind="current"
+        source="seed"
+        package="@evanion/luhn"
+        version="3.0.0"
+        published="3.0.1"
+        sha="7b41c85"
+      />,
+    );
+
+    expect(screen.getByText(/versions as 3\.0\.1/)).toBeInTheDocument();
   });
 });
 
