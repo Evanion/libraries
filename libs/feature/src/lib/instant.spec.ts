@@ -1,28 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { instantEpoch } from './instant.js';
-
-/**
- * Runs `read` with the process reporting `zone` as its timezone.
- *
- * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
- * what a host in Los Angeles would answer without running a second process.
- */
-function inZone<T>(zone: string, read: () => T): T {
-  const original = process.env.TZ;
-  process.env.TZ = zone;
-  try {
-    return read();
-  } finally {
-    if (original === undefined) delete process.env.TZ;
-    else process.env.TZ = original;
-  }
-}
-
-/** The answer in three zones spread far enough apart to cross a day boundary. */
-const everywhere = <T>(read: () => T): T[] =>
-  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
-    inZone(zone, read),
-  );
+import { everywhere } from './zones.spec.js';
 
 describe('instantEpoch', () => {
   it('reads a date-time carrying Z', () => {
@@ -205,13 +183,34 @@ describe('instantEpoch', () => {
     expect(instantEpoch('2026-01-01T24:00:01Z')).toBeNaN();
   });
 
-  it('carries a day past the end of its month into the next one', () => {
-    // 30 February sits inside the 01-31 day range the format fixes, and
-    // ECMA-262's MakeDay carries the overflow, so this is 2 March on every
-    // engine rather than a string the check can refuse.
-    expect(everywhere(() => instantEpoch('2026-02-30T00:00:00Z'))).toEqual([
-      1772409600000, 1772409600000, 1772409600000,
+  it('refuses a day past the end of the month it is written under', () => {
+    // The 01-31 day range the format fixes says nothing about the month, and
+    // ECMA-262's MakeDay carries the overflow, so 31 April would otherwise
+    // reach `Date.parse` and come back as 1 May on every engine: an instant
+    // the author did not write, under a rule id shared with '2026-05-01'.
+    expect(instantEpoch('2026-04-31T00:00:00Z')).toBeNaN();
+    expect(instantEpoch('2026-02-30T00:00:00Z')).toBeNaN();
+    expect(instantEpoch('+002026-04-31T00:00:00Z')).toBeNaN();
+    expect(everywhere(() => instantEpoch('2026-04-31'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
     ]);
+  });
+
+  it('refuses 29 February in a year that has no 29 February', () => {
+    expect(instantEpoch('2026-02-29T00:00:00Z')).toBeNaN();
+    expect(instantEpoch('1900-02-29T00:00:00Z')).toBeNaN();
+  });
+
+  it('reads 29 February in a leap year', () => {
+    expect(instantEpoch('2024-02-29T00:00:00Z')).toBe(1709164800000);
+    expect(instantEpoch('2000-02-29T00:00:00Z')).toBe(951782400000);
+  });
+
+  it('reads the last day a month has', () => {
+    expect(instantEpoch('2026-04-30T00:00:00Z')).toBe(1777507200000);
+    expect(instantEpoch('2026-12-31T00:00:00Z')).toBe(1798675200000);
   });
 
   it('refuses a date-time written in lower case', () => {

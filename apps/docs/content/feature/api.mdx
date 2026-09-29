@@ -585,13 +585,17 @@ fixes to UTC. The offset takes either spelling ISO 8601 gives it.
 | `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
 | `2026-13-01`                | `FeatureConfigError` at construction |
 | `2026-01-01t00:00:00z`      | `FeatureConfigError` at construction |
+| `2026-04-31`                | `FeatureConfigError` at construction |
 
 ECMA-262 reads `2026-01-01T00:00:00` as local time. The rule derives one id on
 every host and resolves against a different boundary on each, so a browser in
 Los Angeles and a service in Stockholm disagree about a decision that carries
 the same name in both logs. The two rows under it sit outside the format
 ECMA-262 fixes, one naming no calendar date and one written in lower case, and
-each engine reads them by rules of its own. `createFeatures` refuses all three.
+each engine reads them by rules of its own. `2026-04-31` sits inside the format
+and every engine carries the overflowing day into 1 May, so a string naming
+April names May on every host, under the one rule id `2026-05-01` also derives.
+`createFeatures` refuses all four.
 
 A `Date` is taken as the instant it holds and is read no further, so
 `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past

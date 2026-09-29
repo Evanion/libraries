@@ -14,8 +14,8 @@ import type { Instant } from './types.js';
  * where V8's ISO parser refuses it and V8's legacy heuristic parser reads it in
  * the host's zone, so `'0001-13-01'` answers three numbers in three zones and
  * `ruleId` derives three names for the one rule. The day range is 01-31, which
- * is the range the format fixes: `MakeDay` carries 30 February into March on
- * every engine, so that string names one instant.
+ * is the range the format fixes, and {@link namesCalendarDay} holds the day to
+ * the length of the month it is written under.
  *
  * The hour 24 is held to the midnight closing the day. The grammar admits
  * `24:01`, `MakeTime` gives it a number, and V8 answers `NaN` for it.
@@ -42,6 +42,33 @@ const FIXED =
  */
 const BASIC_OFFSET = /^(.*T.*)([+-](?:[01]\d|2[0-3]))([0-5]\d)$/;
 
+/** The date of an instant, extended years included, up to its day field. */
+const CALENDAR_DAY = /^[+-]?\d{4,6}-\d\d-\d\d/;
+
+/**
+ * Whether the day of a date is a day the month it is written under has.
+ *
+ * `MakeDay` carries an overflowing day into the next month on every engine, so
+ * `'2026-04-31'` names one instant on every host and the shape has nothing to
+ * refuse it for. The author still gets 1 May out of a string naming April, with
+ * no error anywhere, and `'2026-04-31'` and `'2026-05-01'` derive one `ruleId`,
+ * because a window's name comes from the epoch.
+ *
+ * The length of the month is read back off `Date` rather than written here as a
+ * second leap-year rule. A date with no time is fixed to UTC, so the reading is
+ * the same on every host, and an engine whose parser refuses the date outright
+ * answers `NaN`, whose day field matches no day either.
+ *
+ * A string carrying no day field -- `'2026'`, `'2026-01'` -- has no day to
+ * hold.
+ */
+function namesCalendarDay(value: string): boolean {
+  const date = CALENDAR_DAY.exec(value)?.[0];
+  if (date === undefined) return true;
+
+  return new Date(date).getUTCDate() === Number(date.slice(-2));
+}
+
 /**
  * Epoch milliseconds for an instant, and `NaN` for one that names none.
  *
@@ -50,10 +77,11 @@ const BASIC_OFFSET = /^(.*T.*)([+-](?:[01]\d|2[0-3]))([0-5]\d)$/;
  * second copy in either place is a rule that carries one name and answers two
  * ways.
  *
- * A string is parsed only once {@link FIXED} matches it, so a host in Tokyo and
- * a host in Los Angeles return the same number or both return `NaN`.
- * `createFeatures` rejects the strings that return `NaN` here, which leaves the
- * value for a caller reaching `evaluateCondition` or `ruleId` directly.
+ * A string is parsed only once {@link FIXED} matches it and its day names a day
+ * of its month, so a host in Tokyo and a host in Los Angeles return the same
+ * number or both return `NaN`. `createFeatures` rejects the strings that return
+ * `NaN` here, which leaves the value for a caller reaching `evaluateCondition`
+ * or `ruleId` directly.
  *
  * A `Date` is returned as its own instant. It carries no record of the string
  * it was built from, so `new Date('2026-01-01T00:00:00')` has already taken the
@@ -64,5 +92,7 @@ export function instantEpoch(value: Instant): number {
   if (typeof value === 'number') return value;
 
   const fixed = value.replace(BASIC_OFFSET, '$1$2:$3');
-  return FIXED.test(fixed) ? Date.parse(fixed) : Number.NaN;
+  if (!FIXED.test(fixed) || !namesCalendarDay(fixed)) return Number.NaN;
+
+  return Date.parse(fixed);
 }

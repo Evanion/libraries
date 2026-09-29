@@ -1,29 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ruleId } from './rule-id.js';
 import type { Instant, Rule } from './types.js';
-
-/**
- * Runs `read` with the process reporting `zone` as its timezone.
- *
- * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
- * what a host in Los Angeles would answer without running a second process.
- */
-function inZone<T>(zone: string, read: () => T): T {
-  const original = process.env.TZ;
-  process.env.TZ = zone;
-  try {
-    return read();
-  } finally {
-    if (original === undefined) delete process.env.TZ;
-    else process.env.TZ = original;
-  }
-}
-
-/** The answer in three zones spread far enough apart to cross a day boundary. */
-const everywhere = <T>(read: () => T): T[] =>
-  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
-    inZone(zone, read),
-  );
+import { everywhere } from './zones.spec.js';
 
 describe('ruleId', () => {
   it('returns an explicit id unchanged', () => {
@@ -310,22 +288,25 @@ describe('ruleId', () => {
   it('derives one id in every zone for a date naming no calendar date', () => {
     // The string reaches no parser that reads the host's zone, so it is hashed
     // as text and three hosts write one name for the rule.
-    const idsEverywhere = ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map(
-      (zone) => {
-        const original = process.env.TZ;
-        process.env.TZ = zone;
-        try {
-          return ruleId({
-            when: [{ field: 'now', op: 'after', value: '0001-13-01' }],
-          });
-        } finally {
-          if (original === undefined) delete process.env.TZ;
-          else process.env.TZ = original;
-        }
-      },
+    const idsEverywhere = everywhere(() =>
+      ruleId({ when: [{ field: 'now', op: 'after', value: '0001-13-01' }] }),
     );
 
     expect(new Set(idsEverywhere).size).toBe(1);
+  });
+
+  it('separates a day past the end of its month from the day it would carry into', () => {
+    // `2026-04-31` is refused as an instant, so it is hashed as text. Reading
+    // it through `Date.parse` would give it the epoch of `2026-05-01` and both
+    // rules one name in a decision's per-rule breakdown.
+    const asApril = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-04-31' }],
+    });
+    const asMay = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-05-01' }],
+    });
+
+    expect(asApril).not.toBe(asMay);
   });
 
   it('derives one id for a date and the UTC midnight it names', () => {

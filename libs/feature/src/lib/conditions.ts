@@ -68,7 +68,7 @@ export function validateConditions<F extends FeatureKey>(
       if (!Number.isNaN(instantEpoch(condition.value))) continue;
 
       throw new FeatureConfigError(
-        `feature "${String(definition.key)}" has a rule whose "${condition.op}" condition names the instant "${condition.value}", which names no instant. Write an ISO 8601 date with no time, or a date-time carrying "Z" or an offset, in capitals and with no surrounding whitespace: "2026-01-01", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00+01:00", "2026-01-01T00:00:00+0100". Passing the same string to "new Date" does not fix it, because that constructor reads a date-time carrying no offset in the constructing host's zone and a Date reaches this check with no string left to read.`,
+        `feature "${String(definition.key)}" has a rule whose "${condition.op}" condition names the instant "${condition.value}", which names no instant. Write an ISO 8601 date with no time, or a date-time carrying "Z" or an offset, in capitals, with no surrounding whitespace, and naming a day the month it is written under has: "2026-01-01", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00+01:00", "2026-01-01T00:00:00+0100". Passing the same string to "new Date" does not fix it, because that constructor reads a date-time carrying no offset in the constructing host's zone and a Date reaches this check with no string left to read.`,
       );
     }
   }
