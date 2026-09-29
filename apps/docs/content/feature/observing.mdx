@@ -2,11 +2,9 @@
 
 <WorkshopNotice slug="feature" />
 
-An operator asking why a customer did not get express pickup wants the decision
-the store made, and the caller usually reads `enabled` and discards the rest.
-`observe` is the one function an application installs to receive it. The store
-calls that function once per public entry point call, with the value the call
-returned.
+`observe` is the one function an application installs on `createFeatures` to
+receive what a call decided. The store calls it once per public entry point
+call, with the value that call returned.
 
 ## Where an observer installs
 
@@ -80,12 +78,16 @@ deep freeze a store carrying an observer runs accounts for that difference, and
 the emit and the thenable check stay within run-to-run noise of the bare call. So
 the number anyone should care about is what their own hook body does.
 
-Every payload is deeply readonly. A store carrying an observer freezes the
-record before it emits it and answers the caller with that same object, so
+### The payload is deeply readonly
+
+A store carrying an observer freezes the record before it emits it and answers
+the caller with that same object, so
 `event.decisions['new-checkout'].enabled = false` is a compile error for a
 TypeScript consumer and a `TypeError` for a JavaScript one. A store carrying no
 observer hands its answer to nobody else and freezes nothing, which is what
 `FrozenWhenObserved` on `resolve`, `plan` and `toggle` reports.
+
+### Why the freeze is conditional on having an observer
 
 The freeze happens only under an installed observer, so the package behaves
 differently under two configurations. The engine takes that asymmetry
@@ -196,11 +198,15 @@ An exposure record answers "this customer saw this variant of this feature".
 This seam cannot produce that record, and an observer wired to an experiment
 platform produces numbers that look plausible and are wrong.
 
+### `resolve` decides every feature, not the one rendered
+
 `resolve` decides every configured feature in one call. A store holding forty
 features resolves forty decisions on a request that renders three, so an
 observer fired from `resolve` writes thirty-seven exposures for features nobody
 rendered, and an experiment computed over those records measures the wrong
 denominator. A decision is not a view of the thing it decided.
+
+### The React path narrows it further
 
 The React path removes even the per-key call. `FeatureProvider` resolves once in
 a `useMemo`, and `useFeature` reads a key out of the record that memo already

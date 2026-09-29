@@ -37,16 +37,10 @@ function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
 Validates the dependency graph, deep-clones and freezes the configuration, and
 returns the store.
 
-The first overload reads the schema off the definitions, so a call that passes an
-array literal names no type argument. The literal supplies the keys, the variant
-names and each variant's value. The `const` type parameter is what keeps those
-literal types, so a call that passes the array literal inline writes no
-`as const`.
-
-The second overload takes a schema the caller names, for configuration that
-arrived as JSON and carries no literals. `createFeatures<Flags>(config)` checks
-every definition's key against `keyof Flags`, so a definition naming a feature
-`Flags` does not declare is a compile error at the call.
+| Overload        | Call shape                                              | What it checks                                                                                                                        |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| First, inferred | An array literal, written inline; no type argument      | Keys, variant names and each variant's value come from the literal. `const` is what keeps those literal types                         |
+| Second, named   | A schema the caller names, e.g. configuration from JSON | `createFeatures<Flags>(config)` checks every definition's key against `keyof Flags`; a key `Flags` does not declare fails at the call |
 
 A caller who holds the definitions in a variable writes
 `as const satisfies Definitions<Flag>` after the array literal. `satisfies`
@@ -56,9 +50,11 @@ overload reads the variant names off it. The annotation
 whose `variants` is optional, and `variantOf` then answers `string | undefined`
 for every key it covers.
 
-Throws `FeatureCycleError`, `UnknownDependencyError` or
-`DuplicateFeatureError`. All three are configuration errors and all three are
-raised here rather than at evaluation.
+`createFeatures` throws `FeatureCycleError`, `UnknownDependencyError` or
+`DuplicateFeatureError` here; evaluation raises none of them. See
+[Errors](#errors) for what each carries.
+
+### How a misspelled option gets caught
 
 The options settle the second type argument. The first signature reads them as
 the type parameter `O` and answers `'observe' extends keyof O ? true : false`,
@@ -75,6 +71,8 @@ carries `Record<"observ", never>` with `Type '() => undefined' is not assignable
 to type 'never'` under it. A reader finds the misspelled name inside that printed
 signature.
 
+### Why the schema-naming case takes two signatures
+
 The pair below it exists because TypeScript infers no type argument once a
 caller supplies one. `createFeatures<Flags>(config, { observe })` would read `O`
 from its default and answer the unobserved form, so the schema-naming case takes
@@ -86,6 +84,8 @@ The list stops at three signatures. TypeScript elaborates every candidate for a
 failed call while a signature list holds three or fewer, and reports a single
 candidate against the argument nodes once the list holds more, which put the
 error for a misspelled option on the definitions array.
+
+### Which form a call without a clear answer gets
 
 A call whose options settle neither question answers the frozen form. Options
 held in a variable annotated `FeatureOptions<S>`, and a wrapper that forwards an
@@ -117,6 +117,8 @@ The second parameter is `Frozen`. A store built with an observer freezes what it
 emits and answers the caller with that same object, so `resolve`, `plan` and
 `toggle` answer the deeply readonly form for such a store and the mutable form
 for a store built without one.
+
+### Naming `Frozen` in an annotation
 
 Take this type off `createFeatures`, and name it in an annotation only where a
 declaration demands one. `const store = createFeatures([...])` carries the
@@ -492,23 +494,28 @@ accounts for that difference, and the emit and the thenable check stay within
 run-to-run noise of the bare call. So the number anyone should care about is what
 their own hook body does.
 
-`observe` does not count exposures. `resolve` decides every configured feature,
-so an observer fired from it reports a decision for every feature the request
-never rendered, and an experiment computed over those records measures the wrong
-denominator. The numbers look plausible and are wrong. The application writes an
-exposure record at its render site, off the fields the decision it already holds
-carries. See
+#### `observe` does not count exposures
+
+`resolve` decides every configured feature, so an observer fired from it reports
+a decision for every feature the request never rendered, and an experiment
+computed over those records measures the wrong denominator. The numbers look
+plausible and are wrong. The application writes an exposure record at its render
+site, off the fields the decision it already holds carries. See
 [Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries)
 for the whole argument.
 
-An event in flight is lost at exit. The engine awaits nothing, so a buffer the
-application has not drained is gone when the process exits, and a phone's
-operating system suspends a process without warning. The application drains that
-buffer on `SIGTERM` and on the background transition, and each runtime carries
-its own transport: a service writes to a log collector, and a browser writes with
-`navigator.sendBeacon` on `visibilitychange`. See
+#### Records in flight are lost at exit
+
+The engine awaits nothing, so a buffer the application has not drained is gone
+when the process exits, and a phone's operating system suspends a process
+without warning. The application drains that buffer on `SIGTERM` and on the
+background transition, and each runtime carries its own transport: a service
+writes to a log collector, and a browser writes with `navigator.sendBeacon` on
+`visibilitychange`. See
 [Observing](/feature/observing#records-in-flight-are-lost-at-exit) for the hook
 shape.
+
+#### `FeatureOptions` and `UnobservedOptions`
 
 `FeatureOptions` declares `observe` optionally, so options carrying an observer
 and options carrying none both satisfy it. `UnobservedOptions` pins the member
@@ -543,6 +550,8 @@ asymmetry deliberately. At forty features the freeze adds 18 microseconds to a
 23 microsecond `resolve`, and a freeze on every call would add that to every
 user of the package whether or not they observe anything. A store nobody
 observes hands its record to nobody else, so the freeze protects nothing there.
+
+#### Why `ReadonlyDate` needs its own type
 
 `ReadonlyDate` drops the mutators. `Readonly<Date>` marks the properties
 readonly and leaves `setTime`, `setHours` and the rest callable, and each of
@@ -609,6 +618,8 @@ Both providers accept either form of a resolved record on `decisions`:
 `Decisions<S> | DeepReadonly<Decisions<S>>`. A server that resolves with an
 observed store and serialises the result hands the browser the frozen form, and
 a store built with no observer hands it the mutable one.
+
+### Binding the hooks to a store
 
 `createFeatureContext` and `FeatureContext` carry the same
 `Frozen extends boolean = boolean` parameter as `Features`, read off the store
