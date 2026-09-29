@@ -13,6 +13,7 @@ export type { VariantAssignment } from './lib/variants.js';
 export { evaluateCondition } from './lib/conditions.js';
 export { canonical } from './lib/canonical.js';
 export { ruleId } from './lib/rule-id.js';
+export { serializeConfig } from './lib/serialize.js';
 export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
 
 export {
