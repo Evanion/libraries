@@ -290,9 +290,10 @@ directories are gitignored.
 By the owner's ruling of 2026-09-29 (decision 1), a pin names the x.y.0 release its
 line is cut from. It holds through that release's patches, and goes dead only when
 a newer x.y.0 lands in its line, or when its line leaves the two the site keeps.
-`apps/docs/tools/cut-releases.mjs`, run after a release, deletes a pin a new x.y.0
-made dead, so a release never needs the pin file edited by hand. The pin check
-still refuses a dead pin a person writes.
+`apps/docs/tools/cut-releases.mjs` deletes a pin a new x.y.0 made dead and seeds
+an x.y.0 that shipped no pages. The Release workflow runs it after it tags, so a
+release never needs the pin file edited by hand. The pin check still refuses a
+dead pin a person writes.
 
 Pure generation from the newest tag, which the prior spec's decision 5 specifies,
 cannot survive decision 7: a re-cut would have nowhere to live and the next build
@@ -311,12 +312,23 @@ not import a workspace runtime package. Without it, a `_meta.ts` that reads
 `app/navigation.ts` silently makes every snapshot's sidebar track current
 navigation.
 
-Nothing in `release.yml` changes. The release push to `main` already triggers
-`docs.yml`, and the new tags are present in that same push, so the existing
-trigger sees a world where the tag exists. A separate tag-triggered workflow would
-add a second build racing the first for the `pages` concurrency group; it is not
-built. (The `GITHUB_TOKEN` event-suppression rule does not apply here: `nx release`
-pushes over SSH with `RELEASE_SSH_KEY`. Verified — release commit `360f5bf7`
+By the owner's ruling of 2026-09-29, `release.yml` runs `cut-releases.mjs` in a
+step between the one that tags and the one that publishes. When the pin file
+changes, the step commits it as `chore(docs): keep the docs archive pins on the
+new releases` and pushes it to `main` over the deploy key, the same way
+`nx release` pushes. The commit is one generated file, and the tags decide every
+line of it. A dry run tags its own clone with the versions `nx release` computed,
+runs the cut against them, prints the diff and pushes nothing. Publishing does not
+wait on the step: a failed pin commit leaves the release to publish, and the pin
+check reports the stale pin on the next pull request.
+
+The release push to `main` triggers `docs.yml`, and the new tags are present in
+that same push, so the existing trigger sees a world where the tag exists. A pin
+commit triggers it again, and the `pages` concurrency group queues that build
+behind the first. A separate tag-triggered workflow would add a second build
+racing the first for the `pages` concurrency group; it is not built. (The
+`GITHUB_TOKEN` event-suppression rule does not apply here: `nx release` pushes
+over SSH with `RELEASE_SSH_KEY`. Verified — release commit `360f5bf7`
 produced a `Docs` run eight seconds later.)
 
 One prerequisite, and it is a live bug independent of this document:
