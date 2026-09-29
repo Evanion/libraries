@@ -151,6 +151,7 @@ describe('createFeatures', () => {
     const values = [
       '2026-01-01T00:00:00Z',
       '2026-01-01T09:00:00+09:00',
+      '2026-01-01T09:00:00+0900',
       '2026-01-01',
       1767225600000,
       new Date(1767225600000),
@@ -167,6 +168,24 @@ describe('createFeatures', () => {
         ]),
       ).not.toThrow();
     }
+  });
+
+  it('refuses a window whose string is ISO 8601 in shape and names no date', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'before', value: '-000000-01-01' },
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
   });
 
   it('resolves one decision under one rule id in every zone', () => {

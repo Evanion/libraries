@@ -296,6 +296,38 @@ describe('ruleId', () => {
     expect(asTokyo).toBe(asUtc);
   });
 
+  it('derives one id for one offset written with and without its colon', () => {
+    const withColon = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00+01:00' }],
+    });
+    const basic = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00+0100' }],
+    });
+
+    expect(basic).toBe(withColon);
+  });
+
+  it('derives one id in every zone for a date naming no calendar date', () => {
+    // The string reaches no parser that reads the host's zone, so it is hashed
+    // as text and three hosts write one name for the rule.
+    const idsEverywhere = ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map(
+      (zone) => {
+        const original = process.env.TZ;
+        process.env.TZ = zone;
+        try {
+          return ruleId({
+            when: [{ field: 'now', op: 'after', value: '0001-13-01' }],
+          });
+        } finally {
+          if (original === undefined) delete process.env.TZ;
+          else process.env.TZ = original;
+        }
+      },
+    );
+
+    expect(new Set(idsEverywhere).size).toBe(1);
+  });
+
   it('derives one id for a date and the UTC midnight it names', () => {
     const asDate = ruleId({
       when: [{ field: 'now', op: 'after', value: '2026-01-01' }],

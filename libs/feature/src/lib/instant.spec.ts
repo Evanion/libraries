@@ -53,10 +53,27 @@ describe('instantEpoch', () => {
     ]);
   });
 
-  it('refuses an offset written without its colon', () => {
-    // `+0100` sits outside the format ECMA-262 fixes, so what it means is the
-    // engine's to decide.
-    expect(instantEpoch('2026-01-01T00:00:00+0100')).toBeNaN();
+  it('reads an offset written without its colon', () => {
+    // ISO 8601's basic form. The colon goes back in before the string is
+    // parsed, so the engine never decides what `+0100` meant.
+    expect(everywhere(() => instantEpoch('2026-01-01T00:00:00+0100'))).toEqual([
+      1767222000000, 1767222000000, 1767222000000,
+    ]);
+  });
+
+  it('reads one offset written both ways as one instant', () => {
+    expect(instantEpoch('2026-01-01T00:00:00+0100')).toBe(
+      instantEpoch('2026-01-01T00:00:00+01:00'),
+    );
+  });
+
+  it('reads an offset written without its colon on a time carrying no seconds', () => {
+    expect(instantEpoch('2026-01-01T00:00-0130')).toBe(1767231000000);
+  });
+
+  it('refuses an offset written without its colon whose hour names no zone', () => {
+    expect(instantEpoch('2026-01-01T00:00:00+2400')).toBeNaN();
+    expect(instantEpoch('2026-01-01T00:00:00+0160')).toBeNaN();
   });
 
   it('refuses a string that is not ISO 8601 at all', () => {
@@ -142,6 +159,50 @@ describe('instantEpoch', () => {
 
   it('refuses a month outside the calendar', () => {
     expect(instantEpoch('2026-13-01T00:00:00Z')).toBeNaN();
+  });
+
+  it('refuses a date with no time whose month is outside the calendar', () => {
+    // A date-only string keeps no `Z` to hold V8 on its ISO parser. A shape
+    // that admitted month 13 would reach the legacy heuristic parser, which
+    // reads the string in the host's zone.
+    expect(everywhere(() => instantEpoch('0001-13'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('0001-13-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+  });
+
+  it('refuses a date with no time whose day is outside the range the format fixes', () => {
+    expect(everywhere(() => instantEpoch('0001-01-00'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('0001-01-32'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+  });
+
+  it('refuses the negative zero year written as a date with no time', () => {
+    expect(everywhere(() => instantEpoch('-000000-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+  });
+
+  it('refuses the hour 24 carrying anything but the midnight closing the day', () => {
+    // The grammar admits `24:01` and `MakeTime` gives it a number, while V8
+    // answers `NaN`, so the engines are free to disagree over it.
+    expect(instantEpoch('2026-01-01T24:01:00Z')).toBeNaN();
+    expect(instantEpoch('2026-01-01T24:00:01Z')).toBeNaN();
   });
 
   it('carries a day past the end of its month into the next one', () => {

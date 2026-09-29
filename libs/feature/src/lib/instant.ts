@@ -9,12 +9,38 @@ import type { Instant } from './types.js';
  * falls to implementation-specific parsing, which is where two engines are free
  * to disagree.
  *
+ * Every field carries its range and not only its digit count. A string that
+ * matches the shape and names no calendar date still reaches `Date.parse`,
+ * where V8's ISO parser refuses it and V8's legacy heuristic parser reads it in
+ * the host's zone, so `'0001-13-01'` answers three numbers in three zones and
+ * `ruleId` derives three names for the one rule. The day range is 01-31, which
+ * is the range the format fixes: `MakeDay` carries 30 February into March on
+ * every engine, so that string names one instant.
+ *
+ * The hour 24 is held to the midnight closing the day. The grammar admits
+ * `24:01`, `MakeTime` gives it a number, and V8 answers `NaN` for it.
+ *
+ * The negative zero year names no year, and the grammar excludes it.
+ *
  * The fraction is one or more digits where the format fixes three. Engines
  * truncate a longer one and none of them reads a zone off it, and a producer
  * emitting microseconds -- Python's `datetime.isoformat` -- writes six.
  */
 const FIXED =
-  /^(?:[+-]\d{6}|\d{4})(?:-\d{2}(?:-\d{2})?)?(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+  /^(?:\d{4}|\+\d{6}|-(?!000000)\d{6})(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?(?:T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?|24:00(?::00(?:\.0+)?)?)(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/;
+
+/**
+ * The trailing offset of a date-time written in ISO 8601 basic form, split into
+ * its hour and its minute.
+ *
+ * ISO 8601 writes `+0100` for the offset ECMA-262's format writes `+01:00`, and
+ * a producer that emits the basic form is common: `strftime('%z')` in Python,
+ * `time.RFC822Z` in Go and `SimpleDateFormat("Z")` in Java all write it. The
+ * colon goes back in before {@link FIXED} reads the string, so `Date.parse`
+ * meets the form ECMA-262 fixes and no engine's heuristic parser decides what
+ * the offset meant.
+ */
+const BASIC_OFFSET = /^(.*T.*)([+-](?:[01]\d|2[0-3]))([0-5]\d)$/;
 
 /**
  * Epoch milliseconds for an instant, and `NaN` for one that names none.
@@ -24,13 +50,19 @@ const FIXED =
  * second copy in either place is a rule that carries one name and answers two
  * ways.
  *
- * A string is parsed only when {@link FIXED} matches it, so a host in Tokyo and
+ * A string is parsed only once {@link FIXED} matches it, so a host in Tokyo and
  * a host in Los Angeles return the same number or both return `NaN`.
  * `createFeatures` rejects the strings that return `NaN` here, which leaves the
  * value for a caller reaching `evaluateCondition` or `ruleId` directly.
+ *
+ * A `Date` is returned as its own instant. It carries no record of the string
+ * it was built from, so `new Date('2026-01-01T00:00:00')` has already taken the
+ * constructing host's zone before this function sees it.
  */
 export function instantEpoch(value: Instant): number {
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'number') return value;
-  return FIXED.test(value) ? Date.parse(value) : Number.NaN;
+
+  const fixed = value.replace(BASIC_OFFSET, '$1$2:$3');
+  return FIXED.test(fixed) ? Date.parse(fixed) : Number.NaN;
 }

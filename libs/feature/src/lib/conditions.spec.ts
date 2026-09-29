@@ -416,6 +416,7 @@ describe('validateConditions', () => {
     const named = [
       '2026-01-01T00:00:00Z',
       '2026-01-01T09:00:00+09:00',
+      '2026-01-01T09:00:00+0900',
       '2026-01-01T00:00Z',
       '2026-01-01',
       '2026-01',
@@ -427,6 +428,33 @@ describe('validateConditions', () => {
         validateConditions(featureWith({ field: 'now', op: 'after', value })),
       ).not.toThrow();
     }
+  });
+
+  it('refuses a string whose shape is ISO 8601 and whose date is not a date', () => {
+    // Each of these reaches V8's legacy heuristic parser, which reads it in the
+    // host's zone, so the check has to refuse it on the shape alone rather than
+    // on `Date.parse` answering `NaN`.
+    const unusable = ['-000000-01-01', '0001-13', '0001-13-01', '0001-01-32'];
+
+    for (const value of unusable) {
+      expect(() =>
+        validateConditions(featureWith({ field: 'now', op: 'after', value })),
+      ).toThrow(FeatureConfigError);
+    }
+  });
+
+  it('names the Date constructor in the message, which does not fix the string', () => {
+    // The nearest edit to the refused string is `new Date` of it, and a `Date`
+    // reaches the check with the constructing host's zone already applied.
+    expect(() =>
+      validateConditions(
+        featureWith({
+          field: 'now',
+          op: 'after',
+          value: '2026-01-01T00:00:00',
+        }),
+      ),
+    ).toThrow(/new Date/);
   });
 
   it('refuses a string outside the range a Date holds', () => {
