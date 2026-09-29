@@ -6,7 +6,7 @@ import {
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
-import { everywhere } from './zones.spec.js';
+import { everywhere } from './zones.js';
 
 const WINDOW = '2026-10-01T00:00:00Z';
 

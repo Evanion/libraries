@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { instantEpoch } from './instant.js';
-import { everywhere } from './zones.spec.js';
+import { everywhere } from './zones.js';
 
 describe('instantEpoch', () => {
   it('reads a date-time carrying Z', () => {

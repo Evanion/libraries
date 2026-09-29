@@ -6,7 +6,7 @@ import {
 } from './conditions.js';
 import { FeatureConfigError } from './errors.js';
 import type { Condition, FeatureDefinition, Instant } from './types.js';
-import { everywhere, inZone } from './zones.spec.js';
+import { everywhere, inZone } from './zones.js';
 
 const at = (iso: string) => ({ now: new Date(iso) });
 
