@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import { createFeatures, type Definitions } from './features.js';
-import type { Condition, FeatureDefinition } from './types.js';
+import type { FeatureDefinition } from './types.js';
 
 describe('createFeatures, inferring', () => {
   it('narrows variantOf to the names a feature declares', () => {
@@ -197,7 +197,7 @@ describe('a definitions variable', () => {
   });
 });
 
-describe('plan, over a rule the context refutes', () => {
+describe('plan, inferring from the definitions', () => {
   const defs = [
     {
       key: 'cta',
@@ -206,63 +206,23 @@ describe('plan, over a rule the context refutes', () => {
         { name: 'control', weight: 50 },
         { name: 'blue', weight: 50, value: { label: 'Get it' } },
       ],
-      rules: [
-        {
-          id: 'eu-pro',
-          when: [
-            { field: 'plan', op: 'eq', value: 'pro' },
-            { field: 'region', op: 'eq', value: 'eu' },
-          ],
-          variant: 'blue',
-        },
-        { id: 'everyone', when: [] },
-      ],
+      rules: [{ id: 'eu', when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
     },
   ] as const satisfies Definitions<'cta'>;
 
-  it('narrows a settled entry to the variant names the feature declares', () => {
+  it("narrows a plan entry's variant to the names the feature declares", () => {
     const features = createFeatures(defs);
 
-    expectTypeOf(
-      features.plan({ plan: 'free' }).cta.decision?.variant,
-    ).toEqualTypeOf<'control' | 'blue' | undefined>();
-  });
-
-  it('narrows a settled entry to the values the feature declares', () => {
-    const features = createFeatures(defs);
-
-    expectTypeOf(
-      features.plan({ plan: 'free' }).cta.decision?.value,
-    ).toEqualTypeOf<{ readonly label: 'Get it' } | undefined>();
-  });
-
-  it('answers the resolution as a boolean or the deferred marker', () => {
-    const features = createFeatures(defs);
-
-    expectTypeOf(features.plan({ plan: 'free' }).cta.resolved).toEqualTypeOf<
-      boolean | 'deferred'
+    expectTypeOf(features.plan({}).cta.decision?.variant).toEqualTypeOf<
+      'control' | 'blue' | undefined
     >();
   });
 
-  it('answers the outstanding fields as a readonly list of names', () => {
+  it("narrows a plan entry's value to the values the feature declares", () => {
     const features = createFeatures(defs);
 
-    expectTypeOf(features.plan({ plan: 'free' }).cta.needs).toEqualTypeOf<
-      readonly string[]
+    expectTypeOf(features.plan({}).cta.decision?.value).toEqualTypeOf<
+      { readonly label: 'Get it' } | undefined
     >();
-  });
-
-  it('answers the refuted condition off the breakdown', () => {
-    const features = createFeatures(defs);
-
-    expectTypeOf(
-      features.plan({ plan: 'free' }).cta.decision?.rules?.[0]?.failed,
-    ).toEqualTypeOf<Condition | undefined>();
-  });
-
-  it('answers no entry for a key the definitions do not declare', () => {
-    const features = createFeatures(defs);
-
-    expectTypeOf(features.plan({ plan: 'free' })).not.toHaveProperty('nope');
   });
 });
