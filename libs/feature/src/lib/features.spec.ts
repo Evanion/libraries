@@ -437,6 +437,29 @@ describe('precedence', () => {
     ]);
   });
 
+  it('names no condition on an outcome the rollout refused', () => {
+    const features = createFeatures([
+      {
+        key: 'ramped',
+        enabled: true,
+        rules: [{ id: 'ramp', rollout: { percent: 0 } }],
+      },
+    ]);
+
+    const decision = features.resolve({ targetingKey: 'u1' }).ramped;
+
+    // The rule declares no condition, so every condition held and the rollout
+    // is the whole reason. `failed` is the key a UI reads to name a condition,
+    // and here there is no condition to name.
+    expect(decision.rules).toEqual([
+      {
+        rule: 'ramp',
+        matched: false,
+        rollout: { percent: 0, by: 'targetingKey', member: false },
+      },
+    ]);
+  });
+
   it('buckets a rollout on the context field the rule names', () => {
     const features = createFeatures([
       {
@@ -1903,6 +1926,48 @@ describe('plan', () => {
     expect(entry.decision?.rules).toHaveLength(2);
     expect(entry.decision?.rules?.[0]).toEqual(entry.decision?.rules?.[1]);
     expect(entry.decision?.rules?.[0]?.matched).toBe(false);
+  });
+
+  it('names a condition on one breakdown entry and not on the one beside it', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'region-first',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+          {
+            id: 'plan-first',
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    // The walk steps over `region` on the first rule before `plan` refutes it,
+    // so that outcome names nothing. The second rule fails on `plan` with
+    // nothing stepped over ahead of it, so it names the condition. Whether an
+    // outcome names a condition is a per-rule answer, and one rule stepping
+    // over a field leaves the rule below it free to name its own.
+    expect(entry.resolved).toBe(false);
+    expect(entry.decision?.rules).toEqual([
+      { rule: 'region-first', matched: false },
+      {
+        rule: 'plan-first',
+        matched: false,
+        failed: { field: 'plan', op: 'eq', value: 'pro' },
+      },
+    ]);
   });
 
   it('settles a window rule the context refuted on a field other than now', () => {
