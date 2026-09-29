@@ -49,8 +49,13 @@ be about the thing they installed.
 
 ## Decisions
 
-1. The bare path serves the package's newest release. `main` moves to
-   `/next/<slug>/…`. Supersedes decision 2.
+1. The bare path serves the package's newest release, with the pages cut for
+   that release's x.y.0. `main` moves to `/next/<slug>/…`. Supersedes
+   decision 2. The owner ruled on 2026-09-29 that documentation gets a new
+   version only for a release that changes the major or minor number (x.0.0 or
+   x.y.0). A patch release (x.y.z with z > 0) makes no new version of the
+   documentation: it is served by the pages cut from its x.y.0 tag, under a
+   notice that names the patch as the version on npm.
 2. The version segment is the caret-compatible one: `v<major>` at or above 1.0.0,
    `v0.<minor>` below it. Supersedes decision 4's "major granularity", which is
    wrong for the four packages still on 0.x.
@@ -63,7 +68,7 @@ be about the thing they installed.
 5. A package whose current release is not yet documented is seeded: its bare path
    is cut from `main` at cut time, but only when `nx release` computes no bump for
    it. A package that would bump is not seeded and keeps serving `/next/` content
-   under a notice until its next release.
+   under a notice until its next x.y.0 release.
 6. An archived page keeps its values frozen and states the commit that produced
    them. Probes freeze rather than strip; playgrounds strip. Amends decision 7.
 7. A `workflow_dispatch` re-cuts one pinned version by opening a pull request that
@@ -121,8 +126,9 @@ major == 0  →  v0.<minor>      /react-widget/v0.1/
 ```
 
 The reserved-segment rule from the prior spec's decision 4 widens to
-`/^v\d+(\.\d+)?$/`. The tag glob for resolving a line's newest tag is
-`{name}@{major}.*` at or above 1.0.0 and `{name}@0.{minor}.*` below it.
+`/^v\d+(\.\d+)?$/`. The tag glob for resolving a line's tags is
+`{name}@{major}.*` at or above 1.0.0 and `{name}@0.{minor}.*` below it, and the
+line is cut from the newest x.y.0 tag among them (decision 1).
 
 Full-semver URLs were considered and rejected. There are thirteen tags today,
 each of which would be a complete section copy through the rewrite pass and an
@@ -140,7 +146,7 @@ which today preserves `@evanion/react-widget@0.1.0`'s six pages.
 
 ```
 content/next/<slug>/**      authored, committed, watched by the dev server
-content/<slug>/**           generated: the newest release
+content/<slug>/**           generated: the newest x.y.0 release
 content/<slug>/v<seg>/**    generated: superseded lines
 ```
 
@@ -216,7 +222,10 @@ package released two days ago, with the probe #166 just added. Thirty-three page
 become eleven. The inversion would be announced and not delivered.
 
 So a package is seeded — its bare path cut from `main` rather than from the tag —
-when `main` is not ahead of the release in any way that matters. The predicate:
+when `main` is not ahead of the release in any way that matters. By the owner's
+ruling of 2026-09-29 (decision 1), the release seeding asks about is the current
+line's x.y.0: the package is documented when that tag carries its section, and a
+patch release's tag carrying pages does not document the line. The predicate:
 
 > A package seeds iff `nx release version --dry-run --projects=<p>` computes the
 > version the package's newest tag already names, and every workspace dependency
@@ -233,11 +242,15 @@ depends on `@evanion/luhn`; luhn seeds, so the clause changes nothing today and
 will matter at the next cut.
 
 Applied today: `luhn`, `compose` and `nestjs-correlation-id` seed. `urn`, `token`,
-`astro-widget` and `widget` do not, and until their next release their bare path
-serves `content/next/` content under a notice naming the published version and
-stating that no documentation was published for it. Three of seven is a real
-day-one inversion; the remaining four complete themselves at their next release
-without further work.
+`astro-widget` and `widget` do not, and until their next x.y.0 release their bare
+path serves `content/next/` content under a notice naming the published version
+and stating that no documentation was published for it. Three of seven is a real
+day-one inversion; the remaining four complete themselves at their next x.y.0
+release without further work.
+
+The dry run still measures from the newest tag, patches included, so a seed is
+keyed by the x.y.0 and its `reason` names the version the package stays at: a
+3.0.0 seed taken after 3.0.1 reads "computes 3.0.1".
 
 The predicate is evaluated once, at cut, and frozen in the pin file with the
 dry-run output recorded in `reason`. It is deliberately not a repo-check: the
@@ -273,6 +286,13 @@ The docs build reads the pin, resolves content out of git at that SHA
 tags this way measured 0.01s against a 45 MB `.git`), and materialises
 `content/<slug>/` and `content/<slug>/v<seg>/` before `next build`. The generated
 directories are gitignored.
+
+By the owner's ruling of 2026-09-29 (decision 1), a pin names the x.y.0 release its
+line is cut from. It holds through that release's patches, and goes dead only when
+a newer x.y.0 lands in its line, or when its line leaves the two the site keeps.
+`apps/docs/tools/cut-releases.mjs`, run after a release, deletes a pin a new x.y.0
+made dead, so a release never needs the pin file edited by hand. The pin check
+still refuses a dead pin a person writes.
 
 Pure generation from the newest tag, which the prior spec's decision 5 specifies,
 cannot survive decision 7: a re-cut would have nowhere to live and the next build
@@ -461,8 +481,10 @@ Ordered by how silently the failure ships. The first four would deploy broken.
 2. **Every exported page carries exactly one `version` value.** A page with none
    is invisible to the default filtered query: it exists, it is linked, and it
    cannot be found.
-3. **The bare path corresponds to the newest tag.** For each documented package,
-   the content serving `/<slug>/` was cut from that package's newest release line.
+3. **The bare path corresponds to the newest x.y.0 tag.** For each documented
+   package, the content serving `/<slug>/` was cut from the newest x.y.0 of that
+   package's newest release line, and names the line's newest release as the
+   version on npm.
    A release that publishes to npm but whose docs cut did not fire leaves the site
    claiming an old version as current, with no error anywhere. This is the check
    that catches the `nest/**` paths hole in section 6.
