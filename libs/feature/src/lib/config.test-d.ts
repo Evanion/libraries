@@ -257,6 +257,12 @@ describe('ReloadResult', () => {
     );
   });
 
+  it('reports every issue a refusal found, not the first', () => {
+    expectTypeOf<
+      Extract<ReloadResult, { ok: false }>['issues']
+    >().toEqualTypeOf<readonly ConfigIssue[]>();
+  });
+
   it('names changed keys on the keys a store admits', () => {
     expectTypeOf<
       Extract<ReloadResult, { ok: true }>['changed']
@@ -495,6 +501,18 @@ describe('SerializedRule', () => {
 
   it('is a rule a live store could hold', () => {
     expectTypeOf<SerializedRule>().toExtend<Rule>();
+  });
+
+  it('leaves its conditions optional, so no rules means on', () => {
+    expectTypeOf<SerializedRule['when']>().toEqualTypeOf<
+      readonly SerializedCondition[] | undefined
+    >();
+  });
+
+  it('takes a rule that ramps a percentage and matches on nothing', () => {
+    const rule = { rollout: { percent: 50 } } satisfies SerializedRule;
+
+    expectTypeOf(rule.rollout.percent).toEqualTypeOf<number>();
   });
 
   it('refuses a live rule, whose conditions admit a Date', () => {
@@ -763,6 +781,12 @@ describe('FeatureSchema', () => {
     } satisfies FeatureConfig<'cta'>;
 
     expectTypeOf(document.schema.features.nav).toExtend<FeatureShape>();
+  });
+
+  it('names its context vocabulary, which a code generator reads field types off', () => {
+    expectTypeOf<FeatureSchema['context']>().toEqualTypeOf<
+      ContextSchema | undefined
+    >();
   });
 
   it('takes a document that declares a context and no feature shapes', () => {
