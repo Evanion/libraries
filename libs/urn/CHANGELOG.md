@@ -1,3 +1,17 @@
+## 2.1.0 (2026-09-29)
+
+### 🚀 Features
+
+- **repo:** read one doc example preamble from both the doctest run and the docs ([299a5f74f](https://github.com/Evanion/libraries/commit/299a5f74f))
+- **docs:** probe urn component splitting over a typed identifier ([56264112e](https://github.com/Evanion/libraries/commit/56264112e))
+- **repo:** make documented examples executable and sync them to the docs app ([bfb72e9a9](https://github.com/Evanion/libraries/commit/bfb72e9a9))
+- **urn:** add the r-, q- and f-components of rfc 8141 2.3 ([b7b165284](https://github.com/Evanion/libraries/commit/b7b165284))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 # Changelog
 
 ## 2.0.0 (2026-08-26)

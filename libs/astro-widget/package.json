@@ -1,6 +1,6 @@
 {
   "name": "@evanion/astro-widget",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Render CMS-driven Astro pages from structured widget data. Build-time, zero runtime.",
   "keywords": [
     "astro",
@@ -57,7 +57,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/widget": "0.1.0"
+    "@evanion/widget": "0.1.1"
   },
   "peerDependencies": {
     "astro": "^7.3.4"

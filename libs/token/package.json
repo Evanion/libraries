@@ -1,6 +1,6 @@
 {
   "name": "@evanion/token",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Short codes a user can easily communicate without confusion, with validation built in.",
   "keywords": [
     "token",

@@ -1,3 +1,24 @@
+## 0.3.1 (2026-09-29)
+
+### 🚀 Features
+
+- **acl:** mark one region per register entry in the adversarial suite ([c47961912](https://github.com/Evanion/libraries/commit/c47961912))
+
+### 🩹 Fixes
+
+- **astro-widget:** keep accepting astro 7.3.4 as a peer ([bfc6def6c](https://github.com/Evanion/libraries/commit/bfc6def6c))
+- **astro-widget:** stop the registry's key union claiming a reach it has not got ([9ad125cc9](https://github.com/Evanion/libraries/commit/9ad125cc9))
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/widget to 0.1.1
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Claude Opus 5.5 (1M context)
+- Mikael Pettersson @Evanion
+
 ## 0.3.0 (2026-09-13)
 
 ### 🩹 Fixes

@@ -1,3 +1,18 @@
+## 2.1.0 (2026-09-29)
+
+### 🚀 Features
+
+- **compose,react-acl,react-widget,nestjs-correlation-id:** run the documented examples ([5d0ee002b](https://github.com/Evanion/libraries/commit/5d0ee002b))
+
+### 💅 Refactors
+
+- **repo:** move nestjs-correlation-id from nest/ into libs/ ([cb9acb743](https://github.com/Evanion/libraries/commit/cb9acb743))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 # Changelog
 
 ## 2.0.0 (2026-08-27)

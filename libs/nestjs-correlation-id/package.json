@@ -1,6 +1,6 @@
 {
   "name": "@evanion/nestjs-correlation-id",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Correlation ID middleware for NestJS. Carries one id from the incoming request through everything it awaits and onto outgoing HTTP calls, so log lines across services line up.",
   "keywords": [
     "nestjs",

@@ -1,3 +1,15 @@
+## 3.0.1 (2026-09-29)
+
+### 🚀 Features
+
+- **repo:** read one doc example preamble from both the doctest run and the docs ([299a5f74f](https://github.com/Evanion/libraries/commit/299a5f74f))
+- **docs:** probe the luhn check character over a typed phrase ([fea68c381](https://github.com/Evanion/libraries/commit/fea68c381))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 # 3.0.0 (2026-09-12)
 
 ### 🚀 Features

@@ -1,3 +1,18 @@
+## 2.1.0 (2026-09-29)
+
+### 🚀 Features
+
+- **compose,react-acl,react-widget,nestjs-correlation-id:** run the documented examples ([5d0ee002b](https://github.com/Evanion/libraries/commit/5d0ee002b))
+
+### 🩹 Fixes
+
+- **astro-widget:** keep tsc's typecheck emit out of the build output ([#96](https://github.com/Evanion/libraries/issues/96))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 # Changelog
 
 ## 2.0.0 (2026-08-26)

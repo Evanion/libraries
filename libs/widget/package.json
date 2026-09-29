@@ -1,6 +1,6 @@
 {
   "name": "@evanion/widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The framework-free half of a widget region: the item shape, the registry, and the validator every @evanion widget renderer shares.",
   "keywords": [
     "widget",

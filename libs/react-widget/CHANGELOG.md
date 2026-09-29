@@ -1,3 +1,18 @@
+## 0.3.1 (2026-09-29)
+
+### 🚀 Features
+
+- **compose,react-acl,react-widget,nestjs-correlation-id:** run the documented examples ([5d0ee002b](https://github.com/Evanion/libraries/commit/5d0ee002b))
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/widget to 0.1.1
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Mikael Pettersson @Evanion
+
 ## 0.3.0 (2026-09-13)
 
 ### 🩹 Fixes

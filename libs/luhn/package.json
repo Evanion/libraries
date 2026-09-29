@@ -1,6 +1,6 @@
 {
   "name": "@evanion/luhn",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A check character for anything a person types by hand, so a typo is rejected before it reaches your database. Any alphabet.",
   "keywords": [
     "luhn",

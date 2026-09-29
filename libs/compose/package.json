@@ -1,6 +1,6 @@
 {
   "name": "@evanion/compose",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A React component for composing providers: a tree of nested wrappers becomes one flat, readable list.",
   "keywords": [
     "react",
