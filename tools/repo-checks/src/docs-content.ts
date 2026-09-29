@@ -100,7 +100,10 @@ export function authoredDirectories(): string[] {
 
 /** One version of a section, as `content/versions.json` records it. */
 export interface ServedVersion {
+  /** The x.y.0 release the pages are cut for. */
   version: string | null;
+  /** The newest release of the line, which the notice names as on npm. */
+  published: string | null;
   tag: string | null;
   segment: string | null;
   from: 'cut' | 'next';

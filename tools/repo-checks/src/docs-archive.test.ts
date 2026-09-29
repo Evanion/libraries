@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { pinFaults, type Pin, type PinInputs } from './docs-archive';
 import {
   CONTENT,
@@ -14,7 +14,8 @@ import {
 } from './docs-content';
 
 /**
- * The invariant: each package's bare path serves its newest release, every
+ * The invariant: each package's bare path serves its current line's x.y.0
+ * release and names the line's newest release as the one on npm, every
  * version directory holds what its release shipped and nothing that resolves
  * against `main`, and the pin file says only true things about releases.
  *
@@ -44,8 +45,12 @@ const versions = () =>
     releaseLines: (
       name: string,
       tags: readonly string[],
-    ) => { segment: string; releases: { tag: string; version: string }[] }[];
-    taggedAfter: (
+    ) => {
+      segment: string;
+      cut: { tag: string; version: string };
+      releases: { tag: string; version: string }[];
+    }[];
+    taggedPast: (
       name: string,
       tags: readonly string[],
       version: string,
@@ -145,7 +150,7 @@ describe('the pin file', () => {
 
   it('pins only releases that happened, at commits on main, and says why where it deviates', async () => {
     const { packages } = await navigation();
-    const { segmentOf, taggedAfter, releaseLines } = await versions();
+    const { segmentOf, taggedPast, releaseLines } = await versions();
     const main = commit('origin/main');
 
     expect(
@@ -164,7 +169,7 @@ describe('the pin file', () => {
         main: main as string,
         dryRunAt: (sha, name) => dryRunAt(workspaceRoot, sha, name),
         segmentOf,
-        taggedAfter: (name, version) => taggedAfter(name, tags, version),
+        taggedPast: (name, version) => taggedPast(name, tags, version),
         releaseLines: (name) => releaseLines(name, tags),
       }),
       'apps/docs/archives.json decides what a release is documented by. ' +
@@ -176,9 +181,11 @@ describe('the pin file', () => {
 describe('the generated sections', () => {
   /**
    * § 11.3: a release that reached npm and whose documentation was not cut
-   * leaves the site calling an old version current, with no error anywhere.
+   * leaves the site calling an old version current, with no error anywhere. A
+   * patch release is documented by its x.y.0, so the bare path is that
+   * release's, and it names the patch as the version on npm.
    */
-  it("serve each package's newest release at its bare path", async () => {
+  it("serve each package's newest x.y.0 release at its bare path, naming its newest release", async () => {
     const { packages } = await navigation();
     const { releaseLines } = await versions();
     const sections = servedSections();
@@ -187,18 +194,17 @@ describe('the generated sections', () => {
       .filter((entry) => entry.documented && !entry.unversioned)
       .flatMap((entry) => {
         // A workshop package publishes nothing, whatever a release run tagged.
-        const newest = entry.workshop
-          ? null
-          : (releaseLines(entry.name, tags)[0]?.releases[0]?.version ?? null);
+        const [line] = entry.workshop ? [] : releaseLines(entry.name, tags);
         // `null` on both sides is a package with no release, served from main.
+        const wanted = `${line?.cut.version ?? null} for ${line?.releases[0]?.version ?? null}`;
         const section = sections[entry.slug];
-        const served = section ? section.current.version : 'nothing';
+        const served = section
+          ? `${section.current.version} for ${section.current.published}`
+          : 'nothing';
 
-        return served === newest
+        return served === wanted
           ? []
-          : [
-              `/${entry.slug}/ serves ${served}, and the newest release is ${newest}`,
-            ];
+          : [`/${entry.slug}/ serves ${served}, and should serve ${wanted}`];
       });
 
     expect(wrong).toEqual([]);
@@ -365,23 +371,19 @@ describe('a pin', () => {
     ...Object.fromEntries(history.map((sha) => [sha, sha])),
   };
 
-  const segmentOf = (version: string) =>
-    version.startsWith('0.')
-      ? `v0.${version.split('.')[1]}`
-      : `v${version.split('.')[0]}`;
-  const versionOf = (tag: string) => tag.slice(tag.lastIndexOf('@') + 1);
+  let real: Awaited<ReturnType<typeof versions>>;
+  beforeAll(async () => {
+    real = await versions();
+  });
 
+  /** The rules over the fixture's tags, and `later` tags at the head of main. */
   function faults(
     pin: Pin,
     dryRunAt: PinInputs['dryRunAt'] = () => null,
     extra: Record<string, Pin> = {},
     later: readonly string[] = [],
   ): string[] {
-    const released = [...Object.keys(tagged), ...later]
-      .map(versionOf)
-      .filter((version) => !version.includes('-'))
-      .sort()
-      .reverse();
+    const all = [...Object.keys(tagged), ...later];
 
     return pinFaults({
       pins: { luhn: { v3: pin, ...extra } },
@@ -391,18 +393,9 @@ describe('a pin', () => {
         history.indexOf(a) !== -1 && history.indexOf(a) <= history.indexOf(b),
       main: 'head003',
       dryRunAt,
-      segmentOf,
-      taggedAfter: (_name, version) =>
-        [...Object.keys(tagged), ...later].filter(
-          (tag) => versionOf(tag) > version,
-        ),
-      releaseLines: () =>
-        [...new Set(released.map(segmentOf))].map((segment) => ({
-          segment,
-          releases: released
-            .filter((version) => segmentOf(version) === segment)
-            .map((version) => ({ version })),
-        })),
+      segmentOf: real.segmentOf,
+      taggedPast: (name, version) => real.taggedPast(name, all, version),
+      releaseLines: (name) => real.releaseLines(name, all),
     });
   }
 
@@ -479,17 +472,55 @@ describe('a pin', () => {
   });
 
   /**
-   * The generator applies a pin to its line's newest release only, so after
-   * 3.0.1 a pin for 3.0.0 is read by nothing.
+   * The generator applies a pin to the x.y.0 its line is cut from, so after
+   * 3.1.0 a pin for 3.0.0 is read by nothing. `cut-releases.mjs` drops it, and
+   * this refuses it when a person writes it back.
    */
-  it('refuses a pin for a release its line has moved past', () => {
+  it('refuses a pin for an x.y.0 a later x.y.0 in its line replaced', () => {
+    expect(
+      faults({ ...release, next: true, reason: 'no pages' }, () => null, {}, [
+        '@evanion/luhn@3.1.0',
+      ]),
+    ).toEqual([
+      'luhn.v3: the site cuts v3 from 3.1.0 and reads no pin for 3.0.0',
+    ]);
+  });
+
+  /** 3.0.1 is documented by 3.0.0, so the site still reads 3.0.0's pin. */
+  it('passes a pin through a patch release of it', () => {
     expect(
       faults({ ...release, next: true, reason: 'no pages' }, () => null, {}, [
         '@evanion/luhn@3.0.1',
       ]),
+    ).toEqual([]);
+  });
+
+  it('refuses a pin for a patch release', () => {
+    expect(
+      faults(
+        { version: '3.0.1', tag: '@evanion/luhn@3.0.1', sha: 'head003' },
+        () => null,
+        {},
+        ['@evanion/luhn@3.0.1'],
+      ),
     ).toEqual([
-      'luhn.v3: 3.0.1 is the newest release in v3, so the site cuts it from its own tag and reads no pin for 3.0.0',
+      'luhn.v3: the site cuts v3 from 3.0.0 and reads no pin for 3.0.1',
     ]);
+  });
+
+  /**
+   * A documentation fix after 3.0.1 is a re-cut of 3.0.0, from a commit that
+   * carries the patch's tag.
+   */
+  it('passes a pinned commit past a patch of its release', () => {
+    expect(
+      faults(
+        { ...release, sha: 'head003', reason: 'a re-cut' },
+        () => null,
+        {},
+        ['@evanion/luhn@3.0.1'],
+      ),
+    ).toEqual([]);
   });
 
   /** npm's `latest` never moves to a prerelease, so no line holds one. */
@@ -520,7 +551,7 @@ describe('a pin', () => {
         main: 'head003',
         dryRunAt: () => null,
         segmentOf: () => 'v3',
-        taggedAfter: () => [],
+        taggedPast: () => [],
         releaseLines: () => [],
       }),
     ).toEqual([
