@@ -30,6 +30,29 @@ const enabledOf = (decisions: Record<string, Decision>) =>
     Object.entries(decisions).map(([key, decision]) => [key, decision.enabled]),
   );
 
+/**
+ * Runs `read` with the process reporting `zone` as its timezone.
+ *
+ * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
+ * what a host in Los Angeles would answer without running a second process.
+ */
+function inZone<T>(zone: string, read: () => T): T {
+  const original = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    return read();
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+}
+
+/** The answer in three zones spread far enough apart to cross a day boundary. */
+const everywhere = <T>(read: () => T): T[] =>
+  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
+    inZone(zone, read),
+  );
+
 describe('createFeatures', () => {
   it('rejects a cycle at construction, naming the path', () => {
     expect(() =>
@@ -86,6 +109,149 @@ describe('createFeatures', () => {
         },
       ]),
     ).not.toThrow();
+  });
+
+  it('refuses a window whose string names no instant in a feature past the first', () => {
+    expect(() =>
+      createFeatures([
+        { key: 'first', enabled: true },
+        {
+          key: 'second',
+          enabled: true,
+          rules: [
+            {
+              when: [{ field: 'now', op: 'before', value: '2026-06-01T12:00' }],
+            },
+          ],
+        },
+      ]),
+    ).toThrow(/feature "second"/);
+  });
+
+  it('refuses a window whose string names no instant in a rule past the first', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-01-01T00:00:00' },
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('accepts every window value that names one instant', () => {
+    const values = [
+      '2026-01-01T00:00:00Z',
+      '2026-01-01T09:00:00+09:00',
+      '2026-01-01',
+      1767225600000,
+      new Date(1767225600000),
+    ];
+
+    for (const value of values) {
+      expect(() =>
+        createFeatures([
+          {
+            key: 'k',
+            enabled: true,
+            rules: [{ when: [{ field: 'now', op: 'after', value }] }],
+          },
+        ]),
+      ).not.toThrow();
+    }
+  });
+
+  it('resolves one decision under one rule id in every zone', () => {
+    // The whole point of refusing the offsetless string: a store built from the
+    // same document answers the same thing, under the same rule name, wherever
+    // it runs. A fresh store per zone, because a rule object memoizes its id.
+    const storeOf = () =>
+      createFeatures([
+        {
+          key: 'launch',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' },
+              ],
+            },
+          ],
+        },
+      ]);
+    const now = new Date('2026-01-01T02:00:00Z');
+
+    const answers = everywhere(() => {
+      const decision = storeOf().resolve({ now }).launch;
+      return `${decision.enabled} ${decision.reason} ${decision.rule}`;
+    });
+
+    expect(answers[0]).toMatch(/^true rule-match rule-[0-9a-f]{8}$/);
+    expect(new Set(answers).size).toBe(1);
+  });
+
+  it('opens a window at the instant its string names', () => {
+    const features = createFeatures([
+      {
+        key: 'launch',
+        enabled: true,
+        rules: [
+          {
+            when: [
+              { field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(
+      features.isEnabled('launch', {
+        now: new Date('2025-12-31T23:59:59.999Z'),
+      }),
+    ).toBe(false);
+    expect(
+      features.isEnabled('launch', {
+        now: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    ).toBe(false);
+    expect(
+      features.isEnabled('launch', {
+        now: new Date('2026-01-01T00:00:00.001Z'),
+      }),
+    ).toBe(true);
+  });
+
+  it('opens a window written as a date at UTC midnight in every zone', () => {
+    const answers = everywhere(() => {
+      const features = createFeatures([
+        {
+          key: 'launch',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'now', op: 'after', value: '2026-01-01' }] },
+          ],
+        },
+      ]);
+      return [
+        features.isEnabled('launch', { now: new Date('2025-12-31T23:00:00Z') }),
+        features.isEnabled('launch', { now: new Date('2026-01-01T01:00:00Z') }),
+      ];
+    });
+
+    expect(answers).toEqual([
+      [false, true],
+      [false, true],
+      [false, true],
+    ]);
   });
 });
 
