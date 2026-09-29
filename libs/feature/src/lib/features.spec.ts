@@ -165,6 +165,23 @@ describe('createFeatures', () => {
     }
   });
 
+  it('builds a window whose value is of no type an instant takes, and answers false', () => {
+    // A document read off the wire is untyped, and the construction check reads
+    // the string forms only. `null` is junk either way; what the library owes
+    // for it is the answer an unevaluable condition gets, and not a TypeError
+    // out of the evaluation path.
+    const document = JSON.parse(
+      '[{"key":"k","enabled":true,"rules":[{"when":[{"field":"now","op":"after","value":null}]}]}]',
+    ) as Definitions<'k'>;
+
+    const features = createFeatures(document);
+
+    expect(features.isEnabled('k', { now: new Date(WINDOW) })).toBe(false);
+    expect(features.resolve({ now: new Date(WINDOW) }).k.reason).toBe(
+      'no-rule-matched',
+    );
+  });
+
   it('refuses a window whose string is ISO 8601 in shape and names no date', () => {
     expect(() =>
       createFeatures([

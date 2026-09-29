@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { instantEpoch } from './instant.js';
+import type { Instant } from './types.js';
 import { everywhere } from './zones.js';
 
 describe('instantEpoch', () => {
@@ -244,6 +245,17 @@ describe('instantEpoch', () => {
     expect(instantEpoch(Number.POSITIVE_INFINITY)).toBe(
       Number.POSITIVE_INFINITY,
     );
+  });
+
+  it('answers NaN for a value of no type an instant takes', () => {
+    // A document parsed out of JSON is untyped, and `validateConditions` reads
+    // the string forms only, so a value `Instant` does not admit is built into
+    // a store and reaches this function on the evaluation path.
+    const outside = [null, undefined, {}, true, ['2026-01-01'], Symbol('now')];
+
+    for (const value of outside) {
+      expect(instantEpoch(value as unknown as Instant)).toBeNaN();
+    }
   });
 
   it('answers NaN for the number NaN', () => {
