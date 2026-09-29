@@ -73,12 +73,12 @@ decision takes under a microsecond and an audit transport on a bad day takes
 forty milliseconds, so an observer that blocked would turn observability into an
 availability incident.
 
-The engine's own guard stays within run-to-run noise of the bare call. Measured
-at forty features on an Apple M1 Pro under Node 24.20.0, a synchronous no-op
-observer and the bare call both ran between 20 and 22 microseconds, and an
-`async` no-op observer, with the thenable check and the attached rejection
-handler, ran in the same band. So the number anyone should care about is what
-their own hook body does.
+Measured at forty features on an Apple M1 Pro under Node 24.20.0, the bare call
+ran at 23 microseconds, a synchronous no-op observer at 41, and an `async` no-op
+observer, with the thenable check and the attached rejection handler, at 44. The
+deep freeze a store carrying an observer runs accounts for that difference, and
+the emit and the thenable check stay within run-to-run noise of the bare call. So
+the number anyone should care about is what their own hook body does.
 
 Every payload is deeply readonly. A store carrying an observer freezes the
 record before it emits it and answers the caller with that same object, so
@@ -89,7 +89,7 @@ observer hands its answer to nobody else and freezes nothing, which is what
 
 The freeze happens only under an installed observer, so the package behaves
 differently under two configurations. The engine takes that asymmetry
-deliberately. At forty features the freeze adds 15 to 18 microseconds to a 20
+deliberately. At forty features the freeze adds 18 microseconds to a 23
 microsecond `resolve`, and a freeze on every call would add that to every user of
 the package whether or not they observe anything. A store nobody observes hands
 its record to nobody else, so the freeze protects nothing there. An application
@@ -218,24 +218,30 @@ already holds:
 
 ```tsx no-run
 function Cta() {
-  const { variant, value } = useVariant('checkout-cta');
+  const decision = useFeature('checkout-cta');
   useEffect(() => {
     analytics.exposure({
       feature: 'checkout-cta',
-      variant,
+      variant: decision.variant,
+      source: decision.assignment?.source,
+      bucket: decision.assignment?.bucket,
+      rule: decision.rule,
       subject: customerId,
     });
-  }, [variant]);
-  return <Button label={value?.label ?? 'Buy'} />;
+  }, [decision]);
+  return <Button label={decision.value?.label ?? 'Buy'} />;
 }
 ```
 
-A decision carries everything that record needs. `variant` names the assigned
-variant, `assignment.source` says whether the weights, a rule pin, a stored
-assignment or the control produced it, `assignment.bucket` carries the number
-the split used, and `rule` names the rule that matched. See
-[Variants](/feature/variants) for what each of those fields holds and
-[React](/feature/react) for where the render site reads them.
+`useFeature` returns the whole decision, which carries everything that record
+needs. `variant` names the assigned variant, `assignment.source` says whether the
+weights, a rule pin, a stored assignment or the control produced it,
+`assignment.bucket` carries the number the split used, and `rule` names the rule
+that matched. `useVariant` returns `variant` and `value` alone, so a component
+that only renders the assigned variant calls that one and a component that writes
+an exposure record calls `useFeature`. See [Variants](/feature/variants) for what
+each of those fields holds and [React](/feature/react) for where the render site
+reads them.
 
 ## What the seam does cover
 

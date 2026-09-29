@@ -23,6 +23,11 @@ import { describe, expect, it } from 'vitest';
  * neither spec, so the Observing page carries the drain shape and the member
  * carries the one-paragraph form of it.
  *
+ * § 1 also sends the reader to a render site that writes the record, so the
+ * Observing page's example reaches every field the prose beside it names. A
+ * `useVariant` example reaches two of them and the prose names four, which sends
+ * a reader to a hook that does not return what the paragraph asks for.
+ *
  * § 4.2 requires the disclosure sentence where `observe` is introduced, because
  * a reader weighing `correlateBy` asks what the default sends off the box. The
  * library sends nothing, and the subject on an event is the value the
@@ -34,7 +39,7 @@ import { describe, expect, it } from 'vitest';
  *
  * § 4.3 calls the conditional freeze the least comfortable call it makes, and it
  * requires the reason at the member in the words the section uses: the freeze
- * adds 15 to 18 microseconds to a 20 microsecond call at forty features, and the
+ * adds 18 microseconds to a 23 microsecond call at forty features, and the
  * alternative is a freeze on every call. A reader who installs an observer and
  * then hits a frozen `resolve` result meets the asymmetry on three surfaces, and
  * none of the three leads to the other two, so each one carries the reason.
@@ -42,7 +47,13 @@ import { describe, expect, it } from 'vitest';
  * § 4.3 also settles which options answer the mutable form, and the API
  * reference documents how a caller reaches it. An options object that omits
  * `observe` reaches it and an options object that names the member does not, so
- * the page states which annotation holds and which one does not typecheck.
+ * the page states which annotation holds and which one does not typecheck. The
+ * `createFeatures` docblock and the `UnobservedOptions` docblock answer the same
+ * question for a reader hovering the symbol, and `observe.test-d.ts` pins both
+ * failure modes, so each docblock carries the rule the type tests hold. The page
+ * also reports where the compiler puts a misspelled option's error, because a
+ * reader who expects the diagnostic on the property looks for a squiggle that is
+ * on the callee.
  *
  * § 5 measures the engine's own guard and requires the measurement beside the
  * latency argument, because a reader who benchmarks a blocking observer sees the
@@ -132,8 +143,9 @@ const NOTICES = [
     from: '## An observer never awaits and never changes an outcome',
     until: '## When an observer throws',
     phrases: [
-      'stays within run-to-run noise of the bare call',
-      'between 20 and 22 microseconds',
+      'the bare call ran at 23 microseconds',
+      'accounts for that difference',
+      'stay within run-to-run noise of the bare call',
       'the number anyone should care about is what their own hook body does',
     ],
   },
@@ -144,8 +156,9 @@ const NOTICES = [
     from: '   * Called once per public entry point call',
     until: '  observe?: (event',
     phrases: [
-      'stays within run-to-run noise of the bare call',
-      'between 20 and 22 microseconds',
+      'the bare call ran at 23 microseconds',
+      'accounts for that difference',
+      'stay within run-to-run noise of the bare call',
       'the number anyone should care about is what their own hook body does',
     ],
   },
@@ -156,8 +169,9 @@ const NOTICES = [
     from: '### `FeatureOptions<S>`',
     until: '### `FrozenWhenObserved',
     phrases: [
-      'stays within run-to-run noise of the bare call',
-      'between 20 and 22 microseconds',
+      'the bare call ran at 23 microseconds',
+      'accounts for that difference',
+      'stay within run-to-run noise of the bare call',
       'the number anyone should care about is what their own hook body does',
     ],
   },
@@ -169,7 +183,7 @@ const NOTICES = [
     until: '  observe?: (event',
     phrases: [
       'behaves differently under two configurations',
-      'adds 15 to 18 microseconds',
+      'adds 18 microseconds',
       'whether or not they observe anything',
       'the freeze protects nothing there',
     ],
@@ -182,7 +196,7 @@ const NOTICES = [
     until: '### `FeatureKey` and `Instant`',
     phrases: [
       'behaves differently under two configurations',
-      'adds 15 to 18 microseconds',
+      'adds 18 microseconds',
       'whether or not they observe anything',
       'the freeze protects nothing there',
     ],
@@ -195,7 +209,7 @@ const NOTICES = [
     until: '## When an observer throws',
     phrases: [
       'behaves differently under two configurations',
-      'adds 15 to 18 microseconds',
+      'adds 18 microseconds',
       'whether or not they observe anything',
       'the freeze protects nothing there',
     ],
@@ -211,6 +225,59 @@ const NOTICES = [
       'works only against the pair that takes a named schema',
       'does not typecheck',
       'branches on the parameter',
+    ],
+  },
+  {
+    what: 'the mutable form, on the `createFeatures` docblock',
+    spec: '§ 4.3',
+    file: 'libs/feature/src/lib/features.ts',
+    from: ' * A call whose options settle neither question answers the frozen form.',
+    until: ' * The signature count stops at three.',
+    phrases: [
+      'leaving `observe` out of the options altogether',
+      'only through the pair that takes a named schema',
+      'reads the key and never the value',
+      'cannot write the annotation at all',
+    ],
+  },
+  {
+    what: 'the mutable form, on the `UnobservedOptions` docblock',
+    spec: '§ 4.3',
+    file: 'libs/feature/src/lib/observe.ts',
+    from: ' * The options of a call that provably installs no observer.',
+    until: 'export type UnobservedOptions',
+    phrases: [
+      'The pair of signatures that takes a named schema selects on this type',
+      'names `observe` at all',
+      'even though it satisfies this type',
+      'reach the mutable form on both paths',
+    ],
+  },
+  {
+    what: "the misspelled option's diagnostic, on the API reference entry",
+    spec: '§ 4.3',
+    file: 'apps/docs/content/feature/api.mdx',
+    from: "`O`'s constraint,",
+    until: 'The pair below it exists',
+    phrases: [
+      'anchors that error on the `createFeatures` callee and names no property',
+      'TS2769: No overload matches this call',
+      'Record<"observ", never>',
+      'inside that printed signature',
+    ],
+  },
+  {
+    what: 'the exposure example on the Observing page',
+    spec: '§ 1',
+    file: 'apps/docs/content/feature/observing.mdx',
+    from: 'So the application records exposure where it renders',
+    until: '## What the seam does cover',
+    phrases: [
+      "const decision = useFeature('checkout-cta');",
+      'decision.assignment?.source',
+      'decision.assignment?.bucket',
+      '`useFeature` returns the whole decision',
+      '`useVariant` returns `variant` and `value` alone',
     ],
   },
   {

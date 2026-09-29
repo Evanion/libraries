@@ -68,7 +68,12 @@ call that passes no options at all gets the mutable one. `O`'s constraint,
 `FeatureOptions` and the parameter intersects the two. A type parameter inferred
 from an object literal takes the literal's own type, so the compiler runs no
 excess property check of its own, and that constraint is what keeps a misspelled
-option an error at the property that carries it.
+option an error at all. The compiler anchors that error on the `createFeatures`
+callee and names no property. A call passing `{ observ: () => undefined }`
+reports `TS2769: No overload matches this call`, and the first overload's line
+carries `Record<"observ", never>` with `Type '() => undefined' is not assignable
+to type 'never'` under it. A reader finds the misspelled name inside that printed
+signature.
 
 The pair below it exists because TypeScript infers no type argument once a
 caller supplies one. `createFeatures<Flags>(config, { observe })` would read `O`
@@ -479,10 +484,13 @@ type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
 
 `observe` is called once per public entry point call and the engine never awaits
 it. `onObserveError` replaces the `console.warn` the engine writes when an
-observer throws or rejects. The engine's own guard stays within run-to-run noise
-of the bare call. Measured at forty features, a synchronous no-op observer and
-the bare call both ran between 20 and 22 microseconds, so the number anyone
-should care about is what their own hook body does.
+observer throws or rejects. Measured at forty features on an Apple M1 Pro under
+Node 24.20.0, the bare call ran at 23 microseconds, a synchronous no-op observer
+at 41, and an `async` no-op observer, with the thenable check and the attached
+rejection handler, at 44. The deep freeze a store carrying an observer runs
+accounts for that difference, and the emit and the thenable check stay within
+run-to-run noise of the bare call. So the number anyone should care about is what
+their own hook body does.
 
 `observe` does not count exposures. `resolve` decides every configured feature,
 so an observer fired from it reports a decision for every feature the request
@@ -531,9 +539,9 @@ A store carrying an observer freezes what it emits and answers the caller with
 that same object, so its `resolve`, `plan` and `toggle` answer
 `DeepReadonly<T>`. A store carrying none freezes nothing and answers `T`, so the
 package behaves differently under two configurations. The engine takes that
-asymmetry deliberately. At forty features the freeze adds 15 to 18 microseconds
-to a 20 microsecond `resolve`, and a freeze on every call would add that to
-every user of the package whether or not they observe anything. A store nobody
+asymmetry deliberately. At forty features the freeze adds 18 microseconds to a
+23 microsecond `resolve`, and a freeze on every call would add that to every
+user of the package whether or not they observe anything. A store nobody
 observes hands its record to nobody else, so the freeze protects nothing there.
 
 `ReadonlyDate` drops the mutators. `Readonly<Date>` marks the properties
