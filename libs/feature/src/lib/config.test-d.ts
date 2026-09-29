@@ -670,6 +670,10 @@ describe('ConfigIssue', () => {
   it('points at the row with a JSON pointer', () => {
     expectTypeOf<ConfigIssue['path']>().toEqualTypeOf<string | undefined>();
   });
+
+  it('carries the closed code union, so a nineteenth code reaches no issue', () => {
+    expectTypeOf<ConfigIssue['code']>().toEqualTypeOf<ConfigIssueCode>();
+  });
 });
 
 describe('the published surface', () => {
