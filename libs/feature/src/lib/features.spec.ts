@@ -1758,7 +1758,11 @@ describe('plan', () => {
       { field: 'plan', op: 'eq', value: 'pro' },
     ] as const;
     const features = createFeatures([
-      { key: 'promo', enabled: true, rules: [{ when: shared }, { when: shared }] },
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [{ when: shared }, { when: shared }],
+      },
     ]);
 
     const entry = features.plan({ plan: 'free' }).promo;
@@ -1948,7 +1952,9 @@ describe('plan', () => {
       {
         key: 'parent',
         enabled: true,
-        rules: [{ id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+        rules: [
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        ],
       },
       {
         key: 'child',
@@ -1970,6 +1976,37 @@ describe('plan', () => {
 
     expect(planned.parent.needs).toEqual(['role']);
     expect(planned.child.needs).toEqual(['role']);
+  });
+
+  it("adds a dependant's own bucketing field to what an unresolved parent needs", () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        rules: [
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        ],
+      },
+      {
+        key: 'child',
+        enabled: true,
+        dependsOn: ['parent'],
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          { id: 'eu', when: [{ field: 'region', op: 'eq', value: 'eu' }] },
+        ],
+      },
+    ]);
+
+    const planned = features.plan({ plan: 'free' });
+
+    // `role` is the parent's, `targetingKey` the child's own split. `region`,
+    // which only the child's rule reads, stays off the list while the parent
+    // is unresolved.
+    expect(planned.child.needs).toEqual(['role', 'targetingKey']);
   });
 
   it('defers only the bucketing field once refutation settled enablement', () => {
@@ -2030,7 +2067,9 @@ describe('plan', () => {
     const planned = features.plan(known).cta;
 
     for (const region of ['eu', 'us', 'apac', '']) {
-      expect(planned.decision).toEqual(features.resolve({ ...known, region }).cta);
+      expect(planned.decision).toEqual(
+        features.resolve({ ...known, region }).cta,
+      );
     }
   });
 });
