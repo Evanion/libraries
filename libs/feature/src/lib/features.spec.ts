@@ -1816,10 +1816,11 @@ describe('plan', () => {
         enabled: true,
         rules: [
           {
-            id: 'pro-gold-eu',
+            id: 'free-gold-web-eu',
             when: [
-              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'plan', op: 'eq', value: 'free' },
               { field: 'tier', op: 'eq', value: 'gold' },
+              { field: 'channel', op: 'eq', value: 'web' },
               { field: 'region', op: 'eq', value: 'eu' },
             ],
           },
@@ -1827,14 +1828,60 @@ describe('plan', () => {
       },
     ]);
 
-    const entry = features.plan({ plan: 'free', tier: 'silver' }).promo;
+    const entry = features.plan({
+      plan: 'free',
+      tier: 'silver',
+      channel: 'app',
+    }).promo;
 
+    // `plan` holds, so the first condition the walk refutes is `tier`, and
+    // `channel` refutes the rule as well. `region` sits behind both and the
+    // walk never reads it.
     expect(entry.decision?.rules).toHaveLength(1);
     expect(entry.decision?.rules?.[0]?.failed).toEqual({
+      field: 'tier',
+      op: 'eq',
+      value: 'gold',
+    });
+  });
+
+  it('blames the condition a request blames when it read the ones ahead', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'silver-pro-eu',
+            when: [
+              { field: 'tier', op: 'eq', value: 'silver' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const planned = features.plan({ tier: 'silver', plan: 'free' }).promo;
+
+    expect(planned.decision?.rules?.[0]?.failed).toEqual({
       field: 'plan',
       op: 'eq',
       value: 'pro',
     });
+    for (const region of ['eu', 'us', 'apac', '']) {
+      const resolved = features.resolve({
+        tier: 'silver',
+        plan: 'free',
+        region,
+      }).promo;
+
+      // The walk read `tier` and it held, so a request reads it the same way
+      // and blames `plan` whatever `region` carries.
+      expect(planned.decision?.rules?.[0]?.failed).toEqual(
+        resolved.rules?.[0]?.failed,
+      );
+    }
   });
 
   it('carries one breakdown entry per rule when two rules are identical', () => {
