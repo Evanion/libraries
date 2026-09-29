@@ -101,7 +101,7 @@ Input classes the spec implies and no task's happy-path tests would reach. Each 
 **Interfaces:**
 
 - Consumes: `FeatureDefinition`, `FeatureKey`, `Rule`, `Condition`, `AttributeCondition`, `DayOfWeekCondition` from `./types.js`.
-- Produces: `FeatureConfig<F>`, `ConfigEnvelope`, `SerializedInstant`, `SerializedWindowCondition`, `SerializedCondition`, `SerializedRule`, `SerializedDefinition<F>`, `FeatureSchema`, `ContextSchema`, `FeatureShape`, `ValueShape`, `BaseFieldType`, `FieldType`, `ConfigIssueCode`, `ConfigIssue`, `ValidationResult`, `ReloadResult`.
+- Produces: `FeatureConfig<F>`, `ConfigEnvelope`, `CheckableConfig<F>`, `SerializedInstant`, `SerializedWindowCondition`, `SerializedCondition`, `SerializedRule`, `SerializedDefinition<F>`, `FeatureSchema`, `ContextSchema`, `FeatureShape`, `ValueShape`, `BaseFieldType`, `FieldType`, `ConfigIssueCode`, `ConfigIssue`, `ValidationResult`, `ReloadResult`.
 
 This task adds no runtime. It exists on its own because every later task names these types and because `exported-type-closure.test.ts` fails the build for a type a signature names and a file keeps private, which is easiest to get right once.
 
@@ -191,6 +191,8 @@ describe('ReloadResult', () => {
   });
 });
 ```
+
+The `@ts-expect-error` goes on the line tsc reports, which is the offending nested property and not the `rules:` line the snippet shows. A directive on a line tsc did not report fails the file twice, once for the real error and once for the unused directive. Place it from the compiler output.
 
 - [ ] **Step 2: Run it and confirm it fails**
 
@@ -344,6 +346,23 @@ export interface FeatureConfig<F extends FeatureKey = string> {
 /** The envelope without its payload, which a serializer writes around a store. */
 export type ConfigEnvelope = Omit<FeatureConfig, 'features'>;
 
+/**
+ * What the checker reads: a document, or a live store's definitions under the
+ * same envelope.
+ *
+ * `collectIssues` runs against both. `createFeatures` hands it definitions an
+ * author wrote in TypeScript, where a `WindowCondition.value` carries a `Date`
+ * and a key is `string | number`. `reload` and `parseFeatureConfig` hand it a
+ * document, where an instant is a string or a number. `SerializedDefinition`
+ * extends `FeatureDefinition`, so a document satisfies this type and a live
+ * definition list satisfies it too, and the checker names one parameter for
+ * both.
+ */
+export type CheckableConfig<F extends FeatureKey = FeatureKey> = Omit<
+  FeatureConfig<F>,
+  'features'
+> & { readonly features: readonly FeatureDefinition<F>[] };
+
 /** What `validateConfig` found wrong. One code per class of defect. */
 export type ConfigIssueCode =
   | 'duplicate-feature'
@@ -410,6 +429,7 @@ In `libs/feature/src/index.ts`, add one `export type` block after the `observe.j
 ```ts
 export type {
   BaseFieldType,
+  CheckableConfig,
   ConfigEnvelope,
   ConfigIssue,
   ConfigIssueCode,
@@ -438,7 +458,7 @@ Expected: PASS.
 
 Run: `npx nx test repo-checks -- doc-export-coverage`
 
-Every new type fails the documented rule until Task 12 writes the reference entries. Add each new name to the `"undocumented"` array for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`, sorted, and remove them again in Task 12. Say in the commit body that the allowance entries are temporary and name Task 12.
+Every new type fails the documented rule until Task 12 writes the reference entries. Add each new name to the `"undocumented"` array for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`, sorted, and remove them again in Task 12. The list is every name Step 4 exports, and it also carries `DefinitionsOrConfig`, which Task 8 exports and Task 12 documents. Say in the commit body that the allowance entries are temporary and name Task 12.
 
 - [ ] **Step 7: Run everything and commit**
 
@@ -1279,8 +1299,10 @@ git commit -m "feat(feature): serialize a store as one configuration document"
 
 **Interfaces:**
 
-- Consumes: `canonical` from `./canonical.js`; `murmur3` from `./bucketing.js`; `FeatureConfig` from `./config.js`.
-- Produces: `export function configDigest(config: FeatureConfig): string;`
+- Consumes: `canonical` from `./canonical.js`; `murmur3` from `./bucketing.js`; `CheckableConfig` from `./config.js`.
+- Produces: `export function configDigest(config: CheckableConfig): string;`
+
+The parameter is `CheckableConfig` and not `FeatureConfig`, because Task 5's `digestIssues` calls this on whatever `validateConfig` was handed, and that is a live definition list as often as it is a document. `canonical` writes a `Date` the way `JSON.stringify` writes one, so a document holding a `Date` and the same document holding that instant's ISO string digest alike.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1289,7 +1311,7 @@ Create `libs/feature/src/lib/digest.spec.ts`:
 ```ts
 import { describe, expect, it } from 'vitest';
 import { configDigest } from './digest.js';
-import type { FeatureConfig } from './config.js';
+import type { CheckableConfig, FeatureConfig } from './config.js';
 
 const document: FeatureConfig = {
   version: 41,
@@ -1359,6 +1381,22 @@ describe('configDigest', () => {
     expect(configDigest(served)).toBe(digest);
   });
 
+  it('agrees for a Date and the ISO string naming the same instant', () => {
+    const when = (value: string | Date): CheckableConfig => ({
+      features: [
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [{ when: [{ field: 'now', op: 'after', value }] }],
+        },
+      ],
+    });
+
+    expect(configDigest(when(new Date('2026-10-01T00:00:00.000Z')))).toBe(
+      configDigest(when('2026-10-01T00:00:00.000Z')),
+    );
+  });
+
   it('agrees across a trip through JSON', () => {
     const arrived = JSON.parse(JSON.stringify(document)) as FeatureConfig;
 
@@ -1379,7 +1417,7 @@ Create `libs/feature/src/lib/digest.ts`:
 ```ts
 import { murmur3Bytes, utf8 } from './bucketing.js';
 import { canonical } from './canonical.js';
-import type { FeatureConfig } from './config.js';
+import type { CheckableConfig } from './config.js';
 
 /**
  * Four fixed seeds, which widen a 32-bit hash to a 128-bit digest.
@@ -1433,7 +1471,7 @@ const SEEDS: readonly number[] = [
  * finding a second document that hashes the same, and Web Crypto's `digest`
  * returns a promise, which no synchronous entry point here can await.
  */
-export function configDigest(config: FeatureConfig): string {
+export function configDigest(config: CheckableConfig): string {
   const body: Record<string, unknown> = { ...config };
   delete body['digest'];
   delete body['version'];
@@ -1479,11 +1517,13 @@ git commit -m "feat(feature): derive an opaque digest from a document"
 
 **Interfaces:**
 
-- Consumes: `FeatureConfig`, `ConfigIssue`, `ConfigIssueCode`, `ValidationResult` from `./config.js`; the six error classes from `./errors.js`; `FeatureDefinition`, `FeatureKey` from `./types.js`.
+- Consumes: `CheckableConfig`, `ConfigIssue`, `ConfigIssueCode`, `ValidationResult` from `./config.js`; the six error classes from `./errors.js`; `FeatureDefinition`, `FeatureKey` from `./types.js`.
 - Produces:
   - `graph.ts`: `export function graphErrors<F extends FeatureKey>(definitions: readonly FeatureDefinition<F>[]): readonly FeatureConfigError[];` and `buildGraph` unchanged in behaviour.
   - `variants.ts`: `export function variantErrors<F extends FeatureKey>(definition: FeatureDefinition<F>): readonly FeatureConfigError[];` and `validateVariants` unchanged in behaviour.
-  - `validate.ts`: `export function validateConfig(config: FeatureConfig): ValidationResult;` and, not exported from the package index, `export function collectIssues(config: FeatureConfig): readonly Found[];` with `export interface Found { issue: ConfigIssue; error: FeatureConfigError }`.
+  - `validate.ts`: `export function validateConfig<F extends FeatureKey>(config: CheckableConfig<F>): ValidationResult;` and, not exported from the package index, `export function collectIssues<F extends FeatureKey>(config: CheckableConfig<F>): readonly Found[];` with `export interface Found { issue: ConfigIssue; error: FeatureConfigError }`.
+
+The parameter is generic, and it is `CheckableConfig<F>` and not `FeatureConfig<F>`, because three callers hand the checker something `FeatureConfig` refuses. `createFeatures` passes definitions whose key is `string | number` and whose window conditions carry a `Date`, which `SerializedWindowCondition.value` does not admit. `reload` passes `FeatureConfig<FeatureKey>`. `parseFeatureConfig` passes `FeatureConfig<keyof S & FeatureKey>`, and Task 7's Step 8 builds a store on the numeric keys 1 and 2. `FeatureConfig`'s own default parameter is `string`, so a non-generic signature written over the default compiles for none of the three. Every helper in `validate.ts` that reads the whole document takes `CheckableConfig<F>` too.
 
 Decision 11 says both entry points call one checker. The checker is `collectIssues`, and every issue it reports is built from the error object the throwing path would have thrown, so the message a stack trace carries and the message an operator's console carries are one string by construction and not by agreement.
 
@@ -1599,9 +1639,11 @@ In `libs/feature/src/lib/graph.ts`, add `graphErrors` above `buildGraph` and mak
  * the error objects means one message for each defect, whether a TypeScript
  * author reads it in a stack trace or an operator reads it in a console.
  *
- * The cycle walk records a closing edge and marks the node finished, and it
- * does not stop, so a document with two independent cycles reports both and the walk
- * still terminates.
+ * The cycle walk pushes a `FeatureCycleError` for the closing edge and returns
+ * from that frame without marking the node finished. The frame that owns the
+ * node pops the path, clears the key from `onPath` and marks it finished, so
+ * every node finishes exactly once, a document with two independent cycles
+ * reports both, and the walk still terminates.
  */
 export function graphErrors<F extends FeatureKey>(
   definitions: readonly FeatureDefinition<F>[],
@@ -1661,7 +1703,15 @@ and delete the three `throw` statements inside `buildGraph` itself, keeping its 
 
 - [ ] **Step 4: Split the variants' throws from their check**
 
-In `libs/feature/src/lib/variants.ts`, rename the body of `validateVariants` to `variantErrors`, returning `readonly FeatureConfigError[]`, with every `throw new X(...)` replaced by `found.push(new X(...))` and every early `return` replaced by the equivalent that keeps collecting. Then:
+In `libs/feature/src/lib/variants.ts`, rename the body of `validateVariants` to `variantErrors`, returning `readonly FeatureConfigError[]`, with every `throw new X(...)` replaced by `found.push(new X(...))`.
+
+The `if (!variants)` branch keeps its shape. It collects an `UnknownVariantError` for every rule that pins a variant, then returns the collected list, because every check below it reads `variants` and a fall-through would call `.length` on `undefined`.
+
+The weight total is taken over the weights the per-variant check accepted. A variant whose weight that check refused contributes nothing to `total` and counts as unusable, and the `total <= 0` and `!Number.isFinite(total)` checks run only when at least one weight was accepted. A feature whose every weight was refused has already reported one `invalid-weight` per variant, and a second issue about their total names nothing an operator can act on. That guard is what holds Step 1's `{ key: 'e', variants: [{ name: 'only', weight: -1 }] }` case to one issue and the whole document to the four its assertion names, and it is what holds Task 7's Step 5 to `toHaveLength(4)`. A collector that only skipped the addition would leave `total` at 0, and `total <= 0` fires on 0. `invalid-weight` and `zero-weights` never both report one feature.
+
+The order checks still run for a variant whose weight was refused, so `declaredOrders` stays a true count of the variants that declared an order and the partial-order check reports only a genuine mix. Step 9's `-0` case is unaffected: `Number.isFinite(-0)` is true and `-0 < 0` is false, so that weight is accepted, it is the only usable one, and the total refuses it.
+
+Then:
 
 ```ts
 /**
@@ -1704,9 +1754,9 @@ import {
   UnknownVariantError,
 } from './errors.js';
 import type {
+  CheckableConfig,
   ConfigIssue,
   ConfigIssueCode,
-  FeatureConfig,
   ValidationResult,
 } from './config.js';
 import type { FeatureDefinition, FeatureKey } from './types.js';
@@ -1816,7 +1866,9 @@ function ruleIdErrors<F extends FeatureKey>(
  * Not exported from the package. `validateConfig` is the public half and
  * `createFeatures` is the other caller.
  */
-export function collectIssues(config: FeatureConfig): readonly Found[] {
+export function collectIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   const definitions = config.features;
   const all: Found[] = graphErrors(definitions).map((error) =>
     found(
@@ -1861,7 +1913,9 @@ export function collectIssues(config: FeatureConfig): readonly Found[] {
  * error this library raises is raised where the configuration is supplied, and
  * `resolve`, `plan` and `toggle` stay total.
  */
-export function validateConfig(config: FeatureConfig): ValidationResult {
+export function validateConfig<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): ValidationResult {
   const all = collectIssues(config);
   if (all.length === 0) return { ok: true };
   return { ok: false, issues: all.map((each) => each.issue) };
@@ -2022,7 +2076,7 @@ git commit -m "feat(feature): report every configuration defect from one checker
 
 **Interfaces:**
 
-- Consumes: `configDigest` from `./digest.js`; `FeatureSchema`, `FieldType`, `ValueShape` from `./config.js`; everything Task 4 produced.
+- Consumes: `configDigest` from `./digest.js`; `CheckableConfig`, `FeatureSchema`, `FieldType`, `ValueShape` from `./config.js`; everything Task 4 produced.
 - Produces: no new exported name. `validateConfig` and `collectIssues` gain seven codes: `unknown-member`, `digest-mismatch`, `missing-schema-version`, `unfenced-schema`, `unknown-context-field`, `field-type-mismatch`, `invalid-instant`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2256,7 +2310,9 @@ const ENVELOPE_MEMBERS: ReadonlySet<string> = new Set([
  * issue names the member. The cost is availability, and § 6 bounds it: a
  * refused candidate leaves the installed document deciding.
  */
-function memberIssues(config: FeatureConfig): readonly Found[] {
+function memberIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   return Object.keys(config)
     .filter((member) => !ENVELOPE_MEMBERS.has(member))
     .map((member) =>
@@ -2277,7 +2333,9 @@ function memberIssues(config: FeatureConfig): readonly Found[] {
 - [ ] **Step 4: Check the digest and the schema version**
 
 ```ts
-function digestIssues(config: FeatureConfig): readonly Found[] {
+function digestIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   if (config.digest === undefined) return [];
   const derived = configDigest(config);
   if (derived === config.digest) return [];
@@ -2302,7 +2360,9 @@ function digestIssues(config: FeatureConfig): readonly Found[] {
  * member declares no shapes, which is what a configuration with no variant
  * values looks like.
  */
-function schemaVersionIssues(config: FeatureConfig): readonly Found[] {
+function schemaVersionIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   if (config.schema === undefined || config.schemaVersion !== undefined) {
     return [];
   }
@@ -2337,8 +2397,33 @@ const FENCED: ReadonlySet<string> = new Set([
   'description',
 ]);
 
+/** The keywords whose value is a map from an author's name to a shape. */
+const SHAPE_MAPS: ReadonlySet<string> = new Set(['properties', '$defs']);
+
+/** The keywords whose value is one shape. */
+const SHAPE_SLOTS: ReadonlySet<string> = new Set([
+  'items',
+  'additionalProperties',
+]);
+
 /**
- * The fence, walked over one variant value shape.
+ * The fence, walked over one variant value shape by keyword position.
+ *
+ * A key is tested against the fence only where a shape declares a keyword.
+ * `properties` and `$defs` hold a map from a name their author chose to a
+ * shape, so the walk descends into each value and tests no name: a property
+ * called `label` and a definition called `Label` are data. `items` and
+ * `additionalProperties` hold one shape, so the walk descends into the value
+ * itself. `type`, `title`, `description`, `required`, `enum` and `const` hold
+ * data and the walk stops at them, so a variant value carrying the key `oneOf`
+ * under a `const` stays legal. `$ref` holds a string and the walk checks its
+ * prefix.
+ *
+ * A walk that tested every key of every nested object would refuse
+ * `{ $defs: { Label: { type: 'string' } }, type: 'object', properties: { label:
+ * { $ref: '#/$defs/Label' } } }`, which is the document Step 1 says the fence
+ * accepts: it would test `FENCED.has('label')` and `FENCED.has('Label')` and
+ * report two `unfenced-schema` issues.
  *
  * A remote `$ref` makes the document one a generator cannot resolve offline,
  * and `allOf`, `anyOf`, `oneOf` and `not` produce Swift and Kotlin a reader
@@ -2346,11 +2431,8 @@ const FENCED: ReadonlySet<string> = new Set([
  * a discriminant.
  */
 function shapeIssues(shape: unknown, path: string): readonly Found[] {
-  if (shape === null || typeof shape !== 'object') return [];
-  if (Array.isArray(shape)) {
-    return shape.flatMap((each, at) =>
-      shapeIssues(each, `${path}/${String(at)}`),
-    );
+  if (shape === null || typeof shape !== 'object' || Array.isArray(shape)) {
+    return [];
   }
 
   const issues: Found[] = [];
@@ -2358,6 +2440,7 @@ function shapeIssues(shape: unknown, path: string): readonly Found[] {
     shape as Record<string, unknown>,
   )) {
     const at = `${path}/${keyword}`;
+
     if (keyword === '$ref') {
       if (typeof held !== 'string' || !held.startsWith('#/$defs/')) {
         issues.push(
@@ -2373,6 +2456,7 @@ function shapeIssues(shape: unknown, path: string): readonly Found[] {
       }
       continue;
     }
+
     if (!FENCED.has(keyword)) {
       issues.push(
         found(
@@ -2386,12 +2470,27 @@ function shapeIssues(shape: unknown, path: string): readonly Found[] {
       );
       continue;
     }
-    issues.push(...shapeIssues(held, at));
+
+    if (SHAPE_MAPS.has(keyword)) {
+      if (held === null || typeof held !== 'object') continue;
+      for (const [name, nested] of Object.entries(
+        held as Record<string, unknown>,
+      )) {
+        issues.push(...shapeIssues(nested, `${at}/${name}`));
+      }
+      continue;
+    }
+
+    if (SHAPE_SLOTS.has(keyword)) {
+      issues.push(...shapeIssues(held, at));
+    }
   }
   return issues;
 }
 
-function schemaIssues(config: FeatureConfig): readonly Found[] {
+function schemaIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   const features = config.schema?.features;
   if (!features) return [];
   return Object.entries(features).flatMap(([key, shape]) =>
@@ -2404,7 +2503,7 @@ function schemaIssues(config: FeatureConfig): readonly Found[] {
 }
 ```
 
-`type` and `title` hold strings, so the recursion into them returns at once. `properties`, `items` and `$defs` hold shapes, and the walk reaches every keyword inside them.
+The walk descends only through a shape position, so it reaches every keyword an author wrote as a keyword and tests no name an author chose. `additionalProperties: false` stops the walk at a boolean, and `required: ['label']` stops it at an array of strings. A `oneOf` written as a keyword is refused at any depth, and a `oneOf` written as a property name or as a key inside a `const` is data and passes.
 
 - [ ] **Step 6: Check the context fields and the instants**
 
@@ -2514,7 +2613,9 @@ The field lookup goes through `hasOwnProperty`, for the reason `conditions.ts:80
 `collectIssues` gains the envelope passes in front of the graph pass, and the per-definition loop gains `conditionIssues`:
 
 ```ts
-export function collectIssues(config: FeatureConfig): readonly Found[] {
+export function collectIssues<F extends FeatureKey>(
+  config: CheckableConfig<F>,
+): readonly Found[] {
   const all: Found[] = [
     ...memberIssues(config),
     ...digestIssues(config),
@@ -2536,7 +2637,7 @@ export function collectIssues(config: FeatureConfig): readonly Found[] {
 }
 ```
 
-`createFeatures` calls `collectIssues({ features: config })`, which carries no `schema`, so a literal is checked for its instants and for nothing schema-shaped. That is correct: a literal states no schema and owes none.
+`createFeatures` wraps a bare array as `{ features: config }`, which carries no `schema`, so a literal is checked for its instants and for nothing schema-shaped. That is correct: a literal states no schema and owes none. Task 8's Step 3 changes that call to pass a document whole when one arrived, and a literal keeps the wrapper.
 
 Add the case that proves an offsetless instant is accepted, which issue #284 is about:
 
@@ -2777,6 +2878,8 @@ export function parseFeatureConfig<
 }
 ```
 
+This hands over `config.features`, so the store installs an empty envelope and answers `version` as `undefined`. Task 8's Step 4 changes the call to pass `config` itself, once `createFeatures` takes a document. Add no test here that reads `version` off a parsed store; Task 9 is where that assertion belongs.
+
 - [ ] **Step 4: Write the type test**
 
 Create `libs/feature/src/lib/parse.test-d.ts`:
@@ -2820,6 +2923,8 @@ describe('parseFeatureConfig', () => {
   });
 });
 ```
+
+The `@ts-expect-error` goes on the line tsc reports, which is the offending nested property and not the `features:` line the snippet shows. A directive on a line tsc did not report fails the file twice, once for the real error and once for the unused directive. Place it from the compiler output.
 
 - [ ] **Step 5: Export it and run**
 
@@ -3069,7 +3174,27 @@ The returned object then reads all four through accessors, because a value captu
     dependants: (key) => graph.dependants(key),
 ```
 
-`definitionOf` already reads `index` and `config` through the closure, so it needs no change. `resolveAll`, `plan` and `toggle` read `graph.order` and `config` the same way.
+Once those four are `let`, a walk that reads them through the closure sees a swap that happened mid-walk. `resolveAll` evaluates `graph.order` once and then calls `definitionOf(key)` on every iteration, and `definitionOf` reads `index` and `config` at the moment of each call, so a `reload` from a synchronous hook would put half a decision set on one document and half on another. That is the opposite of what Step 5's docblock claims.
+
+`resolveAll`, `plan` and `toggle` each bind their view of the store and read only those locals, through a local lookup that closes over them:
+
+```ts
+const held = config;
+const walk = graph;
+const at = index;
+const definitionAt = (
+  key: FeatureKey,
+): FeatureDefinition<FeatureKey> | undefined => {
+  const position = at.get(key);
+  return position === undefined ? undefined : held[position];
+};
+```
+
+The binding is the first statement of `resolveAll`, and not of `resolve`. `resolve` calls `withNow(context)` first, and `withNow` spreads the caller's context, which runs every own enumerable getter on it. A binding after that call would already be too late for a hook the caller hung on a context field. `resolve`, `isEnabled`, `variantOf` and `valueOf` all go through `resolveAll`, so one binding covers them.
+
+`plan` and `toggle` bind after their own `withNow` call, because each of them needs the settled context first. `toggle` then writes `config`, and the `resolveAll` it calls afterwards takes its own fresh binding, so the second resolution reads the array `toggle` just installed.
+
+The store-level `definitionOf` stays as it is. It is what the public `definition` member answers with, and a caller asking for one definition wants the one the store holds now.
 
 - [ ] **Step 4: Write the intent diff**
 
@@ -3082,8 +3207,14 @@ Add to `features.ts`, beside `deepFreeze`:
  * `canonical` would answer this in one line and recurses without a guard, and a
  * variant value that holds itself reaches this walk, because `structuredClone`
  * carries a cycle through. The pair map is what terminates: an object the walk
- * has already entered is equal exactly when its counterpart is the object it
- * was paired with.
+ * is already inside is equal exactly when its counterpart is the object it was
+ * paired with.
+ *
+ * The map is scoped to the path, and the entry drops once the subtree compares
+ * equal. A definition holding one object at two keys would otherwise pair it
+ * with whatever sits at the first key and then refuse the structurally equal
+ * object at the second, and `changed` would name a key nothing changed about.
+ * Reference sharing is not part of the intent.
  *
  * `undefined` properties are skipped, so an absent key and a key written as
  * `undefined` state one intent, which is the rule `canonical.ts:21-22` states
@@ -3114,7 +3245,7 @@ function sameIntent(
   const right = own(b);
   if (left.length !== right.length) return false;
 
-  return left.every(
+  const equal = left.every(
     (key) =>
       Object.prototype.hasOwnProperty.call(b, key) &&
       sameIntent(
@@ -3123,6 +3254,8 @@ function sameIntent(
         seen,
       ),
   );
+  seen.delete(a);
+  return equal;
 }
 
 /**
@@ -3173,10 +3306,11 @@ Add inside the implementation body, beside `toggle`:
  * candidate that fails at any step leaves every reference where it was, and
  * the failure path touches no state at all.
  *
- * `resolve` reads the store once at the top of its call and walks
- * `graph.order` from there, so a swap during a `resolve` is invisible to it:
- * the running call holds the previous frozen array. A reload therefore never
- * produces a decision computed half from one document and half from another.
+ * `resolveAll` binds `config`, `graph` and `index` as its first statement and
+ * reads only those locals, so a swap during a resolution is invisible to the
+ * running call: it holds the previous frozen array to the end of its walk. A
+ * reload therefore never produces a decision computed half from one document
+ * and half from another.
  */
 const reload = (candidate: FeatureConfig<FeatureKey>): ReloadResult => {
   const refused = collectIssues(candidate);
@@ -3335,27 +3469,37 @@ Add to `reload.spec.ts`:
 
 ```ts
 it('gives a resolve started before it a decision set entirely from one document', () => {
-  // `stickyVariants` is read once per feature inside the walk, so a getter on
-  // it runs mid-resolve. That is the synchronous hook this case needs.
+  const split = [{ name: 'a', weight: 1 }];
   const features = createFeatures([
-    { key: 'parent', enabled: true },
-    { key: 'child', enabled: true, dependsOn: ['parent'] },
+    { key: 'parent', enabled: true, variants: split },
+    { key: 'child', enabled: true, dependsOn: ['parent'], variants: split },
   ]);
 
   let swapped = false;
   const decisions = features.resolve({
     targetingKey: 'u1',
-    get stickyVariants() {
-      if (!swapped) {
-        swapped = true;
-        features.reload({
-          features: [
-            { key: 'parent', enabled: false },
-            { key: 'child', enabled: true, dependsOn: ['parent'] },
-          ],
-        });
-      }
-      return undefined;
+    stickyVariants: {
+      // `assignVariant` reads `stickyVariants[key]` for every feature that
+      // declares variants, so this getter runs inside the walk: after
+      // `resolveAll` bound its view of the store, and before the walk reaches
+      // `child`.
+      get parent() {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            features: [
+              { key: 'parent', enabled: true, variants: split },
+              {
+                key: 'child',
+                enabled: false,
+                dependsOn: ['parent'],
+                variants: split,
+              },
+            ],
+          });
+        }
+        return undefined;
+      },
     },
   });
 
@@ -3363,10 +3507,17 @@ it('gives a resolve started before it a decision set entirely from one document'
     parent: { enabled: true },
     child: { enabled: true },
   });
+  expect(features.isEnabled('child')).toBe(false);
 });
 ```
 
-If `stickyVariants` turns out not to be read on this path, find the read that is (`context[by]` in `assignVariant`, or a `when` condition's field) and use that getter. Do not add a hook to the engine for the test.
+The hook cannot be a getter on the context object itself. `resolve` calls `withNow(context)` first and `withNow` spreads the context, so every own enumerable getter on it runs before `resolveAll` is entered and the whole resolution would run against the second document. The spread copies `stickyVariants` by reference, so a getter on a key of that nested object is still unread when `resolveAll` binds.
+
+The candidate turns `child` off and leaves `parent` on, because the cascade reads the resolved map and not the configuration. A candidate that turned `parent` off would change nothing in the walk, and the case would pass against an engine that has the bug.
+
+The second assertion proves the reload landed. Without it a `reload` that silently refused the candidate would pass the first one.
+
+Do not add a hook to the engine for the test.
 
 - [ ] **Step 11: Write the type test**
 
@@ -3420,7 +3571,15 @@ In `libs/feature/src/lib/serialize.ts`, change the second parameter's default fr
   readonly envelope: ConfigEnvelope;
 ```
 
-and make `serializeConfig`'s signature `envelope: ConfigEnvelope = features.envelope`. Export `ConfigEnvelope` from the index, which Task 1 already did, and add `envelope` to the allowance array.
+The returned object spells the member out. `features.ts` already binds `const envelope = (context: SettledContext) => ...` in the same closure, so a shorthand `envelope,` would hand every caller the event-envelope builder:
+
+```ts
+    get envelope() {
+      return installed;
+    },
+```
+
+The existing local keeps its name. Then make `serializeConfig`'s signature `envelope: ConfigEnvelope = features.envelope`. Export `ConfigEnvelope` from the index, which Task 1 already did, and add `envelope` to the allowance array.
 
 Run: `npx nx test feature -- reload serialize`
 Expected: PASS, including the case from Step 1 that asserts `serializeConfig(features).version` is 41.
@@ -3444,11 +3603,13 @@ git commit -m "feat(feature): swap a whole document or keep the one installed"
 - Modify: `libs/feature/src/lib/features.ts`
 - Modify: `libs/feature/src/lib/features.test-d.ts`
 - Modify: `libs/feature/src/lib/features.spec.ts`
+- Modify: `libs/feature/src/lib/parse.ts`
+- Modify: `libs/feature/src/index.ts`
 
 **Interfaces:**
 
-- Consumes: `FeatureConfig` from `./config.js`.
-- Produces: `createFeatures` accepting `FeatureConfig<K>` wherever it accepts `readonly FeatureDefinition<K>[]`, with the same return type.
+- Consumes: `FeatureConfig`, `CheckableConfig`, `ConfigEnvelope` from `./config.js`.
+- Produces: `createFeatures` accepting `FeatureConfig<K>` wherever it accepts `readonly FeatureDefinition<K>[]`, with the same return type, and `DefinitionsOrConfig<K>` on the package index.
 
 § 1 says a process that starts from a document its poller already fetched should not unwrap it by hand. The docblock at `features.ts` states that the signature list stops at three, because TypeScript elaborates every candidate for a failed call while a list holds three or fewer and reports one candidate against the argument nodes once it holds more, which put the error for a misspelled option on the definitions array. A fourth overload would undo that, so the document goes into the existing parameter types as a union.
 
@@ -3510,7 +3671,7 @@ describe('createFeatures over a document', () => {
 
 - [ ] **Step 3: Widen the parameters**
 
-Introduce one alias in `features.ts` and use it in all three signatures and in the implementation:
+Introduce two aliases in `features.ts`:
 
 ```ts
 /**
@@ -3523,19 +3684,114 @@ Introduce one alias in `features.ts` and use it in all three signatures and in t
  */
 export type DefinitionsOrConfig<K extends FeatureKey = FeatureKey> =
   readonly FeatureDefinition<K>[] | FeatureConfig<K>;
+
+/**
+ * The definitions inside whichever form a caller passed.
+ *
+ * `InferSchema` reads variant names off a definitions array and constrains its
+ * own parameter to one, so `InferSchema<D>` stops compiling the moment `D` may
+ * be a document: `D extends DefinitionsOrConfig` fails that constraint. This
+ * recovers the array, and every place the current signatures write
+ * `InferSchema<D>` writes `InferSchema<DefinitionsOf<D>>` instead.
+ */
+export type DefinitionsOf<D> =
+  D extends readonly FeatureDefinition<FeatureKey>[]
+    ? D
+    : D extends {
+          features: infer F extends readonly FeatureDefinition<FeatureKey>[];
+        }
+      ? F
+      : never;
 ```
 
-The implementation reads one line at the top:
+`DefinitionsOf` is internal and no exported signature names it, so `exported-type-closure.test.ts` does not ask for it on the index. `DefinitionsOrConfig` is named by all three signatures, so add it to the `export type` block in `libs/feature/src/index.ts` that Task 1 wrote, and to the allowance array until Task 12 gives it a heading.
+
+The three signatures, with the parameter and the schema expression changed and nothing else:
 
 ```ts
-const supplied: readonly FeatureDefinition<FeatureKey>[] = Array.isArray(given)
-  ? given
-  : given.features;
+export function createFeatures<
+  const D extends DefinitionsOrConfig,
+  O extends Record<
+    Exclude<
+      keyof O,
+      keyof FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>
+    >,
+    never
+  >,
+>(
+  definitions: D,
+  options?: O & FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>,
+): Features<
+  AsSchema<InferSchema<DefinitionsOf<D>>>,
+  'observe' extends keyof O ? true : false
+>;
+export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
+  options?: UnobservedOptions<S>,
+): Features<S, false>;
+export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
+  options: FeatureOptions<S>,
+): Features<S, true>;
 ```
 
-and the envelope initialiser becomes the document's own members when one arrived, so a store built from a document answers `version` immediately.
+The implementation's first parameter widens to `DefinitionsOrConfig`, and the body reads two lines at the top:
 
-- [ ] **Step 4: Prove the runtime half**
+```ts
+const supplied: readonly FeatureDefinition<FeatureKey>[] = Array.isArray(
+  definitions,
+)
+  ? definitions
+  : definitions.features;
+const document: CheckableConfig = Array.isArray(definitions)
+  ? { features: supplied }
+  : definitions;
+```
+
+Everything the body did with `definitions` now reads `supplied`, and the checker call Task 4 wrote becomes `collectIssues(document)`, so a document is checked whole and an array is checked as a document carrying only `features`. Task 4 hardcoded `collectIssues({ features: config })`, which rebuilds a one-member envelope, and `memberIssues` would never meet `hashVersion`, so Step 5's `refuses a document carrying a member it cannot read` could not pass.
+
+The envelope initialiser becomes the document's own members with `features` removed, so a store built from a document answers `version` immediately:
+
+```ts
+let installed: ConfigEnvelope = {};
+if (!Array.isArray(definitions)) {
+  const members: Record<string, unknown> = { ...definitions };
+  delete members['features'];
+  installed = members as ConfigEnvelope;
+}
+```
+
+If Step 1's probe shows the union parameter costs case 1 or case 6, stop and take the fallback. The fallback leaves all three signatures exactly as they stand today, the first one being
+
+```ts
+export function createFeatures<
+  const D extends Definitions,
+  O extends Record<
+    Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+    never
+  >,
+>(
+  definitions: D,
+  options?: O & FeatureOptions<AsSchema<InferSchema<D>>>,
+): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
+```
+
+and tells a document holder to call `parseFeatureConfig`, which Task 6 already ships and which loses nothing but a throw. The fallback exports no `DefinitionsOrConfig`, so drop it from the index, from the allowance array and from Task 12's heading list. Step 5's three cases then move to `parse.spec.ts` as results, and Step 4 below is written against `parseFeatureConfig` instead.
+
+- [ ] **Step 4: Hand `parse.ts` the document itself**
+
+Change the `createFeatures` call in `libs/feature/src/lib/parse.ts`:
+
+```ts
+const features = createFeatures<S>(
+  config,
+  (options ?? {}) as FeatureOptions<S>,
+);
+```
+
+Task 6 handed over `config.features`, so the store installed an empty envelope and Task 7's Step 12 default serialized it back with no `version`. Task 9's `produces the document it started from` compares that against a document carrying `version: 41` and cannot pass until this lands. A store built from a document now answers `version` and serializes back to the envelope it arrived in.
+
+- [ ] **Step 5: Prove the runtime half**
 
 Add to `libs/feature/src/lib/features.spec.ts`:
 
@@ -3570,13 +3826,13 @@ it('refuses a document carrying a member it cannot read', () => {
 });
 ```
 
-- [ ] **Step 5: Run everything and commit**
+- [ ] **Step 6: Run everything and commit**
 
 Run: `npx nx affected -t test lint build --base=main --skip-nx-cache`
 Then: `npx prettier --check` on every file you touched.
 
 ```bash
-git add libs/feature/src/lib/features.ts libs/feature/src/lib/features.spec.ts libs/feature/src/lib/features.test-d.ts libs/feature/src/index.ts
+git add libs/feature/src/lib/features.ts libs/feature/src/lib/features.spec.ts libs/feature/src/lib/features.test-d.ts libs/feature/src/lib/parse.ts libs/feature/src/index.ts tools/repo-checks/src/doc-export-coverage-allowance.json
 git commit -m "feat(feature): build a store straight from a document"
 ```
 
@@ -3668,6 +3924,20 @@ describe('the round trip', () => {
     expect(result.ok && serializeConfig(result.features)).toEqual(document);
   });
 
+  it('produces a store holding the configuration it started from', () => {
+    const features = createFeatures({ version: 41, features: body });
+
+    const arrived = JSON.parse(
+      JSON.stringify(serializeConfig(features)),
+    ) as FeatureConfig;
+    const result = parseFeatureConfig(arrived);
+
+    // The spec states the round trip over the store's `config`, not over two
+    // serialized documents. A serializer and a parser that drop one member the
+    // same way agree on the document and disagree here.
+    expect(result.ok && result.features.config).toEqual(features.config);
+  });
+
   it('holds the digest across the hop', () => {
     const features = createFeatures({ version: 41, features: body });
     const document = serializeConfig(features);
@@ -3742,7 +4012,11 @@ describe('the round trip', () => {
     const permuted = createFeatures([
       { key: 'x', enabled: true, rules: [...rules].reverse() },
     ]);
-    const context = { staff: true, beta: true };
+    // `decide` returns on the first matching rule, so a context matching both
+    // answers 'staff' at one index and 'beta' at the other. The assertion is
+    // that `ruleId` is content-derived, so the one rule that matches carries
+    // the same name whichever index the permutation put it at.
+    const context = { staff: true, beta: false };
 
     expect(permuted.resolve(context).x.rule).toBe(
       features.resolve(context).x.rule,
@@ -3903,13 +4177,13 @@ describe('the react entry', () => {
 
 - [ ] **Step 2: Re-export**
 
-In `libs/feature/src/react/index.tsx`, add one `export type` block beside the existing imports, naming the same 17 types Task 1 added to the core index. No value is re-exported: `serializeConfig`, `configDigest`, `validateConfig` and `parseFeatureConfig` stay on the core entry, because a component that calls one of them is holding configuration in a render tree and should reach for the core.
+In `libs/feature/src/react/index.tsx`, add one `export type` block beside the existing imports, naming the same 18 types Task 1 added to the core index. No value is re-exported: `serializeConfig`, `configDigest`, `validateConfig` and `parseFeatureConfig` stay on the core entry, because a component that calls one of them is holding configuration in a render tree and should reach for the core.
 
-- [ ] **Step 3: Check the adapter-parity guard**
+- [ ] **Step 3: Run the repository's own checks**
 
-Run: `npx nx test repo-checks -- react-pair adapter-parity`
+Run: `npx nx test repo-checks`
 
-`tools/repo-checks/src/react-pair.test.ts` holds the two entries to each other. Read what it requires before assuming a type-only re-export satisfies it, and report what it says if it asks for more.
+`react-pair.test.ts` holds the `react` and `react-dom` specs in every manifest to each other and says nothing about the two entry points, and `adapter-parity.astro.test.ts` is about the astro widget. The two checks with an opinion about a type-only re-export are `exported-type-closure.test.ts`, which fails a published declaration naming a type its own file keeps private, and `doc-export-coverage.test.ts`, which counts a name exported from the react entry against the documented headings. Read both before assuming the re-export satisfies them, and report what they say if they ask for more.
 
 - [ ] **Step 4: Run everything and commit**
 
@@ -4090,7 +4364,7 @@ In `apps/docs/content/feature/_meta.ts`, add `distribution: 'Distribution'` afte
 - `FeatureSchema`, `ContextSchema`, `FeatureShape`, `ValueShape`, `BaseFieldType` and `FieldType`
 - `ConfigIssue`, `ConfigIssueCode` and `ValidationResult`
 - `ReloadResult`
-- `DefinitionsOrConfig<K>`
+- `DefinitionsOrConfig<K>` and `CheckableConfig<F>`
 
 The `Features<S>` entry gains `reload`, `version` and `envelope`, and the `createFeatures` entry gains the document parameter.
 
