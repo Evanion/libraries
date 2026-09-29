@@ -750,4 +750,63 @@ describe('serializeConfig', () => {
       );
     });
   });
+
+  /**
+   * A leaf `serialized` walks past and JSON cannot write.
+   *
+   * `serializeConfig` produces a JSON document, and `errors.ts` puts every
+   * configuration fault at the call that supplied the configuration, as a
+   * `FeatureConfigError`. Three leaves reach the walk and break both. An
+   * invalid `Date` makes `toISOString` raise a bare `RangeError` naming no
+   * path and no key. A `bigint` passes through, and the publisher's own
+   * `JSON.stringify` throws a `TypeError` naming nothing. A `Map` or a `Set`
+   * is written as `{}`, so the holder installs a document whose variant value
+   * lost every entry and nothing reports it.
+   *
+   * All three reach a store: `structuredClone` carries them and `deepFreeze`
+   * seals a `Map` and a `Set` on purpose.
+   */
+  describe('a leaf JSON carries no value of', () => {
+    it('refuses a Date that names no instant', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: new Date(NaN) }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a bigint, which JSON.stringify throws on', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: { budget: 10n } }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a Map, whose entries a document would lose', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            {
+              name: 'control',
+              weight: 1,
+              value: new Map([['label', 'Buy']]),
+            },
+          ],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+  });
 });
