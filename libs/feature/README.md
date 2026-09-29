@@ -112,7 +112,12 @@ different boundary in every zone. It refuses `'2026-13-01'` and
 `'2026-01-01t00:00:00z'` for the same reason: ECMA-262's format does not cover
 them, so each engine reads them by rules of its own.
 
-A `Date` is taken as the instant it holds and is read no further, so
+Epoch milliseconds have to be a number a `Date` holds, and a `Date` has to hold
+an instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse`
+answers for a string naming no instant, and refuses a number past either end of
+the range a `Date` holds, which bounds a window every moment falls inside.
+
+A `Date` holding an instant is taken as that instant and is read no further, so
 `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
 every check.
 
