@@ -112,7 +112,8 @@ features.resolve({ role: 'customer' });
 ```
 
 `failed` is the first condition that failed, so a UI can name it. `resolve()`
-reads every condition, so every non-matching outcome it returns carries one.
+reads every condition, so an outcome a condition refused always names it. An
+outcome the rollout refused carries `rollout` and no `failed`.
 
 A breakdown [`plan()`](/feature/build-time) settled can leave `failed` off. The
 plan names a condition only where every request names that same one, so a UI
