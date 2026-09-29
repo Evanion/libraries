@@ -565,6 +565,37 @@ site emits only the deferred set and resolves that per request; an API calls
 Freezing a date window into a build is a deploy-cadence decision, so `plan()`
 defers time-dependent rules unless the feature sets `freezeTimeAtBuild`.
 
+A rule the context already refutes needs nothing more. Conditions within a rule
+are AND-ed, so one condition that fails settles the rule whatever an absent
+field holds, and `plan()` walks past it to the rules below.
+
+<!-- #region plan-refuted -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const promo = createFeatures([
+  {
+    key: 'eu-promo',
+    enabled: true,
+    rules: [
+      {
+        id: 'eu-pro',
+        when: [
+          { field: 'plan', op: 'eq', value: 'pro' },
+          { field: 'region', op: 'eq', value: 'eu' },
+        ],
+      },
+      { id: 'everyone', when: [] },
+    ],
+  },
+]);
+
+promo.plan({ plan: 'free' })['eu-promo']; // -> { key: 'eu-promo', resolved: true, needs: [], decision: { key: 'eu-promo', enabled: true, reason: 'rule-match', rule: 'everyone' } }
+```
+
+<!-- #endregion plan-refuted -->
+
 A feature with no rules resolves on at build time even while it declares
 variants, so `plan()` settles the two questions separately: `resolved` reads
 enablement, and a deferred entry can still carry a `decision` when only the
