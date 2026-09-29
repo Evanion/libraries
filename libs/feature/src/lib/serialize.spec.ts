@@ -780,6 +780,11 @@ describe('serializeConfig', () => {
    * `createFeatures`, a typed array makes `deepFreeze` raise `TypeError`, and
    * `structuredClone` hands back a class instance as a plain object.
    *
+   * Each case asserts the message as well as the class. The message is what a
+   * publisher reads to find the value it has to replace, and a case that
+   * asserted the class alone would pass with every branch raising one sentence
+   * and with `nameOf` returning a constant.
+   *
    * `null` is the leaf the walk admits and this block does not hold. `a null`
    * below carries it.
    */
@@ -794,6 +799,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the Date at /features/0/variants/0/value names no instant, and JSON ' +
+          'carries no invalid Date',
+      );
     });
 
     it('refuses a bigint, which JSON.stringify throws on', () => {
@@ -806,6 +815,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the value at /features/0/variants/0/value/budget is a bigint, and ' +
+          'JSON carries no bigint',
+      );
     });
 
     it('refuses a Map, whose entries a document would lose', () => {
@@ -824,6 +837,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the value at /features/0/variants/0/value is a Map, and JSON carries ' +
+          'no Map',
+      );
     });
 
     it('refuses a Set, whose members a document would lose', () => {
@@ -836,6 +853,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the value at /features/0/variants/0/value is a Set, and JSON carries ' +
+          'no Set',
+      );
     });
 
     it('refuses a RegExp, which a document would carry as an empty object', () => {
@@ -848,6 +869,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the value at /features/0/variants/0/value/match is a RegExp, and ' +
+          'JSON carries no RegExp',
+      );
     });
 
     it('refuses an Error, whose message is not an own enumerable member', () => {
@@ -862,6 +887,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the value at /features/0/variants/0/value/cause is an Error, and ' +
+          'JSON carries no Error',
+      );
     });
 
     it('refuses NaN, which one JSON hop turns into null', () => {
@@ -874,6 +903,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the number at /features/0/variants/0/value/budget is NaN, and JSON ' +
+          'carries no non-finite number',
+      );
     });
 
     it('refuses Infinity, which one JSON hop turns into null', () => {
@@ -888,6 +921,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the number at /features/0/variants/0/value/budget is Infinity, and ' +
+          'JSON carries no non-finite number',
+      );
     });
 
     it('refuses a non-finite number at an attribute condition value', () => {
@@ -900,6 +937,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the number at /features/0/rules/0/when/0/value is -Infinity, and ' +
+          'JSON carries no non-finite number',
+      );
     });
 
     it('refuses an undefined array element, which two sides digest two ways', () => {
@@ -914,6 +955,10 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the element at /features/0/variants/0/value/1 is undefined, and JSON ' +
+          'carries no undefined element',
+      );
     });
 
     it('refuses a hole in a sparse array, which structuredClone keeps', () => {
@@ -930,6 +975,10 @@ describe('serializeConfig', () => {
         false,
       );
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the element at /features/0/variants/0/value/1 is undefined, and JSON ' +
+          'carries no undefined element',
+      );
     });
 
     it('names the path to the leaf it refused', () => {
