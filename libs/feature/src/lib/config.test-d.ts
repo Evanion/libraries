@@ -9,11 +9,14 @@ import type {
   FeatureSchema,
   FeatureShape,
   FieldType,
+  JsonValue,
   ReloadResult,
+  SerializedAttributeCondition,
   SerializedCondition,
   SerializedDefinition,
   SerializedInstant,
   SerializedRule,
+  SerializedVariantSpec,
   SerializedWindowCondition,
   ValidationResult,
   ValueShape,
@@ -28,21 +31,26 @@ import type {
   FeatureSchema as PublishedSchema,
   FeatureShape as PublishedFeatureShape,
   FieldType as PublishedFieldType,
+  JsonValue as PublishedJsonValue,
   ReloadResult as PublishedReloadResult,
+  SerializedAttributeCondition as PublishedAttributeCondition,
   SerializedCondition as PublishedCondition,
   SerializedDefinition as PublishedDefinition,
   SerializedInstant as PublishedInstant,
   SerializedRule as PublishedRule,
+  SerializedVariantSpec as PublishedVariantSpec,
   SerializedWindowCondition as PublishedWindowCondition,
   ValidationResult as PublishedValidationResult,
   ValueShape as PublishedValueShape,
 } from '../index.js';
 import type {
+  AttributeCondition,
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
   Instant,
   Rule,
+  VariantSpec,
   WindowCondition,
 } from './types.js';
 
@@ -281,8 +289,27 @@ describe('ReloadResult', () => {
 describe('ConfigEnvelope', () => {
   it('drops the payload and keeps the four members that describe it', () => {
     expectTypeOf<keyof ConfigEnvelope>().toEqualTypeOf<
-      'version' | 'schema' | 'schemaVersion' | 'maxStale'
+      'version' | 'digest' | 'schema' | 'schemaVersion' | 'maxStale'
     >();
+  });
+
+  it('holds its digest at the one type no caller can produce a value of', () => {
+    expectTypeOf<ConfigEnvelope['digest']>().toEqualTypeOf<undefined>();
+  });
+
+  it('refuses a whole document, which carries a digest over other bytes', () => {
+    const write = (envelope: ConfigEnvelope): ConfigEnvelope => envelope;
+    const document: FeatureConfig = {
+      version: 41,
+      digest: 'd9f1c0a4',
+      features: [],
+    };
+
+    // @ts-expect-error -- a fetched document assigned whole would hand the
+    // serializer the digest of the document before it.
+    write(document);
+
+    expectTypeOf(write).parameter(0).toEqualTypeOf<ConfigEnvelope>();
   });
 
   it('drops the digest, which configDigest writes over the emitted bytes', () => {
@@ -349,6 +376,57 @@ describe('SerializedWindowCondition', () => {
   });
 });
 
+describe('JsonValue', () => {
+  it('takes the five things JSON writes', () => {
+    expectTypeOf<
+      string | number | boolean | null | readonly JsonValue[]
+    >().toExtend<JsonValue>();
+  });
+
+  it('refuses the Date a live store admits, which JSON has no form for', () => {
+    expectTypeOf<Date>().not.toExtend<JsonValue>();
+  });
+
+  it('refuses a Date nested inside an object a document carries', () => {
+    expectTypeOf<{ endsAt: Date }>().not.toExtend<JsonValue>();
+  });
+
+  it('refuses a Date nested inside an array a document carries', () => {
+    expectTypeOf<readonly Date[]>().not.toExtend<JsonValue>();
+  });
+
+  it('takes an object whose members are themselves JSON', () => {
+    const value = {
+      endsAt: '2026-12-24T00:00:00.000Z',
+      tiers: [1, 2],
+    } satisfies JsonValue;
+
+    expectTypeOf(value.tiers).toEqualTypeOf<number[]>();
+  });
+});
+
+describe('SerializedAttributeCondition', () => {
+  it('carries the JSON an evaluator compares the context against', () => {
+    expectTypeOf<
+      SerializedAttributeCondition['value']
+    >().toEqualTypeOf<JsonValue>();
+  });
+
+  it('keeps every member a live attribute condition declares', () => {
+    expectTypeOf<keyof SerializedAttributeCondition>().toEqualTypeOf<
+      keyof AttributeCondition
+    >();
+  });
+
+  it('is an attribute condition a live store could hold', () => {
+    expectTypeOf<SerializedAttributeCondition>().toExtend<AttributeCondition>();
+  });
+
+  it('refuses a live attribute condition, whose value admits a Date', () => {
+    expectTypeOf<AttributeCondition>().not.toExtend<SerializedAttributeCondition>();
+  });
+});
+
 describe('SerializedCondition', () => {
   it('takes a serialized window condition, the arm this vocabulary exists for', () => {
     expectTypeOf<SerializedWindowCondition>().toExtend<SerializedCondition>();
@@ -382,14 +460,27 @@ describe('SerializedCondition', () => {
     expectTypeOf<WindowCondition>().not.toExtend<SerializedCondition>();
   });
 
-  it('lets a Date through an attribute value, which only the serializer converts', () => {
+  it('takes the JSON an attribute value carries', () => {
+    const condition = {
+      field: 'plan',
+      op: 'in',
+      value: ['pro', 'team'],
+    } satisfies SerializedCondition;
+
+    expectTypeOf(condition.value).toEqualTypeOf<string[]>();
+  });
+
+  it('refuses a Date in an attribute value, which digests as the string it is not', () => {
     const condition = {
       field: 'signedUpAt',
       op: 'eq',
-      value: new Date(),
+      // @ts-expect-error -- `canonical` writes this `Date` as the ISO string a
+      // parsed document holds, so a process holding the object and a process
+      // holding the string agree on the digest and disagree under `===`.
+      value: new Date('2026-10-01T00:00:00Z'),
     } satisfies SerializedCondition;
 
-    expectTypeOf(condition.value).toEqualTypeOf<Date>();
+    expectTypeOf(condition.field).toEqualTypeOf<string>();
   });
 });
 
@@ -408,6 +499,41 @@ describe('SerializedRule', () => {
 
   it('refuses a live rule, whose conditions admit a Date', () => {
     expectTypeOf<Rule>().not.toExtend<SerializedRule>();
+  });
+});
+
+describe('SerializedVariantSpec', () => {
+  it('carries the JSON a caller reads off valueOf', () => {
+    expectTypeOf<SerializedVariantSpec['value']>().toEqualTypeOf<
+      JsonValue | undefined
+    >();
+  });
+
+  it('keeps every member a live variant declares', () => {
+    expectTypeOf<keyof SerializedVariantSpec>().toEqualTypeOf<
+      keyof VariantSpec
+    >();
+  });
+
+  it('is a variant a live store could hold', () => {
+    expectTypeOf<SerializedVariantSpec>().toExtend<VariantSpec>();
+  });
+
+  it('refuses a live variant, whose value admits a Date', () => {
+    expectTypeOf<VariantSpec>().not.toExtend<SerializedVariantSpec>();
+  });
+
+  it('refuses a Date inside a variant value, which arrives as a string after one hop', () => {
+    const variant = {
+      name: 'sale',
+      weight: 100,
+      // @ts-expect-error -- a publisher reading this value gets a `Date` and
+      // every process that fetched the JSON gets its ISO string, while
+      // `configDigest` agrees on both sides.
+      value: { endsAt: new Date('2026-12-24T00:00:00Z') },
+    } satisfies SerializedVariantSpec;
+
+    expectTypeOf(variant.name).toEqualTypeOf<string>();
   });
 });
 
@@ -446,6 +572,30 @@ describe('SerializedDefinition', () => {
     expectTypeOf<
       NonNullable<SerializedDefinition<'cta'>['variants']>[number]['order']
     >().toEqualTypeOf<number | undefined>();
+  });
+
+  it('carries a variant value the document holds as JSON', () => {
+    expectTypeOf<
+      NonNullable<SerializedDefinition<'cta'>['variants']>[number]['value']
+    >().toEqualTypeOf<JsonValue | undefined>();
+  });
+
+  it('refuses a Date a hand-built document writes into a variant value', () => {
+    const definition = {
+      key: 'banner',
+      enabled: true,
+      variants: [
+        {
+          name: 'sale',
+          weight: 100,
+          // @ts-expect-error -- the document is JSON, and this value reaches
+          // one process as an object and every other as its ISO string.
+          value: new Date('2026-12-24T00:00:00Z'),
+        },
+      ],
+    } satisfies SerializedDefinition<'banner'>;
+
+    expectTypeOf(definition.key).toEqualTypeOf<'banner'>();
   });
 
   it('refuses a live definition, whose rules admit a Date', () => {
@@ -697,6 +847,18 @@ describe('the published surface', () => {
 
   it('publishes the serialized condition', () => {
     expectTypeOf<PublishedCondition>().toEqualTypeOf<SerializedCondition>();
+  });
+
+  it('publishes the serialized attribute condition', () => {
+    expectTypeOf<PublishedAttributeCondition>().toEqualTypeOf<SerializedAttributeCondition>();
+  });
+
+  it('publishes the JSON a document carries at an uninterpreted member', () => {
+    expectTypeOf<PublishedJsonValue>().toEqualTypeOf<JsonValue>();
+  });
+
+  it('publishes the serialized variant', () => {
+    expectTypeOf<PublishedVariantSpec>().toEqualTypeOf<SerializedVariantSpec>();
   });
 
   it('publishes the serialized rule', () => {

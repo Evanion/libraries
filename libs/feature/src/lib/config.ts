@@ -4,6 +4,7 @@ import type {
   FeatureDefinition,
   FeatureKey,
   Rule,
+  VariantSpec,
 } from './types.js';
 
 /**
@@ -26,13 +27,53 @@ export interface SerializedWindowCondition {
   value: SerializedInstant;
 }
 
-/** A condition as a document carries it. Only the instant narrows. */
+/**
+ * A value JSON carries, which is everything a document may hold at a member
+ * the engine hands to its caller without reading.
+ *
+ * `AttributeCondition.value` and `VariantSpec.value` are `unknown`, because a
+ * store built from a literal holds whatever the author wrote. A document is
+ * JSON, and the one non-JSON value an author reaches for is a `Date`:
+ * `canonical` writes it as the ISO string `JSON.parse` hands the next process
+ * back, so the two documents digest alike while `evaluateCondition` compares a
+ * `Date` against a string with `===` and `valueOf` hands one caller an object
+ * and the next a string. § 2 reads two agreeing digests as a proof that two
+ * processes hold one configuration, so the document's own types carry the
+ * fence the digest cannot.
+ *
+ * The object arm is an index signature, so a value typed by an `interface`
+ * needs a `satisfies` or a type alias to reach it. That is TypeScript's rule
+ * for implicit index signatures, and the alternative is no fence at all:
+ * `unknown` minus `Date` is not a type this language spells.
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [member: string]: JsonValue | undefined };
+
+/** An attribute condition as a document carries it, compared with `===`. */
+export interface SerializedAttributeCondition extends Omit<
+  AttributeCondition,
+  'value'
+> {
+  readonly value: JsonValue;
+}
+
+/** A condition as a document carries it. The instant and the value narrow. */
 export type SerializedCondition =
-  SerializedWindowCondition | DayOfWeekCondition | AttributeCondition;
+  SerializedWindowCondition | DayOfWeekCondition | SerializedAttributeCondition;
 
 /** A rule as a document carries it, with its control-plane `id` untouched. */
 export interface SerializedRule extends Omit<Rule, 'when'> {
   readonly when?: readonly SerializedCondition[];
+}
+
+/** A variant as a document carries it, with its value narrowed to JSON. */
+export interface SerializedVariantSpec extends Omit<VariantSpec, 'value'> {
+  readonly value?: JsonValue;
 }
 
 /**
@@ -45,8 +86,9 @@ export interface SerializedRule extends Omit<Rule, 'when'> {
  */
 export interface SerializedDefinition<
   F extends FeatureKey = FeatureKey,
-> extends Omit<FeatureDefinition<F>, 'rules'> {
+> extends Omit<FeatureDefinition<F>, 'rules' | 'variants'> {
   readonly rules?: readonly SerializedRule[];
+  readonly variants?: readonly SerializedVariantSpec[];
 }
 
 /**
@@ -151,13 +193,18 @@ export interface FeatureConfig<F extends FeatureKey = FeatureKey> {
 /**
  * The envelope without its payload, which a serializer writes around a store.
  *
- * `digest` is not a member. A document's `digest` is always `configDigest` of
- * that same document, so a serializer that copied one from its caller would
- * emit a document whose digest covers other bytes. Every holder recomputes it,
+ * `digest` is fenced to `never` rather than omitted. Omitting it drops the
+ * member from the type and still admits a whole `FeatureConfig`, because
+ * TypeScript refuses an extra property on a fresh object literal and nowhere
+ * else. A document's `digest` is always `configDigest` of that same document,
+ * so a serializer that copied one from its caller would emit a document whose
+ * digest covers other bytes. Every holder recomputes it,
  * disagrees, reports `digest-mismatch` and refuses the whole document, and no
  * holder recovers on its own. `configDigest` is the one writer of the member.
  */
-export type ConfigEnvelope = Omit<FeatureConfig, 'features' | 'digest'>;
+export type ConfigEnvelope = Omit<FeatureConfig, 'features' | 'digest'> & {
+  readonly digest?: never;
+};
 
 /** What `validateConfig` found wrong. One code per class of defect. */
 export type ConfigIssueCode =
