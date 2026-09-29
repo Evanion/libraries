@@ -86,12 +86,34 @@ describe('instantEpoch', () => {
     ]);
   });
 
+  it('reads a year and a year-month carrying a time', () => {
+    // ECMA-262 21.4.1.15 lets any of the three date forms carry a time, so the
+    // month and the day are each optional in front of the `T`. The offset is
+    // not: `'2026T00:00:00'` is read as local time, the same as a full date
+    // written without one.
+    expect(instantEpoch('2026T00:00:00Z')).toBe(1767225600000);
+    expect(instantEpoch('2026-01T00:00:00Z')).toBe(1767225600000);
+    expect(everywhere(() => instantEpoch('2026T00:00:00'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+  });
+
   it('reads a time written without seconds', () => {
     expect(instantEpoch('2026-01-01T00:00Z')).toBe(1767225600000);
   });
 
   it('reads the hour 24 as the midnight closing the day', () => {
     expect(instantEpoch('2026-01-01T24:00:00Z')).toBe(1767312000000);
+  });
+
+  it('reads the hour 24 carrying a fraction of zero', () => {
+    // A producer writes the fraction whether or not it has one to write, and
+    // `Date.parse` reads a midnight written to any number of zeroes.
+    expect(instantEpoch('2026-01-01T24:00:00.000Z')).toBe(1767312000000);
+    expect(instantEpoch('2026-01-01T24:00:00.0Z')).toBe(1767312000000);
+    expect(instantEpoch('2026-01-01T24:00:00.000000Z')).toBe(1767312000000);
   });
 
   it('reads both ends of the offset range', () => {
@@ -182,6 +204,8 @@ describe('instantEpoch', () => {
     // answers `NaN`, so the engines are free to disagree over it.
     expect(instantEpoch('2026-01-01T24:01:00Z')).toBeNaN();
     expect(instantEpoch('2026-01-01T24:00:01Z')).toBeNaN();
+    expect(instantEpoch('2026-01-01T24:00:00.500Z')).toBeNaN();
+    expect(instantEpoch('2026-01-01T24:00:00.001Z')).toBeNaN();
   });
 
   it('refuses a day past the end of the month it is written under', () => {
@@ -239,8 +263,10 @@ describe('instantEpoch', () => {
 
   it('passes a number no Date can hold through unchanged', () => {
     // A number outside a `Date`'s range is still a number, and the string
-    // naming the same moment is refused. `createFeatures` reads strings only,
-    // so a window written this way is built and then matches nothing.
+    // naming the same moment is refused. `createFeatures` reads the string
+    // forms only, so such a window is built and then resolved against this
+    // number: `before` holds at every instant and `after` at none.
+    // `conditions.spec.ts` holds both sides of that comparison.
     expect(instantEpoch(8640000000000001)).toBe(8640000000000001);
     expect(instantEpoch(Number.POSITIVE_INFINITY)).toBe(
       Number.POSITIVE_INFINITY,
