@@ -111,8 +111,19 @@ features.resolve({ role: 'customer' });
 // ] }
 ```
 
-`failed` is the first condition that failed, so a UI can name it. When the
-rollout is why the rule did not match, `rollout` carries the numbers instead:
+`failed` is the first condition that failed, so a UI can name it. `resolve()`
+reads every condition, so every non-matching outcome it returns carries one.
+
+A breakdown [`plan()`](/feature/build-time) settled can leave `failed` off. The
+plan names a condition only where every request names that same one, so a UI
+reading a planned decision checks the field before it names a condition.
+
+```ts twoslash file=libs/feature/README.md region=plan-breakdown
+
+```
+
+When the rollout is why the rule did not match, `rollout` carries the numbers
+instead:
 
 ```ts
 // { rule: 'after-launch', matched: false,
