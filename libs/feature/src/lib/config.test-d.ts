@@ -66,6 +66,30 @@ describe('FeatureConfig', () => {
     >();
   });
 
+  it('holds every member readonly, so a holder cannot edit what it digested', () => {
+    expectTypeOf<FeatureConfig<'cta'>>().toEqualTypeOf<{
+      readonly version?: string | number;
+      readonly digest?: string;
+      readonly schema?: FeatureSchema;
+      readonly schemaVersion?: string;
+      readonly maxStale?: number;
+      readonly features: readonly SerializedDefinition<'cta'>[];
+    }>();
+  });
+
+  it('refuses a write to the feature list, which the digest covers', () => {
+    const document: FeatureConfig = { features: [] };
+
+    // @ts-expect-error -- a holder that rewrote the list would answer from a
+    // document no other process holds while reporting the digest of the one it
+    // received.
+    document.features = [];
+
+    expectTypeOf(document.features).toEqualTypeOf<
+      readonly SerializedDefinition[]
+    >();
+  });
+
   it('keys its definitions on the parameter it was given', () => {
     type Keyed = FeatureConfig<'cta' | 'checkout'>;
 
@@ -334,6 +358,21 @@ describe('ConfigEnvelope', () => {
 
     expectTypeOf(envelope).toExtend<ConfigEnvelope>();
   });
+
+  it('refuses a write to the version and to the digest a serializer never sets', () => {
+    const envelope: ConfigEnvelope = {};
+
+    // @ts-expect-error -- the envelope a serializer received describes the
+    // document it is about to emit.
+    envelope.version = 41;
+    // @ts-expect-error -- `configDigest` is the one writer of the member.
+    envelope.digest = undefined;
+
+    expectTypeOf<Pick<ConfigEnvelope, 'version' | 'digest'>>().toEqualTypeOf<{
+      readonly version?: string | number;
+      readonly digest?: never;
+    }>();
+  });
 });
 
 describe('SerializedInstant', () => {
@@ -409,6 +448,39 @@ describe('JsonValue', () => {
 
     expectTypeOf(value.tiers).toEqualTypeOf<number[]>();
   });
+
+  it('refuses a member written as undefined, which canonical erases the way JSON does', () => {
+    // @ts-expect-error -- `canonical.ts:46` filters the member out and
+    // `JSON.stringify` omits it, so the process that wrote it holds a key no
+    // other process holds and `configDigest` reports the two agree.
+    const value = { endsAt: undefined } satisfies JsonValue;
+
+    expectTypeOf(value.endsAt).toEqualTypeOf<undefined>();
+  });
+
+  it('refuses a member whose type admits undefined, which is how an absent one arrives', () => {
+    const readTier = (): string | undefined => undefined;
+
+    // @ts-expect-error -- `'tier' in value` answers true in the publisher and
+    // false in every process that fetched the document.
+    const value = { tier: readTier() } satisfies JsonValue;
+
+    expectTypeOf(value.tier).toEqualTypeOf<string | undefined>();
+  });
+
+  it('takes a type whose members are optional, which carries no member at all when absent', () => {
+    type Sale = { label?: string };
+
+    expectTypeOf<Sale>().toExtend<JsonValue>();
+  });
+
+  it('refuses a value annotated with an interface, which is why a variant value carries unknown', () => {
+    interface Sale {
+      label: string;
+    }
+
+    expectTypeOf<Sale>().not.toExtend<JsonValue>();
+  });
 });
 
 describe('SerializedAttributeCondition', () => {
@@ -430,6 +502,22 @@ describe('SerializedAttributeCondition', () => {
 
   it('refuses a live attribute condition, whose value admits a Date', () => {
     expectTypeOf<AttributeCondition>().not.toExtend<SerializedAttributeCondition>();
+  });
+
+  it('refuses a write to the value, which the digest covers', () => {
+    const condition: SerializedAttributeCondition = {
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    };
+
+    // @ts-expect-error -- a rewritten condition decides differently from the
+    // document every other process holds under the same digest.
+    condition.value = 'free';
+
+    expectTypeOf<Pick<SerializedAttributeCondition, 'value'>>().toEqualTypeOf<{
+      readonly value: JsonValue;
+    }>();
   });
 });
 
@@ -518,13 +606,23 @@ describe('SerializedRule', () => {
   it('refuses a live rule, whose conditions admit a Date', () => {
     expectTypeOf<Rule>().not.toExtend<SerializedRule>();
   });
+
+  it('refuses a write to its condition list', () => {
+    const rule: SerializedRule = { when: [] };
+
+    // @ts-expect-error -- a rewritten rule matches differently from the
+    // document every other process holds under the same digest.
+    rule.when = [];
+
+    expectTypeOf<Pick<SerializedRule, 'when'>>().toEqualTypeOf<{
+      readonly when?: readonly SerializedCondition[];
+    }>();
+  });
 });
 
 describe('SerializedVariantSpec', () => {
-  it('carries the JSON a caller reads off valueOf', () => {
-    expectTypeOf<SerializedVariantSpec['value']>().toEqualTypeOf<
-      JsonValue | undefined
-    >();
+  it('carries the value a caller reads off valueOf, which the engine never reads', () => {
+    expectTypeOf<SerializedVariantSpec['value']>().toEqualTypeOf<unknown>();
   });
 
   it('keeps every member a live variant declares', () => {
@@ -537,21 +635,36 @@ describe('SerializedVariantSpec', () => {
     expectTypeOf<SerializedVariantSpec>().toExtend<VariantSpec>();
   });
 
-  it('refuses a live variant, whose value admits a Date', () => {
-    expectTypeOf<VariantSpec>().not.toExtend<SerializedVariantSpec>();
+  it('takes a live variant, whose value serializeConfig converts on the way out', () => {
+    expectTypeOf<VariantSpec>().toExtend<SerializedVariantSpec>();
   });
 
-  it('refuses a Date inside a variant value, which arrives as a string after one hop', () => {
+  it('takes a value typed by the interface a generator emits from the schema', () => {
+    interface SaleValue {
+      label: string;
+      discount: number;
+    }
+
+    const sale = { label: 'Get it', discount: 20 } as SaleValue;
     const variant = {
       name: 'sale',
       weight: 100,
-      // @ts-expect-error -- a publisher reading this value gets a `Date` and
-      // every process that fetched the JSON gets its ISO string, while
-      // `configDigest` agrees on both sides.
-      value: { endsAt: new Date('2026-12-24T00:00:00Z') },
+      value: sale,
     } satisfies SerializedVariantSpec;
 
-    expectTypeOf(variant.name).toEqualTypeOf<string>();
+    expectTypeOf(variant.value).toEqualTypeOf<SaleValue>();
+  });
+
+  it('refuses a write to the value, which the digest covers', () => {
+    const variant: SerializedVariantSpec = { name: 'sale', weight: 100 };
+
+    // @ts-expect-error -- `valueOf` would answer one thing here and another in
+    // every process holding the document this digest names.
+    variant.value = { label: 'Get it' };
+
+    expectTypeOf<Pick<SerializedVariantSpec, 'value'>>().toEqualTypeOf<{
+      readonly value?: unknown;
+    }>();
   });
 });
 
@@ -592,28 +705,31 @@ describe('SerializedDefinition', () => {
     >().toEqualTypeOf<number | undefined>();
   });
 
-  it('carries a variant value the document holds as JSON', () => {
+  it('carries a variant value the engine hands to its caller unread', () => {
     expectTypeOf<
       NonNullable<SerializedDefinition<'cta'>['variants']>[number]['value']
-    >().toEqualTypeOf<JsonValue | undefined>();
+    >().toEqualTypeOf<unknown>();
   });
 
-  it('refuses a Date a hand-built document writes into a variant value', () => {
-    const definition = {
-      key: 'banner',
+  it('refuses a write to its rules and its variants', () => {
+    const definition: SerializedDefinition<'cta'> = {
+      key: 'cta',
       enabled: true,
-      variants: [
-        {
-          name: 'sale',
-          weight: 100,
-          // @ts-expect-error -- the document is JSON, and this value reaches
-          // one process as an object and every other as its ISO string.
-          value: new Date('2026-12-24T00:00:00Z'),
-        },
-      ],
-    } satisfies SerializedDefinition<'banner'>;
+    };
 
-    expectTypeOf(definition.key).toEqualTypeOf<'banner'>();
+    // @ts-expect-error -- a rewritten definition decides differently from the
+    // document every other process holds under the same digest.
+    definition.rules = [];
+    // @ts-expect-error -- the same digest would cover a variant set this
+    // process no longer holds.
+    definition.variants = [];
+
+    expectTypeOf<
+      Pick<SerializedDefinition<'cta'>, 'rules' | 'variants'>
+    >().toEqualTypeOf<{
+      readonly rules?: readonly SerializedRule[];
+      readonly variants?: readonly SerializedVariantSpec[];
+    }>();
   });
 
   it('refuses a live definition, whose rules admit a Date', () => {
@@ -720,6 +836,17 @@ describe('FeatureShape', () => {
 
     expectTypeOf(shape).toExtend<FeatureShape>();
   });
+
+  it('refuses a write to its variant shapes', () => {
+    const shape: FeatureShape = {};
+
+    // @ts-expect-error -- a schema is immutable at its `schemaVersion`, and a
+    // holder that rewrote one would validate against a shape no publisher
+    // serves.
+    shape.variants = {};
+
+    expectTypeOf<Readonly<FeatureShape>>().toEqualTypeOf<FeatureShape>();
+  });
 });
 
 describe('ContextSchema', () => {
@@ -749,6 +876,17 @@ describe('ContextSchema', () => {
     } satisfies ContextSchema;
 
     expectTypeOf(schema.fields).toExtend<object>();
+  });
+
+  it('refuses a write to its field declarations', () => {
+    const schema: ContextSchema = {};
+
+    // @ts-expect-error -- a schema is immutable at its `schemaVersion`, and a
+    // rewritten field type validates a context against a declaration no
+    // publisher serves.
+    schema.fields = {};
+
+    expectTypeOf<Readonly<ContextSchema>>().toEqualTypeOf<ContextSchema>();
   });
 
   it('carries a field named after a prototype member when the value asserts its type', () => {
@@ -795,6 +933,17 @@ describe('FeatureSchema', () => {
     } satisfies FeatureSchema;
 
     expectTypeOf(schema.context.fields.plan).toExtend<FieldType>();
+  });
+
+  it('refuses a write to either vocabulary', () => {
+    const schema: FeatureSchema = {};
+
+    // @ts-expect-error -- a schema is immutable at its `schemaVersion`.
+    schema.context = {};
+    // @ts-expect-error -- the same rule covers the shapes a generator read.
+    schema.features = {};
+
+    expectTypeOf<Readonly<FeatureSchema>>().toEqualTypeOf<FeatureSchema>();
   });
 });
 

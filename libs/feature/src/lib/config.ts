@@ -28,23 +28,26 @@ export interface SerializedWindowCondition {
 }
 
 /**
- * A value JSON carries, which is everything a document may hold at a member
- * the engine hands to its caller without reading.
+ * The JSON a condition value may hold.
  *
- * `AttributeCondition.value` and `VariantSpec.value` are `unknown`, because a
- * store built from a literal holds whatever the author wrote. A document is
- * JSON, and the one non-JSON value an author reaches for is a `Date`:
- * `canonical` writes it as the ISO string `JSON.parse` hands the next process
- * back, so the two documents digest alike while `evaluateCondition` compares a
- * `Date` against a string with `===` and `valueOf` hands one caller an object
- * and the next a string. § 2 reads two agreeing digests as a proof that two
- * processes hold one configuration, so the document's own types carry the
- * fence the digest cannot.
+ * `AttributeCondition.value` is `unknown`, because a store built from a literal
+ * holds whatever an author wrote. Two of those values reach the next process as
+ * something else while `canonical` erases the same difference: a `Date`, which
+ * `canonical` writes as the ISO string `JSON.parse` hands back, and a member
+ * written as `undefined`, which `canonical.ts:46` filters out and
+ * `JSON.stringify` omits. Either one leaves the publisher and the holder
+ * digesting alike over values that differ: `evaluateCondition` compares a
+ * `Date` against a string with `===`, and `'tier' in value` answers true in the
+ * process that wrote the member and false in every process that fetched the
+ * document. § 2 reads two agreeing digests as a proof that two processes hold
+ * one configuration.
  *
- * The object arm is an index signature, so a value typed by an `interface`
- * needs a `satisfies` or a type alias to reach it. That is TypeScript's rule
- * for implicit index signatures, and the alternative is no fence at all:
- * `unknown` minus `Date` is not a type this language spells.
+ * The object arm is an index signature. TypeScript derives one implicitly for a
+ * type alias and for an object literal, optional members included, and never
+ * for an `interface`, so a value annotated with an interface does not reach
+ * this type. § 4 declares every context field as a flat `FieldType`, so no
+ * generator emits an interface for a condition value. A generated type lands at
+ * `SerializedVariantSpec.value`, which carries `unknown` for that reason.
  */
 export type JsonValue =
   | string
@@ -52,7 +55,7 @@ export type JsonValue =
   | boolean
   | null
   | readonly JsonValue[]
-  | { readonly [member: string]: JsonValue | undefined };
+  | { readonly [member: string]: JsonValue };
 
 /** An attribute condition as a document carries it, compared with `===`. */
 export interface SerializedAttributeCondition extends Omit<
@@ -71,9 +74,19 @@ export interface SerializedRule extends Omit<Rule, 'when'> {
   readonly when?: readonly SerializedCondition[];
 }
 
-/** A variant as a document carries it, with its value narrowed to JSON. */
+/**
+ * A variant as a document carries it.
+ *
+ * `value` stays `unknown`. § 4 picks JSON Schema for this member because
+ * quicktype and openapi-generator emit TypeScript interfaces from it, and
+ * TypeScript gives an interface no implicit index signature, so a `JsonValue`
+ * here refuses the generated type the notation was picked to produce. § 8 puts
+ * the round trip in `serializeConfig`, which converts a `Date` wherever it
+ * appears, and § 7's validator checks a variant value against the shape its
+ * schema declares.
+ */
 export interface SerializedVariantSpec extends Omit<VariantSpec, 'value'> {
-  readonly value?: JsonValue;
+  readonly value?: unknown;
 }
 
 /**
