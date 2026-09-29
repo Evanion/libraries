@@ -108,8 +108,22 @@ try {
     rmSync(join(ROOT, libDir, 'dist'), { recursive: true, force: true });
   }
 
+  // The packed packages and the tasks their builds depend on, and nothing
+  // else. The apps read no tarball, and the docs build cuts its release pages
+  // from the tags, which the `packaging` job's shallow checkout does not fetch.
   console.log('Building libraries…');
-  run('npx', ['nx', 'run-many', '-t', 'build', '--skip-nx-cache'], ROOT);
+  run(
+    'npx',
+    [
+      'nx',
+      'run-many',
+      '-t',
+      'build',
+      '--skip-nx-cache',
+      `--projects=${LIBS.map(([, name]) => name).join(',')}`,
+    ],
+    ROOT,
+  );
 
   console.log(`Packing into ${dir}`);
   for (const [libDir] of LIBS) {
