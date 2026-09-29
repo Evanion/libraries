@@ -4,6 +4,23 @@ import type { Condition } from './types.js';
 
 const at = (iso: string) => ({ now: new Date(iso) });
 
+/**
+ * Runs `read` with the process reporting `zone` as its timezone.
+ *
+ * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
+ * what a host in Los Angeles would answer without running a second process.
+ */
+function inZone<T>(zone: string, read: () => T): T {
+  const original = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    return read();
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+}
+
 describe('evaluateCondition', () => {
   describe('window', () => {
     const before: Condition = {
@@ -44,6 +61,25 @@ describe('evaluateCondition', () => {
           at('2026-09-30T00:00:00Z'),
         ),
       ).toBe(true);
+    });
+
+    it('answers an offsetless instant string the same in every zone', () => {
+      // ECMA-262 reads a date-time string with no offset as local time, so
+      // `Date.parse` puts this boundary an hour before `now` in Tokyo and
+      // eight hours after it in Los Angeles. The condition names no instant,
+      // and an answer that follows the host is one rule id with three answers.
+      const condition: Condition = {
+        field: 'now',
+        op: 'after',
+        value: '2026-01-01T00:00:00',
+      };
+      const now = at('2026-01-01T02:00:00Z');
+
+      const answers = ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
+        inZone(zone, () => evaluateCondition(condition, now)),
+      );
+
+      expect(answers).toEqual([false, false, false]);
     });
 
     it('does not hold when the instant cannot be parsed', () => {

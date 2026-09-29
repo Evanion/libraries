@@ -1,4 +1,5 @@
 import { decide, planFeature } from './evaluate.js';
+import { validateConditions } from './conditions.js';
 import { buildGraph } from './graph.js';
 import { validateVariants } from './variants.js';
 import { createEmitter } from './observe.js';
@@ -301,7 +302,8 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * @throws {DuplicateVariantError} when two of a feature's variants share a name.
  * @throws {UnknownVariantError} when a rule pins a variant its feature does not declare.
  * @throws {FeatureConfigError} when a variant's weight or order is unusable, the
- * variants array is empty, or the weights have no usable total.
+ * variants array is empty, the weights have no usable total, or a window
+ * condition names an instant string that hosts read differently.
  *
  * @example
  * ```ts
@@ -390,7 +392,10 @@ export function createFeatures(
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
     definitions.map((definition) => deepFreeze(structuredClone(definition))),
   );
-  for (const definition of config) validateVariants(definition);
+  for (const definition of config) {
+    validateVariants(definition);
+    validateConditions(definition);
+  }
   const graph = buildGraph(config);
   const index = new Map<FeatureKey, number>(config.map((d, i) => [d.key, i]));
   const keys: readonly FeatureKey[] = Object.freeze(

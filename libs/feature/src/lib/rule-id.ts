@@ -1,24 +1,19 @@
 import { canonical } from './canonical.js';
+import { instantEpoch } from './instant.js';
 import type { Condition, Instant, Rule } from './types.js';
-
-/** An ISO 8601 string carrying an explicit offset, which fixes the instant. */
-const OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/;
 
 /**
  * Epoch milliseconds, so one instant written three ways reads as one value.
  *
- * A string is normalised only when it carries an explicit offset. ECMA-262
- * reads a date-time string without one as local time, so `Date.parse` returns
- * a different number on a host in Stockholm and a host in Tokyo, and one
- * document would derive a different id on each. A string with no offset names
- * no instant, so this hashes its text and every host agrees on that.
+ * A string that names no instant is hashed as text instead, so that two hosts
+ * reading it against their own zones still derive one id. `createFeatures`
+ * rejects such a string, and this path is what a caller reaching `ruleId`
+ * directly gets.
  */
 function instantText(value: Instant): string {
-  if (value instanceof Date) return String(value.getTime());
-  if (typeof value === 'number') return String(value);
-  if (!OFFSET.test(value)) return canonical(value);
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? canonical(value) : String(parsed);
+  const epoch = instantEpoch(value);
+  if (!Number.isNaN(epoch)) return String(epoch);
+  return typeof value === 'string' ? canonical(value) : String(epoch);
 }
 
 /** A string with its length in front, so no two distinct parts share a text. */

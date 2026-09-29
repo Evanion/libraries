@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DuplicateVariantError, FeatureCycleError } from './errors.js';
+import {
+  DuplicateVariantError,
+  FeatureConfigError,
+  FeatureCycleError,
+} from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
 
@@ -50,6 +54,38 @@ describe('createFeatures', () => {
         },
       ]),
     ).toThrow(DuplicateVariantError);
+  });
+
+  it('refuses a window condition whose string names no instant', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-01-01T00:00:00' },
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('accepts a window condition written as a date with no time', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'now', op: 'after', value: '2026-01-01' }] },
+          ],
+        },
+      ]),
+    ).not.toThrow();
   });
 });
 

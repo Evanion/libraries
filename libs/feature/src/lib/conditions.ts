@@ -1,7 +1,10 @@
+import { FeatureConfigError } from './errors.js';
+import { instantEpoch } from './instant.js';
 import type {
   Condition,
   EvaluationContext,
-  Instant,
+  FeatureDefinition,
+  FeatureKey,
   Weekday,
 } from './types.js';
 
@@ -14,12 +17,6 @@ const WEEKDAYS: readonly Weekday[] = [
   'fri',
   'sat',
 ];
-
-function toEpoch(value: Instant): number {
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'number') return value;
-  return new Date(value).getTime();
-}
 
 /**
  * The weekday `instant` falls on in `zone`.
@@ -37,6 +34,36 @@ function weekdayIn(instant: Date, zone: string): Weekday | undefined {
     .toLowerCase();
 
   return WEEKDAYS.find((day) => day === formatted);
+}
+
+/**
+ * Checks a feature's window conditions at construction, beside the variant and
+ * dependency checks.
+ *
+ * A window whose instant string names no instant is a configuration error with
+ * no answer evaluation can give. `ruleId` hashes such a string's text, so the
+ * rule carries one name everywhere, while `Date.parse` reads it against the
+ * host's zone, so the rule answers one way in Stockholm and another in Tokyo.
+ * `docs/specs/2026-09-23-feature-variants.md`, "Determinism across processes",
+ * requires one answer per subject per moment in every process.
+ *
+ * @throws {FeatureConfigError} when a `before` or `after` condition names an
+ * instant string that no host can resolve, or that hosts resolve differently.
+ */
+export function validateConditions<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+): void {
+  for (const rule of definition.rules ?? []) {
+    for (const condition of rule.when ?? []) {
+      if (condition.op !== 'before' && condition.op !== 'after') continue;
+      if (typeof condition.value !== 'string') continue;
+      if (!Number.isNaN(instantEpoch(condition.value))) continue;
+
+      throw new FeatureConfigError(
+        `feature "${String(definition.key)}" has a rule whose "${condition.op}" condition names the instant "${condition.value}", which names no instant. Write an ISO 8601 date, or a date-time carrying "Z" or an explicit offset: a date-time without one is read as local time and resolves differently on every host.`,
+      );
+    }
+  }
 }
 
 /**
@@ -69,7 +96,7 @@ export function evaluateCondition(
   if (condition.op === 'before' || condition.op === 'after') {
     const now = context.now;
     if (!(now instanceof Date) || Number.isNaN(now.getTime())) return false;
-    const boundary = toEpoch(condition.value);
+    const boundary = instantEpoch(condition.value);
     if (Number.isNaN(boundary)) return false;
     return condition.op === 'before'
       ? now.getTime() < boundary
