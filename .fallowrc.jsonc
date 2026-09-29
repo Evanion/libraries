@@ -28,8 +28,8 @@
     "apps/docs/tools/widget-renders.mjs",
 
     // The docs site's version directories, written by the `docs:archives`
-    // target rather than imported, and the two commands a person or the
-    // re-cut workflow runs to change what `apps/docs/archives.json` pins.
+    // target rather than imported, and the two commands the release and
+    // re-cut workflows run to change what `apps/docs/archives.json` pins.
     "apps/docs/tools/write-archives.mjs",
     "apps/docs/tools/cut-releases.mjs",
     "apps/docs/tools/recut.mjs",

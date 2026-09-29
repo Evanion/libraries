@@ -1,8 +1,5 @@
-import { workspaceRoot } from '@nx/devkit';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
+import { type Step, stepsOf } from './workflows';
 
 /**
  * The invariant: the release gate is not weaker than the pull request gate.
@@ -25,26 +22,6 @@ import { describe, expect, it } from 'vitest';
  * drives `nx release`, and this asserts it stays that way.
  */
 
-const workflows = join(workspaceRoot, '.github', 'workflows');
-
-interface Step {
-  name?: string;
-  run?: string;
-  env?: Record<string, string>;
-}
-
-interface Workflow {
-  jobs?: Record<string, { steps?: Step[] }>;
-}
-
-function readWorkflow(file: string): Workflow {
-  return parse(readFileSync(join(workflows, file), 'utf-8')) as Workflow;
-}
-
-function stepsOf(workflow: Workflow): Step[] {
-  return Object.values(workflow.jobs ?? {}).flatMap((job) => job.steps ?? []);
-}
-
 /**
  * The one step in a workflow that runs `nx run-many`, with the targets it names.
  *
@@ -54,7 +31,7 @@ function stepsOf(workflow: Workflow): Step[] {
  * error here.
  */
 function runManyStep(file: string): { step: Step; targets: string[] } {
-  const matches = stepsOf(readWorkflow(file)).filter((step) =>
+  const matches = stepsOf(file).filter((step) =>
     step.run?.includes('nx run-many'),
   );
 
