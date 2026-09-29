@@ -154,6 +154,21 @@ overriding the weights entirely. See [Variants](/feature/variants).
 
 A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
 
+### A window's string must name one instant
+
+| Instant string              | Read as                              |
+| --------------------------- | ------------------------------------ |
+| `2026-01-01T00:00:00Z`      | that instant                         |
+| `2026-01-01T09:00:00+09:00` | the same instant                     |
+| `2026-01-01`                | UTC midnight                         |
+| `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
+
+ECMA-262 reads a date-time carrying no offset as local time and fixes a date
+with no time to UTC. A rule derives one id on every host, so an offsetless
+date-time gives a browser in Los Angeles and a service in Stockholm two answers
+under one name in both logs, with nothing in either decision naming the zone
+that decided it. `createFeatures` refuses such a string.
+
 ### `now` is injected
 
 `now` comes from the evaluation context and defaults to `new Date()` at the
