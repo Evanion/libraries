@@ -36,6 +36,10 @@ the `nss`:
 
 ```
 
+`parse` adds `fComponent` first because it takes the f-component off first.
+Nothing depends on that key order: `stringify` writes the components r, then q,
+then f, whatever order its keys arrive in.
+
 <Probe package="urn" probe="components" />
 
 The field above runs `GameURN.parse` on what you type.
