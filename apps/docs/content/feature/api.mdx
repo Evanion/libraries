@@ -362,7 +362,7 @@ check takes the variant branch for that feature and types its `variant` as
 interface RuleOutcome {
   rule: string;
   matched: boolean;
-  failed?: Condition; // the first condition that failed
+  failed?: Condition; // the first condition that failed, when one can be named
   rollout?: {
     percent: number;
     by: string;
@@ -371,6 +371,11 @@ interface RuleOutcome {
   };
 }
 ```
+
+`failed` names the first condition that failed. An outcome `plan()` settled
+drops it when the walk stepped over a condition the build-time context could
+not read, because a request carrying that field may fail the rule on that one
+instead. [Build-time plans](/feature/build-time) states the rule.
 
 ### `Cause<F>`
 

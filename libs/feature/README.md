@@ -596,6 +596,40 @@ promo.plan({ plan: 'free' })['eu-promo']; // -> { key: 'eu-promo', resolved: tru
 
 <!-- #endregion plan-refuted -->
 
+When every rule loses this way the feature settles off, and the breakdown on
+its decision says only what every request agrees on. `failed` names one
+condition out of the several a rule can fail, and which one a request names
+depends on the fields the build did not have, so an outcome names a condition
+only where `plan()` read every condition ahead of the refuted one. Step over
+one it could not read and the outcome names the rule and drops `failed`.
+
+<!-- #region plan-breakdown -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const gated = createFeatures([
+  {
+    key: 'gated',
+    enabled: true,
+    rules: [
+      {
+        id: 'eu-pro',
+        when: [
+          { field: 'region', op: 'eq', value: 'eu' },
+          { field: 'plan', op: 'eq', value: 'pro' },
+        ],
+      },
+    ],
+  },
+]);
+
+gated.resolve({ region: 'eu', plan: 'free' }).gated.rules; // -> [{ rule: 'eu-pro', matched: false, failed: { field: 'plan', op: 'eq', value: 'pro' } }]
+gated.plan({ plan: 'free' }).gated.decision?.rules; // -> [{ rule: 'eu-pro', matched: false }]
+```
+
+<!-- #endregion plan-breakdown -->
+
 A feature with no rules resolves on at build time even while it declares
 variants, so `plan()` settles the two questions separately: `resolved` reads
 enablement, and a deferred entry can still carry a `decision` when only the
