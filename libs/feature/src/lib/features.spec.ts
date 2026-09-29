@@ -182,6 +182,32 @@ describe('createFeatures', () => {
     );
   });
 
+  it('holds every instant inside a window bounded by a number no Date can hold', () => {
+    // `validateConditions` reads the string forms only, so the number is built
+    // into the store and `evaluateCondition` compares against it: a `before`
+    // boundary above every instant a `Date` holds is a window nothing falls
+    // outside. The flag is permanently on, which is the opposite of what a
+    // reader expects from a boundary no `Date` can hold.
+    const features = createFeatures([
+      {
+        key: 'launch',
+        enabled: true,
+        rules: [
+          {
+            when: [
+              { field: 'now', op: 'before', value: Number.POSITIVE_INFINITY },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(features.isEnabled('launch', { now: new Date(WINDOW) })).toBe(true);
+    expect(
+      features.isEnabled('launch', { now: new Date(8640000000000000) }),
+    ).toBe(true);
+  });
+
   it('refuses a window whose string is ISO 8601 in shape and names no date', () => {
     expect(() =>
       createFeatures([
@@ -190,9 +216,7 @@ describe('createFeatures', () => {
           enabled: true,
           rules: [
             {
-              when: [
-                { field: 'now', op: 'before', value: '-000000-01-01' },
-              ],
+              when: [{ field: 'now', op: 'before', value: '-000000-01-01' }],
             },
           ],
         },
