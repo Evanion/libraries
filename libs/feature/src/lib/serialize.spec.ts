@@ -756,15 +756,29 @@ describe('serializeConfig', () => {
    *
    * `serializeConfig` produces a JSON document, and `errors.ts` puts every
    * configuration fault at the call that supplied the configuration, as a
-   * `FeatureConfigError`. Three leaves reach the walk and break both. An
-   * invalid `Date` makes `toISOString` raise a bare `RangeError` naming no
-   * path and no key. A `bigint` passes through, and the publisher's own
-   * `JSON.stringify` throws a `TypeError` naming nothing. A `Map` or a `Set`
-   * is written as `{}`, so the holder installs a document whose variant value
-   * lost every entry and nothing reports it.
+   * `FeatureConfigError`. Each leaf here reaches the walk and breaks both.
    *
-   * All three reach a store: `structuredClone` carries them and `deepFreeze`
-   * seals a `Map` and a `Set` on purpose.
+   * An invalid `Date` makes `toISOString` raise a bare `RangeError` naming no
+   * path and no key. A `bigint` passes through, and the publisher's own
+   * `JSON.stringify` throws a `TypeError` naming nothing. A `Map`, a `Set` and
+   * a `RegExp` keep what they hold in internal slots, and an `Error` keeps its
+   * message and its stack as non-enumerable members, so `Object.entries` reads
+   * nothing off any of the four and the holder installs a document whose
+   * variant value lost what it carried, with no digest disagreeing: the
+   * publisher canonicalizes the same `{}`.
+   *
+   * `NaN` and `Infinity` become `null` on the first transport hop
+   * and both sides digest `null`, so nothing reports the difference. An
+   * `undefined` array element goes the other way, since `canonical` writes the
+   * text `undefined` where JSON writes `null`, and the holder refuses the whole
+   * document over a digest mismatch it cannot explain.
+   *
+   * Every one of them reaches a store: `structuredClone` carries them, holes in
+   * a sparse array included, and `deepFreeze` seals a `Map` and a `Set` on
+   * purpose. Three kinds never arrive, so no case here holds them. A function
+   * and a symbol make `structuredClone` raise `DataCloneError` inside
+   * `createFeatures`, a typed array makes `deepFreeze` raise `TypeError`, and
+   * `structuredClone` hands back a class instance as a plain object.
    */
   describe('a leaf JSON carries no value of', () => {
     it('refuses a Date that names no instant', () => {
@@ -807,6 +821,193 @@ describe('serializeConfig', () => {
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a Set, whose members a document would lose', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: new Set([1, 2]) }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a RegExp, which a document would carry as an empty object', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: { match: /x/g } }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses an Error, whose message is not an own enumerable member', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 1, value: { cause: new Error('boom') } },
+          ],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses NaN, which one JSON hop turns into null', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: { budget: NaN } }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses Infinity, which one JSON hop turns into null', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 1, value: { budget: Infinity } },
+          ],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a non-finite number at an attribute condition value', () => {
+      const features = createFeatures([
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'spend', op: 'eq', value: -Infinity }] }],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses an undefined array element, which two sides digest two ways', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 1, value: ['a', undefined, 2] },
+          ],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('refuses a hole in a sparse array, which structuredClone keeps', () => {
+      const sparse = ['a', , 2];
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: sparse }],
+        },
+      ]);
+
+      expect(1 in (features.config[0]?.variants?.[0]?.value as unknown[])).toBe(
+        false,
+      );
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    });
+
+    it('names the path to the leaf it refused', () => {
+      const features = createFeatures([
+        { key: 'clean', enabled: true },
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 1, value: { labels: [new Map()] } },
+          ],
+        },
+      ]);
+
+      expect(() => serializeConfig(features)).toThrow(
+        '/features/1/variants/0/value/labels/0',
+      );
+    });
+  });
+
+  /**
+   * A member written as `undefined`, which the document does not carry.
+   *
+   * § 8 of the spec: "`undefined` members drop on the way out, which is what
+   * `canonical.ts:21-22` does and what keeps an absent key and a key written as
+   * `undefined` agreeing". `structuredClone` keeps the property, so the drop is
+   * this walk's to make.
+   *
+   * Both cases read `Object.keys`. `toEqual` treats a key holding `undefined`
+   * as absent, so a round-trip assertion passes whether the member dropped or
+   * not, and nothing fails when the filter goes.
+   */
+  describe('an undefined member', () => {
+    it('drops out of a variant value and leaves the members beside it', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            {
+              name: 'control',
+              weight: 1,
+              value: { label: undefined, tier: 'gold' },
+            },
+          ],
+        },
+      ]);
+
+      const document = serializeConfig(features);
+      const value = document.features[0]?.variants?.[0]?.value as Record<
+        string,
+        unknown
+      >;
+
+      expect(Object.keys(value)).toEqual(['tier']);
+    });
+
+    it('drops out of an attribute condition value and leaves the members beside it', () => {
+      const features = createFeatures([
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                {
+                  field: 'plan',
+                  op: 'eq',
+                  value: { name: undefined, tier: 'gold' },
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const document = serializeConfig(features);
+      const value = document.features[0]?.rules?.[0]?.when?.[0]
+        ?.value as Record<string, unknown>;
+
+      expect(Object.keys(value)).toEqual(['tier']);
     });
   });
 });
