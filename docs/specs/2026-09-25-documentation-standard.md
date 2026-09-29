@@ -125,8 +125,9 @@ half-used, and no rule in the old standard asked for it. § 6 is that rule.
     interactive control removed. Carried unchanged from the old standard's
     decision 12. § 9.
 11. Self-containment is a property of an H2 section rather than of a page, and
-    the agent surface is a `.md` sibling per page. Carried unchanged from the old
-    standard's decisions 3 and 14. § 10.
+    the agent surface is a `.md` sibling per page. Carried from the old
+    standard's decisions 3 and 14, with the heading rule amended by decision 16.
+    § 10.
 12. One domain across every section: the board game shop the demo apps already
     run. Carried unchanged from the old standard's decision 16. § 11.
 13. Separators rather than folders, and every section directory has a `_meta.ts`
@@ -137,6 +138,13 @@ half-used, and no rule in the old standard asked for it. § 6 is that rule.
     budget. § 14.
 15. Three pages are rewritten to this standard before any of the other 81 is
     touched, and the ratchets carry the rest. § 15.
+16. The owner ruled on 2026-09-30 on the rules a cold-reader sweep found
+    showing through as a rubric. A fading reminder is one clause and a link to
+    where the concept was taught, never a repeated sentence or fence (§ 1). A
+    stage page's closing names what the reader now has and links the next page
+    in its own words, under no fixed "Now that …" heading (§ 2, § 3). An H2
+    section names its package in its first sentence, and in its heading only
+    where the heading would read the same on another package's page (§ 10).
 
 Decision 5 is the one the owner judges, because the brief is what he was reading
 when he called the documentation jarring. Decision 6 is the one that changes the
@@ -172,14 +180,40 @@ The stages are cumulative and support fades. A Setup article may use what the
 Overview established. A deep-dive may use what both established, and carries a
 short reminder of what the page before it introduced, a shorter one after that,
 and none thereafter. This is Carroll's fading and it is carried forward from the
-old standard's § 2 unchanged; the old standard argues it at length and this
-document does not repeat the argument.
+old standard's § 2, with the form of a reminder amended below; the old standard
+argues the gradient at length and this document does not repeat the argument.
+
+By the owner's ruling of 2026-09-30, a reminder is a pointer. It is one clause
+naming the concept and what it does, linked to the section that taught it:
+"`GameURN`, the namespace class [Getting started](../getting-started) builds".
+The shorter reminder on the page after is the linked name alone. A reminder is
+never a sentence copied from the earlier page, and never a fence that shows
+again code an earlier page in the section showed. Code a fence needs only in
+order to compile goes above a Twoslash `// ---cut---`, which compiles it and
+renders none of it. The old standard's § 2 said a reminder is not a link, and
+this ruling reverses that half: the clause carries what the reader needs to go
+on, so the link points back to a page the reader has already walked and nobody
+has to follow it.
+
+The owner ruled after a cold-reader sweep of all twelve sections on 2026-09-30
+found fading applied as copy-paste. `urn` renders a `class GameURN` declaration
+in nine fences across its four teaching pages, counted over the README regions
+those pages reference, and react-acl tells its reader that a browser decision
+enforces nothing on four pages. Five sections told one claim three or more
+times, and readers took the repeats for boilerplate.
+
+A reviewer tells a pointer from a repeat with two checks. A pointer is a clause
+inside a sentence doing the page's own work, and it carries a link. A repeat is
+found by searching the section's earlier teaching pages for the reminder's
+sentence and the code its fence renders: a match is a repeat, whatever its
+length.
 
 What the stages change is the link rule, and the change is worth stating. On a
 stage page a link out costs the reader the thread they are holding, so the page
 carries what it needs and links only at its end. On a page entered sideways the
 link is the point, and re-teaching a concept inline is the error. Both halves are
-the old standard's and both survive.
+the old standard's and both survive. A fading reminder's link back is the one
+link a stage page carries in its body, for the reason the ruling above gives.
 
 ## 2. Stage 1: the Overview
 
@@ -200,13 +234,15 @@ the old standard's and both survive.
 5. **The boundary.** What the package does not do. `acl/index.mdx` already does
    this well and the rewrite keeps it.
 6. **The call to action.** A link into the Setup article, as the last thing on
-   the page. The meta-prompt fixes the sentence: "Now that you understand how
-   [Tool] works, let's get it set up." The sentence is not copied literally,
-   because `docs/specs/2026-09-20-public-documentation-guidance.md` decision 1
-   puts a sentence about what the reader does in the second person or the
-   imperative and this repository carries no first-person plural outside a
-   tutorial. What is kept is its two halves: the Overview's last section names
-   what the reader now understands and links to the page that installs it.
+   the page. The meta-prompt's sentence is "Now that you understand how [Tool]
+   works, let's get it set up." What is kept is its two halves: the Overview's
+   last section names what the reader now understands and links to the page
+   that installs it. By the owner's ruling of 2026-09-30, the page writes both
+   halves in its own words. No page carries a fixed "Now that …" heading or
+   sentence, or a closing heading of any other fixed wording, because a closing
+   built to one template on every page is a rubric under § 5. The cold-reader
+   sweep of 2026-09-30 found readers naming the "Now that X, Y" heading by the
+   second or third page.
 
 What it does not carry: an install command, a configuration block, an API
 detail, a version number. Those belong in the section, one stage down.
@@ -254,7 +290,9 @@ What it carries, in this order:
    you have [Tool] running, let's learn how to perform your first [Core Task]",
    and the part that matters is that the page names the next task rather than
    handing the reader a menu. A reader who has just succeeded at one thing wants
-   the second thing, not a choice.
+   the second thing, not a choice. The closing names what the reader now has
+   running and the task the linked page teaches, in the page's own words, under
+   the ruling in § 2's call to action.
 
 What it does not carry: a second worked case, an advanced option, a performance
 note, a comparison with another library. Each of those is a deep-dive. An
@@ -653,13 +691,24 @@ no browser runtime, a cross-process concern, and an argument.
 
 ## 10. What survives being taken apart
 
-Carried forward from the old standard's § 5a unchanged.
+Carried forward from the old standard's § 5a, with its heading rule amended by
+the owner's ruling of 2026-09-30.
 
 Self-containment is a property of an H2 section rather than of a page, because a
 retrieval system takes a chunk whose boundaries the writer never chose. Three
 rules, each a reading a reviewer applies once: no pronoun whose referent is in an
-earlier section; a heading naming the package as well as the operation; and every
+earlier section; the package named in the section's first sentence; and every
 fact beside the sentence that uses it.
+
+The old standard put the package in every heading, and on this site that wrote
+it into nearly every H2 ("Drive a whole tree from one react-acl provider"). The
+cold-reader sweep of 2026-09-30 found it in eight sections, and readers named the
+pattern by the second or third page. A chunk carries its heading and the prose
+under it, so a retriever reads the package in the first sentence as surely as in
+the heading. The heading names the package as well only where the operation
+alone reads the same on another package's page: `## Errors`, `## Validation`,
+`## Querying`. A reviewer reads the heading and the first sentence as the whole
+chunk, and a section whose two lines do not say which package it is about fails.
 
 The agent surface is a `.md` sibling per page, generated after region inlining so
 its fences are not empty. `llms.txt` is not published, and the old standard's
@@ -716,9 +765,11 @@ than the build, and § 14 is where that split is set out per guard.
    paragraphs. **review**
 10. If it teaches, it uses no symbol, option or concept a later stage page
     introduces, and it reminds the reader of each concept the page before it
-    introduced at less length than that page used. **review**
+    introduced with a pointer under § 1, never a sentence or fence repeated from
+    that page. **review**
 11. Its teaching layer is complete with every control removed. **review**
-12. Every H2 section in it stands alone when cut out. **review**
+12. Every H2 section in it stands alone when cut out, and names its package in
+    its first sentence. **review**
 13. Every diagram in it is a `mermaid` fence carrying a `caption`, sits inside
     the block that refers to it, and says nothing the prose does not.
 14. Every example in it is set in the shop, or the section carries a recorded
@@ -733,7 +784,7 @@ than the build, and § 14 is where that split is set out per guard.
     it binds resolves to an export.
 19. Every internal link it makes resolves to a page that exists.
 20. It carries no labelled four-part brief, and no fixed rubric block of any
-    kind. **review**
+    kind, a fixed closing heading included. **review**
 
 The old standard's item 12, "under 1,200 words of prose", is deleted. § 7 is the
 reason.
