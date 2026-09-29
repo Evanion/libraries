@@ -84,6 +84,24 @@ describe('the .md siblings', () => {
   });
 
   /**
+   * Twoslash renders nothing above a fence's `// ---cut---`, and the region
+   * expansion puts a README's preamble there, so a sibling that kept those lines
+   * would show imports the browser never shows.
+   */
+  it('shows each Twoslash fence from its cut down, as the browser does', () => {
+    const withCut = [...siblings]
+      .filter(([, markdown]) => markdown.includes('// ---cut---'))
+      .map(([route]) => route);
+
+    expect(withCut).toEqual([]);
+    // `libs/react-widget/doc-examples.preamble.ts` imports React, and the page
+    // says the file its reader saves imports none.
+    expect(siblings.get('next/react-widget/getting-started.md')).not.toContain(
+      "import * as React from 'react'",
+    );
+  });
+
+  /**
    * A page links its own section relatively, and a browser resolves that
    * against the page's URL, which ends in a slash. The sibling is served one
    * segment above it, so the same href would name a different page.

@@ -30,6 +30,11 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * same href would resolve one segment short. Resolved here against the page's
  * own route, the link names the page it named in the browser.
  *
+ * A Twoslash fence loses everything above its `// ---cut---`. Twoslash compiles
+ * those lines and renders none of them, so the browser shows the code below the
+ * cut, and the sibling shows the same code. Most of those lines are a README's
+ * preamble, which the region expansion put there for the compiler.
+ *
  * Nothing else is rewritten. A ```mermaid fence stays a fence, because the
  * `<Diagram>` the browser gets is markup around this same source and the fence
  * is what a reader with no browser can use. The components a page mounts stay
@@ -99,6 +104,46 @@ export function absoluteLinks(markdown, route) {
 }
 
 /**
+ * Every Twoslash fence with the lines above its `// ---cut---` removed, the
+ * marker included. A fence with no cut, or no `twoslash` in its info string, is
+ * left as written, because only Twoslash reads the marker.
+ */
+function cutFences(markdown) {
+  const out = [];
+  let fence = null;
+
+  for (const line of markdown.split('\n')) {
+    const marker = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+
+    if (fence === null) {
+      out.push(line);
+      if (marker)
+        fence = {
+          ticks: marker[1],
+          twoslash: /\btwoslash\b/.test(marker[2]),
+          body: [],
+        };
+      continue;
+    }
+
+    if (marker && marker[1].startsWith(fence.ticks)) {
+      const cut = fence.twoslash
+        ? fence.body.findIndex((body) => body.trim() === '// ---cut---')
+        : -1;
+      out.push(...fence.body.slice(cut + 1), line);
+      fence = null;
+      continue;
+    }
+
+    fence.body.push(line);
+  }
+
+  if (fence !== null) out.push(...fence.body);
+
+  return out.join('\n');
+}
+
+/**
  * Every page's sibling, keyed by its path under the exported site.
  *
  * `content/urn/api.mdx` is served at `/urn/api/` and its sibling is
@@ -122,10 +167,12 @@ export function mdSiblings(contentDir, root) {
     siblings.set(
       route.replace(/\.mdx$/, '.md'),
       absoluteLinks(
-        expandRegions(
-          expandReferences(readFileSync(page, 'utf8'), root, page),
-          root,
-          page,
+        cutFences(
+          expandRegions(
+            expandReferences(readFileSync(page, 'utf8'), root, page),
+            root,
+            page,
+          ),
         ),
         route,
       ),
