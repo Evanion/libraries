@@ -58,18 +58,21 @@ search result and assumes nothing.
 
 **Teaching pages are cumulative, and support fades rather than stops.** A page
 may use what an earlier page taught. A concept introduced on one page carries a
-short reminder on the next, a shorter one after that, and none thereafter.
-Assuming it silently is the rule Carroll shipped, tested, and replaced.
+short reminder on the next, a shorter one after that, and none thereafter. A
+reminder is one clause and a link back to where the concept was taught, and
+never a sentence or a fence copied from that page. Assuming it silently is the
+rule Carroll shipped, tested, and replaced.
 
 **A link costs a reader a thread, and only a reader who has one can be charged
 for it.** On a teaching page a link out is that cost. On a reference page,
 question page or platform guide the link is the point, and re-teaching inline is
-the error.
+the error. A fading reminder's link back to an earlier page is the exception.
 
 **An H2 section has to stand on its own.** Retrieval hands an agent a section,
-not a page: no pronoun whose referent is in a previous section, a heading that
-names the package as well as the operation, and a fact kept next to the sentence
-that uses it.
+not a page: no pronoun whose referent is in a previous section, the package
+named in the section's first sentence, and a fact kept next to the sentence that
+uses it. The heading names the package too only where it would read the same on
+another package's page, such as `## Errors`.
 
 **A playground does not replace prose.** Text, diagrams and code teach the
 concept; the interactive control is where a reader takes that concept and works
