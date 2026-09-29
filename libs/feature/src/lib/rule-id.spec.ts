@@ -386,7 +386,9 @@ describe('ruleId', () => {
     ];
 
     const ids = outside.map((value) =>
-      ruleId({ when: [{ field: 'now', op: 'after', value: value as Instant }] }),
+      ruleId({
+        when: [{ field: 'now', op: 'after', value: value as Instant }],
+      }),
     );
 
     expect(new Set(ids).size).toBe(outside.length);
