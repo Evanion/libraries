@@ -17,13 +17,16 @@
  *   a pull request's branch is neither: `main` is rebase-only, so the merge
  *   writes that commit again under another SHA.
  * - The pin is one the site reads. The generator serves the current line and the
- *   one before it, and applies a pin only to its line's newest release: a pin
- *   for an older release, or for a line past those two, changes nothing and
- *   reads as a decision nobody is making.
- * - No later version's tag is an ancestor of the pinned commit. Such a commit
+ *   one before it, and applies a pin only to the release its line is cut from,
+ *   the line's newest x.y.0: a pin for a patch, for an x.y.0 a later one
+ *   replaced, or for a line past those two, changes nothing and reads as a
+ *   decision nobody is making. `cut-releases.mjs` drops a pin a release made
+ *   dead, so this refuses one only when a person wrote it.
+ * - No tag of a later x.y is an ancestor of the pinned commit. Such a commit
  *   documents that later version, whatever the dry run below computes: the dry
  *   run measures from the package's newest tag, so it cannot see that a v1
- *   pin names a commit past 2.0.0.
+ *   pin names a commit past 2.0.0. A patch of the pinned x.y.0 is documented by
+ *   it, so a commit past the patch's tag is not refused.
  * - A pin that is not the tag's own commit, or that reads another path, or that
  *   serves the release from `/next/`, carries a reason, and no two reasons are
  *   the same. A copied justification is a justification nobody wrote.
@@ -67,18 +70,22 @@ export interface PinInputs {
    */
   segmentOf: (version: string) => string;
   /**
-   * The tags of a package's versions above a version: `taggedAfter` from
-   * `apps/docs/tools/versions.mjs`, over the repository's tags.
+   * The tags of a package's versions in a later x.y than a version's:
+   * `taggedPast` from `apps/docs/tools/versions.mjs`, over the repository's
+   * tags.
    */
-  taggedAfter: (name: string, version: string) => readonly string[];
+  taggedPast: (name: string, version: string) => readonly string[];
   /**
-   * A package's release lines, newest first, each with its releases newest
-   * first: `releaseLines` from `apps/docs/tools/versions.mjs`, over the
-   * repository's tags, which the generator plans from.
+   * A package's release lines, newest first, each with the release it is cut
+   * from and its releases newest first: `releaseLines` from
+   * `apps/docs/tools/versions.mjs`, over the repository's tags, which the
+   * generator plans from.
    */
-  releaseLines: (
-    name: string,
-  ) => readonly { segment: string; releases: readonly { version: string }[] }[];
+  releaseLines: (name: string) => readonly {
+    segment: string;
+    cut: { version: string };
+    releases: readonly { version: string }[];
+  }[];
 }
 
 /** Every rule a pin file breaks, as one line each. */
@@ -129,15 +136,15 @@ export function pinFaults(inputs: PinInputs): string[] {
 
       const released = inputs.releaseLines(entry.name);
       const kept = released.slice(0, 2).map((each) => each.segment);
-      const newest = released.find((each) => each.segment === segment)
-        ?.releases[0]?.version;
+      const cut = released.find((each) => each.segment === segment)?.cut
+        .version;
       if (!kept.includes(segment))
         faults.push(
           `${at}: the site keeps ${kept.join(' and ')} and reads no pin for ${segment}`,
         );
-      else if (newest !== pin.version)
+      else if (cut !== pin.version)
         faults.push(
-          `${at}: ${newest} is the newest release in ${segment}, so the site cuts it from its own tag and reads no pin for ${pin.version}`,
+          `${at}: the site cuts ${segment} from ${cut} and reads no pin for ${pin.version}`,
         );
 
       const deviates = pin.next === true || pin.path !== undefined;
@@ -154,7 +161,7 @@ export function pinFaults(inputs: PinInputs): string[] {
         if (!inputs.isAncestor(pinned, inputs.main))
           faults.push(`${at}: ${pin.sha} is not on main`);
 
-        for (const later of inputs.taggedAfter(entry.name, pin.version)) {
+        for (const later of inputs.taggedPast(entry.name, pin.version)) {
           const released = inputs.commit(later);
           if (released && inputs.isAncestor(released, pinned))
             faults.push(
