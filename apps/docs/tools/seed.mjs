@@ -20,10 +20,12 @@ import { dirname, join } from 'node:path';
  * dependency does, so a seed is only honest if its dependencies are unchanged.
  *
  * The dry run is run, never reimplemented. `nx release` attributes a commit by
- * its scope, and counts a change to a file every project reads -- the lock
- * file -- against every project, so "commits touching the package" and
- * "commits nx counts" are different sets, and a second reading of the same
- * history would drift from the pipeline it is meant to agree with.
+ * its scope, and counts it against every project `nx affected` names for it:
+ * the projects whose files or dependencies it touched, and every project when
+ * it edits a file every project reads, such as `nx.json`. So "commits touching
+ * the package" and "commits nx counts" are different sets, and a second
+ * reading of the same history would drift from the pipeline it is meant to
+ * agree with.
  *
  * The answer is taken once, when a person cuts, and frozen in the pin's
  * `reason`. It is not re-asked of `main` by any check: the moment a `fix` lands

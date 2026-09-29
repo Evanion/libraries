@@ -120,6 +120,29 @@
       }
     }
   ],
+  "pluginsConfig": {
+    "@nx/js": {
+      // A commit that edits package-lock.json touches the projects depending on
+      // a package whose resolved version or integrity it changed, and no
+      // project when it changes none. nx parses the lock file at both revisions
+      // to find those packages, and touches every project when a revision does
+      // not parse or a changed package is missing from the project graph. The
+      // default, `all`, touches every project on any edit to the file
+      // (lock-file-changes.js, getTouchedProjectsFromLockFile).
+      //
+      // `nx release` finds a commit's touched projects with the same code as
+      // `nx affected`. A commit whose type releases gives a patch to every
+      // project it touches under another scope (semver.js:29, see
+      // `useCommitScope` below). Under `all`, a `fix` that edits a workspace
+      // package's own peer range in the lock file releases a patch of every
+      // package.
+      //
+      // The pre-commit hook lints `nx affected`, so a dependency bump lints the
+      // projects that depend on the bumped package. CI runs every target on
+      // every project and does not read this.
+      "projectsAffectedByDependencyUpdates": "auto"
+    }
+  },
   "targetDefaults": {
     "test": {
       // Tests read build output: storefront's build.test.ts asserts on what
