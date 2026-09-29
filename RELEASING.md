@@ -127,11 +127,14 @@ of the core.
 
 Two consequences for a release run:
 
-- An exact pin never matches the core's next version, so
-  `preserveMatchingDependencyRanges` never preserves it. nx rewrites it during
-  the version step of the same run, with no follow-up commit. There is no repeat
-  of `8fc85f9`, where a caret range had to be raised by hand because it named a
-  version that did not exist yet.
+- nx rewrites an exact pin during the version step of the same run, with no
+  follow-up commit. `preserveMatchingDependencyRanges` reads only ranges, and
+  nx does not count an exact version as one. nx leaves a range alone while the
+  new version satisfies it and stops the run once the new version falls outside
+  it, so it keeps a caret range through every minor and patch of the dependency
+  and refuses its next major. `tools/repo-checks` fails on any dependency
+  between released packages that is not an exact pin at the dependency's
+  current version.
 - `version.updateDependents` is `always`, so a subset release of the core alone
   still versions and republishes every package that names it. Under the default
   `auto` a `projects: widget` run would publish a core no renderer references.

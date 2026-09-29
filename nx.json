@@ -193,14 +193,19 @@
       // feature the patch, so a 0.x package does not reach 1.0.0 on its first
       // breaking change.
       "adjustSemverBumpsForZeroMajorVersion": true,
-      // An in-workspace dependency is written as an exact pin rather than a
-      // caret range. `@evanion/widget` holds the item shape every widget
-      // adapter renders, and an adapter compiled against one version of it and
-      // running against another is a rendering bug with no error message. An
-      // exact pin also never matches the core's next version, so
-      // `preserveMatchingDependencyRanges` -- which only preserves a range that
-      // still matches -- never preserves it, and nx rewrites it during the
-      // version step of the same release run.
+      // nx writes an in-workspace dependency as an exact version.
+      // `@evanion/widget` holds the item shape every widget adapter renders,
+      // and an adapter compiled against one version of it and running against
+      // another is a rendering bug with no error message.
+      //
+      // nx rewrites an exact version during the version step of the same
+      // release run: @nx/js does not count one as a range (release/utils/
+      // semver.js, isValidRange), so `preserveMatchingDependencyRanges` skips
+      // it. That setting defaults to true and throws on a range the new version
+      // falls outside (release/version-actions.js:189). nx keeps a caret range
+      // through every minor and patch of the dependency and refuses its next
+      // major. tools/repo-checks holds every dependency between released
+      // packages to an exact pin (released-pins.test.ts).
       "versionPrefix": "",
       // Update a dependent even when a `projects` filter excludes it. Under
       // `auto`, the default, a subset release of the core alone would publish a
