@@ -388,6 +388,57 @@ describe('what an entry point answers, over the freeze the store applies', () =>
     expectTypeOf(features.resolve().cta.enabled).toEqualTypeOf<boolean>();
   });
 
+  it('freezes an inferring call whose options name observe and hold undefined', (): void => {
+    // The inferring signature asks whether `O` names `observe`, and an options
+    // object annotated `satisfies UnobservedOptions<Flags>` still names the
+    // member when it holds `undefined` in it. So the annotation answers the
+    // mutable form only against the pair that takes a named schema, and the api
+    // page sends a caller who wants the mutable form out of an inferring call to
+    // options that omit the member. The two calls below sit one line apart to
+    // hold both halves of that claim.
+    const options = { observe: undefined } satisfies UnobservedOptions<Flags>;
+    const inferred = createFeatures(defs, options);
+    const named = createFeatures<Flags>(
+      [{ key: 'cta', enabled: true }] as FeatureDefinition<'cta'>[],
+      options,
+    );
+
+    // @ts-expect-error the inferring signature reads the key, not the value
+    inferred.resolve().cta.enabled = false;
+    named.resolve().cta.enabled = false;
+
+    expectTypeOf(named.resolve().cta.enabled).toEqualTypeOf<boolean>();
+  });
+
+  it('refuses the unobserved annotation on a forwarded optional observer', (): void => {
+    const build = (observe?: (event: FeatureEvent<Flags>) => void) => {
+      // A wrapper cannot annotate its way to the mutable form: the forwarded
+      // parameter's type is not `undefined`, so `UnobservedOptions<Flags>`
+      // refuses the property. The wrapper branches on the parameter, and its own
+      // caller reads the union of both forms.
+      const options = {
+        // @ts-expect-error the forwarded parameter is not provably absent
+        observe,
+      } satisfies UnobservedOptions<Flags>;
+
+      return options;
+    };
+    const config: FeatureDefinition<'cta'>[] = [{ key: 'cta', enabled: true }];
+    const branching = (observe?: (event: FeatureEvent<Flags>) => void) =>
+      observe
+        ? createFeatures<Flags>(config, { observe })
+        : createFeatures<Flags>(config, { correlateBy: 'tenant' });
+
+    const store = branching();
+
+    // @ts-expect-error the wrapper answers the union of both forms, and a write
+    // assigns to neither member of it until a reader narrows the store
+    store.resolve().cta.enabled = false;
+
+    expectTypeOf(build).returns.toHaveProperty('observe');
+    expectTypeOf(store.resolve().cta.key).toEqualTypeOf<'cta'>();
+  });
+
   it('answers both forms for a store whose observation is open', (): void => {
     const read = (features: Features<Flags>) => features.resolve();
 

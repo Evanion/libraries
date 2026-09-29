@@ -124,8 +124,20 @@ export interface FeatureOptions<
    * incident. A decision costs under a microsecond and an audit transport on a
    * bad day costs forty milliseconds, so the engine attaches a rejection
    * handler to anything thenable and moves on. The engine's own guard stays
-   * within run-to-run noise of the bare call, measured at forty features, so
-   * the number anyone should care about is what their own hook body does.
+   * within run-to-run noise of the bare call. Measured at forty features, a
+   * synchronous no-op observer and the bare call both ran between 20 and 22
+   * microseconds, so the number anyone should care about is what their own hook
+   * body does.
+   *
+   * This member decides whether the store freezes what it answers. A store
+   * carrying an observer deep-freezes each record before it emits it and hands
+   * the caller that same frozen object, and a store carrying none freezes
+   * nothing, so the package behaves differently under two configurations. The
+   * engine takes that asymmetry deliberately. At forty features the freeze adds
+   * 15 to 18 microseconds to a 20 microsecond `resolve`, and a freeze on every
+   * call would add that to every user of the package whether or not they
+   * observe anything. A store nobody observes hands its record to nobody else,
+   * so the freeze protects nothing there.
    *
    * This member does not count exposures. `resolve` decides every configured
    * feature, so an observer fired from it reports a decision for every feature

@@ -86,8 +86,19 @@ A call whose options settle neither question answers the frozen form. Options
 held in a variable annotated `FeatureOptions<S>`, and a wrapper that forwards an
 optional `observe` parameter, both hide the observer from the compiler and both
 take that branch, so the compiler refuses a write the runtime refuses once the
-observer turns out to be there. A caller who installs no observer writes
-`satisfies UnobservedOptions<S>` on the options to get the mutable form back.
+observer turns out to be there.
+
+A caller who installs no observer gets the mutable form back by leaving
+`observe` out of the options altogether, and `satisfies UnobservedOptions<S>` on
+such an object checks the other members without disturbing that answer. An
+options object that names `observe` and holds `undefined` in it works only
+against the pair that takes a named schema, because the inferring signature asks
+whether `O` names the member at all and answers the frozen form for a value that
+names it. A wrapper forwarding an optional `observe` parameter has no annotation
+available at all: `{ observe } satisfies UnobservedOptions<S>` does not typecheck,
+since the forwarded parameter's type is not `undefined`. Such a wrapper branches
+on the parameter and calls `createFeatures` once per branch, and its own caller
+then reads the union of both forms and narrows it.
 
 See [Observing](/feature/observing) for what an observer receives.
 
@@ -469,8 +480,9 @@ type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
 `observe` is called once per public entry point call and the engine never awaits
 it. `onObserveError` replaces the `console.warn` the engine writes when an
 observer throws or rejects. The engine's own guard stays within run-to-run noise
-of the bare call, measured at forty features, so the number anyone should care
-about is what their own hook body does.
+of the bare call. Measured at forty features, a synchronous no-op observer and
+the bare call both ran between 20 and 22 microseconds, so the number anyone
+should care about is what their own hook body does.
 
 `observe` does not count exposures. `resolve` decides every configured feature,
 so an observer fired from it reports a decision for every feature the request
@@ -517,7 +529,12 @@ type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
 
 A store carrying an observer freezes what it emits and answers the caller with
 that same object, so its `resolve`, `plan` and `toggle` answer
-`DeepReadonly<T>`. A store carrying none freezes nothing and answers `T`.
+`DeepReadonly<T>`. A store carrying none freezes nothing and answers `T`, so the
+package behaves differently under two configurations. The engine takes that
+asymmetry deliberately. At forty features the freeze adds 15 to 18 microseconds
+to a 20 microsecond `resolve`, and a freeze on every call would add that to
+every user of the package whether or not they observe anything. A store nobody
+observes hands its record to nobody else, so the freeze protects nothing there.
 
 `ReadonlyDate` drops the mutators. `Readonly<Date>` marks the properties
 readonly and leaves `setTime`, `setHours` and the rest callable, and each of

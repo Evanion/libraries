@@ -32,11 +32,23 @@ import { describe, expect, it } from 'vitest';
  * survives an edit to the prose around it, and a whole-sentence match would
  * turn every rewording into a failure.
  *
+ * § 4.3 calls the conditional freeze the least comfortable call it makes, and it
+ * requires the reason at the member in the words the section uses: the freeze
+ * adds 15 to 18 microseconds to a 20 microsecond call at forty features, and the
+ * alternative is a freeze on every call. A reader who installs an observer and
+ * then hits a frozen `resolve` result meets the asymmetry on three surfaces, and
+ * none of the three leads to the other two, so each one carries the reason.
+ *
+ * § 4.3 also settles which options answer the mutable form, and the API
+ * reference documents how a caller reaches it. An options object that omits
+ * `observe` reaches it and an options object that names the member does not, so
+ * the page states which annotation holds and which one does not typecheck.
+ *
  * § 5 measures the engine's own guard and requires the measurement beside the
  * latency argument, because a reader who benchmarks a blocking observer sees the
  * transport dominate the call and attributes that time to the library. The
  * Observing page, the member and the API reference entry all argue the latency,
- * so all three carry the measurement.
+ * so all three carry the measurement and all three carry the figure.
  *
  * The scope is this one seam. A general rule that documentation carries every
  * sentence a spec asks for has no way to find the placements, and the spec names
@@ -133,6 +145,7 @@ const NOTICES = [
     until: '  observe?: (event',
     phrases: [
       'stays within run-to-run noise of the bare call',
+      'between 20 and 22 microseconds',
       'the number anyone should care about is what their own hook body does',
     ],
   },
@@ -144,7 +157,60 @@ const NOTICES = [
     until: '### `FrozenWhenObserved',
     phrases: [
       'stays within run-to-run noise of the bare call',
+      'between 20 and 22 microseconds',
       'the number anyone should care about is what their own hook body does',
+    ],
+  },
+  {
+    what: "the freeze asymmetry's reason on the `observe` member",
+    spec: '§ 4.3',
+    file: 'libs/feature/src/lib/observe.ts',
+    from: '   * Called once per public entry point call',
+    until: '  observe?: (event',
+    phrases: [
+      'behaves differently under two configurations',
+      'adds 15 to 18 microseconds',
+      'whether or not they observe anything',
+      'the freeze protects nothing there',
+    ],
+  },
+  {
+    what: "the freeze asymmetry's reason on the API reference entry",
+    spec: '§ 4.3',
+    file: 'apps/docs/content/feature/api.mdx',
+    from: '### `FrozenWhenObserved',
+    until: '### `FeatureKey` and `Instant`',
+    phrases: [
+      'behaves differently under two configurations',
+      'adds 15 to 18 microseconds',
+      'whether or not they observe anything',
+      'the freeze protects nothing there',
+    ],
+  },
+  {
+    what: "the freeze asymmetry's reason on the Observing page",
+    spec: '§ 4.3',
+    file: 'apps/docs/content/feature/observing.mdx',
+    from: '## An observer never awaits and never changes an outcome',
+    until: '## When an observer throws',
+    phrases: [
+      'behaves differently under two configurations',
+      'adds 15 to 18 microseconds',
+      'whether or not they observe anything',
+      'the freeze protects nothing there',
+    ],
+  },
+  {
+    what: 'the options that answer the mutable form, on the API reference entry',
+    spec: '§ 4.3',
+    file: 'apps/docs/content/feature/api.mdx',
+    from: 'A call whose options settle neither question',
+    until: '## `Features<S>`',
+    phrases: [
+      'leaving `observe` out of the options altogether',
+      'works only against the pair that takes a named schema',
+      'does not typecheck',
+      'branches on the parameter',
     ],
   },
   {
