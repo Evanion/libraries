@@ -13,6 +13,11 @@ function nameOf(value: object): string {
   return named.constructor?.name ?? 'value of that prototype';
 }
 
+/** `a` or `an`, so a refusal naming an `Error` reads as a sentence. */
+function article(name: string): string {
+  return /^[aeiou]/i.test(name) ? 'an' : 'a';
+}
+
 /**
  * Every `Date` written as its ISO string, through arrays and nested objects.
  *
@@ -103,7 +108,7 @@ function serialized(
     if (prototype !== Object.prototype && prototype !== null) {
       const name = nameOf(value);
       throw new FeatureConfigError(
-        `the value at ${path} is a ${name}, and JSON carries no ${name}`,
+        `the value at ${path} is ${article(name)} ${name}, and JSON carries no ${name}`,
       );
     }
   }
