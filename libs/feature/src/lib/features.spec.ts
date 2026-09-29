@@ -1621,6 +1621,418 @@ describe('plan', () => {
     expect(entry.needs).toEqual([]);
     expect(entry.decision?.enabled).toBe(false);
   });
+
+  it('refutes a rule on an ne condition the context already fails', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'not-gold',
+            when: [
+              { field: 'tier', op: 'ne', value: 'gold' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ tier: 'gold' }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('refutes a rule on a not-in condition the context already fails', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'paid',
+            when: [
+              { field: 'plan', op: 'not-in', value: ['free', 'trial'] },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'trial' }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('refutes a rule on a contains condition the context already fails', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'admins',
+            when: [
+              { field: 'roles', op: 'contains', value: 'admin' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ roles: ['viewer'] }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('refutes an in condition whose value is not a list', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'paid',
+            when: [
+              { field: 'plan', op: 'in', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'pro' }).promo;
+
+    // A condition's `value` is `unknown`, so a bare string is legal for the
+    // type. `in` holds for a list membership and nothing else, so this rule
+    // matches no context and the plan may walk past it.
+    expect(entry.resolved).toBe(true);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('blames the first condition it could evaluate, not a later one', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'eu-pro-gold',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'tier', op: 'eq', value: 'gold' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free', tier: 'silver' }).promo;
+
+    expect(entry.decision?.rules).toHaveLength(1);
+    expect(entry.decision?.rules?.[0]?.failed).toEqual({
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    });
+  });
+
+  it('carries one breakdown entry per rule when two rules are identical', () => {
+    const shared = [
+      { field: 'region', op: 'eq', value: 'eu' },
+      { field: 'plan', op: 'eq', value: 'pro' },
+    ] as const;
+    const features = createFeatures([
+      { key: 'promo', enabled: true, rules: [{ when: shared }, { when: shared }] },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe(false);
+    expect(entry.decision?.rules).toHaveLength(2);
+    expect(entry.decision?.rules?.[0]).toEqual(entry.decision?.rules?.[1]);
+    expect(entry.decision?.rules?.[0]?.failed).toEqual({
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    });
+  });
+
+  it('settles a window rule the context refuted on a field other than now', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'launch-pro',
+            when: [
+              { field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('defers the same window rule on now when the context refutes nothing', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'launch-pro',
+            when: [
+              { field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'pro' }).promo;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['now']);
+  });
+
+  it('walks past a rule the context refuted however wide its rollout', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'pro-ramp',
+            when: [{ field: 'plan', op: 'eq', value: 'pro' }],
+            rollout: { percent: 100 },
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('defers a rule it cannot evaluate even when its rollout admits nobody', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'staff-ramp',
+            when: [{ field: 'role', op: 'eq', value: 'staff' }],
+            rollout: { percent: 0 },
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1' }).promo;
+
+    // The rollout is a conjunct the walk does not read: only a `when`
+    // condition refutes a rule, so the outstanding `role` still defers this.
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['role']);
+  });
+
+  it('defers a field the context carries as undefined', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          { id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: undefined }).promo;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['plan']);
+  });
+
+  it('sorts and deduplicates the needs of the rules it could not decide', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          { id: 'org', when: [{ field: 'org', op: 'eq', value: 'acme' }] },
+          { id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+          {
+            id: 'adult-org',
+            when: [
+              { field: 'age', op: 'eq', value: 18 },
+              { field: 'org', op: 'eq', value: 'globex' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['age', 'org']);
+  });
+
+  it('cascades off to a dependant whose parent refutation settled off', () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+        ],
+      },
+      { key: 'child', enabled: true, dependsOn: ['parent'] },
+    ]);
+
+    const planned = features.plan({ plan: 'free' });
+
+    expect(planned.parent.resolved).toBe(false);
+    expect(planned.child.resolved).toBe(false);
+    expect(planned.child.needs).toEqual([]);
+    expect(planned.child.decision?.reason).toBe('dependency-off');
+    expect(planned.child.decision?.cause).toEqual({
+      key: 'parent',
+      reason: 'no-rule-matched',
+      rule: 'eu-pro',
+    });
+  });
+
+  it("leaves a dependant's needs to the parent while the parent is unresolved", () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        rules: [{ id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+      },
+      {
+        key: 'child',
+        enabled: true,
+        dependsOn: ['parent'],
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const planned = features.plan({ plan: 'free' });
+
+    expect(planned.parent.needs).toEqual(['role']);
+    expect(planned.child.needs).toEqual(['role']);
+  });
+
+  it('defers only the bucketing field once refutation settled enablement', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['targetingKey']);
+    expect(entry.decision?.enabled).toBe(true);
+    expect(entry.decision?.variant).toBeUndefined();
+  });
+
+  it('agrees with resolve for every value of the fields the plan lacked', () => {
+    const definitions = [
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+            variant: 'blue',
+          },
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ] as const;
+    const features = createFeatures(definitions);
+    const known = { targetingKey: 'u1', plan: 'free', role: 'viewer' };
+    const planned = features.plan(known).cta;
+
+    for (const region of ['eu', 'us', 'apac', '']) {
+      expect(planned.decision).toEqual(features.resolve({ ...known, region }).cta);
+    }
+  });
 });
 
 describe('variantOf', () => {
