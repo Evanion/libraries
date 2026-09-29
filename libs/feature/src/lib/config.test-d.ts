@@ -473,29 +473,33 @@ describe('JsonValue', () => {
     expectTypeOf(value.tiers).toEqualTypeOf<number[]>();
   });
 
-  it('refuses a member written as undefined, which canonical erases the way JSON does', () => {
-    // @ts-expect-error -- `canonical.ts:46` filters the member out and
-    // `JSON.stringify` omits it, so the process that wrote it holds a key no
-    // other process holds and `configDigest` reports the two agree.
+  it('takes a member written as undefined, which canonical drops the way JSON does', () => {
     const value = { endsAt: undefined } satisfies JsonValue;
 
     expectTypeOf(value.endsAt).toEqualTypeOf<undefined>();
   });
 
-  it('refuses a member whose type admits undefined, which is how an absent one arrives', () => {
+  it('takes a member whose type admits undefined, which a nullable column produces', () => {
     const readTier = (): string | undefined => undefined;
 
-    // @ts-expect-error -- `'tier' in value` answers true in the publisher and
-    // false in every process that fetched the document.
     const value = { tier: readTier() } satisfies JsonValue;
 
     expectTypeOf(value.tier).toEqualTypeOf<string | undefined>();
   });
 
-  it('takes a type whose members are optional, which carries no member at all when absent', () => {
+  it('takes a member declared optional, the same document spelled the other way', () => {
     type Sale = { label?: string };
 
     expectTypeOf<Sale>().toExtend<JsonValue>();
+  });
+
+  it('refuses an undefined element, which JSON writes as null and canonical does not', () => {
+    // @ts-expect-error -- `canonical` writes the element as `undefined` and
+    // `JSON.stringify` writes it as `null`, so the publisher and the holder
+    // compute two digests over one array.
+    const value = ['a', undefined] satisfies JsonValue;
+
+    expectTypeOf(value).toBeArray();
   });
 
   it('refuses a value annotated with an interface, which is why a variant value carries unknown', () => {
@@ -526,6 +530,19 @@ describe('SerializedAttributeCondition', () => {
 
   it('refuses a live attribute condition, whose value admits a Date', () => {
     expectTypeOf<AttributeCondition>().not.toExtend<SerializedAttributeCondition>();
+  });
+
+  it('takes a value a control plane built from a nullable column', () => {
+    const readCoupon = (): string | undefined => undefined;
+    const value = { coupon: readCoupon() };
+
+    const condition = {
+      field: 'plan',
+      op: 'eq',
+      value,
+    } satisfies SerializedCondition;
+
+    expectTypeOf(condition.value.coupon).toEqualTypeOf<string | undefined>();
   });
 
   it('refuses a write to the value, which the digest covers', () => {
