@@ -34,11 +34,13 @@ its reason. `resolved: 'deferred'` means some rule, or this feature's variant
 split, still needs context this plan did not have, and `needs` lists the
 fields, sorted.
 
-A deferred feature's `needs` carries whatever its deferred parents need, and
-only those fields. A parent that resolves off decides the feature before its
-own rules run, so while a parent is unresolved the entry says nothing about the
-fields those rules read. Supply the parent's fields and plan again to see what
-the feature still needs of its own.
+While a parent is unresolved, a deferred feature's `needs` lists what those
+parents need, plus this feature's own bucketing field when it declares
+variants. A parent that resolves off decides the feature before its own rules
+run, so the entry says nothing about the fields those rules read. Supply the
+parent's fields and plan again to see what the feature still needs of its own.
+A feature no unresolved parent holds up lists what its own rules and its own
+split need.
 
 ## What makes a rule resolvable
 
