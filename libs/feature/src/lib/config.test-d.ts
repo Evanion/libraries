@@ -245,10 +245,34 @@ describe('ValidationResult', () => {
 });
 
 describe('ReloadResult', () => {
-  it('carries the installed version on both arms', () => {
+  it('reads the version off a result no caller narrowed', () => {
     const read = (result: ReloadResult) => result.version;
 
     expectTypeOf(read).returns.toEqualTypeOf<string | number | undefined>();
+  });
+
+  it('names the installed version on the arm that installed a document', () => {
+    expectTypeOf<
+      Extract<ReloadResult, { ok: true }>['version']
+    >().toEqualTypeOf<string | number | undefined>();
+  });
+
+  it('names the version a document held before this one, on the same arm', () => {
+    expectTypeOf<
+      Extract<ReloadResult, { ok: true }>['previousVersion']
+    >().toEqualTypeOf<string | number | undefined>();
+  });
+
+  it('names the version that stayed installed on the arm that refused one', () => {
+    expectTypeOf<
+      Extract<ReloadResult, { ok: false }>['version']
+    >().toEqualTypeOf<string | number | undefined>();
+  });
+
+  it('names the refused version on every key a control plane versions with', () => {
+    expectTypeOf<
+      Extract<ReloadResult, { ok: false }>['rejected']
+    >().toEqualTypeOf<string | number | undefined>();
   });
 
   it('carries the candidate version only on the refusal', () => {
