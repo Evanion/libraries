@@ -281,9 +281,14 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * an optional `observe` parameter, both hide the observer from the compiler and
  * both take this branch. The compiler then refuses a write into what such a
  * store answers, which the runtime refuses too once the caller does install an
- * observer. A caller who installs none writes `satisfies UnobservedOptions<S>`
- * on the options, or passes the literal at the call site, to get the mutable
- * form back.
+ * observer. A caller who installs none reaches the mutable form by leaving
+ * `observe` out of the options altogether, and `satisfies UnobservedOptions<S>`
+ * on such an object checks the other members and changes that answer nowhere.
+ * The same annotation on an object holding `observe: undefined` reaches the
+ * mutable form only through the pair that takes a named schema, because the
+ * inferring signature reads the key and never the value. A wrapper forwarding an
+ * optional `observe` parameter cannot write the annotation at all, because the
+ * forwarded parameter's type is not `undefined`.
  *
  * The signature count stops at three. TypeScript elaborates every candidate for
  * a failed call while a signature list holds three or fewer, and reports one

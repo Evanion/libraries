@@ -123,20 +123,22 @@ export interface FeatureOptions<
    * An observer that blocks turns an observability feature into an availability
    * incident. A decision costs under a microsecond and an audit transport on a
    * bad day costs forty milliseconds, so the engine attaches a rejection
-   * handler to anything thenable and moves on. The engine's own guard stays
-   * within run-to-run noise of the bare call. Measured at forty features, a
-   * synchronous no-op observer and the bare call both ran between 20 and 22
-   * microseconds, so the number anyone should care about is what their own hook
-   * body does.
+   * handler to anything thenable and moves on. Measured at forty features on an
+   * Apple M1 Pro under Node 24.20.0, the bare call ran at 23 microseconds, a
+   * synchronous no-op observer at 41, and an `async` no-op observer, with the
+   * thenable check and the attached rejection handler, at 44. The deep freeze a
+   * store carrying an observer runs accounts for that difference, and the emit
+   * and the thenable check stay within run-to-run noise of the bare call. So the
+   * number anyone should care about is what their own hook body does.
    *
    * This member decides whether the store freezes what it answers. A store
    * carrying an observer deep-freezes each record before it emits it and hands
    * the caller that same frozen object, and a store carrying none freezes
    * nothing, so the package behaves differently under two configurations. The
    * engine takes that asymmetry deliberately. At forty features the freeze adds
-   * 15 to 18 microseconds to a 20 microsecond `resolve`, and a freeze on every
-   * call would add that to every user of the package whether or not they
-   * observe anything. A store nobody observes hands its record to nobody else,
+   * 18 microseconds to a 23 microsecond `resolve`, and a freeze on every call
+   * would add that to every user of the package whether or not they observe
+   * anything. A store nobody observes hands its record to nobody else,
    * so the freeze protects nothing there.
    *
    * This member does not count exposures. `resolve` decides every configured
@@ -187,12 +189,19 @@ export interface FeatureOptions<
  * absence satisfies it.
  *
  * The distinction decides which store a call answers, and the answer leans one
- * way when the compiler cannot settle it. A call whose options satisfy this
- * type answers the mutable form, and every other call answers the frozen form.
+ * way when the compiler cannot settle it. The pair of signatures that takes a
+ * named schema selects on this type: options satisfying it answer the mutable
+ * form, and `FeatureOptions<S>` answers the frozen one. The inferring signature
+ * asks whether the options type names `observe` at all, so an object holding
+ * `observe: undefined` answers the frozen form there even though it satisfies
+ * this type. Options that omit the member reach the mutable form on both paths.
+ *
  * An options value typed `FeatureOptions<S>`, and an object literal whose
  * `observe` field holds `Fn | undefined`, both fail this type, so both answer
- * the frozen form. The compiler then refuses a write the runtime would refuse
- * too. The opposite lean lets the compiler accept a write that throws.
+ * the frozen form. A wrapper forwarding an optional parameter cannot annotate
+ * its way past that, because the forwarded parameter's type is not `undefined`.
+ * The compiler then refuses a write the runtime would refuse too. The opposite
+ * lean lets the compiler accept a write that throws.
  */
 export type UnobservedOptions<
   S extends Record<keyof S, VariantInfo | never> = Record<
