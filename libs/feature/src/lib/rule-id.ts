@@ -5,15 +5,27 @@ import type { Condition, Instant, Rule } from './types.js';
 /**
  * Epoch milliseconds, so one instant written three ways reads as one value.
  *
- * A string that names no instant is hashed as text instead, so that two hosts
- * reading it against their own zones still derive one id. `createFeatures`
- * rejects such a string, and this path is what a caller reaching `ruleId`
- * directly gets.
+ * A value that names no instant is hashed as its own text instead, so that two
+ * hosts reading it against their own zones still derive one id and two rules
+ * carrying different unusable boundaries keep different ids. `createFeatures`
+ * rejects the strings, numbers and `Date`s that name none, and this path is
+ * what a caller reaching `ruleId` directly gets.
+ *
+ * A document parsed out of JSON reaches here carrying values `Instant` does
+ * not admit -- `null`, an object, a boolean, an array -- because
+ * `validateConditions` polices the declared types only. `canonical` writes
+ * each of them as itself, so the rules stay apart in a decision's per-rule
+ * breakdown.
+ *
+ * A number and a `Date` that name no instant both write `NaN`. `canonical`
+ * writes `null` for both, which would collide with a JSON-borne `null`, and
+ * the epoch is the reading of them this package has.
  */
 function instantText(value: Instant): string {
   const epoch = instantEpoch(value);
   if (!Number.isNaN(epoch)) return String(epoch);
-  return typeof value === 'string' ? canonical(value) : String(epoch);
+  if (typeof value === 'number' || value instanceof Date) return String(epoch);
+  return canonical(value);
 }
 
 /** A string with its length in front, so no two distinct parts share a text. */
