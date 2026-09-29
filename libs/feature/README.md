@@ -105,10 +105,16 @@ build-time evaluation honest and tests trivial.
 
 A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`. The
 string has to name one instant on every host: a date-time carrying `Z` or an
-explicit offset, or a date with no time, which ECMA-262 fixes to UTC.
-`createFeatures` refuses `'2026-01-01T00:00:00'`, which ECMA-262 reads as local
-time, because the rule would derive one id and resolve against a different
-boundary in every zone.
+offset, written `+01:00` or `+0100`, or a date with no time, which ECMA-262
+fixes to UTC. `createFeatures` refuses `'2026-01-01T00:00:00'`, which ECMA-262
+reads as local time, because the rule would derive one id and resolve against a
+different boundary in every zone. It refuses `'2026-13-01'` and
+`'2026-01-01t00:00:00z'` for the same reason: ECMA-262's format does not cover
+them, so each engine reads them by rules of its own.
+
+A `Date` is taken as the instant it holds and is read no further, so
+`new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
+every check.
 
 A day-of-week condition must name an IANA zone. UTC day-of-week is wrong for
 every business rule anyone writes.

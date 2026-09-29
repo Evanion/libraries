@@ -573,20 +573,30 @@ own is a compile error, since `Decisions<S>` constrains `S` to
 
 `Instant` is `string | number | Date`. A number is epoch milliseconds. A string
 is ISO 8601 and has to name one instant on every host, which two forms do: a
-date-time carrying `Z` or an explicit offset, and a date with no time, which
-ECMA-262 fixes to UTC.
+date-time carrying `Z` or an offset, and a date with no time, which ECMA-262
+fixes to UTC. The offset takes either spelling ISO 8601 gives it.
 
 | Instant string              | Read as                              |
 | --------------------------- | ------------------------------------ |
 | `2026-01-01T00:00:00Z`      | that instant                         |
 | `2026-01-01T09:00:00+09:00` | the same instant                     |
+| `2026-01-01T09:00:00+0900`  | the same instant                     |
 | `2026-01-01`                | UTC midnight                         |
 | `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
+| `2026-13-01`                | `FeatureConfigError` at construction |
+| `2026-01-01t00:00:00z`      | `FeatureConfigError` at construction |
 
-ECMA-262 reads the last one as local time. The rule derives one id on every
-host and resolves against a different boundary on each, so a browser in Los
-Angeles and a service in Stockholm disagree about a decision that carries the
-same name in both logs. `createFeatures` refuses it.
+ECMA-262 reads `2026-01-01T00:00:00` as local time. The rule derives one id on
+every host and resolves against a different boundary on each, so a browser in
+Los Angeles and a service in Stockholm disagree about a decision that carries
+the same name in both logs. The two rows under it sit outside the format
+ECMA-262 fixes, one naming no calendar date and one written in lower case, and
+each engine reads them by rules of its own. `createFeatures` refuses all three.
+
+A `Date` is taken as the instant it holds and is read no further, so
+`new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
+every check. Build one from epoch milliseconds, or from a string the table
+accepts.
 
 ## Errors
 
