@@ -5,7 +5,12 @@ import {
   FeatureCycleError,
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
-import type { Decision, FeatureDefinition } from './types.js';
+import type {
+  Decision,
+  EvaluationContext,
+  FeatureDefinition,
+  FeatureKey,
+} from './types.js';
 import { everywhere } from './zones.js';
 
 const WINDOW = '2026-10-01T00:00:00Z';
@@ -30,6 +35,222 @@ const enabledOf = (decisions: Record<string, Decision>) =>
   Object.fromEntries(
     Object.entries(decisions).map(([key, decision]) => [key, decision.enabled]),
   );
+
+/**
+ * The configurations `plan()` is held against `resolve()` over.
+ *
+ * `planFeature` walks every feature, so the walk has to agree with `resolve`
+ * for more than the features declaring variants. One entry per shape that
+ * reaches a different branch of it: a segment rule ahead of an unconditional
+ * one, a rollout behind a segment, a rule pinning a variant, a chain whose
+ * parent settles its own enablement, a chain whose parent leaves it open, a
+ * parent deferred on its split alone, a window a feature freezes, the same
+ * window it does not, and a feature turned off with a dependant under it.
+ */
+const SHAPES: Record<string, Definitions> = {
+  segments: [
+    {
+      key: 'cta',
+      enabled: true,
+      rules: [
+        {
+          id: 'eu-pro',
+          when: [
+            { field: 'plan', op: 'eq', value: 'pro' },
+            { field: 'region', op: 'eq', value: 'eu' },
+          ],
+        },
+        { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        { id: 'everyone', when: [] },
+      ],
+    },
+  ],
+  'ramped segment': [
+    {
+      key: 'ramp',
+      enabled: true,
+      rules: [
+        {
+          id: 'pro-ramp',
+          when: [{ field: 'plan', op: 'eq', value: 'pro' }],
+          rollout: { percent: 50, by: 'targetingKey' },
+        },
+        { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+      ],
+    },
+  ],
+  'pinned variants': [
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50, value: { label: 'Get it' } },
+      ],
+      rules: [
+        {
+          id: 'eu-pro',
+          when: [
+            { field: 'plan', op: 'eq', value: 'pro' },
+            { field: 'region', op: 'eq', value: 'eu' },
+          ],
+          variant: 'blue',
+        },
+        { id: 'everyone', when: [] },
+      ],
+    },
+  ],
+  'settled parent': [
+    {
+      key: 'banner',
+      enabled: true,
+      rules: [{ id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] }],
+    },
+    {
+      key: 'cta',
+      enabled: true,
+      dependsOn: ['banner'],
+      rules: [{ id: 'eu', when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+    },
+  ],
+  'open parent': [
+    {
+      key: 'banner',
+      enabled: true,
+      rules: [
+        { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+      ],
+    },
+    {
+      key: 'cta',
+      enabled: true,
+      dependsOn: ['banner'],
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+      rules: [
+        {
+          id: 'eu-pro',
+          when: [
+            { field: 'plan', op: 'eq', value: 'pro' },
+            { field: 'region', op: 'eq', value: 'eu' },
+          ],
+        },
+      ],
+    },
+  ],
+  'split-deferred parent': [
+    {
+      key: 'banner',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+    },
+    {
+      key: 'cta',
+      enabled: true,
+      dependsOn: ['banner'],
+      rules: [
+        { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+      ],
+    },
+  ],
+  'frozen window': [
+    {
+      key: 'promo',
+      enabled: true,
+      freezeTimeAtBuild: true,
+      rules: [
+        {
+          id: 'launch',
+          when: [
+            { field: 'now', op: 'after', value: WINDOW },
+            { field: 'plan', op: 'eq', value: 'pro' },
+          ],
+        },
+        { id: 'everyone', when: [] },
+      ],
+    },
+  ],
+  'live window': [
+    {
+      key: 'promo',
+      enabled: true,
+      rules: [
+        {
+          id: 'launch',
+          when: [
+            { field: 'now', op: 'after', value: WINDOW },
+            { field: 'plan', op: 'eq', value: 'pro' },
+          ],
+        },
+        { id: 'everyone', when: [] },
+      ],
+    },
+  ],
+  'off parent': [
+    { key: 'banner', enabled: false },
+    {
+      key: 'cta',
+      enabled: true,
+      dependsOn: ['banner'],
+      rules: [{ id: 'eu', when: [{ field: 'region', op: 'eq', value: 'eu' }] }],
+    },
+  ],
+};
+
+/** Every combination of the five fields the shapes above read. */
+const REQUESTS: readonly EvaluationContext[] = Object.entries({
+  targetingKey: ['u1', 'u2'],
+  plan: ['free', 'pro'],
+  role: ['staff', 'viewer'],
+  region: ['eu', 'us'],
+  now: [new Date('2026-09-01T00:00:00Z'), new Date('2026-10-15T00:00:00Z')],
+}).reduce<EvaluationContext[]>(
+  (contexts, [field, values]) =>
+    contexts.flatMap((context) =>
+      values.map((value) => ({ ...context, [field]: value })),
+    ),
+  [{}],
+);
+
+/**
+ * What each plan is denied of the request it is held against.
+ *
+ * `now` is never denied. A plan that reads it off the clock plans another
+ * instant than the request resolves at, and the two are then entitled to
+ * disagree.
+ */
+const WITHHELD: readonly (readonly string[])[] = [
+  [],
+  ['region'],
+  ['region', 'role'],
+  ['targetingKey'],
+  ['plan', 'region'],
+  ['role', 'targetingKey', 'region'],
+  ['targetingKey', 'plan', 'role', 'region'],
+];
+
+const denied = (context: EvaluationContext, fields: readonly string[]) =>
+  Object.fromEntries(
+    Object.entries(context).filter(([field]) => !fields.includes(field)),
+  );
+
+/**
+ * A decision without the condition its breakdown blames.
+ *
+ * `plan()` names one only where every request names the same one, so this is
+ * what a build and a request are held to agree on.
+ */
+const withoutBlame = (decision: Decision<FeatureKey>) => ({
+  ...decision,
+  ...(decision.rules && {
+    rules: decision.rules.map(({ failed, ...outcome }) => outcome),
+  }),
+});
 
 describe('createFeatures', () => {
   it('rejects a cycle at construction, naming the path', () => {
@@ -2336,6 +2557,29 @@ describe('plan', () => {
     }
   });
 
+  it('carries the rollout a plan refused onto its breakdown', () => {
+    const features = createFeatures([
+      {
+        key: 'ramped',
+        enabled: true,
+        rules: [{ id: 'ramp', rollout: { percent: 0 } }],
+      },
+    ]);
+    const context = { targetingKey: 'u1' };
+
+    const entry = features.plan(context).ramped;
+
+    expect(entry.resolved).toBe(false);
+    expect(entry.decision?.rules).toEqual([
+      {
+        rule: 'ramp',
+        matched: false,
+        rollout: { percent: 0, by: 'targetingKey', member: false },
+      },
+    ]);
+    expect(entry.decision).toEqual(features.resolve(context).ramped);
+  });
+
   it('defers a dependant under an open parent, refuted rule and all', () => {
     const features = createFeatures([
       {
@@ -2376,6 +2620,58 @@ describe('plan', () => {
         expect(decision.enabled).toBe(false);
       }
     }
+  });
+
+  it('settles no feature a later request decides differently', () => {
+    const seen: string[] = [];
+
+    for (const [shape, definitions] of Object.entries(SHAPES)) {
+      const features = createFeatures(definitions);
+
+      for (const request of REQUESTS) {
+        for (const fields of WITHHELD) {
+          const known = denied(request, fields);
+          const plan = features.plan(known);
+          const decisions = features.resolve(request);
+
+          for (const [key, entry] of Object.entries(plan)) {
+            const decision = decisions[key];
+            const at = `${shape}/${key} planned for ${JSON.stringify(known)}`;
+            seen.push(at);
+
+            expect(decision, `${at} resolved nothing`).toBeDefined();
+            if (!decision) continue;
+
+            if (entry.resolved === 'deferred') {
+              expect(entry.needs, `${at} defers on nothing`).not.toEqual([]);
+              for (const need of entry.needs) {
+                expect(
+                  need === 'now' || known[need] === undefined,
+                  `${at} needs ${need}, which the plan carried`,
+                ).toBe(true);
+              }
+              // A deferred entry carrying a decision settled enablement and
+              // deferred the split alone, and that enablement is the request's.
+              expect(entry.decision?.enabled ?? decision.enabled, at).toBe(
+                decision.enabled,
+              );
+              continue;
+            }
+
+            const settled = entry.decision;
+
+            expect(entry.resolved, at).toBe(decision.enabled);
+            expect(entry.needs, at).toEqual([]);
+            expect(settled, `${at} settled without a decision`).toBeDefined();
+            expect(settled && withoutBlame(settled), at).toEqual(
+              withoutBlame(decision),
+            );
+          }
+        }
+      }
+    }
+
+    expect(seen.length).toBe(2912);
   });
 });
 
