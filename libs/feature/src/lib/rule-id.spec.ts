@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { ruleId } from './rule-id.js';
-import type { Rule } from './types.js';
+import type { Instant, Rule } from './types.js';
+
+/**
+ * Runs `read` with the process reporting `zone` as its timezone.
+ *
+ * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
+ * what a host in Los Angeles would answer without running a second process.
+ */
+function inZone<T>(zone: string, read: () => T): T {
+  const original = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    return read();
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+}
+
+/** The answer in three zones spread far enough apart to cross a day boundary. */
+const everywhere = <T>(read: () => T): T[] =>
+  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
+    inZone(zone, read),
+  );
 
 describe('ruleId', () => {
   it('returns an explicit id unchanged', () => {
@@ -246,5 +269,90 @@ describe('ruleId', () => {
 
     expect(aSecond).toBe(aFirst);
     expect(ruleId(b)).not.toBe(aFirst);
+  });
+
+  it('derives one id for a window in every zone', () => {
+    // A fresh rule object per zone, because `ruleId` memoizes on identity and
+    // one object reused across the three would answer from the cache.
+    const idsOf = (value: Instant) =>
+      everywhere(() =>
+        ruleId({ when: [{ field: 'now', op: 'after', value }] }),
+      );
+
+    expect(new Set(idsOf('2026-01-01T00:00:00Z')).size).toBe(1);
+    expect(new Set(idsOf('2026-01-01')).size).toBe(1);
+    expect(new Set(idsOf('2026-01-01T00:00:00')).size).toBe(1);
+    expect(new Set(idsOf(new Date(1767225600000))).size).toBe(1);
+  });
+
+  it('derives one id for one instant written with two offsets', () => {
+    const asUtc = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00.000Z' }],
+    });
+    const asTokyo = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T09:00:00+09:00' }],
+    });
+
+    expect(asTokyo).toBe(asUtc);
+  });
+
+  it('derives one id for a date and the UTC midnight it names', () => {
+    const asDate = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01' }],
+    });
+    const asInstant = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00.000Z' }],
+    });
+
+    expect(asDate).toBe(asInstant);
+  });
+
+  it('separates an epoch from a string carrying its digits', () => {
+    // `'1767225600000'` names no instant and is hashed as text. Reading it as
+    // one would give the two rules a single id for two different windows.
+    const asNumber = ruleId({
+      when: [{ field: 'now', op: 'after', value: 1767225600000 }],
+    });
+    const asText = ruleId({
+      when: [{ field: 'now', op: 'after', value: '1767225600000' }],
+    });
+
+    expect(asText).not.toBe(asNumber);
+  });
+
+  it('separates two strings that each name no instant', () => {
+    const one = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
+    });
+    const other = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-06-01T00:00:00' }],
+    });
+
+    expect(one).not.toBe(other);
+  });
+
+  it('separates a window from an attribute condition carrying the same text', () => {
+    const window = ruleId({
+      when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00' }],
+    });
+    const attribute = ruleId({
+      when: [{ field: 'now', op: 'eq', value: '2026-01-01T00:00:00' }],
+    });
+
+    expect(attribute).not.toBe(window);
+  });
+
+  it('derives one id for the Dates and numbers that name no instant', () => {
+    // Both write `NaN`, so two rules with different unusable boundaries share
+    // a name in a decision's per-rule breakdown. `createFeatures` refuses the
+    // string forms of these and builds both of these.
+    const asDate = ruleId({
+      when: [{ field: 'now', op: 'after', value: new Date('nonsense') }],
+    });
+    const asNumber = ruleId({
+      when: [{ field: 'now', op: 'after', value: Number.NaN }],
+    });
+
+    expect(asNumber).toBe(asDate);
   });
 });
