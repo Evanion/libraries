@@ -82,6 +82,14 @@ holds, and `plan()` walks past it to the rules below.
 matches a context whose `plan` is `free`, so `eu-pro` cannot win, `everyone`
 does, and the feature is settled without `region`.
 
+When every rule loses this way the feature settles off, and the breakdown on
+its decision says only what every request agrees on. A rule's `failed` names
+one condition out of the several a rule can fail, and which one a request names
+depends on the fields the build did not have, so an outcome names a condition
+only where the answer cannot move: when `plan()` read every condition ahead of
+the refuted one. Step over one it could not read and the outcome names the
+rule and drops `failed`.
+
 A feature with `enabled: false` is `resolved: false` immediately, whatever its
 rules need. A feature with no rules is `resolved: true`, given `enabled`.
 

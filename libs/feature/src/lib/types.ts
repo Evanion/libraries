@@ -243,7 +243,13 @@ export type Reason =
 export interface RuleOutcome {
   rule: string;
   matched: boolean;
-  /** The first condition that failed, so a UI can name it. */
+  /**
+   * The first condition that failed, so a UI can name it.
+   *
+   * Absent on an outcome `plan()` settled by stepping over a condition it could
+   * not read. A request supplying that field may fail the rule on it instead,
+   * and a build serves its planned decision to every such request.
+   */
   failed?: Condition;
   /** Present when the rule's rollout was the reason it did not match. */
   rollout?: {
