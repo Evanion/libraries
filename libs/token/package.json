@@ -55,6 +55,6 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/luhn": "^3.0.0"
+    "@evanion/luhn": "3.0.1"
   }
 }
