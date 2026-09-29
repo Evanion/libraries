@@ -191,6 +191,67 @@ describe('instantEpoch', () => {
     ]);
   });
 
+  it('refuses a year written to any width but the four digits the format fixes', () => {
+    // A year of another width leaves the format ECMA-262 fixes, so V8 drops to
+    // its legacy heuristic parser and reads the string in the host's zone:
+    // '002026-01-01' answers three numbers in three zones under one rule id.
+    expect(everywhere(() => instantEpoch('002026-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('12026-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('202-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(instantEpoch('002026-01-01T00:00:00Z')).toBeNaN();
+    expect(instantEpoch('12026-01-01T00:00:00Z')).toBeNaN();
+  });
+
+  it('refuses an expanded year written to any width but the six digits the format fixes', () => {
+    // The sign is what puts a year in the expanded form, and the expanded form
+    // fixes six digits behind it. '+2026-01-01' carries four.
+    expect(everywhere(() => instantEpoch('+2026-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('-2026-01-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(instantEpoch('+20260-01-01T00:00:00Z')).toBeNaN();
+    expect(instantEpoch('+0002026-01-01T00:00:00Z')).toBeNaN();
+  });
+
+  it('refuses a month or a day written without its leading zero', () => {
+    // The format fixes two digits for each. An unpadded one reaches V8's
+    // legacy heuristic parser, which reads the whole string in the host's zone.
+    expect(everywhere(() => instantEpoch('2026-1-1'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('2026-01-1'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(everywhere(() => instantEpoch('2026-1-01'))).toEqual([
+      Number.NaN,
+      Number.NaN,
+      Number.NaN,
+    ]);
+    expect(instantEpoch('2026-1-01T00:00:00Z')).toBeNaN();
+  });
+
   it('refuses the negative zero year written as a date with no time', () => {
     expect(everywhere(() => instantEpoch('-000000-01-01'))).toEqual([
       Number.NaN,
@@ -262,11 +323,11 @@ describe('instantEpoch', () => {
   });
 
   it('passes a number no Date can hold through unchanged', () => {
-    // A number outside a `Date`'s range is still a number, and the string
-    // naming the same moment is refused. `createFeatures` reads the string
-    // forms only, so such a window is built and then resolved against this
-    // number: `before` holds at every instant and `after` at none.
-    // `conditions.spec.ts` holds both sides of that comparison.
+    // This is the single reading of `Instant`, and it reports the number it was
+    // given. `validateConditions` is where such a number is refused, on the
+    // range it reads back from here, so a caller reaching `evaluateCondition`
+    // directly still compares against it: `conditions.spec.ts` holds both sides
+    // of that comparison.
     expect(instantEpoch(8640000000000001)).toBe(8640000000000001);
     expect(instantEpoch(Number.POSITIVE_INFINITY)).toBe(
       Number.POSITIVE_INFINITY,
@@ -274,9 +335,9 @@ describe('instantEpoch', () => {
   });
 
   it('answers NaN for a value of no type an instant takes', () => {
-    // A document parsed out of JSON is untyped, and `validateConditions` reads
-    // the string forms only, so a value `Instant` does not admit is built into
-    // a store and reaches this function on the evaluation path.
+    // A document parsed out of JSON is untyped, and `validateConditions`
+    // polices the three declared types, so a value `Instant` does not admit is
+    // built into a store and reaches this function on the evaluation path.
     const outside = [null, undefined, {}, true, ['2026-01-01'], Symbol('now')];
 
     for (const value of outside) {
