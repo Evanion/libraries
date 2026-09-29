@@ -31,16 +31,27 @@ export interface SerializedWindowCondition {
  * The JSON a condition value may hold.
  *
  * `AttributeCondition.value` is `unknown`, because a store built from a literal
- * holds whatever an author wrote. Two of those values reach the next process as
- * something else while `canonical` erases the same difference: a `Date`, which
- * `canonical` writes as the ISO string `JSON.parse` hands back, and a member
- * written as `undefined`, which `canonical.ts:46` filters out and
- * `JSON.stringify` omits. Either one leaves the publisher and the holder
- * digesting alike over values that differ: `evaluateCondition` compares a
- * `Date` against a string with `===`, and `'tier' in value` answers true in the
- * process that wrote the member and false in every process that fetched the
- * document. § 2 reads two agreeing digests as a proof that two processes hold
- * one configuration.
+ * holds whatever an author wrote. One of those values reaches the next process
+ * as something else while `canonical` erases the difference: a `Date`, which
+ * `canonical` writes as the ISO string `JSON.parse` hands back. The publisher
+ * and the holder then digest alike over two values `evaluateCondition` compares
+ * with `===`, and § 2 reads two agreeing digests as a proof that two processes
+ * hold one configuration. This type refuses a `Date` wherever it appears.
+ *
+ * An object member written as `undefined` is legal, which § 8 states:
+ * `canonical.ts:46` filters the member out and `JSON.stringify` omits it, so an
+ * absent key and a key written as `undefined` canonicalize to one text and
+ * digest alike over bytes that agree. The member type admits `undefined` so
+ * that `{ tier }` read off a nullable column and `{ tier?: string }` off a
+ * generated type both reach this type, since `canonical` writes the two as the
+ * same text. TypeScript strips `undefined` from an optional member when it
+ * checks one against an index signature, so a fence here would admit the second
+ * spelling and refuse the first.
+ *
+ * An array element stays fenced to `JsonValue`. `canonical` writes an
+ * `undefined` element as the text `undefined` and `JSON.stringify` writes it as
+ * `null`, so the publisher and the holder compute two digests over one array
+ * and the holder reports `digest-mismatch`.
  *
  * The object arm is an index signature. TypeScript derives one implicitly for a
  * type alias and for an object literal, optional members included, and never
@@ -55,7 +66,7 @@ export type JsonValue =
   | boolean
   | null
   | readonly JsonValue[]
-  | { readonly [member: string]: JsonValue };
+  | { readonly [member: string]: JsonValue | undefined };
 
 /** An attribute condition as a document carries it, compared with `===`. */
 export interface SerializedAttributeCondition extends Omit<
