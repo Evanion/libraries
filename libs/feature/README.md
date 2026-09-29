@@ -691,6 +691,41 @@ withVariants.plan({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'che
 
 <!-- #endregion plan-variant -->
 
+A parent deferred on its split alone has settled its own enablement, so it holds
+no dependant up. The dependant cascades off that enablement and plans its own
+rules the way it would under a resolved parent, and the parent's `targetingKey`
+stays out of the dependant's `needs`.
+
+<!-- #region plan-split-parent -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const chain = createFeatures([
+  {
+    key: 'banner',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+  {
+    key: 'banner-cta',
+    enabled: true,
+    dependsOn: ['banner'],
+    rules: [
+      { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+    ],
+  },
+]);
+
+chain.plan({}).banner; // -> { key: 'banner', resolved: 'deferred', needs: ['targetingKey'], decision: { key: 'banner', enabled: true, reason: 'default-on' } }
+chain.plan({})['banner-cta']; // -> { key: 'banner-cta', resolved: 'deferred', needs: ['role'] }
+```
+
+<!-- #endregion plan-split-parent -->
+
 ## Observing
 
 An application installs one observer at construction, and the store calls it
