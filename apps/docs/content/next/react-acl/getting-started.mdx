@@ -111,7 +111,7 @@ three components between it and the controls. `ShopPage`, `ListingView` and
 `ActionBar` pass nothing. The shop has four rules:
 
 - Everybody may review a listing.
-- A bookseller or an owner may edit it.
+- The seller who listed it may edit it. Mika, the bookseller, listed this one.
 - Only an owner may publish it.
 - Nobody may edit a published listing.
 
@@ -123,7 +123,7 @@ Sign in as somebody else and the provider's `subject` changes. The Edit and
 Publish badges change with it, and Review stays allowed.
 
 Publish the listing and only `EditControl` changes, because the fourth rule is
-the only one that reads the row. A refused badge shows the decision's `reason`:
+the only one that reads the listing's `status`. A refused badge shows the decision's `reason`:
 `no-rule-matched` when no rule allows, and `denied` when a rule refuses.
 
 ## Now that react-acl answers, check again on the server
