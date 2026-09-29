@@ -34,9 +34,11 @@ its reason. `resolved: 'deferred'` means some rule, or this feature's variant
 split, still needs context this plan did not have, and `needs` lists the
 fields, sorted.
 
-A deferred feature's `needs` includes whatever its deferred parents need, so an
-entry's list is everything the request has to supply before this feature can be
-decided at all.
+A deferred feature's `needs` carries whatever its deferred parents need, and
+only those fields. A parent that resolves off decides the feature before its
+own rules run, so while a parent is unresolved the entry says nothing about the
+fields those rules read. Supply the parent's fields and plan again to see what
+the feature still needs of its own.
 
 ## What makes a rule resolvable
 
@@ -65,6 +67,18 @@ createFeatures([
 ]).plan({});
 // { 'staff-only': { key: 'staff-only', resolved: 'deferred', needs: ['role'] } }
 ```
+
+A rule the context already refutes is decided too. Conditions within a rule are
+AND-ed, so one condition that fails settles the rule whatever an absent field
+holds, and `plan()` walks past it to the rules below.
+
+```ts twoslash file=libs/feature/README.md region=plan-refuted
+
+```
+
+`eu-pro` reads `region`, which the context does not carry. No value of `region`
+matches a context whose `plan` is `free`, so `eu-pro` cannot win, `everyone`
+does, and the feature is settled without `region`.
 
 A feature with `enabled: false` is `resolved: false` immediately, whatever its
 rules need. A feature with no rules is `resolved: true`, given `enabled`.
