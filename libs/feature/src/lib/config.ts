@@ -35,9 +35,16 @@ export interface SerializedRule extends Omit<Rule, 'when'> {
   readonly when?: readonly SerializedCondition[];
 }
 
-/** A definition as a document carries it. */
+/**
+ * A definition as a document carries it.
+ *
+ * `F` defaults to `FeatureKey`, the default `FeatureConfig` carries. This type
+ * is the element type of `FeatureConfig['features']`, so a helper annotated
+ * with the bare form reads a definition out of a bare document, and a
+ * definition keyed on a numeric enum reaches both names.
+ */
 export interface SerializedDefinition<
-  F extends FeatureKey = string,
+  F extends FeatureKey = FeatureKey,
 > extends Omit<FeatureDefinition<F>, 'rules'> {
   readonly rules?: readonly SerializedRule[];
 }

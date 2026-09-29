@@ -453,6 +453,22 @@ describe('SerializedDefinition', () => {
       SerializedDefinition<'cta'>
     >();
   });
+
+  it('defaults its key parameter to every key a store admits', () => {
+    expectTypeOf<SerializedDefinition['key']>().toEqualTypeOf<FeatureKey>();
+  });
+
+  it('holds a definition the bare envelope carries', () => {
+    expectTypeOf<
+      FeatureConfig['features'][number]
+    >().toExtend<SerializedDefinition>();
+  });
+
+  it('takes a definition keyed on a number, as the bare envelope does', () => {
+    const definition = { key: 1, enabled: true } satisfies SerializedDefinition;
+
+    expectTypeOf(definition).toExtend<SerializedDefinition>();
+  });
 });
 
 describe('BaseFieldType', () => {
