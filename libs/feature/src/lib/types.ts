@@ -10,8 +10,14 @@ export type FeatureKey = string | number;
 export type Weekday = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
 
 /**
- * A point in time a window condition compares against. A string is parsed as
- * ISO 8601, a number as epoch milliseconds.
+ * A point in time a window condition compares against. A number is epoch
+ * milliseconds.
+ *
+ * A string is ISO 8601 and names one instant on every host: a date-time
+ * carrying `Z` or an explicit offset, or a date with no time, which ECMA-262
+ * fixes to UTC. `createFeatures` rejects every other string, because ECMA-262
+ * reads a date-time carrying no offset as local time and the rule then answers
+ * one way in Stockholm and another in Tokyo under one derived id.
  */
 export type Instant = string | number | Date;
 

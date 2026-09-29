@@ -40,15 +40,16 @@ function weekdayIn(instant: Date, zone: string): Weekday | undefined {
  * Checks a feature's window conditions at construction, beside the variant and
  * dependency checks.
  *
- * A window whose instant string names no instant is a configuration error with
- * no answer evaluation can give. `ruleId` hashes such a string's text, so the
- * rule carries one name everywhere, while `Date.parse` reads it against the
- * host's zone, so the rule answers one way in Stockholm and another in Tokyo.
+ * A window whose string names no instant has no answer evaluation can give.
+ * ECMA-262 reads a date-time carrying no offset as local time, so the boundary
+ * sits at a different moment in every zone, while `ruleId` derives one name for
+ * the rule on every host.
  * `docs/specs/2026-09-23-feature-variants.md`, "Determinism across processes",
- * requires one answer per subject per moment in every process.
+ * requires one answer per subject per moment in every process, so the string is
+ * refused where the configuration is supplied.
  *
- * @throws {FeatureConfigError} when a `before` or `after` condition names an
- * instant string that no host can resolve, or that hosts resolve differently.
+ * @throws {FeatureConfigError} when a `before` or `after` condition names a
+ * string that no host resolves, or that hosts resolve differently.
  */
 export function validateConditions<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
