@@ -225,6 +225,11 @@ A rule needing only `now` is resolvable for a known instant; a rule needing
 only the deferred set. The Nest API calls `resolve()` per request. One engine,
 no second code path.
 
+Conditions inside a rule are AND-ed, so a condition the build context refutes
+settles the rule whatever an absent field holds. `plan()` decides such a rule
+and walks on to the rules below it, and the fields it could not read stay out
+of `needs`.
+
 A build-time-resolved date window is frozen at build. That is a deploy-cadence
 decision and must be opt-in per feature.
 
@@ -269,5 +274,7 @@ build-time/per-request split exactly.
 - A window expiring and reopening restores the dependant without a write.
 - Rollout bucketing is stable across evaluations and decorrelated across
   features; raising a percentage never moves an existing member out.
-- `plan()` defers exactly the rules needing context and no others.
+- `plan()` defers a rule that needs context the plan did not have and whose
+  other conditions all held, and no others. A rule the context already refutes
+  is decided at build time.
 - Precedence: `enabled === false` short-circuits before rules run.
