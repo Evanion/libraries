@@ -224,8 +224,15 @@
       // version whose changelog does not say what broke. The Breaking Changes
       // section is rendered from the commits the changelog shows, so it is
       // hidden along with them.
+      //
+      // A refactor changes no behaviour, so on its own it releases nothing. nx
+      // fills a configured type's unset `semverBump` with `patch`, and does not
+      // fall back to a default of `none` (config.js,
+      // fillUnspecifiedConventionalCommitsProperties), so the entry states
+      // `none`. A `refactor(x)!` still releases a major through its breaking
+      // flag, which nx reads apart from the type.
       "types": {
-        "refactor": { "changelog": { "hidden": false } }
+        "refactor": { "semverBump": "none", "changelog": { "hidden": false } }
       }
     },
     "changelog": {
