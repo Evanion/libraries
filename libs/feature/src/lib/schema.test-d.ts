@@ -1,5 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import type { Decisions, InferSchema, Plan } from './types.js';
+import type {
+  Condition,
+  Decisions,
+  InferSchema,
+  Plan,
+  RuleOutcome,
+} from './types.js';
 
 const defs = [
   {
@@ -110,6 +116,36 @@ describe('Plan', () => {
     expectTypeOf<
       NonNullable<Plan<Written>['cta']['decision']>['variant']
     >().toEqualTypeOf<'control' | 'blue' | undefined>();
+  });
+
+  it('types the resolution as a boolean or the deferred marker', () => {
+    expectTypeOf<Plan<S>['cta']['resolved']>().toEqualTypeOf<
+      boolean | 'deferred'
+    >();
+  });
+
+  it('types the outstanding fields as a readonly list of names', () => {
+    expectTypeOf<Plan<S>['cta']['needs']>().toEqualTypeOf<readonly string[]>();
+  });
+
+  it('types the per-rule breakdown a refuted rule fills', () => {
+    expectTypeOf<
+      NonNullable<Plan<S>['cta']['decision']>['rules']
+    >().toEqualTypeOf<readonly RuleOutcome[] | undefined>();
+  });
+
+  it('types the condition a refuted rule blames', () => {
+    expectTypeOf<
+      NonNullable<
+        NonNullable<Plan<S>['cta']['decision']>['rules']
+      >[number]['failed']
+    >().toEqualTypeOf<Condition | undefined>();
+  });
+
+  it('keeps the breakdown off a feature declaring no variants too', () => {
+    expectTypeOf<
+      NonNullable<Plan<S>['nav']['decision']>['rules']
+    >().toEqualTypeOf<readonly RuleOutcome[] | undefined>();
   });
 });
 
