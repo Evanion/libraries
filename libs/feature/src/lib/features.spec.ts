@@ -1491,6 +1491,33 @@ describe('plan', () => {
     expect(entry.needs).toEqual(['region']);
   });
 
+  it('defers an unconditional rule behind one the context has not refuted', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({}).promo;
+
+    // `everyone` matches, so the feature is on for every `role`. Which rule
+    // wins is not settled: a staff request resolves on `staff`, and a decision
+    // shipped naming `everyone` would contradict it. `resolved: true` promises
+    // a decision the request path reproduces, so this entry defers.
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['role']);
+    for (const role of ['staff', 'viewer']) {
+      expect(features.resolve({ role }).promo.enabled).toBe(true);
+    }
+    expect(features.resolve({ role: 'staff' }).promo.rule).toBe('staff');
+    expect(features.resolve({ role: 'viewer' }).promo.rule).toBe('everyone');
+  });
+
   it('refutes a rollout rule whose conditions the context already ruled out', () => {
     const features = createFeatures([
       {
@@ -1538,7 +1565,33 @@ describe('plan', () => {
     expect(entry.decision?.reason).toBe('no-rule-matched');
   });
 
-  it('blames the condition the context refuted, not the one it could not read', () => {
+  it('blames the refuted condition when it read every condition before it', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'pro-eu',
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.decision?.rules?.[0]?.failed).toEqual({
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    });
+  });
+
+  it('blames no condition when it stepped over one it could not read', () => {
     const features = createFeatures([
       {
         key: 'promo',
@@ -1557,11 +1610,43 @@ describe('plan', () => {
 
     const entry = features.plan({ plan: 'free' }).promo;
 
-    expect(entry.decision?.rules?.[0]?.failed).toEqual({
-      field: 'plan',
-      op: 'eq',
-      value: 'pro',
-    });
+    // A request carrying `region: 'us'` fails this rule on `region`, and one
+    // carrying `region: 'eu'` fails it on `plan`. The rule loses either way,
+    // so the plan settles the feature and names the rule without naming a
+    // condition a request would disagree with.
+    expect(entry.decision?.rules).toEqual([{ rule: 'eu-pro', matched: false }]);
+  });
+
+  it('names nothing on a settled refusal that a request would name otherwise', () => {
+    const refutes = { field: 'plan', op: 'eq', value: 'pro' } as const;
+    const absent = { field: 'region', op: 'eq', value: 'eu' } as const;
+
+    for (const when of [
+      [refutes, absent],
+      [absent, refutes],
+    ]) {
+      const features = createFeatures([
+        { key: 'promo', enabled: true, rules: [{ id: 'eu-pro', when }] },
+      ]);
+      const planned = features.plan({ plan: 'free' }).promo;
+
+      expect(planned.resolved).toBe(false);
+      for (const region of ['eu', 'us', 'apac', '']) {
+        const resolved = features.resolve({ plan: 'free', region }).promo;
+
+        expect(planned.decision?.enabled).toBe(resolved.enabled);
+        expect(planned.decision?.reason).toBe(resolved.reason);
+        expect(planned.decision?.rules?.length).toBe(resolved.rules?.length);
+        planned.decision?.rules?.forEach((outcome, index) => {
+          const against = resolved.rules?.[index];
+          expect(outcome.rule).toBe(against?.rule);
+          expect(outcome.matched).toBe(against?.matched);
+          // The plan names a condition only where every request names that
+          // same one, so this holds for each region rather than for one.
+          if (outcome.failed) expect(outcome.failed).toEqual(against?.failed);
+        });
+      }
+    }
   });
 
   it('still settles a feature whose first rule matched', () => {
@@ -1724,18 +1809,18 @@ describe('plan', () => {
     expect(entry.decision?.rule).toBe('everyone');
   });
 
-  it('blames the first condition it could evaluate, not a later one', () => {
+  it('blames the first refuted condition, not a later one', () => {
     const features = createFeatures([
       {
         key: 'promo',
         enabled: true,
         rules: [
           {
-            id: 'eu-pro-gold',
+            id: 'pro-gold-eu',
             when: [
-              { field: 'region', op: 'eq', value: 'eu' },
               { field: 'plan', op: 'eq', value: 'pro' },
               { field: 'tier', op: 'eq', value: 'gold' },
+              { field: 'region', op: 'eq', value: 'eu' },
             ],
           },
         ],
@@ -1770,11 +1855,7 @@ describe('plan', () => {
     expect(entry.resolved).toBe(false);
     expect(entry.decision?.rules).toHaveLength(2);
     expect(entry.decision?.rules?.[0]).toEqual(entry.decision?.rules?.[1]);
-    expect(entry.decision?.rules?.[0]?.failed).toEqual({
-      field: 'plan',
-      op: 'eq',
-      value: 'pro',
-    });
+    expect(entry.decision?.rules?.[0]?.matched).toBe(false);
   });
 
   it('settles a window rule the context refuted on a field other than now', () => {
@@ -1931,13 +2012,26 @@ describe('plan', () => {
           },
         ],
       },
-      { key: 'child', enabled: true, dependsOn: ['parent'] },
+      {
+        key: 'child',
+        enabled: true,
+        dependsOn: ['parent'],
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        ],
+      },
     ]);
 
     const planned = features.plan({ plan: 'free' });
 
     expect(planned.parent.resolved).toBe(false);
     expect(planned.child.resolved).toBe(false);
+    // The off parent decides the child before its own rules run, so neither
+    // `role` nor the child's bucketing field reaches this list.
     expect(planned.child.needs).toEqual([]);
     expect(planned.child.decision?.reason).toBe('dependency-off');
     expect(planned.child.decision?.cause).toEqual({
@@ -1945,6 +2039,34 @@ describe('plan', () => {
       reason: 'no-rule-matched',
       rule: 'eu-pro',
     });
+  });
+
+  it('cascades off to a dependant whose own rules the plan cannot read', () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: false,
+      },
+      {
+        key: 'child',
+        enabled: true,
+        dependsOn: ['parent'],
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          { id: 'eu', when: [{ field: 'region', op: 'eq', value: 'eu' }] },
+        ],
+      },
+    ]);
+
+    const planned = features.plan({ plan: 'free' });
+
+    expect(planned.child.resolved).toBe(false);
+    expect(planned.child.needs).toEqual([]);
+    expect(planned.child.decision?.reason).toBe('dependency-off');
+    expect(planned.child.decision?.variant).toBeUndefined();
   });
 
   it("leaves a dependant's needs to the parent while the parent is unresolved", () => {

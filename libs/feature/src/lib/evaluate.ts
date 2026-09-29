@@ -258,10 +258,14 @@ export function decide<F extends FeatureKey>(
  * later rule that matched, and the plan may walk past it instead of deferring
  * the feature on it.
  *
- * The outcome a refuted rule carries names the condition the context refuted.
- * `evaluateRule` names the first condition that did not hold, which for a
- * partial context may be one reading an absent field, and a shipped decision
- * must not blame a field nobody supplied.
+ * A refuted rule's outcome carries what every request agrees on. The rule lost,
+ * and it loses the same way whatever the absent fields hold. `failed` names one
+ * condition out of several a rule may fail, and which one a request names
+ * depends on the values the plan did not have, so this outcome names one only
+ * where the answer cannot move: when every condition ahead of the refuted one
+ * was readable and held, a request reads them the same way and blames the same
+ * condition. Step over one the plan could not read and a request supplying it
+ * may blame that one instead, so the outcome names no condition at all.
  */
 type PlannedRule =
   | { state: 'decided'; outcome: RuleOutcome }
@@ -281,15 +285,16 @@ function planRule<F extends FeatureKey>(
     };
   }
 
+  let steppedOver = false;
   for (const condition of rule.when ?? []) {
     if (conditionFields(condition).some((field) => !available.has(field))) {
+      steppedOver = true;
       continue;
     }
     if (!evaluateCondition(condition, context)) {
-      return {
-        state: 'decided',
-        outcome: { rule: ruleId(rule), matched: false, failed: condition },
-      };
+      const outcome: RuleOutcome = { rule: ruleId(rule), matched: false };
+      if (!steppedOver) outcome.failed = condition;
+      return { state: 'decided', outcome };
     }
   }
 
@@ -299,10 +304,13 @@ function planRule<F extends FeatureKey>(
 /**
  * Restates a no-rule-matched breakdown from what the plan walk saw.
  *
- * `decide` runs against the partial context a build has, so it blames a rule
- * it could not evaluate on a condition reading an absent field. The walk holds
- * the condition the context refuted, and that is the one a decision shipped
- * with a build names. Every other reason carries no breakdown to restate.
+ * `decide` answers for the context it was handed, so it blames a rule it could
+ * only partly read on the first condition that did not hold, which may be one
+ * reading a field nobody supplied. A request supplying that field blames a
+ * different condition, and a build ships this decision as the answer to every
+ * such request. The walk's outcomes name a condition only where every request
+ * names the same one, so they are what a shipped decision carries. Every other
+ * reason carries no breakdown to restate.
  */
 function withBreakdown<F extends FeatureKey>(
   decision: Decision<F>,
