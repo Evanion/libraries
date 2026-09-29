@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 /**
  * Which release the pages a notice sits on stand for.
  *
- * - `current`: the newest release, at the section's bare path.
- * - `line`: the newest release of a superseded line, at `/<slug>/v<seg>/`.
+ * - `current`: the current line's x.y.0 release, at the section's bare path.
+ * - `line`: a superseded line's x.y.0 release, at `/<slug>/v<seg>/`.
  * - `next`: a release that shipped no pages of its own, at the bare path, whose
  *   pages are `main`'s.
  */
@@ -27,8 +27,13 @@ export interface ArchiveNoticeProps {
   source?: ArchiveSource;
   /** The published package name. */
   package: string;
-  /** The release these pages stand for. */
+  /** The release these pages stand for: an x.y.0 release. */
   version: string;
+  /**
+   * The newest patch of `version` on npm, which these pages document too.
+   * Absent when `version` is the newest release of its x.y.
+   */
+  published?: string;
   /** The commit the pages were cut from, short. Absent for `next`. */
   sha?: string;
   /** For `line`: the newest release, which the section's bare path serves. */
@@ -41,14 +46,15 @@ export interface ArchiveNoticeProps {
 function provenance(
   source: ArchiveSource | undefined,
   version: string,
+  published: string | undefined,
   sha: string | undefined,
 ): ReactNode {
   if (source === 'seed')
     return (
       <>
         Values on this page were produced by running the source at{' '}
-        <code>{sha}</code>, which <code>nx release</code> versions as {version},
-        and are not re-executed.
+        <code>{sha}</code>, which <code>nx release</code> versions as{' '}
+        {published ?? version}, and are not re-executed.
       </>
     );
 
@@ -69,6 +75,19 @@ function provenance(
   );
 }
 
+/** The patch releases the pages document besides their own, as a clause. */
+function patches(published: string | undefined, onNpm: boolean): ReactNode {
+  if (!published) return null;
+
+  return (
+    <>
+      {' '}
+      and its patch releases up to {published}
+      {onNpm ? ', the version on npm' : null}
+    </>
+  );
+}
+
 /**
  * Where the values on a page came from, stated on the page.
  *
@@ -81,7 +100,9 @@ function provenance(
  *
  * `docs/specs/2026-09-13-released-by-default.md` § 8 is the claim each form
  * restates: every value on the site was produced by running the version the
- * page documents, in CI, at a named commit.
+ * page documents, in CI, at a named commit. Decision 1 is why a page names
+ * two versions: a line is documented by its x.y.0, and a reader who installed
+ * a later patch is reading the documentation of that patch as well.
  *
  * `data-release` names the release in the markup, so a check over the static
  * export can hold each version directory to what `content/versions.json` says
@@ -92,6 +113,7 @@ export default function ArchiveNotice({
   source,
   package: name,
   version,
+  published,
   sha,
   current,
   href,
@@ -101,10 +123,13 @@ export default function ArchiveNotice({
       <div className="docs-release" data-release={version}>
         <Panel heading="No documentation for this release">
           <Text size="sm">
-            <code>npm install {name}</code> gives you {version}, and no
-            documentation was published with it. These pages document{' '}
-            <code>main</code>, which has changes {version} does not. Values on
-            them are produced by running the current source on every build.
+            <code>npm install {name}</code> gives you{' '}
+            {published
+              ? `${published}, a patch of ${version}, and no documentation was published with ${version}.`
+              : `${version}, and no documentation was published with it.`}{' '}
+            These pages document <code>main</code>, which has changes {version}{' '}
+            does not. Values on them are produced by running the current source
+            on every build.
           </Text>
         </Panel>
       </div>
@@ -119,13 +144,14 @@ export default function ArchiveNotice({
             <code>
               {name} {version}
             </code>
-            . <code>npm install {name}</code> gives you {current}
+            {patches(published, false)}. <code>npm install {name}</code> gives
+            you {current}
             {href ? (
               <>
                 , documented <a href={href}>here</a>
               </>
             ) : null}
-            . {provenance(source, version, sha)}
+            . {provenance(source, version, published, sha)}
           </Text>
         </Panel>
       </div>
@@ -137,7 +163,8 @@ export default function ArchiveNotice({
         <code>
           {name} {version}
         </code>
-        . {provenance(source, version, sha)}
+        {patches(published, true)}.{' '}
+        {provenance(source, version, published, sha)}
       </Text>
     </div>
   );

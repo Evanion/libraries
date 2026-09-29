@@ -11,13 +11,20 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { gitAt, parsePins, plan, writeArchives } from './archives.mjs';
+import {
+  gitAt,
+  parsePins,
+  plan,
+  prunePins,
+  writeArchives,
+} from './archives.mjs';
 import { dryRunVersion, seedPin } from './seed.mjs';
 
 /**
- * The invariant: each version directory holds what its release shipped, cut
- * from the commit the pin file names or from the release's own tag, and a
- * release that shipped no pages is served from `main` under a notice.
+ * The invariant: each version directory holds what its line's newest x.y.0
+ * release shipped, cut from the commit the pin file names or from the
+ * release's own tag, and a release that shipped no pages is served from
+ * `main` under a notice.
  *
  * Asserted against fixture repositories rather than this one, whose tags and
  * pins change with every release, so a test written against it asserts the
@@ -282,11 +289,11 @@ describe('the plan for a package', () => {
   });
 
   /**
-   * A pin names the release it was made for. A later release in the same line
-   * is cut from its own tag until somebody pins it, so a re-cut of 3.0.0 never
-   * silently becomes the documentation of 3.0.1.
+   * A patch release gets no documentation of its own: 3.0.1 is documented by
+   * the pages cut for 3.0.0, and the bare path names 3.0.1 as the version on
+   * npm.
    */
-  it('cuts a newer release in a pinned line from its own tag', () => {
+  it('cuts a line from its x.y.0 when a patch release followed it', () => {
     const root = repository([
       {
         files: { 'apps/docs/content/next/luhn/index.mdx': page('Three.') },
@@ -295,6 +302,67 @@ describe('the plan for a package', () => {
       {
         files: { 'apps/docs/content/next/luhn/index.mdx': page('Three one.') },
         tag: '@evanion/luhn@3.0.1',
+      },
+    ]);
+    const git = gitAt(root);
+
+    const [section] = plan({ packages: luhn, git, pins: {} });
+
+    expect(section.current).toMatchObject({
+      version: '3.0.0',
+      published: '3.0.1',
+      from: 'cut',
+      source: 'tag',
+      sha: git.commit('@evanion/luhn@3.0.0'),
+    });
+  });
+
+  it('keeps reading the pin of an x.y.0 after a patch release of it', () => {
+    const root = repository([
+      { files: { 'libs/luhn/index.ts': '' }, tag: '@evanion/luhn@3.0.0' },
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three one.') },
+        tag: '@evanion/luhn@3.0.1',
+      },
+    ]);
+
+    const [section] = plan({
+      packages: luhn,
+      git: gitAt(root),
+      pins: {
+        luhn: {
+          v3: {
+            version: '3.0.0',
+            tag: '@evanion/luhn@3.0.0',
+            next: true,
+            reason: 'no pages',
+          },
+        },
+      },
+    });
+
+    expect(section.current).toMatchObject({
+      version: '3.0.0',
+      published: '3.0.1',
+      from: 'next',
+      reason: 'no pages',
+    });
+  });
+
+  /**
+   * A pin names the x.y.0 it was made for. A later x.y.0 in the same line is
+   * cut from its own tag until somebody pins it, so a re-cut of 3.0.0 never
+   * silently becomes the documentation of 3.1.0.
+   */
+  it('cuts a later x.y.0 in a pinned line from its own tag', () => {
+    const root = repository([
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three.') },
+        tag: '@evanion/luhn@3.0.0',
+      },
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three one.') },
+        tag: '@evanion/luhn@3.1.0',
       },
     ]);
     const git = gitAt(root);
@@ -310,10 +378,69 @@ describe('the plan for a package', () => {
     });
 
     expect(section.current).toMatchObject({
-      version: '3.0.1',
+      version: '3.1.0',
+      published: '3.1.0',
       from: 'cut',
-      sha: git.commit('@evanion/luhn@3.0.1'),
+      sha: git.commit('@evanion/luhn@3.1.0'),
     });
+  });
+
+  /**
+   * Below 1.0.0 a patch is documented by its 0.y.0 like any other, and 0.4.0
+   * is a new line, which leaves 0.3 as the retained line before it.
+   */
+  it('cuts a 0.x line from its 0.y.0 and keeps it once the next 0.y.0 opens a line', () => {
+    const steps = [
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three.') },
+        tag: '@evanion/luhn@0.3.0',
+      },
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three one.') },
+        tag: '@evanion/luhn@0.3.1',
+      },
+    ];
+    const patched = repository(steps);
+
+    expect(
+      plan({ packages: luhn, git: gitAt(patched), pins: {} })[0],
+    ).toMatchObject({
+      current: {
+        segment: 'v0.3',
+        version: '0.3.0',
+        published: '0.3.1',
+        sha: gitAt(patched).commit('@evanion/luhn@0.3.0'),
+      },
+      lines: [],
+    });
+
+    const opened = repository([
+      ...steps,
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Four.') },
+        tag: '@evanion/luhn@0.4.0',
+      },
+    ]);
+    const [section] = plan({
+      packages: luhn,
+      git: gitAt(opened),
+      pins: {},
+    });
+
+    expect(section.current).toMatchObject({
+      segment: 'v0.4',
+      version: '0.4.0',
+      published: '0.4.0',
+    });
+    expect(section.lines).toMatchObject([
+      {
+        segment: 'v0.3',
+        version: '0.3.0',
+        published: '0.3.1',
+        sha: gitAt(opened).commit('@evanion/luhn@0.3.0'),
+        current: '0.4.0',
+      },
+    ]);
   });
 
   it('serves a package with no release from main', () => {
@@ -324,6 +451,95 @@ describe('the plan for a package', () => {
     expect(
       plan({ packages: luhn, git: gitAt(root), pins: {} })[0].current,
     ).toMatchObject({ version: null, from: 'next' });
+  });
+});
+
+describe('the pins a release made dead', () => {
+  const packages = [
+    { name: '@evanion/luhn', slug: 'luhn', workshop: false },
+    { name: '@evanion/urn', slug: 'urn', workshop: false },
+  ];
+  const seed = {
+    version: '3.0.0',
+    tag: '@evanion/luhn@3.0.0',
+    sha: 'f00dfeed',
+    reason: 'seed: nx release version --dry-run computes 3.0.0 at this SHA',
+  };
+  const pins = { luhn: { v3: seed } };
+
+  /** This is what `cut-releases.mjs` writes back to the pin file. */
+  it('drops the pin of an x.y.0 a later x.y.0 in its line replaced', () => {
+    expect(
+      prunePins({
+        packages,
+        pins,
+        tags: ['@evanion/luhn@3.0.0', '@evanion/luhn@3.1.0'],
+      }),
+    ).toEqual({
+      pins: {},
+      dropped: [
+        {
+          slug: 'luhn',
+          segment: 'v3',
+          pin: seed,
+          read: { tag: '@evanion/luhn@3.1.0', version: '3.1.0' },
+        },
+      ],
+    });
+  });
+
+  it('drops no pin for a patch release', () => {
+    expect(
+      prunePins({
+        packages,
+        pins,
+        tags: [
+          '@evanion/luhn@3.0.0',
+          '@evanion/luhn@3.0.1',
+          '@evanion/luhn@3.0.2',
+        ],
+      }),
+    ).toEqual({ pins, dropped: [] });
+  });
+
+  it('keeps the pin of a line the next major supersedes, and drops it at the one after', () => {
+    const tags = ['@evanion/luhn@3.0.0', '@evanion/luhn@4.0.0'];
+
+    expect(prunePins({ packages, pins, tags })).toEqual({ pins, dropped: [] });
+    expect(
+      prunePins({ packages, pins, tags: [...tags, '@evanion/luhn@5.0.0'] }),
+    ).toMatchObject({ pins: {}, dropped: [{ segment: 'v3', read: null }] });
+  });
+
+  /** No release made these wrong, so they are left for the pin check. */
+  it('keeps a pin for a release with no tag and a pin for an unknown slug', () => {
+    const odd = {
+      luhn: { v3: { ...seed, version: '3.2.0', tag: '@evanion/luhn@3.2.0' } },
+      nowhere: { v1: { ...seed, reason: 'elsewhere' } },
+    };
+
+    expect(
+      prunePins({ packages, pins: odd, tags: ['@evanion/luhn@3.0.0'] }),
+    ).toEqual({ pins: odd, dropped: [] });
+  });
+
+  it('keeps the pins of other packages as they were', () => {
+    const urn = {
+      v1: { version: '1.1.1', tag: '@evanion/urn@1.1.1', sha: 'c2979ea' },
+    };
+
+    expect(
+      prunePins({
+        packages,
+        pins: { ...pins, urn },
+        tags: [
+          '@evanion/luhn@3.0.0',
+          '@evanion/luhn@3.1.0',
+          '@evanion/urn@1.1.1',
+          '@evanion/urn@2.0.0',
+        ],
+      }).pins,
+    ).toEqual({ urn });
   });
 });
 
@@ -374,8 +590,39 @@ describe('the seed question', () => {
       version: '3.0.0',
       tag: '@evanion/luhn@3.0.0',
       sha: 'f00dfeed',
-      reason: 'seed: nx release version --dry-run computes 3.0.0 at this SHA',
+      reason:
+        'seed: @evanion/luhn@3.0.0 carries no pages, and nx release version --dry-run computes 3.0.0 at this SHA',
     });
+  });
+
+  /**
+   * The pin is keyed by the x.y.0 the line is documented by, and a dry run
+   * that computes no change leaves the package at its newest release.
+   */
+  it('keys a seed by the x.y.0 and states the version the dry run computes', () => {
+    expect(
+      seedPin({ ...release, published: '3.0.1', computed: () => null }),
+    ).toEqual({
+      version: '3.0.0',
+      tag: '@evanion/luhn@3.0.0',
+      sha: 'f00dfeed',
+      reason:
+        'seed: @evanion/luhn@3.0.0 carries no pages, and nx release version --dry-run computes 3.0.1 at this SHA',
+    });
+  });
+
+  /** The pin check refuses two pins giving one reason. */
+  it('gives two packages seeded at one version different reasons', () => {
+    const token = seedPin({
+      ...release,
+      name: '@evanion/token',
+      tag: '@evanion/token@3.0.0',
+      computed: () => null,
+    });
+
+    expect(token.reason).not.toBe(
+      seedPin({ ...release, computed: () => null }).reason,
+    );
   });
 
   it('does not seed a package nx release would bump', () => {
@@ -412,6 +659,16 @@ describe('the seed question', () => {
       dryRunVersion(
         '@evanion/luhn 🚫 No changes were detected using git history and the conventional commits standard\n',
         '@evanion/luhn',
+      ),
+    ).toBeNull();
+  });
+
+  /** Under a test runner nx colours the name, so the line starts with an escape. */
+  it('reads a dry run nx printed in colour', () => {
+    expect(
+      dryRunVersion(
+        '\u001b[1m\u001b[93m@evanion/widget\u001b[39m\u001b[22m 🚫 No changes were detected using git history and the conventional commits standard\n',
+        '@evanion/widget',
       ),
     ).toBeNull();
   });
@@ -478,6 +735,32 @@ describe('the directories the generator writes', () => {
       '',
       `<ArchiveNotice kind="current" source="tag" package="@evanion/luhn" version="3.0.0" sha="${sha}" />`,
     ]);
+  });
+
+  it("writes 3.0.0's pages after 3.0.1, under a notice naming 3.0.1", () => {
+    const { root, read, manifest } = generated([
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three.') },
+        tag: '@evanion/luhn@3.0.0',
+      },
+      {
+        files: { 'apps/docs/content/next/luhn/index.mdx': page('Three one.') },
+        tag: '@evanion/luhn@3.0.1',
+      },
+    ]);
+    const sha = gitAt(root).commit('@evanion/luhn@3.0.0').slice(0, 7);
+
+    expect(read('luhn/index.mdx').split('\n').slice(0, 5)).toEqual([
+      '# Luhn',
+      '',
+      `<ArchiveNotice kind="current" source="tag" package="@evanion/luhn" version="3.0.0" published="3.0.1" sha="${sha}" />`,
+      '',
+      'Three.',
+    ]);
+    expect(manifest.sections.luhn.current).toMatchObject({
+      version: '3.0.0',
+      published: '3.0.1',
+    });
   });
 
   it('turns a Twoslash fence into the plain code a reader saw', () => {

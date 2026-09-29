@@ -19,8 +19,13 @@ import { dirname, join } from 'node:path';
 
 /** One version of a section, as the generator served it. */
 export interface ServedVersion {
-  /** The release, or `null` for a package that has none. */
+  /**
+   * The x.y.0 release the pages are cut for, or `null` for a package that has
+   * none.
+   */
   version: string | null;
+  /** The newest release of the line, which the pages document too. */
+  published: string | null;
   /** The release line's URL segment, `v3` or `v0.2`. */
   segment: string | null;
   /** Whether the pages were cut from git or copied from `content/next/`. */

@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 
 import { PIN_FILE, gitAt, parsePins } from './archives.mjs';
 import { dryRunAt } from './seed.mjs';
-import { releaseLines, taggedAfter } from './versions.mjs';
+import { releaseLines, taggedPast } from './versions.mjs';
 
 /**
  * Re-cuts one released version of a package's documentation from a later
@@ -21,10 +21,13 @@ import { releaseLines, taggedAfter } from './versions.mjs';
  * now and the one it would be cut from, so a reviewer sees exactly how the
  * released documentation changes without going to look.
  *
+ * The version is the line's x.y.0, which its patches are documented by, so a
+ * documentation fix reaches a patch release through the x.y.0's pin.
+ *
  * The guards are the pin file's own, asked before the pull request exists
  * rather than after: the version was released, the commit descends from its tag
- * and is on `main`, carries no later release's tag, the reason is new, and
- * `nx release version --dry-run` at the commit still computes the version.
+ * and is on `main`, carries no tag of a later x.y, the reason is new, and
+ * `nx release version --dry-run` at the commit computes no change.
  */
 
 /**
@@ -64,7 +67,7 @@ export function recutPin({
       `${entry.name} has released nothing in the line ${segment}`,
     );
 
-  const release = line.releases[0];
+  const release = line.cut;
   const tagged = git.commit(release.tag);
   const target = git.commit(sha);
 
@@ -73,9 +76,11 @@ export function recutPin({
     throw new Error(`${sha} does not descend from ${release.tag}`);
   if (!git.isAncestor(target, main)) throw new Error(`${sha} is not on main`);
 
-  // The dry run measures from the newest tag, so past a later release it
-  // computes no change for an older line and cannot refuse the commit itself.
-  const later = taggedAfter(entry.name, tags, release.version).filter((tag) =>
+  // The dry run measures from the newest tag, so past a later x.y.0 it
+  // computes no change for an older one and cannot refuse the commit itself.
+  // A patch of this x.y is documented by these pages, so carrying its tag is
+  // not a reason to refuse.
+  const later = taggedPast(entry.name, tags, release.version).filter((tag) =>
     git.isAncestor(git.commit(tag), target),
   );
   if (later.length > 0)

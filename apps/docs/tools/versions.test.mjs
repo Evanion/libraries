@@ -4,12 +4,13 @@ import {
   compareVersions,
   parseVersion,
   releaseLines,
-  taggedAfter,
+  taggedPast,
 } from './versions.mjs';
 
 /**
  * The invariant: a package's lines hold what `npm install` resolves, newest
- * first, and a version sorts where semver puts it.
+ * first, each is documented by its newest x.y.0 release, and a version sorts
+ * where semver puts it.
  */
 
 const order = (versions) =>
@@ -53,10 +54,12 @@ describe('the release lines of a package', () => {
     expect(releaseLines('@evanion/urn', tags)).toEqual([
       {
         segment: 'v2',
+        cut: { tag: '@evanion/urn@2.0.0', version: '2.0.0' },
         releases: [{ tag: '@evanion/urn@2.0.0', version: '2.0.0' }],
       },
       {
         segment: 'v1',
+        cut: { tag: '@evanion/urn@1.1.1', version: '1.1.1' },
         releases: [
           { tag: '@evanion/urn@1.1.1', version: '1.1.1' },
           { tag: '@evanion/urn@1.0.0', version: '1.0.0' },
@@ -65,19 +68,89 @@ describe('the release lines of a package', () => {
     ]);
   });
 
+  it('cuts a line from its x.y.0 and not from a patch of it', () => {
+    const [line] = releaseLines('@evanion/luhn', [
+      '@evanion/luhn@3.0.0',
+      '@evanion/luhn@3.0.1',
+    ]);
+
+    expect(line.cut).toEqual({ tag: '@evanion/luhn@3.0.0', version: '3.0.0' });
+  });
+
+  it('cuts a line from its newest x.y.0', () => {
+    const [line] = releaseLines('@evanion/luhn', [
+      '@evanion/luhn@3.0.0',
+      '@evanion/luhn@3.0.1',
+      '@evanion/luhn@3.1.0',
+    ]);
+
+    expect(line.cut.version).toBe('3.1.0');
+  });
+
+  /** Below 1.0.0 the minor is the breaking bump, so 0.4.0 opens a line. */
+  it('cuts a 0.x line from its 0.y.0 and keeps the line 0.4.0 supersedes', () => {
+    const tags = [
+      '@evanion/token@0.3.0',
+      '@evanion/token@0.3.1',
+      '@evanion/token@0.4.0',
+    ];
+
+    expect(
+      releaseLines('@evanion/token', tags.slice(0, 2)).map((line) => [
+        line.segment,
+        line.cut.version,
+      ]),
+    ).toEqual([['v0.3', '0.3.0']]);
+    expect(
+      releaseLines('@evanion/token', tags).map((line) => [
+        line.segment,
+        line.cut.version,
+      ]),
+    ).toEqual([
+      ['v0.4', '0.4.0'],
+      ['v0.3', '0.3.0'],
+    ]);
+  });
+
+  /** A x.y released before this repository tagged is cut from its first tag. */
+  it('cuts a line whose x.y.0 has no tag from the first tag of its x.y', () => {
+    const [line] = releaseLines('@evanion/urn', [
+      '@evanion/urn@1.0.0',
+      '@evanion/urn@1.1.1',
+      '@evanion/urn@1.1.2',
+    ]);
+
+    expect(line.cut.version).toBe('1.1.1');
+  });
+
   it('leaves a prerelease out of every line', () => {
     expect(releaseLines('@evanion/urn', ['@evanion/urn@3.0.0-beta.0'])).toEqual(
       [],
     );
   });
 
-  it('names every tag above a version, prereleases included', () => {
-    expect(taggedAfter('@evanion/urn', tags, '1.1.1')).toEqual([
+  it('names every tag of a later x.y, prereleases included', () => {
+    expect(taggedPast('@evanion/urn', tags, '1.1.1')).toEqual([
       '@evanion/urn@3.0.0-beta.0',
       '@evanion/urn@2.0.0',
     ]);
-    expect(taggedAfter('@evanion/urn', tags, '2.0.0')).toEqual([
+    expect(taggedPast('@evanion/urn', tags, '2.0.0')).toEqual([
       '@evanion/urn@3.0.0-beta.0',
     ]);
+    expect(taggedPast('@evanion/urn', tags, '1.0.0')).toEqual([
+      '@evanion/urn@3.0.0-beta.0',
+      '@evanion/urn@2.0.0',
+      '@evanion/urn@1.1.1',
+    ]);
+  });
+
+  it('names no patch of the version as past it', () => {
+    expect(
+      taggedPast(
+        '@evanion/luhn',
+        ['@evanion/luhn@3.0.1', '@evanion/luhn@3.0.2-rc.0'],
+        '3.0.0',
+      ),
+    ).toEqual([]);
   });
 });
