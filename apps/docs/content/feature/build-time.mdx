@@ -34,13 +34,15 @@ its reason. `resolved: 'deferred'` means some rule, or this feature's variant
 split, still needs context this plan did not have, and `needs` lists the
 fields, sorted.
 
-While a parent is unresolved, a deferred feature's `needs` lists what those
-parents need, plus this feature's own bucketing field when it declares
-variants. A parent that resolves off decides the feature before its own rules
-run, so the entry says nothing about the fields those rules read. Supply the
-parent's fields and plan again to see what the feature still needs of its own.
-A feature no unresolved parent holds up lists what its own rules and its own
-split need.
+A parent that has not settled its own enablement holds the feature up: the
+deferred entry's `needs` lists what those parents need, plus this feature's own
+bucketing field when it declares variants, and its own rules never run, so the
+entry says nothing about the fields they read. A parent that resolves off
+decides the feature outright, and the entry is `resolved: false` with an empty
+`needs`. Supply the parent's fields and plan again to see what the feature
+still needs of its own. A parent deferred on its own split alone has settled
+enablement and holds nothing up, so the feature lists what its own rules and
+its own split need.
 
 ## What makes a rule resolvable
 
@@ -112,6 +114,15 @@ a decision at all.
 `plan({ targetingKey: 'user-1' })` settles both at once: `resolved` reads the
 enabled boolean, and `decision` carries the full assignment. See
 [Variants](/feature/variants) for what settles a variant at all.
+
+A feature deferred on its split alone holds no dependant up, because its
+enablement is settled. `banner` below defers its split, and `banner-cta`
+cascades off that enablement and plans its own rules. Its `needs` lists the
+field those rules read, and the parent's `targetingKey` stays out:
+
+```ts twoslash file=libs/feature/README.md region=plan-split-parent
+
+```
 
 A `plan()` context carrying `stickyVariants` also settles the split, but to
 that one subject's stored variant, baking a per-subject answer into the build
