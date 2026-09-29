@@ -228,7 +228,9 @@ no second code path.
 Conditions inside a rule are AND-ed, so a condition the build context refutes
 settles the rule whatever an absent field holds. `plan()` decides such a rule
 and walks on to the rules below it, and the fields it could not read stay out
-of `needs`.
+of `needs`. The walk runs for a feature whose parents have all settled their
+enablement; a parent that has not defers its dependant whole, before the
+dependant's rules are read.
 
 A build-time-resolved date window is frozen at build. That is a deploy-cadence
 decision and must be opt-in per feature.
@@ -274,7 +276,9 @@ build-time/per-request split exactly.
 - A window expiring and reopening restores the dependant without a write.
 - Rollout bucketing is stable across evaluations and decorrelated across
   features; raising a percentage never moves an existing member out.
-- `plan()` defers a rule that needs context the plan did not have and whose
-  other conditions all held, and no others. A rule the context already refutes
-  is decided at build time.
+- Of the rules `plan()` reaches, it defers one that needs context the plan did
+  not have and whose other conditions all held, and no others. A rule the
+  context already refutes is decided at build time. A dependant an unsettled
+  parent defers reaches none of its own rules, and a plan run against a context
+  that settles the parent reaches them all.
 - Precedence: `enabled === false` short-circuits before rules run.

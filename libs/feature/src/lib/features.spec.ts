@@ -2335,6 +2335,48 @@ describe('plan', () => {
       );
     }
   });
+
+  it('defers a dependant under an open parent, refuted rule and all', () => {
+    const features = createFeatures([
+      {
+        key: 'banner',
+        enabled: true,
+        rules: [
+          { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
+        ],
+      },
+      {
+        key: 'cta',
+        enabled: true,
+        dependsOn: ['banner'],
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const known = { plan: 'free' };
+
+    const entry = features.plan(known).cta;
+
+    // `banner` has not settled its own enablement, so `cta`'s rules never run
+    // and its `needs` names what `banner` needs and nothing of its own. The
+    // deferral costs a request-time evaluation and ships no wrong answer:
+    // every request the plan left open answers off.
+    expect(entry).toMatchObject({ resolved: 'deferred', needs: ['role'] });
+    for (const role of ['staff', 'viewer']) {
+      for (const region of ['eu', 'us']) {
+        const decision = features.resolve({ ...known, role, region }).cta;
+
+        expect(decision.enabled).toBe(false);
+      }
+    }
+  });
 });
 
 describe('variantOf', () => {
