@@ -548,9 +548,10 @@ import { policy } from '@evanion/acl';
 
 type Shopper = { id: string; roles: string[] };
 
-// Baize suspends an account without editing anybody's roles. The deny sits
-// beside the allow it overrides, in the permission both belong to, and `.id()`
-// names each rule so a decision can report which one decided.
+// Baize suspends an account by adding the `suspended` role, and the account
+// keeps `bookseller`. The deny sits beside the allow it overrides, in the
+// permission both belong to, and `.id()` names each rule so a decision can
+// report which one decided.
 const access = policy<Shopper, { report: { id: string } }>()
   .for('report', (p) =>
     p
