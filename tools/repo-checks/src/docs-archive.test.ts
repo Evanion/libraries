@@ -145,7 +145,7 @@ describe('the pin file', () => {
 
   it('pins only releases that happened, at commits on main, and says why where it deviates', async () => {
     const { packages } = await navigation();
-    const { segmentOf, taggedAfter } = await versions();
+    const { segmentOf, taggedAfter, releaseLines } = await versions();
     const main = commit('origin/main');
 
     expect(
@@ -165,6 +165,7 @@ describe('the pin file', () => {
         dryRunAt: (sha, name) => dryRunAt(workspaceRoot, sha, name),
         segmentOf,
         taggedAfter: (name, version) => taggedAfter(name, tags, version),
+        releaseLines: (name) => releaseLines(name, tags),
       }),
       'apps/docs/archives.json decides what a release is documented by. ' +
         'docs/specs/2026-09-13-released-by-default.md § 7 is what a pin may say.',
@@ -364,27 +365,44 @@ describe('a pin', () => {
     ...Object.fromEntries(history.map((sha) => [sha, sha])),
   };
 
+  const segmentOf = (version: string) =>
+    version.startsWith('0.')
+      ? `v0.${version.split('.')[1]}`
+      : `v${version.split('.')[0]}`;
+  const versionOf = (tag: string) => tag.slice(tag.lastIndexOf('@') + 1);
+
   function faults(
     pin: Pin,
     dryRunAt: PinInputs['dryRunAt'] = () => null,
     extra: Record<string, Pin> = {},
+    later: readonly string[] = [],
   ): string[] {
+    const released = [...Object.keys(tagged), ...later]
+      .map(versionOf)
+      .filter((version) => !version.includes('-'))
+      .sort()
+      .reverse();
+
     return pinFaults({
       pins: { luhn: { v3: pin, ...extra } },
       packages: [{ name: '@evanion/luhn', slug: 'luhn', workshop: false }],
-      commit: (ref) => refs[ref] ?? null,
+      commit: (ref) => refs[ref] ?? (later.includes(ref) ? 'head003' : null),
       isAncestor: (a, b) =>
         history.indexOf(a) !== -1 && history.indexOf(a) <= history.indexOf(b),
       main: 'head003',
       dryRunAt,
-      segmentOf: (version) =>
-        version.startsWith('0.')
-          ? `v0.${version.split('.')[1]}`
-          : `v${version.split('.')[0]}`,
+      segmentOf,
       taggedAfter: (_name, version) =>
-        Object.keys(tagged).filter(
-          (tag) => tag.slice(tag.lastIndexOf('@') + 1) > version,
+        [...Object.keys(tagged), ...later].filter(
+          (tag) => versionOf(tag) > version,
         ),
+      releaseLines: () =>
+        [...new Set(released.map(segmentOf))].map((segment) => ({
+          segment,
+          releases: released
+            .filter((version) => segmentOf(version) === segment)
+            .map((version) => ({ version })),
+        })),
     });
   }
 
@@ -460,6 +478,38 @@ describe('a pin', () => {
     ]);
   });
 
+  /**
+   * The generator applies a pin to its line's newest release only, so after
+   * 3.0.1 a pin for 3.0.0 is read by nothing.
+   */
+  it('refuses a pin for a release its line has moved past', () => {
+    expect(
+      faults({ ...release, next: true, reason: 'no pages' }, () => null, {}, [
+        '@evanion/luhn@3.0.1',
+      ]),
+    ).toEqual([
+      'luhn.v3: 3.0.1 is the newest release in v3, so the site cuts it from its own tag and reads no pin for 3.0.0',
+    ]);
+  });
+
+  /** npm's `latest` never moves to a prerelease, so no line holds one. */
+  it('passes a pin whose line has only a later prerelease', () => {
+    expect(
+      faults({ ...release, sha: 'tag000' }, () => null, {}, [
+        '@evanion/luhn@3.0.1-beta.0',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('refuses a pin for a line the site no longer keeps', () => {
+    expect(
+      faults({ ...release, sha: 'tag000' }, () => null, {}, [
+        '@evanion/luhn@4.0.0',
+        '@evanion/luhn@5.0.0',
+      ]),
+    ).toEqual(['luhn.v3: the site keeps v5 and v4 and reads no pin for v3']);
+  });
+
   it('refuses a pin for a workshop package', () => {
     expect(
       pinFaults({
@@ -471,6 +521,7 @@ describe('a pin', () => {
         dryRunAt: () => null,
         segmentOf: () => 'v3',
         taggedAfter: () => [],
+        releaseLines: () => [],
       }),
     ).toEqual([
       'luhn: @evanion/luhn is private, so npm has no release of it to document',

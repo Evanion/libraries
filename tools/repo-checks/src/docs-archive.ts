@@ -16,6 +16,10 @@
  *   seen, is the quiet rewrite the pin file exists to make visible. A commit on
  *   a pull request's branch is neither: `main` is rebase-only, so the merge
  *   writes that commit again under another SHA.
+ * - The pin is one the site reads. The generator serves the current line and the
+ *   one before it, and applies a pin only to its line's newest release: a pin
+ *   for an older release, or for a line past those two, changes nothing and
+ *   reads as a decision nobody is making.
  * - No later version's tag is an ancestor of the pinned commit. Such a commit
  *   documents that later version, whatever the dry run below computes: the dry
  *   run measures from the package's newest tag, so it cannot see that a v1
@@ -67,6 +71,14 @@ export interface PinInputs {
    * `apps/docs/tools/versions.mjs`, over the repository's tags.
    */
   taggedAfter: (name: string, version: string) => readonly string[];
+  /**
+   * A package's release lines, newest first, each with its releases newest
+   * first: `releaseLines` from `apps/docs/tools/versions.mjs`, over the
+   * repository's tags, which the generator plans from.
+   */
+  releaseLines: (
+    name: string,
+  ) => readonly { segment: string; releases: readonly { version: string }[] }[];
 }
 
 /** Every rule a pin file breaks, as one line each. */
@@ -114,6 +126,19 @@ export function pinFaults(inputs: PinInputs): string[] {
         );
         continue;
       }
+
+      const released = inputs.releaseLines(entry.name);
+      const kept = released.slice(0, 2).map((each) => each.segment);
+      const newest = released.find((each) => each.segment === segment)
+        ?.releases[0]?.version;
+      if (!kept.includes(segment))
+        faults.push(
+          `${at}: the site keeps ${kept.join(' and ')} and reads no pin for ${segment}`,
+        );
+      else if (newest !== pin.version)
+        faults.push(
+          `${at}: ${newest} is the newest release in ${segment}, so the site cuts it from its own tag and reads no pin for ${pin.version}`,
+        );
 
       const deviates = pin.next === true || pin.path !== undefined;
 
