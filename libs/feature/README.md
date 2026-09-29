@@ -563,7 +563,9 @@ site emits only the deferred set and resolves that per request; an API calls
 `resolve()` per request. One engine, not a second code path.
 
 Freezing a date window into a build is a deploy-cadence decision, so `plan()`
-defers time-dependent rules unless the feature sets `freezeTimeAtBuild`.
+withholds `now` from the planning context unless the feature sets
+`freezeTimeAtBuild`. A rule that still needs `now` to be decided is deferred on
+the same terms as a rule needing any other absent field.
 
 A rule the context already refutes needs nothing more. Conditions within a rule
 are AND-ed, so one condition that fails settles the rule whatever an absent
@@ -595,6 +597,38 @@ promo.plan({ plan: 'free' })['eu-promo']; // -> { key: 'eu-promo', resolved: tru
 ```
 
 <!-- #endregion plan-refuted -->
+
+`now` is one of those absent fields. A condition beside a window can refute the
+rule on its own, so `'now'` reaches `needs` only where the walk read every other
+condition and each one held.
+
+<!-- #region plan-refuted-window -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const launch = createFeatures([
+  {
+    key: 'promo',
+    enabled: true,
+    rules: [
+      {
+        id: 'launch-pro',
+        when: [
+          { field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' },
+          { field: 'plan', op: 'eq', value: 'pro' },
+        ],
+      },
+      { id: 'everyone', when: [] },
+    ],
+  },
+]);
+
+launch.plan({ plan: 'free' }).promo; // -> { key: 'promo', resolved: true, needs: [], decision: { key: 'promo', enabled: true, reason: 'rule-match', rule: 'everyone' } }
+launch.plan({ plan: 'pro' }).promo; // -> { key: 'promo', resolved: 'deferred', needs: ['now'] }
+```
+
+<!-- #endregion plan-refuted-window -->
 
 When every rule loses this way the feature settles off, and the breakdown on
 its decision says only what every request agrees on. `failed` names one

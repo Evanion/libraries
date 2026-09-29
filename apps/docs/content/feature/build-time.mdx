@@ -147,8 +147,14 @@ build. A site that rebuilds hourly can freeze a window that opens on a date; a
 site that rebuilds monthly cannot, and the same flag in both places has to be
 able to say so.
 
-Without `freezeTimeAtBuild`, a `now`-dependent rule is deferred and `'now'`
-appears in `needs`. The static build emits the rule and the request resolves it.
+Without `freezeTimeAtBuild`, a `now`-dependent rule the context leaves open is
+deferred and `'now'` appears in `needs`. The static build emits the rule and the
+request resolves it. A condition beside the window refutes the rule on its own,
+and a refuted rule is settled off, so `'now'` never reaches `needs`:
+
+```ts twoslash file=libs/feature/README.md region=plan-refuted-window
+
+```
 
 ## Using a plan
 
