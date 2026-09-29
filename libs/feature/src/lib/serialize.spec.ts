@@ -779,6 +779,9 @@ describe('serializeConfig', () => {
    * and a symbol make `structuredClone` raise `DataCloneError` inside
    * `createFeatures`, a typed array makes `deepFreeze` raise `TypeError`, and
    * `structuredClone` hands back a class instance as a plain object.
+   *
+   * `null` is the leaf the walk admits and this block does not hold. `a null`
+   * below carries it.
    */
   describe('a leaf JSON carries no value of', () => {
     it('refuses a Date that names no instant', () => {
@@ -944,6 +947,72 @@ describe('serializeConfig', () => {
       expect(() => serializeConfig(features)).toThrow(
         '/features/1/variants/0/value/labels/0',
       );
+    });
+  });
+
+  /**
+   * `null`, the one leaf the walk admits that is neither a primitive nor a
+   * plain container.
+   *
+   * § 8 leaves the rest of the document to JSON, and `config.ts`'s `JsonValue`
+   * lists `null` beside the primitives, so an author clearing an optional field
+   * writes one. The walk has to admit it on purpose: `typeof null` is
+   * `'object'`, so `null` reaches the prototype rule with every guard above it
+   * passed, and `Object.getPrototypeOf(null)` raises a bare `TypeError` naming
+   * no path.
+   *
+   * `config.test-d.ts` holds `null` against `JsonValue`. These three cases are
+   * the runtime half: a member, a whole condition value, and an array element,
+   * which is the element `canonical` and `JSON.stringify` both write as `null`.
+   */
+  describe('a null', () => {
+    it('writes a null variant value member', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: { label: null } }],
+        },
+      ]);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.variants?.[0]?.value).toEqual({
+        label: null,
+      });
+    });
+
+    it('writes a null attribute condition value', () => {
+      const features = createFeatures([
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'plan', op: 'eq', value: null }] }],
+        },
+      ]);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when?.[0]?.value).toBeNull();
+    });
+
+    it('writes a null array element, which both sides digest as null', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'control', weight: 1, value: ['a', null, 2] }],
+        },
+      ]);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.variants?.[0]?.value).toEqual([
+        'a',
+        null,
+        2,
+      ]);
+      expect(JSON.parse(JSON.stringify(document))).toEqual(document);
     });
   });
 
