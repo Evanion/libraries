@@ -21,5 +21,29 @@
       "tag": "@evanion/urn@1.1.1",
       "sha": "c2979eaf0cc95ae74d8c06f74c93d7e44a91c7e6"
     }
+  },
+  "widget": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/widget@0.1.0",
+      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
+      "reason": "seed: @evanion/widget@0.1.0 carries no pages, and nx release version --dry-run computes 0.1.1 at this SHA"
+    }
+  },
+  "luhn": {
+    "v3": {
+      "version": "3.0.0",
+      "tag": "@evanion/luhn@3.0.0",
+      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
+      "reason": "seed: @evanion/luhn@3.0.0 carries no pages, and nx release version --dry-run computes 3.0.1 at this SHA"
+    }
+  },
+  "token": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/token@0.1.0",
+      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
+      "reason": "seed: @evanion/token@0.1.0 carries no pages, and nx release version --dry-run computes 0.1.1 at this SHA"
+    }
   }
 }
