@@ -328,12 +328,52 @@ describe('SerializedWindowCondition', () => {
     >();
   });
 
+  it('carries its instant in the two forms a document holds', () => {
+    expectTypeOf<
+      SerializedWindowCondition['value']
+    >().toEqualTypeOf<SerializedInstant>();
+  });
+
+  it('takes epoch milliseconds, which a producer with no ISO formatter writes', () => {
+    const condition = {
+      field: 'now',
+      op: 'before',
+      value: 1767225600000,
+    } satisfies SerializedWindowCondition;
+
+    expectTypeOf(condition.value).toEqualTypeOf<number>();
+  });
+
   it('refuses the live window condition a store holds', () => {
     expectTypeOf<WindowCondition>().not.toExtend<SerializedWindowCondition>();
   });
 });
 
 describe('SerializedCondition', () => {
+  it('takes a serialized window condition, the arm this vocabulary exists for', () => {
+    expectTypeOf<SerializedWindowCondition>().toExtend<SerializedCondition>();
+  });
+
+  it('takes a window condition a document carries as an ISO string', () => {
+    const document = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' },
+              ],
+            },
+          ],
+        },
+      ],
+    } satisfies FeatureConfig<'cta'>;
+
+    expectTypeOf(document.features).toBeArray();
+  });
+
   it('takes a day-of-week condition unchanged', () => {
     expectTypeOf<DayOfWeekCondition>().toExtend<SerializedCondition>();
   });
