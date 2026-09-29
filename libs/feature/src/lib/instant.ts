@@ -86,10 +86,18 @@ function namesCalendarDay(value: string): boolean {
  * A `Date` is returned as its own instant. It carries no record of the string
  * it was built from, so `new Date('2026-01-01T00:00:00')` has already taken the
  * constructing host's zone before this function sees it.
+ *
+ * A value of no other type names no instant. `Instant` says there is no such
+ * value, and a document parsed out of JSON carries whatever it carries:
+ * `validateConditions` reads the string forms only, so a `null`, an object, a
+ * boolean or an array is built into a store and arrives here. Answering `NaN`
+ * for it is what `evaluateCondition` turns into `false`, which is the answer
+ * every unevaluable condition gets.
  */
 export function instantEpoch(value: Instant): number {
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return Number.NaN;
 
   const fixed = value.replace(BASIC_OFFSET, '$1$2:$3');
   if (!FIXED.test(fixed) || !namesCalendarDay(fixed)) return Number.NaN;
