@@ -5,11 +5,12 @@ import type { ReactNode } from 'react';
 import { hydratePolicy } from '@evanion/acl';
 import { PolicyProvider, useCan } from '@evanion/react-acl';
 
-import { buildAccess, openingGrants, type Role } from './access';
+import type { Role } from './access';
 import {
   treeControls,
   listings,
   now,
+  shop,
   subjects,
   type TreeControl,
   type Status,
@@ -82,14 +83,13 @@ function ControlNode({ control, listing }: ControlNodeProps) {
  *
  * The two controls change what the provider holds and what the leaf is asked
  * about, which are the two halves of a decision. Signing in as someone else
- * changes `subject` on the provider and nothing else, and three badges four
+ * changes `subject` on the provider and nothing else, and the badges four
  * levels down change with it. Publishing the listing leaves the provider alone
  * and moves one badge, because the shop's deny rule is the only rule that reads
- * the row.
+ * the listing's status.
  *
- * `PolicyProvider` and `useCan` are the published ones, and the policy is the
- * shop policy `/acl/interface` is built on, so a rule that changed there changes
- * what these badges say.
+ * `PolicyProvider` and `useCan` are the published ones, and the policy is
+ * `shop` from `./policy-tree`, the rules the react-acl examples evaluate.
  *
  * What a reader must not take from it: every badge here is a browser deciding
  * what to draw. The caption says so, and so does the page around it.
@@ -100,13 +100,10 @@ export default function PolicySpecimen() {
 
   // The document, then an evaluator over it -- which is the trip a matrix makes
   // to a browser, compressed into one line because both ends are on this page.
-  // `buildAccess` returns the typed builder's `Access<Shopper, …>`, and a
-  // provider that serves any policy takes the untyped one, so hydrating is also
-  // what makes the two meet.
-  const access = useMemo(
-    () => hydratePolicy(buildAccess(openingGrants).matrix),
-    [],
-  );
+  // `shop` is the typed builder's `Access<Shopper, …>`, and a provider that
+  // serves any policy takes the untyped one, so hydrating is also what makes
+  // the two meet.
+  const access = useMemo(() => hydratePolicy(shop.matrix), []);
   const context = useMemo(() => ({ now }), []);
   const subject = subjects[role];
   const listing = listings[status];

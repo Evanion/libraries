@@ -1,4 +1,4 @@
-import type { Subject } from '@evanion/acl';
+import { policy, type Subject } from '@evanion/acl';
 
 import { people, type Role } from './access';
 
@@ -12,14 +12,38 @@ import { people, type Role } from './access';
  * opposite of what the page says about the clock. These are module constants
  * for that reason.
  *
- * The policy, the people and the roles come from `./access`, which is the same
- * shop policy the Authorization section's demonstration is built on. One shop,
- * one policy: a reader arriving here from `/acl/interface` meets the listing
- * they have already read about, and a rule that changed there changes here.
+ * The people and the roles come from `./access`, the shop the Authorization
+ * section's demonstration is built on. The policy is the react-acl section's:
+ * the seller who listed a listing edits it, which is the rule every react-acl
+ * example evaluates, and the Getting started page lists it beside this tree.
  */
 
+/** Who is signed in, with the `id` the edit rule compares. */
+type Shopper = { id: string; name: string; role: Role };
+
+/** A listing, with the seller the edit rule reads. */
+type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
+
 /**
- * One subject per role.
+ * The shop's four rules: everybody reviews, the listing's seller edits, only
+ * an owner publishes, and nobody edits a published listing.
+ */
+export const shop = policy<
+  Shopper,
+  { listing: Listing },
+  { listing: 'review' | 'edit' | 'publish' }
+>()
+  .for('listing', (p) =>
+    p
+      .allow('review', p.always)
+      .allow('edit', p.eq('object.sellerId', 'subject.id'))
+      .allow('publish', p.in('subject.role', ['owner']))
+      .deny('edit', p.eq('object.status', 'published')),
+  )
+  .build();
+
+/**
+ * One subject per role. Mika Persson, the bookseller, listed the game.
  *
  * `Subject` is `Record<string, unknown>`, and an interface is not assignable to
  * that -- TypeScript gives an implicit index signature to an object literal
@@ -27,16 +51,16 @@ import { people, type Role } from './access';
  * crosses that, rather than a cast at the provider.
  */
 export const subjects = {
-  customer: { ...people.customer },
-  bookseller: { ...people.bookseller },
-  owner: { ...people.owner },
-} satisfies Record<Role, Subject>;
+  customer: { id: 'sam', ...people.customer },
+  bookseller: { id: 'mika', ...people.bookseller },
+  owner: { id: 'jo', ...people.owner },
+} satisfies Record<Role, Subject & Shopper>;
 
 /** The listing the specimen is about, in each of the two states it has. */
 export const listings = {
-  draft: { id: 'brass-birmingham', status: 'draft' },
-  published: { id: 'brass-birmingham', status: 'published' },
-} satisfies Record<string, Record<string, unknown>>;
+  draft: { id: 'brass-birmingham', sellerId: 'mika', status: 'draft' },
+  published: { id: 'brass-birmingham', sellerId: 'mika', status: 'published' },
+} satisfies Record<string, Listing>;
 
 /** Which state of the listing the reader is looking at. */
 export type Status = keyof typeof listings;

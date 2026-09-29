@@ -50,18 +50,19 @@ describe('the policy specimen', () => {
     expect(badgeFor('PublishControl')).toBe('no-rule-matched');
   });
 
-  it('grants the owner all three', () => {
+  /** The edit goes to the seller who listed the game, and Mika listed it. */
+  it('grants the owner the publish and not the edit', () => {
     render(<PolicySpecimen />);
     signInAs('Owner');
 
     expect(badgeFor('ReviewControl')).toBe('allowed');
-    expect(badgeFor('EditControl')).toBe('allowed');
+    expect(badgeFor('EditControl')).toBe('no-rule-matched');
     expect(badgeFor('PublishControl')).toBe('allowed');
   });
 
   /**
    * Publishing leaves the provider alone and changes the row the leaf asks
-   * about. The shop's deny rule is the only one that reads the row, so one
+   * about. The shop's deny rule is the only one that reads the status, so one
    * badge moves and the other two hold.
    */
   it('closes the edit for everyone once the listing is published', () => {
