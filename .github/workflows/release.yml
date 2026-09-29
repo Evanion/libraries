@@ -122,6 +122,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Version, changelog and tag
+        id: version
         # Inputs reach the script as environment variables. A `${{ }}`
         # interpolation is substituted into the script text before the shell sees
         # it, so a dispatch input containing shell syntax would run as part of
@@ -150,8 +151,58 @@ jobs:
           echo "Running: nx release ${args[*]}"
           npx nx release "${args[@]}"
 
+      # apps/docs/archives.json pins what a release line's documentation is cut
+      # from, and a new x.y.0 can make a pin dead or need one: it replaces the
+      # x.y.0 an existing pin names, or it shipped no pages and needs a seed.
+      # cut-releases.mjs writes both from the tags, and the pin check in
+      # tools/repo-checks refuses every pull request until it has run, so it
+      # runs here, against the tags the step above just pushed.
+      #
+      # The pin commit goes straight to main over the deploy-key checkout, the
+      # same way `nx release` pushes, and the checkout comment says why only the
+      # deploy key can push past the main ruleset. The tags decide every line
+      # of the commit, so a review of it has nothing to decide, and until it is
+      # on main the pin check fails every other pull request.
+      #
+      # A dry run pushes no tags, so cut-releases.mjs alone would find no new
+      # release and report no change. tag-dry-run-release.mjs tags HEAD in this
+      # clone with the tags `nx release` computed, and origin/main moves to
+      # HEAD, which is where a real run leaves both. The step then prints the
+      # diff a real run would commit. Nothing pushes, and the runner discards
+      # the tags and the ref.
+      #
+      # A failure here leaves the release tagged and unpublished, so Publish
+      # below does not wait on this step. The job still goes red, and the pin
+      # check names the pin to fix on the next pull request.
+      - name: Keep the docs archive pins on the new releases
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          PROJECTS: ${{ steps.projects.outputs.projects }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/tag-dry-run-release.mjs
+            git update-ref refs/remotes/origin/main HEAD
+          fi
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON apps/docs/tools/cut-releases.mjs
+          if git diff --quiet -- apps/docs/archives.json; then
+            echo "apps/docs/archives.json already pins the new releases"
+            exit 0
+          fi
+          git diff -- apps/docs/archives.json
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: a real run commits the diff above to main"
+            exit 0
+          fi
+          git commit -m "chore(docs): keep the docs archive pins on the new releases" \
+            -- apps/docs/archives.json
+          git push origin HEAD
+
       - name: Publish to npm
-        if: ${{ !inputs.dry-run }}
+        # `!cancelled()` lets Publish run when the pin step fails. It needs the
+        # version step's success in its place, because that is what tagged the
+        # versions this step publishes.
+        if: ${{ !cancelled() && !inputs.dry-run && steps.version.outcome == 'success' }}
         env:
           PROJECTS: ${{ steps.projects.outputs.projects }}
           # No NODE_AUTH_TOKEN and no NPM_TOKEN, deliberately.

@@ -156,7 +156,8 @@ which is what catches a pin nx did not rewrite.
    `nx release` proposed minor bumps for all three packages.
 
 2. Run **Release** with `dry-run: true`. Check the proposed versions, changelog
-   entries and tag names.
+   entries and tag names. The docs pin step prints the change to
+   `apps/docs/archives.json` a real run commits to `main` after it tags.
 
 3. Re-run with `dry-run: false`.
 

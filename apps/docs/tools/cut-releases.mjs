@@ -10,9 +10,10 @@ import { releaseLines } from './versions.mjs';
 /**
  * Brings `apps/docs/archives.json` up to the release tags, and writes it.
  *
- * Run after a release, with `main` checked out as `origin` has it:
- * `node apps/docs/tools/cut-releases.mjs`. It does two things, so that a
- * release never needs the pin file edited by hand:
+ * `.github/workflows/release.yml` runs it after `nx release` pushes the tags,
+ * and commits what it writes. By hand it runs with `main` checked out as
+ * `origin` has it: `node apps/docs/tools/cut-releases.mjs`. It does two
+ * things, so that a release never needs the pin file edited by hand:
  *
  * - It drops every pin a release made dead (`prunePins`). A pin names the
  *   x.y.0 its line is cut from, so a later x.y.0 in the line, or a line that
