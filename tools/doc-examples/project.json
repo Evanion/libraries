@@ -1,0 +1,32 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@evanion/doc-examples",
+  "targets": {
+    // Emits the declarations every library's typecheck reads. A library's
+    // vite.config.ts imports this package, and its tsconfig.lib.json
+    // references this project, so tsc resolves the import to dist/ here and
+    // reports TS6305 when the file is missing.
+    //
+    // A library's `tsc --build tsconfig.lib.json` also writes dist/ here, and
+    // no library's build lists it among its outputs, so a library build
+    // replayed from the cache leaves it absent. This target owns the write.
+    // A library's `build` and `test` reach it through `^build`, the cache
+    // restores it, and the library's tsc finds it up to date.
+    "build": {
+      "command": "tsc --build tsconfig.json",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/tsconfig.base.json",
+        { "externalDependencies": ["typescript"] }
+      ],
+      "outputs": [
+        "{projectRoot}/dist/**/*.{d.ts,d.cts,d.mts}{,.map}",
+        "{projectRoot}/dist/tsconfig.tsbuildinfo"
+      ]
+    }
+  }
+}
