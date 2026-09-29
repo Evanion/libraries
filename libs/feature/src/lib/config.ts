@@ -105,8 +105,12 @@ export interface FeatureSchema {
  * `libs/acl/src/types.ts:220-234` gives: a foreign producer emitting JSON
  * states the version and the schema, and one document crosses a boundary
  * without a wrapper assembled at the call site.
+ *
+ * `F` defaults to `FeatureKey`. An entry point that reads a whole document
+ * names the bare `FeatureConfig`, and a document keyed on a numeric enum
+ * reaches that parameter only while the default admits a number.
  */
-export interface FeatureConfig<F extends FeatureKey = string> {
+export interface FeatureConfig<F extends FeatureKey = FeatureKey> {
   /**
    * Compared with `!==`. Opaque and unordered.
    *
@@ -137,8 +141,16 @@ export interface FeatureConfig<F extends FeatureKey = string> {
   readonly features: readonly SerializedDefinition<F>[];
 }
 
-/** The envelope without its payload, which a serializer writes around a store. */
-export type ConfigEnvelope = Omit<FeatureConfig, 'features'>;
+/**
+ * The envelope without its payload, which a serializer writes around a store.
+ *
+ * `digest` is not a member. A document's `digest` is always `configDigest` of
+ * that same document, so a serializer that copied one from its caller would
+ * emit a document whose digest covers other bytes. Every holder recomputes it,
+ * disagrees, reports `digest-mismatch` and refuses the whole document, and no
+ * holder recovers on its own. `configDigest` is the one writer of the member.
+ */
+export type ConfigEnvelope = Omit<FeatureConfig, 'features' | 'digest'>;
 
 /** What `validateConfig` found wrong. One code per class of defect. */
 export type ConfigIssueCode =

@@ -125,6 +125,21 @@ describe('FeatureConfig', () => {
     >().toEqualTypeOf<1 | 2>();
   });
 
+  it('defaults its key parameter to every key a store admits', () => {
+    expectTypeOf<
+      FeatureConfig['features'][number]['key']
+    >().toEqualTypeOf<FeatureKey>();
+  });
+
+  it('hands a numeric-keyed document to a signature naming the bare envelope', () => {
+    const read = (config: FeatureConfig) => config.features.length;
+    const numeric = {
+      features: [{ key: 1, enabled: true }],
+    } satisfies FeatureConfig<1 | 2>;
+
+    expectTypeOf(read).toBeCallableWith(numeric);
+  });
+
   it('compares a version it never orders, so a string and a number both carry one', () => {
     expectTypeOf<FeatureConfig['version']>().toEqualTypeOf<
       string | number | undefined
@@ -264,10 +279,21 @@ describe('ReloadResult', () => {
 });
 
 describe('ConfigEnvelope', () => {
-  it('drops the payload and keeps the five members that describe it', () => {
+  it('drops the payload and keeps the four members that describe it', () => {
     expectTypeOf<keyof ConfigEnvelope>().toEqualTypeOf<
-      'version' | 'digest' | 'schema' | 'schemaVersion' | 'maxStale'
+      'version' | 'schema' | 'schemaVersion' | 'maxStale'
     >();
+  });
+
+  it('drops the digest, which configDigest writes over the emitted bytes', () => {
+    const envelope = {
+      version: 41,
+      // @ts-expect-error -- a caller handing a serializer a cached digest emits
+      // a document whose digest covers the bytes of an earlier one.
+      digest: 'd9f1c0a4',
+    } satisfies ConfigEnvelope;
+
+    expectTypeOf(envelope.version).toExtend<number>();
   });
 
   it('leaves every member optional, so a serializer writes a bare envelope', () => {
@@ -521,6 +547,16 @@ describe('FeatureSchema', () => {
     expectTypeOf<
       NonNullable<FeatureSchema['features']>['constructor' | 'toString']
     >().toEqualTypeOf<FeatureShape>();
+  });
+
+  it('declares a shape for a feature the document does not carry, which a schema immutable at its version outlives', () => {
+    const document = {
+      schemaVersion: 's7',
+      schema: { features: { cta: {}, nav: {} } },
+      features: [{ key: 'cta', enabled: true }],
+    } satisfies FeatureConfig<'cta'>;
+
+    expectTypeOf(document.schema.features.nav).toExtend<FeatureShape>();
   });
 
   it('takes a document that declares a context and no feature shapes', () => {
