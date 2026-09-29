@@ -6,6 +6,7 @@ import {
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
 import type { Decision, FeatureDefinition } from './types.js';
+import { everywhere } from './zones.spec.js';
 
 const WINDOW = '2026-10-01T00:00:00Z';
 
@@ -28,29 +29,6 @@ const chain = (): [FeatureDefinition<Link>, ...FeatureDefinition<Link>[]] => [
 const enabledOf = (decisions: Record<string, Decision>) =>
   Object.fromEntries(
     Object.entries(decisions).map(([key, decision]) => [key, decision.enabled]),
-  );
-
-/**
- * Runs `read` with the process reporting `zone` as its timezone.
- *
- * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
- * what a host in Los Angeles would answer without running a second process.
- */
-function inZone<T>(zone: string, read: () => T): T {
-  const original = process.env.TZ;
-  process.env.TZ = zone;
-  try {
-    return read();
-  } finally {
-    if (original === undefined) delete process.env.TZ;
-    else process.env.TZ = original;
-  }
-}
-
-/** The answer in three zones spread far enough apart to cross a day boundary. */
-const everywhere = <T>(read: () => T): T[] =>
-  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
-    inZone(zone, read),
   );
 
 describe('createFeatures', () => {
@@ -109,6 +87,23 @@ describe('createFeatures', () => {
         },
       ]),
     ).not.toThrow();
+  });
+
+  it('refuses a window condition naming a day past the end of its month', () => {
+    // `2026-04-31` builds as 1 May under ECMA-262's MakeDay, so a generator
+    // computing "last day of April" one too far would ship a launch that opens
+    // a day late and reports nothing.
+    expect(() =>
+      createFeatures([
+        {
+          key: 'launch',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'now', op: 'after', value: '2026-04-31' }] },
+          ],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
   });
 
   it('refuses a window whose string names no instant in a feature past the first', () => {

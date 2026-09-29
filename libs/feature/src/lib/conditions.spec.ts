@@ -6,31 +6,9 @@ import {
 } from './conditions.js';
 import { FeatureConfigError } from './errors.js';
 import type { Condition, FeatureDefinition, Instant } from './types.js';
+import { everywhere, inZone } from './zones.spec.js';
 
 const at = (iso: string) => ({ now: new Date(iso) });
-
-/**
- * Runs `read` with the process reporting `zone` as its timezone.
- *
- * Node reads `process.env.TZ` on every `Date` construction, so a case can ask
- * what a host in Los Angeles would answer without running a second process.
- */
-function inZone<T>(zone: string, read: () => T): T {
-  const original = process.env.TZ;
-  process.env.TZ = zone;
-  try {
-    return read();
-  } finally {
-    if (original === undefined) delete process.env.TZ;
-    else process.env.TZ = original;
-  }
-}
-
-/** The answer in three zones spread far enough apart to cross a day boundary. */
-const everywhere = <T>(read: () => T): T[] =>
-  ['UTC', 'Asia/Tokyo', 'America/Los_Angeles'].map((zone) =>
-    inZone(zone, read),
-  );
 
 describe('evaluateCondition', () => {
   describe('window', () => {
@@ -437,6 +415,19 @@ describe('validateConditions', () => {
     const unusable = ['-000000-01-01', '0001-13', '0001-13-01', '0001-01-32'];
 
     for (const value of unusable) {
+      expect(() =>
+        validateConditions(featureWith({ field: 'now', op: 'after', value })),
+      ).toThrow(FeatureConfigError);
+    }
+  });
+
+  it('refuses a day the month it is written under does not have', () => {
+    // These name one instant on every engine, the first of the next month, so
+    // no disagreement between hosts refuses them. The author wrote April and
+    // would get May.
+    const overflowing = ['2026-04-31', '2026-02-29', '2026-06-31'];
+
+    for (const value of overflowing) {
       expect(() =>
         validateConditions(featureWith({ field: 'now', op: 'after', value })),
       ).toThrow(FeatureConfigError);

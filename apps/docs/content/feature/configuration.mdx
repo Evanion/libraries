@@ -165,6 +165,7 @@ A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
 | `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
 | `2026-13-01`                | `FeatureConfigError` at construction |
 | `2026-01-01t00:00:00z`      | `FeatureConfigError` at construction |
+| `2026-04-31`                | `FeatureConfigError` at construction |
 
 ECMA-262 reads a date-time carrying no offset as local time and fixes a date
 with no time to UTC. A rule derives one id on every host, so an offsetless
@@ -172,11 +173,17 @@ date-time gives a browser in Los Angeles and a service in Stockholm two answers
 under one name in both logs, with nothing in either decision naming the zone
 that decided it. `createFeatures` refuses such a string.
 
-The last two rows carry the same hazard by another route. A string ECMA-262's
-format does not cover falls to whatever parser the engine keeps for the rest,
-and V8's reads `2026-13-01` in the host's zone. The offset itself takes either
-spelling ISO 8601 gives it, `+09:00` or `+0900`, which is what a document
-written by Python's `strftime('%z')` or Java's `SimpleDateFormat("Z")` carries.
+`2026-13-01` and `2026-01-01t00:00:00z` carry the same hazard by another route:
+a string ECMA-262's format does not cover falls to whatever parser the engine
+keeps for the rest, and V8's reads `2026-13-01` in the host's zone.
+
+`2026-04-31` names a day April does not have, and every engine carries it into
+1 May, so the hosts agree on an instant the author did not write, under the one
+rule id `2026-05-01` also derives.
+
+The offset itself takes either spelling ISO 8601 gives it, `+09:00` or `+0900`,
+which is what a document written by Python's `strftime('%z')` or Java's
+`SimpleDateFormat("Z")` carries.
 
 A `Date` is taken as the instant it holds and is read no further, so
 `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
