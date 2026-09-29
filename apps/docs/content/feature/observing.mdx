@@ -87,6 +87,15 @@ TypeScript consumer and a `TypeError` for a JavaScript one. A store carrying no
 observer hands its answer to nobody else and freezes nothing, which is what
 `FrozenWhenObserved` on `resolve`, `plan` and `toggle` reports.
 
+The freeze happens only under an installed observer, so the package behaves
+differently under two configurations. The engine takes that asymmetry
+deliberately. At forty features the freeze adds 15 to 18 microseconds to a 20
+microsecond `resolve`, and a freeze on every call would add that to every user of
+the package whether or not they observe anything. A store nobody observes hands
+its record to nobody else, so the freeze protects nothing there. An application
+that reads a decision and then edits it installs no observer, or copies the
+record before it edits the copy.
+
 `event.at` is a copy of the settled instant, so an observer calling
 `event.at.setTime(0)` moves its own copy and no decision.
 
