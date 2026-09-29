@@ -273,9 +273,11 @@ const NOTICES = [
     from: 'So the application records exposure where it renders',
     until: '## What the seam does cover',
     phrases: [
-      "const decision = useFeature('checkout-cta');",
-      'decision.assignment?.source',
-      'decision.assignment?.bucket',
+      // The call and the field reads, not the binding they land on. A reader
+      // renaming the example's variable changes no claim this check holds.
+      "useFeature('checkout-cta')",
+      '.assignment?.source',
+      '.assignment?.bucket',
       '`useFeature` returns the whole decision',
       '`useVariant` returns `variant` and `value` alone',
     ],
