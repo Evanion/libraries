@@ -249,12 +249,77 @@ export function decide<F extends FeatureKey>(
 }
 
 /**
+ * How one rule stands against a context a build has only part of: decided, or
+ * unevaluable for the fields the context does not carry.
+ *
+ * A rule's conditions are AND-ed, so one condition the context refutes decides
+ * the rule however many of the others read a field the context lacks. No value
+ * of an absent field makes the AND hold, so a refuted rule cannot out-rank a
+ * later rule that matched, and the plan may walk past it instead of deferring
+ * the feature on it.
+ *
+ * The outcome a refuted rule carries names the condition the context refuted.
+ * `evaluateRule` names the first condition that did not hold, which for a
+ * partial context may be one reading an absent field, and a shipped decision
+ * must not blame a field nobody supplied.
+ */
+type PlannedRule =
+  | { state: 'decided'; outcome: RuleOutcome }
+  | { state: 'unevaluable'; missing: readonly string[] };
+
+function planRule<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  rule: Rule,
+  context: EvaluationContext,
+  available: ReadonlySet<string>,
+): PlannedRule {
+  const missing = ruleFields(rule).filter((field) => !available.has(field));
+  if (missing.length === 0) {
+    return {
+      state: 'decided',
+      outcome: evaluateRule(definition, rule, context),
+    };
+  }
+
+  for (const condition of rule.when ?? []) {
+    if (conditionFields(condition).some((field) => !available.has(field))) {
+      continue;
+    }
+    if (!evaluateCondition(condition, context)) {
+      return {
+        state: 'decided',
+        outcome: { rule: ruleId(rule), matched: false, failed: condition },
+      };
+    }
+  }
+
+  return { state: 'unevaluable', missing };
+}
+
+/**
+ * Restates a no-rule-matched breakdown from what the plan walk saw.
+ *
+ * `decide` runs against the partial context a build has, so it blames a rule
+ * it could not evaluate on a condition reading an absent field. The walk holds
+ * the condition the context refuted, and that is the one a decision shipped
+ * with a build names. Every other reason carries no breakdown to restate.
+ */
+function withBreakdown<F extends FeatureKey>(
+  decision: Decision<F>,
+  outcomes: readonly RuleOutcome[],
+): Decision<F> {
+  if (decision.reason !== 'no-rule-matched') return decision;
+  return { ...decision, rules: outcomes };
+}
+
+/**
  * Plans one feature for a partially known context.
  *
  * The line is context-free versus context-dependent: a rule whose fields are all
- * present can be decided now, and one that still needs a field cannot. `now` is
- * present only for a feature that opted into freezing its windows at build time,
- * because baking a date window into a build is a deploy-cadence decision.
+ * present can be decided now, and one that still needs a field cannot -- unless
+ * the context already refutes it, which decides it too. `now` is present only
+ * for a feature that opted into freezing its windows at build time, because
+ * baking a date window into a build is a deploy-cadence decision.
  */
 export function planFeature<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
@@ -304,17 +369,23 @@ export function planFeature<F extends FeatureKey>(
   const rules = definition.rules ?? [];
   // Fields a rule itself is missing. A rule that still needs a field leaves
   // enablement unresolved, so this loop keeps that need separate from the
-  // variant's need below and never lets the two share one need count.
+  // variant's need below and never lets the two share one need count. A rule
+  // the context refutes needs nothing: it is decided.
   const ruleNeeds = new Set<string>();
+  // One outcome per rule the walk decided, in order. It holds every rule
+  // exactly when nothing matched and nothing was left unevaluable, which is
+  // the one case the breakdown below reads it for.
+  const outcomes: RuleOutcome[] = [];
 
   if (deferredNeeds.size === 0) {
     for (const rule of rules) {
-      const missing = ruleFields(rule).filter((field) => !available.has(field));
-      if (missing.length) {
-        for (const field of missing) ruleNeeds.add(field);
+      const planned = planRule(definition, rule, context, available);
+      if (planned.state === 'unevaluable') {
+        for (const field of planned.missing) ruleNeeds.add(field);
         continue;
       }
-      if (evaluateRule(definition, rule, context).matched) {
+      outcomes.push(planned.outcome);
+      if (planned.outcome.matched) {
         // `decide` evaluates rules in order and stops at the first match, so
         // this loop stops here too. A rule after this one never runs, and a
         // need that rule would have logged never reaches `ruleNeeds`.
@@ -328,16 +399,19 @@ export function planFeature<F extends FeatureKey>(
     definition.variants !== undefined && definition.variants.length > 0;
 
   // This block settles enablement only when every rule the loop looked at
-  // resolved cleanly, leaving `ruleNeeds` empty. `decide` evaluates rules in
-  // order and stops at the first match, so a rule the loop above skipped for
-  // a missing field could still out-rank a rule that matched after it; a
-  // match by itself does not settle anything while `ruleNeeds` is non-empty.
+  // decided, leaving `ruleNeeds` empty. `decide` evaluates rules in order and
+  // stops at the first match, so a rule the loop above left unevaluable could
+  // still out-rank a rule that matched after it; a match by itself does not
+  // settle anything while `ruleNeeds` is non-empty.
   // Once `ruleNeeds` is empty, `decide` already knows what settles the split,
   // so this block calls it once, reads `settled.assignment.source` to tell a
   // settled split from a fallback, and takes `resolved` from
   // `settled.enabled`.
   if (deferredNeeds.size === 0 && ruleNeeds.size === 0) {
-    const settled = decide(definition, context, resolved);
+    const settled = withBreakdown(
+      decide(definition, context, resolved),
+      outcomes,
+    );
     // `'fallback'` is the one source that means the context left the split
     // unsettled: `assignVariant` found no usable bucketing value and handed
     // back the control as a placeholder. Every other source settles the

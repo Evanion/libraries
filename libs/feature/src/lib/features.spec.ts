@@ -1399,6 +1399,171 @@ describe('plan', () => {
     expect(planned.decision?.rule).toBe(resolved.rule);
   });
 
+  it('settles a later match when the context already refuted the earlier rule', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1', plan: 'free' }).cta;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.variant).toBe('control');
+  });
+
+  it('agrees with resolve for either value of the field the refuted rule missed', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+    const planned = features.plan({ targetingKey: 'u1', plan: 'free' }).cta;
+
+    for (const region of ['eu', 'us']) {
+      const resolved = features.resolve({
+        targetingKey: 'u1',
+        plan: 'free',
+        region,
+      }).cta;
+      expect(planned.decision?.enabled).toBe(resolved.enabled);
+      expect(planned.decision?.variant).toBe(resolved.variant);
+      expect(planned.decision?.rule).toBe(resolved.rule);
+    }
+  });
+
+  it('defers an earlier rule the context has not refuted', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            when: [
+              { field: 'plan', op: 'eq', value: 'pro' },
+              { field: 'region', op: 'eq', value: 'eu' },
+            ],
+            variant: 'blue',
+          },
+          { when: [], variant: 'control' },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ targetingKey: 'u1', plan: 'pro' }).cta;
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toEqual(['region']);
+  });
+
+  it('refutes a rollout rule whose conditions the context already ruled out', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'pro-ramp',
+            when: [{ field: 'plan', op: 'eq', value: 'pro' }],
+            rollout: { percent: 50 },
+          },
+          { id: 'everyone', when: [] },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe(true);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.rule).toBe('everyone');
+  });
+
+  it('settles off when the context refuted every rule it could not evaluate', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.resolved).toBe(false);
+    expect(entry.needs).toEqual([]);
+    expect(entry.decision?.reason).toBe('no-rule-matched');
+  });
+
+  it('blames the condition the context refuted, not the one it could not read', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'eu-pro',
+            when: [
+              { field: 'region', op: 'eq', value: 'eu' },
+              { field: 'plan', op: 'eq', value: 'pro' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const entry = features.plan({ plan: 'free' }).promo;
+
+    expect(entry.decision?.rules?.[0]?.failed).toEqual({
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    });
+  });
+
   it('still settles a feature whose first rule matched', () => {
     const features = createFeatures([
       {
