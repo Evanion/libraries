@@ -1133,6 +1133,35 @@ describe('plan', () => {
     expect(entry.decision?.enabled).toBe(true);
   });
 
+  it("plans a dependant's own rules under a parent deferred on its split", () => {
+    const features = createFeatures([
+      {
+        key: 'p',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+      {
+        key: 'c',
+        enabled: true,
+        dependsOn: ['p'],
+        rules: [{ when: [{ field: 'role', op: 'eq', value: 'staff' }] }],
+      },
+    ]);
+
+    const plan = features.plan({});
+
+    expect(plan.p).toMatchObject({
+      resolved: 'deferred',
+      needs: ['targetingKey'],
+    });
+    expect(plan.p.decision?.enabled).toBe(true);
+    expect(plan.c.resolved).toBe('deferred');
+    expect(plan.c.needs).toEqual(['role']);
+  });
+
   it('defers a dependant whose parent defers for its own rules', () => {
     const features = createFeatures([
       {
