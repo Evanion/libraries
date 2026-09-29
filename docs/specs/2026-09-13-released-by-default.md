@@ -412,17 +412,19 @@ Every cross-page link in `content/` is absolute — 63 of them, written
 all 63 silently leave their version and land on the current one with a 200. A
 reader on a v2 page clicks through to the API reference and gets v3.
 
-The fix goes in the authored content, before any version directory exists, not in
-a rewrite pass at cut time:
+The fix goes in the authored content, before any version directory exists:
 
 - A link from a page to another page in the same package section is relative.
 - A link to another package's section stays absolute and deliberately escapes to
   that package's current version, because `/luhn/v2/` has no urn v2 to point at.
 
 Repo-check: no absolute link inside `content/next/<slug>/` whose first path
-segment equals its own slug. Fixing the 63 at the source means the cut performs no
-link rewriting at all, which removes a pass and its failure modes rather than
-adding one.
+segment equals its own slug. The fix reaches `main` and later commits only. A
+version cut from a tag written before it links its own section absolutely, and on
+an archived version an absolute `/<slug>/…` link sends the reader to the newest
+release and not to their version. So the cut rewrites every same-section absolute
+link as relative, spelled with the section's directory name at the pinned commit,
+and the `.md` siblings resolve the relative links against the page's URL.
 
 ## 10. Search and SEO
 
