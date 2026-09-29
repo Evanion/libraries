@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ruleId } from './rule-id.js';
 import type { Instant, Rule } from './types.js';
-import { everywhere } from './zones.spec.js';
+import { everywhere } from './zones.js';
 
 describe('ruleId', () => {
   it('returns an explicit id unchanged', () => {

@@ -33,6 +33,7 @@
     "src/**/*.test-d.ts",
     "src/**/*.test-d.tsx",
     "src/test-setup.ts",
+    "src/lib/zones.ts",
     "src/**/*.d.ts"
   ],
   "references": [
