@@ -356,9 +356,10 @@ describe('ruleId', () => {
   });
 
   it('derives one id for the Dates and numbers that name no instant', () => {
-    // Both write `NaN`, so two rules with different unusable boundaries share
-    // a name in a decision's per-rule breakdown. `createFeatures` refuses the
-    // string forms of these and builds both of these.
+    // Both write `NaN`, which is the reading this package has of either.
+    // `canonical` writes `null` for both and would collide with a JSON-borne
+    // `null`. `createFeatures` refuses both, so two rules reach one name here
+    // only through a caller holding the rules themselves.
     const asDate = ruleId({
       when: [{ field: 'now', op: 'after', value: new Date('nonsense') }],
     });
@@ -367,5 +368,38 @@ describe('ruleId', () => {
     });
 
     expect(asNumber).toBe(asDate);
+  });
+
+  it('separates the values of no type an instant takes from one another', () => {
+    // A document parsed out of JSON carries values `Instant` does not admit
+    // into a store, and `instantEpoch` answers `NaN` for every one of them. A
+    // rule id derived from that number would name every such rule the same,
+    // and a decision's per-rule breakdown would name one rule twice with
+    // nothing in it saying which was walked.
+    const outside: readonly unknown[] = [
+      null,
+      undefined,
+      {},
+      true,
+      [],
+      Symbol('now'),
+    ];
+
+    const ids = outside.map((value) =>
+      ruleId({ when: [{ field: 'now', op: 'after', value: value as Instant }] }),
+    );
+
+    expect(new Set(ids).size).toBe(outside.length);
+  });
+
+  it('separates a value of no type an instant takes from a Date that names none', () => {
+    const asNull = ruleId({
+      when: [{ field: 'now', op: 'after', value: null as unknown as Instant }],
+    });
+    const asDate = ruleId({
+      when: [{ field: 'now', op: 'after', value: new Date('nonsense') }],
+    });
+
+    expect(asNull).not.toBe(asDate);
   });
 });
