@@ -65,9 +65,12 @@ line ends `… & ComposeError<"unknown prop 'accent'">'`.
 
 A missing or wrong value gets no message of its own. `@evanion/compose`
 resolves that entry to the shape it should have had, so TypeScript names the
-prop. Inline, TypeScript expects your value's type intersected with the declared
-one, and `'blue'` intersected with `'light' | 'dark'` is `never`. `provider()`
-reports the same mistake at the call and names both sides:
+prop. For `{ theme: 'blue' }` inline, TypeScript reports
+`Type 'string' is not assignable to type 'never'`. The expected type is your
+value's type intersected with the declared one, and `'blue'` intersected with
+`'light' | 'dark'` is `never`. Checked against `never`, a property's string
+literal prints as `string`. `provider()` reports the same mistake at the call
+and names both sides:
 
 ```tsx twoslash file=libs/compose/README.md region=checked-at-call
 
