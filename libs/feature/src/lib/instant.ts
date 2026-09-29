@@ -79,9 +79,10 @@ function namesCalendarDay(value: string): boolean {
  *
  * A string is parsed only once {@link FIXED} matches it and its day names a day
  * of its month, so a host in Tokyo and a host in Los Angeles return the same
- * number or both return `NaN`. `createFeatures` rejects the strings that return
- * `NaN` here, which leaves the value for a caller reaching `evaluateCondition`
- * or `ruleId` directly.
+ * number or both return `NaN`. `createFeatures` rejects every value that
+ * answers `NaN` here and every number outside the range a `Date` holds, which
+ * leaves those values for a caller reaching `evaluateCondition` or `ruleId`
+ * directly.
  *
  * A `Date` is returned as its own instant. It carries no record of the string
  * it was built from, so `new Date('2026-01-01T00:00:00')` has already taken the
@@ -89,8 +90,8 @@ function namesCalendarDay(value: string): boolean {
  *
  * A value of no other type names no instant. `Instant` says there is no such
  * value, and a document parsed out of JSON carries whatever it carries:
- * `validateConditions` reads the string forms only, so a `null`, an object, a
- * boolean or an array is built into a store and arrives here. Answering `NaN`
+ * `validateConditions` polices the three declared types, so a `null`, an
+ * object, a boolean or an array is built into a store and arrives here. Answering `NaN`
  * for it is what `evaluateCondition` turns into `false`, which is the answer
  * every unevaluable condition gets.
  */

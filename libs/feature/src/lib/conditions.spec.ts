@@ -133,8 +133,8 @@ describe('evaluateCondition', () => {
     });
 
     it('puts every instant inside a window bounded by infinity', () => {
-      // `validateConditions` reads the string forms only, so a number naming no
-      // moment is built into a store and answers here.
+      // `createFeatures` refuses such a number, so this window reaches an
+      // evaluation only through a caller holding the condition itself.
       const now = at('2026-10-01T00:00:00Z');
       const value = Number.POSITIVE_INFINITY;
 
@@ -473,20 +473,82 @@ describe('validateConditions', () => {
     ).not.toThrow();
   });
 
-  it('accepts a Date and a number naming no instant, which it reads no strings from', () => {
-    // The check reads the string forms only. A caller who wrote
-    // `new Date('2026-01-01T00:00:00')` in a config module hands the store an
-    // instant its own zone decided, and this builds.
-    const unusable: readonly Instant[] = [
-      new Date('nonsense'),
-      new Date('2026-01-01T00:00:00'),
-      Number.NaN,
+  it('refuses the number NaN, whichever way the window faces', () => {
+    // `Date.parse` of a string naming no instant answers NaN, so a config
+    // pipeline reading a boundary out of the environment writes one for an
+    // unset variable. The window matches at no moment and reports nothing.
+    expect(() =>
+      validateConditions(
+        featureWith({ field: 'now', op: 'after', value: Number.NaN }),
+      ),
+    ).toThrow(FeatureConfigError);
+    expect(() =>
+      validateConditions(
+        featureWith({ field: 'now', op: 'before', value: Number.NaN }),
+      ),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('refuses a number outside the range a Date holds', () => {
+    // The string naming the same moment is refused, and a `before` boundary
+    // above the range holds at every instant while an `after` boundary holds
+    // at none.
+    const outside: readonly Instant[] = [
       Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      8640000000000001,
+      -8640000000000001,
     ];
 
-    for (const value of unusable) {
+    for (const value of outside) {
+      expect(() =>
+        validateConditions(featureWith({ field: 'now', op: 'before', value })),
+      ).toThrow(FeatureConfigError);
+    }
+  });
+
+  it('accepts each end of the range a Date holds', () => {
+    for (const value of [8640000000000000, -8640000000000000]) {
       expect(() =>
         validateConditions(featureWith({ field: 'now', op: 'after', value })),
+      ).not.toThrow();
+    }
+  });
+
+  it('refuses a Date that holds no instant', () => {
+    expect(() =>
+      validateConditions(
+        featureWith({ field: 'now', op: 'after', value: new Date('nonsense') }),
+      ),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('accepts a Date built from a string whose zone its own host decided', () => {
+    // A `Date` carries an instant and nothing of the string it was built from,
+    // so `new Date('2026-01-01T00:00:00')` has already taken the constructing
+    // host's zone and no reading here recovers it.
+    expect(() =>
+      validateConditions(
+        featureWith({
+          field: 'now',
+          op: 'after',
+          value: new Date('2026-01-01T00:00:00'),
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('accepts a window value of no type an instant takes', () => {
+    // A document parsed out of JSON is untyped. The check polices the types
+    // `Instant` declares; what the library owes for a value outside them is
+    // the answer an unevaluable condition gets, on the evaluation path.
+    const outside: readonly unknown[] = [null, {}, true, ['2026-01-01']];
+
+    for (const value of outside) {
+      expect(() =>
+        validateConditions(
+          featureWith({ field: 'now', op: 'after', value: value as Instant }),
+        ),
       ).not.toThrow();
     }
   });

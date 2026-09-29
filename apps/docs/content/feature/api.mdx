@@ -597,6 +597,23 @@ and every engine carries the overflowing day into 1 May, so a string naming
 April names May on every host, under the one rule id `2026-05-01` also derives.
 `createFeatures` refuses all four.
 
+| Instant value              | Read as                              |
+| -------------------------- | ------------------------------------ |
+| `1767225600000`            | that instant                         |
+| `new Date(1767225600000)`  | that instant                         |
+| `Number.NaN`               | `FeatureConfigError` at construction |
+| `Number.POSITIVE_INFINITY` | `FeatureConfigError` at construction |
+| `8640000000000001`         | `FeatureConfigError` at construction |
+| `new Date('nonsense')`     | `FeatureConfigError` at construction |
+
+A number has to be an epoch a `Date` holds, and a `Date` has to hold an
+instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse` and
+`new Date` answer for a string naming none, so a boundary computed from an
+unset environment variable is refused where it is written. It refuses a number
+past either end of the range a `Date` holds, -8640000000000000 to
+8640000000000000, since a `before` boundary above that range holds at every
+instant and an `after` boundary at none.
+
 A `Date` is taken as the instant it holds and is read no further, so
 `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
 every check. Build one from epoch milliseconds, or from a string the table

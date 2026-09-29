@@ -166,10 +166,10 @@ describe('createFeatures', () => {
   });
 
   it('builds a window whose value is of no type an instant takes, and answers false', () => {
-    // A document read off the wire is untyped, and the construction check reads
-    // the string forms only. `null` is junk either way; what the library owes
-    // for it is the answer an unevaluable condition gets, and not a TypeError
-    // out of the evaluation path.
+    // A document read off the wire is untyped, and the construction check
+    // polices the three types `Instant` declares. `null` is junk either way;
+    // what the library owes for it is the answer an unevaluable condition
+    // gets, and not a TypeError out of the evaluation path.
     const document = JSON.parse(
       '[{"key":"k","enabled":true,"rules":[{"when":[{"field":"now","op":"after","value":null}]}]}]',
     ) as Definitions<'k'>;
@@ -182,30 +182,39 @@ describe('createFeatures', () => {
     );
   });
 
-  it('holds every instant inside a window bounded by a number no Date can hold', () => {
-    // `validateConditions` reads the string forms only, so the number is built
-    // into the store and `evaluateCondition` compares against it: a `before`
-    // boundary above every instant a `Date` holds is a window nothing falls
-    // outside. The flag is permanently on, which is the opposite of what a
-    // reader expects from a boundary no `Date` can hold.
-    const features = createFeatures([
-      {
-        key: 'launch',
-        enabled: true,
-        rules: [
-          {
-            when: [
-              { field: 'now', op: 'before', value: Number.POSITIVE_INFINITY },
-            ],
-          },
-        ],
-      },
-    ]);
+  it('refuses a window bounded by a number no Date can hold', () => {
+    // A `before` boundary above every instant a `Date` holds is a window
+    // nothing falls outside, and the flag is on at every moment.
+    expect(() =>
+      createFeatures([
+        {
+          key: 'launch',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'before', value: Number.POSITIVE_INFINITY },
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
+  });
 
-    expect(features.isEnabled('launch', { now: new Date(WINDOW) })).toBe(true);
-    expect(
-      features.isEnabled('launch', { now: new Date(8640000000000000) }),
-    ).toBe(true);
+  it('refuses a window bounded by the number NaN', () => {
+    // `Date.parse(process.env.LAUNCH_AT ?? '')` writes NaN when the variable is
+    // unset. The rule matches at no instant and no decision says why, so the
+    // flag is off forever and nothing reports it.
+    expect(() =>
+      createFeatures([
+        {
+          key: 'launch',
+          enabled: true,
+          rules: [{ when: [{ field: 'now', op: 'after', value: Number.NaN }] }],
+        },
+      ]),
+    ).toThrow(FeatureConfigError);
   });
 
   it('refuses a window whose string is ISO 8601 in shape and names no date', () => {
