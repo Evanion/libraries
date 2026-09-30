@@ -31,7 +31,10 @@ const SEEDS: readonly number[] = [
  * Two processes computing one digest from documents they fetched separately
  * have proved they hold the same configuration, which is what condition 2 of
  * the variants spec's determinism section asks for. The comparison holds across
- * a JSON hop because `serializeConfig` converts every `Date` first.
+ * a JSON hop because `canonical` writes a `Date` and the ISO string the
+ * transport hands the holder as one text, which is also why `serializeConfig`
+ * refuses a `Date` at a member `toEpoch` does not read: two processes whose
+ * values compare apart under `===` digest alike.
  *
  * Not a cryptographic digest. No security property rests on the difficulty of
  * finding a second document that hashes the same, and Web Crypto's `digest`
