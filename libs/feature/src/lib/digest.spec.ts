@@ -125,6 +125,56 @@ describe('configDigest', () => {
 
     expect(configDigest(arrived)).toBe(configDigest(document));
   });
+  it('agrees between a holder that parsed an overflowing literal and one that cached it', () => {
+    // JSON's number grammar accepts any exponent, and an overflowing literal
+    // parses to a non-finite double, so `JSON.parse` does hand a holder
+    // `Infinity`. A second holder that wrote the same served bytes to a disk
+    // cache through `JSON.stringify` and read them back holds `null` at the
+    // same member. § 2 of
+    // `docs/specs/2026-09-23-feature-config-distribution.md` reads two
+    // disagreeing digests as two configurations, so the two would refetch a
+    // document each of them already holds.
+    const parsed = JSON.parse(
+      '{"features":[],"maxStale":1e999}',
+    ) as FeatureConfig;
+    const cached = JSON.parse(JSON.stringify(parsed)) as FeatureConfig;
+
+    expect(parsed.maxStale).toBe(Number.POSITIVE_INFINITY);
+    expect(cached.maxStale).toBeNull();
+    expect(configDigest(cached)).toBe(configDigest(parsed));
+  });
+
+  it('agrees on a condition value an overflowing literal wrote', () => {
+    // The same literal at a condition value, which decides a rule. Two holders
+    // of one served rule that derive two `ruleId`s is the instability decision
+    // 5 exists to prevent, and two holders that digest the document apart is
+    // the same disagreement one level up.
+    const bytes =
+      '{"features":[{"key":"x","enabled":true,"rules":' +
+      '[{"when":[{"field":"n","op":"eq","value":-1e999}]}]}]}';
+    const parsed = JSON.parse(bytes) as FeatureConfig;
+    const cached = JSON.parse(JSON.stringify(parsed)) as FeatureConfig;
+
+    expect(configDigest(cached)).toBe(configDigest(parsed));
+  });
+
+  it('writes a NaN a document holds in memory the way JSON carries it', () => {
+    // `NaN` is the one of the three no JSON text reaches, and a document built
+    // in memory holds it. `serializeConfig` refuses one at every member it
+    // emits, so this document reaches no holder, and the digest still answers
+    // for the bytes a publisher would have served.
+    const held = {
+      features: [],
+      maxStale: Number.NaN,
+    } as unknown as FeatureConfig;
+    const carried = {
+      features: [],
+      maxStale: null,
+    } as unknown as FeatureConfig;
+
+    expect(configDigest(held)).toBe(configDigest(carried));
+  });
+
   it('holds the digest a second implementation has to reproduce', () => {
     // A publisher in one language and a holder in another compare this string,
     // so the four seeds, the word order and the canonical text are the wire

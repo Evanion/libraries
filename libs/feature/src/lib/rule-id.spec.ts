@@ -237,8 +237,9 @@ describe('ruleId', () => {
     // that number, and `eq: null` matches a null attribute. `JSON.stringify`
     // writes `null` for all three, so a derivation over its text would give
     // three rules matching three audiences one id. This is what the `number:`
-    // tag in `canonical` is for; a document carries none of the three, because
-    // `serializeConfig` refuses a non-finite number and names the path.
+    // tag in `canonical` is for. `configDigest` reads `canonicalDocument`
+    // instead, which writes the three as `null`, because a digest compares two
+    // holders across a JSON hop and this derivation reads a live store.
     const idAt = (value: unknown) =>
       ruleId({ when: [{ field: 'budget', op: 'eq', value }] });
 

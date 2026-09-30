@@ -1151,9 +1151,10 @@ describe('serializeConfig', () => {
     it('refuses a maxStale of Infinity, which one JSON hop turns into null', () => {
       // `maxStale` is declared `number`, so `Infinity` sits at it in-type. A
       // document carrying one reaches its holder as `null` while the publisher
-      // still holds the number, and `canonical` tags a non-finite number, so
-      // the holder recomputes a digest that disagrees and refuses the whole
-      // document under `digest-mismatch`, which names no member. This names it.
+      // still holds the number, and nothing downstream sees the difference:
+      // `configDigest` reads `canonicalDocument`, which writes a non-finite
+      // number as `null` the way JSON carries it, so the two digests agree. This
+      // walk is the only check the value meets, and it names the member.
       const features = createFeatures([{ key: 'cta', enabled: true }] as const);
 
       expect(() =>
@@ -1289,11 +1290,13 @@ describe('serializeConfig', () => {
    * variant value lost what it carried, with no digest disagreeing: the
    * publisher canonicalizes the same `{}`.
    *
-   * `NaN` and `Infinity` become `null` on the first transport hop, and
-   * `canonical` tags a non-finite number, so the two sides digest apart and the
-   * holder refuses the whole document over a mismatch it cannot explain. An
-   * `undefined` array element does the same, since `canonical` writes the text
-   * `undefined` where JSON writes `null`.
+   * `NaN` and `Infinity` become `null` on the first transport hop, and a
+   * publisher comparing digests learns nothing, because `canonicalDocument`
+   * writes all three as `null` too. `eq: Infinity` matches a context carrying
+   * that number and `eq: null` matches a null attribute, so the publisher and
+   * the holder resolve the same rule two ways with no digest disagreeing. An
+   * `undefined` array element digests apart instead, since `canonical` writes
+   * the text `undefined` where JSON writes `null`.
    *
    * Every one of them reaches a store: `structuredClone` carries them, holes in
    * a sparse array included, and `deepFreeze` seals a `Map` and a `Set` on

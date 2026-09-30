@@ -1,5 +1,5 @@
 import { murmur3Bytes, utf8 } from './bucketing.js';
-import { canonical } from './canonical.js';
+import { canonicalDocument } from './canonical.js';
 import type { FeatureConfig } from './config.js';
 
 /**
@@ -18,16 +18,18 @@ const SEEDS: readonly number[] = [
 /**
  * A hex digest over the canonical text of a document.
  *
- * `canonical` in this package sorts object keys, preserves array order, drops
- * `undefined` properties and writes a `Date` the way `JSON.stringify` writes
- * one. Two documents differing in key order or in whitespace state one
+ * `canonicalDocument` in this package sorts object keys, preserves array order,
+ * drops `undefined` properties and writes a `Date` the way `JSON.stringify`
+ * writes one. Two documents differing in key order or in whitespace state one
  * configuration, and a digest over raw bytes would change when nothing did.
  *
- * It also tags `NaN`, `Infinity` and `-Infinity`, which `JSON.stringify` writes
- * as `null`, and `ruleId` is the caller that needs the three apart. No digest
- * rests on that tag: `serializeConfig` refuses a non-finite number at every
- * member of the document it emits, `maxStale` included, and `JSON.parse` hands a
- * holder none, so both sides of a comparison canonicalise a number JSON carries.
+ * `canonical` tags `NaN`, `Infinity` and `-Infinity` for `ruleId`, which needs
+ * the three apart on a live store. `canonicalDocument` writes all three as
+ * `null`, and its docblock holds the argument: `JSON.parse` does hand a holder
+ * `Infinity` from an overflowing literal such as `1e999`, so a second holder
+ * that round-tripped the same served bytes through `JSON.stringify` holds
+ * `null`, and the tag would have the two disagree over one document. Both sides
+ * of a comparison here canonicalise the number JSON carries.
  *
  * `digest` and `version` are removed from the input before the text is taken,
  * and both are removed for one reason: § 2 of
@@ -41,6 +43,18 @@ const SEEDS: readonly number[] = [
  * What is left is the configuration. A holder that wants to know whether the
  * publisher relabelled a document compares `version` with `!==`, which is what
  * `docs/specs/2026-09-23-feature-hydration.md`, "The comparison", asks of it.
+ *
+ * Those two members are the only removals. § 2 fixes the digest at "every other
+ * byte of the document", so `maxStale` and `schema` are in the text with
+ * `features` and `schemaVersion`. Decision 3 leaves `maxStale` unread by every
+ * entry point that decides something, and this function decides nothing from
+ * its value: it hashes the document a publisher served. An operator who edits
+ * `maxStale` alone therefore publishes a document a holder reloads, and a
+ * publisher serving § 5's two schema forms of one configuration digests them
+ * apart. Both follow from the digest naming the document. Stripping either
+ * member would leave a holder verifying no part of the inline schema it
+ * compiles variant values against, which is the check decision 4's
+ * `digest-mismatch` exists to run.
  *
  * Two processes computing one digest from documents they fetched separately
  * have proved they hold the same configuration, which is what condition 2 of
@@ -58,7 +72,7 @@ export function configDigest(config: FeatureConfig): string {
   const body: Record<string, unknown> = { ...config };
   delete body['digest'];
   delete body['version'];
-  const bytes = utf8(canonical(body));
+  const bytes = utf8(canonicalDocument(body));
   return SEEDS.map((seed) =>
     murmur3Bytes(bytes, seed).toString(16).padStart(8, '0'),
   ).join('');

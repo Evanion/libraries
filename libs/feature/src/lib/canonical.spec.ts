@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonical } from './canonical.js';
+import { canonical, canonicalDocument } from './canonical.js';
 
 describe('canonical', () => {
   it('sorts object keys', () => {
@@ -123,5 +123,40 @@ describe('canonical', () => {
     shape['self'] = shape;
 
     expect(() => canonical(shape)).toThrow(RangeError);
+  });
+});
+
+describe('canonicalDocument', () => {
+  it('writes a non-finite number the way JSON carries it', () => {
+    expect(canonicalDocument(Number.NaN)).toBe('null');
+    expect(canonicalDocument(Number.POSITIVE_INFINITY)).toBe('null');
+    expect(canonicalDocument(Number.NEGATIVE_INFINITY)).toBe('null');
+  });
+
+  it('agrees between an overflowing literal and the null one JSON hop writes', () => {
+    // JSON's number grammar accepts any exponent, so a holder that parses
+    // `1e999` holds `Infinity` and a holder that round-tripped the same bytes
+    // through `JSON.stringify` holds `null`. `configDigest` compares those two
+    // holders, and the `number:` tag would have them disagree over one served
+    // document.
+    const parsed = JSON.parse('{"maxStale":1e999}') as unknown;
+    const cached = JSON.parse(JSON.stringify(parsed)) as unknown;
+
+    expect(canonicalDocument(parsed)).toBe('{"maxStale":null}');
+    expect(canonicalDocument(cached)).toBe(canonicalDocument(parsed));
+  });
+
+  it('writes every other value the way canonical writes it', () => {
+    const value = {
+      b: 1e21,
+      a: [new Date(0), 'a\tb', null, 10n],
+      c: { d: undefined, e: -0 },
+    };
+
+    expect(canonicalDocument(value)).toBe(canonical(value));
+  });
+
+  it('separates NaN from the string that spells the text JSON writes', () => {
+    expect(canonicalDocument(Number.NaN)).not.toBe(canonicalDocument('null'));
   });
 });
