@@ -8,7 +8,6 @@ import type {
   SerializedDefinition,
 } from './config.js';
 import type {
-  Condition,
   FeatureDefinition,
   FeatureKey,
   Rule,
@@ -158,7 +157,10 @@ function serialized(
  * legally, and decision 12 has it travel as an ISO string. The two forms decide
  * the window alike, because `toEpoch` at `conditions.ts:18-22` reads both to one
  * epoch, so the publisher holding the `Date` and the holder holding the string
- * answer `before` and `after` the same way.
+ * answer `before` and `after` the same way. A value that already round-trips
+ * travels as the store holds it, which is the second call § 8 names for this
+ * entry point: a control plane that built its store from rows serializes it to
+ * serve it, and the document it serves equals the document it read.
  *
  * Every other condition value keeps its `Date` and `serialized` refuses it. The
  * operators there are `eq`, `ne`, `in`, `not-in` and `contains`, and
@@ -166,10 +168,20 @@ function serialized(
  * `Date` and the holder comparing the ISO string decide one rule two ways over
  * two documents that digest alike. An author who wants that comparison writes
  * the ISO string in the definition, and then the two processes hold one value.
+ *
+ * The parameter is `unknown` because `createFeatures` reads `dependsOn` and
+ * `rule.variant` and reads no condition, and its inferring overload takes the
+ * `any` that `JSON.parse` returns. A store a holder built from a served document
+ * therefore carries whatever a control plane put at this position. This hands
+ * every value it does not convert to `serialized`, which admits what JSON
+ * carries and names the path to what it does not, and § 7 gives the shape itself
+ * to `validateConfig`.
  */
-function documentCondition(condition: Condition, path: string): Condition {
-  if (condition.op !== 'before' && condition.op !== 'after') return condition;
-  const value = condition.value;
+function documentCondition(condition: unknown, path: string): unknown {
+  if (typeof condition !== 'object' || condition === null) return condition;
+  const op: unknown = (condition as { readonly op?: unknown }).op;
+  if (op !== 'before' && op !== 'after') return condition;
+  const value: unknown = (condition as { readonly value?: unknown }).value;
   if (!(value instanceof Date)) return condition;
   if (Number.isNaN(value.getTime())) {
     throw new FeatureConfigError(
@@ -179,13 +191,19 @@ function documentCondition(condition: Condition, path: string): Condition {
   return { ...condition, value: value.toISOString() };
 }
 
-/** One rule as the document carries it, with its `id` and its rollout untouched. */
-function documentRule(rule: Rule, path: string): Rule {
-  const when = rule.when;
-  if (!when) return rule;
+/**
+ * One rule as the document carries it, with its `id` and its rollout untouched.
+ *
+ * A `when` that is no array reaches `serialized` whole, for the reason
+ * `documentCondition` states: nothing between `JSON.parse` and here reads a
+ * rule's conditions, so a foreign document decides this value's shape.
+ */
+function documentRule(rule: Rule, path: string): unknown {
+  const when: unknown = rule.when;
+  if (!Array.isArray(when)) return rule;
   return {
     ...rule,
-    when: when.map((condition, at) =>
+    when: (when as readonly unknown[]).map((condition, at) =>
       documentCondition(condition, `${path}/when/${String(at)}`),
     ),
   };

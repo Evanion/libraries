@@ -1448,4 +1448,90 @@ describe('serializeConfig', () => {
       expect(Object.keys(value)).toEqual(['tier']);
     });
   });
+
+  /**
+   * A `when` no `Rule` type admits, which a store built from a document holds.
+   *
+   * `createFeatures` reads `dependsOn` and `rule.variant` and reads no
+   * condition, and its inferring overload takes the `any` `JSON.parse` returns,
+   * so `createFeatures<MyFlags>(JSON.parse(text))` at `features.test-d.ts:41`
+   * installs whatever a control plane served. `documentCondition` and
+   * `documentRule` run before `serialized` sees the value, so both read what a
+   * foreign document put there.
+   *
+   * The walk hands every such value to `serialized` and the document carries
+   * what JSON carries. § 8 gives `serializeConfig` one transformation and § 7
+   * gives the shape to `validateConfig`, so a publisher serves the document a
+   * holder names the issue in and raises no bare `TypeError` naming no feature.
+   */
+  describe('a when a Rule does not describe', () => {
+    it('writes a null element as the null JSON carries', () => {
+      const features = createFeatures([
+        { key: 'k', enabled: true, rules: [{ when: [null] }] },
+      ] as never);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when).toEqual([null]);
+      expect(JSON.parse(JSON.stringify(document))).toEqual(document);
+    });
+
+    it('refuses an undefined element and names the path to it', () => {
+      const features = createFeatures([
+        { key: 'k', enabled: true, rules: [{ when: [undefined] }] },
+      ] as never);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'the element at /features/0/rules/0/when/0 is undefined, and JSON ' +
+          'carries no undefined element',
+      );
+    });
+
+    it('writes a when that arrived as an object, not as an array', () => {
+      const features = createFeatures([
+        {
+          key: 'k',
+          enabled: true,
+          rules: [{ when: { field: 'plan', op: 'eq', value: 'pro' } }],
+        },
+      ] as never);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when).toEqual({
+        field: 'plan',
+        op: 'eq',
+        value: 'pro',
+      });
+    });
+
+    it('converts the window beside a condition it walks past', () => {
+      const features = createFeatures([
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                null,
+                {
+                  field: 'now',
+                  op: 'after',
+                  value: new Date('2026-10-01T00:00:00.000Z'),
+                },
+              ],
+            },
+          ],
+        },
+      ] as never);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when).toEqual([
+        null,
+        { field: 'now', op: 'after', value: '2026-10-01T00:00:00.000Z' },
+      ]);
+    });
+  });
 });
