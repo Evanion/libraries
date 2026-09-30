@@ -116,8 +116,9 @@ const access = policy<{ id: string }, { question: Question }>()
   )
   .build();
 
-const decision = access.can({ id: 's1' }, 'question', 'update', {
-  askedBy: 's1',
+const decision = access.can({ id: 'customer-41' }, 'question', 'update', {
+  id: 'q7',
+  askedBy: 'customer-41',
 });
 decision.allowed; // -> true
 ```
