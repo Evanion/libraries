@@ -12,6 +12,7 @@ export { assignVariant, variantSeedOf } from './lib/variants.js';
 export type { VariantAssignment } from './lib/variants.js';
 export { evaluateCondition } from './lib/conditions.js';
 export { canonical } from './lib/canonical.js';
+export { configDigest } from './lib/digest.js';
 export { ruleId } from './lib/rule-id.js';
 export { serializeConfig } from './lib/serialize.js';
 export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
