@@ -1,3 +1,4 @@
+import { configDigest } from './digest.js';
 import { graphErrors } from './graph.js';
 import { ruleId } from './rule-id.js';
 import { variantErrors } from './variants.js';
@@ -11,6 +12,7 @@ import type {
   ConfigIssue,
   ConfigIssueCode,
   FeatureConfig,
+  FieldType,
   ValidationResult,
 } from './config.js';
 import type { GraphNode } from './graph.js';
@@ -21,6 +23,7 @@ import type {
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
+  Instant,
   RolloutSpec,
   Rule,
   VariantSpec,
@@ -48,8 +51,14 @@ export interface Found {
  * `dependsOn`, `variants`, `rule.id`, `rule.variant` and `rule.when`, which the
  * two forms declare alike, so the wider element type is what admits both
  * callers.
+ *
+ * The envelope members come from `FeatureConfig` unchanged, because the checks
+ * over them read one document either way. `createFeatures` wraps the array an
+ * author wrote as `{ features: config }`, which declares none of them, so the
+ * digest, the schema version and the value shapes answer for a served document
+ * and the member walk finds one member on a literal.
  */
-export interface Checkable {
+export interface Checkable extends Omit<FeatureConfig, 'features'> {
   readonly features: readonly FeatureDefinition<FeatureKey>[];
 }
 
@@ -1228,6 +1237,402 @@ function ruleIdErrors(
   return errors;
 }
 
+/** The six members an envelope carries. A seventh refuses the document. */
+const ENVELOPE_MEMBERS: ReadonlySet<string> = new Set([
+  'version',
+  'digest',
+  'schema',
+  'schemaVersion',
+  'maxStale',
+  'features',
+]);
+
+/**
+ * A member this holder cannot read refuses the whole document.
+ *
+ * GrowthBook's payload builder strips a rule key an SDK connection does not
+ * declare support for, and the SDK then reads `experiment.hashVersion || 1`,
+ * which puts that traffic back on the hashing GrowthBook's own documentation
+ * calls biased, with no warning on either side. Two properties combine to
+ * produce that: the producer removes a member the consumer needs, and the
+ * consumer defaults the missing member to a value that changes an answer.
+ *
+ * This refuses both. The holder drops nothing and evaluates nothing, and the
+ * issue names the member. The cost is availability, and § 6 bounds it: a
+ * refused candidate leaves the installed document deciding.
+ *
+ * `Object.keys` reads own enumerable keys alone, so a document parsed from JSON
+ * text carrying `"__proto__"` surfaces the member here and writes no prototype.
+ */
+function memberIssues(
+  config: Readonly<Record<string, unknown>>,
+): readonly Found[] {
+  return Object.keys(config)
+    .filter((member) => !ENVELOPE_MEMBERS.has(member))
+    .map((member) =>
+      found(
+        'unknown-member',
+        new FeatureConfigError(
+          `the document carries the member "${member}", which this holder cannot read`,
+        ),
+        undefined,
+        `/${token(member)}`,
+      ),
+    );
+}
+
+/**
+ * The digest a document states, against the digest its content takes.
+ *
+ * `configDigest` removes `digest` and `version` and canonicalises the rest, so
+ * the publisher that wrote the member and the holder that reads it hash the same
+ * text. A document carrying no digest states nothing to verify.
+ */
+function digestIssues(config: Checkable): readonly Found[] {
+  if (config.digest === undefined) return [];
+  // `FeatureConfig` narrows a window instant and a condition value, and
+  // `configDigest` reads neither: it canonicalises the document whole. The
+  // assertion is what lets the checker's wider element type reach it.
+  const derived = configDigest(config as FeatureConfig);
+  if (derived === config.digest) return [];
+  return [
+    found(
+      'digest-mismatch',
+      new FeatureConfigError(
+        `the document states the digest ${config.digest} and its content digests to ${derived}`,
+      ),
+      undefined,
+      '/digest',
+    ),
+  ];
+}
+
+/**
+ * An inline schema states its own version.
+ *
+ * A schema is immutable at its `schemaVersion`, so a document naming `s7` and a
+ * schema published at `s7` cannot disagree. An inline schema nobody can name
+ * cannot be cached, compared or fetched again. A document carrying neither
+ * member declares no shapes, which is what a configuration with no variant
+ * values looks like.
+ */
+function schemaVersionIssues(config: Checkable): readonly Found[] {
+  if (config.schema === undefined || config.schemaVersion !== undefined) {
+    return [];
+  }
+  return [
+    found(
+      'missing-schema-version',
+      new FeatureConfigError(
+        'the document carries an inline schema and no schemaVersion, so no holder can cache it',
+      ),
+      undefined,
+      '/schema',
+    ),
+  ];
+}
+
+/** What a `ValueShape` may use. */
+const FENCED: ReadonlySet<string> = new Set([
+  'type',
+  'properties',
+  'required',
+  'items',
+  'enum',
+  'const',
+  'additionalProperties',
+  '$defs',
+  '$ref',
+  'title',
+  'description',
+]);
+
+/** The keywords whose value is a map from an author's name to a shape. */
+const SHAPE_MAPS: ReadonlySet<string> = new Set(['properties', '$defs']);
+
+/** The keywords whose value is one shape. */
+const SHAPE_SLOTS: ReadonlySet<string> = new Set([
+  'items',
+  'additionalProperties',
+]);
+
+/**
+ * The fence, walked over one variant value shape by keyword position.
+ *
+ * A key is tested against the fence only where a shape declares a keyword.
+ * `properties` and `$defs` hold a map from a name their author chose to a
+ * shape, so the walk descends into each value and tests no name: a property
+ * called `label` and a definition called `Label` are data. `items` and
+ * `additionalProperties` hold one shape, so the walk descends into the value
+ * itself. `type`, `title`, `description`, `required`, `enum` and `const` hold
+ * data and the walk stops at them, so a variant value carrying the key `oneOf`
+ * under a `const` stays legal. `$ref` holds a string and the walk checks its
+ * prefix.
+ *
+ * A walk that tested every key of every nested object would refuse
+ * `{ $defs: { Label: { type: 'string' } }, type: 'object', properties: { label:
+ * { $ref: '#/$defs/Label' } } }`, which is a document the fence accepts: it
+ * would test `FENCED.has('label')` and `FENCED.has('Label')` and report two
+ * `unfenced-schema` issues.
+ *
+ * A remote `$ref` makes the document one a generator cannot resolve offline,
+ * and `allOf`, `anyOf`, `oneOf` and `not` produce Swift and Kotlin a reader
+ * cannot map back to the schema. An owner needing a union writes an `enum` over
+ * a discriminant.
+ */
+function shapeIssues(shape: unknown, path: string): readonly Found[] {
+  if (!isRecord(shape)) return [];
+
+  const issues: Found[] = [];
+  for (const [keyword, held] of Object.entries(shape)) {
+    const at = `${path}/${token(keyword)}`;
+
+    if (keyword === '$ref') {
+      if (typeof held !== 'string' || !held.startsWith('#/$defs/')) {
+        issues.push(
+          found(
+            'unfenced-schema',
+            new FeatureConfigError(
+              `the value shape at ${at} references ${String(held)}, and a shape may reference only a $defs entry in the same document`,
+            ),
+            undefined,
+            at,
+          ),
+        );
+      }
+      continue;
+    }
+
+    if (!FENCED.has(keyword)) {
+      issues.push(
+        found(
+          'unfenced-schema',
+          new FeatureConfigError(
+            `the value shape at ${at} uses the keyword "${keyword}", which the fence refuses`,
+          ),
+          undefined,
+          at,
+        ),
+      );
+      continue;
+    }
+
+    if (SHAPE_MAPS.has(keyword)) {
+      if (!isRecord(held)) continue;
+      for (const [name, nested] of Object.entries(held)) {
+        issues.push(...shapeIssues(nested, `${at}/${token(name)}`));
+      }
+      continue;
+    }
+
+    if (SHAPE_SLOTS.has(keyword)) {
+      issues.push(...shapeIssues(held, at));
+    }
+  }
+  return issues;
+}
+
+/**
+ * Every variant value shape a document's inline schema declares, fenced.
+ *
+ * The walk descends through a shape position alone, so it reaches every keyword
+ * an author wrote as a keyword and tests no name an author chose.
+ * `additionalProperties: false` stops the walk at a boolean, and
+ * `required: ['label']` stops it at an array of strings. A `oneOf` written as a
+ * keyword is refused at any depth, and a `oneOf` written as a property name or
+ * as a key inside a `const` is data and passes.
+ */
+function schemaIssues(config: Checkable): readonly Found[] {
+  const features: unknown = config.schema?.features;
+  if (!isRecord(features)) return [];
+  return Object.entries(features).flatMap(([key, shape]) => {
+    if (!isRecord(shape)) return [];
+    const variants: unknown = shape['variants'];
+    if (!isRecord(variants)) return [];
+    return Object.entries(variants).flatMap(([variant, value]) =>
+      shapeIssues(
+        value,
+        `/schema/features/${token(key)}/variants/${token(variant)}`,
+      ).map((each) => ({ ...each, issue: { ...each.issue, key } })),
+    );
+  });
+}
+
+/** The base of a declared type, with the array and optional suffixes stripped. */
+function baseOf(declared: FieldType): { base: string; array: boolean } {
+  const withoutOptional = declared.endsWith('?')
+    ? declared.slice(0, -1)
+    : declared;
+  const array = withoutOptional.endsWith('[]');
+  return {
+    base: array ? withoutOptional.slice(0, -2) : withoutOptional,
+    array,
+  };
+}
+
+/**
+ * Whether an operator fits a declared type.
+ *
+ * `contains` asks whether an array holds a value, so the declared field is an
+ * array. `in` and `not-in` ask whether a scalar is a member of a literal list,
+ * so the declared field is a scalar. `eq` and `ne` compare with `===`, which
+ * never holds for two arrays, so they take a scalar too. `before` and `after`
+ * read `now` and reach no declared field.
+ */
+function operatorFits(op: string, declared: FieldType): boolean {
+  const { array } = baseOf(declared);
+  if (op === 'contains') return array;
+  return !array;
+}
+
+/**
+ * The epoch a window condition's value reads as, where `toEpoch` reads one.
+ *
+ * `toEpoch` at `conditions.ts:18-22` reads a `Date`, a number and a string, and
+ * the string is the one of the three that can name no instant. A value outside
+ * the three answers `undefined`: `unnameable` reports it for a rule declaring no
+ * id, and `new Date` raises a `TypeError` on an object no primitive conversion
+ * reads, which `validateConfig` promises it never does.
+ */
+function instantOf(value: Instant): number | undefined {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return new Date(value).getTime();
+  return undefined;
+}
+
+/**
+ * Every condition of one definition the document's own declarations refuse.
+ *
+ * A window condition is read as a point in time, for both callers. `toEpoch` at
+ * `conditions.ts:18-22` reads a string through `Date.parse` and answers `NaN`
+ * for one it cannot read, and `evaluateCondition` compares against that `NaN`,
+ * so `'next tuesday'` resolves the rule off for every subject and neither side
+ * reports anything. `invalid-instant` names the member.
+ *
+ * `'2026-10-01T00:00:00'` parses, so this walk accepts it. ECMA-262 reads a
+ * date-time string carrying no offset as local time, which puts the window at a
+ * different instant in Stockholm and in Tokyo, and issue #284 owns that.
+ *
+ * The context fields are read where the document declares them. A condition over
+ * a field the schema omits answers `unknown-context-field`, and an operator the
+ * declared type has no meaning for answers `field-type-mismatch`: `contains`
+ * over a declared `boolean` asks whether a boolean holds a value, which
+ * `evaluateCondition` answers `false` for every subject. A document declaring no
+ * context fields declares no contract, and this walk reads its instants alone.
+ *
+ * The field lookup goes through `hasOwnProperty`, for the reason
+ * `conditions.ts:80-83` and `variants.ts:196-200` already give: a bare index
+ * walks the prototype chain, so a field named `constructor` reads a function off
+ * `Object.prototype` and the check would pass a field nobody declared.
+ *
+ * A `field` or an `op` the shape walk refused is skipped. That walk reported the
+ * member, and a lookup keyed on a number would name a field no document carries.
+ *
+ * Both walks run for a served document alone, for the reason the member walks
+ * do. Neither defect raises anything out of `resolve`: `toEpoch` answers `NaN`
+ * and `evaluateCondition` compares against it as `false`, and a condition over a
+ * field a context omits reads `undefined` and compares as `false`. The plan's
+ * global constraints hold `createFeatures` to the six error classes it throws
+ * today plus the five condition shapes Task 4 added, and `serialize.spec.ts`
+ * builds a store over `new Date(NaN)` to prove `serializeConfig` refuses the
+ * value JSON cannot carry. An author writing a literal reads the refusal off the
+ * document their own store serves.
+ */
+function whenIssues(
+  definition: FeatureDefinition<FeatureKey>,
+  at: number,
+  fields: Readonly<Record<string, FieldType>> | undefined,
+): readonly Found[] {
+  const issues: Found[] = [];
+  const rules: readonly Rule[] = Array.isArray(definition.rules)
+    ? definition.rules
+    : [];
+  rules.forEach((rule, ruleAt) => {
+    const when: readonly Condition[] = Array.isArray(rule.when)
+      ? rule.when
+      : [];
+    when.forEach((condition, whenAt) => {
+      if (!isRecord(condition)) return;
+      if (typeof condition.field !== 'string') return;
+      if (typeof condition.op !== 'string') return;
+      const path = `${pointer(at, 'rules')}/${String(ruleAt)}/when/${String(whenAt)}`;
+
+      if (condition.op === 'before' || condition.op === 'after') {
+        const epoch = instantOf(condition.value);
+        if (epoch !== undefined && Number.isNaN(epoch)) {
+          issues.push(
+            found(
+              'invalid-instant',
+              new FeatureConfigError(
+                `feature "${String(definition.key)}" compares now against ${JSON.stringify(condition.value)}, which names no instant`,
+              ),
+              definition.key,
+              `${path}/value`,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (condition.op === 'day-of-week') return;
+      if (!fields) return;
+
+      const declared = Object.prototype.hasOwnProperty.call(
+        fields,
+        condition.field,
+      )
+        ? fields[condition.field]
+        : undefined;
+
+      if (declared === undefined) {
+        issues.push(
+          found(
+            'unknown-context-field',
+            new FeatureConfigError(
+              `feature "${String(definition.key)}" reads the context field "${condition.field}", which the schema does not declare`,
+            ),
+            definition.key,
+            `${path}/field`,
+          ),
+        );
+        return;
+      }
+
+      if (!operatorFits(condition.op, declared)) {
+        issues.push(
+          found(
+            'field-type-mismatch',
+            new FeatureConfigError(
+              `feature "${String(definition.key)}" applies "${condition.op}" to the context field "${condition.field}", which the schema declares ${declared}`,
+            ),
+            definition.key,
+            `${path}/op`,
+          ),
+        );
+      }
+    });
+  });
+  return issues;
+}
+
+/**
+ * Every defect the envelope carries, read before its payload.
+ *
+ * A document that is not an object carries no members at all, and the shape walk
+ * reports that one. These four read members off an object, so they run where
+ * there is an object to read them off.
+ */
+function envelopeIssues(config: Checkable): readonly Found[] {
+  if (!isRecord(config)) return [];
+  return [
+    ...memberIssues(config),
+    ...digestIssues(config),
+    ...schemaVersionIssues(config),
+    ...schemaIssues(config),
+  ];
+}
+
 /**
  * Every defect in a document, in the order a reader meets them.
  *
@@ -1250,7 +1655,11 @@ export function collectIssues(
   options: VariantCheckOptions = {},
 ): readonly Found[] {
   const { issues, rows } = shapeWalk(config, options);
-  const all: Found[] = [...issues];
+  const all: Found[] = [...envelopeIssues(config), ...issues];
+
+  // The context fields the document declares, which every condition below is
+  // read against.
+  const fields = isRecord(config) ? config.schema?.context?.fields : undefined;
 
   const nodes: GraphNode<FeatureKey>[] = [];
   for (const row of rows) {
@@ -1302,6 +1711,12 @@ export function collectIssues(
           found(defect.code, defect.error, row.key, pointer(at, defect.member)),
         );
       }
+    }
+
+    // `whenIssues` reads the conditions the shape walk read, against the
+    // instants a window names and the context fields the document declares.
+    if (options.arrayIsOrder !== true) {
+      all.push(...whenIssues(walked, at, fields));
     }
 
     // `ruleIdErrors` reads the rules the shape walk read, and names each one by
