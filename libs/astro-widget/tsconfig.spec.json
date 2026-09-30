@@ -4,7 +4,10 @@
     "outDir": "./out-tsc/vitest",
     "types": ["vitest/globals", "vitest/importMeta", "vite/client", "node"],
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    // `examples/src/data` imports the JSON a CMS writes, as an Astro project's
+    // own tsconfig lets it.
+    "resolveJsonModule": true
   },
   // The sources are compiled here rather than reached through a reference to
   // tsconfig.lib.json. A reference resolves a relative import to that
@@ -14,7 +17,12 @@
   // `examples/` is compiled here for the same reason `src/` is: the docs cite
   // those files by region and the README's examples render them, so they are
   // test input, and the library build never reaches them.
-  "include": ["examples/**/*.ts", "src/**/*.ts", "vite.config.ts"],
+  "include": [
+    "examples/**/*.ts",
+    "examples/**/*.json",
+    "src/**/*.ts",
+    "vite.config.ts"
+  ],
   // `vite.config.ts` imports `@evanion/doc-examples`, which tsconfig.base.json
   // path-maps to that project's source. Without this reference tsc compiles
   // those files into this program instead of reading its declarations, and
