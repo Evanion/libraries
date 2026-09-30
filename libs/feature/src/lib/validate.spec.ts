@@ -1433,6 +1433,42 @@ describe('validateConfig, on a document whose members are not the declared shape
     ]);
   });
 
+  it('reports the order none of the variants it read declares', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1},' +
+          '{"name":"b","weight":1},null]}]}',
+      ),
+    );
+
+    // Neither variant the checker read declares an order, so the element it
+    // dropped leaves the document an absent declaration or a mixed one, and both
+    // are this code. § 7 has the operator who replaces the null meet no order
+    // defect for the first time on a second poll.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.message),
+    ).toEqual([
+      'feature "cta" declares the variant at /features/0/variants/2 as null, and this checker reads an object',
+      'feature "cta" declares an order on none of the 2 variants this checker read, which leaves the declaration absent or mixed whatever the element it could not read carries',
+    ]);
+  });
+
+  it('reports no order defect for a set whose every element it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[null]}]}',
+      ),
+    );
+
+    // One dropped element declaring an order is a complete declaration, so this
+    // document may carry no order defect at all.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member']);
+  });
+
   it('reports the id two readable rules answer beside an element it could not read', () => {
     const result = validateConfig(
       served(
