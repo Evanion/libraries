@@ -2,10 +2,12 @@ import type { MetaRecord } from 'nextra';
 
 /**
  * The order a reader meets `@evanion/astro-widget` in: what rendering a page
- * from data looks like, the registry and the component that does it, then how to
- * fail a build on the CMS data instead of skipping an item at render.
+ * from data looks like, the registry and the component that does it, failing a
+ * build on the CMS data, the page-level props and nesting, and then every fault
+ * a bad save carries.
  * Validation follows getting started because it is the step after something
- * renders, not the step before.
+ * renders. The fault catalogue comes after the nesting page because half its
+ * examples are nested items.
  *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages
@@ -19,5 +21,7 @@ export default {
   index: 'Overview',
   'getting-started': 'Getting Started',
   validation: 'Validation',
+  layout: 'Page Data and Nesting',
+  'bad-items': 'Bad Items',
   api: 'API Reference',
 } satisfies MetaRecord;

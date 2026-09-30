@@ -237,7 +237,7 @@ export const packages: readonly DocumentedPackage[] = [
     // the same way `feature` (universal + React) uses one. A reader who has
     // been in the React Widget pages recognises the family by colour.
     hue: 'sky',
-    demo: 'validation',
+    demo: 'bad-items',
     documented: true,
     workshop: false,
   },

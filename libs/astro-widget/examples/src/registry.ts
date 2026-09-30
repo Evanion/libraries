@@ -1,7 +1,7 @@
 /**
  * The registry the Baize listing page renders through.
  *
- * `apps/docs/content/astro-widget` cites the region below by
+ * `apps/docs/content/next/astro-widget` cites the region below by
  * `file=libs/astro-widget/examples/src/registry.ts region=registry`, and the
  * README's examples render pages through it, so what a reader copies off a page
  * is this file.

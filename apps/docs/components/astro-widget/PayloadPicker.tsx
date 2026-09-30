@@ -30,7 +30,7 @@ section{border:1px dashed #b5b5b5;padding:6px 8px;margin:6px 0}article{padding:2
 }
 
 /**
- * The picker over the payloads `/astro-widget/validation` renders.
+ * The picker over the payloads `/astro-widget/bad-items` renders.
  *
  * Every pane shows a value the build produced. `renders.json` holds, for each
  * README region, the items, `known` and `required` the region passes to

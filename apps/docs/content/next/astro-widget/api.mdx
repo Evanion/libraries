@@ -37,63 +37,34 @@ array renders nothing and warns in development.
 ### `ctx`
 
 `ctx` reaches every widget as a prop of that name, so page-level data such as
-the store is written once on the page. `Stock.astro` reads it:
-
-```astro file=libs/astro-widget/examples/src/widgets/Stock.astro region=stock
-
-```
-
-An Astro component has no render-time context to read from, so `ctx` is a prop
-and there is no provider. `@evanion/react-widget` passes the same prop under the
-same name.
+the store is written once on the page. An Astro component has no render-time
+context to read from, so `ctx` is a prop and there is no provider.
+`@evanion/react-widget` passes the same prop under the same name.
+[Page data, wrappers and nested items](../layout#give-every-widget-the-pages-data-with-ctx)
+renders a widget that reads it.
 
 ### `chrome`
 
 `chrome.item` wraps every widget. It receives the item's `type`, `id` and
 `meta`, never its `props`, and it has to render `<slot />`, because an Astro
 component that renders no slot drops the widget with no error and no warning.
-`Section.astro` is one:
-
-```astro file=libs/astro-widget/examples/src/chrome/Section.astro region=section
-
-```
-
-Rendered with `ctx` and that chrome, one `stock` item carrying
-`meta: { background: 'felt' }` gives this markup:
-
-```ts file=libs/astro-widget/README.md region=ctx-and-chrome
-
-```
-
 `@evanion/react-widget` accepts a `chrome.wrapper` around the whole list.
 astro-widget has none, so put `<Widgets>` inside the element you want around
 the list.
+[Page data, wrappers and nested items](../layout#wrap-every-widget-with-chrome)
+renders a chrome around a widget.
 
 ### Nested items
 
 `Widgets.astro` does not render an item's `children`. It passes them to the
 widget as a prop named `children` that holds the items as data, because an Astro
 component takes rendered child content through `<slot />`. A widget that nests
-renders its own `Widgets` over them, through a registry of its own:
-
-```astro file=libs/astro-widget/examples/src/widgets/GameGrid.astro region=game-grid
-
-```
-
-`cardRegistry` sits in `src/card-registry.ts`, so `GameGrid` never imports
-itself. It maps `game-card` to `GameCard.astro`, which renders
-`<article>{name}</article>`:
-
-```ts file=libs/astro-widget/examples/src/card-registry.ts region=card-registry
-
-```
-
-One `game-grid` item with two `game-card` children, rendered through a registry
-that holds `GameGrid`, gives this markup:
-
-```ts file=libs/astro-widget/README.md region=nested
-
-```
+renders its own `Widgets` over them, through a registry of its own. That
+registry sits in a module of its own. The page's registry imports the nesting
+widget, so a nested registry inside it would have the widget import a module
+that imports the widget.
+[Page data, wrappers and nested items](../layout#render-items-nested-inside-an-item)
+renders a grid of game cards.
 
 ### Unknown types
 
