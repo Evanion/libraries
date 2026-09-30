@@ -439,13 +439,14 @@ const EMPTY: ReadonlySet<unknown> = new Set();
  * What one rule's conditions leave the walks after this one.
  *
  * `refused` is a condition this checker could not read, and the rule gives up
- * its derived id over it. Two defects land there. `conditionText` has no text
- * for a `field`, an `op` or a day-of-week `zone` that is not a string, and a
- * holder dereferences a day-of-week `value` that is not an array:
- * `evaluateCondition` at `conditions.ts:66` calls `includes` on it. The second
- * one leaves `conditionText` able to write the condition, and the rule gives up
- * the derived id anyway, because a document carrying either defect is one no
- * caller installs.
+ * its derived id over it. Three defects land there. `conditionText` has no text
+ * for a `field`, an `op` or a day-of-week `zone` that is not a string, a holder
+ * dereferences a day-of-week `value` that is not an array (`evaluateCondition` at
+ * `conditions.ts:66` calls `includes` on it), and `weekdayIn` at
+ * `conditions.ts:31-33` raises on a `zone` string this runtime formats nothing
+ * by. The second and the third leave `conditionText` able to write the condition,
+ * and the rule gives up the derived id anyway, because a document carrying any of
+ * the three is one no caller installs.
  *
  * `strange` is what it read and has no code for: a member name it reads nothing
  * by, and an operator it dispatches nothing on. Neither costs the derivation
@@ -530,6 +531,31 @@ function rolloutIssues(
   return all;
 }
 
+/**
+ * Whether this runtime formats a time zone by that name.
+ *
+ * `weekdayIn` at `conditions.ts:31-33` builds
+ * `new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'short' })`, and
+ * that constructor raises `RangeError: Invalid time zone specified` for a name
+ * the runtime has no zone for. `errors.ts:3-5` promises `resolve`, `plan` and
+ * `toggle` are total, so one dropped letter in a control plane's zone column
+ * would otherwise turn the first `resolve` carrying a `now` into a raise from a
+ * call the author never made.
+ *
+ * The probe is the constructor call the evaluation makes, so what this checker
+ * accepts is what this runtime formats. `Intl.supportedValuesOf` answers a list
+ * that excludes a link such as `Asia/Calcutta`, which `DateTimeFormat` resolves
+ * and `weekdayIn` reads a weekday off.
+ */
+function zoned(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'short' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Every condition of one rule the checker cannot read, and every member it does not know. */
 function conditionIssues(
   rule: Readonly<Record<string, unknown>>,
@@ -593,6 +619,15 @@ function conditionIssues(
         refused.push(
           unreadable(
             `${named} declares "zone" on the day-of-week condition at ${path} as ${met(zone)}, and this checker reads a time zone name`,
+            `${path}/zone`,
+            key,
+          ),
+        );
+      } else if (!zoned(zone)) {
+        refusedAt.add(inside);
+        refused.push(
+          unreadable(
+            `${named} declares "zone" on the day-of-week condition at ${path} as ${JSON.stringify(zone)}, and this runtime formats no time zone by that name`,
             `${path}/zone`,
             key,
           ),
@@ -728,14 +763,15 @@ function walked(
  * its inferring overload, which
  * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` names as a
  * real path and Task 8 documents, so a control plane's body reaches a store
- * through it. Each of the five defects raises out of `resolve`: `evaluate.ts:53`
+ * through it. Every one of those defects raises out of `resolve`: `evaluate.ts:53`
  * iterates `rule.when`, `rule-id.ts:48` reads `condition.zone.length`,
- * `conditionText` length-prefixes `field` and `op` the same way, and
- * `conditions.ts:66` calls `includes` on a day-of-week `value`, so
+ * `conditionText` length-prefixes `field` and `op` the same way,
+ * `conditions.ts:66` calls `includes` on a day-of-week `value`, and
+ * `conditions.ts:31-33` hands a day-of-week `zone` to `Intl.DateTimeFormat`, so
  * `errors.ts:3-11` has the raise happen where the configuration is supplied. A
- * TypeScript literal satisfies all five by type, so the author's path meets none
- * of them. Either way the rule id walk skips a rule whose conditions it cannot
- * name.
+ * TypeScript literal satisfies each of them by type but the zone, which is a
+ * string either path may misspell. Either way the rule id walk skips a rule whose
+ * conditions it cannot name.
  *
  * `served` separates the callers for the member walks, which refuse a member no
  * shape below a definition names and an operator no condition type declares.

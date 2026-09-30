@@ -3077,6 +3077,53 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     ).toEqual({ ok: true });
   });
 
+  it('reports a day-of-week zone this runtime formats nothing by', () => {
+    const result = validateConfig(
+      document(
+        '[{"field":"now","op":"day-of-week","zone":"Europe/Stockolm","value":["mon"]}]',
+      ),
+    );
+
+    // `weekdayIn` at `conditions.ts:31-33` hands the zone to
+    // `new Intl.DateTimeFormat`, which raises `RangeError: Invalid time zone
+    // specified` for a name the runtime has no zone for, so one dropped letter in
+    // a control plane's column would raise out of the first `resolve` that
+    // carries a `now`. `errors.ts:3-5` promises that call is total.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "zone" on the day-of-week condition at /features/0/rules/0/when/0 as "Europe/Stockolm", and this runtime formats no time zone by that name',
+        path: '/features/0/rules/0/when/0/zone',
+      },
+    ]);
+  });
+
+  it('refuses that zone at createFeatures too', () => {
+    const config = document(
+      '[{"field":"now","op":"day-of-week","zone":"Nowhere/Nope","value":["mon"]}]',
+    );
+
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares "zone" on the day-of-week condition at /features/0/rules/0/when/0 as "Nowhere/Nope", and this runtime formats no time zone by that name',
+    );
+  });
+
+  it('raises where the configuration is supplied and not out of resolve', () => {
+    const config = document(
+      '[{"field":"now","op":"day-of-week","zone":"Nowhere/Nope","value":["mon"]}]',
+    );
+    const call = (): boolean =>
+      createFeatures(config.features).isEnabled('a', { now: new Date() });
+
+    // The raise this refusal stands in for. `isEnabled` reaches `weekdayIn` on
+    // the first context carrying a `now`, and the RangeError came out of a call
+    // the author never made.
+    expect(call).toThrow(FeatureConfigError);
+    expect(call).not.toThrow(RangeError);
+  });
+
   it('reports a day-of-week condition whose value is not an array', () => {
     const result = validateConfig(
       document('[{"field":"now","op":"day-of-week","zone":"UTC","value":3}]'),
