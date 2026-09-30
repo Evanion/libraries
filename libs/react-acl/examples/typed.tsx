@@ -18,6 +18,7 @@
  */
 // #region typed
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { policy } from '@evanion/acl';

@@ -10,14 +10,16 @@
  * The `// @jsx:` line is a Twoslash directive. The pages render these regions
  * as Twoslash fences, which compile them against Twoslash's own defaults --
  * classic JSX, which wants `React` in scope -- and the directive is what puts
- * the compiler on the automatic runtime this repo builds with. Twoslash strips
- * the line, so no reader sees it.
+ * the compiler on the automatic runtime this repo builds with. The
+ * `// ---cut---` under it hides the line from the page and from the page's
+ * `.md` sibling, and Twoslash still reads it.
  *
  * Outside `src/`, so `package.json`'s `files` never packs it and the library
  * build never reaches it: an example is documentation, not API.
  */
 // #region mount
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { useMemo } from 'react';

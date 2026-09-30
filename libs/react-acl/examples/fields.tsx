@@ -19,6 +19,7 @@
  */
 // #region fields
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { useCanFields } from '@evanion/react-acl';

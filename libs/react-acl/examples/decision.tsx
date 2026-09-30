@@ -11,6 +11,7 @@
  */
 // #region decision
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { useCan } from '@evanion/react-acl';
