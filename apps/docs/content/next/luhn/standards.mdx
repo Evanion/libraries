@@ -11,11 +11,11 @@ is Luhn mod-N, which no standard defines.
   unlocks={[['API reference', '../api']]}
 />
 
-## Luhn mod-10 in @evanion/luhn matches the published standard
+## Luhn mod-10 matches the published standard
 
 `createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10 test
-vectors, inputs with known check digits. It gives Baize's
-order number, as the digits `20260042`, the check digit `5`:
+vectors, inputs with known check digits. Baize's order number written as the
+digits `20260042` gets the check digit `5`:
 
 ```ts twoslash file=libs/luhn/README.md region=mod-10
 
@@ -23,24 +23,25 @@ order number, as the digits `20260042`, the check digit `5`:
 
 Luhn's patent [US 2,950,048](https://patents.google.com/patent/US2950048A/en)
 defines the algorithm. ISO/IEC 7812-1 Annex B specifies it for issuer
-identification numbers, restated in 3GPP TS 23.003 Annex B.2 and in the
-[CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
+identification numbers on payment cards. The mobile-network standards body 3GPP
+restates it in TS 23.003 Annex B.2, and the US Centers for Medicare & Medicaid
+Services (CMS) restate it in the
+[National Provider Identifier check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
 
-## Luhn mod-N in @evanion/luhn has no standard
+## Luhn mod-N has no standard
 
-No RFC, ISO, ITU or ANSI document defines the Luhn sum over an arbitrary
-alphabet. The formula every implementation uses for a doubled character,
-`floor(2x / n) + (2x mod n)` for index `x` in a dictionary of `n` characters,
-traces to
+No RFC, ISO, ITU or ANSI document defines the Luhn sum `@evanion/luhn` computes
+over an arbitrary dictionary. The usual formula for a
+doubled character, `floor(2x / n) + (2x mod n)` for index `x` in a dictionary of `n`
+characters, traces to
 [Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899),
-dated 2006-09-06, which was unsourced then and is unsourced now. The
-implementations that exist say in their own comments that they were
-transliterated from that page. With any `n` other than 10, `@evanion/luhn`
+dated 2006-09-06, which was unsourced then and is unsourced now. Several
+implementations say in their own comments that they were transliterated from
+that page. With any `n` other than 10, `@evanion/luhn`
 implements that common generalisation and claims nothing more.
 
-- Agreement with another mod-N implementation is a coincidence. Check it
-  against test vectors, inputs with known check characters, and not against the
-  name.
+- Do not assume another mod-N implementation agrees. Check it against test
+  vectors, inputs with known check characters, and not against the name.
 - The dictionary's order is part of the algorithm. Two libraries agreeing on the
   formula and disagreeing on the alphabet produce different check characters.
 
@@ -50,24 +51,25 @@ the tens position to the digit standing in the units position", which is adding
 the two base-`n` digits of a doubled index. Decimal Luhn is often taught as
 "subtract 9 from a doubled digit above 9", which gives the same sum when `n` is 10.
 
-## The one swap @evanion/luhn cannot catch
+## The one adjacent swap a Luhn check character misses
 
-Counting leftwards from the check character, every second character contributes
-`g(x) = floor(2x / n) + (2x mod n)` for its index `x`, and every other character
-contributes `x`. Take two adjacent characters with index `a` at the undoubled
-position and index `b` at the doubled one. Swapping them goes unnoticed exactly
-when `a + g(b) ≡ b + g(a) (mod n)`. `createLuhn` accepts only an even `n`, and
-for an even `n` the only pair satisfying that is `{0, n - 1}`, the dictionary's
-first and last characters: `0` and `z` in the default, and `0` and `9` in
-mod-10.
+`@evanion/luhn` adds a doubled index `x` as `g(x) = floor(2x / n) + (2x mod n)`,
+the formula
+[What `createLuhn` checks](../dictionaries#what-createluhn-checks-in-a-dictionary)
+uses to show why `n` is even, and an undoubled index as `x`. Take two adjacent characters with index
+`a` at the undoubled position and index `b` at the doubled one. Swapping them
+goes unnoticed exactly when `a + g(b) ≡ b + g(a) (mod n)`. `createLuhn` accepts
+only an even `n`, and for an even `n` the only pair satisfying that is
+`{0, n - 1}`, the dictionary's first and last characters: `0` and `z` in the
+default, and `0` and `9` in mod-10.
 
 ## Modulo bias over a luhn dictionary
 
-Drawing a random code with `byte % n` picks every character equally often only
-when `n` divides 256. The default dictionary does not: `256 % 36` is 4, so `0`
-to `3` come up about 14% more often than the other 32 characters.
-`uniformOverBytes` reports whether an instance's dictionary is safe to draw
-from that way:
+Drawing a random code over a luhn dictionary with `byte % n` picks every
+character equally often only when `n` divides 256. The default dictionary does
+not: `256 % 36` is 4, so `0` to `3` come up about 14% more often than the other
+32 characters. `uniformOverBytes` reports whether an instance's dictionary is
+safe to draw from that way:
 
 ```ts twoslash file=libs/luhn/README.md region=modulo-bias
 
@@ -79,12 +81,6 @@ source to draw them from.
 
 A dictionary of 32 characters divides 256 and leaves room to drop the four
 confusable characters `i`, `l`, `o` and `w` from 36. Rejection sampling is the
-alternative: draw a byte, discard it when it lands in the biased tail, and draw
-again. It is correct and it makes generation take a variable number of draws,
-which is why `@evanion/token` constrains its alphabet to 32 instead.
-
-## A luhn check character is not a hash
-
-A luhn check character is not a hash of the code. Two different order numbers
-share a check character one time in `n`, so the check character catches a
-mistyped code and cannot tell two real orders apart.
+alternative: draw a byte, discard it when it is one of the top `256 % n`
+values, 252 to 255 for the default, and draw again. It is correct and it makes
+generation take a variable number of draws, which is why `@evanion/token` constrains its alphabet to 32 instead.

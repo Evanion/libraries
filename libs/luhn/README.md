@@ -182,6 +182,8 @@ The default is 36 lowercase alphanumerics, with case folding on:
 <!-- #region default-dictionary -->
 
 ```ts @import.meta.vitest
+import { DEFAULT_DICTIONARY, Luhn } from '@evanion/luhn';
+
 Luhn.dictionary; // -> '0123456789abcdefghijklmnopqrstuvwxyz'
 Luhn.dictionary === DEFAULT_DICTIONARY; // -> true
 Luhn.n; // -> 36
@@ -201,6 +203,8 @@ or heard:
 <!-- #region pickup-dictionary -->
 
 ```ts @import.meta.vitest
+import { createLuhn } from '@evanion/luhn';
+
 const pickup = createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' });
 
 pickup.generate('a4kp9mx'); // -> { phrase: 'a4kp9mx', checksum: 'a', filtered: 0 }
@@ -296,6 +300,8 @@ It defaults to `true` when you supply no dictionary and `false` when you do.
 <!-- #region case-sensitivity -->
 
 ```ts @import.meta.vitest
+import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
+
 const pickup = createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' });
 const folding = createLuhn({
   dictionary: '0123456789abcdefghjkmnpqrstuvxyz',
@@ -517,22 +523,22 @@ was an uppercase letter.
 `caseInsensitive` defaults to `true` when you pass no dictionary and `false`
 when you pass one.
 
-| 2.x                                                 | 3.x                                                                                          |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Luhn.generate(input)`                              | unchanged call, new value                                                                    |
-| `Luhn.validate(input)`                              | unchanged call; it now accepts every code `generate` produces                                |
-| `Luhn.generate(input, true)`                        | `createLuhn({ caseInsensitive: false }).generate(input)`                                     |
-| `Luhn.validate(input, true)`                        | `createLuhn({ caseInsensitive: false }).validate(input)`                                     |
-| `class X extends Luhn { static dictionary = d }`    | `createLuhn({ dictionary: d, caseInsensitive: true })`                                       |
-| `class X extends Luhn { static sensitive = true }`  | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })`, same values                       |
-| `Luhn.dictionary = d`                               | `TypeError`; the default instance is frozen                                                  |
-| `Luhn.sensitive`                                    | `!Luhn.caseInsensitive`; the flag's meaning is inverted                                      |
-| `Luhn.lowercaseOnly(d)`                             | removed; nothing folds a dictionary any more                                                 |
-| the `protected static` helpers                      | removed; an override of `char2index` never took effect, because `reduce` called `Luhn`'s own |
-| `ValidationError`                                   | `LuhnError`                                                                                  |
-| `validate('')` → `isValid: true`                    | `isValid: false`                                                                             |
-| `generate('')` → `{ checksum: '0' }`                | throws `EmptyInputError`                                                                     |
-| a dictionary of odd length throws at the first call | throws at `createLuhn`                                                                       |
+| 2.x                                                 | 3.x                                                                                                                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Luhn.generate(input)`                              | unchanged call, new value                                                                                                                                         |
+| `Luhn.validate(input)`                              | unchanged call; it now accepts every code `generate` produces                                                                                                     |
+| `Luhn.generate(input, true)`                        | `createLuhn({ caseInsensitive: false }).generate(input)`                                                                                                          |
+| `Luhn.validate(input, true)`                        | `createLuhn({ caseInsensitive: false }).validate(input)`                                                                                                          |
+| `class X extends Luhn { static dictionary = d }`    | `createLuhn({ dictionary: d, caseInsensitive: true })`, same values; when `d` holds both cases of a letter, `createLuhn({ dictionary: d })` over lowercased input |
+| `class X extends Luhn { static sensitive = true }`  | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })`, same values                                                                                            |
+| `Luhn.dictionary = d`                               | `TypeError`; the default instance is frozen                                                                                                                       |
+| `Luhn.sensitive`                                    | `!Luhn.caseInsensitive`; the flag's meaning is inverted                                                                                                           |
+| `Luhn.lowercaseOnly(d)`                             | removed; nothing folds a dictionary any more                                                                                                                      |
+| the `protected static` helpers                      | removed; an override of `char2index` never took effect, because `reduce` called `Luhn`'s own                                                                      |
+| `ValidationError`                                   | `LuhnError`                                                                                                                                                       |
+| `validate('')` → `isValid: true`                    | `isValid: false`                                                                                                                                                  |
+| `generate('')` → `{ checksum: '0' }`                | throws `EmptyInputError`                                                                                                                                          |
+| a dictionary of odd length throws at the first call | throws at `createLuhn`                                                                                                                                            |
 
 A per-request dictionary is a per-request instance. That is one pass over the
 dictionary, which is the pass that would have happened anyway.
