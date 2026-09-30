@@ -2859,6 +2859,60 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     );
   });
 
+  it('reports an operator this release dispatches nothing on', () => {
+    const result = validateConfig(
+      document('[{"field":"plan","op":"eq-ci","value":"pro"}]'),
+    );
+
+    // `evaluateCondition` ends at `default: return false`, so a holder installing
+    // this document resolves the rule off for every subject while the publisher
+    // that emitted the operator resolves it on, and `configDigest` reports one
+    // version on both sides. § 3 refuses exactly that: the producer emits what
+    // the consumer cannot read and the consumer fills the gap with an
+    // answer-changing default.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "op" on the condition at /features/0/rules/0/when/0 as "eq-ci", and this checker dispatches on no operator by that name, so a holder installing this document would resolve the rule off for every subject',
+        path: '/features/0/rules/0/when/0/op',
+      },
+    ]);
+  });
+
+  it('accepts every operator a condition may declare', () => {
+    // `Condition['op']` distributes over the union, so an operator added to
+    // `types.ts` is a missing property in the set this walk reads until that set
+    // carries it, and the walk is then held to accepting it.
+    expect(
+      validateConfig(
+        document(
+          '[{"field":"now","op":"before","value":0},' +
+            '{"field":"now","op":"after","value":0},' +
+            '{"field":"now","op":"day-of-week","zone":"UTC","value":["mon"]},' +
+            '{"field":"plan","op":"eq","value":"pro"},' +
+            '{"field":"plan","op":"ne","value":"pro"},' +
+            '{"field":"plan","op":"in","value":["pro"]},' +
+            '{"field":"plan","op":"not-in","value":["pro"]},' +
+            '{"field":"plans","op":"contains","value":"pro"}]',
+        ),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('resolves that operator off at createFeatures rather than raising', () => {
+    const features = document('[{"field":"plan","op":"eq-ci","value":"pro"}]')
+      .features;
+
+    // The store builds and answers off for a subject the publisher that emitted
+    // the operator answers on. That silent disagreement is what the served
+    // refusal above is for; the plan's global constraints hold `createFeatures`
+    // to the six error classes it throws today, and § 3 states its rule over a
+    // document a holder installs.
+    expect(createFeatures(features).isEnabled('a')).toBe(false);
+  });
+
   it('accepts a rule carrying no when at all', () => {
     expect(
       validateConfig(

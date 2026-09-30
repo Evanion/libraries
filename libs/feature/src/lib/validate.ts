@@ -17,6 +17,7 @@ import type { GraphNode } from './graph.js';
 import type { VariantCheckOptions } from './variants.js';
 import type {
   AttributeCondition,
+  Condition,
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
@@ -325,6 +326,41 @@ const DAY_OF_WEEK: ReadonlySet<string> = new Set(
 );
 
 /**
+ * Every operator a condition may declare, which `evaluateCondition` dispatches
+ * on.
+ *
+ * `op` is the discriminator the member sets above are chosen by, and it decides
+ * the answer as well. `evaluateCondition` switches on it and ends at
+ * `default: return false` at `conditions.ts:101`, so a condition carrying an
+ * operator this release has no branch for is evaluated as permanently false and
+ * the rule resolves off for every subject. § 3's shape, member for member: the
+ * producer emits what the consumer cannot read, the consumer fills the gap with
+ * an answer-changing default, and `configDigest` reports one version on both
+ * sides while the publisher that emitted the operator resolves the rule on.
+ *
+ * `conditionText`'s docblock at `rule-id.ts:36-43` names `'eq-ci'` as the
+ * operator a later release adds, and length-prefixes `op` so that release does
+ * not rename every `eq` rule. This is the other half of that: the release adding
+ * the operator serves documents an older holder refuses.
+ *
+ * `Condition['op']` distributes over the union, so the literal answers for all
+ * three condition types. An operator added to `types.ts` and left out here is a
+ * missing property the compiler names.
+ */
+const CONDITION_OPS: Record<Condition['op'], true> = {
+  before: true,
+  after: true,
+  'day-of-week': true,
+  eq: true,
+  ne: true,
+  in: true,
+  'not-in': true,
+  contains: true,
+};
+
+const OPS: ReadonlySet<string> = new Set(Object.keys(CONDITION_OPS));
+
+/**
  * Every member one nested object declares that this checker reads no member by.
  *
  * It reports and drops nothing. The members beside it are ones the checker reads
@@ -372,9 +408,10 @@ const EMPTY: ReadonlySet<unknown> = new Set();
  * the derived id anyway, because a document carrying either defect is one no
  * caller installs.
  *
- * `strange` is a member it read the shape of and reads no member by, which costs
- * the derivation nothing, because `conditionText` writes `field`, `op` and the
- * value and this rule still carries all three.
+ * `strange` is what it read and has no code for: a member name it reads nothing
+ * by, and an operator it dispatches nothing on. Neither costs the derivation
+ * anything, because `conditionText` writes `field`, `op` and the value and this
+ * rule still carries all three.
  */
 interface ConditionIssues {
   readonly refused: readonly Found[];
@@ -520,10 +557,21 @@ function conditionIssues(
       }
     }
 
+    const op: unknown = condition['op'];
+    if (typeof op === 'string' && !OPS.has(op)) {
+      strange.push(
+        unreadable(
+          `${named} declares "op" on the condition at ${path} as ${JSON.stringify(op)}, and this checker dispatches on no operator by that name, so a holder installing this document would resolve the rule off for every subject`,
+          `${path}/op`,
+          key,
+        ),
+      );
+    }
+
     strange.push(
       ...strangeMembers(
         condition,
-        condition['op'] === 'day-of-week' ? DAY_OF_WEEK : CONDITION,
+        op === 'day-of-week' ? DAY_OF_WEEK : CONDITION,
         'condition',
         named,
         path,
@@ -603,9 +651,11 @@ function conditionIssues(
  * name.
  *
  * `served` separates the callers for the member walks, which refuse a member no
- * shape below a definition names. Nothing raises on one: a holder reads the
- * members its own types declare and evaluates the rest as absent, which is the
- * § 3 defect a document carries and the literal path's compiler already answers.
+ * shape below a definition names and an operator no condition type declares.
+ * Nothing raises on either: a holder reads the members its own types declare,
+ * evaluates the rest as absent, and answers an operator it has no branch for as
+ * false. That is the § 3 defect a document carries and the literal path's
+ * compiler already answers.
  */
 function shapeWalk(
   config: Checkable,
