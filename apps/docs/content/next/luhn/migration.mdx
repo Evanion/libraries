@@ -6,7 +6,7 @@ every letter, so a code 2.x produced validates under 3.x only by coincidence.
 
 <PageSheet
   difficulty={4}
-  read={6}
+  read={10}
   hands={30}
   requires={[['Dictionaries', '../dictionaries']]}
   unlocks={[['API reference', '../api']]}
@@ -14,17 +14,18 @@ every letter, so a code 2.x produced validates under 3.x only by coincidence.
 
 ## Codes issued by luhn 2.x
 
-Decide what happens to the codes you already issued before you change a call,
-from three options, cheapest first:
+Decide what happens to the codes `@evanion/luhn` 2.x already issued before you
+change a call. There are three options, cheapest first:
 
 - Reissue them, while the codes are internal or short-lived.
 - Keep 2.x's check characters with the instance below.
 - Validate against both the 2.x and the 3.x instance during a transition, and
   reissue a code when it is read.
 
-The 2.x default lowercased its input and then read it against the 62
-characters without folding. `ALTERNATING_CASE_DICTIONARY` over lowercased input
-reproduces every check character it produced:
+The 2.x default lowercased its input and looked it up in 62 characters that
+held both cases, so only the check character it produced could be uppercase.
+`ALTERNATING_CASE_DICTIONARY` over lowercased input reproduces every check
+character it produced:
 
 ```ts twoslash file=libs/luhn/README.md region=legacy-default
 
@@ -32,40 +33,49 @@ reproduces every check character it produced:
 
 `issuedBy2x` lowercases everything but the check character. 2.x's own
 `validate` lowercased that too, so it refused every code whose check character
-was an uppercase letter, `order-2026-0042-E` among them. A 2.x subclass that
-set `static sensitive = true` needs no lowercasing:
+was an uppercase letter, `order-2026-0042-E` among them. During a transition,
+`issuedBy2x(code) || Luhn.validate(code).isValid` accepts a code from either
+version. A 2.x subclass that set `static sensitive = true` read its input
+without lowercasing it, and
 `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` reproduces it as it
 is.
 
 ## The luhn 2.x API, call by call
 
-`caseInsensitive` is the 3.x option that folds input to lowercase. It defaults
-to `true` when you pass no dictionary and `false` when you pass one.
+Every `@evanion/luhn` 2.x call maps to a 3.x form. `Luhn.generate(x)` and
+`Luhn.validate(x)` still compile and still run, because `Luhn` is now the
+default instance where it was a class.
 
-| 2.x                                                   | 3.x                                                                                          |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `Luhn.generate(input)`                                | unchanged call, new value                                                                    |
-| `Luhn.validate(input)`                                | unchanged call; it now accepts every code `generate` produces                                |
-| `Luhn.generate(input, true)`                          | `createLuhn({ caseInsensitive: false }).generate(input)`                                     |
-| `Luhn.validate(input, true)`                          | `createLuhn({ caseInsensitive: false }).validate(input)`                                     |
-| `class X extends Luhn { static dictionary = d }`      | `createLuhn({ dictionary: d, caseInsensitive: true })`                                       |
-| `class X extends Luhn { static sensitive = true }`    | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })`, same values                       |
-| `Luhn.dictionary = d`                                 | throws `TypeError`; the default instance is frozen                                           |
-| `Luhn.sensitive`                                      | `!Luhn.caseInsensitive`; the flag's meaning is inverted                                      |
-| `Luhn.lowercaseOnly(d)`                               | removed; nothing folds a dictionary any more                                                 |
-| the `protected static` helpers                        | removed; an override of `char2index` never took effect, because `reduce` called `Luhn`'s own |
-| `ValidationError`                                     | `LuhnError`, the base class of `EmptyInputError` and `InvalidDictionaryError`                |
-| `validate('')` returning `isValid: true`              | `isValid: false`                                                                             |
-| `generate('')` returning `{ checksum: '0' }`          | throws `EmptyInputError`                                                                     |
-| a dictionary of odd length throwing at the first call | throws `InvalidDictionaryError` at `createLuhn`                                              |
+`caseInsensitive` in the right column is the `createLuhn` option that folds
+input to lowercase, on by default only when no dictionary is passed.
+[`caseInsensitive` and case pairs](../dictionaries#caseinsensitive-and-case-pairs)
+covers it. `createLuhn` with no `dictionary` builds over the default 36
+characters. The `true` in 2.x's `Luhn.generate(input, true)` read the input
+without lowercasing it, against the dictionary folded to the 36 lowercase
+characters.
 
-`Luhn.generate(x)` and `Luhn.validate(x)` still compile and still run, because
-`Luhn` is now the default instance where it was a class.
+| 2.x                                                   | 3.x                                                                                                                                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Luhn.generate(input)`                                | unchanged call, new value                                                                                                                                                               |
+| `Luhn.validate(input)`                                | unchanged call; it now accepts every code `generate` produces                                                                                                                           |
+| `Luhn.generate(input, true)`                          | `createLuhn({ caseInsensitive: false }).generate(input)`                                                                                                                                |
+| `Luhn.validate(input, true)`                          | `createLuhn({ caseInsensitive: false }).validate(input)`                                                                                                                                |
+| `class X extends Luhn { static dictionary = d }`      | `createLuhn({ dictionary: d, caseInsensitive: true })`, same values; when `d` holds both cases of a letter, `createLuhn({ dictionary: d })` over lowercased input, as `issuedBy2x` does |
+| `class X extends Luhn { static sensitive = true }`    | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })`, same values                                                                                                                  |
+| `Luhn.dictionary = d`                                 | throws `TypeError`; the default instance is frozen                                                                                                                                      |
+| `Luhn.sensitive`                                      | `!Luhn.caseInsensitive`; the flag's meaning is inverted                                                                                                                                 |
+| `Luhn.lowercaseOnly(d)`                               | removed; nothing folds a dictionary any more                                                                                                                                            |
+| the `protected static` helpers                        | removed; an override of `char2index` never took effect, because `reduce` called `Luhn`'s own                                                                                            |
+| `ValidationError`                                     | `LuhnError`, the base class of `EmptyInputError` and `InvalidDictionaryError`                                                                                                           |
+| `validate('')` returning `isValid: true`              | `isValid: false`                                                                                                                                                                        |
+| `generate('')` returning `{ checksum: '0' }`          | throws `EmptyInputError`                                                                                                                                                                |
+| a dictionary of odd length throwing at the first call | throws `InvalidDictionaryError` at `createLuhn`                                                                                                                                         |
 
 ## Why luhn 3.x replaced the class
 
-2.x was configured through mutable statics, read on every call, so a dictionary
-was never checked before it was used. Two bugs followed from that:
+`@evanion/luhn` 2.x was configured through mutable statics, read on every call,
+so a dictionary was never checked before it was used. Two bugs followed from
+that:
 
 - A static is matched by name, not by type. A subclass that set `dictionary` to
   a function passed the even-length check on the function's `length`, and
@@ -84,16 +94,17 @@ ES modules run in strict mode:
 
 ## Why the luhn 3.x default alphabet shrank
 
-2.x's 62-character default held case pairs, and its documented behaviour was
-case-insensitive. Both cannot hold: folding sends `A` to `a`, and the index `A`
-held becomes unreachable. 36 lowercase alphanumerics is the alphabet on which a
-case-insensitive default is sound. `ALTERNATING_CASE_DICTIONARY` is still
-exported for the 62 characters, and reads case.
+`@evanion/luhn` 2.x's 62-character default held case pairs, and its documented
+behaviour was case-insensitive. Both cannot hold: folding sends `A` to `a`, and
+the index `A` held becomes unreachable. 36 lowercase alphanumerics is the
+alphabet on which a case-insensitive default is sound.
+`ALTERNATING_CASE_DICTIONARY` is still exported for the 62 characters, and reads
+case.
 
 ## A luhn 2.x subclass per dictionary
 
-2.x configured each extra dictionary on a subclass. 3.x builds an instance per
-dictionary with `createLuhn`, which checks the dictionary each time it is
-called, so cache the instance when the same few recur.
+`@evanion/luhn` 2.x configured each extra dictionary on a subclass. 3.x builds
+an instance per dictionary with `createLuhn`, which checks the dictionary each
+time it is called, so cache the instance when the same few recur.
 [A luhn dictionary chosen at runtime](../dictionaries#a-luhn-dictionary-chosen-at-runtime)
 shows the cache.
