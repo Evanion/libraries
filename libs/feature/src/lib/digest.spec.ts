@@ -275,6 +275,28 @@ describe('configDigest', () => {
     expect(configDigest(smuggled)).not.toBe(configDigest({ features: [] }));
   });
 
+  it('pads a hash word narrower than 8 hex characters', () => {
+    // The first word of this document's digest is 0x0c2d6107. Joining the four
+    // words unpadded returns 31 characters and loses the boundaries between
+    // them, so a holder comparing against a correct publisher's 32 reports a
+    // mismatch on a document nobody changed.
+    const bumped: FeatureConfig = { ...document, version: 42 };
+
+    expect(configDigest(bumped)).toBe('0c2d610731c0286ef13057a8e0e25d98');
+  });
+
+  it('leaves the digest member of the document it reads in place', () => {
+    // `validateConfig` calls this on a document the holder keeps. Deleting the
+    // member from the argument would leave the holder caching a document with
+    // nothing to verify, and a second verification of the same object would
+    // find no digest to check.
+    const carried: FeatureConfig = { ...document, digest: 'not a digest' };
+
+    configDigest(carried);
+
+    expect(carried.digest).toBe('not a digest');
+  });
+
   it('digests with TextEncoder and structuredClone deleted from globalThis', () => {
     // § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` runs this
     // on a native client embedding a JavaScript engine with no DOM, which
