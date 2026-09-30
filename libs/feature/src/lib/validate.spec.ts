@@ -1240,7 +1240,48 @@ describe('validateConfig, on a document whose members are not the declared shape
     ]);
   });
 
+  it('reports a body that parsed to null', () => {
+    const result = validateConfig(served('null'));
+
+    // § 6 has a holder that refuses a document keep the one it already
+    // installed, which it cannot do if the refusal arrives as a raise.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          message:
+            'the document is null, and this checker reads an object carrying "features"',
+        },
+      ],
+    });
+  });
+
+  it('reports a body the binding read as nothing', () => {
+    expect(validateConfig(undefined as never)).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          message:
+            'the document is nothing, and this checker reads an object carrying "features"',
+        },
+      ],
+    });
+  });
+
+  it('reports a body that parsed to the bare array § 1 refuses', () => {
+    const result = validateConfig(served('[{"key":"a","enabled":true}]'));
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.message),
+    ).toEqual([
+      'the document is an array, and this checker reads an object carrying "features"',
+    ]);
+  });
+
   it('throws none of this, which is what the reload path is built on', () => {
+    expect(() => validateConfig(served('null'))).not.toThrow();
     expect(() => validateConfig(served('{"version":1}'))).not.toThrow();
     expect(() => validateConfig(served('{"features":{}}'))).not.toThrow();
     expect(() =>
