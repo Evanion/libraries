@@ -951,6 +951,14 @@ function nameable(rule: Rule): boolean {
  * refusal names would otherwise meet the second condition for the first time at
  * the next poll.
  *
+ * The rule is what the fallback names, and the pointer stops at the rule. Every
+ * part of the rule has been probed by then, and a rule declaring no `when` is
+ * one this walk has already read `conditions.length === 0` off, so a pointer at
+ * a member would send the operator to a row the document may not carry.
+ * `ruleId` joins the text of every part before it hashes, so what reaches here
+ * is a rule whose parts each fit the string ceiling and whose joined text does
+ * not.
+ *
  * The rollout is walked after the conditions, because `ruleId` reads it too.
  * `rolloutText` canonicalises `{ by, seed }`, so a `by` that holds itself raises
  * where no condition does, and on a rule declaring no `when` there is no
@@ -1015,8 +1023,8 @@ function unnameable(
   if (all.length > 0) return all;
   return [
     unreadable(
-      `${named} declares a rule at ${at} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
-      `${at}/when`,
+      `${named} declares a rule at ${at} carrying a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+      at,
       key,
     ),
   ];
