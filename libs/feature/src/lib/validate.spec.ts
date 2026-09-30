@@ -2938,16 +2938,28 @@ describe('validateConfig, on the conditions a served rule declares', () => {
   });
 
   it('resolves that operator off at createFeatures rather than raising', () => {
-    const features = document(
+    const undispatched = document(
       '[{"field":"plan","op":"eq-ci","value":"pro"}]',
-    ).features;
+    );
+    const dispatched = document('[{"field":"plan","op":"eq","value":"pro"}]');
+    const subject = { plan: 'pro' };
 
     // The store builds and answers off for a subject the publisher that emitted
-    // the operator answers on. That silent disagreement is what the served
-    // refusal above is for; the plan's global constraints hold `createFeatures`
-    // to the six error classes it throws today, and § 3 states its rule over a
-    // document a holder installs.
-    expect(createFeatures(features).isEnabled('a')).toBe(false);
+    // the operator answers on. The context carries the field both conditions
+    // name and the value both compare against, so `eq` answers on and the
+    // operator this release dispatches nothing on answers off. A subject
+    // carrying no `plan` would answer off for both, at the
+    // `hasOwnProperty` guard at `conditions.ts:83`, and would pin nothing about
+    // the `default: return false` below it. That silent disagreement is what the
+    // served refusal above is for; the plan's global constraints hold
+    // `createFeatures` to the six error classes it throws today, and § 3 states
+    // its rule over a document a holder installs.
+    expect(createFeatures(undispatched.features).isEnabled('a', subject)).toBe(
+      false,
+    );
+    expect(createFeatures(dispatched.features).isEnabled('a', subject)).toBe(
+      true,
+    );
   });
 
   it('accepts a rule carrying no when at all', () => {
