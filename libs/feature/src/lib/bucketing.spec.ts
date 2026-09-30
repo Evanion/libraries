@@ -177,6 +177,50 @@ describe('murmur3', () => {
   });
 });
 
+describe('utf8', () => {
+  it('agrees with TextEncoder on every code point', () => {
+    // The Encoding Standard's UTF-8 encoder is what this walk states in source,
+    // and `bucketOf` and `configDigest` commit its bytes to a Swift or Kotlin
+    // port. One string per byte width leaves the three width branches untested
+    // at their boundaries: widening `point < 0x800` to `<=` writes U+0800 as
+    // two bytes, and no pinned hash in this file or in `digest.spec.ts` reads a
+    // code point that branch decides.
+    const reference = new TextEncoder();
+    const disagreements: string[] = [];
+
+    for (let point = 0; point <= 0x10ffff; point += 1) {
+      const text = String.fromCodePoint(point);
+      const theirs = reference.encode(text);
+      const ours = utf8(text);
+      const agrees =
+        ours.length === theirs.length &&
+        ours.every((byte, index) => byte === theirs[index]);
+      if (!agrees) disagreements.push(`U+${point.toString(16)}`);
+    }
+
+    expect(disagreements).toEqual([]);
+  });
+
+  it('writes the byte width every branch boundary takes', () => {
+    // The first and last code point each branch decides. A comparison written
+    // `<=` where the source writes `<` moves one of these across a width, and
+    // every bucket for every value holding it moves with it.
+    expect(utf8('\u0000')).toEqual([0x00]);
+    expect(utf8('\u007f')).toEqual([0x7f]);
+    expect(utf8('\u0080')).toEqual([0xc2, 0x80]);
+    expect(utf8('\u07ff')).toEqual([0xdf, 0xbf]);
+    expect(utf8('\u0800')).toEqual([0xe0, 0xa0, 0x80]);
+    expect(utf8('\uffff')).toEqual([0xef, 0xbf, 0xbf]);
+    expect(utf8('\u{10000}')).toEqual([0xf0, 0x90, 0x80, 0x80]);
+    expect(utf8('\u{10ffff}')).toEqual([0xf4, 0x8f, 0xbf, 0xbf]);
+  });
+
+  it('writes an unpaired surrogate as the three bytes of U+FFFD', () => {
+    expect(utf8('\ud800')).toEqual([0xef, 0xbf, 0xbd]);
+    expect(utf8('\udfff')).toEqual([0xef, 0xbf, 0xbd]);
+  });
+});
+
 describe('murmur3Bytes', () => {
   it('hashes a byte array the way murmur3 hashes the text it encodes', () => {
     for (const text of [
