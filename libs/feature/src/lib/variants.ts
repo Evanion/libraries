@@ -25,13 +25,18 @@ import type {
  * caller switching on the code acts on the defect the code names.
  *
  * `member` is the member of the definition the defect sits on, which
- * `collectIssues` writes into the issue's JSON pointer.
+ * `collectIssues` writes into the issue's JSON pointer. `variantBy` and
+ * `variantSeed` sit beside `variants` on the definition, so a defect naming one
+ * of them points an operator at the member they edit.
  */
 export interface VariantDefect {
   readonly error: FeatureConfigError;
   readonly code: ConfigIssueCode;
-  readonly member: 'variants' | 'rules';
+  readonly member: VariantMember;
 }
+
+/** A member of a definition a variant defect reports against. */
+export type VariantMember = 'variants' | 'rules' | 'variantBy' | 'variantSeed';
 
 /**
  * What the checker reads the variant order off.
@@ -44,21 +49,33 @@ export interface VariantDefect {
  * `docs/specs/2026-09-23-feature-config-distribution.md` has the checker refuse
  * one whose variants declare no order at all.
  *
- * `variantSeed` and `variantBy` are named in that same paragraph and are not
- * checked here, because the value a holder fills each of them with derives from
- * members the document carries: the feature key, and `seed`. A holder and the
- * publisher agree on both under a permuted array, and `order` is the one of the
- * three whose default reads the array position.
+ * `variantSeed` and `variantBy` are named in that same paragraph and carry the
+ * same rule. § 3 is written for the case where a publisher emitted a member and
+ * a negotiation layer stripped it, and the GrowthBook failure it cites is a
+ * stripped `hashVersion`. `serializeConfig` writes both members on every
+ * definition carrying variants, so a served document that arrives without one
+ * lost it in transit, and `assignVariant` would bucket on
+ * `DEFAULT_ROLLOUT_FIELD` and the seed `variantSeedOf` composes while the
+ * publisher bucketed on what it wrote. So this check refuses a served document
+ * missing either one, and `arrayIsOrder` exempts the literal `createFeatures`
+ * reads, where the author who omitted the member is the party the default
+ * answers.
  */
 export interface VariantCheckOptions {
   /** Whether the array order of `variants` is the order assignment walks. */
   readonly arrayIsOrder?: boolean;
 }
 
+/** What a holder does with a stripped member, for the message that refuses it. */
+const FILLS: Readonly<Record<'variantBy' | 'variantSeed', string>> = {
+  variantBy: 'buckets every subject on another context field',
+  variantSeed: 'hashes every subject against another seed',
+};
+
 /** A defect and its code, for the checks that raise a bare error. */
 function bare(
   code: ConfigIssueCode,
-  member: 'variants' | 'rules',
+  member: VariantMember,
   message: string,
 ): VariantDefect {
   return { error: new FeatureConfigError(message), code, member };
@@ -83,6 +100,10 @@ function bare(
  * A refused weight ends the total, because a share the checker already named is
  * the member an author edits and the sum over the rest describes no second
  * defect.
+ *
+ * Two checks read the document a store served and not the literal an author
+ * wrote, and `arrayIsOrder` is what separates them: the missing `order` above,
+ * and the `variantBy` and `variantSeed` § 3 has travel whole.
  *
  * Every variant and every rule arrives as the object its type declares.
  * `collectIssues` refuses a document whose `variants` or `rules` is not an array
@@ -196,6 +217,13 @@ export function variantErrors<F extends FeatureKey>(
     // The spec's 18 codes name no missing member, and this is the same thing an
     // operator fixes as the partial declaration below: the orders the document
     // carries are not the ones the walk needs.
+    //
+    // A one-variant set is refused too, although its single ordering assigns
+    // what any permutation of it assigns. § 3 states the rule over the member
+    // and not over the array length, and a publisher that omits `order` at
+    // length one has its whole document refused the day an author adds a second
+    // variant. `serializeConfig` writes an order on every variant it emits, so
+    // no document this package produces meets this refusal.
     found.push(
       bare(
         'invalid-variant-order',
@@ -211,6 +239,23 @@ export function variantErrors<F extends FeatureKey>(
         `feature "${key}" declares an order on ${String(declaredOrders)} of its ${String(variants.length)} variants, which mixes two orderings`,
       ),
     );
+  }
+
+  if (options.arrayIsOrder !== true) {
+    // `unknown-member`, because the 18 codes of § 7 name no missing member and
+    // § 3 gives that code to a member whose value this holder cannot read. A
+    // document carrying no readable `variantBy` carries no bucketing field, and
+    // an operator fixes the same member either way.
+    for (const member of ['variantBy', 'variantSeed'] as const) {
+      if (typeof definition[member] === 'string') continue;
+      found.push(
+        bare(
+          'unknown-member',
+          member,
+          `feature "${key}" declares variants and no "${member}" this checker can read, and a holder that fills the gap ${FILLS[member]}`,
+        ),
+      );
+    }
   }
 
   for (const rule of definition.rules ?? []) {

@@ -3,7 +3,7 @@ import { validateConfig as published } from '../index.js';
 import { collectIssues, validateConfig } from './validate.js';
 import { graphErrors } from './graph.js';
 import { validateVariants, variantErrors } from './variants.js';
-import type { VariantDefect } from './variants.js';
+import type { VariantDefect, VariantMember } from './variants.js';
 import type { Checkable, Found } from './validate.js';
 import type {
   ConfigIssue,
@@ -118,8 +118,9 @@ describe('variantErrors', () => {
     >();
     expectTypeOf<VariantDefect['error']>().toEqualTypeOf<FeatureConfigError>();
     expectTypeOf<VariantDefect['code']>().toEqualTypeOf<ConfigIssueCode>();
-    expectTypeOf<VariantDefect['member']>().toEqualTypeOf<
-      'variants' | 'rules'
+    expectTypeOf<VariantDefect['member']>().toEqualTypeOf<VariantMember>();
+    expectTypeOf<VariantMember>().toEqualTypeOf<
+      'variants' | 'rules' | 'variantBy' | 'variantSeed'
     >();
   });
 
