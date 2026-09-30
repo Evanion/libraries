@@ -741,12 +741,14 @@ below asks for that agreement.
 
 What breaks is the document. `FeatureConfig` narrows the member to
 `SerializedInstant`, which admits no `Date`, so a serializer that emitted one
-would emit a document its own declared type refuses. Serializing the store a
-holder built from that document emits the ISO string, so the two serializations
-are not deep-equal and the idempotence this section claims below is lost. Nothing
-reports it, because the digests agree. The agreement is what makes the conversion
-safe at this member and what forces the refusal at every other one, and the
-paragraph after the signature is where that argument runs.
+would emit a document its own declared type refuses. The holder's store would
+carry the ISO string its transport handed it, the two serializations would not be
+deep-equal, and the digests would agree throughout, so nothing would report the
+difference. `serializeConfig` converts the `Date` on the way out, so both
+serializations carry the ISO string and the idempotence this section claims below
+holds. The digests agreeing is what makes the conversion safe at this member and
+what forces the refusal at every other one, and the paragraph after the signature
+is where that argument runs.
 
 ```ts
 /** An `Instant` that round-trips: ISO 8601 or epoch milliseconds. */
