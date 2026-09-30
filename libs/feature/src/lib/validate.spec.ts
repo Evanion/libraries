@@ -1108,11 +1108,11 @@ describe('validateConfig', () => {
     expect(validateConfig(config).ok).toBe(false);
     expect(codesOf(config)).toEqual(['unknown-member']);
     expect(thrownBy(config).message).toBe(
-      'feature "loop" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+      'feature "loop" declares the value at /features/0/rules/0/when/0/value as one no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
     );
   });
 
-  it('names the when of a rule whose condition value nests too deep to hash', () => {
+  it('names the value of a rule whose condition nests too deep to hash', () => {
     let value: unknown = 1;
     for (let at = 0; at < 2000; at += 1) value = [value];
     const document = {
@@ -1131,10 +1131,10 @@ describe('validateConfig', () => {
     // stack the way a self-reference does. The issue names the member.
     expect(
       result.ok === false && result.issues.map((issue) => issue.path),
-    ).toEqual(['/features/0/rules/0/when']);
+    ).toEqual(['/features/0/rules/0/when/0/value']);
   });
 
-  it('names the when of a rule whose condition value outgrows the string ceiling', () => {
+  it('names the value of a rule whose condition outgrows the string ceiling', () => {
     let value: unknown = 1;
     for (let at = 0; at < 27; at += 1) value = [value, value];
     const config = {
@@ -1154,11 +1154,11 @@ describe('validateConfig', () => {
     // `createFeatures` over this value meets the same ceiling.
     expect(codesOf(config)).toEqual(['unknown-member']);
     expect(thrownBy(config).message).toBe(
-      'feature "wide" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+      'feature "wide" declares the value at /features/0/rules/0/when/0/value as one no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
     );
   });
 
-  it('names the when of a window rule whose instant converts to no primitive', () => {
+  it('names the instant of a window rule whose value converts to no primitive', () => {
     const config = JSON.parse(
       '{"features":[{"key":"sale","enabled":true,"rules":[{"when":' +
         '[{"field":"now","op":"after","value":{"toString":1,"valueOf":2}}]}]}]}',
@@ -1169,10 +1169,42 @@ describe('validateConfig', () => {
     // non-callable raises a TypeError there. § 7 has the checker report a
     // document a control plane chose the members of, so the raise is the issue
     // and not the answer.
-    expect(codesOf(config)).toEqual(['unknown-member']);
+    // § 8 gives `invalid-instant` to a condition value this checker cannot read
+    // as a point in time, and an operator routing on `unknown-member` would look
+    // for a member to add where the fix is the value the path names.
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'invalid-instant',
+        key: 'sale',
+        message:
+          'feature "sale" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
+        path: '/features/0/rules/0/when/0/value',
+      },
+    ]);
     expect(thrownBy(config).message).toBe(
-      'feature "sale" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+      'feature "sale" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
     );
+  });
+
+  it('names the condition the derivation raised on and not the one before it', () => {
+    const value: Record<string, unknown> = {};
+    value['self'] = value;
+    const when = [
+      { field: 'plan', op: 'eq', value: 'pro' },
+      { field: 'tier', op: 'eq', value },
+    ] satisfies Rule['when'];
+    const config = {
+      features: [{ key: 'loop', enabled: true, rules: [{ when }] }],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // `canonical` takes a fresh memo per call, so the first condition names on
+    // its own and the walk carries the index of the one that did not.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules/0/when/1/value']);
   });
 
   it('accepts a rule declaring an id for a condition value no text names', () => {
