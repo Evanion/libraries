@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { configDigest } from './digest.js';
 import { createFeatures } from './features.js';
 import { ruleId } from './rule-id.js';
 import { serializeConfig } from './serialize.js';
@@ -3479,5 +3480,257 @@ describe('validateConfig, on a rollout the assignment algorithm cannot read', ()
         { key: 'a', enabled: true, rules: [{ rollout: { percent: 50 } }] },
       ] as const).keys,
     ).toEqual(['a']);
+  });
+});
+
+describe('the envelope', () => {
+  it('refuses a member it does not know', () => {
+    const config = {
+      features: [{ key: 'a', enabled: true }],
+      hashVersion: 2,
+    } as unknown as FeatureConfig;
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'unknown-member',
+      path: '/hashVersion',
+    });
+  });
+
+  it('refuses a document whose digest does not describe it', () => {
+    const config: FeatureConfig = {
+      features: [{ key: 'a', enabled: true }],
+      digest: '0'.repeat(32),
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'digest-mismatch',
+    );
+  });
+
+  it('accepts a document whose digest describes it', () => {
+    const body: FeatureConfig = { features: [{ key: 'a', enabled: true }] };
+
+    expect(validateConfig({ ...body, digest: configDigest(body) })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('refuses an inline schema nobody can name', () => {
+    const config: FeatureConfig = {
+      features: [{ key: 'a', enabled: true }],
+      schema: { context: { fields: { plan: 'string' } } },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'missing-schema-version',
+      path: '/schema',
+    });
+  });
+
+  it('accepts a schemaVersion with no schema behind it', () => {
+    const config: FeatureConfig = {
+      features: [{ key: 'a', enabled: true }],
+      schemaVersion: 's7',
+    };
+
+    expect(validateConfig(config)).toEqual({ ok: true });
+  });
+
+  it('refuses a combinator in a variant value shape', () => {
+    const config: FeatureConfig = {
+      features: [
+        { key: 'cta', enabled: true, variants: [{ name: 'a', weight: 1 }] },
+      ],
+      schemaVersion: 's1',
+      schema: {
+        features: {
+          cta: { variants: { a: { oneOf: [{ type: 'string' }] } } },
+        },
+      },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'unfenced-schema',
+      path: '/schema/features/cta/variants/a/oneOf',
+    });
+  });
+
+  it('refuses a $ref that leaves the document', () => {
+    const config: FeatureConfig = {
+      features: [
+        { key: 'cta', enabled: true, variants: [{ name: 'a', weight: 1 }] },
+      ],
+      schemaVersion: 's1',
+      schema: {
+        features: {
+          cta: {
+            variants: { a: { $ref: 'https://example.test/label.json' } },
+          },
+        },
+      },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'unfenced-schema',
+    );
+  });
+
+  it('accepts a $ref naming a $defs entry in the same document', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'a', weight: 1, order: 0 }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: {
+        features: {
+          cta: {
+            variants: {
+              a: {
+                $defs: { Label: { type: 'string' } },
+                type: 'object',
+                properties: { label: { $ref: '#/$defs/Label' } },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    expect(validateConfig(config)).toEqual({ ok: true });
+  });
+
+  it('refuses a condition over a field the schema does not declare', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'tier', op: 'eq', value: 'gold' }] }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: { context: { fields: { plan: 'string' } } },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'unknown-context-field',
+      key: 'beta',
+    });
+  });
+
+  it('refuses contains over a declared boolean', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'staff', op: 'contains', value: true }] }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: { context: { fields: { staff: 'boolean' } } },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'field-type-mismatch',
+    );
+  });
+
+  it('refuses a window instant a Date constructor reads as NaN', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'now', op: 'after', value: 'next tuesday' }] },
+          ],
+        },
+      ],
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      key: 'sale',
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+
+  it('accepts an offsetless instant, which parses and resolves per host', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                { field: 'now', op: 'after', value: '2026-10-01T00:00:00' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // ECMA-262 reads a date-time string with no offset as local time, so this
+    // document decides differently in Stockholm and in Tokyo. Issue #284 owns
+    // that. `invalid-instant` is about a string that parses to NaN, and this one
+    // parses.
+    expect(validateConfig(config)).toEqual({ ok: true });
+  });
+
+  it('reports __proto__ in a document as an unknown member', () => {
+    const config = JSON.parse(
+      '{"features":[{"key":"a","enabled":true}],"__proto__":{"maxStale":1}}',
+    ) as FeatureConfig;
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'unknown-member',
+      path: '/__proto__',
+    });
+  });
+
+  it('refuses a condition over constructor when the schema declares no such field', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'constructor', op: 'eq', value: 1 }] }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: { context: { fields: { plan: 'string' } } },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'unknown-context-field',
+    );
   });
 });
