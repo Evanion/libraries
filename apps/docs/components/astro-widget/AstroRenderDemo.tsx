@@ -2,7 +2,7 @@ import { PayloadPicker } from './PayloadPicker';
 import { renders } from './renders';
 
 /**
- * The control on `/astro-widget/validation`: pick a payload, and see what
+ * The control on `/astro-widget/bad-items`: pick a payload, and see what
  * `validateItems` reports for it and what `Widgets.astro` renders.
  *
  * A server component, so the payloads reach the page as props in the exported

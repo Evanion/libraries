@@ -216,7 +216,7 @@ import { validateItems } from '@evanion/astro-widget';
 
 const saved = [
   null,
-  { type: 'listing-header', props: { title: 'Root' } },
+  { type: 'listing-header', props: { title: 'Brass: Birmingham' } },
   { id: 'grid', type: 'game-grid', props: {}, children: 'none' },
   { id: 'grid', type: 'game-grid' },
 ];
@@ -242,17 +242,22 @@ validateItems({ items: [] }, ['listing-header']); // -> [{ index: -1, id: '-', t
 
 <!-- #endregion not-a-list -->
 
-A payload with nothing wrong reports nothing. `validateItems` returns a list,
-never throws, and never short-circuits, so one run over the whole page is one
-build failure with every fault in it:
+`validateItems` checks every level against the one `known` it was handed. A
+nesting widget renders its children through a registry of its own, so a child
+can pass the check and still be a type that widget skips. A second call checks
+the children of every grid against the grid registry's names:
 
-<!-- #region clean-payload -->
+<!-- #region nested-registry -->
 
 ```ts @import.meta.vitest
-import { validateItems } from '@evanion/astro-widget';
+import { validateItems, type AnyWidgetItem } from '@evanion/astro-widget';
 
-const page = [
-  { id: 'header', type: 'listing-header', props: { title: 'Root' } },
+const page: AnyWidgetItem[] = [
+  {
+    id: 'header',
+    type: 'listing-header',
+    props: { title: 'Brass: Birmingham' },
+  },
   {
     id: 'grid',
     type: 'game-grid',
@@ -264,12 +269,13 @@ const page = [
 ];
 
 const required = { 'listing-header': ['title'] };
-const problems = validateItems(page, ['listing-header', 'game-grid'], required);
+const grids = page.filter((item) => item.type === 'game-grid');
 
-problems; // -> []
+validateItems(page, ['listing-header', 'game-grid'], required); // -> []
+grids.flatMap((grid) => validateItems(grid.children, ['game-card'])); // -> [{ index: 0, id: 'azul', type: 'listing-header', message: 'unknown widget type' }]
 ```
 
-<!-- #endregion clean-payload -->
+<!-- #endregion nested-registry -->
 
 `VALIDATION_MESSAGES` holds every message `validateItems` returns, so a caller
 sorts a report without matching on prose. A webhook can send an unknown type to

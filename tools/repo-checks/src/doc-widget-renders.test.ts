@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { authoredPages } from './docs-content';
 
 /**
- * The render `/astro-widget/validation`'s control shows is the render the
+ * The render `/astro-widget/bad-items`'s control shows is the render the
  * current sources produce.
  *
  * `nx run docs:widget-renders` renders each payload through `Widgets.astro`

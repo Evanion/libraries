@@ -2,7 +2,7 @@ import data from './renders.json';
 
 /**
  * What `Widgets.astro` and `validateItems` made of each payload the
- * `/astro-widget/validation` control offers, written by
+ * `/astro-widget/bad-items` control offers, written by
  * `apps/docs/tools/widget-renders.mjs` during the build that produces the page.
  *
  * The file this imports is a build output and is not in the repository, for

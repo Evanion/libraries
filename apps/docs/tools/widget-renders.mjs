@@ -8,7 +8,7 @@ import { createServer, defaultServerConditions } from 'vite';
 import { readRegion } from '@evanion/doc-examples/regions';
 
 /**
- * Renders the payloads `/astro-widget/validation` offers through
+ * Renders the payloads `/astro-widget/bad-items` offers through
  * `Widgets.astro`, and writes what Astro and `validateItems` made of each one.
  *
  * `next.config.ts` sets `output: 'export'`, so the page has no request-time
@@ -39,16 +39,13 @@ const output = join(docsRoot, 'components', 'astro-widget', 'renders.json');
 
 /** The regions the control offers, in the order the page renders them. */
 const PAYLOADS = [
-  { region: 'validate', label: 'No price, and a type nothing renders' },
-  { region: 'known-types', label: 'The listing page as saved' },
-  { region: 'required-fields', label: 'A title left blank' },
   { region: 'structural-rules', label: 'Five structural faults' },
-  { region: 'clean-payload', label: 'Root and Azul, which pass the check' },
   { region: 'not-a-list', label: 'An object where the list goes' },
   {
     region: 'nested-index',
     label: 'A grid with no title and an unknown child',
   },
+  { region: 'nested-registry', label: 'A grid child the check passes' },
 ];
 
 /** The module id a region is served under, beside the README it came from. */
