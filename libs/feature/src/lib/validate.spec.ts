@@ -1262,7 +1262,7 @@ describe('validateConfig', () => {
         code: 'unknown-member',
         key: 'a',
         message:
-          "feature \"a\" declares a rule at /features/0/rules/0 carrying a value no canonical text names, and the derivation a decision reads this rule's id from raises on it",
+          'feature "a" declares a rule at /features/0/rules/0 carrying a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
         path: '/features/0/rules/0',
       },
     ]);
@@ -2938,8 +2938,9 @@ describe('validateConfig, on the conditions a served rule declares', () => {
   });
 
   it('resolves that operator off at createFeatures rather than raising', () => {
-    const features = document('[{"field":"plan","op":"eq-ci","value":"pro"}]')
-      .features;
+    const features = document(
+      '[{"field":"plan","op":"eq-ci","value":"pro"}]',
+    ).features;
 
     // The store builds and answers off for a subject the publisher that emitted
     // the operator answers on. That silent disagreement is what the served
@@ -3176,7 +3177,7 @@ describe('validateConfig, on a rollout the assignment algorithm cannot read', ()
     // `rolloutIssues` runs for a served document alone, so the derivation's
     // refusal is the whole of what the author reads here.
     expect(thrownBy(config).message).toBe(
-      "feature \"a\" declares the value at /features/0/rules/0/rollout/by as one no canonical text names, and the derivation a decision reads this rule's id from raises on it",
+      'feature "a" declares the value at /features/0/rules/0/rollout/by as one no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
     );
   });
 
