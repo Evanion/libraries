@@ -420,6 +420,50 @@ describe('validateConfig', () => {
     );
   });
 
+  it('reports one duplicate per extra variant declaring a name', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [
+            { name: 'x', weight: 1, order: 0 },
+            { name: 'x', weight: 1, order: 1 },
+            { name: 'x', weight: 1, order: 2 },
+          ],
+        },
+      ],
+    };
+
+    // § 7 has every issue reported at once, so an operator who renames the
+    // second variant meets the third in the same refusal rather than at the
+    // next poll.
+    expect(codesOf(config)).toEqual(['duplicate-variant', 'duplicate-variant']);
+  });
+
+  it('reports one duplicate per extra variant declaring an order', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [
+            { name: 'a', weight: 1, order: 4 },
+            { name: 'b', weight: 1, order: 4 },
+            { name: 'c', weight: 1, order: 4 },
+          ],
+        },
+      ],
+    };
+
+    expect(codesOf(config)).toEqual([
+      'duplicate-variant-order',
+      'duplicate-variant-order',
+    ]);
+  });
+
   it('reports two rules of one feature declaring one id', () => {
     const config: FeatureConfig = {
       features: [
@@ -707,6 +751,30 @@ describe('validateConfig', () => {
         message: new UnknownVariantError('cta', 'green').message,
         path: '/features/0/rules',
       },
+    ]);
+  });
+
+  it('reports one unknown variant per pin on a feature declaring variants', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'control', weight: 1, order: 0 }],
+          rules: [
+            { id: 'to-blue', variant: 'blue' },
+            { id: 'to-green', variant: 'green' },
+          ],
+        },
+      ],
+    };
+
+    // The pin walk a served document reaches is the one that runs over a variant
+    // set the checker read, and it names each pin the set does not declare.
+    expect(messagesOf(config)).toEqual([
+      new UnknownVariantError('cta', 'blue').message,
+      new UnknownVariantError('cta', 'green').message,
     ]);
   });
 
@@ -1017,20 +1085,61 @@ describe('validateConfig', () => {
     expect(codesOf(config)).toEqual(['duplicate-rule-id']);
   });
 
-  it('derives no id for a rule whose condition value closes on itself', () => {
+  it('refuses a rule whose condition value closes on itself', () => {
+    const value: Record<string, unknown> = {};
+    value['self'] = value;
+    const when = [{ field: 'tier', op: 'eq', value }] satisfies Rule['when'];
+    const config = {
+      features: [{ key: 'loop', enabled: true, rules: [{ when }] }],
+    } as unknown as FeatureConfig;
+
+    // `canonical` writes its memo entry after the recursion, so this value
+    // exhausts the stack. `ruleId` runs on every evaluation of a rule declaring
+    // no id, so a store built over this one raises the same RangeError out of
+    // `resolve`, and the issue names the member instead.
+    expect(validateConfig(config).ok).toBe(false);
+    expect(codesOf(config)).toEqual(['unknown-member']);
+    expect(thrownBy(config).message).toBe(
+      'feature "loop" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+    );
+  });
+
+  it('names the when of a rule whose condition value nests too deep to hash', () => {
+    let value: unknown = 1;
+    for (let at = 0; at < 2000; at += 1) value = [value];
+    const document = {
+      features: [
+        {
+          key: 'deep',
+          enabled: true,
+          rules: [{ when: [{ field: 'tier', op: 'eq', value }] }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(document);
+
+    // A served document reaches this depth through `JSON.parse`, where no value
+    // holds itself. `canonical.ts:69-71` reads a document this deep as one no
+    // digest covers, and the walk that names its rules cannot walk it either.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules/0/when']);
+  });
+
+  it('accepts a rule declaring an id for a condition value no text names', () => {
     const value: Record<string, unknown> = {};
     value['self'] = value;
     const when = [{ field: 'tier', op: 'eq', value }] satisfies Rule['when'];
 
-    // `canonical` writes its memo entry after the recursion, so this value
-    // exhausts the stack. Decision 12 gives the refusal to `serializeConfig`,
-    // which names `/features/0/rules/0/when/0/value/self`, and the checker
-    // reports no duplicate for a rule it could not name.
-    expect(() =>
-      createFeatures([
-        { key: 'loop', enabled: true, rules: [{ when }, { when }] },
-      ]),
-    ).not.toThrow();
+    // `ruleId` returns a declared id without reading the conditions, so nothing
+    // takes a canonical text of this value on either path.
+    expect(
+      validateConfig({
+        features: [
+          { key: 'loop', enabled: true, rules: [{ id: 'held', when }] },
+        ],
+      } as unknown as FeatureConfig),
+    ).toEqual({ ok: true });
   });
 });
 
@@ -1232,6 +1341,23 @@ describe('validateConfig, on a document whose members are not the declared shape
     // an order the count is missing and a name the pin may hold, so a zero
     // total, a partial order declaration and an unknown pin would each name a
     // defect this document does not carry.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member']);
+  });
+
+  it('names no mixed ordering when the order it misses belongs to the dropped variant', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0},' +
+          '{"name":"b","weight":1},null]}]}',
+      ),
+    );
+
+    // Two of the three variants declare an order, and the third is the element
+    // the checker dropped, so the count the mixed-ordering check reads is short
+    // by the element it already reported.
     expect(
       result.ok === false && result.issues.map((issue) => issue.code),
     ).toEqual(['unknown-member']);
@@ -1871,6 +1997,89 @@ describe('validateConfig, on the enabled every definition declares', () => {
   });
 });
 
+describe('validateConfig, on a member a definition declares that this checker does not read', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  /** § 3's case: a bucketing parameter a later release of this package adds. */
+  const HASHED =
+    '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+    '"variantSeed":"cta:variant","hashVersion":2,' +
+    '"variants":[{"name":"control","weight":1,"order":0},' +
+    '{"name":"blue","weight":1,"order":1}]}]}';
+
+  it('reports a bucketing parameter this release does not know', () => {
+    const result = validateConfig(served(HASHED));
+
+    // § 3 has the member travel with no default, so a holder too old to read it
+    // refuses the document rather than bucketing every subject on the algorithm
+    // it knows while the publisher bucketed on the new one.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares "hashVersion", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+          path: '/features/0/hashVersion',
+        },
+      ],
+    });
+  });
+
+  it('refuses that document at createFeatures too', () => {
+    expect(thrownBy(served(HASHED)).message).toBe(
+      'feature "cta" declares "hashVersion", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+    );
+  });
+
+  it('reports every member of one definition it does not read', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"ttl":1,"owner":"b"}]}'),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/ttl', '/features/0/owner']);
+  });
+
+  it('names no key for a definition whose own key did not travel', () => {
+    const result = validateConfig(served('{"features":[{"hashVersion":2}]}'));
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/key',
+      '/features/0/enabled',
+      '/features/0/hashVersion',
+    ]);
+  });
+
+  it('accepts every member FeatureDefinition names', () => {
+    // The set this walk reads is the one `types.ts` declares, so a member a
+    // definition may legally carry is not reported as one it may not.
+    expect(
+      validateConfig({
+        features: [
+          {
+            key: 'cta',
+            enabled: true,
+            dependsOn: [],
+            rules: [{ id: 'r', variant: 'control' }],
+            seed: 'cta-seed',
+            freezeTimeAtBuild: true,
+            ...TRAVELS,
+            variants: [{ name: 'control', weight: 1, order: 0 }],
+          },
+        ],
+      }),
+    ).toEqual({ ok: true });
+  });
+});
+
 describe('validateConfig, on the dependencies a definition declares', () => {
   /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
   function served(body: string): FeatureConfig {
@@ -2197,6 +2406,35 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     expect(
       result.ok === false && result.issues.map((issue) => issue.code),
     ).toEqual(['unknown-member', 'duplicate-rule-id']);
+  });
+
+  it('refuses a when that arrived as an object at createFeatures too', () => {
+    const config = document('{"field":"plan"}');
+
+    // `evaluate.ts:53` iterates `rule.when`, so a store built over this object
+    // raises a TypeError out of `resolve`, and Decision 11 has one checker answer
+    // both envelopes.
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares "when" on the rule at /features/0/rules/0 as an object, and this checker reads an array of conditions',
+    );
+  });
+
+  it('refuses a day-of-week condition carrying no zone at createFeatures too', () => {
+    const config = document('[{"field":"now","op":"day-of-week","value":[1]}]');
+
+    // `conditionText` reads `condition.zone.length` to name the rule, so a store
+    // built over this condition raises a TypeError out of `resolve`.
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares "zone" on the day-of-week condition at /features/0/rules/0/when/0 as nothing, and this checker reads a time zone name',
+    );
+  });
+
+  it('refuses a non-string field and op at createFeatures too', () => {
+    const config = document('[{"value":true}]');
+
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares "field" on the condition at /features/0/rules/0/when/0 as nothing, and this checker reads a string',
+    );
   });
 
   it('throws none of this either', () => {
