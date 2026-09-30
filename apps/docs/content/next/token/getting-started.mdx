@@ -1,17 +1,14 @@
 # Getting started
 
-By the end of this page `generate` mints a pickup code for your shop, and
-`validate` refuses a misheard one before your order table is queried.
+By the end of this page `@evanion/token` issues a pickup code at checkout, and
+the counter finds the order again from the code a customer reads back.
 
 <PageSheet
   difficulty={1}
   read={3}
-  hands={10}
+  hands={5}
   requires={[['Overview', '../']]}
-  unlocks={[
-    ['Generating and validating', '../usage'],
-    ['API reference', '../api'],
-  ]}
+  unlocks={[['Generating and validating', '../usage']]}
 />
 
 ## Before you install token
@@ -43,9 +40,9 @@ character.
 
 ## Construct a token instance
 
-`createToken` checks its options and returns a frozen object carrying `generate`
-and `validate`. Build it at module scope, so the options are checked once and
-not on every request:
+`createToken` checks its options and returns a frozen token instance. Build it
+at module scope, so the options are checked once, at start-up. `generate()`
+returns the code a person reads as `value`:
 
 ```ts twoslash file=libs/token/README.md region=construct
 
@@ -53,27 +50,31 @@ not on every request:
 
 `createToken()` with no options takes the defaults, and the shop's pickup codes
 need nothing else. `length` is 8 and counts the check character, so seven of
-the eight characters are random. A hyphen splits the code into chunks of four,
-which is why `value` comes back nine characters long.
+the eight characters are random. A hyphen splits the code into two chunks of
+four, which is why `value` is nine characters long.
 
-## Mint a pickup code and check it with token
+## Issue a pickup code at checkout and find its order at the counter
 
-`generate` returns an object: `value` is the code a person reads, such as
-`a4kp-9mxa`, and `body` is the string your order table stores. Every call draws
-different characters, so the example checks what the round trip answers and not
-which characters came out:
+`generate` returns `value`, such as `a4kp-9mxa`, which the shop prints on the
+receipt, and `body`, such as `a4kp9mx`, which the orders table stores. At the
+counter, token's `validate` turns the code a customer reads back into the same
+`body`, or refuses it with a `reason` before the table is read. A `Map` stands
+in for the orders table:
 
-```ts twoslash file=libs/token/README.md region=round-trip
+```ts twoslash file=libs/token/README.md region=checkout
 
 ```
 
-`validate` accepts the code `generate` minted and hands back the same `body`,
-which is the key to look the order up by. `a4kp-9mx8` is a fixed code whose
-check character is wrong. `validate` refuses it, and the counter learns the
-code is bad without querying the order table.
+The code `generate` minted finds `order-2026-0042`. `a4kp-9mxa`, the Overview's
+example, is well formed, so `validate` accepts it. The table answers "no such
+order" because this `Map` holds only the code `generate` just minted.
+`a4kp-9nxa` is `a4kp-9mxa` with `m` heard as `n`, and the counter refuses it
+without a lookup, so a code with one character misheard never reads as a missing
+order.
 
-## Now that token mints a pickup code, configure it
+## Print pickup codes with the ORD prefix
 
-[Generating and validating](../usage) sets `length`, `chunkSize` and
-`separator`, adds a prefix such as `ORD`, and lists the three `reason` values
-`validate` returns.
+The counter now tells a misheard token code from one the shop never issued.
+Baize prints its pickup codes as `ORD-a4kp-9mxa`, and
+[Generating and validating](../usage) mints one with that prefix, redeems it
+however the customer types it, and lists every reason `validate` refuses a code.

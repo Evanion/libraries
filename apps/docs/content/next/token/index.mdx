@@ -1,8 +1,9 @@
 # @evanion/token
 
-A pickup code read over the phone gets misheard, and the counter reports "no
-such order" for a code nobody issued. `createToken` builds an instance whose
-codes avoid misread characters and whose `validate` refuses a mistyped code.
+At Baize, a board game shop, a misheard pickup code and an unissued code both
+get "no such order" at the counter. `@evanion/token` mints codes without
+misread characters, and its `validate` refuses a misheard one before the order
+lookup.
 
 <PageSheet
   difficulty={1}
@@ -13,43 +14,47 @@ codes avoid misread characters and whose `validate` refuses a mistyped code.
   ]}
 />
 
-## How token checks a pickup code
+## How a misheard pickup code is refused
 
-A default token code is seven random characters followed by one check
-character, which is computed from the seven. `a4kp-9mxa` below is a pickup code
-at Baize, the board game shop these examples are set in:
+A default `@evanion/token` code is seven random characters followed by one check
+character, which is computed from the seven. `a4kp-9mxa` below is a Baize
+pickup code:
 
 ```ts twoslash file=libs/token/README.md region=at-a-glance
 
 ```
 
-`createToken()` returns an instance carrying `validate`. The last character of
-`a4kp-9mxa`, `a`, is its check character. `a4kp-9mx8` is the same code with that
-`a` heard as `8`, and `validate` refuses it with `reason: 'check-failed'` before
-any order table is read. `body` is the code with its hyphen and its check
-character removed, which is the string the shop stores.
+`createToken()` returns a token instance, an object fixed to one shape of code,
+carrying `generate` and `validate`. The last character of `a4kp-9mxa`, `a`, is
+its check character. `a4kp-9mx8` is the same code with that `a` heard as `8`,
+and `validate` refuses it with `reason: 'check-failed'` before any order table
+is read. `body` is the code with its hyphen and its check character removed,
+which is the string the shop stores.
 
 ## The token vocabulary
 
-Every later token page uses these six words.
+These seven words name the parts of an `@evanion/token` code.
 
 - A **code** is the string a person reads, such as `a4kp-9mxa`.
 - The **body** is the code's random characters, `a4kp9mx`, without separators
   or check character. The shop stores and indexes on it.
 - The **check character** is the last character of a code. `@evanion/luhn`, a
   dependency that installs with token, computes it from the body with the Luhn
-  algorithm, the check-digit scheme on a credit card number.
-- The **dictionary** is the alphabet a code draws from. The default holds 32
-  characters. It leaves out `i`, `l` and `o`, which are misread as `1` and `0`,
-  and `w`, whose spoken name "double-u" gets written down as `u`. The check
-  character catches the mistakes the dictionary cannot remove, such as `a`
-  heard as `8`.
-- A **chunk** is a group of characters between two separators. The default is
-  four characters, separated by a hyphen.
+  algorithm, the check-digit scheme on a credit card number. It catches the
+  mistakes the dictionary cannot remove, such as `a` heard as `8`.
+- The **dictionary** is the string of characters a code draws from, in order.
+  The default holds 32 characters and leaves out `i`, `l`, `o` and `w`, which
+  people misread or mishear. The token API also calls it the alphabet, in
+  `InvalidAlphabetError` and the reason `outside-alphabet`.
+- A **chunk** is a group of characters, four by default.
+- A **separator** sits between two chunks, a hyphen by default. It is there for
+  the reader, and `validate` removes it before checking.
 - A **prefix**, such as `ORD`, is written ahead of a code, and the check
   character does not cover it.
 
 ## What token can do
+
+Each task below maps to one call or option of `@evanion/token`.
 
 | You want to                                        | What token gives you                                        |
 | -------------------------------------------------- | ----------------------------------------------------------- |
@@ -58,24 +63,28 @@ Every later token page uses these six words.
 | accept a code typed without hyphens or in capitals | `validate`, which strips separators and folds case first    |
 | mark a code as an order's                          | `generate({ prefix: 'ORD' })`                               |
 | set the length, the chunk size or the separator    | `createToken({ length, chunkSize, separator })`             |
-| draw from your own alphabet                        | `createToken({ dictionary })`, which checks the alphabet    |
+| draw from your own characters                      | `createToken({ dictionary })`, which checks the dictionary  |
 | size a code for the number you will issue          | `entropyBits`, the instance's count of random bits per code |
 
 ## What token does not do
 
+`@evanion/token` leaves five jobs to your code or to another package.
+
 - It does not keep codes unique. `generate` never checks for collisions and
   never retries, so uniqueness is a unique index on your table.
-- It does not say a code exists. `valid: true` means well formed, and one random
-  string in 32 passes the check under the default dictionary.
-- It does not make a credential. A default code carries 35 random bits, which an
-  attacker can enumerate. A password reset link wants a 128-bit random value
-  that nobody types.
+- It does not say a code exists. `valid: true` means well formed, and one in 32
+  random 8-character strings over the default dictionary passes the check.
+- It does not make a credential. A default code's seven random characters carry
+  5 bits each, 35 in all, which an attacker can enumerate.
 - It does not check the prefix. `ORD-a4kp-9mxa` carries a check character over
   `a4kp9mx` only, and `validate` takes the code with `ORD-` cut off.
 - It does not add a check character to an identifier you already have.
   `@evanion/luhn` computes one over any string.
 
-## Now that you know how token reads a code, install it
+## Install token and redeem a first pickup code
 
-[Getting started](./getting-started) installs the package and mints a
-pickup code the shop's counter can read out.
+`@evanion/token` refuses a misheard code by its check character, and leaves the
+question of whether a code was issued to the orders table.
+[Getting started](./getting-started) installs the package, issues a pickup code
+at checkout, and finds its order again from the code a customer reads back at
+the counter.
