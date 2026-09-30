@@ -5,7 +5,7 @@ correlation id, and a handler reads it from `CorrelationService`.
 
 <PageSheet
   difficulty={2}
-  read={4}
+  read={6}
   hands={10}
   requires={[['Overview', '../']]}
   unlocks={[['Forward the id to the next service', '../forwarding']]}
@@ -13,15 +13,15 @@ correlation id, and a handler reads it from `CorrelationService`.
 
 ## Before you install nestjs-correlation-id
 
-- A NestJS 12 application, meaning `@nestjs/common` `^12.0.0`, on the Express
-  or the Fastify adapter.
-- Node 20 or newer for an ES module project. The package ships only ES modules,
-  so a CommonJS project needs Node 20.19, 22.12 or newer, which load it through
-  `require()` the same way they load NestJS 12. On an older Node, upgrade Node
-  or switch the project to ES modules.
-- `@nestjs/axios` `^12.0.1` and `axios`, only if you forward the id on outgoing
-  calls. `@nestjs/axios` is an optional peer dependency, and this page does not
-  need it.
+`@evanion/nestjs-correlation-id` needs:
+
+- A NestJS 12 application, meaning `@nestjs/common` `^12.0.0`, on the Express or
+  the Fastify adapter.
+- Node 20 or newer. The package ships only ES modules, so the minimum depends on
+  your project's module format:
+  - An ES module project imports it on any Node 20.
+  - A CommonJS project loads it through `require()`, which needs Node 20.19,
+    22.12 or newer. NestJS 12 needs the same versions in a CommonJS project.
 
 ## Install nestjs-correlation-id
 
@@ -37,33 +37,37 @@ yarn add @evanion/nestjs-correlation-id
 pnpm add @evanion/nestjs-correlation-id
 ```
 
-The package's one runtime dependency is `tslib`.
-
 ## Register CorrelationModule and the middleware
 
-`CorrelationModule.forRoot()` provides `CorrelationService` to every module, and
-`CorrelationIdMiddleware` opens a correlation context around each request.
-Register both in your root module:
+`CorrelationModule.forRoot()` from `@evanion/nestjs-correlation-id` provides
+`CorrelationService` to every module, and `CorrelationIdMiddleware` opens a
+correlation context around each request. Register both in your root module:
 
 ```ts twoslash file=libs/nestjs-correlation-id/examples/app.module.ts region=register
 
 ```
 
 `forRoot()` with no argument is the whole minimum configuration. The middleware
-reads `X-Correlation-Id`, generates a missing id with `randomUUID`, and reuses an
-incoming id only when it passes `DEFAULT_CORRELATION_ID_VALIDATOR`.
+then reads `X-Correlation-Id` and generates a missing id with `randomUUID` from
+`node:crypto`. It reuses an incoming id only when the id passes
+`DEFAULT_CORRELATION_ID_VALIDATOR`, which accepts 1 to 128 characters from the
+ASCII letters, the digits, `_`, `.`, `:` and `-`. `forRoot()` also takes three
+optional fields, `header`, `generator` and `validate`, that replace those
+defaults.
 
 - `forRoot()` registers a global module, so call it once, in the root module.
 - `forRoutes('*')` covers every route. On a route the middleware skips,
   `getCorrelationId()` returns `undefined`.
-- Apply your own middleware that reads the id after `CorrelationIdMiddleware`
-  in `configure()`, because the context opens there.
+- Nest runs middleware in the order `configure()` applies it, and the
+  correlation context opens in `CorrelationIdMiddleware`. Apply your own
+  middleware that reads the id in a later `consumer.apply()` call, or later in
+  the same call's argument list.
 
-## Read the id nestjs-correlation-id holds for a request
+## Read the request's id in a handler
 
-Inject `CorrelationService` and call `getCorrelationId()`. `OrdersController`
-in Baize's `orders` service returns the id with the order and writes both to its
-log line:
+Inject `CorrelationService` from `@evanion/nestjs-correlation-id` and call
+`getCorrelationId()`. `OrdersController` in Baize's `orders` service returns the
+id with the order and writes both to its log line:
 
 ```ts file=libs/nestjs-correlation-id/examples/orders.controller.ts region=read-the-id
 
@@ -72,9 +76,10 @@ log line:
 `getCorrelationId()` is synchronous, and nothing passes the id to `find()`: the
 controller reads it from the context the middleware opened.
 
-## Check that nestjs-correlation-id reuses the caller's id
+## Check that the caller's id comes back
 
-Add `controllers: [OrdersController]` to the `@Module()` of `AppModule` and start
+To see `@evanion/nestjs-correlation-id` reuse a caller's id, add
+`controllers: [OrdersController]` to the `@Module()` of `AppModule` and start
 the application. The request below assumes it listens on port 3000, the port
 `nest new` sets up. Send a request with an id:
 
@@ -86,25 +91,27 @@ The response carries the header `X-Correlation-Id: storefront-4f1c9a` and the
 body `{"order":"order-2026-0042","correlationId":"storefront-4f1c9a"}`. Leave
 the header off and both carry a fresh universally unique identifier (UUID).
 
-The code below checks the same result without a server, as a unit test would.
-It calls the middleware the way Nest does, once for a request that carries
-`storefront-4f1c9a` and once for a request with no header. Node lowercases
-incoming header names, so the request object carries `x-correlation-id`. The
-configuration has no `validate`, so the middleware falls back to
-`DEFAULT_CORRELATION_ID_VALIDATOR`. The generator returns `orders-0f3a2b` so that
-its result is predictable:
+The code below checks the same result without a server, in a form a unit test
+can use. It builds `CorrelationService` and `CorrelationIdMiddleware` by hand,
+the two objects Nest builds in an application, and calls the middleware with
+stub request and response objects:
+
+- once for a request that carries `storefront-4f1c9a` under `x-correlation-id`,
+  the lowercase name Node gives every incoming header
+- once for a request with no header, where the generator returns `orders-0f3a2b`
+  so that the result is predictable
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=middleware-by-hand
 
 ```
 
-The callback for the first request read `storefront-4f1c9a`, because the id
-passed `DEFAULT_CORRELATION_ID_VALIDATOR` and the middleware reused it. The
-callback for the second read the generated id. After both requests,
-`getCorrelationId()` returns `undefined`.
+The configuration sets no `validate`, so the middleware applied
+`DEFAULT_CORRELATION_ID_VALIDATOR`, and `storefront-4f1c9a` passed it.
 
-## Now that every request carries an id, forward it
+## Send the id on to the stock service
 
-[Forward the id to the next service](../forwarding) passes
-`withCorrelation()` to `HttpModule`, so Baize's `stock` service receives the id
-the `orders` service was called with.
+Every request to your application now carries an id from
+`@evanion/nestjs-correlation-id`, and a handler reads it.
+[Forward the id to the next service](../forwarding) passes `withCorrelation()`
+to `HttpModule`, so Baize's `stock` service receives the id the `orders` service
+was called with.
