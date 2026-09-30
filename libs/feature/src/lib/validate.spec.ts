@@ -1207,6 +1207,31 @@ describe('validateConfig', () => {
     ).toEqual(['/features/0/rules/0/when/1/value']);
   });
 
+  it('names every condition of one rule the derivation raised on', () => {
+    const first: Record<string, unknown> = {};
+    first['self'] = first;
+    const second: Record<string, unknown> = {};
+    second['self'] = second;
+    const when = [
+      { field: 'plan', op: 'eq', value: first },
+      { field: 'tier', op: 'eq', value: second },
+    ] satisfies Rule['when'];
+    const config = {
+      features: [{ key: 'loop', enabled: true, rules: [{ when }] }],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // § 7 has the checker report every issue it finds. An operator who reads one
+    // refusal, fixes the value it names and re-polls would otherwise meet the
+    // second condition for the first time on the next poll.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules/0/when/0/value',
+      '/features/0/rules/0/when/1/value',
+    ]);
+  });
+
   it('accepts a rule declaring an id for a condition value no text names', () => {
     const value: Record<string, unknown> = {};
     value['self'] = value;
