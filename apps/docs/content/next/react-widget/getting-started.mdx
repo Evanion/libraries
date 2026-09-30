@@ -8,7 +8,7 @@ held in a variable, and you have the HTML React wrote for it.
   read={5}
   hands={15}
   requires={[['Overview', '../']]}
-  unlocks={[['Writing and checking items', '../examples']]}
+  unlocks={[['Nesting items', '../nesting']]}
 />
 
 ## Before you install react-widget
@@ -88,8 +88,8 @@ check: change `price` to `'649'` and it reports
 Call `createWidgets` once, at module scope. Each call returns a new `Widgets`
 component, so a call inside a component remounts the region on every render.
 
-## Check the items you write
+## Group listings under a showcase
 
-react-widget now renders a typed item array in your project.
-[Writing and checking items](../examples) nests items under a widget and checks
-a CMS payload before `Widgets` renders it.
+Your project has one region that react-widget renders and `tsc` checks.
+[Nesting items](../nesting) puts listings inside a showcase widget, the way
+Baize groups the games on the table tonight.

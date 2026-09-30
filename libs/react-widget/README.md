@@ -195,6 +195,23 @@ first, and recurses into `children`. It reports: a non-list root, a non-object
 item, a non-string `id` or `type`, an unknown `type`, missing or non-object
 `props`, non-list `children`, and duplicate sibling `id`s.
 
+A nested item's `index` counts within its own sibling list, so the `id` is what
+finds it:
+
+<!-- #region validate-nested -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/react-widget';
+
+const payload: unknown = JSON.parse(
+  '[{"id":"tonight","type":"showcase","props":{"title":"On the table tonight"},"children":[{"id":"hive","type":"listing","props":{"title":"Hive"}},{"id":"raffle","type":"raffle","props":{}}]}]',
+);
+
+const problems = validateItems(payload, ['showcase', 'listing']); // -> [{ index: 1, id: 'raffle', type: 'raffle', message: 'unknown widget type' }]
+```
+
+<!-- #endregion validate-nested -->
+
 `createWidgets` returns a second form, bound to the component map, so it takes
 no list of names. Its optional argument maps a widget type to the props that
 must be present and non-blank, where blank means `undefined`, `null` or
@@ -222,8 +239,8 @@ const problems = validateItems(payload, { listing: ['title'] }); // -> [{ index:
 The standalone export takes the same map as its third argument.
 
 `validateItems` returns a list, not a type guard, so a payload that passes is
-still `unknown`. Once the list is empty, cast the payload to the item type and
-render it:
+still `unknown`. Cast it to the item type once the list is empty, and render no
+items for a payload that fails:
 
 <!-- #region render-validated -->
 
@@ -236,21 +253,31 @@ const components = { listing: ListingCard };
 
 const { Widgets, validateItems } = createWidgets({ components });
 
-const payload: unknown = JSON.parse(
+function checked(payload: unknown): WidgetItem<typeof components>[] {
+  const problems = validateItems(payload, { listing: ['title'] });
+
+  return problems.length === 0
+    ? (payload as WidgetItem<typeof components>[])
+    : [];
+}
+
+const published: unknown = JSON.parse(
   '[{"id":"root","type":"listing","props":{"title":"Root"}}]',
 );
 
-const problems = validateItems(payload, { listing: ['title'] }); // -> []
+const blank: unknown = JSON.parse(
+  '[{"id":"root","type":"listing","props":{"title":" "}}]',
+);
 
-const items = payload as WidgetItem<typeof components>[];
-
-const html = renderToStaticMarkup(<Widgets items={items} />); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root</h3></div></section>'
+const shelf = renderToStaticMarkup(<Widgets items={checked(published)} />); // -> '<section><div data-widget-id="root" data-widget-type="listing"><h3>Root</h3></div></section>'
+const gap = renderToStaticMarkup(<Widgets items={checked(blank)} />); // -> '<section></section>'
 ```
 
 <!-- #endregion render-validated -->
 
-The cast asserts the prop types, which `validateItems` does not check. The
-`required` map is what guarantees the props a widget cannot render without.
+The cast asserts the prop types, which `validateItems` does not check: a `title`
+of `42` passes it, because `42` is not blank. The `required` map is what guarantees the props a widget
+cannot render without.
 
 A component map declared on its own, so that `createWidgets`, an item type and a
 standalone `validateItems` share it, goes through `defineWidgets`, which returns

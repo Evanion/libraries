@@ -1,0 +1,60 @@
+# Nesting items
+
+An item's `children` field nests listings under a showcase item, and `Widgets`
+renders them as the showcase component's `children` prop.
+
+<PageSheet
+  difficulty={2}
+  read={3}
+  hands={5}
+  requires={[['Getting started', '../getting-started']]}
+  unlocks={[['Checking a CMS payload', '../validation']]}
+/>
+
+## Put listings inside a showcase
+
+react-widget's `defineItems`, the typing call
+[Getting started](../getting-started) used, checks nested items the way it
+checks top-level ones. The fence leaves out the imports of `createWidgets` from
+the package and `renderToStaticMarkup` from `react-dom/server`. To run it, put it
+below those two imports in `render.tsx`, in place of the Getting started code.
+Keep `console.log(html);` as the last line and run `npx tsx render.tsx`:
+
+```tsx twoslash file=libs/react-widget/README.md region=nesting
+
+```
+
+`Showcase` declares a `children` prop, typed `React.ReactNode`, React's type for
+anything it can render. `@types/react` declares `React` as a global in type
+positions, so the file needs no `import` for it.
+
+The `tonight` item carries the Hive listing under it. In the HTML, Hive's item
+chrome, the `<div data-widget-id="hive">`, sits inside the showcase's own
+`<div>`, below its heading.
+
+`ListingCard` declares no `children`, so the compiler rejects `children` on the
+Azul item, and `@ts-expect-error` marks the line where it does.
+
+`Widgets` uses each item's `id` as its React key, and React keys each list of
+children separately. So an `id` has to be unique among its siblings only, and
+`hive` could appear again under a second showcase.
+
+## Where a widget draws its nested items
+
+react-widget builds the nested items and hands them to the parent component
+as its `children` prop. The component decides where they go: `Showcase` puts
+them under its `<h2>`.
+
+A component that declares `children` and never renders them drops the nested
+items. `Widgets` cannot see that happen, so it logs nothing. The compiler
+rejects `children` only on a component that declares none, as on the Azul item.
+A CMS payload never meets the compiler, so it can nest items under
+`ListingCard` too, and the HTML then holds the listing and none of the items
+under it. `validateItems` does not catch it either: it checks each nested item's
+own type, and has no record of which components render `children`.
+
+## Check what the CMS sends
+
+react-widget's compile-time checks stop at the code you write.
+[Checking a CMS payload](../validation) checks a payload from the CMS at
+runtime, and walks into its nested items as well.
