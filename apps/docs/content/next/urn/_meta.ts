@@ -2,14 +2,15 @@ import type { MetaRecord } from 'nextra';
 
 /**
  * The order a reader meets `@evanion/urn` in: what it is, how to install it,
- * the part of RFC 8141 that is not the assigned name, the tasks the shop's
- * services do with it, and then the reference.
+ * one deep-dive per task, and then the reference.
  *
- * The r-, q- and f-components sit before the examples because they are syntax
- * a reader needs to read the fields `parse` returns. The page carries the
- * section's probe, where that syntax is typed against a live parse. The API
- * reference comes last because a reader enters it from a search result, and
- * the stage pages above it are the ones walked in order.
+ * `namespaces` comes first because reading a URN another service wrote is the
+ * first thing a service does with one. `validation` lists what each part may
+ * contain, and `components` points back to that list for the characters an r-
+ * or q-component allows. `separators` steps outside RFC 8141, so it is the last
+ * deep-dive. The API reference comes after them because a reader enters it
+ * from a search result, and the stage pages above it are the ones walked in
+ * order.
  *
  * Without this file Nextra orders the folder by filename, which puts the API
  * reference before the installation instructions. The labels drop the package
@@ -22,7 +23,10 @@ import type { MetaRecord } from 'nextra';
 export default {
   index: 'Overview',
   'getting-started': 'Getting Started',
+  namespaces: 'Several namespaces',
+  validation: 'Checking input',
   components: 'r-, q- and f-components',
-  examples: 'Examples',
+  encoding: 'Encoding and comparing',
+  separators: 'Schemes and separators',
   api: 'API Reference',
 } satisfies MetaRecord;

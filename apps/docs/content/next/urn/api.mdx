@@ -11,19 +11,21 @@ heading each below. It needs Node 20 or newer and ships ESM only, which
 `URN` is never instantiated. A subclass overrides the statics in the first
 three rows. `parse`, `stringify` and `isValidFormat` read all three off `this`.
 `extractId`, `equals` and `sameNamespace` read only `separator`, and
-`belongsToNamespace` reads `separator` and defaults its scheme to `urn`.
+`belongsToNamespace` reads `separator` and defaults its scheme to the class's
+`urn`. `GameURN` in the examples on this page is `URN` with
+`static override readonly nid = 'game'`.
 
-| Static              | Default                      | What it is                                                                                    |
-| ------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
-| `urn`               | `'urn'`                      | the scheme this class writes and reads as its own                                             |
-| `nid`               | `'nid'`                      | the namespace identifier this class writes and reads as its own                               |
-| `separator`         | `':'`                        | what the three parts are joined by and split on                                               |
-| `schemeGrammar`     | RFC 3986 `scheme`            | a letter, then letters, digits, `+`, `-` and `.`                                              |
-| `nidGrammar`        | RFC 8141 `NID`               | letters, digits and interior `-`, 2 to 32 characters, checked by `stringify`                  |
-| `nssGrammar`        | RFC 8141 `NSS`               | letters, digits, `-._~!$&'()*+,;=:@` and percent-triplets, plus `/` after the first character |
-| `rComponentGrammar` | `pchar *(pchar / "/" / "?")` | the NSS set plus `?` after the first character                                                |
-| `qComponentGrammar` | `pchar *(pchar / "/" / "?")` | the same production as the r-component                                                        |
-| `fComponentGrammar` | RFC 3986 `fragment`          | the NSS set plus `?`, no first-character rule, and the only one to accept `''`                |
+| Static              | Default                      | What it is                                                                                              |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `urn`               | `'urn'`                      | the scheme this class writes and reads as its own                                                       |
+| `nid`               | `'nid'`                      | the namespace identifier this class writes and reads as its own                                         |
+| `separator`         | `':'`                        | what the three parts are joined by and split on                                                         |
+| `schemeGrammar`     | RFC 3986 `scheme`            | a letter, then letters, digits, `+`, `-` and `.`                                                        |
+| `nidGrammar`        | RFC 8141 `NID`               | letters, digits and interior `-`, 2 to 32 characters, checked by `stringify`                            |
+| `nssGrammar`        | RFC 8141 `NSS`               | letters, digits, `-._~!$&'()*+,;=:@` and percent-encoded characters, plus `/` after the first character |
+| `rComponentGrammar` | `pchar *(pchar / "/" / "?")` | the NSS set plus `?` after the first character                                                          |
+| `qComponentGrammar` | `pchar *(pchar / "/" / "?")` | the same production as the r-component                                                                  |
+| `fComponentGrammar` | RFC 3986 `fragment`          | the NSS set plus `?`, no first-character rule, and the only one to accept `''`                          |
 
 `'nid'` is a placeholder, not a registered namespace, so every real namespace
 is foreign to the base `URN` class. Under a separator other than `:`,
@@ -35,9 +37,11 @@ RFC 2141, the URN syntax RFC 8141 replaced, permitted and `nidGrammar` refuses:
 
 ```
 
-Passed as a bare callback, a static loses `this`. `stringify`, `parse`,
-`extractId` and `belongsToNamespace` throw a `TypeError`. `isValidFormat`,
-`equals` and `sameNamespace` catch it and return `false`:
+Passed as a bare callback, a static loses `this`. `stringify`, `parse` and
+`extractId` throw a `TypeError`. `isValidFormat`, `equals` and `sameNamespace`
+catch it and return `false`. `belongsToNamespace` throws only when its scheme
+argument is left out, and returns `false` under `filter` or `map`, which pass
+a third argument:
 
 ```ts twoslash file=libs/urn/README.md region=unbound
 
@@ -66,8 +70,9 @@ deduplicates nor is idempotent:
 ### `URN.parse`
 
 `parse(urnString)` returns a `ParsedURN`, with every part in the case it was
-written in and every percent-triplet intact. A scheme or NID that differs from
-the class's own, compared case-folded, stays in the `nss`:
+written in and every percent-encoded character intact. A scheme or NID that
+differs from the class's own, compared without regard to case, stays in the
+`nss`:
 
 ```ts twoslash file=libs/urn/README.md region=parse
 
