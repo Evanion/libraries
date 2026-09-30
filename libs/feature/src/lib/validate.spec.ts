@@ -2215,6 +2215,32 @@ describe('validateConfig, on a member a definition declares that this checker do
     ]);
   });
 
+  it('writes a slash in a member name as the escape a JSON pointer reads', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"sdk/hashVersion":2}]}'),
+    );
+
+    // § 7 has `path` be a JSON pointer, and RFC 6901 reads an unescaped slash
+    // as the separator between two reference tokens. A UI resolving
+    // `/features/0/sdk/hashVersion` looks for `hashVersion` inside a member
+    // named `sdk`, finds nothing, and highlights no row.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/sdk~1hashVersion']);
+  });
+
+  it('writes a tilde in a member name as the escape a JSON pointer reads', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"a~b":2}]}'),
+    );
+
+    // RFC 6901 writes `~` as `~0`, so a resolver reading `~1` back knows the
+    // publisher meant a slash and not an escape the member name itself carried.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/a~0b']);
+  });
+
   it('accepts every member FeatureDefinition names', () => {
     // `Required` names every member, so a member added to `FeatureDefinition` is
     // a missing property here until this fixture carries it, and the walk is
@@ -2449,6 +2475,31 @@ describe('validateConfig, on a member below a definition that this checker does 
         ],
       }),
     ).toEqual({ ok: true });
+  });
+
+  it('writes a slash in a nested member name as that same escape', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":' +
+        '[{"id":"ramp","when":[{"field":"plan","op":"eq","value":"pro",' +
+        '"sdk/hashVersion":2}]}]}]}',
+    );
+
+    const result = validateConfig(config);
+
+    // The member walk below a definition reads the same foreign names the one
+    // above it does, so it owes the pointer the same escaping.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'cta',
+        message: refusal(
+          'sdk/hashVersion',
+          'condition',
+          '/features/0/rules/0/when/0',
+        ),
+        path: '/features/0/rules/0/when/0/sdk~1hashVersion',
+      },
+    ]);
   });
 
   it('accepts the document serializeConfig writes from a store carrying all four', () => {
