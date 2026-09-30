@@ -1,21 +1,21 @@
 # The alphabet
 
 To mint codes from characters of your own, pass `dictionary` to `createToken`.
-It refuses an alphabet a person would misread or a random byte would draw
+It refuses a dictionary a person would misread or a random byte would draw
 unevenly.
 
 <PageSheet
   difficulty={3}
   read={8}
   hands={20}
-  requires={[['Generating and validating', '../usage']]}
+  requires={[['Code shape', '../shape']]}
   unlocks={[
     ['Entropy and collisions', '../entropy'],
     ['API reference', '../api'],
   ]}
 />
 
-## Token's default alphabet
+## Why the default dictionary leaves out `i`, `l`, `o` and `w`
 
 A token instance draws from `DEFAULT_DICTIONARY` unless `dictionary` names
 another:
@@ -34,15 +34,18 @@ Dropping those three leaves 33 characters, which is odd and does not divide
 "double-u", contains another letter's name, and a dictated `w` gets written down
 as `u`.
 
-The size decides the rest. Below, `n` is a dictionary's number of characters,
-which an instance also reports as its `n` property. 32 is even, so
-`@evanion/luhn` can compute a check character over it, and it divides 256, so
-`byte % 32` draws every character with equal probability.
+The dictionary's size, 32, is what lets both Luhn and the random draw work.
+Below, `n` is a dictionary's number of characters, which an instance also
+reports as its `n` property. Luhn needs an even `n`, and `generate` needs an `n`
+that divides 256, as
+[Why the dictionary size must divide 256](#why-the-dictionary-size-must-divide-256)
+shows.
 
-## Supply your own token alphabet
+## What createToken checks in a dictionary
 
-`createToken` checks four constraints on a `dictionary`, and all four hold at
-once:
+Token's `createToken` refuses a `dictionary` that breaks any row below. Token
+checks the first three rows itself, and `@evanion/luhn` checks the last row's
+three rules:
 
 | Constraint                           | Enforced by      | Why                                                    |
 | ------------------------------------ | ---------------- | ------------------------------------------------------ |
@@ -52,29 +55,46 @@ once:
 | even size, no repeats, no case pairs | `@evanion/luhn`  | Luhn needs an even size and one index per character    |
 
 A case pair is a letter alongside its uppercase form, such as `a` and `A`, which
-case folding would turn into one character with two indexes. Over an odd-sized dictionary Luhn's
-doubling step maps two characters to the same value, and a substitution between
-them passes the check.
+case folding would turn into one character with two indexes.
 
-The three constraints token owns throw `InvalidAlphabetError`. `refusal` below
-returns that error, or `undefined` when the dictionary is accepted:
+Luhn needs an even size because of its doubling step, which
+[Generating and validating](../usage) describes. Over an odd `n`, two indexes
+double to the same value. In a 31-character dictionary, index 15 doubles to 30,
+and index 30 doubles to 60, which is `1` and `29` in base 31 and counts as 30.
+A substitution between those two characters in a doubled position passes the
+check.
+
+The three constraints token owns throw `InvalidAlphabetError`.
+`dictionaryRefusal` below returns that error, or `undefined` when the dictionary
+is accepted:
 
 ```ts twoslash file=libs/token/README.md region=alphabet-errors
 
 ```
 
 `reason` names the constraint: `'confusable'`, `'unfolded'` or `'non-uniform'`.
-`offending` lists the characters that broke it, and is empty for
+`'unfolded'` means the dictionary holds an uppercase character, which
+`validate` could never match after it folds input to lowercase. `offending`
+lists the characters that broke the constraint, and is empty for
 `'non-uniform'`, which is about the size. `CONFUSABLE_CHARACTERS` is matched
 without regard to case, so an uppercase `I` is refused as confusable before the
-lowercase rule reads it. Hexadecimal, `'0123456789abcdef'`, passes all four.
+lowercase rule reads it. Hexadecimal, `'0123456789abcdef'`, passes every row.
 
-### Catch a token alphabet error and a Luhn one
+## Catch TokenError and InvalidDictionaryError
 
 `TokenError` is the base class of both token errors, `InvalidAlphabetError` and
 `InvalidShapeError`. A dictionary that fails one of Luhn's constraints throws
 `InvalidDictionaryError` from `@evanion/luhn`, which does not extend
-`TokenError`. Catch the two by name:
+`TokenError`.
+
+`@evanion/luhn` installs with token, but a strict package manager such as pnpm
+lets your code import only what your own `package.json` lists. Add
+`@evanion/luhn` at the exact version in the `dependencies` of token's own
+`package.json`. A copy at another version defines a second
+`InvalidDictionaryError` class, and `instanceof` against it misses the error
+token's copy throws.
+
+Catch `TokenError` and `InvalidDictionaryError` by name:
 
 ```ts twoslash file=libs/token/README.md region=catch-both
 
@@ -85,11 +105,12 @@ fails both Luhn's even-size rule and token's `256 % n` rule, and Luhn's error
 comes out, because `createToken` hands the dictionary to `@evanion/luhn` before
 it checks token's own three constraints.
 
-## Why token requires `256 % n === 0`
+## Why the dictionary size must divide 256
 
-`crypto.getRandomValues` yields bytes from 0 to 255, and `byte % n`
-over-represents the first `256 % n` characters. At `n = 32` the division is
-exact and every character is equally likely.
+Token's `generate` draws each character as `byte % n`, where the byte comes from
+`crypto.getRandomValues` and runs from 0 to 255. That remainder over-represents
+the first `256 % n` characters. At `n = 32` the division is exact and every
+character is equally likely.
 
 `@evanion/luhn`'s own default dictionary, the 36 lowercase alphanumerics, is
 not uniform. `256 % 36` is 4, which over-represents its first four characters by
@@ -100,31 +121,33 @@ discard it if it lands in the biased tail, draw again. It is correct, and it
 makes generation take a variable time. The default alphabet shows the constraint
 is satisfiable, so token constrains the alphabet.
 
-## Token alphabet order changes every check character
+## Reordering a token dictionary changes its check characters
 
-The order of the dictionary decides which index each character occupies, and
-therefore every check character it produces. Two alphabets with the same
+The order of a token dictionary decides which index each character occupies,
+and therefore every check character it produces. Two alphabets with the same
 characters in a different order are different alphabets, and a code minted under
 one can fail the check under the other.
 
 Store the dictionary as a constant string and do not sort it.
 
-## A hexadecimal token alphabet
+## A hexadecimal gift card code
 
-Hexadecimal is even, lowercase, free of repeats and of `i`, `l`, `o` and `w`,
-and 16 divides 256. A Baize gift card printed in hex:
+Hexadecimal meets token's three dictionary constraints and Luhn's rules. It is
+even, lowercase, free of repeats and of `i`, `l`, `o` and `w`, and 16
+divides 256. The Baize gift card from [Code shape](../shape), 16 characters
+long, printed in hex:
 
 ```ts twoslash file=libs/token/README.md region=hex
 
 ```
 
 `hexCard.n` is 16, so a character carries four bits against five for the
-default. Its twelve characters hold eleven random ones and a check character,
-44 bits, where the default's eight carry 35. A hex code needs more characters to
+default. Its 16 characters hold 15 random ones and a check character, 60 bits,
+where the default dictionary's 16 carry 75. A hex code needs more characters to
 reach the same number of bits, and it reads as something people already
 recognise as an identifier.
 
 Sizes that divide 256 and are large enough to use are 16, 32, 64 and 128. There
 are 36 lowercase alphanumerics and four are confusable, so 32 is the largest
-alphabet reachable without punctuation, which would then collide with the
+dictionary reachable without punctuation, which would then collide with the
 separator. The default sits there.
