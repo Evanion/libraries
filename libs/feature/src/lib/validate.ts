@@ -100,6 +100,8 @@ const MET: Readonly<Record<string, string>> = {
 function met(value: unknown): string {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'an array';
+  if (typeof value === 'number' && !Number.isFinite(value))
+    return String(value);
   return MET[typeof value] ?? typeof value;
 }
 
@@ -351,6 +353,72 @@ const EMPTY: ReadonlySet<unknown> = new Set();
 interface ConditionIssues {
   readonly refused: readonly Found[];
   readonly strange: readonly Found[];
+}
+
+/**
+ * Every member of one rule's rollout that did not reach this holder whole.
+ *
+ * § 3 has every member the assignment algorithm reads travel whole or the
+ * document is refused, and `percent` is the member `inRollout` at
+ * `bucketing.ts:196` reads. It answers `false` for a `percent` that is not a
+ * positive number, so a control plane that dropped the member from a 50% ramp
+ * serves a document this holder installs and resolves off for every subject,
+ * and neither side reports anything. `by` and `seed` decide which subjects the
+ * ramp reaches at all: `rolloutField` and `rolloutSeed` in `evaluate.ts` read
+ * both, and `rolloutText` writes them into the rule's derived id.
+ *
+ * A rollout that is not an object is read by nothing at all. `isRecord` refuses
+ * an array, and `evaluate` reads `rule.rollout.percent` off a number as
+ * `undefined`, so `rollout: [50]` and `rollout: 50` each put every subject
+ * outside the ramp in silence.
+ */
+function rolloutIssues(
+  rule: Readonly<Record<string, unknown>>,
+  named: string,
+  at: string,
+  key?: FeatureKey,
+): readonly Found[] {
+  const rollout: unknown = rule['rollout'];
+  if (rollout === undefined) return [];
+  const path = `${at}/rollout`;
+  if (!isRecord(rollout)) {
+    return [
+      unreadable(
+        `${named} declares "rollout" on the rule at ${at} as ${met(rollout)}, and this checker reads an object carrying "percent"`,
+        path,
+        key,
+      ),
+    ];
+  }
+
+  const all: Found[] = [
+    ...strangeMembers(rollout, ROLLOUT, 'rollout', named, path, key),
+  ];
+
+  const percent: unknown = rollout['percent'];
+  if (typeof percent !== 'number' || !Number.isFinite(percent)) {
+    all.push(
+      unreadable(
+        `${named} declares "percent" on the rollout at ${path} as ${met(percent)}, and this checker reads the finite number the ramp reaches its share of subjects by, so a holder installing this document would put every subject outside it`,
+        `${path}/percent`,
+        key,
+      ),
+    );
+  }
+
+  for (const member of ['by', 'seed'] as const) {
+    const value: unknown = rollout[member];
+    if (value === undefined || typeof value === 'string') continue;
+    all.push(
+      unreadable(
+        `${named} declares "${member}" on the rollout at ${path} as ${met(value)}, and this checker reads a string`,
+        `${path}/${member}`,
+        key,
+      ),
+    );
+  }
+
+  return all;
 }
 
 /** Every condition of one rule the checker cannot read, and every member it does not know. */
@@ -694,20 +762,10 @@ function shapeWalk(
           );
         }
         if (served) {
-          all.push(...strangeMembers(element, RULE, 'rule', named, path, key));
-          const rollout: unknown = element['rollout'];
-          if (isRecord(rollout)) {
-            all.push(
-              ...strangeMembers(
-                rollout,
-                ROLLOUT,
-                'rollout',
-                named,
-                `${path}/rollout`,
-                key,
-              ),
-            );
-          }
+          all.push(
+            ...strangeMembers(element, RULE, 'rule', named, path, key),
+            ...rolloutIssues(element, named, path, key),
+          );
         }
         const inner = conditionIssues(element, named, path, key);
         all.push(...inner.refused);

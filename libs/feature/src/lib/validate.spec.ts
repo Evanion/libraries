@@ -2832,3 +2832,109 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     expect(() => validateConfig(document('"ab"'))).not.toThrow();
   });
 });
+
+describe('validateConfig, on a rollout the assignment algorithm cannot read', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  /** One feature whose single rule carries the rollout this body writes. */
+  function ramp(rollout: string): FeatureConfig {
+    return served(
+      `{"features":[{"key":"a","enabled":true,"rules":[{"id":"ramp","rollout":${rollout}}]}]}`,
+    );
+  }
+
+  it('reports a rollout carrying no percent', () => {
+    const config = ramp('{"by":"accountId","seed":"ramp"}');
+
+    // `inRollout` at `bucketing.ts:196` answers `false` for a percent that is
+    // not a positive number, so a control plane that dropped the member from a
+    // 50% ramp serves a document this holder resolves off for every subject
+    // while the publisher reaches half of them.
+    expect(validateConfig(config)).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'a',
+          message:
+            'feature "a" declares "percent" on the rollout at /features/0/rules/0/rollout as nothing, and this checker reads the finite number the ramp reaches its share of subjects by, so a holder installing this document would put every subject outside it',
+          path: '/features/0/rules/0/rollout/percent',
+        },
+      ],
+    });
+  });
+
+  it('puts every subject outside the ramp that document describes', () => {
+    const features = createFeatures(ramp('{"by":"accountId"}').features);
+    const outside = Array.from({ length: 200 }, (_, at) =>
+      features.isEnabled('a', { accountId: `account-${String(at)}` }),
+    );
+
+    // The answer the refusal above is about. Nothing raises and nothing reports,
+    // so an operator reading this store meets a feature that is off.
+    expect(outside).not.toContain(true);
+  });
+
+  it('reports a percent that is not a number', () => {
+    expect(messagesOf(ramp('{"percent":"50"}'))).toEqual([
+      'feature "a" declares "percent" on the rollout at /features/0/rules/0/rollout as a string, and this checker reads the finite number the ramp reaches its share of subjects by, so a holder installing this document would put every subject outside it',
+    ]);
+  });
+
+  it('reports a percent that overflowed on the way in', () => {
+    // `JSON.parse` reads an overflowing literal as `Infinity`, and
+    // `inRollout` reads that as the whole population while `canonicalDocument`
+    // writes it as `null`.
+    expect(messagesOf(ramp('{"percent":1e999}'))).toEqual([
+      'feature "a" declares "percent" on the rollout at /features/0/rules/0/rollout as Infinity, and this checker reads the finite number the ramp reaches its share of subjects by, so a holder installing this document would put every subject outside it',
+    ]);
+  });
+
+  it('reports a rollout that arrived as an array', () => {
+    expect(messagesOf(ramp('[50]'))).toEqual([
+      'feature "a" declares "rollout" on the rule at /features/0/rules/0 as an array, and this checker reads an object carrying "percent"',
+    ]);
+  });
+
+  it('reports a rollout that arrived as a number', () => {
+    expect(messagesOf(ramp('50'))).toEqual([
+      'feature "a" declares "rollout" on the rule at /features/0/rules/0 as a number, and this checker reads an object carrying "percent"',
+    ]);
+  });
+
+  it('reports a by and a seed the bucketing cannot read', () => {
+    const result = validateConfig(ramp('{"percent":50,"by":1,"seed":null}'));
+
+    // `rolloutField` and `rolloutSeed` in `evaluate.ts` read both, and
+    // `rolloutText` writes them into the rule's derived id.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules/0/rollout/by',
+      '/features/0/rules/0/rollout/seed',
+    ]);
+  });
+
+  it('accepts a rollout carrying every member', () => {
+    expect(
+      validateConfig(ramp('{"percent":50,"by":"accountId","seed":"ramp"}')),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts a rollout carrying the percent alone', () => {
+    expect(validateConfig(ramp('{"percent":0}'))).toEqual({ ok: true });
+  });
+
+  it('builds a store from a rollout the literal path types', () => {
+    // § 3 states its rule over a document a holder installs, and `RolloutSpec`
+    // declares `percent` required, so the compiler answers the author here.
+    expect(
+      createFeatures([
+        { key: 'a', enabled: true, rules: [{ rollout: { percent: 50 } }] },
+      ] as const).keys,
+    ).toEqual(['a']);
+  });
+});
