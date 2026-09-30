@@ -572,20 +572,25 @@ forSubject.can('question', 'update', mine).allowed; // -> true
 
 A deny rule needs no object. It reads the subject the same way an allow rule
 does, and a policy whose every condition reads the subject still produces three
-of the four reasons.
+of the four answers.
 
 <!-- #region subject-deny -->
 
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
+// Anyone signed in to Baize: a customer, or a bookseller on the shop's staff.
 type Shopper = { id: string; roles: string[] };
+type Question = { id: string; askedBy: string };
+type Report = { id: string };
 
 // Baize suspends an account by adding the `suspended` role, and the account
-// keeps `bookseller`. The deny sits beside the allow it overrides, in the
-// permission both belong to, and `.id()` names each rule so a decision can
-// report which one decided.
-const access = policy<Shopper, { report: { id: string } }>()
+// keeps `bookseller`. The deny sits beside the allow it overrides, and `.id()`
+// names each rule so a decision can report which one decided.
+const access = policy<Shopper, { question: Question; report: Report }>()
+  .for('question', (p) =>
+    p.allow('delete', p.contains('subject.roles', 'bookseller')),
+  )
   .for('report', (p) =>
     p
       .allow('read', p.contains('subject.roles', 'bookseller'))
@@ -595,9 +600,9 @@ const access = policy<Shopper, { report: { id: string } }>()
   )
   .build();
 
-const bookseller = { id: 'u1', roles: ['bookseller'] };
-const suspended = { id: 'u2', roles: ['bookseller', 'suspended'] };
-const customer = { id: 'u3', roles: [] };
+const bookseller = { id: 'staff-3', roles: ['bookseller'] };
+const suspended = { id: 'staff-5', roles: ['bookseller', 'suspended'] };
+const customer = { id: 'customer-41', roles: ['customer'] };
 
 access.can(bookseller, 'report', 'read').reason; // -> 'allow'
 access.can(suspended, 'report', 'read').reason; // -> 'denied'
