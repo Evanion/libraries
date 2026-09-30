@@ -249,8 +249,15 @@ function ordered(variants: readonly VariantSpec[]): readonly VariantSpec[] {
  * `canonical({ by, seed })` for a rule that declares no `id`, so a serializer
  * writing either rollout member's default renames every derived rule in the
  * document and orphans every event already attached to it, which is the failure
- * § 2 puts the id mechanism in place to prevent. Both members reach their
- * default from `key` and `seed`, and the document carries both of those.
+ * § 2 puts the id mechanism in place to prevent.
+ *
+ * `rollout.seed` reaches its default from `seed` or from `key`, and the document
+ * carries both, so a holder derives the seed the publisher derived. `rollout.by`
+ * has no such member: `rolloutField` at `evaluate.ts:20-22` falls to
+ * `DEFAULT_ROLLOUT_FIELD`, a constant in `fields.ts`, so a holder on a release
+ * that moved it buckets a rollout on another context field while `configDigest`
+ * reports one version on both sides. Decision 6 names `order`, a variant
+ * `weight`, `variantSeed` and `variantBy`, and it leaves this member open.
  */
 function documentDefinition<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
