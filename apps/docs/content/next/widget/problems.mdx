@@ -1,57 +1,66 @@
 # What validateItems reports
 
 To find everything wrong with a content management system (CMS) payload before
-a renderer draws it, call `validateItems(items, known, required?)` once over
-the whole payload. It walks nested items too, throws nothing, and returns one
+a renderer draws it, call `validateItems(items, known)` once over the whole
+payload. It walks nested items too, throws nothing, and returns one
 `WidgetProblem` per fault.
 
 <PageSheet
   difficulty={3}
   read={10}
   requires={[['Getting started', '../getting-started']]}
-  unlocks={[['API reference', '../api']]}
+  unlocks={[
+    ['Order and nesting', '../layout'],
+    ['API reference', '../api'],
+  ]}
 />
 
 ## Check a whole widget payload in one call
 
-Getting started checked a listing page with one renamed type. The payload below
-has three faults, one of them in a nested item, and `validateItems` reports all
-three from one call. The `.map` keeps each problem's `message`, so `problems`
-here is an array of strings:
+`validateItems` from `@evanion/widget` reports every fault in a payload from one
+call, including faults in nested items. `check.mts`, the script
+[Getting started](../getting-started) builds, found one renamed type. The payload
+below has three faults, and the `.map` keeps each problem's `index` and
+`message`:
 
 ```ts twoslash file=libs/widget/README.md region=sweep
 
 ```
 
-The first item, Root's listing, has no `props`. The second item repeats its
-`id`, `root`, in the same sibling list. `tonight` is valid, and its one child
-`hive` names `listting`, which is not in the list of known types.
+The first item, Wingspan's listing, has no `props`. The second item repeats its
+`id`, `wingspan`, in the same sibling list. The shelf `tonight` is valid, and
+its one child, Hive's listing, names the type `listting`, which is not in the
+list of known types.
 
-`validateItems` reports each item's problems before it walks that item's
-`children`, and it finishes the children before it moves to the next sibling.
-`hive`'s problem comes last here because `tonight` is the last top-level item.
+`validateItems` walks the payload depth first. It reports an item's own
+problems, then walks that item's `children`, then moves to the next sibling.
+Hive's problem comes last because `tonight` is the last top-level item, and its
+`index` is 0, its position inside the shelf.
 
-An `id` repeated at two depths is not reported. A renderer keys items per
-sibling list, so only two siblings sharing an `id` collide.
+An `id` repeated at two depths is not reported. `@evanion/react-widget` passes
+an item's `id` to React as its key, and React compares keys only among siblings,
+so two items with one `id` at different depths never collide.
 
 ## The fields of a widget problem
 
-Each `WidgetProblem` in the array `validateItems` returns carries four fields.
+Each `WidgetProblem` that `@evanion/widget`'s `validateItems` returns carries
+four fields.
 
-| Field     | What it holds                                                                    |
-| --------- | -------------------------------------------------------------------------------- |
-| `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list |
-| `id`      | the item's `id`, or `-` when the item has none that is a string                  |
-| `type`    | the item's `type`, or `-` when the item has none that is a string                |
-| `message` | a string from the exported `VALIDATION_MESSAGES` object                          |
+| Field     | What it holds                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list                |
+| `id`      | the item's `id`, or `-` when the item has no string `id`                                        |
+| `type`    | the item's `type`, or `-` when the item has no string `type`                                    |
+| `message` | a string from `VALIDATION_MESSAGES`, the exported object that holds every message it can return |
 
-A child's `index` counts from its own parent: `hive`, the only child of
-`tonight`, reports `index: 0`. That is the position a CMS editor sees inside the
-shelf they opened.
+A child's `index` counts from its own parent, so the first item nested in a
+shelf reports `index: 0` whatever its position in the whole payload. That is the
+position a CMS editor sees inside the shelf they opened.
 
 ## The messages validateItems returns
 
-`VALIDATION_MESSAGES` holds every string `validateItems` reports.
+`VALIDATION_MESSAGES`, exported from `@evanion/widget`, holds every string
+`validateItems` reports.
 
 | Constant           | Message                     | What produced it                                         |
 | ------------------ | --------------------------- | -------------------------------------------------------- |
@@ -59,35 +68,39 @@ shelf they opened.
 | `NOT_AN_OBJECT`    | `item is not an object`     | an entry is a string, a number, `null` or an array       |
 | `INVALID_ID`       | `item id is not a string`   | `id` is absent, or is something other than a string      |
 | `INVALID_TYPE`     | `item type is not a string` | `type` is absent, or is something other than a string    |
-| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not in the known set                           |
+| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not one of the known types                     |
 | `INVALID_PROPS`    | `props is not an object`    | `props` is absent, or is an array, `null` or a primitive |
 | `INVALID_CHILDREN` | `children is not a list`    | `children` is present and is not an array                |
 | `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`        |
 | `MISSING_FIELD`    | `missing field <name>`      | a prop `required` demands is absent or blank             |
 
-Compare a problem's `message` against these constants to group, count or
+A renderer warns with a different set, `ERROR_MESSAGES`, which
+[Your own renderer](../renderer#the-warning-a-widget-renderer-prints) covers.
+Compare a problem's `message` against `VALIDATION_MESSAGES` to group, count or
 translate a report. `MISSING_FIELD` is a function of the field name, so compare
 against `VALIDATION_MESSAGES.MISSING_FIELD('title')`. A CMS editor who reads
 `missing field title` knows which box to fill.
 
-`INVALID_PROPS` also fires on `{ id: 'root', type: 'listing', title: 'Root' }`.
-Both renderers read a widget's data only from `props`, so they draw that item
-empty and print nothing.
+`INVALID_PROPS` also catches an item that carries its data at the top level,
+such as `{ id: 'wingspan', type: 'listing', title: 'Wingspan' }`. Both renderers
+read a widget's data only from `props`, so they would draw that listing empty
+and print nothing.
 
 ## Required props, and what blank means
 
-`validateItems` takes an optional third argument, `required`, which maps a
-widget type to the props that must be present and not blank. Blank is
-`undefined`, `null`, an empty string, or a string of only whitespace. A CMS
-text field arrives blank when an editor opened it and typed nothing:
+`validateItems` from `@evanion/widget` takes an optional third argument,
+`required`, which maps a widget type to the props that must be present and not
+blank. Blank is `undefined`, `null`, an empty string, or a string of only
+whitespace. A CMS text field arrives blank when an editor opened it and typed
+nothing:
 
 ```ts twoslash file=libs/widget/README.md region=required
 
 ```
 
-`title` is present and is a string. A check for presence alone would pass it
-and render a listing with no name, so `validateItems` also rejects a blank
-value.
+`title` is present and is a string. A check for presence alone would pass it,
+and the renderer would draw a listing with no name, so `validateItems` also
+rejects a blank value.
 
 Two limits apply to `required`. Its keys are plain strings, which TypeScript
 does not check against your widget types. A misspelled type there is an entry
@@ -96,10 +109,10 @@ nothing reads. An item whose `type` is unknown is reported once, as
 
 ## Check against the registry a renderer draws from
 
-`known`, the second argument to `validateItems`, takes a registry as well as a
-plain array of type names. Passing the registry your renderer draws from keeps
-the check and the renderer agreeing on which types exist. `defineWidgets` types
-it:
+`validateItems` in `@evanion/widget` takes a registry as its second argument,
+`known`, as well as a plain array of type names. Passing the registry your
+renderer draws from keeps the check and the renderer agreeing on which types
+exist. `defineWidgets` types it:
 
 ```ts twoslash file=libs/widget/README.md region=registry
 
@@ -108,53 +121,20 @@ it:
 `defineWidgets` returns the object it was handed. Its generic parameter keeps
 the keys `listing` and `shelf` as a union, which a code editor completes on.
 `WidgetRegistry` is the type of any registry, and annotating the object as
-`WidgetRegistry` widens the keys to `string`. `validateItems` reads the keys and
-never calls a value, so a continuous integration (CI) job with no components to
-import passes a plain array of names.
+`WidgetRegistry` widens the keys to `string`. `validateItems` reads only the
+registry's keys and never calls a value. A continuous integration (CI) job that
+cannot import the components therefore passes a plain array of the same names.
 
-A type matches only a key set on the registry object itself, which
-`validateItems` checks with `Object.prototype.hasOwnProperty`. An item typed
-`constructor`, `toString` or `__proto__` is therefore reported as
-`unknown widget type`. A lookup with `in` or a bare index finds a function
-inherited from `Object.prototype` and lets the item pass. Both renderers look
-up types the same way.
+`validateItems` matches a `type` only against keys set on the registry object
+itself, which it tests with `Object.prototype.hasOwnProperty`. So an item typed
+`constructor`, `toString` or `__proto__` is reported as `unknown widget type`.
+Both published renderers look a type up with the same test, so a type
+`validateItems` rejects is one they skip.
 
-## What a widget renderer prints when validateItems never ran
+## Draw a payload that passes the widget check
 
-A renderer that meets a `type` it has no component for skips the item and
-warns. `ERROR_MESSAGES` holds that warning text, which is separate from the
-`VALIDATION_MESSAGES` that `validateItems` returns. Both renderers print from
-`ERROR_MESSAGES`, so the same item gets the same line from either one:
-
-```ts twoslash file=libs/widget/README.md region=warning
-
-```
-
-`@evanion/widget` builds that sentence, so search the core's `ERROR_MESSAGES`
-for it. A renderer passes the sentence to `warnOnce`, which prints each
-distinct message once per process and prints nothing when `NODE_ENV` is
-`production`.
-
-## Print the widget warning from a renderer of your own
-
-A renderer of your own prints the same warning by passing an `ERROR_MESSAGES`
-string to `warnOnce`. The renderer below draws a listing as a line of text and
-skips an item whose type it cannot draw:
-
-- `Listing` is `AnyWidgetItem<string, { title?: string }>`: an item whose
-  `type` is any string and whose `props` may carry a `title`.
-- `WidgetRegistry<T>` maps each type to a `T`, here a function from props to a
-  line of text.
-- `resetWarnings` clears the set of messages `warnOnce` has printed. A
-  renderer's tests call it before each case, so one case's warning cannot
-  silence the next.
-
-```ts twoslash file=libs/widget/README.md region=renderer
-
-```
-
-Both calls return Root's line only, so Hive's listing is missing from the page.
-The first call prints `Unknown widget type "listting" for widget ID "hive".
-Skipping render.` and the second prints nothing. With `NODE_ENV` set to
-`production` neither call prints, and only a `validateItems` call reports the
-missing listing.
+A payload that `validateItems` from `@evanion/widget` passes goes to a
+renderer, which draws the items in the order the array holds them.
+[Order and nesting](../layout) shows how each published renderer draws nesting
+and placement, on the dashboard Baize's staff read each week, and lets you move
+its items.

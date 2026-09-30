@@ -1,7 +1,8 @@
 # Getting started
 
-By the end of this page `validateItems` checks a Baize listing page and reports
-the one item whose `type` no component draws.
+By the end of this page a script hands `validateItems` a Baize listing page as
+the content management system (CMS) saved it, prints the one item no renderer
+can draw, and exits with status 1.
 
 <PageSheet
   difficulty={2}
@@ -17,14 +18,17 @@ the one item whose `type` no component draws.
 ## Before you install the widget core
 
 - Node 20 or newer.
-- An ECMAScript module (ESM) project. A CommonJS project needs Node 20.19,
-  22.12 or newer, whose `require()` loads ES modules. An older `require()`
-  fails with `ERR_REQUIRE_ESM`.
+- An ECMAScript module (ESM) file. `check.mts` below is one in any project,
+  because Node and `tsx` load a `.mts` file as ESM. A CommonJS file that calls
+  `require('@evanion/widget')` needs Node 20.19, 22.12 or newer, and an older
+  `require()` fails with `ERR_REQUIRE_ESM`.
+- `tsx`, which runs a TypeScript file with no build step. `npx tsx` fetches it
+  on first use.
 
 The package has no dependencies. If your project already depends on
 `@evanion/react-widget` or `@evanion/astro-widget`, skip the install and import
-the names below from that renderer. Each renderer pins `@evanion/widget`
-exactly and re-exports every name this page uses.
+`validateItems` from that renderer. Each renderer pins `@evanion/widget` exactly
+and re-exports every name this page uses.
 
 ## Install the widget core
 
@@ -42,56 +46,54 @@ yarn add @evanion/widget
 pnpm add @evanion/widget
 ```
 
-## Check a widget item array with validateItems
+## Check a saved page with validateItems
 
-Each item carries an `id`, the `type` of component that draws it, and that
-component's `props`. In a file named `check.ts`:
+`validateItems` from `@evanion/widget` types its first argument `unknown`, so it
+takes a payload straight from `JSON.parse` with no annotation to trust. In a
+file named `check.mts`:
 
-1. Write the listing page as an array of `AnyWidgetItem`.
-2. List the types your renderer has a component for.
-3. Pass both to `validateItems`, importing both names from `@evanion/widget`.
+1. Parse the page the CMS saved. Here the text is inline, and in your project
+   it is the body the CMS posts to a webhook or a file it exports.
+2. List the [known types](../#the-widget-vocabulary), the types your renderer
+   has a component for.
+3. Turn each problem `validateItems` returns into one line a log or a CMS editor
+   reads.
+4. Print each line, and set `process.exitCode` to 1 when there is one.
+   `@evanion/widget` leaves the exit status to your script.
 
-```ts twoslash file=libs/widget/README.md region=unknown
+```ts twoslash file=libs/widget/README.md region=gate
 
 ```
 
-To print the result, add `console.log(problems);` at the end and run
-`npx tsx check.ts`, which runs a TypeScript file with no build step.
+`report` holds one line. The shelf `tonight` names the type `featured-shelf`,
+which is not in `known`, so a renderer would skip the shelf, and the page would
+lose it and its heading "On the table tonight". `process.exitCode` is 1, so the
+run fails.
 
-`problems` holds one `WidgetProblem`. The item at `index` 1, `tonight`, names
-the type `featured-shelf`, which is not in `known`, so a renderer skips the
-shelf. Change its `type` back to `shelf` and `validateItems`
-returns `[]`.
+## Run the widget check from a terminal
 
-Call `validateItems` wherever a payload enters your system, and throw or exit
-non-zero when `problems` is not empty:
+`check.mts`, the script above that checks a saved page with `@evanion/widget`,
+sets `process.exitCode` to 1 when it prints a problem. Run it with `tsx`:
 
-- in the webhook handler your content management system posts a save to
+```bash
+npx tsx check.mts; echo "exit $?"
+```
+
+The terminal prints `tonight (featured-shelf): unknown widget type`, then
+`exit 1`. Change `featured-shelf` in `saved` back to `shelf` and run it again:
+the terminal prints only `exit 0`.
+
+The same few lines gate a payload wherever one enters your system:
+
+- in the webhook handler your CMS posts a save to
 - in a continuous integration (CI) job over the payloads committed to the
   repository
 - in the build script, before it writes the pages
 - in a test over the fixtures your pages render
 
-## Move a widget item and watch the renderer redraw the page
+## Every problem one widget check reports
 
-A renderer draws items in array order and nests `children` inside their parent,
-so reordering the array reorders the page. The page below is Baize's
-back-office dashboard, which `@evanion/react-widget` draws from two top-level
-items:
-
-- `week`, a `columns` item holding three `metric` items: games in, games sold
-  and turnaround.
-- `counter`, a `columns` item holding the `tables` board, which carries
-  `meta: { span: 2 }`, and the `reprints` board.
-
-<DataDemo />
-
-Each item is printed under the page with move controls beside it. Move
-`counter` above `week` and both boards move with it. Move `tables` past
-`reprints` and the wide board changes sides, because `meta.span` belongs to the
-item it sits on.
-
-## Now that the check runs, read every problem it reports
-
-[What it reports](../problems) checks a payload with several faults in one
-call, and lists every message `validateItems` returns and what produces it.
+`check.mts` now fails on a type no renderer draws, which is one of nine faults
+`@evanion/widget` knows. [What it reports](../problems) runs `validateItems`
+over a payload with three faults at once, one of them nested, and lists every
+message it returns.
