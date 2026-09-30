@@ -317,12 +317,27 @@ the three, so `canonical` writes `NaN`, `Infinity` and `-Infinity` behind a
 function, a symbol and an `undefined` array element each get their own text, for
 that same reason.
 
-No digest rests on any of those texts. `serializeConfig` refuses every one of
-those values at every member of the document it emits, `maxStale` and `version`
-included, and the refusal names the path; `JSON.parse` hands a holder none of
-them either. So the two sides of a digest comparison canonicalise values JSON
-carries, which is what makes two equal digests a statement about one
-configuration and not about two texts that collapsed.
+No digest rests on any of those texts, and `configDigest` is what keeps that
+true. `serializeConfig` refuses every one of those values at every member of the
+document it emits, `maxStale` and `version` included, and the refusal names the
+path. `JSON.parse` is the other half, and it hands a holder two of the three:
+JSON's number grammar accepts any exponent, so an overflowing literal such as
+`1e999` parses to `Infinity` and `-1e999` parses to `-Infinity`. Only `NaN` is
+unreachable from JSON text.
+
+So a publisher that writes `1e999` serves bytes one holder parses to `Infinity`
+while a second holder, which wrote the same bytes to a disk cache through
+`JSON.stringify` and read them back, holds `null`. `configDigest` therefore takes
+its text through a second canonical form, which writes `NaN`, `Infinity` and
+`-Infinity` the way `JSON.stringify` writes all three, as `null`. `ruleId` keeps
+the `number:` tag, because it derives an id from a live store where no JSON hop
+happened. Both sides of a digest comparison canonicalise the value JSON carried,
+which is what makes two equal digests a statement about one configuration rather
+than about two texts that collapsed.
+
+The collapse costs the digest the difference between a document serving `1e999`
+at a member and one serving `null` there. No conforming publisher emits the
+first.
 
 A digest states one useful thing beyond difference. Two processes computing one
 digest from documents they fetched separately have proved they hold the same
@@ -359,6 +374,20 @@ What the digest covers is every other byte of the document, because `canonical`
 preserves array order by construction and states the reason at
 `libs/acl/src/canonical.ts:8-11`. Two documents that digest alike state one
 configuration, and they may carry two labels for it.
+
+`maxStale` and `schema` are in that text, and both cost something. An operator
+who shortens a poll hint and edits no feature publishes a document every holder
+reloads, and the publisher of § 5's two schema forms of one configuration digests
+the two apart, so a backend holding the inline form and a phone holding the
+`schemaVersion` form carry two labels. The digest names the document a publisher
+served. Neither member leaves the text: a digest that skipped `schema` would
+leave a holder verifying no part of the inline shapes it checks variant values
+against, and the `digest-mismatch` issue of decision 4 is the only check the
+document gets.
+
+Two documents that digest apart state nothing. The proof runs one way, and a
+holder that wants to know whether the publisher relabelled a configuration
+compares `version` with `!==`.
 
 An earlier draft gave the digest a second duty. A control plane rebuilding a
 feature from a table with no `ORDER BY` hands the same variants back in a
@@ -963,10 +992,12 @@ audience a document without it, which decision 2 places outside this library.
   key against one written `undefined`, produce one digest. A document differing in
   the order of a `rules` array produces a different one.
 - A value JSON cannot carry. `serializeConfig` refuses an envelope whose
-  `maxStale` is `Infinity` and names `/maxStale`, so no document it emits reaches
-  a digest holding a number `JSON.stringify` would write as `null`. Two rules
-  whose `eq` values are `NaN` and `null` derive two ids, which is the separation
-  § 2 keeps the `number:` tag for.
+  `maxStale` is `Infinity` and names `/maxStale`. A document a foreign publisher
+  wrote reaches a holder anyway, because `JSON.parse('{"maxStale":1e999}')`
+  returns `Infinity`, so the digest of that document agrees with the digest a
+  second holder takes after one `JSON.stringify` hop turned the member into
+  `null`. Two rules whose `eq` values are `NaN` and `null` derive two ids, which
+  is the separation § 2 keeps the `number:` tag for.
 - The publisher recipe of § 2, run in order. A document whose `version` and
   `digest` both hold what `configDigest` returned for the configuration verifies
   against a holder that recomputes it.
