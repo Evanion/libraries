@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { serializeConfig } from './serialize.js';
 import { assignVariant } from './variants.js';
 import type { ConfigEnvelope, FeatureConfig } from './config.js';
@@ -152,6 +153,70 @@ describe('serializeConfig', () => {
     const context = { signedUpAt: '2026-01-01T00:00:00.000Z' };
 
     expect(holder.resolve(context)).toEqual(features.resolve(context));
+  });
+
+  /**
+   * The round trip the spec's Testing section states, read from the store's
+   * side.
+   *
+   * A document states every bucketing parameter § 3 requires of one, so the
+   * store a holder builds from a document carries three members the publisher's
+   * store left implicit: an `order` on every variant, a `variantBy` and a
+   * `variantSeed`. The ISO string at the window condition is the fourth
+   * difference and the only one `documentCondition` writes. A comparison
+   * expecting the two stores to differ in the instant alone holds for a
+   * definition carrying no variants and for no other.
+   */
+  it('carries a store back with its instant converted and its bucketing written', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'a', weight: 1 },
+          { name: 'b', weight: 1 },
+        ],
+        rules: [
+          {
+            when: [
+              {
+                field: 'now',
+                op: 'after',
+                value: new Date('2026-10-01T00:00:00.000Z'),
+              },
+            ],
+          },
+        ],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+    const carried = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+    const holder = createFeatures(carried.features as Definitions);
+
+    expect(holder.config).toEqual([
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'targetingKey',
+        variantSeed: 'cta:variant',
+        variants: [
+          { name: 'a', weight: 1, order: 0 },
+          { name: 'b', weight: 1, order: 1 },
+        ],
+        rules: [
+          {
+            when: [
+              {
+                field: 'now',
+                op: 'after',
+                value: '2026-10-01T00:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
   });
 
   it('refuses a variant value that holds itself', () => {
@@ -322,9 +387,10 @@ describe('serializeConfig', () => {
    * `rolloutText` in `rule-id.ts` derives a rule's name from
    * `canonical({ by, seed })` for a rule that declares no `id`. A serializer
    * writing either member's default renames every derived rule the document
-   * carries, which orphans every event already attached to it. Both members
-   * reach their default from `key` and `seed`, and the document carries both,
-   * so a holder computes what the publisher computed.
+   * carries, which orphans every event already attached to it. `rollout.seed`
+   * reaches its default from `seed` or from `key`, and the document carries
+   * both, so a holder derives the seed the publisher derived. `rollout.by` has
+   * no such member, which the case below holds.
    */
   it('leaves a rollout that declares no field and no seed as the store holds it', () => {
     const features = createFeatures([
@@ -340,6 +406,33 @@ describe('serializeConfig', () => {
 
     expect(published?.rollout).toEqual({ percent: 25 });
     expect(published?.id).toBeUndefined();
+  });
+
+  /**
+   * The gap `documentDefinition`'s rollout paragraph names.
+   *
+   * `rolloutField` at `evaluate.ts:20-22` falls to `DEFAULT_ROLLOUT_FIELD` for a
+   * rollout that declares no `by`, and no member of the document states that
+   * constant. Two holders on releases that disagree about it bucket one rollout
+   * on two context fields, and `configDigest` reports one version on both sides
+   * because the bytes are identical. `rollout.seed` has no such gap: it falls to
+   * `seed` or to `key`, and the document carries both.
+   */
+  it('leaves the field a rollout buckets on out of the document', () => {
+    const features = createFeatures([
+      {
+        key: 'beta',
+        enabled: true,
+        rules: [{ rollout: { percent: 25 } }],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+    const carried = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+    const holder = createFeatures(carried.features as Definitions);
+
+    expect(JSON.stringify(document)).not.toContain(DEFAULT_ROLLOUT_FIELD);
+    expect(holder.plan()['beta']?.needs).toEqual([DEFAULT_ROLLOUT_FIELD]);
   });
 
   /**
@@ -1528,8 +1621,9 @@ describe('serializeConfig', () => {
    * foreign document put there.
    *
    * The walk hands every such value to `serialized` and the document carries
-   * what JSON carries. § 8 gives `serializeConfig` one transformation and § 7
-   * gives the shape to `validateConfig`, so a publisher serves the document a
+   * what JSON carries. § 8 gives `serializeConfig` the instant conversion and the
+   * bucketing members and no third transformation, and § 7 gives the shape to
+   * `validateConfig`, so a publisher serves the document a
    * holder names the issue in and raises no bare `TypeError` naming no feature.
    */
   describe('a when a Rule does not describe', () => {
