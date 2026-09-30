@@ -29,12 +29,20 @@ describe('configDigest', () => {
   });
 
   it('agrees for two documents differing only in key order', () => {
+    // Two members the digest reads, because `version` and `digest` are stripped
+    // before the text is taken and a permutation of those two changes nothing.
+    const written: FeatureConfig = {
+      maxStale: 60_000,
+      schemaVersion: '2',
+      features: document.features,
+    };
     const permuted: FeatureConfig = {
-      features: [...document.features],
-      version: document.version,
+      features: document.features,
+      schemaVersion: '2',
+      maxStale: 60_000,
     };
 
-    expect(configDigest(permuted)).toBe(configDigest(document));
+    expect(configDigest(permuted)).toBe(configDigest(written));
   });
 
   it('agrees for an absent key and a key written undefined', () => {
@@ -67,10 +75,49 @@ describe('configDigest', () => {
     expect(configDigest(other)).not.toBe(configDigest(one));
   });
 
-  it('disagrees when a version changes and nothing else does', () => {
+  it('agrees when the version changes and nothing else does', () => {
+    // `version` is stripped with `digest`, because § 2 of
+    // `docs/specs/2026-09-23-feature-config-distribution.md` has a publisher
+    // with no version scheme write the digest into both members. A publisher
+    // holds neither value when it computes the digest, so a text that carried
+    // them could not be recomputed from the document it served.
     const bumped: FeatureConfig = { ...document, version: 42 };
 
-    expect(configDigest(bumped)).not.toBe(configDigest(document));
+    expect(configDigest(bumped)).toBe(configDigest(document));
+  });
+
+  it('verifies the document a publisher with no version scheme serves', () => {
+    // § 2's recipe, run in order: the publisher digests the configuration, sets
+    // both members to what it got, and the holder recomputes over what arrived.
+    const authored: FeatureConfig = {
+      features: [{ key: 'x', enabled: true }],
+    };
+    const digest = configDigest(authored);
+    const served: FeatureConfig = { ...authored, version: digest, digest };
+
+    expect(configDigest(served)).toBe(digest);
+  });
+
+  it('agrees whatever version the document carries', () => {
+    const unlabelled: FeatureConfig = { features: document.features };
+    const labels = [
+      41,
+      42,
+      '',
+      '41',
+      Number.MAX_SAFE_INTEGER,
+      Number.MIN_SAFE_INTEGER,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      0,
+      -0,
+    ] as const;
+
+    for (const version of labels) {
+      expect(configDigest({ ...unlabelled, version })).toBe(
+        configDigest(unlabelled),
+      );
+    }
   });
 
   it('agrees across a trip through JSON', () => {
@@ -82,7 +129,7 @@ describe('configDigest', () => {
     // A publisher in one language and a holder in another compare this string,
     // so the four seeds, the word order and the canonical text are the wire
     // contract. Changing any of them renames every document already served.
-    expect(configDigest(document)).toBe('ddd6fe2b511b25e52af770cc85ec4284');
+    expect(configDigest(document)).toBe('008719950c5f1e205da50d6e50510cc7');
   });
 
   it('disagrees when a feature the document declares is turned off', () => {
@@ -159,46 +206,38 @@ describe('configDigest', () => {
     expect(configDigest(empty)).not.toBe(configDigest(absent));
   });
 
-  it('disagrees between an absent version and one written as an empty string', () => {
-    const empty: FeatureConfig = { version: '', features: [] };
-
-    expect(configDigest(empty)).not.toBe(configDigest({ features: [] }));
-  });
-
-  it('disagrees between the largest and the smallest safe integer version', () => {
+  it('disagrees between the largest and the smallest safe integer maxStale', () => {
     const largest: FeatureConfig = {
       ...document,
-      version: Number.MAX_SAFE_INTEGER,
+      maxStale: Number.MAX_SAFE_INTEGER,
     };
     const smallest: FeatureConfig = {
       ...document,
-      version: Number.MIN_SAFE_INTEGER,
+      maxStale: Number.MIN_SAFE_INTEGER,
     };
 
     expect(configDigest(smallest)).not.toBe(configDigest(largest));
   });
 
-  it('disagrees between a numeric version and the string that spells it', () => {
-    // `version` is `string | number`, so a holder that read the counter out of
-    // a header and a publisher that held it as a number describe one document
-    // and digest apart.
-    const spelled: FeatureConfig = { ...document, version: '41' };
-
-    expect(configDigest(spelled)).not.toBe(configDigest(document));
+  it('disagrees between a numeric window instant and the string that spells it', () => {
+    // `SerializedInstant` is `string | number`, so a holder that read the
+    // instant as epoch milliseconds and a publisher that wrote the digits into
+    // a string describe one window and digest apart.
+    expect(configDigest(windowAt('41'))).not.toBe(configDigest(windowAt(41)));
   });
 
-  it('agrees for a version of 0 and one of -0', () => {
-    const zero: FeatureConfig = { ...document, version: 0 };
-    const negative: FeatureConfig = { ...document, version: -0 };
+  it('agrees for a maxStale of 0 and one of -0', () => {
+    const zero: FeatureConfig = { ...document, maxStale: 0 };
+    const negative: FeatureConfig = { ...document, maxStale: -0 };
 
     expect(configDigest(negative)).toBe(configDigest(zero));
   });
 
-  it('agrees for a version of NaN and one of Infinity, which JSON writes as null', () => {
-    const nan: FeatureConfig = { ...document, version: Number.NaN };
+  it('agrees for a maxStale of NaN and one of Infinity, which JSON writes as null', () => {
+    const nan: FeatureConfig = { ...document, maxStale: Number.NaN };
     const infinite: FeatureConfig = {
       ...document,
-      version: Number.POSITIVE_INFINITY,
+      maxStale: Number.POSITIVE_INFINITY,
     };
 
     expect(configDigest(infinite)).toBe(configDigest(nan));
@@ -276,13 +315,11 @@ describe('configDigest', () => {
   });
 
   it('pads a hash word narrower than 8 hex characters', () => {
-    // The first word of this document's digest is 0x0c2d6107. Joining the four
-    // words unpadded returns 31 characters and loses the boundaries between
+    // The first word of this document's digest is 0x00871995. Joining the four
+    // words unpadded returns 30 characters and loses the boundaries between
     // them, so a holder comparing against a correct publisher's 32 reports a
     // mismatch on a document nobody changed.
-    const bumped: FeatureConfig = { ...document, version: 42 };
-
-    expect(configDigest(bumped)).toBe('0c2d610731c0286ef13057a8e0e25d98');
+    expect(configDigest(document).slice(0, 8)).toBe('00871995');
   });
 
   it('leaves the digest member of the document it reads in place', () => {
@@ -307,7 +344,7 @@ describe('configDigest', () => {
     Reflect.deleteProperty(globalThis, 'structuredClone');
 
     try {
-      expect(configDigest(document)).toBe('ddd6fe2b511b25e52af770cc85ec4284');
+      expect(configDigest(document)).toBe('008719950c5f1e205da50d6e50510cc7');
     } finally {
       Reflect.set(globalThis, 'TextEncoder', encoder);
       Reflect.set(globalThis, 'structuredClone', clone);

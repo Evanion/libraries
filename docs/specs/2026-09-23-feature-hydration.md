@@ -223,9 +223,9 @@ transit. A reordered array now changes no answer, so the check has nothing left
 to detect and no envelope member carries a per-feature variant digest. The
 document-wide `digest` stays where the distribution spec put it, holding the two
 duties it earns on its own: two processes that computed it separately have
-proved they hold the same bytes, and the digest catches a permuted `rules`
-array, which still renames every rule declaring no explicit `id` until issue
-#245 lands.
+proved they hold the same configuration, and the digest catches a permuted
+`rules` array, which still renames every rule declaring no explicit `id` until
+issue #245 lands.
 
 ### A malformed document produces no store
 
@@ -279,10 +279,11 @@ a digest or a composite string works where an ordered comparison would not.
 
 The comparison relies on one of the two duties the distribution spec's
 `configDigest` keeps, that two processes computing it from documents they
-fetched separately have proved they hold the same bytes
+fetched separately have proved they hold the same configuration
 (`docs/specs/2026-09-23-feature-config-distribution.md` § 2). A publisher with no
-version scheme sets `version` to the digest, and the `!==` above then means byte
-equality. The digest's other duty, catching a permuted `rules` array that
+version scheme sets `version` to the digest, which § 2 strips before it
+canonicalises, so the `!==` above compares two digests and means the two
+processes hold one configuration. The digest's other duty, catching a permuted `rules` array that
 renames every rule declaring no explicit `id`, belongs to that spec until issue
 #245 replaces the positional fallback, and nothing in this document reads it.
 
