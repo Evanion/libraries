@@ -16,6 +16,7 @@ import {
 import { parseMatrix } from '../parse-matrix.js';
 import type { Condition, Matrix, Permission, Rule } from '../types.js';
 
+// #region helpers
 /** A permission body, minus the three fields the key is built from. */
 export type PermissionBody = Omit<Permission, 'key' | 'object' | 'action'>;
 
@@ -61,8 +62,8 @@ export function rawMatrix(node: Record<string, unknown>): Matrix {
 }
 
 /**
- * An access object over untrusted configuration: the `parseMatrix` path, which
- * fails closed on a key the document does not carry.
+ * An access object over a matrix somebody else wrote: the `parseMatrix` path,
+ * which answers a refusal for a permission key the matrix does not declare.
  */
 export function foreign(
   permissions: readonly Permission[],
@@ -73,8 +74,8 @@ export function foreign(
 }
 
 /**
- * An access object over an authored, local document: the `hydratePolicy` path,
- * which throws on a key the document does not carry.
+ * An access object over a matrix your own code wrote: the `hydratePolicy` path,
+ * which throws on a permission key the matrix does not declare.
  */
 export function local(
   permissions: readonly Permission[],
@@ -84,13 +85,14 @@ export function local(
   return hydratePolicy(matrix(permissions, envelope), options);
 }
 
-/** The unconditional rule: an empty `when`, which is what `always` emits. */
+/** The unconditional rule: an empty `when`, the rule `p.always` writes. */
 export const always: Rule = { when: [] };
 
 /** A rule over an AND-ed set of conditions. */
 export function when(...conditions: readonly Condition[]): Rule {
   return { when: conditions };
 }
+// #endregion helpers
 
 /**
  * A subject bag that counts how many times the engine reads each attribute.
@@ -126,8 +128,7 @@ export function countingSubject(attributes: Record<string, unknown>): {
 
 /**
  * A JSON payload's own keys, including the ones an object literal cannot carry.
- * `JSON.parse` is how a foreign write actually arrives, and it is the only way
- * to hand a test a genuine own `__proto__`.
+ * `JSON.parse` is how a foreign write arrives carrying an own `__proto__` key.
  */
 export function fromJson(text: string): Record<string, unknown> {
   return JSON.parse(text) as Record<string, unknown>;

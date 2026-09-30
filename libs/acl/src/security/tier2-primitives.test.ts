@@ -13,26 +13,26 @@ import { pickAllowedFields } from '../fields.js';
 import { always, foreign, permission, when } from './fixtures.js';
 import type { FieldDecision } from '../types.js';
 
-/** The hand-rolled filter `pickAllowedFields` exists to replace. */
-function naiveFilter(
-  decision: FieldDecision,
-  proposed: Record<string, unknown>,
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(proposed).filter(
-      ([key]) => decision.fields[key] !== 'denied',
-    ),
-  );
-}
-
 describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE-915)', () => {
+  // #region sec-101
+  /** The hand-rolled filter `pickAllowedFields` exists to replace. */
+  const naiveFilter = (
+    decision: FieldDecision,
+    proposed: Record<string, unknown>,
+  ): Record<string, unknown> =>
+    Object.fromEntries(
+      Object.entries(proposed).filter(
+        ([key]) => decision.fields[key] !== 'denied',
+      ),
+    );
+
   const access = () =>
     foreign([
-      permission('user', 'update', {
+      permission('account', 'update', {
         rules: [always],
         fields: {
           fields: ['*', '!role'],
-          plan: { targets: ['free', 'pro'] },
+          membership: { targets: ['none', 'library'] },
         },
       }),
     ]);
@@ -40,36 +40,51 @@ describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE
   const decisionFor = (proposed: Record<string, unknown>): FieldDecision =>
     access().canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
-      { id: 'u1', plan: 'free' },
+      { id: 'u1', membership: 'none' },
       'write',
       proposed,
     );
 
+  it('shows the hand-rolled deny-list filter writing what the decision refused', () => {
+    const proposed = { '*': 'everything', name: 'Grace', membership: 'staff' };
+    const decision = decisionFor(proposed);
+
+    expect(decision.fields['membership']).toBe('denied');
+    // `*` is syntax and names no field, so the decision holds no entry for it,
+    // and a filter keeping every key not marked 'denied' keeps it.
+    expect(naiveFilter(decision, proposed)).toEqual({
+      '*': 'everything',
+      name: 'Grace',
+    });
+    expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
+  });
+  // #endregion sec-101
+
   it('keeps only what the decision marked allowed', () => {
-    const proposed = { name: 'Grace', role: 'admin', plan: 'pro' };
+    const proposed = { name: 'Grace', role: 'owner', membership: 'library' };
 
     expect(pickAllowedFields(decisionFor(proposed), proposed)).toEqual({
       name: 'Grace',
-      plan: 'pro',
+      membership: 'library',
     });
   });
 
   it('withholds a field the decision could not settle', () => {
-    // `plan` has a `targets` config and no proposed value, so it is
+    // `membership` has a `targets` config and no proposed value, so it is
     // unevaluable rather than denied.
     const proposed = { name: 'Grace' };
     const decision = access().canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
-      { id: 'u1', plan: 'free' },
+      { id: 'u1', membership: 'none' },
       'write',
       proposed,
     );
 
-    expect(decision.fields['plan']).toBe('unevaluable');
+    expect(decision.fields['membership']).toBe('unevaluable');
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
   });
 
@@ -81,33 +96,17 @@ describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE
     });
   });
 
-  // #region sec-101
-  it('shows the hand-rolled deny-list filter writing what the decision refused', () => {
-    const proposed = { '*': 'everything', name: 'Grace', plan: 'enterprise' };
-    const decision = decisionFor(proposed);
-
-    expect(decision.fields['plan']).toBe('denied');
-    // The authoring token is not a field, so the decision does not carry it,
-    // so `!== 'denied'` reads it as writable.
-    expect(naiveFilter(decision, proposed)).toEqual({
-      '*': 'everything',
-      name: 'Grace',
-    });
-    expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
-  });
-  // #endregion sec-101
-
   it('refuses to narrow a write the action does not allow', () => {
     const denied = foreign([
-      permission('user', 'update', {
-        rules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
+      permission('account', 'update', {
+        rules: [when({ field: 'subject.role', op: 'eq', value: 'owner' })],
         fields: { fields: ['*'] },
       }),
     ]);
     const proposed = { name: 'Grace' };
     const decision = denied.canFields(
       { id: 'u1', role: 'nobody' },
-      'user',
+      'account',
       'update',
       {},
       'write',
@@ -122,28 +121,20 @@ describe('SEC-101 a write is narrowed by the decision, not by the deny list (CWE
 });
 
 describe('SEC-102 a per-field config restricts that field and no other (CWE-915)', () => {
+  // #region sec-102
   const configOnly = () =>
     foreign([
-      permission('user', 'update', {
+      permission('account', 'update', {
         rules: [always],
-        fields: { role: { targets: ['user'] } },
+        fields: { role: { targets: ['customer'] } },
       }),
     ]);
 
-  const listed = () =>
-    foreign([
-      permission('user', 'update', {
-        rules: [always],
-        fields: { fields: ['name', 'role'], role: { targets: ['user'] } },
-      }),
-    ]);
-
-  // #region sec-102
   it('leaves every unnamed key writable when only a config is given', () => {
-    const proposed = { role: 'admin', isAdmin: true, tenantId: 'other' };
+    const proposed = { role: 'owner', isOwner: true, credit: 500 };
     const decision = configOnly().canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
       { id: 'u1' },
       'write',
@@ -151,71 +142,81 @@ describe('SEC-102 a per-field config restricts that field and no other (CWE-915)
     );
 
     expect(decision.fields['role']).toBe('denied');
-    expect(decision.fields['isAdmin']).toBe('allowed');
+    expect(decision.fields['isOwner']).toBe('allowed');
     expect(pickAllowedFields(decision, proposed)).toEqual({
-      isAdmin: true,
-      tenantId: 'other',
+      isOwner: true,
+      credit: 500,
     });
   });
   // #endregion sec-102
 
+  const listed = () =>
+    foreign([
+      permission('account', 'update', {
+        rules: [always],
+        fields: { fields: ['name', 'role'], role: { targets: ['customer'] } },
+      }),
+    ]);
+
   it('closes the write once a name list states the writable set', () => {
-    const proposed = { name: 'Grace', isAdmin: true, tenantId: 'other' };
+    const proposed = { name: 'Grace', isOwner: true, credit: 500 };
     const decision = listed().canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
       { id: 'u1' },
       'write',
       proposed,
     );
 
-    expect(decision.fields['isAdmin']).toBe('denied');
+    expect(decision.fields['isOwner']).toBe('denied');
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
   });
 });
 
 describe('SEC-103 ownership is a condition the caller has to supply data for (CWE-639)', () => {
+  // #region sec-103
   const owned = () =>
     foreign([
-      permission('doc', 'read', {
+      permission('order', 'read', {
         rules: [
-          when({ field: 'object.ownerId', op: 'eq', path: 'subject.id' }),
+          when({ field: 'object.customerId', op: 'eq', path: 'subject.id' }),
         ],
       }),
     ]);
 
-  it('allows one subject only its own objects across a batch', () => {
-    const docs = Array.from({ length: 50 }, (_, i) => ({
-      id: `d${i}`,
-      ownerId: i % 5 === 0 ? 'u1' : `other${i}`,
-    }));
-    const decisions = owned().canMany({ id: 'u1' }, 'doc', 'read', docs);
-
-    expect(decisions.filter((d) => d.allowed)).toHaveLength(10);
-    for (const [index, decision] of decisions.entries()) {
-      expect(decision.allowed).toBe(docs[index]?.ownerId === 'u1');
-    }
-  });
-
-  // #region sec-103
   it('refuses rather than allows when the projection omits the owner', () => {
-    const decision = owned().can({ id: 'u1' }, 'doc', 'read', { id: 'd1' });
+    const decision = owned().can({ id: 'u1' }, 'order', 'read', {
+      id: 'order-2026-0042',
+    });
 
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('unevaluable');
-    expect(decision.missing).toEqual(['object.ownerId']);
+    expect(decision.missing).toEqual(['object.customerId']);
   });
   // #endregion sec-103
 
+  it('allows one subject only its own objects across a batch', () => {
+    const orders = Array.from({ length: 50 }, (_, i) => ({
+      id: `order-2026-${String(i).padStart(4, '0')}`,
+      customerId: i % 5 === 0 ? 'u1' : `other${i}`,
+    }));
+    const decisions = owned().canMany({ id: 'u1' }, 'order', 'read', orders);
+
+    expect(decisions.filter((d) => d.allowed)).toHaveLength(10);
+    for (const [index, decision] of decisions.entries()) {
+      expect(decision.allowed).toBe(orders[index]?.customerId === 'u1');
+    }
+  });
+
   it('refuses when no object is supplied at all', () => {
-    expect(owned().can({ id: 'u1' }, 'doc', 'read').allowed).toBe(false);
+    expect(owned().can({ id: 'u1' }, 'order', 'read').allowed).toBe(false);
   });
 
   it('refuses when the subject carries no identity', () => {
     // A subject path that does not read is a definite miss, not a repairable
     // one: the app resolves the subject whole.
-    const decision = owned().can({}, 'doc', 'read', { ownerId: 'u1' });
+    const decision = owned().can({}, 'order', 'read', { customerId: 'u1' });
 
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('no-rule-matched');
@@ -223,44 +224,22 @@ describe('SEC-103 ownership is a condition the caller has to supply data for (CW
 });
 
 describe('SEC-104 an unevaluable decision is a refusal with a repair (CWE-863)', () => {
+  // #region sec-104
   const access = () =>
     foreign([
-      permission('doc', 'read', {
+      permission('order', 'read', {
         rules: [
           when(
-            { field: 'object.ownerId', op: 'eq', path: 'subject.id' },
-            { field: 'object.teamId', op: 'eq', path: 'subject.teamId' },
+            { field: 'object.customerId', op: 'eq', path: 'subject.id' },
+            { field: 'object.table', op: 'eq', path: 'subject.table' },
           ),
         ],
       }),
     ]);
 
-  it('names every path one refetch has to bring back', () => {
-    const decision = access().can({ id: 'u1', teamId: 't1' }, 'doc', 'read', {
-      id: 'd1',
-    });
-
-    expect(decision.allowed).toBe(false);
-    expect([...(decision.missing ?? [])].sort()).toEqual([
-      'object.ownerId',
-      'object.teamId',
-    ]);
-  });
-
-  it('decides once the named paths are supplied', () => {
-    const decision = access().can({ id: 'u1', teamId: 't1' }, 'doc', 'read', {
-      id: 'd1',
-      ownerId: 'u1',
-      teamId: 't1',
-    });
-
-    expect(decision.allowed).toBe(true);
-  });
-
-  // #region sec-104
   it('shows reading anything but `allowed` as the grant going wrong', () => {
-    const decision = access().can({ id: 'u1', teamId: 't1' }, 'doc', 'read', {
-      id: 'd1',
+    const decision = access().can({ id: 'u1', table: 3 }, 'order', 'read', {
+      id: 'order-2026-0042',
     });
 
     // `unevaluable` is not `denied`, so a consumer gating on the reason string
@@ -269,48 +248,56 @@ describe('SEC-104 an unevaluable decision is a refusal with a repair (CWE-863)',
     expect(decision.allowed).toBe(false);
   });
   // #endregion sec-104
+
+  it('names every path one refetch has to bring back', () => {
+    const decision = access().can({ id: 'u1', table: 3 }, 'order', 'read', {
+      id: 'order-2026-0042',
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect([...(decision.missing ?? [])].sort()).toEqual([
+      'object.customerId',
+      'object.table',
+    ]);
+  });
+
+  it('decides once the named paths are supplied', () => {
+    const decision = access().can({ id: 'u1', table: 3 }, 'order', 'read', {
+      id: 'order-2026-0042',
+      customerId: 'u1',
+      table: 3,
+    });
+
+    expect(decision.allowed).toBe(true);
+  });
 });
 
 describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', () => {
-  const composed = 'rôle';
-  const decomposed = 'rôle';
-  const widened = 'ro​le';
-  const homoglyph = 'гole';
+  // #region sec-105
+  // Each name reads as `rôle` or `role` on screen, and its code points differ.
+  const composed = 'rôle'; // ô is U+00F4
+  const decomposed = 'rôle'; // o, then the combining U+0302
+  const widened = 'ro​le'; // ro, a zero-width U+200B, then le
+  const homoglyph = 'гole'; // Cyrillic U+0433 in place of r
 
   const access = () =>
     foreign([
-      permission('user', 'update', {
+      permission('account', 'update', {
         rules: [always],
         fields: { fields: ['*', `!${composed}`] },
       }),
     ]);
 
-  it('denies the exact name the exclusion spells', () => {
-    const proposed = { [composed]: 'admin' };
-    const decision = access().canFields(
-      { id: 'u1' },
-      'user',
-      'update',
-      {},
-      'write',
-      proposed,
-    );
-
-    expect(decision.fields[composed]).toBe('denied');
-    expect(pickAllowedFields(decision, proposed)).toEqual({});
-  });
-
-  // #region sec-105
   it('treats a differently spelled name as a different field', () => {
     const proposed = {
-      [decomposed]: 'admin',
-      [widened]: 'admin',
-      [homoglyph]: 'admin',
-      ROLE: 'admin',
+      [decomposed]: 'owner',
+      [widened]: 'owner',
+      [homoglyph]: 'owner',
+      ROLE: 'owner',
     };
     const decision = access().canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
       {},
       'write',
@@ -326,17 +313,32 @@ describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', 
   });
   // #endregion sec-105
 
+  it('denies the exact name the exclusion spells', () => {
+    const proposed = { [composed]: 'owner' };
+    const decision = access().canFields(
+      { id: 'u1' },
+      'account',
+      'update',
+      {},
+      'write',
+      proposed,
+    );
+
+    expect(decision.fields[composed]).toBe('denied');
+    expect(pickAllowedFields(decision, proposed)).toEqual({});
+  });
+
   it('closes the spelling question with an explicit allow-list', () => {
     const listed = foreign([
-      permission('user', 'update', {
+      permission('account', 'update', {
         rules: [always],
         fields: { fields: ['name'] },
       }),
     ]);
-    const proposed = { [decomposed]: 'admin', [widened]: 'admin', name: 'Ada' };
+    const proposed = { [decomposed]: 'owner', [widened]: 'owner', name: 'Ada' };
     const decision = listed.canFields(
       { id: 'u1' },
-      'user',
+      'account',
       'update',
       {},
       'write',
@@ -348,12 +350,13 @@ describe('SEC-105 a field name is matched as written, byte for byte (CWE-176)', 
 });
 
 describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => {
+  // #region sec-106
   const rule = (op: 'eq' | 'in' | 'not-in') =>
     foreign([
-      permission('edition', 'read', {
+      permission('listing', 'read', {
         rules: [
           when({
-            field: 'subject.tier',
+            field: 'subject.table',
             op,
             value: op === 'eq' ? Number.NaN : [Number.NaN],
           }),
@@ -361,29 +364,28 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
       }),
     ]);
 
-  // #region sec-106
   it('never matches an equality against NaN', () => {
     expect(
-      rule('eq').can({ tier: Number.NaN }, 'edition', 'read').allowed,
+      rule('eq').can({ table: Number.NaN }, 'listing', 'read').allowed,
     ).toBe(false);
   });
-  // #endregion sec-106
 
   it('matches a membership test against NaN', () => {
     // `includes` is SameValueZero, `===` is not. A list is the more permissive
     // operator for this one value, so a rule that means "never" is written as
     // an equality.
     expect(
-      rule('in').can({ tier: Number.NaN }, 'edition', 'read').allowed,
+      rule('in').can({ table: Number.NaN }, 'listing', 'read').allowed,
     ).toBe(true);
     expect(
-      rule('not-in').can({ tier: Number.NaN }, 'edition', 'read').allowed,
+      rule('not-in').can({ table: Number.NaN }, 'listing', 'read').allowed,
     ).toBe(false);
   });
+  // #endregion sec-106
 
   it('carries no NaN across a serialised matrix', () => {
     const round = JSON.parse(
-      JSON.stringify({ field: 'subject.tier', op: 'in', value: [Number.NaN] }),
+      JSON.stringify({ field: 'subject.table', op: 'in', value: [Number.NaN] }),
     ) as { value: unknown[] };
 
     expect(round.value).toEqual([null]);
@@ -393,7 +395,7 @@ describe('SEC-106 membership and equality disagree about NaN (CWE-1077)', () => 
 describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', () => {
   it('surfaces the version the document was built with', () => {
     const access = foreign(
-      [permission('edition', 'read', { rules: [always] })],
+      [permission('listing', 'read', { rules: [always] })],
       undefined,
       { version: 7 },
     );
@@ -406,7 +408,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
     // The revalidate contract compares with `!==`, so the version a consumer
     // fails closed on can name every input that went into the document.
     const access = foreign(
-      [permission('edition', 'read', { rules: [always] })],
+      [permission('listing', 'read', { rules: [always] })],
       undefined,
       { version: 'orders@7+veto@41' },
     );
@@ -417,7 +419,7 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
   it('lets the construction site state the version that actually decided', () => {
     // A site that composed the document knows something the producer did not.
     const access = foreign(
-      [permission('edition', 'read', { rules: [always] })],
+      [permission('listing', 'read', { rules: [always] })],
       { version: 'composed@9' },
       { version: 7 },
     );
@@ -429,17 +431,17 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
   // #region sec-107
   it('keeps granting what a revoked matrix granted until it is replaced', () => {
     const stale = foreign(
-      [permission('edition', 'delete', { rules: [always] })],
+      [permission('listing', 'delete', { rules: [always] })],
       {
         version: 1,
       },
     );
-    const current = foreign([permission('edition', 'delete', { rules: [] })], {
+    const current = foreign([permission('listing', 'delete', { rules: [] })], {
       version: 2,
     });
 
-    expect(stale.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(true);
-    expect(current.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(false);
+    expect(stale.can({ id: 'u1' }, 'listing', 'delete').allowed).toBe(true);
+    expect(current.can({ id: 'u1' }, 'listing', 'delete').allowed).toBe(false);
     // Comparing the two versions and failing closed is the consumer's; the
     // access object holds no channel to learn it has been superseded.
     expect(stale.version).not.toBe(current.version);
@@ -448,21 +450,21 @@ describe('SEC-107 a stale matrix is detectable, not self-correcting (CWE-672)', 
 });
 
 describe('SEC-108 the field maps answer fields, the action answers the action (CWE-863)', () => {
+  // #region sec-108
   const access = () =>
     foreign([
-      permission('edition', 'update', {
-        rules: [when({ field: 'subject.role', op: 'eq', value: 'editor' })],
+      permission('listing', 'update', {
+        rules: [when({ field: 'subject.role', op: 'eq', value: 'bookseller' })],
         fields: { fields: ['*'] },
       }),
     ]);
 
-  // #region sec-108
   it('reports every field writable while the action is refused', () => {
     const decision = access().canFields(
       { id: 'u1', role: 'nobody' },
-      'edition',
+      'listing',
       'update',
-      { id: 'p1' },
+      { id: 'l1' },
       'write',
       { title: 'x' },
     );
@@ -477,10 +479,10 @@ describe('SEC-108 the field maps answer fields, the action answers the action (C
 
   it('allows only when the action and every field agree', () => {
     const decision = access().canFields(
-      { id: 'u1', role: 'editor' },
-      'edition',
+      { id: 'u1', role: 'bookseller' },
+      'listing',
       'update',
-      { id: 'p1' },
+      { id: 'l1' },
       'write',
       { title: 'x' },
     );

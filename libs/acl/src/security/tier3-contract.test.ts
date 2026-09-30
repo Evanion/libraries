@@ -30,17 +30,15 @@ describe('SEC-201 the subject is authorized as handed over (CWE-441)', () => {
 
   // #region sec-201
   it('authorizes a forged subject exactly as it would a real one', () => {
-    // No defence. The engine has no channel to ask where the bag came from,
+    // No defence. The engine has no channel to ask where the subject came from,
     // and this is what that costs.
     const access = foreign([
-      permission('billing', 'refund', {
-        rules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
+      permission('order', 'refund', {
+        rules: [when({ field: 'subject.role', op: 'eq', value: 'owner' })],
       }),
     ]);
 
-    expect(access.can({ role: 'admin' }, 'billing', 'refund').allowed).toBe(
-      true,
-    );
+    expect(access.can({ role: 'owner' }, 'order', 'refund').allowed).toBe(true);
   });
   // #endregion sec-201
 });
@@ -53,12 +51,12 @@ describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
   // #region sec-202
   it('names the handle that makes the checked path the easy one', () => {
     const access = foreign([
-      permission('edition', 'read', { rules: [always] }),
+      permission('listing', 'read', { rules: [always] }),
     ]);
     const bound = access.authorize({ id: 'u1' });
 
     expect(typeof bound.can).toBe('function');
-    expect(bound.can('edition', 'read').allowed).toBe(true);
+    expect(bound.can('listing', 'read').allowed).toBe(true);
   });
   // #endregion sec-202
 });
@@ -71,15 +69,15 @@ describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () 
   // #region sec-203
   it('carries no freshness token a writer could check', () => {
     const access = foreign([
-      permission('doc', 'update', {
+      permission('question', 'update', {
         rules: [
-          when({ field: 'object.ownerId', op: 'eq', path: 'subject.id' }),
+          when({ field: 'object.askedBy', op: 'eq', path: 'subject.id' }),
         ],
       }),
     ]);
-    const decision = access.can({ id: 'u1' }, 'doc', 'update', {
-      id: 'd1',
-      ownerId: 'u1',
+    const decision = access.can({ id: 'u1' }, 'question', 'update', {
+      id: 'q1',
+      askedBy: 'u1',
     });
 
     // The decision names the key, the reason and the rule. Nothing in it ties
@@ -103,47 +101,55 @@ describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-6
   // #region sec-204
   it('grants the subject that added itself to the field the rule reads', () => {
     // No defence. The engine cannot know which object fields the subject can
-    // write, so this is the grant the README warns about, shown working.
+    // write, so this is the grant the acl README warns about under "What a
+    // condition may read", shown working.
     const access = foreign([
-      permission('doc', 'read', {
+      permission('wishlist', 'read', {
         rules: [
-          when({ field: 'object.collaborators', op: 'contains', value: 'u1' }),
+          when({ field: 'object.sharedWith', op: 'contains', value: 'u1' }),
         ],
       }),
     ]);
 
     expect(
-      access.can({ id: 'u1' }, 'doc', 'read', { collaborators: ['u2'] })
+      access.can({ id: 'u1' }, 'wishlist', 'read', { sharedWith: ['u2'] })
         .allowed,
     ).toBe(false);
     expect(
-      access.can({ id: 'u1' }, 'doc', 'read', { collaborators: ['u2', 'u1'] })
+      access.can({ id: 'u1' }, 'wishlist', 'read', { sharedWith: ['u2', 'u1'] })
         .allowed,
     ).toBe(true);
   });
   // #endregion sec-204
 
   it('cannot be closed by a field rule, because the write is a different action', () => {
-    // Narrowing `doc.update` does not touch what `doc.read` reads. Keeping the
+    // Narrowing `wishlist.update` does not touch what `wishlist.read` reads. Keeping the
     // field out of every write path the rule guards is the consumer's job.
     const access = foreign([
-      permission('doc', 'read', {
+      permission('wishlist', 'read', {
         rules: [
-          when({ field: 'object.collaborators', op: 'contains', value: 'u1' }),
+          when({ field: 'object.sharedWith', op: 'contains', value: 'u1' }),
         ],
       }),
-      permission('doc', 'update', {
+      permission('wishlist', 'update', {
         rules: [always],
-        fields: { fields: ['*', '!collaborators'] },
+        fields: { fields: ['*', '!sharedWith'] },
       }),
     ]);
-    const write = access.canFields({ id: 'u1' }, 'doc', 'update', {}, 'write', {
-      collaborators: ['u1'],
-    });
+    const write = access.canFields(
+      { id: 'u1' },
+      'wishlist',
+      'update',
+      {},
+      'write',
+      {
+        sharedWith: ['u1'],
+      },
+    );
 
-    expect(write.fields['collaborators']).toBe('denied');
+    expect(write.fields['sharedWith']).toBe('denied');
     expect(
-      access.can({ id: 'u1' }, 'doc', 'read', { collaborators: ['u1'] })
+      access.can({ id: 'u1' }, 'wishlist', 'read', { sharedWith: ['u1'] })
         .allowed,
     ).toBe(true);
   });
@@ -162,12 +168,12 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
   // #region sec-205
   it('answers a browser and a server identically, which is why the runtime decides', () => {
     const access = foreign([
-      permission('edition', 'delete', { rules: [always] }),
+      permission('listing', 'delete', { rules: [always] }),
     ]);
 
     // The same call, the same answer, wherever it runs. Nothing in the return
     // type separates an authoritative decision from a rendering hint.
-    expect(access.can({ id: 'u1' }, 'edition', 'delete').allowed).toBe(true);
+    expect(access.can({ id: 'u1' }, 'listing', 'delete').allowed).toBe(true);
   });
   // #endregion sec-205
 });
@@ -180,16 +186,14 @@ describe('SEC-206 the matrix is a public document (CWE-200)', () => {
   // #region sec-206
   it('exposes every key, condition and field name it was built from', () => {
     const access = foreign([
-      permission('billing', 'bypass-kyc', {
-        rules: [
-          when({ field: 'subject.role', op: 'eq', value: 'fraud-reviewer' }),
-        ],
-        fields: { fields: ['*', '!internalRiskScore'] },
+      permission('order', 'mark-down', {
+        rules: [when({ field: 'subject.role', op: 'eq', value: 'owner' })],
+        fields: { fields: ['*', '!supplierCost'] },
       }),
     ]);
 
-    expect(JSON.stringify(access.matrix)).toContain('fraud-reviewer');
-    expect(JSON.stringify(access.matrix)).toContain('internalRiskScore');
+    expect(JSON.stringify(access.matrix)).toContain('owner');
+    expect(JSON.stringify(access.matrix)).toContain('supplierCost');
   });
   // #endregion sec-206
 });
@@ -202,33 +206,35 @@ describe('SEC-207 the clock is a parameter (CWE-807)', () => {
   // #region sec-207
   it('opens a closed window for a caller that supplies its own instant', () => {
     const access = foreign([
-      permission('sale', 'buy', {
+      permission('listing', 'preorder', {
         rules: [when({ field: 'now', op: 'before', value: '2020-01-01' })],
       }),
     ]);
 
-    expect(access.can({}, 'sale', 'buy').allowed).toBe(false);
-    expect(access.can({}, 'sale', 'buy', undefined, '2019-06-01').allowed).toBe(
-      true,
-    );
+    expect(access.can({}, 'listing', 'preorder').allowed).toBe(false);
+    expect(
+      access.can({}, 'listing', 'preorder', undefined, '2019-06-01').allowed,
+    ).toBe(true);
   });
   // #endregion sec-207
 
   it('moves a closed window for every entry point that takes a clock', () => {
     const access = foreign([
-      permission('sale', 'buy', {
+      permission('listing', 'preorder', {
         rules: [when({ field: 'now', op: 'before', value: '2020-01-01' })],
       }),
     ]);
 
     const early = '2019-06-01';
-    expect(access.canMany({}, 'sale', 'buy', [{}], early)[0]?.allowed).toBe(
+    expect(
+      access.canMany({}, 'listing', 'preorder', [{}], early)[0]?.allowed,
+    ).toBe(true);
+    expect(
+      access.authorize({}, { now: early }).can('listing', 'preorder').allowed,
+    ).toBe(true);
+    expect(access.capabilities({}, early)['listing.preorder']?.allowed).toBe(
       true,
     );
-    expect(
-      access.authorize({}, { now: early }).can('sale', 'buy').allowed,
-    ).toBe(true);
-    expect(access.capabilities({}, early)['sale.buy']?.allowed).toBe(true);
   });
 });
 
@@ -240,26 +246,26 @@ describe('SEC-208 the subject and the object are read live (CWE-367)', () => {
   // #region sec-208
   it('decides the deny side and the allow side against separate reads', () => {
     // No defence. The matrix is copied and frozen; the subject is the app's own
-    // data and is not. A bag that answers twice decides twice.
+    // data and is not. A subject whose getter answers twice decides twice.
     let read = 0;
     const subject: Record<string, unknown> = {};
     Object.defineProperty(subject, 'role', {
       enumerable: true,
       get() {
         read++;
-        return read === 1 ? 'nobody' : 'admin';
+        return read === 1 ? 'nobody' : 'owner';
       },
     });
 
     const access = foreign([
-      permission('billing', 'refund', {
-        rules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
-        denyRules: [when({ field: 'subject.role', op: 'eq', value: 'admin' })],
+      permission('order', 'refund', {
+        rules: [when({ field: 'subject.role', op: 'eq', value: 'owner' })],
+        denyRules: [when({ field: 'subject.role', op: 'eq', value: 'owner' })],
       }),
     ]);
 
-    expect(access.can(subject, 'billing', 'refund').allowed).toBe(true);
-    expect(access.can({ role: 'admin' }, 'billing', 'refund').allowed).toBe(
+    expect(access.can(subject, 'order', 'refund').allowed).toBe(true);
+    expect(access.can({ role: 'owner' }, 'order', 'refund').allowed).toBe(
       false,
     );
   });
