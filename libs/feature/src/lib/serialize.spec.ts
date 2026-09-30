@@ -630,6 +630,95 @@ describe('serializeConfig', () => {
     expect(JSON.parse(JSON.stringify(document))).toEqual(document);
   });
 
+  /**
+   * A window condition whose value already round-trips.
+   *
+   * `Instant` admits a string and an epoch number beside the `Date`, and a
+   * holder that built its store from a served document holds one of those two.
+   * `serializeConfig` on that store writes the document it was built from, which
+   * is the second call § 8 names: a control plane that built its store from rows
+   * serializes it to serve it.
+   */
+  describe('a window a document already carries', () => {
+    it('writes an ISO string value as the store holds it', () => {
+      const features = createFeatures([
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                {
+                  field: 'now',
+                  op: 'after',
+                  value: '2026-10-01T00:00:00.000Z',
+                },
+              ],
+            },
+          ],
+        },
+      ] as const);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when?.[0]).toEqual({
+        field: 'now',
+        op: 'after',
+        value: '2026-10-01T00:00:00.000Z',
+      });
+    });
+
+    it('writes an epoch number value as the store holds it', () => {
+      const features = createFeatures([
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [{ field: 'now', op: 'before', value: 1_790_000_000_000 }],
+            },
+          ],
+        },
+      ] as const);
+
+      const document = serializeConfig(features);
+
+      expect(document.features[0]?.rules?.[0]?.when?.[0]).toEqual({
+        field: 'now',
+        op: 'before',
+        value: 1_790_000_000_000,
+      });
+    });
+
+    it('writes the same document again for the store a holder built', () => {
+      const features = createFeatures([
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              id: 'window',
+              when: [
+                {
+                  field: 'now',
+                  op: 'after',
+                  value: new Date('2026-10-01T00:00:00.000Z'),
+                },
+                { field: 'now', op: 'before', value: 1_790_000_000_000 },
+              ],
+            },
+          ],
+          variants: [{ name: 'control', weight: 1 }],
+        },
+      ] as const);
+      const document = serializeConfig(features);
+      const carried = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+      const holder = createFeatures(carried.features as Definitions);
+
+      expect(serializeConfig(holder)).toEqual(document);
+    });
+  });
+
   it('writes a single variant at order zero', () => {
     const features = createFeatures([
       {
