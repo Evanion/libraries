@@ -14,9 +14,13 @@ import {
 import type {
   ConfigIssueCode,
   FeatureConfig,
+  SerializedAttributeCondition,
   SerializedDefinition,
+  SerializedRule,
+  SerializedVariantSpec,
+  SerializedWindowCondition,
 } from './config.js';
-import type { Rule } from './types.js';
+import type { DayOfWeekCondition, RolloutSpec, Rule } from './types.js';
 
 /**
  * The two members § 3 has travel with a served variant set.
@@ -2143,6 +2147,175 @@ describe('validateConfig, on a member a definition declares that this checker do
     };
 
     expect(validateConfig({ features: [definition] })).toEqual({ ok: true });
+  });
+});
+
+describe('validateConfig, on a member below a definition that this checker does not read', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  /** The sentence every one of these reports, for the member and the position. */
+  function refusal(member: string, what: string, at: string): string {
+    return `feature "cta" declares "${member}" on the ${what} at ${at}, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`;
+  }
+
+  it('reports a bucketing parameter on a rollout', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":' +
+        '[{"id":"ramp","rollout":{"percent":50,"hashVersion":2}}]}]}',
+    );
+
+    // § 3's case, one level below the definition. `rolloutText` reads `by` and
+    // `seed` alone, so the rule derives the id it derived before the member
+    // arrived and `configDigest` reports one version on both sides while the
+    // publisher buckets on an algorithm this holder does not have.
+    expect(messagesOf(config)).toEqual([
+      refusal('hashVersion', 'rollout', '/features/0/rules/0/rollout'),
+    ]);
+    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
+  });
+
+  it('reports a bucketing parameter on a variant', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+        '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0,"hashVersion":2},' +
+        '{"name":"b","weight":1,"order":1}]}]}',
+    );
+
+    // `assignVariant` buckets on the seed and the walk position, and reads
+    // nothing else off a variant, so this member changes the publisher's
+    // assignment and none of this holder's.
+    expect(messagesOf(config)).toEqual([
+      refusal('hashVersion', 'variant', '/features/0/variants/0'),
+    ]);
+    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
+  });
+
+  it('reports a member a rule declares', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":[{"id":"r","hashVersion":2}]}]}',
+    );
+
+    expect(messagesOf(config)).toEqual([
+      refusal('hashVersion', 'rule', '/features/0/rules/0'),
+    ]);
+    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
+  });
+
+  it('reports a member a condition declares', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":[{"id":"r","when":' +
+        '[{"field":"plan","op":"eq","value":"pro","caseInsensitive":true}]}]}]}',
+    );
+
+    // `conditionText` writes `field`, `op` and the value, so a matching rule
+    // this holder reads as case-sensitive and the publisher reads otherwise
+    // derives one id on both sides.
+    expect(messagesOf(config)).toEqual([
+      refusal('caseInsensitive', 'condition', '/features/0/rules/0/when/0'),
+    ]);
+    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
+  });
+
+  it('reports every one of them in a document carrying all four', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0,"v":1}],' +
+          '"rules":[{"id":"r","r1":1,"rollout":{"percent":5,"r2":2},' +
+          '"when":[{"field":"plan","op":"eq","value":1,"c":3}]}]}]}',
+      ),
+    );
+
+    // § 7 has the checker report every issue it finds, so an operator fixing a
+    // publisher too new for this holder reads all four at one poll.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/variants/0/v',
+      '/features/0/rules/0/r1',
+      '/features/0/rules/0/rollout/r2',
+      '/features/0/rules/0/when/0/c',
+    ]);
+  });
+
+  it('accepts every member the four shapes name', () => {
+    // Each fixture is `Required`, so a member added to one of the four types is
+    // a missing property here until this case carries it.
+    const rollout: Required<RolloutSpec> = {
+      percent: 50,
+      by: 'accountId',
+      seed: 'cta-ramp',
+    };
+    const window: Required<SerializedWindowCondition> = {
+      field: 'now',
+      op: 'after',
+      value: '2026-10-01T00:00:00.000Z',
+    };
+    const weekday: Required<DayOfWeekCondition> = {
+      field: 'now',
+      op: 'day-of-week',
+      zone: 'Europe/Stockholm',
+      value: ['mon'],
+    };
+    const attribute: Required<SerializedAttributeCondition> = {
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    };
+    const rule: Required<SerializedRule> = {
+      id: 'r',
+      when: [window, weekday, attribute],
+      rollout,
+      variant: 'control',
+    };
+    const variant: Required<SerializedVariantSpec> = {
+      name: 'control',
+      weight: 1,
+      order: 0,
+      value: { copy: 'Buy' },
+    };
+
+    expect(
+      validateConfig({
+        features: [
+          {
+            key: 'cta',
+            enabled: true,
+            ...TRAVELS,
+            rules: [rule],
+            variants: [variant],
+          },
+        ],
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts the document serializeConfig writes from a store carrying all four', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        rules: [
+          {
+            id: 'ramp',
+            when: [{ field: 'plan', op: 'eq', value: 'pro' }],
+            rollout: { percent: 50, by: 'accountId' },
+            variant: 'control',
+          },
+        ],
+        variants: [
+          { name: 'control', weight: 1, order: 0 },
+          { name: 'blue', weight: 1, order: 1 },
+        ],
+      },
+    ]);
+
+    // `documentDefinition` copies each level with a spread, so the walk reads
+    // back exactly the members the serializer wrote.
+    expect(validateConfig(serializeConfig(features))).toEqual({ ok: true });
   });
 });
 
