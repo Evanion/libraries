@@ -30,10 +30,10 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * same href would resolve one segment short. Resolved here against the page's
  * own route, the link names the page it named in the browser.
  *
- * A Twoslash fence loses everything above its `// ---cut---`. Twoslash compiles
- * those lines and renders none of them, so the browser shows the code below the
- * cut, and the sibling shows the same code. Most of those lines are a README's
- * preamble, which the region expansion put there for the compiler.
+ * A Twoslash fence loses everything above its last `// ---cut---`. Twoslash
+ * compiles those lines and renders none of them, so the browser shows the code
+ * below the cut, and the sibling shows the same code. Most of those lines are a
+ * README's preamble, which the region expansion put there for the compiler.
  *
  * Nothing else is rewritten. A ```mermaid fence stays a fence, because the
  * `<Diagram>` the browser gets is markup around this same source and the fence
@@ -104,9 +104,13 @@ export function absoluteLinks(markdown, route) {
 }
 
 /**
- * Every Twoslash fence with the lines above its `// ---cut---` removed, the
- * marker included. A fence with no cut, or no `twoslash` in its info string, is
- * left as written, because only Twoslash reads the marker.
+ * Every Twoslash fence with the lines above its last `// ---cut---` removed,
+ * the marker included. A fence with no cut, or no `twoslash` in its info
+ * string, is left as written, because only Twoslash reads the marker.
+ *
+ * The last, because Twoslash renders from the last one: a region that hides
+ * setup behind a cut of its own gets a second cut when the region expansion
+ * puts the README's preamble in front of it.
  */
 function cutFences(markdown) {
   const out = [];
@@ -128,7 +132,7 @@ function cutFences(markdown) {
 
     if (marker && marker[1].startsWith(fence.ticks)) {
       const cut = fence.twoslash
-        ? fence.body.findIndex((body) => body.trim() === '// ---cut---')
+        ? fence.body.map((body) => body.trim()).lastIndexOf('// ---cut---')
         : -1;
       out.push(...fence.body.slice(cut + 1), line);
       fence = null;
