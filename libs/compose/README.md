@@ -110,12 +110,82 @@ Node that cannot load ES modules through it -- hit `ERR_REQUIRE_ESM`.
 importable from a React Server Component graph -- a Next.js `app/layout.tsx`
 included -- without a `'use client'` boundary.
 
-## A root component with three providers
+## A root component with three context providers
 
-A board game shop's root holds a cart, a theme and a currency. `Shop` renders
-them around whatever page it is given:
+A board game shop's root holds a cart, a theme and a currency, each a context
+provider. `Shop` composes them, and `Basket` reads all three:
 
 <!-- #region first-shop -->
+
+```tsx @import.meta.vitest
+const CartContext = React.createContext(0);
+const ThemeContext = React.createContext<'light' | 'dark'>('light');
+const CurrencyContext = React.createContext<'SEK' | 'GBP' | 'USD'>('SEK');
+
+const CartProvider = ({ children }: React.PropsWithChildren) => (
+  <CartContext.Provider value={2}>{children}</CartContext.Provider>
+);
+
+const ThemeProvider = ({
+  theme,
+  children,
+}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
+  <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
+);
+
+const CurrencyProvider = ({
+  currency,
+  children,
+}: React.PropsWithChildren<{ currency: 'SEK' | 'GBP' | 'USD' }>) => (
+  <CurrencyContext.Provider value={currency}>
+    {children}
+  </CurrencyContext.Provider>
+);
+
+function Shop({ children }: React.PropsWithChildren) {
+  return (
+    <ComposeProvider
+      providers={[
+        CartProvider,
+        provider(ThemeProvider, { theme: 'dark' }),
+        provider(CurrencyProvider, { currency: 'SEK' }),
+      ]}
+    >
+      {children}
+    </ComposeProvider>
+  );
+}
+
+function Basket() {
+  const games = React.useContext(CartContext);
+  const theme = React.useContext(ThemeContext);
+  const currency = React.useContext(CurrencyContext);
+
+  return <p className={theme}>{`${games} games, priced in ${currency}`}</p>;
+}
+
+const markup = renderToStaticMarkup(
+  <Shop>
+    <Basket />
+  </Shop>,
+);
+
+markup; // -> '<p class="dark">2 games, priced in SEK</p>'
+```
+
+<!-- #endregion first-shop -->
+
+A context provider renders no element of its own, so `markup` is `Basket`'s
+paragraph alone, and the values in it came through all three providers.
+
+## Three ways to write an entry
+
+A provider with no props is the component itself. A provider with props is
+either a `provider()` call or a `[component, props]` tuple. The providers from
+here on render a `div` whose `id` is their prop, so the markup shows which
+props arrived:
+
+<!-- #region entries -->
 
 ```tsx @import.meta.vitest
 const CartProvider = ({ children }: React.PropsWithChildren) => (
@@ -129,47 +199,38 @@ const ThemeProvider = ({
   <div id={theme}>{children}</div>
 );
 
-const CurrencyProvider = ({ children }: React.PropsWithChildren) => (
-  <div id="currency">{children}</div>
+const CurrencyProvider = ({
+  currency,
+  children,
+}: React.PropsWithChildren<{ currency: 'SEK' | 'GBP' | 'USD' }>) => (
+  <div id={currency}>{children}</div>
 );
-
-function Shop({ children }: React.PropsWithChildren) {
-  return (
-    <ComposeProvider
-      providers={[
-        CartProvider,
-        provider(ThemeProvider, { theme: 'dark' }),
-        CurrencyProvider,
-      ]}
-    >
-      {children}
-    </ComposeProvider>
-  );
-}
-
+// ---cut---
 const markup = renderToStaticMarkup(
-  <Shop>
+  <ComposeProvider
+    providers={[
+      // A bare component, for a provider whose props are all optional.
+      CartProvider,
+      // A `provider()` call, checked where it is written.
+      provider(ThemeProvider, { theme: 'dark' }),
+      // A tuple, checked where the array reaches `ComposeProvider`.
+      [CurrencyProvider, { currency: 'SEK' }],
+    ]}
+  >
     <p>Brass: Birmingham</p>
-  </Shop>,
+  </ComposeProvider>,
 );
 
-markup; // -> '<div id="cart"><div id="dark"><div id="currency"><p>Brass: Birmingham</p></div></div></div>'
+markup; // -> '<div id="cart"><div id="dark"><div id="SEK"><p>Brass: Birmingham</p></div></div></div>'
 ```
 
-<!-- #endregion first-shop -->
+<!-- #endregion entries -->
 
-## Two ways to write an entry
+The docs site renders each block from its `// ---cut---` down. The lines above
+the marker declare what the block needs to compile.
 
-A provider with no props is the component itself. A provider with props is
-either a `provider()` call or a `[component, props]` tuple.
-
-```tsx
-provider(ThemeProvider, { theme }); // checked where you write it
-[ThemeProvider, { theme }]; // checked where the array is passed
-```
-
-They type-check identically. The difference is where the check happens, and
-therefore whether you get autocomplete:
+A `provider()` call and a tuple type-check identically. The difference is where
+the check happens, and therefore whether you get autocomplete:
 
 |                                 | `provider()`          | tuple                                        |
 | ------------------------------- | --------------------- | -------------------------------------------- |
@@ -177,8 +238,8 @@ therefore whether you get autocomplete:
 | Errors reported at              | the `provider()` call | the `<ComposeProvider>` that takes the array |
 | An entry held in a variable     | still checked         | widened, and refused without naming the prop |
 
-A tuple is checked only while the array stays a literal tuple, which it is when
-written inline in the JSX attribute or declared `as const`. Annotated
+A tuple is checked only while the array has a fixed-length array type, which it
+has when written inline in the JSX attribute or declared `as const`. Annotated
 `ProviderArray`, or checked with `satisfies ProviderArray`, the array widens to
 a plain array and its entries go unchecked. Below, the annotated array compiles
 and renders `ThemeProvider` with no `theme`, and the same entry declared
@@ -188,19 +249,23 @@ and renders `ThemeProvider` with no `theme`, and the same entry declared
 
 ```tsx @import.meta.vitest
 // @errors: 2322
-import type { ProviderArray } from '@evanion/compose';
-
 const ThemeProvider = ({
   theme,
   children,
 }: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
   <div id={theme}>{children}</div>
 );
+// ---cut---
+import type { ProviderArray } from '@evanion/compose';
 
 const annotated: ProviderArray = [[ThemeProvider, {}]];
 const constant = [[ThemeProvider, {}]] as const;
+const plain = [[ThemeProvider, { theme: 'dark' }]];
 
+// Compiled for their errors only: `constant` misses `theme`, and `plain` has
+// widened to an array that is not a provider.
 <ComposeProvider providers={constant}>{null}</ComposeProvider>;
+<ComposeProvider providers={plain}>{null}</ComposeProvider>;
 
 const markup = renderToStaticMarkup(
   <ComposeProvider providers={annotated}>
@@ -224,6 +289,10 @@ React reconciles by position, so
 remounts everything below it on login, losing all state in it. Keep the array a
 fixed length and let the providers themselves handle the conditional case.
 
+A new props value is not a change to the array's shape. An entry built from
+state, `provider(ThemeProvider, { theme })`, re-renders `ThemeProvider` in place
+when `theme` changes, and the state below it stays.
+
 ## What the type errors look like
 
 An array written inline is checked entry by entry, and each failing entry
@@ -240,7 +309,7 @@ const ThemeProvider = ({
 }: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
   <div id={theme}>{children}</div>
 );
-
+// ---cut---
 const markup = renderToStaticMarkup(
   <ComposeProvider
     providers={[
@@ -272,7 +341,7 @@ const ThemeProvider = ({
 }: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
   <div id={theme}>{children}</div>
 );
-
+// ---cut---
 const entry = provider(ThemeProvider, { theme: 'blue' });
 
 entry; // -> [ThemeProvider, { theme: 'blue' }]
@@ -299,8 +368,8 @@ Type '[…, { theme: "dark"; accent: "green"; }]' is not assignable to type
 | `children`  | what they wrap                       |
 
 `ComposeProvider` is a generic function, not a `React.FC`. It infers the
-providers array as a literal tuple (`const T`), which is what lets it check each
-entry against its own component.
+providers array as a fixed-length array type (`const T`), which is what lets it
+check each entry against its own component.
 
 It throws a `TypeError` naming the prop when `providers` is not an array, which
 only a caller outside TypeScript can reach, and warns once in development when
@@ -323,8 +392,8 @@ const p = provider(ThemeProvider, {
 
 `ProviderArray` -- a readonly array of those.
 
-`ValidatedProviders<T>` -- the type of the `providers` prop. For a literal
-tuple it validates entry by entry; for an already-widened `ProviderArray` it
+`ValidatedProviders<T>` -- the type of the `providers` prop. For a fixed-length
+array type it validates entry by entry; for an already-widened `ProviderArray` it
 resolves to `ProviderArray`, so a value of that type can be forwarded through a
 wrapper component.
 
@@ -335,8 +404,6 @@ passes its caller's array to `ComposeProvider` still checked:
 
 ```tsx @import.meta.vitest
 // @errors: 2741
-import type { ComposeProviderProps, ProviderArray } from '@evanion/compose';
-
 const CartProvider = ({ children }: React.PropsWithChildren) => (
   <div id="cart">{children}</div>
 );
@@ -347,6 +414,8 @@ const ThemeProvider = ({
 }: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
   <div id={theme}>{children}</div>
 );
+// ---cut---
+import type { ComposeProviderProps, ProviderArray } from '@evanion/compose';
 
 function AppProviders<const T extends ProviderArray>({
   providers,
@@ -355,6 +424,7 @@ function AppProviders<const T extends ProviderArray>({
   return <ComposeProvider providers={providers}>{children}</ComposeProvider>;
 }
 
+// Compiled for its error only: the caller's tuple misses `theme`.
 <AppProviders providers={[CartProvider, [ThemeProvider, {}]]}>
   {null}
 </AppProviders>;
