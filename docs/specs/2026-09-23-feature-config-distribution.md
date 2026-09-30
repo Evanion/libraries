@@ -728,8 +728,11 @@ export function serializeConfig<F extends FeatureKey>(
 
 `serializeConfig` takes no mode. It emits the stored document whole: every
 definition, every rule with its `id`, every variant with its name, weight and
-value, in the order the store holds them. Its one transformation is the `Date`
-conversion below, and a round trip back through `parseFeatureConfig` therefore
+value, in the order the store holds them. It transforms what it emits twice. It
+converts the `Date` below, and it writes out the bucketing parameters § 3
+requires of a document: an `order` on every variant, and a `variantBy` and a
+`variantSeed` on every definition carrying variants. Both transformations are
+idempotent, so a round trip back through `parseFeatureConfig` and out again
 produces the document it started from.
 
 The entry point earns its place on two counts. `configDigest` is defined over the
@@ -892,9 +895,13 @@ audience a document without it, which decision 2 places outside this library.
 - A round trip. `serializeConfig(features)` through `JSON.stringify`,
   `JSON.parse` and `parseFeatureConfig` produces a store whose `config` deep-equals
   the original with the `Date` at each `WindowCondition.value` replaced by its ISO
-  string, and whose `configDigest` equals the original's. A store holding a `Date`
-  at any other member has no round trip to fixture, because `serializeConfig`
-  refuses it and names the path, which § 8 argues from `===` and from `valueOf`.
+  string and with the bucketing parameters § 3 requires written out: an `order` on
+  every variant, and a `variantBy` and a `variantSeed` on every definition carrying
+  variants. Its `configDigest` equals the original's, and serializing the
+  round-tripped store produces the document the first serialization wrote. A store
+  holding a `Date` at any other member has no round trip to fixture, because
+  `serializeConfig` refuses it and names the path, which § 8 argues from `===` and
+  from `valueOf`.
 - Digest stability. Two documents differing only in object key order, in
   whitespace, in a `Date` against its ISO string, and in an absent key against one
   written `undefined`, produce one digest. A document differing in the order of a
