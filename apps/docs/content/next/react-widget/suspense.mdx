@@ -1,0 +1,97 @@
+# Suspense and error boundaries
+
+A slow widget should not hold up the page, and a failing one should not take the
+region down with it. `chrome.suspense` sets the `<Suspense>` boundaries
+`Widgets` renders, and a custom `chrome.item` holds an error boundary.
+
+<PageSheet
+  difficulty={5}
+  read={13}
+  hands={20}
+  requires={[['Chrome, meta and ctx', '../advanced']]}
+  unlocks={[
+    ['Playground', '../playground'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## Choose where the `<Suspense>` boundaries go
+
+By default, the package's `Widgets` wraps every react-widget widget in its own
+`<Suspense>` boundary, so one slow widget does not hold up its siblings. That is
+`chrome.suspense: 'per-item'`, the default. `chrome.suspenseFallback` is what
+renders while a widget suspends, and it defaults to nothing:
+
+```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
+
+```
+
+`StockLevel` is an async Server Component. `renderToStaticMarkup` does not wait
+for a widget that suspends, so its HTML carries `Counting stock` in that
+widget's place. A streaming render sends the same fallback first and replaces it
+when the count resolves. The boundary lives in `Widgets`, so a custom
+`chrome.item` cannot remove it.
+
+## Drop the boundaries from a synchronous region: `chrome.suspense: 'none'`
+
+On a large streamed region, the `<Suspense>` boundary react-widget puts around
+each widget can move that widget to the end of the HTML. A streaming render,
+through `renderToPipeableStream`, sends the shell first: the HTML outside any
+boundary it has not finished. Once the shell passes `progressiveChunkSize`,
+an option that defaults to 12,800 bytes, React outlines every remaining
+boundary, whether or not anything in it suspended. An outlined boundary leaves a
+placeholder in the shell and sends its content later, in a trailing
+`<div hidden>`. An inline `<script>$RC(…)</script>` then moves the content into
+place.
+
+A client that runs no inline script never sees an outlined widget, which covers
+scripts turned off and a Content-Security-Policy that blocks inline scripts. A
+text extraction, a reader-mode pass or a snapshot test reads placeholders where
+the widgets should be. Measured over 150 synchronous items of about 1,000
+bytes:
+
+| `chrome.suspense` | Bytes   | Outlined boundaries | Items in the shell |
+| ----------------- | ------- | ------------------- | ------------------ |
+| `'per-item'`      | 139,233 | 145                 | 5 of 150           |
+| `'none'`          | 122,069 | 0                   | 150 of 150         |
+
+Set `'none'` on a region whose widgets never suspend. `renderToString`, from
+`react-dom/server`, writes a `<!--$-->` marker pair per boundary, which shows
+where they went:
+
+```tsx twoslash file=libs/react-widget/README.md region=suspense-none
+
+```
+
+`Widgets` does not detect which widgets suspend: `use(promise)` looks
+synchronous at runtime, and `memo()` hides an async component. If you set
+`'none'` on a region holding a widget that does suspend, that widget suspends
+the nearest boundary above the region. Wrap `<Widgets>` in `<Suspense>` to stop
+it there.
+
+## Catch a widget's error in a React error boundary
+
+`@evanion/react-widget` ships no error boundary. A boundary is a class
+component, and React's `react-server` build exports no `Component`, so a class
+inside the package forces `'use client'` onto all of it. Write the boundary in
+your own file, with `'use client'` as its first line. Below the directive, the
+file imports `React` and `DefaultItem`:
+`import * as React from 'react';` and
+`import { DefaultItem } from '@evanion/react-widget';`. The fence starts at the
+directive and leaves those two lines out:
+
+```tsx twoslash file=libs/react-widget/README.md region=error-boundary
+
+```
+
+Export `SafeItem` from that file, import it into the server file that calls
+`createWidgets`, and pass it as `chrome: { item: SafeItem }`. The boundary is
+then client code, and the widgets inside it stay server components. In a
+project without Server Components the directive does nothing, and `SafeItem` can
+sit in the same file as `createWidgets`.
+
+## Rearrange a region in the browser
+
+react-widget's [Playground](../playground) renders a Baize staff page you
+rearrange item by item. Every widget there runs in the browser, so it shows
+chrome and nesting, and no streaming from a server.
