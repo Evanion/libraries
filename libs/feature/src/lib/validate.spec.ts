@@ -1232,6 +1232,42 @@ describe('validateConfig', () => {
     ]);
   });
 
+  it('names the rule itself where no part of it reproduces the raise', () => {
+    let coerced = 0;
+    const value = {
+      toString(): string {
+        coerced += 1;
+        if (coerced === 1) throw new TypeError('not yet');
+        return '2026-01-01T00:00:00Z';
+      },
+    };
+    const config = {
+      features: [
+        {
+          key: 'a',
+          enabled: true,
+          rules: [{ when: [{ field: 'now', op: 'after', value }] }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // The fallback, for a derivation that raises where no condition and no
+    // rollout member of the rule raises on its own. `ruleId` joins the text of
+    // every part before it hashes, so the reachable cause is a rule whose parts
+    // each fit the string ceiling and whose joined text does not. A value that
+    // coerces once is what reaches the same branch at a size a test can hold.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          "feature \"a\" declares a rule at /features/0/rules/0 carrying a value no canonical text names, and the derivation a decision reads this rule's id from raises on it",
+        path: '/features/0/rules/0',
+      },
+    ]);
+  });
+
   it('accepts a rule declaring an id for a condition value no text names', () => {
     const value: Record<string, unknown> = {};
     value['self'] = value;
