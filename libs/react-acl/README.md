@@ -36,74 +36,46 @@ consumer owns.
 ## Installation
 
 ```bash
-npm install @evanion/react-acl
+npm install @evanion/react-acl @evanion/acl
 ```
 
 ## Quick start
 
-```tsx
-import { PolicyProvider, useCan } from '@evanion/react-acl';
-import { hydratePolicy } from '@evanion/acl';
+The server builds the rules with `@evanion/acl`'s `policy()` and renders
+`ShopAccess`, a client component that hydrates `access.matrix` into a
+`PolicyProvider`. `EditControl` under it asks `useCan` and draws its button
+only for the seller who listed the listing:
 
-const access = hydratePolicy({
-  permissions: [
-    {
-      key: 'comment.update',
-      object: 'comment',
-      action: 'update',
-      rules: [
-        { when: [{ field: 'object.authorId', op: 'eq', path: 'subject.id' }] },
-      ],
-    },
-  ],
-});
+<!-- #region server-render -->
 
-export function App({ user }: { user: { id: string } }) {
+```tsx @import.meta.vitest
+import type { ReactNode } from 'react';
+import type { Matrix } from '@evanion/acl';
+
+type Shopper = { id: string; role: 'customer' | 'bookseller' | 'owner' };
+type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
+
+// ShopAccess is examples/mount.tsx, and EditControl is examples/decision.tsx.
+function ShopAccess({
+  matrix,
+  shopper,
+  now,
+  children,
+}: {
+  matrix: Matrix;
+  shopper: Shopper;
+  now: string;
+  children: ReactNode;
+}) {
+  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
+  const context = useMemo(() => ({ now }), [now]);
+
   return (
-    <PolicyProvider
-      access={access}
-      subject={user}
-      context={{ now: new Date() }}
-    >
-      <CommentList />
+    <PolicyProvider access={access} subject={shopper} context={context}>
+      {children}
     </PolicyProvider>
   );
 }
-
-function CommentList() {
-  if (!useCan('comment', 'update', { authorId: user.id }).allowed) {
-    return <ReadOnlyComment />;
-  }
-  return <EditableComment />;
-}
-```
-
-## What the provider decides
-
-One rule, one listing, two sellers. The markup the tree renders is the whole of
-what a decision does to a screen:
-
-<!-- #region rendered-decision -->
-
-```tsx @import.meta.vitest
-const access = hydratePolicy({
-  permissions: [
-    {
-      key: 'listing.edit',
-      object: 'listing',
-      action: 'edit',
-      rules: [
-        {
-          when: [
-            { field: 'object.sellerId', op: 'eq' as const, path: 'subject.id' },
-          ],
-        },
-      ],
-    },
-  ],
-});
-
-type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
 
 function EditControl({ listing }: { listing: Listing }) {
   const decision = useCan('listing', 'edit', listing);
@@ -112,6 +84,11 @@ function EditControl({ listing }: { listing: Listing }) {
 
   return <button type="button">Edit listing</button>;
 }
+// ---cut---
+// On the server, once per process: the seller who listed a listing edits it.
+const access = policy<Shopper, { listing: Listing }, { listing: 'edit' }>()
+  .for('listing', (p) => p.allow('edit', p.eq('object.sellerId', 'subject.id')))
+  .build();
 
 const listing: Listing = {
   id: 'brass-birmingham',
@@ -119,25 +96,34 @@ const listing: Listing = {
   status: 'draft',
 };
 
-// Module scope, like `access`: one identity for every render.
-const context = { now: '2026-09-25T09:00:00Z' };
-
-const shelf = (shopper: { id: string }) =>
+// On the server, per request. In production `now` is
+// new Date().toISOString(), read once for the whole render.
+const renderFor = (shopper: Shopper) =>
   renderToStaticMarkup(
-    <PolicyProvider access={access} subject={shopper} context={context}>
+    <ShopAccess
+      matrix={access.matrix}
+      shopper={shopper}
+      now="2026-09-25T09:00:00.000Z"
+    >
       <EditControl listing={listing} />
-    </PolicyProvider>,
+    </ShopAccess>,
   );
 
-shelf({ id: 'mika' }); // -> '<button type="button">Edit listing</button>'
-shelf({ id: 'jo' }); // -> ''
+const mika: Shopper = { id: 'mika', role: 'bookseller' };
+const jo: Shopper = { id: 'jo', role: 'owner' };
+
+renderFor(mika); // -> '<button type="button">Edit listing</button>'
+renderFor(jo); // -> ''
 ```
 
-<!-- #endregion rendered-decision -->
+<!-- #endregion server-render -->
 
-`EditControl` takes no `access` prop and no subject prop. The rule compares
-`object.sellerId` with `subject.id`, so the seller who owns the listing gets the
-button and the other one gets an empty string.
+`EditControl` takes no `access` prop and no shopper prop. The rule compares
+`object.sellerId` with `subject.id`, so Mika, who listed the game, gets the
+button and Jo gets an empty string.
+
+The `// ---cut---` line is where the docs site starts showing the block: the
+two components above it are the ones `examples/` holds.
 
 ## Hooks
 
