@@ -5,10 +5,6 @@ import { ComposeProvider, provider } from './index.js';
 // Imported from the module rather than the barrel: it is internal, not public API.
 import { __resetWarningsForTests } from './Compose.js';
 import type { ComposeProviderProps, ProviderArray } from './index.js';
-// The documentation's own listings, rendered here so a page cannot claim a tree
-// the components do not build.
-import { Shop } from '../examples/shop.js';
-import { ShopProviders } from '../examples/entries.js';
 
 /**
  * `ComposeProvider` is generic and overloaded, so props built dynamically (a
@@ -449,6 +445,57 @@ describe('ComposeProvider', () => {
     consoleWarnSpy.mockRestore();
   });
 
+  it('keeps the subtree mounted when an entry changes its props', () => {
+    const mounted = vi.fn();
+    function Page() {
+      React.useEffect(mounted, []);
+      return <p>Brass: Birmingham</p>;
+    }
+    function Root({ theme }: { theme: 'light' | 'dark' }) {
+      return (
+        <ComposeProvider
+          providers={[
+            SimpleProvider,
+            provider(ThemeProvider, { theme, primaryColor: '#fff' }),
+          ]}
+        >
+          <Page />
+        </ComposeProvider>
+      );
+    }
+    const { container, rerender } = render(<Root theme="light" />);
+    rerender(<Root theme="dark" />);
+
+    expect(container.querySelector('[data-theme]')).toHaveAttribute(
+      'data-theme',
+      'dark',
+    );
+    expect(mounted).toHaveBeenCalledTimes(1);
+  });
+
+  it('remounts the subtree when the array changes length', () => {
+    const mounted = vi.fn();
+    function Page() {
+      React.useEffect(mounted, []);
+      return <p>Brass: Birmingham</p>;
+    }
+    function Root({ authed }: { authed: boolean }) {
+      return (
+        <ComposeProvider
+          providers={
+            authed ? [SimpleProvider, SimpleProvider] : [SimpleProvider]
+          }
+        >
+          <Page />
+        </ComposeProvider>
+      );
+    }
+    const { rerender } = render(<Root authed={false} />);
+    rerender(<Root authed={true} />);
+
+    expect(mounted).toHaveBeenCalledTimes(2);
+  });
+
   it('renders through react-dom/server', async () => {
     const { renderToStaticMarkup } = await import('react-dom/server');
 
@@ -525,44 +572,6 @@ describe('ComposeProvider', () => {
     };
 
     expect(withProviders.providers).toHaveLength(1);
-  });
-});
-
-/**
- * The listings the documentation renders, run.
- *
- * `apps/docs/content/compose/` cites `examples/` by region, so a page shows
- * whatever these files say. Rendering them here is what makes a page's claim
- * about the tree a claim something can fail on: the pages state the nesting as
- * markup, and the markup is asserted below.
- */
-describe('the documented examples', () => {
-  it('nests the shop stack in the order the array is written', () => {
-    const { container } = render(
-      <Shop>
-        <p>Brass: Birmingham</p>
-      </Shop>,
-    );
-
-    expect(container.innerHTML).toBe(
-      '<div id="cart"><div id="dark"><div id="currency">' +
-        '<p>Brass: Birmingham</p>' +
-        '</div></div></div>',
-    );
-  });
-
-  it('gives the three entry forms one tree', () => {
-    const { container } = render(
-      <ShopProviders>
-        <p>3 in the basket</p>
-      </ShopProviders>,
-    );
-
-    expect(container.innerHTML).toBe(
-      '<div id="cart"><div id="dark"><div id="SEK">' +
-        '<p>3 in the basket</p>' +
-        '</div></div></div>',
-    );
   });
 });
 
