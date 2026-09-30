@@ -1,13 +1,13 @@
 # Getting started
 
-By the end of this page your shop's root component passes three providers to
-`ComposeProvider` as one array, and the markup it renders nests them in the
-order the array reads.
+By the end of this page your shop's root component composes three context
+providers with `ComposeProvider`, and a component under the root reads all
+three values.
 
 <PageSheet
   difficulty={1}
-  read={3}
-  hands={10}
+  read={4}
+  hands={8}
   requires={[['Overview', '../']]}
   unlocks={[
     ['Where the check happens', '../type-checking'],
@@ -17,14 +17,14 @@ order the array reads.
 
 ## Before you install compose
 
-- React 18 or 19, the only dependency the package has.
+- React 18 or 19, the only dependency `@evanion/compose` has.
+- `react-dom`, which renders this page's example.
 - Node 20 or newer.
-- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
-  `require()` loads ES modules. An older `require()` fails with
-  `ERR_REQUIRE_ESM`.
-- TypeScript 5.0 or newer for the compile error on each entry, because the
-  published types use a `const` type parameter. The component runs without
-  TypeScript.
+- An ESM project. A CommonJS project needs a Node whose `require()` loads ES
+  modules: 20.19 or later on Node 20, or 22.12 or later. An older `require()`
+  fails with `ERR_REQUIRE_ESM`.
+- (Optional) TypeScript 5.0 or newer, for the compile error on each entry. The
+  component runs without it.
 
 ## Install compose
 
@@ -42,43 +42,55 @@ yarn add @evanion/compose
 pnpm add @evanion/compose
 ```
 
-## Compose the shop's providers
+## Compose the shop's context providers
 
-`ComposeProvider` takes two props: `providers`, the array, and `children`, what
-the array wraps. Baize's root holds three providers and renders them around the
-page it is given. Import `ComposeProvider` and `provider` from
-`@evanion/compose`. `renderToStaticMarkup`, from `react-dom/server`, turns `Shop`
-into the HTML string `markup`:
+`ComposeProvider`, from `@evanion/compose`, nests context providers the way the
+[Overview](../#how-a-provider-array-becomes-a-tree) nested `div`s, first entry
+outermost. The shop's root holds a cart, a theme and a currency, each built on
+`createContext`. `Shop` passes the three to `ComposeProvider`, and `Basket`
+reads each value with `useContext`. The file imports `ComposeProvider` and
+`provider` from `@evanion/compose` and `* as React` from `react`.
+`renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML
+string `markup`, which only this example needs:
 
 ```tsx twoslash file=libs/compose/README.md region=first-shop
 
 ```
 
-`CartProvider` and `CurrencyProvider` go in as bare components, because neither
-declares a prop beyond `children`. `ThemeProvider` needs a `theme`, so
-`provider(ThemeProvider, { theme: 'dark' })` pairs it with its props. No entry
-passes `children`: `ComposeProvider` fills each one with the next entry down,
-and the last entry gets `Shop`'s own children.
+`CartProvider` is a [bare component](../#four-words-for-a-provider-array) and
+the other two are `provider()` tuples. The last entry gets `Shop`'s own
+children.
 
-`markup` is the HTML React wrote for `Shop`. The cart's `div` is outermost and
-the page is innermost, which is the array read from the top. In your app, render
-`Shop` where the nested providers sit today, around your routes. A context
-provider renders no element of its own, so check the order in the Components tab
-of React DevTools: each provider sits inside the one before it in the array.
+`markup` is `Basket`'s paragraph and nothing else. The Overview's providers each
+rendered a `div`, and a context provider renders no element of its own, so
+`dark` and `SEK` in the markup are the values the providers above `Basket`
+hold. In a browser, the Components tab of React
+DevTools shows the order: each provider sits inside the one before it in the
+array.
 
-## Move a compose entry and watch the tree move
+## Put Shop at your app's root
 
-The boxes below are the elements `ComposeProvider` returned for the array shown
-with them. Move an entry up and its box moves outward. Move it down and the
-entry below it now wraps it.
+`Shop`, the component that composes the providers with `@evanion/compose`,
+goes where your nested providers sit today, around your routes. In a Next.js
+App Router app, the file that calls `createContext` is client code. Start it
+with `'use client'`, define the providers and `Shop` there, and render
+`<Shop>{children}</Shop>` from `app/layout.tsx`. `ComposeProvider` itself needs
+no directive.
+
+## Reorder the entries and watch the tree
+
+The boxes below are the elements `@evanion/compose` rendered for the array
+shown with them. Each box stands for one of the shop's providers, drawn so the
+nesting shows. The boxes take no props, so the array lists all three as bare
+components and leaves out `theme` and `currency`. Move an entry up and its box
+moves outward. Move it down and the entry below it now wraps it. In a running
+app, the same reorder
+[remounts the subtree](../#when-nesting-by-hand-reads-better).
 
 <ComposeSpecimen />
 
-The control renders the published `ComposeProvider`, so what reorders is a real
-provider tree.
+## The compile error a broken entry gives
 
-## Now that the shop renders, check its entries
-
-[Where the check happens](../type-checking) is the next page. It shows
-which ways of writing an entry TypeScript checks, and the two declarations that
-compile a missing prop with no error.
+The shop's root renders through `@evanion/compose`, and `Basket` reads all
+three providers. [Where the check happens](../type-checking) breaks
+`ThemeProvider`'s entry four ways and reads the compile error each one gives.

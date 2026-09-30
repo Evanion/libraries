@@ -2,12 +2,12 @@ import type { MetaRecord } from 'nextra';
 
 /**
  * The order a reader meets `@evanion/compose` in: what it is, one provider tree
- * that works, the type relationship that is the package's actual claim, then
- * the surface.
+ * that works, where the compiler checks an entry, how a named array or a
+ * wrapper keeps that check, then the surface.
  *
- * Four pages and no separator. A band groups the pages a reader enters
- * sideways, and below five pages there is nothing to enter sideways from: the
- * teaching order is the whole order, and the reference sits off the end of it.
+ * Five pages and no separator. A band groups the pages a reader enters
+ * sideways, and only the reference is entered that way here: the teaching
+ * order is the whole order, and the reference sits off the end of it.
  *
  * The demonstration role sits on `getting-started` rather than on a page of its
  * own, which `apps/docs/app/navigation.ts` records as `demo: 'getting-started'`.
@@ -26,5 +26,6 @@ export default {
   index: 'Overview',
   'getting-started': 'Getting Started',
   'type-checking': 'Where the Check Happens',
+  'keeping-the-check': 'Keeping the Check',
   api: 'API Reference',
 } satisfies MetaRecord;

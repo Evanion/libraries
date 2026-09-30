@@ -1,0 +1,100 @@
+# Keeping the check
+
+`@evanion/compose` checks a bare component or hand-written tuple only in a
+[fixed-length array type](../type-checking#checking-an-inline-provider-array).
+A named array keeps that type with `as const`, and a wrapper with a `const`
+type parameter. An annotation or `satisfies` drops the check silently.
+
+<PageSheet
+  difficulty={4}
+  read={7}
+  requires={[['Where the check happens', '../type-checking']]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## A provider array declared with `const`
+
+`@evanion/compose` checks a `providers` array declared with `const` only when
+the declaration ends `as const`. Two of the package's types name what a named
+array is checked against:
+
+- `Provider` is the type of one entry: a component, or a `readonly` two-element
+  `[component, props]` tuple.
+- `ProviderArray` is `readonly Provider[]`, an array of any length.
+
+At a named array's declaration, where no `const` type parameter asks for a
+fixed-length array type, TypeScript **widens** each entry: it infers the
+general type in place of the exact one. The fence below declares three arrays:
+
+- `annotated` holds `[ThemeProvider, {}]`, missing the `theme` that
+  [`ThemeProvider`](../type-checking#three-ways-to-write-a-provider-entry)
+  requires. It is typed `ProviderArray` and renders with no error.
+- `constant` holds the same entry `as const` and reports the missing prop.
+- `plain` holds a correct entry with no `as const`. The entry widens, and
+  `ComposeProvider` refuses it.
+
+`markup` is `annotated`, rendered with `renderToStaticMarkup`:
+
+```tsx twoslash file=libs/compose/README.md region=named-array
+
+```
+
+`plain`'s entry `[ThemeProvider, { theme: 'dark' }]` widens to
+`(typeof ThemeProvider | { theme: string })[]`, an array of any length holding
+components and objects. That is not a two-element tuple, so it is not a
+`Provider`. The error ends `is not assignable to type 'ProviderArray'` and names
+no prop. The declaration decides what `ComposeProvider` checks:
+
+| Declaration                                     | What `ComposeProvider` checks                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `providers={[…]}`, inline                       | every entry                                                               |
+| `const providers = […] as const`                | every entry                                                               |
+| `const providers = […]`                         | no props, and it refuses every hand-written tuple, a correct one included |
+| `const providers: ProviderArray = […]`          | nothing, and reports no error                                             |
+| `const providers = […] satisfies ProviderArray` | nothing, and reports no error                                             |
+
+An annotation gives the array the type `ProviderArray`. `satisfies ProviderArray`
+leaves the array its inferred type, but TypeScript infers that type against
+`ProviderArray`, whose length is `number`, so the array's length is `number`
+too. `ComposeProvider` checks entries only in a fixed-length array type, so
+both compile with no error.
+
+A `provider()` entry keeps its check in every row, because `provider()` checked
+its props at the call. A bare `ThemeProvider` is refused in the two
+fixed-length rows, because it requires `theme`. In the other three rows it
+compiles. The plain row refuses a tuple entry only because the tuple widened,
+and a bare component does not widen.
+
+## Wrapping `ComposeProvider` in your own component
+
+`@evanion/compose` exports `ComposeProviderProps<T>`, the props type of
+`ComposeProvider`, where `T` is the type of the `providers` array. A wrapper
+whose `providers` prop is typed `ProviderArray` compiles, and its callers'
+entries go unchecked, because a `ProviderArray` records no length and no type
+per position. Declare the wrapper's type parameter
+`<const T extends ProviderArray>` and type its props `ComposeProviderProps<T>`,
+and the check reaches its callers. The fence's wrapper is `AppProviders`.
+`CartProvider` renders `<div id="cart">` and `ThemeProvider` renders its `theme`
+as the `id`, as on
+[Where the check happens](../type-checking#three-ways-to-write-a-provider-entry):
+
+```tsx twoslash file=libs/compose/README.md region=wrapper
+
+```
+
+The first `<AppProviders>` exists only for its compile error, with `{null}` for
+the children the props type requires. The second renders `markup`.
+
+`extends ProviderArray` only bounds what a caller may pass. `const` makes
+TypeScript infer each caller's inline array as a fixed-length array type, and
+without it the caller's `[ThemeProvider, {}]` compiles with no error.
+`AppProviders` types its props `ComposeProviderProps<T>`, so TypeScript checks
+the caller's array at `<AppProviders>`, as it would inline. Passing `providers`
+to `ComposeProvider` unchanged lets the wrapper's body compile.
+
+## Every @evanion/compose export
+
+[API reference](../api) lists every export of `@evanion/compose`, including
+`ValidateProvider`, the type that produces the messages
+[Where the check happens](../type-checking#what-a-compose-error-message-means)
+lists.
