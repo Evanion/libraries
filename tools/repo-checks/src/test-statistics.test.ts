@@ -6,7 +6,7 @@ import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The `/testing` section renders every register entry, in the order its own
+ * `/testing/security-register` renders every register entry, in the order its own
  * printed rule states, from the test that proves the entry.
  *
  * Three things could drift and none of them would fail a build. The page could
@@ -22,7 +22,10 @@ import { describe, expect, it } from 'vitest';
  * the page that renders the cases.
  */
 
-const PAGE = join(workspaceRoot, 'apps/docs/content/testing/index.mdx');
+const PAGE = join(
+  workspaceRoot,
+  'apps/docs/content/testing/security-register.mdx',
+);
 const REGISTER = join(workspaceRoot, 'libs/acl/SECURITY.md');
 const REDUCTION = join(workspaceRoot, 'apps/docs/tools/statistics.mjs');
 const SUITE = join(workspaceRoot, 'libs/acl/src/security');

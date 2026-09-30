@@ -87,8 +87,9 @@ export function CrossReferences() {
  * The rule the thirty-six cases are ordered by, printed above them.
  *
  * Printed because a reader who cannot see the rule assumes the order was
- * arranged, and every criterion in it is read off the register's own columns.
- * The one editorial part is named: somebody decided SEC-001 carries API3:2023.
+ * arranged. Three criteria are read off the register's columns, and the
+ * fourth, the seeded generator, off the tier 1 test file. The one editorial
+ * part is named: somebody decided SEC-001 carries API3:2023.
  */
 export function RankRule() {
   return (

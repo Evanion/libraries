@@ -1,0 +1,539 @@
+# The acl security register
+
+`libs/acl/SECURITY.md` is the security register of `@evanion/acl`: thirty-six
+classes of attack, each held to a `describe` block of tests that
+`npx nx test @evanion/acl` runs. This page shows every entry beside its tests.
+
+<Provenance />
+
+<PageSheet
+  difficulty={4}
+  read={40}
+  requires={[
+    ['How the Evanion libraries are tested', '/testing'],
+    ['The acl overview', '/acl'],
+  ]}
+  unlocks={[['What coverage measures', '/testing/coverage']]}
+/>
+
+## How to read a case
+
+Each case below is a `vitest` test from `@evanion/acl`'s adversarial suite, the
+tests in `libs/acl/src/security`, and this command runs that suite and nothing
+else:
+
+```bash
+npx nx test @evanion/acl -- src/security
+```
+
+The [acl overview](/acl) defines the matrix, the subject, a rule and a
+decision, and this section defines what the cases use beyond those.
+
+The cases are set in Baize, the board game shop of the acl overview, with the
+object kinds `account` (a customer's), `listing` (a game for sale), `order`,
+`question` (one a customer asked) and `wishlist`, and the roles `customer`,
+`bookseller` and `owner`.
+
+### The helpers every case calls
+
+A case writes its matrix as JSON, the form `parseMatrix` accepts from a producer
+outside your code, such as a policy service written in another language. A
+hostile or malformed matrix arrives that way, and its author never calls
+`policy()`, the builder the acl overview shows. The helpers in
+`libs/acl/src/security/fixtures.ts` build the JSON:
+
+- `permission(object, action, body)` builds one permission and derives its key,
+  such as `listing.read`, from `object`, the object kind, and the action.
+- `raw(node)` passes a permission through unchecked, for a case that attacks the
+  permission's own shape. `rawMatrix(node)` does the same for a whole document.
+- `matrix(permissions, envelope)` wraps the permissions in a matrix. The
+  envelope holds the matrix's other members, such as `version`, which names the
+  matrix's revision so a holder can tell a stale copy, and `schema`, which
+  declares each object kind's fields and their types.
+- `foreign(permissions, options, envelope)` hands the matrix to `parseMatrix`,
+  the entry point for a matrix somebody else wrote. A permission key the matrix
+  does not declare gets a refusal, a decision whose `allowed` is `false`.
+- `local(permissions, options, envelope)` hands it to `hydratePolicy`, the entry
+  point for a matrix your own code wrote, including one your server sent to a
+  browser. A permission key the matrix does not declare throws.
+- `options` is an `AccessOptions`, the evaluator's own settings. Its `version`
+  overrides the version the matrix carries.
+- A rule's `when` member lists its conditions, and the rule matches when all of
+  them hold. `when(...conditions)` builds such a rule, and `always`, a rule with
+  an empty `when`, matches every call. [Conditions](#conditions) gives a
+  condition's shape.
+
+```ts file=libs/acl/src/security/fixtures.ts region=helpers
+
+```
+
+Four more names appear in single cases:
+
+- `fromJson(text)` is `JSON.parse(text)`, which is how a foreign write arrives
+  carrying an own `__proto__` key.
+- `countingSubject(attributes)` returns `{ subject, reads, reset }`. `subject`
+  counts every read of its attributes, `reads()` returns the count, and
+  `reset()` sets it to zero.
+- `new Gen(rng(seed))`, from `generator.ts`, is a seeded random generator, so a
+  failing draw names the seed that reruns it. `gen.pick(values)` draws one
+  value, `gen.list(max, make)` draws a list of up to `max` items, and
+  `gen.bool(chance)` draws a boolean that is `true` with that chance.
+- `ruleId(rule, side)` is the identifier a decision's `rule` field carries for
+  that rule, where `side` is `'allow'` or `'deny'`.
+
+### Conditions
+
+A condition is `{ field, op, value }` or `{ field, op, path }`. `field` is a
+path such as `subject.role` or `object.status`, or `now`, the clock. `value` is
+a literal to compare with, and `path`, which `eq` accepts, names a second path
+to compare with. The cases use six operators:
+
+- `eq` holds when the two sides are equal, with no type coercion.
+- `in` and `not-in` hold when the field's value is, or is not, in the list
+  `value`.
+- `contains` holds when the field's value is a list that holds `value`.
+- `before` and `after` hold when `now` is before or after the instant `value`.
+
+### Terms the cases use
+
+- A permission's deny rules sit in `denyRules`, beside its allow rules in
+  `rules`. A deny rule that matches refuses, whatever the allow rules say.
+- A field list such as `fields: ['*', '!role']` names the fields a permission
+  lets a caller read or write. `*` is the baseline, every field, and `!role` is an
+  exclusion. Both are syntax, and neither is ever a field name.
+- `fields` can also be an object. Its `fields` member holds the list, and every
+  other member names a field and a config for it. `targets` lists the values a
+  write may set on the field, and `transitions` maps the field's current value
+  to the values it may move to. With configs and no list, every field the
+  configs do not name stays writable.
+- A projection is a row loaded with some of its fields. A rule that reads a
+  field the projection lacks cannot be settled. The decision is then
+  `unevaluable` in two cases: the unsettled rule is a deny rule and the allow
+  rules have not all failed, or it is an allow rule and no other allow rule
+  matched. `decision.missing` names the fields to fetch.
+
+A decision's `reason` in these cases is one of five values:
+
+| `reason`          | When                                               |
+| ----------------- | -------------------------------------------------- |
+| `denied`          | a deny rule matched                                |
+| `no-rule-matched` | no allow rule matched                              |
+| `unknown-action`  | the matrix declares no permission for the action   |
+| `unevaluable`     | a rule read a field the projection lacks, as above |
+| `unusable-clock`  | a time condition read a clock that does not parse  |
+
+A field's entry in `reasons` can also be `transition-failed`: the write moves
+the field to a value its `transitions` config does not allow from the field's
+current value.
+
+### The evaluator
+
+`foreign` and `local` return an evaluator, which the cases call `access`. The
+cases use these members of it:
+
+- `can(subject, kind, action, row?, now?)` returns one decision. `now` is the
+  clock a time condition reads, and without it the evaluator reads the wall
+  clock.
+- `canFields(subject, kind, action, row, axis, proposed?)` also decides each
+  field. `axis` is `'read'` for the fields of `row`, or `'write'` for the fields
+  of `proposed`, the write a caller submitted. Its result carries `fields`,
+  which marks each field `'allowed'`, `'denied'` or `'unevaluable'`, and
+  `reasons`, which names why per field. `action` is the decision on the action
+  alone, and `allowed` is true only when the action and every field allow.
+- `capabilities(subject)` returns a decision for every permission in the matrix,
+  keyed by permission key.
+- `authorize(subject)` returns a handle with the subject bound, so its
+  `can(kind, action)` takes no subject.
+- `access.matrix` is the frozen matrix the evaluator decides from, and
+  `access.version` is its version.
+
+`pickAllowedFields(decision, proposed)` is a function, not a member. It
+returns the part of `proposed` that a `canFields` decision marked `'allowed'`,
+and throws when the action itself is refused.
+
+## The three tiers
+
+Every entry in `@evanion/acl`'s register sits in one of three tiers, and the
+tier decides what the entry's test may claim:
+
+- Tier 1, prevented. The attack ends in a construction error or a refusal, and
+  the test asserts one of the two. A construction error is an exception such as
+  `InvalidRuleError` that `foreign` or `local` throws while it builds the
+  evaluator.
+- Tier 2, primitive supplied. `@evanion/acl` supplies the primitive that defends
+  against the attack, such as `pickAllowedFields` or `access.version`, and your
+  code has to use it. The test asserts the primitive is correct and, where a
+  hand-written idiom exists, that the idiom fails on the same decision. SEC-101's
+  idiom filters a write by hand on `!== 'denied'`, which keeps the unevaluable
+  fields.
+- Tier 3, out of scope. An evaluator cannot defend against the class. The test
+  pins what the evaluator does, so nobody reads its answer as a defence. A
+  second test in the same `describe`, not shown here, checks that the acl README
+  states the limit.
+
+<RegisterCounts />
+
+Each entry names its class in the Common Weakness Enumeration (CWE), and some
+also name an entry in one of the Open Worldwide Application Security Project
+(OWASP) Top 10 lists. API3:2023, for example, is the third entry of the OWASP
+API Security Top 10 of 2023: broken object property level authorization.
+
+<CrossReferences />
+
+## The order of the cases
+
+The page shows `@evanion/acl`'s cases in four groups. Three of the four
+criteria come from the register's columns: the tier, the OWASP identifier, and
+whether every clause of the Mechanism column names construction. The fourth,
+whether a case draws from the seeded generator, comes from the test file.
+
+1. Tier 3 leads, because an entry stating that no defence exists is the hardest
+   to fake.
+2. Tier 2 follows, because a primitive your code skips is the mistake you are
+   most likely to make.
+3. Tier 1 entries whose defence acts when a decision is made come next, since a
+   wrong grant there raises no error. The entries carrying an OWASP identifier
+   come first, then SEC-019, which draws its writes from the seeded generator,
+   then the rest by identifier.
+4. Tier 1 entries whose whole mechanism is a construction error come last,
+   because the first run of the code throws.
+
+Every group but the third runs by identifier. The OWASP column is the one place
+the order rests on a judgement, since somebody chose each mapping. The register
+maps SEC-001 to API3:2023, and without that mapping SEC-001 would sort after
+SEC-019. `tools/repo-checks/src/test-statistics.test.ts` fails the build when
+the cases on this page leave this order.
+
+<RankRule />
+
+## The acl register's thirty-six cases
+
+`@evanion/acl`'s thirty-six register entries follow, each with its test, in
+four groups: out of scope, primitive supplied, prevented when a decision is
+made, and refused at construction.
+
+<CaseFilter />
+
+### Out of scope, published as a non-defence
+
+<Case id="SEC-201">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-201
+
+```
+
+</Case>
+
+<Case id="SEC-202">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-202
+
+```
+
+</Case>
+
+<Case id="SEC-203">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-203
+
+```
+
+</Case>
+
+<Case id="SEC-204">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-204
+
+```
+
+</Case>
+
+<Case id="SEC-205">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-205
+
+```
+
+</Case>
+
+<Case id="SEC-206">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-206
+
+```
+
+</Case>
+
+<Case id="SEC-207">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-207
+
+```
+
+</Case>
+
+<Case id="SEC-208">
+
+```ts file=libs/acl/src/security/tier3-contract.test.ts region=sec-208
+
+```
+
+</Case>
+
+### The primitive exists, your code has to use it
+
+<Case id="SEC-101">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-101
+
+```
+
+</Case>
+
+<Case id="SEC-102">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-102
+
+```
+
+</Case>
+
+<Case id="SEC-103">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-103
+
+```
+
+</Case>
+
+<Case id="SEC-104">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-104
+
+```
+
+</Case>
+
+<Case id="SEC-105">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-105
+
+```
+
+</Case>
+
+<Case id="SEC-106">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-106
+
+```
+
+</Case>
+
+<Case id="SEC-107">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-107
+
+```
+
+</Case>
+
+<Case id="SEC-108">
+
+```ts file=libs/acl/src/security/tier2-primitives.test.ts region=sec-108
+
+```
+
+</Case>
+
+### Prevented when a decision is made
+
+<Case id="SEC-001">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-001
+
+```
+
+</Case>
+
+<Case id="SEC-004">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-004
+
+```
+
+</Case>
+
+<Case id="SEC-010">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-010
+
+```
+
+</Case>
+
+<Case id="SEC-011">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-011
+
+```
+
+</Case>
+
+<Case id="SEC-019">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-019
+
+```
+
+</Case>
+
+<Case id="SEC-005">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-005
+
+```
+
+</Case>
+
+<Case id="SEC-006">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-006
+
+```
+
+</Case>
+
+<Case id="SEC-007">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-007
+
+```
+
+</Case>
+
+<Case id="SEC-008">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-008
+
+```
+
+</Case>
+
+<Case id="SEC-012">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-012
+
+```
+
+</Case>
+
+<Case id="SEC-013">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-013
+
+```
+
+</Case>
+
+<Case id="SEC-014">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-014
+
+```
+
+</Case>
+
+<Case id="SEC-016">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-016
+
+```
+
+</Case>
+
+<Case id="SEC-017">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-017
+
+```
+
+</Case>
+
+<Case id="SEC-018">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-018
+
+```
+
+</Case>
+
+### Refused at construction
+
+<Case id="SEC-002">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-002
+
+```
+
+</Case>
+
+<Case id="SEC-003">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-003
+
+```
+
+</Case>
+
+<Case id="SEC-009">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-009
+
+```
+
+</Case>
+
+<Case id="SEC-015">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-015
+
+```
+
+</Case>
+
+<Case id="SEC-020">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-020
+
+```
+
+</Case>
+
+## What the register cannot show
+
+`@evanion/acl`'s register tests only the attacks it names, and only inside the
+evaluator, so an application built on it has attack surface no case reaches.
+
+### The register covers the classes somebody named
+
+Each entry is a class somebody named, and a class nobody
+named has no entry and no test. SEC-019 comes closest to an exception, drawing
+400 writes from a seeded generator. It still draws them from key shapes
+somebody chose, against a property somebody stated.
+
+### The register describes one library at one layer
+
+The eight tier 3 entries are what [the acl security contract](/acl/security)
+spells out. SEC-205 pins that one call returns the same decision wherever it
+runs. In a browser that decision hides a control, and a request sent without the
+control still reaches the server, so only the server's decision guards the
+write. The tier 3 entries list what your application does itself: resolve the
+subject from a verified session, call `can` on every path, re-check inside the
+write's transaction, and take the clock from the server.
+
+## How much of the library the suite runs
+
+[What coverage measures](/testing/coverage) gives `@evanion/acl`'s statement
+and branch coverage beside every other library's, and names the acl files whose
+branches no test took.

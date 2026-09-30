@@ -228,13 +228,16 @@ function refusedAtConstruction(entry) {
  * The thirty-six cases in the order the page shows them, by the rule the page
  * prints above them.
  *
- * Every criterion is read off the register's own columns. Tier 3 leads because
- * an entry publishing a non-defence is the least fakeable thing here. Tier 2
- * follows, because those are the mistakes a competent engineer makes. Then
- * tier 1 whose defence acts when a decision is made, which is where a wrong
- * grant would be silent, with the entries carrying an OWASP identifier first
- * and the seeded generator after them. Last, the entries refused at
- * construction, because a construction error is loud.
+ * The tier, the OWASP identifier and whether every mechanism clause names
+ * construction are read off the register's columns. Whether an entry draws
+ * from the seeded generator comes from `generated`, which the caller reads out
+ * of the tier 1 test file. Tier 3 leads because an entry publishing a
+ * non-defence is the least fakeable thing here. Tier 2 follows, because those
+ * are the mistakes a competent engineer makes. Then tier 1 whose defence acts
+ * when a decision is made, which is where a wrong grant would be silent, with
+ * the entries carrying an OWASP identifier first and the seeded generator
+ * after them. Last, the entries refused at construction, because a
+ * construction error is loud.
  */
 export function rankEntries(entries, { generated = [] } = {}) {
   const rank = (entry) => {
@@ -268,8 +271,8 @@ export const RANK_GROUPS = [
     why: 'An entry stating that no defence exists is the least fakeable thing here, so it leads.',
   },
   {
-    name: 'The primitive exists, the consumer has to use it',
-    why: 'The register states the wrong idiom beside the right one, which is the mistake a competent engineer actually makes.',
+    name: 'The primitive exists, your code has to use it',
+    why: 'Where a hand-written idiom exists, the register states it beside the primitive, and that idiom is the mistake a competent engineer actually makes.',
   },
   {
     name: 'Prevented when a decision is made',
