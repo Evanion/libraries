@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { bucketOf, inRollout, murmur3 } from './bucketing.js';
+import {
+  bucketOf,
+  inRollout,
+  murmur3,
+  murmur3Bytes,
+  utf8,
+} from './bucketing.js';
 
 /**
  * The three properties `docs/specs/2026-09-11-feature-toggles.md`, "Rollout
@@ -168,5 +174,53 @@ describe('murmur3', () => {
     } finally {
       Reflect.set(globalThis, 'TextEncoder', encoder);
     }
+  });
+});
+
+describe('murmur3Bytes', () => {
+  it('hashes a byte array the way murmur3 hashes the text it encodes', () => {
+    for (const text of [
+      '',
+      'a',
+      'abc',
+      'hello',
+      '\u00e9',
+      '\u65e5\u672c\u8a9e',
+      '\ud83c\udf89',
+      'a\ud83c\udf89b',
+    ]) {
+      expect(murmur3Bytes(utf8(text))).toBe(murmur3(text));
+    }
+  });
+
+  it('hashes one byte array under each seed the digest widens with', () => {
+    // `configDigest` encodes the canonical text once and calls this once per
+    // seed, so the four words of a digest read one array.
+    const bytes = utf8('hello');
+
+    for (const seed of [0x00000000, 0x9747b28c, 0x2f1e3d4c, 0xb7e15163]) {
+      expect(murmur3Bytes(bytes, seed)).toBe(murmur3('hello', seed));
+    }
+  });
+
+  it('leaves the array it reads untouched', () => {
+    const bytes = utf8('hello');
+
+    murmur3Bytes(bytes, 0x9747b28c);
+
+    expect(bytes).toEqual(utf8('hello'));
+  });
+
+  it('reads a tail of one, two and three bytes past the last block', () => {
+    // The tail loop stands where the reference implementation writes a
+    // fallthrough switch, and a length that is not a multiple of four is the
+    // only input that reaches it.
+    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65])).toBe(murmur3('abcde'));
+    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65, 0x66])).toBe(
+      murmur3('abcdef'),
+    );
+    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67])).toBe(
+      murmur3('abcdefg'),
+    );
   });
 });

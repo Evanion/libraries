@@ -1,4 +1,4 @@
-import { murmur3 } from './bucketing.js';
+import { murmur3Bytes, utf8 } from './bucketing.js';
 import { canonical } from './canonical.js';
 import type { FeatureConfig } from './config.js';
 
@@ -52,8 +52,8 @@ export function configDigest(config: FeatureConfig): string {
   const body: Record<string, unknown> = { ...config };
   delete body['digest'];
   delete body['version'];
-  const text = canonical(body);
+  const bytes = utf8(canonical(body));
   return SEEDS.map((seed) =>
-    murmur3(text, seed).toString(16).padStart(8, '0'),
+    murmur3Bytes(bytes, seed).toString(16).padStart(8, '0'),
   ).join('');
 }
