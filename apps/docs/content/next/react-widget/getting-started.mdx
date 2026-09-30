@@ -1,51 +1,63 @@
 # Getting started
 
-By the end of this page `Widgets` renders a Baize listing from one item, and you
-have the HTML React wrote for it.
+By the end of this page `Widgets` renders a Baize listing from an item array
+held in a variable, and you have the HTML React wrote for it.
 
 <PageSheet
   difficulty={1}
   read={5}
-  hands={20}
+  hands={15}
   requires={[['Overview', '../']]}
   unlocks={[['Writing and checking items', '../examples']]}
 />
 
 ## Before you install react-widget
 
-- React 18 or 19, the only peer dependency.
-- `react-dom` at the same version. The example below imports
-  `renderToStaticMarkup` from it.
 - Node 20 or newer.
-- An ESM project, since the package ships no CommonJS build.
-- TypeScript 5.0 or newer for the compile-time check, because the published
-  types use a `const` type parameter. The components render without TypeScript.
+- React 18 or 19, the only peer dependency, and `react-dom` at the same
+  version. The example below imports `renderToStaticMarkup` from
+  `react-dom/server`.
+- An ES module project, meaning `"type": "module"` in `package.json`. The
+  package ships no CommonJS build.
+- TypeScript 5.0 or newer, the first version that reads the package's types,
+  with `"jsx": "react-jsx"` under `compilerOptions` in `tsconfig.json`. That
+  setting compiles JSX in a file that imports no `React`.
+
+In an empty directory, these commands create such a project, with `tsx` to run
+a TypeScript file:
+
+```bash
+npm init -y
+npm pkg set type=module
+npm install --save-dev typescript tsx @types/react @types/react-dom
+npx tsc --init --jsx react-jsx
+```
 
 ## Install react-widget
 
-Pick the line for your package manager.
+Pick the line for your package manager. Each installs React and `react-dom`
+beside the package.
 
 ```bash
-npm install @evanion/react-widget
+npm install @evanion/react-widget react react-dom
 ```
 
 ```bash
-yarn add @evanion/react-widget
+yarn add @evanion/react-widget react react-dom
 ```
 
 ```bash
-pnpm add @evanion/react-widget
+pnpm add @evanion/react-widget react react-dom
 ```
 
-`validateItems` comes from `@evanion/widget`, which this package pins exactly
-and re-exports, so this one install is enough.
+## Render one listing with `renderToStaticMarkup`
 
-## Render one react-widget region
-
-`createWidgets` takes `components`, the component map from a widget type to the
-component that draws it, and returns `Widgets`. `Widgets` takes `items` and
-renders each item's component with its `props`. `renderToStaticMarkup`, from
-`react-dom/server`, returns the HTML React wrote:
+react-widget's `createWidgets` takes `components`, the component map, and
+returns `Widgets` and `defineItems`. TypeScript widens each `type` in an array
+held in a variable to `string`, so passing that array to `Widgets` is a compile
+error. `defineItems` returns the array it is handed, typed against the map, so
+each `type` stays a key of the map. `renderToStaticMarkup`, from
+`react-dom/server`, returns the HTML `Widgets` rendered:
 
 ```tsx twoslash file=libs/react-widget/README.md region=region-markup
 
@@ -53,35 +65,31 @@ renders each item's component with its `props`. `renderToStaticMarkup`, from
 
 To run it:
 
-1. Save the code above as `render.tsx`.
-2. Import `createWidgets` from `@evanion/react-widget` and
-   `renderToStaticMarkup` from `react-dom/server` at the top.
-3. Add `console.log(html)` at the end.
-4. Set `"jsx": "react-jsx"` under `compilerOptions` in `tsconfig.json`. The
-   file imports no `React`, and the classic JSX transform needs it in scope.
-5. Run `npx tsx render.tsx`.
+1. Create `render.tsx` with two imports at the top:
+   `import { createWidgets } from '@evanion/react-widget';` and
+   `import { renderToStaticMarkup } from 'react-dom/server';`.
+2. Paste the code above below them, and add `console.log(html);` at the end.
+3. Run `npx tsx render.tsx`.
 
-The file prints the string in the `// ->` comment. If it does, react-widget is
-working in your project.
+The command prints the string in the `// ->` comment. If it does, react-widget
+is working in your project.
 
-| In the HTML                  | Where it came from                                   |
-| ---------------------------- | ---------------------------------------------------- |
-| `<section>`                  | the default wrapper `Widgets` puts around the region |
-| `<div data-widget-id=…>`     | the default item chrome, carrying the item's `id`    |
-| `data-widget-type="listing"` | the same `<div>`, carrying the item's `type`         |
-| `<h3>Brass: Birmingham</h3>` | `ListingCard`, the only markup the widget wrote      |
+| In the HTML                  | Where it came from                                    |
+| ---------------------------- | ----------------------------------------------------- |
+| `<section>`                  | the default `chrome.wrapper`, around the whole region |
+| `<div data-widget-id=…>`     | the default `chrome.item`, carrying the item's `id`   |
+| `data-widget-type="listing"` | the same `<div>`, carrying the item's `type`          |
+| `<h3>Brass: Birmingham, …`   | `ListingCard`, the only markup the widget wrote       |
 
-`as const` keeps `type` the literal `'listing'`. Without it TypeScript widens
-the type to `string`, and passing the array to `Widgets` is a compile error. An
-array written inline in the JSX, as on the Overview, is typed in place and needs
-no `as const`. `defineItems`, from the Overview's capability table, types a
-whole array held in a variable.
+`tsx` runs a file without checking its types. `npx tsc --noEmit` runs the
+check: change `price` to `'649'` and it reports
+`Type 'string' is not assignable to type 'number'` on that line.
 
 Call `createWidgets` once, at module scope. Each call returns a new `Widgets`
 component, so a call inside a component remounts the region on every render.
 
-## Now that a region renders, check the items you write
+## Check the items you write
 
-[Writing and checking items](../examples) types an item array held in
-a variable, nests items under a widget, and checks a CMS payload before
-`Widgets` renders it.
+react-widget now renders a typed item array in your project.
+[Writing and checking items](../examples) nests items under a widget and checks
+a CMS payload before `Widgets` renders it.

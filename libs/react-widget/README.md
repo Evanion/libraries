@@ -40,26 +40,37 @@ npm install @evanion/react-widget
 
 ## One component map, one item array, one region
 
+The examples in this README leave out three imports:
+`import * as React from 'react'`,
+`import { renderToStaticMarkup, renderToString } from 'react-dom/server'` and
+`import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget'`.
+
 `components` maps a `type` to a component, an item says which component to render
-and with what props, and `Widgets` renders one against the other. The string below
-is the markup it produced:
+and with what props, and `Widgets` renders one against the other. The string
+below is the markup it produced:
 
 <!-- #region region-markup -->
 
 ```tsx @import.meta.vitest
-const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+const ListingCard = (props: { title: string; price: number }) => (
+  <h3>
+    {props.title}, {props.price} kr
+  </h3>
+);
 
-const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+const { Widgets, defineItems } = createWidgets({
+  components: { listing: ListingCard },
+});
 
-const shelf = [
+const shelf = defineItems([
   {
     id: 'brass',
-    type: 'listing' as const,
-    props: { title: 'Brass: Birmingham' },
+    type: 'listing',
+    props: { title: 'Brass: Birmingham', price: 649 },
   },
-];
+]);
 
-const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham</h3></div></section>'
+const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham, 649 kr</h3></div></section>'
 ```
 
 <!-- #endregion region-markup -->
@@ -68,7 +79,8 @@ The `section` is the region's default wrapper, and `chrome.wrapper` replaces it.
 Inside it the renderer puts each widget in an element carrying the item's `id` and
 `type`, so a widget is findable in the DOM without the widget rendering the
 attributes itself. Add a second item and it renders after the first, in the order
-the array reads.
+the array reads. `defineItems` types the array against the component map, which
+the next section explains.
 
 Call `createWidgets` once, at module scope. It returns a new `Widgets` component
 on every call, so calling it inside a component remounts the region on every
