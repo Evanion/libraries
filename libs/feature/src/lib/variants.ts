@@ -89,17 +89,23 @@ export interface VariantCheckOptions {
    * document either way, so § 7 of
    * `docs/specs/2026-09-23-feature-config-distribution.md` has them reported and
    * an operator who fixes the element and re-polls meets neither for the first
-   * time. The checks that read the set as a whole stand down: the dropped
-   * element carries a weight the total is missing, an `order` the count is
-   * missing, and a name a pin may hold, so an empty set, a zero total, an order
-   * declared on none of the variants and an unknown pin would each name a defect
-   * the document does not carry. The two bucketing members § 3 requires are read
-   * off the definition and not the set, so they are reported.
+   * time. Three checks that read the set as a whole stand down: the dropped
+   * element carries a weight the total is missing and a name a pin may hold, so
+   * an empty set, a zero total and an unknown pin would each name a defect the
+   * document does not carry. The two bucketing members § 3 requires are read off
+   * the definition and not the set, so they are reported.
    *
-   * A partial declaration is reported. One variant here declaring an order
-   * beside one that does not is two orderings among the elements the caller
-   * read, and the element it dropped changes neither of them, so the mixed
-   * declaration is a defect the document carries whatever that element holds.
+   * Both order checks are reported. One variant here declaring an order beside
+   * one that does not is two orderings among the elements the caller read, and
+   * the element it dropped changes neither of them. Where none of them declares
+   * one, the dropped element decides which order defect the document carries and
+   * not whether it carries one: an `order` on that element mixes the declaration
+   * across the set, and no `order` on it leaves the declaration absent. So the
+   * refusal names the member at the first poll either way, and an operator who
+   * replaces the element reads no order defect for the first time on a second
+   * one. A set holding no readable element at all is the one case that stands
+   * down, because a single dropped element declaring an order is a complete
+   * declaration.
    */
   readonly everyVariant?: boolean;
   /**
@@ -310,7 +316,11 @@ export function variantErrors<F extends FeatureKey>(
     }
   }
 
-  if (whole && declaredOrders === 0 && options.arrayIsOrder !== true) {
+  if (
+    declaredOrders === 0 &&
+    variants.length > 0 &&
+    options.arrayIsOrder !== true
+  ) {
     // The spec's 18 codes name no missing member, and this is the same thing an
     // operator fixes as the partial declaration below: the orders the document
     // carries are not the ones the walk needs.
@@ -321,11 +331,18 @@ export function variantErrors<F extends FeatureKey>(
     // length one has its whole document refused the day an author adds a second
     // variant. `serializeConfig` writes an order on every variant it emits, so
     // no document this package produces meets this refusal.
+    //
+    // Not gated on `whole`, and the message says which set it counted. Every
+    // variant the caller read declares no order, so the element it dropped
+    // leaves the document either an absent declaration or a mixed one, and both
+    // are this code.
     found.push(
       bare(
         'invalid-variant-order',
         'variants',
-        `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`,
+        whole
+          ? `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`
+          : `feature "${key}" declares an order on none of the ${String(variants.length)} variants this checker read, which leaves the declaration absent or mixed whatever the element it could not read carries`,
       ),
     );
   } else if (declaredOrders > 0 && declaredOrders !== variants.length) {
