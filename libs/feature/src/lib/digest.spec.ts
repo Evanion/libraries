@@ -182,6 +182,59 @@ describe('configDigest', () => {
     expect(configDigest(document)).toBe('008719950c5f1e205da50d6e50510cc7');
   });
 
+  it('holds the digest of a document carrying every number text a port guesses at', () => {
+    // The vector above holds no digit, so it pins key sorting, array order and
+    // ASCII string quoting and pins nothing about the number text. `canonical`
+    // delegates a finite number to `JSON.stringify`, which is ECMAScript
+    // `Number::toString`: `1e+21` for 1e21, `1e-7`, `0` for `-0`, and the
+    // shortest text that round-trips for 0.1 + 0.2. A port that formats a
+    // double through Java's `Double.toString` writes `1.0` where this writes
+    // `1`, `1.0E21` where this writes `1e+21`, and disagrees on every document
+    // carrying a weight, an order, a rollout or a `maxStale`.
+    const numbers: FeatureConfig = {
+      maxStale: 60_000,
+      features: [
+        {
+          key: 'x',
+          enabled: true,
+          rules: [{ id: 'ramp', rollout: { percent: 0.1 + 0.2 } }],
+          variants: [
+            { name: 'a', weight: 1, order: -0, value: 1e21 },
+            { name: 'b', weight: 1e-7, order: 1, value: 100 },
+          ],
+        },
+      ],
+    };
+
+    expect(configDigest(numbers)).toBe('a0fa63e5dfddfe34132ec38f50359ff0');
+  });
+
+  it('holds the digest of a document carrying every escape a port guesses at', () => {
+    // The other half the vector above leaves open. `canonical` delegates a
+    // string to `JSON.stringify`, which writes `\t` for a tab, lowercase hex in
+    // `\u0001` for a control character, a lone surrogate as `\udfff`, and
+    // leaves `/`, U+2028 and every non-ASCII character raw. A port that escapes
+    // `/`, writes uppercase hex, or emits `\u00e9` for the last character
+    // disagrees on every document carrying one of them.
+    const escapes: FeatureConfig = {
+      features: [
+        {
+          key: 'tab\tkey',
+          enabled: true,
+          variants: [
+            {
+              name: 'a',
+              weight: 1,
+              value: 'soh\u0001slash/sep\u2028lone\udfffnonascii\u00e9',
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(configDigest(escapes)).toBe('452bf789ea05a29f371fa7c2190e17cf');
+  });
+
   it('disagrees when a feature the document declares is turned off', () => {
     const off: FeatureConfig = {
       ...document,

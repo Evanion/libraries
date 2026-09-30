@@ -67,9 +67,35 @@ describe('canonical', () => {
   });
 
   it('writes a finite number the way JSON.stringify writes it', () => {
+    // A producer in another language reproduces this text or it computes a
+    // different digest for every document carrying a variant weight, a variant
+    // order, a `rollout.percent` or a `maxStale`. `JSON.stringify` is
+    // ECMAScript `Number::toString`, so an integral double writes no `.0`, the
+    // exponent forms carry a sign and a lowercase `e`, and a decimal writes the
+    // shortest text that round-trips. Java's `Double.toString` writes `1.0`,
+    // `1.0E21` and `1.0E-7` for three of these.
     expect(canonical(41)).toBe('41');
+    expect(canonical(1)).toBe('1');
     expect(canonical(-0)).toBe('0');
     expect(canonical(1e21)).toBe('1e+21');
+    expect(canonical(1e-7)).toBe('1e-7');
+    expect(canonical(0.1 + 0.2)).toBe('0.30000000000000004');
+  });
+
+  it('writes a string the way JSON.stringify escapes it', () => {
+    // The other half of the same cross-language contract. `JSON.stringify`
+    // escapes a tab and a control character, writes lowercase hex in a `\u`
+    // escape, escapes a lone surrogate, and leaves `/`, U+2028 and every
+    // non-ASCII character raw. A port that escapes `/`, writes uppercase hex or
+    // escapes every non-ASCII character disagrees on every document carrying
+    // one of them.
+    expect(canonical('a\tb')).toBe('"a\\tb"');
+    expect(canonical('a\u0001b')).toBe('"a\\u0001b"');
+    expect(canonical('a\u001fb')).toBe('"a\\u001fb"');
+    expect(canonical('a/b')).toBe('"a/b"');
+    expect(canonical('a\u2028b')).toBe('"a\u2028b"');
+    expect(canonical('a\udfffb')).toBe('"a\\udfffb"');
+    expect(canonical('caf\u00e9')).toBe('"caf\u00e9"');
   });
 
   it('writes a function as a string instead of returning undefined', () => {

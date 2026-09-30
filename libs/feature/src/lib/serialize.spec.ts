@@ -1148,6 +1148,42 @@ describe('serializeConfig', () => {
       expect(document.features.map((each) => each.key)).toEqual(['cta']);
     });
 
+    /**
+     * Every level of the envelope is the walk's own object.
+     *
+     * A caller that assembled its envelope from frozen constants hands the walk
+     * a frozen subtree, and a return of `{ ...envelope, features }` copies the
+     * top level alone. A control plane stamping a field onto
+     * `document.schema.context` then writes nothing under ESM strict semantics
+     * and serves a document missing the member it believes it wrote, which is
+     * the argument the definition side makes at `hands back a definition the
+     * store does not hold` above. The two refusal cases below throw inside the
+     * walk whichever object the return spreads, and the passthrough case above
+     * compares structurally, so this case is the one that holds the result.
+     */
+    it('writes a nested schema member the caller does not hold, so a publisher stamps a field onto it', () => {
+      const context = Object.freeze({
+        fields: Object.freeze({ tier: 'string' as const }),
+      });
+      const schema = Object.freeze({ context });
+      const features = createFeatures([{ key: 'cta', enabled: true }] as const);
+
+      const document = serializeConfig(features, {
+        schema,
+        schemaVersion: 'ctx@4',
+      });
+      const written = document.schema as unknown as {
+        readonly context: Record<string, unknown>;
+      };
+
+      expect(written).not.toBe(schema);
+      expect(written.context).not.toBe(context);
+      expect(Object.isFrozen(written.context)).toBe(false);
+      expect(() => {
+        written.context['publishedBy'] = 'ops';
+      }).not.toThrow();
+    });
+
     it('refuses a maxStale of Infinity, which one JSON hop turns into null', () => {
       // `maxStale` is declared `number`, so `Infinity` sits at it in-type. A
       // document carrying one reaches its holder as `null` while the publisher
