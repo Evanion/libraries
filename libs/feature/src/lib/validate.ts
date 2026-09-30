@@ -149,7 +149,7 @@ interface Readable {
   readonly dependsOn?: readonly FeatureKey[];
   /** Whether the variant walk reads this definition. */
   readonly variants: boolean;
-  /** Whether `rules` arrived as an array of rule objects. */
+  /** Whether `rules` arrived as an array of rule objects naming readable ids. */
   readonly rules: boolean;
   /** Whether every condition of every rule is one `ruleId` can walk. */
   readonly conditions: boolean;
@@ -254,6 +254,12 @@ function conditionIssues(
  * with `reason: 'default-on'`, and neither one reports anything. § 3 states it:
  * a producer that cannot emit a member this document requires emits a document
  * `validateConfig` refuses, and the issue names the member.
+ *
+ * `rule.id` is read because `ruleId` returns it unchanged and `ruleIdErrors` keys
+ * a `Map<string, boolean>` on it. `{ id: 1 }` beside `{ id: '1' }` is two keys in
+ * that map and one name in `Decision.rule`, which is the collision § 2 puts
+ * `duplicate-rule-id` in place to prevent, and a non-string id violates the
+ * declared `string` return of `ruleId` at `rule-id.ts:123` as well.
  *
  * `key` is read here and not only named in a message. Every other check hangs
  * off it: `graphErrors` dedupes on it, `resolveAll` writes it as a property of
@@ -410,6 +416,17 @@ function shapeWalk(
           return;
         }
         if (member !== 'rules') return;
+        const id: unknown = element['id'];
+        if (id !== undefined && typeof id !== 'string') {
+          shapes.rules = false;
+          all.push(
+            unreadable(
+              `${named} declares "id" on the rule at ${path} as ${met(id)}, and this checker reads a string`,
+              `${path}/id`,
+              key,
+            ),
+          );
+        }
         const inner = conditionIssues(element, named, path, key);
         if (inner.length === 0) return;
         shapes.conditions = false;
