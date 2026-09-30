@@ -15,7 +15,12 @@ import type {
 } from './config.js';
 import type { GraphNode } from './graph.js';
 import type { VariantCheckOptions } from './variants.js';
-import type { FeatureDefinition, FeatureKey, Rule } from './types.js';
+import type {
+  FeatureDefinition,
+  FeatureKey,
+  Rule,
+  VariantSpec,
+} from './types.js';
 
 /**
  * One issue, paired with the error the throwing path raises for it.
@@ -145,14 +150,24 @@ const ELEMENTS = { rules: 'rule', variants: 'variant' } as const;
 interface Readable {
   /** The key, when it arrived as a string or a number. */
   readonly key?: FeatureKey;
-  /** The dependencies, when every element arrived as a key. */
+  /** The dependencies that arrived as keys, when `dependsOn` is an array. */
   readonly dependsOn?: readonly FeatureKey[];
-  /** Whether the variant walk reads this definition. */
+  /** Whether `variants` is an array the variant walk reads. */
   readonly variants: boolean;
-  /** Whether `rules` arrived as an array of rule objects naming readable ids. */
+  /** Whether `rules` is an array the rule walks read. */
   readonly rules: boolean;
   /** Whether every condition of every rule is one `ruleId` can walk. */
   readonly conditions: boolean;
+  /**
+   * The variants the checker read, where it could not read every element of the
+   * array. Absent where it read them all, and where `variants` is not an array.
+   */
+  readonly someVariants?: readonly VariantSpec[];
+  /**
+   * The rules the checker read, where it could not read every element of the
+   * array or the id one of them declares. Absent under the same two cases.
+   */
+  readonly someRules?: readonly Rule[];
 }
 
 /** Nothing the walks after it can read, for a definition that is not an object. */
@@ -383,9 +398,18 @@ function shapeWalk(
     let dependsOn: readonly FeatureKey[] | undefined;
     if (shapes.dependsOn && Array.isArray(declared)) {
       const elements: readonly unknown[] = declared;
+      // The elements that answered `isKey`. An element the checker could not
+      // read costs the graph that one edge and no other: the siblings name rows
+      // the document declares, and a walk over a subset of the edges reports no
+      // cycle and no unknown dependency the whole set does not carry. § 7 has
+      // the operator who drops the element meet no issue that was in the
+      // document all along.
+      const edges: FeatureKey[] = [];
       elements.forEach((element, inside) => {
-        if (isKey(element)) return;
-        shapes.dependsOn = false;
+        if (isKey(element)) {
+          edges.push(element);
+          return;
+        }
         all.push(
           unreadable(
             `${named} declares the dependency at ${pointer(at, 'dependsOn')}/${String(inside)} as ${met(element)}, and this checker reads a key`,
@@ -394,9 +418,21 @@ function shapeWalk(
           ),
         );
       });
-      // Every element answered `isKey` above.
-      if (shapes.dependsOn) dependsOn = elements as readonly FeatureKey[];
+      dependsOn = edges;
     }
+
+    // The elements of each member the checker read, and whether those are every
+    // element the document declares. An element it could not read costs the
+    // walks after it that one element, so the duplicate name two readable
+    // variants carry and the id two readable rules answer are still reported.
+    const read: Record<'variants' | 'rules', unknown[]> = {
+      variants: [],
+      rules: [],
+    };
+    const every: Record<'variants' | 'rules', boolean> = {
+      variants: true,
+      rules: true,
+    };
 
     for (const member of ['variants', 'rules'] as const) {
       const value: unknown = definition[member];
@@ -405,7 +441,7 @@ function shapeWalk(
       elements.forEach((element, inside) => {
         const path = `${pointer(at, member)}/${String(inside)}`;
         if (!isRecord(element)) {
-          shapes[member] = false;
+          every[member] = false;
           all.push(
             unreadable(
               `${named} declares the ${ELEMENTS[member]} at ${path} as ${met(element)}, and this checker reads an object`,
@@ -415,10 +451,14 @@ function shapeWalk(
           );
           return;
         }
-        if (member !== 'rules') return;
+        if (member !== 'rules') {
+          read.variants.push(element);
+          return;
+        }
         const id: unknown = element['id'];
-        if (id !== undefined && typeof id !== 'string') {
-          shapes.rules = false;
+        const readableId = id === undefined || typeof id === 'string';
+        if (!readableId) {
+          every.rules = false;
           all.push(
             unreadable(
               `${named} declares "id" on the rule at ${path} as ${met(id)}, and this checker reads a string`,
@@ -428,9 +468,13 @@ function shapeWalk(
           );
         }
         const inner = conditionIssues(element, named, path, key);
-        if (inner.length === 0) return;
-        shapes.conditions = false;
-        if (served) all.push(...inner);
+        if (inner.length > 0) {
+          shapes.conditions = false;
+          if (served) all.push(...inner);
+        }
+        // A rule whose id is not a string is one `ruleIdErrors` would key its
+        // map on, so it is the one rule the id walk drops.
+        if (readableId) read.rules.push(element);
       });
     }
 
@@ -440,6 +484,12 @@ function shapeWalk(
       variants: shapes.variants,
       rules: shapes.rules,
       conditions: shapes.conditions,
+      // Each element answered `isRecord` above, which is the shape the walks
+      // after this one read their members off.
+      ...(every.variants
+        ? {}
+        : { someVariants: read.variants as readonly VariantSpec[] }),
+      ...(every.rules ? {} : { someRules: read.rules as readonly Rule[] }),
     });
   });
 
@@ -572,13 +622,23 @@ export function collectIssues(
     const definition = config.features[at];
     if (!definition) return;
 
+    // The definition the walks below read, whose `variants` and `rules` hold
+    // the elements the shape walk read. An element it could not read is the one
+    // element they drop.
+    const walked: FeatureDefinition<FeatureKey> = {
+      ...definition,
+      ...(row.someVariants === undefined ? {} : { variants: row.someVariants }),
+      ...(row.someRules === undefined ? {} : { rules: row.someRules }),
+    };
+
     // `variantErrors` reads `variants`, and reads `rules` for the variant pins
     // alone, so it runs wherever the checker read the variants and `rulePins`
     // carries what it made of the rules.
     if (row.variants) {
-      for (const defect of variantErrors(definition, {
+      for (const defect of variantErrors(walked, {
         ...options,
         rulePins: row.rules,
+        everyVariant: row.someVariants === undefined,
       })) {
         all.push(
           found(defect.code, defect.error, row.key, pointer(at, defect.member)),
@@ -589,7 +649,7 @@ export function collectIssues(
     // `ruleIdErrors` derives a name from a rule's conditions, so it derives one
     // only where the checker walked them.
     if (!row.rules) return;
-    for (const error of ruleIdErrors(definition, row.conditions)) {
+    for (const error of ruleIdErrors(walked, row.conditions)) {
       all.push(
         found('duplicate-rule-id', error, row.key, pointer(at, 'rules')),
       );

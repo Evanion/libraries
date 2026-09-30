@@ -79,6 +79,24 @@ export interface VariantCheckOptions {
    * that was in the document all along.
    */
   readonly rulePins?: boolean;
+  /**
+   * Whether `variants` holds every variant the document declares.
+   *
+   * `collectIssues` passes `false` for a definition whose `variants` array
+   * carries an element it could not read, which it has already reported as
+   * `unknown-member`, and hands this function the elements it did read. A name
+   * two of those declare and a weight one of them gives are defects of the
+   * document either way, so § 7 of
+   * `docs/specs/2026-09-23-feature-config-distribution.md` has them reported and
+   * an operator who fixes the element and re-polls meets neither for the first
+   * time. The checks that read the set as a whole stand down: the dropped
+   * element carries a weight the total is missing, an `order` the count is
+   * missing, and a name a pin may hold, so an empty set, a zero total, a partial
+   * order declaration and an unknown pin would each name a defect the document
+   * does not carry. The two bucketing members § 3 requires are read off the
+   * definition and not the set, so they are reported.
+   */
+  readonly everyVariant?: boolean;
 }
 
 /** What a holder does with a stripped member, for the message that refuses it. */
@@ -121,9 +139,10 @@ function bare(
  * and the `variantBy` and `variantSeed` § 3 has travel whole.
  *
  * Every variant and every rule arrives as the object its type declares.
- * `collectIssues` refuses a document whose `variants` is not an array of objects
- * before it reaches this function, and turns `rulePins` off where `rules` is the
- * member it could not read.
+ * `collectIssues` reports an element of either array that is not an object and
+ * hands this function the elements it read, with `everyVariant` off where it
+ * dropped a variant and `rulePins` off where `rules` is the member it could not
+ * read at all.
  */
 export function variantErrors<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
@@ -132,8 +151,9 @@ export function variantErrors<F extends FeatureKey>(
   const found: VariantDefect[] = [];
   const key = String(definition.key);
   const variants = definition.variants;
+  const whole = options.everyVariant !== false;
   const pins: readonly Rule[] =
-    options.rulePins === false ? [] : (definition.rules ?? []);
+    options.rulePins === false || !whole ? [] : (definition.rules ?? []);
   if (!variants) {
     for (const rule of pins) {
       if (rule.variant !== undefined) {
@@ -147,7 +167,7 @@ export function variantErrors<F extends FeatureKey>(
     return found;
   }
 
-  if (variants.length === 0) {
+  if (whole && variants.length === 0) {
     found.push(
       bare(
         'empty-variants',
@@ -210,7 +230,7 @@ export function variantErrors<F extends FeatureKey>(
     }
   }
 
-  if (!unusableWeight) {
+  if (whole && !unusableWeight) {
     if (total <= 0) {
       found.push(
         bare(
@@ -231,7 +251,7 @@ export function variantErrors<F extends FeatureKey>(
     }
   }
 
-  if (declaredOrders === 0 && options.arrayIsOrder !== true) {
+  if (whole && declaredOrders === 0 && options.arrayIsOrder !== true) {
     // The spec's 18 codes name no missing member, and this is the same thing an
     // operator fixes as the partial declaration below: the orders the document
     // carries are not the ones the walk needs.
@@ -249,7 +269,7 @@ export function variantErrors<F extends FeatureKey>(
         `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`,
       ),
     );
-  } else if (declaredOrders > 0 && declaredOrders !== variants.length) {
+  } else if (whole && declaredOrders > 0 && declaredOrders !== variants.length) {
     found.push(
       bare(
         'invalid-variant-order',
