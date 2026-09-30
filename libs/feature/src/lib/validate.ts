@@ -796,7 +796,7 @@ function shapeWalk(
           // is reported here rather than dropped. `ruleIdErrors` skips it after
           // this, the way it skips a rule whose `when` the walk refused.
           unwalked.add(element);
-          all.push(unnameable(element, named, path, key));
+          all.push(...unnameable(element, named, path, key));
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
         // map on, so it is the one rule the id walk drops.
@@ -877,6 +877,11 @@ function nameable(rule: Rule): boolean {
  * reports every value it cannot read as. The 18 codes name no second one for a
  * value `canonical` has no text for.
  *
+ * Every condition is walked, and not only the first one that raises. § 7 has the
+ * checker report every issue it finds, and an operator who fixes the value one
+ * refusal names would otherwise meet the second condition for the first time at
+ * the next poll.
+ *
  * The rule-level sentence is the fallback, for a rule whose conditions each name
  * on their own. `rolloutText` canonicalises `{ by, seed }`, so a `by` that holds
  * itself raises where no condition does.
@@ -886,35 +891,43 @@ function unnameable(
   named: string,
   at: string,
   key?: FeatureKey,
-): Found {
+): readonly Found[] {
   const when: unknown = rule['when'];
   const conditions: readonly unknown[] = Array.isArray(when) ? when : [];
-  for (let inside = 0; inside < conditions.length; inside += 1) {
-    const condition: unknown = conditions[inside];
-    if (nameable({ when: [condition] } as unknown as Rule)) continue;
+  const all: Found[] = [];
+  conditions.forEach((condition, inside) => {
+    if (nameable({ when: [condition] } as unknown as Rule)) return;
     const path = `${at}/when/${String(inside)}/value`;
     const op: unknown = isRecord(condition) ? condition['op'] : undefined;
     if (op === 'before' || op === 'after') {
-      return found(
-        'invalid-instant',
-        new FeatureConfigError(
-          `${named} declares the instant at ${path} as a value this checker cannot read as a point in time, and the derivation a decision reads this rule's id from raises on it`,
+      all.push(
+        found(
+          'invalid-instant',
+          new FeatureConfigError(
+            `${named} declares the instant at ${path} as a value this checker cannot read as a point in time, and the derivation a decision reads this rule's id from raises on it`,
+          ),
+          key,
+          path,
         ),
-        key,
-        path,
       );
+      return;
     }
-    return unreadable(
-      `${named} declares the value at ${path} as one no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
-      path,
-      key,
+    all.push(
+      unreadable(
+        `${named} declares the value at ${path} as one no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+        path,
+        key,
+      ),
     );
-  }
-  return unreadable(
-    `${named} declares a rule at ${at} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
-    `${at}/when`,
-    key,
-  );
+  });
+  if (all.length > 0) return all;
+  return [
+    unreadable(
+      `${named} declares a rule at ${at} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+      `${at}/when`,
+      key,
+    ),
+  ];
 }
 
 /**
