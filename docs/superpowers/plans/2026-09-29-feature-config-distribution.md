@@ -384,6 +384,9 @@ export type ConfigIssueCode =
   | 'unknown-member'
   | 'digest-mismatch';
 
+/**
+ * One defect `validateConfig` found, with enough detail to name the row.
+ */
 export interface ConfigIssue {
   code: ConfigIssueCode;
   /** The same text the thrown counterpart carries, where one exists. */
@@ -394,6 +397,9 @@ export interface ConfigIssue {
   path?: string;
 }
 
+/**
+ * What `validateConfig` decided. The refusal carries every issue it found.
+ */
 export type ValidationResult =
   { ok: true } | { ok: false; issues: readonly ConfigIssue[] };
 
@@ -458,7 +464,11 @@ Expected: PASS.
 
 Run: `npx nx test repo-checks -- doc-export-coverage`
 
-Every new type fails the documented rule until Task 12 writes the reference entries. Add each new name to the `"undocumented"` array for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`, sorted, and remove them again in Task 12. The list is every name Step 4 exports, and it also carries `DefinitionsOrConfig`, which Task 8 exports and Task 12 documents. Say in the commit body that the allowance entries are temporary and name Task 12.
+Every new type fails the documented rule until Task 12 writes the reference entries. Add each name Step 4 exports to the `"undocumented"` array for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`, sorted, and remove them again in Task 12. `DefinitionsOrConfig` does not go in here: Task 8 is the task that exports it, and the ratchet's `carries no allowance entry that is no longer needed` assertion fails on a name the package does not export yet. Say in the commit body that the allowance entries are temporary and name Task 12.
+
+The allowance file holds three arrays and `doc-export-coverage.test.ts` asserts against all three, so every later task that exports a callable writes two entries in the same commit. A callable with no `twoslash`, `file=` or reference `example=` fence fails the `exercises every callable export in a fence that runs` assertion at its own task's verification step, and Task 12 is where the fences land. So `serializeConfig` (Task 2), `configDigest` (Task 3), `validateConfig` (Task 4) and `parseFeatureConfig` (Task 6) each go into `"unexercised"` as well as `"undocumented"`, in the commit that exports them. Tasks 2, 3 and 4 have shipped and their three entries are in the file already. Task 6 owes the fourth.
+
+`ConfigIssue` and `ValidationResult` carry the docblock Step 3 gives them, so the `gives every published name a docblock` assertion passes and neither name needs an `"unexplained"` entry. Task 1 has shipped and `libs/feature/src/lib/config.ts` carries both docblocks.
 
 - [ ] **Step 7: Run everything and commit**
 
@@ -1523,7 +1533,7 @@ git commit -m "feat(feature): derive an opaque digest from a document"
   - `variants.ts`: `export function variantErrors<F extends FeatureKey>(definition: FeatureDefinition<F>): readonly FeatureConfigError[];` and `validateVariants` unchanged in behaviour.
   - `validate.ts`: `export function validateConfig<F extends FeatureKey>(config: CheckableConfig<F>): ValidationResult;` and, not exported from the package index, `export function collectIssues<F extends FeatureKey>(config: CheckableConfig<F>): readonly Found[];` with `export interface Found { issue: ConfigIssue; error: FeatureConfigError }`.
 
-The parameter is generic, and it is `CheckableConfig<F>` and not `FeatureConfig<F>`, because three callers hand the checker something `FeatureConfig` refuses. `createFeatures` passes definitions whose key is `string | number` and whose window conditions carry a `Date`, which `SerializedWindowCondition.value` does not admit. `reload` passes `FeatureConfig<FeatureKey>`. `parseFeatureConfig` passes `FeatureConfig<keyof S & FeatureKey>`, and Task 7's Step 8 builds a store on the numeric keys 1 and 2. `FeatureConfig`'s own default parameter is `string`, so a non-generic signature written over the default compiles for none of the three. Every helper in `validate.ts` that reads the whole document takes `CheckableConfig<F>` too.
+The parameter is generic, and it is `CheckableConfig<F>` and not `FeatureConfig<F>`, because three callers hand the checker something `FeatureConfig` refuses. `createFeatures` passes definitions whose key is `string | number` and whose window conditions carry a `Date`, which `SerializedWindowCondition.value` does not admit. `reload` passes `FeatureConfig<FeatureKey>`. `parseFeatureConfig` passes `FeatureConfig<Extract<keyof S, FeatureKey>>`, and Task 7's Step 8 builds a store on the numeric keys 1 and 2. `FeatureConfig`'s own default parameter is `string`, so a non-generic signature written over the default compiles for none of the three. Every helper in `validate.ts` that reads the whole document takes `CheckableConfig<F>` too.
 
 Decision 11 says both entry points call one checker. The checker is `collectIssues`, and every issue it reports is built from the error object the throwing path would have thrown, so the message a stack trace carries and the message an operator's console carries are one string by construction and not by agreement.
 
@@ -2739,7 +2749,7 @@ export function parseFeatureConfig<
     VariantInfo | never
   >,
 >(
-  config: FeatureConfig<keyof S & FeatureKey>,
+  config: FeatureConfig<Extract<keyof S, FeatureKey>>,
   options?: FeatureOptions<S>,
 ):
   | { ok: true; features: Features<S, boolean> }
@@ -2747,6 +2757,8 @@ export function parseFeatureConfig<
 ```
 
 The spec sketches `parseFeatureConfig<F extends FeatureKey>(config: FeatureConfig<F>)`. `Features` is generic over a schema now, and a document that arrived as JSON carries no literal for `InferSchema` to read, so the caller names the schema: `parseFeatureConfig<MyFlags>(document)`. That is the same move the second `createFeatures` overload already documents.
+
+The key parameter reads `Extract<keyof S, FeatureKey>`. The two spellings name the same set of keys, and the compiler relates neither one to the other while `S` is unresolved. `createFeatures`'s explicit-schema overloads declare `NoInfer<Extract<keyof S, FeatureKey>>`, so a body that hands over a `FeatureConfig<keyof S & FeatureKey>` reports TS2769 against both of them, falls through to the inferring overload, and then reports TS2322 on `return { ok: true, features }` because `keyof InferSchema<S> & string` is not `keyof S`. Write `Extract` here and the call resolves.
 
 The `options` parameter exists because a process that reloads is exactly the process that wants an observer, and a caller that could not pass one would have to build the store twice.
 
@@ -2857,7 +2869,7 @@ export function parseFeatureConfig<
     VariantInfo | never
   >,
 >(
-  config: FeatureConfig<keyof S & FeatureKey>,
+  config: FeatureConfig<Extract<keyof S, FeatureKey>>,
   options?: FeatureOptions<S>,
 ):
   | { ok: true; features: Features<S, boolean> }
@@ -3181,18 +3193,22 @@ Once those four are `let`, a walk that reads them through the closure sees a swa
 ```ts
 const held = config;
 const walk = graph;
-const at = index;
+const positions = index;
 const definitionAt = (
   key: FeatureKey,
 ): FeatureDefinition<FeatureKey> | undefined => {
-  const position = at.get(key);
+  const position = positions.get(key);
   return position === undefined ? undefined : held[position];
 };
 ```
 
+The three bound locals take these names because `toggle` already declares `const at = index.get(key);` in the same function scope, and a second `const at` there is a duplicate identifier.
+
 The binding is the first statement of `resolveAll`, and not of `resolve`. `resolve` calls `withNow(context)` first, and `withNow` spreads the caller's context, which runs every own enumerable getter on it. A binding after that call would already be too late for a hook the caller hung on a context field. `resolve`, `isEnabled`, `variantOf` and `valueOf` all go through `resolveAll`, so one binding covers them.
 
-`plan` and `toggle` bind after their own `withNow` call, because each of them needs the settled context first. `toggle` then writes `config`, and the `resolveAll` it calls afterwards takes its own fresh binding, so the second resolution reads the array `toggle` just installed.
+`plan` and `toggle` bind after their own `withNow` call, because each of them needs the settled context first.
+
+`toggle` reads the bindings and writes the outer reference. Its lookup becomes `const at = positions.get(key);` and `const current = at === undefined ? undefined : held[at];`, and its copy becomes `const next = [...held];`. The install line stays `config = Object.freeze(next)` and assigns the outer `let`, never `held`, so the store answers from the array `toggle` installed. The `resolveAll` that runs after that line takes a fresh binding of its own and reads that same array, which is what makes `after` differ from `before`.
 
 The store-level `definitionOf` stays as it is. It is what the public `definition` member answers with, and a caller asking for one definition wants the one the store holds now.
 
@@ -3579,7 +3595,7 @@ The returned object spells the member out. `features.ts` already binds `const en
     },
 ```
 
-The existing local keeps its name. Then make `serializeConfig`'s signature `envelope: ConfigEnvelope = features.envelope`. Export `ConfigEnvelope` from the index, which Task 1 already did, and add `envelope` to the allowance array.
+The existing local keeps its name. Then make `serializeConfig`'s signature `envelope: ConfigEnvelope = features.envelope`. Export `ConfigEnvelope` from the index, which Task 1 already did. `envelope` gets no allowance entry: `doc-export-coverage.test.ts` collects the package's exported names, a member of the `Features` interface is not one of them, and the ratchet would fail permanently on an entry that never appears in `gap.undocumented`. That is why Step 5 says nothing about `reload` and `version` either.
 
 Run: `npx nx test feature -- reload serialize`
 Expected: PASS, including the case from Step 1 that asserts `serializeConfig(features).version` is 41.
@@ -3735,17 +3751,24 @@ export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
 ): Features<S, true>;
 ```
 
-The implementation's first parameter widens to `DefinitionsOrConfig`, and the body reads two lines at the top:
+The implementation's first parameter widens to `DefinitionsOrConfig`. Declare one predicate beside it, because `Array.isArray` is declared `arg is any[]` and narrows no union whose array arm is `readonly FeatureDefinition<K>[]`. The false branch of an `Array.isArray(definitions)` test keeps the whole union, so `definitions.features` reports TS2339 and the `CheckableConfig` assignment reports TS2322:
 
 ```ts
-const supplied: readonly FeatureDefinition<FeatureKey>[] = Array.isArray(
-  definitions,
-)
+/** Whether the caller handed over a document and not a bare array. */
+function isDocument(
+  value: DefinitionsOrConfig,
+): value is FeatureConfig<FeatureKey> {
+  return !Array.isArray(value);
+}
+```
+
+The body then reads two lines at the top:
+
+```ts
+const document: CheckableConfig = isDocument(definitions)
   ? definitions
-  : definitions.features;
-const document: CheckableConfig = Array.isArray(definitions)
-  ? { features: supplied }
-  : definitions;
+  : { features: definitions };
+const supplied = document.features;
 ```
 
 Everything the body did with `definitions` now reads `supplied`, and the checker call Task 4 wrote becomes `collectIssues(document)`, so a document is checked whole and an array is checked as a document carrying only `features`. Task 4 hardcoded `collectIssues({ features: config })`, which rebuilds a one-member envelope, and `memberIssues` would never meet `hashVersion`, so Step 5's `refuses a document carrying a member it cannot read` could not pass.
@@ -3754,7 +3777,7 @@ The envelope initialiser becomes the document's own members with `features` remo
 
 ```ts
 let installed: ConfigEnvelope = {};
-if (!Array.isArray(definitions)) {
+if (isDocument(definitions)) {
   const members: Record<string, unknown> = { ...definitions };
   delete members['features'];
   installed = members as ConfigEnvelope;
@@ -3776,7 +3799,9 @@ export function createFeatures<
 ): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
 ```
 
-and tells a document holder to call `parseFeatureConfig`, which Task 6 already ships and which loses nothing but a throw. The fallback exports no `DefinitionsOrConfig`, so drop it from the index, from the allowance array and from Task 12's heading list. Step 5's three cases then move to `parse.spec.ts` as results, and Step 4 below is written against `parseFeatureConfig` instead.
+and tells a document holder to call `parseFeatureConfig`, which Task 6 already ships and which loses nothing but a throw. The fallback exports no `DefinitionsOrConfig`, so drop it from the index, from the allowance array and from Task 12, Step 4's heading list. Step 5's three cases then move to `parse.spec.ts` as results, and Step 4 below is written against `parseFeatureConfig` instead.
+
+The fallback also changes Task 9, which is written throughout against a `createFeatures` that takes a document. Every `createFeatures(<document>)` call there becomes `parseFeatureConfig(<document>)` with an `ok` unwrap: nine calls in `round-trip.spec.ts`, five in Step 1 and four in Step 2, and the `createFeatures(fixture.config)` call in `conformance.spec.ts` at Step 4. The three calls in Step 2 that hand over a bare array stay as they are. Step 1's two `maxStale` cases compare two parsed stores, so each one unwraps both results before it resolves anything. Task 9 needs a rewrite under the fallback and not an adjustment, so report the probe's output before anyone writes either version.
 
 - [ ] **Step 4: Hand `parse.ts` the document itself**
 
@@ -3788,6 +3813,8 @@ const features = createFeatures<S>(
   (options ?? {}) as FeatureOptions<S>,
 );
 ```
+
+`config` is typed `FeatureConfig<Extract<keyof S, FeatureKey>>`, which is what the widened overloads accept. A parameter written `keyof S & FeatureKey` reports TS2769 against both explicit-schema overloads at this call, so Task 6 declares the `Extract` form and this step needs no cast.
 
 Task 6 handed over `config.features`, so the store installed an empty envelope and Task 7's Step 12 default serialized it back with no `version`. Task 9's `produces the document it started from` compares that against a document carrying `version: 41` and cannot pass until this lands. A store built from a document now answers `version` and serializes back to the envelope it arrived in.
 
@@ -4370,7 +4397,7 @@ The `Features<S>` entry gains `reload`, `version` and `envelope`, and the `creat
 
 - [ ] **Step 5: Empty the allowance**
 
-Remove every name Tasks 1 through 8 added to `"undocumented"` for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`. The file must end this task holding exactly the entries it held before Task 1.
+Remove every name Tasks 1 through 8 added to `"undocumented"` for `"@evanion/feature"` in `tools/repo-checks/src/doc-export-coverage-allowance.json`, and remove the four callables Tasks 2, 3, 4 and 6 added to `"unexercised"`. Step 4's running examples are what let the second list empty. The file must end this task holding exactly the entries both arrays held before Task 1.
 
 Run: `npx nx test repo-checks`
 Expected: PASS. `doc-export-coverage` fails on a name with no heading, `doc-exports` fails on a fence importing a name the package does not export, `docs-navigation` fails on a `_meta.ts` key with no page behind it, and `doc-shape` fails on a lede over 40 words.
