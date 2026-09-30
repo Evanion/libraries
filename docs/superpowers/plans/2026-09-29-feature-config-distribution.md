@@ -76,6 +76,8 @@ Input classes the spec implies and no task's happy-path tests would reach. Each 
 
 - A `Date` nested inside a variant `value` or inside an `AttributeCondition.value`. Ruling 4 refuses one at both members, and a serializer that converted there would publish a document whose holders resolve a rule the way the publisher does not. Pinned in Task 2, Step 6.
 - A definition carrying `seed`, `variantBy`, `variantSeed` and `freezeTimeAtBuild`. A round-trip test that compares `key`, `enabled` and `rules` passes while the serializer drops four members that decide bucketing. Pinned in Task 2, Step 7.
+- A `when` holding `null`, and a `when` that arrived as an object. `createFeatures` reads `dependsOn` and `rule.variant` and reads no condition, and its inferring overload takes the `any` `JSON.parse` returns, so a store built from a served document carries whatever a control plane wrote there. The pre-walk that converts a window `Date` reads `rule.when` and `condition.op` before `serialized` sees either one. Pinned in Task 2, Step 8.
+- A window condition whose value is already an ISO string or an epoch number. Every window fixture an implementer writes carries a `Date`, so the pass-through that serves a holder's own store back is the one path in the serializer no happy-path test reaches. Pinned in Task 2, Step 8.
 - A numeric `FeatureKey`. `FeatureKey` is `string | number`, a JSON object key is a string, and the `changed` array, the `Decisions` record and the `duplicate-feature` check all key on it. Pinned in Task 7, Step 8.
 - A variant value that holds itself. `structuredClone` carries a cycle, `deepFreeze` guards for one, and a `changed` diff written as a recursive structural walk does not. Pinned in Task 7, Step 9.
 - An envelope member named `__proto__`, and a context field named `constructor`. The unknown-member walk and the `ContextSchema` lookup both index an object by a string a foreign producer chose. Pinned in Task 5, Step 8.
@@ -458,7 +460,7 @@ git commit -m "feat(feature): declare the configuration envelope"
 
 **Interfaces:**
 
-- Consumes: `ConfigEnvelope`, `FeatureConfig`, `SerializedDefinition` from `./config.js`; `Features` from `./features.js`; `bucketingPosition` and `variantSeedOf` from `./variants.js`; `DEFAULT_ROLLOUT_FIELD` from `./fields.js`; `FeatureConfigError` from `./errors.js`; `Condition`, `FeatureDefinition`, `FeatureKey`, `Rule`, `VariantInfo`, `VariantSpec` from `./types.js`. `bucketingPosition` is `bucketingOrder`'s own defaulting, exported so the sort and the serializer read one function.
+- Consumes: `ConfigEnvelope`, `FeatureConfig`, `SerializedDefinition` from `./config.js`; `Features` from `./features.js`; `bucketingPosition` and `variantSeedOf` from `./variants.js`; `DEFAULT_ROLLOUT_FIELD` from `./fields.js`; `FeatureConfigError` from `./errors.js`; `FeatureDefinition`, `FeatureKey`, `Rule`, `VariantInfo`, `VariantSpec` from `./types.js`. `bucketingPosition` is `bucketingOrder`'s own defaulting, exported so the sort and the serializer read one function.
 - Produces:
 
 ```ts
@@ -563,74 +565,280 @@ Create `libs/feature/src/lib/serialize.ts`:
 
 ```ts
 import { FeatureConfigError } from './errors.js';
-import { bucketingOrder } from './variants.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
+import { bucketingPosition, variantSeedOf } from './variants.js';
 import type { Features } from './features.js';
 import type {
   ConfigEnvelope,
   FeatureConfig,
   SerializedDefinition,
 } from './config.js';
-import type { FeatureKey, VariantInfo, VariantSpec } from './types.js';
+import type {
+  FeatureDefinition,
+  FeatureKey,
+  Rule,
+  VariantInfo,
+  VariantSpec,
+} from './types.js';
+
+/** The name a refusal calls a value by, read off the constructor it carries. */
+function nameOf(value: object): string {
+  const named = value as { readonly constructor?: { readonly name?: string } };
+  return named.constructor?.name ?? 'value of that prototype';
+}
+
+/** `a` or `an`, so a refusal naming an `Error` reads as a sentence. */
+function article(name: string): string {
+  return /^[aeiou]/i.test(name) ? 'an' : 'a';
+}
 
 /**
- * Every `Date` written as its ISO string, through arrays and nested objects.
+ * JSON's own data model, through arrays and nested objects.
  *
- * A `Date` reaches three places in one definition. A `WindowCondition.value`
- * carries one because `Instant` admits it, an `AttributeCondition.value` is
- * `unknown` and carries whatever an author wrote, and a variant `value` is
- * arbitrary JSON the application renders. All three break a round trip the same
- * way, so this walks the whole definition and converts wherever it lands.
+ * What the walk admits is a string, a finite number, a boolean, `null`, an
+ * array, and an object whose prototype is `Object.prototype` or `null`. Every
+ * other leaf throws and names the path, because each one breaks § 8's two
+ * promises without saying so.
  *
- * `undefined` properties drop, which is what `canonical.ts:21-22` does and what
+ * `undefined` properties drop, which is what `canonical.ts:46` does and what
  * keeps an absent key agreeing with a key written as `undefined`.
  *
- * A value that holds itself reaches this walk, because `structuredClone` at
- * `features.ts:93` carries a cycle through. JSON carries none, so this throws
- * and names the path. The store is the caller's own configuration, and
- * `errors.ts:3-11` already puts a configuration error at the call that supplied
- * it.
+ * A `Date` is one of the leaves this refuses, and `documentCondition` is the one
+ * place a `Date` converts. `evaluateCondition` compares an
+ * `AttributeCondition.value` with `===`, and `valueOf` hands a variant value to
+ * the application untouched, so a `Date` in either member and the ISO string a
+ * holder receives are two values that behave differently. `canonical` writes
+ * both as one text, so § 2 reads the two digests as a proof that the two
+ * processes hold one configuration while they resolve apart. `config.ts`'s
+ * `JsonValue` states the rule for the condition value and this walk enforces it
+ * for the whole definition.
+ *
+ * A `Map`, a `Set` and a `RegExp` keep what they hold in internal slots, and an
+ * `Error` keeps its message and its stack as non-enumerable members, so
+ * `Object.entries` reads nothing off any of them and the document carries `{}`
+ * while the store carries the payload. The publisher and the holder then digest
+ * the same `{}` and agree on a document that lost it.
+ *
+ * The prototype rule is what refuses those four, and it refuses anything else
+ * whose prototype JSON has no notion of. That costs nothing a caller wanted:
+ * `SerializedVariantSpec.value` is `unknown` for the interfaces § 4's schemas
+ * generate, a generator emits an interface over a plain object, and
+ * `structuredClone` hands a class instance back as a plain object before the
+ * walk ever sees it.
+ *
+ * A `bigint` reaches the document untouched and the publisher's own
+ * `JSON.stringify` throws a `TypeError` naming no feature. `NaN`, `Infinity`
+ * and `-Infinity` become `null` on the first transport hop, and `canonical`
+ * routes a non-finite number through `JSON.stringify` too, so both sides digest
+ * `null` and agree while the two stores hold different values. An `undefined`
+ * array element does it the other way: `canonical` writes the text `undefined`
+ * where JSON writes `null`, so the digests disagree and the holder refuses the
+ * whole document. A hole in a sparse array is that element, materialized by
+ * `Array.from` so the walk meets it.
+ *
+ * A value that holds itself reaches this walk as well. JSON carries no cycle,
+ * so this throws and names the path. `open` holds the path the walk stands on
+ * and `done` holds what the walk has already written, which are two different
+ * questions. A value two paths reach is written once and the second path reads
+ * the memo: a diamond 26 levels deep holds 53 objects and fans out to 2^26
+ * copies without it, and that fanned-out copy is the document a control plane
+ * would serve. `structuredClone` preserves the sharing and `deepFreeze`
+ * memoizes the same way, so this pass agrees with the two beside it.
+ *
+ * `structuredClone` at `features.ts:391` carries every refused leaf into the
+ * store and `deepFreeze` seals them, so every one of them reaches here. A
+ * function and a symbol do not, because `structuredClone` raises
+ * `DataCloneError` on both, and the branch that names a `bigint` names those
+ * two for a store some other path builds. The store is the caller's own
+ * configuration, and `errors.ts:3-11` already puts a configuration error at the
+ * call that supplied it.
  */
 function serialized(
   value: unknown,
   path: string,
   open: WeakSet<object>,
+  done: Map<object, unknown>,
 ): unknown {
-  if (value instanceof Date) return value.toISOString();
-  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof Date) {
+    throw new FeatureConfigError(
+      `the value at ${path} is a Date, and a document carries an instant as an ISO 8601 string or as epoch milliseconds`,
+    );
+  }
+  if (value === null) return value;
+  if (typeof value !== 'object') {
+    if (typeof value === 'string' || typeof value === 'boolean') return value;
+    if (typeof value === 'number') {
+      if (Number.isFinite(value)) return value;
+      throw new FeatureConfigError(
+        `the number at ${path} is ${String(value)}, and JSON carries no non-finite number`,
+      );
+    }
+    if (value === undefined) {
+      throw new FeatureConfigError(
+        `the element at ${path} is undefined, and JSON carries no undefined element`,
+      );
+    }
+    throw new FeatureConfigError(
+      `the value at ${path} is a ${typeof value}, and JSON carries no ${typeof value}`,
+    );
+  }
+  const array = Array.isArray(value);
+  if (!array) {
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      const name = nameOf(value);
+      throw new FeatureConfigError(
+        `the value at ${path} is ${article(name)} ${name}, and JSON carries no ${name}`,
+      );
+    }
+  }
   if (open.has(value)) {
     throw new FeatureConfigError(
       `the value at ${path} holds itself, and JSON carries no cycle`,
     );
   }
+  if (done.has(value)) return done.get(value);
   open.add(value);
-  const written = Array.isArray(value)
-    ? value.map((each, at) => serialized(each, `${path}/${String(at)}`, open))
+  const written = array
+    ? Array.from(value as readonly unknown[], (each, at) =>
+        serialized(each, `${path}/${String(at)}`, open, done),
+      )
     : Object.fromEntries(
         Object.entries(value as Record<string, unknown>)
           .filter(([, each]) => each !== undefined)
           .map(([key, each]) => [
             key,
-            serialized(each, `${path}/${key}`, open),
+            serialized(each, `${path}/${key}`, open, done),
           ]),
       );
   open.delete(value);
+  done.set(value, written);
   return written;
+}
+
+/**
+ * One condition as the document carries it.
+ *
+ * A `WindowCondition.value` is the one member of a definition a `Date` reaches
+ * legally, and decision 12 has it travel as an ISO string. The two forms decide
+ * the window alike, because `toEpoch` at `conditions.ts:18-22` reads both to one
+ * epoch, so the publisher holding the `Date` and the holder holding the string
+ * answer `before` and `after` the same way. A value that already round-trips
+ * travels as the store holds it, which is the second call § 8 names for this
+ * entry point: a control plane that built its store from rows serializes it to
+ * serve it, and the document it serves equals the document it read.
+ *
+ * Every other condition value keeps its `Date` and `serialized` refuses it. The
+ * operators there are `eq`, `ne`, `in`, `not-in` and `contains`, and
+ * `evaluateCondition` runs each one over `===`, so the publisher comparing a
+ * `Date` and the holder comparing the ISO string decide one rule two ways over
+ * two documents that digest alike. An author who wants that comparison writes
+ * the ISO string in the definition, and then the two processes hold one value.
+ *
+ * The parameter is `unknown` because `createFeatures` reads `dependsOn` and
+ * `rule.variant` and reads no condition, and its inferring overload takes the
+ * `any` that `JSON.parse` returns. A store a holder built from a served document
+ * therefore carries whatever a control plane put at this position. This hands
+ * every value it does not convert to `serialized`, which admits what JSON
+ * carries and names the path to what it does not, and § 7 gives the shape itself
+ * to `validateConfig`.
+ */
+function documentCondition(condition: unknown, path: string): unknown {
+  if (typeof condition !== 'object' || condition === null) return condition;
+  const op: unknown = (condition as { readonly op?: unknown }).op;
+  if (op !== 'before' && op !== 'after') return condition;
+  const value: unknown = (condition as { readonly value?: unknown }).value;
+  if (!(value instanceof Date)) return condition;
+  if (Number.isNaN(value.getTime())) {
+    throw new FeatureConfigError(
+      `the Date at ${path}/value names no instant, and JSON carries no invalid Date`,
+    );
+  }
+  return { ...condition, value: value.toISOString() };
+}
+
+/**
+ * One rule as the document carries it, with its `id` and its rollout untouched.
+ *
+ * A `when` that is no array reaches `serialized` whole, for the reason
+ * `documentCondition` states: nothing between `JSON.parse` and here reads a
+ * rule's conditions, so a foreign document decides this value's shape.
+ */
+function documentRule(rule: Rule, path: string): unknown {
+  const when: unknown = rule.when;
+  if (!Array.isArray(when)) return rule;
+  return {
+    ...rule,
+    when: (when as readonly unknown[]).map((condition, at) =>
+      documentCondition(condition, `${path}/when/${String(at)}`),
+    ),
+  };
 }
 
 /**
  * Every variant with an explicit `order`, in the array order the store holds.
  *
  * `validateVariants` refuses a partial declaration, so either every variant
- * carries an order or none does, and the array index is the walk position when
- * none does. A control plane rebuilding this feature from rows with no
- * `ORDER BY` then hands the variants back permuted and assigns identically,
- * which is what decision 11 of the variants spec asks the envelope to carry.
+ * carries an order or none does, and `bucketingPosition` supplies the walk
+ * position when none does. A control plane rebuilding this feature from rows
+ * with no `ORDER BY` then hands the variants back permuted and assigns
+ * identically, which is what decision 11 of the variants spec asks the envelope
+ * to carry.
  */
 function ordered(variants: readonly VariantSpec[]): readonly VariantSpec[] {
   return variants.map((variant, at) => ({
     ...variant,
-    order: variant.order ?? at,
+    order: bucketingPosition(variant, at),
   }));
+}
+
+/**
+ * One definition as the document carries it, before the walk writes its leaves.
+ *
+ * It materializes the three bucketing parameters a store leaves implicit. § 3
+ * names four members that travel whole or the document is refused: a variant
+ * `weight`, which `VariantSpec` requires of every author, and
+ * `VariantSpec.order`, `variantBy` and `variantSeed`, which a definition may
+ * leave out. A holder meeting one of those three absent fills it from
+ * `bucketingPosition`, from `DEFAULT_ROLLOUT_FIELD` and from `variantSeedOf`,
+ * and § 3 is written against exactly that: a holder that fills the gap with a
+ * default computes a different assignment and reports nothing while it does.
+ * Two of the three derive from members the document carries, so a holder today
+ * agrees with the publisher, and a document that states the assignment holds
+ * against two changes it otherwise would not. A Swift or Kotlin implementation
+ * reads the three values off the cross-process fixture rather than out of this
+ * source, and a release that moves `DEFAULT_ROLLOUT_FIELD` or the `:variant`
+ * suffix reassigns nobody holding a document written before it.
+ *
+ * `seed`, `rollout.by` and `rollout.seed` stay as the store holds them, and
+ * `rule-id.ts:68-72` is the reason. `ruleId` derives a rule's name from
+ * `canonical({ by, seed })` for a rule that declares no `id`, so a serializer
+ * writing either rollout member's default renames every derived rule in the
+ * document and orphans every event already attached to it, which is the failure
+ * § 2 puts the id mechanism in place to prevent. Both members reach their
+ * default from `key` and `seed`, and the document carries both of those.
+ */
+function documentDefinition<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  path: string,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = { ...definition };
+
+  const rules = definition.rules;
+  if (rules) {
+    body['rules'] = rules.map((rule, at) =>
+      documentRule(rule, `${path}/rules/${String(at)}`),
+    );
+  }
+
+  const variants = definition.variants;
+  if (variants) {
+    body['variants'] = ordered(variants);
+    body['variantBy'] = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
+    body['variantSeed'] = variantSeedOf(definition);
+  }
+
+  return body;
 }
 
 /**
@@ -645,19 +853,21 @@ function ordered(variants: readonly VariantSpec[]): readonly VariantSpec[] {
  * serialized form, so something has to produce that form from a live store, and
  * a control plane that built its store from rows serializes it to serve it.
  *
- * @throws {FeatureConfigError} when a variant value holds itself.
+ * @throws {FeatureConfigError} when a value holds itself, or when a leaf JSON
+ * cannot carry reaches the walk. A `Date` outside a window condition is one of
+ * those leaves. The message names the path to it.
  */
 export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S, boolean>,
   envelope: ConfigEnvelope = {},
 ): FeatureConfig<keyof S & FeatureKey> {
   const written = features.config.map((definition, at) => {
+    const path = `/features/${String(at)}`;
     const body = serialized(
-      definition.variants
-        ? { ...definition, variants: ordered(definition.variants) }
-        : definition,
-      `/features/${String(at)}`,
+      documentDefinition(definition, path),
+      path,
       new WeakSet<object>(),
+      new Map<object, unknown>(),
     );
     return body as SerializedDefinition<keyof S & FeatureKey>;
   });
@@ -803,6 +1013,87 @@ it('keeps an order a control plane already wrote', () => {
   ]);
 });
 
+/**
+ * The two bucketing members a definition may leave out, written out.
+ *
+ * § 3 names four members that travel whole or the document is refused. A
+ * variant `weight` is required of every author and `VariantSpec.order` is
+ * written by `ordered`, which leaves `variantBy` and `variantSeed`: a holder
+ * meeting either one absent fills it from `DEFAULT_ROLLOUT_FIELD` and from
+ * `variantSeedOf`, and the document then states the walk order and states
+ * neither the field nor the seed the walk buckets on.
+ */
+it('writes the members a definition carrying variants has, and no others', () => {
+  const features = createFeatures([
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+    },
+  ] as const);
+
+  const document = serializeConfig(features);
+
+  expect(document.features[0]).toEqual({
+    key: 'cta',
+    enabled: true,
+    variantBy: 'targetingKey',
+    variantSeed: 'cta:variant',
+    variants: [
+      { name: 'control', weight: 50, order: 0 },
+      { name: 'blue', weight: 50, order: 1 },
+    ],
+  });
+});
+
+it("writes the seed a definition's own seed derives", () => {
+  const features = createFeatures([
+    {
+      key: 'cta',
+      enabled: true,
+      seed: 'cohort-7',
+      variants: [{ name: 'control', weight: 1 }],
+    },
+  ] as const);
+
+  const document = serializeConfig(features);
+
+  expect(document.features[0]?.variantSeed).toBe('cohort-7:variant');
+});
+
+it('writes neither bucketing member for a feature that declares no variants', () => {
+  const features = createFeatures([{ key: 'cta', enabled: true }] as const);
+
+  const document = serializeConfig(features);
+
+  expect(Object.keys(document.features[0] ?? {})).toEqual(['key', 'enabled']);
+});
+
+/**
+ * A rollout member keeps its default, and `ruleId` is why.
+ *
+ * `rolloutText` in `rule-id.ts` derives a rule's name from
+ * `canonical({ by, seed })` for a rule that declares no `id`. A serializer
+ * writing either member's default renames every derived rule the document
+ * carries, which orphans every event already attached to it. Both members reach
+ * their default from `key` and `seed`, and the document carries both, so a
+ * holder computes what the publisher computed.
+ */
+it('leaves a rollout that declares no field and no seed as the store holds it', () => {
+  const features = createFeatures([
+    { key: 'beta', enabled: true, rules: [{ rollout: { percent: 25 } }] },
+  ] as const);
+
+  const document = serializeConfig(features);
+  const published = document.features[0]?.rules?.[0];
+
+  expect(published?.rollout).toEqual({ percent: 25 });
+  expect(published?.id).toBeUndefined();
+});
+
 it('writes an authored rule id untouched', () => {
   const features = createFeatures([
     {
@@ -834,9 +1125,113 @@ it('invents no id for a rule that declares none', () => {
 });
 ```
 
+`variantBy` and `variantSeed` are the other two members decision 6 names, and the serializer writes both for every definition carrying variants. `rollout.by` and `rollout.seed` default from the same `DEFAULT_ROLLOUT_FIELD` and the same `seed`, and the serializer leaves both alone, because `ruleId` derives a rule's name from them for a rule that declares no `id`.
+
 The last case is the asymmetry with `order` and it is deliberate. `ruleId` in `rule-id.ts` derives a content hash that survives a permutation of the rules array, so a document that carries no id still names one rule. A variant's walk position does not survive a permutation, so the document carries it.
 
-- [ ] **Step 8: Run everything and commit**
+- [ ] **Step 8: Pin the window a document already carries and the `when` no `Rule` describes**
+
+Review Focus. `documentCondition` and `documentRule` run before `serialized` sees a value, and both read members a foreign document decided the shape of. Add to `serialize.spec.ts`:
+
+```ts
+describe('a window a document already carries', () => {
+  it('writes an ISO string value as the store holds it', () => {
+    const features = createFeatures([
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [
+          {
+            when: [
+              { field: 'now', op: 'after', value: '2026-10-01T00:00:00.000Z' },
+            ],
+          },
+        ],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.rules?.[0]?.when?.[0]).toEqual({
+      field: 'now',
+      op: 'after',
+      value: '2026-10-01T00:00:00.000Z',
+    });
+  });
+
+  it('writes the same document again for the store a holder built', () => {
+    const features = createFeatures([
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [
+          {
+            id: 'window',
+            when: [
+              {
+                field: 'now',
+                op: 'after',
+                value: new Date('2026-10-01T00:00:00.000Z'),
+              },
+            ],
+          },
+        ],
+      },
+    ] as const);
+    const document = serializeConfig(features);
+    const carried = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+    const holder = createFeatures(carried.features as Definitions);
+
+    expect(serializeConfig(holder)).toEqual(document);
+  });
+});
+
+describe('a when a Rule does not describe', () => {
+  it('writes a null element as the null JSON carries', () => {
+    const features = createFeatures([
+      { key: 'k', enabled: true, rules: [{ when: [null] }] },
+    ] as never);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.rules?.[0]?.when).toEqual([null]);
+  });
+
+  it('refuses an undefined element and names the path to it', () => {
+    const features = createFeatures([
+      { key: 'k', enabled: true, rules: [{ when: [undefined] }] },
+    ] as never);
+
+    expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    expect(() => serializeConfig(features)).toThrow(
+      'the element at /features/0/rules/0/when/0 is undefined, and JSON ' +
+        'carries no undefined element',
+    );
+  });
+
+  it('writes a when that arrived as an object, not as an array', () => {
+    const features = createFeatures([
+      {
+        key: 'k',
+        enabled: true,
+        rules: [{ when: { field: 'plan', op: 'eq', value: 'pro' } }],
+      },
+    ] as never);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.rules?.[0]?.when).toEqual({
+      field: 'plan',
+      op: 'eq',
+      value: 'pro',
+    });
+  });
+});
+```
+
+The three `when` cases hold one rule: the pre-walk hands every value it does not convert to `serialized`, so a document carries what JSON carries and a publisher raises no bare `TypeError` naming no feature. § 7 gives the shape itself to `validateConfig`, which Task 5 builds.
+
+- [ ] **Step 9: Run everything and commit**
 
 Run: `npx nx affected -t test lint build --base=main --skip-nx-cache`
 Then: `npx prettier --check` on every file you touched.
