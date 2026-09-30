@@ -901,9 +901,12 @@ function nameable(rule: Rule): boolean {
  * refusal names would otherwise meet the second condition for the first time at
  * the next poll.
  *
- * The rule-level sentence is the fallback, for a rule whose conditions each name
- * on their own. `rolloutText` canonicalises `{ by, seed }`, so a `by` that holds
- * itself raises where no condition does.
+ * The rollout is walked after the conditions, because `ruleId` reads it too.
+ * `rolloutText` canonicalises `{ by, seed }`, so a `by` that holds itself raises
+ * where no condition does, and on a rule declaring no `when` there is no
+ * condition to send the operator to at all. `rolloutIssues` names the same two
+ * members for a served document and runs for that caller alone, so this walk is
+ * the whole of what an author calling `createFeatures` reads.
  */
 function unnameable(
   rule: Readonly<Record<string, unknown>>,
@@ -939,6 +942,26 @@ function unnameable(
       ),
     );
   });
+
+  // `rolloutText` destructures `by` and `seed` off anything truthy, arrays
+  // included, so the probe reads them off the same shapes the derivation does.
+  const rollout: unknown = rule['rollout'];
+  if (typeof rollout === 'object' && rollout !== null) {
+    const members = rollout as Readonly<Record<string, unknown>>;
+    for (const member of ['by', 'seed'] as const) {
+      const probe = { rollout: { [member]: members[member] } };
+      if (nameable(probe as unknown as Rule)) continue;
+      const path = `${at}/rollout/${member}`;
+      all.push(
+        unreadable(
+          `${named} declares the value at ${path} as one no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+          path,
+          key,
+        ),
+      );
+    }
+  }
+
   if (all.length > 0) return all;
   return [
     unreadable(
