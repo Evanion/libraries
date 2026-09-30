@@ -2254,23 +2254,31 @@ describe('validateConfig, on a member a definition declares that this checker do
     expect(createFeatures(definitions).isEnabled('cta')).toBe(true);
   });
 
-  it('has no serialized document for the store that widening built', () => {
+  it('names the widened member on the document that store serves', () => {
     interface Owned extends SerializedDefinition<'cta'> {
       owner: string;
     }
     const definitions: readonly Owned[] = [
       { key: 'cta', enabled: true, owner: 'growth' },
     ];
-    const features = createFeatures(definitions);
+    const config = serializeConfig(createFeatures(definitions));
 
-    // § 8 has a round trip produce the document it started from, and § 8 names
-    // the control plane that serializes its store to serve it. `serializeConfig`
-    // copies every own enumerable key, so a store this checker refuses the
-    // document of is a store with no round trip, and the publisher names the
-    // member at the serialization site.
-    expect(() => serializeConfig(features)).toThrow(
-      'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
-    );
+    // § 8 has `serializeConfig` emit the stored document whole and names the two
+    // members it transforms, and decision 11 gives the document-level refusal to
+    // this checker. `documentDefinition` copies the member, so the publisher
+    // holds a document, a digest over it and this refusal naming the path.
+    expect(validateConfig(config)).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+          path: '/features/0/owner',
+        },
+      ],
+    });
   });
 
   it('reports every member of one definition it does not read', () => {
@@ -2505,7 +2513,7 @@ describe('validateConfig, on a member below a definition that this checker does 
     expect(createFeatures(config.features).keys).toEqual(['cta']);
   });
 
-  it('has no serialized document for the store those four built', () => {
+  it('names all four on the document that store serves', () => {
     const features = createFeatures(
       served(
         '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
@@ -2514,12 +2522,20 @@ describe('validateConfig, on a member below a definition that this checker does 
           '"when":[{"field":"plan","op":"eq","value":1,"c":3}]}]}]}',
       ).features,
     );
+    const result = validateConfig(serializeConfig(features));
 
-    // A publisher serializing this store would write all four members back and
-    // report four issues on its own output, which § 8's round trip forbids.
-    expect(() => serializeConfig(features)).toThrow(
-      'feature "cta" declares "v" on the variant at /features/0/variants/0, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
-    );
+    // `serializeConfig` copies every own enumerable key, so the four members a
+    // control plane's rows carried reach the document that store serves and this
+    // checker names each one. The publisher reads the same four issues its
+    // holders read, off a document it can also digest and diff.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/variants/0/v',
+      '/features/0/rules/0/r1',
+      '/features/0/rules/0/rollout/r2',
+      '/features/0/rules/0/when/0/c',
+    ]);
   });
 
   it('accepts every member the four shapes name', () => {
