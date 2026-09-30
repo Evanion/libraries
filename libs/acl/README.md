@@ -21,39 +21,71 @@ ESM only. Node 20 or newer. Nothing else enters the import graph.
 
 ## The first policy
 
-The smallest policy that answers a question, and the two answers it gives.
-Baize, a board game shop, lets the customer who asked a question edit it and
-nobody else:
+The smallest policy that answers a question, and the answers it gives. Baize's
+staff carry the `bookseller` role, and a bookseller may delete any question:
 
 <!-- #region first-policy -->
 
 ```ts @import.meta.vitest
 import { policy } from '@evanion/acl';
 
+// Anyone signed in to Baize: a customer, or a bookseller on the shop's staff.
+type Shopper = { id: string; roles: string[] };
 type Question = { id: string; askedBy: string };
 
-const access = policy<{ id: string }, { question: Question }>()
+// Built once, at module scope, when the server loads this module.
+const access = policy<Shopper, { question: Question }>()
   .for('question', (p) =>
-    p.allow('update', p.eq('object.askedBy', 'subject.id')),
+    p.allow('delete', p.contains('subject.roles', 'bookseller')),
   )
   .build();
 
-const asker = { id: 'customer-41' };
+const bookseller = { id: 'staff-3', roles: ['bookseller'] };
+const customer = { id: 'customer-41', roles: ['customer'] };
 const question = { id: 'q7', askedBy: 'customer-41' };
 
-access.can(asker, 'question', 'update', question).allowed; // -> true
-
-const stranger = { id: 'customer-92' };
-
-access.can(stranger, 'question', 'update', question).allowed; // -> false
-access.can(stranger, 'question', 'update', question).reason; // -> 'no-rule-matched'
+access.can(bookseller, 'question', 'delete', question).allowed; // -> true
+access.can(customer, 'question', 'delete', question).allowed; // -> false
+access.can(customer, 'question', 'delete', question).reason; // -> 'no-rule-matched'
 ```
 
 <!-- #endregion first-policy -->
 
 `allowed` is the answer and `reason` says which branch of the engine produced
 it. `no-rule-matched` is the default deny: nothing in the document granted the
-stranger the action, so the engine refused without any rule saying to.
+customer the action, so the engine refused without any rule saying to.
+
+`access.matrix` holds the same rules as a JSON value. Another process, such as
+a browser, rebuilds an evaluator from it with `hydratePolicy`, and that
+evaluator gives the same answers:
+
+<!-- #region first-copy -->
+
+```ts @import.meta.vitest
+import { hydratePolicy, policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+type Question = { id: string; askedBy: string };
+
+const access = policy<Shopper, { question: Question }>()
+  .for('question', (p) =>
+    p.allow('delete', p.contains('subject.roles', 'bookseller')),
+  )
+  .build();
+
+const bookseller = { id: 'staff-3', roles: ['bookseller'] };
+const customer = { id: 'customer-41', roles: ['customer'] };
+const question = { id: 'q7', askedBy: 'customer-41' };
+// ---cut---
+// The server sends the matrix as JSON text, and the browser rebuilds from it.
+const json = JSON.stringify(access.matrix);
+const inBrowser = hydratePolicy(JSON.parse(json));
+
+inBrowser.can(bookseller, 'question', 'delete', question).allowed; // -> true
+inBrowser.can(customer, 'question', 'delete', question).allowed; // -> false
+```
+
+<!-- #endregion first-copy -->
 
 ## Quick start
 
