@@ -3,6 +3,7 @@ import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { serializeConfig } from './serialize.js';
+import { validateConfig } from './validate.js';
 import { assignVariant } from './variants.js';
 import type { ConfigEnvelope, FeatureConfig } from './config.js';
 import type { Definitions } from './features.js';
@@ -1701,17 +1702,18 @@ describe('serializeConfig', () => {
    * declare and evaluates the rest as absent, so such a member raises nothing
    * out of `resolve`, and the plan's global constraints hold `createFeatures`
    * to the six error classes it throws today. An interface extending
-   * `SerializedDefinition` assigns to `readonly FeatureDefinition<K>[]` with no
+   * `FeatureDefinition` assigns to `readonly FeatureDefinition<K>[]` with no
    * excess-property error, and a control plane building its store from rows
    * writes whatever column it read.
    *
-   * § 3 refuses the document a holder installs, and § 8 has the round trip
-   * produce the document it started from, so this call is where the member gets
-   * named. The alternative is a publisher serving a document its own
-   * `validateConfig` reports four issues on.
+   * § 8 has this entry point emit the stored document whole and names the two
+   * members it transforms, and decision 11 gives the document-level refusal to
+   * `validateConfig`, `parseFeatureConfig` and `reload`. So the member reaches
+   * the document, § 2's digest covers it, and the checker names it at the path
+   * it sits at.
    */
   describe('a member no shape below a definition names', () => {
-    it('refuses a definition member and names the path to it', () => {
+    it('writes a definition member the checker reads nothing by', () => {
       interface Owned extends FeatureDefinition<'cta'> {
         owner: string;
       }
@@ -1720,49 +1722,54 @@ describe('serializeConfig', () => {
       ];
       const features = createFeatures(definitions);
 
-      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
-      expect(() => serializeConfig(features)).toThrow(
-        'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
-      );
+      const document = serializeConfig(features);
+
+      expect(document.features[0]).toEqual({
+        key: 'cta',
+        enabled: true,
+        owner: 'growth',
+      });
     });
 
-    it('refuses the first of the four nested shapes carrying one', () => {
-      const features = createFeatures([
-        {
-          key: 'cta',
-          enabled: true,
-          variants: [{ name: 'a', weight: 1, v: 1 }],
-          rules: [
-            {
-              id: 'r',
-              r1: 1,
-              rollout: { percent: 5, r2: 2 },
-              when: [{ field: 'plan', op: 'eq', value: 1, c: 3 }],
-            },
-          ],
-        },
-      ] as never);
+    it('leaves the refusal to the checker every holder reads', () => {
+      interface Owned extends FeatureDefinition<'cta'> {
+        owner: string;
+      }
+      const definitions: readonly Owned[] = [
+        { key: 'cta', enabled: true, owner: 'growth' },
+      ];
+      const features = createFeatures(definitions);
 
-      // A rollout, a variant and a condition each hold a bucketing parameter,
-      // so § 3's rule reaches all four shapes and not the definition alone.
-      expect(() => serializeConfig(features)).toThrow(
-        'feature "cta" declares "v" on the variant at /features/0/variants/0, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
-      );
+      const result = validateConfig(serializeConfig(features));
+
+      expect(result).toEqual({
+        ok: false,
+        issues: [
+          {
+            code: 'unknown-member',
+            key: 'cta',
+            message:
+              'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+            path: '/features/0/owner',
+          },
+        ],
+      });
     });
 
-    it('refuses an operator no condition type declares', () => {
+    it('writes an operator no condition type declares', () => {
       const features = createFeatures(
         JSON.parse(
           '[{"key":"a","enabled":true,"rules":[{"when":[{"field":"plan","op":"eq-ci","value":"pro"}]}]}]',
         ) as Definitions<never>,
       );
 
+      const document = serializeConfig(features);
+
       // `evaluateCondition` ends at `default: return false`, so every holder of
-      // this document resolves the rule off while the publisher that emitted
-      // the operator resolves it on.
-      expect(() => serializeConfig(features)).toThrow(
-        'feature "a" declares "op" on the condition at /features/0/rules/0/when/0 as "eq-ci", and this checker dispatches on no operator by that name, so a holder installing this document would resolve the rule off for every subject',
-      );
+      // this document resolves the rule off while the publisher that emitted the
+      // operator resolves it on. `validateConfig` is what names that, and the
+      // publisher that wants to know calls it on this document.
+      expect(document.features[0]?.rules?.[0]?.when?.[0]?.op).toBe('eq-ci');
     });
   });
 });

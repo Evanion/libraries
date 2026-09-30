@@ -1,9 +1,7 @@
 import { FeatureConfigError } from './errors.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
-import { collectIssues } from './validate.js';
 import { bucketingPosition, variantSeedOf } from './variants.js';
 import type { Features } from './features.js';
-import type { Checkable } from './validate.js';
 import type {
   ConfigEnvelope,
   FeatureConfig,
@@ -305,15 +303,19 @@ function documentDefinition<F extends FeatureKey>(
  * would otherwise get a document whose `schema` subtree is frozen, and a control
  * plane stamping a field onto it before it serves it writes nothing.
  *
+ * It checks nothing else. § 8 has it emit the stored document whole, and decision
+ * 11 gives the document-level refusal to `validateConfig`, `parseFeatureConfig`
+ * and `reload`. A store `createFeatures` accepted carries a member no shape below
+ * a definition names and an operator no condition type declares, because a holder
+ * reads the members its own types declare and answers an operator it has no
+ * branch for as `false`. Both reach the document, § 2's digest covers the text
+ * that carries them, and a publisher that wants the verdict its holders will
+ * reach calls `validateConfig` on what this returned.
+ *
  * @throws {FeatureConfigError} when a value holds itself, or when a leaf JSON
  * cannot carry reaches the walk. A `Date` outside a window condition is one of
  * those leaves, and a non-finite `maxStale` is another. The message names the
  * path to it.
- * @throws {FeatureConfigError} when the document it wrote is one
- * `validateConfig` refuses. A store built from a literal or from a control
- * plane's rows carries a member no shape below a definition names and an
- * operator no condition type declares, and a holder reads neither, so the
- * refusal is what holds § 8's round trip.
  */
 export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S, boolean>,
@@ -336,27 +338,6 @@ export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
     );
     return body as SerializedDefinition<keyof S & FeatureKey>;
   });
-
-  // The document this returns is a document `validateConfig` accepts. § 8 has a
-  // round trip back through `parseFeatureConfig` and out again produce the
-  // document it started from, and § 8 names the control plane that builds its
-  // store from rows and serializes it to serve it, so a document this wrote and
-  // every holder refuses has no round trip and no consumer. `createFeatures`
-  // builds a store over a definition, a rule, a rollout, a variant or a
-  // condition carrying a member no shape names, because a holder reads the
-  // members its own types declare and such a member raises nothing out of
-  // `resolve`. § 3 states its rule over a document a holder installs, and this
-  // call is where a store becomes one, so the publisher reads the checker every
-  // holder reads and names the member at the path it sits at. Ruling 5 makes
-  // the same argument for a variant value JSON cannot carry: the store is the
-  // caller's own, so a member no document may carry is a programming error at
-  // the authoring site.
-  //
-  // The argument carries the definitions alone. Every leaf of the envelope went
-  // through `serialized` above, and the `digest` § 2 has a publisher write is a
-  // member a caller stamps on after this call returns.
-  const refused = collectIssues({ features: written } as Checkable);
-  if (refused[0]) throw refused[0].error;
 
   return { ...around, features: written };
 }
