@@ -1170,9 +1170,93 @@ describe('validateConfig, on a document whose members are not the declared shape
       ),
     );
 
+    // The definition declares variants, so § 3 asks it for the two bucketing
+    // members whatever the array holds.
     expect(
       result.ok === false && result.issues.map((issue) => issue.path),
-    ).toEqual(['/features/0/variants/0', '/features/0/rules/0']);
+    ).toEqual([
+      '/features/0/variants/0',
+      '/features/0/rules/0',
+      '/features/0/variantBy',
+      '/features/0/variantSeed',
+    ]);
+  });
+
+  it('reports the defects of the variants it read beside an element it did not', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variants":' +
+          '[null,{"name":"a","weight":1,"order":0},{"name":"a","weight":1,"order":1}]}]}',
+      ),
+    );
+
+    // § 7 has the checker report every issue it finds, and an operator who
+    // drops the null element and re-polls meets neither the duplicate name nor
+    // the two bucketing members for the first time.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual([
+      'unknown-member',
+      'duplicate-variant',
+      'unknown-member',
+      'unknown-member',
+    ]);
+  });
+
+  it('reports the weight one readable variant gives beside an element it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"x","weight":-1,"order":0},null]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'invalid-weight']);
+  });
+
+  it('names no defect the dropped variant alone would carry', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"x","weight":0,"order":0},null],' +
+          '"rules":[{"id":"pin","variant":"ghost"}]}]}',
+      ),
+    );
+
+    // The element the checker dropped carries a weight the total is missing,
+    // an order the count is missing and a name the pin may hold, so a zero
+    // total, a partial order declaration and an unknown pin would each name a
+    // defect this document does not carry.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member']);
+  });
+
+  it('reports the id two readable rules answer beside an element it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"beta","enabled":true,"rules":[null,{"id":"staff"},{"id":"staff"}]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'duplicate-rule-id']);
+  });
+
+  it('drops the one rule whose id it could not read and walks the others', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"beta","enabled":true,' +
+          '"rules":[{"id":7},{"id":"staff"},{"id":"staff"}]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules/0/id', '/features/0/rules']);
   });
 
   it('reports the graph beside a member of one definition it could not read', () => {
@@ -1793,6 +1877,34 @@ describe('validateConfig, on the dependencies a definition declares', () => {
     expect(
       result.ok === false && result.issues.map((issue) => issue.path),
     ).toEqual(['/features/0/dependsOn/0', '/features/0/dependsOn/1']);
+  });
+
+  it('reports the cycle two readable keys declare beside an element it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"dependsOn":["b",null]},' +
+          '{"key":"b","enabled":true,"dependsOn":["a"]}]}',
+      ),
+    );
+
+    // The element the checker could not read costs the graph that one edge and
+    // no other, so the cycle the document declares is reported at the same poll
+    // as the element.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'cycle']);
+  });
+
+  it('reports the unknown dependency a readable key names beside an unreadable sibling', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"dependsOn":[null,"nowhere"]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'unknown-dependency']);
   });
 
   it('accepts a numeric dependency, which FeatureKey admits', () => {
