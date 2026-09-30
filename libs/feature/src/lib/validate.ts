@@ -197,10 +197,16 @@ interface Readable {
  * while the publisher bucketed on the new one, and `configDigest` reports one
  * version on both sides.
  *
- * `createFeatures` is held to it too. `documentDefinition` in `serialize.ts`
- * copies the definition with `{ ...definition }`, so a member a store holds
- * reaches every holder of the document it serves, and Decision 11 has one checker
- * answer both envelopes.
+ * The walk reads a served document alone, and `arrayIsOrder` separates the two
+ * callers here the way it separates them in `bucketingDefects`. § 3 states the
+ * rule over a document a holder installs, and the plan's global constraints hold
+ * `createFeatures` to throwing its six error classes from the inputs it throws on
+ * today. An author whose definitions carry a member of their own declares them
+ * through an interface extending `FeatureDefinition`, which assigns to
+ * `readonly FeatureDefinition<K>[]` with no excess-property error, and that
+ * member raises nothing out of `resolve`. `documentDefinition` in `serialize.ts`
+ * copies the definition with `{ ...definition }`, so the member reaches the
+ * document that store serves and `validateConfig` names it there.
  *
  * The literal is typed `Record<keyof FeatureDefinition, true>`, so the compiler
  * joins the set to the interface. A member added to `FeatureDefinition` and left
@@ -457,23 +463,32 @@ function conditionIssues(
  * all three as strings can still hold a `value` no canonical text covers, which
  * is what `nameable` asks of the rules whose conditions this walk read.
  *
- * Those condition issues reach both callers, and `arrayIsOrder` does not separate
- * them here. `createFeatures` takes the `any` `JSON.parse` returns through its
- * inferring overload, which
+ * Those condition shape issues reach both callers, and `arrayIsOrder` does not
+ * separate them. `createFeatures` takes the `any` `JSON.parse` returns through
+ * its inferring overload, which
  * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` names as a
  * real path and Task 8 documents, so a control plane's body reaches a store
  * through it. Each of the four defects raises out of `resolve`: `evaluate.ts:53`
  * iterates `rule.when`, `rule-id.ts:48` reads `condition.zone.length`, and
- * `conditionText` length-prefixes `field` and `op` the same way. A TypeScript
- * literal satisfies all four by type, so the author's path meets none of them,
- * and `arrayIsOrder` says the variants array is the order, which none of the four
- * is about. Either way the rule id walk skips a rule whose conditions it cannot
+ * `conditionText` length-prefixes `field` and `op` the same way, so
+ * `errors.ts:3-11` has the raise happen where the configuration is supplied. A
+ * TypeScript literal satisfies all four by type, so the author's path meets none
+ * of them. Either way the rule id walk skips a rule whose conditions it cannot
  * name.
+ *
+ * `served` separates the callers for the member walks, which refuse a member no
+ * shape below a definition names. Nothing raises on one: a holder reads the
+ * members its own types declare and evaluates the rest as absent, which is the
+ * § 3 defect a document carries and the literal path's compiler already answers.
  */
-function shapeWalk(config: Checkable): {
+function shapeWalk(
+  config: Checkable,
+  options: VariantCheckOptions,
+): {
   readonly issues: readonly Found[];
   readonly rows: readonly Readable[];
 } {
+  const served = options.arrayIsOrder !== true;
   if (!isRecord(config)) {
     return {
       issues: [
@@ -543,15 +558,17 @@ function shapeWalk(config: Checkable): {
       );
     }
 
-    for (const member of Object.keys(definition)) {
-      if (DEFINED.has(member)) continue;
-      all.push(
-        unreadable(
-          `${named} declares "${member}", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
-          pointer(at, member),
-          key,
-        ),
-      );
+    if (served) {
+      for (const member of Object.keys(definition)) {
+        if (DEFINED.has(member)) continue;
+        all.push(
+          unreadable(
+            `${named} declares "${member}", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
+            pointer(at, member),
+            key,
+          ),
+        );
+      }
     }
 
     const shapes: Record<'dependsOn' | 'variants' | 'rules', boolean> = {
@@ -636,7 +653,9 @@ function shapeWalk(config: Checkable): {
           return;
         }
         if (member !== 'rules') {
-          all.push(...strangeMembers(element, 'variant', named, path, key));
+          if (served) {
+            all.push(...strangeMembers(element, 'variant', named, path, key));
+          }
           read.variants.push(element);
           return;
         }
@@ -652,21 +671,24 @@ function shapeWalk(config: Checkable): {
             ),
           );
         }
-        all.push(...strangeMembers(element, 'rule', named, path, key));
-        const rollout: unknown = element['rollout'];
-        if (isRecord(rollout)) {
-          all.push(
-            ...strangeMembers(
-              rollout,
-              'rollout',
-              named,
-              `${path}/rollout`,
-              key,
-            ),
-          );
+        if (served) {
+          all.push(...strangeMembers(element, 'rule', named, path, key));
+          const rollout: unknown = element['rollout'];
+          if (isRecord(rollout)) {
+            all.push(
+              ...strangeMembers(
+                rollout,
+                'rollout',
+                named,
+                `${path}/rollout`,
+                key,
+              ),
+            );
+          }
         }
         const inner = conditionIssues(element, named, path, key);
-        all.push(...inner.refused, ...inner.strange);
+        all.push(...inner.refused);
+        if (served) all.push(...inner.strange);
         if (inner.refused.length > 0) {
           unwalked.add(element);
         } else if (id === undefined && !nameable(element as unknown as Rule)) {
@@ -820,7 +842,7 @@ export function collectIssues(
   config: Checkable,
   options: VariantCheckOptions = {},
 ): readonly Found[] {
-  const { issues, rows } = shapeWalk(config);
+  const { issues, rows } = shapeWalk(config, options);
   const all: Found[] = [...issues];
 
   const nodes: GraphNode<FeatureKey>[] = [];

@@ -2100,10 +2100,29 @@ describe('validateConfig, on a member a definition declares that this checker do
     });
   });
 
-  it('refuses that document at createFeatures too', () => {
-    expect(thrownBy(served(HASHED)).message).toBe(
-      'feature "cta" declares "hashVersion", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
-    );
+  it('builds a store from that document at createFeatures', () => {
+    const features = served(HASHED).features;
+
+    // The plan's global constraints hold `createFeatures` to the six error
+    // classes it throws today, from the inputs it throws on today, and a member
+    // this checker does not read raises nothing out of `resolve`. § 3 states its
+    // rule over a document a holder installs, which is the path
+    // `validateConfig` answers above.
+    expect(createFeatures(features).isEnabled('cta')).toBe(true);
+  });
+
+  it('builds a store from definitions an interface widened', () => {
+    interface Owned extends SerializedDefinition<'cta'> {
+      owner: string;
+    }
+    const definitions: readonly Owned[] = [
+      { key: 'cta', enabled: true, owner: 'growth' },
+    ];
+
+    // An interface extending `FeatureDefinition` assigns to
+    // `readonly FeatureDefinition<K>[]` with no excess-property error, so this
+    // is a call site the compiler accepts and the store has always answered.
+    expect(createFeatures(definitions).isEnabled('cta')).toBe(true);
   });
 
   it('reports every member of one definition it does not read', () => {
@@ -2174,7 +2193,6 @@ describe('validateConfig, on a member below a definition that this checker does 
     expect(messagesOf(config)).toEqual([
       refusal('hashVersion', 'rollout', '/features/0/rules/0/rollout'),
     ]);
-    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
   });
 
   it('reports a bucketing parameter on a variant', () => {
@@ -2190,7 +2208,6 @@ describe('validateConfig, on a member below a definition that this checker does 
     expect(messagesOf(config)).toEqual([
       refusal('hashVersion', 'variant', '/features/0/variants/0'),
     ]);
-    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
   });
 
   it('reports a member a rule declares', () => {
@@ -2201,7 +2218,6 @@ describe('validateConfig, on a member below a definition that this checker does 
     expect(messagesOf(config)).toEqual([
       refusal('hashVersion', 'rule', '/features/0/rules/0'),
     ]);
-    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
   });
 
   it('reports a member a condition declares', () => {
@@ -2216,7 +2232,6 @@ describe('validateConfig, on a member below a definition that this checker does 
     expect(messagesOf(config)).toEqual([
       refusal('caseInsensitive', 'condition', '/features/0/rules/0/when/0'),
     ]);
-    expect(thrownBy(config).message).toBe(messagesOf(config)[0]);
   });
 
   it('reports every one of them in a document carrying all four', () => {
@@ -2239,6 +2254,20 @@ describe('validateConfig, on a member below a definition that this checker does 
       '/features/0/rules/0/rollout/r2',
       '/features/0/rules/0/when/0/c',
     ]);
+  });
+
+  it('builds a store from a document carrying all four', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+        '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0,"v":1}],' +
+        '"rules":[{"id":"r","r1":1,"rollout":{"percent":5,"r2":2},' +
+        '"when":[{"field":"plan","op":"eq","value":1,"c":3}]}]}]}',
+    );
+
+    // None of the four raises out of `resolve`, so the constraint that holds
+    // `createFeatures` to the inputs it throws on today governs, and § 3's
+    // refusal answers the holder that installs the document.
+    expect(createFeatures(config.features).keys).toEqual(['cta']);
   });
 
   it('accepts every member the four shapes name', () => {
