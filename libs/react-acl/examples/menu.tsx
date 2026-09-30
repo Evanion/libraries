@@ -11,6 +11,7 @@
  */
 // #region menu
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { useCapabilities } from '@evanion/react-acl';

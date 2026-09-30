@@ -19,6 +19,7 @@
  */
 // #region server
 // @jsx: react-jsx
+// ---cut---
 import { policy } from '@evanion/acl';
 
 type Shopper = { id: string; role: 'customer' | 'bookseller' | 'owner' };

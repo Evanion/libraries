@@ -13,6 +13,7 @@
  */
 // #region many
 // @jsx: react-jsx
+// ---cut---
 'use client';
 
 import { useCanMany } from '@evanion/react-acl';
