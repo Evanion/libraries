@@ -9,7 +9,7 @@ its items, and editors whose snippets you change and run.
   hands={20}
   requires={[
     ['Nesting items', '../nesting'],
-    ['Chrome, meta, ctx and Suspense', '../advanced'],
+    ['Chrome, meta and ctx', '../advanced'],
   ]}
   unlocks={[['API reference', '../api']]}
 />
@@ -25,9 +25,9 @@ items side by side:
   item, each a titled panel around a data table.
 
 The `tables` item carries `meta.span: 2`, placement data only the item chrome
-reads, as [Chrome, meta, ctx and Suspense](../advanced) set out. The demo's item
-chrome gives an item as many columns as its `span` names. The demo opens on
-these items:
+reads, as [Chrome, meta and ctx](../advanced) set out. The demo's item chrome
+gives an item as many columns as its `span` names. The demo opens on these
+items:
 
 ```tsx file=apps/docs/components/landing/counter.tsx region=counter-items
 
@@ -69,10 +69,10 @@ chrome from plain elements.
 ## What the react-widget playground cannot show
 
 Everything in the react-widget playground runs in the browser, so no widget
-here is a Server Component. An
-async widget and the streaming behaviour of
-[`chrome.suspense`](../advanced) cannot be demonstrated, and
-`chrome.suspenseFallback` shows only for a widget that suspends on the client.
+here is a Server Component. An async widget and the streaming behaviour of
+[`chrome.suspense`](../suspense) cannot be demonstrated.
+`chrome.suspenseFallback`, the element shown while a widget suspends, appears
+only for a widget that suspends on the client.
 
 Type errors do not show. The snippets are strings that nothing type-checks, so
 an unknown `type`, a mistyped prop and `children` under a widget that declares
