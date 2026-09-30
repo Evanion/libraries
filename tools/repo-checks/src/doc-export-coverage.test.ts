@@ -169,12 +169,12 @@ function executableCode(
  * The lines of a fence a reader sees.
  *
  * The region loader puts a package's preamble above a `// ---cut---` line in a
- * `twoslash` fence, and Twoslash compiles everything above that line and
- * renders none of it. A name imported only there appears in no example the
- * page shows.
+ * `twoslash` fence, and a region may add its own below it. Twoslash compiles
+ * everything above the last one and renders none of it. A name imported only
+ * there appears in no example the page shows.
  */
 function shown(body: readonly string[]): readonly string[] {
-  const cut = body.findIndex((line) => line.trim() === '// ---cut---');
+  const cut = body.map((line) => line.trim()).lastIndexOf('// ---cut---');
   return cut === -1 ? body : body.slice(cut + 1);
 }
 
