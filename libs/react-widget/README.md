@@ -342,7 +342,7 @@ can wrap one:
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
-const { Widgets } = createWidgets({
+const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
   chrome: {
     wrapper: (props) => <DefaultWrapper {...props} aria-label="New in" />,
@@ -350,9 +350,9 @@ const { Widgets } = createWidgets({
   },
 });
 
-const shelf = [
-  { id: 'azul', type: 'listing' as const, props: { title: 'Azul' } },
-];
+const shelf = defineItems([
+  { id: 'azul', type: 'listing', props: { title: 'Azul' } },
+]);
 
 const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section aria-label="New in"><div data-widget-id="azul" data-widget-type="listing" class="slot"><h3>Azul</h3></div></section>'
 ```
@@ -372,11 +372,13 @@ field by field, so overriding `wrapper` keeps the factory's `item`:
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 const FeaturedListing = (props: { title: string }) => <h2>{props.title}</h2>;
 
-const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+const { Widgets, defineItems } = createWidgets({
+  components: { listing: ListingCard },
+});
 
-const shelf = [
-  { id: 'wingspan', type: 'listing' as const, props: { title: 'Wingspan' } },
-];
+const shelf = defineItems([
+  { id: 'wingspan', type: 'listing', props: { title: 'Wingspan' } },
+]);
 
 const page = (
   <Widgets items={shelf} components={{ listing: FeaturedListing }} />
@@ -465,11 +467,13 @@ const ListingCard = (props: { title: string; ctx: { currency: string } }) => (
   </h3>
 );
 
-const { Widgets } = createWidgets({ components: { listing: ListingCard } });
+const { Widgets, defineItems } = createWidgets({
+  components: { listing: ListingCard },
+});
 
-const shelf = [
-  { id: 'root', type: 'listing' as const, props: { title: 'Root' } },
-];
+const shelf = defineItems([
+  { id: 'root', type: 'listing', props: { title: 'Root' } },
+]);
 
 const page = <Widgets ctx={{ currency: 'SEK' }} items={shelf} />;
 
@@ -501,14 +505,14 @@ const StockLevel = async (props: { game: string }) => {
   );
 };
 
-const { Widgets } = createWidgets({
+const { Widgets, defineItems } = createWidgets({
   components: { stock: StockLevel },
   chrome: { suspenseFallback: <p>Counting stock</p> },
 });
 
-const stock = [
-  { id: 'root-stock', type: 'stock' as const, props: { game: 'Root' } },
-];
+const stock = defineItems([
+  { id: 'root-stock', type: 'stock', props: { game: 'Root' } },
+]);
 
 const html = renderToStaticMarkup(<Widgets items={stock} />); // -> '<section><div data-widget-id="root-stock" data-widget-type="stock"><p>Counting stock</p></div></section>'
 ```
@@ -551,7 +555,9 @@ const none = createWidgets({
   chrome: { suspense: 'none' },
 });
 
-const rows = [{ id: 'hive', type: 'row' as const, props: { title: 'Hive' } }];
+const rows = perItem.defineItems([
+  { id: 'hive', type: 'row', props: { title: 'Hive' } },
+]);
 
 const bounded = renderToString(<perItem.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><!--$--><p>Hive</p><!--/$--></div></section>'
 const flat = renderToString(<none.Widgets items={rows} />); // -> '<section><div data-widget-id="hive" data-widget-type="row"><p>Hive</p></div></section>'
@@ -636,7 +642,7 @@ in the HTML:
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
-const { Widgets } = createWidgets({
+const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
   chrome: {
     item: (props) => (
@@ -651,9 +657,9 @@ const { Widgets } = createWidgets({
   },
 });
 
-const shelf = [
-  { id: 'crokinole', type: 'listing' as const, props: { title: 'Crokinole' } },
-];
+const shelf = defineItems([
+  { id: 'crokinole', type: 'listing', props: { title: 'Crokinole' } },
+]);
 
 const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="crokinole" data-widget-type="listing" style="content-visibility:auto;contain-intrinsic-size:auto 240px"><h3>Crokinole</h3></div></section>'
 ```
