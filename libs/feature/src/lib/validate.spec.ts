@@ -998,24 +998,37 @@ describe('validateConfig', () => {
     expect(validateConfig(config)).toEqual({ ok: true });
   });
 
-  it('leaves createFeatures comparing the ids a literal declares', () => {
+  it('refuses two ramps of one feature at createFeatures too', () => {
     const when = [
       { field: 'plan', op: 'eq', value: 'pro' },
     ] satisfies Rule['when'];
+    const early = { when, rollout: { percent: 20 } } satisfies Rule;
+    const late = { when, rollout: { percent: 30 } } satisfies Rule;
+    const config: FeatureConfig = {
+      features: [{ key: 'beta', enabled: true, rules: [early, late] }],
+    };
 
-    // A store a TypeScript author built may hold a condition value that closes
-    // on itself, which `serializeConfig` refuses and `canonical` recurses
-    // through, so the derivation runs over the document a transport delivered.
+    // Decision 11 has one checker answer both envelopes. `serializeConfig` emits
+    // both rules verbatim, so a store that accepted these two would serialize to
+    // a document the checker refuses and the spec's round trip would not hold.
+    expect(thrownBy(config).message).toBe(
+      `feature "beta" answers the rule id "${ruleId(early)}" for two rules, and a decision that names it names both`,
+    );
+    expect(codesOf(config)).toEqual(['duplicate-rule-id']);
+  });
+
+  it('derives no id for a rule whose condition value closes on itself', () => {
+    const value: Record<string, unknown> = {};
+    value['self'] = value;
+    const when = [{ field: 'tier', op: 'eq', value }] satisfies Rule['when'];
+
+    // `canonical` writes its memo entry after the recursion, so this value
+    // exhausts the stack. Decision 12 gives the refusal to `serializeConfig`,
+    // which names `/features/0/rules/0/when/0/value/self`, and the checker
+    // reports no duplicate for a rule it could not name.
     expect(() =>
       createFeatures([
-        {
-          key: 'beta',
-          enabled: true,
-          rules: [
-            { when, rollout: { percent: 20 } },
-            { when, rollout: { percent: 50 } },
-          ],
-        },
+        { key: 'loop', enabled: true, rules: [{ when }, { when }] },
       ]),
     ).not.toThrow();
   });
