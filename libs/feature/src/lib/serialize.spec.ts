@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { serializeConfig } from './serialize.js';
-import type { ConfigEnvelope } from './config.js';
+import { assignVariant } from './variants.js';
+import type { ConfigEnvelope, FeatureConfig } from './config.js';
+import type { Definitions } from './features.js';
+import type { FeatureDefinition } from './types.js';
 
 describe('serializeConfig', () => {
   it('writes every definition the store holds, in store order', () => {
@@ -75,7 +78,7 @@ describe('serializeConfig', () => {
     expect(document.version).toBe('flags@41');
   });
 
-  it('writes a Date inside a variant value as its ISO string', () => {
+  it('refuses a Date inside a variant value, which two processes read two ways', () => {
     const features = createFeatures([
       {
         key: 'banner',
@@ -90,14 +93,15 @@ describe('serializeConfig', () => {
       },
     ] as const);
 
-    const document = serializeConfig(features);
-
-    expect(document.features[0]?.variants?.[0]?.value).toEqual({
-      until: '2026-12-24T00:00:00.000Z',
-    });
+    expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    expect(() => serializeConfig(features)).toThrow(
+      'the value at /features/0/variants/0/value/until is a Date, and a ' +
+        'document carries an instant as an ISO 8601 string or as epoch ' +
+        'milliseconds',
+    );
   });
 
-  it('writes a Date inside an attribute condition as its ISO string', () => {
+  it('refuses a Date at an attribute condition value, which === compares by identity', () => {
     const features = createFeatures([
       {
         key: 'beta',
@@ -116,11 +120,38 @@ describe('serializeConfig', () => {
       },
     ] as const);
 
-    const document = serializeConfig(features);
-
-    expect(document.features[0]?.rules?.[0]?.when?.[0]?.value).toBe(
-      '2026-01-01T00:00:00.000Z',
+    expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+    expect(() => serializeConfig(features)).toThrow(
+      'the value at /features/0/rules/0/when/0/value is a Date, and a ' +
+        'document carries an instant as an ISO 8601 string or as epoch ' +
+        'milliseconds',
     );
+  });
+
+  it('resolves a document the way the store that wrote it resolves', () => {
+    const features = createFeatures([
+      {
+        key: 'beta',
+        enabled: true,
+        rules: [
+          {
+            when: [
+              {
+                field: 'signedUpAt',
+                op: 'eq',
+                value: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      },
+    ] as const);
+    const document = serializeConfig(features);
+    const carried = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+    const holder = createFeatures(carried.features as Definitions);
+    const context = { signedUpAt: '2026-01-01T00:00:00.000Z' };
+
+    expect(holder.resolve(context)).toEqual(features.resolve(context));
   });
 
   it('refuses a variant value that holds itself', () => {
@@ -196,6 +227,162 @@ describe('serializeConfig', () => {
     expect(document.features[0]?.variants?.map((each) => each.order)).toEqual([
       7, 3,
     ]);
+  });
+
+  it('writes the members a definition carrying variants has, and no others', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]).toEqual({
+      key: 'cta',
+      enabled: true,
+      variantBy: 'targetingKey',
+      variantSeed: 'cta:variant',
+      variants: [
+        { name: 'control', weight: 50, order: 0 },
+        { name: 'blue', weight: 50, order: 1 },
+      ],
+    });
+  });
+
+  /**
+   * The two bucketing members a definition may leave out, written out.
+   *
+   * § 3 names four members that travel whole or the document is refused. A
+   * variant `weight` is required of every author and `VariantSpec.order` is
+   * written by `ordered`, which leaves `variantBy` and `variantSeed`: a holder
+   * meeting either one absent fills it from `DEFAULT_ROLLOUT_FIELD` and from
+   * `variantSeedOf`, and the document then states the walk order and states
+   * neither the field nor the seed the walk buckets on.
+   */
+  it('writes the field a variant assignment buckets on', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'control', weight: 1 }],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.variantBy).toBe('targetingKey');
+  });
+
+  it('writes the seed a variant assignment buckets on, derived from the key', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'control', weight: 1 }],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.variantSeed).toBe('cta:variant');
+  });
+
+  it("writes the seed a definition's own seed derives", () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        seed: 'cohort-7',
+        variants: [{ name: 'control', weight: 1 }],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+
+    expect(document.features[0]?.variantSeed).toBe('cohort-7:variant');
+  });
+
+  it('writes neither bucketing member for a feature that declares no variants', () => {
+    const features = createFeatures([{ key: 'cta', enabled: true }] as const);
+
+    const document = serializeConfig(features);
+
+    expect(Object.keys(document.features[0] ?? {})).toEqual(['key', 'enabled']);
+  });
+
+  /**
+   * A rollout member keeps its default, and `ruleId` is why.
+   *
+   * `rolloutText` in `rule-id.ts` derives a rule's name from
+   * `canonical({ by, seed })` for a rule that declares no `id`. A serializer
+   * writing either member's default renames every derived rule the document
+   * carries, which orphans every event already attached to it. Both members
+   * reach their default from `key` and `seed`, and the document carries both,
+   * so a holder computes what the publisher computed.
+   */
+  it('leaves a rollout that declares no field and no seed as the store holds it', () => {
+    const features = createFeatures([
+      {
+        key: 'beta',
+        enabled: true,
+        rules: [{ rollout: { percent: 25 } }],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+    const published = document.features[0]?.rules?.[0];
+
+    expect(published?.rollout).toEqual({ percent: 25 });
+    expect(published?.id).toBeUndefined();
+  });
+
+  /**
+   * The permutation `ordered` exists for.
+   *
+   * A control plane holding a feature's variants as rows and selecting them
+   * with no `ORDER BY` hands them back in whatever order the table gave. The
+   * explicit `order` the document carries is what makes that harmless: a
+   * holder sorts on it and walks the bands the publisher walked. Without the
+   * member the holder falls to the array index, every band boundary moves, and
+   * every subject above a moved boundary gets another variant with nothing
+   * reporting it.
+   */
+  it('assigns what the publisher assigns from a document whose variants arrived permuted', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 20 },
+          { name: 'blue', weight: 30 },
+          { name: 'green', weight: 50 },
+        ],
+      },
+    ] as const);
+    const document = serializeConfig(features);
+    const permuted = {
+      ...document.features[0],
+      variants: [...(document.features[0]?.variants ?? [])].reverse(),
+    } as FeatureDefinition<'cta'>;
+    const holder = createFeatures([permuted] as Definitions<'cta'>);
+    const subjects = Array.from(
+      { length: 40 },
+      (_, at) => `user-${String(at)}`,
+    );
+    const assigned = (store: typeof features, subject: string) =>
+      assignVariant(store.config[0] as FeatureDefinition<'cta'>, {
+        targetingKey: subject,
+      })?.variant.name;
+
+    expect(subjects.map((subject) => assigned(holder, subject))).toEqual(
+      subjects.map((subject) => assigned(features, subject)),
+    );
   });
 
   it('writes an authored rule id untouched', () => {
@@ -364,11 +551,16 @@ describe('serializeConfig', () => {
       {
         key: 'sale',
         enabled: true,
-        variants: [
+        rules: [
           {
-            name: 'control',
-            weight: 1,
-            value: { from: new Date(0), to: new Date(8_640_000_000_000_000) },
+            when: [
+              { field: 'now', op: 'after', value: new Date(0) },
+              {
+                field: 'now',
+                op: 'before',
+                value: new Date(8_640_000_000_000_000),
+              },
+            ],
           },
         ],
       },
@@ -376,13 +568,12 @@ describe('serializeConfig', () => {
 
     const document = serializeConfig(features);
 
-    expect(document.features[0]?.variants?.[0]?.value).toEqual({
-      from: '1970-01-01T00:00:00.000Z',
-      to: '+275760-09-13T00:00:00.000Z',
-    });
+    expect(
+      document.features[0]?.rules?.[0]?.when?.map((each) => each.value),
+    ).toEqual(['1970-01-01T00:00:00.000Z', '+275760-09-13T00:00:00.000Z']);
   });
 
-  it('writes a Date that is an element of a nested array', () => {
+  it('refuses a Date that is an element of a nested array', () => {
     const features = createFeatures([
       {
         key: 'sale',
@@ -397,14 +588,12 @@ describe('serializeConfig', () => {
       },
     ] as const);
 
-    const document = serializeConfig(features);
-
-    expect(document.features[0]?.variants?.[0]?.value).toEqual({
-      windows: [['2026-10-01T00:00:00.000Z']],
-    });
+    expect(() => serializeConfig(features)).toThrow(
+      '/features/0/variants/0/value/windows/0/0',
+    );
   });
 
-  it('survives a trip through JSON with a Date in all three places one reaches', () => {
+  it('survives a trip through JSON with a Date at the one place one reaches', () => {
     const features = createFeatures([
       {
         key: 'sale',
@@ -421,7 +610,7 @@ describe('serializeConfig', () => {
               {
                 field: 'signedUpAt',
                 op: 'eq',
-                value: new Date('2026-01-01T00:00:00.000Z'),
+                value: '2026-01-01T00:00:00.000Z',
               },
             ],
           },
@@ -430,7 +619,7 @@ describe('serializeConfig', () => {
           {
             name: 'control',
             weight: 1,
-            value: { until: new Date('2026-12-24T00:00:00.000Z') },
+            value: { until: '2026-12-24T00:00:00.000Z' },
           },
         ],
       },
@@ -519,7 +708,7 @@ describe('serializeConfig', () => {
     ]);
   });
 
-  it('writes one object twice when two variants share it', () => {
+  it('writes one object for the value two variants share, and JSON writes it twice', () => {
     const shared = { label: 'Buy' };
     const features = createFeatures([
       {
@@ -533,14 +722,13 @@ describe('serializeConfig', () => {
     ]);
 
     const document = serializeConfig(features);
+    const values = document.features[0]?.variants?.map((each) => each.value);
 
-    expect(document.features[0]?.variants?.map((each) => each.value)).toEqual([
-      { label: 'Buy' },
-      { label: 'Buy' },
-    ]);
+    expect(values).toEqual([{ label: 'Buy' }, { label: 'Buy' }]);
+    expect(values?.[0]).toBe(values?.[1]);
   });
 
-  it('writes a member two paths of one value share', () => {
+  it('writes one object for the member two paths of one value share', () => {
     const shared = { label: 'Buy' };
     const features = createFeatures([
       {
@@ -553,11 +741,52 @@ describe('serializeConfig', () => {
     ]);
 
     const document = serializeConfig(features);
+    const value = document.features[0]?.variants?.[0]?.value as Record<
+      string,
+      unknown
+    >;
 
-    expect(document.features[0]?.variants?.[0]?.value).toEqual({
-      one: { label: 'Buy' },
-      two: { label: 'Buy' },
-    });
+    expect(value).toEqual({ one: { label: 'Buy' }, two: { label: 'Buy' } });
+    expect(value['one']).toBe(value['two']);
+  });
+
+  /**
+   * A diamond, which the walk meets once per path unless it memoizes.
+   *
+   * `open` answers whether the walk stands on a value already, which is the
+   * cycle question. A value two paths reach is not a cycle and every path
+   * copying it is what fans out: 20 levels reached 22MB and 26 killed the
+   * worker on heap. `structuredClone` carries the sharing into the store and
+   * `deepFreeze` walks each node once, so the serializer is the pass that
+   * decided the document's size, and the document is what a control plane
+   * serves.
+   *
+   * `toBe` is the assertion the size rests on. A walk that copied would still
+   * satisfy `toEqual` on both branches, at 2^20 the cost.
+   */
+  it('writes one object for a value every path of a deep diamond reaches', () => {
+    let node: Record<string, unknown> = { leaf: 'Buy' };
+    for (let level = 0; level < 20; level += 1) node = { l: node, r: node };
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'control', weight: 1, value: node }],
+      },
+    ]);
+
+    const value = serializeConfig(features).features[0]?.variants?.[0]
+      ?.value as Record<string, unknown>;
+
+    const copied: number[] = [];
+    let spine = value;
+    for (let level = 0; level < 20; level += 1) {
+      if (spine['l'] !== spine['r']) copied.push(level);
+      spine = spine['l'] as Record<string, unknown>;
+    }
+
+    expect(copied).toEqual([]);
+    expect(spine).toEqual({ leaf: 'Buy' });
   });
 
   it('writes one document per call, equal to the last and not the same object', () => {
@@ -789,19 +1018,21 @@ describe('serializeConfig', () => {
    * below carries it.
    */
   describe('a leaf JSON carries no value of', () => {
-    it('refuses a Date that names no instant', () => {
+    it('refuses a window condition Date that names no instant', () => {
       const features = createFeatures([
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'control', weight: 1, value: new Date(NaN) }],
+          rules: [
+            { when: [{ field: 'now', op: 'after', value: new Date(NaN) }] },
+          ],
         },
       ]);
 
       expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
       expect(() => serializeConfig(features)).toThrow(
-        'the Date at /features/0/variants/0/value names no instant, and JSON ' +
-          'carries no invalid Date',
+        'the Date at /features/0/rules/0/when/0/value names no instant, and ' +
+          'JSON carries no invalid Date',
       );
     });
 
