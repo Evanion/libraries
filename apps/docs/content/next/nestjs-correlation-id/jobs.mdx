@@ -1,7 +1,9 @@
 # Carry the id through a job
 
-A queue consumer or a cron job has no incoming request and no middleware, so it
-opens its own correlation context with `CorrelationService.run()`.
+To run a queue message's work under the id the message carried, open a
+correlation context with `CorrelationService.run(id, callback)`.
+`CorrelationIdMiddleware` opens none outside a request, so there
+`getCorrelationId()` returns `undefined`.
 
 <PageSheet
   difficulty={4}
@@ -16,13 +18,20 @@ opens its own correlation context with `CorrelationService.run()`.
 
 ## Open a correlation context in a queue consumer
 
-`RestockJob` handles a restock message in Baize's `orders` service by asking
-`stock` for the game's current level. The code that queued the message, such as
-a request handler in `orders`, copied `getCorrelationId()` into its
+`RestockJob` is a queue consumer in Baize's `orders` service that opens its own
+correlation context with `CorrelationService.run()` from
+`@evanion/nestjs-correlation-id`. For each restock message it asks `stock` for
+the game's current level. The code that queued the message, such as a request
+handler in `orders`, copied `getCorrelationId()` into the message's
 `correlationId` field, so the message carries that request's id when there was
-one. `RestockJob` injects `CorrelationService`, the configuration `forRoot()`
-resolved (a `CorrelationConfig`, provided under `CORRELATION_CONFIG_TOKEN`), and
-`StockClient`, the `orders` service's client for `stock`:
+one.
+
+`CorrelationConfig` is the type of the configuration `forRoot()` builds from its
+argument and the defaults, with the fields `header`, `generator` and `validate`.
+`CORRELATION_CONFIG_TOKEN` is the injection token `forRoot()` provides that
+configuration under, and `RestockJob` reads `validate` from it to check the id a
+message carried. `RestockJob` injects `CorrelationService`, the configuration,
+and `StockClient`, the client [Forward the id](../forwarding) builds:
 
 ```ts file=libs/nestjs-correlation-id/examples/restock.job.ts region=restock-job
 
@@ -31,37 +40,54 @@ resolved (a `CorrelationConfig`, provided under `CORRELATION_CONFIG_TOKEN`), and
 - `run(id, callback)` runs `callback` inside a correlation context and returns
   what `callback` returns, so the promise from `stock.level()` comes straight
   back out of `handle()`.
-- Everything the callback calls or awaits reads `id`. `StockModule`, on
-  [Forward the id to the next service](../forwarding),
-  registers `StockClient`'s `HttpService` with `withCorrelation()`, so its call
-  to `stock` carries the id.
+- Everything the callback calls or awaits reads `id`. `StockModule` registers
+  `StockClient`'s `HttpService` with `withCorrelation()`, so its call to `stock`
+  carries the id.
 - `generate()` returns a new id from the configured generator, `randomUUID`
-  unless `forRoot()` was given another. A cron job has no id to carry, so it runs
-  its work inside `run(generate(), …)`.
+  unless `forRoot()` was given another. A cron job has no id to carry, so it
+  runs its work inside `run(generate(), …)`.
 
-Call `handle()` from your queue library's consumer.
+Declare `RestockJob` in a module that imports `StockModule`, and call `handle()`
+from your queue library's consumer.
 
 ## Why RestockJob validates the carried id
 
 An id read off a queue message reaches the same log lines and outgoing headers
-as one read off a request, so `RestockJob` runs it through the same check.
-`validate` on the injected configuration is the function
-`CorrelationIdMiddleware` applies to an incoming header,
-`DEFAULT_CORRELATION_ID_VALIDATOR` unless `forRoot()` was given another. A
-carried id that fails the check is dropped, and the job generates its own.
+as one read off a request, so `RestockJob` runs it through the same check
+`@evanion/nestjs-correlation-id` applies to a request. `validate` on the
+injected configuration is the function `CorrelationIdMiddleware` applies to an
+incoming header, `DEFAULT_CORRELATION_ID_VALIDATOR` unless `forRoot()` was given
+another. A carried id that fails the check is dropped, and the job generates its
+own.
 
-`CorrelationConfig` types `validate` as optional, which is why `RestockJob`
-calls it with `?.`. `forRoot()` always sets it, so the call always runs.
+## See the id each restock message runs under
+
+The code below builds `RestockJob` by hand on a `CorrelationService` from
+`@evanion/nestjs-correlation-id`, with a stand-in for `StockClient` that records
+the id each call to `stock` runs under. It hands the job three messages: one
+carrying `storefront-4f1c9a`, one carrying no id, and one carrying
+`storefront 4f1c9a`, whose space fails `DEFAULT_CORRELATION_ID_VALIDATOR`:
+
+```ts file=libs/nestjs-correlation-id/README.md region=restock-by-hand
+
+```
+
+The first message ran under its own id. The other two ran under the id the
+generator returned.
 
 ## Replace the id inside a correlation context
 
-`setCorrelationId(id)` replaces the id for the rest of the context it is called
-in. A consumer that opens its context before it has read the message, for
-instance with `run(generate(), …)` around every handler, calls it once it has
-read the id the message carried. Outside any context it throws.
+`CorrelationService.setCorrelationId(id)`, from
+`@evanion/nestjs-correlation-id`, replaces the id for the rest of the context it
+is called in. It serves a consumer that opens its context before it has read the
+message: a wrapper calls `run(generate(), …)` around every handler, so each
+handler starts under a generated id. A handler that then reads an id off its
+message passes that id to `setCorrelationId`. Outside any context
+`setCorrelationId` throws.
 
-The code below builds the worker as a Nest application context, which starts no
-HTTP server, and calls `generate`, `run` and `setCorrelationId`:
+The code below builds a queue worker, the process that runs such handlers, as a
+Nest application context, which starts no HTTP server. It calls `generate`,
+`run` and `setCorrelationId`:
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
 
@@ -69,13 +95,16 @@ HTTP server, and calls `generate`, `run` and `setCorrelationId`:
 
 The generated id came from the generator passed to `forRoot()`. Inside
 `run('orders-0f3a2b', …)`, `setCorrelationId` changed what `getCorrelationId()`
-returns. Outside, the call threw, and the message names the two ways to open a
-context.
+returns. Outside, the call threw, and the error message names the two ways to
+open a context: `CorrelationIdMiddleware` and `CorrelationService.run()`.
 
 Inside a request, `setCorrelationId` leaves the response header alone. The
 header keeps the id the middleware wrote when the request arrived.
 
-## Now that a job carries the id, configure what nestjs-correlation-id accepts
+## Change the header, the generator and the check
 
-[Configuration](../configuration) covers the fields
-`forRoot()` takes, and what an incoming id has to look like to be reused.
+A job now carries the id its message brought, and
+`@evanion/nestjs-correlation-id` generates a fresh one when the message brought
+none. [Configuration](../configuration) changes the header, the generator and
+the check `@evanion/nestjs-correlation-id` applies to an incoming id, through
+the fields `forRoot()` takes.

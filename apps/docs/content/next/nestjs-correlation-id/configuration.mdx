@@ -8,7 +8,10 @@ module. `CorrelationConfig` has three fields, each with a default.
   difficulty={3}
   read={8}
   hands={10}
-  requires={[['Getting started', '../getting-started']]}
+  requires={[
+    ['Getting started', '../getting-started'],
+    ['Carry the id through a job', '../jobs'],
+  ]}
   unlocks={[['API reference', '../api']]}
 />
 
@@ -20,58 +23,59 @@ module. `CorrelationConfig` has three fields, each with a default.
 
 ## Pass a configuration to CorrelationModule.forRoot
 
-The configuration below sets all three fields for Baize's `orders` service. It
-generates ids of the form `<service>-<6 hex digits>`, carries them in
-`X-Request-Id`, and accepts only that shape back. In your application the object
-goes where Getting started left `forRoot()` empty, in the root module's
+The configuration below gives `@evanion/nestjs-correlation-id` all three fields
+for Baize's `orders` service. It generates ids of the form
+`<service>-<6 hex digits>`, carries them in `X-Request-Id`, and accepts only
+that shape back. In your application the object goes where Getting started left
+`forRoot()` empty, in the root module's
 `imports: [CorrelationModule.forRoot({ … })]`.
 
-To show what `forRoot()` resolved, the code below builds the module on its own
-as a Nest application context, which starts no HTTP server. It reads the
-configuration back through `CORRELATION_CONFIG_TOKEN`, the injection token
-`forRoot()` provides it under:
+To show what `forRoot()` built, the code below builds the module on its own as a
+Nest application context and reads the configuration back through
+`CORRELATION_CONFIG_TOKEN` ([Carry the id through a job](../jobs)):
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=configure
 
 ```
 
-`forRoot()` fills in every field it is not given, so a provider that injects
-`CORRELATION_CONFIG_TOKEN` always gets a complete object. `CorrelationConfig`
-still types `validate` as optional, so the code calls it with `?.`. The last
-line checks the generator against the validator: an id the service generates
-has to pass its own check when the next service sends it back.
+`forRoot()` fills in every field it is not given, or is given as `undefined`, so
+a provider that injects `CORRELATION_CONFIG_TOKEN` always gets a complete
+object. `CorrelationConfig` still types `validate` as optional, so the code
+calls it with `?.`, and `?.` never skips the call. The last line checks the
+generator against the validator: an id the service generates has to pass its own
+check when the next service sends it back.
 
-## Choose the header nestjs-correlation-id reads and writes
+## Choose the correlation header
 
-No correlation header is registered with the Internet Assigned Numbers
-Authority (IANA), so there is no canonical spelling to defer to.
-`X-Correlation-Id` and `X-Request-Id` are the two in common use; pick the one
-the rest of your stack already sends. Every service in the chain has to read
-the header the previous one sends: if `storefront` sends `X-Correlation-Id` and
-`orders` reads `X-Request-Id`, `orders` generates a new id.
+`@evanion/nestjs-correlation-id` reads and writes one header. No correlation
+header is registered with the Internet Assigned Numbers Authority (IANA), so
+there is no canonical spelling to defer to. `X-Correlation-Id` and
+`X-Request-Id` are the two in common use; pick the one the rest of your stack
+already sends. Every service in the chain has to read the header the previous
+one sends: if `storefront` sends `X-Correlation-Id` and `orders` reads
+`X-Request-Id`, `orders` generates a new id.
 
 The middleware matches the request header case-insensitively, because Node
 lowercases incoming header names. The casing you configure is the casing that
 goes out on the response and on calls through `withCorrelation()`.
 
-## Choose the generator nestjs-correlation-id calls
+## Choose the id generator
 
-The middleware calls the generator only when no id that passes `validate`
-arrived, so a counter- or sequence-backed generator is not advanced for an id
-that gets discarded.
+The `@evanion/nestjs-correlation-id` middleware calls the generator only when no
+id that passes `validate` arrived, so a counter-backed generator advances once
+per request that arrived without a usable id.
 
 Under the default validator, a generator whose ids run over 128 characters, or
-contain a character outside letters, digits, `_`, `.`, `:` and `-`, produces ids
-the same application rejects when they come back in as a header. The `+`, `/`
-and `=` of base64 are such characters. `randomUUID` produces 36 characters from
-hex digits and hyphens.
+contain a character the validator refuses, such as the `+`, `/` and `=` of
+base64, produces ids the same application rejects when they come back in as a
+header. `randomUUID` produces 36 characters from hex digits and hyphens.
 
-## Decide which incoming ids nestjs-correlation-id reuses
+## Decide which incoming ids are reused
 
-An incoming id that passes `validate` goes into the response header and into
-whatever the application logs. `DEFAULT_CORRELATION_ID_VALIDATOR` accepts 1 to
-128 characters, each a letter from A to Z in either case, a digit, an
-underscore, a dot, a colon or a hyphen.
+`@evanion/nestjs-correlation-id` puts an incoming id that passes `validate` into
+the response header and into whatever the application logs.
+`DEFAULT_CORRELATION_ID_VALIDATOR` accepts 1 to 128 characters, each a letter
+from A to Z in either case, a digit, an underscore, a dot, a colon or a hyphen.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=validator
 
@@ -82,53 +86,55 @@ What the default check refuses:
 - A carriage return (CR) or a line feed (LF). Node already rejects both in a
   header, incoming and outgoing. The check also covers an id from another
   source, such as a queue message, when your consumer passes it through
-  `validate` the way `RestockJob` does on
-  [Carry the id through a job](../jobs). A CR or LF in a log
-  line forges a second line.
+  `validate` the way `RestockJob` does on [Carry the id through a job](../jobs).
+  A CR or LF in a log line forges a second line.
 - Anything over 128 characters, which bounds what one request can append to
   every log line it touches.
-- A comma. Node joins a repeated request header into one comma-separated
-  string, so one request that carries the header twice gets a fresh id.
+- A comma. Node joins a repeated request header into one comma-separated string,
+  so one request that carries the header twice gets a fresh id.
 
 An id that fails is replaced by a generated one, and `getCorrelationId()`
-returns the generated id. The middleware writes the id onto `req.headers` only
-when the request carried no header, so `req.headers` keeps the rejected value.
+returns the generated id. The middleware also writes a generated id onto
+`req.headers`, so code that reads the header rather than `CorrelationService`
+sees it. It does so only when the request carried no header, so after a
+rejection `req.headers` still holds the rejected value.
 
-## Replace the validator nestjs-correlation-id applies
+## Replace DEFAULT_CORRELATION_ID_VALIDATOR
 
 To accept only the shape your services generate, pass your own `validate` to
-`forRoot()`. Baize's `orders` service passes
+`forRoot()`, and `@evanion/nestjs-correlation-id` applies it in place of the
+default. Baize's `orders` service passes
 `/^(storefront|orders|stock)-[0-9a-f]{6}$/`, which accepts no id the default
 refuses. A caller outside your services then gets its id replaced: a service
 still on the default generator sends a `randomUUID` id, and this validator
 rejects it.
 
-Six hex digits are 24 bits, so two ids among about 4,800 collide with even odds.
-A service that handles more requests than that within the window you search logs
-over needs a longer suffix.
-
-A validator that accepts CR or LF lets an id from a queue message forge a log
-line, and one with no length bound lets a single request write an arbitrarily
-long string into every log line it touches.
+Six hex digits give 16,777,216 values. By the birthday bound, n random ids drawn
+from N values contain two equal ones with even odds once n reaches about 1.18 ×
+√N, which for these ids is about 4,800. A service that handles more requests
+than that within the window you search logs over needs a longer suffix.
 
 ## Call CorrelationModule.forRoot once
 
-`forRoot()` registers the module `global: true`, because
-`CorrelationIdMiddleware`, `withCorrelation()` and every provider that reads an
-id resolve `CorrelationService` or `CORRELATION_CONFIG_TOKEN` from the root
-injector. Without that, every consuming module would import `CorrelationModule`
-itself.
+`forRoot()` registers the `@evanion/nestjs-correlation-id` module
+`global: true`, because `CorrelationIdMiddleware`, `withCorrelation()` and every
+provider that reads an id inject `CorrelationService` or
+`CORRELATION_CONFIG_TOKEN`. A global module's providers resolve in every module
+of the application. Without that, every consuming module would import
+`CorrelationModule` itself.
 
 A second `forRoot()` creates a second `CorrelationService` and a second
-configuration. A module resolves the copy it imported, or the first one
-registered. Each copy keeps its own `AsyncLocalStorage`, so a provider holding a
-copy the middleware did not use reads `undefined` inside every request. Nest
-raises no error and prints no warning.
+configuration. Nest then injects the second copy into the providers of the
+module whose `imports` list that second `forRoot()`, and the first copy
+everywhere else. Each copy keeps its own `AsyncLocalStorage`, so a provider
+holding a copy the middleware did not use reads `undefined` inside every
+request. Nest raises no error and prints no warning.
 
-## Read the nestjs-correlation-id configuration from the environment
+## Read the configuration from the environment
 
-`CorrelationModule` has no `forRootAsync()`. The configuration is a plain
-object, fixed when the root module is declared, and `ConfigService` cannot be
-injected into it. Read an environment value from `process.env` in the
-`forRoot()` call, for example
-`forRoot({ header: process.env['CORRELATION_HEADER'] })`.
+`CorrelationModule` in `@evanion/nestjs-correlation-id` has no `forRootAsync()`.
+The configuration is a plain object, fixed when the root module is declared, and
+`ConfigService` cannot be injected into it. Read an environment value from
+`process.env` in the `forRoot()` call, for example
+`forRoot({ header: process.env['CORRELATION_HEADER'] })`. When the variable is
+unset, `header` is `undefined` and `forRoot()` falls back to `X-Correlation-Id`.
