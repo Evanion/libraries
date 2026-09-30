@@ -3040,6 +3040,23 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     );
   });
 
+  it('refuses an undefined condition before the serializer names it', () => {
+    const config = {
+      features: [{ key: 'a', enabled: true, rules: [{ when: [undefined] }] }],
+    } as unknown as FeatureConfig;
+
+    // JSON carries no `undefined`, so only a literal reaches this element, and
+    // `serialized` in `serialize.ts` has a refusal that names the path to it.
+    // The checker refuses the element first, on both paths, so the serializer
+    // meets no store holding one.
+    expect(messagesOf(config)).toEqual([
+      'feature "a" declares the condition at /features/0/rules/0/when/0 as nothing, and this checker reads an object',
+    ]);
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares the condition at /features/0/rules/0/when/0 as nothing, and this checker reads an object',
+    );
+  });
+
   it('refuses a day-of-week condition carrying no zone at createFeatures too', () => {
     const config = document('[{"field":"now","op":"day-of-week","value":[1]}]');
 
