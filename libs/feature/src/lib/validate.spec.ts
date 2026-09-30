@@ -1115,7 +1115,9 @@ describe('validateConfig', () => {
 
   it('names the value of a rule whose condition nests too deep to hash', () => {
     let value: unknown = 1;
-    for (let at = 0; at < 2000; at += 1) value = [value];
+    // Deeper than the call stack any engine running this gives `written`. A
+    // depth near the limit passes on one runtime and fails on the next.
+    for (let at = 0; at < 50_000; at += 1) value = [value];
     const document = {
       features: [
         {
