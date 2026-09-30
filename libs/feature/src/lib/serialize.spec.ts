@@ -1246,11 +1246,11 @@ describe('serializeConfig', () => {
    * variant value lost what it carried, with no digest disagreeing: the
    * publisher canonicalizes the same `{}`.
    *
-   * `NaN` and `Infinity` become `null` on the first transport hop
-   * and both sides digest `null`, so nothing reports the difference. An
-   * `undefined` array element goes the other way, since `canonical` writes the
-   * text `undefined` where JSON writes `null`, and the holder refuses the whole
-   * document over a digest mismatch it cannot explain.
+   * `NaN` and `Infinity` become `null` on the first transport hop, and
+   * `canonical` tags a non-finite number, so the two sides digest apart and the
+   * holder refuses the whole document over a mismatch it cannot explain. An
+   * `undefined` array element does the same, since `canonical` writes the text
+   * `undefined` where JSON writes `null`.
    *
    * Every one of them reaches a store: `structuredClone` carries them, holes in
    * a sparse array included, and `deepFreeze` seals a `Map` and a `Set` on

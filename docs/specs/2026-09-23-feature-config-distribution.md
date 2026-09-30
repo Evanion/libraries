@@ -300,6 +300,17 @@ configuration, and a digest over raw bytes would change when nothing did. The
 function is small enough to port. `@evanion/feature` depends on `@evanion/acl`
 in neither direction.
 
+This package's copy adds one rule the ACL copy has no need of. `NaN`,
+`Infinity` and `-Infinity` are written behind a `number:` tag, `number:NaN` for
+`NaN`. `JSON.stringify` writes all three as `null`, and `toEpoch` at
+`conditions.ts:18-22` reads a number window instant to an epoch untouched, so a
+`before` boundary of `Infinity` matches every `now`, one of `-Infinity` matches
+none, and one of `NaN` fails the guard at `conditions.ts:73`. One text for the
+three gives three documents that resolve a flag three ways one digest, and
+`serializeConfig` refuses a non-finite number for the same reason: JSON carries
+none of them, so the value the holder installs is `null` whatever the publisher
+held.
+
 A digest states one useful thing beyond difference. Two processes computing one
 digest from documents they fetched separately have proved they hold the same
 configuration, which is what the variants spec's determinism condition 2 asks
@@ -927,7 +938,10 @@ audience a document without it, which decision 2 places outside this library.
 - Digest stability. Two documents differing only in object key order, in
   whitespace, in a `Date` against its ISO string, in a `version`, and in an absent
   key against one written `undefined`, produce one digest. A document differing in
-  the order of a `rules` array produces a different one.
+  the order of a `rules` array produces a different one. A window instant of
+  `Infinity`, one of `-Infinity` and one of `NaN` produce three digests, because
+  the three decide the window three ways and `JSON.stringify` writes one text for
+  them.
 - The publisher recipe of § 2, run in order. A document whose `version` and
   `digest` both hold what `configDigest` returned for the configuration verifies
   against a holder that recomputes it.

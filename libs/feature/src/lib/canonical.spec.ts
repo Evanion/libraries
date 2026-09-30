@@ -38,6 +38,40 @@ describe('canonical', () => {
     expect(canonical(10n)).not.toBe(canonical(10));
   });
 
+  it('writes a non-finite number behind a number tag', () => {
+    expect(canonical(Number.NaN)).toBe('number:NaN');
+    expect(canonical(Number.POSITIVE_INFINITY)).toBe('number:Infinity');
+    expect(canonical(Number.NEGATIVE_INFINITY)).toBe('number:-Infinity');
+  });
+
+  it('separates NaN, Infinity, -Infinity and the null JSON writes for them', () => {
+    // `toEpoch` at `conditions.ts:18-22` returns a number window instant
+    // untouched, so a `before` boundary of `Infinity` matches every `now`, one
+    // of `-Infinity` matches none, and one of `NaN` fails the guard at
+    // `conditions.ts:73`. `JSON.stringify` writes one text for all three.
+    const texts = new Set([
+      canonical(Number.NaN),
+      canonical(Number.POSITIVE_INFINITY),
+      canonical(Number.NEGATIVE_INFINITY),
+      canonical(null),
+    ]);
+
+    expect(texts.size).toBe(4);
+  });
+
+  it('separates a non-finite number from the string that spells its text', () => {
+    expect(canonical(Number.NaN)).not.toBe(canonical('number:NaN'));
+    expect(canonical(Number.POSITIVE_INFINITY)).not.toBe(
+      canonical('number:Infinity'),
+    );
+  });
+
+  it('writes a finite number the way JSON.stringify writes it', () => {
+    expect(canonical(41)).toBe('41');
+    expect(canonical(-0)).toBe('0');
+    expect(canonical(1e21)).toBe('1e+21');
+  });
+
   it('writes a function as a string instead of returning undefined', () => {
     expect(typeof canonical(() => 1)).toBe('string');
   });
