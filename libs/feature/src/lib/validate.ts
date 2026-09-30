@@ -719,13 +719,7 @@ function shapeWalk(
           // is reported here rather than dropped. `ruleIdErrors` skips it after
           // this, the way it skips a rule whose `when` the walk refused.
           unwalked.add(element);
-          all.push(
-            unreadable(
-              `${named} declares a rule at ${path} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
-              `${path}/when`,
-              key,
-            ),
-          );
+          all.push(unnameable(element, named, path, key));
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
         // map on, so it is the one rule the id walk drops.
@@ -785,6 +779,65 @@ function nameable(rule: Rule): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The value a rule's derivation raises on, as the issue that names it.
+ *
+ * `nameable` asks the whole rule, and this walks the conditions one at a time to
+ * say which value raised. `canonical` takes a fresh memo per call at
+ * `canonical.ts:73`, so a condition this walk names on its own is one the rule's
+ * derivation names beside the others.
+ *
+ * A window condition answers `invalid-instant`. § 8 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` gives that code to a
+ * condition value this checker cannot read as a point in time, and the raise
+ * comes out of `instantText` at `rule-id.ts:16-22`, which hands the value to
+ * `RegExp.prototype.test`. An operator routing on the code reads the member to
+ * fix, and `unknown-member` would send them looking for a member to add.
+ *
+ * Every other condition answers `unknown-member`, which is the code this walk
+ * reports every value it cannot read as. The 18 codes name no second one for a
+ * value `canonical` has no text for.
+ *
+ * The rule-level sentence is the fallback, for a rule whose conditions each name
+ * on their own. `rolloutText` canonicalises `{ by, seed }`, so a `by` that holds
+ * itself raises where no condition does.
+ */
+function unnameable(
+  rule: Readonly<Record<string, unknown>>,
+  named: string,
+  at: string,
+  key?: FeatureKey,
+): Found {
+  const when: unknown = rule['when'];
+  const conditions: readonly unknown[] = Array.isArray(when) ? when : [];
+  for (let inside = 0; inside < conditions.length; inside += 1) {
+    const condition: unknown = conditions[inside];
+    if (nameable({ when: [condition] } as unknown as Rule)) continue;
+    const path = `${at}/when/${String(inside)}/value`;
+    const op: unknown = isRecord(condition) ? condition['op'] : undefined;
+    if (op === 'before' || op === 'after') {
+      return found(
+        'invalid-instant',
+        new FeatureConfigError(
+          `${named} declares the instant at ${path} as a value this checker cannot read as a point in time, and the derivation a decision reads this rule's id from raises on it`,
+        ),
+        key,
+        path,
+      );
+    }
+    return unreadable(
+      `${named} declares the value at ${path} as one no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+      path,
+      key,
+    );
+  }
+  return unreadable(
+    `${named} declares a rule at ${at} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+    `${at}/when`,
+    key,
+  );
 }
 
 /**
