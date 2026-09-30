@@ -219,32 +219,76 @@ describe('utf8', () => {
     expect(utf8('\ud800')).toEqual([0xef, 0xbf, 0xbd]);
     expect(utf8('\udfff')).toEqual([0xef, 0xbf, 0xbd]);
   });
+
+  it('writes two adjacent surrogates as two replacements', () => {
+    // The high surrogate takes the pair branch and the unit behind it is no low
+    // surrogate, so each half is its own replacement.
+    expect(utf8('\ud800\ud800')).toEqual([0xef, 0xbf, 0xbd, 0xef, 0xbf, 0xbd]);
+    expect(utf8('\udc00\ud800')).toEqual([0xef, 0xbf, 0xbd, 0xef, 0xbf, 0xbd]);
+  });
+
+  it('agrees with TextEncoder on every pair of units across the surrogate block', () => {
+    // One code point per string leaves the pair check at `bucketing.ts:79`
+    // reading a high surrogate against a non-surrogate alone. Widening its low
+    // bound to 0xd800 writes `utf8('\ud800\ud800')` as one three-byte code
+    // point where the encoder writes two replacements, and a targeting value
+    // carrying unpaired UTF-16 from a native bridge then buckets apart from
+    // every conforming port.
+    const reference = new TextEncoder();
+    const units = [
+      0xd7ff, 0xd800, 0xd801, 0xdbfe, 0xdbff, 0xdc00, 0xdc01, 0xdffe, 0xdfff,
+      0xe000,
+    ];
+    const disagreements: string[] = [];
+
+    for (const first of units) {
+      for (const second of units) {
+        const text = String.fromCharCode(first, second);
+        const theirs = reference.encode(text);
+        const ours = utf8(text);
+        const agrees =
+          ours.length === theirs.length &&
+          ours.every((byte, index) => byte === theirs[index]);
+        if (!agrees) {
+          disagreements.push(
+            `U+${first.toString(16)} U+${second.toString(16)}`,
+          );
+        }
+      }
+    }
+
+    expect(disagreements).toEqual([]);
+  });
 });
 
 describe('murmur3Bytes', () => {
-  it('hashes a byte array the way murmur3 hashes the text it encodes', () => {
-    for (const text of [
-      '',
-      'a',
-      'abc',
-      'hello',
-      '\u00e9',
-      '\u65e5\u672c\u8a9e',
-      '\ud83c\udf89',
-      'a\ud83c\udf89b',
-    ]) {
-      expect(murmur3Bytes(utf8(text))).toBe(murmur3(text));
-    }
+  it('hashes a byte array to the word the MurmurHash3 reference pins for it', () => {
+    // `murmur3` is `murmur3Bytes(utf8(input), seed)`, so an assertion against it
+    // compares this function with its own definition. The words below are the
+    // reference implementation's, over the bytes of `''`, `'a'`, `'abc'`,
+    // `'hello'`, U+00E9 and U+1F389, so a port carrying its own encoder
+    // reproduces a digest word from an array of bytes alone.
+    const word = (bytes: readonly number[]) =>
+      murmur3Bytes(bytes).toString(16).padStart(8, '0');
+
+    expect(word([])).toBe('00000000');
+    expect(word([0x61])).toBe('3c2569b2');
+    expect(word([0x61, 0x62, 0x63])).toBe('b3dd93fa');
+    expect(word([0x68, 0x65, 0x6c, 0x6c, 0x6f])).toBe('248bfa47');
+    expect(word([0xc3, 0xa9])).toBe('10110787');
+    expect(word([0xf0, 0x9f, 0x8e, 0x89])).toBe('1feb8b56');
   });
 
   it('hashes one byte array under each seed the digest widens with', () => {
     // `configDigest` encodes the canonical text once and calls this once per
-    // seed, so the four words of a digest read one array.
-    const bytes = utf8('hello');
+    // seed, so the four words of a digest read one array. These four are the
+    // digest of the text `hello`, in the order `digest.ts` concatenates them.
+    const bytes = [0x68, 0x65, 0x6c, 0x6c, 0x6f];
+    const words = [0x00000000, 0x9747b28c, 0x2f1e3d4c, 0xb7e15163].map((seed) =>
+      murmur3Bytes(bytes, seed).toString(16).padStart(8, '0'),
+    );
 
-    for (const seed of [0x00000000, 0x9747b28c, 0x2f1e3d4c, 0xb7e15163]) {
-      expect(murmur3Bytes(bytes, seed)).toBe(murmur3('hello', seed));
-    }
+    expect(words).toEqual(['248bfa47', '5d7f56e8', '0b12f872', '94a63a0a']);
   });
 
   it('leaves the array it reads untouched', () => {
@@ -258,13 +302,17 @@ describe('murmur3Bytes', () => {
   it('reads a tail of one, two and three bytes past the last block', () => {
     // The tail loop stands where the reference implementation writes a
     // fallthrough switch, and a length that is not a multiple of four is the
-    // only input that reaches it.
-    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65])).toBe(murmur3('abcde'));
-    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65, 0x66])).toBe(
-      murmur3('abcdef'),
-    );
-    expect(murmur3Bytes([0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67])).toBe(
-      murmur3('abcdefg'),
+    // only input that reaches it. The four- and eight-byte arrays run whole
+    // blocks and no tail, which is what the three widths are read against.
+    const word = (bytes: readonly number[]) =>
+      murmur3Bytes(bytes).toString(16).padStart(8, '0');
+
+    expect(word([0x61, 0x62, 0x63, 0x64])).toBe('43ed676a');
+    expect(word([0x61, 0x62, 0x63, 0x64, 0x65])).toBe('e89b9af6');
+    expect(word([0x61, 0x62, 0x63, 0x64, 0x65, 0x66])).toBe('6181c085');
+    expect(word([0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67])).toBe('883c9b06');
+    expect(word([0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68])).toBe(
+      '49ddccc4',
     );
   });
 });
