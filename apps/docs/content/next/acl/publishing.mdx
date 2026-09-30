@@ -4,8 +4,6 @@
 document another service adopts with `parseMatrix` and decides from in its own
 process.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={5}
   read={7}
@@ -129,8 +127,3 @@ key has to be in it. A key missing from the contract takes its object kind's
 schema entry with it, and the team's check then refuses every rule it wrote.
 `serialize(access, 'reduced', { vetoable })` throws `UnpublishedVetoableError`
 when the list names a key the contract would drop.
-
-## Now that you publish a contract, know what can throw
-
-[What can throw?](../errors) lists every error acl raises while it builds an
-evaluator, including the ones a consumer meets adopting your contract.

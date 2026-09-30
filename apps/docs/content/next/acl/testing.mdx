@@ -4,8 +4,6 @@
 against the contract you pinned and the one continuous integration (CI) fetched,
 and reports what moved between them.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={5}
   read={8}
@@ -15,7 +13,7 @@ and reports what moved between them.
     ['What did editing my rules change about access?', '../rule-changes'],
   ]}
   unlocks={[
-    ['Caveats & Pitfalls', '../pitfalls'],
+    ['Caveats and pitfalls', '../pitfalls'],
     ['API Reference', '../api'],
   ]}
 />
@@ -151,8 +149,3 @@ It imports no test framework: every helper returns a value or throws a plain
 `Error`, which vitest, `node:test` and jest each report the same way.
 `@evanion/acl` does not re-export any of it, so an application importing the
 engine pulls none of it into its bundle.
-
-## Now that your suite checks the contract, check your code
-
-[Caveats & Pitfalls](../pitfalls) lists the mistakes a working acl integration
-still makes, each beside the form to write.

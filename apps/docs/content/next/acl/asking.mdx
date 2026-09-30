@@ -3,8 +3,6 @@
 `access.can(subject, kind, action, row)` answers one authorization question and
 returns a decision your handler gates on and your screen renders.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={5}
   read={6}
@@ -183,9 +181,3 @@ instead, and carries `can`, `canMany`, `canFields` and `readsObject`.
 Binding the subject is all the library can do about
 [complete mediation](../security#complete-mediation), the rule that every path
 to your data is checked. Nothing stops a handler that never calls `can` at all.
-
-## Now that you can ask, list what a user may do
-
-[What may this user do at all?](../listing-permissions) answers every
-permission for one subject in one call, which is how a navigation menu draws
-before any row is fetched.

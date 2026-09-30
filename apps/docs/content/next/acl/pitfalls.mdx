@@ -1,14 +1,7 @@
 # Caveats and pitfalls
 
-<WorkshopNotice slug="acl">
-  <Text as="div" size="sm">
-    Every behaviour here ran against `libs/acl/src` before it was written down,
-    the two gaps at the bottom included.
-  </Text>
-</WorkshopNotice>
-
-Each heading names a mistake the `@evanion/acl` API invites, several of them
-made in this repository, and the form that holds.
+Each heading names a mistake the `@evanion/acl` API invites, and the text
+under it says what to write instead.
 
 ## Reading a decision
 
@@ -17,24 +10,32 @@ explanation fields that gate nothing.
 
 ### Gate on `allowed`, not on `reason`
 
+The fence builds its evaluator with `parseMatrix`, which reads a matrix another
+service published, as
+[How do I use rules another service published?](../adopting) teaches.
+`maxStale` on that matrix is how many milliseconds after `fetchedAt` a holder
+may keep deciding on it. Each `can` call in the fence refuses for a different
+reason:
+
 ```ts twoslash file=libs/acl/README.md region=gate-on-allowed
 
 ```
 
-`reason` is output only, and its seven values do not split into two buckets.
-Each of these refuses, and a gate written as `reason !== 'denied'` proceeds
-through every one:
+`reason` has seven values. `allow` grants, and `denied` means a deny rule
+matched. The other five refuse without any deny rule matching, so a gate written
+as `reason !== 'denied'` lets all five through:
 
-- `no-rule-matched`
-- `unknown-action`
-- `unevaluable`
-- `unusable-clock`
-- `stale-contract`
+- `no-rule-matched`: no allow rule matched
+- `unknown-action`: the matrix carries no such permission
+- `unevaluable`: the call lacked a field a rule reads
+- `unusable-clock`: the instant passed to `can` did not parse
+- `stale-contract`: the matrix is older than its `maxStale` allows
 
 ### `unevaluable` is not `denied`
 
-`unevaluable` means the engine could not reach the decision with the data it was
-handed, and `missing` names what to fetch. One refetch turns it into an answer:
+`unevaluable` means the evaluator could not reach the decision with the data it
+was handed, and `missing` names what to fetch. One refetch turns it into an
+answer:
 
 ```ts twoslash file=libs/acl/README.md region=refetch
 
@@ -47,8 +48,10 @@ handed, and `missing` names what to fetch. One refetch turns it into an answer:
 - A caller who reads `unevaluable` as permission has a hole.
 
 An `unevaluable` that survives a refetch is a mistyped field name in the
-document. A `schema` turns that class into an `UnknownFieldError` at
-construction. [The refusal fields](../refusals) has both halves.
+document. A `schema`, the optional list of fields each object kind carries,
+turns that mistake into an `UnknownFieldError` when the evaluator is built.
+[Why was this refused?](../refusals#when-the-answer-is-unevaluable) covers the
+refetch and the schema.
 
 ### A key the document does not carry is absent, not false
 
@@ -59,14 +62,20 @@ the permission key it needs.
 
 ```
 
-A capability map holds an entry per permission in the document.
+`access.capabilities(subject)` returns a capability map, taught on
+[What may this user do at all?](../listing-permissions), with an entry per
+permission in the document.
 
 - A key the document does not carry reads `undefined`, and
   `undefined !== false` is `true`.
 - A menu filtered with `!== false` grows an item whenever somebody renames a
   permission.
 
-## Writing fields
+## Writing fields with `canFields`
+
+`@evanion/acl`'s `canFields` answers per field, and
+[Which fields may they write?](../writing) teaches its arguments. Each heading
+below names one way of misreading that answer.
 
 ### Never hand-filter the field map
 
@@ -74,10 +83,12 @@ A capability map holds an entry per permission in the document.
 
 ```
 
-`FieldState` has three values. `transitions` is a state machine over a field's
-current value, and when the row lacks that value, `canFields` decides the field
-`unevaluable`. A filter that drops only the `denied` keys writes a value the
-decision declined to approve, in two ways:
+`canFields` decides each field as one of three `FieldState` values: `allowed`,
+`denied` or `unevaluable`. `transitions` lists the values a field may move to
+from its current value, and when the row lacks that value, `canFields` decides
+the field `unevaluable`.
+A filter that drops only the `denied` keys writes a value the decision declined
+to approve, in two ways:
 
 - a key that decided `unevaluable`, since `'unevaluable' !== 'denied'` is `true`
 - a key the decision does not carry at all, since `undefined !== 'denied'` is
@@ -97,9 +108,10 @@ rest.
 - the object's own keys
 - the proposed write's keys
 - the rule's field names
-- the names in the allow-list
+- the names in the permission's `fields` list
 
-Hand `canFields` a projection and the map shrinks. A name in the map is a
+Hand `canFields` a row the query selected only some fields of, and the map
+shrinks. A name in the map is a
 decision; a name missing from it is a question nobody asked. A form rendered
 from `fields` draws fewer inputs, and `pickAllowedFields` writes only keys that
 decided `allowed`, so the default direction is the safe one.
@@ -111,7 +123,7 @@ decided `allowed`, so the default direction is the safe one.
 ```
 
 `canFields` returns two booleans named `allowed`, one nested inside the other,
-and they disagree exactly when the narrowing is doing its job.
+and they disagree whenever the action is allowed and some field is not.
 
 - `fd.allowed` composes both: the action is allowed and every decided field is
   allowed.
@@ -119,7 +131,7 @@ and they disagree exactly when the narrowing is doing its job.
 
 ### Do not iterate `fields` without checking `allowed` first
 
-`canFields` fills the field maps in whatever the action decides.
+`canFields` fills the field maps whatever the action decides.
 
 - A subject refused the action still gets a complete map of which fields would
   be editable once the action is unblocked.
@@ -132,13 +144,18 @@ and they disagree exactly when the narrowing is doing its job.
 
 ```
 
-A per-field config restricts the field it names and no other.
+`targets` lists the values a field may be set to, and `transitions` lists the
+moves from its current value. Either config restricts the field it names and no
+other.
 
 - With no `fields` list, every unnamed key is writable.
 - A caller who reads the config as the writable-field list leaves the rest of
   the row open.
 
 ## Authoring a policy
+
+Two `@evanion/acl` mistakes live in the policy itself, where no call site can
+catch them.
 
 ### A condition may only read fields the subject cannot write
 
@@ -147,28 +164,30 @@ A per-field config restricts the field it names and no other.
 ```
 
 If the subject can write `sharedWith`, they authorize themselves for the
-wishlist. The engine cannot see this: it does not know which object fields the
-subject can write, and the write that opens the door is a different action from
-the read. Let no action the subject holds write the field a read rule keys on,
-or key the rule on something out of reach: ownership set at creation, or a field
-only the server writes.
+wishlist. The evaluator cannot see this: it does not know which object fields
+the subject can write, and the write that opens the door is a different action
+from the read. Let no action the subject holds write the field a read rule keys
+on, or key the rule on something out of reach: ownership set at creation, or a
+field only the server writes.
 
 ### The matrix is public in its names, not only its values
 
-`bypass-kyc` as an action name, or `internal-fraud-reviewer` as a role string,
-is disclosed the moment a page loads. The document reaches the client in full,
+`refund-without-receipt` as an action name, or `shrinkage-auditor` as a role
+string, is disclosed the moment a page loads. The document reaches the client in full,
 carrying:
 
 - every object kind and every action
 - every role
 - every field name, including the ones the API never returns
-- every time window
+- every instant a `p.before` or `p.after` condition compares against
 
-Send it anyway. Security must not rest on the document staying secret, and here
-it does not. Name things as if a reader has them open, and keep secrets and
-server-only predicates out of the document.
+The browser needs the whole document to answer. Name things as if a reader has
+them open, and keep secrets and server-only predicates out of the document.
 
-## Around the call
+## Around the `can` call
+
+Three `@evanion/acl` mistakes sit in the code around `can`: where the subject
+comes from, which process decides, and when the write runs.
 
 ### The subject is whatever you hand it
 
@@ -181,18 +200,19 @@ claimed identity faithfully authorized:
 - an unverified token body
 - a field the client posted
 
-No evaluator can fix this confused deputy. Resolve the subject from a verified
+No evaluator can fix a forged subject. Resolve the subject from a verified
 session or token, server-side, before it reaches the call.
 
 ### A browser decision enforces nothing, and every layer decides for itself
 
-In a browser `can` toggles what the user sees. The control disappears; the data
-behind it stays, and so does the request it would have sent. The call has the
-same signature and return type in both places, nothing in the types separates
-authoritative from advisory, and the runtime decides.
+In a browser, your code reads `can` to decide what the user sees. The control
+disappears; the data behind it stays, and so does the request it would have
+sent. The call has the same signature and return type on a server, so nothing
+in the types marks an answer as authoritative. The process it runs in does: a
+server's answer guards the write, and a browser's answer only draws the screen.
 
-A gateway or a backend-for-frontend layer that already allowed the request does
-not excuse the service behind it, because a caller reaches that service directly
+A gateway, or any other server in front of the service, that already allowed the
+request does not excuse the service behind it, because a caller reaches that service directly
 whenever it wants to. The second evaluation is a local function call over a
 frozen object, which makes "check again" a rule a team can keep.
 
@@ -203,13 +223,14 @@ and the write landing:
 
 - the object can change owner
 - the subject can lose the role
-- the time window can close
+- a `p.before` cut-off can pass
 
-The library carries no freshness token and cannot see the gap.
+A decision carries no record of when its inputs were read, so `can` cannot see
+the gap.
 
-```mermaid caption="The gap a decision cannot see. can answers over the snapshot it was handed; the object can change owner, the subject can lose the role and the window can close before the write runs. Re-reading and re-checking inside the transaction closes the gap, and so does a conditional predicate on the write."
+```mermaid caption="The gap between a decision and the write it allowed."
 flowchart LR
-  C["can(subject, …)<br>allowed: true"] --> G["the gap<br>owner, role, window"]:::accent
+  C["can(subject, …)<br>allowed: true"] --> G["the gap<br>owner, role, cut-off"]:::accent
   G --> W[("the write")]
   G -.-> R["re-read and re-check<br>inside the transaction"]
   R --> W
@@ -218,9 +239,10 @@ flowchart LR
 Re-read the object and re-check inside the transaction, or write with a
 conditional predicate that fails when the state has moved.
 
-## Two gaps with no defence
+## Two gaps `@evanion/acl` leaves to the caller
 
-Neither gap below is guarded, and a caller who knows about them avoids both.
+`@evanion/acl` trusts the clock and the objects a caller passes, and a caller
+who knows about these two gaps avoids both.
 
 ### A clock the caller supplies is the clock the windows move with
 
@@ -228,15 +250,18 @@ Neither gap below is guarded, and a caller who knows about them avoids both.
 
 ```
 
-Decide deliberately whether to supply `now` at all. It slides every window in
-the matrix, and the engine has no channel to ask where the instant came from.
-Pass it only to make a server render and the client's first render agree, and
-resolve it server-side. A `now` from a request body hands over every time window
-there is.
+`now` is the instant every `p.before` and `p.after` condition compares against,
+so it decides which time windows are open. The evaluator has no channel to ask
+where the instant came from. Pass `now` only to make a server render and the
+client's first render agree, and resolve it server-side. A `now` from a request
+body lets the caller open every time window in the matrix.
 
-A clock that does not parse is guarded. Each of these answers
-`{ allowed: false, reason: 'unusable-clock' }` on both sides of the permission,
-so a time-gated deny goes on denying:
+`crossed.now` went through JSON, so the `Date` arrives as an ISO string, and
+`can` reads the string as the same instant.
+
+The one guarded case is a clock that does not parse. Each of these answers
+`{ allowed: false, reason: 'unusable-clock' }` whether the time condition sits
+in an allow rule or a deny rule, so a time-gated deny goes on denying:
 
 - `null`
 - `NaN`
@@ -250,7 +275,7 @@ so a time-gated deny goes on denying:
 ```
 
 Conditions read `subject` and `object` field by field as the decision walks the
-rules, and the engine reads the deny side before the allow side. A bag whose
+rules, and the evaluator reads the deny side before the allow side. A bag whose
 properties are accessors can answer the two sides differently and pass the deny
 it should have matched:
 
@@ -258,12 +283,12 @@ it should have matched:
 - a lazy proxy
 - a memoised getter over a cache that can refill
 
-The engine copies neither the subject nor the object, because they are the app's
-data, and the matrix it evaluates is a frozen deep copy for this reason. Pass
-plain, already-resolved objects.
+The evaluator copies neither the subject nor the object, because they are the
+app's data. The matrix it evaluates is a frozen deep copy, so nothing can change
+it between two reads. Pass plain, already-resolved objects.
 
-## Where this comes from
+## The attack classes behind these pitfalls
 
-The package holds itself to [a register](../attacks), one row per class of
-attack, each naming the test that proves it under `nx test @evanion/acl`. The
+`@evanion/acl` holds itself to [a list of attack classes](../attacks), one row
+per class, each naming the test that proves it under `nx test @evanion/acl`. The
 [security contract](../security) covers the same material in prose.

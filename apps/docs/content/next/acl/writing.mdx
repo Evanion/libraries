@@ -4,8 +4,6 @@
 call, and `pickAllowedFields` turns that decision into the object your handler
 saves.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={4}
   read={8}
@@ -193,8 +191,3 @@ permission, and the second picks the field check. The call decides a projection
 and queries nothing. A field decided `denied` here was still read out of the
 database, so drop it before the row leaves the server:
 `pickAllowedFields(fd, row)` keeps the fields that decided `allowed`.
-
-## Now that a save writes the right fields, explain a refusal
-
-[Why was this refused?](../refusals) reads `reason`, `rule` and `missing` off
-a refused decision and turns each one into what a screen says.

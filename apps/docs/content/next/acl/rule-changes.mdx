@@ -3,8 +3,6 @@
 `diffMatrix(before, after)` compares two matrix documents and reports who gained
 or lost access, as findings a reviewer reads before the change deploys.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={5}
   read={8}
@@ -12,7 +10,7 @@ or lost access, as findings a reviewer reads before the change deploys.
   requires={[['How do I use rules another service published?', '../adopting']]}
   unlocks={[
     ['How do I test a contract I consume?', '../testing'],
-    ['Caveats & Pitfalls', '../pitfalls'],
+    ['Caveats and pitfalls', '../pitfalls'],
   ]}
 />
 
@@ -133,9 +131,3 @@ the reviewer:
 | whether a grant was already in force    | Finding the newly granted set means negating every existing allow rule together, which grows exponentially with the number of rules. |
 | whether an added branch grants anything | A rule requiring `subject.tier` to equal both `probation` and `permanent` matches nobody and reads as a grant.                       |
 | what an edit in place did               | A rule edit, a two-sided change and a list of fields carrying `*` or `!` come back `undetermined`.                                   |
-
-## Now that you can review a change, test the contracts you consume
-
-[How do I test a contract I consume?](../testing) runs the same comparison in
-a consumer's own continuous integration (CI), against the document it pinned and
-the one its owner publishes now.

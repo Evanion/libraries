@@ -138,7 +138,7 @@ export default {
 
   'group-reference': { type: 'separator', title: 'Reference' },
   limits: 'What this does not do',
-  pitfalls: 'Caveats & Pitfalls',
+  pitfalls: 'Caveats and pitfalls',
   matrix: 'The matrix: your rules as JSON',
   authoring: 'Typed Authoring',
   'decision-object': 'The Decision object every check returns',
