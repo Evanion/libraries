@@ -2157,7 +2157,10 @@ describe('plan', () => {
     }
   });
 
-  it('carries one breakdown entry per rule when two rules are identical', () => {
+  // Two rules carrying the same conditions derive one id, which the checker
+  // refuses: a decision naming that id names both rules. Declared ids keep the
+  // rules apart and leave the conditions shared, which is what the walk reads.
+  it('carries one breakdown entry per rule where two rules share their conditions', () => {
     const shared = [
       { field: 'region', op: 'eq', value: 'eu' },
       { field: 'plan', op: 'eq', value: 'pro' },
@@ -2166,7 +2169,10 @@ describe('plan', () => {
       {
         key: 'promo',
         enabled: true,
-        rules: [{ when: shared }, { when: shared }],
+        rules: [
+          { id: 'first', when: shared },
+          { id: 'second', when: shared },
+        ],
       },
     ]);
 
@@ -2174,8 +2180,11 @@ describe('plan', () => {
 
     expect(entry.resolved).toBe(false);
     expect(entry.decision?.rules).toHaveLength(2);
-    expect(entry.decision?.rules?.[0]).toEqual(entry.decision?.rules?.[1]);
     expect(entry.decision?.rules?.[0]?.matched).toBe(false);
+    expect(entry.decision?.rules?.[1]?.matched).toBe(false);
+    expect(entry.decision?.rules?.[0]?.failed).toEqual(
+      entry.decision?.rules?.[1]?.failed,
+    );
   });
 
   it('names a condition on one breakdown entry and not on the one beside it', () => {

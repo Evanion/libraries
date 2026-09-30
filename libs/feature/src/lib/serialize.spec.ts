@@ -1354,21 +1354,25 @@ describe('serializeConfig', () => {
    * below carries it.
    */
   describe('a leaf JSON carries no value of', () => {
+    // `createFeatures` reads the window contract, so a store carrying this Date
+    // is one no caller holds and the serializer's own branch for it answers
+    // nobody. The refusal is asserted where it happens.
     it('refuses a window condition Date that names no instant', () => {
-      const features = createFeatures([
-        {
-          key: 'cta',
-          enabled: true,
-          rules: [
-            { when: [{ field: 'now', op: 'after', value: new Date(NaN) }] },
-          ],
-        },
-      ]);
+      const build = () =>
+        createFeatures([
+          {
+            key: 'cta',
+            enabled: true,
+            rules: [
+              { when: [{ field: 'now', op: 'after', value: new Date(NaN) }] },
+            ],
+          },
+        ]);
 
-      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
-      expect(() => serializeConfig(features)).toThrow(
-        'the Date at /features/0/rules/0/when/0/value names no instant, and ' +
-          'JSON carries no invalid Date',
+      expect(build).toThrow(FeatureConfigError);
+      expect(build).toThrow(
+        'carries a Date holding no instant, which is what "new Date" answers ' +
+          'for a string naming none',
       );
     });
 

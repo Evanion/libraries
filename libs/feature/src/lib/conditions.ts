@@ -5,7 +5,6 @@ import type {
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
-  Instant,
   Weekday,
 } from './types.js';
 
@@ -51,7 +50,7 @@ const RANGE = 8_640_000_000_000_000;
  * What the library owes for one is the answer an unevaluable condition gets on
  * the evaluation path, and this check reads the declared types.
  */
-function windowFault(value: Instant): string | undefined {
+export function windowFault(value: unknown): string | undefined {
   if (typeof value === 'string') {
     if (!Number.isNaN(instantEpoch(value))) return undefined;
 
@@ -71,6 +70,10 @@ function windowFault(value: Instant): string | undefined {
   if (value instanceof Date && Number.isNaN(value.getTime()))
     return `carries a Date holding no instant, which is what "new Date" answers for a string naming none. The rule then matches at no moment with nothing in any decision naming the boundary as the reason.`;
 
+  // A value of no type `Instant` declares reaches `evaluateCondition`, which
+  // compares against it as `false`. A caller writing a literal has the type to
+  // read; `whenIssues` reports it for a document, which carries whatever JSON
+  // held.
   return undefined;
 }
 

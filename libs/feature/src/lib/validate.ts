@@ -1,5 +1,6 @@
 import { configDigest } from './digest.js';
 import { graphErrors } from './graph.js';
+import { windowFault } from './conditions.js';
 import { ruleId } from './rule-id.js';
 import { variantErrors } from './variants.js';
 import {
@@ -23,7 +24,6 @@ import type {
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
-  Instant,
   RolloutSpec,
   Rule,
   VariantSpec,
@@ -1486,22 +1486,6 @@ function operatorFits(op: string, declared: FieldType): boolean {
 }
 
 /**
- * The epoch a window condition's value reads as, where `toEpoch` reads one.
- *
- * `toEpoch` at `conditions.ts:18-22` reads a `Date`, a number and a string, and
- * the string is the one of the three that can name no instant. A value outside
- * the three answers `undefined`: `unnameable` reports it for a rule declaring no
- * id, and `new Date` raises a `TypeError` on an object no primitive conversion
- * reads, which `validateConfig` promises it never does.
- */
-function instantOf(value: Instant): number | undefined {
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return new Date(value).getTime();
-  return undefined;
-}
-
-/**
  * Every condition of one definition the document's own declarations refuse.
  *
  * A window condition is read as a point in time, for both callers. `toEpoch` at
@@ -1559,13 +1543,35 @@ function whenIssues(
       const path = `${pointer(at, 'rules')}/${String(ruleAt)}/when/${String(whenAt)}`;
 
       if (condition.op === 'before' || condition.op === 'after') {
-        const epoch = instantOf(condition.value);
-        if (epoch !== undefined && Number.isNaN(epoch)) {
+        // `windowFault` reads the three forms an `Instant` is written in. A
+        // served document carries whatever JSON held, so a value outside them
+        // reaches here, and `canonical` writes its members rather than raising,
+        // which leaves the derivation nothing to report.
+        const value: unknown = condition.value;
+        if (
+          typeof value !== 'string' &&
+          typeof value !== 'number' &&
+          !(value instanceof Date)
+        ) {
           issues.push(
             found(
               'invalid-instant',
               new FeatureConfigError(
-                `feature "${String(definition.key)}" compares now against ${JSON.stringify(condition.value)}, which names no instant`,
+                `feature "${String(definition.key)}" declares the instant at ${path}/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule's id from raises on it`,
+              ),
+              definition.key,
+              `${path}/value`,
+            ),
+          );
+          return;
+        }
+        const fault = windowFault(condition.value);
+        if (fault !== undefined) {
+          issues.push(
+            found(
+              'invalid-instant',
+              new FeatureConfigError(
+                `feature "${String(definition.key)}" has a rule whose "${condition.op}" condition ${fault}`,
               ),
               definition.key,
               `${path}/value`,

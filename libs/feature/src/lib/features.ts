@@ -1,5 +1,5 @@
-import { decide, planFeature } from './evaluate.js';
 import { validateConditions } from './conditions.js';
+import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { collectIssues } from './validate.js';
 import { createEmitter } from './observe.js';
@@ -399,8 +399,8 @@ export function createFeatures(
   // declaring none takes its index.
   const refused = collectIssues({ features: config }, { arrayIsOrder: true });
   if (refused[0]) throw refused[0].error;
-  // The instant contract sits outside the member shapes `collectIssues` reads,
-  // so each definition's conditions are read on their own.
+  // The window contract is read here for the reason `whenIssues` gives: that
+  // walk answers a served document, and these definitions are a literal.
   for (const definition of config) {
     validateConditions(definition);
   }
