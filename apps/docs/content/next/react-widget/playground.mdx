@@ -4,7 +4,7 @@
 its items, and editors whose snippets you change and run.
 
 <PageSheet
-  difficulty={4}
+  difficulty={3}
   read={6}
   hands={20}
   requires={[
@@ -14,9 +14,9 @@ its items, and editors whose snippets you change and run.
   unlocks={[['API reference', '../api']]}
 />
 
-## A Baize page as one react-widget region
+## Baize's staff page as one region
 
-The demo below is one `Widgets` region: the page Baize's staff read for the
+The demo below is one react-widget region: the page Baize's staff read for the
 week. It holds two top-level items of type `columns`, a row that lays its nested
 items side by side:
 
@@ -24,32 +24,31 @@ items side by side:
 - `counter`, the shop counter's row, nests a `tables` item and a `reprints`
   item, each a titled panel around a data table.
 
-The `tables` item carries `meta.span: 2`. An item's `meta` goes to
-`chrome.item` and never into the widget's props, and the demo's item chrome
-gives an item as many columns as its `span` names. The demo opens on these
-items:
+The `tables` item carries `meta.span: 2`, placement data only the item chrome
+reads, as [Chrome, meta, ctx and Suspense](../advanced) set out. The demo's item
+chrome gives an item as many columns as its `span` names. The demo opens on
+these items:
 
 ```tsx file=apps/docs/components/landing/counter.tsx region=counter-items
 
 ```
 
-The demo prints the same seven items under the page. Move an item with the
-arrows beside the line that opens it in that printout, and `Widgets` renders the
-page again. Moving `counter` above `week` swaps the two rows, and each row takes
-its nested items with it. Moving `tables` past `reprints` puts the two-column
-panel on the other side, because `meta.span` belongs to the item and travels
-with it.
-
 <DataDemo />
 
-The published `Widgets` renders this demo from the items printed under it, and
-nothing is simulated.
+The demo builds its `Widgets` with the published `createWidgets` and prints the
+same seven items under the page it renders. Each line that opens an item in that
+printout has arrows beside it. Move an item with them, and `Widgets` renders the
+page again. Moving
+`counter` above `week` swaps the two rows, and each row takes its nested items
+with it. Moving `tables` past `reprints` puts the two-column panel on the other
+side, because `meta.span` belongs to the item and travels with it.
 
 ## Edit a react-widget region in the browser
 
 The editors below run the published `@evanion/react-widget` build. Each snippet
 builds a component map with `createWidgets`, writes an item array, and ends in
-`render(<Widgets items={items} />)`.
+`render(<Widgets items={items} />)`, the call that hands the preview its
+element.
 
 <PlaygroundExamples />
 
@@ -64,26 +63,38 @@ preview pane.
 | `useState`, `useEffect`, `useMemo`, `useCallback` | React's hooks, for a widget with client state                 |
 | `render`                                          | takes the element the preview shows; every snippet ends in it |
 
+`DefaultWrapper` and `DefaultItem` are not in scope, so a snippet writes its
+chrome from plain elements.
+
 ## What the react-widget playground cannot show
 
-Everything runs in the browser, so no widget here is a Server Component. An
+Everything in the react-widget playground runs in the browser, so no widget
+here is a Server Component. An
 async widget and the streaming behaviour of
 [`chrome.suspense`](../advanced) cannot be demonstrated, and
 `chrome.suspenseFallback` shows only for a widget that suspends on the client.
 
 Type errors do not show. The snippets are strings that nothing type-checks, so
-an unknown `type`, a mistyped prop and `children` under a widget that renders
+an unknown `type`, a mistyped prop and `children` under a widget that declares
 none all run without complaint. The console stays quiet too: this site is a
 production build, and `Widgets` warns only in development. The preview shows
 only the HTML `Widgets` rendered, inside the chrome the snippet passed.
 
-## Things to change in a react-widget snippet
+## Four changes to try in a react-widget snippet
 
-- A `type` to one the component map does not hold. The item disappears and the
-  rest of the region renders.
-- A `props` key. Nothing checks it at runtime, and the widget receives
+Each change below shows one rule of react-widget's renderer:
+
+- Change a `type` to one the component map does not hold. The item disappears
+  and the rest of the region renders.
+- Change a `props` key. Nothing checks it at runtime, and the widget receives
   `undefined`, which is the gap the type checker closes outside this editor.
-- The `chrome.wrapper`. The region's container changes and every widget stays
-  inside it.
-- An item's position in the array. The region renders the items in the new
-  order.
+- In the "New in, nested" or "At the counter" snippet, change the
+  `chrome.wrapper`. The region's container changes and every widget stays inside
+  it.
+- Change an item's position in the array. The region renders the items in the
+  new order.
+
+## Look up every react-widget export
+
+The [API reference](../api) lists every export of `@evanion/react-widget` with
+its signature.
