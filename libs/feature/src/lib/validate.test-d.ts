@@ -3,9 +3,11 @@ import { validateConfig as published } from '../index.js';
 import { collectIssues, validateConfig } from './validate.js';
 import { graphErrors } from './graph.js';
 import { validateVariants, variantErrors } from './variants.js';
+import type { VariantDefect } from './variants.js';
 import type { Checkable, Found } from './validate.js';
 import type {
   ConfigIssue,
+  ConfigIssueCode,
   FeatureConfig,
   SerializedCondition,
   ValidationResult,
@@ -73,6 +75,13 @@ describe('collectIssues', () => {
     expectTypeOf(collectIssues).toBeCallableWith({ features: [held] });
   });
 
+  it('takes the option the literal path reads its variant order with', () => {
+    expectTypeOf(collectIssues).toBeCallableWith(
+      { features: [held] },
+      { arrayIsOrder: true },
+    );
+  });
+
   it('answers a list no caller appends to', () => {
     expectTypeOf(collectIssues).returns.toEqualTypeOf<readonly Found[]>();
   });
@@ -103,9 +112,14 @@ describe('graphErrors', () => {
 });
 
 describe('variantErrors', () => {
-  it('answers the errors validateVariants throws the first of', () => {
+  it('answers each defect with the code its issue carries', () => {
     expectTypeOf(variantErrors).returns.toEqualTypeOf<
-      readonly FeatureConfigError[]
+      readonly VariantDefect[]
+    >();
+    expectTypeOf<VariantDefect['error']>().toEqualTypeOf<FeatureConfigError>();
+    expectTypeOf<VariantDefect['code']>().toEqualTypeOf<ConfigIssueCode>();
+    expectTypeOf<VariantDefect['member']>().toEqualTypeOf<
+      'variants' | 'rules'
     >();
   });
 
@@ -115,6 +129,13 @@ describe('variantErrors', () => {
       enabled: true,
       variants: [{ name: 'only', weight: 1 }],
     });
+  });
+
+  it('takes the option that says the array is the variant order', () => {
+    expectTypeOf(variantErrors).toBeCallableWith(
+      { key: 'cta', enabled: true, variants: [{ name: 'only', weight: 1 }] },
+      { arrayIsOrder: true },
+    );
   });
 });
 

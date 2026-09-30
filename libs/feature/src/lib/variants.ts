@@ -5,6 +5,7 @@ import {
   UnknownVariantError,
 } from './errors.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
+import type { ConfigIssueCode } from './config.js';
 import type {
   EvaluationContext,
   FeatureDefinition,
@@ -13,7 +14,58 @@ import type {
 } from './types.js';
 
 /**
- * Every configuration error in a feature's variants, in the order a reader
+ * One defect in a feature's variants, with the code and the member it reports.
+ *
+ * The code is built where the error is built. `variantErrors` raises a bare
+ * `FeatureConfigError` for every defect below that no error class names, so the
+ * text it wrote is all a reader of the error object has to separate them by, and
+ * each of those messages interpolates the feature key and the variant name a
+ * document author chose. A feature keyed `mixes two orderings` would classify as
+ * a partial order declaration under a reader that matched on the text, and a
+ * caller switching on the code acts on the defect the code names.
+ *
+ * `member` is the member of the definition the defect sits on, which
+ * `collectIssues` writes into the issue's JSON pointer.
+ */
+export interface VariantDefect {
+  readonly error: FeatureConfigError;
+  readonly code: ConfigIssueCode;
+  readonly member: 'variants' | 'rules';
+}
+
+/**
+ * What the checker reads the variant order off.
+ *
+ * `createFeatures` reads a TypeScript literal, where the array in the source
+ * file is the order its author wrote, so a variant declaring no `order` takes
+ * its index and the document is the literal. A served document reaches a holder
+ * through a store and a code generator, either of which may permute the array
+ * while every member it carries stays the same, so § 3 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` has the checker refuse
+ * one whose variants declare no order at all.
+ *
+ * `variantSeed` and `variantBy` are named in that same paragraph and are not
+ * checked here, because the value a holder fills each of them with derives from
+ * members the document carries: the feature key, and `seed`. A holder and the
+ * publisher agree on both under a permuted array, and `order` is the one of the
+ * three whose default reads the array position.
+ */
+export interface VariantCheckOptions {
+  /** Whether the array order of `variants` is the order assignment walks. */
+  readonly arrayIsOrder?: boolean;
+}
+
+/** A defect and its code, for the checks that raise a bare error. */
+function bare(
+  code: ConfigIssueCode,
+  member: 'variants' | 'rules',
+  message: string,
+): VariantDefect {
+  return { error: new FeatureConfigError(message), code, member };
+}
+
+/**
+ * Every configuration defect in a feature's variants, in the order a reader
  * meets them.
  *
  * Every case below is a configuration error with no sensible evaluation result.
@@ -31,17 +83,26 @@ import type {
  * A refused weight ends the total, because a share the checker already named is
  * the member an author edits and the sum over the rest describes no second
  * defect.
+ *
+ * Every variant and every rule arrives as the object its type declares.
+ * `collectIssues` refuses a document whose `variants` or `rules` is not an array
+ * of objects before it reaches this function.
  */
 export function variantErrors<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
-): readonly FeatureConfigError[] {
-  const found: FeatureConfigError[] = [];
+  options: VariantCheckOptions = {},
+): readonly VariantDefect[] {
+  const found: VariantDefect[] = [];
   const key = String(definition.key);
   const variants = definition.variants;
   if (!variants) {
     for (const rule of definition.rules ?? []) {
       if (rule.variant !== undefined) {
-        found.push(new UnknownVariantError(key, rule.variant));
+        found.push({
+          error: new UnknownVariantError(key, rule.variant),
+          code: 'unknown-variant',
+          member: 'rules',
+        });
       }
     }
     return found;
@@ -49,7 +110,9 @@ export function variantErrors<F extends FeatureKey>(
 
   if (variants.length === 0) {
     found.push(
-      new FeatureConfigError(
+      bare(
+        'empty-variants',
+        'variants',
         `feature "${key}" declares an empty variants array, which leaves no variant to assign`,
       ),
     );
@@ -64,13 +127,19 @@ export function variantErrors<F extends FeatureKey>(
 
   for (const variant of variants) {
     if (names.has(variant.name)) {
-      found.push(new DuplicateVariantError(key, variant.name));
+      found.push({
+        error: new DuplicateVariantError(key, variant.name),
+        code: 'duplicate-variant',
+        member: 'variants',
+      });
     }
     names.add(variant.name);
 
     if (!Number.isFinite(variant.weight) || variant.weight < 0) {
       found.push(
-        new FeatureConfigError(
+        bare(
+          'invalid-weight',
+          'variants',
           `feature "${key}" gives the variant "${variant.name}" the weight ${String(variant.weight)}, which is not a usable share`,
         ),
       );
@@ -83,13 +152,17 @@ export function variantErrors<F extends FeatureKey>(
       declaredOrders += 1;
       if (!Number.isInteger(variant.order) || variant.order < 0) {
         found.push(
-          new FeatureConfigError(
+          bare(
+            'invalid-variant-order',
+            'variants',
             `feature "${key}" gives the variant "${variant.name}" the order ${String(variant.order)}, which is not a non-negative integer`,
           ),
         );
       } else if (orders.has(variant.order)) {
         found.push(
-          new FeatureConfigError(
+          bare(
+            'duplicate-variant-order',
+            'variants',
             `feature "${key}" gives two variants the order ${String(variant.order)}, which leaves the walk between them undefined`,
           ),
         );
@@ -101,23 +174,40 @@ export function variantErrors<F extends FeatureKey>(
   if (!unusableWeight) {
     if (total <= 0) {
       found.push(
-        new FeatureConfigError(
+        bare(
+          'zero-weights',
+          'variants',
           `feature "${key}" gives every variant the weight zero, which leaves no variant to assign`,
         ),
       );
     }
     if (!Number.isFinite(total)) {
       found.push(
-        new FeatureConfigError(
+        bare(
+          'zero-weights',
+          'variants',
           `feature "${key}" gives its variants a weight total of ${String(total)}, which overflows and leaves no usable share`,
         ),
       );
     }
   }
 
-  if (declaredOrders > 0 && declaredOrders !== variants.length) {
+  if (declaredOrders === 0 && options.arrayIsOrder !== true) {
+    // The spec's 18 codes name no missing member, and this is the same thing an
+    // operator fixes as the partial declaration below: the orders the document
+    // carries are not the ones the walk needs.
     found.push(
-      new FeatureConfigError(
+      bare(
+        'invalid-variant-order',
+        'variants',
+        `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`,
+      ),
+    );
+  } else if (declaredOrders > 0 && declaredOrders !== variants.length) {
+    found.push(
+      bare(
+        'invalid-variant-order',
+        'variants',
         `feature "${key}" declares an order on ${String(declaredOrders)} of its ${String(variants.length)} variants, which mixes two orderings`,
       ),
     );
@@ -125,7 +215,11 @@ export function variantErrors<F extends FeatureKey>(
 
   for (const rule of definition.rules ?? []) {
     if (rule.variant !== undefined && !names.has(rule.variant)) {
-      found.push(new UnknownVariantError(key, rule.variant));
+      found.push({
+        error: new UnknownVariantError(key, rule.variant),
+        code: 'unknown-variant',
+        member: 'rules',
+      });
     }
   }
 
@@ -136,6 +230,9 @@ export function variantErrors<F extends FeatureKey>(
  * Checks a feature's variants at construction, where the dependency graph is
  * already checked.
  *
+ * The definitions a caller supplies are the document, so a variant that declares
+ * no `order` takes its index and this function reports nothing about it.
+ *
  * @throws {DuplicateVariantError} when two variants share a name.
  * @throws {UnknownVariantError} when a rule pins a variant nobody declared.
  * @throws {FeatureConfigError} for an unusable weight, an unusable order, an
@@ -144,8 +241,8 @@ export function variantErrors<F extends FeatureKey>(
 export function validateVariants<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
 ): void {
-  const found = variantErrors(definition);
-  if (found[0]) throw found[0];
+  const found = variantErrors(definition, { arrayIsOrder: true });
+  if (found[0]) throw found[0].error;
 }
 
 /**

@@ -2,11 +2,9 @@ import { graphErrors } from './graph.js';
 import { variantErrors } from './variants.js';
 import {
   DuplicateFeatureError,
-  DuplicateVariantError,
   FeatureConfigError,
   FeatureCycleError,
   UnknownDependencyError,
-  UnknownVariantError,
 } from './errors.js';
 import type {
   ConfigIssue,
@@ -14,6 +12,7 @@ import type {
   FeatureConfig,
   ValidationResult,
 } from './config.js';
+import type { VariantCheckOptions } from './variants.js';
 import type { FeatureDefinition, FeatureKey } from './types.js';
 
 /**
@@ -49,31 +48,6 @@ function graphCode(error: FeatureConfigError): ConfigIssueCode {
   return 'duplicate-feature';
 }
 
-/**
- * The code a variant error reports as.
- *
- * `variantErrors` raises a bare `FeatureConfigError` for five distinct defects,
- * so the text it wrote is the only thing that separates them. The spec names 18
- * codes and none of them covers a partial `order` declaration or a weight total
- * that is not finite, so the first maps to `invalid-variant-order` and the
- * second to `zero-weights`, which are the codes closest to what an operator has
- * to fix.
- */
-function variantCode(error: FeatureConfigError): ConfigIssueCode {
-  if (error instanceof DuplicateVariantError) return 'duplicate-variant';
-  if (error instanceof UnknownVariantError) return 'unknown-variant';
-  if (error.message.includes('empty variants array')) return 'empty-variants';
-  if (error.message.includes('which is not a usable share'))
-    return 'invalid-weight';
-  if (error.message.includes('non-negative integer'))
-    return 'invalid-variant-order';
-  if (error.message.includes('two variants the order'))
-    return 'duplicate-variant-order';
-  if (error.message.includes('mixes two orderings'))
-    return 'invalid-variant-order';
-  return 'zero-weights';
-}
-
 function found(
   code: ConfigIssueCode,
   error: FeatureConfigError,
@@ -98,10 +72,142 @@ function pointer(at: number, member?: string): string {
     : `/features/${String(at)}/${member}`;
 }
 
-/** The member a variant error points at, so a UI highlights the right row. */
-function variantMember(error: FeatureConfigError): string {
-  if (error instanceof UnknownVariantError) return 'rules';
-  return 'variants';
+/** The word a message uses for each `typeof` a member may hold. */
+const MET: Readonly<Record<string, string>> = {
+  bigint: 'a bigint',
+  boolean: 'a boolean',
+  function: 'a function',
+  number: 'a number',
+  object: 'an object',
+  string: 'a string',
+  symbol: 'a symbol',
+  undefined: 'nothing',
+};
+
+/** What a member carries, named the way the message reads it. */
+function met(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  return MET[typeof value] ?? typeof value;
+}
+
+/** Whether a value is an object the checker reads members off. */
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** The key an issue names, for a definition whose key a document chose. */
+function keyOf(
+  definition: Readonly<Record<string, unknown>>,
+): FeatureKey | undefined {
+  const key: unknown = definition['key'];
+  if (typeof key === 'string' || typeof key === 'number') return key;
+  return undefined;
+}
+
+/** One unreadable member, as the issue and the error both paths carry. */
+function unreadable(message: string, path: string, key?: FeatureKey): Found {
+  return found('unknown-member', new FeatureConfigError(message), key, path);
+}
+
+/** What each member the checker walks holds, for the message that names it. */
+const MEMBERS = {
+  dependsOn: 'an array of keys',
+  rules: 'an array of rules',
+  variants: 'an array of variants',
+} as const;
+
+/** One element of a member the checker walks, for that same message. */
+const ELEMENTS = { rules: 'rule', variants: 'variant' } as const;
+
+/**
+ * Every member a candidate document carries as something the checker cannot
+ * read.
+ *
+ * The typed signature protects none of this. § 7 and § 9 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` are written for a
+ * document that arrived over a transport, so `validateConfig` is called on the
+ * `any` that `JSON.parse` returns and a control plane or a truncated body decides
+ * what reaches each member. A bare `for...of` over `features`, over
+ * `dependsOn` or over `variants` raises a `TypeError` out of the poller that
+ * § 6's availability guarantee rests on, and the doc comment on `validateConfig`
+ * promises the opposite.
+ *
+ * The code is `unknown-member`. § 3 gives it to a member a holder does not
+ * understand and the 18 codes name no second envelope defect, and a `features`
+ * holding an object is a member whose value this holder cannot read.
+ *
+ * `collectIssues` reports these alone and walks nothing else, which is the rest
+ * of § 3: a holder refuses the whole document, drops nothing, and evaluates
+ * nothing. A walk over a member that is the wrong shape reports defects that
+ * describe nothing in the document. `"dependsOn": "ab"` is iterable, so the walk
+ * reads the two characters as two dependencies and an operator reads a cycle
+ * that no row declares.
+ *
+ * A rule's `when` is not checked here, because nothing between `JSON.parse` and
+ * this checker reads a condition. `documentRule` in `serialize.ts` states that
+ * from the serializer's side.
+ */
+function shapeIssues(config: Checkable): readonly Found[] {
+  const definitions: unknown = config.features;
+  if (!Array.isArray(definitions)) {
+    return [
+      unreadable(
+        `the document declares "features" as ${met(definitions)}, and this checker reads an array of definitions`,
+        '/features',
+      ),
+    ];
+  }
+
+  const rows: readonly unknown[] = definitions;
+  const all: Found[] = [];
+  rows.forEach((definition, at) => {
+    if (!isRecord(definition)) {
+      all.push(
+        unreadable(
+          `the definition at /features/${String(at)} is ${met(definition)}, and this checker reads an object`,
+          pointer(at),
+        ),
+      );
+      return;
+    }
+
+    const key = keyOf(definition);
+    const named =
+      key === undefined
+        ? `the definition at /features/${String(at)}`
+        : `feature "${String(key)}"`;
+
+    for (const member of ['dependsOn', 'variants', 'rules'] as const) {
+      const value: unknown = definition[member];
+      if (value === undefined || Array.isArray(value)) continue;
+      all.push(
+        unreadable(
+          `${named} declares "${member}" as ${met(value)}, and this checker reads ${MEMBERS[member]}`,
+          pointer(at, member),
+          key,
+        ),
+      );
+    }
+
+    for (const member of ['variants', 'rules'] as const) {
+      const value: unknown = definition[member];
+      if (!Array.isArray(value)) continue;
+      const elements: readonly unknown[] = value;
+      elements.forEach((element, inside) => {
+        if (isRecord(element)) return;
+        all.push(
+          unreadable(
+            `${named} declares the ${ELEMENTS[member]} at ${pointer(at, member)}/${String(inside)} as ${met(element)}, and this checker reads an object`,
+            `${pointer(at, member)}/${String(inside)}`,
+            key,
+          ),
+        );
+      });
+    }
+  });
+
+  return all;
 }
 
 /** Two rules of one feature declaring one id. */
@@ -128,14 +234,24 @@ function ruleIdErrors(
 /**
  * Every defect in a document, in the order a reader meets them.
  *
- * The graph comes first, because a duplicate key and an unknown dependency
- * describe the document as a whole. Then each definition in document order,
- * with its variants and its rule ids.
+ * A member the checker cannot read ends the walk. § 3 refuses the whole document
+ * there and evaluates nothing, and a walk over a member that is the wrong shape
+ * reports defects that describe no row an operator can fix.
+ *
+ * Then the graph, because a duplicate key and an unknown dependency describe the
+ * document as a whole. Then each definition in document order, with its variants
+ * and its rule ids.
  *
  * Not exported from the package. `validateConfig` is the public half and
  * `createFeatures` is the other caller.
  */
-export function collectIssues(config: Checkable): readonly Found[] {
+export function collectIssues(
+  config: Checkable,
+  options: VariantCheckOptions = {},
+): readonly Found[] {
+  const unread = shapeIssues(config);
+  if (unread.length > 0) return unread;
+
   const definitions = config.features;
   const all: Found[] = graphErrors(definitions).map((error) =>
     found(
@@ -149,13 +265,13 @@ export function collectIssues(config: Checkable): readonly Found[] {
   );
 
   definitions.forEach((definition, at) => {
-    for (const error of variantErrors(definition)) {
+    for (const defect of variantErrors(definition, options)) {
       all.push(
         found(
-          variantCode(error),
-          error,
+          defect.code,
+          defect.error,
           definition.key,
-          pointer(at, variantMember(error)),
+          pointer(at, defect.member),
         ),
       );
     }
@@ -174,6 +290,17 @@ export function collectIssues(config: Checkable): readonly Found[] {
  *
  * It reports all of them. A poller showing an operator one error per deploy
  * cycle is a poor tool when the row has four.
+ *
+ * Nothing about the argument is trusted. A caller hands this function whatever
+ * `JSON.parse` returned from a control plane's body, so the checker reads every
+ * member it walks and reports the ones it cannot read as `unknown-member`.
+ *
+ * A document reaches this function through a store and a code generator, so
+ * every variant in it declares an `order` or the document is refused. § 3 states
+ * why: a holder that fills that gap with the array index
+ * computes a different assignment from a holder whose copy of the array a
+ * serializer permuted, and neither one reports anything. `createFeatures` reads
+ * the literal an author wrote, where the array is the order, and takes the index.
  *
  * `createFeatures` calls the same checker and throws the first issue as the
  * typed error it has always thrown, which keeps `errors.ts:3-11` true: every

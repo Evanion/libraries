@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createFeatures } from './features.js';
 import { ruleId } from './rule-id.js';
+import { serializeConfig } from './serialize.js';
 import { validateConfig } from './validate.js';
 import {
   DuplicateFeatureError,
@@ -94,8 +95,8 @@ const SINGLES: readonly Single[] = [
           key: 'cta',
           enabled: true,
           variants: [
-            { name: 'control', weight: 1 },
-            { name: 'control', weight: 1 },
+            { name: 'control', weight: 1, order: 0 },
+            { name: 'control', weight: 1, order: 1 },
           ],
         },
       ],
@@ -110,7 +111,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'control', weight: 1 }],
+          variants: [{ name: 'control', weight: 1, order: 0 }],
           rules: [{ variant: 'ghost' }],
         },
       ],
@@ -128,7 +129,11 @@ const SINGLES: readonly Single[] = [
     label: 'negative weight',
     document: {
       features: [
-        { key: 'cta', enabled: true, variants: [{ name: 'only', weight: -1 }] },
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'only', weight: -1, order: 0 }],
+        },
       ],
     },
     code: 'invalid-weight',
@@ -138,7 +143,11 @@ const SINGLES: readonly Single[] = [
     label: 'every weight zero',
     document: {
       features: [
-        { key: 'cta', enabled: true, variants: [{ name: 'only', weight: 0 }] },
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'only', weight: 0, order: 0 }],
+        },
       ],
     },
     code: 'zero-weights',
@@ -152,8 +161,8 @@ const SINGLES: readonly Single[] = [
           key: 'cta',
           enabled: true,
           variants: [
-            { name: 'control', weight: Number.MAX_VALUE },
-            { name: 'blue', weight: Number.MAX_VALUE },
+            { name: 'control', weight: Number.MAX_VALUE, order: 0 },
+            { name: 'blue', weight: Number.MAX_VALUE, order: 1 },
           ],
         },
       ],
@@ -248,7 +257,7 @@ describe('validateConfig', () => {
         {
           key: 'e',
           enabled: true,
-          variants: [{ name: 'only', weight: -1 }],
+          variants: [{ name: 'only', weight: -1, order: 0 }],
         },
       ],
     };
@@ -309,7 +318,11 @@ describe('validateConfig', () => {
   it('reports a negative zero weight through the total, not as a share', () => {
     const config: FeatureConfig = {
       features: [
-        { key: 'cta', enabled: true, variants: [{ name: 'only', weight: -0 }] },
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'only', weight: -0, order: 0 }],
+        },
       ],
     };
 
@@ -328,7 +341,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'only', weight: NaN }],
+          variants: [{ name: 'only', weight: NaN, order: 0 }],
         },
       ],
     };
@@ -608,8 +621,8 @@ describe('validateConfig', () => {
           key: 'cta',
           enabled: true,
           variants: [
-            { name: 'control', weight: NaN },
-            { name: 'blue', weight: -5 },
+            { name: 'control', weight: NaN, order: 0 },
+            { name: 'blue', weight: -5, order: 1 },
           ],
         },
       ],
@@ -745,8 +758,8 @@ describe('validateConfig', () => {
           key: 'cta',
           enabled: true,
           variants: [
-            { name: 'control', weight: Number.MAX_VALUE },
-            { name: 'blue', weight: Number.MAX_VALUE },
+            { name: 'control', weight: Number.MAX_VALUE, order: 0 },
+            { name: 'blue', weight: Number.MAX_VALUE, order: 1 },
           ],
         },
       ],
@@ -773,7 +786,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'only', weight: Number.MAX_VALUE }],
+          variants: [{ name: 'only', weight: Number.MAX_VALUE, order: 0 }],
         },
       ],
     };
@@ -787,7 +800,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'only', weight: Number.MIN_VALUE }],
+          variants: [{ name: 'only', weight: Number.MIN_VALUE, order: 0 }],
         },
       ],
     };
@@ -802,8 +815,8 @@ describe('validateConfig', () => {
           key: 'cta',
           enabled: true,
           variants: [
-            { name: 'control', weight: 0 },
-            { name: 'blue', weight: 1 },
+            { name: 'control', weight: 0, order: 0 },
+            { name: 'blue', weight: 1, order: 1 },
           ],
         },
       ],
@@ -818,7 +831,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
-          variants: [{ name: 'only', weight: -Infinity }],
+          variants: [{ name: 'only', weight: -Infinity, order: 0 }],
         },
       ],
     };
@@ -887,6 +900,346 @@ describe('validateConfig', () => {
     // decision naming it names both.
     expect(ruleId(declared)).toBe(ruleId(derived));
     expect(validateConfig(config)).toEqual({ ok: true });
+  });
+});
+
+describe('validateConfig, on a document whose members are not the declared shapes', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  it('reports a document carrying no features member', () => {
+    const result = validateConfig(served('{"version":"7"}'));
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          message:
+            'the document declares "features" as nothing, and this checker reads an array of definitions',
+          path: '/features',
+        },
+      ],
+    });
+  });
+
+  it('reports a features member holding null, an object or a string', () => {
+    const bodies = ['{"features":null}', '{"features":{}}', '{"features":"a"}'];
+
+    expect(
+      bodies.map((body) => {
+        const result = validateConfig(served(body));
+        return result.ok ? [] : result.issues.map((issue) => issue.message);
+      }),
+    ).toEqual([
+      [
+        'the document declares "features" as null, and this checker reads an array of definitions',
+      ],
+      [
+        'the document declares "features" as an object, and this checker reads an array of definitions',
+      ],
+      [
+        'the document declares "features" as a string, and this checker reads an array of definitions',
+      ],
+    ]);
+  });
+
+  it('reports a definition that is not an object', () => {
+    const result = validateConfig(served('{"features":[null,7]}'));
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message:
+          'the definition at /features/0 is null, and this checker reads an object',
+        path: '/features/0',
+      },
+      {
+        code: 'unknown-member',
+        message:
+          'the definition at /features/1 is a number, and this checker reads an object',
+        path: '/features/1',
+      },
+    ]);
+  });
+
+  it('reports a variants member that is not an array', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"variants":{}}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "variants" as an object, and this checker reads an array of variants',
+        path: '/features/0/variants',
+      },
+    ]);
+  });
+
+  it('reports a rules member that is not an array', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"rules":{}}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "rules" as an object, and this checker reads an array of rules',
+        path: '/features/0/rules',
+      },
+    ]);
+  });
+
+  it('reports a dependsOn member that arrived as an object', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"dependsOn":{"0":"b"}}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "dependsOn" as an object, and this checker reads an array of keys',
+        path: '/features/0/dependsOn',
+      },
+    ]);
+  });
+
+  it('reports a string dependsOn once, and no dependency the walk would read out of it', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"dependsOn":"ab"}]}'),
+    );
+
+    // A string is iterable, so the graph walk reads "a" and "b" as two parents
+    // and reports an unknown dependency and a one-edge cycle. Neither names a
+    // row the document carries.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "dependsOn" as a string, and this checker reads an array of keys',
+        path: '/features/0/dependsOn',
+      },
+    ]);
+  });
+
+  it('reports a variant and a rule that are not objects', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"variants":[null],"rules":[3]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/variants/0', '/features/0/rules/0']);
+  });
+
+  it('refuses the whole document and reports no defect it did not walk', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true},{"key":"a","enabled":true,"variants":7}]}',
+      ),
+    );
+
+    // Section 3: a holder that meets a member it cannot read refuses the whole
+    // document, drops nothing and evaluates nothing. The duplicate key this
+    // document also carries is the graph's, and the graph is not walked.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member']);
+  });
+
+  it('reads a member every definition declares, so one document names them all', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"dependsOn":"b"},{"key":"b","enabled":true,"variants":0}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/dependsOn', '/features/1/variants']);
+  });
+
+  it('names no key for a definition whose own key is not a string or a number', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":{},"enabled":true,"variants":7}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message:
+          'the definition at /features/0 declares "variants" as a number, and this checker reads an array of variants',
+        path: '/features/0/variants',
+      },
+    ]);
+  });
+
+  it('throws none of this, which is what the reload path is built on', () => {
+    expect(() => validateConfig(served('{"version":1}'))).not.toThrow();
+    expect(() => validateConfig(served('{"features":{}}'))).not.toThrow();
+    expect(() =>
+      validateConfig(
+        served('{"features":[{"key":"a","enabled":true,"variants":{}}]}'),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe('validateConfig, on the variant order a served document carries', () => {
+  /** Two variants of one feature, with the orders a document declares. */
+  function document(orders: readonly (number | undefined)[]): FeatureConfig {
+    return {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: orders.map((order, at) => ({
+            name: at === 0 ? 'control' : 'blue',
+            weight: 1,
+            ...(order === undefined ? {} : { order }),
+          })),
+        },
+      ],
+    };
+  }
+
+  it('reports a document whose variants declare no order at all', () => {
+    const result = validateConfig(document([undefined, undefined]));
+
+    // Section 3: a holder that fills the gap with the array index computes a
+    // different assignment from a holder whose copy of the array a store
+    // permuted, and neither reports anything while it does.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'invalid-variant-order',
+        key: 'cta',
+        message:
+          'feature "cta" declares an order on none of its 2 variants, which leaves the walk to an array order a store may permute',
+        path: '/features/0/variants',
+      },
+    ]);
+  });
+
+  it('reports a single variant declaring no order', () => {
+    expect(codesOf(document([undefined]))).toEqual(['invalid-variant-order']);
+  });
+
+  it('accepts a document whose every variant declares one', () => {
+    expect(validateConfig(document([0, 1]))).toEqual({ ok: true });
+  });
+
+  it('accepts the document serializeConfig writes from a literal declaring none', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 1 },
+          { name: 'blue', weight: 1 },
+        ],
+      },
+    ]);
+
+    expect(validateConfig(serializeConfig(features))).toEqual({ ok: true });
+  });
+
+  it('leaves createFeatures accepting the literal whose array is the order', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 1 },
+            { name: 'blue', weight: 1 },
+          ],
+        },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('reports the partial declaration as the mixed ordering it is', () => {
+    expect(messagesOf(document([0, undefined]))).toEqual([
+      'feature "cta" declares an order on 1 of its 2 variants, which mixes two orderings',
+    ]);
+  });
+});
+
+describe('validateConfig, on a key or a variant name that spells a defect', () => {
+  it('reports a weight defect under its own code, whatever the variant is named', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'empty variants array', weight: -1, order: 0 }],
+        },
+      ],
+    };
+
+    // The code is built where the error is built, so the name a document author
+    // chose reaches the message and decides nothing.
+    expect(codesOf(config)).toEqual(['invalid-weight']);
+  });
+
+  it('reports a duplicate order under its own code, whatever the feature is named', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'non-negative integer',
+          enabled: true,
+          variants: [
+            { name: 'x', weight: 1, order: 3 },
+            { name: 'y', weight: 1, order: 3 },
+          ],
+        },
+      ],
+    };
+
+    expect(codesOf(config)).toEqual(['duplicate-variant-order']);
+  });
+
+  it('reports a zero weight total under its own code, whatever the feature is named', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'which is not a usable share',
+          enabled: true,
+          variants: [{ name: 'only', weight: 0, order: 0 }],
+        },
+      ],
+    };
+
+    expect(codesOf(config)).toEqual(['zero-weights']);
+  });
+
+  it('reports an overflowing total under its own code, whatever the feature is named', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'mixes two orderings',
+          enabled: true,
+          variants: [
+            { name: 'a', weight: 1.7e308, order: 0 },
+            { name: 'b', weight: 1.7e308, order: 1 },
+          ],
+        },
+      ],
+    };
+
+    expect(codesOf(config)).toEqual(['zero-weights']);
   });
 });
 
