@@ -199,18 +199,29 @@ interface Readable {
  * copies the definition with `{ ...definition }`, so a member a store holds
  * reaches every holder of the document it serves, and Decision 11 has one checker
  * answer both envelopes.
+ *
+ * The literal is typed `Record<keyof FeatureDefinition, true>`, so the compiler
+ * joins the set to the interface. A member added to `FeatureDefinition` and left
+ * out here is a missing property the compiler names, and a member this literal
+ * carries that the interface dropped is an excess one. A comment between the two
+ * would hold neither: the release that added the member would serve a document
+ * carrying it, every holder of that same release would refuse the document, and
+ * § 3's refusal would fire against the publisher it is written to protect.
  */
-const DEFINED: ReadonlySet<string> = new Set([
-  'key',
-  'enabled',
-  'dependsOn',
-  'rules',
-  'seed',
-  'freezeTimeAtBuild',
-  'variants',
-  'variantBy',
-  'variantSeed',
-]);
+const DEFINITION_MEMBERS: Record<keyof FeatureDefinition, true> = {
+  key: true,
+  enabled: true,
+  dependsOn: true,
+  rules: true,
+  seed: true,
+  freezeTimeAtBuild: true,
+  variants: true,
+  variantBy: true,
+  variantSeed: true,
+};
+
+/** Those members, as the walk reads them. */
+const DEFINED: ReadonlySet<string> = new Set(Object.keys(DEFINITION_MEMBERS));
 
 /** Nothing the walks after it can read, for a definition that is not an object. */
 const UNREADABLE: Readable = { variants: false, rules: false };

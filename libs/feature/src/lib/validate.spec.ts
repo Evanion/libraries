@@ -11,7 +11,11 @@ import {
   UnknownDependencyError,
   UnknownVariantError,
 } from './errors.js';
-import type { ConfigIssueCode, FeatureConfig } from './config.js';
+import type {
+  ConfigIssueCode,
+  FeatureConfig,
+  SerializedDefinition,
+} from './config.js';
 import type { Rule } from './types.js';
 
 /**
@@ -2121,24 +2125,24 @@ describe('validateConfig, on a member a definition declares that this checker do
   });
 
   it('accepts every member FeatureDefinition names', () => {
-    // The set this walk reads is the one `types.ts` declares, so a member a
-    // definition may legally carry is not reported as one it may not.
-    expect(
-      validateConfig({
-        features: [
-          {
-            key: 'cta',
-            enabled: true,
-            dependsOn: [],
-            rules: [{ id: 'r', variant: 'control' }],
-            seed: 'cta-seed',
-            freezeTimeAtBuild: true,
-            ...TRAVELS,
-            variants: [{ name: 'control', weight: 1, order: 0 }],
-          },
-        ],
-      }),
-    ).toEqual({ ok: true });
+    // `Required` names every member, so a member added to `FeatureDefinition` is
+    // a missing property here until this fixture carries it, and the walk is
+    // then held to accepting it. The set this walk reads is the one `types.ts`
+    // declares, so a member a definition may legally carry is not reported as
+    // one it may not.
+    const definition: Required<SerializedDefinition<'cta'>> = {
+      key: 'cta',
+      enabled: true,
+      dependsOn: [],
+      rules: [{ id: 'r', variant: 'control' }],
+      seed: 'cta-seed',
+      freezeTimeAtBuild: true,
+      variantBy: 'targetingKey',
+      variantSeed: 'cta:variant',
+      variants: [{ name: 'control', weight: 1, order: 0 }],
+    };
+
+    expect(validateConfig({ features: [definition] })).toEqual({ ok: true });
   });
 });
 
