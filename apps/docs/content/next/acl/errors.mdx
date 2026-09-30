@@ -4,8 +4,6 @@ Every error the `@evanion/acl` entry point throws extends `AclConfigError`
 except `ActionNotAllowedError`, which `pickAllowedFields` throws when the action
 it was handed was refused.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={4}
   read={7}
@@ -168,9 +166,3 @@ it refused:
 from, and
 [the cross-cutting deny](../federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
 is where the three veto errors belong.
-
-## Now that your documents construct, review what a rule change did
-
-[What did editing my rules change about access?](../rule-changes) compares two
-documents that both constructed and reports who gained or lost access between
-them.

@@ -4,8 +4,6 @@ Every decision `access.can` returns carries `reason` beside `allowed`, and
 `rule` or `missing` where one applies, and a screen reads those three to tell a
 customer why an action is off.
 
-<WorkshopNotice slug="acl" />
-
 <PageSheet
   difficulty={4}
   read={8}
@@ -166,9 +164,3 @@ button does:
 [Which fields may they write?](../writing) builds a policy that produces
 `allow`, `not-listed`, `transition-failed` and `missing-field`, and
 [Field permissions](../fields) is the reference.
-
-## Now that you can explain a refusal, answer from another service's rules
-
-[How do I use rules another service published?](../adopting) builds an
-evaluator over a document another service served, where `unknown-action` and
-`stale-contract` come from.
