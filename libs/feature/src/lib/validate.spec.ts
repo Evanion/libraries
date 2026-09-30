@@ -2845,6 +2845,124 @@ describe('validateConfig, on the bucketing members § 3 has travel whole', () =>
   });
 });
 
+describe('validateConfig, on the two scalars a definition buckets and plans by', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  /** One feature ramped to half its subjects, with the seed this case gives it. */
+  function ramp(seed: string): FeatureConfig {
+    return served(
+      `{"features":[{"key":"cta","enabled":true,"seed":${seed},` +
+        '"rules":[{"id":"r","rollout":{"percent":50}}]}]}',
+    );
+  }
+
+  /** The subjects `u0`..`u39` a store puts inside that ramp. */
+  function inside(config: FeatureConfig): readonly string[] {
+    const features = createFeatures(config.features);
+    const subjects = Array.from({ length: 40 }, (_, at) => `u${String(at)}`);
+    return subjects.filter((subject) =>
+      features.isEnabled('cta', { targetingKey: subject }),
+    );
+  }
+
+  it('reports a seed that arrived as a number', () => {
+    const result = validateConfig(ramp('5'));
+
+    // § 3 has every member the assignment algorithm reads travel whole.
+    // `rolloutSeed` at evaluate.ts declares `string` and hands this to
+    // `encodePair`, which reads `seed.length`, so a number writes the text
+    // `undefined:` where the string `"5"` writes `1:5`.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares "seed" as a number, and this checker reads the string every rollout of this feature hashes its subjects against, so a holder installing this document would ramp a different population than the publisher',
+          path: '/features/0/seed',
+        },
+      ],
+    });
+  });
+
+  it('ramps a different population than the string of those same digits', () => {
+    const numeric = inside(ramp('5'));
+    const text = inside(ramp('"5"'));
+
+    // The two documents differ in one JSON token and a control plane whose seed
+    // column arrives unquoted serves the first one.
+    expect(numeric).not.toEqual(text);
+  });
+
+  it('accepts a seed that arrived as a string', () => {
+    expect(validateConfig(ramp('"5"'))).toEqual({ ok: true });
+  });
+
+  it('reports a freezeTimeAtBuild that arrived as a string', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"freezeTimeAtBuild":"false"}]}',
+      ),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares "freezeTimeAtBuild" as a string, and this checker reads the boolean a plan reads the build-time clock by, so a holder installing this document would resolve a time window the publisher deferred',
+          path: '/features/0/freezeTimeAtBuild',
+        },
+      ],
+    });
+  });
+
+  it('freezes the clock for the string a publisher meant as off', () => {
+    const features = createFeatures(
+      served(
+        '{"features":[{"key":"windowed","enabled":true,"freezeTimeAtBuild":"false",' +
+          '"rules":[{"id":"w","when":[{"field":"now","op":"after","value":"2026-10-01T00:00:00.000Z"}]}]}]}',
+      ).features,
+    );
+
+    // `planFeature` reads the member as a bare truthiness test, so the string
+    // resolves the window at build time where the publisher's `false` deferred it.
+    expect(
+      features.plan({ now: new Date('2026-10-15T00:00:00.000Z') }).windowed,
+    ).toMatchObject({ resolved: true });
+  });
+
+  it('accepts a freezeTimeAtBuild that arrived as a boolean', () => {
+    expect(
+      validateConfig(
+        served(
+          '{"features":[{"key":"cta","enabled":true,"freezeTimeAtBuild":false}]}',
+        ),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('leaves createFeatures accepting the literal the compiler typed', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          seed: 'cta-ramp',
+          freezeTimeAtBuild: true,
+          rules: [{ id: 'r', rollout: { percent: 50 } }],
+        },
+      ]),
+    ).not.toThrow();
+  });
+});
+
 describe('validateConfig, on the conditions a served rule declares', () => {
   /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
   function served(body: string): FeatureConfig {
