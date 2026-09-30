@@ -133,6 +133,22 @@ describe('murmur3', () => {
     expect(murmur3('hello').toString(16)).toBe('248bfa47');
   });
 
+  it('hashes under the seed it is handed', () => {
+    // The reference suite's seeded vectors, at its seed 0x9747b28c. `bucketOf`
+    // calls this function with no seed and the digest seeds `murmur3Bytes`
+    // directly, so nothing else in the package reads the second argument. A
+    // port that drops it answers the seed-0 word for each of these.
+    const word = (input: string) =>
+      murmur3(input, 0x9747b28c).toString(16).padStart(8, '0');
+
+    expect(word('')).toBe('ebb6c228');
+    expect(word('test')).toBe('704b81dc');
+    expect(word('Hello, world!')).toBe('24884cba');
+    expect(word('The quick brown fox jumps over the lazy dog')).toBe(
+      '2fa826cd',
+    );
+  });
+
   it('hashes the UTF-8 bytes of text outside ASCII', () => {
     // Pinned against the Encoding Standard's UTF-8 encoder, which the walk in
     // `utf8` reproduces: two bytes for U+00E9, nine for the three Japanese
