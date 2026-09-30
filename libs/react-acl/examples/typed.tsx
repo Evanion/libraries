@@ -26,7 +26,12 @@ import type { Action } from '@evanion/acl';
 import { createPolicyContext } from '@evanion/react-acl';
 
 type Shopper = { id: string; role: 'customer' | 'bookseller' | 'owner' };
-type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
+type Listing = {
+  id: string;
+  sellerId: string;
+  status: 'draft' | 'published';
+  blurb: string;
+};
 
 type ShopObjects = { listing: Listing };
 type ShopVerbs = { listing: Action | 'edit' };

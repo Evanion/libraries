@@ -4,7 +4,7 @@
  * Cited by `apps/docs/content/react-acl/` through
  * `file=libs/react-acl/examples/menu.tsx region=menu`. `useCapabilities` passes
  * no object, so a rule that reads one cannot be decided here; the pages say so
- * and point at `/acl/capabilities` for the contract.
+ * and point at `/acl/listing-permissions` for the contract.
  *
  * `src/examples.test.tsx` renders it and asserts the links are the granted
  * keys.

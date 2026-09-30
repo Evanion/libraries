@@ -224,7 +224,7 @@ describe('the typed policy', () => {
   it('decides through hooks that know the policy keys', () => {
     render(
       <TypedAccess subject={SHOPPER}>
-        <TypedEditControl listing={OWN_DRAFT} />
+        <TypedEditControl listing={{ ...OWN_DRAFT, blurb: 'Canals.' }} />
       </TypedAccess>,
     );
 
@@ -236,7 +236,7 @@ describe('the typed policy', () => {
   it('draws no control once the deny rule matches', () => {
     render(
       <TypedAccess subject={SHOPPER}>
-        <TypedEditControl listing={OWN_PUBLISHED} />
+        <TypedEditControl listing={{ ...OWN_PUBLISHED, blurb: 'Canals.' }} />
       </TypedAccess>,
     );
 
