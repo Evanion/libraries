@@ -1,0 +1,8 @@
+[
+  {
+    "id": "header",
+    "type": "listing-header",
+    "props": { "title": "Brass: Birmingham", "players": "2-4" }
+  },
+  { "id": "price", "type": "price-box", "props": { "price": "649 kr" } }
+]

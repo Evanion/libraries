@@ -164,8 +164,8 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
 
 `AnyWidgetItem` is one item as the CMS saved it. `Widgets.astro` spreads `props`
 into the widget, hands `meta` to the chrome, and passes `children` to the widget
-as data. The Baize listing page's two items carry only `id`, `type` and
-`props`:
+as data. The Baize listing page assigns the JSON its CMS saved to
+`AnyWidgetItem[]`, so the compiler checks each entry's `id`, `type` and `props`:
 
 ```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 

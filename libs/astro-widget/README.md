@@ -65,7 +65,8 @@ html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p cla
 A page imports `Widgets.astro`, the registry and the items, and renders
 them. [`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src)
 holds the whole project: `registry.ts` maps each type to its component,
-`data/brass-birmingham.ts` holds the items a CMS saved, and
+`data/brass-birmingham.json` holds the items a CMS saved,
+`data/brass-birmingham.ts` types them as `AnyWidgetItem[]`, and
 `pages/brass-birmingham.astro` renders them. Rendering that page gives the
 listing's HTML:
 
