@@ -15,14 +15,16 @@ places one item in that markup, and `ctx` hands every widget page-level data.
   ]}
 />
 
-## Wrap a react-widget region and each widget
+## Wrap the region and each widget with `DefaultWrapper` and `DefaultItem`
 
-A region needs an `aria-label`, or each widget a class for the grid. The
-markup that takes them is the chrome: `chrome.wrapper` renders around the whole
-region and `chrome.item` renders around each widget. The package exports both
-defaults. `DefaultWrapper` renders a `<section>`, and `DefaultItem` renders a
-`<div>` carrying the `data-widget-*` attributes. A custom chrome spreads its
-props into one of them:
+A react-widget region often needs an `aria-label`, and each widget a class for
+the grid. The chrome is the markup that carries them. The package exports the
+two defaults: `DefaultWrapper`, the `<section>` of `chrome.wrapper`, and
+`DefaultItem`, the `<div>` of `chrome.item` that carries the `data-widget-*`
+attributes. A custom chrome spreads its props into one of the defaults. Each
+fence on this page leaves out the imports of `createWidgets`, `DefaultWrapper`
+and `DefaultItem` from the package, and `renderToStaticMarkup` from
+`react-dom/server`:
 
 ```tsx twoslash file=libs/react-widget/README.md region=chrome
 
@@ -38,11 +40,11 @@ analytics and end-to-end selectors key off them. `DefaultWrapper` drops `items`
 and `DefaultItem` drops `meta`, because React warns about an unknown attribute
 for each prop that reaches the DOM.
 
-### Override the map or the chrome for one region
+## Override the map or the chrome for one region
 
-`<Widgets>` takes `components` and `chrome` of its own, merged over the ones
-passed to `createWidgets`. The Wingspan item below renders through
-`FeaturedListing` on this one region only:
+Each `<Widgets>` from `@evanion/react-widget` takes `components` and `chrome` of
+its own, merged over the ones passed to `createWidgets`. The Wingspan item below
+renders through `FeaturedListing` on this one region only:
 
 ```tsx twoslash file=libs/react-widget/README.md region=overrides
 
@@ -52,21 +54,24 @@ passed to `createWidgets`. The Wingspan item below renders through
 so a `<Widgets>` that overrides `wrapper` keeps every other `chrome` field
 passed to `createWidgets`.
 
-## Place a react-widget item with `meta`
+## Place a react-widget item in a grid with `meta`
 
-An item's `meta` goes to `chrome.item` and never into the widget's props, so a
-listing renders the same at column 1 and at column 7. Annotate `chrome.item`
-with the keys it reads, and `createWidgets` checks every item's `meta` against
-them. `defineItems`, which `createWidgets` returns, types the array:
+An item's `meta` goes to react-widget's `chrome.item` and never into the
+widget's props, so a listing renders the same at column 1 and at column 7.
+Annotate `chrome.item` with the keys it reads, through the
+`WidgetItemComponent` type, and `defineItems` checks every item's `meta` against
+them:
 
 ```tsx twoslash file=libs/react-widget/README.md region=meta-grid
 
 ```
 
-`WidgetItemComponent<GridMeta>` types `GridCell`, and `createWidgets` infers
-`GridMeta` from it with no type argument to pass. Root spans columns 2 and 3.
+`WidgetItemComponent<GridMeta>` types `GridCell` as item chrome that reads
+`GridMeta`, and `createWidgets` infers `GridMeta` from it with no type argument
+to pass. Root spans columns 2 and 3.
 The Hive item names `col`, a key `GridCell` does not read, so it compiles only
-under `@ts-expect-error` and renders through the `auto` fallback.
+under `@ts-expect-error`. It has no `column`, so `GridCell` falls back to
+`grid-column: auto`.
 
 `meta` is optional on every item. Write a fallback in the chrome for an item
 that omits a key it reads. A `createWidgets` call with no `chrome.item`, or with
@@ -74,27 +79,28 @@ an unannotated one, accepts any object as `meta`.
 
 ## Pass page-level data to every widget in a react-widget region
 
-`<Widgets ctx={…}>` passes one object to every widget as its `ctx` prop.
-React's `react-server` build exports no `createContext`, so the package hands
-page-level data down as a prop:
+`<Widgets ctx={…}>` passes one object to every widget of a react-widget region
+as its `ctx` prop. Server Components run against React's `react-server` build,
+which exports no `createContext`, so the package hands page-level data down as a
+prop:
 
 ```tsx twoslash file=libs/react-widget/README.md region=ctx
 
 ```
 
-`ListingCard` declares `ctx` required, and the Root item still carries only a
+`ListingCard` declares `ctx` required, yet the Root item carries only a
 `title`: `ctx` is left out of an item's `props`, the way `children` is.
 `Widgets` passes `ctx` after the item's props, so an item from untrusted data
-cannot override it. `<Widgets>` types its `ctx` prop as
-`Record<string, unknown>`, so the compiler does not check it against the `ctx`
-a widget declares.
+cannot override it. The `ctx` type a widget declares describes what the widget
+reads, and nothing checks that `<Widgets ctx={…}>` supplies it: `<Widgets>`
+types its `ctx` prop as `Record<string, unknown>`.
 
-## Choose where react-widget's Suspense boundaries go
+## Choose where the `<Suspense>` boundaries go
 
-`Widgets` wraps every widget in its own `<Suspense>` boundary, so one slow
-widget does not hold up its siblings. That is `chrome.suspense: 'per-item'`, the
-default. `chrome.suspenseFallback` is what renders while a widget suspends, and
-it defaults to nothing:
+By default, the package's `Widgets` wraps every react-widget widget in its own
+`<Suspense>` boundary, so one slow widget does not hold up its siblings. That is
+`chrome.suspense: 'per-item'`, the default. `chrome.suspenseFallback` is what
+renders while a widget suspends, and it defaults to nothing:
 
 ```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
 
@@ -106,14 +112,15 @@ widget's place. A streaming render sends the same fallback first and replaces it
 when the count resolves. The boundary lives in `Widgets`, so a custom
 `chrome.item` cannot remove it.
 
-## Render a synchronous react-widget region: `chrome.suspense: 'none'`
+## Drop the boundaries from a synchronous region: `chrome.suspense: 'none'`
 
-By default `Widgets` wraps each widget in its own `<Suspense>` boundary. A
-streaming render, through `renderToPipeableStream`, sends the shell first. Once
-the shell passes `progressiveChunkSize`, an option that defaults to 12,800
-bytes, React stops writing `<Suspense>` boundaries into it and outlines every
-remaining one, whether or not anything in it suspended. An outlined boundary
-leaves a placeholder in the shell and sends its content later, in a trailing
+On a large streamed region, the `<Suspense>` boundary react-widget puts around
+each widget can move that widget to the end of the HTML. A streaming render,
+through `renderToPipeableStream`, sends the shell first: the HTML outside any
+boundary it has not finished. Once the shell passes `progressiveChunkSize`,
+an option that defaults to 12,800 bytes, React outlines every remaining
+boundary, whether or not anything in it suspended. An outlined boundary leaves a
+placeholder in the shell and sends its content later, in a trailing
 `<div hidden>`. An inline `<script>$RC(…)</script>` then moves the content into
 place.
 
@@ -142,13 +149,16 @@ synchronous at runtime, and `memo()` hides an async component. If you set
 the nearest boundary above the region. Wrap `<Widgets>` in `<Suspense>` to stop
 it there.
 
-## Catch an error thrown inside a react-widget region
+## Catch a widget's error in a React error boundary
 
-The package ships no error boundary. A boundary is a class component, and React
-exports no `Component` under `react-server`, so a class inside the package
-forces `'use client'` onto all of it. Write the boundary in your own
-`'use client'` file, with the directive as its first line, and render it inside
-`DefaultItem`:
+`@evanion/react-widget` ships no error boundary. A boundary is a class
+component, and React's `react-server` build exports no `Component`, so a class
+inside the package forces `'use client'` onto all of it. Write the boundary in
+your own file, with `'use client'` as its first line. Below the directive, the
+file imports `React` and `DefaultItem`:
+`import * as React from 'react';` and
+`import { DefaultItem } from '@evanion/react-widget';`. The fence starts at the
+directive and leaves those two lines out:
 
 ```tsx twoslash file=libs/react-widget/README.md region=error-boundary
 
@@ -156,22 +166,26 @@ forces `'use client'` onto all of it. Write the boundary in your own
 
 Export `SafeItem` from that file, import it into the server file that calls
 `createWidgets`, and pass it as `chrome: { item: SafeItem }`. The boundary is
-then client code, and the widgets inside it stay server components.
+then client code, and the widgets inside it stay server components. In a
+project without Server Components the directive does nothing, and `SafeItem` can
+sit in the same file as `createWidgets`.
 
-## Render a long react-widget region
+## Render a long region with `content-visibility`
 
-`Widgets` renders every item and has no windowing option. For server-rendered
-content, the CSS property `content-visibility: auto` on the item chrome lets the
-browser skip layout and paint for off-screen items, and every item stays in the
-HTML:
+Every item of a react-widget region renders, and `Widgets` has no option to
+virtualize the list. For server-rendered content, the CSS property
+`content-visibility: auto` on the item chrome lets the browser skip layout and
+paint for off-screen items, and every item stays in the HTML:
 
 ```tsx twoslash file=libs/react-widget/README.md region=content-visibility
 
 ```
 
-For a client-side list long enough to need windowing, virtualize in your own
+For a client-side list long enough to need it, virtualize in your own
 `'use client'` `chrome.wrapper`. It receives `items` in the same order as
 `children`, one entry per top-level item, so it can measure and window by item.
 
-The [Playground](../playground) runs `Widgets` in the browser, with
-nested items and chrome you can edit.
+## Try the chrome in the browser
+
+The [Playground](../playground) runs react-widget's `Widgets` on a Baize staff
+page, and its editors take snippets whose chrome you can rewrite.

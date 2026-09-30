@@ -1,29 +1,29 @@
 # @evanion/react-widget
 
-A content management system (CMS) sends a page as sections, each naming a
+A content management system (CMS) sends a page as items that each name a
 component and its props, and nothing checks them before React renders.
-`@evanion/react-widget` renders them. The compiler checks items you write, and
+`@evanion/react-widget` renders them. TypeScript checks the items you write, and
 `validateItems` checks a CMS payload.
 
-## How react-widget renders a page from data
+## From a React component map to a rendered page
 
-`createWidgets` takes a component map, an object from a widget type to the React
-component that draws it, and returns a `Widgets` component. `Widgets` takes an
-array of items and renders each item's component with the item's props, in the
-order the array reads. Baize, a board game shop, maps two types: a listing card
-and the strip that books a table for tonight.
+react-widget's `createWidgets` takes a component map, whose keys are the widget
+types an item may name and whose values are the React components that draw
+them. It returns a `Widgets` component.
+`Widgets` takes an array of items and renders each item's component with the
+item's props, in the order the array reads. Baize, a board game shop, maps two
+types: a listing card and the strip that books a table for tonight.
 
 ```tsx twoslash file=libs/react-widget/examples/listing.tsx region=catalogue
 
 ```
 
-`ShopPage` renders the booking strip first and the listing second, because that
-is the order of its two items. An item whose `type` is not `listing` or
-`booking` is a compile error. So is a `price` written as a string.
-
-The package carries no `'use client'` and no React context, so a page that
-renders `<Widgets>` can be a Server Component. A widget can be an async Server
-Component that fetches its own data.
+`ShopPage`, the page component in the fence, renders the booking strip first
+and the listing second, because that is the order of its two items. An item
+whose `type` is not `listing` or `booking` is a compile error. So is a `price`
+written as a string. `Widgets` types the items because they are written inline
+in its `items` prop. An array held in a variable needs `defineItems` for the
+same check, which [Getting started](./getting-started) shows.
 
 ## The react-widget vocabulary
 
@@ -37,55 +37,58 @@ Every react-widget page uses the terms below.
   with that item's props.
 - A **region** is what one `<Widgets>` renders: every item of one array.
 - The **chrome** is the markup around the widgets, passed to `createWidgets` as
-  `chrome`. `chrome.wrapper` goes around the whole region, and `chrome.item`
-  goes around each widget.
+  `chrome`. `chrome.wrapper` goes around the whole region and is a `<section>`
+  by default. `chrome.item` goes around each widget and is a `<div>` by
+  default.
 - **`ctx`** is the page-level data `<Widgets ctx={…}>` hands every widget as its
   `ctx` prop.
 
 An item carries five fields:
 
-| Field      | What it holds                                                           |
-| ---------- | ----------------------------------------------------------------------- |
-| `id`       | a stable string: the React key, and `data-widget-id` on the item chrome |
-| `type`     | a key of the component map, naming the component to render              |
-| `props`    | that component's props, except `children` and `ctx`                     |
-| `meta`     | optional placement data, such as a grid column, read by `chrome.item`   |
-| `children` | optional nested items, rendered as the component's `children`           |
+| Field      | What it holds                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------- |
+| `id`       | a stable string: the React key, and the `data-widget-id` attribute on the item chrome                         |
+| `type`     | a key of the component map, naming the component to render, and the `data-widget-type` attribute              |
+| `props`    | that component's props, except `children` (from the item's `children` field) and `ctx` (from `<Widgets ctx>`) |
+| `meta`     | optional placement data, such as a grid column, which `chrome.item` reads and the widget never gets           |
+| `children` | optional nested items, rendered as the component's `children`                                                 |
 
-`meta` never reaches the widget. An item may carry `children` only when its
-component declares a `children` prop. Nesting under any other widget is a
-compile error.
+An item may carry `children` only when its component declares a `children`
+prop. Nesting under any other widget is a compile error.
 
-## What react-widget can do
+## What a page gets from `createWidgets`
 
-| The page needs                                          | What provides it                           |
-| ------------------------------------------------------- | ------------------------------------------ |
-| A region rendered from an item array                    | `createWidgets`                            |
-| An item array held in a variable, typed against the map | `defineItems`, returned by `createWidgets` |
-| A CMS payload checked before anything renders it        | `validateItems`                            |
-| A wrapper around the region, or around each widget      | `chrome` on `createWidgets`                |
-| A grid position that the widget itself never receives   | an item's `meta`                           |
-| One value, such as a currency, handed to every widget   | `ctx` on `<Widgets>`                       |
-| One `<Suspense>` boundary per widget, or none           | `chrome.suspense`                          |
+react-widget covers these needs, each through one export or option:
 
-## What react-widget does not do
+| The page needs                                                         | What provides it                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A region rendered from an item array                                   | `createWidgets`, which returns `Widgets`                                                             |
+| An item array held in a variable, still checked against the map        | `defineItems`, which `createWidgets` also returns                                                    |
+| A CMS payload checked before anything renders it                       | `validateItems`                                                                                      |
+| A region inside a Server Component, with widgets that fetch their data | `Widgets` itself: it carries no `'use client'`, so it runs on the server and a widget may be `async` |
+| A wrapper around the region, or around each widget                     | `chrome.wrapper` and `chrome.item`                                                                   |
+| A grid position that the widget itself never receives                  | an item's `meta`                                                                                     |
+| One value, such as a currency, handed to every widget                  | `ctx` on `<Widgets>`                                                                                 |
+| A slow widget that does not hold up the widgets beside it              | [`chrome.suspense`](./suspense), which by default gives each widget its own `<Suspense>`             |
 
-- It creates no React context. React's `react-server` build, the one a Server
-  Component imports, exports no `createContext`, so page-level data travels as
-  `ctx`.
-- It ships no error boundary. React only lets a class component be one, and a
-  class component inside the package forces all of it into the client bundle.
-  Write the boundary into a custom `chrome.item` in your own `'use client'`
-  file.
+## What react-widget leaves to you
+
+react-widget stops at rendering the items it is given:
+
+- It creates no React context. Page-level data reaches the widgets as the `ctx`
+  prop.
+- It ships no error boundary. Write one into a custom `chrome.item`, in your own
+  `'use client'` file.
 - It does not virtualize a long list. `Widgets` renders every item, off-screen
   ones included.
 - It does not render Astro components. `@evanion/astro-widget`, a separate
   package, renders the same items at build time.
 - It does not check a payload at render. `Widgets` skips an item it cannot
-  render and warns in development, so a stale widget type ships as a gap in the
-  page unless `validateItems` runs first.
+  render, so a stale widget type ships as a gap unless `validateItems` runs
+  first.
 
-## Now that you have the model, render a region
+## Render one listing yourself
 
-[Getting started](./getting-started) installs react-widget, renders
-one Baize listing through `Widgets`, and prints the HTML React wrote for it.
+You have react-widget's model: a component map, an item array, and `Widgets`
+rendering one against the other. [Getting started](./getting-started) installs
+react-widget and renders one Baize listing to the HTML React writes for it.
