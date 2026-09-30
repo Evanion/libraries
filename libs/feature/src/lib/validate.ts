@@ -182,6 +182,36 @@ interface Readable {
   readonly someRules?: readonly Rule[];
 }
 
+/**
+ * The members a definition declares, which `FeatureDefinition` in `types.ts`
+ * names.
+ *
+ * A member outside this set is reported as `unknown-member`. § 3 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` has a bucketing
+ * parameter this package adds later, a hash version among them, travel as a
+ * required member with no default, so a holder too old to read it refuses the
+ * document and the operator reads one refusal at the first poll. A holder that
+ * walked past the member would bucket every subject on the algorithm it knows
+ * while the publisher bucketed on the new one, and `configDigest` reports one
+ * version on both sides.
+ *
+ * `createFeatures` is held to it too. `documentDefinition` in `serialize.ts`
+ * copies the definition with `{ ...definition }`, so a member a store holds
+ * reaches every holder of the document it serves, and Decision 11 has one checker
+ * answer both envelopes.
+ */
+const DEFINED: ReadonlySet<string> = new Set([
+  'key',
+  'enabled',
+  'dependsOn',
+  'rules',
+  'seed',
+  'freezeTimeAtBuild',
+  'variants',
+  'variantBy',
+  'variantSeed',
+]);
+
 /** Nothing the walks after it can read, for a definition that is not an object. */
 const UNREADABLE: Readable = { variants: false, rules: false };
 
@@ -297,27 +327,27 @@ function conditionIssues(
  * A rule's conditions are read because `ruleIdErrors` derives a name from them.
  * `conditionText` in `rule-id.ts` length-prefixes `field`, `op` and a
  * day-of-week `zone`, so a condition carrying any of the three as something
- * other than a string is one the derivation cannot walk.
+ * other than a string is one the derivation cannot walk. A condition carrying
+ * all three as strings can still hold a `value` no canonical text covers, which
+ * is what `nameable` asks of the rules whose conditions this walk read.
  *
- * Those condition issues reach the served document alone, and `arrayIsOrder`
- * separates the two callers here the way it separates them in `variantErrors`.
- * `createFeatures` takes the `any` `JSON.parse` returns through its inferring
- * overload, and `serializeConfig` writes back a `when` the `Rule` type does not
- * describe, element for element, which
- * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` asks of it
- * and `serialize.spec.ts` pins. A document that arrives at `validateConfig` is
- * the one § 3 refuses, and the store a TypeScript author built keeps whatever
- * its author wrote past the type. Either way the rule id walk skips a rule whose
- * conditions it cannot name.
+ * Those condition issues reach both callers, and `arrayIsOrder` does not separate
+ * them here. `createFeatures` takes the `any` `JSON.parse` returns through its
+ * inferring overload, which
+ * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` names as a
+ * real path and Task 8 documents, so a control plane's body reaches a store
+ * through it. Each of the four defects raises out of `resolve`: `evaluate.ts:53`
+ * iterates `rule.when`, `rule-id.ts:48` reads `condition.zone.length`, and
+ * `conditionText` length-prefixes `field` and `op` the same way. A TypeScript
+ * literal satisfies all four by type, so the author's path meets none of them,
+ * and `arrayIsOrder` says the variants array is the order, which none of the four
+ * is about. Either way the rule id walk skips a rule whose conditions it cannot
+ * name.
  */
-function shapeWalk(
-  config: Checkable,
-  options: VariantCheckOptions,
-): {
+function shapeWalk(config: Checkable): {
   readonly issues: readonly Found[];
   readonly rows: readonly Readable[];
 } {
-  const served = options.arrayIsOrder !== true;
   if (!isRecord(config)) {
     return {
       issues: [
@@ -382,6 +412,17 @@ function shapeWalk(
         unreadable(
           `${named} declares "enabled" as ${met(enabled)}, and this checker reads a boolean`,
           pointer(at, 'enabled'),
+          key,
+        ),
+      );
+    }
+
+    for (const member of Object.keys(definition)) {
+      if (DEFINED.has(member)) continue;
+      all.push(
+        unreadable(
+          `${named} declares "${member}", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
+          pointer(at, member),
           key,
         ),
       );
@@ -487,7 +528,19 @@ function shapeWalk(
         const inner = conditionIssues(element, named, path, key);
         if (inner.length > 0) {
           unwalked.add(element);
-          if (served) all.push(...inner);
+          all.push(...inner);
+        } else if (id === undefined && !nameable(element as unknown as Rule)) {
+          // A rule this walk cannot name is a rule no caller can evaluate, so it
+          // is reported here rather than dropped. `ruleIdErrors` skips it after
+          // this, the way it skips a rule whose `when` the walk refused.
+          unwalked.add(element);
+          all.push(
+            unreadable(
+              `${named} declares a rule at ${path} whose conditions carry a value no canonical text names, and the derivation a decision reads this rule's id from raises on it`,
+              `${path}/when`,
+              key,
+            ),
+          );
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
         // map on, so it is the one rule the id walk drops.
@@ -515,28 +568,29 @@ function shapeWalk(
 }
 
 /**
- * The id `ruleId` derives for a rule, or nothing where it could not write one.
+ * Whether `ruleId` can name a rule, which every decision naming it needs.
  *
- * `canonical` recurses through an `AttributeCondition.value` and the memo entry
- * at `canonical.ts:138` is written after the recursion, so a value that holds
- * itself raises `RangeError: Maximum call stack size exceeded` and one nested
- * past 25 levels raises `RangeError: Invalid string length`. A checker § 7 has
- * return a `ValidationResult` raises neither, and a rule it cannot name is a rule
- * it reports no duplicate for, which is what an unreadable `when` already gets.
+ * `canonical` recurses through an `AttributeCondition.value` and writes its memo
+ * entry after the recursion at `canonical.ts:138`, so a value that holds itself
+ * raises `RangeError: Maximum call stack size exceeded` and one nested past 25
+ * levels raises `RangeError: Invalid string length`. § 7 has the checker return a
+ * `ValidationResult` and raise neither, so the raise is caught and the rule is
+ * reported as a member this checker cannot read.
  *
- * `serializeConfig` owns the refusal of the store that holds one. Decision 12 has
- * it refuse every value JSON cannot carry at every member and name the path,
- * which for a condition value reads
- * `/features/0/rules/0/when/0/value/self`, so an author reads the member rather
- * than a stack trace. A served document holds no reference to itself, and one
- * nested deep enough to overflow this walk is one `configDigest` takes no text of
- * either, which `canonical.ts:69-71` reads as a document too deep to serve.
+ * Reporting it is what keeps `errors.ts:3-11` true. `ruleId` runs again on every
+ * evaluation -- the `WeakMap` at `rule-id.ts:105` holds an entry only for a rule
+ * it named -- so a store built over such a rule raises the same `RangeError` out
+ * of `resolve`, and `resolve`, `plan` and `toggle` are total.
+ *
+ * Only a rule declaring no `id` is asked. `ruleId` returns a declared id without
+ * reading the conditions, so no canonical text is taken of them on either path.
  */
-function derivedId(rule: Rule): string | undefined {
+function nameable(rule: Rule): boolean {
   try {
-    return ruleId(rule);
+    ruleId(rule);
+    return true;
   } catch (error) {
-    if (error instanceof RangeError) return undefined;
+    if (error instanceof RangeError) return false;
     throw error;
   }
 }
@@ -561,16 +615,16 @@ function derivedId(rule: Rule): string | undefined {
  * id are refused where the configuration is supplied rather than at the first
  * poll of the document a store emitted.
  *
- * `unwalked` holds the rules whose conditions the shape walk refused, and those
- * are read for the id they declare. A hash of what such a rule matches on is a
- * hash this checker cannot take, and the id it declares is the name a decision
- * carries either way, so two rules declaring one id are reported although one of
- * them carries a `when` the operator has yet to fix. A rule in there declaring no
- * id is the one rule the walk drops, which is what an unreadable `rule.id` gets.
+ * `unwalked` holds the rules whose conditions the shape walk refused or could not
+ * name, and those are read for the id they declare. A hash of what such a rule
+ * matches on is a hash this checker cannot take, and the id it declares is the
+ * name a decision carries either way, so two rules declaring one id are reported
+ * although one of them carries a `when` the operator has yet to fix. A rule in
+ * there declaring no id is the one rule the walk drops, which is what an
+ * unreadable `rule.id` gets.
  *
- * `derivedId` is what lets the comparison read a store an author built. A
- * condition value that closes on itself has no canonical text, and Decision 12
- * gives that refusal to `serializeConfig`, which names the member.
+ * `ruleId` is called unguarded, because the shape walk called `nameable` on every
+ * rule that reaches here and put the ones it cannot name in `unwalked`.
  */
 function ruleIdErrors(
   definition: FeatureDefinition<FeatureKey>,
@@ -580,7 +634,7 @@ function ruleIdErrors(
   const errors: FeatureConfigError[] = [];
   for (const rule of definition.rules ?? []) {
     const declared = rule.id !== undefined;
-    const id = unwalked.has(rule) ? rule.id : derivedId(rule);
+    const id = unwalked.has(rule) ? rule.id : ruleId(rule);
     if (id === undefined) continue;
     const first = declaredFirst.get(id);
     if (first === undefined) {
@@ -619,7 +673,7 @@ export function collectIssues(
   config: Checkable,
   options: VariantCheckOptions = {},
 ): readonly Found[] {
-  const { issues, rows } = shapeWalk(config, options);
+  const { issues, rows } = shapeWalk(config);
   const all: Found[] = [...issues];
 
   const nodes: GraphNode<FeatureKey>[] = [];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FeatureCycleError, UnknownDependencyError } from './errors.js';
 import { buildGraph, graphErrors } from './graph.js';
+import type { FeatureKey } from './types.js';
 
 const def = (key: string, dependsOn: string[] = []) => ({
   key,
@@ -64,10 +65,12 @@ describe('buildGraph', () => {
 
   it('rejects a numeric key beside the string that spells it', () => {
     // `resolveAll` builds its record with `Object.fromEntries`, which writes 1
-    // and '1' to one property, so one of the two features gets no decision.
+    // and '1' to one property, so one of the two features gets no decision. The
+    // type argument is the union `FeatureKey` declares, which is what admits the
+    // two spellings: `F` is inferred from the first element otherwise.
     expect(() =>
-      buildGraph([
-        { key: 1 as unknown as string, enabled: true },
+      buildGraph<FeatureKey>([
+        { key: 1, enabled: true },
         { key: '1', enabled: true },
       ]),
     ).toThrow(/duplicate/i);
