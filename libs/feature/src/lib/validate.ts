@@ -16,12 +16,14 @@ import type {
 import type { GraphNode } from './graph.js';
 import type { VariantCheckOptions } from './variants.js';
 import type {
-  Condition,
+  AttributeCondition,
+  DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
   RolloutSpec,
   Rule,
   VariantSpec,
+  WindowCondition,
 } from './types.js';
 
 /**
@@ -233,13 +235,13 @@ const DEFINED: ReadonlySet<string> = new Set(Object.keys(DEFINITION_MEMBERS));
 
 /**
  * Every key one member of a union declares. `keyof` over a union answers the
- * keys they share, and a `zone` only `DayOfWeekCondition` carries is a member
- * this checker reads.
+ * keys they share, so the distribution is what holds a set to the members of
+ * two condition types and not to the ones they have in common.
  */
 type MemberOf<T> = T extends unknown ? keyof T : never;
 
 /**
- * The members of the four shapes a definition holds below itself.
+ * The members of the shapes a definition holds below itself.
  *
  * § 3 states its rule over the whole document, and the member it names is a
  * bucketing parameter. `RolloutSpec` and `VariantSpec` are where such a
@@ -252,10 +254,11 @@ type MemberOf<T> = T extends unknown ? keyof T : never;
  * experiment rule.
  *
  * Each literal is typed against the interface it stands for, for the reason
- * `DEFINITION_MEMBERS` is. The condition set is the union of the three condition
- * types' keys, so a `zone` beside an `eq` is accepted: the member is one this
- * checker reads, and `conditionText` writes it for the operator that declares
- * it.
+ * `DEFINITION_MEMBERS` is. A condition has two sets, and `op` picks between
+ * them: `DayOfWeekCondition` is the one type declaring `zone`, `conditionText`
+ * writes that member for `op === 'day-of-week'` and for no other operator, and
+ * `evaluateCondition` reads it in that one place. A `zone` beside an `eq` is a
+ * member the holder evaluates as absent, which is what § 3 refuses.
  */
 const RULE_MEMBERS: Record<keyof Rule, true> = {
   id: true,
@@ -277,20 +280,28 @@ const VARIANT_MEMBERS: Record<keyof VariantSpec, true> = {
   value: true,
 };
 
-const CONDITION_MEMBERS: Record<MemberOf<Condition>, true> = {
+const CONDITION_MEMBERS: Record<
+  MemberOf<WindowCondition | AttributeCondition>,
+  true
+> = {
   field: true,
   op: true,
   value: true,
+};
+
+const DAY_OF_WEEK_MEMBERS: Record<keyof DayOfWeekCondition, true> = {
+  ...CONDITION_MEMBERS,
   zone: true,
 };
 
-/** Those four sets, by the word a refusal calls each shape. */
-const BELOW: Readonly<Record<string, ReadonlySet<string>>> = {
-  rule: new Set(Object.keys(RULE_MEMBERS)),
-  rollout: new Set(Object.keys(ROLLOUT_MEMBERS)),
-  variant: new Set(Object.keys(VARIANT_MEMBERS)),
-  condition: new Set(Object.keys(CONDITION_MEMBERS)),
-};
+/** Each of those sets, as the walk reads it. */
+const RULE: ReadonlySet<string> = new Set(Object.keys(RULE_MEMBERS));
+const ROLLOUT: ReadonlySet<string> = new Set(Object.keys(ROLLOUT_MEMBERS));
+const VARIANT: ReadonlySet<string> = new Set(Object.keys(VARIANT_MEMBERS));
+const CONDITION: ReadonlySet<string> = new Set(Object.keys(CONDITION_MEMBERS));
+const DAY_OF_WEEK: ReadonlySet<string> = new Set(
+  Object.keys(DAY_OF_WEEK_MEMBERS),
+);
 
 /**
  * Every member one nested object declares that this checker reads no member by.
@@ -302,15 +313,15 @@ const BELOW: Readonly<Record<string, ReadonlySet<string>>> = {
  */
 function strangeMembers(
   value: Readonly<Record<string, unknown>>,
-  what: keyof typeof BELOW,
+  defined: ReadonlySet<string>,
+  what: string,
   named: string,
   at: string,
   key?: FeatureKey,
 ): readonly Found[] {
-  const defined = BELOW[what];
   const all: Found[] = [];
   for (const member of Object.keys(value)) {
-    if (defined?.has(member) === true) continue;
+    if (defined.has(member)) continue;
     all.push(
       unreadable(
         `${named} declares "${member}" on the ${what} at ${at}, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
@@ -405,7 +416,16 @@ function conditionIssues(
       }
     }
 
-    strange.push(...strangeMembers(condition, 'condition', named, path, key));
+    strange.push(
+      ...strangeMembers(
+        condition,
+        condition['op'] === 'day-of-week' ? DAY_OF_WEEK : CONDITION,
+        'condition',
+        named,
+        path,
+        key,
+      ),
+    );
   });
 
   return { refused, strange };
@@ -654,7 +674,9 @@ function shapeWalk(
         }
         if (member !== 'rules') {
           if (served) {
-            all.push(...strangeMembers(element, 'variant', named, path, key));
+            all.push(
+              ...strangeMembers(element, VARIANT, 'variant', named, path, key),
+            );
           }
           read.variants.push(element);
           return;
@@ -672,12 +694,13 @@ function shapeWalk(
           );
         }
         if (served) {
-          all.push(...strangeMembers(element, 'rule', named, path, key));
+          all.push(...strangeMembers(element, RULE, 'rule', named, path, key));
           const rollout: unknown = element['rollout'];
           if (isRecord(rollout)) {
             all.push(
               ...strangeMembers(
                 rollout,
+                ROLLOUT,
                 'rollout',
                 named,
                 `${path}/rollout`,

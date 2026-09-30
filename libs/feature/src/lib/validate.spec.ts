@@ -2234,6 +2234,47 @@ describe('validateConfig, on a member below a definition that this checker does 
     ]);
   });
 
+  it('reports a zone on a condition whose operator declares none', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":[{"when":' +
+        '[{"field":"plan","op":"eq","value":"pro","zone":"Europe/Stockholm"}]}]}]}',
+    );
+
+    // `conditionText` writes `zone` for `op === 'day-of-week'` and for no other
+    // operator, and `evaluateCondition` reads it in that one place, so this rule
+    // derives the id it derives without the member and a publisher meaning a
+    // zone-scoped comparison installs on a holder that ignores it.
+    expect(messagesOf(config)).toEqual([
+      refusal('zone', 'condition', '/features/0/rules/0/when/0'),
+    ]);
+  });
+
+  it('derives one id for that condition with the zone and without it', () => {
+    const zoned: Rule = {
+      when: [
+        { field: 'plan', op: 'eq', value: 'pro', zone: 'Europe/Stockholm' },
+      ] as unknown as Rule['when'],
+    };
+    const bare: Rule = { when: [{ field: 'plan', op: 'eq', value: 'pro' }] };
+
+    // The collision the refusal above prevents. Two rules of one feature
+    // differing only in `zone` answer one name, and a decision naming it names
+    // both.
+    expect(ruleId(zoned)).toBe(ruleId(bare));
+  });
+
+  it('reports a zone on a window condition', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":[{"when":' +
+        '[{"field":"now","op":"before","value":"2026-10-01T00:00:00.000Z",' +
+        '"zone":"Europe/Stockholm"}]}]}]}',
+    );
+
+    expect(messagesOf(config)).toEqual([
+      refusal('zone', 'condition', '/features/0/rules/0/when/0'),
+    ]);
+  });
+
   it('reports every one of them in a document carrying all four', () => {
     const result = validateConfig(
       served(
