@@ -29,11 +29,13 @@ export default defineConfig(() => ({
       'default',
       ['json', { outputFile: './test-output/vitest/coverage/report.json' }],
     ],
+    // #region coverage
     coverage: {
       enabled: true,
       reporter: ['json-summary'],
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
     },
+    // #endregion coverage
   },
 }));
