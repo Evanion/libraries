@@ -14,6 +14,18 @@ import {
 import type { ConfigIssueCode, FeatureConfig } from './config.js';
 import type { Rule } from './types.js';
 
+/**
+ * The two members § 3 has travel with a served variant set.
+ *
+ * A definition carrying variants and no readable `variantBy` or `variantSeed` is
+ * a document `validateConfig` refuses, so every fixture below that declares
+ * variants and means something else by its defect carries both.
+ */
+const TRAVELS = {
+  variantBy: 'targetingKey',
+  variantSeed: 'cta:variant',
+} as const;
+
 /** The codes a document reports, in the order the checker found them. */
 function codesOf(config: FeatureConfig): readonly ConfigIssueCode[] {
   const result = validateConfig(config);
@@ -94,6 +106,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'control', weight: 1, order: 1 },
@@ -111,6 +124,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'control', weight: 1, order: 0 }],
           rules: [{ variant: 'ghost' }],
         },
@@ -132,6 +146,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: -1, order: 0 }],
         },
       ],
@@ -146,6 +161,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: 0, order: 0 }],
         },
       ],
@@ -160,6 +176,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: Number.MAX_VALUE, order: 0 },
             { name: 'blue', weight: Number.MAX_VALUE, order: 1 },
@@ -177,6 +194,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: 1, order: -1 }],
         },
       ],
@@ -191,6 +209,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 2 },
             { name: 'blue', weight: 1, order: 2 },
@@ -208,6 +227,7 @@ const SINGLES: readonly Single[] = [
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'blue', weight: 1 },
@@ -257,6 +277,7 @@ describe('validateConfig', () => {
         {
           key: 'e',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: -1, order: 0 }],
         },
       ],
@@ -321,6 +342,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: -0, order: 0 }],
         },
       ],
@@ -341,6 +363,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: NaN, order: 0 }],
         },
       ],
@@ -359,6 +382,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0.5 },
             { name: 'blue', weight: 1, order: 1 },
@@ -380,6 +404,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 3 },
             { name: 'blue', weight: 1, order: 3 },
@@ -597,6 +622,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'control', weight: -1, order: -2 },
@@ -620,6 +646,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: NaN, order: 0 },
             { name: 'blue', weight: -5, order: 1 },
@@ -684,6 +711,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'blue', weight: 1 },
@@ -703,6 +731,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: 1, order: -1 }],
         },
       ],
@@ -719,6 +748,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'blue', weight: 1, order: -0 },
@@ -740,6 +770,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 1, order: 0 },
             { name: 'blue', weight: 1, order: Number.MAX_SAFE_INTEGER },
@@ -757,6 +788,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: Number.MAX_VALUE, order: 0 },
             { name: 'blue', weight: Number.MAX_VALUE, order: 1 },
@@ -786,6 +818,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: Number.MAX_VALUE, order: 0 }],
         },
       ],
@@ -800,6 +833,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: Number.MIN_VALUE, order: 0 }],
         },
       ],
@@ -814,6 +848,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'control', weight: 0, order: 0 },
             { name: 'blue', weight: 1, order: 1 },
@@ -831,6 +866,7 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: -Infinity, order: 0 }],
         },
       ],
@@ -1105,6 +1141,7 @@ describe('validateConfig, on the variant order a served document carries', () =>
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: orders.map((order, at) => ({
             name: at === 0 ? 'control' : 'blue',
             weight: 1,
@@ -1184,6 +1221,7 @@ describe('validateConfig, on a key or a variant name that spells a defect', () =
         {
           key: 'cta',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'empty variants array', weight: -1, order: 0 }],
         },
       ],
@@ -1200,6 +1238,7 @@ describe('validateConfig, on a key or a variant name that spells a defect', () =
         {
           key: 'non-negative integer',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'x', weight: 1, order: 3 },
             { name: 'y', weight: 1, order: 3 },
@@ -1217,6 +1256,7 @@ describe('validateConfig, on a key or a variant name that spells a defect', () =
         {
           key: 'which is not a usable share',
           enabled: true,
+          ...TRAVELS,
           variants: [{ name: 'only', weight: 0, order: 0 }],
         },
       ],
@@ -1231,6 +1271,7 @@ describe('validateConfig, on a key or a variant name that spells a defect', () =
         {
           key: 'mixes two orderings',
           enabled: true,
+          ...TRAVELS,
           variants: [
             { name: 'a', weight: 1.7e308, order: 0 },
             { name: 'b', weight: 1.7e308, order: 1 },
@@ -1278,5 +1319,114 @@ describe('createFeatures', () => {
         },
       ]),
     ).toThrow('feature "beta" declares the rule id "staff" twice');
+  });
+});
+
+describe('validateConfig, on the bucketing members § 3 has travel whole', () => {
+  /** A served definition carrying one variant and the members this case gives it. */
+  function document(members: Readonly<Record<string, unknown>>): FeatureConfig {
+    return {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'only', weight: 1, order: 0 }],
+          ...members,
+        },
+      ],
+    } as FeatureConfig;
+  }
+
+  it('reports a variantBy a layer stripped', () => {
+    const result = validateConfig(document({ variantSeed: 'cta:variant' }));
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares variants and no "variantBy" this checker can read, and a holder that fills the gap buckets every subject on another context field',
+          path: '/features/0/variantBy',
+        },
+      ],
+    });
+  });
+
+  it('reports a variantSeed a layer stripped', () => {
+    const result = validateConfig(document({ variantBy: 'accountId' }));
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'cta',
+          message:
+            'feature "cta" declares variants and no "variantSeed" this checker can read, and a holder that fills the gap hashes every subject against another seed',
+          path: '/features/0/variantSeed',
+        },
+      ],
+    });
+  });
+
+  it('reports both when a document carries neither', () => {
+    expect(
+      messagesOf(document({})).map((message) => message.slice(0, 44)),
+    ).toEqual([
+      'feature "cta" declares variants and no "vari',
+      'feature "cta" declares variants and no "vari',
+    ]);
+  });
+
+  it('reports a variantBy that arrived as a number', () => {
+    expect(
+      codesOf(document({ variantBy: 7, variantSeed: 'cta:variant' })),
+    ).toEqual(['unknown-member']);
+  });
+
+  it('accepts a document carrying both', () => {
+    expect(
+      validateConfig(
+        document({ variantBy: 'accountId', variantSeed: 'cta:variant' }),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('asks for neither of them from a definition declaring no variants', () => {
+    expect(
+      validateConfig({ features: [{ key: 'cta', enabled: true }] }),
+    ).toEqual({ ok: true });
+  });
+
+  it('asks for neither of them before the empty set it already refused', () => {
+    expect(
+      codesOf({ features: [{ key: 'cta', enabled: true, variants: [] }] }),
+    ).toEqual(['empty-variants']);
+  });
+
+  it('leaves createFeatures accepting the literal that declares neither', () => {
+    expect(() =>
+      createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'only', weight: 1 }],
+        },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('accepts the document serializeConfig writes from that same literal', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'only', weight: 1 }],
+      },
+    ]);
+
+    expect(validateConfig(serializeConfig(features))).toEqual({ ok: true });
   });
 });
