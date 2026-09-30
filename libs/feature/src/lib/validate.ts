@@ -540,10 +540,14 @@ export function collectIssues(
     const definition = config.features[at];
     if (!definition) return;
 
-    // `variantErrors` reads `variants` and every `rule.variant`, so it runs
-    // only where the checker read both arrays.
-    if (row.variants && row.rules) {
-      for (const defect of variantErrors(definition, options)) {
+    // `variantErrors` reads `variants`, and reads `rules` for the variant pins
+    // alone, so it runs wherever the checker read the variants and `rulePins`
+    // carries what it made of the rules.
+    if (row.variants) {
+      for (const defect of variantErrors(definition, {
+        ...options,
+        rulePins: row.rules,
+      })) {
         all.push(
           found(defect.code, defect.error, row.key, pointer(at, defect.member)),
         );

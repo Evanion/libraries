@@ -1280,6 +1280,52 @@ describe('validateConfig, on a document whose members are not the declared shape
     ]);
   });
 
+  it('reports every variant defect of a definition whose rules it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey","variantSeed":"cta:variant","variants":[{"name":"a","weight":0,"order":0},{"name":"a","weight":0,"order":1}],"rules":{}}]}',
+      ),
+    );
+
+    // The variant pins are the only check that reads `rules`. § 7 has the
+    // checker report every issue it finds, so an operator who fixes `rules` and
+    // re-polls meets none of these for the first time.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'duplicate-variant', 'zero-weights']);
+  });
+
+  it('asks for the bucketing members of a definition whose rules it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variants":[{"name":"only","weight":1}],"rules":{}}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules',
+      '/features/0/variants',
+      '/features/0/variantBy',
+      '/features/0/variantSeed',
+    ]);
+  });
+
+  it('judges no variant pin of a definition whose rules it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey","variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0}],"rules":{"0":{"variant":"ghost"}}}]}',
+      ),
+    );
+
+    // A pin is held against the names the array declares, and this document
+    // declares no rules array this checker read.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules']);
+  });
+
   it('reports a rule id that arrived as a number', () => {
     const result = validateConfig(
       served('{"features":[{"key":"a","enabled":true,"rules":[{"id":1}]}]}'),
