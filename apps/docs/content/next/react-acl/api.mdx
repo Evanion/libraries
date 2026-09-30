@@ -19,9 +19,8 @@ function PolicyProvider<Keys extends string = string>(
 
 - The context value is memoised on the identity of `access`, `subject` and
   `context`, so all three need stable references.
-- `context.now` defaults to `new Date()` when it is left off.
-- The memo recomputes whenever any of the three changes identity, so the clock
-  moves under the tree. Pass the value the server rendered with.
+- With `context.now` omitted, each recompute reads `new Date()`, so pass the
+  instant the server rendered with.
 
 ```tsx twoslash file=libs/react-acl/examples/mount.tsx region=mount
 
@@ -46,12 +45,13 @@ interface PolicyProviderProps<Keys extends string = string> {
 | `children` | the tree the provider renders                                                                                                          |
 
 `PolicyProvider` erases a typed policy's key and row types. The hooks below take
-`key: string`, so a key this provider's document never declared reaches them at
-render. The evaluator then throws `UnknownObjectKeyError` for an object kind the
-document never declared, and `UnknownPermissionError` for an action that kind
-never declared. A matrix hydrated with `closed: true` answers `unknown-action`
-for both instead of throwing. [`createPolicyContext`](#createpolicycontext) keeps
-those types.
+`key: string`, so `useCan('lsiting', 'edit')` compiles and fails only when the
+component renders. The evaluator then throws `UnknownObjectKeyError` for an
+object kind the document never declared, and `UnknownPermissionError` for an
+action that kind never declared. A matrix hydrated with `closed: true`,
+`hydratePolicy`'s option for a matrix another service produced, answers
+`unknown-action` for both instead of throwing.
+[`createPolicyContext`](#createpolicycontext) keeps those types.
 
 ## `useCan`
 
@@ -169,7 +169,7 @@ against the type bound to the kind, both read off the argument.
 
 | What you have                            | What `createPolicyContext` gives                                                               |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| one policy holding every object kind     | one call covering the listing and the stock report both, since you chain a `.for()` per kind   |
+| one policy holding every object kind     | one call covering every kind, since you chain a `.for()` per kind                              |
 | two separate policy documents            | one context per call, so the two nest and each set of hooks reads its own provider             |
 | a component under the returned provider  | the same decision from a `useCan` imported at the package root, which that provider also feeds |
 | a key or a row the policy never declared | a compile error, since the hooks check both against the `Access` handed in                     |
@@ -177,6 +177,10 @@ against the type bound to the kind, both read off the argument.
 ```tsx twoslash file=libs/react-acl/examples/typed.tsx region=typed
 
 ```
+
+The policy module holds only the rules the browser already receives as the
+matrix, so a client module may import it. The server still enforces with its own
+`access.can`.
 
 ## `PolicyContext`
 
@@ -323,9 +327,9 @@ The server sends one to the browser, and `hydratePolicy` turns it into the
 
 ## Where to go next
 
-- [Which side decides](../boundary): what these answers are worth, and
+- [Which side decides](../boundary): what react-acl's answers are worth, and
   what has to happen on the other side of the render
-- [Core API reference](/acl/api): every type above, and the functions a server
-  calls
+- [Core API reference](/acl/api): every type react-acl re-exports, and the
+  functions a server calls
 - [The Decision object every check returns](/acl/decision-object): the
   `Decision` shape, its reasons, and its explanation fields
