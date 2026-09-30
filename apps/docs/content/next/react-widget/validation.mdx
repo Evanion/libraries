@@ -1,0 +1,130 @@
+# Checking a CMS payload
+
+`validateItems` checks a payload the compiler never saw, such as a CMS page, and
+returns every problem in it. This page calls it the way a CI script or a
+publish webhook would, then renders a payload that passed.
+
+<PageSheet
+  difficulty={3}
+  read={10}
+  hands={20}
+  requires={[['Nesting items', '../nesting']]}
+  unlocks={[['Chrome, meta, ctx and Suspense', '../advanced']]}
+/>
+
+## Check a payload in CI or at the publish webhook
+
+react-widget re-exports `validateItems(payload, known, required)` from
+`@evanion/widget`, the package behind the item shape, which installs with
+react-widget:
+
+- `payload` is the parsed CMS data, typed `unknown`.
+- `known` is the list of widget types the page renders, or a component map.
+- `required`, which is optional, maps a widget type to the props it cannot
+  render without.
+
+A list of names in `known` lets a CI script, or the handler of the webhook the
+CMS calls on publish, check a payload without importing a React component:
+
+```ts twoslash file=libs/react-widget/README.md region=validate-payload
+
+```
+
+`validateItems` returns every problem and throws nothing. Each problem is a
+`WidgetProblem`, a type react-widget exports, with an `index`, an `id`, a `type`
+and a `message`. The `@evanion/widget` docs list every `message`, with a
+payload that produces each: [What validateItems reports](/widget/problems).
+
+`raffle` is a widget type the shop no longer renders, so its item is reported. A
+CI script passes the page JSON the CMS exports as `payload`, and sets
+`process.exitCode = 1` when the list is not empty. A webhook handler can refuse
+the publish and send the problems back, so the editor sees them before the page
+goes live.
+
+## Require the props a React widget cannot render without
+
+react-widget's `createWidgets` returns a third function beside `Widgets` and
+`defineItems`: a second `validateItems`, bound to the component map. It takes
+no `known`, so call it as `validateItems(payload, required)`. The `required`
+map names, for each widget type, the props that must be present and not blank.
+`undefined`, `null` and a whitespace-only string count as blank. This fence and
+the ones below leave out the imports of `createWidgets` from the package and
+`renderToStaticMarkup` from `react-dom/server`:
+
+```tsx twoslash file=libs/react-widget/README.md region=validate-bound
+
+```
+
+The Root listing, whose title is one space, is reported. The `validateItems`
+imported from the package takes the same map as its third argument. Neither form
+checks the prop names in `required` against the component: a misspelt name is
+reported as missing on every item of that type.
+
+## Problems inside nested items
+
+Both forms of `@evanion/react-widget`'s `validateItems` recurse into every
+item's `children`, the nested items [Nesting items](../nesting) put under a
+widget. A nested problem reports the item's `index` among its own siblings:
+
+```ts twoslash file=libs/react-widget/README.md region=validate-nested
+
+```
+
+`raffle` is the second child of `tonight`, so its `index` is 1, and nothing in
+the problem names the parent. Search the `children` of each item for the `id`
+to find it. The same `id` may match under more than one parent.
+
+## Render a payload that passed
+
+The list react-widget's `validateItems` returns is no type guard, so a payload
+that passes is still `unknown`. `checked` below takes the page JSON the CMS API
+returned, and casts it to `WidgetItem<typeof components>`, the item type
+react-widget derives from the map, once the list is empty. It returns no items
+when the list is not:
+
+```tsx twoslash file=libs/react-widget/README.md region=render-validated
+
+```
+
+A failing payload passed to `Widgets` as it is can render a widget without a
+prop it needs. An empty array renders an empty region, `<section></section>`,
+and the rest of the page renders around it. To see why a page rendered empty,
+add a `console.warn(problems)` before `checked` returns `[]`. The editor hears
+about the problems from the CI or webhook check.
+
+The cast asserts the prop types, and `validateItems` checks none of them. A
+`title` of `42` passes because `42` is not blank, and `ListingCard` then gets a
+number where it declared a string. `required` checks that a prop is there.
+Check a prop's type in the widget, or run a schema validator beside
+`validateItems`.
+
+## What `Widgets` does with an item it cannot render
+
+`@evanion/react-widget`'s `Widgets` never calls `validateItems`. It skips an
+item whose `type` is not in the component map, warns in development, and renders
+the rest of the region:
+
+```tsx twoslash file=libs/react-widget/README.md region=skipped-item
+
+```
+
+`JSON.parse` returns `any`, which TypeScript passes to `Widgets` unchecked, so
+this payload compiles. The `raffle` item is gone and Root rendered. The
+development console reads
+`Unknown widget type "raffle" for widget ID "raffle". Skipping render.`
+
+`Widgets` logs each distinct message once per process:
+
+- The `raffle` item warns on the first render and on none after it.
+- Each message names the item's `id`, so a second stale item logs a message of
+  its own, also once.
+
+Nothing is logged when `NODE_ENV` is `production`, so a stale type in
+production leaves a silent gap unless `validateItems` ran first. A nested item
+dropped by its parent logs nothing either, as [Nesting items](../nesting) shows.
+
+## Wrap the region in your own markup
+
+A payload that passed renders inside react-widget's default `<section>` and
+`<div>`. [Chrome, meta, ctx and Suspense](../advanced) replaces both, places an
+item in a grid and hands every widget page-level data.
