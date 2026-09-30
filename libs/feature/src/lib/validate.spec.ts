@@ -1463,7 +1463,9 @@ describe('validateConfig, on the key a definition is named by', () => {
   });
 
   it('names a row for each keyless definition, where a duplicate named none', () => {
-    const result = validateConfig({ features: [{}, {}] } as never);
+    const result = validateConfig({
+      features: [{ enabled: true }, { enabled: true }],
+    } as never);
 
     // A path per row is what an operator fixes. One `duplicate feature key
     // "undefined"` for the pair carries neither a key nor a path.
@@ -1528,6 +1530,76 @@ describe('validateConfig, on the key a definition is named by', () => {
   it('refuses a keyless definition at createFeatures too', () => {
     expect(() => createFeatures([{ enabled: true }] as never)).toThrow(
       'the definition at /features/0 declares "key" as nothing',
+    );
+  });
+});
+
+describe('validateConfig, on the enabled every definition declares', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  it('reports a definition carrying no enabled', () => {
+    const result = validateConfig(served('{"features":[{"key":"checkout"}]}'));
+
+    // § 3: a producer that cannot emit a member this document requires emits a
+    // document the checker refuses, and the issue names the member. This is the
+    // member that decides the answer.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'checkout',
+          message:
+            'feature "checkout" declares "enabled" as nothing, and this checker reads a boolean',
+          path: '/features/0/enabled',
+        },
+      ],
+    });
+  });
+
+  it('reports an enabled carrying the string that spells it', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"promo","enabled":"yes"}]}'),
+    );
+
+    // `evaluate` reads the member for truth at `evaluate.ts:187`, so the absent
+    // one resolves off as `explicitly-off` and this one resolves on as
+    // `default-on`, and a renamed column publishes either.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'promo',
+        message:
+          'feature "promo" declares "enabled" as a string, and this checker reads a boolean',
+        path: '/features/0/enabled',
+      },
+    ]);
+  });
+
+  it('names a row for each definition whose enabled did not travel', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a"},{"key":"b","enabled":true},{"key":"c","enabled":0}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/enabled', '/features/2/enabled']);
+  });
+
+  it('accepts a definition declaring it false', () => {
+    expect(
+      validateConfig(served('{"features":[{"key":"a","enabled":false}]}')),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a definition carrying no enabled at createFeatures too', () => {
+    expect(() => createFeatures([{ key: 'a' }] as never)).toThrow(
+      'declares "enabled" as nothing',
     );
   });
 });

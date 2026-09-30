@@ -240,6 +240,15 @@ function conditionIssues(
  * understand and the 18 codes name no second envelope defect, and a `features`
  * holding an object is a member whose value this holder cannot read.
  *
+ * `enabled` is read for the reason `key` is. It is the one member every
+ * definition must carry and it decides the answer: `evaluate` short-circuits on
+ * `enabled === false` at `evaluate.ts:187` and hands the decision to the rules
+ * otherwise, so a definition whose column a control plane renamed resolves off
+ * with `reason: 'explicitly-off'` and one carrying the string `'yes'` resolves on
+ * with `reason: 'default-on'`, and neither one reports anything. § 3 states it:
+ * a producer that cannot emit a member this document requires emits a document
+ * `validateConfig` refuses, and the issue names the member.
+ *
  * `key` is read here and not only named in a message. Every other check hangs
  * off it: `graphErrors` dedupes on it, `resolveAll` writes it as a property of
  * the `Decisions` record, and `definitionOf` looks a definition up by it. A
@@ -311,6 +320,17 @@ function shapeWalk(
         unreadable(
           `${named} declares "key" as ${met(definition['key'])}, and this checker reads a string or a number`,
           pointer(at, 'key'),
+        ),
+      );
+    }
+
+    const enabled: unknown = definition['enabled'];
+    if (typeof enabled !== 'boolean') {
+      all.push(
+        unreadable(
+          `${named} declares "enabled" as ${met(enabled)}, and this checker reads a boolean`,
+          pointer(at, 'enabled'),
+          key,
         ),
       );
     }
