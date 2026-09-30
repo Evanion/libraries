@@ -251,11 +251,11 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'universal',
     // One hue for the whole rendering family, including the framework-free core.
     hue: 'sky',
-    // Four pages, so the demonstration role sits on getting-started under the
-    // documentation standard § 4's allowance. The control is `DataDemo`, the
-    // rendering family's own specimen: what a reader moves there is the item
-    // array, which this package owns, and the pixels are the React renderer's.
-    demo: 'getting-started',
+    // Six pages, so the demonstration role has a page of its own under the
+    // documentation standard § 7. The control is `DataDemo`, the rendering
+    // family's own specimen: what a reader moves there is the item array,
+    // which this package owns, and the pixels are the React renderer's.
+    demo: 'layout',
     documented: true,
     workshop: false,
   },

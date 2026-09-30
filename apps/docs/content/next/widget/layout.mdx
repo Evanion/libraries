@@ -1,0 +1,74 @@
+# Order and nesting
+
+A renderer draws widget items in array order and draws each item's `children`
+inside it. An edit that moves an item in the content management system (CMS)
+therefore moves that item, and everything nested in it, on the page.
+
+<PageSheet
+  difficulty={2}
+  read={5}
+  hands={5}
+  requires={[['Overview', '../']]}
+  unlocks={[
+    ['Your own renderer', '../renderer'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## A Baize dashboard as widget items
+
+The demo on this page draws the dashboard Baize's staff read for the week,
+written as seven `@evanion/widget` items in four types:
+
+- `columns` lays its children side by side in one row.
+- `metric` is one figure with a label and a change, such as `+6`.
+- `tables` and `reprints` are titled boards, each a panel around a table.
+
+```ts twoslash file=libs/widget/README.md region=dashboard
+
+```
+
+`validateItems` returns `[]`, so every item names a
+[known type](../#the-widget-vocabulary). Two items sit at the top level. `week`
+holds the three `metric` items, and `counter` holds the two boards. `tables`
+carries `meta: { span: 2 }`,
+[placement](../#how-a-widget-item-array-describes-a-page) for the wrapper around
+the board.
+
+## How each renderer draws children and the wrapper
+
+`@evanion/react-widget` and `@evanion/astro-widget` draw the same
+`@evanion/widget` items in the same order, and differ in two places:
+
+- Children. `@evanion/react-widget` draws each child and passes the result to
+  the parent's component as its React `children`. `@evanion/astro-widget`
+  passes the child items to the parent's component as a `children` prop, and
+  that component draws them by rendering its own `<Widgets>` over them.
+- The wrapper. Both take it as `chrome.item` and hand it the item's `meta`,
+  never its `props`. The default wrapper in `@evanion/react-widget` is a
+  `<div>` that drops `meta`. `@evanion/astro-widget` draws no wrapper until you
+  pass one, and its wrapper has to render `<slot />`, or the widget inside
+  disappears from the page.
+
+## Move a widget item and watch the page follow
+
+`@evanion/react-widget`, the React renderer, draws the dashboard below from the
+seven `@evanion/widget` items at the top of this page, and draws it again after
+every move. The items are printed
+under the page, and each line that opens an item has two move controls beside
+it.
+
+- Move `counter` above `week`. The two rows swap, and each row keeps its own
+  items, because an item's `children` move with it.
+- Move the board `tables` past the board `reprints`. The wide board changes
+  sides. The demo's wrapper gives an item as many grid columns as its `span`,
+  and `meta` belongs to the item it sits on, so the width moves with `tables`.
+
+<DataDemo />
+
+## Draw widget items with a renderer of your own
+
+The dashboard on this page is `@evanion/react-widget` drawing `@evanion/widget` items.
+[Your own renderer](../renderer) draws items in code you write for a framework
+with no published renderer, and prints the warning both published renderers
+print for an item it skips.

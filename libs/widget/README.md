@@ -39,7 +39,9 @@ const page: AnyWidgetItem[] = [
     id: 'tonight',
     type: 'shelf',
     props: { heading: 'On the table tonight' },
-    children: [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
+    children: [
+      { id: 'wingspan', type: 'listing', props: { title: 'Wingspan' } },
+    ],
   },
 ];
 
@@ -116,6 +118,71 @@ business — React renders them as the component's `children`, while an Astro
 component receives child content through `<slot />` and is handed them as data
 to open its own region over.
 
+A renderer draws items in array order and draws each item's `children` inside
+it, so moving an item in the array moves it, and everything nested in it, on the
+page. This is a staff dashboard of two rows, each holding its own items:
+
+<!-- #region dashboard -->
+
+```ts @import.meta.vitest
+import { validateItems } from '@evanion/widget';
+import type { AnyWidgetItem } from '@evanion/widget';
+
+const dashboard: AnyWidgetItem[] = [
+  {
+    id: 'week',
+    type: 'columns',
+    props: {},
+    children: [
+      {
+        id: 'intake',
+        type: 'metric',
+        props: { figure: '38', label: 'Games in', delta: '+6' },
+      },
+      {
+        id: 'sold',
+        type: 'metric',
+        props: { figure: '31', label: 'Sold', delta: '+2' },
+      },
+      {
+        id: 'turnaround',
+        type: 'metric',
+        props: { figure: '2.4 d', label: 'Turnaround', delta: '−0.3' },
+      },
+    ],
+  },
+  {
+    id: 'counter',
+    type: 'columns',
+    props: {},
+    children: [
+      {
+        id: 'tables',
+        type: 'tables',
+        props: { title: 'Tonight at the tables' },
+        meta: { span: 2 },
+      },
+      {
+        id: 'reprints',
+        type: 'reprints',
+        props: { title: 'Reprints on order' },
+      },
+    ],
+  },
+];
+
+const problems = validateItems(dashboard, [
+  'columns',
+  'metric',
+  'tables',
+  'reprints',
+]);
+
+problems; // -> []
+```
+
+<!-- #endregion dashboard -->
+
 ## `defineWidgets(registry)`
 
 Returns the registry unchanged, typed as the literal object passed in.
@@ -133,7 +200,7 @@ const Shelf = () => null;
 const registry = defineWidgets({ listing: Listing, shelf: Shelf });
 
 const problems = validateItems(
-  [{ id: 'root', type: 'listing', props: { title: 'Root' } }],
+  [{ id: 'wingspan', type: 'listing', props: { title: 'Wingspan' } }],
   registry,
 );
 
@@ -185,6 +252,39 @@ problems; // -> [{ index: 1, id: 'tonight', type: 'featured-shelf', message: 'un
 `known` is a registry or a plain list of names, so a CI script can validate a
 payload without importing components it will never render.
 
+`items` is typed `unknown`, so a script passes a payload straight from
+`JSON.parse`, turns each problem into a line for its log, and fails the run
+when there is one:
+
+<!-- #region gate -->
+
+```ts @import.meta.vitest
+/// <reference types="node" />
+import { validateItems } from '@evanion/widget';
+
+// The listing page as the CMS saved it, after an editor renamed the shelf's type.
+const saved: unknown = JSON.parse(`[
+  { "id": "brass-birmingham", "type": "listing", "props": { "title": "Brass: Birmingham" } },
+  { "id": "tonight", "type": "featured-shelf", "props": { "heading": "On the table tonight" } }
+]`);
+
+// The widget types the shop's renderer has a component for.
+const known = ['listing', 'shelf'];
+
+const report = validateItems(saved, known).map(
+  (problem) => `${problem.id} (${problem.type}): ${problem.message}`,
+);
+
+report; // -> ['tonight (featured-shelf): unknown widget type']
+
+for (const line of report) console.error(line);
+if (report.length > 0) process.exitCode = 1;
+
+process.exitCode; // -> 1
+```
+
+<!-- #endregion gate -->
+
 `required` maps a type to the props that must be present and non-blank, where
 blank means `undefined`, `null` or whitespace only — which is what a CMS text
 field that was opened and left empty arrives as.
@@ -195,12 +295,12 @@ field that was opened and left empty arrives as.
 import { validateItems } from '@evanion/widget';
 
 const problems = validateItems(
-  [{ id: 'root', type: 'listing', props: { title: '   ' } }],
+  [{ id: 'wingspan', type: 'listing', props: { title: '   ' } }],
   ['listing'],
   { listing: ['title'] },
 );
 
-problems; // -> [{ index: 0, id: 'root', type: 'listing', message: 'missing field title' }]
+problems; // -> [{ index: 0, id: 'wingspan', type: 'listing', message: 'missing field title' }]
 ```
 
 <!-- #endregion required -->
@@ -217,21 +317,21 @@ walks `children` as it goes:
 import { validateItems } from '@evanion/widget';
 
 const payload = [
-  { id: 'root', type: 'listing' },
-  { id: 'root', type: 'listing', props: { title: 'Root' } },
+  { id: 'wingspan', type: 'listing' },
+  { id: 'wingspan', type: 'listing', props: { title: 'Wingspan' } },
   {
     id: 'tonight',
     type: 'shelf',
     props: {},
-    children: [{ id: 'hive', type: 'listting', props: {} }],
+    children: [{ id: 'hive', type: 'listting', props: { title: 'Hive' } }],
   },
 ];
 
 const problems = validateItems(payload, ['listing', 'shelf']).map(
-  (problem) => problem.message,
+  ({ index, message }) => ({ index, message }),
 );
 
-problems; // -> ['props is not an object', 'duplicate sibling id', 'unknown widget type']
+problems; // -> [{ index: 0, message: 'props is not an object' }, { index: 1, message: 'duplicate sibling id' }, { index: 0, message: 'unknown widget type' }]
 ```
 
 <!-- #endregion sweep -->
@@ -259,9 +359,9 @@ or Astro drew the page:
 ```ts @import.meta.vitest
 import { ERROR_MESSAGES } from '@evanion/widget';
 
-const warning = ERROR_MESSAGES.UNKNOWN_WIDGET('listting', 'root');
+const warning = ERROR_MESSAGES.UNKNOWN_WIDGET('listting', 'hive');
 
-warning; // -> 'Unknown widget type "listting" for widget ID "root". Skipping render.'
+warning; // -> 'Unknown widget type "listting" for widget ID "hive". Skipping render.'
 ```
 
 <!-- #endregion warning -->
@@ -307,12 +407,12 @@ function render(items: Listing[]): string[] {
 resetWarnings();
 
 const page: Listing[] = [
-  { id: 'root', type: 'listing', props: { title: 'Root' } },
+  { id: 'wingspan', type: 'listing', props: { title: 'Wingspan' } },
   { id: 'hive', type: 'listting', props: { title: 'Hive' } },
 ];
 
-render(page); // -> ['Listing: Root']
-render(page); // -> ['Listing: Root']
+render(page); // -> ['Listing: Wingspan']
+render(page); // -> ['Listing: Wingspan']
 ```
 
 <!-- #endregion renderer -->
