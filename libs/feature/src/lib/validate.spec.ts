@@ -3056,6 +3056,40 @@ describe('validateConfig, on a rollout the assignment algorithm cannot read', ()
     expect(validateConfig(ramp('{"percent":0}'))).toEqual({ ok: true });
   });
 
+  it('names the rollout member the derivation raised on, not the conditions', () => {
+    const rollout: Record<string, unknown> = { percent: 50 };
+    rollout['by'] = rollout;
+    const config = {
+      features: [{ key: 'a', enabled: true, rules: [{ rollout }] }],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // `rolloutText` canonicalises `{ by, seed }`, so this rule raises where no
+    // condition does and the rule declares no `when` to send the operator to.
+    // The served path reports the member twice, once for the string the ramp
+    // reads its subjects by and once for the text the id derives from.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules/0/rollout/by',
+      '/features/0/rules/0/rollout/by',
+    ]);
+  });
+
+  it('names that same member at createFeatures, where it is the only report', () => {
+    const rollout: Record<string, unknown> = { percent: 50 };
+    rollout['by'] = rollout;
+    const config = {
+      features: [{ key: 'a', enabled: true, rules: [{ rollout }] }],
+    } as unknown as FeatureConfig;
+
+    // `rolloutIssues` runs for a served document alone, so the derivation's
+    // refusal is the whole of what the author reads here.
+    expect(thrownBy(config).message).toBe(
+      "feature \"a\" declares the value at /features/0/rules/0/rollout/by as one no canonical text names, and the derivation a decision reads this rule's id from raises on it",
+    );
+  });
+
   it('builds a store from a rollout the literal path types', () => {
     // § 3 states its rule over a document a holder installs, and `RolloutSpec`
     // declares `percent` required, so the compiler answers the author here.
