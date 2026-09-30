@@ -13,14 +13,128 @@ import type {
 } from './types.js';
 
 /**
- * Checks a feature's variants at construction, where the dependency graph is
- * already checked.
+ * Every configuration error in a feature's variants, in the order a reader
+ * meets them.
  *
  * Every case below is a configuration error with no sensible evaluation result.
  * A set with two names cannot answer which one a pin meant, a set whose weights
  * are all zero or whose total overflows has no band to assign into, and a
  * partial `order` declaration mixes two orderings and reads as a typo either
  * way.
+ *
+ * `validateVariants` throws the first of these and `collectIssues` reports all
+ * of them, so one object produces the message both paths carry.
+ *
+ * Two checks stay conditional on what came before. An empty set ends the walk,
+ * because the names a pin is held against are the names this array declares and
+ * an empty one would refuse every pin a reader has not been told to look at.
+ * A refused weight ends the total, because a share the checker already named is
+ * the member an author edits and the sum over the rest describes no second
+ * defect.
+ */
+export function variantErrors<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+): readonly FeatureConfigError[] {
+  const found: FeatureConfigError[] = [];
+  const key = String(definition.key);
+  const variants = definition.variants;
+  if (!variants) {
+    for (const rule of definition.rules ?? []) {
+      if (rule.variant !== undefined) {
+        found.push(new UnknownVariantError(key, rule.variant));
+      }
+    }
+    return found;
+  }
+
+  if (variants.length === 0) {
+    found.push(
+      new FeatureConfigError(
+        `feature "${key}" declares an empty variants array, which leaves no variant to assign`,
+      ),
+    );
+    return found;
+  }
+
+  const names = new Set<string>();
+  const orders = new Set<number>();
+  let declaredOrders = 0;
+  let total = 0;
+  let unusableWeight = false;
+
+  for (const variant of variants) {
+    if (names.has(variant.name)) {
+      found.push(new DuplicateVariantError(key, variant.name));
+    }
+    names.add(variant.name);
+
+    if (!Number.isFinite(variant.weight) || variant.weight < 0) {
+      found.push(
+        new FeatureConfigError(
+          `feature "${key}" gives the variant "${variant.name}" the weight ${String(variant.weight)}, which is not a usable share`,
+        ),
+      );
+      unusableWeight = true;
+    } else {
+      total += variant.weight;
+    }
+
+    if (variant.order !== undefined) {
+      declaredOrders += 1;
+      if (!Number.isInteger(variant.order) || variant.order < 0) {
+        found.push(
+          new FeatureConfigError(
+            `feature "${key}" gives the variant "${variant.name}" the order ${String(variant.order)}, which is not a non-negative integer`,
+          ),
+        );
+      } else if (orders.has(variant.order)) {
+        found.push(
+          new FeatureConfigError(
+            `feature "${key}" gives two variants the order ${String(variant.order)}, which leaves the walk between them undefined`,
+          ),
+        );
+      }
+      orders.add(variant.order);
+    }
+  }
+
+  if (!unusableWeight) {
+    if (total <= 0) {
+      found.push(
+        new FeatureConfigError(
+          `feature "${key}" gives every variant the weight zero, which leaves no variant to assign`,
+        ),
+      );
+    }
+    if (!Number.isFinite(total)) {
+      found.push(
+        new FeatureConfigError(
+          `feature "${key}" gives its variants a weight total of ${String(total)}, which overflows and leaves no usable share`,
+        ),
+      );
+    }
+  }
+
+  if (declaredOrders > 0 && declaredOrders !== variants.length) {
+    found.push(
+      new FeatureConfigError(
+        `feature "${key}" declares an order on ${String(declaredOrders)} of its ${String(variants.length)} variants, which mixes two orderings`,
+      ),
+    );
+  }
+
+  for (const rule of definition.rules ?? []) {
+    if (rule.variant !== undefined && !names.has(rule.variant)) {
+      found.push(new UnknownVariantError(key, rule.variant));
+    }
+  }
+
+  return found;
+}
+
+/**
+ * Checks a feature's variants at construction, where the dependency graph is
+ * already checked.
  *
  * @throws {DuplicateVariantError} when two variants share a name.
  * @throws {UnknownVariantError} when a rule pins a variant nobody declared.
@@ -30,79 +144,8 @@ import type {
 export function validateVariants<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
 ): void {
-  const key = String(definition.key);
-  const variants = definition.variants;
-  if (!variants) {
-    for (const rule of definition.rules ?? []) {
-      if (rule.variant !== undefined) {
-        throw new UnknownVariantError(key, rule.variant);
-      }
-    }
-    return;
-  }
-
-  if (variants.length === 0) {
-    throw new FeatureConfigError(
-      `feature "${key}" declares an empty variants array, which leaves no variant to assign`,
-    );
-  }
-
-  const names = new Set<string>();
-  const orders = new Set<number>();
-  let declaredOrders = 0;
-  let total = 0;
-
-  for (const variant of variants) {
-    if (names.has(variant.name)) {
-      throw new DuplicateVariantError(key, variant.name);
-    }
-    names.add(variant.name);
-
-    if (!Number.isFinite(variant.weight) || variant.weight < 0) {
-      throw new FeatureConfigError(
-        `feature "${key}" gives the variant "${variant.name}" the weight ${String(variant.weight)}, which is not a usable share`,
-      );
-    }
-    total += variant.weight;
-
-    if (variant.order !== undefined) {
-      declaredOrders += 1;
-      if (!Number.isInteger(variant.order) || variant.order < 0) {
-        throw new FeatureConfigError(
-          `feature "${key}" gives the variant "${variant.name}" the order ${String(variant.order)}, which is not a non-negative integer`,
-        );
-      }
-      if (orders.has(variant.order)) {
-        throw new FeatureConfigError(
-          `feature "${key}" gives two variants the order ${String(variant.order)}, which leaves the walk between them undefined`,
-        );
-      }
-      orders.add(variant.order);
-    }
-  }
-
-  if (total <= 0) {
-    throw new FeatureConfigError(
-      `feature "${key}" gives every variant the weight zero, which leaves no variant to assign`,
-    );
-  }
-  if (!Number.isFinite(total)) {
-    throw new FeatureConfigError(
-      `feature "${key}" gives its variants a weight total of ${String(total)}, which overflows and leaves no usable share`,
-    );
-  }
-
-  if (declaredOrders > 0 && declaredOrders !== variants.length) {
-    throw new FeatureConfigError(
-      `feature "${key}" declares an order on ${String(declaredOrders)} of its ${String(variants.length)} variants, which mixes two orderings`,
-    );
-  }
-
-  for (const rule of definition.rules ?? []) {
-    if (rule.variant !== undefined && !names.has(rule.variant)) {
-      throw new UnknownVariantError(key, rule.variant);
-    }
-  }
+  const found = variantErrors(definition);
+  if (found[0]) throw found[0];
 }
 
 /**

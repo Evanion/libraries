@@ -79,6 +79,7 @@
       "useFeatureEnabled",
       "useFeatures",
       "useVariant",
+      "validateConfig",
       "variantSeedOf"
     ],
     "unexercised": [
@@ -101,6 +102,7 @@
       "useFeatureEnabled",
       "useFeatures",
       "useVariant",
+      "validateConfig",
       "variantSeedOf"
     ],
     "unexplained": [
