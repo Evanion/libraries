@@ -768,21 +768,23 @@ already requires to round-trip through JSON in its decision 14. `undefined`
 members drop on the way out, which is what `canonical.ts:21-22` does and what
 keeps an absent key and a key written as `undefined` agreeing.
 
-### Two host globals, and what this adds
+### One host global, and what this adds
 
 `serializeConfig`, `configDigest` and `validateConfig` use `JSON` and nothing
 else, so a native client embedding a JavaScript engine with no DOM runs all
-three. The package holds two host globals today: `new TextEncoder()` in
-`murmur3` at `libs/feature/src/lib/bucketing.ts:57`, and `structuredClone` in
-`createFeatures` at `features.ts:93`.
+three. `configDigest` reaches `murmur3`, which walks the string and emits its
+UTF-8 bytes itself at `libs/feature/src/lib/bucketing.ts:69`, so the digest asks
+its host for arithmetic and string indexing alone. One host global is left in
+the package: `structuredClone` in `createFeatures` at `features.ts:93`, which no
+entry point in this document calls.
 
-`reload` inherits the second, because § 6 clones the candidate the same way
+`reload` inherits it, because § 6 clones the candidate the same way
 `createFeatures` does. That is acceptable: `structuredClone` is in Node 17 and in
 every browser engine this package targets, and the package already declares
 `"node": ">=20"`.
 
-`docs/specs/2026-09-23-feature-hydration.md` proposes replacing `TextEncoder`
-with an inline UTF-8 encoder, and this document endorses it for a second reason.
+`docs/specs/2026-09-23-feature-hydration.md` decision 11 is where that encoder
+comes from, and this document endorses it for a second reason.
 The variants spec commits `bucketOf` to a cross-language contract with published
 test vectors, and an encoder written out in the source is a specification a Swift
 or Kotlin implementer reads. A call to a host global is a specification that says

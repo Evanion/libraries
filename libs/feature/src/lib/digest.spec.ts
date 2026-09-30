@@ -275,6 +275,23 @@ describe('configDigest', () => {
     expect(configDigest(smuggled)).not.toBe(configDigest({ features: [] }));
   });
 
+  it('digests with TextEncoder and structuredClone deleted from globalThis', () => {
+    // § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` runs this
+    // on a native client embedding a JavaScript engine with no DOM, which
+    // provides `JSON` and neither of these.
+    const encoder = globalThis.TextEncoder;
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'TextEncoder');
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      expect(configDigest(document)).toBe('ddd6fe2b511b25e52af770cc85ec4284');
+    } finally {
+      Reflect.set(globalThis, 'TextEncoder', encoder);
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
+
   it('refuses a document that holds itself', () => {
     const shape: Record<string, unknown> = {};
     shape['self'] = shape;

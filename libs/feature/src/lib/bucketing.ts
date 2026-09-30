@@ -49,12 +49,73 @@ function encodePair(seed: string, value: string): string {
 }
 
 /**
+ * The UTF-8 bytes of `input`, walked here instead of asked of a host global.
+ *
+ * `bucketOf` and `configDigest` both hash these bytes, and a Swift or Kotlin
+ * port has to produce the same ones. An encoder written out in the source is a
+ * specification an implementer reads; `TextEncoder` specifies whatever the
+ * runtime does, and the runtimes disagree on a lone surrogate.
+ *
+ * `murmur3` then asks its host for arithmetic and string indexing alone, which
+ * two specs require. `docs/specs/2026-09-23-feature-hydration.md` decision 11
+ * puts `bucketOf` on a JavaScript engine with no DOM, Hermes included, and
+ * `docs/specs/2026-09-23-feature-config-distribution.md` § 8 holds
+ * `configDigest` to a host that provides `JSON` and nothing else.
+ *
+ * An unpaired surrogate encodes as U+FFFD, which is the replacement the
+ * Encoding Standard's UTF-8 encoder writes for one, so the bytes agree with
+ * `TextEncoder` for every possible input.
+ */
+function utf8(input: string): number[] {
+  const bytes: number[] = [];
+
+  for (let i = 0; i < input.length; i += 1) {
+    let point = input.charCodeAt(i);
+
+    if (point >= 0xd800 && point <= 0xdbff) {
+      // `charCodeAt` past the end is NaN, which fails both comparisons and
+      // leaves a high surrogate at the end of the string unpaired.
+      const low = input.charCodeAt(i + 1);
+      if (low >= 0xdc00 && low <= 0xdfff) {
+        point = 0x10000 + (point - 0xd800) * 0x400 + (low - 0xdc00);
+        i += 1;
+      } else {
+        point = 0xfffd;
+      }
+    } else if (point >= 0xdc00 && point <= 0xdfff) {
+      point = 0xfffd;
+    }
+
+    if (point < 0x80) {
+      bytes.push(point);
+    } else if (point < 0x800) {
+      bytes.push(0xc0 | (point >> 6), 0x80 | (point & 0x3f));
+    } else if (point < 0x10000) {
+      bytes.push(
+        0xe0 | (point >> 12),
+        0x80 | ((point >> 6) & 0x3f),
+        0x80 | (point & 0x3f),
+      );
+    } else {
+      bytes.push(
+        0xf0 | (point >> 18),
+        0x80 | ((point >> 12) & 0x3f),
+        0x80 | ((point >> 6) & 0x3f),
+        0x80 | (point & 0x3f),
+      );
+    }
+  }
+
+  return bytes;
+}
+
+/**
  * MurmurHash3, x86 32-bit, over the UTF-8 bytes of `input`. Returns an unsigned
  * 32-bit integer. `Math.imul` is used throughout because a 32-bit product does
  * not fit a float64 mantissa.
  */
 export function murmur3(input: string, seed = 0): number {
-  const bytes = new TextEncoder().encode(input);
+  const bytes = utf8(input);
   const blocks = bytes.length & ~3;
 
   let hash = seed >>> 0;

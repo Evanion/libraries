@@ -520,21 +520,22 @@ targeting key without comparing anything against anything.
 
 ## 8. Platform reach
 
-Two host globals sit under the code that has to agree across processes.
+One host global sits under the code that has to agree across processes.
 
-`murmur3` calls `new TextEncoder()` at `libs/feature/src/lib/bucketing.ts:57`.
-`createFeatures` calls `structuredClone` at
-`libs/feature/src/lib/features.ts:93`, once per definition.
+`murmur3` walks the string and emits its UTF-8 bytes itself at
+`libs/feature/src/lib/bucketing.ts:69`, which is decision 11. `createFeatures`
+calls `structuredClone` at `libs/feature/src/lib/features.ts:93`, once per
+definition.
 
-Node 20 is the declared floor (`libs/feature/package.json:29`) and provides both.
-Every browser engine that a React 18 application supports provides both.
+Node 20 is the declared floor (`libs/feature/package.json:29`) and provides
+`structuredClone`. So does every browser engine that a React 18 application
+supports.
 
 React Native is the platform this repository contains no evidence about. No
 `react-native` dependency exists anywhere in the workspace, so nothing here
-proves which Hermes version provides which global. Decision 11 removes the
-question for the half that matters: `murmur3` walks the string and emits UTF-8
-bytes itself, in about fifteen lines, and `bucketOf` then calls nothing the host
-provides.
+proves which Hermes version provides it. Decision 11 settles the half that
+matters: the encoder is about fifteen lines of arithmetic and string indexing,
+and `bucketOf` calls nothing the host provides.
 
 Decision 11 now answers two needs with one change. `bucketOf` reaches any
 JavaScript host, Hermes included, because it asks that host for nothing beyond
