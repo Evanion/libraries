@@ -66,7 +66,7 @@ Each one is a decision an implementer would otherwise have to invent twice. Each
 1. `configDigest` removes the `digest` member from its input before it canonicalises. A digest computed over a document that already carries one can never be recomputed by a holder, so verification would fail on every document that used it.
 2. `configDigest` returns 32 hex characters, built from `murmur3` at four fixed seeds. The spec names no algorithm and no width. `murmur3` is already exported from this package and already carries a cross-language contract, and 32 bits alone is too narrow for a comparison whose whole job is to detect a difference.
 3. `validateVariants`'s partial-order error maps to `invalid-variant-order`, and its zero and non-finite weight totals both map to `zero-weights`. The spec's 18 codes cover neither case by name.
-4. `serializeConfig` converts a `Date` wherever it appears, not only in a `WindowCondition`. An `AttributeCondition.value` and a variant `value` both hold arbitrary JSON, and a `Date` in either one breaks the round trip the same way.
+4. `serializeConfig` converts a `Date` at a `WindowCondition.value` and refuses one at every other member. `toEpoch` at `conditions.ts:18-22` reads the `Date` and the ISO string to one epoch, so a window decides alike in the publisher and in the holder. `evaluateCondition` compares an `AttributeCondition.value` with `===`, and `valueOf` hands a variant value to the application untouched, so a `Date` at either member and the ISO string a holder receives are two values that behave differently while `canonical` writes both as one text. § 2 reads two agreeing digests as a proof that two processes hold one configuration, and `config.ts`'s `JsonValue` states the rule for the condition value. An author who wants either member to travel writes the ISO string in the definition.
 5. `serializeConfig` throws `FeatureConfigError` for a variant value JSON cannot carry, which today means a cycle. The store is the caller's own, so this is a programming error at the authoring site, which is the same argument `errors.ts:3-11` makes for `createFeatures`.
 6. `FeatureOptions.version`, which an observation event carries, stays separate from the envelope's `version` and this plan defaults neither from the other. An audit stream whose version changed without the application asking is a worse surprise than a stream whose version is absent.
 
@@ -74,7 +74,7 @@ Each one is a decision an implementer would otherwise have to invent twice. Each
 
 Input classes the spec implies and no task's happy-path tests would reach. Each one is assigned to the task that owns the code.
 
-- A `Date` nested inside a variant `value` or inside an `AttributeCondition.value`, not in a `WindowCondition`. The round trip breaks identically there, and a serializer that walks only window conditions passes every test in § 8's list. Pinned in Task 2, Step 6.
+- A `Date` nested inside a variant `value` or inside an `AttributeCondition.value`. Ruling 4 refuses one at both members, and a serializer that converted there would publish a document whose holders resolve a rule the way the publisher does not. Pinned in Task 2, Step 6.
 - A definition carrying `seed`, `variantBy`, `variantSeed` and `freezeTimeAtBuild`. A round-trip test that compares `key`, `enabled` and `rules` passes while the serializer drops four members that decide bucketing. Pinned in Task 2, Step 7.
 - A numeric `FeatureKey`. `FeatureKey` is `string | number`, a JSON object key is a string, and the `changed` array, the `Decisions` record and the `duplicate-feature` check all key on it. Pinned in Task 7, Step 8.
 - A variant value that holds itself. `structuredClone` carries a cycle, `deepFreeze` guards for one, and a `changed` diff written as a recursive structural walk does not. Pinned in Task 7, Step 9.
@@ -458,7 +458,7 @@ git commit -m "feat(feature): declare the configuration envelope"
 
 **Interfaces:**
 
-- Consumes: `ConfigEnvelope`, `FeatureConfig`, `SerializedDefinition` from `./config.js`; `Features` from `./features.js`; `bucketingOrder` from `./variants.js`; `FeatureConfigError` from `./errors.js`; `FeatureKey`, `VariantInfo`, `VariantSpec` from `./types.js`.
+- Consumes: `ConfigEnvelope`, `FeatureConfig`, `SerializedDefinition` from `./config.js`; `Features` from `./features.js`; `bucketingPosition` and `variantSeedOf` from `./variants.js`; `DEFAULT_ROLLOUT_FIELD` from `./fields.js`; `FeatureConfigError` from `./errors.js`; `Condition`, `FeatureDefinition`, `FeatureKey`, `Rule`, `VariantInfo`, `VariantSpec` from `./types.js`. `bucketingPosition` is `bucketingOrder`'s own defaulting, exported so the sort and the serializer read one function.
 - Produces:
 
 ```ts
@@ -680,7 +680,7 @@ In `libs/feature/src/index.ts`, add `export { serializeConfig } from './lib/seri
 Review Focus. Add to `serialize.spec.ts`:
 
 ```ts
-it('writes a Date inside a variant value as its ISO string', () => {
+it('refuses a Date inside a variant value, which two processes read two ways', () => {
   const features = createFeatures([
     {
       key: 'banner',
@@ -695,14 +695,13 @@ it('writes a Date inside a variant value as its ISO string', () => {
     },
   ] as const);
 
-  const document = serializeConfig(features);
-
-  expect(document.features[0]?.variants?.[0]?.value).toEqual({
-    until: '2026-12-24T00:00:00.000Z',
-  });
+  expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+  expect(() => serializeConfig(features)).toThrow(
+    'the value at /features/0/variants/0/value/until is a Date',
+  );
 });
 
-it('writes a Date inside an attribute condition as its ISO string', () => {
+it('refuses a Date at an attribute condition value, which === compares by identity', () => {
   const features = createFeatures([
     {
       key: 'beta',
@@ -721,10 +720,9 @@ it('writes a Date inside an attribute condition as its ISO string', () => {
     },
   ] as const);
 
-  const document = serializeConfig(features);
-
-  expect(document.features[0]?.rules?.[0]?.when?.[0]?.value).toBe(
-    '2026-01-01T00:00:00.000Z',
+  expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+  expect(() => serializeConfig(features)).toThrow(
+    'the value at /features/0/rules/0/when/0/value is a Date',
   );
 });
 
