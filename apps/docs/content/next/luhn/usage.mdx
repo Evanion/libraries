@@ -1,21 +1,21 @@
 # Generating and validating
 
-`Luhn.generate` computes the check character for a code, and `Luhn.validate`
-checks a code that carries one. Both return the phrase they read, and only
-`generate` can throw.
+`Luhn.generate` computes the check character for an order number, and
+`Luhn.validate` checks an order code that carries one. Both return the phrase
+they read, and only `generate` can throw.
 
 <PageSheet
   difficulty={2}
-  read={6}
+  read={8}
   hands={15}
   requires={[['Getting started', '../getting-started']]}
   unlocks={[['Dictionaries', '../dictionaries']]}
 />
 
-## Generate a check character with luhn
+## What `Luhn.generate` returns
 
-`Luhn.generate` takes the code without its check character and returns three
-fields:
+`Luhn.generate` takes an order number, without a check character, and returns
+three fields, `phrase`, `checksum` and `filtered`:
 
 ```ts twoslash file=libs/luhn/README.md region=generate
 
@@ -23,29 +23,17 @@ fields:
 
 <Probe package="luhn" probe="generate" />
 
-| Field      | What it holds                                                                  |
-| ---------- | ------------------------------------------------------------------------------ |
-| `phrase`   | the input with every character outside the dictionary dropped, and case folded |
-| `checksum` | the check character, one character of the dictionary                           |
-| `filtered` | how many characters of the input were dropped                                  |
+| Field      | What it holds                                                                       |
+| ---------- | ----------------------------------------------------------------------------------- |
+| `phrase`   | the [phrase](../#the-luhn-vocabulary) the check character was computed over         |
+| `checksum` | the check character, one character of the dictionary                                |
+| `filtered` | how many characters of the input were dropped, the two hyphens in `order-2026-0042` |
 
-The phrase, from the Overview, is what the check character was computed over.
-`order-2026-0042` and `ORDER 2026/0042` produce the same phrase, so they get
-the same `l`.
+`order-2026-0042` and `ORDER 2026/0042` produce the same phrase, so they get the
+same `l`. `generate` does not append `checksum`, which is why
+[Getting started](../getting-started) writes `orderCode`.
 
-`generate` does not append `checksum`, so where it goes and what separates it is
-yours to decide. `validate` hands the order number back through `phrase`:
-
-```ts twoslash file=libs/luhn/README.md region=sign-and-read
-
-```
-
-`orderNumberIn` slices `phrase` rather than the string it was given, so
-`ORDER 2026 0042 L` and `order-2026-0042-l` both give back `order20260042`. The
-phrase has lost the hyphens and the case, so store the phrase `generate`
-returned when the order was created, and look the order up by it.
-
-## Why luhn's generate throws EmptyInputError
+## Why `Luhn.generate` throws `EmptyInputError`
 
 `Luhn.generate` throws `EmptyInputError` when no character of its input is in
 the dictionary. Every such input leaves an empty phrase, so a blank form field
@@ -56,47 +44,70 @@ nothing. Catch the error where the input comes from a person:
 
 ```
 
-`EmptyInputError` is the only error a luhn call raises, and only `generate`
-raises it. The dictionary was checked when the instance was built, so nothing
-else can fail at the call.
+`generate` throws `EmptyInputError`, and `validate` never throws. `createLuhn`
+throws `InvalidDictionaryError` when it builds an instance, so `generate` and
+`validate` never fail on the dictionary.
+[What `createLuhn` checks](../dictionaries#what-createluhn-checks-in-a-dictionary)
+lists the constraints.
 
-## Validate a code with luhn
+## What `Luhn.validate` returns
 
-`Luhn.validate` treats the last dictionary character of its input as the check
-character and never throws:
+`Luhn.validate` treats the last character of its input that is in the
+dictionary as the check character:
 
 ```ts twoslash file=libs/luhn/README.md region=validate
 
 ```
 
-`isValid` is `false` when `phrase` holds fewer than two characters, because an
-order number and a check character is the minimum. `validate`'s `phrase`
-includes the check character, so the order number is `phrase.slice(0, -1)`.
-`generate`'s `phrase` does not, because the check character did not exist yet.
+`validate`'s `phrase` includes the check character, because the code carried
+one. `generate`'s `phrase` does not, because the check character did not exist
+yet. `isValid` is `false` when `phrase` holds fewer than two characters, because
+an order number and a check character is the minimum.
 
-The code below was issued as `order-2026-0042-l`. Type it back in and the
-verdict follows `isValid`, so case and hyphens make no difference to it. The
-"Change a character" and "Swap two" buttons each break the code, and
-`validate` refuses it.
+The card below issues `order-2026-0042l`, Baize's order code without the hyphen
+before the `l`, and `validate` reads the same phrase from both. Type it back in
+with any case or hyphens and the verdict follows `isValid`. The "Change a
+character" and "Swap two" buttons each break the code, and `validate` refuses
+it.
 
 <LuhnSpecimen initial="order-2026-0042" />
 
-## Refuse stray characters with luhn's filtered count
+## Find the order a luhn code belongs to
 
-`filtered` counts the characters `validate` dropped. Baize's receipt prints
-`order-2026-0042-l` for a person to read and carries `order20260042l`, with no
-separators, in its barcode. A till that reads the barcode can refuse anything
-else without reimplementing the filter:
+`Luhn.validate('order-2026-0042-l')` returns the phrase `order20260042l`.
+Without its last character that is `order20260042`, the phrase `generate`
+returned for the order number. Store that phrase with the order when Baize
+creates it, and look the order up by it when a code comes back:
+
+```ts twoslash file=libs/luhn/README.md region=look-up
+
+```
+
+`orderPhrase` slices the `phrase` that `validate` returned, so
+`ORDER 2026 0042 L` and `order-2026-0042-l` both find `order20260042`. The
+phrase has lost the hyphens and the case, so keep `order-2026-0042` in its own
+column if a screen or a receipt prints it. `orderPhrase` returns `null` for a
+code `validate` refuses, and the till asks the customer again.
+
+## Refuse stray characters with `filtered`
+
+`@evanion/luhn` drops characters outside the dictionary because a person typing
+`ORDER 2026 0042 L` means the same order as `order-2026-0042-l`. A barcode
+scanner adds no separators. Baize's receipt carries
+`order20260042l` in its barcode, so a scanned code with any character dropped
+means the scanner read something other than a receipt. `filtered` counts the
+characters `validate` dropped, and the till's barcode input refuses any:
 
 ```ts twoslash file=libs/luhn/README.md region=strict-input
 
 ```
 
-Counting is by code point, not by UTF-16 unit, so an emoji typed into the field
-is one dropped character, not two.
+The field a person types into keeps accepting `order-2026-0042-l` through
+[`orderPhrase`](#find-the-order-a-luhn-code-belongs-to). `filtered` counts code points, not UTF-16 units, so an emoji is
+one dropped character, not two.
 
-## Now that you can put a check character on a code, pick its alphabet
+## Choose the dictionary luhn reads
 
-[Dictionaries](../dictionaries) is the next page. It builds an instance over
-the shop's 32-character pickup alphabet with `createLuhn`, and lists what an
-alphabet has to satisfy.
+`orderCode` and `orderPhrase` both run on `Luhn`'s default dictionary.
+[Dictionaries](../dictionaries) builds an instance over the shop's 32-character
+pickup dictionary with `createLuhn`, and lists what a dictionary has to satisfy.
