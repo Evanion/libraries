@@ -2254,6 +2254,25 @@ describe('validateConfig, on a member a definition declares that this checker do
     expect(createFeatures(definitions).isEnabled('cta')).toBe(true);
   });
 
+  it('has no serialized document for the store that widening built', () => {
+    interface Owned extends SerializedDefinition<'cta'> {
+      owner: string;
+    }
+    const definitions: readonly Owned[] = [
+      { key: 'cta', enabled: true, owner: 'growth' },
+    ];
+    const features = createFeatures(definitions);
+
+    // § 8 has a round trip produce the document it started from, and § 8 names
+    // the control plane that serializes its store to serve it. `serializeConfig`
+    // copies every own enumerable key, so a store this checker refuses the
+    // document of is a store with no round trip, and the publisher names the
+    // member at the serialization site.
+    expect(() => serializeConfig(features)).toThrow(
+      'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+    );
+  });
+
   it('reports every member of one definition it does not read', () => {
     const result = validateConfig(
       served('{"features":[{"key":"a","enabled":true,"ttl":1,"owner":"b"}]}'),
@@ -2484,6 +2503,23 @@ describe('validateConfig, on a member below a definition that this checker does 
     // `createFeatures` to the inputs it throws on today governs, and § 3's
     // refusal answers the holder that installs the document.
     expect(createFeatures(config.features).keys).toEqual(['cta']);
+  });
+
+  it('has no serialized document for the store those four built', () => {
+    const features = createFeatures(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0,"v":1}],' +
+          '"rules":[{"id":"r","r1":1,"rollout":{"percent":5,"r2":2},' +
+          '"when":[{"field":"plan","op":"eq","value":1,"c":3}]}]}]}',
+      ).features,
+    );
+
+    // A publisher serializing this store would write all four members back and
+    // report four issues on its own output, which § 8's round trip forbids.
+    expect(() => serializeConfig(features)).toThrow(
+      'feature "cta" declares "v" on the variant at /features/0/variants/0, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+    );
   });
 
   it('accepts every member the four shapes name', () => {

@@ -1694,4 +1694,75 @@ describe('serializeConfig', () => {
       expect(Object.keys(value)).toEqual(['tier']);
     });
   });
+  /**
+   * A store carrying a member no shape below a definition names.
+   *
+   * `createFeatures` builds one. A holder reads the members its own types
+   * declare and evaluates the rest as absent, so such a member raises nothing
+   * out of `resolve`, and the plan's global constraints hold `createFeatures`
+   * to the six error classes it throws today. An interface extending
+   * `SerializedDefinition` assigns to `readonly FeatureDefinition<K>[]` with no
+   * excess-property error, and a control plane building its store from rows
+   * writes whatever column it read.
+   *
+   * § 3 refuses the document a holder installs, and § 8 has the round trip
+   * produce the document it started from, so this call is where the member gets
+   * named. The alternative is a publisher serving a document its own
+   * `validateConfig` reports four issues on.
+   */
+  describe('a member no shape below a definition names', () => {
+    it('refuses a definition member and names the path to it', () => {
+      interface Owned extends FeatureDefinition<'cta'> {
+        owner: string;
+      }
+      const definitions: readonly Owned[] = [
+        { key: 'cta', enabled: true, owner: 'growth' },
+      ];
+      const features = createFeatures(definitions);
+
+      expect(() => serializeConfig(features)).toThrow(FeatureConfigError);
+      expect(() => serializeConfig(features)).toThrow(
+        'feature "cta" declares "owner", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+      );
+    });
+
+    it('refuses the first of the four nested shapes carrying one', () => {
+      const features = createFeatures([
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'a', weight: 1, v: 1 }],
+          rules: [
+            {
+              id: 'r',
+              r1: 1,
+              rollout: { percent: 5, r2: 2 },
+              when: [{ field: 'plan', op: 'eq', value: 1, c: 3 }],
+            },
+          ],
+        },
+      ] as never);
+
+      // A rollout, a variant and a condition each hold a bucketing parameter,
+      // so § 3's rule reaches all four shapes and not the definition alone.
+      expect(() => serializeConfig(features)).toThrow(
+        'feature "cta" declares "v" on the variant at /features/0/variants/0, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent',
+      );
+    });
+
+    it('refuses an operator no condition type declares', () => {
+      const features = createFeatures(
+        JSON.parse(
+          '[{"key":"a","enabled":true,"rules":[{"when":[{"field":"plan","op":"eq-ci","value":"pro"}]}]}]',
+        ) as Definitions<never>,
+      );
+
+      // `evaluateCondition` ends at `default: return false`, so every holder of
+      // this document resolves the rule off while the publisher that emitted
+      // the operator resolves it on.
+      expect(() => serializeConfig(features)).toThrow(
+        'feature "a" declares "op" on the condition at /features/0/rules/0/when/0 as "eq-ci", and this checker dispatches on no operator by that name, so a holder installing this document would resolve the rule off for every subject',
+      );
+    });
+  });
 });
