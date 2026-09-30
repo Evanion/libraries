@@ -15,7 +15,7 @@ import type {
 } from './config.js';
 import type { GraphNode } from './graph.js';
 import type { VariantCheckOptions } from './variants.js';
-import type { FeatureDefinition, FeatureKey } from './types.js';
+import type { FeatureDefinition, FeatureKey, Rule } from './types.js';
 
 /**
  * One issue, paired with the error the throwing path raises for it.
@@ -447,6 +447,33 @@ function shapeWalk(
 }
 
 /**
+ * The id `ruleId` derives for a rule, or nothing where it could not write one.
+ *
+ * `canonical` recurses through an `AttributeCondition.value` and the memo entry
+ * at `canonical.ts:138` is written after the recursion, so a value that holds
+ * itself raises `RangeError: Maximum call stack size exceeded` and one nested
+ * past 25 levels raises `RangeError: Invalid string length`. A checker § 7 has
+ * return a `ValidationResult` raises neither, and a rule it cannot name is a rule
+ * it reports no duplicate for, which is what an unreadable `when` already gets.
+ *
+ * `serializeConfig` owns the refusal of the store that holds one. Decision 12 has
+ * it refuse every value JSON cannot carry at every member and name the path,
+ * which for a condition value reads
+ * `/features/0/rules/0/when/0/value/self`, so an author reads the member rather
+ * than a stack trace. A served document holds no reference to itself, and one
+ * nested deep enough to overflow this walk is one `configDigest` takes no text of
+ * either, which `canonical.ts:69-71` reads as a document too deep to serve.
+ */
+function derivedId(rule: Rule): string | undefined {
+  try {
+    return ruleId(rule);
+  } catch (error) {
+    if (error instanceof RangeError) return undefined;
+    throw error;
+  }
+}
+
+/**
  * Two rules of one feature answering one id.
  *
  * `derived` widens the comparison from the ids two rules declare to the id
@@ -460,12 +487,18 @@ function shapeWalk(
  * case: both rules match, both derive one id, and a decision naming it names
  * both.
  *
- * `collectIssues` widens it for the served document and leaves it narrow for the
- * literal, because `canonical` recurses through a condition value and `ruleId`
- * hands it whatever the value holds. `JSON.parse` returns a value that holds no
- * reference to itself, and a store a TypeScript author built may hold one, which
- * `serializeConfig` refuses and `deepFreeze` guards for. The narrow comparison
- * reads `rule.id` and recurses through nothing.
+ * `collectIssues` widens it for both callers and narrows it only where the shape
+ * walk could not name a rule's conditions. The Testing section of the spec has
+ * `serializeConfig(features)` through a JSON hop and `parseFeatureConfig` produce
+ * a store whose `config` deep-equals the original, and Decision 11 has one
+ * checker answer for both envelopes, so two rules of one feature that derive one
+ * id are refused where the configuration is supplied rather than at the first
+ * poll of the document a store emitted. `rolloutText` excludes `rollout.percent`,
+ * which makes two ramps on one feature over one condition set the reachable case.
+ *
+ * `derivedId` is what lets the wide comparison read a store an author built. A
+ * condition value that closes on itself has no canonical text, and Decision 12
+ * gives that refusal to `serializeConfig`, which names the member.
  */
 function ruleIdErrors(
   definition: FeatureDefinition<FeatureKey>,
@@ -475,7 +508,7 @@ function ruleIdErrors(
   const errors: FeatureConfigError[] = [];
   for (const rule of definition.rules ?? []) {
     const declared = rule.id !== undefined;
-    const id = derived ? ruleId(rule) : rule.id;
+    const id = derived ? derivedId(rule) : rule.id;
     if (id === undefined) continue;
     const first = declaredFirst.get(id);
     if (first === undefined) {
@@ -514,7 +547,6 @@ export function collectIssues(
   config: Checkable,
   options: VariantCheckOptions = {},
 ): readonly Found[] {
-  const served = options.arrayIsOrder !== true;
   const { issues, rows } = shapeWalk(config, options);
   const all: Found[] = [...issues];
 
@@ -557,7 +589,7 @@ export function collectIssues(
     // `ruleIdErrors` derives a name from a rule's conditions, so it derives one
     // only where the checker walked them.
     if (!row.rules) return;
-    for (const error of ruleIdErrors(definition, served && row.conditions)) {
+    for (const error of ruleIdErrors(definition, row.conditions)) {
       all.push(
         found('duplicate-rule-id', error, row.key, pointer(at, 'rules')),
       );
