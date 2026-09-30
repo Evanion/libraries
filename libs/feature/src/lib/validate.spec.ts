@@ -1080,19 +1080,49 @@ describe('validateConfig, on a document whose members are not the declared shape
     ).toEqual(['/features/0/variants/0', '/features/0/rules/0']);
   });
 
-  it('refuses the whole document and reports no defect it did not walk', () => {
+  it('reports the graph beside a member of one definition it could not read', () => {
     const result = validateConfig(
       served(
         '{"features":[{"key":"a","enabled":true},{"key":"a","enabled":true,"variants":7}]}',
       ),
     );
 
-    // Section 3: a holder that meets a member it cannot read refuses the whole
-    // document, drops nothing and evaluates nothing. The duplicate key this
-    // document also carries is the graph's, and the graph is not walked.
+    // Section 7: validateConfig reports every issue it finds. Section 3's
+    // "refuses the whole document, drops nothing and evaluates nothing" is what
+    // a holder does with the result, and an unreadable `variants` costs the
+    // document its variant walk and costs the graph nothing.
     expect(
       result.ok === false && result.issues.map((issue) => issue.code),
-    ).toEqual(['unknown-member']);
+    ).toEqual(['unknown-member', 'duplicate-feature']);
+  });
+
+  it('reports a variant defect of one definition beside an unreadable member of another', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[' +
+          '{"key":"a","enabled":true,"variants":{}},' +
+          '{"key":"b","enabled":true,"variantBy":"accountId","variantSeed":"b:v",' +
+          '"variants":[{"name":"only","weight":0,"order":0}]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'zero-weights']);
+  });
+
+  it('walks no variant of the definition whose variants it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"variants":7,"rules":[{"id":"pin","variant":"ghost"}]}]}',
+      ),
+    );
+
+    // A pin is held against the names the array declares, and this document
+    // declares no array this checker read.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/variants']);
   });
 
   it('reads a member every definition declares, so one document names them all', () => {
@@ -1113,6 +1143,12 @@ describe('validateConfig, on a document whose members are not the declared shape
     );
 
     expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message:
+          'the definition at /features/0 declares "key" as an object, and this checker reads a string or a number',
+        path: '/features/0/key',
+      },
       {
         code: 'unknown-member',
         message:
@@ -1319,6 +1355,165 @@ describe('createFeatures', () => {
         },
       ]),
     ).toThrow('feature "beta" declares the rule id "staff" twice');
+  });
+});
+
+describe('validateConfig, on the key a definition is named by', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  it('reports a definition carrying no key', () => {
+    const result = validateConfig({ features: [{ enabled: true }] } as never);
+
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          message:
+            'the definition at /features/0 declares "key" as nothing, and this checker reads a string or a number',
+          path: '/features/0/key',
+        },
+      ],
+    });
+  });
+
+  it('names a row for each keyless definition, where a duplicate named none', () => {
+    const result = validateConfig({ features: [{}, {}] } as never);
+
+    // A path per row is what an operator fixes. One `duplicate feature key
+    // "undefined"` for the pair carries neither a key nor a path.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/key', '/features/1/key']);
+  });
+
+  it('reports two keys that are objects and collapses neither into the other', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":{},"enabled":true},{"key":{},"enabled":true}]}',
+      ),
+    );
+
+    // `Object.fromEntries` writes both of these to the property
+    // "[object Object]", so the second answers for the first in every resolved
+    // record. The graph walk reads neither, because the checker read no key.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/key', '/features/1/key']);
+  });
+
+  it('accepts a numeric key, which FeatureKey admits', () => {
+    expect(
+      validateConfig(served('{"features":[{"key":7,"enabled":true}]}')),
+    ).toEqual({ ok: true });
+  });
+
+  it('reports a numeric key beside its own string spelling', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":1,"enabled":true},{"key":"1","enabled":false}]}',
+      ),
+    );
+
+    // `resolveAll` builds its `Decisions` record with `Object.fromEntries`, which
+    // writes 1 and '1' to one property, so `isEnabled(1)` reads the decision of
+    // '1' and answers false for a feature the document declares enabled.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'duplicate-feature',
+          key: '1',
+          message: new DuplicateFeatureError('1').message,
+        },
+      ],
+    });
+  });
+
+  it('accepts two numeric keys no spelling shares', () => {
+    expect(
+      validateConfig(
+        served(
+          '{"features":[{"key":1,"enabled":true},{"key":2,"enabled":true}]}',
+        ),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a keyless definition at createFeatures too', () => {
+    expect(() => createFeatures([{ enabled: true }] as never)).toThrow(
+      'the definition at /features/0 declares "key" as nothing',
+    );
+  });
+});
+
+describe('validateConfig, on the dependencies a definition declares', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  it('reports a nested array and names no dependency out of it', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"dependsOn":[["a"]]}]}'),
+    );
+
+    // `String(['a'])` is 'a', so a graph walk over this element reports that
+    // feature "a" depends on "a", which is not configured, about the only row
+    // the document declares.
+    expect(result).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'unknown-member',
+          key: 'a',
+          message:
+            'feature "a" declares the dependency at /features/0/dependsOn/0 as an array, and this checker reads a key',
+          path: '/features/0/dependsOn/0',
+        },
+      ],
+    });
+  });
+
+  it('points at the element and not at the member, for a dependency holding an object', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"dependsOn":[{"x":1}]}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares the dependency at /features/0/dependsOn/0 as an object, and this checker reads a key',
+        path: '/features/0/dependsOn/0',
+      },
+    ]);
+  });
+
+  it('reports every unreadable element of one dependsOn', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"dependsOn":[null,true]}]}',
+      ),
+    );
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/dependsOn/0', '/features/0/dependsOn/1']);
+  });
+
+  it('accepts a numeric dependency, which FeatureKey admits', () => {
+    expect(
+      validateConfig(
+        served(
+          '{"features":[{"key":1,"enabled":true},{"key":2,"enabled":true,"dependsOn":[1]}]}',
+        ),
+      ),
+    ).toEqual({ ok: true });
   });
 });
 
