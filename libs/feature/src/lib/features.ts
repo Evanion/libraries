@@ -394,8 +394,10 @@ export function createFeatures(
   );
   // One checker answers both paths. `validateConfig` reports what this throws,
   // and the graph is checked before the variants, so a document carrying a
-  // duplicate key and an unusable weight names the key.
-  const refused = collectIssues({ features: config });
+  // duplicate key and an unusable weight names the key. These definitions are
+  // the literal an author wrote, so the array is the variant order and a variant
+  // declaring none takes its index.
+  const refused = collectIssues({ features: config }, { arrayIsOrder: true });
   if (refused[0]) throw refused[0].error;
   // The instant contract sits outside the member shapes `collectIssues` reads,
   // so each definition's conditions are read on their own.

@@ -34,6 +34,11 @@ export interface FeatureGraph<F extends FeatureKey> {
  * The cycle walk records a closing edge and marks the node finished, and it
  * does not stop, so a document with two independent cycles reports both and the
  * walk still terminates.
+ *
+ * Every definition arrives as an object and its `dependsOn` as an array.
+ * `collectIssues` refuses a document that carries either as something else
+ * before it reaches this walk, which is what keeps a `dependsOn` of `"ab"` from
+ * reading as two dependencies and one cycle.
  */
 export function graphErrors<F extends FeatureKey>(
   definitions: readonly FeatureDefinition<F>[],
