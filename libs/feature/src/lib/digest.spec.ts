@@ -292,6 +292,40 @@ describe('configDigest', () => {
     }
   });
 
+  it('reads a subtree two paths share once', () => {
+    // A getter counts the reads. `serializeConfig` preserves the sharing
+    // `structuredClone` left in the store, so this is the graph the next call
+    // walks: 16 levels of diamond give the leaf 2^16 paths.
+    let reads = 0;
+    const leaf = {
+      get depth() {
+        reads += 1;
+        return 1;
+      },
+    };
+    let held: object = leaf;
+    for (let level = 0; level < 16; level += 1) held = { l: held, r: held };
+    const shared = {
+      features: [{ key: 'x', enabled: true }],
+      schema: { features: { x: { variants: { held } } } },
+    } as unknown as FeatureConfig;
+
+    configDigest(shared);
+
+    expect(reads).toBe(1);
+  });
+
+  it('agrees for a shared subtree and the copies JSON expands it into', () => {
+    const leaf = { depth: 1 };
+    const shared = {
+      features: [{ key: 'x', enabled: true }],
+      schema: { features: { x: { variants: { l: leaf, r: leaf } } } },
+    } as unknown as FeatureConfig;
+    const arrived = JSON.parse(JSON.stringify(shared)) as FeatureConfig;
+
+    expect(configDigest(arrived)).toBe(configDigest(shared));
+  });
+
   it('refuses a document that holds itself', () => {
     const shape: Record<string, unknown> = {};
     shape['self'] = shape;

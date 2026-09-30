@@ -33,17 +33,50 @@
  * functions with the same source at different addresses are, for this
  * purpose, the same text, which is a reasonable identity for a condition
  * value nobody expects to compare structurally in the first place.
+ *
+ * A value two paths reach is written once and the second path reads the memo,
+ * the way `serialized` at `serialize.ts:134` memoizes the same graph. Both
+ * walks meet the sharing that `structuredClone` in `createFeatures` and
+ * `deepFreeze` preserve, and a diamond 22 levels deep holds 45 objects and
+ * 2^22 paths to its leaf: the memo walks 45 of them and costs 34ms where the
+ * bare recursion costs 2.8s.
+ *
+ * The text the sharing expands to is the same either way, 88MB for that
+ * diamond, because JSON carries no sharing. A back-reference form would be
+ * shorter and would disagree with the digest a holder computes over the
+ * document JSON handed it, which is the comparison § 2 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` rests on. Past 25
+ * levels this and `JSON.stringify` both throw `RangeError: Invalid string
+ * length`, so a document too deep to digest is a document too deep to serve.
  */
 export function canonical(value: unknown): string {
+  return written(value, new Map());
+}
+
+/** One value's text, with `done` holding what the walk has already written. */
+function written(value: unknown, done: Map<object, string>): string {
   if (value === undefined) return 'undefined';
   if (typeof value === 'bigint') return `${value.toString()}n`;
   if (typeof value === 'function') return `function:${value.toString()}`;
   if (typeof value === 'symbol') return `symbol:${value.toString()}`;
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (value instanceof Date) return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, each]) => each !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([key, each]) => `${JSON.stringify(key)}:${canonical(each)}`).join(',')}}`;
+
+  const memoized = done.get(value);
+  if (memoized !== undefined) return memoized;
+
+  let text: string;
+  if (Array.isArray(value)) {
+    text = `[${value.map((each) => written(each, done)).join(',')}]`;
+  } else {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, each]) => each !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    text = `{${entries.map(([key, each]) => `${JSON.stringify(key)}:${written(each, done)}`).join(',')}}`;
+  }
+
+  // Set after the recursion, so a value that holds itself recurses until the
+  // stack throws rather than reading a memo entry for a text that has none.
+  done.set(value, text);
+  return text;
 }
