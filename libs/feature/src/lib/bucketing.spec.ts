@@ -126,4 +126,47 @@ describe('murmur3', () => {
     expect(murmur3('abc').toString(16)).toBe('b3dd93fa');
     expect(murmur3('hello').toString(16)).toBe('248bfa47');
   });
+
+  it('hashes the UTF-8 bytes of text outside ASCII', () => {
+    // Pinned against the Encoding Standard's UTF-8 encoder, which the walk in
+    // `utf8` reproduces: two bytes for U+00E9, nine for the three Japanese
+    // characters, and four for the one code point a surrogate pair spells. A
+    // targeting value in any script buckets the same in a port that matches
+    // these.
+    expect(murmur3('\u00e9').toString(16)).toBe('10110787');
+    expect(murmur3('\u65e5\u672c\u8a9e').toString(16)).toBe('a5a47297');
+    expect(murmur3('\ud83c\udf89').toString(16)).toBe('1feb8b56');
+    expect(murmur3('a\ud83c\udf89b').toString(16)).toBe('cb287d58');
+  });
+
+  it('encodes an unpaired surrogate as U+FFFD', () => {
+    // UTF-8 carries no lone surrogate and the Encoding Standard's encoder
+    // writes the replacement character for one, at the end of a string as well
+    // as in the middle.
+    expect(murmur3('\ud800')).toBe(murmur3('\ufffd'));
+    expect(murmur3('\udfff')).toBe(murmur3('\ufffd'));
+    expect(murmur3('\ud800a')).toBe(murmur3('\ufffda'));
+  });
+
+  it('encodes a surrogate pair as one code point', () => {
+    // A walk that read the two halves separately would write two replacements
+    // and hash every emoji in a targeting value to the same bucket.
+    expect(murmur3('\ud83c\udf89')).not.toBe(murmur3('\ufffd\ufffd'));
+  });
+
+  it('hashes with TextEncoder deleted from globalThis', () => {
+    // `docs/specs/2026-09-23-feature-hydration.md` decision 11 puts `bucketOf`
+    // on any JavaScript engine, Hermes included, where the Encoding API is a
+    // global nothing promises.
+    const bucket = bucketOf('user-1', 'checkout');
+    const encoder = globalThis.TextEncoder;
+    Reflect.deleteProperty(globalThis, 'TextEncoder');
+
+    try {
+      expect(murmur3('hello').toString(16)).toBe('248bfa47');
+      expect(bucketOf('user-1', 'checkout')).toBe(bucket);
+    } finally {
+      Reflect.set(globalThis, 'TextEncoder', encoder);
+    }
+  });
 });
