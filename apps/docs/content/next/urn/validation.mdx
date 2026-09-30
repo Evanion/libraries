@@ -1,0 +1,117 @@
+# Checking URN input
+
+`isValidFormat` in `@evanion/urn` screens a URN from outside the shop before
+`parse` reads it, and two error classes say what failed when a call throws.
+
+<PageSheet
+  difficulty={2}
+  read={6}
+  hands={10}
+  requires={[
+    ['Getting started', '../getting-started'],
+    ['URNs from several namespaces', '../namespaces'],
+  ]}
+  unlocks={[
+    ['r-, q- and f-components', '../components'],
+    ['Encoding and comparing URNs', '../encoding'],
+  ]}
+/>
+
+## Screen untrusted URN input with isValidFormat
+
+`isValidFormat` in `@evanion/urn` calls `parse` and returns `false` where
+`parse` would throw, so the two never disagree. An example on this page that
+opens with an `import` line runs as a file of its own, and the rest run
+appended to `game-urn.ts`. [`GameURN`](../getting-started) screens a URN from
+outside the shop before reading it:
+
+```ts twoslash file=libs/urn/README.md region=screening
+
+```
+
+`gameOrNull` returns `null` for the space in `spirit island`, and for `hive`,
+which has no scheme and no NID.
+
+## Pass a URN static as a callback
+
+Every static method of an `@evanion/urn` class reads `this`, so a static passed
+as a bare callback loses its class. `stringify`, `parse` and `extractId` then
+throw a `TypeError`. `isValidFormat`, `sameNamespace` and `equals`, which
+compares two URNs, catch it and return `false`, so
+`catalogue.filter(GameURN.isValidFormat)` returns an empty list:
+
+```ts twoslash file=libs/urn/README.md region=unbound
+
+```
+
+`belongsToNamespace` throws the `TypeError` only when its scheme argument is
+left out. `filter` and `map` pass a third argument, so under either it returns
+`false` for every URN. Wrap the call in an arrow function, as the first `map`
+does.
+
+## Tell a malformed URN from one bad part
+
+`@evanion/urn` throws two error classes. A `ValidationError` means the string
+is not a URN at all, such as `azul` with no scheme and no NID. An
+`InvalidError` extends it and means one part broke its grammar, and its
+`property` names the part:
+
+```ts twoslash file=libs/urn/README.md region=error-handling
+
+```
+
+Every `InvalidError` is also a `ValidationError`, so `problemWith` checks
+`InvalidError` first. An `InvalidError` carries four fields:
+
+| Field         | What it holds                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `property`    | the part that failed: `'URN'` for the scheme, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'` or `'F-COMPONENT'` |
+| `value`       | the part as it was written                                                                                          |
+| `invalidChar` | the first character outside the part's grammar, absent when no single character is at fault                         |
+| `reason`      | the rule broken when every character is allowed, such as the NID's minimum length, absent otherwise                 |
+
+An empty part carries neither `invalidChar` nor `reason`, and its message says
+the part must not be empty. `rejection` reads the fields off two refusals from
+`stringify`:
+
+```ts twoslash file=libs/urn/README.md region=invalid-error
+
+```
+
+## Mint a batch of game URNs
+
+`stringify` in `@evanion/urn` throws an `InvalidError` on a part that breaks
+its grammar, as it did for one slug in [Getting started](../getting-started). A
+job minting URNs for a batch of slugs catches per slug, so one bad slug is
+skipped and the rest are minted:
+
+```ts twoslash file=libs/urn/README.md region=batch-mint
+
+```
+
+## What each URN part may contain
+
+`@evanion/urn` checks each part against the grammar RFC 8141 gives it:
+
+- The scheme: a letter, then letters, digits, `+`, `-` and `.`.
+- The NID: letters, digits and interior hyphens, 2 to 32 characters when
+  `stringify` writes one, 1 to 32 when `parse` reads one.
+- The NSS: letters, digits, `-._~!$&'()*+,;=:@`, percent-encoded characters
+  such as `%20`, and `/` after the first character. A space, `?` and `#` are
+  outside it.
+
+`schemeGrammar`, `nidGrammar` and `nssGrammar` hold the patterns `stringify`
+checks, and a test against one checks a single part. The NID is the one part
+read and written differently. `parse` accepts a one-character NID, because RFC
+2141, the URN standard before RFC 8141, allowed one, so `isValidFormat` accepts
+`urn:g:azul` while `stringify` refuses to write it:
+
+```ts twoslash file=libs/urn/README.md region=grammars
+
+```
+
+## Attach an edition to a game URN
+
+A URN that `isValidFormat` accepts has passed each `@evanion/urn` grammar.
+[r-, q- and f-components](../components) adds an edition and a section of the
+rules to `urn:game:brass-birmingham`, and reads both back with `parse`.

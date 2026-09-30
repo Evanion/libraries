@@ -42,6 +42,7 @@ export const movedPages = new Map([
   ['acl/changes', 'acl/rule-changes'],
   ['acl/register', 'acl/attacks'],
   ['acl/decisions', 'acl/decision-object'],
+  ['urn/examples', 'urn/namespaces'],
 ]);
 
 /**

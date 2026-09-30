@@ -1,29 +1,26 @@
 # Getting started
 
-By the end of this page a `GameURN` class of your own writes
-`urn:game:brass-birmingham` and reads it back into its three parts.
+By the end of this page a `GameURN` class of your own mints
+`urn:game:brass-birmingham`, and refuses a slug with a space in it.
 
 <PageSheet
   difficulty={1}
-  read={2}
-  hands={5}
+  read={3}
+  hands={10}
   requires={[['Overview', '../']]}
-  unlocks={[
-    ['r-, q- and f-components', '../components'],
-    ['Examples', '../examples'],
-  ]}
+  unlocks={[['URNs from several namespaces', '../namespaces']]}
 />
 
-## Before you install urn
+## Before you install @evanion/urn
 
 - Node 20 or newer.
-- An ESM project. A CommonJS project needs Node 20.19, 22.12 or newer, whose
-  `require()` loads ES modules. An older `require()` fails with
-  `ERR_REQUIRE_ESM`.
+- An ESM project. In an empty folder, `npm init -y` followed by
+  `npm pkg set type=module` creates one. A CommonJS project needs Node 20.19,
+  22.12 or newer, whose `require()` loads ES modules.
 - Nothing else. The package has no runtime dependencies and no peer
   dependencies, and it ships its own types.
 
-## Install urn
+## Install @evanion/urn
 
 Pick the line for your package manager.
 
@@ -39,30 +36,39 @@ yarn add @evanion/urn
 pnpm add @evanion/urn
 ```
 
-## Write a namespace class for urn
+## Mint a game URN with GameURN
 
-`GameURN` extends `URN` and overrides one static, `nid`, the namespace
-identifier. That is the whole configuration: the scheme defaults to `urn` and
-the separator to `:`. TypeScript's `noImplicitOverride` requires the `override`
-keyword, and without that flag it is optional. Import `URN` from
-`@evanion/urn`:
+`@evanion/urn` needs one piece of configuration, a namespace class: `GameURN`
+extends `URN` and sets the static property `nid` to `'game'`. The scheme and
+the separator keep their defaults, `urn` and `:`. Save this as `game-urn.ts`:
 
 ```ts twoslash file=libs/urn/README.md region=basic-usage
 
 ```
 
-`GameURN.stringify('brass-birmingham')` reads the scheme and the NID off the
-class and returns `'urn:game:brass-birmingham'`. `GameURN.parse(id)` splits it
-back into `urn`, `nid` and `nss`. In your code, call `stringify` where a game id
-leaves a service and `parse` where one arrives.
+`stringify` reads the scheme and the NID off `GameURN` and joins them to the
+slug. It checks each part against its grammar first. A space is outside the
+grammar of the NSS, the part after the NID, so the second call throws an
+`InvalidError` whose message names the part and the character. The `override`
+keyword is required under TypeScript's `noImplicitOverride` and optional
+without it.
 
-(Optional) Add `static override readonly urn = 'baize'` to mint in a scheme of
-your own, such as `baize:game:azul`. That class's `parse` then reads `baize` as
-its own scheme. RFC 8141 fixes the scheme at `urn`, so a URN in any other scheme
-is outside the RFC.
+## Run game-urn.ts
 
-## Now that GameURN reads a game, attach an edition to it
+The `// ->` comments in `game-urn.ts` show the two values `@evanion/urn`
+returns. Add `console.log(id, refused);` as the file's last line to print both,
+then run the file. Node 22.18, 23.6 or newer runs a `.ts` file directly:
 
-[r-, q- and f-components](../components) is the next page. It adds an edition
-and a section of the rules to `urn:game:brass-birmingham` and reads both back
-with the same `GameURN.parse`.
+```bash
+node game-urn.ts
+```
+
+On an older Node, run `npx tsx game-urn.ts` instead. Either command prints
+`urn:game:brass-birmingham NSS contains invalid character ' ' in 'brass birmingham'`.
+
+## Read a URN another service wrote
+
+Your `game-urn.ts` imports `URN` from `@evanion/urn`, mints a game URN, and
+refuses a malformed slug. [URNs from several namespaces](../namespaces) reads
+the URNs arriving at the shop's `orders` service, where a game URN and an order
+URN share one list.
