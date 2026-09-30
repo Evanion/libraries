@@ -2827,6 +2827,38 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     ).toEqual({ ok: true });
   });
 
+  it('reports a day-of-week condition whose value is not an array', () => {
+    const result = validateConfig(
+      document('[{"field":"now","op":"day-of-week","zone":"UTC","value":3}]'),
+    );
+
+    // `evaluateCondition` at `conditions.ts:66` reads `condition.value.includes`
+    // with no guard in front of it, so a holder installing this document raises
+    // a TypeError out of `resolve` on the first context carrying a `now`.
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "value" on the day-of-week condition at /features/0/rules/0/when/0 as a number, and this checker reads an array of weekday names',
+        path: '/features/0/rules/0/when/0/value',
+      },
+    ]);
+  });
+
+  it('refuses that condition at createFeatures too', () => {
+    const config = document(
+      '[{"field":"now","op":"day-of-week","zone":"UTC","value":3}]',
+    );
+
+    // `errors.ts:3-11` has every error raised where the configuration is
+    // supplied, and `resolve` stay total. A store built over this condition
+    // raises the TypeError instead, from a call the author never made.
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares "value" on the day-of-week condition at /features/0/rules/0/when/0 as a number, and this checker reads an array of weekday names',
+    );
+  });
+
   it('accepts a rule carrying no when at all', () => {
     expect(
       validateConfig(

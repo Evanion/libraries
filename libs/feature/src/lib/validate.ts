@@ -363,11 +363,18 @@ const EMPTY: ReadonlySet<unknown> = new Set();
 /**
  * What one rule's conditions leave the walks after this one.
  *
- * `refused` is a condition this checker could not read, which costs the rule its
- * derived id: `conditionText` has no text for it. `strange` is a member it read
- * the shape of and reads no member by, which costs the derivation nothing,
- * because `conditionText` writes `field`, `op` and the value and this rule still
- * carries all three.
+ * `refused` is a condition this checker could not read, and the rule gives up
+ * its derived id over it. Two defects land there. `conditionText` has no text
+ * for a `field`, an `op` or a day-of-week `zone` that is not a string, and a
+ * holder dereferences a day-of-week `value` that is not an array:
+ * `evaluateCondition` at `conditions.ts:66` calls `includes` on it. The second
+ * one leaves `conditionText` able to write the condition, and the rule gives up
+ * the derived id anyway, because a document carrying either defect is one no
+ * caller installs.
+ *
+ * `strange` is a member it read the shape of and reads no member by, which costs
+ * the derivation nothing, because `conditionText` writes `field`, `op` and the
+ * value and this rule still carries all three.
  */
 interface ConditionIssues {
   readonly refused: readonly Found[];
@@ -501,6 +508,16 @@ function conditionIssues(
           ),
         );
       }
+      const value: unknown = condition['value'];
+      if (!Array.isArray(value)) {
+        refused.push(
+          unreadable(
+            `${named} declares "value" on the day-of-week condition at ${path} as ${met(value)}, and this checker reads an array of weekday names`,
+            `${path}/value`,
+            key,
+          ),
+        );
+      }
     }
 
     strange.push(
@@ -566,8 +583,9 @@ function conditionIssues(
  * A rule's conditions are read because `ruleIdErrors` derives a name from them.
  * `conditionText` in `rule-id.ts` length-prefixes `field`, `op` and a
  * day-of-week `zone`, so a condition carrying any of the three as something
- * other than a string is one the derivation cannot walk. A condition carrying
- * all three as strings can still hold a `value` no canonical text covers, which
+ * other than a string is one the derivation cannot walk. A day-of-week `value`
+ * is read for `evaluateCondition`, which calls `includes` on it. A condition
+ * carrying all four can still hold a `value` no canonical text covers, which
  * is what `nameable` asks of the rules whose conditions this walk read.
  *
  * Those condition shape issues reach both callers, and `arrayIsOrder` does not
@@ -575,11 +593,12 @@ function conditionIssues(
  * its inferring overload, which
  * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` names as a
  * real path and Task 8 documents, so a control plane's body reaches a store
- * through it. Each of the four defects raises out of `resolve`: `evaluate.ts:53`
- * iterates `rule.when`, `rule-id.ts:48` reads `condition.zone.length`, and
- * `conditionText` length-prefixes `field` and `op` the same way, so
+ * through it. Each of the five defects raises out of `resolve`: `evaluate.ts:53`
+ * iterates `rule.when`, `rule-id.ts:48` reads `condition.zone.length`,
+ * `conditionText` length-prefixes `field` and `op` the same way, and
+ * `conditions.ts:66` calls `includes` on a day-of-week `value`, so
  * `errors.ts:3-11` has the raise happen where the configuration is supplied. A
- * TypeScript literal satisfies all four by type, so the author's path meets none
+ * TypeScript literal satisfies all five by type, so the author's path meets none
  * of them. Either way the rule id walk skips a rule whose conditions it cannot
  * name.
  *
