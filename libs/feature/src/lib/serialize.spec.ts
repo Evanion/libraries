@@ -926,6 +926,74 @@ describe('serializeConfig', () => {
     expect(document.features[0]).not.toBe(features.config[0]);
   });
 
+  /**
+   * Every level of the document is the walk's own object.
+   *
+   * `createFeatures` deep-freezes the store at `features.ts:391`, so a walk that
+   * handed a nested subtree back by reference would give a publisher a frozen
+   * object. A control plane stamping a field onto the document before it serves
+   * it writes nothing under ESM strict semantics, and the whole suite stays
+   * green: the memo cases above hold the sharing a copy preserves too, and the
+   * case above this one pins only the top level, which `documentDefinition`'s own
+   * spread already guarantees.
+   */
+  it('writes a nested variant value the store does not hold, so a publisher stamps a field onto it', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 1, value: { copy: { label: 'Buy' } } },
+        ],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+    const value = document.features[0]?.variants?.[0]?.value as {
+      readonly copy: Record<string, unknown>;
+    };
+    const held = features.config[0]?.variants?.[0]?.value as {
+      readonly copy: Record<string, unknown>;
+    };
+
+    expect(value).not.toBe(held);
+    expect(value.copy).not.toBe(held.copy);
+    expect(Object.isFrozen(value.copy)).toBe(false);
+    expect(() => {
+      value.copy['publishedAt'] = '2026-10-01T00:00:00.000Z';
+    }).not.toThrow();
+  });
+
+  it('writes a nested condition value the store does not hold, so a write to it changes no rule', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        rules: [
+          {
+            id: 'tier',
+            when: [{ field: 'tier', op: 'in', value: { any: ['gold'] } }],
+          },
+        ],
+      },
+    ] as const);
+
+    const document = serializeConfig(features);
+    const condition = document.features[0]?.rules?.[0]
+      ?.when?.[0] as unknown as {
+      readonly value: { readonly any: string[] };
+    };
+    const held = features.config[0]?.rules?.[0]?.when?.[0] as unknown as {
+      readonly value: { readonly any: readonly string[] };
+    };
+
+    expect(condition).not.toBe(held);
+    expect(condition.value).not.toBe(held.value);
+    expect(Object.isFrozen(condition.value.any)).toBe(false);
+    condition.value.any.push('silver');
+    expect(held.value.any).toEqual(['gold']);
+  });
+
   it('writes a __proto__ member as an own property and pollutes no prototype', () => {
     const value = JSON.parse(
       '{"__proto__":{"polluted":true},"tier":"gold"}',
