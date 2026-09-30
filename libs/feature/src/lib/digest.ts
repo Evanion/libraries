@@ -23,10 +23,18 @@ const SEEDS: readonly number[] = [
  * one. Two documents differing in key order or in whitespace state one
  * configuration, and a digest over raw bytes would change when nothing did.
  *
- * `digest` is removed from the input before the text is taken. `digest` is
- * always this function's answer for the document that carries it, so a digest
- * computed over a document that already held one could never be recomputed by
- * a holder, and every verification would fail.
+ * `digest` and `version` are removed from the input before the text is taken,
+ * and both are removed for one reason: § 2 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` has a publisher with no
+ * version scheme set both members to the digest, and a holder recompute it and
+ * refuse a document that disagrees. A publisher computes the digest before it
+ * has either member to write, so a text that carried them could never be
+ * recomputed from the document served, and every verification of every document
+ * from that publisher would report a mismatch.
+ *
+ * What is left is the configuration. A holder that wants to know whether the
+ * publisher relabelled a document compares `version` with `!==`, which is what
+ * `docs/specs/2026-09-23-feature-hydration.md`, "The comparison", asks of it.
  *
  * Two processes computing one digest from documents they fetched separately
  * have proved they hold the same configuration, which is what condition 2 of
@@ -43,6 +51,7 @@ const SEEDS: readonly number[] = [
 export function configDigest(config: FeatureConfig): string {
   const body: Record<string, unknown> = { ...config };
   delete body['digest'];
+  delete body['version'];
   const text = canonical(body);
   return SEEDS.map((seed) =>
     murmur3(text, seed).toString(16).padStart(8, '0'),

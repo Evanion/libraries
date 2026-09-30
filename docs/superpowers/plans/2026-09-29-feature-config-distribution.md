@@ -63,7 +63,7 @@ Values copied from the spec. Where a value is a judgement this plan made because
 
 Each one is a decision an implementer would otherwise have to invent twice. Each is also listed in the report's open questions, because the owner may want a different answer.
 
-1. `configDigest` removes the `digest` member from its input before it canonicalises. A digest computed over a document that already carries one can never be recomputed by a holder, so verification would fail on every document that used it.
+1. `configDigest` removes the `digest` and `version` members from its input before it canonicalises. § 2 has a publisher with no version scheme write the digest into both, and that publisher holds neither value when it computes the digest, so a text carrying either could never be recomputed by a holder and verification would fail on every document that used it. A holder reads `version` with `!==`, which is the only comparison the spec allows on it.
 2. `configDigest` returns 32 hex characters, built from `murmur3` at four fixed seeds. The spec names no algorithm and no width. `murmur3` is already exported from this package and already carries a cross-language contract, and 32 bits alone is too narrow for a comparison whose whole job is to detect a difference.
 3. `validateVariants`'s partial-order error maps to `invalid-variant-order`, and its zero and non-finite weight totals both map to `zero-weights`. The spec's 18 codes cover neither case by name.
 4. `serializeConfig` converts a `Date` at a `WindowCondition.value` and refuses one at every other member. The spec's § 8 and its decision 12 state this rule, so this entry rules nothing and keeps the argument that reached it, which Task 2's refusal tests cite. `toEpoch` at `conditions.ts:18-22` reads the `Date` and the ISO string to one epoch, so a window decides alike in the publisher and in the holder. `evaluateCondition` compares an `AttributeCondition.value` with `===`, and `valueOf` hands a variant value to the application untouched, so a `Date` at either member and the ISO string a holder receives are two values that behave differently while `canonical` writes both as one text. § 2 reads two agreeing digests as a proof that two processes hold one configuration, and `config.ts`'s `JsonValue` states the rule for the condition value. An author who wants either member to travel writes the ISO string in the definition.
@@ -1325,10 +1325,20 @@ describe('configDigest', () => {
     expect(configDigest(other)).not.toBe(configDigest(one));
   });
 
-  it('disagrees when a version changes and nothing else does', () => {
+  it('agrees when the version changes and nothing else does', () => {
     const bumped: FeatureConfig = { ...document, version: 42 };
 
-    expect(configDigest(bumped)).not.toBe(configDigest(document));
+    expect(configDigest(bumped)).toBe(configDigest(document));
+  });
+
+  it('verifies the document a publisher with no version scheme serves', () => {
+    const authored: FeatureConfig = {
+      features: [{ key: 'x', enabled: true }],
+    };
+    const digest = configDigest(authored);
+    const served: FeatureConfig = { ...authored, version: digest, digest };
+
+    expect(configDigest(served)).toBe(digest);
   });
 
   it('agrees across a trip through JSON', () => {
@@ -1374,10 +1384,18 @@ const SEEDS: readonly number[] = [
  * one. Two documents differing in key order or in whitespace state one
  * configuration, and a digest over raw bytes would change when nothing did.
  *
- * `digest` is removed from the input before the text is taken. `digest` is
- * always this function's answer for the document that carries it, so a digest
- * computed over a document that already held one could never be recomputed by
- * a holder, and every verification would fail.
+ * `digest` and `version` are removed from the input before the text is taken,
+ * and both are removed for one reason: § 2 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` has a publisher with no
+ * version scheme set both members to the digest, and a holder recompute it and
+ * refuse a document that disagrees. A publisher computes the digest before it
+ * has either member to write, so a text that carried them could never be
+ * recomputed from the document served, and every verification of every document
+ * from that publisher would report a mismatch.
+ *
+ * What is left is the configuration. A holder that wants to know whether the
+ * publisher relabelled a document compares `version` with `!==`, which is what
+ * `docs/specs/2026-09-23-feature-hydration.md`, "The comparison", asks of it.
  *
  * Two processes computing one digest from documents they fetched separately
  * have proved they hold the same configuration, which is what condition 2 of
@@ -1394,6 +1412,7 @@ const SEEDS: readonly number[] = [
 export function configDigest(config: FeatureConfig): string {
   const body: Record<string, unknown> = { ...config };
   delete body['digest'];
+  delete body['version'];
   const text = canonical(body);
   return SEEDS.map((seed) =>
     murmur3(text, seed).toString(16).padStart(8, '0'),

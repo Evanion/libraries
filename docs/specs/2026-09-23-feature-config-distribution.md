@@ -321,9 +321,20 @@ finds one recomputes it and refuses a document that disagrees, which
 version scheme sets both members to the digest, and a publisher with a counter
 sets `version` to the counter and `digest` to the digest.
 
-What the digest covers is every byte of the document, because `canonical`
+That recipe fixes what the digest reads. `configDigest` strips `version` along
+with `digest` before it canonicalises, because a publisher with no version scheme
+holds neither value at the moment it computes the digest. Writing the digest into
+the two members afterwards changes the text, so a digest taken over a text that
+carried them could never be recomputed from the document served, and every
+document from that publisher would be a `digest-mismatch`. The two members are
+the publisher's label for a configuration, and a holder that wants to know
+whether the label changed compares `version` with `!==`, which is the only
+comparison this document allows on it.
+
+What the digest covers is every other byte of the document, because `canonical`
 preserves array order by construction and states the reason at
-`libs/acl/src/canonical.ts:8-11`.
+`libs/acl/src/canonical.ts:8-11`. Two documents that digest alike state one
+configuration, and they may carry two labels for it.
 
 An earlier draft gave the digest a second duty. A control plane rebuilding a
 feature from a table with no `ORDER BY` hands the same variants back in a
@@ -914,9 +925,12 @@ audience a document without it, which decision 2 places outside this library.
   `serializeConfig` refuses it and names the path, which § 8 argues from `===` and
   from `valueOf`.
 - Digest stability. Two documents differing only in object key order, in
-  whitespace, in a `Date` against its ISO string, and in an absent key against one
-  written `undefined`, produce one digest. A document differing in the order of a
-  `rules` array produces a different one.
+  whitespace, in a `Date` against its ISO string, in a `version`, and in an absent
+  key against one written `undefined`, produce one digest. A document differing in
+  the order of a `rules` array produces a different one.
+- The publisher recipe of § 2, run in order. A document whose `version` and
+  `digest` both hold what `configDigest` returned for the configuration verifies
+  against a holder that recomputes it.
 - `digest` verification. A document whose `rules` array was reordered and whose
   `digest` was left alone is a `digest-mismatch` issue.
 - Rule ids. `serializeConfig` emits every authored `rule.id` unchanged, two rules
