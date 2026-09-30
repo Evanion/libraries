@@ -28,6 +28,18 @@
  * never emits a bare number followed by `n`, so the tag cannot collide with
  * any number this function writes.
  *
+ * `NaN`, `Infinity` and `-Infinity` are written behind a `number:` tag,
+ * `number:NaN` for `NaN`. `JSON.stringify` writes all three as `null`, and the
+ * three decide a window three ways: `toEpoch` at `conditions.ts:18-22` returns
+ * a number instant untouched, so a `before` boundary of `Infinity` matches
+ * every `now`, one of `-Infinity` matches none, and one of `NaN` fails the
+ * guard at `conditions.ts:73`. One text for the three hands `configDigest` one
+ * digest for documents that resolve a flag oppositely, and § 2 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` reads two equal
+ * digests as a proof that two processes hold one configuration.
+ * `JSON.stringify` never emits a bare `number:`, so the tag cannot collide with
+ * any text this function writes.
+ *
  * A function or a symbol is written from its own `toString()`. Neither
  * carries a content-addressable value the way a plain object does -- two
  * functions with the same source at different addresses are, for this
@@ -59,6 +71,9 @@ function written(value: unknown, done: Map<object, string>): string {
   if (typeof value === 'bigint') return `${value.toString()}n`;
   if (typeof value === 'function') return `function:${value.toString()}`;
   if (typeof value === 'symbol') return `symbol:${value.toString()}`;
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return `number:${String(value)}`;
+  }
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (value instanceof Date) return JSON.stringify(value);
 

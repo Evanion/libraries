@@ -23,6 +23,12 @@ const SEEDS: readonly number[] = [
  * one. Two documents differing in key order or in whitespace state one
  * configuration, and a digest over raw bytes would change when nothing did.
  *
+ * It also tags `NaN`, `Infinity` and `-Infinity`, which `JSON.stringify` writes
+ * as `null`. All three sit at a `WindowCondition.value` in-type, and `toEpoch`
+ * hands a number instant to the comparison untouched, so a `before` boundary of
+ * `Infinity` matches every `now` where one of `-Infinity` matches none. Those
+ * two documents resolve a flag oppositely, and this separates them.
+ *
  * `digest` and `version` are removed from the input before the text is taken,
  * and both are removed for one reason: § 2 of
  * `docs/specs/2026-09-23-feature-config-distribution.md` has a publisher with no

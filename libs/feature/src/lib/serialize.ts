@@ -63,12 +63,12 @@ function article(name: string): string {
  * A `bigint` reaches the document untouched and the publisher's own
  * `JSON.stringify` throws a `TypeError` naming no feature. `NaN`, `Infinity`
  * and `-Infinity` become `null` on the first transport hop, and `canonical`
- * routes a non-finite number through `JSON.stringify` too, so both sides digest
- * `null` and agree while the two stores hold different values. An `undefined`
- * array element does it the other way: `canonical` writes the text `undefined`
- * where JSON writes `null`, so the digests disagree and the holder refuses the
- * whole document. A hole in a sparse array is that element, materialized by
- * `Array.from` so the walk meets it.
+ * tags a non-finite number at `canonical.ts:31-41`, so the publisher's text and
+ * the holder's disagree and the holder refuses the whole document over a digest
+ * mismatch that names no member. An `undefined` array element does the same:
+ * `canonical` writes the text `undefined` where JSON writes `null`. A hole in a
+ * sparse array is that element, materialized by `Array.from` so the walk meets
+ * it. The refusal here names the path instead.
  *
  * A value that holds itself reaches this walk as well. JSON carries no cycle,
  * so this throws and names the path. `open` holds the path the walk stands on
