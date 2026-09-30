@@ -10,6 +10,7 @@ import type {
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  Rule,
   VariantSpec,
 } from './types.js';
 
@@ -64,6 +65,20 @@ export type VariantMember = 'variants' | 'rules' | 'variantBy' | 'variantSeed';
 export interface VariantCheckOptions {
   /** Whether the array order of `variants` is the order assignment walks. */
   readonly arrayIsOrder?: boolean;
+  /**
+   * Whether `rules` is an array the pin walk may read `rule.variant` off.
+   *
+   * `collectIssues` passes `false` for a definition whose `rules` member arrived
+   * as something other than an array, which it has already reported as
+   * `unknown-member`. The pins are the only check in `variantErrors` that reads
+   * `rules`, and § 7 of
+   * `docs/specs/2026-09-23-feature-config-distribution.md` has the checker
+   * report every issue it finds, so the name, the weight, the order, the total
+   * and the two bucketing members are still checked over a `variants` array the
+   * shape walk read. An operator who fixes `rules` and re-polls meets no issue
+   * that was in the document all along.
+   */
+  readonly rulePins?: boolean;
 }
 
 /** What a holder does with a stripped member, for the message that refuses it. */
@@ -106,8 +121,9 @@ function bare(
  * and the `variantBy` and `variantSeed` § 3 has travel whole.
  *
  * Every variant and every rule arrives as the object its type declares.
- * `collectIssues` refuses a document whose `variants` or `rules` is not an array
- * of objects before it reaches this function.
+ * `collectIssues` refuses a document whose `variants` is not an array of objects
+ * before it reaches this function, and turns `rulePins` off where `rules` is the
+ * member it could not read.
  */
 export function variantErrors<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
@@ -116,8 +132,10 @@ export function variantErrors<F extends FeatureKey>(
   const found: VariantDefect[] = [];
   const key = String(definition.key);
   const variants = definition.variants;
+  const pins: readonly Rule[] =
+    options.rulePins === false ? [] : (definition.rules ?? []);
   if (!variants) {
-    for (const rule of definition.rules ?? []) {
+    for (const rule of pins) {
       if (rule.variant !== undefined) {
         found.push({
           error: new UnknownVariantError(key, rule.variant),
@@ -258,7 +276,7 @@ export function variantErrors<F extends FeatureKey>(
     }
   }
 
-  for (const rule of definition.rules ?? []) {
+  for (const rule of pins) {
     if (rule.variant !== undefined && !names.has(rule.variant)) {
       found.push({
         error: new UnknownVariantError(key, rule.variant),
