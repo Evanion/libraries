@@ -1126,6 +1126,23 @@ describe('validateConfig', () => {
     ).toEqual(['/features/0/rules/0/when']);
   });
 
+  it('names the when of a window rule whose instant converts to no primitive', () => {
+    const config = JSON.parse(
+      '{"features":[{"key":"sale","enabled":true,"rules":[{"when":' +
+        '[{"field":"now","op":"after","value":{"toString":1,"valueOf":2}}]}]}]}',
+    ) as FeatureConfig;
+
+    // `instantText` hands the value to `RegExp.prototype.test`, which coerces
+    // with `ToString`, and an object whose `toString` and `valueOf` are both
+    // non-callable raises a TypeError there. § 7 has the checker report a
+    // document a control plane chose the members of, so the raise is the issue
+    // and not the answer.
+    expect(codesOf(config)).toEqual(['unknown-member']);
+    expect(thrownBy(config).message).toBe(
+      'feature "sale" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+    );
+  });
+
   it('accepts a rule declaring an id for a condition value no text names', () => {
     const value: Record<string, unknown> = {};
     value['self'] = value;
