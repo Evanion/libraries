@@ -1184,9 +1184,11 @@ describe('validateConfig', () => {
         path: '/features/0/rules/0/when/0/value',
       },
     ]);
-    expect(thrownBy(config).message).toBe(
-      'feature "sale" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
-    );
+    // `createFeatures` reads a literal, whose type says the value is one of the
+    // three forms. A served document carries whatever JSON held, so the refusal
+    // of a fourth shape is the checker's, and `evaluateCondition` compares
+    // against such a value as `false`.
+    expect(() => createFeatures(config.features)).not.toThrow();
   });
 
   it('names the condition the derivation raised on and not the one before it', () => {
@@ -1277,7 +1279,7 @@ describe('validateConfig', () => {
     ).toEqual(['/features/0/rules/0/when/0/field']);
   });
 
-  it('names the rule itself where no part of it reproduces the raise', () => {
+  it('names a window value of no instant type over the rule that holds it', () => {
     let coerced = 0;
     const value = {
       toString(): string {
@@ -1297,18 +1299,19 @@ describe('validateConfig', () => {
     } as unknown as FeatureConfig;
     const result = validateConfig(config);
 
-    // The fallback, for a derivation that raises where no condition and no
-    // rollout member of the rule raises on its own. `ruleId` joins the text of
-    // every part before it hashes, so the reachable cause is a rule whose parts
-    // each fit the string ceiling and whose joined text does not. A value that
-    // coerces once is what reaches the same branch at a size a test can hold.
+    // The value is of no type `Instant` declares, which the window walk reads
+    // off the condition without coercing it. The rule-level fallback stays for
+    // a derivation that raises where no part of the rule raises alone, and
+    // `ruleId` joins every part's text before hashing, so reaching it takes a
+    // rule whose parts each fit the string ceiling and whose joined text does
+    // not.
     expect(result.ok === false && result.issues).toEqual([
       {
-        code: 'unknown-member',
+        code: 'invalid-instant',
         key: 'a',
         message:
-          'feature "a" declares a rule at /features/0/rules/0 carrying a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
-        path: '/features/0/rules/0',
+          'feature "a" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
+        path: '/features/0/rules/0/when/0/value',
       },
     ]);
   });
@@ -3677,7 +3680,7 @@ describe('the envelope', () => {
     });
   });
 
-  it('accepts an offsetless instant, which parses and resolves per host', () => {
+  it('refuses an offsetless instant, which resolves per host', () => {
     const config: FeatureConfig = {
       features: [
         {
@@ -3695,10 +3698,15 @@ describe('the envelope', () => {
     };
 
     // ECMA-262 reads a date-time string with no offset as local time, so this
-    // document decides differently in Stockholm and in Tokyo. Issue #284 owns
-    // that. `invalid-instant` is about a string that parses to NaN, and this one
-    // parses.
-    expect(validateConfig(config)).toEqual({ ok: true });
+    // document decides differently in Stockholm and in Tokyo. `windowFault`
+    // reads the contract for both callers, so what `createFeatures` throws on
+    // is what this reports.
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      path: '/features/0/rules/0/when/0/value',
+    });
   });
 
   it('reports __proto__ in a document as an unknown member', () => {
