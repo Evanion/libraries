@@ -1,7 +1,7 @@
 import { decide, planFeature } from './evaluate.js';
 import { validateConditions } from './conditions.js';
 import { buildGraph } from './graph.js';
-import { validateVariants } from './variants.js';
+import { collectIssues } from './validate.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -392,8 +392,14 @@ export function createFeatures(
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
     definitions.map((definition) => deepFreeze(structuredClone(definition))),
   );
+  // One checker answers both paths. `validateConfig` reports what this throws,
+  // and the graph is checked before the variants, so a document carrying a
+  // duplicate key and an unusable weight names the key.
+  const refused = collectIssues({ features: config });
+  if (refused[0]) throw refused[0].error;
+  // The instant contract sits outside the member shapes `collectIssues` reads,
+  // so each definition's conditions are read on their own.
   for (const definition of config) {
-    validateVariants(definition);
     validateConditions(definition);
   }
   const graph = buildGraph(config);

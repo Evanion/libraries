@@ -1,5 +1,6 @@
 import {
   DuplicateFeatureError,
+  FeatureConfigError,
   FeatureCycleError,
   UnknownDependencyError,
 } from './errors.js';
@@ -22,20 +23,28 @@ export interface FeatureGraph<F extends FeatureKey> {
 }
 
 /**
- * Validates the dependency graph and returns a resolution order.
+ * Every configuration error in the dependency graph, in document order.
  *
- * Throws on a duplicate key, a dependency on an unconfigured feature, or a
- * cycle. All three are configuration errors, and all three are rejected here
- * rather than at evaluation.
+ * `buildGraph` throws the first of these and `validateConfig` reports all of
+ * them, so the two paths differ only in what they do with the list. One
+ * producer of the error objects means one message for each defect, whether a
+ * TypeScript author reads it in a stack trace or an operator reads it in a
+ * console.
+ *
+ * The cycle walk records a closing edge and marks the node finished, and it
+ * does not stop, so a document with two independent cycles reports both and the
+ * walk still terminates.
  */
-export function buildGraph<F extends FeatureKey>(
+export function graphErrors<F extends FeatureKey>(
   definitions: readonly FeatureDefinition<F>[],
-): FeatureGraph<F> {
+): readonly FeatureConfigError[] {
+  const found: FeatureConfigError[] = [];
   const parents = new Map<F, readonly F[]>();
 
   for (const definition of definitions) {
     if (parents.has(definition.key)) {
-      throw new DuplicateFeatureError(definition.key);
+      found.push(new DuplicateFeatureError(definition.key));
+      continue;
     }
     parents.set(definition.key, definition.dependsOn ?? []);
   }
@@ -43,12 +52,11 @@ export function buildGraph<F extends FeatureKey>(
   for (const [key, dependsOn] of parents) {
     for (const parent of dependsOn) {
       if (!parents.has(parent)) {
-        throw new UnknownDependencyError(key, parent);
+        found.push(new UnknownDependencyError(key, parent));
       }
     }
   }
 
-  const order: F[] = [];
   const finished = new Set<F>();
   const onPath = new Set<F>();
   const path: F[] = [];
@@ -59,13 +67,59 @@ export function buildGraph<F extends FeatureKey>(
       // Trim the walk to the cycle itself and close it, so the message shows
       // the edge that closes the loop rather than the route taken to reach it.
       const start = path.indexOf(key);
-      throw new FeatureCycleError([...path.slice(start), key]);
+      found.push(new FeatureCycleError([...path.slice(start), key]));
+      return;
     }
 
     onPath.add(key);
     path.push(key);
     for (const parent of parents.get(key) ?? []) visit(parent);
     path.pop();
+    onPath.delete(key);
+
+    finished.add(key);
+  };
+
+  for (const key of parents.keys()) visit(key);
+
+  return found;
+}
+
+/**
+ * Validates the dependency graph and returns a resolution order.
+ *
+ * Throws on a duplicate key, a dependency on an unconfigured feature, or a
+ * cycle. All three are configuration errors, and all three are rejected here
+ * rather than at evaluation. `graphErrors` finds them and this function throws
+ * the first, so a caller reading a stack trace and a caller reading
+ * `validateConfig`'s issues read one message.
+ */
+export function buildGraph<F extends FeatureKey>(
+  definitions: readonly FeatureDefinition<F>[],
+): FeatureGraph<F> {
+  const found = graphErrors(definitions);
+  if (found[0]) throw found[0];
+
+  const parents = new Map<F, readonly F[]>(
+    definitions.map((definition) => [
+      definition.key,
+      definition.dependsOn ?? [],
+    ]),
+  );
+
+  const order: F[] = [];
+  const finished = new Set<F>();
+  const onPath = new Set<F>();
+
+  const visit = (key: F): void => {
+    if (finished.has(key)) return;
+    // `graphErrors` has already refused every cycle, so this guard fires for no
+    // input `buildGraph` accepts. A caller reaching the walk another way would
+    // otherwise recurse until the stack ends.
+    if (onPath.has(key)) return;
+
+    onPath.add(key);
+    for (const parent of parents.get(key) ?? []) visit(parent);
     onPath.delete(key);
 
     finished.add(key);
