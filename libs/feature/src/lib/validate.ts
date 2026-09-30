@@ -77,11 +77,30 @@ function found(
   };
 }
 
+/**
+ * One reference token of a JSON pointer, escaped the way RFC 6901 reads it.
+ *
+ * § 7 declares `ConfigIssue.path` a JSON pointer, and RFC 6901 section 3 gives
+ * `/` the meaning of the separator between two tokens and `~` the meaning of
+ * the escape that carries it. A member name is the one part of a path this
+ * checker does not choose: a control plane writes the document and
+ * `strangeMembers` and the definition walk both build a token out of a name it
+ * picked. A member named `sdk/hashVersion` written raw reads as two tokens, and
+ * a UI resolving the pointer looks inside a member named `sdk`, finds nothing
+ * and highlights no row.
+ *
+ * `~` is replaced first. Replacing `/` first would write `~1`, and the `~` pass
+ * after it would write that as `~01`, which resolves to the literal text `~1`.
+ */
+function token(member: string): string {
+  return member.replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
 /** The pointer at a definition, and optionally at one of its members. */
 function pointer(at: number, member?: string): string {
   return member === undefined
     ? `/features/${String(at)}`
-    : `/features/${String(at)}/${member}`;
+    : `/features/${String(at)}/${token(member)}`;
 }
 
 /** The word a message uses for each `typeof` a member may hold. */
@@ -327,7 +346,7 @@ function strangeMembers(
     all.push(
       unreadable(
         `${named} declares "${member}" on the ${what} at ${at}, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
-        `${at}/${member}`,
+        `${at}/${token(member)}`,
         key,
       ),
     );
