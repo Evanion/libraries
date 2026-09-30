@@ -38,13 +38,14 @@ pnpm add @evanion/urn
 ## Quick Start
 
 A subclass per namespace is the extension point. Override `nid`, and
-`stringify` and `parse` read it: `stringify` needs only the identifier, and
-`parse` hands back the three parts.
+`stringify` reads it, so minting a URN takes only the identifier. `stringify`
+checks every part against its grammar and throws an `InvalidError` naming the
+part that fails:
 
 <!-- #region basic-usage -->
 
 ```ts @import.meta.vitest
-import { URN } from '@evanion/urn';
+import { URN, InvalidError } from '@evanion/urn';
 
 class GameURN extends URN {
   static override readonly nid = 'game';
@@ -52,7 +53,14 @@ class GameURN extends URN {
 
 const id = GameURN.stringify('brass-birmingham');
 id; // -> 'urn:game:brass-birmingham'
-GameURN.parse(id); // -> { urn: 'urn', nid: 'game', nss: 'brass-birmingham' }
+
+let refused = '';
+try {
+  GameURN.stringify('brass birmingham');
+} catch (error) {
+  if (error instanceof InvalidError) refused = error.message;
+}
+refused; // -> "NSS contains invalid character ' ' in 'brass birmingham'"
 ```
 
 <!-- #endregion basic-usage -->
@@ -72,9 +80,9 @@ GameURN.parse(id); // -> { urn: 'urn', nid: 'game', nss: 'brass-birmingham' }
 
 ## A class per namespace
 
-A class strips its own namespace on `parse` and keeps a foreign one in the
-`nss`, so an identifier read from another namespace cannot be re-labelled as
-this one:
+`parse` hands back the three parts, and a class strips its own NID from the
+`nss`. From here on, a block repeats the class above a `// ---cut---` line, so
+it compiles alone:
 
 <!-- #region namespace-class -->
 
@@ -82,15 +90,16 @@ this one:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.parse('urn:game:brass-birmingham'); // -> { urn: 'urn', nid: 'game', nss: 'brass-birmingham' }
-GameURN.parse('urn:order:order-2026-0042'); // -> { urn: 'urn', nid: 'order', nss: 'order:order-2026-0042' }
 ```
 
 <!-- #endregion namespace-class -->
 
-A foreign scheme keeps the whole identifier. The comparisons are case-folded,
-per RFC 8141 §3.1, and the parts come back in the case they were written in:
+A class keeps a foreign NID in the `nss`, so an identifier read from another
+namespace cannot be re-labelled as this one, and a foreign scheme keeps the
+whole identifier. The comparisons are case-folded, per RFC 8141 §3.1, and the
+parts come back in the case they were written in:
 
 <!-- #region parse -->
 
@@ -98,7 +107,7 @@ per RFC 8141 §3.1, and the parts come back in the case they were written in:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.parse('urn:game:azul'); // -> { urn: 'urn', nid: 'game', nss: 'azul' }
 GameURN.parse('URN:GAME:azul'); // -> { urn: 'URN', nid: 'GAME', nss: 'azul' }
 GameURN.parse('urn:order:order-2026-0042'); // -> { urn: 'urn', nid: 'order', nss: 'order:order-2026-0042' }
@@ -117,7 +126,7 @@ of a mixed message. It returns `false` for malformed input:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 class OrderURN extends URN {
   static override readonly nid = 'order';
 }
@@ -151,7 +160,7 @@ URN.sameNamespace('azul', 'azul'); // -> false
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.belongsToNamespace('urn:game:azul', 'game'); // -> true
 GameURN.belongsToNamespace('baize:game:azul', 'game'); // -> false
 GameURN.belongsToNamespace('baize:game:azul', 'game', 'baize'); // -> true
@@ -171,7 +180,7 @@ return shape:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.stringify('azul'); // -> 'urn:game:azul'
 URN.stringify('azul', 'game'); // -> 'urn:game:azul'
 URN.stringify('azul', 'game', 'baize'); // -> 'baize:game:azul'
@@ -235,7 +244,7 @@ before `parse` commits to it:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 function gameOrNull(input: string) {
   return GameURN.isValidFormat(input) ? GameURN.parse(input) : null;
 }
@@ -318,7 +327,7 @@ function mint(slugs: string[]): { minted: string[]; skipped: string[] } {
 
   for (const slug of slugs) {
     try {
-      minted.push(URN.stringify(slug, 'game'));
+      minted.push(URN.stringify({ nss: slug, nid: 'game' }));
     } catch (error) {
       if (!(error instanceof InvalidError)) throw error;
       skipped.push(slug);
@@ -427,7 +436,7 @@ folds it into the `nss`:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.parse('urn:game:brass-birmingham?=edition=2018#setup'); // -> { urn: 'urn', nid: 'game', nss: 'brass-birmingham', fComponent: 'setup', qComponent: 'edition=2018' }
 ```
 
@@ -445,7 +454,7 @@ import type { URNComponents } from '@evanion/urn';
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 function tail({ qComponent, fComponent }: URNComponents): string {
   return [qComponent, fComponent].filter(Boolean).join(' / ');
 }
@@ -465,7 +474,7 @@ f, whatever order the keys were written in:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 const rules = {
   nss: 'brass-birmingham',
   fComponent: 'setup',
@@ -606,7 +615,7 @@ key imported from another system recoverable:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
+// ---cut---
 GameURN.stringify('game:azul'); // -> 'urn:game:game:azul'
 GameURN.parse('urn:game:game:azul').nss; // -> 'game:azul'
 GameURN.stringify(GameURN.stringify('azul')); // -> 'urn:game:urn:game:azul'
@@ -625,19 +634,19 @@ and return `false`:
 class GameURN extends URN {
   static override readonly nid = 'game';
 }
-
-const ids = ['urn:game:azul', 'urn:game:hive'];
-ids.map((id) => GameURN.extractId(id)); // -> ['azul', 'hive']
+// ---cut---
+const catalogue = ['urn:game:azul', 'urn:game:hive'];
+catalogue.map((id) => GameURN.extractId(id)); // -> ['azul', 'hive']
 
 let failure = '';
 try {
-  ids.map(GameURN.extractId);
+  catalogue.map(GameURN.extractId);
 } catch (error) {
   failure = (error as Error).name;
 }
 failure; // -> 'TypeError'
 
-ids.filter(GameURN.isValidFormat); // -> []
+catalogue.filter(GameURN.isValidFormat); // -> []
 ```
 
 <!-- #endregion unbound -->

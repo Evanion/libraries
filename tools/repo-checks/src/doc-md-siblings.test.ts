@@ -79,7 +79,7 @@ describe('the .md siblings', () => {
     // `libs/urn/README.md`'s `basic-usage` region, which
     // `content/next/urn/getting-started.mdx` cites and leaves empty.
     expect(siblings.get('next/urn/getting-started.md')).toContain(
-      'GameURN.parse(',
+      'GameURN.stringify(',
     );
   });
 

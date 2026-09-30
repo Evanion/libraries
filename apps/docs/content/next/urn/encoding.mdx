@@ -1,0 +1,70 @@
+# Encoding and comparing URNs
+
+`encodeNss` in `@evanion/urn` turns a title a person typed, such as
+`Brass: Birmingham`, into an NSS, and `equals` compares two URNs the way RFC
+8141 §3.1 does.
+
+<PageSheet
+  difficulty={3}
+  read={5}
+  hands={10}
+  requires={[
+    ['Getting started', '../getting-started'],
+    ['URNs from several namespaces', '../namespaces'],
+  ]}
+  unlocks={[
+    ['Schemes and separators', '../separators'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## Put a game title into a URN
+
+`encodeNss` in `@evanion/urn` leaves letters, digits and `-._~` alone and
+percent-encodes every other character, writing each of its UTF-8 bytes as a `%`
+and two hex digits, so `é` becomes `%C3%A9`.
+`decodeNss` reverses it. `stringify` and `parse` do neither:
+
+```ts twoslash file=libs/urn/README.md region=nss-encoding
+
+```
+
+`encodeNss` also encodes the `:`, which the NSS grammar allows unencoded, so
+two services that both encode a title write the same NSS. `equals` treats `%3A`
+and `:` as different characters, so `Brass%3A%20Birmingham`, encoded in full,
+and `Brass:%20Birmingham`, with only its space encoded, name two different
+games.
+
+## Compare URNs from two services
+
+`equals` in `@evanion/urn` applies RFC 8141 §3.1. It ignores case in the
+scheme, in the NID and in the hex digits of a percent-encoded character, and
+compares the rest of the NSS character for character:
+
+```ts twoslash file=libs/urn/README.md region=equality
+
+```
+
+The third call returns `false` because `equals` never decodes `%3A`. The fourth
+returns `false` because the NSS keeps its case, so `Azul` and `azul` are two
+games. Call `equals` wherever URNs arrive from more than one service.
+
+## Carry a URN in a URL path
+
+`encodeURIComponent` makes a whole `@evanion/urn` URN safe as one segment of a
+URL path, where `:` and `%` mean something to a router. `encodeNss` makes a
+string safe as an NSS. A URN built from a title needs both, NSS first:
+
+```ts twoslash file=libs/urn/README.md region=url-segment
+
+```
+
+The `%3A` inside the NSS becomes `%253A` in the path, and one
+`decodeURIComponent` turns it back. A second decode would turn `%3A` into `:`
+and `%20` into a space, and `parse` throws on the space.
+
+## Mint URNs outside RFC 8141
+
+[Schemes and separators](../separators) gives an `@evanion/urn` namespace class
+a scheme and a separator of the shop's own, for a key that has to read as a
+dotted path.

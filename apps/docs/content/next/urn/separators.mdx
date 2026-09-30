@@ -1,0 +1,58 @@
+# Schemes and separators
+
+`@evanion/urn` writes the scheme and the separator a namespace class sets, so a
+class can mint `baize.game.azul`. RFC 8141 fixes the scheme at `urn` and the
+separator at `:`, so such a class writes identifiers outside the standard.
+
+<PageSheet
+  difficulty={2}
+  read={3}
+  hands={5}
+  requires={[['Getting started', '../getting-started']]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## A URN key with a custom separator
+
+A namespace class in `@evanion/urn` that overrides `separator` suits a key that
+has to read as a dotted path. `GameKey` sets the scheme to `baize` and the
+separator to `.`. The scheme and the NID are then checked against a character
+class that excludes the separator, with no length bounds, so `GameKey` writes
+a one-character NID that `URN` refuses. `schemeGrammar` and `nidGrammar` hold
+the pattern each of the two must match:
+
+```ts twoslash file=libs/urn/README.md region=custom-separator
+
+```
+
+`GameKey` refuses the scheme `baize.shop`, which `URN` accepts, because the `.`
+would be read as a separator. The NSS keeps the RFC 8141 grammar under every
+separator.
+
+## Check the namespace of a URN in another scheme
+
+`belongsToNamespace` in `@evanion/urn` defaults its scheme to the calling
+class's own, and always takes the NID as an argument. So
+[`GameURN`](../getting-started), the `game` class with the scheme `urn`, answers
+`false` for `baize:game:azul`. The scheme to match goes in as the third
+argument:
+
+```ts twoslash file=libs/urn/README.md region=belongs-to-namespace
+
+```
+
+## A separator containing ? or # switches URN components off
+
+A namespace class in `@evanion/urn` whose separator contains `?` or `#`, such
+as `static override readonly separator = '#'`, cannot tell a separator from the
+start of a component. On such a class `parse` throws an `InvalidError` with
+`property: 'NSS'` for any URN carrying `?` or `#` after the NID, and
+`stringify` throws one with `property: 'COMPONENT'`, naming the components as
+a whole, for any component. Every other separator reads and writes components
+as the [r-, q- and f-components](../components) page describes.
+
+## Every @evanion/urn export
+
+The [API reference](../api) lists every class, function, error and type
+`@evanion/urn` exports, one heading each, with the static properties a
+namespace class can override.
