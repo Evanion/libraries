@@ -106,6 +106,18 @@ export function validateVariants<F extends FeatureKey>(
 }
 
 /**
+ * Where one variant sits in the bucketing walk.
+ *
+ * `order` decides it and the array index supplies it when an author left it
+ * out. `bucketingOrder` sorts on this function and `serializeConfig` writes
+ * what it returns into the document, so the two read one defaulting and a
+ * document a control plane permutes assigns what the store assigned.
+ */
+export function bucketingPosition(variant: VariantSpec, index: number): number {
+  return variant.order ?? index;
+}
+
+/**
  * The variants in the order assignment walks them.
  *
  * `order` decides the walk and the array index supplies it when an author left
@@ -121,7 +133,10 @@ export function bucketingOrder(
   variants: readonly VariantSpec[],
 ): readonly VariantSpec[] {
   return [...variants]
-    .map((variant, index) => ({ variant, at: variant.order ?? index }))
+    .map((variant, index) => ({
+      variant,
+      at: bucketingPosition(variant, index),
+    }))
     .sort((a, b) => a.at - b.at)
     .map((each) => each.variant);
 }
