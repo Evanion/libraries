@@ -2658,6 +2658,19 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     );
   });
 
+  it('refuses a condition that is not an object at createFeatures too', () => {
+    const config = document('[null]');
+
+    // `documentCondition` in `serialize.ts` reads `condition.op` off the
+    // `Condition` its signature declares, so a store holding this element would
+    // serialize to a bare TypeError naming no feature and no path, which § 8's
+    // "the refusal names the path" forbids. This refusal is what the signature
+    // rests on.
+    expect(thrownBy(config).message).toBe(
+      'feature "a" declares the condition at /features/0/rules/0/when/0 as null, and this checker reads an object',
+    );
+  });
+
   it('refuses a day-of-week condition carrying no zone at createFeatures too', () => {
     const config = document('[{"field":"now","op":"day-of-week","value":[1]}]');
 
