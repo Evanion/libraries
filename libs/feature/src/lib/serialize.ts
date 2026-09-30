@@ -297,10 +297,12 @@ function documentDefinition<F extends FeatureKey>(
  * The envelope goes through the same walk as the definitions. `maxStale` and
  * `version` are declared `number` and `string | number`, so `Infinity` and `NaN`
  * sit at both in-type, and `schema` is an open `Record<string, unknown>` at each
- * `ValueShape`. A document emitting one of those carries `null` to its holder,
- * and `canonical` tags a non-finite number, so the holder recomputes a digest
- * that disagrees and refuses the whole document under a code that names no
- * member. The walk refuses it here and names the member, at `/maxStale`.
+ * `ValueShape`. A document emitting one of those carries `null` to its holder
+ * while the publisher still holds the number, and no later check finds the
+ * difference: `configDigest` reads `canonicalDocument`, which writes a
+ * non-finite number the way JSON carries it, so the publisher's digest and the
+ * holder's agree over two values that disagree. The walk refuses it here and
+ * names the member, at `/maxStale`.
  *
  * @throws {FeatureConfigError} when a value holds itself, or when a leaf JSON
  * cannot carry reaches the walk. A `Date` outside a window condition is one of

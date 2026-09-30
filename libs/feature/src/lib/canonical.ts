@@ -39,10 +39,15 @@
  *
  * The value reaches here off a live store, which holds the number an author
  * wrote: `structuredClone` in `createFeatures` copies a non-finite number
- * unchanged. A document holds none of the three, because `serializeConfig`
- * refuses a non-finite number at every member and names the path, so no digest
- * this package takes rests on the tag. `JSON.stringify` never emits a bare
- * `number:`, so the tag cannot collide with any text this function writes.
+ * unchanged. `JSON.stringify` never emits a bare `number:`, so the tag cannot
+ * collide with any text this function writes.
+ *
+ * A document can hold two of the three. `serializeConfig` refuses a non-finite
+ * number at every member it emits and names the path, and JSON's number grammar
+ * accepts any exponent, so `JSON.parse('{\"maxStale\":1e999}')` hands a holder
+ * `Infinity` and `-1e999` hands it `-Infinity`. Only `NaN` is unreachable from
+ * JSON text. A digest is defined over the document, and `canonicalDocument` is
+ * what `configDigest` takes its text through for that reason.
  *
  * A function or a symbol is written from its own `toString()`. Neither
  * carries a content-addressable value the way a plain object does -- two
@@ -66,17 +71,51 @@
  * length`, so a document too deep to digest is a document too deep to serve.
  */
 export function canonical(value: unknown): string {
-  return written(value, new Map());
+  return written(value, new Map(), 'tag');
 }
 
+/**
+ * Canonical text for a document, with a non-finite number written `null`.
+ *
+ * `configDigest` reads this text and `ruleId` reads `canonical`'s, and the two
+ * callers stand on opposite sides of a JSON hop. `ruleId` derives an id from a
+ * live store, where an author's `eq: NaN`, `eq: Infinity` and `eq: null` match
+ * three sets of contexts and need three ids, which is what the `number:` tag
+ * above gives them.
+ *
+ * `configDigest` compares two documents a transport carried. A publisher that
+ * writes `1e999` serves a document one holder parses to `Infinity` and a second
+ * holder, which wrote the document to a disk cache through `JSON.stringify` and
+ * read it back, holds as `null`. Both holders received the same bytes, and § 2
+ * of `docs/specs/2026-09-23-feature-config-distribution.md` reads two
+ * disagreeing digests as two configurations, so the tag would have them refetch
+ * a document neither one can improve on. `JSON.stringify` writes `null` for all
+ * three, so this text writes `null` too and both holders agree.
+ *
+ * The collapse costs the digest the difference between a document serving
+ * `1e999` at a member and one serving `null` there. No publisher emits the
+ * first: `serializeConfig` refuses a non-finite number at every member and
+ * names the path.
+ */
+export function canonicalDocument(value: unknown): string {
+  return written(value, new Map(), 'json');
+}
+
+/** How a walk writes `NaN`, `Infinity` and `-Infinity`. */
+type NonFinite = 'tag' | 'json';
+
 /** One value's text, with `done` holding what the walk has already written. */
-function written(value: unknown, done: Map<object, string>): string {
+function written(
+  value: unknown,
+  done: Map<object, string>,
+  nonFinite: NonFinite,
+): string {
   if (value === undefined) return 'undefined';
   if (typeof value === 'bigint') return `${value.toString()}n`;
   if (typeof value === 'function') return `function:${value.toString()}`;
   if (typeof value === 'symbol') return `symbol:${value.toString()}`;
   if (typeof value === 'number' && !Number.isFinite(value)) {
-    return `number:${String(value)}`;
+    return nonFinite === 'tag' ? `number:${String(value)}` : 'null';
   }
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (value instanceof Date) return JSON.stringify(value);
@@ -86,12 +125,12 @@ function written(value: unknown, done: Map<object, string>): string {
 
   let text: string;
   if (Array.isArray(value)) {
-    text = `[${value.map((each) => written(each, done)).join(',')}]`;
+    text = `[${value.map((each) => written(each, done, nonFinite)).join(',')}]`;
   } else {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, each]) => each !== undefined)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    text = `{${entries.map(([key, each]) => `${JSON.stringify(key)}:${written(each, done)}`).join(',')}}`;
+    text = `{${entries.map(([key, each]) => `${JSON.stringify(key)}:${written(each, done, nonFinite)}`).join(',')}}`;
   }
 
   // Set after the recursion, so a value that holds itself recurses until the
