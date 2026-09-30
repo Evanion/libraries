@@ -118,9 +118,10 @@ serialization at all, for the reason decision 2 states.
    it. § 1.
 4. `version` is an opaque `string | number` a consumer compares with `!==` and
    never orders. `configDigest(config)` derives one from the canonical text of
-   the serialized document, for a publisher with no version scheme of its own.
-   The envelope also carries `digest`, separate from `version`, and a holder
-   that finds one verifies the document against it. § 2.
+   the serialized document with the `version` and `digest` members removed, for
+   a publisher with no version scheme of its own. The envelope also carries
+   `digest`, separate from `version`, and a holder that finds one verifies the
+   document against it. § 2.
 5. Identity a control plane assigned travels in the envelope. `rule.id` and
    `VariantSpec.order` are emitted verbatim, and the content hash of issue #245
    covers a rule a hand-authored document declares with no id. The hash excludes
@@ -291,7 +292,9 @@ A publisher with no version scheme calls `configDigest`:
 export function configDigest(config: FeatureConfig): string;
 ```
 
-It returns a hex digest over the canonical text of the serialized document.
+It returns a hex digest over the canonical text of the serialized document, with
+the `version` and `digest` members removed before the text is taken, for the
+reason "`digest` is a second member" below states.
 `libs/acl/src/canonical.ts:17-25` already defines that text: object keys sorted,
 array order preserved, `undefined` properties dropped, a `Date` written as
 `JSON.stringify` writes it. Its docblock gives the reason, and it is the reason
