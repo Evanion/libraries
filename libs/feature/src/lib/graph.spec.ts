@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FeatureCycleError, UnknownDependencyError } from './errors.js';
-import { buildGraph } from './graph.js';
+import { buildGraph, graphErrors } from './graph.js';
 
 const def = (key: string, dependsOn: string[] = []) => ({
   key,
@@ -60,6 +60,29 @@ describe('buildGraph', () => {
 
   it('rejects a duplicate key', () => {
     expect(() => buildGraph([def('a'), def('a')])).toThrow(/duplicate/i);
+  });
+
+  it('rejects a numeric key beside the string that spells it', () => {
+    // `resolveAll` builds its record with `Object.fromEntries`, which writes 1
+    // and '1' to one property, so one of the two features gets no decision.
+    expect(() =>
+      buildGraph([
+        { key: 1 as unknown as string, enabled: true },
+        { key: '1', enabled: true },
+      ]),
+    ).toThrow(/duplicate/i);
+  });
+});
+
+describe('graphErrors', () => {
+  it('reads a node carrying a key and no dependsOn', () => {
+    expect(graphErrors([{ key: 'a' }, { key: 'b', dependsOn: ['a'] }])).toEqual(
+      [],
+    );
+  });
+
+  it('reads a node whose dependsOn the shape walk could not read as no edges', () => {
+    expect(graphErrors([{ key: 'a', dependsOn: undefined }])).toEqual([]);
   });
 
   it('indexes dependants transitively, in dependency order', () => {

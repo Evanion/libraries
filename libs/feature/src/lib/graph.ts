@@ -23,6 +23,19 @@ export interface FeatureGraph<F extends FeatureKey> {
 }
 
 /**
+ * The two members the graph walk reads off a definition.
+ *
+ * `FeatureDefinition` satisfies it, and so does the node `collectIssues` builds
+ * for a candidate document, where a `dependsOn` the shape walk could not read is
+ * absent. The narrower parameter lets that second caller hand this walk a node
+ * carrying no `enabled`, which the walk never looks at.
+ */
+export interface GraphNode<F extends FeatureKey> {
+  readonly key: F;
+  readonly dependsOn?: readonly F[];
+}
+
+/**
  * Every configuration error in the dependency graph, in document order.
  *
  * `buildGraph` throws the first of these and `validateConfig` reports all of
@@ -35,22 +48,33 @@ export interface FeatureGraph<F extends FeatureKey> {
  * does not stop, so a document with two independent cycles reports both and the
  * walk still terminates.
  *
- * Every definition arrives as an object and its `dependsOn` as an array.
- * `collectIssues` refuses a document that carries either as something else
- * before it reaches this walk, which is what keeps a `dependsOn` of `"ab"` from
- * reading as two dependencies and one cycle.
+ * Two keys spelling one property collide even when the `Map` holds them apart.
+ * `FeatureKey` is `string | number`, `resolveAll` in `features.ts` builds its
+ * `Decisions` record with `Object.fromEntries`, and that writes the key `1` and
+ * the key `'1'` to one property, so one of the two features gets no decision.
+ * `spellings` is what reports the pair, and `parents` stays keyed on the value a
+ * document wrote, because `definitionOf` and every `dependsOn` lookup compare
+ * that value.
+ *
+ * Every node arrives with a key the checker read and with edges it read.
+ * `collectIssues` reports a `dependsOn` it cannot read and hands this walk no
+ * edges from it, which is what keeps a `dependsOn` of `"ab"` from reading as two
+ * dependencies and one cycle.
  */
 export function graphErrors<F extends FeatureKey>(
-  definitions: readonly FeatureDefinition<F>[],
+  definitions: readonly GraphNode<F>[],
 ): readonly FeatureConfigError[] {
   const found: FeatureConfigError[] = [];
   const parents = new Map<F, readonly F[]>();
+  const spellings = new Set<string>();
 
   for (const definition of definitions) {
-    if (parents.has(definition.key)) {
+    const spelling = String(definition.key);
+    if (parents.has(definition.key) || spellings.has(spelling)) {
       found.push(new DuplicateFeatureError(definition.key));
       continue;
     }
+    spellings.add(spelling);
     parents.set(definition.key, definition.dependsOn ?? []);
   }
 
