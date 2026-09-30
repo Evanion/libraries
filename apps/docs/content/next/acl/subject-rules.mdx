@@ -1,14 +1,12 @@
 # Rules about who the user is
 
-`p.allow` and `p.deny` write the rules that read the subject: the user object
-your server resolved before the call, with every field on it.
-
-<WorkshopNotice slug="acl" />
+This page adds a deny rule with `p.deny` and names rules with `.id`, on rules
+that read only the subject, such as a role test.
 
 <PageSheet
   difficulty={2}
   read={5}
-  hands={10}
+  hands={5}
   requires={[['Getting started', '../getting-started']]}
   unlocks={[
     ['Rules about the thing being accessed', '../object-rules'],
@@ -16,42 +14,50 @@ your server resolved before the call, with every field on it.
   ]}
 />
 
-## What a subject-only acl rule covers
+## What a subject-only rule covers
 
-Baize, [the Overview's](../) board game shop, lets any bookseller read its
-stock report, except a bookseller whose account the shop has suspended. Both
-rules read a role off the subject, so `can` answers either one with no database
-read in front of it.
+A subject-only `@evanion/acl` rule reads nothing but the subject, so `can`
+answers it with no database read in front of it. Baize lets a bookseller, the
+staff role that [Getting started](../getting-started) allowed to delete
+questions, read the shop's stock report unless the shop has suspended that
+bookseller's account.
 
-Written by hand in every handler, that pair drifts: one tests
-`roles.includes('bookseller')`, another tests `user.isStaff`, and the suspended
-account is refused in two places out of five. A policy holds the pair once,
-built from the chain [Getting started](../getting-started) used:
-`policy<Subject, Objects>()`, then `.for(kind, block)` per object kind, then
-`.build()`.
+When each handler writes the rule and its exception by hand, the copies drift:
+one tests `roles.includes('bookseller')`, another tests `user.isStaff`, and the
+suspended account is refused in two places out of five. A policy holds the pair once, in
+one `.for('report', …)` block.
 
-## Refusing with an acl deny rule
+## Refusing with a deny rule
 
-An allow rule is the only thing that grants, and a deny rule is how one
-permission states an exception to its own grants. `report.read` carries the
-allow for a bookseller and the deny for a suspended one:
+An `@evanion/acl` deny rule refuses what the allow rules for the same action on
+the same object kind, here `report.read`, would grant. Replace the contents of
+`access.ts` with this file, which keeps the question rule and adds the report:
 
 ```ts twoslash file=libs/acl/README.md region=subject-deny
 
 ```
 
-A block holds rules and a rule holds conditions, and a rule matches when every
-condition in it holds. `p` is the condition helper the block hands you, and
-`p.contains(path, value)` reads the array at `subject.roles` and asks whether
-the role is in it. `p.deny(action, ...conditions)` takes the same conditions
-`p.allow` takes and refuses when they hold. Three subjects produce three answers
-from those two rules.
+One policy holds every object kind your app has. `report: Report` joins
+`question` in the `Objects` type, and a second `.for()` chains onto the same
+`policy()`, so `access.matrix` holds both kinds' permissions in one list.
 
-The suspended bookseller satisfies both rules, and the decision is `denied`,
-because a deny that matched outranks an allow that matched with it. `can` checks
-the deny rules first. The customer satisfies neither rule, and the decision is
-`no-rule-matched`, which is the default deny: nothing is allowed
-without an allow rule that matched, and you configure nothing to get that floor.
+`p.deny(action, ...conditions)` takes the conditions `p.allow` takes and refuses
+when they all hold. Baize suspends an account by adding the `suspended` role,
+and the account keeps `bookseller`, so the deny tests
+`p.contains('subject.roles', 'suspended')`. `p.allow`, `p.deny` and `.id` each
+return `p`, so the calls chain one after another and the block returns the
+chain.
+
+Wrap each line that ends in a `// ->` comment in `console.log` and run
+`npx tsx access.ts`. Four lines print. The three `.reason` lines give the three
+subjects three answers:
+
+- The bookseller gets `allow`, the reason a granted decision reports.
+- The suspended bookseller satisfies both rules and gets `denied`, because a
+  deny that matched outranks an allow that matched with it. `can` checks the
+  deny rules first.
+- The customer satisfies neither rule and gets `no-rule-matched`, the default
+  deny.
 
 ```mermaid caption="The order can() settles one permission in, when every condition reads the subject."
 flowchart TD
@@ -62,62 +68,38 @@ flowchart TD
   R -->|no| N["allowed: false<br>reason: no-rule-matched"]
 ```
 
-`allowed` is the answer in all three cases. Gate on it and nothing else.
-`reason` and `rule` are output only, and a handler that branches on the reason
-string grants what the policy refused.
+### Naming a rule with `.id`
 
-### Naming an acl rule with `.id`
+`.id(name)` names the rule written by the `.allow` or `.deny` call just before
+it, and a decision reports that name in its `rule` field. The suspended
+bookseller's refusal above reports `suspended-reads-nothing`, the fourth line
+the file prints. A rule you do not
+name reports an id hashed from its conditions, and a release of `@evanion/acl`
+can change that hash. Name the rules whose ids you store, such as in a log.
 
-`.id(name)` names the rule that a decision reports back in its `rule` field. A
-rule you do not name still reports an id, and the library derives that one by
-hashing the rule's conditions, so a release that changes how a condition is
-represented changes the id and a log line holding the old one stops matching its
-rule. Name the rules whose ids you store.
+## Where a deny rule belongs
 
-## Writing an acl exception where a reader will find it
+An `@evanion/acl` deny rule goes into the permission it refuses. One permission
+never gates another, so a deny on `report.read` leaves `report.export` untouched
+even though a person would call reading a precondition for exporting. Two
+actions that share a deny rule each carry their own copy of it, and a reader of
+either action sees every rule that decides it.
 
-Write the exception into the permission it modifies. One permission never gates
-another, so a deny on `report.read` leaves `report.export` untouched even though
-a person would call reading a precondition for exporting. Two actions that share
-an exception each carry their own copy of it, and a reader of either action sees
-every rule that decides it.
+## Where subject-only rules stop
 
-One policy holds every object kind your app has. Add a kind by chaining a second
-`.for()`, which [Rules about the thing being accessed](../object-rules) shows
-over two kinds, and do not build a policy per resource. `access.matrix` is what
-those blocks flattened to: the JSON document [the Overview](../) calls the
-matrix, carrying a flat list of permissions, each keyed
-`` `${object}.${action}` ``.
+While every condition in an `@evanion/acl` policy reads only the subject, your
+code can rely on two things:
 
-<Panel heading="This decision is authoritative only where it is made">
-  <Text as="div" size="sm">
-    The same call in a browser toggles what a user sees and enforces nothing.
-    Read [the security contract](../security) before this reaches production.
-  </Text>
-</Panel>
+- Your handler always gets a final answer. The server loads every field of the
+  subject before the call, so every condition has data to read, and a permission here
+  answers `allow`, `denied` or `no-rule-matched`.
+- Your caller asks without fetching anything. `can` needs no row, so a
+  navigation menu can ask about every permission before it loads one.
 
-## Where subject-only acl rules stop
-
-While every condition in a policy reads only the subject, your code can rely on
-two things.
-
-Your handler always gets a final answer. The server resolves the subject whole
-before the call, so every condition has data to read, and a permission here
-answers `allow`, `denied` or `no-rule-matched`. None of them answers
-[`unevaluable`](../refusals#when-the-answer-is-unevaluable), which `can`
-answers when it cannot tell yet.
-
-Your caller asks without fetching anything. `can` needs no row, so
-[`capabilities`](../listing-permissions) answers every permission in the
-document against one subject in a single call, and a navigation menu draws
-itself from that one answer.
-
-The rule from [Getting started](../getting-started), that the customer who
-asked a question may edit it, reads the question. Both properties above stop
-holding the moment you add it: an answer can come back undecided, and a question
-has to be loaded first.
-
-## Now that the subject decides, write a rule about the row
-
-[Rules about the thing being accessed](../object-rules) writes the rule that
-reads the question, and the fourth answer a decision can give.
+The rule [the Overview](../) opened on, that the customer who asked a question
+may edit it, reads the question. Both properties stop holding the moment you add
+it. The handler has to load the question before it asks, and a question loaded
+without the `askedBy` field gets `allowed: false` with the reason `unevaluable`:
+the evaluator could not decide, and fetching `askedBy` settles it.
+[Rules about the thing being accessed](../object-rules) writes that rule and
+handles `unevaluable`.
