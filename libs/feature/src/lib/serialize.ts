@@ -304,6 +304,11 @@ function documentDefinition<F extends FeatureKey>(
  * holder's agree over two values that disagree. The walk refuses it here and
  * names the member, at `/maxStale`.
  *
+ * Every level of the envelope is the walk's own object, the way every level of
+ * a definition is. A caller that assembled its envelope from frozen constants
+ * would otherwise get a document whose `schema` subtree is frozen, and a control
+ * plane stamping a field onto it before it serves it writes nothing.
+ *
  * @throws {FeatureConfigError} when a value holds itself, or when a leaf JSON
  * cannot carry reaches the walk. A `Date` outside a window condition is one of
  * those leaves, and a non-finite `maxStale` is another. The message names the
