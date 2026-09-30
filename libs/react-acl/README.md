@@ -125,6 +125,34 @@ button and Jo gets an empty string.
 The `// ---cut---` line is where the docs site starts showing the block: the
 two components above it are the ones `examples/` holds.
 
+## The handler behind the button
+
+[`examples/server.tsx`](./examples/server.tsx) builds the same rules on the
+server, adds a deny rule for a published listing, and exports `editListing`, the
+handler the Edit button posts to. It asks `access.can` for itself, so it refuses
+a write whatever the browser drew:
+
+<!-- #region edit-refused -->
+
+```ts @import.meta.vitest
+import { editListing } from './examples/server';
+
+const mika = { id: 'mika', role: 'bookseller' } as const;
+const jo = { id: 'jo', role: 'owner' } as const;
+const draft = {
+  id: 'brass-birmingham',
+  sellerId: 'mika',
+  status: 'draft',
+} as const;
+const published = { ...draft, status: 'published' } as const;
+
+editListing(mika, draft, 'Unpunched, still in shrink').status; // -> 200
+editListing(jo, draft, 'Unpunched, still in shrink').status; // -> 403
+editListing(mika, published, 'Unpunched, still in shrink').status; // -> 403
+```
+
+<!-- #endregion edit-refused -->
+
 ## Hooks
 
 - `useCan(key, action, object?)` — one decision. `object` is the instance,
