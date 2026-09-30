@@ -572,15 +572,23 @@ function shapeWalk(config: Checkable): {
  *
  * `canonical` recurses through an `AttributeCondition.value` and writes its memo
  * entry after the recursion at `canonical.ts:138`, so a value that holds itself
- * raises `RangeError: Maximum call stack size exceeded` and one nested past 25
- * levels raises `RangeError: Invalid string length`. § 7 has the checker return a
- * `ValidationResult` and raise neither, so the raise is caught and the rule is
- * reported as a member this checker cannot read.
+ * raises `RangeError: Maximum call stack size exceeded` and one whose sharing
+ * expands past 26 levels raises `RangeError: Invalid string length`.
+ * `instantText` at `rule-id.ts:16-22` hands a window condition's value to
+ * `RegExp.prototype.test`, which coerces it with `ToString`, and an object whose
+ * `toString` and `valueOf` are both non-callable raises a `TypeError` there.
+ *
+ * Every raise answers the question alike, so the catch narrows to none of them.
+ * A control plane chooses what reaches a condition value, § 7 has the checker
+ * return a `ValidationResult` for whatever it chose, and `validateConfig`'s own
+ * contract is that nothing about the argument is trusted. A catch keyed on one
+ * constructor makes the next value class a poller meets a raise that names no
+ * feature.
  *
  * Reporting it is what keeps `errors.ts:3-11` true. `ruleId` runs again on every
  * evaluation -- the `WeakMap` at `rule-id.ts:105` holds an entry only for a rule
- * it named -- so a store built over such a rule raises the same `RangeError` out
- * of `resolve`, and `resolve`, `plan` and `toggle` are total.
+ * it named -- so a store built over such a rule raises the same error out of
+ * `resolve`, and `resolve`, `plan` and `toggle` are total.
  *
  * Only a rule declaring no `id` is asked. `ruleId` returns a declared id without
  * reading the conditions, so no canonical text is taken of them on either path.
@@ -589,9 +597,8 @@ function nameable(rule: Rule): boolean {
   try {
     ruleId(rule);
     return true;
-  } catch (error) {
-    if (error instanceof RangeError) return false;
-    throw error;
+  } catch {
+    return false;
   }
 }
 
