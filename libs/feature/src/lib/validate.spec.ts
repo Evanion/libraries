@@ -1232,6 +1232,50 @@ describe('validateConfig', () => {
     ]);
   });
 
+  it('names the value the derivation raised on beside a condition it refused', () => {
+    const value: Record<string, unknown> = {};
+    value['self'] = value;
+    const when = [
+      { field: 1, op: 'eq', value: 'x' },
+      { field: 'tier', op: 'eq', value },
+    ];
+    const config = {
+      features: [{ key: 'loop', enabled: true, rules: [{ when }] }],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // § 7 has the checker report every issue it finds. The probe reads the
+    // conditions this walk could read, so a rule carrying a shape defect in one
+    // condition and a value no canonical text names in another reports both at
+    // one poll rather than the second one a deploy cycle later.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules/0/when/0/field',
+      '/features/0/rules/0/when/1/value',
+    ]);
+  });
+
+  it('names a refused condition once where no other part of the rule raises', () => {
+    const config = {
+      features: [
+        {
+          key: 'loop',
+          enabled: true,
+          rules: [{ when: [{ field: 1, op: 'eq', value: 'x' }] }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+    const result = validateConfig(config);
+
+    // The probe drops the condition the walk refused, so the derivation it asks
+    // about is the rest of the rule and the fallback names no rule whose only
+    // defect this walk has already reported.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules/0/when/0/field']);
+  });
+
   it('names the rule itself where no part of it reproduces the raise', () => {
     let coerced = 0;
     const value = {

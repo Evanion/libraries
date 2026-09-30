@@ -455,6 +455,13 @@ const EMPTY: ReadonlySet<unknown> = new Set();
 interface ConditionIssues {
   readonly refused: readonly Found[];
   readonly strange: readonly Found[];
+  /**
+   * The conditions `refused` names, by their index in `when`. The derivation
+   * probe reads the rest, and `unnameable` walks the same set, so the one poll
+   * § 7 asks for carries both a shape defect in one condition and a value the
+   * derivation raises on in another.
+   */
+  readonly refusedAt: ReadonlySet<number>;
 }
 
 /**
@@ -531,7 +538,9 @@ function conditionIssues(
   key?: FeatureKey,
 ): ConditionIssues {
   const when: unknown = rule['when'];
-  if (when === undefined) return { refused: [], strange: [] };
+  const nowhere: ReadonlySet<number> = new Set();
+  if (when === undefined)
+    return { refused: [], strange: [], refusedAt: nowhere };
   if (!Array.isArray(when)) {
     return {
       refused: [
@@ -542,15 +551,18 @@ function conditionIssues(
         ),
       ],
       strange: [],
+      refusedAt: nowhere,
     };
   }
 
   const conditions: readonly unknown[] = when;
   const refused: Found[] = [];
   const strange: Found[] = [];
+  const refusedAt = new Set<number>();
   conditions.forEach((condition, inside) => {
     const path = `${at}/when/${String(inside)}`;
     if (!isRecord(condition)) {
+      refusedAt.add(inside);
       refused.push(
         unreadable(
           `${named} declares the condition at ${path} as ${met(condition)}, and this checker reads an object`,
@@ -564,6 +576,7 @@ function conditionIssues(
     for (const member of ['field', 'op'] as const) {
       const value: unknown = condition[member];
       if (typeof value === 'string') continue;
+      refusedAt.add(inside);
       refused.push(
         unreadable(
           `${named} declares "${member}" on the condition at ${path} as ${met(value)}, and this checker reads a string`,
@@ -576,6 +589,7 @@ function conditionIssues(
     if (condition['op'] === 'day-of-week') {
       const zone: unknown = condition['zone'];
       if (typeof zone !== 'string') {
+        refusedAt.add(inside);
         refused.push(
           unreadable(
             `${named} declares "zone" on the day-of-week condition at ${path} as ${met(zone)}, and this checker reads a time zone name`,
@@ -586,6 +600,7 @@ function conditionIssues(
       }
       const value: unknown = condition['value'];
       if (!Array.isArray(value)) {
+        refusedAt.add(inside);
         refused.push(
           unreadable(
             `${named} declares "value" on the day-of-week condition at ${path} as ${met(value)}, and this checker reads an array of weekday names`,
@@ -619,7 +634,40 @@ function conditionIssues(
     );
   });
 
-  return { refused, strange };
+  return { refused, strange, refusedAt };
+}
+
+/**
+ * One rule as the derivation probe reads it: the conditions this walk could read.
+ *
+ * § 7 has the checker report every issue it finds, and a rule carrying a shape
+ * defect in one condition and a value `canonical` raises on in another carries
+ * two. Asking `nameable` about the whole rule answers for the shape defect, which
+ * `conditionIssues` already reported, and leaves the second value for the poll
+ * after the operator fixed the first. The probe drops the conditions the walk
+ * refused, so what it answers about is the rest of the rule.
+ *
+ * `unnameable` walks the same set and keeps the index of each condition in
+ * `when`, so every pointer it writes names the row the document carries.
+ *
+ * A `when` that is not an array is dropped whole, because `evaluate.ts:53` and
+ * `ruleId` both iterate it and the walk has already reported it. What is left of
+ * the rule is what the probe answers about, and the rollout `ruleId` reads is
+ * part of that.
+ */
+function walked(
+  rule: Readonly<Record<string, unknown>>,
+  refusedAt: ReadonlySet<number>,
+): Rule {
+  const when: unknown = rule['when'];
+  if (when === undefined) return rule as unknown as Rule;
+  if (!Array.isArray(when)) return { ...rule, when: [] } as unknown as Rule;
+  if (refusedAt.size === 0) return rule as unknown as Rule;
+  const conditions: readonly unknown[] = when;
+  return {
+    ...rule,
+    when: conditions.filter((_, inside) => !refusedAt.has(inside)),
+  } as unknown as Rule;
 }
 
 /**
@@ -910,14 +958,13 @@ function shapeWalk(
         const inner = conditionIssues(element, named, path, key);
         all.push(...inner.refused);
         if (served) all.push(...inner.strange);
-        if (inner.refused.length > 0) {
-          unwalked.add(element);
-        } else if (id === undefined && !nameable(element as unknown as Rule)) {
+        if (inner.refused.length > 0) unwalked.add(element);
+        if (id === undefined && !nameable(walked(element, inner.refusedAt))) {
           // A rule this walk cannot name is a rule no caller can evaluate, so it
           // is reported here rather than dropped. `ruleIdErrors` skips it after
           // this, the way it skips a rule whose `when` the walk refused.
           unwalked.add(element);
-          all.push(...unnameable(element, named, path, key));
+          all.push(...unnameable(element, named, path, key, inner.refusedAt));
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
         // map on, so it is the one rule the id walk drops.
@@ -1003,6 +1050,10 @@ function nameable(rule: Rule): boolean {
  * refusal names would otherwise meet the second condition for the first time at
  * the next poll.
  *
+ * The conditions `conditionIssues` refused are skipped, because that walk already
+ * named each one at the member it refused. `walked` drops the same set from the
+ * rule the probe asks about, so the two walks answer about one rule.
+ *
  * The rule is what the fallback names, and the pointer stops at the rule. Every
  * part of the rule has been probed by then, and a rule declaring no `when` is
  * one this walk has already read `conditions.length === 0` off, so a pointer at
@@ -1022,12 +1073,14 @@ function unnameable(
   rule: Readonly<Record<string, unknown>>,
   named: string,
   at: string,
-  key?: FeatureKey,
+  key: FeatureKey | undefined,
+  refusedAt: ReadonlySet<number>,
 ): readonly Found[] {
   const when: unknown = rule['when'];
   const conditions: readonly unknown[] = Array.isArray(when) ? when : [];
   const all: Found[] = [];
   conditions.forEach((condition, inside) => {
+    if (refusedAt.has(inside)) return;
     if (nameable({ when: [condition] } as unknown as Rule)) return;
     const path = `${at}/when/${String(inside)}/value`;
     const op: unknown = isRecord(condition) ? condition['op'] : undefined;
