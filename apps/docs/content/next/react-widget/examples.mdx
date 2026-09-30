@@ -14,10 +14,8 @@ renders it.
 
 ## Type a react-widget item array held in a variable
 
-An array held in a variable loses its literal types, so `Widgets` refuses it
-even when every item is right. Getting started fixed that with `as const` on
-each `type`. `defineItems`, which `createWidgets` returns beside `Widgets`,
-fixes it for the whole array and reports a wrong item on the line that wrote it:
+`defineItems`, the call Getting started typed its array with, reports a wrong
+item on the line that wrote it:
 
 ```tsx twoslash file=libs/react-widget/README.md region=typed-items
 
