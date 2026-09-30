@@ -110,6 +110,7 @@ function refusal(options: TokenOptions): InvalidShapeError | undefined {
 refusal({ length: 10, chunkSize: 5 }); // -> undefined
 refusal({ length: 10, chunkSize: 4 })?.reason; // -> 'chunk-size-indivisible'
 refusal({ length: 10, chunkSize: 4 })?.message; // -> 'Token chunkSize must divide length, or the last chunk is shorter than the rest; 4 does not divide 10.'
+refusal({ length: 12, chunkSize: 4 }); // -> undefined
 refusal({ separator: 'a' })?.reason; // -> 'separator-in-dictionary'
 refusal({ separator: 'a' })?.length; // -> 8
 ```
@@ -157,6 +158,36 @@ token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 
 <!-- #endregion round-trip -->
 
+The shop stores `body` against the order and prints `value` on the receipt. At
+the counter, `validate` turns what the customer reads back into the same `body`,
+or refuses it before the table is read:
+
+<!-- #region checkout -->
+
+```ts @import.meta.vitest
+import { createToken } from '@evanion/token';
+
+const token = createToken();
+
+/** Stands in for the orders table, keyed on each pickup code's body. */
+const orders = new Map<string, string>();
+
+const { value, body } = token.generate();
+orders.set(body, 'order-2026-0042');
+
+function findOrder(readBack: string): string {
+  const result = token.validate(readBack);
+  if (!result.valid) return `refused: ${result.reason}`;
+  return orders.get(result.body) ?? 'no such order';
+}
+
+findOrder(value); // -> 'order-2026-0042'
+findOrder('a4kp-9mxa'); // -> 'no such order'
+findOrder('a4kp-9nxa'); // -> 'refused: check-failed'
+```
+
+<!-- #endregion checkout -->
+
 Characters are drawn from `crypto.getRandomValues`, which is Web Crypto: the
 same CSPRNG in Node 20 and in a browser, so the package runs in either with no
 import and no polyfill. `generate` never retries and never checks for
@@ -169,10 +200,10 @@ collisions. See [Entropy](#entropy).
 ```ts @import.meta.vitest
 const token = createToken();
 
-token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
-token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
-token.validate('a4kp-9mxo'); // -> { valid: false, reason: 'outside-alphabet' }
-token.validate('a4kp-9mx'); // -> { valid: false, reason: 'wrong-length' }
+token.validate('b0zg-7kqb'); // -> { valid: true, body: 'b0zg7kq' }
+token.validate('b0zg-7kq8'); // -> { valid: false, reason: 'check-failed' }
+token.validate('bozg-7kqb'); // -> { valid: false, reason: 'outside-alphabet' }
+token.validate('b0zg-7kq'); // -> { valid: false, reason: 'wrong-length' }
 ```
 
 <!-- #endregion validate -->
@@ -278,7 +309,7 @@ counterCode.validate(value).valid; // -> true
 ## The prefix sits outside the checksum
 
 `ORD-a4kp-9mxa` checksums `a4kp9mx` only, and `validate` takes the code without
-the prefix:
+the prefix. Strip it in any case, with or without its separator:
 
 <!-- #region prefix -->
 
@@ -288,17 +319,22 @@ const token = createToken();
 const { value } = token.generate({ prefix: 'ORD' });
 
 token.validate(value); // -> { valid: false, reason: 'outside-alphabet' }
-token.validate(value.slice('ORD-'.length)).valid; // -> true
-value.startsWith('ORD-'); // -> true
+
+/** Validates a pickup code read back with or without its `ORD` prefix. */
+function validatePickupCode(readBack: string) {
+  return token.validate(readBack.replace(/^ord-?/i, ''));
+}
+
+validatePickupCode(value).valid; // -> true
+validatePickupCode(value.toLowerCase()).valid; // -> true
+validatePickupCode(value.replaceAll('-', '')).valid; // -> true
 ```
 
 <!-- #endregion prefix -->
 
-Folding the prefix in would require every prefix character to be in the
-alphabet, and `ORD` contains `o`, which is excluded precisely because it is
-confusable. Comparing the prefix is a literal string match, which is what a
-caller writing `value.startsWith('ORD-')` expects. `generate` draws the whole
-body at random, so no option brings a prefix under the check character.
+`generate` computes the check character over `body` alone, so no prefix is
+covered, whatever its characters. The strip is safe because the dictionary has
+no `o`: no code starts with one, so a leading `ord` is always the prefix.
 
 ## Entropy
 
@@ -400,7 +436,9 @@ the `offending` characters:
 import { InvalidAlphabetError, createToken } from '@evanion/token';
 
 /** The alphabet error `createToken` throws for `dictionary`, if it throws one. */
-function refusal(dictionary: string): InvalidAlphabetError | undefined {
+function dictionaryRefusal(
+  dictionary: string,
+): InvalidAlphabetError | undefined {
   try {
     createToken({ dictionary });
   } catch (error) {
@@ -412,11 +450,11 @@ function refusal(dictionary: string): InvalidAlphabetError | undefined {
 
 const everything = '0123456789abcdefghijklmnopqrstuvwxyz';
 
-refusal(everything)?.reason; // -> 'confusable'
-refusal(everything)?.offending; // -> ['i', 'l', 'o', 'w']
-refusal('0123456789abcdefghjkmnpqrstuvx')?.reason; // -> 'non-uniform'
-refusal('0123456789ABCDEFGHJKMNPQRSTUVXYZ')?.reason; // -> 'unfolded'
-refusal('0123456789abcdef'); // -> undefined
+dictionaryRefusal(everything)?.reason; // -> 'confusable'
+dictionaryRefusal(everything)?.offending; // -> ['i', 'l', 'o', 'w']
+dictionaryRefusal('0123456789abcdefghjkmnpqrstuvx')?.reason; // -> 'non-uniform'
+dictionaryRefusal('0123456789ABCDEFGHJKMNPQRSTUVXYZ')?.reason; // -> 'unfolded'
+dictionaryRefusal('0123456789abcdef'); // -> undefined
 ```
 
 <!-- #endregion alphabet-errors -->
@@ -469,11 +507,11 @@ Hexadecimal passes all four constraints, at four bits a character:
 <!-- #region hex -->
 
 ```ts @import.meta.vitest
-const hexCard = createToken({ dictionary: '0123456789abcdef', length: 12 });
+const hexCard = createToken({ dictionary: '0123456789abcdef', length: 16 });
 
 hexCard.n; // -> 16
-hexCard.entropyBits; // -> 44
-hexCard.generate().value.length; // -> 14
+hexCard.entropyBits; // -> 60
+hexCard.generate().value.length; // -> 19
 ```
 
 <!-- #endregion hex -->
@@ -520,7 +558,7 @@ A dictionary that fails one of Luhn's own constraints throws
 `TokenError`.
 
 Everything is checked at construction. Nothing is checked at use, so an
-instance you hold cannot produce a code its own `validate` rejects.
+instance you hold cannot produce an unprefixed code its own `validate` rejects.
 
 ## License
 
