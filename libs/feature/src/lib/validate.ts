@@ -1,4 +1,5 @@
 import { graphErrors } from './graph.js';
+import { ruleId } from './rule-id.js';
 import { variantErrors } from './variants.js';
 import {
   DuplicateFeatureError,
@@ -150,10 +151,77 @@ interface Readable {
   readonly variants: boolean;
   /** Whether `rules` arrived as an array of rule objects. */
   readonly rules: boolean;
+  /** Whether every condition of every rule is one `ruleId` can walk. */
+  readonly conditions: boolean;
 }
 
 /** Nothing the walks after it can read, for a definition that is not an object. */
-const UNREADABLE: Readable = { variants: false, rules: false };
+const UNREADABLE: Readable = {
+  variants: false,
+  rules: false,
+  conditions: false,
+};
+
+/** Every condition of one rule the checker cannot read. */
+function conditionIssues(
+  rule: Readonly<Record<string, unknown>>,
+  named: string,
+  at: string,
+  key?: FeatureKey,
+): readonly Found[] {
+  const when: unknown = rule['when'];
+  if (when === undefined) return [];
+  if (!Array.isArray(when)) {
+    return [
+      unreadable(
+        `${named} declares "when" on the rule at ${at} as ${met(when)}, and this checker reads an array of conditions`,
+        `${at}/when`,
+        key,
+      ),
+    ];
+  }
+
+  const conditions: readonly unknown[] = when;
+  const all: Found[] = [];
+  conditions.forEach((condition, inside) => {
+    const path = `${at}/when/${String(inside)}`;
+    if (!isRecord(condition)) {
+      all.push(
+        unreadable(
+          `${named} declares the condition at ${path} as ${met(condition)}, and this checker reads an object`,
+          path,
+          key,
+        ),
+      );
+      return;
+    }
+
+    for (const member of ['field', 'op'] as const) {
+      const value: unknown = condition[member];
+      if (typeof value === 'string') continue;
+      all.push(
+        unreadable(
+          `${named} declares "${member}" on the condition at ${path} as ${met(value)}, and this checker reads a string`,
+          `${path}/${member}`,
+          key,
+        ),
+      );
+    }
+
+    if (condition['op'] !== 'day-of-week') return;
+    const zone: unknown = condition['zone'];
+    if (typeof zone === 'string') return;
+    all.push(
+      unreadable(
+        `${named} declares "zone" on the day-of-week condition at ${path} as ${met(zone)}, and this checker reads a time zone name`,
+        `${path}/zone`,
+        key,
+      ),
+    );
+  });
+
+  return all;
+}
 
 /**
  * Every member a candidate document carries as something the checker cannot
@@ -179,14 +247,30 @@ const UNREADABLE: Readable = { variants: false, rules: false };
  * a store where `Object.fromEntries` writes both to `"[object Object]"`, so the
  * second one answers for the first and nothing reports it.
  *
- * A rule's `when` is not checked here, because nothing between `JSON.parse` and
- * this checker reads a condition. `documentRule` in `serialize.ts` states that
- * from the serializer's side.
+ * A rule's conditions are read because `ruleIdErrors` derives a name from them.
+ * `conditionText` in `rule-id.ts` length-prefixes `field`, `op` and a
+ * day-of-week `zone`, so a condition carrying any of the three as something
+ * other than a string is one the derivation cannot walk.
+ *
+ * Those condition issues reach the served document alone, and `arrayIsOrder`
+ * separates the two callers here the way it separates them in `variantErrors`.
+ * `createFeatures` takes the `any` `JSON.parse` returns through its inferring
+ * overload, and `serializeConfig` writes back a `when` the `Rule` type does not
+ * describe, element for element, which
+ * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` asks of it
+ * and `serialize.spec.ts` pins. A document that arrives at `validateConfig` is
+ * the one § 3 refuses, and the store a TypeScript author built keeps whatever
+ * its author wrote past the type. Either way the rule id walk skips a rule whose
+ * conditions it cannot name.
  */
-function shapeWalk(config: Checkable): {
+function shapeWalk(
+  config: Checkable,
+  options: VariantCheckOptions,
+): {
   readonly issues: readonly Found[];
   readonly rows: readonly Readable[];
 } {
+  const served = options.arrayIsOrder !== true;
   const definitions: unknown = config.features;
   if (!Array.isArray(definitions)) {
     return {
@@ -231,11 +315,10 @@ function shapeWalk(config: Checkable): {
       );
     }
 
-    const shapes: Record<'dependsOn' | 'variants' | 'rules', boolean> = {
-      dependsOn: true,
-      variants: true,
-      rules: true,
-    };
+    const shapes: Record<
+      'dependsOn' | 'variants' | 'rules' | 'conditions',
+      boolean
+    > = { dependsOn: true, variants: true, rules: true, conditions: true };
 
     for (const member of ['dependsOn', 'variants', 'rules'] as const) {
       const value: unknown = definition[member];
@@ -274,16 +357,23 @@ function shapeWalk(config: Checkable): {
       if (!shapes[member] || !Array.isArray(value)) continue;
       const elements: readonly unknown[] = value;
       elements.forEach((element, inside) => {
-        if (isRecord(element)) return;
         const path = `${pointer(at, member)}/${String(inside)}`;
-        shapes[member] = false;
-        all.push(
-          unreadable(
-            `${named} declares the ${ELEMENTS[member]} at ${path} as ${met(element)}, and this checker reads an object`,
-            path,
-            key,
-          ),
-        );
+        if (!isRecord(element)) {
+          shapes[member] = false;
+          all.push(
+            unreadable(
+              `${named} declares the ${ELEMENTS[member]} at ${path} as ${met(element)}, and this checker reads an object`,
+              path,
+              key,
+            ),
+          );
+          return;
+        }
+        if (member !== 'rules') return;
+        const inner = conditionIssues(element, named, path, key);
+        if (inner.length === 0) return;
+        shapes.conditions = false;
+        if (served) all.push(...inner);
       });
     }
 
@@ -292,29 +382,56 @@ function shapeWalk(config: Checkable): {
       ...(dependsOn === undefined ? {} : { dependsOn }),
       variants: shapes.variants,
       rules: shapes.rules,
+      conditions: shapes.conditions,
     });
   });
 
   return { issues: all, rows };
 }
 
-/** Two rules of one feature declaring one id. */
+/**
+ * Two rules of one feature answering one id.
+ *
+ * `derived` widens the comparison from the ids two rules declare to the id
+ * `ruleId` answers for each of them, which is the name `Decision.rule` and
+ * `RuleOutcome.rule` both carry. § 2 puts the check in place
+ * because two rules answering one name make "a dashboard keyed on that name
+ * report two rules as one", and a rule declaring no `id` is named by a hash of
+ * what it matches on, so a declared id and a derived one collide on that name as
+ * readily as two declared ones. `rolloutText` excludes `rollout.percent`, which
+ * is what makes two ramps on one feature over one condition set the reachable
+ * case: both rules match, both derive one id, and a decision naming it names
+ * both.
+ *
+ * `collectIssues` widens it for the served document and leaves it narrow for the
+ * literal, because `canonical` recurses through a condition value and `ruleId`
+ * hands it whatever the value holds. `JSON.parse` returns a value that holds no
+ * reference to itself, and a store a TypeScript author built may hold one, which
+ * `serializeConfig` refuses and `deepFreeze` guards for. The narrow comparison
+ * reads `rule.id` and recurses through nothing.
+ */
 function ruleIdErrors(
   definition: FeatureDefinition<FeatureKey>,
+  derived: boolean,
 ): readonly FeatureConfigError[] {
-  const seen = new Set<string>();
+  const declaredFirst = new Map<string, boolean>();
   const errors: FeatureConfigError[] = [];
   for (const rule of definition.rules ?? []) {
-    if (rule.id === undefined) continue;
-    if (seen.has(rule.id)) {
-      errors.push(
-        new FeatureConfigError(
-          `feature "${String(definition.key)}" declares the rule id "${rule.id}" twice`,
-        ),
-      );
+    const declared = rule.id !== undefined;
+    const id = derived ? ruleId(rule) : rule.id;
+    if (id === undefined) continue;
+    const first = declaredFirst.get(id);
+    if (first === undefined) {
+      declaredFirst.set(id, declared);
       continue;
     }
-    seen.add(rule.id);
+    errors.push(
+      new FeatureConfigError(
+        first && declared
+          ? `feature "${String(definition.key)}" declares the rule id "${id}" twice`
+          : `feature "${String(definition.key)}" answers the rule id "${id}" for two rules, and a decision that names it names both`,
+      ),
+    );
   }
   return errors;
 }
@@ -340,7 +457,8 @@ export function collectIssues(
   config: Checkable,
   options: VariantCheckOptions = {},
 ): readonly Found[] {
-  const { issues, rows } = shapeWalk(config);
+  const served = options.arrayIsOrder !== true;
+  const { issues, rows } = shapeWalk(config, options);
   const all: Found[] = [...issues];
 
   const nodes: GraphNode<FeatureKey>[] = [];
@@ -375,8 +493,10 @@ export function collectIssues(
       }
     }
 
+    // `ruleIdErrors` derives a name from a rule's conditions, so it derives one
+    // only where the checker walked them.
     if (!row.rules) return;
-    for (const error of ruleIdErrors(definition)) {
+    for (const error of ruleIdErrors(definition, served && row.conditions)) {
       all.push(
         found('duplicate-rule-id', error, row.key, pointer(at, 'rules')),
       );

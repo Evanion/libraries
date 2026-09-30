@@ -682,13 +682,18 @@ describe('validateConfig', () => {
         {
           key: 'cta',
           enabled: true,
-          rules: [{ variant: 'blue' }, { variant: 'green' }],
+          rules: [
+            { id: 'to-blue', variant: 'blue' },
+            { id: 'to-green', variant: 'green' },
+          ],
         },
       ],
     };
 
     const result = validateConfig(config);
 
+    // Both rules carry an id, because two rules matching on nothing derive one
+    // and `duplicate-rule-id` is what this document would report first.
     expect(result.ok === false && result.issues).toEqual([
       {
         code: 'unknown-variant',
@@ -922,7 +927,7 @@ describe('validateConfig', () => {
     expect(validateConfig(config)).toEqual({ ok: true });
   });
 
-  it('accepts a declared id that collides with one another rule derives', () => {
+  it('reports a declared id that collides with one another rule derives', () => {
     const derived = {
       when: [{ field: 'staff', op: 'eq', value: true }],
     } satisfies Rule;
@@ -931,11 +936,88 @@ describe('validateConfig', () => {
       features: [{ key: 'beta', enabled: true, rules: [declared, derived] }],
     };
 
-    // `ruleIdErrors` compares declared ids, and a rule declaring none is named
-    // by a hash of what it matches on, so these two rules answer one id and a
-    // decision naming it names both.
+    // Section 2: two rules answering one name make a dashboard keyed on that
+    // name report two rules as one. `ruleId` is the name `Decision.rule`,
+    // `RuleOutcome.rule` and an assignment all carry, and a rule declaring no
+    // id is named by a hash of what it matches on.
     expect(ruleId(declared)).toBe(ruleId(derived));
+    expect(validateConfig(config)).toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'duplicate-rule-id',
+          key: 'beta',
+          message: `feature "beta" answers the rule id "${ruleId(derived)}" for two rules, and a decision that names it names both`,
+          path: '/features/0/rules',
+        },
+      ],
+    });
+  });
+
+  it('reports two ramps of one feature over one condition set', () => {
+    const when = [
+      { field: 'plan', op: 'eq', value: 'pro' },
+    ] satisfies Rule['when'];
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [
+            { when, rollout: { percent: 20, by: 'accountId' } },
+            { when, rollout: { percent: 50, by: 'accountId' } },
+          ],
+        },
+      ],
+    };
+
+    // `rolloutText` excludes `rollout.percent`, so an operator moving a ramp
+    // does not rename the rule. Two ramps over one condition set therefore
+    // derive one id, and both of them are reachable: a subject the first refuses
+    // is bucketed against the second.
+    expect(codesOf(config)).toEqual(['duplicate-rule-id']);
+  });
+
+  it('accepts two ramps of one feature that declare their own ids', () => {
+    const when = [
+      { field: 'plan', op: 'eq', value: 'pro' },
+    ] satisfies Rule['when'];
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [
+            { id: 'early', when, rollout: { percent: 20 } },
+            { id: 'late', when, rollout: { percent: 50 } },
+          ],
+        },
+      ],
+    };
+
     expect(validateConfig(config)).toEqual({ ok: true });
+  });
+
+  it('leaves createFeatures comparing the ids a literal declares', () => {
+    const when = [
+      { field: 'plan', op: 'eq', value: 'pro' },
+    ] satisfies Rule['when'];
+
+    // A store a TypeScript author built may hold a condition value that closes
+    // on itself, which `serializeConfig` refuses and `canonical` recurses
+    // through, so the derivation runs over the document a transport delivered.
+    expect(() =>
+      createFeatures([
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [
+            { when, rollout: { percent: 20 } },
+            { when, rollout: { percent: 50 } },
+          ],
+        },
+      ]),
+    ).not.toThrow();
   });
 });
 
@@ -1623,5 +1705,104 @@ describe('validateConfig, on the bucketing members § 3 has travel whole', () =>
     ]);
 
     expect(validateConfig(serializeConfig(features))).toEqual({ ok: true });
+  });
+});
+
+describe('validateConfig, on the conditions a served rule declares', () => {
+  /** What a served body reaches the checker as: whatever `JSON.parse` returned. */
+  function served(body: string): FeatureConfig {
+    return JSON.parse(body) as FeatureConfig;
+  }
+
+  /** One feature whose single rule carries the `when` this case gives it. */
+  function document(when: string): FeatureConfig {
+    return served(
+      `{"features":[{"key":"a","enabled":true,"rules":[{"when":${when}}]}]}`,
+    );
+  }
+
+  it('reports a when that arrived as an object', () => {
+    const result = validateConfig(document('{"field":"plan"}'));
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "when" on the rule at /features/0/rules/0 as an object, and this checker reads an array of conditions',
+        path: '/features/0/rules/0/when',
+      },
+    ]);
+  });
+
+  it('reports a condition that is not an object', () => {
+    expect(messagesOf(document('[null]'))).toEqual([
+      'feature "a" declares the condition at /features/0/rules/0/when/0 as null, and this checker reads an object',
+    ]);
+  });
+
+  it('reports a field and an op the derivation cannot length-prefix', () => {
+    const result = validateConfig(document('[{"value":true}]'));
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/rules/0/when/0/field',
+      '/features/0/rules/0/when/0/op',
+    ]);
+  });
+
+  it('reports a day-of-week condition carrying no zone', () => {
+    const result = validateConfig(
+      document('[{"field":"now","op":"day-of-week","value":[1]}]'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "zone" on the day-of-week condition at /features/0/rules/0/when/0 as nothing, and this checker reads a time zone name',
+        path: '/features/0/rules/0/when/0/zone',
+      },
+    ]);
+  });
+
+  it('accepts a day-of-week condition carrying one', () => {
+    expect(
+      validateConfig(
+        document(
+          '[{"field":"now","op":"day-of-week","value":[1],"zone":"Europe/Stockholm"}]',
+        ),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts a rule carrying no when at all', () => {
+    expect(
+      validateConfig(
+        served('{"features":[{"key":"a","enabled":true,"rules":[{}]}]}'),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('derives no rule id for a feature whose conditions it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"rules":[{"when":[null]},{"when":[null]}]}]}',
+      ),
+    );
+
+    // Two rules matching on the same unreadable condition would answer one
+    // derived id, and `canonical` has no text for a condition this checker could
+    // not walk.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'unknown-member']);
+  });
+
+  it('throws none of this either', () => {
+    expect(() => validateConfig(document('[{"op":3}]'))).not.toThrow();
+    expect(() => validateConfig(document('"ab"'))).not.toThrow();
   });
 });
