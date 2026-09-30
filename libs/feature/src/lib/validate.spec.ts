@@ -2365,6 +2365,26 @@ describe('validateConfig, on a member below a definition that this checker does 
     ]);
   });
 
+  it('still derives the id of a rule whose condition declares one', () => {
+    const config = served(
+      '{"features":[{"key":"cta","enabled":true,"rules":' +
+        '[{"when":[{"field":"plan","op":"eq","value":"pro","caseInsensitive":true}]},' +
+        '{"when":[{"field":"plan","op":"eq","value":"pro","caseInsensitive":true}]}]}]}',
+    );
+
+    // The split `ConditionIssues` draws. A member the checker read the shape of
+    // and reads no member by costs the derivation nothing, because
+    // `conditionText` writes `field`, `op` and the value and both rules still
+    // carry all three, so the two answer one name and § 2's collision is
+    // reported. A condition it could not read at all is what puts a rule in
+    // `unwalked`.
+    expect(codesOf(config)).toEqual([
+      'unknown-member',
+      'unknown-member',
+      'duplicate-rule-id',
+    ]);
+  });
+
   it('builds a store from a document carrying all four', () => {
     const config = served(
       '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
