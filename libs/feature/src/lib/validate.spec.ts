@@ -1280,6 +1280,41 @@ describe('validateConfig, on a document whose members are not the declared shape
     ]);
   });
 
+  it('reports a rule id that arrived as a number', () => {
+    const result = validateConfig(
+      served('{"features":[{"key":"a","enabled":true,"rules":[{"id":1}]}]}'),
+    );
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        key: 'a',
+        message:
+          'feature "a" declares "id" on the rule at /features/0/rules/0 as a number, and this checker reads a string',
+        path: '/features/0/rules/0/id',
+      },
+    ]);
+  });
+
+  it('refuses the two ids that answer one name in a decision', () => {
+    const numeric = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"rules":[{"id":1},{"id":"1"}]}]}',
+      ),
+    );
+    const objects = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"rules":[{"id":{}},{"id":{}}]}]}',
+      ),
+    );
+
+    // `ruleId` returns `rule.id` unchanged, so each of these pairs names one
+    // rule in `Decision.rule` while `ruleIdErrors` keys its map on two values.
+    // That is the collision § 2 puts `duplicate-rule-id` in place to prevent.
+    expect(numeric.ok).toBe(false);
+    expect(objects.ok).toBe(false);
+  });
+
   it('throws none of this, which is what the reload path is built on', () => {
     expect(() => validateConfig(served('null'))).not.toThrow();
     expect(() => validateConfig(served('{"version":1}'))).not.toThrow();
