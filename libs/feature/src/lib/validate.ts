@@ -154,10 +154,22 @@ interface Readable {
   readonly dependsOn?: readonly FeatureKey[];
   /** Whether `variants` is an array the variant walk reads. */
   readonly variants: boolean;
+  /**
+   * Whether the definition declares a `variants` member the checker could not
+   * read. § 3 asks a definition declaring variants for a `variantBy` and a
+   * `variantSeed` and reads both off the definition, so the two are asked for a
+   * member this checker never walked as well.
+   */
+  readonly unreadVariants?: boolean;
   /** Whether `rules` is an array the rule walks read. */
   readonly rules: boolean;
-  /** Whether every condition of every rule is one `ruleId` can walk. */
-  readonly conditions: boolean;
+  /**
+   * The rules whose conditions the checker could not walk, by identity. Absent
+   * where it walked every one. `ruleIdErrors` reads the id one of these
+   * declares and derives none, because `ruleId` names a rule by what it matches
+   * on and `conditionText` has no text for a condition this checker refused.
+   */
+  readonly unwalked?: ReadonlySet<unknown>;
   /**
    * The variants the checker read, where it could not read every element of the
    * array. Absent where it read them all, and where `variants` is not an array.
@@ -171,11 +183,10 @@ interface Readable {
 }
 
 /** Nothing the walks after it can read, for a definition that is not an object. */
-const UNREADABLE: Readable = {
-  variants: false,
-  rules: false,
-  conditions: false,
-};
+const UNREADABLE: Readable = { variants: false, rules: false };
+
+/** The set a row carries where the checker walked the conditions of every rule. */
+const EMPTY: ReadonlySet<unknown> = new Set();
 
 /** Every condition of one rule the checker cannot read. */
 function conditionIssues(
@@ -376,10 +387,11 @@ function shapeWalk(
       );
     }
 
-    const shapes: Record<
-      'dependsOn' | 'variants' | 'rules' | 'conditions',
-      boolean
-    > = { dependsOn: true, variants: true, rules: true, conditions: true };
+    const shapes: Record<'dependsOn' | 'variants' | 'rules', boolean> = {
+      dependsOn: true,
+      variants: true,
+      rules: true,
+    };
 
     for (const member of ['dependsOn', 'variants', 'rules'] as const) {
       const value: unknown = definition[member];
@@ -433,6 +445,11 @@ function shapeWalk(
       variants: true,
       rules: true,
     };
+    // The rules whose conditions this walk refused, which the id walk names by
+    // what each one declares. An element-level defect costs the walks beside it
+    // that one element, and the conditions of one rule are as much an element
+    // as the id of one rule is.
+    const unwalked = new Set<unknown>();
 
     for (const member of ['variants', 'rules'] as const) {
       const value: unknown = definition[member];
@@ -469,7 +486,7 @@ function shapeWalk(
         }
         const inner = conditionIssues(element, named, path, key);
         if (inner.length > 0) {
-          shapes.conditions = false;
+          unwalked.add(element);
           if (served) all.push(...inner);
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
@@ -482,8 +499,9 @@ function shapeWalk(
       ...(key === undefined ? {} : { key }),
       ...(dependsOn === undefined ? {} : { dependsOn }),
       variants: shapes.variants,
+      ...(shapes.variants ? {} : { unreadVariants: true }),
       rules: shapes.rules,
-      conditions: shapes.conditions,
+      ...(unwalked.size === 0 ? {} : { unwalked }),
       // Each element answered `isRecord` above, which is the shape the walks
       // after this one read their members off.
       ...(every.variants
@@ -526,39 +544,43 @@ function derivedId(rule: Rule): string | undefined {
 /**
  * Two rules of one feature answering one id.
  *
- * `derived` widens the comparison from the ids two rules declare to the id
- * `ruleId` answers for each of them, which is the name `Decision.rule` and
- * `RuleOutcome.rule` both carry. § 2 puts the check in place
- * because two rules answering one name make "a dashboard keyed on that name
- * report two rules as one", and a rule declaring no `id` is named by a hash of
- * what it matches on, so a declared id and a derived one collide on that name as
- * readily as two declared ones. `rolloutText` excludes `rollout.percent`, which
- * is what makes two ramps on one feature over one condition set the reachable
- * case: both rules match, both derive one id, and a decision naming it names
- * both.
+ * The comparison runs over the id `ruleId` answers for each rule, which is the
+ * name `Decision.rule` and `RuleOutcome.rule` both carry, and not over the ids
+ * two rules declare. § 2 puts the check in place because two rules answering one
+ * name make "a dashboard keyed on that name report two rules as one", and a rule
+ * declaring no `id` is named by a hash of what it matches on, so a declared id
+ * and a derived one collide on that name as readily as two declared ones.
+ * `rolloutText` excludes `rollout.percent`, which is what makes two ramps on one
+ * feature over one condition set the reachable case: both rules match, both
+ * derive one id, and a decision naming it names both.
  *
- * `collectIssues` widens it for both callers and narrows it only where the shape
- * walk could not name a rule's conditions. The Testing section of the spec has
+ * It runs that way for both callers. The Testing section of the spec has
  * `serializeConfig(features)` through a JSON hop and `parseFeatureConfig` produce
  * a store whose `config` deep-equals the original, and Decision 11 has one
  * checker answer for both envelopes, so two rules of one feature that derive one
  * id are refused where the configuration is supplied rather than at the first
- * poll of the document a store emitted. `rolloutText` excludes `rollout.percent`,
- * which makes two ramps on one feature over one condition set the reachable case.
+ * poll of the document a store emitted.
  *
- * `derivedId` is what lets the wide comparison read a store an author built. A
+ * `unwalked` holds the rules whose conditions the shape walk refused, and those
+ * are read for the id they declare. A hash of what such a rule matches on is a
+ * hash this checker cannot take, and the id it declares is the name a decision
+ * carries either way, so two rules declaring one id are reported although one of
+ * them carries a `when` the operator has yet to fix. A rule in there declaring no
+ * id is the one rule the walk drops, which is what an unreadable `rule.id` gets.
+ *
+ * `derivedId` is what lets the comparison read a store an author built. A
  * condition value that closes on itself has no canonical text, and Decision 12
  * gives that refusal to `serializeConfig`, which names the member.
  */
 function ruleIdErrors(
   definition: FeatureDefinition<FeatureKey>,
-  derived: boolean,
+  unwalked: ReadonlySet<unknown>,
 ): readonly FeatureConfigError[] {
   const declaredFirst = new Map<string, boolean>();
   const errors: FeatureConfigError[] = [];
   for (const rule of definition.rules ?? []) {
     const declared = rule.id !== undefined;
-    const id = derived ? derivedId(rule) : rule.id;
+    const id = unwalked.has(rule) ? rule.id : derivedId(rule);
     if (id === undefined) continue;
     const first = declaredFirst.get(id);
     if (first === undefined) {
@@ -624,21 +646,27 @@ export function collectIssues(
 
     // The definition the walks below read, whose `variants` and `rules` hold
     // the elements the shape walk read. An element it could not read is the one
-    // element they drop.
+    // element they drop, and a member it could not read at all is one it strips,
+    // so no walk below reads a value the shape walk has already reported.
     const walked: FeatureDefinition<FeatureKey> = {
       ...definition,
-      ...(row.someVariants === undefined ? {} : { variants: row.someVariants }),
-      ...(row.someRules === undefined ? {} : { rules: row.someRules }),
+      variants: row.variants
+        ? (row.someVariants ?? definition.variants)
+        : undefined,
+      rules: row.rules ? (row.someRules ?? definition.rules) : undefined,
     };
 
     // `variantErrors` reads `variants`, and reads `rules` for the variant pins
     // alone, so it runs wherever the checker read the variants and `rulePins`
-    // carries what it made of the rules.
-    if (row.variants) {
+    // carries what it made of the rules. It runs over a `variants` the checker
+    // could not read as well, for the two bucketing members § 3 reads off the
+    // definition.
+    if (row.variants || row.unreadVariants) {
       for (const defect of variantErrors(walked, {
         ...options,
         rulePins: row.rules,
         everyVariant: row.someVariants === undefined,
+        unreadVariants: row.unreadVariants === true,
       })) {
         all.push(
           found(defect.code, defect.error, row.key, pointer(at, defect.member)),
@@ -646,10 +674,10 @@ export function collectIssues(
       }
     }
 
-    // `ruleIdErrors` derives a name from a rule's conditions, so it derives one
-    // only where the checker walked them.
+    // `ruleIdErrors` reads the rules the shape walk read, and names each one by
+    // the conditions it walked or by the id the rule declares.
     if (!row.rules) return;
-    for (const error of ruleIdErrors(walked, row.conditions)) {
+    for (const error of ruleIdErrors(walked, row.unwalked ?? EMPTY)) {
       all.push(
         found('duplicate-rule-id', error, row.key, pointer(at, 'rules')),
       );

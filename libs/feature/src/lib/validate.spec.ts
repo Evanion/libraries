@@ -1098,7 +1098,10 @@ describe('validateConfig, on a document whose members are not the declared shape
 
   it('reports a variants member that is not an array', () => {
     const result = validateConfig(
-      served('{"features":[{"key":"a","enabled":true,"variants":{}}]}'),
+      served(
+        '{"features":[{"key":"a","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"a:variant","variants":{}}]}',
+      ),
     );
 
     expect(result.ok === false && result.issues).toEqual([
@@ -1259,10 +1262,27 @@ describe('validateConfig, on a document whose members are not the declared shape
     ).toEqual(['/features/0/rules/0/id', '/features/0/rules']);
   });
 
+  it('holds a pin on a rule it read against the names the variants declare', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0}],' +
+          '"rules":[null,{"variant":"ghost"}]}]}',
+      ),
+    );
+
+    // The element the checker dropped is a rule, and the names a pin is held
+    // against are the ones the variants declare, which it read whole.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'unknown-variant']);
+  });
+
   it('reports the graph beside a member of one definition it could not read', () => {
     const result = validateConfig(
       served(
-        '{"features":[{"key":"a","enabled":true},{"key":"a","enabled":true,"variants":7}]}',
+        '{"features":[{"key":"a","enabled":true},{"key":"a","enabled":true,' +
+          '"variantBy":"targetingKey","variantSeed":"a:variant","variants":7}]}',
       ),
     );
 
@@ -1279,7 +1299,8 @@ describe('validateConfig, on a document whose members are not the declared shape
     const result = validateConfig(
       served(
         '{"features":[' +
-          '{"key":"a","enabled":true,"variants":{}},' +
+          '{"key":"a","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"a:variant","variants":{}},' +
           '{"key":"b","enabled":true,"variantBy":"accountId","variantSeed":"b:v",' +
           '"variants":[{"name":"only","weight":0,"order":0}]}]}',
       ),
@@ -1293,7 +1314,9 @@ describe('validateConfig, on a document whose members are not the declared shape
   it('walks no variant of the definition whose variants it could not read', () => {
     const result = validateConfig(
       served(
-        '{"features":[{"key":"a","enabled":true,"variants":7,"rules":[{"id":"pin","variant":"ghost"}]}]}',
+        '{"features":[{"key":"a","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"a:variant","variants":7,' +
+          '"rules":[{"id":"pin","variant":"ghost"}]}]}',
       ),
     );
 
@@ -1304,10 +1327,32 @@ describe('validateConfig, on a document whose members are not the declared shape
     ).toEqual(['/features/0/variants']);
   });
 
+  it('asks for the bucketing members of a definition whose variants it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variants":{"control":1}}]}',
+      ),
+    );
+
+    // The two members are read off the definition and not off the set, and a
+    // definition that declares `variants` declares them whatever the member
+    // arrived as, so an operator who fixes `variants` and re-polls meets
+    // neither for the first time.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual([
+      '/features/0/variants',
+      '/features/0/variantBy',
+      '/features/0/variantSeed',
+    ]);
+  });
+
   it('reads a member every definition declares, so one document names them all', () => {
     const result = validateConfig(
       served(
-        '{"features":[{"key":"a","enabled":true,"dependsOn":"b"},{"key":"b","enabled":true,"variants":0}]}',
+        '{"features":[{"key":"a","enabled":true,"dependsOn":"b"},' +
+          '{"key":"b","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"b:variant","variants":0}]}',
       ),
     );
 
@@ -1318,7 +1363,10 @@ describe('validateConfig, on a document whose members are not the declared shape
 
   it('names no key for a definition whose own key is not a string or a number', () => {
     const result = validateConfig(
-      served('{"features":[{"key":{},"enabled":true,"variants":7}]}'),
+      served(
+        '{"features":[{"key":{},"enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":7}]}',
+      ),
     );
 
     expect(result.ok === false && result.issues).toEqual([
@@ -2118,6 +2166,37 @@ describe('validateConfig, on the conditions a served rule declares', () => {
     expect(
       result.ok === false && result.issues.map((issue) => issue.code),
     ).toEqual(['unknown-member', 'unknown-member']);
+  });
+
+  it('derives the id of every rule beside one whose conditions it could not read', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,"rules":[{"when":"nope"},' +
+          '{"rollout":{"percent":10}},{"rollout":{"percent":50}}]}]}',
+      ),
+    );
+
+    // `rolloutText` excludes `rollout.percent`, so the two ramps answer one
+    // derived id. The rule the checker could not walk costs the derivation
+    // that one rule and no other.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'duplicate-rule-id']);
+  });
+
+  it('names a rule whose conditions it could not walk by the id that rule declares', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"a","enabled":true,' +
+          '"rules":[{"id":"x","when":[null]},{"id":"x"}]}]}',
+      ),
+    );
+
+    // `ruleId` returns a declared id unchanged, so the rule whose conditions
+    // the checker dropped is still one a decision names "x".
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member', 'duplicate-rule-id']);
   });
 
   it('throws none of this either', () => {

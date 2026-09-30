@@ -97,6 +97,22 @@ export interface VariantCheckOptions {
    * definition and not the set, so they are reported.
    */
   readonly everyVariant?: boolean;
+  /**
+   * Whether the definition declares a `variants` member this function did not
+   * receive.
+   *
+   * `collectIssues` passes `true` for a definition whose `variants` arrived as
+   * something other than an array, which it has already reported as
+   * `unknown-member`, and hands this function the definition without that
+   * member. § 3 of
+   * `docs/specs/2026-09-23-feature-config-distribution.md` reads the two
+   * bucketing members off the definition, and a definition declares variants
+   * whatever the member arrived as, so both are still asked for. The checks that
+   * read the array stand down: there is no set to name a duplicate name, a
+   * weight or an order in, and the names a pin is held against are the ones that
+   * member declares.
+   */
+  readonly unreadVariants?: boolean;
 }
 
 /** What a holder does with a stripped member, for the message that refuses it. */
@@ -112,6 +128,37 @@ function bare(
   message: string,
 ): VariantDefect {
   return { error: new FeatureConfigError(message), code, member };
+}
+
+/**
+ * The two members § 3 has travel with a served document's variants.
+ *
+ * The code is `unknown-member`, because the 18 codes of § 7 name no missing
+ * member and § 3 gives that code to a member whose value this holder cannot
+ * read. A document carrying no readable `variantBy` carries no bucketing field,
+ * and an operator fixes the same member either way.
+ *
+ * Both are read off the definition and not off the variant set, so a definition
+ * whose `variants` the caller could not read is asked for them too.
+ */
+function bucketingDefects<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  options: VariantCheckOptions,
+): readonly VariantDefect[] {
+  if (options.arrayIsOrder === true) return [];
+  const key = String(definition.key);
+  const found: VariantDefect[] = [];
+  for (const member of ['variantBy', 'variantSeed'] as const) {
+    if (typeof definition[member] === 'string') continue;
+    found.push(
+      bare(
+        'unknown-member',
+        member,
+        `feature "${key}" declares variants and no "${member}" this checker can read, and a holder that fills the gap ${FILLS[member]}`,
+      ),
+    );
+  }
+  return found;
 }
 
 /**
@@ -141,8 +188,8 @@ function bare(
  * Every variant and every rule arrives as the object its type declares.
  * `collectIssues` reports an element of either array that is not an object and
  * hands this function the elements it read, with `everyVariant` off where it
- * dropped a variant and `rulePins` off where `rules` is the member it could not
- * read at all.
+ * dropped a variant, `rulePins` off where `rules` is the member it could not
+ * read at all, and `unreadVariants` on where `variants` is.
  */
 export function variantErrors<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
@@ -155,6 +202,13 @@ export function variantErrors<F extends FeatureKey>(
   const pins: readonly Rule[] =
     options.rulePins === false || !whole ? [] : (definition.rules ?? []);
   if (!variants) {
+    // A `variants` the caller could not read is a member the definition
+    // declares, and § 3 asks for the bucketing members of every definition
+    // declaring variants. The pins stand down: a pin is held against the names
+    // that member declares, and this walk read none of them.
+    if (options.unreadVariants === true) {
+      return bucketingDefects(definition, options);
+    }
     for (const rule of pins) {
       if (rule.variant !== undefined) {
         found.push({
@@ -269,7 +323,11 @@ export function variantErrors<F extends FeatureKey>(
         `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`,
       ),
     );
-  } else if (whole && declaredOrders > 0 && declaredOrders !== variants.length) {
+  } else if (
+    whole &&
+    declaredOrders > 0 &&
+    declaredOrders !== variants.length
+  ) {
     found.push(
       bare(
         'invalid-variant-order',
@@ -279,22 +337,7 @@ export function variantErrors<F extends FeatureKey>(
     );
   }
 
-  if (options.arrayIsOrder !== true) {
-    // `unknown-member`, because the 18 codes of § 7 name no missing member and
-    // § 3 gives that code to a member whose value this holder cannot read. A
-    // document carrying no readable `variantBy` carries no bucketing field, and
-    // an operator fixes the same member either way.
-    for (const member of ['variantBy', 'variantSeed'] as const) {
-      if (typeof definition[member] === 'string') continue;
-      found.push(
-        bare(
-          'unknown-member',
-          member,
-          `feature "${key}" declares variants and no "${member}" this checker can read, and a holder that fills the gap ${FILLS[member]}`,
-        ),
-      );
-    }
-  }
+  found.push(...bucketingDefects(definition, options));
 
   for (const rule of pins) {
     if (rule.variant !== undefined && !names.has(rule.variant)) {
