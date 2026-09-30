@@ -264,6 +264,48 @@ refused; // -> 'setCorrelationId() was called outside a correlation context. App
 
 <!-- #endregion outside-a-request -->
 
+`examples/restock.job.ts` is a queue consumer that runs its work in a context
+holding the id its message carried, or a generated one when the message carried
+none or one that fails `validate`. Built by hand around a stand-in for the
+client it calls, this is the id each of three messages runs under:
+
+<!-- #region restock-by-hand -->
+
+```ts @import.meta.vitest
+import {
+  CorrelationService,
+  DEFAULT_CORRELATION_ID_VALIDATOR,
+} from '@evanion/nestjs-correlation-id';
+import { RestockJob } from './examples/restock.job.js';
+
+const config = {
+  header: 'X-Correlation-Id',
+  generator: () => 'orders-7c41d2',
+  validate: DEFAULT_CORRELATION_ID_VALIDATOR,
+};
+const correlation = new CorrelationService(config);
+
+// Stands in for StockClient and records the id each call runs under, the id
+// StockModule's HttpService sends to stock. `as never` lets it stand in for the
+// class, which also holds an HttpService.
+const sent: (string | undefined)[] = [];
+const stock = {
+  level: async (game: string) => {
+    sent.push(correlation.getCorrelationId());
+    return { game, available: 3 };
+  },
+};
+const job = new RestockJob(correlation, config, stock as never);
+
+await job.handle({ game: 'urn:game:azul', correlationId: 'storefront-4f1c9a' });
+await job.handle({ game: 'urn:game:azul' });
+await job.handle({ game: 'urn:game:azul', correlationId: 'storefront 4f1c9a' });
+
+sent; // -> ['storefront-4f1c9a', 'orders-7c41d2', 'orders-7c41d2']
+```
+
+<!-- #endregion restock-by-hand -->
+
 ## Configuration
 
 `CorrelationModule.forRoot()` accepts a `Partial<CorrelationConfig>` and fills
