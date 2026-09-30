@@ -256,6 +256,45 @@ const DEFINITION_MEMBERS: Record<keyof FeatureDefinition, true> = {
 const DEFINED: ReadonlySet<string> = new Set(Object.keys(DEFINITION_MEMBERS));
 
 /**
+ * The two scalars of a definition that decide an answer and that no walk below
+ * reads a type off.
+ *
+ * `key` and `enabled` are read for both callers above, and `dependsOn`,
+ * `variants` and `rules` are read for the walks they feed. `variantBy` and
+ * `variantSeed` reach `bucketingDefects`. These two reach the evaluation and
+ * nothing else. `rolloutSeed` at `evaluate.ts:24-29` returns
+ * `rule.rollout?.seed ?? definition.seed ?? String(definition.key)` and declares
+ * `string`, and `encodePair` at `bucketing.ts:47` reads `seed.length`, so a
+ * number writes the text `undefined:` where the string `"5"` writes `1:5` and
+ * the holder ramps a population the publisher never chose. `planFeature` at
+ * `evaluate.ts:302` reads `freezeTimeAtBuild` as a bare truthiness test, so a
+ * served `"false"` resolves a time window at build time where the publisher's
+ * `false` deferred it to the request.
+ *
+ * § 3 covers the seed by name: every member the assignment algorithm reads
+ * travels whole or the document is refused. Both sit behind the `served` gate
+ * for the reason the member walk does. Neither raises out of `resolve`, and the
+ * compiler answers the author who writes a literal.
+ */
+const SCALARS: Readonly<
+  Record<
+    'seed' | 'freezeTimeAtBuild',
+    { readonly type: string; readonly reads: string }
+  >
+> = {
+  seed: {
+    type: 'string',
+    reads:
+      'the string every rollout of this feature hashes its subjects against, so a holder installing this document would ramp a different population than the publisher',
+  },
+  freezeTimeAtBuild: {
+    type: 'boolean',
+    reads:
+      'the boolean a plan reads the build-time clock by, so a holder installing this document would resolve a time window the publisher deferred',
+  },
+};
+
+/**
  * Every key one member of a union declares. `keyof` over a union answers the
  * keys they share, so the distribution is what holds a set to the members of
  * two condition types and not to the ones they have in common.
@@ -740,6 +779,19 @@ function shapeWalk(
         all.push(
           unreadable(
             `${named} declares "${member}", and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
+            pointer(at, member),
+            key,
+          ),
+        );
+      }
+
+      for (const member of ['seed', 'freezeTimeAtBuild'] as const) {
+        const value: unknown = definition[member];
+        if (value === undefined || typeof value === SCALARS[member].type)
+          continue;
+        all.push(
+          unreadable(
+            `${named} declares "${member}" as ${met(value)}, and this checker reads ${SCALARS[member].reads}`,
             pointer(at, member),
             key,
           ),
