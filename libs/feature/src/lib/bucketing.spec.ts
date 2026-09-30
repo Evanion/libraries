@@ -194,28 +194,37 @@ describe('murmur3', () => {
 });
 
 describe('utf8', () => {
-  it('agrees with TextEncoder on every code point', () => {
-    // The Encoding Standard's UTF-8 encoder is what this walk states in source,
-    // and `bucketOf` and `configDigest` commit its bytes to a Swift or Kotlin
-    // port. One string per byte width leaves the three width branches untested
-    // at their boundaries: widening `point < 0x800` to `<=` writes U+0800 as
-    // two bytes, and no pinned hash in this file or in `digest.spec.ts` reads a
-    // code point that branch decides.
-    const reference = new TextEncoder();
-    const disagreements: string[] = [];
+  // 1.1 million iterations, each allocating a string and two byte arrays, which
+  // is over a second on an idle machine and past vitest's 5 second default on a
+  // loaded one.
+  const EVERY_CODE_POINT = 60_000;
 
-    for (let point = 0; point <= 0x10ffff; point += 1) {
-      const text = String.fromCodePoint(point);
-      const theirs = reference.encode(text);
-      const ours = utf8(text);
-      const agrees =
-        ours.length === theirs.length &&
-        ours.every((byte, index) => byte === theirs[index]);
-      if (!agrees) disagreements.push(`U+${point.toString(16)}`);
-    }
+  it(
+    'agrees with TextEncoder on every code point',
+    () => {
+      // The Encoding Standard's UTF-8 encoder is what this walk states in source,
+      // and `bucketOf` and `configDigest` commit its bytes to a Swift or Kotlin
+      // port. One string per byte width leaves the three width branches untested
+      // at their boundaries: widening `point < 0x800` to `<=` writes U+0800 as
+      // two bytes, and no pinned hash in this file or in `digest.spec.ts` reads a
+      // code point that branch decides.
+      const reference = new TextEncoder();
+      const disagreements: string[] = [];
 
-    expect(disagreements).toEqual([]);
-  });
+      for (let point = 0; point <= 0x10ffff; point += 1) {
+        const text = String.fromCodePoint(point);
+        const theirs = reference.encode(text);
+        const ours = utf8(text);
+        const agrees =
+          ours.length === theirs.length &&
+          ours.every((byte, index) => byte === theirs[index]);
+        if (!agrees) disagreements.push(`U+${point.toString(16)}`);
+      }
+
+      expect(disagreements).toEqual([]);
+    },
+    EVERY_CODE_POINT,
+  );
 
   it('writes the byte width every branch boundary takes', () => {
     // The first and last code point each branch decides. A comparison written
