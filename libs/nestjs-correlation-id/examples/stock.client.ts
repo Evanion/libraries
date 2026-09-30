@@ -15,7 +15,7 @@ export class StockClient {
   constructor(private readonly http: HttpService) {}
 
   async level(game: string): Promise<{ game: string; available: number }> {
-    const url = `${process.env['STOCK_URL']}/stock/${game}`;
+    const url = `${process.env['STOCK_URL']}/stock/${encodeURIComponent(game)}`;
     const response = await firstValueFrom(this.http.get(url));
     return response.data;
   }

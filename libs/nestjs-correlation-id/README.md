@@ -135,16 +135,20 @@ Then forward the id on outgoing HTTP calls by passing `withCorrelation()` to
 
 ```ts
 import { HttpModule } from '@nestjs/axios';
+import { Module } from '@nestjs/common';
 import { withCorrelation } from '@evanion/nestjs-correlation-id';
+import { StockClient } from './stock.client.js';
 
 @Module({
   imports: [HttpModule.registerAsync(withCorrelation())],
   providers: [StockClient],
+  exports: [StockClient],
 })
 export class StockModule {}
 ```
 
-Use `HttpService` as usual in `StockClient`. It stays a singleton: the
+`StockClient` is your own client for the `stock` service. Use `HttpService` as
+usual in it. It stays a singleton: the
 correlation header is attached by an axios request interceptor that reads the
 current context when the request is made. Below, the `orders` service calls a
 `stock` service that answers with the header it received, once inside a
@@ -175,8 +179,9 @@ await once(stock.listen(0), 'listening');
 const { port } = stock.address() as AddressInfo;
 const url = `http://127.0.0.1:${port}/stock/${encodeURIComponent('urn:game:azul')}`;
 
-// The orders service, as a Nest application context with no HTTP server. The
-// module is written as an object, the same shape forRoot() returns.
+// The orders service, as a Nest application context with no HTTP server. Its
+// module is a dynamic module: a plain object with `module` and `imports`, the
+// shape forRoot() returns, so the test declares no decorated class.
 const orders = await NestFactory.createApplicationContext(
   {
     module: class OrdersModule {},

@@ -5,16 +5,16 @@ To send the correlation id on every call Baize's `orders` service makes to
 
 <PageSheet
   difficulty={3}
-  read={8}
-  hands={15}
+  read={10}
+  hands={20}
   requires={[['Getting started', '../getting-started']]}
   unlocks={[['Carry the id through a job', '../jobs']]}
 />
 
 ## Register HttpModule with withCorrelation
 
-`withCorrelation()` configures `HttpModule` from `@nestjs/axios`, which needs
-`axios` beside it. Install both:
+`withCorrelation()` from `@evanion/nestjs-correlation-id` returns options for
+`@nestjs/axios`, whose `HttpModule` needs `axios` beside it. Install both:
 
 ```bash
 npm install @nestjs/axios axios
@@ -35,10 +35,10 @@ ordinary `HttpService` consumer, and nothing in it names a correlation id:
 
 ```
 
-`STOCK_URL` is wherever your `stock` service listens. `StockModule` gives
-`StockClient` an `HttpService` whose calls carry the id of the correlation
-context they are made in, the context `CorrelationIdMiddleware` opened for the
-request:
+The `STOCK_URL` environment variable holds the base URL of your `stock` service.
+`StockModule` gives `StockClient` an `HttpService` whose calls carry the id of
+the correlation context they are made in, the context `CorrelationIdMiddleware`
+opened for the request:
 
 ```ts file=libs/nestjs-correlation-id/examples/stock.module.ts region=forward
 
@@ -50,27 +50,36 @@ unchanged, so `timeout: 5000` applies to every call `StockClient` makes. Import
 
 ## Why withCorrelation reads the id on every call
 
-`withCorrelation()` registers an axios request interceptor on the instance
-`HttpModule` creates. The interceptor calls `getCorrelationId()` as each
-request goes out, so one `HttpService`, built once at boot, sends each request's
-own id.
+`withCorrelation()` from `@evanion/nestjs-correlation-id` registers an axios
+request interceptor on the instance `HttpModule` creates. The interceptor calls
+`getCorrelationId()` as each request goes out, so one `HttpService`, built once
+at boot, sends each request's own id.
 
-Nest builds the options passed to `HttpModule` once as well. Putting the id in
-them would need a request-scoped provider to rebuild them per request, and Nest
-makes every provider that injects a request-scoped one request-scoped too.
-`HttpService`, `StockClient` and everything holding them would then be rebuilt
-for every request, and Nest calls no `onModuleInit` on a request-scoped
-provider.
+The shorter-looking alternative is a `headers` entry in `HttpModuleOptions`.
+Nest builds those options once, at boot, outside any request, so a `headers`
+entry that reads `getCorrelationId()` there gets `undefined`, and every call
+goes out without an id. To rebuild the options per request, Nest needs a
+request-scoped provider, and it makes every provider that injects a
+request-scoped one request-scoped too. `HttpService`, `StockClient` and every
+provider holding them would then be built again for each request. Nest calls no
+lifecycle hook such as `onModuleInit` on a request-scoped provider, so the
+`onModuleInit` of a provider in that chain would never run.
 
 ## See the header arrive at the stock service
 
-The code below starts a `stock` service that answers with the
-`X-Correlation-Id` header it received. `NestFactory.createApplicationContext()`
-then builds the `orders` service, with no HTTP server, from an inline module
-importing `CorrelationModule.forRoot()` and
-`HttpModule.registerAsync(withCorrelation())`. The `orders` service asks `stock`
-for `urn:game:azul`, one game in Baize's catalogue, once inside a correlation
-context and once outside one:
+The code below runs both sides of an `@evanion/nestjs-correlation-id` hop in one
+test, so it needs no second service of yours. It has three parts:
+
+- A plain Node HTTP server stands in for `stock` and answers with the
+  `X-Correlation-Id` header it received.
+- `NestFactory.createApplicationContext()` builds the `orders` service with no
+  HTTP server of its own. Its module imports `CorrelationModule.forRoot()` and
+  `HttpModule.registerAsync(withCorrelation())`, as `AppModule` and
+  `StockModule` do.
+- The `orders` service asks `stock` for the game `urn:game:azul`, a Baize
+  catalogue id that `encodeURIComponent` escapes for the URL path. It asks once
+  inside a correlation context, the scope `CorrelationService.run()` opens
+  ([Overview](../)), and once outside one.
 
 ```ts twoslash file=libs/nestjs-correlation-id/README.md region=forward-hop
 
@@ -80,38 +89,43 @@ Inside `run('storefront-4f1c9a', …)` the call carried the id. Outside any
 context the interceptor attached no header, so a call from a cron job that never
 opened a context carries none.
 
-## See nestjs-correlation-id forward an id in Baize's demo server
+## Check the hop between your own services
 
-This page mounts no interactive control, because forwarding needs two running
-services and one header between them, and a page cannot be the second process.
+To see `@evanion/nestjs-correlation-id` carry an id between two running
+services, you write two handlers this page does not show:
 
-Baize's demo server shows the hop. In the
-[Evanion/libraries repository](https://github.com/Evanion/libraries/tree/main/apps/shop-api),
-`apps/shop-api` plays both `orders` and `stock` in one process. Its
-`OrdersModule` registers `HttpModule` with `withCorrelation()`, and its
-`InventoryClient`, the counterpart of `StockClient`, calls the same process's
-`/inventory` endpoint over HTTP. There `CorrelationIdMiddleware` reuses the id.
-`apps/storefront` sends an id with every call it makes to `shop-api`.
+- In `stock`, a handler for `GET /stock/:game` that logs `getCorrelationId()`.
+  `stock` needs the setup from [Getting started](../getting-started) for the id
+  to be there.
+- In `orders`, a handler that calls `StockClient.level()`, in a module that
+  imports `StockModule`.
+
+Send `X-Correlation-Id: storefront-4f1c9a` to the `orders` handler's route with
+`curl -H`, as Getting started did for `OrdersController`. The line `stock` logs
+for that call carries `storefront-4f1c9a`.
 
 ## Where forwarding the correlation id stops
+
+`withCorrelation()` from `@evanion/nestjs-correlation-id` has these limits:
 
 - `withCorrelation()` needs `CorrelationModule.forRoot()` in the application.
   Without it, Nest fails at boot with
   `Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
-- The header name is the `header` field of the configuration passed to
-  `forRoot()`, so the next service has to read the same header.
+- The interceptor sends the id under the header that the `header` field of
+  `forRoot()` names, `X-Correlation-Id` by default, so the next service has to
+  read that header.
 - `withCorrelation()` returns options for `HttpModule.registerAsync()`.
   `HttpModule.register()` takes no extra providers, so it cannot carry the
   interceptor.
 - `withCorrelation()` takes the options object and writes the `useFactory`
-  itself, so it takes no `inject` list and cannot inject `ConfigService`. Read an
-  environment value from `process.env` where the module is declared.
+  itself, so it takes no `inject` list and cannot inject `ConfigService`. Read
+  an environment value from `process.env` where the module is declared.
 - Only calls through an `HttpService` registered with `withCorrelation()` carry
-  the id. A `fetch` call or a queue message carries it when your code puts it
-  there.
+  the id, as [the Overview](../) lists under what the package leaves to you.
 
-## Now that the id crosses HTTP, carry it through a job
+## Carry the id where no request arrives
 
-[Carry the id through a job](../jobs) opens a correlation
-context in a queue consumer, where no request and no middleware exist, and
-reuses the id the message carried.
+`StockClient` now sends `stock` the id `@evanion/nestjs-correlation-id` holds
+for the request `orders` is serving. A queue consumer serves no request, so the
+middleware opens no context for it. [Carry the id through a job](../jobs) opens
+one by hand and reuses the id the message carried.
