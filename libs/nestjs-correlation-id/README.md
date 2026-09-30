@@ -63,9 +63,9 @@ isolated. Two handlers awaiting at the same time each read their own:
 ```ts @import.meta.vitest
 import { CorrelationService } from '@evanion/nestjs-correlation-id';
 
-// The header to read and the function that generates a missing id, as
-// CorrelationModule.forRoot() defaults them. In an application Nest builds the
-// service, and you inject it.
+// In an application Nest builds the service, and you inject it. Built by hand
+// it takes a configuration object. The service calls only its generator, and
+// the header is there because the configuration's type requires one.
 const correlation = new CorrelationService({
   header: 'X-Correlation-Id',
   generator: () => crypto.randomUUID(),
@@ -96,13 +96,20 @@ outside any request:
 <!-- #region middleware-by-hand -->
 
 ```ts @import.meta.vitest
+import {
+  CorrelationIdMiddleware,
+  CorrelationService,
+} from '@evanion/nestjs-correlation-id';
+
 const config = { header: 'X-Correlation-Id', generator: () => 'orders-0f3a2b' };
 const correlation = new CorrelationService(config);
+// The middleware opens its contexts on the service it is given.
 const middleware = new CorrelationIdMiddleware(correlation, config);
 
-// Nest hands the middleware the adapter's own request and response. These
-// carry the three members it reads: the request headers, and getHeader and
-// setHeader on the response.
+// The middleware reads the request's headers and writes the id with setHeader.
+// It leaves a response header that something earlier already set, so it asks
+// getHeader first, and this stub answers that nothing did. `as never` lets the
+// stubs stand in for Node's full IncomingMessage and ServerResponse.
 const response = { getHeader: () => undefined, setHeader: () => undefined };
 const handle = (headers: Record<string, string>) => {
   let handled: string | undefined;
@@ -163,11 +170,13 @@ import {
 const stock = createServer((request, response) => {
   response.end(request.headers['x-correlation-id'] ?? 'no id');
 });
+// Port 0 asks the OS for a free port, and address() reports which one.
 await once(stock.listen(0), 'listening');
 const { port } = stock.address() as AddressInfo;
-const url = `http://127.0.0.1:${port}/stock/urn:game:azul`;
+const url = `http://127.0.0.1:${port}/stock/${encodeURIComponent('urn:game:azul')}`;
 
-// The orders service, as a Nest application context with no HTTP server.
+// The orders service, as a Nest application context with no HTTP server. The
+// module is written as an object, the same shape forRoot() returns.
 const orders = await NestFactory.createApplicationContext(
   {
     module: class OrdersModule {},
