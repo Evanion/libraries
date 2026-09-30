@@ -1119,11 +1119,35 @@ describe('validateConfig', () => {
     const result = validateConfig(document);
 
     // A served document reaches this depth through `JSON.parse`, where no value
-    // holds itself. `canonical.ts:69-71` reads a document this deep as one no
-    // digest covers, and the walk that names its rules cannot walk it either.
+    // holds itself, and `written` recurses once per level, so this exhausts the
+    // stack the way a self-reference does. The issue names the member.
     expect(
       result.ok === false && result.issues.map((issue) => issue.path),
     ).toEqual(['/features/0/rules/0/when']);
+  });
+
+  it('names the when of a rule whose condition value outgrows the string ceiling', () => {
+    let value: unknown = 1;
+    for (let at = 0; at < 27; at += 1) value = [value, value];
+    const config = {
+      features: [
+        {
+          key: 'wide',
+          enabled: true,
+          rules: [{ when: [{ field: 'tier', op: 'eq', value }] }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+
+    // 55 arrays, whose text is 2^27 leaves because JSON carries no sharing.
+    // `canonical.ts:69-71` reads a value that wide as `RangeError: Invalid
+    // string length`, which is the second raise `nameable` answers and the one
+    // no exhausted stack reaches. `structuredClone` keeps the sharing, so
+    // `createFeatures` over this value meets the same ceiling.
+    expect(codesOf(config)).toEqual(['unknown-member']);
+    expect(thrownBy(config).message).toBe(
+      'feature "wide" declares a rule at /features/0/rules/0 whose conditions carry a value no canonical text names, and the derivation a decision reads this rule\'s id from raises on it',
+    );
   });
 
   it('names the when of a window rule whose instant converts to no primitive', () => {
