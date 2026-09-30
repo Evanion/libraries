@@ -16,8 +16,10 @@ import type {
 import type { GraphNode } from './graph.js';
 import type { VariantCheckOptions } from './variants.js';
 import type {
+  Condition,
   FeatureDefinition,
   FeatureKey,
+  RolloutSpec,
   Rule,
   VariantSpec,
 } from './types.js';
@@ -223,37 +225,146 @@ const DEFINITION_MEMBERS: Record<keyof FeatureDefinition, true> = {
 /** Those members, as the walk reads them. */
 const DEFINED: ReadonlySet<string> = new Set(Object.keys(DEFINITION_MEMBERS));
 
+/**
+ * Every key one member of a union declares. `keyof` over a union answers the
+ * keys they share, and a `zone` only `DayOfWeekCondition` carries is a member
+ * this checker reads.
+ */
+type MemberOf<T> = T extends unknown ? keyof T : never;
+
+/**
+ * The members of the four shapes a definition holds below itself.
+ *
+ * § 3 states its rule over the whole document, and the member it names is a
+ * bucketing parameter. `RolloutSpec` and `VariantSpec` are where such a
+ * parameter lives -- `assignVariant` buckets on `variantSeedOf` and
+ * `bucketOf`, and `rolloutText` at `rule-id.ts:68-72` reads `by` and `seed` --
+ * so a walk that stopped at the definition would accept a hash version on a
+ * rollout, derive the rule id it derived without it, and report one version on
+ * both sides of `configDigest` while the publisher bucketed on an algorithm this
+ * holder has no code for. That is GrowthBook's `hashVersion`, which sits on the
+ * experiment rule.
+ *
+ * Each literal is typed against the interface it stands for, for the reason
+ * `DEFINITION_MEMBERS` is. The condition set is the union of the three condition
+ * types' keys, so a `zone` beside an `eq` is accepted: the member is one this
+ * checker reads, and `conditionText` writes it for the operator that declares
+ * it.
+ */
+const RULE_MEMBERS: Record<keyof Rule, true> = {
+  id: true,
+  when: true,
+  rollout: true,
+  variant: true,
+};
+
+const ROLLOUT_MEMBERS: Record<keyof RolloutSpec, true> = {
+  percent: true,
+  by: true,
+  seed: true,
+};
+
+const VARIANT_MEMBERS: Record<keyof VariantSpec, true> = {
+  name: true,
+  weight: true,
+  order: true,
+  value: true,
+};
+
+const CONDITION_MEMBERS: Record<MemberOf<Condition>, true> = {
+  field: true,
+  op: true,
+  value: true,
+  zone: true,
+};
+
+/** Those four sets, by the word a refusal calls each shape. */
+const BELOW: Readonly<Record<string, ReadonlySet<string>>> = {
+  rule: new Set(Object.keys(RULE_MEMBERS)),
+  rollout: new Set(Object.keys(ROLLOUT_MEMBERS)),
+  variant: new Set(Object.keys(VARIANT_MEMBERS)),
+  condition: new Set(Object.keys(CONDITION_MEMBERS)),
+};
+
+/**
+ * Every member one nested object declares that this checker reads no member by.
+ *
+ * It reports and drops nothing. The members beside it are ones the checker reads
+ * off the shape its type declares, so the walks after this one still name the
+ * duplicate id two rules answer and the weight one variant gives, and § 7 has
+ * the operator read every defect at one poll.
+ */
+function strangeMembers(
+  value: Readonly<Record<string, unknown>>,
+  what: keyof typeof BELOW,
+  named: string,
+  at: string,
+  key?: FeatureKey,
+): readonly Found[] {
+  const defined = BELOW[what];
+  const all: Found[] = [];
+  for (const member of Object.keys(value)) {
+    if (defined?.has(member) === true) continue;
+    all.push(
+      unreadable(
+        `${named} declares "${member}" on the ${what} at ${at}, and this checker reads no member by that name, so a holder installing this document would evaluate it as though the member were absent`,
+        `${at}/${member}`,
+        key,
+      ),
+    );
+  }
+  return all;
+}
+
 /** Nothing the walks after it can read, for a definition that is not an object. */
 const UNREADABLE: Readable = { variants: false, rules: false };
 
 /** The set a row carries where the checker walked the conditions of every rule. */
 const EMPTY: ReadonlySet<unknown> = new Set();
 
-/** Every condition of one rule the checker cannot read. */
+/**
+ * What one rule's conditions leave the walks after this one.
+ *
+ * `refused` is a condition this checker could not read, which costs the rule its
+ * derived id: `conditionText` has no text for it. `strange` is a member it read
+ * the shape of and reads no member by, which costs the derivation nothing,
+ * because `conditionText` writes `field`, `op` and the value and this rule still
+ * carries all three.
+ */
+interface ConditionIssues {
+  readonly refused: readonly Found[];
+  readonly strange: readonly Found[];
+}
+
+/** Every condition of one rule the checker cannot read, and every member it does not know. */
 function conditionIssues(
   rule: Readonly<Record<string, unknown>>,
   named: string,
   at: string,
   key?: FeatureKey,
-): readonly Found[] {
+): ConditionIssues {
   const when: unknown = rule['when'];
-  if (when === undefined) return [];
+  if (when === undefined) return { refused: [], strange: [] };
   if (!Array.isArray(when)) {
-    return [
-      unreadable(
-        `${named} declares "when" on the rule at ${at} as ${met(when)}, and this checker reads an array of conditions`,
-        `${at}/when`,
-        key,
-      ),
-    ];
+    return {
+      refused: [
+        unreadable(
+          `${named} declares "when" on the rule at ${at} as ${met(when)}, and this checker reads an array of conditions`,
+          `${at}/when`,
+          key,
+        ),
+      ],
+      strange: [],
+    };
   }
 
   const conditions: readonly unknown[] = when;
-  const all: Found[] = [];
+  const refused: Found[] = [];
+  const strange: Found[] = [];
   conditions.forEach((condition, inside) => {
     const path = `${at}/when/${String(inside)}`;
     if (!isRecord(condition)) {
-      all.push(
+      refused.push(
         unreadable(
           `${named} declares the condition at ${path} as ${met(condition)}, and this checker reads an object`,
           path,
@@ -266,7 +377,7 @@ function conditionIssues(
     for (const member of ['field', 'op'] as const) {
       const value: unknown = condition[member];
       if (typeof value === 'string') continue;
-      all.push(
+      refused.push(
         unreadable(
           `${named} declares "${member}" on the condition at ${path} as ${met(value)}, and this checker reads a string`,
           `${path}/${member}`,
@@ -275,19 +386,23 @@ function conditionIssues(
       );
     }
 
-    if (condition['op'] !== 'day-of-week') return;
-    const zone: unknown = condition['zone'];
-    if (typeof zone === 'string') return;
-    all.push(
-      unreadable(
-        `${named} declares "zone" on the day-of-week condition at ${path} as ${met(zone)}, and this checker reads a time zone name`,
-        `${path}/zone`,
-        key,
-      ),
-    );
+    if (condition['op'] === 'day-of-week') {
+      const zone: unknown = condition['zone'];
+      if (typeof zone !== 'string') {
+        refused.push(
+          unreadable(
+            `${named} declares "zone" on the day-of-week condition at ${path} as ${met(zone)}, and this checker reads a time zone name`,
+            `${path}/zone`,
+            key,
+          ),
+        );
+      }
+    }
+
+    strange.push(...strangeMembers(condition, 'condition', named, path, key));
   });
 
-  return all;
+  return { refused, strange };
 }
 
 /**
@@ -521,6 +636,7 @@ function shapeWalk(config: Checkable): {
           return;
         }
         if (member !== 'rules') {
+          all.push(...strangeMembers(element, 'variant', named, path, key));
           read.variants.push(element);
           return;
         }
@@ -536,10 +652,23 @@ function shapeWalk(config: Checkable): {
             ),
           );
         }
+        all.push(...strangeMembers(element, 'rule', named, path, key));
+        const rollout: unknown = element['rollout'];
+        if (isRecord(rollout)) {
+          all.push(
+            ...strangeMembers(
+              rollout,
+              'rollout',
+              named,
+              `${path}/rollout`,
+              key,
+            ),
+          );
+        }
         const inner = conditionIssues(element, named, path, key);
-        if (inner.length > 0) {
+        all.push(...inner.refused, ...inner.strange);
+        if (inner.refused.length > 0) {
           unwalked.add(element);
-          all.push(...inner);
         } else if (id === undefined && !nameable(element as unknown as Rule)) {
           // A rule this walk cannot name is a rule no caller can evaluate, so it
           // is reported here rather than dropped. `ruleIdErrors` skips it after
