@@ -1147,6 +1147,49 @@ describe('serializeConfig', () => {
 
       expect(document.features.map((each) => each.key)).toEqual(['cta']);
     });
+
+    it('refuses a maxStale of Infinity, which one JSON hop turns into null', () => {
+      // `maxStale` is declared `number`, so `Infinity` sits at it in-type. A
+      // document carrying one reaches its holder as `null` while the publisher
+      // still holds the number, and `canonical` tags a non-finite number, so
+      // the holder recomputes a digest that disagrees and refuses the whole
+      // document under `digest-mismatch`, which names no member. This names it.
+      const features = createFeatures([{ key: 'cta', enabled: true }] as const);
+
+      expect(() =>
+        serializeConfig(features, { maxStale: Number.POSITIVE_INFINITY }),
+      ).toThrow(FeatureConfigError);
+      expect(() =>
+        serializeConfig(features, { maxStale: Number.POSITIVE_INFINITY }),
+      ).toThrow(
+        'the number at /maxStale is Infinity, and JSON carries no non-finite ' +
+          'number',
+      );
+    });
+
+    it('refuses a Date a schema value shape holds, naming the member', () => {
+      // `ValueShape` is `Record<string, unknown>`, so a JSON Schema fragment
+      // assembled in TypeScript reaches the envelope holding whatever an author
+      // wrote. The whole envelope goes through the same walk as a definition,
+      // so the path reads to the member the author has to replace.
+      const features = createFeatures([{ key: 'cta', enabled: true }] as const);
+
+      expect(() =>
+        serializeConfig(features, {
+          schema: {
+            features: {
+              cta: {
+                variants: { control: { const: new Date('2026-12-24') } },
+              },
+            },
+          },
+        }),
+      ).toThrow(
+        'the value at /schema/features/cta/variants/control/const is a Date, ' +
+          'and a document carries an instant as an ISO 8601 string or as ' +
+          'epoch milliseconds',
+      );
+    });
   });
 
   describe('a cycle', () => {

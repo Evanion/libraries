@@ -29,16 +29,20 @@
  * any number this function writes.
  *
  * `NaN`, `Infinity` and `-Infinity` are written behind a `number:` tag,
- * `number:NaN` for `NaN`. `JSON.stringify` writes all three as `null`, and the
- * three decide a window three ways: `toEpoch` at `conditions.ts:18-22` returns
- * a number instant untouched, so a `before` boundary of `Infinity` matches
- * every `now`, one of `-Infinity` matches none, and one of `NaN` fails the
- * guard at `conditions.ts:73`. One text for the three hands `configDigest` one
- * digest for documents that resolve a flag oppositely, and § 2 of
- * `docs/specs/2026-09-23-feature-config-distribution.md` reads two equal
- * digests as a proof that two processes hold one configuration.
- * `JSON.stringify` never emits a bare `number:`, so the tag cannot collide with
- * any text this function writes.
+ * `number:NaN` for `NaN`, for the reason the `bigint` above carries its `n`.
+ * `JSON.stringify` writes all three as `null`, and `evaluateCondition` compares
+ * an `AttributeCondition.value` with `===` at `conditions.ts:90`: a rule holding
+ * `eq: NaN` matches no context, one holding `eq: Infinity` matches a context
+ * carrying that number, and one holding `eq: null` matches a null attribute.
+ * `ruleId` derives a rule's id from this text, and three rules that match three
+ * audiences need three ids.
+ *
+ * The value reaches here off a live store, which holds the number an author
+ * wrote: `structuredClone` in `createFeatures` copies a non-finite number
+ * unchanged. A document holds none of the three, because `serializeConfig`
+ * refuses a non-finite number at every member and names the path, so no digest
+ * this package takes rests on the tag. `JSON.stringify` never emits a bare
+ * `number:`, so the tag cannot collide with any text this function writes.
  *
  * A function or a symbol is written from its own `toString()`. Neither
  * carries a content-addressable value the way a plain object does -- two

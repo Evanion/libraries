@@ -150,7 +150,9 @@ serialization at all, for the reason decision 2 states.
     epoch milliseconds, never as a `Date`. `serializeConfig(features)` converts
     the `WindowCondition.value` that `Instant` types, and refuses a `Date` at any
     other member, because only the window operators read both forms to one value.
-    § 8.
+    It refuses every other value JSON cannot carry at every member of the
+    document, the envelope's own members included, and the refusal names the
+    path. § 8.
 13. Every adapter that reads configuration from a database, an HTTP endpoint or
     a disk cache lives in `@evanion/feature-source`. The core imports no driver,
     opens no socket and starts no timer. § 9.
@@ -303,16 +305,24 @@ configuration, and a digest over raw bytes would change when nothing did. The
 function is small enough to port. `@evanion/feature` depends on `@evanion/acl`
 in neither direction.
 
-This package's copy adds one rule the ACL copy has no need of. `NaN`,
-`Infinity` and `-Infinity` are written behind a `number:` tag, `number:NaN` for
-`NaN`. `JSON.stringify` writes all three as `null`, and `toEpoch` at
-`conditions.ts:18-22` reads a number window instant to an epoch untouched, so a
-`before` boundary of `Infinity` matches every `now`, one of `-Infinity` matches
-none, and one of `NaN` fails the guard at `conditions.ts:73`. One text for the
-three gives three documents that resolve a flag three ways one digest, and
-`serializeConfig` refuses a non-finite number for the same reason: JSON carries
-none of them, so the value the holder installs is `null` whatever the publisher
-held.
+This package's copy adds rules the ACL copy has no need of, and `ruleId` is what
+needs them. Decision 5 derives a rule's id from the canonical text of its
+conditions, and that text is taken off a live store, where an
+`AttributeCondition.value` holds whatever an author wrote. `evaluateCondition`
+compares that member with `===`, so a rule holding `eq: NaN` matches no context,
+one holding `eq: Infinity` matches a context carrying that number, and one
+holding `eq: null` matches a null attribute. `JSON.stringify` writes one text for
+the three, so `canonical` writes `NaN`, `Infinity` and `-Infinity` behind a
+`number:` tag, `number:NaN` for `NaN`. A `bigint` carries a trailing `n`, and a
+function, a symbol and an `undefined` array element each get their own text, for
+that same reason.
+
+No digest rests on any of those texts. `serializeConfig` refuses every one of
+those values at every member of the document it emits, `maxStale` and `version`
+included, and the refusal names the path; `JSON.parse` hands a holder none of
+them either. So the two sides of a digest comparison canonicalise values JSON
+carries, which is what makes two equal digests a statement about one
+configuration and not about two texts that collapsed.
 
 A digest states one useful thing beyond difference. Two processes computing one
 digest from documents they fetched separately have proved they hold the same
@@ -804,6 +814,14 @@ already requires to round-trip through JSON in its decision 14. `undefined`
 members drop on the way out, which is what `canonical.ts:21-22` does and what
 keeps an absent key and a key written as `undefined` agreeing.
 
+The envelope goes through the same walk as the definitions. `maxStale` is
+declared `number` and `version` is `string | number`, so `Infinity` and `NaN` sit
+at both in-type, and each `ValueShape` a `schema` holds is an open
+`Record<string, unknown>`. A publisher that emitted one of those would serve
+`null` and keep the number, the holder's recomputed digest would disagree, and
+`digest-mismatch` names no member. The walk refuses the value at `/maxStale` and
+names it.
+
 ### One host global, and what this adds
 
 `serializeConfig`, `configDigest` and `validateConfig` use `JSON` and nothing
@@ -943,10 +961,12 @@ audience a document without it, which decision 2 places outside this library.
 - Digest stability. Two documents differing only in object key order, in
   whitespace, in a `Date` against its ISO string, in a `version`, and in an absent
   key against one written `undefined`, produce one digest. A document differing in
-  the order of a `rules` array produces a different one. A window instant of
-  `Infinity`, one of `-Infinity` and one of `NaN` produce three digests, because
-  the three decide the window three ways and `JSON.stringify` writes one text for
-  them.
+  the order of a `rules` array produces a different one.
+- A value JSON cannot carry. `serializeConfig` refuses an envelope whose
+  `maxStale` is `Infinity` and names `/maxStale`, so no document it emits reaches
+  a digest holding a number `JSON.stringify` would write as `null`. Two rules
+  whose `eq` values are `NaN` and `null` derive two ids, which is the separation
+  § 2 keeps the `number:` tag for.
 - The publisher recipe of § 2, run in order. A document whose `version` and
   `digest` both hold what `configDigest` returned for the configuration verifies
   against a holder that recomputes it.

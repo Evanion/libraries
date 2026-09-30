@@ -233,51 +233,6 @@ describe('configDigest', () => {
     expect(configDigest(negative)).toBe(configDigest(zero));
   });
 
-  it('disagrees for a maxStale of NaN and one of Infinity', () => {
-    const nan: FeatureConfig = { ...document, maxStale: Number.NaN };
-    const infinite: FeatureConfig = {
-      ...document,
-      maxStale: Number.POSITIVE_INFINITY,
-    };
-
-    expect(configDigest(infinite)).not.toBe(configDigest(nan));
-  });
-
-  it('disagrees between three window instants that decide a rule oppositely', () => {
-    // `SerializedInstant` is `string | number`, so all three sit at this member
-    // in-type, and `toEpoch` hands a number instant to `now.getTime() <
-    // boundary` untouched: `Infinity` matches every `now`, `-Infinity` matches
-    // none, and `NaN` fails the guard at `conditions.ts:73`. `JSON.stringify`
-    // writes `null` for all three, so a digest over its text would call the
-    // three documents one configuration.
-    const digests = new Set([
-      configDigest(windowAt(Number.POSITIVE_INFINITY)),
-      configDigest(windowAt(Number.NEGATIVE_INFINITY)),
-      configDigest(windowAt(Number.NaN)),
-    ]);
-
-    expect(digests.size).toBe(3);
-  });
-
-  it('disagrees between a non-finite attribute value and one JSON carries', () => {
-    // `evaluateCondition` compares an `AttributeCondition.value` with `===`,
-    // and `NaN === NaN` is false while `Infinity === Infinity` is true, so the
-    // two rules match disjoint audiences.
-    const attributeAt = (value: number): FeatureConfig => ({
-      features: [
-        {
-          key: 'x',
-          enabled: true,
-          rules: [{ when: [{ field: 'budget', op: 'eq', value }] }],
-        },
-      ],
-    });
-
-    expect(configDigest(attributeAt(Number.NaN))).not.toBe(
-      configDigest(attributeAt(Number.POSITIVE_INFINITY)),
-    );
-  });
-
   it('agrees for a Date and the ISO string a transport hands back', () => {
     // The document type refuses a `Date` at a window instant, and a caller
     // assembling an envelope by hand reaches this position anyway. § 9 asks the
