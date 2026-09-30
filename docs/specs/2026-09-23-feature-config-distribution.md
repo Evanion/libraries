@@ -146,7 +146,9 @@ serialization at all, for the reason decision 2 states.
     reload-shaped entry point and returns a result. Both call one checker,
     `validateConfig`. § 7.
 12. A serialized configuration carries an `Instant` as an ISO 8601 string or as
-    epoch milliseconds, never as a `Date`. `serializeConfig(features)` converts.
+    epoch milliseconds, never as a `Date`. `serializeConfig(features)` converts
+    the `WindowCondition.value` that `Instant` types, and refuses a `Date` at any
+    other member, because only the window operators read both forms to one value.
     § 8.
 13. Every adapter that reads configuration from a database, an HTTP endpoint or
     a disk cache lives in `@evanion/feature-source`. The core imports no driver,
@@ -737,9 +739,21 @@ control plane that built its store from rows serializes it to serve it.
 `FeatureDefinition` keeps `Instant` with its `Date` member, because
 `new Date('2026-10-01')` in a literal is what an author writes and
 `conditions.ts` already handles it. `FeatureConfig` narrows to
-`SerializedInstant`, and `serializeConfig` converts a `Date` to its ISO string on
-the way out, which also matches what `libs/acl/src/canonical.ts:19` already does
-with a `Date`.
+`SerializedInstant`, and `serializeConfig` converts a `Date` at a
+`WindowCondition.value` to its ISO string on the way out, which also matches what
+`libs/acl/src/canonical.ts:19` already does with a `Date`.
+
+A `Date` at every other member is refused, and the `FeatureConfigError` names the
+path to it. `toEpoch` reads a `Date` and an ISO string to one epoch, so the
+publisher holding the `Date` and the holder holding the string answer `before`
+and `after` alike. No other member has that property. `evaluateCondition`
+compares an `AttributeCondition.value` with `===`, and `valueOf` hands a variant
+`value` to the application untouched, so a conversion at either position gives
+the holder a string where the publisher holds an object. `canonical` writes the
+two as one text, so § 2 reads the two digests as a proof that the two processes
+hold one configuration while they resolve apart. An author who wants such a value
+to travel writes the ISO string in the definition, and then both processes hold
+one value.
 
 `validateConfig` reports `invalid-instant` for a string a `Date` constructor
 parses to NaN, which nothing checks today and which decides `false` forever at
@@ -877,8 +891,10 @@ audience a document without it, which decision 2 places outside this library.
 
 - A round trip. `serializeConfig(features)` through `JSON.stringify`,
   `JSON.parse` and `parseFeatureConfig` produces a store whose `config` deep-equals
-  the original with every `Date` replaced by its ISO string, and whose
-  `configDigest` equals the original's.
+  the original with the `Date` at each `WindowCondition.value` replaced by its ISO
+  string, and whose `configDigest` equals the original's. A store holding a `Date`
+  at any other member has no round trip to fixture, because `serializeConfig`
+  refuses it and names the path, which § 8 argues from `===` and from `valueOf`.
 - Digest stability. Two documents differing only in object key order, in
   whitespace, in a `Date` against its ISO string, and in an absent key against one
   written `undefined`, produce one digest. A document differing in the order of a
