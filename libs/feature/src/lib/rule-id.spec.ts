@@ -231,6 +231,27 @@ describe('ruleId', () => {
     expect(offsetless).not.toBe(utc);
   });
 
+  it('separates three attribute values JSON writes as one null', () => {
+    // `evaluateCondition` compares an `AttributeCondition.value` with `===`, so
+    // `eq: NaN` matches no context, `eq: Infinity` matches a context carrying
+    // that number, and `eq: null` matches a null attribute. `JSON.stringify`
+    // writes `null` for all three, so a derivation over its text would give
+    // three rules matching three audiences one id. This is what the `number:`
+    // tag in `canonical` is for; a document carries none of the three, because
+    // `serializeConfig` refuses a non-finite number and names the path.
+    const idAt = (value: unknown) =>
+      ruleId({ when: [{ field: 'budget', op: 'eq', value }] });
+
+    expect(
+      new Set([
+        idAt(Number.NaN),
+        idAt(Number.POSITIVE_INFINITY),
+        idAt(Number.NEGATIVE_INFINITY),
+        idAt(null),
+      ]).size,
+    ).toBe(4);
+  });
+
   it('memoizes the derived id for the same rule object', () => {
     const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
 

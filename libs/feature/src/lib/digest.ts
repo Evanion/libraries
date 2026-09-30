@@ -24,10 +24,10 @@ const SEEDS: readonly number[] = [
  * configuration, and a digest over raw bytes would change when nothing did.
  *
  * It also tags `NaN`, `Infinity` and `-Infinity`, which `JSON.stringify` writes
- * as `null`. All three sit at a `WindowCondition.value` in-type, and `toEpoch`
- * hands a number instant to the comparison untouched, so a `before` boundary of
- * `Infinity` matches every `now` where one of `-Infinity` matches none. Those
- * two documents resolve a flag oppositely, and this separates them.
+ * as `null`, and `ruleId` is the caller that needs the three apart. No digest
+ * rests on that tag: `serializeConfig` refuses a non-finite number at every
+ * member of the document it emits, `maxStale` included, and `JSON.parse` hands a
+ * holder none, so both sides of a comparison canonicalise a number JSON carries.
  *
  * `digest` and `version` are removed from the input before the text is taken,
  * and both are removed for one reason: § 2 of

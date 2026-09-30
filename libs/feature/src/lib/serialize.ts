@@ -63,7 +63,7 @@ function article(name: string): string {
  * A `bigint` reaches the document untouched and the publisher's own
  * `JSON.stringify` throws a `TypeError` naming no feature. `NaN`, `Infinity`
  * and `-Infinity` become `null` on the first transport hop, and `canonical`
- * tags a non-finite number at `canonical.ts:31-41`, so the publisher's text and
+ * tags a non-finite number at `canonical.ts:31-45`, so the publisher's text and
  * the holder's disagree and the holder refuses the whole document over a digest
  * mismatch that names no member. An `undefined` array element does the same:
  * `canonical` writes the text `undefined` where JSON writes `null`. A hole in a
@@ -294,14 +294,30 @@ function documentDefinition<F extends FeatureKey>(
  * serialized form, so something has to produce that form from a live store, and
  * a control plane that built its store from rows serializes it to serve it.
  *
+ * The envelope goes through the same walk as the definitions. `maxStale` and
+ * `version` are declared `number` and `string | number`, so `Infinity` and `NaN`
+ * sit at both in-type, and `schema` is an open `Record<string, unknown>` at each
+ * `ValueShape`. A document emitting one of those carries `null` to its holder,
+ * and `canonical` tags a non-finite number, so the holder recomputes a digest
+ * that disagrees and refuses the whole document under a code that names no
+ * member. The walk refuses it here and names the member, at `/maxStale`.
+ *
  * @throws {FeatureConfigError} when a value holds itself, or when a leaf JSON
  * cannot carry reaches the walk. A `Date` outside a window condition is one of
- * those leaves. The message names the path to it.
+ * those leaves, and a non-finite `maxStale` is another. The message names the
+ * path to it.
  */
 export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S, boolean>,
   envelope: ConfigEnvelope = {},
 ): FeatureConfig<keyof S & FeatureKey> {
+  const around = serialized(
+    envelope,
+    '',
+    new WeakSet<object>(),
+    new Map<object, unknown>(),
+  ) as ConfigEnvelope;
+
   const written = features.config.map((definition, at) => {
     const path = `/features/${String(at)}`;
     const body = serialized(
@@ -313,5 +329,5 @@ export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
     return body as SerializedDefinition<keyof S & FeatureKey>;
   });
 
-  return { ...envelope, features: written };
+  return { ...around, features: written };
 }
