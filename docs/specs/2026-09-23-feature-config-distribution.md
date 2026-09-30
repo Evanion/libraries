@@ -792,9 +792,9 @@ keeps an absent key and a key written as `undefined` agreeing.
 
 `serializeConfig`, `configDigest` and `validateConfig` use `JSON` and nothing
 else, so a native client embedding a JavaScript engine with no DOM runs all
-three. `configDigest` reaches `murmur3`, which walks the string and emits its
-UTF-8 bytes itself at `libs/feature/src/lib/bucketing.ts:69`, so the digest asks
-its host for arithmetic and string indexing alone. One host global is left in
+three. `configDigest` encodes the canonical text with the walk at
+`libs/feature/src/lib/bucketing.ts:69` and hashes the bytes it returns, so the
+digest asks its host for arithmetic and string indexing alone. One host global is left in
 the package: `structuredClone` in `createFeatures` at `features.ts:93`, which no
 entry point in this document calls.
 
