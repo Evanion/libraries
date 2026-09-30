@@ -13,18 +13,22 @@ carries `generate` and `validate` bound to it.
 ```ts @import.meta.vitest
 import { Luhn } from '@evanion/luhn';
 
-const { checksum } = Luhn.generate('order-2026-0042');
-const code = `order-2026-0042-${checksum}`; // -> 'order-2026-0042-l'
+function orderCode(orderNumber: string): string {
+  const { checksum } = Luhn.generate(orderNumber);
+  return `${orderNumber}-${checksum}`;
+}
 
-Luhn.validate(code).isValid; // -> true
-Luhn.validate('order-2026-0043-l').isValid; // -> false
+const printed = orderCode('order-2026-0042'); // -> 'order-2026-0042-l'
+
+Luhn.validate(printed).isValid; // -> true
+Luhn.validate('order-2026-0042-1').isValid; // -> false
 ```
 
 <!-- #endregion round-trip -->
 
-`generate` returns the check character and `validate` accepts the code carrying
-it. One digit of the order number changes and the code is refused without a
-database lookup.
+`generate` returns the check character and does not append it, so `orderCode`
+decides where it goes. `validate` accepts the printed code and refuses it with
+its last character read as a `1`, without a database lookup.
 
 ## Why use it
 
@@ -81,29 +85,6 @@ Luhn.generate('ORDER 2026/0042'); // -> { phrase: 'order20260042', checksum: 'l'
 the phrase it computed over is not always the phrase you passed in. See
 [Filtering](#filtering).
 
-`generate` does not append the check character. Where it goes and what
-separates it is yours to decide:
-
-<!-- #region sign-and-read -->
-
-```ts @import.meta.vitest
-function withCheckCharacter(orderNumber: string): string {
-  const { checksum } = Luhn.generate(orderNumber);
-  return `${orderNumber}-${checksum}`;
-}
-
-function orderNumberIn(code: string): string | null {
-  const { isValid, phrase } = Luhn.validate(code);
-  return isValid ? phrase.slice(0, -1) : null;
-}
-
-withCheckCharacter('order-2026-0042'); // -> 'order-2026-0042-l'
-orderNumberIn('ORDER 2026 0042 L'); // -> 'order20260042'
-orderNumberIn('order-2026-0043-l'); // -> null
-```
-
-<!-- #endregion sign-and-read -->
-
 An input with no dictionary code points in it throws `EmptyInputError`. A check
 character over no payload carries no information, and returning one makes
 `generate('')` and `generate('--')` indistinguishable:
@@ -147,28 +128,49 @@ Luhn.validate('--'); // -> { phrase: '', isValid: false, filtered: 2 }
 Fewer than two surviving code points is not valid, because a payload and a
 check character is the minimum. `validate` never throws.
 
+`validate`'s `phrase` includes the check character, so the phrase `generate`
+returned for the order number is `phrase.slice(0, -1)`. Store that phrase with
+the order and look the order up by it, whatever case and separators the code was
+typed with:
+
+<!-- #region look-up -->
+
+```ts @import.meta.vitest
+function orderPhrase(code: string): string | null {
+  const { isValid, phrase } = Luhn.validate(code);
+  return isValid ? phrase.slice(0, -1) : null;
+}
+
+Luhn.generate('order-2026-0042').phrase; // -> 'order20260042'
+orderPhrase('ORDER 2026 0042 L'); // -> 'order20260042'
+orderPhrase('order-2026-0043-l'); // -> null
+```
+
+<!-- #endregion look-up -->
+
 ## Filtering
 
 Code points outside the dictionary are dropped before the checksum is computed,
 so a hyphenated, spaced or accented rendering of the same code checks the same.
-`filtered` counts the dropped code points, so a caller who wants strict input
-can gate on it without reimplementing the filter:
+`filtered` counts the dropped code points. A barcode scanner sends exactly the
+characters the barcode holds, so a till reading one can refuse anything the
+filter dropped:
 
 <!-- #region strict-input -->
 
 ```ts @import.meta.vitest
-type Verdict = 'accepted' | 'mistyped' | 'unexpected characters';
+type Verdict = 'accepted' | 'misread' | 'unexpected characters';
 
-function readStrict(code: string): Verdict {
-  const { isValid, filtered } = Luhn.validate(code);
-  if (!isValid) return 'mistyped';
+function readBarcode(scanned: string): Verdict {
+  const { isValid, filtered } = Luhn.validate(scanned);
+  if (!isValid) return 'misread';
   if (filtered > 0) return 'unexpected characters';
   return 'accepted';
 }
 
-readStrict('order20260042l'); // -> 'accepted'
-readStrict('order-2026-0042-l'); // -> 'unexpected characters'
-readStrict('order20260043l'); // -> 'mistyped'
+readBarcode('order20260042l'); // -> 'accepted'
+readBarcode('order-2026-0042-l'); // -> 'unexpected characters'
+readBarcode('order20260043l'); // -> 'misread'
 ```
 
 <!-- #endregion strict-input -->
