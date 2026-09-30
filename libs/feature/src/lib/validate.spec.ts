@@ -1392,16 +1392,37 @@ describe('validateConfig, on a document whose members are not the declared shape
       served(
         '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
           '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0},' +
+          '{"name":"b","weight":1,"order":1},null]}]}',
+      ),
+    );
+
+    // Both variants the checker read declare an order, so the only variant that
+    // could be missing one is the element it already reported, and a mixed
+    // declaration would name a defect this document may not carry.
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.code),
+    ).toEqual(['unknown-member']);
+  });
+
+  it('reports the mixed ordering two readable variants already disagree on', () => {
+    const result = validateConfig(
+      served(
+        '{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey",' +
+          '"variantSeed":"cta:variant","variants":[{"name":"a","weight":1,"order":0},' +
           '{"name":"b","weight":1},null]}]}',
       ),
     );
 
-    // Two of the three variants declare an order, and the third is the element
-    // the checker dropped, so the count the mixed-ordering check reads is short
-    // by the element it already reported.
+    // "a" declares an order and "b" does not, and the checker read both, so the
+    // two orderings are mixed whatever the dropped element carried. § 7 has the
+    // operator who replaces the null meet no issue that was in the document all
+    // along.
     expect(
-      result.ok === false && result.issues.map((issue) => issue.code),
-    ).toEqual(['unknown-member']);
+      result.ok === false && result.issues.map((issue) => issue.message),
+    ).toEqual([
+      'feature "cta" declares the variant at /features/0/variants/2 as null, and this checker reads an object',
+      'feature "cta" declares an order on 1 of its 2 variants, which mixes two orderings',
+    ]);
   });
 
   it('reports the id two readable rules answer beside an element it could not read', () => {

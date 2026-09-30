@@ -91,10 +91,15 @@ export interface VariantCheckOptions {
    * an operator who fixes the element and re-polls meets neither for the first
    * time. The checks that read the set as a whole stand down: the dropped
    * element carries a weight the total is missing, an `order` the count is
-   * missing, and a name a pin may hold, so an empty set, a zero total, a partial
-   * order declaration and an unknown pin would each name a defect the document
-   * does not carry. The two bucketing members § 3 requires are read off the
-   * definition and not the set, so they are reported.
+   * missing, and a name a pin may hold, so an empty set, a zero total, an order
+   * declared on none of the variants and an unknown pin would each name a defect
+   * the document does not carry. The two bucketing members § 3 requires are read
+   * off the definition and not the set, so they are reported.
+   *
+   * A partial declaration is reported. One variant here declaring an order
+   * beside one that does not is two orderings among the elements the caller
+   * read, and the element it dropped changes neither of them, so the mixed
+   * declaration is a defect the document carries whatever that element holds.
    */
   readonly everyVariant?: boolean;
   /**
@@ -323,11 +328,11 @@ export function variantErrors<F extends FeatureKey>(
         `feature "${key}" declares an order on none of its ${String(variants.length)} variants, which leaves the walk to an array order a store may permute`,
       ),
     );
-  } else if (
-    whole &&
-    declaredOrders > 0 &&
-    declaredOrders !== variants.length
-  ) {
+  } else if (declaredOrders > 0 && declaredOrders !== variants.length) {
+    // Not gated on `whole`. The count above runs over the variants the caller
+    // read, and one of those declaring an order beside one that does not is two
+    // orderings the caller already holds, so the element it dropped decides
+    // nothing here.
     found.push(
       bare(
         'invalid-variant-order',
