@@ -240,6 +240,12 @@ function conditionIssues(
  * understand and the 18 codes name no second envelope defect, and a `features`
  * holding an object is a member whose value this holder cannot read.
  *
+ * The document itself is read before its `features`. A control plane answering a
+ * poll with the body `null`, or with an empty body the binding reads as
+ * `undefined`, hands this function a value that carries no members at all, and
+ * § 6 has a holder that refuses a document keep the one it already installed.
+ * That holder reads a `ValidationResult` here, not a raise.
+ *
  * `enabled` is read for the reason `key` is. It is the one member every
  * definition must carry and it decides the answer: `evaluate` short-circuits on
  * `enabled === false` at `evaluate.ts:187` and hands the decision to the rules
@@ -280,6 +286,20 @@ function shapeWalk(
   readonly rows: readonly Readable[];
 } {
   const served = options.arrayIsOrder !== true;
+  if (!isRecord(config)) {
+    return {
+      issues: [
+        found(
+          'unknown-member',
+          new FeatureConfigError(
+            `the document is ${met(config)}, and this checker reads an object carrying "features"`,
+          ),
+        ),
+      ],
+      rows: [],
+    };
+  }
+
   const definitions: unknown = config.features;
   if (!Array.isArray(definitions)) {
     return {
