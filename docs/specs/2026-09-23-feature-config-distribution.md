@@ -711,11 +711,20 @@ survives `structuredClone`, which is what `createFeatures` uses at
 string and `JSON.parse` hands back a string, so a configuration that made one hop
 through a transport holds a different value than the one that authored it.
 
-The value still evaluates the same, because `toEpoch` reads both forms to the
-same epoch. What breaks is identity. `configDigest` over the authoring process's
-document and over the receiving process's document computes two digests, so two
-processes holding one configuration report different versions of it, which is
-exactly the disagreement § 2 exists to detect.
+The value still evaluates the same, because `toEpoch` reads both forms to the same
+epoch, and § 2's digest does not see the difference at all: `canonical` writes a
+`Date` exactly as `JSON.stringify` writes one, so the authoring process's document
+and the receiving process's document produce one digest and the Testing section
+below asks for that agreement.
+
+What breaks is the document. `FeatureConfig` narrows the member to
+`SerializedInstant`, which admits no `Date`, so a serializer that emitted one
+would emit a document its own declared type refuses. Serializing the store a
+holder built from that document emits the ISO string, so the two serializations
+are not deep-equal and the idempotence this section claims below is lost. Nothing
+reports it, because the digests agree. The agreement is what makes the conversion
+safe at this member and what forces the refusal at every other one, and the
+paragraph after the signature is where that argument runs.
 
 ```ts
 /** An `Instant` that round-trips: ISO 8601 or epoch milliseconds. */
