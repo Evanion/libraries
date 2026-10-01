@@ -13,6 +13,8 @@ import { dirname, join, relative, sep } from 'node:path';
 
 import { behavioursOf } from '@evanion/doc-examples/behaviours';
 import { behaviourPath } from '@evanion/doc-examples/mdx-reference-loader';
+import { defaultTwoslashOptions } from '@shikijs/twoslash';
+import { createTwoslasher } from 'twoslash';
 import ts from 'typescript';
 
 import { cutPage } from './cut.mjs';
@@ -495,54 +497,123 @@ function emitDeclarations(packageDir) {
   program.emit();
 }
 
+/** A dependency range that names one version and nothing else. */
+const EXACT = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
+
 /**
- * The packages a set of pages references, as they were at the pinned commit,
- * under a root the reference loader can read them from.
+ * Where a workspace package comes from for a release: the commit to read it
+ * from, its directory there and its manifest.
  *
- * Under `node_modules/.cache` in the workspace, so a package's own imports of
- * something the workspace installs -- React, for a binding -- still resolve by
- * walking up, while each `@evanion/*` package resolves to its copy here. Keyed
- * by the generator as well as the commit, because the declarations and the
- * behaviour data are the generator's reading of that commit.
+ * A release's `package.json` pins each workspace dependency exactly. The tree
+ * at the release's commit holds that version when the two were released
+ * together, and otherwise the dependency's own tag at the pinned version
+ * does. A range that is not one version is what the workspace linked, which is
+ * the tree's.
+ */
+function locate(git, sha, workspace, name, pin, by) {
+  const tree = workspace.get(name);
+  if (!tree)
+    throw new Error(
+      `${by} needs ${name}, which is not a workspace package at ${sha.slice(0, 7)}`,
+    );
+  if (pin === undefined || !EXACT.test(pin) || tree.manifest.version === pin)
+    return { commit: sha, ...tree };
+
+  const tagged = git.commit(`${name}@${pin}`);
+  const at = tagged ? workspaceAt(git, tagged).get(name) : undefined;
+  if (!at)
+    throw new Error(
+      `${by} pins ${name}@${pin}, and neither the tree at ${sha.slice(0, 7)} ` +
+        `(${tree.manifest.version}) nor a tag ${name}@${pin} holds it`,
+    );
+
+  return { commit: tagged, ...at };
+}
+
+/**
+ * The packages a release's pages compile and reference, as the release had
+ * them, under a root the reference loader and Twoslash resolve them from.
+ *
+ * Under `node_modules/.cache` in the docs app, so a package's own imports of
+ * something the docs app or the workspace installs -- React, for a binding --
+ * still resolve by walking up, while each `@evanion/*` package resolves to its
+ * copy here. Keyed by the generator as well as the commit, because the
+ * declarations and the behaviour data are the generator's reading of that
+ * commit.
+ *
+ * Inside the docs app because a Twoslash fence compiles as a file under its
+ * `vfsRoot`, the directory `next build` runs in, and `anchorFences` puts that
+ * file in this root. Twoslash keeps a diagnostic only when the diagnostic's
+ * file name equals the path it built (`twoslash/dist/core.mjs`), and
+ * TypeScript normalises a path through `..` while Twoslash does not, so a
+ * file outside the docs app compiles with every error dropped.
+ *
+ * `release` is the package the section documents, read from the tree at
+ * `sha`. Every other package in `names` takes the version `release` pins it
+ * at, and each package's own workspace dependencies the versions it pins
+ * (`locate`).
  *
  * Every section cut from one commit shares its root, and a release run tags
  * every package it versions on the same commit, each section referencing its
  * own package. So the unit of work is a package: each is written the first
- * time a section at that commit asks for it, and its marker says both its
- * declarations and its behaviour data are there.
+ * time a section at that commit asks for it, and its marker names the commit
+ * it was read from and says its declarations and its behaviour data are there.
+ * Two sections at one commit that need one package at two versions cannot
+ * share the root, and the cut refuses the second.
  */
-function materialise(git, sha, names, workspaceRoot, generator) {
+function materialise(git, sha, release, names, docsRoot, generator) {
   const root = join(
-    workspaceRoot,
+    docsRoot,
     'node_modules',
     '.cache',
     'docs-archives',
     `${generator}-${sha}`,
   );
+  mkdirSync(root, { recursive: true });
   const workspace = workspaceAt(git, sha);
-  const needed = [];
-  const visit = (name) => {
-    if (needed.includes(name) || !workspace.has(name)) return;
-    const { manifest } = workspace.get(name);
-    for (const dependency of Object.keys({
-      ...manifest.dependencies,
-      ...manifest.peerDependencies,
-    }))
-      visit(dependency);
-    needed.push(name);
+  const pins = (manifest) => ({
+    ...manifest.peerDependencies,
+    ...manifest.dependencies,
+  });
+  const needed = new Map();
+  const visit = (name, pin, by) => {
+    const source = locate(git, sha, workspace, name, pin, by);
+    const held = needed.get(name);
+    if (held) {
+      if (held.commit !== source.commit)
+        throw new Error(
+          `${name} is needed from ${held.commit.slice(0, 7)} and from ${source.commit.slice(0, 7)} by one release`,
+        );
+      return;
+    }
+    for (const [dependency, range] of Object.entries(pins(source.manifest)))
+      if (workspace.has(dependency))
+        visit(dependency, range, `${name}@${source.manifest.version}`);
+    needed.set(name, source);
   };
-  for (const name of names) visit(name);
+  const own = workspace.get(release)?.manifest;
+  for (const name of names)
+    visit(
+      name,
+      name === release || !own ? undefined : pins(own)[name],
+      `${release} at ${sha.slice(0, 7)}`,
+    );
 
-  for (const name of needed) {
-    const { dir } = workspace.get(name);
+  for (const [name, { commit, dir }] of needed) {
     const packageDir = join(root, 'node_modules', name);
     const done = join(packageDir, MATERIALISED);
-    if (existsSync(done)) continue;
+    if (existsSync(done)) {
+      const from = readFileSync(done, 'utf8').trim();
+      if (from === commit) continue;
+      throw new Error(
+        `${name} at ${root} was read from ${from.slice(0, 7)}, and ${release} needs it from ${commit.slice(0, 7)}`,
+      );
+    }
 
     rmSync(packageDir, { recursive: true, force: true });
-    for (const file of git.files(sha, dir)) {
+    for (const file of git.files(commit, dir)) {
       if (!/\.(tsx?|mts|json|md)$/.test(file)) continue;
-      write(join(packageDir, relative(dir, file)), git.show(sha, file));
+      write(join(packageDir, relative(dir, file)), git.show(commit, file));
     }
 
     emitDeclarations(packageDir);
@@ -572,7 +643,7 @@ function materialise(git, sha, names, workspaceRoot, generator) {
       })}\n`,
     );
 
-    writeFileSync(done, '');
+    writeFileSync(done, `${commit}\n`);
   }
 
   return root;
@@ -584,12 +655,11 @@ function materialise(git, sha, names, workspaceRoot, generator) {
  * `own` is the section's directory name at the commit, which is what its
  * absolute links spell. `notice` is what the cut writes under every title.
  * `generator` is `generatorHash()`, which keys the packages it compiles.
+ * `compiler` compiles a fence as the build will (`compileFaults` in `cut.mjs`).
  */
 function cut(
   git,
-  contentDir,
-  workspaceRoot,
-  generator,
+  { contentDir, docsRoot, generator, compiler },
   section,
   line,
   target,
@@ -599,7 +669,6 @@ function cut(
   const files = git
     .files(line.sha, line.dir)
     .map((file) => file.slice(line.dir.length + 1));
-  const pages = files.filter((file) => file.endsWith('.mdx'));
   const workspace = workspaceAt(git, line.sha);
   const packageAt = workspace.get(section.name);
   const read = (path) => git.show(line.sha, path);
@@ -607,25 +676,17 @@ function cut(
     routesOf(walk(join(contentDir, 'next', section.slug))),
   );
 
-  const referenced = new Set();
-  for (const page of pages)
-    for (const match of read(`${line.dir}/${page}`).matchAll(
-      /^<!--\s*reference\s+(@[\w-]+\/[\w-]+)/gm,
-    ))
-      referenced.add(match[1]);
-
-  const references =
-    referenced.size > 0
-      ? {
-          root: materialise(
-            git,
-            line.sha,
-            [...referenced],
-            workspaceRoot,
-            generator,
-          ),
-        }
-      : null;
+  const materialiseFor = (names) => {
+    const root = materialise(
+      git,
+      line.sha,
+      section.name,
+      names,
+      docsRoot,
+      generator,
+    );
+    return { root, anchor: relative(docsRoot, root).split(sep).join('/') };
+  };
 
   for (const file of files) {
     const source = read(`${line.dir}/${file}`);
@@ -644,7 +705,8 @@ function cut(
         page: file,
         own,
         read,
-        references,
+        materialise: materialiseFor,
+        compiler,
         private: packageAt?.manifest.private === true,
         live,
         notice,
@@ -696,6 +758,7 @@ function generatorHash() {
     'versions.mjs',
     '../components/archive/surface.mjs',
     '../../../tools/doc-examples/src/mdx-reference-loader.mjs',
+    '../../../tools/doc-examples/src/preamble.mjs',
     '../../../tools/doc-examples/src/regions.mjs',
     '../../../tools/doc-examples/src/declarations.mjs',
     '../../../tools/doc-examples/src/behaviours.mjs',
@@ -740,6 +803,20 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
   const sections = plan({ packages, git, pins });
   const generator = generatorHash();
   const manifest = { sections: {} };
+  const twoslasher = createTwoslasher({
+    vfsRoot: docsRoot,
+    compilerOptions: defaultTwoslashOptions().compilerOptions,
+  });
+  const generating = {
+    contentDir,
+    docsRoot,
+    generator,
+    compiler: {
+      vfsRoot: docsRoot,
+      twoslash: (code, lang) =>
+        twoslasher(code, lang, defaultTwoslashOptions()),
+    },
+  };
 
   // A section that stopped being generated -- its package left the release
   // scope, or its pages went back to being written in place -- leaves nothing
@@ -776,31 +853,20 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
       const { current } = section;
       pages.current =
         current.from === 'cut'
-          ? cut(
-              git,
-              contentDir,
-              workspaceRoot,
-              generator,
-              section,
-              current,
-              bare,
-              {
-                kind: 'current',
-                source: current.source,
-                package: section.name,
-                version: current.version,
-                published: patchOf(current),
-                sha: current.sha.slice(0, 7),
-              },
-            )
+          ? cut(git, generating, section, current, bare, {
+              kind: 'current',
+              source: current.source,
+              package: section.name,
+              version: current.version,
+              published: patchOf(current),
+              sha: current.sha.slice(0, 7),
+            })
           : mirror(contentDir, section);
 
       for (const line of section.lines) {
         pages.lines[line.segment] = cut(
           git,
-          contentDir,
-          workspaceRoot,
-          generator,
+          generating,
           section,
           line,
           join(bare, line.segment),

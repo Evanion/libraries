@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  anchorFences,
   freezeCatalogues,
-  plainFences,
   relativeLinks,
   resolveComponents,
   surfaceFaults,
 } from './cut.mjs';
+
+const RELEASE = 'd618051d725fb1c757969c41361d128396d3a697';
+const OTHER = '8e0c6cb3bc7bc84e7a01debd4f059ae59687d2c4';
 
 /**
  * The invariant: a cut page carries nothing the site would resolve against
@@ -63,7 +66,26 @@ describe('a cut page', () => {
       ),
     ).toEqual([
       'a fence still names a region: ts file=libs/acl/README.md region=a',
-      'a fence still compiles: ts twoslash',
+      'a fence compiles against main: ts twoslash',
+    ]);
+  });
+
+  it('may keep a compiled fence anchored to the release it documents', () => {
+    const fence = (sha) =>
+      [
+        '```ts twoslash',
+        `// @filename: node_modules/.cache/docs-archives/0123456789abcdef-${sha}/index.ts`,
+        '// ---cut---',
+        'const x = 1;',
+        '```',
+      ].join('\n');
+    const notice = '<ArchiveNotice kind="current" sha="d618051" />';
+
+    expect(
+      surfaceFaults(`# Title\n\n${notice}\n\n${fence(RELEASE)}\n`),
+    ).toEqual([]);
+    expect(surfaceFaults(`# Title\n\n${notice}\n\n${fence(OTHER)}\n`)).toEqual([
+      "a fence compiles against 8e0c6cb, not the release's d618051: ts twoslash",
     ]);
   });
 
@@ -91,30 +113,67 @@ describe('the workshop notice on a cut page', () => {
 });
 
 describe('a Twoslash fence on a cut page', () => {
-  it('keeps what the reader saw and drops what the compiler read', () => {
+  const root = {
+    root: '/workspace/apps/docs/node_modules/.cache/docs-archives/g-sha',
+    anchor: 'node_modules/.cache/docs-archives/g-sha',
+  };
+
+  it('keeps every directive and opens on the release it compiles against', () => {
+    const asked = [];
+    const fence = [
+      '```ts twoslash',
+      "import { policy } from '@evanion/acl';",
+      "import { expectAccess } from '@evanion/acl/testing';",
+      '// ---cut---',
+      '// @errors: 2322',
+      'const access = policy();',
+      '//    ^?',
+      '```',
+    ];
+
     expect(
-      plainFences(
-        [
-          '```ts twoslash',
-          "import { policy } from '@evanion/acl';",
-          '// ---cut---',
-          '// @noErrors',
-          'const access = policy();',
-          '// ---cut-start---',
-          'declare const hidden: 1;',
-          '// ---cut-end---',
-          'access.can();',
-          '//     ^?',
-          '```',
-        ].join('\n'),
-      ),
-    ).toBe('```ts\nconst access = policy();\naccess.can();\n```');
+      anchorFences(fence.join('\n'), 'asking.mdx', (names) => {
+        asked.push(names);
+        return root;
+      }),
+    ).toBe(
+      [
+        fence[0],
+        `// @filename: ${root.anchor}/index.ts`,
+        '// ---cut---',
+        ...fence.slice(1),
+      ].join('\n'),
+    );
+    expect(asked).toEqual([['@evanion/acl']]);
   });
 
-  it('leaves a plain fence alone', () => {
-    const fence = '```ts\n// ---cut---\nconst x = 1;\n```';
+  it('compiles a tsx fence as tsx, at its own indent', () => {
+    expect(
+      anchorFences('  ```tsx twoslash\n  <a />\n  ```', 'x.mdx', () => root),
+    ).toBe(
+      `  \`\`\`tsx twoslash\n  // @filename: ${root.anchor}/index.tsx\n  // ---cut---\n  <a />\n  \`\`\``,
+    );
+  });
 
-    expect(plainFences(fence)).toBe(fence);
+  it('leaves a fence the build does not compile alone', () => {
+    const page =
+      '```ts\n// ---cut---\nconst x = 1;\n```\n\n```js twoslash\nx;\n```';
+
+    expect(
+      anchorFences(page, 'x.mdx', () => {
+        throw new Error('nothing to materialise');
+      }),
+    ).toBe(page);
+  });
+
+  it('refuses a fence that names its own files', () => {
+    expect(() =>
+      anchorFences(
+        '# T\n\n```ts twoslash\n// @filename: a.ts\nx;\n```',
+        'x.mdx',
+        () => root,
+      ),
+    ).toThrow('x.mdx:3: the fence names its own files with // @filename');
   });
 });
 
