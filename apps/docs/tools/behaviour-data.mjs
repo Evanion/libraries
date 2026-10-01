@@ -7,6 +7,7 @@ import { codeToHast, hastToHtml } from 'shiki';
 import ts from 'typescript';
 import { createTwoslasher } from 'twoslash';
 
+import { codeClasses, THEMES } from './code-classes.mjs';
 import { libraries } from './libraries.mjs';
 
 /**
@@ -44,29 +45,6 @@ const docsRoot = join(import.meta.dirname, '..');
 const workspaceRoot = join(docsRoot, '..', '..');
 const index = join(docsRoot, 'components', 'api', 'behaviour');
 const sidecars = join(docsRoot, 'public', 'behaviour');
-
-/** The two themes every fence on the site is already highlighted against. */
-const THEMES = { light: 'github-light', dark: 'github-dark' };
-
-/**
- * The declarations a token carries, as a class rather than on the token.
- *
- * Shiki writes the two themes' colours into every span's `style`, which is 45
- * bytes a token and 1.36 MB across `@evanion/acl` alone. The github themes
- * colour TypeScript with nine pairs between them, so a class per pair and a
- * rule per class takes the same file to 541 kB and changes no colour: these
- * are the values Nextra's own fences carry, read out of the same themes.
- *
- * The type a hover shows is highlighted against the same two themes, so its
- * tokens take their colours from the same classes and add two pairs of their
- * own for the frame Shiki draws around a signature that wraps.
- */
-const palette = new Map();
-
-const classOf = (declarations) => {
-  if (!palette.has(declarations)) palette.set(declarations, palette.size);
-  return `bh${palette.get(declarations)}`;
-};
 
 /**
  * What the compiler is told about a test file.
@@ -192,15 +170,8 @@ function classesOf(node) {
   return Array.isArray(held) ? held : String(held).split(/\s+/);
 }
 
-function addClass(node, name) {
-  const held = classesOf(node).filter(Boolean);
-  delete node.properties.className;
-  node.properties.class = [...held, name].join(' ');
-}
-
 /**
- * Shiki's per-token colours turned into palette classes, and each hover's type
- * lifted out of the token that carries it.
+ * Each hover's type lifted out of the token that carries it.
  *
  * `rendererRich` writes a whole popup into every token it decorates, and
  * `@evanion/acl` decorates 7478 of them with 1193 distinct types between
@@ -209,12 +180,6 @@ function addClass(node, name) {
  */
 function fold(node, popups) {
   if (node.type !== 'element') return;
-
-  const declarations = node.properties?.style;
-  if (typeof declarations === 'string' && declarations.includes('--shiki-')) {
-    delete node.properties.style;
-    addClass(node, classOf(declarations));
-  }
 
   for (const child of node.children ?? []) fold(child, popups);
 
@@ -260,7 +225,10 @@ async function highlight(body, language, hovers, popups) {
     lang: language,
     themes: THEMES,
     defaultColor: false,
-    transformers: twoslash,
+    // Every token and every token of a popup's type takes its colours from
+    // the site's own classes, which `public/code-classes.css` defines on every
+    // page, so the cases carry no rules of their own.
+    transformers: [...twoslash, codeClasses()],
   });
 
   const code = tree.children[0]?.children?.find(
@@ -392,20 +360,9 @@ for (const { name, index: contents, sidecar } of written) {
     `${JSON.stringify(contents, null, 2)}\n`,
   );
 
-  // The palette is shared, so it is written after every library has been
-  // highlighted and every sidecar carries the same rules. A sidecar carrying
-  // only the classes its own bodies used would still be correct and would make
-  // two libraries disagree about what `bh3` is.
-  const body = `${JSON.stringify({ ...sidecar, styles: styles() })}\n`;
+  const body = `${JSON.stringify(sidecar)}\n`;
   weight += body.length;
   writeFileSync(join(sidecars, `${name}.json`), body);
-}
-
-/** The palette as rules, keyed by the class each token carries. */
-function styles() {
-  return Object.fromEntries(
-    [...palette].map(([declarations, at]) => [`bh${at}`, declarations]),
-  );
 }
 
 console.log(
@@ -414,5 +371,5 @@ console.log(
 );
 console.log(
   `${relative(workspaceRoot, sidecars)}: ${Math.round(weight / 1024)} kB of ` +
-    `cases in ${palette.size} colours, ${fallbacks} of them without types`,
+    `cases, ${fallbacks} of them without types`,
 );

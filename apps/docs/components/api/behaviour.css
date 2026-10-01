@@ -122,8 +122,8 @@
  *
  * It scrolls rather than wraps, for the reason every other fence on the site
  * scrolls: a wrapped line of code loses the indentation that says what is
- * inside what. The colours come from the sidecar's own palette, which is the
- * two github themes Nextra highlights the rest of the site against.
+ * inside what. The colours come from the token classes in
+ * `public/code-classes.css`, the ones every other fence on the site carries.
  */
 .docs-behaviours__body {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
@@ -142,7 +142,7 @@
 /*
  * A token takes the theme's colour the way every other fence on the site does.
  *
- * The sidecar's own rules bind `--shiki-light` and `--shiki-dark` on each
+ * `public/code-classes.css` binds `--shiki-light` and `--shiki-dark` on each
  * token's class, and these two pick which of the pair the document is showing.
  * `nextra-theme-docs` writes the same pair of rules for `.nextra-code span`,
  * and this block exists because the pane is not one of its fences.

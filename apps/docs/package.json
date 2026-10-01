@@ -47,6 +47,7 @@
         "inputs": [
           "{projectRoot}/tools/behaviour-data.mjs",
           "{projectRoot}/tools/libraries.mjs",
+          "{projectRoot}/tools/code-classes.mjs",
           "{workspaceRoot}/tools/doc-examples/src/behaviours.mjs",
           "{workspaceRoot}/libs/*/src/**/*.ts",
           "{workspaceRoot}/libs/*/src/**/*.tsx",
@@ -91,13 +92,34 @@
           "{projectRoot}/content/versions.json"
         ]
       },
+      "code-classes": {
+        "command": "node tools/write-code-classes.mjs",
+        "options": {
+          "cwd": "{projectRoot}"
+        },
+        "cache": true,
+        "inputs": [
+          "{projectRoot}/tools/write-code-classes.mjs",
+          "{projectRoot}/tools/code-classes.mjs",
+          {
+            "externalDependencies": [
+              "shiki",
+              "@shikijs/transformers"
+            ]
+          }
+        ],
+        "outputs": [
+          "{projectRoot}/public/code-classes.css"
+        ]
+      },
       "build": {
         "dependsOn": [
           "^build",
           "testing-data",
           "behaviour-data",
           "widget-renders",
-          "archives"
+          "archives",
+          "code-classes"
         ],
         "inputs": [
           "default",
@@ -136,7 +158,8 @@
       },
       "dev": {
         "dependsOn": [
-          "archives"
+          "archives",
+          "code-classes"
         ]
       }
     }
@@ -160,6 +183,8 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@shikijs/themes": "3.23.0",
+    "@shikijs/transformers": "3.23.0",
     "@shikijs/twoslash": "3.23.0",
     "remark-mdx": "3.1.1",
     "remark-parse": "11.0.0",

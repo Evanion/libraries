@@ -94,7 +94,14 @@ export default function RootLayout({ children }: PropsWithChildren) {
       {/* The ground and the accent reach the theme here rather than through CSS:
           `Head` writes both into an inline `<style>` in the document, which wins
           over any stylesheet link. Both are derived from the library's tokens. */}
-      <Head backgroundColor={baizeBackground} color={baizeColor} />
+      <Head backgroundColor={baizeBackground} color={baizeColor}>
+        {/* The colours of every highlighted token on the site, one class per
+            pair of theme colours (`tools/code-classes.mjs`). Linked from
+            `public/` and not imported: with the stylesheet in Turbopack's
+            module graph and its classes on the tokens of every page, the
+            compile goes from 80 seconds to 13 minutes. */}
+        <link rel="stylesheet" href="/code-classes.css" />
+      </Head>
       <body>
         <ThemeProvider
           attribute="class"
