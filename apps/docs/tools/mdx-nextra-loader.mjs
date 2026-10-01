@@ -1,6 +1,6 @@
 /**
- * Nextra's MDX loader, with `codeClasses()` added to the transformers it hands
- * Shiki.
+ * Nextra's MDX loader, with `codeClasses()` and `popupPanels()` added to the
+ * transformers it hands Shiki.
  *
  * Nextra's hook for a Shiki transformer is
  * `mdxOptions.rehypePrettyCodeOptions.transformers`, which its loader appends
@@ -18,6 +18,7 @@
 import { createRequire } from 'node:module';
 
 import { codeClasses } from './code-classes.mjs';
+import { popupPanels } from './popup-panels.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -32,7 +33,13 @@ export default function loader(source) {
       ...mdxOptions,
       rehypePrettyCodeOptions: {
         ...prettyCode,
-        transformers: [...(prettyCode.transformers ?? []), codeClasses()],
+        // In this order: the panels are serialised with the token classes
+        // already on their spans.
+        transformers: [
+          ...(prettyCode.transformers ?? []),
+          codeClasses(),
+          popupPanels(),
+        ],
       },
     },
   });
