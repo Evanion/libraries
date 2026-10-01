@@ -410,6 +410,23 @@ no `file=…region=…` attribute survives in generated output — now has to ho
 the default path as well as for archives. The eight occurrences in
 `content/next/urn/` are the fixture.
 
+By the owner's ruling of 2026-10-01, cut pages compile Twoslash against the
+pinned release's declarations. A Twoslash fence on a cut page stays a Twoslash
+fence, with its `// ---cut---`, `// ^?` and `// @errors` as the release wrote
+them, so its hovers show the types the release shipped. The cut materialises the
+release's package from the pinned commit into
+`apps/docs/node_modules/.cache/docs-archives/<generator>-<sha>/`, with each
+workspace dependency at the exact version the release's `package.json` pins,
+and opens every compiled fence with a `// @filename:` inside that directory and a
+`// ---cut---` under it. Twoslash resolves `@evanion/*` from that file, so the
+build compiles the fence against the release. The cut
+compiles each fence the same way first, and a fence that does not compile
+against its own release fails the cut with the page, the line and the
+compiler's error. That is an archive defect, and the cut does not fall back to
+plain code. A repo-check refuses a cut page whose compiled fence is not anchored
+to the commit its notice names, and the export check holds every anchored fence
+to a rendered Twoslash block with its hovers.
+
 The minimum component surface a generated page may use: prose primitives from
 `@evanion/baize-ui` (`Panel`, `Text`, `Callout`, `Tabs`, `Steps`), `FrozenProbe`,
 `ArchiveNotice`. The defining constraint is no import from `app/navigation.ts`, no
