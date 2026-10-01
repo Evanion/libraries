@@ -46,7 +46,6 @@ const SIDECAR = {
       html: '<span>expect(finding?.groups.subject)</span>',
     },
   },
-  styles: { bh0: '--shiki-light:#005CC5;--shiki-dark:#79B8FF' },
   popups: {},
 };
 
@@ -76,7 +75,6 @@ const TYPED = {
         '<span class="twoslash-hover" data-pop="1">parse</span>',
     },
   },
-  styles: {},
   popups: {
     0: '<code class="twoslash-popup-code">const urn: URN</code>',
     1: '<code class="twoslash-popup-code">function parse(text: string): URN</code>',

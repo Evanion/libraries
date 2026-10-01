@@ -27,6 +27,12 @@
     // target rather than imported.
     "apps/docs/tools/widget-renders.mjs",
 
+    // The token stylesheet, written by the `docs:code-classes` target rather
+    // than imported, and the MDX loader `next.config.ts` hands Turbopack by
+    // path. Turbopack loads a loader from a path string, which no import names.
+    "apps/docs/tools/write-code-classes.mjs",
+    "apps/docs/tools/mdx-code-classes-loader.mjs",
+
     // The docs site's version directories, written by the `docs:archives`
     // target rather than imported, and the two commands the release and
     // re-cut workflows run to change what `apps/docs/archives.json` pins.

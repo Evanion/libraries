@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 
+import type { NextConfig } from 'next';
 import nextra from 'nextra';
 
 // A plain Next config, not wrapped in @nx/next's `composePlugins`/`withNx`:
@@ -15,7 +16,7 @@ const withNextra = nextra({
 
 const workspaceRoot = join(import.meta.dirname, '../..');
 
-export default withNextra({
+const config = withNextra({
   // The first expands every `<!-- reference … -->` directive on an API
   // reference page into the entry the package's own declarations describe: a
   // summary, a collapsed docblock, a signature fence and an example fence. It
@@ -70,3 +71,40 @@ export default withNextra({
   // Pages resolves reliably for a bare `/about` request.
   trailingSlash: true,
 });
+
+/**
+ * The config with every rule that compiles MDX through Nextra's loader
+ * compiling it through `tools/mdx-code-classes-loader.mjs` instead, which runs
+ * Nextra's loader with the site's token classes added (`tools/code-classes.mjs`).
+ *
+ * Nextra registers its loader by path, with JSON options, for `*.{md,mdx}` and
+ * for MDX pages under `app/`. The replacement takes the same options plus that
+ * path, so it runs exactly the loader it replaces.
+ */
+function withCodeClasses(next: NextConfig): NextConfig {
+  const loader = join(import.meta.dirname, 'tools/mdx-code-classes-loader.mjs');
+  const rules = Object.fromEntries(
+    Object.entries(next.turbopack?.rules ?? {}).map(([glob, rule]) => {
+      if (!glob.includes('{md,mdx}') || !rule || !('loaders' in rule))
+        return [glob, rule];
+      return [
+        glob,
+        {
+          ...rule,
+          loaders: rule.loaders.map((each) =>
+            typeof each === 'object' &&
+            each.loader.endsWith('/nextra/loader.cjs')
+              ? {
+                  loader,
+                  options: { ...each.options, nextraLoader: each.loader },
+                }
+              : each,
+          ),
+        },
+      ];
+    }),
+  );
+  return { ...next, turbopack: { ...next.turbopack, rules } };
+}
+
+export default withCodeClasses(config);

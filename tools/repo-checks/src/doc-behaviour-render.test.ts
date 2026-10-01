@@ -63,7 +63,7 @@ const ROW = /\{"title":("(?:[^"\\]|\\.)*"),"id":(\d+)\}/g;
 /** One package's cases, as `docs:behaviour-data` writes them beside the page. */
 interface Sidecar {
   bodies: Record<string, { where: string; line: number; html: string }>;
-  styles: Record<string, string>;
+  popups: Record<string, string>;
 }
 
 const expand = (name: string): string =>
@@ -312,20 +312,34 @@ describe('the cases a catalogue opens', () => {
     }
   });
 
-  it('gives every token a class the sidecar defines', () => {
+  it("gives every token a class the site's code stylesheet defines", () => {
+    const stylesheet = readFileSync(
+      join(workspaceRoot, 'apps/docs/public/code-classes.css'),
+      'utf8',
+    );
+    const defined = new Set(
+      [...stylesheet.matchAll(/\.(sh-\w+)\{/g)].map(([, name]) => name),
+    );
+
     for (const name of libraries()) {
       const sidecar = read<Sidecar>(sidecars, name);
       const used = new Set<string>();
 
-      for (const body of Object.values(sidecar.bodies)) {
-        for (const [, token] of body.html.matchAll(/class="(bh\d+)"/g)) {
+      for (const html of [
+        ...Object.values(sidecar.bodies).map((body) => body.html),
+        ...Object.values(sidecar.popups),
+      ]) {
+        // A token with a font style keeps its inline style, because the
+        // stylesheet holds colour pairs only (`tools/code-classes.mjs`).
+        for (const [, style] of html.matchAll(/style="([^"]*--shiki-[^"]*)"/g))
+          expect(style).toMatch(/font-|text-decoration/);
+        for (const [, token] of html.matchAll(/class="[^"]*\b(sh-\w+)/g)) {
           if (token !== undefined) used.add(token);
         }
       }
 
-      expect([...used].filter((token) => !(token in sidecar.styles))).toEqual(
-        [],
-      );
+      expect(used.size).toBeGreaterThan(0);
+      expect([...used].filter((token) => !defined.has(token))).toEqual([]);
     }
   });
 });

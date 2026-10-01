@@ -7,12 +7,14 @@
         { "projects": "libs/*", "target": "test" },
         "docs:behaviour-data",
         "docs:widget-renders",
-        "docs:archives"
+        "docs:archives",
+        "docs:code-classes"
       ],
       "inputs": [
         "repoChecks",
         { "dependentTasksOutputFiles": "**/report.json" },
-        { "dependentTasksOutputFiles": "**/renders.json" }
+        { "dependentTasksOutputFiles": "**/renders.json" },
+        { "dependentTasksOutputFiles": "**/code-classes.css" }
       ]
     }
   }

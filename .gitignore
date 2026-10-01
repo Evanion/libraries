@@ -114,6 +114,11 @@ apps/docs/public/behaviour/
 # render is right until somebody changes a widget without rendering again.
 apps/docs/components/astro-widget/renders.json
 
+# Written by `nx run docs:code-classes` from the two Shiki themes the site
+# highlights with. Not committed: it is the themes' palette, and a committed
+# copy is right until the themes change under a Shiki upgrade.
+apps/docs/public/code-classes.css
+
 # Written by `nx run docs:archives`: each package's bare section, cut from git at
 # the commit `apps/docs/archives.json` pins or copied from `content/next/`, and
 # its retained release lines. What a person writes under `content/` is the

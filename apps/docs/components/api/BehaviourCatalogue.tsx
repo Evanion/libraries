@@ -82,7 +82,6 @@ interface Body {
 
 interface Sidecar {
   bodies: Record<string, Body>;
-  styles: Record<string, string>;
   /** The types the cases hover, each stored once and cited by its number. */
   popups: Record<string, string>;
 }
@@ -101,46 +100,13 @@ function load(library: string): Promise<Sidecar> {
   const held = sidecars.get(library);
   if (held) return held;
 
-  const asked = fetch(`/behaviour/${library}.json`)
-    .then((response) => {
-      if (!response.ok) throw new Error(String(response.status));
-      return response.json() as Promise<Sidecar>;
-    })
-    .then((sidecar) => {
-      paint(sidecar.styles);
-      return sidecar;
-    });
+  const asked = fetch(`/behaviour/${library}.json`).then((response) => {
+    if (!response.ok) throw new Error(String(response.status));
+    return response.json() as Promise<Sidecar>;
+  });
 
   sidecars.set(library, asked);
   return asked;
-}
-
-/**
- * The highlighter's palette, as one stylesheet.
- *
- * Every token in a sidecar carries a class rather than the two themes' colours
- * in its `style`, and so does every token of every type a hover states. The
- * dozen rules that give those classes their colours ride along in the sidecar
- * and go into the document once, against the case in the pane and against the
- * card over it. They are the same values Nextra's own fences carry, read out of
- * the same two github themes, so nothing here picks a colour.
- */
-let painted = false;
-
-function paint(styles: Record<string, string>): void {
-  if (painted || typeof document === 'undefined') return;
-  painted = true;
-
-  const sheet = document.createElement('style');
-  sheet.dataset.behaviourPalette = '';
-  sheet.textContent = Object.entries(styles)
-    .map(
-      ([token, declarations]) =>
-        `.docs-behaviours__body .${token},` +
-        `.docs-behaviours__type .${token}{${declarations}}`,
-    )
-    .join('\n');
-  document.head.append(sheet);
 }
 
 /** Every row the rail holds, in the order the arrow keys walk them. */
