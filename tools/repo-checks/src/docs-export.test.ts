@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DOCS, servedSections } from './docs-content';
+import { CONTENT, DOCS, servedSections } from './docs-content';
 
 /**
  * The invariant: the static export serves every version it links, is searchable
@@ -274,6 +274,52 @@ describe.runIf(required)('the static export', () => {
             ? []
             : [`${path} serves ${served ?? 'no release'}, not ${version}`];
         }),
+    );
+
+    expect(wrong).toEqual([]);
+  });
+
+  /**
+   * § 8 over what deploys. The cut anchors every Twoslash fence on a cut page
+   * to the release it documents, and the build renders each one with the
+   * release's hovers. A fence the build rendered plain, or a page with
+   * compiled fences and no hover, has lost the IntelliSense its release had.
+   */
+  it('renders every Twoslash fence on a cut page with its hovers', () => {
+    const anchored =
+      /^\s*\/\/ @filename: node_modules\/\.cache\/docs-archives\//gm;
+    const compiled = /<pre [^>]*class="[^"]*\btwoslash lsp\b/g;
+
+    const wrong = Object.entries(servedSections()).flatMap(([slug, section]) =>
+      [
+        ...(section.current.from === 'cut'
+          ? [{ base: slug, pages: section.current.pages }]
+          : []),
+        ...section.lines.map((line) => ({
+          base: `${slug}/${line.segment}`,
+          pages: line.pages,
+        })),
+      ].flatMap(({ base, pages }) =>
+        pages.flatMap((page) => {
+          const route = page === '' ? base : `${base}/${page}`;
+          const source = [`${route}.mdx`, `${route}/index.mdx`]
+            .map((file) => join(CONTENT, file))
+            .find((file) => existsSync(file));
+          if (!source) return [`/${route}/: no page under content/`];
+
+          const fences = (readFileSync(source, 'utf-8').match(anchored) ?? [])
+            .length;
+          const html = readFileSync(join(OUT, route, 'index.html'), 'utf-8');
+          const rendered = (html.match(compiled) ?? []).length;
+          const hovers = html.includes('twoslash-popup-container');
+
+          return rendered === fences && (fences === 0 || hovers)
+            ? []
+            : [
+                `/${route}/: ${fences} anchored fences, ${rendered} rendered as Twoslash${hovers ? '' : ', no hover'}`,
+              ];
+        }),
+      ),
     );
 
     expect(wrong).toEqual([]);
