@@ -9,6 +9,13 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import {
+  createTransformerFactory,
+  defaultTwoslashOptions,
+  rendererRich,
+} from '@shikijs/twoslash';
+import { codeToHtml } from 'shiki';
+import { createTwoslasher } from 'twoslash';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
@@ -763,30 +770,6 @@ describe('the directories the generator writes', () => {
     });
   });
 
-  it('turns a Twoslash fence into the plain code a reader saw', () => {
-    const { read } = generated([
-      {
-        files: {
-          'apps/docs/content/next/luhn/index.mdx': page(
-            [
-              '```ts twoslash',
-              "import { Luhn } from '@evanion/luhn';",
-              '// ---cut---',
-              "const check = Luhn.generate('gloomhaven');",
-              '//    ^?',
-              '```',
-            ].join('\n'),
-          ),
-        },
-        tag: '@evanion/luhn@3.0.0',
-      },
-    ]);
-
-    expect(read('luhn/index.mdx')).toContain(
-      "```ts\nconst check = Luhn.generate('gloomhaven');\n```",
-    );
-  });
-
   it('links a page of its own section relatively, from before the links were', () => {
     const { read } = generated([
       {
@@ -1080,5 +1063,262 @@ describe('the reference pages the generator cuts', () => {
     expect(read('nestjs-correlation-id/api.mdx')).toContain(
       '  - reads the header',
     );
+  });
+});
+
+describe('the Twoslash fences the generator cuts', () => {
+  /** A package at `dir` whose source is `source`, depending on `dependencies`. */
+  const pkg = (dir, name, version, source, dependencies = {}) => ({
+    [`${dir}/package.json`]: JSON.stringify({
+      name,
+      version,
+      type: 'module',
+      dependencies,
+      exports: {
+        './package.json': './package.json',
+        '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+      },
+    }),
+    [`${dir}/README.md`]: `# ${name}\n`,
+    [`${dir}/src/index.ts`]: source,
+  });
+
+  const fence = (...code) => ['```ts twoslash', ...code, '```'].join('\n');
+
+  /**
+   * `@evanion/<name>` installed in the fixture workspace the way npm links a
+   * workspace package, with `main`'s declarations. A fence that resolved the
+   * package from the workspace would compile against these.
+   */
+  function installMain(root, name, declarations) {
+    const dir = join(root, 'node_modules', name);
+    mkdirSync(join(dir, 'dist'), { recursive: true });
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name,
+        type: 'module',
+        exports: { '.': { types: './dist/index.d.ts' } },
+      }),
+    );
+    writeFileSync(join(dir, 'dist/index.d.ts'), declarations);
+  }
+
+  function cutFrom(steps, packages, installed = {}) {
+    const root = repository(steps);
+    for (const { slug } of packages)
+      mkdirSync(join(root, 'apps/docs/content/next', slug), {
+        recursive: true,
+      });
+    for (const [name, declarations] of Object.entries(installed))
+      installMain(root, name, declarations);
+
+    const docsRoot = join(root, 'apps/docs');
+    const run = () =>
+      writeArchives({ docsRoot, workspaceRoot: root, packages });
+
+    return { root, docsRoot, run, read: content(root) };
+  }
+
+  /** The cut page's first Twoslash fence, rendered as the build renders it. */
+  async function rendered(docsRoot, source) {
+    const [, code] = source.match(/```ts twoslash\n([\s\S]*?)\n```/);
+    const twoslasher = createTwoslasher({
+      vfsRoot: docsRoot,
+      compilerOptions: defaultTwoslashOptions().compilerOptions,
+    });
+
+    return codeToHtml(code, {
+      lang: 'ts',
+      theme: 'github-light',
+      meta: { __raw: 'twoslash' },
+      transformers: [
+        createTransformerFactory(
+          twoslasher,
+          rendererRich(),
+        )({
+          explicitTrigger: true,
+        }),
+      ],
+    });
+  }
+
+  const before =
+    'export function generate(input: string): string {\n  return input;\n}\n';
+  const after =
+    'export function generate(input: string, length: number): string {\n  return input.slice(length);\n}\n' +
+    'export function verify(input: string): boolean {\n  return input.length > 0;\n}\n';
+
+  /**
+   * The signature of `generate` changes after the tag, and the workspace's
+   * installed copy is `main`'s. The page's hover has to show the tag's.
+   */
+  it("shows the release's type in a hover where main's differs", async () => {
+    const { docsRoot, run, read } = cutFrom(
+      [
+        {
+          files: {
+            ...pkg('libs/luhn', '@evanion/luhn', '3.0.0', before),
+            'apps/docs/content/next/luhn/index.mdx': page(
+              fence(
+                "import { generate } from '@evanion/luhn';",
+                "const check = generate('gloomhaven');",
+              ),
+            ),
+          },
+          tag: '@evanion/luhn@3.0.0',
+        },
+        { files: pkg('libs/luhn', '@evanion/luhn', '3.1.0', after) },
+      ],
+      luhn,
+      {
+        '@evanion/luhn':
+          'export declare function generate(input: string, length: number): string;\n',
+      },
+    );
+    run();
+
+    const html = await rendered(docsRoot, read('luhn/index.mdx'));
+
+    expect(html).toContain('twoslash-popup-container');
+    expect(html.replace(/<[^>]+>/g, '')).toContain(
+      'function generate(input: string): string',
+    );
+    expect(html).not.toContain('length');
+  });
+
+  it('keeps the directives the release wrote, and renders them', async () => {
+    const { docsRoot, run, read } = cutFrom(
+      [
+        {
+          files: {
+            ...pkg('libs/luhn', '@evanion/luhn', '3.0.0', before),
+            'apps/docs/content/next/luhn/index.mdx': page(
+              fence(
+                "import { generate } from '@evanion/luhn';",
+                '// ---cut---',
+                '// @errors: 2554',
+                'generate();',
+                "const check = generate('gloomhaven');",
+                '//    ^?',
+              ),
+            ),
+          },
+          tag: '@evanion/luhn@3.0.0',
+        },
+      ],
+      luhn,
+    );
+    run();
+
+    expect(read('luhn/index.mdx')).toContain(
+      [
+        '// ---cut---',
+        '// @errors: 2554',
+        'generate();',
+        "const check = generate('gloomhaven');",
+        '//    ^?',
+      ].join('\n'),
+    );
+
+    const html = await rendered(docsRoot, read('luhn/index.mdx'));
+    expect(html).toContain('twoslash-error');
+    expect(html).toContain('twoslash-query-persisted');
+    expect(html.replace(/<[^>]+>/g, '')).not.toContain('---cut---');
+  });
+
+  /**
+   * `verify` exists only on `main`, and the workspace's installed copy has it,
+   * so a cut that compiled against the workspace would pass.
+   */
+  it('refuses a fence that compiles only against main', () => {
+    const { root, run } = cutFrom(
+      [
+        {
+          files: {
+            ...pkg('libs/luhn', '@evanion/luhn', '3.0.0', before),
+            'apps/docs/content/next/luhn/index.mdx': page(
+              fence(
+                "import { verify } from '@evanion/luhn';",
+                "verify('gloomhaven');",
+              ),
+            ),
+          },
+          tag: '@evanion/luhn@3.0.0',
+        },
+        { files: pkg('libs/luhn', '@evanion/luhn', '3.1.0', after) },
+      ],
+      luhn,
+      {
+        '@evanion/luhn':
+          'export declare function verify(input: string): boolean;\n',
+      },
+    );
+    const sha = gitAt(root).commit('@evanion/luhn@3.0.0').slice(0, 7);
+
+    expect(run).toThrow(
+      new RegExp(
+        `index\\.mdx does not compile against @evanion/luhn 3\\.0\\.0 at ${sha}, the release it documents:\\n  line 5: [\\s\\S]*'verify'`,
+      ),
+    );
+  });
+
+  /**
+   * The widget moves to 0.2.0 on the commit react-widget 0.3.0 is tagged on,
+   * and react-widget still pins 0.1.0, so a fence on its page compiles against
+   * the widget its `package.json` names, from the widget's own tag.
+   */
+  it('compiles a dependency at the version the release pinned', () => {
+    const size = (union) => `export type Size = ${union};\n`;
+    const { run, read } = cutFrom(
+      [
+        {
+          files: pkg(
+            'libs/widget',
+            '@evanion/widget',
+            '0.1.0',
+            size("'small'"),
+          ),
+          tag: '@evanion/widget@0.1.0',
+        },
+        {
+          files: {
+            ...pkg(
+              'libs/widget',
+              '@evanion/widget',
+              '0.2.0',
+              size("'small' | 'large'"),
+            ),
+            ...pkg(
+              'libs/react-widget',
+              '@evanion/react-widget',
+              '0.3.0',
+              "export type { Size } from '@evanion/widget';\n",
+              { '@evanion/widget': '0.1.0' },
+            ),
+            'apps/docs/content/next/react-widget/index.mdx': page(
+              fence(
+                "import type { Size } from '@evanion/react-widget';",
+                "const pick: Size = 'large';",
+              ),
+            ),
+          },
+          tag: '@evanion/react-widget@0.3.0',
+        },
+      ],
+      [
+        {
+          name: '@evanion/react-widget',
+          slug: 'react-widget',
+          documented: true,
+          workshop: false,
+        },
+      ],
+    );
+
+    expect(run).toThrow(
+      /line 5: [\s\S]*Type '"large"' is not assignable to type '"small"'/,
+    );
+    expect(() => read('react-widget/index.mdx')).toThrow();
   });
 });
