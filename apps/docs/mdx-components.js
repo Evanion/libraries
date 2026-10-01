@@ -30,6 +30,7 @@ import ArchiveNotice from './components/archive/ArchiveNotice';
 import FrozenProbe from './components/archive/FrozenProbe';
 import Diagram from './components/diagram/Diagram';
 import Listing from './components/listing/Listing';
+import TwoslashPanel from './components/TwoslashPanel';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
 import PageSheet from './components/PageSheet';
@@ -136,6 +137,12 @@ export function useMDXComponents(components) {
     // Not a tag an author writes either: `tools/mdx-listing-loader.mjs` wraps a
     // fence carrying one of documentation standard § 5's exemption tags in one.
     Listing,
+    // Not a tag an author writes: `tools/popup-panels.mjs` puts one in place of
+    // every Twoslash hover's popup. The key is lower case because
+    // `rehype-pretty-code` renders each block with Shiki's `codeToHtml` and
+    // parses the HTML back, which lower-cases every tag name, and MDX looks a
+    // lower-case tag up on this map by that name.
+    twoslashpanel: TwoslashPanel,
     PageSheet,
     WorkshopNotice,
     WidgetPlayground,

@@ -74,15 +74,16 @@ const config = withNextra({
 
 /**
  * The config with every rule that compiles MDX through Nextra's loader
- * compiling it through `tools/mdx-code-classes-loader.mjs` instead, which runs
- * Nextra's loader with the site's token classes added (`tools/code-classes.mjs`).
+ * compiling it through `tools/mdx-nextra-loader.mjs` instead, which runs
+ * Nextra's loader with the site's Shiki transformers added: the token classes
+ * (`tools/code-classes.mjs`) and the popup panels (`tools/popup-panels.mjs`).
  *
  * Nextra registers its loader by path, with JSON options, for `*.{md,mdx}` and
  * for MDX pages under `app/`. The replacement takes the same options plus that
  * path, so it runs exactly the loader it replaces.
  */
-function withCodeClasses(next: NextConfig): NextConfig {
-  const loader = join(import.meta.dirname, 'tools/mdx-code-classes-loader.mjs');
+function withShikiTransformers(next: NextConfig): NextConfig {
+  const loader = join(import.meta.dirname, 'tools/mdx-nextra-loader.mjs');
   const rules = Object.fromEntries(
     Object.entries(next.turbopack?.rules ?? {}).map(([glob, rule]) => {
       if (!glob.includes('{md,mdx}') || !rule || !('loaders' in rule))
@@ -107,4 +108,4 @@ function withCodeClasses(next: NextConfig): NextConfig {
   return { ...next, turbopack: { ...next.turbopack, rules } };
 }
 
-export default withCodeClasses(config);
+export default withShikiTransformers(config);
