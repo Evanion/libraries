@@ -1,75 +1,77 @@
 # @evanion/feature
 
-<WorkshopNotice slug="feature">
-  <Text as="div" size="sm">
-    The implementation is complete and covered by 83 passing tests, against the
-    approved spec at `docs/specs/2026-09-11-feature-toggles.md`. Inside this
-    repository it resolves from source like any other workspace package.
-  </Text>
-</WorkshopNotice>
+**Manage complex feature rollouts with dependency-aware toggles.**
 
-Feature toggles where one flag can depend on another. A parent that resolves off
-takes its dependants with it, transitively, and it does that without writing
-anything back into the configuration.
+Most feature flag systems treat every flag as an independent switch. But in real-world product development, features are rarely independent. A "Express Pickup" feature might depend on the "New Checkout" being enabled first. If the parent is off, the child must be off, regardless of its own settings.
+
+`@evanion/feature` solves this by implementing a hierarchical decision engine. It ensures that feature dependencies are respected transitively: if a parent flag resolves to "off," all its dependents are automatically disabled without requiring manual updates to every child flag.
+
+<PageSheet
+  difficulty={2}
+  read={5}
+  unlocks={[
+    ['Configuration', './configuration'],
+    ['Decisions', './decisions'],
+  ]}
+/>
+
+## The Problem: The "Divergent State" Trap
+
+When features have dependencies, managing them as independent flags leads to inconsistent states. For example, you might accidentally enable "Express Pickup" for a user who isn't on the "New Checkout" flow.
+
+To prevent this, you would either have to:
+- **Write manual checks** in every component: `if (features.newCheckout && features.expressPickup)`.
+- **Manage state manually**: Update every child flag whenever a parent changes.
+
+Both approaches are error-prone and clutter your business logic with infrastructure concerns.
+
+## Solution: Dependency-Aware Resolution
+
+`@evanion/feature` moves the dependency logic into the resolution engine. When you ask if a feature is enabled, the library automatically checks the entire dependency chain.
 
 ```ts twoslash file=libs/feature/README.md region=quick-start
 
 ```
 
-Express pickup is offered only to a customer the new checkout is already on
-for. `cust-0042` and `cust-0107` differ because the 25% rollout put them in
-different buckets. Without the cascade, a quarter of customers would get the
-new checkout and all of them would get its pickup option.
+In this example, "Express Pickup" is offered only to customers who are already on the "New Checkout" flow. If the "New Checkout" flag resolves to `false` for a specific user, "Express Pickup" will also resolve to `false`, even if its own rollout percentage is set to 100%.
 
-## Two entry points
+## Architecture: Core vs. React
 
-```ts
-import { createFeatures } from '@evanion/feature';
-import { FeatureProvider, useFeature } from '@evanion/feature/react';
-```
+The library is split into two parts to maximize flexibility and performance:
 
-The core imports no framework, so it runs in an API, in a script, or at build
-time. The React adapter is a provider and three hooks over an already-built
-store, and is client code. Nothing in it decides anything.
+### 1. The Core (`@evanion/feature`)
+The core is a framework-agnostic engine. It has no dependencies and runs anywhere: in a Node.js API, a build script, or a serverless function. It provides the pure functions needed to resolve flags and plan rollouts.
 
-`'use client'` is a per-module directive and a bundle is one module, so the
-package is emitted file by file and the core entry stays free of both the
-directive and any React import.
+### 2. The React Adapter (`@evanion/feature/react`)
+The React adapter provides a `FeatureProvider` and specialized hooks (`useFeature`, etc.) to make the core accessible within a React tree. To keep the core lean and RSC-compatible, the adapter is a separate entry point.
 
-## The shape of a decision
+## Understanding a "Decision"
 
-`resolve` returns one decision per feature. `enabled` is the answer; everything
-else explains it. Here the new checkout is on for booksellers first, so a
-customer's express pickup is off with the parent named:
+When you resolve a feature, the library returns more than just a boolean. It returns a **Decision** object:
 
 ```ts twoslash file=libs/feature/README.md region=dependency-off
 
 ```
 
-`reason` is output only. Nothing in this library reads it back to decide
-anything, so deleting it would change no decision. It exists for the operator
-looking at a flag that is off and asking why.
+- **`enabled`**: The final answer (true/false).
+- **`reason`**: A human-readable explanation of *why* the feature is on or off.
 
-## The store never writes
+The `reason` field is critical for operators and developers. If a feature is unexpectedly off, the reason will explicitly state which parent dependency blocked it, eliminating the guesswork during debugging.
 
-The only writers are `toggle()` and editing the configuration. `resolve()` and
-`plan()` are pure functions of `(config, context, now)`.
+## Design Principle: The Store Never Writes
 
-When a parent's time window expires, nothing changes in the store; `resolve()`
-starts returning false for the dependant. When the window reopens it returns
-true again. The dependant's `enabled` was `true` throughout, because that field
-means "the maintainer wants this on", which stayed true.
+A key design choice in `@evanion/feature` is that the resolution process is a pure function of `(config, context, now)`.
 
-Writing resolved values back would put entries in an audit log that nobody
-performed, make a process that slept through a window boundary disagree with one
-that was awake, and erase the difference between "someone turned this off" and
-"the system turned it off".
+The engine never writes resolved values back into the configuration. This ensures:
+- **Audit Integrity**: Your configuration remains a record of *intent*, not a log of results.
+- **Temporal Consistency**: If a time-windowed flag expires, `resolve()` immediately starts returning `false` for all dependents without needing a database update.
+- **Statelessness**: Multiple processes resolving the same context at the same time will always agree.
 
-## Pages
+## Exploration Guide
 
-- [Configuration](/feature/configuration) — definitions, precedence, conditions
-- [Rollouts](/feature/rollouts) — bucketing, seeds, and why raising a percentage is additive
-- [Decisions](/feature/decisions) — resolving, toggling, and reading a reason
-- [Build-time planning](/feature/build-time) — `plan()` for static sites
-- [React](/feature/react) — the provider and the three hooks
-- [API reference](/feature/api)
+- **[Configuration](./configuration)**: Learn about definitions, precedence, and conditional logic.
+- **[Rollouts](./rollouts)**: Understand bucketing, seeds, and additive percentages.
+- **[Decisions](./decisions)**: Deep dive into resolving, toggling, and interpreting reasons.
+- **[Build-time planning](./build-time)**: Use `plan()` to optimize static sites.
+- **[React](./react)**: Implement the provider and hooks in your UI.
+- **[API reference](./api)**: Full technical specification.

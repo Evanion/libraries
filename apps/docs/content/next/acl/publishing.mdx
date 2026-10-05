@@ -1,8 +1,8 @@
-# How do I give my rules to another service?
+# Publishing ACL Contracts
 
-`serialize(access, 'reduced')` emits the permissions you marked public as a JSON
-document another service adopts with `parseMatrix` and decides from in its own
-process.
+In a distributed system, one service often owns the authorization rules for a specific resource, but other services need to know those rules to provide a consistent user experience. For example, an `orders` service owns the rules for issuing refunds, but the `storefront` needs to know those rules to decide whether to show a "Request Refund" button.
+
+If the storefront were to maintain its own copy of these rules, it would inevitably diverge from the source of truth. To prevent this, `@evanion/acl` allows a service to publish a "contract"—a reduced version of its policy matrix—that other services can adopt and evaluate locally.
 
 <PageSheet
   difficulty={5}
@@ -15,115 +15,69 @@ process.
   ]}
 />
 
-## Publishing an acl contract with `serialize`
+## Creating a Public Contract with `serialize`
 
-Baize's storefront draws a refund button, and the refund rules live in the
-`orders` service. A storefront that cannot read those rules writes its own copy,
-which the `orders` team does not own and cannot correct. The copy diverges the
-first time `orders` changes a rule, and the button stays hidden against a server
-that would have allowed the call.
+A service defines which parts of its policy are intended for public consumption using the `.visibility('public')` mark. Any permission not marked as public is considered internal and is stripped away during serialization.
 
-`.visibility('public')` marks the action the chain declared last for
-publication. `serialize(access, 'reduced')` keeps the marked permissions and
-drops the rest, where `serialize(access, 'full')` returns the whole document.
-`policy()` takes the document's `version` as an option,
-`p.contains(path, value)` holds when the array at `path` includes `value`, and
-`p.deny` writes a deny rule, which refuses when it matches and outranks the
-allow:
+The `serialize` function produces the contract. A "reduced" serialization keeps only the public permissions and their associated rules, while a "full" serialization returns the entire document.
 
 ```ts twoslash file=libs/acl/README.md region=typed-contract
 
 ```
 
-The reduced document is the contract: the part of your rules another service may
-adopt. It holds `orders:order.refund` and not the ledger permission, because an
-unmarked permission is internal, and so is a permission whose author forgot the
-mark. The storefront adopts the contract with `parseMatrix`, which
-[How do I use rules another service published?](../adopting) covers, and
-answers the refund question with no call back to `orders`. The `orders:` prefix
-names the service that owns the object kind, which
-[Many services](../federation) explains.
+The resulting reduced document is the formal contract. It contains only the permissions the owner intended to share (e.g., `orders:order.refund`) and excludes internal-only permissions (e.g., `orders:ledger.read`). The consumer adopts this contract using `parseMatrix`, allowing them to make local decisions without making a network call to the owner for every check.
 
-```mermaid caption="What a reduced serialization keeps. A permission marked visibility public goes out with every rule it carries, deny rules included; an unmarked permission stays internal, and an object kind left with no public permission loses its schema entry too."
+```mermaid caption="The serialization process for a public contract. Only permissions marked with public visibility are included in the reduced document. This contract is then adopted by consumers, who use it for local decisions, while the owner continues to enforce the rules on the server."
 flowchart LR
-  M["every permission<br>orders runs"] --> S["serialize(access, 'reduced')"]:::accent
-  S -->|"visibility public"| K["the contract<br>the marked permissions, whole"]
-  S -->|"unmarked"| I["stays internal"]
-  K --> C["the storefront<br>parseMatrix"]
-  C --> R["orders decides again<br>when the refund call arrives"]
+  M["Every permission<br>the owner runs"] --> S["serialize(access, 'reduced')"]:::accent
+  S -->|"visibility: public"| K["The Contract<br>Marked permissions, whole"]
+  S -->|"unmarked"| I["Stays internal"]
+  K --> C["Consumer<br>parseMatrix"]
+  C --> R["Owner decides again<br>on the server"]
 ```
 
-The storefront's answer draws the button, and `orders` decides again on its own
-matrix when the refund call arrives.
+## The Integrity of Published Permissions
 
-## A published acl permission goes out whole
+When a permission is published, it is exported in its entirety. This includes all allow rules and all deny rules. 
 
-`serialize` emits a kept permission with every rule it carries, deny rules
-included. Below, the document is written as JSON, which is what a service in
-another language emits. A permission lists its allow rules under `rules` and its
-deny rules under `denyRules`, and a rule with an empty `when` grants everyone.
-`maxStale` on the document and `fetchedAt` on the adoption set how long the
-consumer's copy stays good, which the next section covers:
+If a permission's logic depends on a deny rule (e.g., "Allow refund unless the user is on probation"), that deny rule must be part of the published contract. If it were stripped, a consumer might incorrectly grant a permission that the owner would refuse.
 
 ```ts twoslash file=libs/acl/README.md region=contract
 
 ```
 
-Drop one deny rule and a refusal becomes an allow. Drop an allow rule and an
-allow becomes a refusal. So the refund permission ships with its deny rule, and
-every consumer reads `subject.tier` and the word `probation`. A permission whose
-deny rules read an internal concept discloses that concept, so publish it and
-accept the disclosure, or leave it unmarked.
+Because the contract includes the full set of rules for the published permission, the consumer's local decision will exactly match the owner's decision for that specific key.
 
-The schema keeps only the object kinds a kept permission names, so the ledger's
-entry is gone. The contract's decisions equal the owner's, key for key: a
-contract that answered more cautiously would be a second copy again, and a
-button hidden by caution looks exactly like a button hidden by a rule.
-
-<Panel heading="A contract is terminal">
+<Panel heading="Contract Terminality">
   <Text as="div" size="sm">
-    A contract's permissions arrive without `visibility`, so a consumer's own
-    reduced serialization of one comes out empty. One team cannot publish
-    another team's rules on again.
+    A published contract is "terminal." The `visibility` marks are stripped during serialization, meaning a consumer cannot re-serialize a contract to publish it again to a third party.
   </Text>
 </Panel>
 
-## How long a consumer may keep deciding on an acl contract
+## Managing Contract Freshness
 
-`maxStale` is the owner's ceiling, in milliseconds, measured from the consumer's
-last successful check that its copy is current. The consumer reports that
-instant as `fetchedAt`, as the storefront does with `Date.now()` above, and may
-tighten the bound with its own `maxStale`. Past `fetchedAt + min(the two)` every
-key answers `stale-contract`, and a fetch of the document repairs it.
+Since consumers evaluate a local copy of the contract, there is a risk that the copy becomes stale. `@evanion/acl` manages this through a "freshness budget."
 
-| Bound                      | Who states it | What it does                                   |
-| -------------------------- | ------------- | ---------------------------------------------- |
-| `maxStale` on the document | the owner     | sets the ceiling, in milliseconds              |
-| `maxStale` on the consumer | the consumer  | tightens the owner's ceiling, never extends it |
-| `fetchedAt`                | the consumer  | names the instant the bound measures from      |
-| no `fetchedAt` reported    | the consumer  | turns the bound off, so the copy never expires |
+The owner defines a `maxStale` value (in milliseconds) in the document, which sets the maximum allowed age of a copy. The consumer tracks when the document was last updated using `fetchedAt`.
 
-State `maxStale` on the document before any consumer reports `fetchedAt`. A
-consumer reporting one against a document with no ceiling gets
-`MissingFreshnessBudgetError` at construction, because the owner's bound is the
-only one that expires a copy. A consumer that reports no `fetchedAt` runs under
-no bound, which is every matrix a service authors in its own process.
+| Bound                      | Source        | Purpose                                                                                                |
+| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxStale` (Document)      | The Owner     | Sets the absolute ceiling for how long a copy may be considered fresh.                                         |
+| `maxStale` (Consumer)      | The Consumer  | Allows the consumer to tighten the owner's ceiling (e.g., for higher-security areas).                                |
+| `fetchedAt`                | The Consumer  | The timestamp of the last successful synchronization.                                                        |
 
-A copy inside its bound can still be out of date: it draws a control the owner
-has since revoked, and the write fails at `orders`, because `orders` evaluates
-its own matrix on every call.
+If the current time exceeds `fetchedAt + min(ownerMaxStale, consumerMaxStale)`, any attempt to use the contract results in a `stale-contract` response. This forces the consumer to refetch the document to repair the budget.
 
-## A key another team may veto has to be published
+## Enabling Third-Party Vetoes
 
-Another team may need to refuse some of your permissions with deny rules of its
-own, such as a compliance team that blocks refunds on disputed orders. That set
-of rules is a deny overlay, and
-[`applyDenyOverlay`](../federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
-merges it into your document before the evaluator is built. It may touch only
-the keys you list as `vetoable`, the keys that team may veto.
+In some organizations, a separate team (such as Compliance or Fraud) must be able to override the permissions of a service. This is handled via **Deny Overlays**.
 
-The team tests its overlay against your published contract, so every vetoable
-key has to be in it. A key missing from the contract takes its object kind's
-schema entry with it, and the team's check then refuses every rule it wrote.
-`serialize(access, 'reduced', { vetoable })` throws `UnpublishedVetoableError`
-when the list names a key the contract would drop.
+To allow another team to veto specific permissions, the owner must explicitly list those keys as `vetoable` during serialization. If a key is not published in the contract, a third party cannot write a valid overlay for it, as they would have no schema to validate their rules against.
+
+`serialize(access, 'reduced', { vetoable })` will throw an `UnpublishedVetoableError` if the `vetoable` list includes a key that would otherwise be dropped from the reduced contract.
+
+## Where to go next
+
+- [Adopting Rules](../adopting): Learn how to use `parseMatrix` and manage freshness budgets when consuming a contract.
+- [Many services](../federation): Explore how to combine multiple published contracts into a single federated view.
+- [What can throw?](../errors): See the list of errors that occur during contract serialization and adoption.

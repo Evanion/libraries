@@ -1,9 +1,6 @@
 # Keeping the check
 
-`@evanion/compose` checks a bare component or hand-written tuple only in a
-[fixed-length array type](../type-checking#checking-an-inline-provider-array).
-A named array keeps that type with `as const`, and a wrapper with a `const`
-type parameter. An annotation or `satisfies` drops the check silently.
+`@evanion/compose` provides powerful compile-time prop validation, but that validation depends on how you declare your provider arrays. If you move your providers into a named constant or a wrapper component, you might accidentally "silence" the type checker.
 
 <PageSheet
   difficulty={4}
@@ -12,89 +9,48 @@ type parameter. An annotation or `satisfies` drops the check silently.
   unlocks={[['API reference', '../api']]}
 />
 
-## A provider array declared with `const`
+## The Danger of Type Widening
 
-`@evanion/compose` checks a `providers` array declared with `const` only when
-the declaration ends `as const`. Two of the package's types name what a named
-array is checked against:
+In TypeScript, when you declare an array, the compiler often "widens" the type. Instead of seeing a fixed-length tuple of specific components and props, it sees a general array of `(Component | Props)[]`.
 
-- `Provider` is the type of one entry: a component, or a `readonly` two-element
-  `[component, props]` tuple.
-- `ProviderArray` is `readonly Provider[]`, an array of any length.
+When a type is widened, `ComposeProvider` can no longer correlate a specific component with its specific props. As a result, the prop validation fails silently.
 
-At a named array's declaration, where no `const` type parameter asks for a
-fixed-length array type, TypeScript **widens** each entry: it infers the
-general type in place of the exact one. The fence below declares three arrays:
+### Maintaining Checks in Named Arrays
 
-- `annotated` holds `[ThemeProvider, {}]`, missing the `theme` that
-  [`ThemeProvider`](../type-checking#three-ways-to-write-a-provider-entry)
-  requires. It is typed `ProviderArray` and renders with no error.
-- `constant` holds the same entry `as const` and reports the missing prop.
-- `plain` holds a correct entry with no `as const`. The entry widens, and
-  `ComposeProvider` refuses it.
-
-`markup` is `annotated`, rendered with `renderToStaticMarkup`:
+If you define your provider list as a constant, you **must** use `as const`. This tells TypeScript to treat the array as a read-only tuple with a fixed length and exact values, preserving the a-priori type information needed for validation.
 
 ```tsx twoslash file=libs/compose/README.md region=named-array
 
 ```
 
-`plain`'s entry `[ThemeProvider, { theme: 'dark' }]` widens to
-`(typeof ThemeProvider | { theme: string })[]`, an array of any length holding
-components and objects. That is not a two-element tuple, so it is not a
-`Provider`. The error ends `is not assignable to type 'ProviderArray'` and names
-no prop. The declaration decides what `ComposeProvider` checks:
+**Comparing Declaration Styles:**
 
-| Declaration                                     | What `ComposeProvider` checks                                             |
-| ----------------------------------------------- | ------------------------------------------------------------------------- |
-| `providers={[…]}`, inline                       | every entry                                                               |
-| `const providers = […] as const`                | every entry                                                               |
-| `const providers = […]`                         | no props, and it refuses every hand-written tuple, a correct one included |
-| `const providers: ProviderArray = […]`          | nothing, and reports no error                                             |
-| `const providers = […] satisfies ProviderArray` | nothing, and reports no error                                             |
+| Declaration | Validation Status | Result |
+| :--- | :--- | :--- |
+| `providers={[...]}`, inline | ✅ Fully Checked | Every entry is validated. |
+| `const providers = [...] as const` | ✅ Fully Checked | Every entry is validated. |
+| `const providers = [...]` | ❌ Widened | Prop checks are lost; hand-written tuples are rejected. |
+| `const providers: ProviderArray = [...]` | ❌ Silenced | Type is too general; reports no errors. |
+| `const providers = [...] satisfies ProviderArray` | ❌ Silenced | Type is too general; reports no errors. |
 
-An annotation gives the array the type `ProviderArray`. `satisfies ProviderArray`
-leaves the array its inferred type, but TypeScript infers that type against
-`ProviderArray`, whose length is `number`, so the array's length is `number`
-too. `ComposeProvider` checks entries only in a fixed-length array type, so
-both compile with no error.
+**Pro Tip**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored.
 
-A `provider()` entry keeps its check in every row, because `provider()` checked
-its props at the call. A bare `ThemeProvider` is refused in the two
-fixed-length rows, because it requires `theme`. In the other three rows it
-compiles. The plain row refuses a tuple entry only because the tuple widened,
-and a bare component does not widen.
+## Preserving Checks in Wrapper Components
 
-## Wrapping `ComposeProvider` in your own component
+It is common to create a custom wrapper component (e.g., `<AppProviders />`) to encapsulate your root provider logic. However, if you type the `providers` prop simply as `ProviderArray`, you've silenced the check for anyone using your wrapper.
 
-`@evanion/compose` exports `ComposeProviderProps<T>`, the props type of
-`ComposeProvider`, where `T` is the type of the `providers` array. A wrapper
-whose `providers` prop is typed `ProviderArray` compiles, and its callers'
-entries go unchecked, because a `ProviderArray` records no length and no type
-per position. Declare the wrapper's type parameter
-`<const T extends ProviderArray>` and type its props `ComposeProviderProps<T>`,
-and the check reaches its callers. The fence's wrapper is `AppProviders`.
-`CartProvider` renders `<div id="cart">` and `ThemeProvider` renders its `theme`
-as the `id`, as on
-[Where the check happens](../type-checking#three-ways-to-write-a-provider-entry):
+To fix this, use a **const type parameter**. This forces TypeScript to infer the exact, fixed-length tuple of the caller's array.
 
 ```tsx twoslash file=libs/compose/README.md region=wrapper
 
 ```
 
-The first `<AppProviders>` exists only for its compile error, with `{null}` for
-the children the props type requires. The second renders `markup`.
+### How it Works:
+1. **`<const T extends ProviderArray>`**: The `const` modifier tells TypeScript to infer `T` as the most specific literal type possible (a fixed-length tuple).
+2. **`ComposeProviderProps<T>`**: By typing the props as `ComposeProviderProps<T>`, the validation logic of `ComposeProvider` is passed through to the caller of your wrapper.
 
-`extends ProviderArray` only bounds what a caller may pass. `const` makes
-TypeScript infer each caller's inline array as a fixed-length array type, and
-without it the caller's `[ThemeProvider, {}]` compiles with no error.
-`AppProviders` types its props `ComposeProviderProps<T>`, so TypeScript checks
-the caller's array at `<AppProviders>`, as it would inline. Passing `providers`
-to `ComposeProvider` unchanged lets the wrapper's body compile.
+Now, if a developer uses your `<AppProviders />` and passes a `ThemeProvider` with missing props, they will get a compile error at the call site.
 
 ## Every @evanion/compose export
 
-[API reference](../api) lists every export of `@evanion/compose`, including
-`ValidateProvider`, the type that produces the messages
-[Where the check happens](../type-checking#what-a-compose-error-message-means)
-lists.
+The [API reference](../api) lists every export of `@evanion/compose`, including `ValidateProvider`, the type that produces the error messages described in [Where the check happens](../type-checking).

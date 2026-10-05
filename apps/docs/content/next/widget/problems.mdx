@@ -14,11 +14,21 @@ Even with a strictly typed renderer, you still need a way to validate the data a
   ]}
 />
 
-## Comprehensive payload validation
+## The Problem: Structural Faults in CMS Data
+
+CMS data is inherently untyped. When your frontend receives a JSON payload, a few common errors can cause the UI to fail silently:
+- **Unknown Types**: A content editor types `listting` instead of `listing`.
+- **Missing Props**: A required field like `title` is left blank.
+- **Malformed Structure**: An item is a string instead of an object, or `children` is not a list.
+- **Identity Collisions**: Two widgets in the same section share the same `id`.
+
+If these aren't caught, your renderer will simply skip the faulty items, leaving mysterious gaps in your page.
+
+## Solution: Deep-Payload Scanning
 
 `validateItems` performs a depth-first walk of your widget tree. It reports an item's own problems first, then recursively validates its `children` before moving to the next sibling.
 
-Consider a payload with three distinct faults: a missing `props` object, a duplicate ID, and a typo in a widget type (`listting` instead of `listing`).
+Consider a payload with three distinct faults: a missing `props` object, a duplicate ID, and a typo in a widget type.
 
 ```ts twoslash file=libs/widget/README.md region=sweep
 
@@ -32,32 +42,32 @@ Because it walks the tree depth-first, Hive's problem is reported last, and its 
 
 Every fault found by the library is returned as a `WidgetProblem` object:
 
-| Field     | Description                                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| `index`   | The item's position among its siblings. Returns `-1` if the payload is not a list.                                    |
-| `id`      | The item's `id` string, or `-` if the ID is missing.                                                                  |
-| `type`    | The item's `type` string, or `-` if the type is missing.                                                              |
-| `message` | A human-readable error string from `VALIDATION_MESSAGES`.                                                            |
+| Field | Description |
+| :--- | :--- |
+| `index` | The item's position among its siblings. Returns `-1` if the payload is not a list. |
+| `id` | The item's `id` string, or `-` if the ID is missing. |
+| `type` | The item's `type` string, or `-` if the type is missing. |
+| `message` | A human-readable error string from `VALIDATION_MESSAGES`. |
 
-## Standardized Error Messages
+## Standardized Error Messages for Automation
 
 To make it easier to translate or group errors, `@evanion/widget` exports `VALIDATION_MESSAGES`. Instead of comparing raw strings, you should compare the `message` against these constants.
 
-| Constant           | Message                     | Cause                                                                          |
-| ------------------ | --------------------------- | -------------------------------------------------------------------------------- |
-| `NOT_A_LIST`       | `items is not a list`       | The payload is not an array.                                                     |
-| `NOT_AN_OBJECT`    | `item is not an object`     | An entry is a primitive (string, number, etc.) instead of an object.            |
-| `INVALID_ID`       | `item id is not a string`   | The `id` field is missing or is not a string.                                   |
-| `INVALID_TYPE`     | `item type is not a string` | The `type` field is missing or is not a string.                                   |
-| `UNKNOWN_TYPE`     | `unknown widget type`       | The `type` is not present in the `known` list.                                   |
-| `INVALID_PROPS`    | `props is not an object`    | The `props` field is missing, or is not an object.                                |
-| `INVALID_CHILDREN` | `children is not a list`    | The `children` field is present but is not an array.                               |
-| `DUPLICATE_ID`     | `duplicate sibling id`      | Two items in the same sibling list share the same `id`.                            |
-| `MISSING_FIELD`    | `missing field <name>`      | A field marked as `required` is absent or contains only whitespace.               |
+| Constant | Message | Cause |
+| :--- | :--- | :--- |
+| `NOT_A_LIST` | `items is not a list` | The payload is not an array. |
+| `NOT_AN_OBJECT` | `item is not an object` | An entry is a primitive (string, number, etc.) instead of an object. |
+| `INVALID_ID` | `item id is not a string` | The `id` field is missing or is not a string. |
+| `INVALID_TYPE` | `item type is not a string` | The `type` field is missing or is not a string. |
+| `UNKNOWN_TYPE` | `unknown widget type` | The `type` is not present in the `known` list. |
+| `INVALID_PROPS` | `props is not an object` | The `props` field is missing, or is not an object. |
+| `INVALID_CHILDREN` | `children is not a list` | The `children` field is present but is not an array. |
+| `DUPLICATE_ID` | `duplicate sibling id` | Two items in the same sibling list share the same `id`. |
+| `MISSING_FIELD` | `missing field <name>` | A field marked as `required` is absent or contains only whitespace. |
 
-One common pitfall is placing data at the top level of the item (e.g., `{ id: '1', type: 'listing', title: 'Game' }`). This will trigger an `INVALID_PROPS` error because the renderer only looks for data inside the `props` object.
+**Common Pitfall**: Placing data at the top level of the item (e.g., `{ id: '1', type: 'listing', title: 'Game' }`). This will trigger an `INVALID_PROPS` error because the renderer only looks for data inside the `props` object.
 
-## Enforcing Required Props
+## Enforcing Required Fields in CMS Data
 
 Beyond checking if a widget type is known, you can enforce that certain props are present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace).
 
@@ -71,7 +81,7 @@ In the example above, even though `title` is a string, it is blank. `validateIte
 
 Note that `required` checks only happen for known types. If a widget's `type` is unknown, it is reported as an `UNKNOWN_TYPE` fault, and its required props are ignored.
 
-## Integrating with your Renderer
+## Syncing Validation with Your Renderer
 
 You can pass the same registry your renderer uses as the `known` argument to `validateItems`. This ensures that your validation logic and your rendering logic always agree on which types exist.
 
@@ -86,4 +96,3 @@ By using `defineWidgets`, you get the best of both worlds: a typed registry for 
 ## Next steps: Layout and Rendering
 
 Now that you can identify faults in your content, you can learn how the renderer actually handles the valid items. [Order and nesting](../layout) explains how the library handles layout, nesting, and placement.
-

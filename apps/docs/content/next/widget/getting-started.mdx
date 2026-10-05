@@ -32,15 +32,7 @@ Run the command for your preferred package manager:
 npm install @evanion/widget
 ```
 
-```bash
-yarn add @evanion/widget
-```
-
-```bash
-pnpm add @evanion/widget
-```
-
-## Create a validation gate
+## Create a Validation Gate
 
 `validateItems` is designed to handle raw data. It types its first argument as `unknown`, meaning it can take a payload straight from `JSON.parse` without needing any type casting.
 
@@ -50,7 +42,7 @@ To create a check, you'll need to define the "known types"—the list of widget 
 
 ```
 
-Here is what happens inside the script:
+### How the Gate Works:
 1. **Parse the payload**: It takes the JSON saved by the CMS.
 2. **Define the supported types**: It lists the types your renderer supports.
 3. **Run the check**: `validateItems` returns an array of problems.
@@ -58,7 +50,7 @@ Here is what happens inside the script:
 
 In the example above, the shelf `tonight` uses the type `featured-shelf`, which is not in our `known` list. Because a renderer would simply skip this item, the page would lose its "On the table tonight" section. The script catches this and fails the run.
 
-## Run the check from your terminal
+## Run the Check from Your Terminal
 
 You can execute your validation script using `tsx`:
 
@@ -68,7 +60,7 @@ npx tsx check.mts; echo "exit $?"
 
 The terminal will print `tonight (featured-shelf): unknown widget type` and return `exit 1`. If you change `featured-shelf` back to `shelf` in the payload, the script will return `exit 0`.
 
-## Where to put your validation gate
+## Integrating the Gate into Your Workflow
 
 This simple check can be integrated into several parts of your workflow to prevent broken content from reaching users:
 
@@ -77,7 +69,6 @@ This simple check can be integrated into several parts of your workflow to preve
 - **Build Scripts**: Run the check as a pre-processing step before the build generates the final pages.
 - **Test Suites**: Run the check against your content fixtures to ensure they remain renderable.
 
-## Understanding the reports
+## Understanding the Reports
 
 Your script now catches missing types, but that is only one of nine possible faults. [What it reports](../problems) shows how `validateItems` handles more complex issues, including nested item faults, and lists every possible error message.
-

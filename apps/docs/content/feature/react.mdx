@@ -1,173 +1,90 @@
 # React
 
-<WorkshopNotice slug="feature" />
+`@evanion/feature` provides a dedicated React adapter to integrate feature flags into your component tree. While the core resolution engine is framework-agnostic, the React adapter handles the distribution of these decisions using a Provider and a set of specialized hooks.
+
+<PageSheet
+  difficulty={1}
+  read={3}
+  hands={15}
+  requires={[['Overview', '../']]}
+  unlocks={[
+    ['API reference', '../api'],
+  ]}
+/>
+
+## The Problem: Drilling Decisions Through the Tree
+
+In a complex React app, many components need to know the state of a feature flag. Passing a `features` object down as a prop to every single component (prop-drilling) is tedious and makes your components harder to reuse.
+
+The React adapter solves this by using a `FeatureProvider` to make the resolved decisions available to any component in the tree via hooks.
+
+## Using the `FeatureProvider`
+
+The `FeatureProvider` wraps your application (or a specific subtree) and resolves the feature flags based on a provided context.
 
 ```tsx
-'use client';
+import { FeatureProvider } from '@evanion/feature/react';
 
-import {
-  FeatureProvider,
-  createFeatureContext,
-  useFeature,
-  useFeatureEnabled,
-  useFeatures,
-  useVariant,
-} from '@evanion/feature/react';
-```
-
-A provider, four hooks and a factory that binds them, over an already-built
-store. Nothing here decides anything — evaluation lives in the core, and this
-layer carries the result down the tree.
-
-The entry is separate from `@evanion/feature` because `'use client'` is a
-per-module directive and a bundle is one module. Keeping the core entry free of
-the directive and of any React import is what lets an API, a script or a build
-step import it.
-
-React is an optional peer dependency, so a consumer that only uses the core does
-not install it.
-
-## `FeatureProvider`
-
-```tsx
 const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
 const context = { targetingKey: user.id, now: new Date() };
 
 <FeatureProvider features={features} context={context}>
   <Checkout />
-</FeatureProvider>;
+</FeatureProvider>
 ```
 
-| Prop        | Meaning                                        |
-| ----------- | ---------------------------------------------- |
-| `features`  | the store, built by `createFeatures`           |
-| `context`   | the evaluation context                         |
-| `decisions` | decisions resolved elsewhere, used as they are |
+### Performance Tip: Memoize Your Context
+Resolution is memoized based on the `context` object's identity. If you pass an object literal inline (e.g., `context={{ userId: id }}`), React will treat it as a new object on every render, forcing the provider to re-resolve the entire feature store.
 
-Resolution is memoised on the `context` object's identity. An object literal
-written inline is a fresh identity on every render, so it re-resolves every
-render:
-
-```tsx
-// Re-resolves the whole store on every render.
-<FeatureProvider features={features} context={{ targetingKey: user.id }}>
-```
-
-Hold the context in a `useMemo`, in a module constant, or wherever the data it
-comes from already lives:
+To avoid this, wrap your context in `useMemo`:
 
 ```tsx
 const context = useMemo(() => ({ targetingKey: user.id, now }), [user.id, now]);
 ```
 
-Leaving `now` out means "the clock at the moment this context was first
-resolved". A tree that has to agree with a server render should pass `now`
-explicitly, with the same instant the server used.
+### Decoupling from the Server
+You can pass a `decisions` prop to the provider. This is the primary way to handle server-side resolution: the server resolves the flags and sends the resulting decisions as a prop, which the client provider then uses immediately without re-resolving. This is also the hand-off point for the settled half of a [`plan()`](/feature/build-time).
 
-### Decisions from elsewhere
+## Accessing Features via Hooks
 
-```tsx
-<FeatureProvider features={features} decisions={fromServer}>
-```
+Once wrapped in a provider, any component can access feature flags using one of four hooks:
 
-Supplied decisions are used as they are, and `features` and `context` become
-only a fallback for what the snapshot does not cover. That is the hand-off for a
-server render, and for the settled half of a
-[`plan()`](/feature/build-time#using-a-plan).
+| Hook | Returns | Use Case |
+| :--- | :--- | :--- |
+| `useFeatureEnabled(key)` | `boolean` | The fastest way to toggle a UI element. |
+| `useFeature(key)` | `Decision` | When you need the explanation (`reason`) or the assigned variant. |
+| `useVariant(key)` | `{ variant?, value? }` | When you only care about the variant assigned to the user. |
+| `useFeatures()` | `Record<string, Decision>` | When a component needs to check multiple flags at once. |
 
-## The hooks
+### Strict Key Validation
+Unlike `isEnabled()`, the `useFeature` and `useVariant` hooks will **throw an error** if you request a key that is not configured in the provider. This prevents typos from being mistaken for "off" features.
 
-```tsx
-function Checkout() {
-  if (!useFeatureEnabled('express-pickup')) return <LegacyCheckout />;
-  return <NewCheckout />;
-}
-```
+## Type-Safe Hooks with `createFeatureContext`
 
-| Hook                     | Returns                            |
-| ------------------------ | ---------------------------------- |
-| `useFeatures()`          | every decision                     |
-| `useFeature(key)`        | one decision, explanation included |
-| `useFeatureEnabled(key)` | the boolean                        |
-| `useVariant(key)`        | `{ variant?, value? }`             |
-
-All four throw outside a `<FeatureProvider>`, naming the provider and the
-package.
-
-`useFeature` also throws for a key that is not configured in that provider:
-
-```
-feature "express-delivery" is not configured in this <FeatureProvider>
-```
-
-A silent `false` would make a typo indistinguishable from a feature that is off.
-`useFeature` is the hook that carries the explanation, for showing an operator
-why a flag is off:
-
-```tsx
-const decision = useFeature('express-pickup');
-// { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
-
-const { variant, value } = useVariant('express-pickup');
-// { variant?, value? }
-```
-
-The key lookup uses `Object.prototype.hasOwnProperty`, so a key of `constructor`
-or `toString` does not resolve to a function off `Object.prototype` and pass as
-a decision object.
-
-### `useVariant`
-
-A reader over the same decision `useFeature` already returns: `variant` and
-`value` come straight off it. Both are absent for a feature that resolved off
-and for a feature declaring no variants, so a component checks `variant` for
-`undefined` before it switches on a name. `useVariant` throws for the same
-reason `useFeature` does, on the same unconfigured key. See
-[Variants](/feature/variants) for how the assignment itself is made.
-
-## Binding the hooks to a store
-
-`createFeatureContext` takes a store and returns a provider and the four hooks
-bound to that store's schema:
+To avoid using string literals for keys and to get full TypeScript autocomplete for variants, you can bind the hooks to your specific feature store.
 
 ```tsx
 export const { FeatureProvider, useFeature, useVariant } =
   createFeatureContext(features);
 ```
 
-A bound hook names `keyof S`, so a misspelled key is a compile error against the
-store the factory was given. `useVariant` answers the variant union that store
-declares: over the store [Variants](/feature/variants) builds,
-`useVariant('checkout-cta').variant` is `'control' | 'blue' | undefined`, and
-`value` is the type that variant's `value` has. The factory call is one line at
-module scope, and nothing at a call site restates a key union.
+By using a bound context, `useFeature('express-pickup')` is checked against the keys of your `features` store at compile time. If you typo a key, you get a red squiggly immediately rather than a runtime error.
 
-A bound provider publishes to the shared context as well as to its own, so a
-component that calls the package's own `useFeature` underneath one reads the
-same decisions. The top-level hooks keep working with no type argument, which is
-what the two examples above use.
+## Server Components and the Client Boundary
 
-## Server components
+Because `FeatureProvider` uses `createContext` and `useMemo`, it must be a Client Component (`'use client'`). However, the core resolution engine is not.
 
-`FeatureProvider` uses `createContext` and `useMemo`, so it is client code and
-carries `'use client'`. The core is not: resolve on the server, and hand the
-result down.
+The recommended pattern for Next.js/RSC is to resolve the flags in a Server Component and pass the decisions down:
 
 ```tsx
-// app/layout.tsx — a Server Component
-import { features } from '../features';
-import { Flags } from './flags';
-
+// app/layout.tsx (Server Component)
 export default async function Layout({ children }) {
   const decisions = features.resolve({ targetingKey: await currentUserId() });
   return <Flags decisions={decisions}>{children}</Flags>;
 }
-```
 
-```tsx
-// app/flags.tsx
+// app/flags.tsx (Client Component)
 'use client';
-
 import { FeatureProvider } from '@evanion/feature/react';
 
 export function Flags({ decisions, children }) {
@@ -179,5 +96,4 @@ export function Flags({ decisions, children }) {
 }
 ```
 
-Decisions are plain objects, so they cross the boundary as serialised props.
-Passing the store itself would not — it carries functions.
+This ensures that the heavy lifting of resolution happens on the server, while the client remains responsive and type-safe.

@@ -1,55 +1,69 @@
 # Configuration
 
-<WorkshopNotice slug="feature" />
+A feature flag is a record of stored intent. `@evanion/feature` uses a structured configuration to define not just whether a feature is "on" or "off," but under what conditions it should be activated for specific users.
 
-A feature is stored intent. `createFeatures` takes a list of definitions,
-validates the dependency graph, deep-clones and freezes the configuration, and
-returns the store.
+<PageSheet
+  difficulty={3}
+  read={10}
+  hands={15}
+  requires={[['Overview', '../']]}
+  unlocks={[
+    ['Decisions', './decisions'],
+    ['Rollouts', './rollouts'],
+  ]}
+/>
+
+## The Problem: Brittle and Implicit Feature Logic
+
+In many applications, feature flags are simple booleans. When a feature becomes more complex—for example, "Enable for staff only" or "Enable only in the UK"—the logic ends up scattered across the codebase in `if` statements.
+
+This creates several problems:
+- **Logic Drift**: Different parts of the app might implement the "staff only" check slightly differently.
+- **Invisible Dependencies**: If "Feature B" requires "Feature A," you must remember to check both in every single location.
+- **Configuration Fragility**: Changing a rollout percentage or a date window requires a code deployment rather than a simple configuration change.
+
+## Solution: Declarative Feature Definitions
+
+`@evanion/feature` uses a declarative configuration. You define the "intent" (is it enabled?) and the "rules" (when is it active?) in a single place. The library then handles the resolution logic.
 
 ```ts
 const features = createFeatures([
-  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { 
+    key: 'express-pickup', 
+    enabled: true, 
+    dependsOn: ['new-checkout'] 
+  },
 ]);
 ```
 
-| Field               | Meaning                                                                          |
-| ------------------- | -------------------------------------------------------------------------------- |
-| `key`               | the identifier. `string` or `number`                                             |
-| `enabled`           | the maintainer wants this on                                                     |
-| `dependsOn`         | features that must resolve on for this one to                                    |
-| `rules`             | activation rules, OR-ed                                                          |
-| `seed`              | bucketing seed for this feature's rollouts. Defaults to the key                  |
-| `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build                        |
-| `variants`          | the named variants this feature splits across. See [Variants](/feature/variants) |
-| `variantBy`         | context field variant assignment buckets on. Defaults to `targetingKey`          |
-| `variantSeed`       | bucketing seed for this feature's variant split                                  |
+### The Configuration Schema
 
-`enabled` records the intent; `rules` decide whether the feature resolves on for
-a given context.
+| Field | Meaning |
+| :--- | :--- |
+| `key` | The unique identifier for the feature. |
+| `enabled` | The master switch. If `false`, the feature is off for everyone. |
+| `dependsOn` | A list of other features that must be `enabled` for this one to activate. |
+| `rules` | Activation rules (OR-ed). If any rule matches, the feature is active. |
+| `seed` | A bucketing seed for rollouts. Defaults to the `key`. |
+| `freezeTimeAtBuild` | If true, `plan()` resolves time windows at build-time for static sites. |
+| `variants` | The named variants this feature splits across (see [Variants](/feature/variants)). |
+| `variantBy` | The context field used to bucket variants. Defaults to `targetingKey`. |
+| `variantSeed` | Bucketing seed for the variant split. |
 
-The configuration is cloned before it is frozen, so the store cannot be edited
-behind its own back:
+## Resolution Precedence
 
-```ts
-features.config[0].enabled = false;
-// TypeError: Cannot assign to read only property 'enabled' of object
-```
+When you call `resolve()`, the library follows a strict hierarchy to determine if a feature is active.
 
-## Precedence
+1. **The Kill Switch**: If `enabled === false`, the feature is off. No rules are evaluated.
+2. **The Dependency Chain**: If any feature in `dependsOn` resolves to `false`, this feature is off.
+3. **The Default State**: If `enabled === true` and there are no rules, the feature is on.
+4. **The Rules**: If rules exist, they are OR-ed. If any rule matches, the feature is on. Inside a rule, conditions are AND-ed.
 
-- `enabled === false` short-circuits. Rules never run.
-- A parent that resolved off short-circuits. Rules never run.
-- `enabled === true` with no rules means on.
-- Rules are OR-ed; the `when` conditions inside one rule are AND-ed. A rollout is
-  one more conjunct of the rule that carries it.
+**Crucially**, this is not a "first-match" system. The outcome is deterministic regardless of the order of rules, allowing you to add new rules without worrying about their position in the list.
 
-Not first-match. Rule order never changes the outcome, which is what lets a rule
-be added to a list without reading the rules already in it.
+## Dependency Cascades
 
-Toggling `enabled` on for a feature whose rules do not match changes stored
-intent, and the feature still resolves off. It is a kill switch only.
-
-## Dependencies
+Dependencies are transitive and one-way. If you have a chain `A $\rightarrow$ B $\rightarrow$ C`, turning off `A` automatically disables both `B` and `C`.
 
 ```ts
 createFeatures([
@@ -59,50 +73,17 @@ createFeatures([
 ]);
 ```
 
-The cascade is transitive, and one way only — a dependant never blocks its
-parent. Turning `a` off takes `b` and `c` with it:
+Evaluating in dependency order ensures that the cascade works at any depth. This is handled internally by the library, so you can declare your features in any order.
 
-```ts
-features.toggle('a', false);
-// { ok: true, key: 'a', enabled: false, willDisable: ['b', 'c'] }
-```
+### Configuration Errors
+`createFeatures` validates the dependency graph at construction. It will throw a `FeatureConfigError` if it detects:
+- **Cycles**: e.g., `A` depends on `B`, and `B` depends on `A`.
+- **Unknown Dependencies**: A feature depends on a key that isn't configured.
+- **Duplicates**: Two features share the same key.
 
-Features are evaluated in dependency order rather than in declaration order,
-which is what makes the cascade work at any depth. Evaluating in declaration
-order leaves a dependant with no resolved parent to read, and falling back to the
-parent's stored `enabled` cascades exactly one level.
+## Defining Rules and Conditions
 
-### Three configuration errors
-
-All three are raised by `createFeatures`, not by evaluation.
-
-```ts
-createFeatures([
-  { key: 'a', enabled: true, dependsOn: ['c'] },
-  { key: 'b', enabled: true, dependsOn: ['a'] },
-  { key: 'c', enabled: true, dependsOn: ['b'] },
-]);
-// FeatureCycleError: feature dependency cycle: a -> c -> b -> a
-
-createFeatures([{ key: 'a', enabled: true, dependsOn: ['b'] }]);
-// UnknownDependencyError: feature "a" depends on "b", which is not configured
-
-createFeatures([
-  { key: 'a', enabled: true },
-  { key: 'a', enabled: true },
-]);
-// DuplicateFeatureError: duplicate feature key "a"
-```
-
-A cycle has no defined resolution order at all, so there is nothing sensible for
-`resolve` to return for one. The error's `path` is the closed walk, trimmed to
-the cycle itself and ending where it starts, so the edge that closes the loop is
-visible rather than the route taken to reach it.
-
-All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
-`plan` and `toggle` are total — a store you hold cannot fail mid-evaluation.
-
-## Rules
+Rules allow you to activate features based on the user's context.
 
 ```ts
 {
@@ -115,151 +96,23 @@ All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
 }
 ```
 
-Two rules, OR-ed: a staff account matches the first, everyone else is subject to
-the 10% ramp.
+### Condition Operators
 
-`id` is used in `reason`. A rule that declares none is named by a hash of what
-it matches on, so the rule keeps its name when another rule is inserted above
-it and when an operator moves a ramp. Name a rule you expect to read in a log:
-an operator reads `staff-only` faster than a hash.
+| `op` | Effect | Example |
+| :--- | :--- | :--- |
+| `before` / `after` | Checks if `now` is before/after an instant. | `value: '2026-10-01T00:00:00Z'` |
+| `day-of-week` | Checks if `now` falls on specific weekdays in a zone. | `zone: 'Europe/Stockholm'`, `value: ['mon']` |
+| `eq` / `ne` | Strict equality or inequality. | `value: 'bookseller'` |
+| `in` / `not-in` | Checks if the value is in/not in an array. | `value: ['admin', 'staff']` |
+| `contains` | Checks if the field (array) contains the value. | `value: 'staff'` |
 
-The hash excludes `rollout.percent`, so two rollout rules on one feature whose
-conditions, `by` and `seed` all match derive the same id. Give such rules
-explicit ids, or a breakdown carries two entries under one name.
+**Important**: To ensure consistency across different timezones, all date-time strings must include an offset (e.g., `+09:00` or `Z`). Strings without offsets are rejected at construction to prevent "floating" time windows.
 
-A rule with neither `when` nor `rollout` matches unconditionally.
+## Type-Safe Keys and Variants
 
-A rule on a feature that declares variants can carry `variant`, naming one of
-them. A matching rule with `variant` set pins that variant on the decision,
-overriding the weights entirely. See [Variants](/feature/variants).
+If you define your configuration as an array literal, TypeScript infers the keys and variant names automatically.
 
-## Conditions
-
-```ts
-{ field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
-{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
-{ field: 'role', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'bookseller' }
-```
-
-| `op`          | Holds when                                                  |
-| ------------- | ----------------------------------------------------------- |
-| `before`      | `now` is strictly before the instant                        |
-| `after`       | `now` is strictly after the instant                         |
-| `day-of-week` | `now` falls on one of the named weekdays, in the named zone |
-| `eq`          | the field is strictly equal to `value`                      |
-| `ne`          | the field is present and not strictly equal to `value`      |
-| `in`          | `value` is an array containing the field                    |
-| `not-in`      | `value` is an array not containing the field                |
-| `contains`    | the field is an array containing `value`                    |
-
-A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
-
-### A window's string must name one instant
-
-| Instant string              | Read as                              |
-| --------------------------- | ------------------------------------ |
-| `2026-01-01T00:00:00Z`      | that instant                         |
-| `2026-01-01T09:00:00+09:00` | the same instant                     |
-| `2026-01-01T09:00:00+0900`  | the same instant                     |
-| `2026-01-01`                | UTC midnight                         |
-| `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
-| `2026-13-01`                | `FeatureConfigError` at construction |
-| `2026-01-01t00:00:00z`      | `FeatureConfigError` at construction |
-| `2026-04-31`                | `FeatureConfigError` at construction |
-
-ECMA-262 reads a date-time carrying no offset as local time and fixes a date
-with no time to UTC. A rule derives one id on every host, so an offsetless
-date-time gives a browser in Los Angeles and a service in Stockholm two answers
-under one name in both logs, with nothing in either decision naming the zone
-that decided it. `createFeatures` refuses such a string.
-
-`2026-13-01` and `2026-01-01t00:00:00z` carry the same hazard by another route:
-a string ECMA-262's format does not cover falls to whatever parser the engine
-keeps for the rest, and V8's reads `2026-13-01` in the host's zone.
-
-`2026-04-31` names a day April does not have, and every engine carries it into
-1 May, so the hosts agree on an instant the author did not write, under the one
-rule id `2026-05-01` also derives.
-
-The offset itself takes either spelling ISO 8601 gives it, `+09:00` or `+0900`,
-which is what a document written by Python's `strftime('%z')` or Java's
-`SimpleDateFormat("Z")` carries.
-
-### A window's number or Date must hold an instant
-
-| Instant value              | Read as                              |
-| -------------------------- | ------------------------------------ |
-| `1767225600000`            | that instant                         |
-| `new Date(1767225600000)`  | that instant                         |
-| `Number.NaN`               | `FeatureConfigError` at construction |
-| `Number.POSITIVE_INFINITY` | `FeatureConfigError` at construction |
-| `8640000000000001`         | `FeatureConfigError` at construction |
-| `new Date('nonsense')`     | `FeatureConfigError` at construction |
-
-A number has to be an epoch a `Date` holds, and a `Date` has to hold an
-instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse` and
-`new Date` answer for a string naming none, so a boundary computed from an
-unset environment variable is refused where it is written. It refuses a number
-past either end of the range a `Date` holds, -8640000000000000 to
-8640000000000000, since a `before` boundary above that range holds at every
-instant and an `after` boundary at none.
-
-A `Date` is taken as the instant it holds and is read no further, so
-`new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
-every check. Build one from epoch milliseconds, or from a string the table
-accepts.
-
-### `now` is injected
-
-`now` comes from the evaluation context and defaults to `new Date()` at the
-call. It is never read from an ambient clock, so a build-time evaluation and a
-test can both pass the instant they mean:
-
-```ts
-features.resolve({ now: new Date('2026-11-01T00:00:00Z') });
-```
-
-### A day-of-week condition must name an IANA zone
-
-```ts
-{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['sat'] }
-```
-
-There is no default. UTC day-of-week is wrong for every business rule anyone
-writes, and a rule that quietly used it would be wrong for eight hours a day.
-The weekday is derived through `Intl`, so the zone's rules — DST transitions
-included — are the runtime's to know rather than this library's to model.
-
-### An absent field never holds
-
-A condition over a field the context does not carry never holds, including the
-negative operators:
-
-```ts
-features.resolve({}); // context carries no `role`
-// { reason: 'no-rule-matched', rules: [{ rule: 'r', matched: false,
-//   failed: { field: 'role', op: 'ne', value: 'customer' } }] }
-```
-
-`ne` on an absent field is not "true because it is not equal"; it is
-unevaluable. Treating it as true would switch features on for exactly the
-contexts that carry the least information.
-
-Field lookup uses `Object.prototype.hasOwnProperty` rather than `in`, so a
-condition over `constructor` or `toString` does not read a function off
-`Object.prototype` and evaluate against it. A context is caller data and a field
-name is configuration; neither is trusted with the prototype chain.
-
-## Typing the keys and the variants
-
-A store built from an array literal needs no type argument. `createFeatures`
-reads the keys, the variant names and each variant's value off the literal, and
-the decision record is exact, so a typo is a compile error and not an
-`undefined` at runtime.
-
-Name a schema when the configuration arrives from elsewhere, as JSON or as a
-variable typed `FeatureDefinition<Flag>[]`. A value with no literals in it
-carries nothing for the compiler to read.
+If your configuration comes from a JSON file or variable, you can provide a schema interface to maintain type safety:
 
 ```ts
 interface Flags {
@@ -268,21 +121,6 @@ interface Flags {
 }
 
 const features = createFeatures<Flags>(config);
-
-features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
-features.variantOf('express-pickup'); // 'control' | 'blue' | undefined
-features.isEnabled('express-delivery'); // compile error: not a key of Flags
 ```
 
-A schema is a record with one entry per feature. An entry is `never` for a
-feature that declares no variants, and that feature's decision then carries no
-`variant` key and no `value` key. An entry for a feature with variants names them
-as `{ variant: <the names>; value: <the value type> }`, and `never` in the
-`value` position says that no variant of that feature declares one. An
-`interface` works
-here: the constraint `createFeatures` applies is self-referential and accepts
-one, which an index signature would refuse.
-
-`createFeatures<Flags>(config)` checks every definition's key against
-`keyof Flags`, so a definition naming a feature `Flags` does not declare is a
-compile error at the call.
+This ensures that calling `features.isEnabled('wrong-key')` is a compile error, and `features.variantOf('express-pickup')` correctly returns `'control' | 'blue' | undefined`.

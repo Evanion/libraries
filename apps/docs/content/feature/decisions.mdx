@@ -1,183 +1,105 @@
 # Decisions
 
-<WorkshopNotice slug="feature" />
+Resolving a feature is more than a boolean check. To make a feature flag useful for debugging and operations, you need to know not just *if* a feature is enabled, but *why* it is enabled (or disabled).
 
-## `resolve` and `isEnabled`
+<PageSheet
+  difficulty={3}
+  read={8}
+  unlocks={[
+    ['Rollouts', './rollouts'],
+    ['Build-time planning', './build-time'],
+  ]}
+/>
 
+## Resolving Features
+
+There are two primary ways to check a feature's state:
+
+1. **`features.isEnabled(key, context)`**: Returns a simple boolean. This is the fastest way to check a flag in your business logic.
+2. **`features.resolve(context)`**: Returns a complete record of every feature in the store and its current decision.
+
+**Performance Tip**: Call `resolve()` once per request and store the result. Calling `isEnabled()` repeatedly is expensive because it re-evaluates the entire dependency graph for every single call.
+
+### Example: Resolving a Request
 ```ts
-features.resolve(context); // every feature, with its explanation
-features.isEnabled('express-pickup', context); // one boolean
-```
+const decisions = features.resolve({ 
+  now: novemberFirst, 
+  targetingKey: 'cust-0101' 
+});
 
-Both are pure functions of `(config, context, now)` and write nothing. `context`
-is optional; `now` defaults to `new Date()` at the call.
-
-`isEnabled` returns `false` for a key that is not configured. `resolve` returns
-a record whose keys are exactly the configured ones, in dependency order.
-
-```ts
-features.resolve({ now: novemberFirst, targetingKey: 'cust-0101' });
 // {
-//   'new-checkout': { key: 'new-checkout', enabled: true,
-//                    reason: 'rule-match', rule: 'after-launch' },
+//   'new-checkout': { key: 'new-checkout', enabled: true, reason: 'rule-match', rule: 'after-launch' },
 //   'express-pickup': { key: 'express-pickup', enabled: true, reason: 'default-on' },
 // }
 ```
 
-Call `resolve` once per request and read from the record, rather than calling
-`isEnabled` per flag. `isEnabled` resolves the whole store to answer one
-question, which is cheap for ten flags and is still ten times the work for ten
-questions.
+## Anatomy of a Decision
 
-## A decision
+A `Decision` object provides a detailed audit trail for every feature. While `enabled` is the only field your application needs, the other fields are designed for operators.
 
-```ts
-interface Decision<
-  F extends FeatureKey = string,
-  V extends string = string,
-  T = unknown,
-> {
-  key: F;
-  enabled: boolean;
-  reason: Reason;
-  rule?: string; // the matching rule, on 'rule-match'
-  rules?: RuleOutcome[]; // the per-rule breakdown, on 'no-rule-matched'
-  blockedBy?: F; // the immediate parent, on 'dependency-off'
-  cause?: Cause<F>; // the first ancestor off for its own reason
-  variant?: V; // the assigned variant, on a feature that resolved on and declares variants
-  value?: T; // the assigned variant's configured value, when it declares one
-  assignment?: {
-    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
-    by: string;
-    bucket?: number; // absent when the context carried no bucketing value
-    rule?: string; // the pinning rule, on 'pinned'
-  };
-}
-```
+| Field | Meaning |
+| :--- | :--- |
+| `enabled` | The final answer (true/false). |
+| `reason` | Why the feature resolved this way (e.g., `rule-match`, `dependency-off`). |
+| `rule` | The specific rule that matched (used when `reason` is `rule-match`). |
+| `blockedBy` | The immediate parent that forced this feature off. |
+| `cause` | The root ancestor that is off for its own reason. |
+| `variant` | The assigned variant (if the feature declares variants). |
+| `value` | The value associated with the assigned variant. |
+| `assignment` | Details on how the variant was assigned (e.g., `weighted`, `pinned`). |
 
-`enabled` is the decision. Everything else is explanation, and is output only —
-nothing in this library reads `reason`, `rule`, `rules`, `blockedBy`, `cause`,
-`variant`, `value` or `assignment` back to decide anything. The cascade is
-typed to see an `enabled` flag and nothing else, so that is enforced by the
-type system rather than by convention.
+### Understanding the "Reason"
+The `reason` field tells you exactly which part of the logic decided the outcome:
 
-`variant` and `value` are absent on a feature with no `variants` declared, and
-so is `assignment`. All three are absent on a feature that resolved off, on
-any path that leaves it off. See [Variants](/feature/variants) for how a
-variant is assigned and what each `assignment.source` means.
+| `reason` | Meaning |
+| :--- | :--- |
+| `default-on` | Enabled because it has no rules. |
+| `rule-match` | Enabled because a specific rule matched. |
+| `explicitly-off` | Disabled because `enabled` was set to `false`. |
+| `no-rule-matched` | Enabled by default, but no rules were met; carries a per-rule breakdown. |
+| `dependency-off` | Disabled because a parent dependency is off. |
 
-| `reason`          | Meaning                                                           |
-| ----------------- | ----------------------------------------------------------------- |
-| `default-on`      | enabled, no rules                                                 |
-| `rule-match`      | enabled, a rule matched; carries `rule`                           |
-| `explicitly-off`  | `enabled === false`                                               |
-| `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
-| `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
+## Reading the Dependency Cascade
 
-## Reading a cascade
+When a parent feature is disabled, it triggers a cascade. If you have a chain `A $\rightarrow$ B $\rightarrow$ C` and you turn off `A`, the decisions for `B` and `C` will both report `reason: 'dependency-off'`.
+
+- `blockedBy` identifies the immediate edge (e.g., `C` is blocked by `B`).
+- `cause` walks the chain to the root failure (e.g., `C` is ultimately off because `A` is `explicitly-off`).
+
+This allows an operator to see a "Blocked" flag and immediately identify the root cause without manually tracing the dependency graph.
+
+## Why a Rule Did Not Match
+
+When a feature resolves to `false` because of `no-rule-matched`, the decision includes a detailed breakdown of every rule and why it failed.
 
 ```ts
-const features = createFeatures([
-  { key: 'a', enabled: true },
-  { key: 'b', enabled: true, dependsOn: ['a'] },
-  { key: 'c', enabled: true, dependsOn: ['b'] },
-]);
-
-features.toggle('a', false);
-features.resolve();
-// a: { enabled: false, reason: 'explicitly-off' }
-// b: { enabled: false, reason: 'dependency-off', blockedBy: 'a',
-//      cause: { key: 'a', reason: 'explicitly-off' } }
-// c: { enabled: false, reason: 'dependency-off', blockedBy: 'b',
-//      cause: { key: 'a', reason: 'explicitly-off' } }
+// { 
+//   key: 'k', 
+//   enabled: false, 
+//   reason: 'no-rule-matched', 
+//   rules: [
+//     { rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }
+//   ] 
+// }
 ```
 
-`blockedBy` is the edge, for a graph view. `cause` walks to the first ancestor
-that is off for a reason of its own, for an operator who wants to know what to
-fix. On `c` those are two different features, which is the point of carrying
-both.
+If a condition failed, the `failed` object names the exact field, operator, and value that caused the mismatch. If a rollout failed, the `rollout` object provides the bucket and percentage.
 
-`cause.rule` is named when there is exactly one rule to name: the matching rule,
-or the single rule that failed. With several rules and none matching there is no
-one rule to blame, and the full breakdown sits on that ancestor's own decision.
+## Managing State with `toggle`
 
-## Why a rule did not match
+`toggle` is the only way to modify the stored intent of a feature. It sets the `enabled` property and returns a report of which dependents will be affected by the change.
 
 ```ts
-features.resolve({ role: 'customer' });
-// { key: 'k', enabled: false, reason: 'no-rule-matched', rules: [
-//   { rule: 'rule-d69c7f2b', matched: false,
-//     failed: { field: 'role', op: 'eq', value: 'bookseller' } },
-// ] }
+const result = features.toggle('new-checkout', false);
+// { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night'] }
 ```
 
-`failed` is the first condition that failed, so a UI can name it. `resolve()`
-reads every condition, so an outcome a condition refused always names it. An
-outcome the rollout refused carries `rollout` and no `failed`.
+This allows a UI to confirm a change before applying it: "Turning off New Checkout will also disable Express Pickup and Demo Night. Proceed?"
 
-A breakdown [`plan()`](/feature/build-time) settled can leave `failed` off. The
-plan names a condition only where every request names that same one, so a UI
-reading a planned decision checks the field before it names a condition.
+## Inspecting the Store
 
-```ts twoslash file=libs/feature/README.md region=plan-breakdown
-
-```
-
-When the rollout is why the rule did not match, `rollout` carries the numbers
-instead:
-
-```ts
-// { rule: 'after-launch', matched: false,
-//   rollout: { percent: 25, by: 'targetingKey', bucket: 0.9875, member: false } }
-```
-
-`bucket` is absent when the context did not carry the bucketing field. A rule
-whose `when` failed carries no `rollout` at all — conditions are checked first,
-and the rollout is never evaluated.
-
-A rule that declares no `id` is named by a hash of what it matches on. The rule
-keeps its name when another rule is inserted above it and when an operator
-moves a ramp, so an operator reading last week's log line still finds the rule
-under that name. Name a rule you expect to read.
-
-## `toggle`
-
-```ts twoslash file=libs/feature/README.md region=toggle
-
-```
-
-The only writer. It sets `enabled` on the stored definition and reports which
-dependants go off with it — transitive, in dependency order, and only the ones
-that resolve on now and will not after. Turning the new checkout off takes
-express pickup with it, and demo night booking behind that.
-
-Both sides of that comparison are evaluated against one context, so
-`willDisable` is not an artefact of the clock moving between the two
-evaluations. Pass the context you care about; it defaults the same way `resolve`
-does.
-
-`willDisable` is empty when enabling, and empty when the feature was already
-off. A UI can confirm before applying; a script can ignore it.
-
-```ts
-features.toggle('nope', false);
-// { ok: false, key: 'nope', error: 'unknown-feature' }
-```
-
-An unknown key returns that rather than throwing. Narrow on `ok`.
-
-Dependencies cascade one way only — a dependant never blocks its parent — but
-the information that upward blocking would have provided is kept, in
-`willDisable`.
-
-## Inspecting the store
-
-```ts
-features.keys; // every key, in configuration order
-features.config; // the stored intent, deeply frozen
-features.definition('express-pickup'); // one definition, or undefined
-features.dependants('new-checkout'); // ['express-pickup'] — transitive, in dependency order
-```
-
-`config` is a deep clone of what you passed, frozen, so an attempt to edit it
-throws rather than silently diverging from what was resolved.
+You can inspect the internal state of the feature store using these properties:
+- `features.keys`: Every configured key, in order.
+- `features.config`: The deeply frozen configuration object.
+- `features.definition(key)`: The specific definition for one feature.
+- `features.dependants(key)`: A list of all features that depend on the given key.

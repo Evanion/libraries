@@ -1,8 +1,8 @@
 # Getting started
 
-When you need to identify resources across different systems—like distinguishing a game from an order—standard strings aren't enough. This is where Uniform Resource Names (URNs) come in.
+When you need to identify resources across different systems—like distinguishing a game from an order—standard strings aren't enough. You need a way to ensure that an identifier is not just a string, but a meaningful, valid reference to a specific kind of resource.
 
-In this guide, you will create a `GameURN` class that can mint valid identifiers like `urn:game:brass-birmingham` and automatically refuse malformed ones (such as slugs containing spaces).
+In this guide, you will create a `GameURN` class that can mint valid identifiers like `urn:game:brass-birmingham` and automatically refuse malformed ones.
 
 <PageSheet
   difficulty={1}
@@ -30,17 +30,9 @@ Run the command for your preferred package manager:
 npm install @evanion/urn
 ```
 
-```bash
-yarn add @evanion/urn
-```
-
-```bash
-pnpm add @evanion/urn
-```
-
 ## Define your namespace
 
-To use URNs, you first define a **namespace class**. This class tells the library what the "namespace identifier" (NID) is for your specific type of resource.
+The core of the library is the **namespace class**. Instead of passing the namespace identifier (NID) as a string every time you call a function, you define a class that represents that namespace. This provides a clean, type-safe way to handle different kinds of resources.
 
 For a game shop, we'll create a `GameURN` class that extends the base `URN` class and sets the `nid` to `'game'`. Save this as `game-urn.ts`:
 

@@ -2,7 +2,7 @@
 
 In a complex React application, it's easy to pass the wrong props to a provider, especially when the provider list is long. Because `ComposeProvider` is a generic wrapper, it could technically render a provider with missing or incorrect props without any immediate warning—only for the app to crash at runtime.
 
-To prevent this, `@evanion/compose` moves the validation to compile time.
+To prevent this, `@evanion/compose` moves the validation to compile time using advanced TypeScript generics.
 
 <PageSheet
   difficulty={3}
@@ -14,68 +14,60 @@ To prevent this, `@evanion/compose` moves the validation to compile time.
   ]}
 />
 
-## Three ways to define a provider entry
+## Validating Providers at Different Stages
 
-The library provides three ways to add a provider to your list. Depending on which one you choose, the compiler checks the props at different times.
-
-Consider these three providers:
-- `CartProvider`: No props required.
-- `ThemeProvider`: Requires a `theme` (`'light' | 'dark'`).
-- `CurrencyProvider`: Requires a `currency` (`'SEK' | 'GBP' | 'USD'`).
+Depending on how you define your provider entries, the compiler checks the props at different times. Consider three providers: `CartProvider` (no props), `ThemeProvider` (requires `theme`), and `CurrencyProvider` (requires `currency`).
 
 ```tsx twoslash file=libs/compose/README.md region=entries
 
 ```
 
-Here is how the checks differ:
-1. **`provider()` calls**: This helper checks the props *at the call site*. As you type the props object, your editor provides autocomplete and flags errors immediately.
-2. **Bare components**: For providers with all-optional props (like `CartProvider`), you can just list the component.
+The checks differ by entry type:
+1. **`provider()` calls**: This helper checks props *at the call site*. You get autocomplete and immediate errors as you type, making it the preferred way to define tuples.
+2. **Bare components**: Used for providers with all-optional props (like `CartProvider`). If a bare component is used but requires mandatory props, the compiler will flag it.
 3. **Hand-written tuples**: If you write `[Component, Props]` manually, the check is deferred until the array is passed to `ComposeProvider`.
 
-## How inline arrays are validated
+## Type Safety for Inline Arrays
 
-When you write your provider array inline within the `providers` prop, `ComposeProvider` uses a TypeScript feature called `const` type parameters to ensure every entry is checked against its own component.
+When you write your provider array inline within the `providers` prop, `ComposeProvider` uses a TypeScript `const` type parameter to ensure every entry is checked against its own component.
 
-This means that if you provide an incorrect prop for `ThemeProvider`, the compiler doesn't just tell you the array is wrong—it tells you exactly which entry is failing.
+If you provide an incorrect prop for `ThemeProvider`, the compiler identifies exactly which entry in the array is failing.
 
 ```tsx twoslash file=libs/compose/README.md region=checked-inline
 
 ```
 
-As shown in the table below, the compiler can detect missing props, invalid values, or even unknown props:
+The compiler can detect multiple types of errors:
 
-| Entry                                                 | Compiler Report                                 |
-| ----------------------------------------------------- | ------------------------------------------------- |
-| `ThemeProvider`                                       | `this component requires props — …`               |
-| `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                     |
-| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'` |
-| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                           |
+| Entry | Compiler Report | Meaning |
+| :--- | :--- | :--- |
+| `ThemeProvider` | `this component requires props — …` | You used a bare component, but it has mandatory props. |
+| `[ThemeProvider, {}]` | `Property 'theme' is missing` | The props object is missing a required key. |
+| `[ThemeProvider, { theme: 'blue' }]` | `Type 'string' is not assignable to type 'never'` | The value provided is not among the allowed literals. |
+| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'` | You provided a prop the component doesn't declare. |
 
-The `markup` result shows that while the compiler flags these errors, the code still runs. This proves that the type safety is purely a developer-experience tool; it doesn't add any runtime overhead.
+## Debugging Compose Errors
 
-## Understanding Compose errors
+To make these complex TypeScript failures readable, `@evanion/compose` wraps them in a `ComposeError` type. When a check fails, the expected type of the entry becomes `ComposeError<"message">`.
 
-To make errors easier to read, `@evanion/compose` wraps failures in a special type called `ComposeError`. When a check fails, the expected type of the entry becomes `ComposeError<"message">`.
+Since no value can match this type, the entry fails to compile, and the message is displayed directly in the TypeScript output.
 
-Since no value can match this type, the entry fails to compile, and the error message is displayed directly in the TypeScript error output. For example, an entry with an unknown prop will end with `… & ComposeError<"unknown prop 'accent'">'`.
+| Message | Meaning |
+| :--- | :--- |
+| `unknown prop 'x'` | The props object contains a key the component does not declare. |
+| `this component requires props — ...` | A bare component was used, but it requires mandatory props. |
+| `first tuple element must be a component` | The tuple is ordered incorrectly or the first element is not a component. |
+| `second tuple element must be props...` | The tuple contains two components instead of a component and its props. |
+| `not a valid provider` | The entry is neither a component nor a valid two-element tuple. |
 
-| Message                                                                                        | Meaning                                                                                |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `unknown prop 'x'`                                                                             | The props object contains a key the component does not declare.                         |
-| `this component requires props — ...`                                                         | A bare component was used, but it requires mandatory props.                            |
-| `first tuple element must be a component`                                                      | The tuple is ordered incorrectly or the first element is not a component.             |
-| `second tuple element must be props...`                                                        | The tuple contains two components instead of a component and its props.                |
-| `not a valid provider`                                                                         | The entry is neither a component nor a valid two-element tuple.                        |
+## Solving the "Type 'string' is not assignable to type 'never'" Error
 
-## The "Type 'string' is not assignable to type 'never'" error
+You may encounter a confusing error like `Type 'string' is not assignable to type 'never'` when providing a value outside the allowed literals (e.g., `'blue'` when only `'light'` or `'dark'` are accepted).
 
-You might occasionally see a confusing error like `Type 'string' is not assignable to type 'never'`. This happens when you provide a value that is not among the allowed literals (e.g., providing `'blue'` when only `'light'` or `'dark'` are accepted).
+This happens because TypeScript intersects your provided type with the correct type; since they don't overlap, the result is `never`. 
 
-TypeScript arrives at this by intersecting your provided type with the correct type. Since no value can be both `'blue'` and `'light' | 'dark'`, the result is the `never` type.
+**The Fix**: Use the `provider()` helper. It avoids this intersection and reports the error at the call site with a much clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 
-Using the `provider()` helper avoids this confusion by reporting the error at the call site with a clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
+## Maintain Checks in Separate Constants
 
-## Moving the array to a constant
-
-In a real application, you rarely write your provider array inline. You'll likely move it to a `const` or a separate configuration file. [Keeping the check](../keeping-the-check) explains how to maintain these compile-time checks when the array is moved out of the JSX.
-
+In real applications, provider arrays are often moved to a `const` or a config file to keep the JSX clean. [Keeping the check](../keeping-the-check) explains how to maintain these compile-time checks when the array is moved out of the JSX.

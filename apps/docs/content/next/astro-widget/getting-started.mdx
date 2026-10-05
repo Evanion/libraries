@@ -1,7 +1,6 @@
 # Getting started
 
-By the end of this page `Widgets.astro` renders a Baize listing page from the
-JSON file a CMS saved, and you have opened the page in the browser.
+By the end of this page, you will have a functional Astro page that renders components dynamically based on a JSON payload from a CMS. You'll learn how to define a widget registry and use the `Widgets.astro` component to render your content.
 
 <PageSheet
   difficulty={1}
@@ -14,127 +13,80 @@ JSON file a CMS saved, and you have opened the page in the browser.
   ]}
 />
 
-## Before you install astro-widget
+## Prerequisites
 
-- An Astro project. `npm create astro@latest` makes one, with a `dev` script
-  that starts Astro's development server.
-- Astro 7.3.4 or a later 7.x release, the package's only peer dependency.
-  `npx astro --version` prints the version your project has.
-- Node 20 or newer and an ESM project, since `@evanion/astro-widget` has no
-  CommonJS build. A project `npm create astro` made is ESM already.
+To follow this guide, ensure you have the following:
+
+- **An Astro project**: If you don't have one, run `npm create astro@latest`.
+- **Astro 7.3.4 or later**: This is the package's only peer dependency.
+- **Node 20 or newer and an ESM project**: `@evanion/astro-widget` is an ESM-only package.
 
 ## Install astro-widget
 
-Pick the line for your package manager.
+Run the command for your preferred package manager:
 
 ```bash
 npm install @evanion/astro-widget
 ```
 
-```bash
-yarn add @evanion/astro-widget
-```
+`@evanion/widget` (the core logic) is installed automatically. You can import all the core tools—like `defineWidgets` and `validateItems`—directly from `@evanion/astro-widget`.
 
-```bash
-pnpm add @evanion/astro-widget
-```
+## Step 1: Write Your Widgets
 
-`@evanion/widget` installs with astro-widget, and every name the widget core
-exports imports from `@evanion/astro-widget`. `Widgets.astro` is published as
-`.astro` source, and Astro compiles it from `node_modules` with no
-configuration.
+An `astro-widget` widget is just an ordinary `.astro` component. It receives the item's `props` as its own props.
 
-## Write the two widgets
-
-An astro-widget widget is an ordinary `.astro` component. Save this one as
-`src/widgets/ListingHeader.astro`. It renders the `title` and `players` props of
-a `listing-header` item:
-
+**Example: Listing Header** (`src/widgets/ListingHeader.astro`)
 ```astro file=libs/astro-widget/examples/src/widgets/ListingHeader.astro region=listing-header
 
 ```
 
-`src/widgets/PriceBox.astro` renders the one `price` prop of a `price-box` item:
-
+**Example: Price Box** (`src/widgets/PriceBox.astro`)
 ```astro file=libs/astro-widget/examples/src/widgets/PriceBox.astro region=price-box
 
 ```
 
-## Map each type to its widget
+## Step 2: Map Each Type to Its Widget
 
-The astro-widget registry maps each item's `type` to the widget that renders
-it. `defineWidgets` returns the object it is handed with the keys kept as
-literal types, `'listing-header'` and `'price-box'` where a plain object would
-have `string`, so your editor completes the type names. Save the registry as
-`src/registry.ts`:
+To tell the renderer which component to use for each item type, you create a **registry**. Use the `defineWidgets` helper to ensure that your type names are treated as literal types, which gives you autocomplete in your editor.
+
+Save this as `src/registry.ts`:
 
 ```ts file=libs/astro-widget/examples/src/registry.ts region=registry
 
 ```
 
-## Import the JSON the CMS saved
+## Step 3: Import Your CMS Data
 
-astro-widget renders the items as the CMS saved them, and this CMS saves the
-listing page as `src/data/brass-birmingham.json`, a file committed with the
-project. Until a CMS writes it, write the file yourself: the `items` array from
-[the Overview](../)'s test, as JSON with each key in double quotes. It holds
-`header`, a `listing-header` whose props are `"title": "Brass: Birmingham"` and
-`"players": "2-4"`, and `price`, a `price-box` whose one prop is
-`"price": "649 kr"`.
+Astro allows you to import JSON files directly. In a real project, this data would come from a CMS API, but for this example, we'll use a local file.
 
-Astro's TypeScript configuration lets a module import a JSON file, and types the
-import from the file's contents. Save this module as
-`src/data/brass-birmingham.ts`. It assigns the JSON to `AnyWidgetItem[]`, the
-item type, with no cast:
+Save your items as `src/data/brass-birmingham.json`. Then, create a TypeScript wrapper (`src/data/brass-birmingham.ts`) to give the import a proper type:
 
 ```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 
 ```
 
-`astro check` and your editor now report an entry in the JSON that has no `id`,
-no `type` or no `props` object. A save the CMS writes after `astro check` ran
-goes unchecked until the next run, and the compiler checks no value inside
-`props`.
+## Step 4: Render the Items on a Page
 
-## Render the items on a page
-
-`Widgets.astro` takes the items and the registry, and renders each item through
-its widget, in order. Save the page as `src/pages/brass-birmingham.astro`:
+Now, create a page in `src/pages/brass-birmingham.astro`. Use the `Widgets.astro` component, passing it the items and the registry.
 
 ```astro file=libs/astro-widget/examples/src/pages/brass-birmingham.astro region=page
 
 ```
 
-Astro serves a file under `src/pages` at the path its name gives, so this one is
-`/brass-birmingham`.
+Astro serves this file at `/brass-birmingham`.
 
-## Open the listing page
+## Open the Listing Page
 
-Start the development server with your project's `dev` script:
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:4321/brass-birmingham`, the port Astro prints when it
-starts. The page shows the header and then the price, in the order the JSON
-lists them, and the page source shows `Widgets.astro` added no element of its
-own inside `<main>`.
+Open `http://localhost:4321/brass-birmingham`. You will see the header and the price box rendered in the order they appear in the JSON. Note that `Widgets.astro` adds no extra HTML elements of its own inside the `<main>` tag.
 
-The package keeps the same files under its `examples/src` and renders the page
-in its own tests, with the container API [the Overview](../) used. The code
-below is that test. It runs in the package's repository, where it imports the
-page from `examples/src`, and its last line holds the `<main>` element your
-page renders:
+## Catch a Stale Type Before it Ships
 
-```ts file=libs/astro-widget/README.md region=first-render
+`Widgets.astro` follows a "fail-soft" strategy: it simply skips any item whose `type` is not in the registry. While this prevents the page from crashing, it can leave gaps in your content.
 
-```
-
-## Catch a stale type before it ships
-
-The listing page now renders from the JSON the CMS saved. `Widgets.astro` skips
-an item whose `type` the registry does not hold, so a CMS save with a stale type
-publishes the listing with a gap in it.
-[Check CMS items before Astro renders them](../validation) runs `validateItems`
-over the items and stops `astro build` on that save.
+To prevent this, you should run `validateItems` as a build-time check. [Check CMS items before Astro renders them](../validation) shows how to stop `astro build` if your CMS payload contains an unknown widget type.

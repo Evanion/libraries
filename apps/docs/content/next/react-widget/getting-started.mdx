@@ -36,19 +36,12 @@ Run the command for your preferred package manager (this will also install React
 npm install @evanion/react-widget react react-dom
 ```
 
-```bash
-yarn add @evanion/react-widget react react-dom
-```
-
-```bash
-pnpm add @evanion/react-widget react react-dom
-```
-
 ## Render your first widget region
 
-`createWidgets` is the primary entry point. It takes a component map and returns a `Widgets` component and a `defineItems` helper.
+The primary entry point is `createWidgets`. It takes a component map (linking widget types to React components) and returns a `Widgets` component and a `defineItems` helper.
 
-Because TypeScript normally widens string types in arrays, passing a variable to `Widgets` would normally result in a compile error. `defineItems` solves this by typing the array against your component map, ensuring every `type` is a valid key.
+### The "Type-Safe Array" Problem
+Because TypeScript normally widens string types in arrays, passing a variable to `<Widgets>` would normally result in a compile error. `defineItems` solves this by typing the array against your component map, ensuring every `type` is a valid key and every `props` object matches the component's requirements.
 
 Here is how to render a Baize listing to HTML using `renderToStaticMarkup`:
 
@@ -56,18 +49,17 @@ Here is how to render a Baize listing to HTML using `renderToStaticMarkup`:
 
 ```
 
-To see the result:
+### How to run the example:
 1. Create `render.tsx` and import `createWidgets` and `renderToStaticMarkup`.
 2. Paste the code above and add `console.log(html);` at the end.
 3. Run `npx tsx render.tsx`.
 
 The output will show a `<section>` (the default `chrome.wrapper`) containing a `<div>` (the default `chrome.item`) which wraps the actual `ListingCard` markup.
 
-### Verifying types
+### Verifying Type Safety
+While `tsx` runs the code immediately, you can verify the type safety by running `npx tsc --noEmit`. If you change a `price` from a number to a string in your items, TypeScript will report a type mismatch, preventing a potential runtime error in your component.
 
-While `tsx` runs the code immediately, you can verify the type safety by running `npx tsc --noEmit`. If you change a `price` from a number to a string, TypeScript will report a type mismatch, preventing a potential runtime error in your component.
-
-*Note: Call `createWidgets` once at the module scope. Calling it inside a component will cause the entire region to remount on every render.*
+**Important**: Call `createWidgets` once at the module scope. Calling it inside a component will cause the entire region to remount on every render, destroying the internal state of your widgets.
 
 ## Expanding your layout
 

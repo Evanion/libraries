@@ -1,37 +1,42 @@
-# React Authorization
+# @evanion/react-acl
 
-The React binding for `@evanion/acl`. A provider and hooks over an
-already-built access matrix, for both an RSC-style graph and a traditional Node
-server/client split. Evaluation lives in the core; nothing here decides
-anything.
+**Context-aware authorization hooks for your React component tree.**
 
-## What a decision here means
+Stop prop-drilling authorization decisions through ten layers of components just to hide a single button. `@evanion/react-acl` provides a set of high-performance hooks that allow any component in your tree to ask, "Can the current user perform this action on this object?" without needing to know where the user or the policy lives.
 
-Every decision these hooks return is a convenience, never an access control.
-`@evanion/acl` in a browser exists to toggle what the user sees — show or hide a
-button, enable or disable a field, render the read-only branch instead of the
-editable one. Hiding a control hides the control, not the data behind it, and
-not the request the control would have sent.
+## The Problem: The "Authorization Prop-Drill"
 
-Real access control happens in a trusted environment: a React Router 8 or
-Next.js server runtime, or the server side of an API boundary. `can` has the
-same signature and the same return type in both places, and is authoritative in
-one and advisory in the other. Nothing in the types tells them apart — the
-runtime the call runs in is the whole difference.
+In most React apps, authorization is handled by passing a `user` object or a `permissions` array down from the root. This leads to:
+1. **Prop-Drilling**: Passing authorization data through components that don't need it, just to reach a leaf component that does.
+2. **Fragile UI Logic**: Spreading `if (user.role === 'admin')` checks throughout your JSX, making it nearly impossible to change your permission model without editing every single component.
+3. **Sync Issues**: Ensuring that every component has the freshest version of the user's permissions, especially after a role change or session update.
 
-Every app in the chain evaluates for itself and trusts no earlier layer. A
-gateway or a BFF that already allowed the request does not excuse the service
-behind it from deciding again, and a server-rendered page that hid the button
-does not excuse the handler the button posts to. There is no transitive trust
-and no "already checked upstream" exemption: a caller reaches the later layer
-directly whenever it wants to, without passing the earlier one.
+## The Solution: Policy-Driven Hooks
 
-A matrix in a browser is a copy, as fresh as the fetch that delivered it. A
-client evaluating a stale one keeps granting a permission the server has since
-revoked, and the client has no way to know. Refetch on whatever cadence the
-app's revocation story needs, and let the server's answer be the one that
-counts. The core README's security contract covers the rest of what the
-consumer owns.
+`@evanion/react-acl` brings the power of `@evanion/acl`'s serializable matrices directly into your React components. Instead of checking roles, you check **capabilities**.
+
+You wrap your app (or a sub-tree) in a `PolicyProvider`, and any child component can then use the `useCan` hook to make a decision.
+
+### Core Concept: Declarative UI Gating
+
+```tsx @import.meta.vitest
+import { useCan } from '@evanion/react-acl';
+
+function EditControl({ listing }) {
+  // Ask the policy: "Can the current user edit this listing?"
+  const { allowed } = useCan('listing', 'edit', listing);
+
+  if (!allowed) return null;
+
+  return <button>Edit listing</button>;
+}
+```
+
+### Why this is better:
+- 🧩 **Zero Prop-Drilling**: Components ask for what they need, when they need it.
+- 🎯 **Decoupled Logic**: The component doesn't know *why* it's allowed (e.g., because it's an admin or the owner); it only knows *if* it's allowed.
+- ⚡ **High Performance**: Decisions are evaluated locally using a frozen matrix, ensuring that UI toggles never trigger network requests.
+- 🛠️ **Type-Safe**: When used with `createPolicyContext`, your permission keys and object types are checked at compile time.
 
 ## Installation
 
@@ -39,174 +44,26 @@ consumer owns.
 npm install @evanion/react-acl @evanion/acl
 ```
 
-## Quick start
+## Important: Advisory vs. Authoritative (Security Contract)
++
++ It is critical to remember that **browser-side authorization is advisory**. 
++
++ Hiding a button in React does not protect the data behind it. A user can always trigger the API request manually. Therefore, while `@evanion/react-acl` is perfect for a polished UI, you **must** perform the same check on your server using `@evanion/acl` before executing any write or sensitive read.
++
++ This follows the core **security contract** defined in the main `@evanion/acl` package.
 
-The server builds the rules with `@evanion/acl`'s `policy()` and renders
-`ShopAccess`, a client component that hydrates `access.matrix` into a
-`PolicyProvider`. `EditControl` under it asks `useCan` and draws its button
-only for the seller who listed the listing:
+## Beyond the Basics
 
-<!-- #region server-render -->
+Authorization in complex UIs often requires more than a simple boolean. Our documentation covers advanced patterns, including:
 
-```tsx @import.meta.vitest
-import type { ReactNode } from 'react';
-import type { Matrix } from '@evanion/acl';
+- **`useCanMany`**: Efficiently evaluate permissions for a list of objects (e.g., a data table) without triggering N separate hook calls.
+- **`useCanFields`**: Control exactly which fields a user can edit in a form.
+- **`useCapabilities`**: Generate a full map of a user's permissions to build dynamic navigation menus.
+- **Policy Contexts**: Creating type-safe wrappers for your specific domain model.
 
-type Shopper = { id: string; role: 'customer' | 'bookseller' | 'owner' };
-type Listing = { id: string; sellerId: string; status: 'draft' | 'published' };
+For the full API reference and integration guides, visit our documentation site:
 
-// ShopAccess is examples/mount.tsx, and EditControl is examples/decision.tsx.
-function ShopAccess({
-  matrix,
-  shopper,
-  now,
-  children,
-}: {
-  matrix: Matrix;
-  shopper: Shopper;
-  now: string;
-  children: ReactNode;
-}) {
-  const access = useMemo(() => hydratePolicy(matrix), [matrix]);
-  const context = useMemo(() => ({ now }), [now]);
-
-  return (
-    <PolicyProvider access={access} subject={shopper} context={context}>
-      {children}
-    </PolicyProvider>
-  );
-}
-
-function EditControl({ listing }: { listing: Listing }) {
-  const decision = useCan('listing', 'edit', listing);
-
-  if (!decision.allowed) return null;
-
-  return <button type="button">Edit listing</button>;
-}
-// ---cut---
-// On the server, once per process: the seller who listed a listing edits it.
-const access = policy<Shopper, { listing: Listing }, { listing: 'edit' }>()
-  .for('listing', (p) => p.allow('edit', p.eq('object.sellerId', 'subject.id')))
-  .build();
-
-const listing: Listing = {
-  id: 'brass-birmingham',
-  sellerId: 'mika',
-  status: 'draft',
-};
-
-// On the server, per request. In production `now` is
-// new Date().toISOString(), read once for the whole render.
-const renderFor = (shopper: Shopper) =>
-  renderToStaticMarkup(
-    <ShopAccess
-      matrix={access.matrix}
-      shopper={shopper}
-      now="2026-09-25T09:00:00.000Z"
-    >
-      <EditControl listing={listing} />
-    </ShopAccess>,
-  );
-
-const mika: Shopper = { id: 'mika', role: 'bookseller' };
-const jo: Shopper = { id: 'jo', role: 'owner' };
-
-renderFor(mika); // -> '<button type="button">Edit listing</button>'
-renderFor(jo); // -> ''
-```
-
-<!-- #endregion server-render -->
-
-`EditControl` takes no `access` prop and no shopper prop. The rule compares
-`object.sellerId` with `subject.id`, so Mika, who listed the game, gets the
-button and Jo gets an empty string.
-
-The `// ---cut---` line is where the docs site starts showing the block: the
-two components above it are the ones `examples/` holds.
-
-## The handler behind the button
-
-[`examples/server.tsx`](./examples/server.tsx) builds the same rules on the
-server, adds a deny rule for a published listing, and exports `editListing`, the
-handler the Edit button posts to. It asks `access.can` for itself, so it refuses
-a write whatever the browser drew:
-
-<!-- #region edit-refused -->
-
-```ts @import.meta.vitest
-import { editListing } from './examples/server';
-
-const mika = { id: 'mika', role: 'bookseller' } as const;
-const jo = { id: 'jo', role: 'owner' } as const;
-const draft = {
-  id: 'brass-birmingham',
-  sellerId: 'mika',
-  status: 'draft',
-} as const;
-const published = { ...draft, status: 'published' } as const;
-
-editListing(mika, draft, 'Unpunched, still in shrink').status; // -> 200
-editListing(jo, draft, 'Unpunched, still in shrink').status; // -> 403
-editListing(mika, published, 'Unpunched, still in shrink').status; // -> 403
-```
-
-<!-- #endregion edit-refused -->
-
-## Hooks
-
-- `useCan(key, action, object?)` — one decision. `object` is the instance,
-  optional for the create case; an object-dependent rule with no instance yields
-  an `unevaluable` decision.
-- `useCanMany(key, action, objects)` — a decision array parallel to the input,
-  for rendering a list without N `useCan` calls.
-- `useCanFields(key, action, object, axis, proposed?)` — the field-level
-  decision on the `read` or `write` axis.
-- `useCapabilities()` — every action-level decision for the current subject (no
-  object, so no object-dependent decisions).
-
-## A policy written in TypeScript
-
-The hooks above take the key as a string, which is what a matrix that crossed
-JSON can offer. A policy authored with the core's `policy` builder knows its
-keys and its row types, and `createPolicyContext` binds them to a provider and
-the same four hooks:
-
-```tsx
-import { policy } from '@evanion/acl';
-import { createPolicyContext } from '@evanion/react-acl';
-
-type Shopper = { id: string; role: 'customer' | 'bookseller' };
-type Listing = { id: string; sellerId: string };
-
-const shop = policy<Shopper, { listing: Listing }, { listing: 'edit' }>()
-  .for('listing', (p) => p.allow('edit', p.eq('object.sellerId', 'subject.id')))
-  .build();
-
-const { PolicyProvider, useCan } = createPolicyContext(shop);
-
-function EditControl({ listing }: { listing: Listing }) {
-  // 'lsiting' does not compile; the imported useCan would pass it through.
-  return useCan('listing', 'edit', listing).allowed ? <EditButton /> : null;
-}
-```
-
-Both types come off the argument, so the call site names neither. It is a
-factory because `createContext` fixes its type where the context is made and
-`useContext` hands a hook that fixed type whatever the provider above it was
-given, so a generic provider has nowhere to put the binding.
-
-Each call makes its own context, and the provider it returns feeds the shared
-one too, so a component holding the imported `useCan` reads the same decision
-underneath it.
-
-## The clock
-
-`context.now` takes any `Instant`: an ISO 8601 string, epoch milliseconds, or a
-`Date`. Pass the string an SSR payload carries and leave it as it stands — the
-hooks key their memo on `now`, so a string holds the memo across renders where
-a `Date` is a new object every render and re-evaluates the matrix.
+👉 **[docs.evanion.com/react-acl](https://docs.evanion.com/react-acl)**
 
 ## License
-
 MIT

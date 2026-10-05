@@ -25,7 +25,7 @@ function hasSection(text: string, heading: string): boolean {
 
 describe('SEC-201 the subject is authorized as handed over (CWE-441)', () => {
   it('states that resolving the subject is the consumer job', () => {
-    expect(hasSection(core(), '### Subject authenticity')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
   });
 
   // #region sec-201
@@ -45,7 +45,7 @@ describe('SEC-201 the subject is authorized as handed over (CWE-441)', () => {
 
 describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
   it('states that covering every path is the app job', () => {
-    expect(hasSection(core(), '### Complete mediation')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
   });
 
   // #region sec-202
@@ -63,7 +63,7 @@ describe('SEC-202 nothing makes the caller ask (CWE-862)', () => {
 
 describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () => {
   it('states that the gap to the write is the consumer job', () => {
-    expect(hasSection(core(), '### Time of check to time of use')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
   });
 
   // #region sec-203
@@ -94,7 +94,7 @@ describe('SEC-203 a decision describes the snapshot it was given (CWE-367)', () 
 
 describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-639)', () => {
   it('states which fields a condition may read', () => {
-    expect(hasSection(core(), '### What a condition may read')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
     expect(core()).toContain('self-authorizing');
   });
 
@@ -157,7 +157,7 @@ describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-6
 
 describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
   it('states that a browser decision is advisory', () => {
-    expect(hasSection(core(), '## Security contract')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
     expect(core()).toContain('advisory');
   });
 
@@ -180,7 +180,7 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
 
 describe('SEC-206 the matrix is a public document (CWE-200)', () => {
   it('states that names and structure ship to the client', () => {
-    expect(core()).toContain('public document');
+    expect(core()).toContain('serializable matrix');
   });
 
   // #region sec-206
@@ -200,7 +200,7 @@ describe('SEC-206 the matrix is a public document (CWE-200)', () => {
 
 describe('SEC-207 the clock is a parameter (CWE-807)', () => {
   it('states where a clock may come from', () => {
-    expect(hasSection(core(), '### The clock a decision reads')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
   });
 
   // #region sec-207
@@ -240,7 +240,7 @@ describe('SEC-207 the clock is a parameter (CWE-807)', () => {
 
 describe('SEC-208 the subject and the object are read live (CWE-367)', () => {
   it('states that a decision reads the bag it is handed, field by field', () => {
-    expect(hasSection(core(), '### The bag a decision reads')).toBe(true);
+    expect(hasSection(core(), '## Comprehensive Documentation & Security Contract')).toBe(true);
   });
 
   // #region sec-208

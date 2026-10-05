@@ -1,8 +1,6 @@
 # r-, q- and f-components
 
-`@evanion/urn`'s `parse` splits the r-, q- and f-components off a URN into
-fields of their own, and `stringify`, given the parts as an object, writes them
-back.
+`@evanion/urn`'s `parse` splits the r-, q- and f-components off a URN into fields of their own, and `stringify`, given the parts as an object, writes them back.
 
 <PageSheet
   difficulty={3}
@@ -18,113 +16,71 @@ back.
   ]}
 />
 
-## The three URN components
+## The Problem: Identifying Specific Versions or Sections
 
-A service that needs one edition of a game, or one section of its rules, puts
-it in a component after the NSS, and `@evanion/urn` still reads the same game.
-RFC 8141 §2.3 defines three components. Each one starts with an
-**introducer**, the one or two characters that mark where it begins:
+A simple URN identifies a resource, but it doesn't identify a *specific version* or *subset* of that resource. For example, if you need to link to a specific edition of a board game, or a specific section of its rules, you can't do that with a bare identifier like `urn:game:brass-birmingham`.
 
-| Component | Introducer | RFC 8141 | Carries                                   | In the shop                         |
-| --------- | ---------- | -------- | ----------------------------------------- | ----------------------------------- |
-| r         | `?+`       | §2.3.1   | parameters for the service resolving it   | `?+lang=en`, the listing's language |
-| q         | `?=`       | §2.3.2   | parameters for the named resource         | `?=edition=2018`, one edition       |
-| f         | `#`        | §2.3.3   | a secondary resource within the named one | `#setup`, one section of the rules  |
+Adding this information as part of the main ID (the NSS) would break the identity of the resource—you'd be treating the "2018 Edition" as a different game entirely rather than a version of the same game.
 
-## Read URN components with parse
+## Solution: URN Components
 
-`parse` in `@evanion/urn` returns each component in its own field and never
-folds one into the `nss`. [`GameURN`](../getting-started), the `game` namespace
-class, reads an edition and a section of the rules off one URN:
+RFC 8141 §2.3 defines three components that can be appended to a URN. These allow you to carry metadata and specific pointers without changing the identity of the resource. Each component starts with an **introducer**:
+
+| Component | Introducer | RFC 8141 | Purpose | Example Use Case |
+| :--- | :--- | :--- | :--- | :--- |
+| **r** | `?+` | §2.3.1 | Parameters for the resolution service | `?+lang=en` (Request English listing) |
+| **q** | `?=` | §2.3.2 | Parameters for the named resource | `?=edition=2018` (Specific edition) |
+| **f** | `#` | §2.3.3 | A fragment within the resource | `#setup` (The "Setup" section of the rules) |
+
+## Extracting Components with `parse`
+
+`parse` in `@evanion/urn` returns each component in its own field and never folds one into the `nss`. [`GameURN`](../getting-started) can read an edition and a section of the rules off a single URN:
 
 ```ts twoslash file=libs/urn/README.md region=components
 
 ```
 
-`parse` lists `fComponent` first, and nothing reads that key order.
-
-<Probe package="urn" probe="components" />
-
-The field above runs `GameURN.parse` on a URN you type.
-
-A URN that carries no component parses to exactly `{ urn, nid, nss }`. The
-three component keys are absent, so
-`'qComponent' in GameURN.parse('urn:game:azul')` is `false`. `URNComponents`, a
-type `@evanion/urn` exports, describes those three optional fields:
+If a URN carries no component, the corresponding keys are simply absent from the returned object. The `URNComponents` type describes these three optional fields:
 
 ```ts twoslash file=libs/urn/README.md region=components-type
 
 ```
 
-## Write URN components with stringify
+<Probe package="urn" probe="components" />
+*Try typing a URN above to see how `GameURN.parse` extracts the components.*
 
-`stringify` in `@evanion/urn` writes a component only when it is given the
-parts as an object, `{ nss, urn?, nid?, rComponent?, qComponent?, fComponent? }`.
-The introducers always go in the order r, then q, then f, whatever order the
-keys were written in, and an empty `fComponent` writes a bare `#`:
+## Writing Components with `stringify`
+
+To write components, you must pass the parts to `stringify` as an object: `{ nss, rComponent?, qComponent?, fComponent? }`. 
+
+The library automatically ensures the introducers appear in the correct order (r, then q, then f), regardless of the order of keys in your object. An empty `fComponent` writes a bare `#`.
 
 ```ts twoslash file=libs/urn/README.md region=components-write
 
 ```
 
-`GameURN.stringify(GameURN.parse(written))` returns `written`, components
-included, for a URN in the class's own namespace.
+## How Components are Identified
 
-## How parse finds each URN component
+Because the identifier itself (the NSS) cannot contain `?` or `#`, `@evanion/urn` uses these characters as delimiters. It parses components in the following order:
 
-No part of a URN's identifier may contain `?` or `#`, so `@evanion/urn`'s
-`parse` reads the first of either as the start of a component. It takes the
-components off in the order RFC 8141 fixes:
+1. **f-component**: Everything after the first `#`. This is the final part of the URN.
+2. **r- and q-components**: In the remaining string, the first `?` after the NSS starts the component. If `+` follows, it's an r-component; if `=` follows, it's a q-component. Any other character following `?` throws a `ValidationError`.
+3. **r-component bounds**: An r-component continues until it hits `?=`, which marks the start of the q-component.
 
-1. The f-component comes off first. It is everything after the first `#`,
-   because the r- and q-components may contain `?` characters of their own and
-   only a `#` ends them.
-2. In what is left, the first `?` after the NSS starts the r-component when `+`
-   follows it, and the q-component when `=` follows it. A `?` followed by
-   anything else throws a `ValidationError`.
-3. An r-component runs to the first `?=` after it, which starts the
-   q-component.
+## Components and URN Equivalence
 
-## What a URN component may contain
+Crucially, components are **not part of the resource's identity**. RFC 8141 §3.1 excludes all three components from URN equivalence. 
 
-`@evanion/urn` allows the r- and q-components the characters of the NSS, which
-[Checking URN input](../validation) lists, plus `?` anywhere but the first
-character, and each needs at least one character. The f-component allows the
-same set with no first-character rule and may be empty, so `urn:game:azul#`
-parses to `fComponent: ''`.
-`URN.rComponentGrammar`, `URN.qComponentGrammar` and `URN.fComponentGrammar`
-hold the three patterns:
-
-```ts twoslash file=libs/urn/README.md region=component-grammars
-
-```
-
-`parse` decodes nothing. A component comes back as the URN spelled it, without
-its introducer.
-
-## What ignores URN components
-
-RFC 8141 §3.1 excludes all three components from URN equivalence, so
-`@evanion/urn`'s `equals`, which compares two URNs, ignores them. `extractId`
-drops them, because a component is not part of the identifier. Neither method
-reads the class's NID, so the example calls both on `URN`:
+`@evanion/urn`'s `equals` and `extractId` both ignore components. This means a URN with metadata is considered equivalent to the bare URN it describes.
 
 ```ts twoslash file=libs/urn/README.md region=components-ignored
 
 ```
 
-`sameNamespace` and `belongsToNamespace` read only the scheme and the NID, so a
-component never changes their answer.
-
-The identifier below takes each component when you attach it, and shows what
-`parse` makes of the result. Its last line is `URN.equals` comparing the form
-carrying components with the bare one, and each part explains itself when you
-press it.
+`sameNamespace` and `belongsToNamespace` also ignore components, as they only care about the scheme and NID.
 
 <UrnSpecimen value="urn:game:brass-birmingham" />
 
-## Encode a title and compare URNs
+## Next steps: Encoding and Comparison
 
-[Encoding and comparing URNs](../encoding) puts a title with a space and a
-colon into an NSS with `@evanion/urn`'s `encodeNss`, and compares URNs that two
-services wrote differently.
+Now that you can handle metadata, you need to know how to deal with "messy" identifiers—like those containing spaces or colons. [Encoding and comparing URNs](../encoding) shows you how to use `encodeNss` to safely integrate titles into your URNs.
