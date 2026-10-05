@@ -1,7 +1,8 @@
 # Getting started
 
-By the end of this page a `GameURN` class of your own mints
-`urn:game:brass-birmingham`, and refuses a slug with a space in it.
+When you need to identify resources across different systems—like distinguishing a game from an order—standard strings aren't enough. This is where Uniform Resource Names (URNs) come in.
+
+In this guide, you will create a `GameURN` class that can mint valid identifiers like `urn:game:brass-birmingham` and automatically refuse malformed ones (such as slugs containing spaces).
 
 <PageSheet
   difficulty={1}
@@ -11,18 +12,19 @@ By the end of this page a `GameURN` class of your own mints
   unlocks={[['URNs from several namespaces', '../namespaces']]}
 />
 
-## Before you install @evanion/urn
+## Prerequisites
 
-- Node 20 or newer.
-- An ESM project. In an empty folder, `npm init -y` followed by
-  `npm pkg set type=module` creates one. A CommonJS project needs Node 20.19,
-  22.12 or newer, whose `require()` loads ES modules.
-- Nothing else. The package has no runtime dependencies and no peer
-  dependencies, and it ships its own types.
+To get started with `@evanion/urn`, you will need:
+
+- **Node 20 or newer.**
+- **An ESM project**: If you're starting from scratch, run `npm init -y` and then `npm pkg set type=module`. 
+  *(Note: CommonJS projects require Node 20.19 or 22.12+ to load ES modules via `require()`)*.
+
+The package is lightweight with no runtime or peer dependencies and ships its own types.
 
 ## Install @evanion/urn
 
-Pick the line for your package manager.
+Run the command for your preferred package manager:
 
 ```bash
 npm install @evanion/urn
@@ -36,39 +38,33 @@ yarn add @evanion/urn
 pnpm add @evanion/urn
 ```
 
-## Mint a game URN with GameURN
+## Define your namespace
 
-`@evanion/urn` needs one piece of configuration, a namespace class: `GameURN`
-extends `URN` and sets the static property `nid` to `'game'`. The scheme and
-the separator keep their defaults, `urn` and `:`. Save this as `game-urn.ts`:
+To use URNs, you first define a **namespace class**. This class tells the library what the "namespace identifier" (NID) is for your specific type of resource.
+
+For a game shop, we'll create a `GameURN` class that extends the base `URN` class and sets the `nid` to `'game'`. Save this as `game-urn.ts`:
 
 ```ts twoslash file=libs/urn/README.md region=basic-usage
 
 ```
 
-`stringify` reads the scheme and the NID off `GameURN` and joins them to the
-slug. It checks each part against its grammar first. A space is outside the
-grammar of the NSS, the part after the NID, so the second call throws an
-`InvalidError` whose message names the part and the character. The `override`
-keyword is required under TypeScript's `noImplicitOverride` and optional
-without it.
+The `stringify` method uses the `nid` and the provided slug to create the full URN. Before joining them, it validates the slug against the URN grammar. For example, a space is invalid in a Namespace Specific String (NSS), so the second call in the example throws an `InvalidError`.
 
-## Run game-urn.ts
+## Run your code
 
-The `// ->` comments in `game-urn.ts` show the two values `@evanion/urn`
-returns. Add `console.log(id, refused);` as the file's last line to print both,
-then run the file. Node 22.18, 23.6 or newer runs a `.ts` file directly:
+The `// ->` comments in `game-urn.ts` show the expected output. To see it in your terminal, add `console.log(id, refused);` to the end of the file.
+
+If you are using Node 22.18 or 23.6+, you can run the file directly:
 
 ```bash
 node game-urn.ts
 ```
 
-On an older Node, run `npx tsx game-urn.ts` instead. Either command prints
+On older versions of Node, use `npx tsx game-urn.ts`. You should see:
 `urn:game:brass-birmingham NSS contains invalid character ' ' in 'brass birmingham'`.
 
-## Read a URN another service wrote
+## Next steps: Handling multiple namespaces
 
-Your `game-urn.ts` imports `URN` from `@evanion/urn`, mints a game URN, and
-refuses a malformed slug. [URNs from several namespaces](../namespaces) reads
-the URNs arriving at the shop's `orders` service, where a game URN and an order
-URN share one list.
+You've now seen how to mint a URN and validate a slug. But real applications often deal with many different kinds of identifiers at once.
+
+In [URNs from several namespaces](../namespaces), we'll look at how the shop's `orders` service handles both game URNs and order URNs within a single list.
