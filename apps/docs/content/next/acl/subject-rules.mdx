@@ -1,7 +1,8 @@
 # Rules about who the user is
 
-This page adds a deny rule with `p.deny` and names rules with `.id`, on rules
-that read only the subject, such as a role test.
+In a real application, authorization is rarely as simple as "all staff can do X." You often need to handle exceptions—such as preventing a suspended employee from accessing sensitive reports—or differentiate between different levels of staff.
+
+When these rules depend only on the user's properties (like their roles or account status), they are called **subject-only rules**. Because they don't need to know which specific object is being accessed, they are extremely fast and can be evaluated without any database reads.
 
 <PageSheet
   difficulty={2}
@@ -14,50 +15,21 @@ that read only the subject, such as a role test.
   ]}
 />
 
-## What a subject-only rule covers
+## Handling exceptions with deny rules
 
-A subject-only `@evanion/acl` rule reads nothing but the subject, so `can`
-answers it with no database read in front of it. Baize lets a bookseller, the
-staff role that [Getting started](../getting-started) allowed to delete
-questions, read the shop's stock report unless the shop has suspended that
-bookseller's account.
+While `p.allow` grants permission, you often need a way to explicitly revoke it. `@evanion/acl` provides `p.deny` for this purpose. A deny rule is a "hard stop": if a deny rule matches, the permission is refused, even if an allow rule also matches.
 
-When each handler writes the rule and its exception by hand, the copies drift:
-one tests `roles.includes('bookseller')`, another tests `user.isStaff`, and the
-suspended account is refused in two places out of five. A policy holds the pair once, in
-one `.for('report', …)` block.
-
-## Refusing with a deny rule
-
-An `@evanion/acl` deny rule refuses what the allow rules for the same action on
-the same object kind, here `report.read`, would grant. Replace the contents of
-`access.ts` with this file, which keeps the question rule and adds the report:
+Consider the Baize shop's stock report. We want any staff member with the `bookseller` role to read the report, unless their account has been suspended.
 
 ```ts twoslash file=libs/acl/README.md region=subject-deny
 
 ```
 
-One policy holds every object kind your app has. `report: Report` joins
-`question` in the `Objects` type, and a second `.for()` chains onto the same
-`policy()`, so `access.matrix` holds both kinds' permissions in one list.
+In this policy, the `report.read` permission is decided by two rules:
+1. An **allow rule** that grants access to anyone with the `bookseller` role.
+2. A **deny rule** that refuses access to anyone with the `suspended` role.
 
-`p.deny(action, ...conditions)` takes the conditions `p.allow` takes and refuses
-when they all hold. Baize suspends an account by adding the `suspended` role,
-and the account keeps `bookseller`, so the deny tests
-`p.contains('subject.roles', 'suspended')`. `p.allow`, `p.deny` and `.id` each
-return `p`, so the calls chain one after another and the block returns the
-chain.
-
-Wrap each line that ends in a `// ->` comment in `console.log` and run
-`npx tsx access.ts`. Four lines print. The three `.reason` lines give the three
-subjects three answers:
-
-- The bookseller gets `allow`, the reason a granted decision reports.
-- The suspended bookseller satisfies both rules and gets `denied`, because a
-  deny that matched outranks an allow that matched with it. `can` checks the
-  deny rules first.
-- The customer satisfies neither rule and gets `no-rule-matched`, the default
-  deny.
+When `can()` is called, the engine checks deny rules first. If a user is both a `bookseller` and `suspended`, the deny rule wins, and the result is `denied`. If they are only a `bookseller`, they are `allowed`. If they are neither, the result is `no-rule-matched` (the default deny).
 
 ```mermaid caption="The order can() settles one permission in, when every condition reads the subject."
 flowchart TD
@@ -68,38 +40,19 @@ flowchart TD
   R -->|no| N["allowed: false<br>reason: no-rule-matched"]
 ```
 
-### Naming a rule with `.id`
+### Identifying rules with `.id`
 
-`.id(name)` names the rule written by the `.allow` or `.deny` call just before
-it, and a decision reports that name in its `rule` field. The suspended
-bookseller's refusal above reports `suspended-reads-nothing`, the fourth line
-the file prints. A rule you do not
-name reports an id hashed from its conditions, and a release of `@evanion/acl`
-can change that hash. Name the rules whose ids you store, such as in a log.
+By default, `@evanion/acl` generates an internal hash as the ID for every rule. While this works for the engine, it's useless for logging or debugging. 
 
-## Where a deny rule belongs
+You can use `.id(name)` to give a rule a human-readable name. For example, naming a rule `suspended-reads-nothing` allows your application to log exactly why a user was blocked, making it much easier to provide helpful feedback to the user or support staff.
 
-An `@evanion/acl` deny rule goes into the permission it refuses. One permission
-never gates another, so a deny on `report.read` leaves `report.export` untouched
-even though a person would call reading a precondition for exporting. Two
-actions that share a deny rule each carry their own copy of it, and a reader of
-either action sees every rule that decides it.
+## The scope of subject-only rules
 
-## Where subject-only rules stop
+A subject-only rule is a powerful tool because it is completely decoupled from the resource. This leads to two major advantages:
 
-While every condition in an `@evanion/acl` policy reads only the subject, your
-code can rely on two things:
+1. **Instant Answers**: Because the server resolves the subject (the user) once per request, subject-only rules can be evaluated immediately without triggering additional database queries.
+2. **Pre-flight Checks**: You can ask about these permissions before you've even fetched a specific object. For example, a navigation menu can use subject-only rules to decide whether to show the "Admin Dashboard" link without needing to know which specific admin resource is being targeted.
 
-- Your handler always gets a final answer. The server loads every field of the
-  subject before the call, so every condition has data to read, and a permission here
-  answers `allow`, `denied` or `no-rule-matched`.
-- Your caller asks without fetching anything. `can` needs no row, so a
-  navigation menu can ask about every permission before it loads one.
+However, once you need to check a relationship—such as "Can this user edit *this specific* question?"—you have moved beyond the subject. You now need to read the object itself.
 
-The rule [the Overview](../) opened on, that the customer who asked a question
-may edit it, reads the question. Both properties stop holding the moment you add
-it. The handler has to load the question before it asks, and a question loaded
-without the `askedBy` field gets `allowed: false` with the reason `unevaluable`:
-the evaluator could not decide, and fetching `askedBy` settles it.
-[Rules about the thing being accessed](../object-rules) writes that rule and
-handles `unevaluable`.
+[Rules about the thing being accessed](../object-rules) explains how to write conditions that compare the user to the resource.
