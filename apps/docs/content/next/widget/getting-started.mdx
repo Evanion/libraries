@@ -1,8 +1,6 @@
 # Getting started
 
-By the end of this page a script hands `validateItems` a Baize listing page as
-the content management system (CMS) saved it, prints the one item no renderer
-can draw, and exits with status 1.
+In this guide, you will build a "quality gate" for your content. You'll learn how to use `validateItems` to check a page payload saved by your CMS, identify any items that your renderer cannot draw, and fail the process before a broken page ever reaches production.
 
 <PageSheet
   difficulty={2}
@@ -15,24 +13,20 @@ can draw, and exits with status 1.
   ]}
 />
 
-## Before you install the widget core
+## Prerequisites
 
-- Node 20 or newer.
-- An ECMAScript module (ESM) file. `check.mts` below is one in any project,
-  because Node and `tsx` load a `.mts` file as ESM. A CommonJS file that calls
-  `require('@evanion/widget')` needs Node 20.19, 22.12 or newer, and an older
-  `require()` fails with `ERR_REQUIRE_ESM`.
-- `tsx`, which runs a TypeScript file with no build step. `npx tsx` fetches it
-  on first use.
+To follow this guide, ensure you have the following:
 
-The package has no dependencies. If your project already depends on
-`@evanion/react-widget` or `@evanion/astro-widget`, skip the install and import
-`validateItems` from that renderer. Each renderer pins `@evanion/widget` exactly
-and re-exports every name this page uses.
+- **Node 20 or newer.**
+- **An ESM environment**: We use a `.mts` file in the example, which Node and `tsx` load as an ES module. 
+  *(Note: CommonJS files calling `require('@evanion/widget')` require Node 20.19 or 22.12+)*.
+- **tsx**: A tool to run TypeScript files without a build step. You can run it via `npx tsx`.
+
+The `@evanion/widget` package has no dependencies. If you are already using `@evanion/react-widget` or `@evanion/astro-widget`, you can import `validateItems` directly from the renderer instead of installing the core separately.
 
 ## Install the widget core
 
-Pick the line for your package manager.
+Run the command for your preferred package manager:
 
 ```bash
 npm install @evanion/widget
@@ -46,54 +40,44 @@ yarn add @evanion/widget
 pnpm add @evanion/widget
 ```
 
-## Check a saved page with validateItems
+## Create a validation gate
 
-`validateItems` from `@evanion/widget` types its first argument `unknown`, so it
-takes a payload straight from `JSON.parse` with no annotation to trust. In a
-file named `check.mts`:
+`validateItems` is designed to handle raw data. It types its first argument as `unknown`, meaning it can take a payload straight from `JSON.parse` without needing any type casting.
 
-1. Parse the page the CMS saved. Here the text is inline, and in your project
-   it is the body the CMS posts to a webhook or a file it exports.
-2. List the [known types](../#the-widget-vocabulary), the types your renderer
-   has a component for.
-3. Turn each problem `validateItems` returns into one line a log or a CMS editor
-   reads.
-4. Print each line, and set `process.exitCode` to 1 when there is one.
-   `@evanion/widget` leaves the exit status to your script.
+To create a check, you'll need to define the "known types"—the list of widget types your frontend actually knows how to render. Save the following as `check.mts`:
 
 ```ts twoslash file=libs/widget/README.md region=gate
 
 ```
 
-`report` holds one line. The shelf `tonight` names the type `featured-shelf`,
-which is not in `known`, so a renderer would skip the shelf, and the page would
-lose it and its heading "On the table tonight". `process.exitCode` is 1, so the
-run fails.
+Here is what happens inside the script:
+1. **Parse the payload**: It takes the JSON saved by the CMS.
+2. **Define the supported types**: It lists the types your renderer supports.
+3. **Run the check**: `validateItems` returns an array of problems.
+4. **Handle the result**: If any problems are found, the script prints them and sets the exit code to 1, signaling a failure to your CI/CD pipeline.
 
-## Run the widget check from a terminal
+In the example above, the shelf `tonight` uses the type `featured-shelf`, which is not in our `known` list. Because a renderer would simply skip this item, the page would lose its "On the table tonight" section. The script catches this and fails the run.
 
-`check.mts`, the script above that checks a saved page with `@evanion/widget`,
-sets `process.exitCode` to 1 when it prints a problem. Run it with `tsx`:
+## Run the check from your terminal
+
+You can execute your validation script using `tsx`:
 
 ```bash
 npx tsx check.mts; echo "exit $?"
 ```
 
-The terminal prints `tonight (featured-shelf): unknown widget type`, then
-`exit 1`. Change `featured-shelf` in `saved` back to `shelf` and run it again:
-the terminal prints only `exit 0`.
+The terminal will print `tonight (featured-shelf): unknown widget type` and return `exit 1`. If you change `featured-shelf` back to `shelf` in the payload, the script will return `exit 0`.
 
-The same few lines gate a payload wherever one enters your system:
+## Where to put your validation gate
 
-- in the webhook handler your CMS posts a save to
-- in a continuous integration (CI) job over the payloads committed to the
-  repository
-- in the build script, before it writes the pages
-- in a test over the fixtures your pages render
+This simple check can be integrated into several parts of your workflow to prevent broken content from reaching users:
 
-## Every problem one widget check reports
+- **CMS Webhooks**: Run the check in the handler that receives the "save" event from your CMS.
+- **CI/CD Pipelines**: Validate all JSON payloads committed to your repository before deployment.
+- **Build Scripts**: Run the check as a pre-processing step before the build generates the final pages.
+- **Test Suites**: Run the check against your content fixtures to ensure they remain renderable.
 
-`check.mts` now fails on a type no renderer draws, which is one of nine faults
-`@evanion/widget` knows. [What it reports](../problems) runs `validateItems`
-over a payload with three faults at once, one of them nested, and lists every
-message it returns.
+## Understanding the reports
+
+Your script now catches missing types, but that is only one of nine possible faults. [What it reports](../problems) shows how `validateItems` handles more complex issues, including nested item faults, and lists every possible error message.
+

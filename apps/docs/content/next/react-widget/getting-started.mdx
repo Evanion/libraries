@@ -1,7 +1,6 @@
 # Getting started
 
-By the end of this page `Widgets` renders a Baize listing from an item array
-held in a variable, and you have the HTML React wrote for it.
+In this guide, you will build a component-driven page using `@evanion/react-widget`. You'll learn how to map CMS-style data to React components and how to ensure that your items are type-safe, preventing runtime crashes when a component receives the wrong data.
 
 <PageSheet
   difficulty={1}
@@ -11,20 +10,16 @@ held in a variable, and you have the HTML React wrote for it.
   unlocks={[['Nesting items', '../nesting']]}
 />
 
-## Before you install react-widget
+## Prerequisites
 
-- Node 20 or newer.
-- React 18 or 19, the only peer dependency, and `react-dom` at the same
-  version. The example below imports `renderToStaticMarkup` from
-  `react-dom/server`.
-- An ES module project, meaning `"type": "module"` in `package.json`. The
-  package ships no CommonJS build.
-- TypeScript 5.0 or newer, the first version that reads the package's types,
-  with `"jsx": "react-jsx"` under `compilerOptions` in `tsconfig.json`. That
-  setting compiles JSX in a file that imports no `React`.
+To follow this guide, ensure you have the following:
 
-In an empty directory, these commands create such a project, with `tsx` to run
-a TypeScript file:
+- **Node 20 or newer.**
+- **React 18 or 19**: Along with `react-dom` at the same version.
+- **An ES module project**: Your `package.json` must include `"type": "module"`.
+- **TypeScript 5.0 or newer**: Ensure your `tsconfig.json` has `"jsx": "react-jsx"` under `compilerOptions` to allow JSX without importing React.
+
+To set up a fresh project for this example, run:
 
 ```bash
 npm init -y
@@ -35,8 +30,7 @@ npx tsc --init --jsx react-jsx
 
 ## Install react-widget
 
-Pick the line for your package manager. Each installs React and `react-dom`
-beside the package.
+Run the command for your preferred package manager (this will also install React and react-dom):
 
 ```bash
 npm install @evanion/react-widget react react-dom
@@ -50,46 +44,33 @@ yarn add @evanion/react-widget react react-dom
 pnpm add @evanion/react-widget react react-dom
 ```
 
-## Render one listing with `renderToStaticMarkup`
+## Render your first widget region
 
-react-widget's `createWidgets` takes `components`, the component map, and
-returns `Widgets` and `defineItems`. TypeScript widens each `type` in an array
-held in a variable to `string`, so passing that array to `Widgets` is a compile
-error. `defineItems` returns the array it is handed, typed against the map, so
-each `type` stays a key of the map. `renderToStaticMarkup`, from
-`react-dom/server`, returns the HTML `Widgets` rendered:
+`createWidgets` is the primary entry point. It takes a component map and returns a `Widgets` component and a `defineItems` helper.
+
+Because TypeScript normally widens string types in arrays, passing a variable to `Widgets` would normally result in a compile error. `defineItems` solves this by typing the array against your component map, ensuring every `type` is a valid key.
+
+Here is how to render a Baize listing to HTML using `renderToStaticMarkup`:
 
 ```tsx twoslash file=libs/react-widget/README.md region=region-markup
 
 ```
 
-To run it:
-
-1. Create `render.tsx` with two imports at the top:
-   `import { createWidgets } from '@evanion/react-widget';` and
-   `import { renderToStaticMarkup } from 'react-dom/server';`.
-2. Paste the code above below them, and add `console.log(html);` at the end.
+To see the result:
+1. Create `render.tsx` and import `createWidgets` and `renderToStaticMarkup`.
+2. Paste the code above and add `console.log(html);` at the end.
 3. Run `npx tsx render.tsx`.
 
-The command prints the string in the `// ->` comment. If it does, react-widget
-is working in your project.
+The output will show a `<section>` (the default `chrome.wrapper`) containing a `<div>` (the default `chrome.item`) which wraps the actual `ListingCard` markup.
 
-| In the HTML                  | Where it came from                                    |
-| ---------------------------- | ----------------------------------------------------- |
-| `<section>`                  | the default `chrome.wrapper`, around the whole region |
-| `<div data-widget-id=…>`     | the default `chrome.item`, carrying the item's `id`   |
-| `data-widget-type="listing"` | the same `<div>`, carrying the item's `type`          |
-| `<h3>Brass: Birmingham, …`   | `ListingCard`, the only markup the widget wrote       |
+### Verifying types
 
-`tsx` runs a file without checking its types. `npx tsc --noEmit` runs the
-check: change `price` to `'649'` and it reports
-`Type 'string' is not assignable to type 'number'` on that line.
+While `tsx` runs the code immediately, you can verify the type safety by running `npx tsc --noEmit`. If you change a `price` from a number to a string, TypeScript will report a type mismatch, preventing a potential runtime error in your component.
 
-Call `createWidgets` once, at module scope. Each call returns a new `Widgets`
-component, so a call inside a component remounts the region on every render.
+*Note: Call `createWidgets` once at the module scope. Calling it inside a component will cause the entire region to remount on every render.*
 
-## Group listings under a showcase
+## Expanding your layout
 
-Your project has one region that react-widget renders and `tsc` checks.
-[Nesting items](../nesting) puts listings inside a showcase widget, the way
-Baize groups the games on the table tonight.
+You now have a single region rendering a list of items. In a real application, you often need to group these items—for example, putting a set of listings inside a "Featured" showcase.
+
+In [Nesting items](../nesting), we'll explore how to create widgets that can contain other widgets.
