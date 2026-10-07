@@ -74,7 +74,7 @@ This approach ensures that `ORDER 2026 0042 L` and `order-2026-0042-l` both reso
 
 ## Strict Input with `filtered`
 
-`@evanion/luhn` drops separators because they are great for humans, but they can be a problem for automated systems. For example, a barcode scanner sends exactly the characters the barcode holds and adds no separators.
+`@evanion/luhn` drops every character outside the dictionary, which lets a person type separators. A barcode scanner sends exactly the characters the barcode holds.
 
 You can use the `filtered` count to enforce strict input. If `filtered` is greater than 0, you know the input contained characters outside the dictionary.
 
