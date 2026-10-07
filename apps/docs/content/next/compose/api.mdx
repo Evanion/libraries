@@ -169,8 +169,8 @@ The type of the `providers` prop. `number extends T['length']` is true only
 when the array's length is `number`, so it separates a widened array from a
 fixed-length array type. Gating on it does two things:
 
-- A widened `ProviderArray` passes through unchecked. Compared against the shape
-  each entry should have had, it could never match.
+- A widened `ProviderArray` passes through unchecked. Checking it would always
+  fail, because a widened entry never matches the shape it should have had.
 - An array whose length is `number` is never compared member by member. That
   comparison makes TypeScript compare array methods such as `every`, `map` and
   `reduce`, and report a mismatch in a callback's parameter type before it
