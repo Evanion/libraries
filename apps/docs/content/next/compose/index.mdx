@@ -13,9 +13,9 @@
   ]}
 />
 
-## The Problem: The "Pyramid of Doom"
+## Nested providers in a React root
 
-Without `@evanion/compose`, your root component grows into a "pyramid of doom" of nested providers as you add features, and manual nesting creates several maintenance burdens:
+Without `@evanion/compose`, your root component nests one more provider for every feature you add, and nesting by hand makes three edits harder:
 
 - **Indentation Drift**: Adding a new provider at the top requires re-indenting every child component.
 - **Closing Tag Fatigue**: Finding the matching `</ThemeProvider>` among ten other closing tags is error-prone.
