@@ -1,55 +1,30 @@
 # Evanion Open Source Libraries
 
-A collection of high-quality, production-ready libraries and tools built with modern web technologies. This monorepo contains reusable components, and utilities designed to solve common development challenges.
+**Focused, type-safe TypeScript libraries, one problem each.**
+
+The `@evanion` ecosystem provides a suite of TypeScript libraries, each one aimed at a problem that recurs in distributed systems and complex React applications. From request correlation and local authorization to type-safe dynamic layouts, each package takes one of those jobs out of your business logic and into a shared, tested package.
 
 ## 📦 Libraries
 
-### [@evanion/widget](./libs/widget)
+### 🛡️ Authorization & Identity
 
-The framework-free half of a widget region: the item shape, the registry and the validator every widget renderer shares. It renders nothing and imports no framework, so it also runs where no renderer does — a webhook checking a CMS payload, a build script, a test.
+- **[`@evanion/acl`](./libs/acl)**: Local, synchronous authorization across your entire stack. One serializable policy answers on the server and in the browser with no network round-trip, so your frontend and your backend evaluate the same rules. A browser decision decides what the page draws and enforces nothing, so every layer decides for itself.
+- **[`@evanion/react-acl`](./libs/react-acl)**: The React binding for `@evanion/acl`: a provider and hooks over an already-built policy. Read decisions with hooks, without passing the policy, the user and the clock through props.
+- **[`@evanion/urn`](./libs/urn)**: Typed, self-describing identifiers. Replace a bare `brass-birmingham` with a Uniform Resource Name such as `urn:game:brass-birmingham`, parsed and written to the RFC 8141 grammar.
+- **[`@evanion/token`](./libs/token)**: Human-friendly codes with built-in error detection. The alphabet leaves out characters people misread, and a check character rejects a mistyped code before it reaches your database.
+- **[`@evanion/luhn`](./libs/luhn)**: The engine behind the check character. Generate and validate a Luhn check character over an alphabet you choose: an even number of distinct characters, with no case pairs when the check ignores case. A mistyped ID is rejected locally.
 
-**Key Features:**
+### 🧩 UI Architecture & Composition
 
-- 🧱 **One item shape**: the same array renders through every renderer below
-- 🛡️ **Validation**: structural checks plus a map of props each type must supply
-- 🌍 **Universal**: no framework import at all, enforced by the packaging check
-- 🪶 **Zero dependencies**
+- **[`@evanion/widget`](./libs/widget)**: The framework-free core of the widget packages: the item shape, the registry and the validator. Move your layout into the data layer, and check a CMS payload in a webhook, a build script or a test, where no renderer runs.
+- **[`@evanion/react-widget`](./libs/react-widget)**: Type-safe, dynamic widget regions for React. Render CMS-driven layouts with compile-time prop checks and React Server Component support.
+- **[`@evanion/astro-widget`](./libs/astro-widget)**: Widget regions for Astro. Items render when Astro renders the page, and the package ships no JavaScript to the browser. Run `validateItems` in a build script to fail the build when an item names an unknown type or leaves out a prop you list as required. An `.astro` component's type carries no props for the compiler to check.
+- **[`@evanion/compose`](./libs/compose)**: Replace nested React providers with one array, each provider's props checked against its component.
 
-### [@evanion/react-widget](./libs/react-widget)
+### 🚀 Infrastructure & Observability
 
-The React renderer. Dynamic, reusable widget regions from structured data, for CMS-driven layouts, dynamic sidebars, dashboards, and any interface that renders different components from configuration data.
-
-**Key Features:**
-
-- 🎯 **Type-safe**: an item's `props` are checked against its component at compile time
-- 🔧 **Flexible**: custom chrome per item and per region, the region chrome told what is in it
-- ⚡ **Server-component ready**: no `'use client'`, no context, importable from an RSC
-- 🎨 **Customizable**: placement travels in `meta`, which never reaches a widget
-
-### [@evanion/compose](./libs/compose)
-
-A React component that gets you out of provider hell by flattening nested providers into a single, readable list — with the props of each provider checked against its component.
-
-**Key Features:**
-
-- 🧩 **Flat**: Replace a pyramid of nested providers with one array
-- 🎯 **Type-safe**: Missing, wrong, or unknown provider props are compile errors
-- 🔤 **Two APIs**: `provider()` for full IntelliSense, or plain tuples for brevity
-- 📖 **Natural order**: The first provider is the outermost, matching how you'd nest them
-- 🪶 **Zero dependencies**
-
-### [@evanion/urn](./libs/urn)
-
-A URN Library that makes it easier to work with more meaningful identifiers. The API is inspired by, and designed to be as simple as the JSON class.
-
-**Key Features:**
-
-- 📝 **Simple API**: JSON-inspired API for easy adoption
-- 🔍 **URN Parsing**: Parse URN strings into structured components
-- 🏗️ **URN Stringifying**: Create URN strings from components
-- 🎨 **Custom Schemes**: Support for custom URN schemes beyond the standard `urn:`
-- 🏷️ **Namespace Support**: Handle custom namespaces and identifiers
-- 🔧 **Class Inheritance**: Extend the base URN class for domain-specific implementations
+- **[`@evanion/nestjs-correlation-id`](./libs/nestjs-correlation-id)**: Correlation IDs for NestJS. Thread one ID from the incoming request through everything it awaits and onto outgoing calls through the `HttpService` from `HttpModule.registerAsync(withCorrelation())`, so log lines across services name the same request.
+- **[`@evanion/feature`](./libs/feature)**: Dependency-aware feature flags. Manage rollout graphs where features depend on other features: turning one flag off turns off the flags that need it. Not published to npm yet.
 
 ## 🛠️ Development
 
@@ -57,9 +32,7 @@ This monorepo is built with [Nx](https://nx.dev) for efficient development and b
 
 ### Prerequisites
 
-- Node.js, at the exact version in `.nvmrc` — every CI job reads that file, and
-  the npm bundled with a different patch release can disagree about whether the
-  lockfile is valid
+- Node.js (exact version in `.nvmrc`). Every CI job reads that file, and the npm bundled with a different patch release can disagree about whether the lockfile is valid.
 - npm
 
 ### Getting Started
@@ -70,10 +43,10 @@ git clone https://github.com/evanion/libraries.git
 cd libraries
 
 # Install dependencies
-npm install
+npm ci
 
-# Start development
-npm run dev
+# Start the documentation site
+npx nx dev docs
 ```
 
 ### Available Commands
@@ -94,59 +67,30 @@ npx nx run-many -t lint
 npx nx run-many -t typecheck
 
 # Everything CI runs
-npx nx run-many -t lint test build typecheck
+npx nx run-many -t lint test build typecheck check
 
 # Only what your changes affect
-npx nx affected -t lint test build typecheck
+npx nx affected -t lint test build typecheck check
 
 # Start the documentation site
 npx nx dev docs
 ```
 
-### Project Structure
-
-```
-├── apps/
-│   └── docs/                # Documentation site (Next.js + Nextra)
-└── libs/
-    ├── compose/             # Provider composition
-    ├── urn/                 # URN library
-    └── widget/              # React Widget library
-```
-
 ## 📖 Documentation
 
-Visit our [documentation site](https://docs.evanion.com) for:
-
-- 📚 **Comprehensive guides** for each library
-- 🎮 **Interactive examples** and playgrounds
-- 📋 **API references** with TypeScript definitions
-- 🚀 **Getting started** tutorials
+Visit our [documentation site](https://docs.evanion.com) for guides, interactive examples, and full API references for every library.
 
 ## 🚀 Releasing
 
-Packages publish from the **Release** workflow using npm trusted publishing over
-OIDC — there is no publish token in this repository. See
-[RELEASING.md](./RELEASING.md) for the setup and the release steps.
+Packages publish from the **Release** workflow using npm trusted publishing over OIDC. There is no publish token in this repository. See [RELEASING.md](./RELEASING.md) for the setup and the release steps.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:
-
-- 🐛 **Reporting bugs**
-- 💡 **Suggesting features**
-- 🔧 **Submitting pull requests**
-- 📝 **Improving documentation**
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ## 📄 License
 
-These projects are licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
-## 🔗 Links
-
-- 📖 **Documentation**: [docs.evanion.com](https://docs.evanion.com)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/evanion/libraries/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/evanion/libraries/discussions)
+MIT License - see the [LICENSE](./LICENSE) file for details.
 
 ---
 
