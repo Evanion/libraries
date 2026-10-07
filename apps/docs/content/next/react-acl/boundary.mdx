@@ -76,11 +76,11 @@ memory, so no decision in the server rows waits on the network.
 
 ## Why react-acl cannot run in a server component
 
-`@evanion/react-acl` needs `createContext` and stateful hooks. A React Server
-Component (RSC) renders only on the server, against a build of React that has
-neither, so react-acl's entry point carries `'use client'`. An RSC that imports
-`useCan` receives a reference to client code in place of the function, and
-calling it during the server render throws.
+`@evanion/react-acl` needs `createContext` and `useContext`. A React Server
+Component (RSC) renders only on the server, against a build of React that
+exports neither, so react-acl's entry point carries `'use client'`. An RSC that
+imports `useCan` receives a reference to client code in place of the function,
+and calling it during the server render throws.
 
 An RSC renders a client component such as `ShopAccess` instead, and every prop
 it passes is serialized on the way to the browser. For its own decisions an RSC
