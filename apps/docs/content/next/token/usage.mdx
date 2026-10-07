@@ -87,6 +87,6 @@ The `@evanion/token` check character misses one adjacent swap: the dictionary's 
 
 Over an even dictionary size every index doubles to a different value, which is why Luhn needs an even size. Doubled that way, 0 stays 0 and 31 stays 31, so swapping the two leaves the total unchanged. Two mistakes in one code can also cancel each other out and pass.
 
-## A Longer Code for Gift Cards
+## Set the Length, Chunk Size and Separator
 
-A gift card is issued in larger numbers than a pickup code, so it needs a longer `@evanion/token` code than the default eight characters. [Code shape](../shape) sets `length`, `chunkSize` and `separator` on `createToken`.
+A gift card holds a balance, so it needs a longer `@evanion/token` code than the default eight characters, whose 35 random bits an attacker can enumerate. [Code shape](../shape) sets `length`, `chunkSize` and `separator` on `createToken`.

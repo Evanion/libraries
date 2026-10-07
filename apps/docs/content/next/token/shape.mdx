@@ -15,7 +15,7 @@ To mint an `@evanion/token` code longer or shorter than a pickup code, or groupe
 
 ## Why a Gift Card Needs a Longer Code
 
-A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
+A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card holds a balance, so a guessed code spends someone else's money, and an attacker can enumerate the 35 random bits of an 8-character code. You need a longer identifier that still feels "human-readable" through proper chunking.
 
 Conversely, a code that staff call out across a room needs a specific shape (perhaps two groups of three characters separated by a space) to reduce miscommunication.
 
