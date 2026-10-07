@@ -92,6 +92,15 @@ jobs:
 
       - run: npm ci
 
+      # The commit-msg hook's check, over every commit the branch adds to main.
+      # The hook runs on the author's machine and `--no-verify` skips it, so CI
+      # reads the same rule off the history. Here because it needs the install
+      # and the full history `fetch-depth: 0` gives, and the project graph it
+      # builds is the one `run-many` reuses below. On a push to main the range
+      # is empty.
+      - name: Check commit types on tooling-only commits
+        run: node tools/repo-checks/src/tooling-commit-types.ts range origin/main..HEAD
+
       # A step in this job rather than a job of its own: it needs the install
       # and nothing else, and it costs about two seconds against the minute that
       # `npm ci` already costs. Ahead of `run-many` so a dead file or a new copy
