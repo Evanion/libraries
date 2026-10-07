@@ -80,7 +80,7 @@ Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send
 
 ### Unicode and Code Points
 
-`createLuhn` counts **code points**, not UTF-16 units. This means you can safely use emojis or other multi-byte symbols in your dictionary without breaking the index mapping.
+`createLuhn` counts **code points**, not UTF-16 units. An astral character such as 🂡 counts as one entry. An emoji built from several code points, such as ❤️ or a flag, counts as several.
 
 ```ts twoslash file=libs/luhn/README.md region=code-points
 

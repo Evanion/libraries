@@ -82,7 +82,7 @@ You can use the `filtered` count to enforce strict input. If `filtered` is great
 
 ```
 
-By requiring `filtered === 0` on the scanner's input only, you keep accepting separators in a code a person types while refusing them in a scanned one. `filtered` counts code points, not UTF-16 units, so an emoji is one dropped character, not two.
+By requiring `filtered === 0` on the scanner's input only, you keep accepting separators in a code a person types while refusing them in a scanned one. `filtered` counts code points, not UTF-16 units, so an astral character such as 🂡 is one dropped character, not two.
 
 ## Customizing the Alphabet
 
