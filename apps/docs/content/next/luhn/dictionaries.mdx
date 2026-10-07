@@ -30,7 +30,7 @@ The shop's pickup codes use 32 characters, the 36 without `i`, `l`, `o` and `w`,
 
 ```
 
-`pickup.generate` and `pickup.validate` are the same calls `Luhn` carries, bound to the new dictionary. A random string passes `validate` one time in `n`, so a larger dictionary catches more input that was never a code.
+`pickup.generate` and `pickup.validate` are the same calls `Luhn` carries, bound to the new dictionary. A larger dictionary lets fewer random strings through `validate`.
 
 ### Order Decides the Check Characters
 
