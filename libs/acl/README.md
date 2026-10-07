@@ -1,28 +1,25 @@
-# Authorization
+# @evanion/acl
 
-A declarative, serializable access-control matrix authored once and evaluated
-**locally** on whatever JS runtime is running — a Node backend, a frontend SSR
-graph, a browser SPA, or a hybrid JS platform (React Native, Electron). The
-matrix is a frozen object that round-trips through JSON. No per-subject
-snapshots, no backend roundtrip.
+`@evanion/acl` decides authorization locally. You write the rules once as a serializable matrix, and your Node backend, your Next.js server components and the browser each evaluate that matrix in their own process.
 
-The matrix ships to the client in full and evaluates locally, so it cannot
-contain secrets or server-side-only predicates. Opaque checks live outside the
-matrix, as server-side app-layer decisions. What that costs, and what each
-consumer owns, is the [security contract](#security-contract).
+## The Problem: Two Places to Ask
 
-## Installation
+Most apps put authorization in one of two places, and both cost something:
 
-```bash
-npm install @evanion/acl
-```
+1. **Centralized**: Every check is an API call to an auth service. Each hidden button waits on a round trip, and the auth service answers one "Can the user do X?" request per control on every page.
+2. **Duplicated**: You write the logic in the backend and then _re-implement_ a version of it in the frontend. The moment a rule changes, your UI diverges from your API, and the user gets "forbidden" errors for buttons the UI offered.
 
-ESM only. Node 20 or newer. Nothing else enters the import graph.
+## The Solution: A Serializable Matrix
 
-## The first policy
+`@evanion/acl` introduces the **Access Control Matrix**. Instead of a function, your policy is a data structure: a frozen object that round-trips through JSON.
 
-The smallest policy that answers a question, and the answers it gives. Baize's
-staff carry the `bookseller` role, and a bookseller may delete any question:
+You author the policy on the server, serialize it to JSON, and ship it to the client. The client rebuilds the evaluator and makes the exact same decisions as the server, with no network call.
+
+Because the matrix ships to the client in full, it cannot hold secrets or server-only predicates. Those checks stay in your server code, outside the matrix. What that costs, and what each consumer owns, is the [security contract](#security-contract).
+
+### Core Concept: The Matrix in Action
+
+Baize, the board game shop every example here is set in, lets its staff delete questions. Staff carry the `bookseller` role:
 
 <!-- #region first-policy -->
 
@@ -33,7 +30,7 @@ import { policy } from '@evanion/acl';
 type Shopper = { id: string; roles: string[] };
 type Question = { id: string; askedBy: string };
 
-// Built once, at module scope, when the server loads this module.
+// 1. Define your policy once, at module scope, when the server loads this module.
 const access = policy<Shopper, { question: Question }>()
   .for('question', (p) =>
     p.allow('delete', p.contains('subject.roles', 'bookseller')),
@@ -44,6 +41,7 @@ const bookseller = { id: 'staff-3', roles: ['bookseller'] };
 const customer = { id: 'customer-41', roles: ['customer'] };
 const question = { id: 'q7', askedBy: 'customer-41' };
 
+// 2. Evaluate locally and instantly
 access.can(bookseller, 'question', 'delete', question).allowed; // -> true
 access.can(customer, 'question', 'delete', question).allowed; // -> false
 access.can(customer, 'question', 'delete', question).reason; // -> 'no-rule-matched'
@@ -51,13 +49,9 @@ access.can(customer, 'question', 'delete', question).reason; // -> 'no-rule-matc
 
 <!-- #endregion first-policy -->
 
-`allowed` is the answer and `reason` says which branch of the engine produced
-it. `no-rule-matched` is the default deny: nothing in the document granted the
-customer the action, so the engine refused without any rule saying to.
+`allowed` is the answer, and `reason` says which branch of the engine produced it. `no-rule-matched` is the default deny: nothing in the document granted the customer the action, so the engine refused without any rule saying to.
 
-`access.matrix` holds the same rules as a JSON value. Another process, such as
-a browser, rebuilds an evaluator from it with `hydratePolicy`, and that
-evaluator gives the same answers:
+`access.matrix` holds the same rules as a JSON value. Another process, such as a browser, rebuilds an evaluator from it with `hydratePolicy`, and that evaluator gives the same answers:
 
 <!-- #region first-copy -->
 
@@ -86,6 +80,38 @@ inBrowser.can(customer, 'question', 'delete', question).allowed; // -> false
 ```
 
 <!-- #endregion first-copy -->
+
+## Key Features
+
+- A decision is a synchronous local function call, with no `await` and no network request.
+- The frontend answers from the same matrix as the backend, shipped as JSON. A copy answers from the version it holds until it fetches a new one.
+- Nothing is granted by default. An action an adopted document does not carry is refused, and a malformed document throws at construction.
+- `canFields` decides an `update` and also _which fields_ of it the user may change.
+- The package is ESM only and has no dependencies. It runs on Node 20 or newer, in a browser, and in hybrid JS platforms such as React Native and Electron.
+
+## Installation
+
+```bash
+npm install @evanion/acl
+```
+
+ESM only. Node 20 or newer. Nothing else enters the import graph.
+
+## Beyond the Basics
+
+The matrix is more than just a boolean check. It provides a rich set of tools for production-grade authorization:
+
+- **`canFields`** and **`pickAllowedFields`**: Prevent mass-assignment attacks by deciding every field of a write and keeping only the allowed ones.
+- **`capabilities`**: Generate a map of everything a user can do to build dynamic navigation menus.
+- **`parseMatrix`**: Adopt a policy another service published, failing closed on any action it does not carry.
+- **`federatedPolicies`**: Answer from one evaluator per service behind a single view, with no merged document.
+- **`hydratePolicy`**: Rebuild an evaluator from your own document when it arrives back as JSON.
+
+For deep dives into the security model, field-level permissions, and integration guides for Next.js and Express, visit the documentation site:
+
+👉 **[docs.evanion.com/acl](https://docs.evanion.com/acl)**
+
+The rest of this README is the reference: every behaviour below is an example that runs in the package's test suite.
 
 ## Quick start
 
@@ -3636,12 +3662,7 @@ refusedWrite instanceof AclConfigError; // -> false
 
 ## Security contract
 
-A decision counts where it is made. It is authoritative in a trusted
-environment — a React Router 8 or Next.js server runtime, a Node service, the
-server side of an API boundary — and advisory everywhere else. In
-a browser the same `can` call, with the same signature and the same return
-type, only toggles what the user sees. Nothing in the types separates the two;
-the runtime does.
+Authorization is only as strong as the place it runs. A decision counts where it is made: it is **authoritative** in a trusted environment (a React Router 8 or Next.js server runtime, a Node service, the server side of an API boundary) and **advisory** everywhere else. In a browser, the same `can` call, with the same signature and the same return type, only toggles what the user sees. Nothing in the types separates the two; the runtime does.
 
 <!-- #region one-call-both-sides -->
 
@@ -3667,90 +3688,55 @@ browser.can(asker, 'question', 'update', question); // -> { key: 'question.updat
 
 <!-- #endregion one-call-both-sides -->
 
-Every app in the chain evaluates for itself and trusts no earlier layer. A
-gateway or a BFF that already allowed the request does not excuse the service
-behind it from deciding again. There is no transitive trust and no "already
-checked upstream" exemption, because a caller reaches the later service
-directly whenever it wants to. Evaluating the same matrix twice is cheap: it is
-a local function call over a frozen object, with no roundtrip to pay for.
+**Every layer decides for itself.** Every app in the chain evaluates the request on its own and trusts no earlier layer. A gateway or a BFF that already allowed the request does not excuse the service behind it from deciding again, because a caller reaches that service directly whenever it wants to. There is no transitive trust and no "already checked upstream" exemption. Deciding twice is cheap: the second evaluation is a local function call over a frozen object, with no network round-trip.
 
-The matrix is a public document in its names and structure, not only in its
-values. It ships to the client in full, so anyone who loads the page reads
-every object kind, every action name, every role string that appears in a
-condition, every field name including the ones the API never returns, every
-state machine and its terminal states, and every time window and its
-boundaries. That is a map of the privilege model and of
-the server's internal vocabulary. It is not an argument against shipping the
-matrix — security must not rest on the document staying secret, and here it
-does not. It is an argument for naming things as if they were going to be read,
-because they are. An action named `bypass-kyc` or a role named
-`internal-fraud-reviewer` is a disclosure the moment the page loads.
+**The matrix is a public document**, in its names and structure as well as its values. It ships to the client in full, so anyone who loads the page can read:
 
-The rest of the contract is the consumer's to own. A library that claimed to
-cover these would be lying about what an evaluator can see. Each clause below
-is an entry in [SECURITY.md](./SECURITY.md), the register the adversarial suite
-in `src/security` is checked against.
+- every object kind and every action name
+- every role string that appears in a condition
+- every field name, including the ones the API never returns
+- every state machine and its terminal states
+- every time window and its boundaries
+
+That is a map of your privilege model and of your server's internal vocabulary. It is not an argument against shipping the matrix: security must not rest on the document staying secret, and here it does not. It is an argument for naming things as if they were going to be read, because they are. An action named `bypass-kyc` or a role named `internal-fraud-reviewer` is a disclosure the moment the page loads.
+
+The rest of the contract is yours to own. A library that claimed to cover these would be lying about what an evaluator can see. Each clause below is an entry in [SECURITY.md](./SECURITY.md), the register the adversarial suite in `src/security` is checked against.
 
 ### Subject authenticity
 
-`can(subject, ...)` authorizes the bag it is handed. It has no way to ask where
-that bag came from. A subject derived from anything the client controls — a
-header, a query parameter, an unverified token body, a field the client posted
-— gets the attacker's claimed identity faithfully authorized. This is the
-confused deputy, and it cannot be fixed inside an evaluator. Resolve the
-subject from a verified session or a verified token, server-side, before the
-subject reaches `can`.
+`can(subject, ...)` authorizes the bag it is handed, and it has no way to ask where that bag came from. If you derive the subject from anything the client controls (a header, a query parameter, an unverified token body, a field the client posted), the engine faithfully authorizes the attacker's claimed identity. This is the confused deputy, and no evaluator can fix it.
+
+**The Fix**: Resolve the subject from a verified session or a verified token, server-side, before it reaches `can`.
 
 ### Complete mediation
 
-Nothing makes you call `can`. A new route, a new resolver, a background job, an
-admin script, a direct query — each is unguarded until someone guards it. The
-library can make the checked path the easy one, through `authorize(subject)`
-bound once in middleware; it cannot make the unchecked path impossible. Whether
-every path is covered is a property of the app, and the place to assert it is
-the app's tests.
+Nothing makes you call `can`. A new route, a new resolver, a background job, an admin script, a direct query: each one is unguarded until someone guards it. The library can make the checked path the easy one, through `authorize(subject)` bound once in middleware, but it cannot make the unchecked path impossible.
+
+**The Fix**: Treat "every path is covered" as a property of your app, and assert it in your app's tests.
 
 ### Time of check to time of use
 
-A decision describes the snapshot it was given. Between `can` returning `true`
-and the write landing, the object can change owner, the subject can lose the
-role, and the time window can close. Re-read the object and re-check inside the
-transaction, or write with a conditional predicate that fails when the state it
-was authorized against has moved. The library carries no freshness token and no
-way to detect the gap.
+A decision describes the snapshot it was given. Between `can` returning `true` and the write landing, the object can change owner, the subject can lose the role, and the time window can close. The library carries no freshness token and has no way to detect the gap.
+
+**The Fix**: Re-read the object and re-check inside the transaction, or write with a conditional predicate that fails when the state it was authorized against has moved.
 
 ### The clock a decision reads
 
-`now` is a parameter. Omitted, it is the wall clock; supplied, it is whatever
-the caller passed, and every `before`/`after` window moves with it. A `now` that
-reaches `can` from a client payload — a request body, a query string, anything
-the browser sent — hands the client every time window in the matrix. Pass it
-only to make a server render and the client's first render agree, and resolve
-it server-side.
+`now` is a parameter. Omit it and the engine reads the wall clock; supply it and the engine reads whatever you passed, and every `before`/`after` window moves with it. A `now` that reaches `can` from a client payload (a request body, a query string, anything the browser sent) hands the client every time window in the matrix.
 
-In a browser the wall clock belongs to the subject. Setting the system clock
-back re-opens a window that has closed, and the library cannot detect it,
-because the clock is an argument. A role condition reads the subject a server
-resolved; a time condition reads a value the subject's machine produced. Both
-are advisory in a browser, and the second is the weaker of the two. A server
-passing its own `now` is unaffected.
+**The Fix**: Pass `now` only to make a server render and the client's first render agree, and resolve it server-side.
 
-A clock that parses is taken as given. A clock that does not — `null`, `NaN`,
-an `Invalid Date`, a string that is not a date — refuses instead: every
-permission whose decision reads it answers
-`{ allowed: false, reason: 'unusable-clock' }`, on the allow side and the deny
-side alike. Supply an instant that parses, or none at all.
+In a browser, the wall clock belongs to the subject. Setting the system clock back re-opens a window that has closed, and the library cannot detect it, because the clock is an argument. A role condition reads the subject a server resolved; a time condition reads a value the subject's machine produced. Both are advisory in a browser, and the second is the weaker of the two. A server passing its own `now` is unaffected.
+
+A clock that parses is taken as given. A clock that does not (`null`, `NaN`, an `Invalid Date`, a string that is not a date) refuses instead: every permission that needs the clock to decide answers `{ allowed: false, reason: 'unusable-clock' }`, on the allow side and the deny side alike. A permission whose deny rule matches, or whose allow side definitely fails, still answers `denied` or `no-rule-matched` first. Supply an instant that parses, or none at all.
 
 ### The bag a decision reads
 
-Conditions read `subject` and `object` live, field by field, as the decision
-walks the rules. The deny side is evaluated before the allow side, and each side
-reads the fields its own rules name. A bag whose properties are accessors — an
-ORM row, a lazy proxy, a memoised getter over a cache that can refill — can
-answer the two sides differently and pass the deny it should have matched. The
-matrix the engine evaluates is a frozen deep copy for exactly this reason; the
-subject and the object are not copied, because they are the app's data and
-copying them would hide the cost. Pass plain, already-resolved objects.
+Conditions read `subject` and `object` live, field by field, as the decision walks the rules. The deny side is evaluated before the allow side, and each side reads the fields its own rules name. A bag whose properties are accessors (an ORM row, a lazy proxy, a memoised getter over a cache that can refill) can answer the two sides differently and pass the deny it should have matched.
+
+The matrix the engine evaluates is a frozen deep copy for exactly this reason. The subject and the object are not copied, because they are your app's data, and copying them would hide the cost.
+
+**The Fix**: Pass plain, already-resolved objects.
 
 <!-- #region live-bag -->
 
@@ -3790,19 +3776,11 @@ access.can(subject, 'question', 'update', row).reason; // -> 'denied'
 
 ### What a condition may read
 
-A condition may read only fields the subject cannot write. A rule that keys on
-an object field within the subject's reach is self-authorizing: the subject
-edits the field, then passes the check the field controls.
-`eq('object.sharedWith', 'subject.id')` is the obvious trap, allowing
-a user to put their own id in the share field and be authorized for it. Either keep
-the field out of every write path the rule guards, or key the rule on something
-the subject cannot reach — ownership set at creation, a role on the subject, a
-field the server alone writes.
+A condition may read only fields the subject cannot write. A rule that keys on an object field within the subject's reach is self-authorizing: the subject edits the field, then passes the check the field controls. `eq('object.sharedWith', 'subject.id')` is the obvious trap, letting a user put their own id in the share field and be authorized for it.
 
-Below, the share dialog writes `sharedWith` and any customer reaches it, so a
-read rule keyed on `sharedWith` hands the list to whoever shares it with
-themselves. The rule keyed on `ownerId` holds, because no write path carries
-`ownerId`:
+**The Fix**: Keep the field out of every write path the rule guards, or key the rule on something the subject cannot reach: ownership set at creation, a role on the subject, a field the server alone writes.
+
+Below, the share dialog writes `sharedWith` and any customer reaches it, so a read rule keyed on `sharedWith` hands the list to whoever shares it with themselves. The rule keyed on `ownerId` holds, because no write path carries `ownerId`:
 
 <!-- #region self-authorizing -->
 
@@ -3855,20 +3833,11 @@ access.can(intruder, 'wishlist', 'read', saved).allowed; // -> true
 
 ### Matrix freshness
 
-A client holds the matrix it last fetched. When a permission is revoked, that
-client keeps granting it until it refetches, and it has no way to notice.
-`access.version` is a surface for detecting a mismatch, not a mechanism for
-resolving one: comparing it, failing closed, and forcing a refetch is the
-consumer's to implement. The comparison is a `!==`, so a digest or a composite
-covering every input works as well as a counter. The server never depends on a
-client's copy in any case, since it evaluates its own.
+A client holds the matrix it last fetched. When a permission is revoked, that client keeps granting it until it refetches, and it has no way to notice. `access.version` is a surface for detecting a mismatch, not a mechanism for resolving one: comparing it, failing closed, and forcing a refetch are yours to implement. The comparison is a `!==`, so a digest or a composite covering every input works as well as a counter. The server never depends on a client's copy in any case, since it evaluates its own.
 
-A document that states no `version` leaves `access.version` undefined, and a
-`!==` against undefined decides nothing. A producer that wants the contract to
-hold states a version — a content hash of the document is enough.
+A document that states no `version` leaves `access.version` undefined, and a `!==` against undefined decides nothing. A producer that wants the contract to hold states a version; a content hash of the document is enough.
 
-The whole mechanism the library supplies is the comparison. Fetching, deciding
-what to do with a mismatch, and rebuilding are the consumer's:
+The whole mechanism the library supplies is the comparison. Fetching, deciding what to do with a mismatch, and rebuilding are yours:
 
 <!-- #region revalidate -->
 
@@ -3917,11 +3886,7 @@ access.can(jo, 'question', 'update', question).reason; // -> 'unknown-action'
 
 <!-- #endregion revalidate -->
 
-Until that runs, the client grants what it last fetched. Nothing pushes an
-update to a holder. A holder that reports `fetchedAt` gets a freshness budget
-from the document's `maxStale`, and past `fetchedAt + min(maxStale,
-options.maxStale)` every key answers `stale-contract`. A holder that reports no
-`fetchedAt` claims no freshness and runs under no expiry.
+Until that runs, the client grants what it last fetched. Nothing pushes an update to a holder. A holder that reports `fetchedAt` gets a freshness budget from the document's `maxStale`, and past `fetchedAt + min(maxStale, options.maxStale)` every key answers `stale-contract`. A holder that reports no `fetchedAt` claims no freshness and runs under no expiry.
 
 ## API
 
