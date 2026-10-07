@@ -59,12 +59,9 @@ renders a chrome around a widget.
 `Widgets.astro` does not render an item's `children`. It passes them to the
 widget as a prop named `children` that holds the items as data, because an Astro
 component takes rendered child content through `<slot />`. A widget that nests
-renders its own `Widgets` over them, through a registry of its own. That
-registry sits in a module of its own. The page's registry imports the nesting
-widget, so a nested registry inside it would have the widget import a module
-that imports the widget.
+renders its own `Widgets` over them, through a registry in a module of its own.
 [Page data, wrappers and nested items](../layout#rendering-nested-items)
-renders a grid of game cards.
+renders a grid of game cards and says why that registry has its own module.
 
 ### Unknown types
 
@@ -167,8 +164,9 @@ type WidgetMeta = Record<string, unknown>;
 
 `WidgetMeta` is the `meta` an item carries for its chrome, such as a background,
 a column or a span. `Widgets.astro` hands it to `chrome.item` and never to the
-widget, and a chrome that reads it narrows it itself, as `Section.astro` does
-with `meta?: { background?: string }`.
+widget, and a chrome that reads it narrows it itself, as the layout page's
+[`Section.astro`](../layout#wrapping-widgets-with-chrome) does with
+`meta?: { background?: string }`.
 [The widget core's entry](/widget/api#widgetmeta) carries the rest.
 
 ## `WidgetProblem`
