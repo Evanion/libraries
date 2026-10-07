@@ -54,9 +54,23 @@ export interface Features<
 > {
   /** Every key, in the order the definitions were supplied. */
   readonly keys: readonly (keyof S & FeatureKey)[];
-  /** The installed document's version, lifted for convenience. */
+  /**
+   * The installed document's version, lifted for convenience.
+   *
+   * `undefined` for a store built from a literal, and `undefined` again once a
+   * `toggle` has moved an `enabled` the installed document declared otherwise:
+   * the version labels the publisher's bytes and these are no longer those
+   * bytes.
+   */
   readonly version: string | number | undefined;
-  /** The envelope the store last installed, without its payload. */
+  /**
+   * The envelope of the document the store holds, without its payload.
+   *
+   * It carries no `digest`, which `configDigest` is the one writer of, and it
+   * drops `version` on a `toggle` that changed the document. `serializeConfig`
+   * defaults to this envelope, so neither member travels over bytes it does not
+   * cover.
+   */
   readonly envelope: ConfigEnvelope;
   /** The stored intent, deeply frozen, in the order it was supplied. */
   readonly config: readonly FeatureDefinition<keyof S & FeatureKey>[];
@@ -862,6 +876,22 @@ export function createFeatures(
     // `graph`, `index` and `keys` carry over: a write moves `enabled` and
     // touches neither the key nor `dependsOn`.
     config = written;
+
+    // The version labels the bytes a publisher served, and these are no longer
+    // those bytes. `serializeConfig` defaults its envelope to
+    // `features.envelope`, so a version kept here goes out over the toggled
+    // document and a holder comparing `version` with `!==` -- the one
+    // comparison § 2 allows on it -- finds nothing to refetch and keeps a
+    // document the publisher never served. A poller reads `features.version`
+    // for the same comparison and now reloads the published document back over
+    // this write, which is the discard § 6 states. A write that moved no
+    // `enabled` leaves the member alone: those bytes are the ones the version
+    // names.
+    if (current.enabled !== enabled && installed.version !== undefined) {
+      const unlabelled: Record<string, unknown> = { ...installed };
+      delete unlabelled['version'];
+      installed = unlabelled as ConfigEnvelope;
+    }
 
     // Both sides read one document: the one the write went onto, and the same
     // one carrying the write. `settled` resolved `view.held` already when no
