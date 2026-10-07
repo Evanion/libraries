@@ -15,7 +15,7 @@ To mint codes from your own set of characters, pass a `dictionary` string to `cr
 
 ## Why Some Characters and Sizes Are Refused
 
-When an `@evanion/token` code is read aloud or typed from a printed receipt, some characters are confused: a `1` for an `l` or an `i`, and a `0` for an `o`. A customer who reads `1` as `l` types a wrong code, and the check character refuses it without saying where. Leave `l` out of the dictionary and the customer cannot misread it.
+When an `@evanion/token` code is read aloud or typed from a printed receipt, some characters are confused: a `1` for an `l` or an `i`, and a `0` for an `o`. If a dictionary held both `1` and `l`, a customer who typed `l` for a printed `1` would get `check-failed`, which does not say which character is wrong. The default dictionary has no `l`, so a typed `l` fails as `outside-alphabet`: the code holds a character that no code contains.
 
 Furthermore, the way random characters are drawn from a dictionary can introduce "bias." If the dictionary size doesn't divide evenly into the range of the random number generator, some characters will appear more often than others, making the codes slightly more predictable.
 
