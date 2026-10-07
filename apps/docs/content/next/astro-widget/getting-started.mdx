@@ -118,6 +118,6 @@ The package keeps the same files under its `examples/src` and renders the page i
 
 ## Catch a Stale Type Before it Ships
 
-astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it skips any item whose `type` is not in the registry. While this prevents the page from crashing, it can leave gaps in your content.
+astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it skips any item whose `type` is not in the registry. The page still renders, with no widget where the skipped item was.
 
 To prevent this, run `validateItems` as a build-time check. [Check CMS items before Astro renders them](../validation) shows how to stop `astro build` if your CMS payload contains an unknown widget type.

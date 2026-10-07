@@ -36,7 +36,7 @@ To try it on the listing page:
 
 ## Wrapping Widgets with `chrome`
 
-astro-widget's `chrome` prop allows you to define a shared wrapper component that surrounds every widget. This is where you handle layout concerns, like adding a `<section>` tag, applying a background color, or setting a grid span, keeping the widget components themselves focused on their specific data.
+astro-widget's `chrome` prop takes a shared wrapper component that surrounds every widget. The wrapper handles layout concerns, like adding a `<section>` tag, applying a background color, or setting a grid span.
 
 The `chrome.item` component receives the item's `type`, `id`, and `meta`, but **none of its `props`**. Save this chrome as `src/chrome/Section.astro`. It puts each widget in a `<section>` whose class names the item's background:
 
