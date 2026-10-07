@@ -447,6 +447,31 @@ describe('reload, the envelope it installs', () => {
     });
   });
 
+  /**
+   * A poller holds the buffer it parsed and polls again onto it. A shallow copy
+   * left `schema` the poller's own object, so a write there moved the schema
+   * the store reported it was holding and `serializeConfig` emitted the move.
+   */
+  it('installs a copy of the candidate envelope and freezes it', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+    const schema = { context: { fields: { tier: 'string' } } };
+
+    features.reload({
+      version: 7,
+      schemaVersion: 'v1',
+      schema,
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig<'checkout'>);
+    schema.context.fields.tier = 'number';
+
+    expect(features.envelope.schema).toEqual({
+      context: { fields: { tier: 'string' } },
+    });
+    expect(() => {
+      (features.envelope as { version?: unknown }).version = 1234;
+    }).toThrow(TypeError);
+  });
+
   it('replaces the envelope whole and keeps no member of the document before it', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
     features.reload({
