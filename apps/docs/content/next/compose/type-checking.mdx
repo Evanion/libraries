@@ -67,7 +67,7 @@ Since no value can match this type, the entry fails to compile, and TypeScript p
 
 For `[ThemeProvider, { theme: 'blue' }]`, the intersection asks for a `theme` that is both `'blue'` and `'light' | 'dark'`. No value is both, so TypeScript names the expected type `never` and prints `'blue'` as `string`. For `[ThemeProvider, {}]`, the intersection still requires `theme`, and the error reads `Property 'theme' is missing`.
 
-**The Fix**: Use the `provider()` helper. It avoids this intersection and reports the error at the call site with a much clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
+The `provider()` helper avoids this intersection and reports the error at the call site with a clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 
 ```tsx twoslash file=libs/compose/README.md region=checked-at-call
 
