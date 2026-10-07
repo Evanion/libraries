@@ -49,7 +49,7 @@ npx tsx scripts/check-content.ts && astro build
 
 ## Enforcing Required Props
 
-Since an `.astro` module's type carries no props for TypeScript to infer, astro-widget's `validateItems` is the only check that an item carries the data it needs to render.
+astro-widget's `validateItems` is the only check that an item carries the props its widget needs, for the reason [the Overview](../#pages-a-cms-lays-out) gave.
 
 A `required` map names the props that must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace). A CMS text field an editor opened and left empty arrives as such a string:
 
