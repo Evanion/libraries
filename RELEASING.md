@@ -192,6 +192,27 @@ is not ready, when a publish failed for one package after everything was already
 versioned and tagged, or when a new package is taking its first release on its
 own.
 
+### Two tooling fixes on main
+
+Two commits on `main` are typed `fix` and change only `tools/doc-examples`:
+
+- `60966831232546be86726ec665d30f5251b0fb04` fix(docs): cut an .md sibling's
+  twoslash fence at its last marker
+- `4252954bfee8301adde261417e2811bedc8ac86f` fix(docs): show each twoslash
+  fence in an .md sibling from its cut down
+
+Every library depends on `@evanion/doc-examples`, so an unscoped run reads each
+as a patch for every library whose last tag is older than the commit. The
+`commit-msg` hook and CI refuse such a commit now (see
+[CONTRIBUTING.md](./CONTRIBUTING.md#tooling-commits-are-never-feat-or-fix)),
+and these two predate the check.
+
+Until every library has a release tagged after both commits, run **Release**
+with `projects` naming only the packages that have real changes. A package's
+first release after `60966831` moves its tag past both commits, and nx stops
+reading them for it. Once every library is past them, an empty `projects` is
+safe again and this section can go.
+
 ## Verifying a release worked
 
 ```bash

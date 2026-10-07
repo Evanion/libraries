@@ -104,6 +104,19 @@ one-line release-tooling fix now wants to patch-bump four unrelated packages.
 Use `ci` or `chore` for workflow, tooling and repo-config changes, never
 `fix`, unless the change is actually scoped to one package.
 
+### Tooling commits are never feat or fix
+
+Every library depends on `@evanion/doc-examples` for its doctests, so nx
+release reads a `feat` or `fix` to `tools/doc-examples` as a patch for every
+library. The `commit-msg` hook and CI refuse a non-breaking `feat` or `fix`
+that changes no library and either changes tooling a library depends on, or
+changes only files no project owns. Type it `build(repo)`, `test(repo)` or
+`docs(repo)`. A commit that also changes a library, or a breaking one, passes.
+
+The tooling set comes from the project graph: every project outside nx.json's
+`release.projects` that a library depends on.
+`tools/repo-checks/src/tooling-commit-types.ts` holds the rule.
+
 ### Examples
 
 ```bash
@@ -212,6 +225,9 @@ This project uses Husky pre-commit hooks that run **only on affected projects** 
 ### Commit Linting
 
 All commit messages are automatically linted using commitlint. If your commit message doesn't follow the convention, the commit will be rejected with helpful error messages.
+
+The same hook then refuses a `feat` or `fix` on tooling alone. See
+[Tooling commits are never feat or fix](#tooling-commits-are-never-feat-or-fix).
 
 ### Optional: Full Pre-commit with Tests
 
