@@ -33,7 +33,7 @@ If you pass `ORD-a4kp-9mxa` directly to `validate`, it strips the hyphen, the de
 
 ```
 
-In the example above, `validatePickupCode` is a function of your own that handles the stripping. Because the default dictionary excludes the letter `o`, no valid code can start with `ord`. This makes it safe to strip any leading `ord` (case-insensitively, with or without its hyphen) without risk of accidentally removing part of the actual code.
+In the example above, `validatePickupCode` is a function of your own that handles the stripping. Because the default dictionary excludes the letter `o`, no valid code can start with `ord`. This makes it safe to strip any leading `ord` (case-insensitively, with or without its hyphen) without risk of accidentally removing part of the actual code. A prefix typed wrong, such as `ODR-`, is left in place, and `validate` refuses the code.
 
 ## Understanding Validation Failures
 
@@ -83,7 +83,7 @@ Because every variation of the spelling returns the same `body`, they all resolv
 
 ### The "Blind Spot"
 
-The `@evanion/token` check character misses one adjacent swap: the dictionary's first and last characters, `0` and `z` by default, at positions 0 and 31. Luhn doubles the position of every second character and adds the two digits of the result in base 32. Doubled that way, 0 stays 0 and 31 stays 31, so swapping the two leaves the total unchanged. Two mistakes in one code can also cancel each other out and pass.
+The `@evanion/token` check character misses one adjacent swap: the dictionary's first and last characters, `0` and `z` by default, at positions 0 and 31. Luhn doubles the dictionary index of every second character and adds the two digits of the result in base 32. Over an even dictionary size every index doubles to a different value, which is why Luhn needs an even size. Doubled that way, 0 stays 0 and 31 stays 31, so swapping the two leaves the total unchanged. Two mistakes in one code can also cancel each other out and pass.
 
 ## A Longer Code for Gift Cards
 

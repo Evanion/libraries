@@ -66,7 +66,7 @@ A `Map` stands in for the orders table:
 
 The code `generate` minted finds `order-2026-0042`. `a4kp-9mxa` is well formed, so `validate` accepts it, and the table answers `'no such order'` because it holds only the code just minted. `a4kp-9nxa` is the same code with `m` misheard as `n`, and `validate` refuses it with `'check-failed'`.
 
-In this example, `validate` acts as a gate. It refuses a misheard code before your system performs a database lookup for a code that is mathematically impossible, so you can tell the customer their code is mistyped rather than a bare "not found."
+In this example, `validate` acts as a gate. It refuses a misheard code before your system performs a database lookup for a code `generate` could never have minted, so you can tell the customer their code is mistyped rather than a bare "not found."
 
 ## Adding a prefix
 
