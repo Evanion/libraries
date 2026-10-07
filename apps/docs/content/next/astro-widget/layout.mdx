@@ -1,6 +1,6 @@
 # Page data, wrappers and nested items
 
-Every widget on the listing page needs the store's name, and the CMS should not save it on every item. `Widgets.astro` passes `ctx` to every widget, and `chrome.item` wraps each one in shared markup. A widget that holds other widgets renders its own `Widgets.astro`.
+Every widget on the listing page needs the store's name, which the CMS should not save on every item. `Widgets.astro` passes `ctx` to every widget, and `chrome.item` wraps each in shared markup. A nesting widget renders its own `Widgets.astro`.
 
 <PageSheet
   difficulty={2}
