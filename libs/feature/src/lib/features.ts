@@ -284,9 +284,6 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
  * object at the second, and `changed` would name a key nothing changed about.
  * Reference sharing is not part of the intent.
  *
- * `undefined` properties are skipped, so an absent key and a key written as
- * `undefined` state one intent, which is the rule `canonical.ts:21-22` states
- * for the same reason.
  */
 function sameIntent(
   a: unknown,
@@ -294,26 +291,80 @@ function sameIntent(
   seen = new Map<object, unknown>(),
 ): boolean {
   if (a === b) return true;
-  if (a instanceof Date && b instanceof Date)
-    return a.getTime() === b.getTime();
   if (a === null || b === null) return false;
   if (typeof a !== 'object' || typeof b !== 'object') return false;
+
+  // The prototype gate, before any walk over the keys. A `Date`, a `Set`, a
+  // `Map`, a `RegExp` and an `ArrayBuffer` keep what they hold in internal
+  // slots, so `Object.keys` reads nothing off any of them and a key walk alone
+  // calls any two of them equal and calls each of them equal to `{}`.
+  // `structuredClone` carries all of them into the store and
+  // `VariantSpec.value` is `unknown`, so without this gate a candidate
+  // installs a variant value the diff never looked at.
+  const prototype: unknown = Object.getPrototypeOf(a);
+  if (prototype !== Object.getPrototypeOf(b)) return false;
+
+  if (a instanceof Date) return a.getTime() === (b as Date).getTime();
+  if (a instanceof RegExp) {
+    return a.source === (b as RegExp).source && a.flags === (b as RegExp).flags;
+  }
 
   const paired = seen.get(a);
   if (paired !== undefined) return paired === b;
   seen.set(a, b);
 
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const equal = sameMembers(a, b, prototype, seen);
+  seen.delete(a);
+  return equal;
+}
+
+/**
+ * Whether two objects of one prototype hold the same members.
+ *
+ * It runs with the pair already registered, so a `Set` that holds itself and a
+ * property that points back at its own object both terminate in the pair map.
+ *
+ * A `Set` and a `Map` state their insertion order, `structuredClone` carries
+ * it, and the application reads it back off the value `valueOf` hands over, so
+ * two of them state one intent when their entries agree in the order they
+ * iterate. A reordered set states a different one and `changed` names the key,
+ * which is the answer a holder can act on.
+ *
+ * An object the walk above has no reading for -- an `ArrayBuffer`, a
+ * `DataView`, an `Error` -- holds an intent this cannot compare, so it compares
+ * equal to nothing and `changed` names its key on every reload.
+ *
+ * `undefined` properties are skipped, so an absent key and a key written as
+ * `undefined` state one intent, which is the rule `canonical.ts:21-22` states
+ * for the same reason.
+ */
+function sameMembers(
+  a: object,
+  b: object,
+  prototype: unknown,
+  seen: Map<object, unknown>,
+): boolean {
+  if (a instanceof Set)
+    return sameIntent([...a], [...(b as Set<unknown>)], seen);
+  if (a instanceof Map) {
+    return sameIntent([...a], [...(b as Map<unknown, unknown>)], seen);
+  }
+  if (
+    prototype !== Object.prototype &&
+    prototype !== null &&
+    !Array.isArray(a)
+  ) {
+    return false;
+  }
 
   const own = (value: object): string[] =>
     Object.keys(value).filter(
       (key) => (value as Record<string, unknown>)[key] !== undefined,
     );
   const left = own(a);
-  const right = own(b);
-  if (left.length !== right.length) return false;
+  if (left.length !== own(b).length) return false;
 
-  const equal = left.every(
+  return left.every(
     (key) =>
       Object.prototype.hasOwnProperty.call(b, key) &&
       sameIntent(
@@ -322,8 +373,6 @@ function sameIntent(
         seen,
       ),
   );
-  seen.delete(a);
-  return equal;
 }
 
 /**
