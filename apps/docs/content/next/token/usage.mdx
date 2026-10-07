@@ -70,7 +70,7 @@ Because every variation of the spelling returns the same `body`, they all resolv
 
 ## What the Check Character Catches
 
-`@evanion/token` uses the Luhn algorithm to compute the check character. This provides a high degree of confidence in detecting common human errors:
+`@evanion/token` computes the check character with the Luhn algorithm, which catches:
 
 - **Single-Character Substitutions**: Any single character misread or mistyped at any position, including the check character itself, is always caught.
 - **Adjacent Swaps**: Every swap of two neighboring characters is caught, except a swap of `0` and `z`, which the blind spot below explains.

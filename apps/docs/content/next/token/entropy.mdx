@@ -77,7 +77,7 @@ If a readable code _must_ gate a resource (like a gift card), you must implement
 
 You might wonder why `@evanion/token` doesn't use a larger dictionary or drop the check character, to get the same bits from fewer characters.
 
-1. **Alphabet Limits**: `createToken` refuses uppercase, so a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would bring back characters like `o` and `l`, which are confused with `0` and `1`, and 36 does not divide 256. The package prioritizes a "clean" alphabet to ensure human readability and transcription accuracy over raw density.
+1. **Alphabet Limits**: `createToken` refuses uppercase, so a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would bring back characters like `o` and `l`, which are confused with `0` and `1`, and 36 does not divide 256.
 2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error. `createToken` has no option to drop it.
 
 The check character is what `@evanion/token` adds to a random string. [The API reference](../api) lists every option, field and error these pages use.
