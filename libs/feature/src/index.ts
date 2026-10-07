@@ -8,6 +8,7 @@ export { createFeatures } from './lib/features.js';
 export type {
   AsSchema,
   Definitions,
+  DefinitionsOf,
   DefinitionsOrConfig,
   Features,
 } from './lib/features.js';
