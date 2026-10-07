@@ -18,7 +18,7 @@ function ComposeProvider<const T extends ProviderArray>(
 
 `ComposeProvider` is a generic function. Its `const T` parameter makes
 TypeScript infer the array as a
-[fixed-length array type](../type-checking#checking-an-inline-provider-array),
+[fixed-length array type](../type-checking#type-safety-for-inline-arrays),
 one type per position.
 A `React.FC` annotation would widen the array and drop the per-entry checks.
 
@@ -113,7 +113,7 @@ type ProviderArray = readonly Provider[];
 `readonly`, so an array written `as const` is assignable. A value annotated
 with this type has lost its length and the type at each position, so
 `ComposeProvider` checks none of its entries.
-[Wrapping `ComposeProvider` in your own component](../keeping-the-check#wrapping-composeprovider-in-your-own-component)
+[Preserving Checks in Wrapper Components](../keeping-the-check#preserving-checks-in-wrapper-components)
 shows the wrapper that keeps the check.
 
 ## `ValidateProvider<T>`
@@ -143,7 +143,7 @@ Checks one entry. A valid entry maps to itself. A failing one maps to
 `ComposeError<"message">`, a type naming what is wrong, except for a missing or
 mistyped prop value, which maps to the shape the entry should have had.
 `ComposeError` is internal: `@evanion/compose` does not export it.
-[What a compose error message means](../type-checking#what-a-compose-error-message-means) lists
+[Debugging Compose Errors](../type-checking#debugging-compose-errors) lists
 the messages.
 
 ## `ValidateProviders<T>`
@@ -193,7 +193,7 @@ The props of `ComposeProvider`, exported for a wrapper that names them. The
 wrapper keeps the per-entry checks only when it declares its own
 `<const T extends ProviderArray>` and passes `T` here. Under the default `T`,
 `providers` is a plain `ProviderArray`.
-[Wrapping `ComposeProvider` in your own component](../keeping-the-check#wrapping-composeprovider-in-your-own-component)
+[Preserving Checks in Wrapper Components](../keeping-the-check#preserving-checks-in-wrapper-components)
 shows one.
 
 ## Migrating @evanion/compose from 1.x

@@ -1,8 +1,8 @@
 # @evanion/compose
 
-A React app nests its providers one inside the next, so adding one reindents the
-tree and moving one means finding its closing tag. `ComposeProvider` takes them
-as a flat array, and TypeScript checks each provider's props at compile time.
+**Escape "Provider Hell" with a flat, type-safe way to organize your React context providers.**
+
+`ComposeProvider` takes your providers as a flat array and nests them for you, while TypeScript checks each provider's props.
 
 <PageSheet
   difficulty={1}
@@ -13,70 +13,59 @@ as a flat array, and TypeScript checks each provider's props at compile time.
   ]}
 />
 
-## How a provider array becomes a tree
+## The Problem: The "Pyramid of Doom"
 
-`ComposeProvider`, from `@evanion/compose`, reads the `providers` array as the
-tree, top to bottom. The first provider in the array wraps the second, and the
-last one wraps the `children` you pass. The examples on these pages are set in
-Baize, a board game shop, and `<p>Brass: Birmingham</p>` stands in for one of
-its pages.
+Without `@evanion/compose`, your root component grows into a "pyramid of doom" of nested providers as you add features, and manual nesting creates several maintenance burdens:
 
-The two providers below each render a `div`, so the markup shows where each one
-sits. `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the
-HTML string `markup`:
+- **Indentation Drift**: Adding a new provider at the top requires re-indenting every child component.
+- **Closing Tag Fatigue**: Finding the matching `</ThemeProvider>` among ten other closing tags is error-prone.
+- **Reordering Friction**: Moving a provider (e.g., moving `AuthProvider` above `ThemeProvider`) requires carefully cutting and pasting large blocks of JSX.
+
+## The Solution: Flat Composition
+
+`ComposeProvider`, from `@evanion/compose`, accepts a flat array of providers and handles the nesting for you. It reads the array from top to bottom: the first provider becomes the outermost wrapper, and the last provider wraps the `children`.
+
+The examples on these pages are set in Baize, a board game shop, and `<p>Brass: Birmingham</p>` stands in for one of its pages. The two providers below each render a `div`, and `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`, so the markup shows where each one sits:
 
 ```tsx twoslash file=libs/compose/README.md region=render-order
 
 ```
 
-`CartProvider` is first in the array and its `div` is outermost. `ThemeProvider`
-needs a `theme`, so `provider()`, also from `@evanion/compose`, pairs it with
-its props. `ComposeProvider` renders each provider with the next one as its
-`children`.
+`CartProvider` is first in the array, and its `div` is outermost. `ThemeProvider` needs a `theme`, so `provider()` pairs it with its props.
 
-`ComposeProvider` calls no hook and creates no context, so a React Server
-Component can render it.
+By treating your providers as data (a list) and not as structural JSX, you can reorder your entire app's context hierarchy by moving a line in an array.
 
-## Four words for a provider array
+### RSC Compatibility
 
-Every later `@evanion/compose` page names the parts of a `providers` array with
-four words.
+Because `ComposeProvider` calls no hooks and creates no context of its own, a React Server Component can render it without a `'use client'` boundary. A provider you pass that calls `createContext` is still client code, and lives in a file marked `'use client'`.
 
-- A **provider** is any component that renders its `children`.
-  `ComposeProvider` asks nothing else of one.
-- An **entry** is one element of the `providers` array.
-- A **bare component** is an entry written as the component alone, like
-  `CartProvider`. It fits a provider whose props are all optional.
-- A **tuple** is an entry pairing a component with its props,
-  `[component, props]`. `provider(component, props)` returns one and checks the
-  props at compile time, where you call it.
+## The Compose Vocabulary
 
-## What compose can do
+To keep the `@evanion/compose` documentation clear, we use these terms to describe the composition process:
 
-| You want to                                  | What compose gives you                                                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| write a root's providers as one list         | `ComposeProvider`, which nests `providers` around `children`, first outermost                                              |
-| give a provider its props                    | a tuple, or `provider(component, props)`                                                                                   |
-| catch a prop an entry gets wrong             | a compile error on that entry, in an array written inline or declared `as const`                                           |
-| wrap `ComposeProvider` in your own component | `ComposeProviderProps<T>`, its props type, where `T` is the array's type, so a caller's array gets the same compile errors |
-| mount the tree from a React Server Component | a component that calls no hook and no `createContext`, so no `'use client'`                                                |
+- **Provider**: Any React component that renders its `children`.
+- **Entry**: A single element within the `providers` array.
+- **Bare Component**: An entry written as the component itself (e.g., `CartProvider`). This is used for providers whose props are all optional.
+- **Tuple**: An entry pairing a component with its props, `[component, props]`. The `provider()` helper creates these tuples and checks the props at compile time, where you call it.
 
-## When nesting by hand reads better
+## Core Capabilities
 
-`@evanion/compose` is the wrong tool in three cases:
+| Goal                              | Tool                                                    |
+| :-------------------------------- | :------------------------------------------------------ |
+| Organize root providers as a list | `ComposeProvider`                                       |
+| Assign props to a provider        | A tuple or `provider(component, props)`                 |
+| Catch prop errors at compile time | Inline arrays or `as const` declarations                |
+| Preserve type checks in wrappers  | `ComposeProviderProps<T>` with a `const` type parameter |
+| Use in React Server Components    | `ComposeProvider` (no hooks/context used)               |
 
-- One or two providers. Two levels of nesting read fine written out.
-- Providers that change order or count while the app runs. React reconciles by
-  position, so a change to the array's order or length remounts everything
-  under it and drops that subtree's state.
-- Components laid side by side, such as a page built from a list of sections.
-  `ComposeProvider` nests every entry inside the one before it and renders
-  nothing of its own. [`@evanion/react-widget`](/react-widget) renders a page
-  from data.
+## When to Avoid Compose
 
-## A shop's root from three context providers
+While powerful, `@evanion/compose` is not the right tool for every scenario:
 
-A `@evanion/compose` array, read top to bottom, is the tree, and each entry is a
-bare component or a tuple. [Getting started](./getting-started) installs
-`@evanion/compose` and builds Baize's root from three context providers that a
-page reads.
+- **Minimal Nesting**: If you only have one or two providers, manual nesting is often more readable.
+- **Dynamic Providers**: If the number or order of providers changes at runtime, React reconciles by position and remounts everything below the change, so that subtree loses its state.
+- **Side-by-Side Layouts**: `ComposeProvider` is for _nesting_, not _layout_. If you need to arrange components side-by-side based on data, use [`@evanion/react-widget`](/react-widget).
+
+## Get Started with a Shop Root
+
+A `@evanion/compose` array is a top-to-bottom map of your component tree. [Getting started](./getting-started) shows you how to install the package and build Baize's root from three context providers that a page reads.
