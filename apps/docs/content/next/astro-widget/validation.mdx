@@ -17,7 +17,7 @@
 
 astro-widget's `Widgets.astro` follows a "fail-soft" strategy: if it encounters a widget `type` it doesn't recognize, it skips that item and renders the rest of the region.
 
-While this prevents the entire page from crashing, it results in a "silent gap" in your production content, because the renderer warns only when `NODE_ENV` is not `production`, and `astro build` sets it to `production`. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
+While this prevents the entire page from crashing, it results in a "silent gap" in your production content, because the renderer warns only when `NODE_ENV` is not `production`, and `astro build` sets it to `production` when your environment has not set it. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
 
 ## Solution: A Build-Time Quality Gate
 
