@@ -248,6 +248,7 @@ describe('the document the fixture publishes', () => {
     );
     expect(conditions.filter((each) => each.op === 'eq').length).toBe(2);
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
+    expect(conditions.filter((each) => each.op === 'before').length).toBe(1);
     expect(rules.filter((each) => each.rollout).length).toBe(2);
     expect(
       definitions
@@ -378,6 +379,19 @@ describe('the document the fixture publishes', () => {
     expect(decisionsOver(seedsDefaulted(fixture.config))).not.toEqual(
       fixture.decisions,
     );
+  });
+
+  it('decides differently under a clock no caller supplied', () => {
+    const { now, ...rest } = fixture.context;
+
+    const ambient = createFeatures(fixture.config).resolve(rest);
+
+    // `summer-sale` is bounded on both sides of the instant the fixture states,
+    // so an engine reading the host clock in place of the `now` it was handed
+    // answers something else. A single boundary in the past is one every wall
+    // clock agrees with, and a port that dropped `context.now` passed on it.
+    expect(now).toBeTypeOf('string');
+    expect(JSON.parse(JSON.stringify(ambient))).not.toEqual(fixture.decisions);
   });
 
   it('answers one decision for every definition it carries', () => {
