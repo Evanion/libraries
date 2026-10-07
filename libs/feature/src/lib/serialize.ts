@@ -319,7 +319,7 @@ function documentDefinition<F extends FeatureKey>(
  */
 export function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S, boolean>,
-  envelope: ConfigEnvelope = {},
+  envelope: ConfigEnvelope = features.envelope,
 ): FeatureConfig<keyof S & FeatureKey> {
   const around = serialized(
     envelope,
