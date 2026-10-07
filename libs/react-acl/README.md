@@ -208,7 +208,7 @@ html; // -> '<button type="button">Edit listing</button><i>unevaluable</i>'
 
 `EditReason` renders `reason` only to show the answer: `useShopCapabilities` passes no listing, so the seller rule cannot read `object.sellerId` and answers `unevaluable`. A component gates on `allowed`.
 
-The provider `createPolicyContext` returns, `ShopProvider` here, already holds the policy, so it takes `subject` alone. Pass `access` to decide against a different document of the same shape, such as the copy a browser hydrated from JSON. The bound provider also feeds the shared context, so a component calling the package's own `useCan` underneath it reads the same decision.
+The provider `createPolicyContext` returns, `ShopProvider` here, already holds the policy, so it takes `subject` alone. Pass `access` to decide against a different document of the same shape, such as the copy a browser hydrated from JSON. Each `createPolicyContext` call makes its own context, and its hooks read only the provider that call returned: two policies nest without sharing hooks, and the bound hooks throw under the package's own `PolicyProvider`. The bound provider also feeds the shared context, so a component calling the package's own `useCan` underneath it reads the same decision.
 
 ### Keep `now` a String
 
