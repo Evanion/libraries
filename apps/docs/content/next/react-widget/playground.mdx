@@ -1,7 +1,6 @@
 # Playground
 
-`Widgets` renders live on this page: a Baize staff page you rearrange by moving
-its items, and editors whose snippets you change and run.
+The `@evanion/react-widget` playground allows you to experiment with component maps and item arrays in real-time. You can see exactly how the `Widgets` component transforms your data into a rendered UI without needing to set up a full project.
 
 <PageSheet
   difficulty={3}
@@ -14,20 +13,15 @@ its items, and editors whose snippets you change and run.
   unlocks={[['API reference', '../api']]}
 />
 
-## Baize's staff page as one region
+## Interactive Region: Baize's Staff Page
 
-The demo below is one react-widget region: the page Baize's staff read for the
-week. It holds two top-level items of type `columns`, a row that lays its nested
-items side by side:
+The demo below renders a single `react-widget` region representing a staff dashboard. It holds two `columns` rows, `week` and `counter`, built from a combination of layout and data widgets:
 
-- `week` nests three `metric` items, each one figure.
-- `counter`, the shop counter's row, nests a `tables` item and a `reprints`
-  item, each a titled panel around a data table.
+- **`columns`**: A layout widget that positions its children side-by-side.
+- **`metric`**: Single-figure displays with labels and change indicators.
+- **`tables` and `reprints`**: Titled boards containing data tables. The `tables` board carries `meta.span: 2`, placement data only the item chrome reads, so it takes two columns.
 
-The `tables` item carries `meta.span: 2`, placement data only the item chrome
-reads, as [Chrome, meta and ctx](../advanced) set out. The demo's item chrome
-gives an item as many columns as its `span` names. The demo opens on these
-items:
+The demo's own `createWidgets` call maps these four types and passes a `Cell` item chrome that turns `meta.span` into a column count. The items come from its `defineItems`:
 
 ```tsx file=apps/docs/components/landing/counter.tsx region=counter-items
 
@@ -35,66 +29,49 @@ items:
 
 <DataDemo />
 
-The demo builds its `Widgets` with the published `createWidgets` and prints the
-same seven items under the page it renders. Each line that opens an item in that
-printout has arrows beside it. Move an item with them, and `Widgets` renders the
-page again. Moving
-`counter` above `week` swaps the two rows, and each row takes its nested items
-with it. Moving `tables` past `reprints` puts the two-column panel on the other
-side, because `meta.span` belongs to the item and travels with it.
+The demo builds its `Widgets` with the published `createWidgets` and prints the same items under the page it renders. You can interactively rearrange the region using the arrows beside each item in that printout, and `Widgets` renders the page again.
 
-## Edit a react-widget region in the browser
+- **Swap Rows**: Move the `counter` row above the `week` row to see the entire section move.
+- **Reorder Widgets**: Move the `tables` board past the `reprints` board. Because `meta.span` is tied to the item, the two-column layout follows the widget as it moves.
 
-The editors below run the published `@evanion/react-widget` build. Each snippet
-builds a component map with `createWidgets`, writes an item array, and ends in
-`render(<Widgets items={items} />)`, the call that hands the preview its
-element.
+## Live Code Editor
+
+The playground includes a live editor where you can write snippets using the actual `@evanion/react-widget` build. Every snippet follows a simple pattern:
+
+1. Build a component map with `createWidgets`.
+2. Define an item array.
+3. Call `render(<Widgets items={items} />)` to display the result.
 
 <PlaygroundExamples />
 
-The editor runs each snippet against a fixed scope, with no module resolution.
-An `import` line, or a name outside the scope, shows as a runtime error in the
-preview pane.
+### Editor Scope
 
-| In scope                                          | What it is                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------- |
-| `createWidgets`                                   | the package's own export                                      |
-| `React`                                           | React, for `React.ReactNode` and the rest of its API          |
-| `useState`, `useEffect`, `useMemo`, `useCallback` | React's hooks, for a widget with client state                 |
-| `render`                                          | takes the element the preview shows; every snippet ends in it |
+The snippets run in a restricted environment. The following are available in scope:
 
-`DefaultWrapper` and `DefaultItem` are not in scope, so a snippet writes its
-chrome from plain elements.
+- `createWidgets`: The package's primary export.
+- `React`, and the hooks `useState`, `useEffect`, `useMemo` and `useCallback`, for adding client-side state to your widgets.
+- `render`: The function that hands the resulting element to the preview pane.
 
-## What the react-widget playground cannot show
+**Note**: `DefaultWrapper` and `DefaultItem` are not in scope. Define your chrome with plain JSX elements. The editor has no module resolution: an `import` line, or a name outside the scope, shows as a runtime error in the preview pane.
 
-Everything in the react-widget playground runs in the browser, so no widget
-here is a Server Component. An async widget and the streaming behaviour of
-[`chrome.suspense`](../suspense) cannot be demonstrated.
-`chrome.suspenseFallback`, the element shown while a widget suspends, appears
-only for a widget that suspends on the client.
+## Limitations of the Playground
 
-Type errors do not show. The snippets are strings that nothing type-checks, so
-an unknown `type`, a mistyped prop and `children` under a widget that declares
-none all run without complaint. The console stays quiet too: this site is a
-production build, and `Widgets` warns only in development. The preview shows
-only the HTML `Widgets` rendered, inside the chrome the snippet passed.
+Since the react-widget playground runs entirely in the browser, it cannot demonstrate certain server-side behaviors:
 
-## Four changes to try in a react-widget snippet
+- **Server Components**: You cannot use `async` components or Server Component-specific features.
+- **Streaming**: The streaming behavior of [`chrome.suspense`](../suspense) (where the shell is sent first) cannot be shown.
+- **Type Checking**: The snippets are strings. They are not type-checked, so unknown `type`s or mistyped props will not be flagged by the compiler.
+- **Production Silence**: This site is a production build, so `Widgets` will not print warnings to the console for unknown types.
 
-Each change below shows one rule of react-widget's renderer:
+## Experiments to Try
 
-- Change a `type` to one the component map does not hold. The item disappears
-  and the rest of the region renders.
-- Change a `props` key. Nothing checks it at runtime, and the widget receives
-  `undefined`, which is the gap the type checker closes outside this editor.
-- In the "New in, nested" or "At the counter" snippet, change the
-  `chrome.wrapper`. The region's container changes and every widget stays inside
-  it.
-- Change an item's position in the array. The region renders the items in the
-  new order.
+To understand how the react-widget renderer works, try making these changes in a snippet:
 
-## Look up every react-widget export
+1. **Break a Type**: Change a `type` to something not in your component map. The item disappears from the page, and the rest of the region renders.
+2. **Mistype a Prop**: Change a prop key (e.g., `title` to `headline`). The widget will receive `undefined` for that prop, demonstrating why compile-time validation is so important.
+3. **Change the Chrome**: In the "New in, nested" or "At the counter" snippet, modify the `chrome.wrapper`. You'll see the container for the entire region change while the widgets inside remain unchanged.
+4. **Reorder the List**: Swap the position of two items in the array to see the render order change instantly.
 
-The [API reference](../api) lists every export of `@evanion/react-widget` with
-its signature.
+## API Reference
+
+For a full list of `@evanion/react-widget` exports, signatures, and types, visit the [API reference](../api).
