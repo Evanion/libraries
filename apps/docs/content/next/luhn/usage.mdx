@@ -56,13 +56,13 @@ If every character is dropped, the resulting phrase is empty. Every empty phrase
 - **Minimum Length**: `isValid` is `false` if the phrase contains fewer than two characters (an ID plus its check character is the minimum).
 - **Case and Separators**: Like `generate`, `validate` ignores case and non-dictionary characters.
 
-The card below issues `order-2026-0042l`, the order code without the hyphen before the `l`. Type it back in with any case or hyphens and the verdict follows `isValid`; the "Change a character" and "Swap two" buttons each break the code, and `validate` refuses it.
+The card below appends the check character with no hyphen, so it issues `order-2026-0042l`. Type the code back with any case or hyphens and the card shows `accepted` or `rejected`, following `isValid`. The "Change a character" and "Swap two" buttons each break the code, and `validate` refuses it.
 
 <LuhnSpecimen initial="order-2026-0042" />
 
 ## Mapping a Code Back to an Order
 
-To look up an order with `@evanion/luhn`, store the **phrase** returned by `Luhn.generate` in your database.
+`Luhn.generate` from `@evanion/luhn` returns the **phrase** to store with each order, in its own indexed column. For orders already in the database, run `Luhn.generate` over each order number once to fill that column.
 
 When a code comes back, use `validate` to verify it, then slice off the last character (the check character) to get the original phrase.
 
