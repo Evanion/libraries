@@ -40,7 +40,7 @@ In this example, `giftCard` draws 15 random characters and appends a check chara
 | `separator`  | `string` | `'-'`                | Placed between chunks and after a prefix.          |
 | `dictionary` | `string` | `DEFAULT_DICTIONARY` | The characters a code draws from, in order.        |
 
-`createToken` validates these options once during instance creation, and nothing when the instance is used. Every code an instance mints without a prefix passes that instance's `validate`.
+`createToken` checks these options once, when it builds the instance. `generate` and `validate` check nothing. Every code an instance mints without a prefix passes that instance's `validate`.
 
 ## Creating "Spoken" Codes
 
