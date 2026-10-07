@@ -1023,7 +1023,7 @@ describe('serializeConfig', () => {
   /**
    * Every level of the document is the walk's own object.
    *
-   * `createFeatures` deep-freezes the store at `features.ts:409`, so a walk that
+   * `createFeatures` deep-freezes the store at `features.ts:391`, so a walk that
    * handed a nested subtree back by reference would give a publisher a frozen
    * object. A control plane stamping a field onto the document before it serves
    * it writes nothing under ESM strict semantics, and the whole suite stays
@@ -1341,10 +1341,9 @@ describe('serializeConfig', () => {
    * Every one of them reaches a store: `structuredClone` carries them, holes in
    * a sparse array included, and `deepFreeze` seals a `Map` and a `Set` on
    * purpose. Three kinds never arrive, so no case here holds them. A function
-   * and a symbol are values no copy of a definition holds, which `cloneIssues`
-   * in the checker refuses before `createFeatures` copies anything, a typed
-   * array makes `deepFreeze` raise `TypeError`, and `structuredClone` hands
-   * back a class instance as a plain object.
+   * and a symbol make `structuredClone` raise `DataCloneError` inside
+   * `createFeatures`, a typed array makes `deepFreeze` raise `TypeError`, and
+   * `structuredClone` hands back a class instance as a plain object.
    *
    * Each case asserts the message as well as the class. The message is what a
    * publisher reads to find the value it has to replace, and a case that
