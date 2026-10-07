@@ -26,7 +26,7 @@ The 2.x default lowercased input but used a 62-character dictionary that include
 
 `issuedBy2x` lowercases everything but the check character. 2.x's own `validate` lowercased that too, so it refused every code whose check character was an uppercase letter, `order-2026-0042-E` among them. During a transition period, `issuedBy2x(code) || Luhn.validate(code).isValid` accepts a code from either version.
 
-## API Mapping: 2.x $\rightarrow$ 3.x
+## 2.x Calls Mapped to 3.x
 
 The `@evanion/luhn` 2.x API relied on mutable static properties on a class. 3.x replaces this with frozen instances created via `createLuhn`. `caseInsensitive` below is the `createLuhn` option that folds input to lowercase, covered in [Handling Case Sensitivity](../dictionaries#handling-case-sensitivity).
 

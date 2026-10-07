@@ -9,7 +9,7 @@
   unlocks={[['API reference', '../api']]}
 />
 
-## Luhn mod-10: The Industry Standard
+## Luhn mod-10 and Its Standards
 
 When you use the dictionary `'0123456789'`, `@evanion/luhn` implements **Luhn mod-10**. This is the standardized check digit used worldwide for credit card numbers, payment cards, and various government identifiers.
 
@@ -25,7 +25,7 @@ Luhn's patent [US 2,950,048](https://patents.google.com/patent/US2950048A/en) de
 - **3GPP TS 23.003 Annex B.2**: The check digit of the IMEI, the identifier of a mobile device.
 - **CMS National Provider Identifier (NPI)**: The [check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf) for US healthcare providers.
 
-## Luhn mod-N: General Purpose Checksums
+## Luhn mod-N Over Any Other Dictionary
 
 When you use any other dictionary, `@evanion/luhn` implements **Luhn mod-N**.
 
@@ -53,7 +53,7 @@ The default 36-character dictionary is not uniform: $256 \bmod 36 = 4$. This mea
 
 ```
 
-### How to avoid bias:
+### How to Avoid Bias
 
 1. **Use a dictionary that divides 256**: This is why `@evanion/token` refuses any other dictionary size, and why its default dictionary holds 32 characters.
 2. **Rejection Sampling**: Draw a byte, discard it if it falls in the "biased tail" (e.g., values 252-255 for $n=36$), and draw again.

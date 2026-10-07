@@ -28,7 +28,7 @@
 | `checksum` | The computed check character.                       | `'l'`                       |
 | `filtered` | The number of characters dropped (separators, etc). | `2`                         |
 
-Because `generate` reads the [phrase](../#how-it-works-the-luhn-sum), inputs like `order-2026-0042` and `ORDER 2026/0042` produce the same checksum. This ensures that the identity of the resource is preserved regardless of how it was written.
+Because `generate` reads the [phrase](../#how-the-luhn-sum-works), inputs like `order-2026-0042` and `ORDER 2026/0042` produce the same checksum. This ensures that the identity of the resource is preserved regardless of how it was written.
 
 ## Handling Empty Inputs
 
@@ -50,7 +50,7 @@ If every character is dropped, the resulting phrase is empty. Every empty phrase
 
 ```
 
-### Key Validation Rules:
+### Validation Rules
 
 - **The Phrase**: `validate`'s `phrase` includes the check character.
 - **Minimum Length**: `isValid` is `false` if the phrase contains fewer than two characters (an ID plus its check character is the minimum).
