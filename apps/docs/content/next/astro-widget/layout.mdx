@@ -84,15 +84,19 @@ A `GameGrid` widget renders its `title` as an `<h2>`, and then its children thro
 
 ```
 
-`cardRegistry` has a module of its own to avoid a circular import. `src/registry.ts` imports `GameGrid`, so a `cardRegistry` inside it would have `GameGrid` import a module that imports `GameGrid`.
-
 Add a `game-grid` item to the JSON with `"props": { "title": "Also on the shelf" }` and a `children` list of `game-card` items, each with an `id` and a `props` object holding `name`. The test below renders one with two children, Azul and Root:
 
 ```ts file=libs/astro-widget/README.md region=nested
 
 ```
 
-The nested `<Widgets />` gets no `ctx` and no `chrome` unless the grid passes them on. `GameGrid` receives `ctx` like every widget, so a grid whose cards read it renders `<Widgets items={children} registry={cardRegistry} ctx={ctx} />`.
+### Why `cardRegistry` Has a Module of Its Own
+
+`cardRegistry` has a module of its own to avoid a circular import. `src/registry.ts` imports `GameGrid`, so a `cardRegistry` inside it would have `GameGrid` import a module that imports `GameGrid`.
+
+### Passing `ctx` to the Cards
+
+The nested `<Widgets />` gets no `ctx` and no `chrome` unless the grid passes them on. `GameGrid` receives `ctx` like every widget. For cards that read it, add `ctx` to the destructuring of `Astro.props` in `GameGrid.astro`, then render `<Widgets items={children} registry={cardRegistry} ctx={ctx} />`.
 
 ### The Registry Hierarchy
 
