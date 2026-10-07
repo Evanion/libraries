@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import * as core from '../index.js';
 import * as reactEntry from './index.js';
@@ -5,42 +8,89 @@ import * as reactEntry from './index.js';
 /**
  * The react entry re-exports the document types and changes no runtime.
  *
- * A type-only re-export erases, so the claim is only checkable against the
- * module namespace a bundler builds. These cases read the key set: the
- * provider, the four hooks and the binder, and no value the core owns. A task
- * that adds a hook to the adapter edits the list in the first case, which is
- * the point of spelling it.
+ * A type-only re-export erases, so the runtime half of the claim is only
+ * checkable against the module namespace a bundler builds. Those cases read
+ * the key set: the provider, the four hooks and the binder, and no value the
+ * core owns. A task that adds a hook to the adapter edits the list in the first
+ * case, which is the point of spelling it.
+ *
+ * The names half is read off the sources instead, because nothing at runtime
+ * holds it. `config.ts` is the one place the document vocabulary is declared,
+ * and both entries are held to it: the react entry re-exports exactly those
+ * names and no others, and the core entry re-exports every one of them. A name
+ * added to one entry and forgotten on the other fails here, and so does a name
+ * `config.ts` declares that neither entry publishes.
+ *
+ * Read off `src` with the parser alone, so the check needs no build and points
+ * at the line an author would edit, on `exported-type-closure.test.ts`'s
+ * reading. It asks that both entries spell their re-exports in a named clause:
+ * `export type * from './lib/config.js'` carries no names for the clause reader
+ * to collect and reports as the whole vocabulary missing. The repository's
+ * export tooling reads these clauses too, so neither entry may drop them.
+ *
+ * `config-types.test-d.tsx` holds the third half: each name on the react entry
+ * is the core entry's declaration and not a redeclaration beside it.
  */
 
-/**
- * Every document type the react entry names, spelled as a value.
- *
- * `export type` erases and `export` does not, so a member of this list
- * appearing on the namespace means the entry started shipping a value under a
- * type's name.
- */
-const DOCUMENT_TYPES = [
-  'BaseFieldType',
-  'ConfigEnvelope',
-  'ConfigIssue',
-  'ConfigIssueCode',
-  'ContextSchema',
-  'FeatureConfig',
-  'FeatureSchema',
-  'FeatureShape',
-  'FieldType',
-  'JsonValue',
-  'ReloadResult',
-  'SerializedAttributeCondition',
-  'SerializedCondition',
-  'SerializedDefinition',
-  'SerializedInstant',
-  'SerializedRule',
-  'SerializedVariantSpec',
-  'SerializedWindowCondition',
-  'ValidationResult',
-  'ValueShape',
-] as const;
+const CORE_ENTRY = join(import.meta.dirname, '../index.ts');
+const REACT_ENTRY = join(import.meta.dirname, 'index.tsx');
+const CONFIG = join(import.meta.dirname, '../lib/config.ts');
+
+/** The module `config.ts` resolves as, from the react entry. */
+const CONFIG_SPECIFIER = '../lib/config.js';
+
+function parse(file: string): ts.SourceFile {
+  return ts.createSourceFile(
+    file,
+    readFileSync(file, 'utf8'),
+    ts.ScriptTarget.ESNext,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
+/** Every type a file declares with `export`, sorted. */
+function declaredTypes(file: string): string[] {
+  const names: string[] = [];
+
+  for (const statement of parse(file).statements) {
+    if (
+      !ts.isTypeAliasDeclaration(statement) &&
+      !ts.isInterfaceDeclaration(statement)
+    ) {
+      continue;
+    }
+    if (!(ts.getCombinedModifierFlags(statement) & ts.ModifierFlags.Export)) {
+      continue;
+    }
+    names.push(statement.name.text);
+  }
+
+  return names.sort();
+}
+
+/** Every name an entry re-exports, against the module it comes from. */
+function reExports(file: string): Map<string, string> {
+  const found = new Map<string, string>();
+
+  for (const statement of parse(file).statements) {
+    if (!ts.isExportDeclaration(statement)) continue;
+    const { exportClause, moduleSpecifier } = statement;
+    if (moduleSpecifier === undefined) continue;
+    if (!ts.isStringLiteral(moduleSpecifier)) continue;
+    if (exportClause === undefined || !ts.isNamedExports(exportClause)) {
+      continue;
+    }
+    for (const element of exportClause.elements) {
+      found.set(element.name.text, moduleSpecifier.text);
+    }
+  }
+
+  return found;
+}
+
+/** The document vocabulary, which is what `config.ts` declares. */
+const DOCUMENT_TYPES = declaredTypes(CONFIG);
 
 /** The document functions a component file reaches the core entry for. */
 const DOCUMENT_FUNCTIONS = [
@@ -68,7 +118,7 @@ describe('the react entry at runtime', () => {
     expect([...new Set(kinds)]).toEqual(['function']);
   });
 
-  it('carries no value under any of the twenty document type names', () => {
+  it('carries no value under any document type name, because the names erase', () => {
     const leaked = DOCUMENT_TYPES.filter((name) => name in reactEntry);
 
     expect(leaked).toEqual([]);
@@ -88,5 +138,29 @@ describe('the react entry at runtime', () => {
     const shared = Object.keys(reactEntry).filter((name) => name in core);
 
     expect(shared).toEqual([]);
+  });
+});
+
+describe('the names the react entry re-exports', () => {
+  it('spells every document type config.ts declares and re-exports nothing else', () => {
+    const named = [...reExports(REACT_ENTRY).keys()].sort();
+
+    expect(named).toEqual(DOCUMENT_TYPES);
+  });
+
+  it('takes each of them from the module that declares them', () => {
+    const elsewhere = [...reExports(REACT_ENTRY)]
+      .filter(([, specifier]) => specifier !== CONFIG_SPECIFIER)
+      .map(([name, specifier]) => `${name} from ${specifier}`)
+      .sort();
+
+    expect(elsewhere).toEqual([]);
+  });
+
+  it('names what the core entry names, so one specifier reaches either of them', () => {
+    const published = reExports(CORE_ENTRY);
+    const absent = DOCUMENT_TYPES.filter((name) => !published.has(name));
+
+    expect(absent).toEqual([]);
   });
 });
