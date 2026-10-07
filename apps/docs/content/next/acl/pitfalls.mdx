@@ -15,9 +15,11 @@ Working with an authorization engine often involves subtle traps where a small c
 Every call to `can` returns a `Decision` object. The most common mistake is gating logic on the `reason` field rather than the `allowed` boolean.
 
 ### Gate on `allowed`, not on `reason`
-The `allowed` property is the only authoritative gate. The `reason` field provides metadata about *why* a decision was reached, but it is not meant for authorization logic.
+
+The `allowed` property is the only authoritative gate. The `reason` field provides metadata about _why_ a decision was reached, but it is not meant for authorization logic.
 
 For example, a common error is writing a gate as `reason !== 'denied'`. This is dangerous because it would grant access in several failure scenarios where the action should be refused:
+
 - `no-rule-matched`: No allow rule matched the subject/object.
 - `unknown-action`: The matrix does not contain this permission.
 - `unevaluable`: The call lacked a field required by the rules.
@@ -26,6 +28,7 @@ For example, a common error is writing a gate as `reason !== 'denied'`. This is 
 **The Rule**: Always use `if (decision.allowed) { ... }`.
 
 ### Handling `unevaluable` Decisions
+
 A decision of `unevaluable` means the evaluator could not reach a verdict because the provided object or subject was missing a required field.
 
 If you encounter `unevaluable`, check the `missing` property of the decision. It tells you exactly which fields need to be fetched. Once you fetch the missing data and call `can` again, the decision will resolve to either `allowed` or `denied`.
@@ -39,7 +42,8 @@ If a decision remains `unevaluable` after a refetch, it indicates a mistyped fie
 `canFields` is used to determine which specific fields of an object a subject is permitted to modify. Because it returns a map of field states, it is easy to misread the result.
 
 ### Never Hand-Filter the Field Map
-When applying a write, do not manually filter the field map to remove only `denied` keys. 
+
+When applying a write, do not manually filter the field map to remove only `denied` keys.
 
 ```ts twoslash file=libs/acl/README.md region=hand-filter
 
@@ -48,11 +52,13 @@ When applying a write, do not manually filter the field map to remove only `deni
 A filter that only drops `denied` keys will accidentally allow keys that are `unevaluable` or entirely absent from the map. Instead, use the provided `pickAllowedFields` utility, which explicitly keeps only the keys that were decided as `allowed`.
 
 ### A Missing Name is Not a Denial
+
 The map returned by `canFields` only contains keys that the engine actually evaluated. If a field name is missing from the map, it doesn't mean it was denied—it means it was never asked about.
 
 To maintain a "fail-closed" security posture, always rely on `pickAllowedFields` to whitelist the final write payload, rather than assuming that a missing key in the map is a grant.
 
 ### Distinguishing Action-level vs. Field-level Grants
+
 The `canFields` result contains two `allowed` booleans: one for the action itself and one for the overall field set.
 
 ```ts twoslash file=libs/acl/README.md region=field-decision
@@ -71,6 +77,7 @@ Using the wrong one can lead to scenarios where a user is granted a "write" acti
 Some mistakes exist within the policy matrix itself and cannot be caught at the call site.
 
 ### Self-Authorizing Conditions
+
 A "self-authorizing condition" occurs when a subject can write to a field that they then use to grant themselves more permissions.
 
 For example, if a rule grants `admin` access to anyone where `object.is_admin === true`, but the subject has a permission that allows them to set `is_admin` to `true`, they can escalate their own privileges.
@@ -78,6 +85,7 @@ For example, if a rule grants `admin` access to anyone where `object.is_admin ==
 **The Fix**: Ensure that no action a subject holds can write to a field used in a read rule. Use immutable fields (like `created_at`) or fields that only the server can modify.
 
 ### Disclosure via Public Names
+
 The policy matrix is shipped to the client in full. This means every object kind, action name, and role string is public.
 
 Naming an action `bypass-kyc-check` or a role `internal-fraud-auditor` discloses internal business logic the moment the page loads. Name your elements as if a reader has the document open, and keep sensitive predicates in the application layer.
@@ -87,16 +95,19 @@ Naming an action `bypass-kyc-check` or a role `internal-fraud-auditor` discloses
 ## Runtime and Boundary Pitfalls
 
 ### Forged Subjects (The Confused Deputy)
+
 `can(subject, ...)` authorizes the bag it is handed. If you derive the subject from a client-provided header or query parameter without verification, an attacker can simply claim any role they want.
 
 **The Fix**: Resolve the subject from a verified, server-side session or JWT before calling `can`.
 
 ### Trusting the Client-Side Decision
+
 A browser-side `can` call only decides what the user sees. It is not a security boundary.
 
 A common mistake is assuming that because a button was hidden in the UI, the API endpoint it posts to is also secure. Every server-side handler must re-evaluate the permission using its own authoritative matrix.
 
 ### The TOCTOU Gap
+
 There is always a gap between the moment `can` returns `true` and the moment the write is committed to the database. During this gap, the subject's roles or the object's owner could change.
 
 ```mermaid caption="The TOCTOU (Time-of-Check to Time-of-Use) gap. A decision based on a snapshot can become invalid before the write occurs."

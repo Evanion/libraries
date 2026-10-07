@@ -4,7 +4,7 @@
 
 A customer reads an order code back over the phone, and one digit comes out wrong. Without a check character, your system performs a database lookup and returns "Order not found." The user is frustrated, and the staff doesn't know if the code was mistyped or if the order truly doesn't exist.
 
-`@evanion/luhn` solves this by appending a single check character to your codes. This allows your application to validate the code's integrity *locally* before your database is ever asked.
+`@evanion/luhn` solves this by appending a single check character to your codes. This allows your application to validate the code's integrity _locally_ before your database is ever asked.
 
 <PageSheet
   difficulty={1}
@@ -20,6 +20,7 @@ A customer reads an order code back over the phone, and one digit comes out wron
 In most systems, an ID is just a string. If a user types `order-2026-0043` instead of `order-2026-0042`, the system treats it as a perfectly valid request for a non-existent resource.
 
 This leads to:
+
 - **Wasted Resources**: Every mistyped ID triggers an unnecessary database query.
 - **Poor User Experience**: The user receives a "Not Found" error and has no way of knowing they simply mistyped a single character.
 - **Support Overhead**: Staff must manually verify the order, as they cannot tell the difference between a typo and a missing record.
@@ -56,23 +57,25 @@ flowchart LR
 
 ## Core Capabilities
 
-| Goal | Tool |
-| :--- | :--- |
-| Add a check character to a code | `Luhn.generate(code).checksum` |
-| Validate a code's integrity | `Luhn.validate(code).isValid` |
-| Support flexible input | Both calls ignore case and separators (non-dictionary chars) |
-| Custom alphabets | `createLuhn({ dictionary })` builds a custom instance |
-| Credit card validation | `createLuhn({ dictionary: '0123456789' })` |
+| Goal                            | Tool                                                         |
+| :------------------------------ | :----------------------------------------------------------- |
+| Add a check character to a code | `Luhn.generate(code).checksum`                               |
+| Validate a code's integrity     | `Luhn.validate(code).isValid`                                |
+| Support flexible input          | Both calls ignore case and separators (non-dictionary chars) |
+| Custom alphabets                | `createLuhn({ dictionary })` builds a custom instance        |
+| Credit card validation          | `createLuhn({ dictionary: '0123456789' })`                   |
 
 ## What a Check Character Catches (and What it Doesn't)
 
 `@evanion/luhn` is a tool for **error detection**, not **security**.
 
 ### It catches:
+
 - **Every single-character substitution**: If one character is replaced by another, the checksum will fail.
 - **Almost every adjacent swap**: If two neighboring characters are swapped, it is caught (except for a swap of the dictionary's first and last characters, e.g., `0` and `z`).
 
 ### It does NOT:
+
 - **Prove existence**: A random string can pass the Luhn check (1 in 36 chance). You still need a database to verify the code was actually issued.
 - **Provide authentication**: The algorithm is public. Anyone can compute a valid check character for any string.
 - **Choose the ID**: This library only provides the checksum. Use [`@evanion/token`](/token) if you need to generate random, human-readable IDs.

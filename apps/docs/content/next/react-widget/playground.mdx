@@ -28,12 +28,14 @@ The demo below renders a single `react-widget` region representing a staff dashb
 <DataDemo />
 
 You can interactively rearrange the region using the controls beside each item.
+
 - **Swap Rows**: Move the `counter` row above the `week` row to see the entire section move.
 - **Reorder Widgets**: Move the `tables` board past the `reprints` board. Because `meta.span` is tied to the item, the two-column layout follows the widget as it moves.
 
 ## Live Code Editor
 
 The playground includes a live editor where you can write snippets using the actual `@evanion/react-widget` build. Every snippet follows a simple pattern:
+
 1. Build a component map with `createWidgets`.
 2. Define an item array.
 3. Call `render(<Widgets items={items} />)` to display the result.
@@ -41,7 +43,9 @@ The playground includes a live editor where you can write snippets using the act
 <PlaygroundExamples />
 
 ### Editor Scope
+
 The snippets run in a restricted environment. The following are available in scope:
+
 - `createWidgets`: The package's primary export.
 - `React` and standard hooks (`useState`, `useEffect`, etc.) for adding client-side state to your widgets.
 - `render`: The function that hands the resulting element to the preview pane.

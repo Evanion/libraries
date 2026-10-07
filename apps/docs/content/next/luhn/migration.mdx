@@ -28,19 +28,19 @@ The 2.x default lowercased input but used a 62-character dictionary that include
 
 The 2.x API relied on mutable static properties on a class. 3.x replaces this with frozen instances created via `createLuhn`.
 
-| 2.x Call / Property | 3.x Equivalent | Notes |
-| :--- | :--- | :--- |
-| `Luhn.generate(input)` | `Luhn.generate(input)` | Call is the same; output value is different. |
-| `Luhn.validate(input)` | `Luhn.validate(input)` | Call is the same; now accepts 3.x codes. |
-| `Luhn.generate(input, true)` | `createLuhn({ caseInsensitive: false }).generate(input)` | Disables input folding. |
-| `Luhn.validate(input, true)` | `createLuhn({ caseInsensitive: false }).validate(input)` | Disables input folding. |
-| `class X extends Luhn { static dictionary = d }` | `createLuhn({ dictionary: d, caseInsensitive: true })` | Same values as the legacy subclass. |
-| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` | Reproduces case-sensitive 2.x behavior. |
-| `Luhn.dictionary = d` | $\text{Throws TypeError}$ | The default instance is now frozen. |
-| `Luhn.sensitive` | `!Luhn.caseInsensitive` | The flag's meaning is now inverted. |
-| `ValidationError` | `LuhnError` | Base class for `EmptyInputError` and `InvalidDictionaryError`. |
-| `validate('')` $\rightarrow$ `true` | $\rightarrow$ `false` | Empty strings are no longer considered valid. |
-| `generate('')` $\rightarrow$ `{'0'}` | $\rightarrow$ `EmptyInputError` | Generating a checksum for nothing is now an error. |
+| 2.x Call / Property                                | 3.x Equivalent                                            | Notes                                                          |
+| :------------------------------------------------- | :-------------------------------------------------------- | :------------------------------------------------------------- |
+| `Luhn.generate(input)`                             | `Luhn.generate(input)`                                    | Call is the same; output value is different.                   |
+| `Luhn.validate(input)`                             | `Luhn.validate(input)`                                    | Call is the same; now accepts 3.x codes.                       |
+| `Luhn.generate(input, true)`                       | `createLuhn({ caseInsensitive: false }).generate(input)`  | Disables input folding.                                        |
+| `Luhn.validate(input, true)`                       | `createLuhn({ caseInsensitive: false }).validate(input)`  | Disables input folding.                                        |
+| `class X extends Luhn { static dictionary = d }`   | `createLuhn({ dictionary: d, caseInsensitive: true })`    | Same values as the legacy subclass.                            |
+| `class X extends Luhn { static sensitive = true }` | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` | Reproduces case-sensitive 2.x behavior.                        |
+| `Luhn.dictionary = d`                              | $\text{Throws TypeError}$                                 | The default instance is now frozen.                            |
+| `Luhn.sensitive`                                   | `!Luhn.caseInsensitive`                                   | The flag's meaning is now inverted.                            |
+| `ValidationError`                                  | `LuhnError`                                               | Base class for `EmptyInputError` and `InvalidDictionaryError`. |
+| `validate('')` $\rightarrow$ `true`                | $\rightarrow$ `false`                                     | Empty strings are no longer considered valid.                  |
+| `generate('')` $\rightarrow$ `{'0'}`               | $\rightarrow$ `EmptyInputError`                           | Generating a checksum for nothing is now an error.             |
 
 ## Why the Architecture Changed
 

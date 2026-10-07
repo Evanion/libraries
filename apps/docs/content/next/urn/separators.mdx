@@ -29,6 +29,7 @@ For example, a `GameKey` class that sets the scheme to `baize` and the separator
 ### Impact on Validation
 
 When you use a custom separator, the library adjusts its grammar checks:
+
 - The scheme and NID are checked against a character class that **excludes the separator**.
 - This allows you to use one-character NIDs that the standard `URN` class would refuse.
 - However, the NSS (the actual ID) always keeps the RFC 8141 grammar, regardless of the separator.
@@ -45,9 +46,10 @@ Otherwise, a `GameURN` (which uses `urn`) will return `false` for `baize:game:az
 
 ## Component Restrictions for Special Separators
 
-Because components are identified by `?` and `#`, you cannot use these characters as separators. 
+Because components are identified by `?` and `#`, you cannot use these characters as separators.
 
 If you set a separator like `static override readonly separator = '#'`, the library cannot distinguish between the separator and the start of a component. In this case:
+
 - `parse` will throw an `InvalidError` for any URN carrying a `?` or `#` after the NID.
 - `stringify` will throw an `InvalidError` if you attempt to add a component.
 

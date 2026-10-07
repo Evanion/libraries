@@ -54,6 +54,7 @@ Forgotten pathsâ€”such as a new API route, a background job, or an admin scriptâ
 ## Time-of-Check to Time-of-Use (TOCTOU)
 
 A decision is a snapshot of the state provided to it. Between the moment `can` returns `true` and the moment the write hits the database, the state of the world can change:
+
 - The object may change owners.
 - The subject may lose a required role.
 - A time-based window may close.
@@ -64,12 +65,12 @@ To close this gap, you should either re-read the object and re-check the permiss
 
 The `now` parameter allows you to evaluate time-based boundaries (`before`/`after`).
 
-| `now` Value                                         | Engine Behavior                                                                                                | Result                                                                                                  |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Omitted                                              | Uses the process wall clock.                                                                                | Evaluated against the current server time.                                                     |
-| Supplied Instant                                     | Uses the provided value.                                                                                  | Evaluated against the specific instant.                                                                 |
-| Browser Wall Clock                                   | Uses the client's clock.                                                                                  | **Dangerous**: A user can set their system clock back to "re-open" a closed window.            |
-| Unparseable / Invalid                                | Cannot determine time.                                                                                    | Returns `{ allowed: false, reason: 'unusable-clock' }`.                                    |
+| `now` Value           | Engine Behavior              | Result                                                                              |
+| --------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
+| Omitted               | Uses the process wall clock. | Evaluated against the current server time.                                          |
+| Supplied Instant      | Uses the provided value.     | Evaluated against the specific instant.                                             |
+| Browser Wall Clock    | Uses the client's clock.     | **Dangerous**: A user can set their system clock back to "re-open" a closed window. |
+| Unparseable / Invalid | Cannot determine time.       | Returns `{ allowed: false, reason: 'unusable-clock' }`.                             |
 
 ```ts twoslash file=libs/acl/README.md region=unusable-clock
 

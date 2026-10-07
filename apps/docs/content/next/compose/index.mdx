@@ -18,6 +18,7 @@ In a traditional React application, as you add more features, your root componen
 ## The Problem: The "Pyramid of Doom"
 
 Manual nesting of providers creates several maintenance burdens:
+
 - **Indentation Drift**: Adding a new provider at the top requires re-indenting every single child component.
 - **Closing Tag Fatigue**: Finding the matching `</ThemeProvider>` among ten other closing tags is error-prone.
 - **Reordering Friction**: Moving a provider (e.g., moving `AuthProvider` above `ThemeProvider`) requires carefully cutting and pasting large blocks of JSX.
@@ -33,6 +34,7 @@ Manual nesting of providers creates several maintenance burdens:
 By treating your providers as data (a list) rather than as structural JSX, you can reorder your entire app's context hierarchy just by moving a line in an array.
 
 ### RSC Compatibility
+
 Because `ComposeProvider` does not call hooks or create its own context, it is fully compatible with **React Server Components (RSC)**. You can use it to organize your server-side provider tree without triggering "use client" errors.
 
 ## The Compose Vocabulary
@@ -46,13 +48,13 @@ To keep the documentation clear, we use these terms to describe the composition 
 
 ## Core Capabilities
 
-| Goal | Tool |
-| :--- | :--- |
-| Organize root providers as a list | `ComposeProvider` |
-| Assign props to a provider | A tuple or `provider(component, props)` |
-| Catch prop errors at compile time | Inline arrays or `as const` declarations |
-| Preserve type checks in wrappers | `ComposeProviderProps<T>` with a `const` type parameter |
-| Use in React Server Components | `ComposeProvider` (no hooks/context used) |
+| Goal                              | Tool                                                    |
+| :-------------------------------- | :------------------------------------------------------ |
+| Organize root providers as a list | `ComposeProvider`                                       |
+| Assign props to a provider        | A tuple or `provider(component, props)`                 |
+| Catch prop errors at compile time | Inline arrays or `as const` declarations                |
+| Preserve type checks in wrappers  | `ComposeProviderProps<T>` with a `const` type parameter |
+| Use in React Server Components    | `ComposeProvider` (no hooks/context used)               |
 
 ## When to Avoid Compose
 
@@ -60,7 +62,7 @@ While powerful, `ComposeProvider` is not the right tool for every scenario:
 
 - **Minimal Nesting**: If you only have one or two providers, manual nesting is often more readable.
 - **Dynamic Providers**: If the number or order of providers changes at runtime, React will remount the entire subtree, causing all providers to lose their state.
-- **Side-by-Side Layouts**: `ComposeProvider` is for *nesting*, not *layout*. If you need to arrange components side-by-side based on data, use [`@evanion/react-widget`](/react-widget).
+- **Side-by-Side Layouts**: `ComposeProvider` is for _nesting_, not _layout_. If you need to arrange components side-by-side based on data, use [`@evanion/react-widget`](/react-widget).
 
 ## Get Started with a Shop Root
 

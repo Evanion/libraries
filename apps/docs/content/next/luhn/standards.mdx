@@ -20,15 +20,16 @@ When you use the dictionary `'0123456789'`, `@evanion/luhn` implements **Luhn mo
 ```
 
 This implementation is compliant with:
+
 - **ISO/IEC 7812-1 Annex B**: The specification for issuer identification numbers on payment cards.
 - **3GPP TS 23.003 Annex B.2**: The standard for mobile network identifiers.
 - **CMS National Provider Identifier (NPI)**: The check-digit specification for US healthcare providers.
 
 ## Luhn mod-N: General Purpose Checksums
 
-When you use any other dictionary, `@evanion/luhn` implements **Luhn mod-N**. 
+When you use any other dictionary, `@evanion/luhn` implements **Luhn mod-N**.
 
-It is important to note that **there is no formal RFC or ISO standard for mod-N Luhn**. The la-generalization used by this library (and many others) traces back to common community implementations and Wikipedia. 
+It is important to note that **there is no formal RFC or ISO standard for mod-N Luhn**. The la-generalization used by this library (and many others) traces back to common community implementations and Wikipedia.
 
 If you are integrating with another system that claims to use "Luhn mod-N," do not assume their implementation matches. Always verify their output against your own test vectors, as the dictionary order and the doubling formula may differ.
 
@@ -40,9 +41,9 @@ For any even-sized dictionary, swapping the characters at index `0` and index `n
 
 ## Modulo Bias in Random Generation
 
-If you are generating random codes based on a Luhn dictionary, you must be aware of **modulo bias**. 
+If you are generating random codes based on a Luhn dictionary, you must be aware of **modulo bias**.
 
-If you draw a random byte (0-255) and use `byte % n` to pick a character, every character is equally likely **only if `n` divides 256**. 
+If you draw a random byte (0-255) and use `byte % n` to pick a character, every character is equally likely **only if `n` divides 256**.
 
 The default 36-character dictionary is not uniform: $256 \pmod{36} = 4$. This means the first four characters in the dictionary will appear roughly 14.3% more often than the others.
 
@@ -53,6 +54,7 @@ The default 36-character dictionary is not uniform: $256 \pmod{36} = 4$. This me
 ```
 
 ### How to avoid bias:
+
 1. **Use a dictionary that divides 256**: This is why `@evanion/token` constrains its alphabet to 32 characters.
 2. **Rejection Sampling**: Draw a byte, discard it if it falls in the "biased tail" (e.g., values 252-255 for $n=36$), and draw again.
 

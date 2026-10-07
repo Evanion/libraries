@@ -28,6 +28,7 @@ By default, `@evanion/token` uses `DEFAULT_DICTIONARY`, which consists of lowerc
 ```
 
 Why these four?
+
 - `i`, `l`, and `o` are visually similar to `1` and `0`.
 - `w` is phonetically similar to `u` ("double-u"), which leads to transcription errors when codes are dictated over the phone.
 
@@ -37,15 +38,15 @@ This leaves exactly 32 characters. This is an ideal number because it is even (r
 
 When you provide a custom `dictionary` to `createToken`, the library validates it against several constraints. If any are broken, it throws either an `InvalidAlphabetError` or an `InvalidDictionaryError`.
 
-| Constraint | Enforced by | `reason` | Why it matters |
-| :--- | :--- | :--- | :--- |
-| **No Confusables** | `@evanion/token` | `confusable` | Prevents `1/l/i` and `0/o` and `w/u` confusion. |
-| **Lowercase Only** | `@evanion/token` | `unfolded` | `validate` folds input to lowercase; uppercase in the dictionary would cause mismatches. |
-| **Divides 256** | `@evanion/token` | `non-uniform` | Ensures every character is equally likely to be drawn. |
-| **Min Length 2** | `@evanion/luhn` | `too-short` | a 1-character dictionary makes every code valid. |
-| **Even Size** | `@evanion/luhn` | `odd-length` | The Luhn doubling step requires an even-sized alphabet. |
-| **No Repeats** | `@evanion/luhn` | `duplicate` | Each character must have a unique index for the checksum. |
-| **No Case Pairs** | `@evanion/luhn` | `case-pairs` | Prevents a letter and its uppercase version from sharing an index. |
+| Constraint         | Enforced by      | `reason`      | Why it matters                                                                           |
+| :----------------- | :--------------- | :------------ | :--------------------------------------------------------------------------------------- |
+| **No Confusables** | `@evanion/token` | `confusable`  | Prevents `1/l/i` and `0/o` and `w/u` confusion.                                          |
+| **Lowercase Only** | `@evanion/token` | `unfolded`    | `validate` folds input to lowercase; uppercase in the dictionary would cause mismatches. |
+| **Divides 256**    | `@evanion/token` | `non-uniform` | Ensures every character is equally likely to be drawn.                                   |
+| **Min Length 2**   | `@evanion/luhn`  | `too-short`   | a 1-character dictionary makes every code valid.                                         |
+| **Even Size**      | `@evanion/luhn`  | `odd-length`  | The Luhn doubling step requires an even-sized alphabet.                                  |
+| **No Repeats**     | `@evanion/luhn`  | `duplicate`   | Each character must have a unique index for the checksum.                                |
+| **No Case Pairs**  | `@evanion/luhn`  | `case-pairs`  | Prevents a letter and its uppercase version from sharing an index.                       |
 
 ```ts twoslash file=libs/token/README.md region=alphabet-errors
 
@@ -53,9 +54,9 @@ When you provide a custom `dictionary` to `createToken`, the library validates i
 
 ## Why the Dictionary Size Must Divide 256
 
-The `generate` method draws characters using the formula `byte % n`, where the byte is a random value from 0 to 255. 
+The `generate` method draws characters using the formula `byte % n`, where the byte is a random value from 0 to 255.
 
-If `n` (the dictionary size) is 32, the division is exact: $256 / 32 = 8$. Every character appears exactly 8 times in the range. 
+If `n` (the dictionary size) is 32, the division is exact: $256 / 32 = 8$. Every character appears exactly 8 times in the range.
 
 If `n` were 36, $256 / 36 = 7$ with a remainder of $4$. The first four characters in the dictionary would appear 8 times, while the others appear only 7 times. This 14.3% bias makes the codes mathematically non-uniform. To avoid "rejection sampling" (which takes variable time), `@evanion/token` simply requires that `n` divides 256.
 

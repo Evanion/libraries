@@ -33,12 +33,12 @@ In this example, `giftCard` draws 15 random characters and appends a check chara
 
 ### Shape Options Reference
 
-| Option | Type | Default | Meaning |
-| :--- | :--- | :--- | :--- |
-| `length` | `number` | `8` | Total characters, including the check character. |
-| `chunkSize` | `number` | `4` | Characters per chunk; must divide `length` evenly. |
-| `separator` | `string` | `'-'` | Character used between chunks and after a prefix. |
-| `dictionary` | `string` | (Default alphabet) | The set of characters used to generate the code. |
+| Option       | Type     | Default            | Meaning                                            |
+| :----------- | :------- | :----------------- | :------------------------------------------------- |
+| `length`     | `number` | `8`                | Total characters, including the check character.   |
+| `chunkSize`  | `number` | `4`                | Characters per chunk; must divide `length` evenly. |
+| `separator`  | `string` | `'-'`              | Character used between chunks and after a prefix.  |
+| `dictionary` | `string` | (Default alphabet) | The set of characters used to generate the code.   |
 
 `createToken` validates these options once during instance creation. Every code minted by that instance is guaranteed to match this shape.
 
@@ -62,12 +62,12 @@ Not every combination of options is mathematically possible. `createToken` will 
 
 ### Common Shape Errors
 
-| `reason` | Cause | Fix |
-| :--- | :--- | :--- |
-| `length` | `length` is not an integer or is below 2. | Set a valid positive integer. |
-| `chunk-size` | `chunkSize` is not an integer or is below 1. | Set a valid positive integer. |
-| `chunk-size-indivisible` | `chunkSize` does not divide `length` evenly. | Adjust either `length` or `chunkSize`. |
-| `separator-empty` | `separator` is an empty string. | Provide a separator character. |
+| `reason`                  | Cause                                                | Fix                                                     |
+| :------------------------ | :--------------------------------------------------- | :------------------------------------------------------ |
+| `length`                  | `length` is not an integer or is below 2.            | Set a valid positive integer.                           |
+| `chunk-size`              | `chunkSize` is not an integer or is below 1.         | Set a valid positive integer.                           |
+| `chunk-size-indivisible`  | `chunkSize` does not divide `length` evenly.         | Adjust either `length` or `chunkSize`.                  |
+| `separator-empty`         | `separator` is an empty string.                      | Provide a separator character.                          |
 | `separator-in-dictionary` | `separator` is also a character in the `dictionary`. | Choose a separator that doesn't appear in the alphabet. |
 
 If the `separator` is also in the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden.
@@ -77,7 +77,8 @@ If the `separator` is also in the `dictionary`, `validate` would be unable to st
 You can experiment with different shapes and dictionaries using the interactive tool below.
 
 <TokenSpecimen initial="a4kp-9mxa" />
-*Adjust the length, chunking, and alphabet to see how it affects the code's entropy and collision probability.*
+*Adjust the length, chunking, and alphabet to see how it affects the code's
+entropy and collision probability.*
 
 ## Draw Codes from Another Dictionary
 

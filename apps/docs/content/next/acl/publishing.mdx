@@ -38,7 +38,7 @@ flowchart LR
 
 ## The Integrity of Published Permissions
 
-When a permission is published, it is exported in its entirety. This includes all allow rules and all deny rules. 
+When a permission is published, it is exported in its entirety. This includes all allow rules and all deny rules.
 
 If a permission's logic depends on a deny rule (e.g., "Allow refund unless the user is on probation"), that deny rule must be part of the published contract. If it were stripped, a consumer might incorrectly grant a permission that the owner would refuse.
 
@@ -50,7 +50,9 @@ Because the contract includes the full set of rules for the published permission
 
 <Panel heading="Contract Terminality">
   <Text as="div" size="sm">
-    A published contract is "terminal." The `visibility` marks are stripped during serialization, meaning a consumer cannot re-serialize a contract to publish it again to a third party.
+    A published contract is "terminal." The `visibility` marks are stripped
+    during serialization, meaning a consumer cannot re-serialize a contract to
+    publish it again to a third party.
   </Text>
 </Panel>
 
@@ -60,11 +62,11 @@ Since consumers evaluate a local copy of the contract, there is a risk that the 
 
 The owner defines a `maxStale` value (in milliseconds) in the document, which sets the maximum allowed age of a copy. The consumer tracks when the document was last updated using `fetchedAt`.
 
-| Bound                      | Source        | Purpose                                                                                                |
-| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `maxStale` (Document)      | The Owner     | Sets the absolute ceiling for how long a copy may be considered fresh.                                         |
-| `maxStale` (Consumer)      | The Consumer  | Allows the consumer to tighten the owner's ceiling (e.g., for higher-security areas).                                |
-| `fetchedAt`                | The Consumer  | The timestamp of the last successful synchronization.                                                        |
+| Bound                 | Source       | Purpose                                                                               |
+| --------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| `maxStale` (Document) | The Owner    | Sets the absolute ceiling for how long a copy may be considered fresh.                |
+| `maxStale` (Consumer) | The Consumer | Allows the consumer to tighten the owner's ceiling (e.g., for higher-security areas). |
+| `fetchedAt`           | The Consumer | The timestamp of the last successful synchronization.                                 |
 
 If the current time exceeds `fetchedAt + min(ownerMaxStale, consumerMaxStale)`, any attempt to use the contract results in a `stale-contract` response. This forces the consumer to refetch the document to repair the budget.
 

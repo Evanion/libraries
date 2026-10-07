@@ -18,8 +18,8 @@ In this guide, you will build a "quality gate" for your content. You'll learn ho
 To follow this guide, ensure you have the following:
 
 - **Node 20 or newer.**
-- **An ESM environment**: We use a `.mts` file in the example, which Node and `tsx` load as an ES module. 
-  *(Note: CommonJS files calling `require('@evanion/widget')` require Node 20.19 or 22.12+)*.
+- **An ESM environment**: We use a `.mts` file in the example, which Node and `tsx` load as an ES module.
+  _(Note: CommonJS files calling `require('@evanion/widget')` require Node 20.19 or 22.12+)_.
 - **tsx**: A tool to run TypeScript files without a build step. You can run it via `npx tsx`.
 
 The `@evanion/widget` package has no dependencies. If you are already using `@evanion/react-widget` or `@evanion/astro-widget`, you can import `validateItems` directly from the renderer instead of installing the core separately.
@@ -43,6 +43,7 @@ To create a check, you'll need to define the "known types"—the list of widget 
 ```
 
 ### How the Gate Works:
+
 1. **Parse the payload**: It takes the JSON saved by the CMS.
 2. **Define the supported types**: It lists the types your renderer supports.
 3. **Run the check**: `validateItems` returns an array of problems.

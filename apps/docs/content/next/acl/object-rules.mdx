@@ -1,6 +1,6 @@
 # Rules about the thing being accessed
 
-Many authorization decisions depend not just on who the user is, but on the specific resource they are trying to access. For example, while any customer can *view* a question in the Baize shop, only the customer who *asked* that specific question should be allowed to *edit* it.
+Many authorization decisions depend not just on who the user is, but on the specific resource they are trying to access. For example, while any customer can _view_ a question in the Baize shop, only the customer who _asked_ that specific question should be allowed to _edit_ it.
 
 To handle this, `@evanion/acl` allows you to write conditions that read properties directly from the object being accessed.
 
@@ -46,7 +46,11 @@ If a decision is `unevaluable`, the `missing` field will list the exact paths th
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
-    An `unevaluable` result still results in `allowed: false`, so your app remains secure. However, it is fundamentally different from a `denied` result. A denied request is a permanent refusal; an unevaluable request is a temporary lack of information. Treating an unevaluable result as "forbidden" might hide features from a user who actually has permission.
+    An `unevaluable` result still results in `allowed: false`, so your app
+    remains secure. However, it is fundamentally different from a `denied`
+    result. A denied request is a permanent refusal; an unevaluable request is a
+    temporary lack of information. Treating an unevaluable result as "forbidden"
+    might hide features from a user who actually has permission.
   </Text>
 </Panel>
 
