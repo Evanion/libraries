@@ -177,7 +177,7 @@
     "@evanion/react-widget": "*",
     "@evanion/token": "*",
     "@evanion/urn": "*",
-    "mermaid": "^12.0.0",
+    "mermaid": "^12.1.0",
     "next": "16.3.8",
     "next-themes": "^0.4.6",
     "react": "19.3.0",
