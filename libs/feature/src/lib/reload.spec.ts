@@ -591,7 +591,68 @@ describe('reload, the envelope it installs', () => {
     expect(features.version).toBeUndefined();
   });
 
-  it('writes no version into a serialization a toggle changed', () => {
+  it('names the installed document from the version a toggle wrote over', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+    features.toggle('checkout', false);
+
+    // § 6 declares `version` the installed document's version, and document 41
+    // is the one the store is deciding from: the toggle is a local write
+    // against it. So the next install reports what it replaced, and the next
+    // refusal reports what stayed.
+    expect(features.version).toBe(41);
+    expect(
+      features.reload({
+        version: 42,
+        features: [{ key: 'checkout', enabled: true }],
+      }),
+    ).toEqual({
+      ok: true,
+      version: 42,
+      previousVersion: 41,
+      changed: ['checkout'],
+    });
+  });
+
+  it('names the installed document on a refusal a toggle came before', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+    features.toggle('checkout', false);
+
+    expect(
+      features.reload({
+        version: 42,
+        schema: { context: { fields: { tier: 'string' } } },
+        features: [{ key: 'checkout', enabled: true }],
+      }),
+    ).toMatchObject({ ok: false, version: 41, rejected: 42 });
+  });
+
+  it('keeps the version a toggle wrote the published value back over', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+    features.toggle('checkout', false);
+    features.toggle('checkout', true);
+
+    // The bytes are the published ones again, and nothing about the member
+    // asks whether they are: the version names the installed document either
+    // way.
+    expect(features.version).toBe(41);
+  });
+
+  it('serializes under the envelope the caller labels the bytes with', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
 
     features.reload({
@@ -601,32 +662,17 @@ describe('reload, the envelope it installs', () => {
     });
     features.toggle('checkout', false);
 
-    // `version` is opaque and compared with `!==`, so a serialization carrying
-    // the installed version puts two documents on one label and a holder that
-    // already has version 41 never refetches. Version 41 as published has
-    // `checkout` enabled.
-    expect(serializeConfig(features)).toEqual({
+    // `version` is opaque and compared with `!==`, so a process serving what it
+    // toggled states its own label. The envelope parameter is where it states
+    // it, and the default names the document the store installed.
+    expect(serializeConfig(features, { maxStale: 30000 })).toEqual({
       maxStale: 30000,
       features: [{ key: 'checkout', enabled: false }],
     });
-    expect(features.version).toBeUndefined();
-  });
-
-  it('keeps the version a toggle that moved nothing left alone', () => {
-    const features = createFeatures([{ key: 'checkout', enabled: true }]);
-
-    features.reload({
-      version: 41,
-      features: [{ key: 'checkout', enabled: true }],
-    });
-    features.toggle('checkout', true);
-
-    // The counterpart. These bytes are the ones version 41 names, so the label
-    // still holds and a poller holding 41 has nothing to fetch.
-    expect(features.version).toBe(41);
     expect(serializeConfig(features)).toEqual({
       version: 41,
-      features: [{ key: 'checkout', enabled: true }],
+      maxStale: 30000,
+      features: [{ key: 'checkout', enabled: false }],
     });
   });
 
