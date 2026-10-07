@@ -691,6 +691,20 @@ export function createFeatures(
   const document: Checkable = isDocument(definitions)
     ? definitions
     : { features: definitions };
+  // One checker answers both paths. `validateConfig` reports what this throws,
+  // and the graph is checked before the variants, so a document carrying a
+  // duplicate key and an unusable weight names the key. These definitions are
+  // the literal an author wrote, so the array is the variant order and a variant
+  // declaring none takes its index.
+  //
+  // It runs before the walk below reads `features`, because a document is
+  // untrusted JSON and its `features` member holds whatever a control plane
+  // wrote. `shapeWalk` reports a document that is no object and one whose
+  // `features` is no array, and `errors.ts` has every refusal out of this
+  // function be a typed `FeatureConfigError`, which a `.map` over such a member
+  // would raise a `TypeError` past.
+  const refused = collectIssues(document, { arrayIsOrder: true });
+  if (refused[0]) throw refused[0].error;
   const supplied = document.features;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
@@ -699,13 +713,6 @@ export function createFeatures(
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
     supplied.map((definition) => deepFreeze(structuredClone(definition))),
   );
-  // One checker answers both paths. `validateConfig` reports what this throws,
-  // and the graph is checked before the variants, so a document carrying a
-  // duplicate key and an unusable weight names the key. These definitions are
-  // the literal an author wrote, so the array is the variant order and a variant
-  // declaring none takes its index.
-  const refused = collectIssues(document, { arrayIsOrder: true });
-  if (refused[0]) throw refused[0].error;
   // The window contract is read here for the reason `whenIssues` gives: that
   // walk answers a served document, and these definitions are a literal.
   for (const definition of config) {

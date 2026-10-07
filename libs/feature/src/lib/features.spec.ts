@@ -3217,6 +3217,39 @@ describe('the documents createFeatures refuses', () => {
     expect(features.envelope.schemaVersion).toBe('s1');
   });
 
+  /**
+   * A document is untrusted JSON, and `errors.ts` has every refusal out of this
+   * function be a `FeatureConfigError` a caller catches to keep the document it
+   * already holds. A walk over `features` that ran before the checker raised
+   * `TypeError` for each of these, which that caller never catches.
+   */
+  it('throws a typed error for every features member it cannot walk', () => {
+    const unwalkable = [
+      { version: 1 },
+      { version: 1, features: {} },
+      { version: 1, features: 'nope' },
+      { version: 1, features: null },
+      null,
+    ];
+
+    const thrown = unwalkable.map((document) => {
+      try {
+        createFeatures(document as unknown as FeatureConfig);
+        return 'nothing';
+      } catch (raise) {
+        return raise instanceof FeatureConfigError ? 'typed' : String(raise);
+      }
+    });
+
+    expect(thrown).toEqual(['typed', 'typed', 'typed', 'typed', 'typed']);
+  });
+
+  it('names the features member of a document that declares none', () => {
+    expect(() =>
+      createFeatures({ version: 1 } as unknown as FeatureConfig),
+    ).toThrow(/"features"/);
+  });
+
   it('leaves the document it refused exactly as it was handed it', () => {
     const document = {
       version: 9,
