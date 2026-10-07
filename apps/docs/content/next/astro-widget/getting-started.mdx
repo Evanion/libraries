@@ -82,7 +82,7 @@ Save the items from [the Overview](../)'s test as `src/data/brass-birmingham.jso
 ]
 ```
 
-Then, create a TypeScript wrapper (`src/data/brass-birmingham.ts`) that assigns the import to `AnyWidgetItem[]`, the item type, with no cast:
+Then, create a TypeScript wrapper (`src/data/brass-birmingham.ts`) that assigns the import to `AnyWidgetItem[]`, the item type, with no cast. The `tsconfig.json` from `npm create astro` extends Astro's own, which turns on `resolveJsonModule`, so TypeScript reads the JSON's types:
 
 ```ts file=libs/astro-widget/examples/src/data/brass-birmingham.ts region=items
 
