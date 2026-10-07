@@ -35,7 +35,7 @@ These terms are used throughout the astro-widget documentation:
 
 - **Item**: A single entry in the CMS list. It contains an `id` unique among its siblings, a `type`, and the `props` for its component. It can also carry `meta` (placement data) and `children` (nested items). Its type is `AnyWidgetItem`.
 - **Widget**: The `.astro` component that renders an item. It receives the item's `props` as its own props.
-- **Registry**: The map linking each `type` to its widget. `defineWidgets` builds one and keeps its type names as literal types, so your editor completes them.
+- **Registry**: The map linking each `type` to its widget. `defineWidgets` types one and keeps its type names as literal types, so your editor completes them.
 - **Problem**: A fault identified by `validateItems`, such as a type that isn't in the registry. `validateItems` returns every problem in one list, and never throws.
 
 The item shape, `defineWidgets` and `validateItems` come from `@evanion/widget`, the framework-free core of the package family. astro-widget installs it at one exact version and re-exports those names, so you import them from `@evanion/astro-widget`.

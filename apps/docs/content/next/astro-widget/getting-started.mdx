@@ -57,7 +57,7 @@ An astro-widget widget is just an ordinary `.astro` component, and it receives t
 
 ## Step 2: Map Each Type to Its Widget
 
-astro-widget's renderer finds each item's widget in a registry, the type-to-component map [the Overview](../) showed. Use the `defineWidgets` helper to keep your type names as literal types, `'listing-header'` and `'price-box'` where a plain object would have `string`, which gives you autocomplete in your editor.
+astro-widget's renderer finds each item's widget in a registry, the type-to-component map [the Overview](../) showed. Use the `defineWidgets` helper to keep your type names as literal types, `'listing-header'` and `'price-box'` where an object annotated `WidgetRegistry` would have `string`, which gives you autocomplete in your editor.
 
 Save this as `src/registry.ts`:
 
