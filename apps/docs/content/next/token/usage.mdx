@@ -35,7 +35,7 @@ If you pass `ORD-a4kp-9mxa` directly to `validate`, it strips the hyphen, the de
 
 In the example above, `validatePickupCode` is a function of your own that handles the stripping. Because the default dictionary excludes the letter `o`, no valid code can start with `ord`. This makes it safe to strip any leading `ord` (case-insensitively, with or without its hyphen) without risk of accidentally removing part of the actual code. A prefix typed wrong, such as `ODR-`, is left in place, and `validate` refuses the code.
 
-## Understanding Validation Failures
+## Why token Refuses a Code
 
 The `@evanion/token` `validate` method returns `valid: true` and the `body` if the code is well-formed, or `valid: false` and a `reason` if it fails.
 
@@ -56,7 +56,7 @@ The `@evanion/token` `validate` method returns `valid: true` and the `body` if t
 Try changing the last character, typing an `o` for the `0`, or dropping a
 character.*
 
-## Flexible User Input
+## How token Reads Hyphens and Capitals
 
 Customers rarely type an `@evanion/token` code exactly as it was printed. They might omit hyphens, use different grouping, or type everything in capitals.
 
