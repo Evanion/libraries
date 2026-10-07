@@ -1,6 +1,6 @@
 # Check CMS items before Astro renders them
 
-`validateItems` checks the items a CMS saved against the widget types you render. By running it before `astro build`, you stop the build on any save that would otherwise publish a page with missing or broken items.
+`validateItems` checks the items a CMS saved against the widget types you render. By running it before `astro build`, you stop the build on an unknown type or a blank required prop.
 
 <PageSheet
   difficulty={2}
@@ -31,7 +31,7 @@ Each problem returned is a `WidgetProblem` object, containing the item's `index`
 
 ### Integrating into the Build Process
 
-To ensure no broken content ever ships, create a validation script (e.g., `scripts/check-content.ts`) that checks `items`, the list [Getting started](../getting-started) typed from the CMS's JSON:
+To stop the build on those problems, create a **build gate**, a script such as `scripts/check-content.ts` that checks `items`, the list [Getting started](../getting-started) typed from the CMS's JSON:
 
 ```ts file=libs/astro-widget/examples/scripts/check-content.ts region=build-gate
 
