@@ -53,7 +53,7 @@ Because astro-widget's `validateItems` performs a depth-first walk, it reports p
 
 astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it renders every item it can and throws on none. This means a bad save publishes with a gap in the UI.
 
-Unless `NODE_ENV` is `production`, which `astro build` sets, the renderer prints a warning to the console using `ERROR_MESSAGES`. Each distinct warning prints once for the life of the process.
+Unless `NODE_ENV` is `production`, which `astro build` sets when your environment has not, the renderer prints a warning to the console using `ERROR_MESSAGES`. Each distinct warning prints once for the life of the process.
 
 | Fault                                | Render Result                                      | Console Warning                                                                          |
 | :----------------------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------- |
@@ -64,6 +64,12 @@ Unless `NODE_ENV` is `production`, which `astro build` sets, the renderer prints
 | `items` is not a list                | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                                                         |
 | Missing/Repeated `id`, or no `props` | Widget renders (if type is known)                  | None                                                                                     |
 | `children` not a list                | Widget renders, and receives the value as it is    | `ERROR_MESSAGES.MALFORMED_ITEMS`, where the widget renders its own `<Widgets />` over it |
+
+The test below renders an `answer-wall` item, which the registry does not hold, and then the price. The `answer-wall` item renders nothing, and the price after it renders:
+
+```ts file=libs/astro-widget/README.md region=skip-unknown
+
+```
 
 ## The "Double-Validation" Gap
 
