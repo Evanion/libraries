@@ -35,6 +35,18 @@ const TRAVELS = {
   variantSeed: 'cta:variant',
 } as const;
 
+/**
+ * An array holding `after` at index 1 and a hole at index 0.
+ *
+ * Written by index, because no literal spells a hole and `JSON.parse` writes
+ * none. A caller reaches one this way or by deleting an element.
+ */
+function hole<T>(after: T): T[] {
+  const list: T[] = [];
+  list[1] = after;
+  return list;
+}
+
 /** The codes a document reports, in the order the checker found them. */
 function codesOf(config: FeatureConfig): readonly ConfigIssueCode[] {
   const result = validateConfig(config);
@@ -3524,6 +3536,30 @@ describe('the envelope', () => {
     expect(result.ok === false && result.issues[0]?.code).toBe(
       'unknown-member',
     );
+  });
+
+  it('reports the hole a nested array leaves at the position it leaves it', () => {
+    const paths = [
+      { ...TRAVELS, variants: hole({ name: 'blue', weight: 1, order: 0 }) },
+      { rules: hole({ when: [] }) },
+      { rules: [{ when: hole({ field: 'plan', op: 'eq', value: 'pro' }) }] },
+      { dependsOn: hole('a') },
+    ].map((extra) => {
+      const result = validateConfig({
+        features: [
+          { key: 'a', enabled: true },
+          { key: 'b', enabled: true, ...extra },
+        ],
+      } as FeatureConfig);
+      return result.ok ? undefined : result.issues[0]?.path;
+    });
+
+    expect(paths).toEqual([
+      '/features/1/variants/0',
+      '/features/1/rules/0',
+      '/features/1/rules/0/when/0',
+      '/features/1/dependsOn/0',
+    ]);
   });
 
   it('accepts a document whose digest describes it', () => {

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { configDigest } from './digest.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
-import type { ConfigIssueCode, FeatureConfig } from './config.js';
+import type {
+  ConfigIssueCode,
+  FeatureConfig,
+  SerializedDefinition,
+} from './config.js';
 
 describe('parseFeatureConfig', () => {
   it('builds a store from a document', () => {
@@ -279,6 +283,18 @@ describe('the documents parseFeatureConfig refuses', () => {
     expect(codesOf({ ...config, digest: '0'.repeat(32) })).toEqual([
       'unknown-member',
     ]);
+  });
+
+  it('reports the hole the features array leaves where a definition goes', () => {
+    const features: SerializedDefinition[] = [];
+    features[1] = { key: 'a', enabled: true };
+
+    const result = parseFeatureConfig({ features });
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'unknown-member',
+      path: '/features/0',
+    });
   });
 
   it('names the member no holder can read', () => {
