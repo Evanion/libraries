@@ -427,11 +427,16 @@ Five names went, and the data moved.
 
 The import specifiers do not change, and neither does `@evanion/astro-widget/components/Widgets.astro`.
 
-`WidgetProblem` gains `id`, so an exact-equality assertion on a problem object changes. Two messages changed with it: `'unknown block type'` is now `'unknown widget type'` and `'blocks is not a list'` is `'items is not a list'`.
+`WidgetProblem` gains `id`, so an exact-equality assertion on a problem object changes. Four messages changed with it:
+
+- `'blocks is not a list'` is now `'items is not a list'`.
+- `'unknown block type'` is now `'unknown widget type'` for a string `type` the registry does not hold.
+- An item with a missing or non-string `type` reported `'unknown block type'`, and now reports `'item type is not a string'`. A filter on `'unknown widget type'` no longer catches it.
+- A null, array or primitive entry reported `'unknown block type'`, and now reports `'item is not an object'`.
 
 ### The Validator Checks More
 
-`validateBlocks` reported a payload that was not a list, an unknown type and a missing required field, and nothing else. `validateItems` is the one implementation both renderers share, so it also brings five rules the React side always had. Each of these is a new problem on a payload that passed before:
+`validateBlocks` reported a payload that was not a list, an unknown type and a missing required field, and nothing else. `validateItems` is the one implementation both renderers share, so it also brings five rules the React side always had. Four of them are new problems on a payload that passed before. `item is not an object` replaces the `'unknown block type'` a null, array or primitive entry used to get:
 
 | Message                   | Raised when                                 |
 | ------------------------- | ------------------------------------------- |
