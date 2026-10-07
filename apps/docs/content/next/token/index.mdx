@@ -23,7 +23,7 @@ This creates a poor user experience:
 
 ## How a Check Character Refuses a Typo
 
-`@evanion/token` implements a check-character system (similar to how credit card numbers work). A code consists of a random body followed by a single **check character** computed from that body: in the code `a4kp-9mxa`, the final `a` is the check character.
+`@evanion/token` codes carry a check character, as credit card numbers do: a code is a random body followed by a single **check character** computed from that body, such as the final `a` in `a4kp-9mxa`.
 
 `createToken()` returns a token instance, an object that mints and checks codes of one format, carrying `generate` and `validate`:
 
